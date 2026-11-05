@@ -1098,6 +1098,40 @@
       "twinkle_rate": 0.5,
       "front": 0.3
     },
+    "history_kamakura": {
+      "count": 16,
+      "velocity": [
+        22.0,
+        4.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.5,
+      "size": [
+        0.8,
+        2.0
+      ],
+      "alpha": 0.5,
+      "twinkle": 0.0,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
+    "history_meiji": {
+      "count": 12,
+      "velocity": [
+        4.0,
+        -6.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.3,
+      "size": [
+        1.0,
+        2.4
+      ],
+      "alpha": 0.45,
+      "twinkle": 0.0,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
     "history_lapita": {
       "count": 10,
       "velocity": [

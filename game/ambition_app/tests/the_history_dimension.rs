@@ -1,7 +1,7 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Sixty-five rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
-//! a grid of fifty-seven outdoor rooms, where east is later and each floor is
+//! Sixty-eight rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of sixty outdoor rooms, where east is later and each floor is
 //! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
@@ -164,6 +164,11 @@ const WAYS: &[(&str, &str)] = &[
     ("history_taiwan", "history_silla"),
     ("history_silla", "history_joseon"),
     ("history_joseon", "history_heian"),
+    ("history_heian", "history_edo"),
+    ("history_edo", "history_meiji"),
+    // Kublai Khan's fleets sail for Japan; Japan five centuries on.
+    ("history_mongol_steppe", "history_kamakura"),
+    ("history_kamakura", "history_edo"),
     // Printing goes from Song China to Korea.
     ("history_song", "history_joseon"),
     // Bengal's muslin goes to Europe by sea; Lancashire's cloth comes back.
@@ -204,9 +209,9 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     // way on is the southern coast.
     let cradle = index("history_cradle");
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
-    // The ways name all fifty-six rooms, and the gate reaches every one.
+    // The ways name all the rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 65, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 68, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -335,6 +340,28 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     (
         "history_heian",
         &[("npc_history_murasaki_shikibu", 1), ("npc_history_sei_shonagon", 1), ("tanuki", 2), ("japanese_macaque", 1)],
+    ),
+    // Japan after Heian.
+    (
+        "history_kamakura",
+        &[("npc_history_hojo_tokimune", 1), ("npc_history_takezaki_suenaga", 1), ("horse_archer", 2), ("japanese_macaque", 1)],
+    ),
+    (
+        "history_edo",
+        &[
+            ("npc_history_matsuo_basho", 1),
+            ("npc_history_edo_tea_keeper", 1),
+            ("npc_history_edo_fishmonger", 1),
+            ("npc_history_hokusai", 1),
+            ("npc_history_katsushika_oi", 1),
+            ("tanuki", 1),
+            ("japanese_macaque", 1),
+            ("npc_ninja_shadow_duelist_eye_band", 1),
+        ],
+    ),
+    (
+        "history_meiji",
+        &[("npc_history_fukuzawa_yukichi", 1), ("npc_history_tsuda_umeko", 1), ("npc_history_kusumoto_ine", 1), ("tanuki", 1)],
     ),
     // Bengal.
     (

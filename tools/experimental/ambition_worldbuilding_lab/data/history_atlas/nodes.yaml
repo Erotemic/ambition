@@ -491,7 +491,7 @@ nodes:
      countries: [CHN], topics: [printing, money, china_dynasties, mathematics], note: "movable type, paper money, the compass, gunpowder"}
   - {id: goryeo_jikji, title: "Goryeo and the metal type", region: korea, years: [918, 1392], status: planned,
      countries: [KOR, PRK], topics: [printing, mongols], note: "Jikji (1377)"}
-  - {id: kamakura_mongols, title: "The kamikaze, 1274 and 1281", region: japan, years: [1185, 1333], status: candidate,
+  - {id: kamakura_mongols, title: "The kamikaze, 1274 and 1281", region: japan, years: [1185, 1333], status: built, room: history_kamakura,
      countries: [JPN, KOR, MNG, CHN], topics: [mongols, feudalism]}
   - {id: ming_fleets, title: "The treasure fleets", region: indian_ocean, years: [1405, 1433], status: planned, shape: corridor,
      countries: [CHN, IDN, MYS, LKA, IND, OMN, KEN, SOM], topics: [age_of_sail, indian_ocean_trade, china_dynasties],
@@ -502,13 +502,13 @@ nodes:
      countries: [JPN], peoples: [ryukyuans], topics: [indian_ocean_trade, colonialism]}
   - {id: ainu_mosir, title: "Ainu Mosir", region: japan, years: [1200, 1899], status: candidate,
      countries: [JPN, RUS], peoples: [ainu], topics: [indigenous_resistance]}
-  - {id: edo, title: "Edo", region: japan, years: [1603, 1868], status: candidate, shape: hub,
+  - {id: edo, title: "Edo", region: japan, years: [1603, 1868], status: built, room: history_edo, shape: hub,
      countries: [JPN], topics: [feudalism, first_art]}
   - {id: qing_canton, title: "Canton, tea and opium", region: china, years: [1757, 1860], status: planned, mode: archive,
      countries: [CHN, GBR, IND, HKG, MAC], topics: [opium_wars, crops, colonialism]}
   - {id: taiping, title: "The Taiping war", region: china, years: [1850, 1864], status: candidate, mode: sober,
      countries: [CHN], topics: [famine]}
-  - {id: meiji, title: "Meiji", region: japan, years: [1868, 1912], status: planned,
+  - {id: meiji, title: "Meiji", region: japan, years: [1868, 1912], status: built, room: history_meiji,
      countries: [JPN, KOR, TWN], topics: [meiji, industrial_revolution, colonialism]}
   - {id: xinhai_1911, title: "1911 and 1919", region: china, years: [1911, 1937], status: candidate,
      countries: [CHN, TWN], topics: [nationalism]}

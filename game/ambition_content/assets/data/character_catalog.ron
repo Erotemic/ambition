@@ -12819,6 +12819,180 @@
                 hall: ["In 1881 the slave dealers of Fortaleza wanted our jangadas to carry the enslaved out to the ships, to be sold to the south. We said: in the port of Ceará no more slaves are shipped. And none were.", "In 1884 Ceará freed all its enslaved people, four years before the rest of Brazil. They carried my jangada through the streets of Rio and called me the Dragon of the Sea."],
             ),
         ),
+        // Japan after Heian (wave D3). Tokimune, Suenaga, Bashō, Hokusai, Ōi,
+        // Fukuzawa, Tsuda Umeko and Kusumoto Ine are real; the tea keeper and
+        // the fishmonger of Edo are original, drawn with the ninja village's
+        // sheets of Ume and Kenji.
+        "npc_history_hojo_tokimune": (
+            display_name: "Hōjō Tokimune",
+            // Hōjō Tokimune (1251-1284), regent of the Kamakura shogunate during both Mongol invasions, in hitatare and eboshi.
+            manifest: "sprites/history_hojo_tokimune_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "kamakura", "peaceful"],
+            barks: (
+                idle: ["Another letter from the Great Khan? Put it with the others.", "*he studies a map of Kyushu*", "Build the wall higher."],
+                hall: ["Kublai Khan's letter of 1268 called our emperor 'the king of a little country'. I was eighteen. The court wanted to answer politely. I did not answer at all.", "After 1274 we built a stone wall along Hakata Bay, twenty kilometres of it. In 1281 their fleet came back, and could not land. Then the typhoon came."],
+            ),
+        ),
+        "npc_history_takezaki_suenaga": (
+            display_name: "Takezaki Suenaga",
+            // Takezaki Suenaga (1246-after 1314), a minor samurai of Higo who fought both Mongol invasions, in laced armour.
+            manifest: "sprites/history_takezaki_suenaga_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "kamakura", "peaceful"],
+            barks: (
+                idle: ["I was first into the fight. Write that down.", "*he polishes his armour, again*", "Have you seen my scroll?"],
+                hall: ["In 1274 I charged first, with five men. My horse was shot under me. No one in Kamakura had heard of me, so I rode there and asked for my reward in person. I got a horse and a piece of land.", "Then I paid painters to make a scroll of my deeds, so no one could forget them. It is the best picture of the Mongol wars that there is. Was it vanity? It was also history."],
+            ),
+        ),
+        "npc_history_matsuo_basho": (
+            display_name: "Matsuo Bashō",
+            // Matsuo Bashō (1644-1694), the poet, as a travelling wanderer in a dark robe and straw hat, with a walking staff.
+            manifest: "sprites/history_matsuo_basho_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "edo", "peaceful"],
+            barks: (
+                idle: ["Seventeen sounds. Not one more.", "*he looks at the pond for a long time*", "Every day is a journey, and the journey itself is home."],
+                hall: ["In 1689 I left my house in Edo and walked north with my friend Sora: some 2,400 kilometres in 150 days. The book of it is The Narrow Road to the Deep North.", "My most famous poem is about a frog jumping into an old pond. People have argued about it for three hundred years. It is about a frog. And the sound of water."],
+            ),
+        ),
+        "npc_history_hokusai": (
+            display_name: "Katsushika Hokusai",
+            // Katsushika Hokusai (1760-1849), painter and printmaker of Edo, as an old man in a plain dark kimono, with a brush.
+            manifest: "sprites/history_hokusai_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "edo", "peaceful"],
+            barks: (
+                idle: ["From the age of six I had a mania for drawing.", "*he draws without looking up*", "Not yet. Not good enough yet."],
+                hall: ["I made the Thirty-six Views of Mount Fuji when I was past seventy. The wave is the one people know. They sold it for the price of a double bowl of noodles.", "I moved house 93 times; my daughter and I never cleaned. At 88 I said: if heaven gives me five more years, I will become a real painter. It did not."],
+            ),
+        ),
+        "npc_history_katsushika_oi": (
+            display_name: "Katsushika Ōi",
+            // Katsushika Ōi (about 1800-after 1857), painter, Hokusai's daughter and assistant, in a plain kimono with a brush.
+            manifest: "sprites/history_katsushika_oi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 150 cm.
+            standing_height: Some(58.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "edo", "peaceful"],
+            barks: (
+                idle: ["My father calls me 'Oi!' That is my name, and also how he calls me.", "*she grinds the ink*", "Light, and the shadow beside it."],
+                hall: ["I worked beside my father for twenty years. Some of the paintings with his name have my hand in them. He said my pictures of women were better than his.", "My own paintings are of lantern light at night: a courtesan writing under a lamp, a street in the dark. Few of them are left, so look well."],
+            ),
+        ),
+        "npc_history_fukuzawa_yukichi": (
+            display_name: "Fukuzawa Yukichi",
+            // Fukuzawa Yukichi (1835-1901), writer, teacher and founder of Keiō, in kimono and hakama.
+            manifest: "sprites/history_fukuzawa_yukichi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "meiji", "peaceful"],
+            barks: (
+                idle: ["Learn, or be learned about.", "*he reads an English dictionary*", "Independence of the person, then of the country."],
+                hall: ["I sailed to America in 1860 and to Europe in 1862, and came home and wrote about everything: banks, newspapers, elections, the steam engine. My books sold millions.", "'Heaven does not make one person above another, nor below.' I wrote that in 1872. I also wrote that Japan should leave Asia behind. Read all of me, not only the banknote."],
+            ),
+        ),
+        "npc_history_tsuda_umeko": (
+            display_name: "Tsuda Umeko",
+            // Tsuda Umeko (1864-1929), educator, who went to the USA at six with the Iwakura Mission, in a dress of the 1880s.
+            manifest: "sprites/history_tsuda_umeko_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 145 cm.
+            standing_height: Some(56.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "meiji", "peaceful"],
+            barks: (
+                idle: ["Women can learn anything. Teach them.", "*she corrects an English essay*", "Again, please. More clearly."],
+                hall: ["In 1871 the government sent five girls to America to learn. I was six, the youngest. When I came home at seventeen I had forgotten my Japanese, and Japan had no work for an educated woman.", "So I made some. In 1900 I founded a school of English for women in Tokyo. It is Tsuda University now. My face is on the 5,000 yen note since 2024."],
+            ),
+        ),
+        "npc_history_kusumoto_ine": (
+            display_name: "Kusumoto Ine",
+            // Kusumoto Ine (1827-1903), Japan's first woman doctor of Western medicine, in kimono, with a doctor's bag.
+            manifest: "sprites/history_kusumoto_ine_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "meiji", "peaceful"],
+            barks: (
+                idle: ["Wash your hands.", "*she checks a pulse*", "Rest, and come back in three days."],
+                hall: ["My father was Siebold, a German doctor at the Dutch trading post of Nagasaki; my mother was a woman of Nagasaki. He was sent away when I was two. I learned medicine from his students.", "I became a midwife and a doctor, which no Japanese woman had been. In 1873 I was called to the imperial court to deliver a child."],
+            ),
+        ),
+        "npc_history_edo_tea_keeper": (
+            display_name: "Tea Keeper of the Tōkaidō",
+            // An original tea-house keeper on the Tōkaidō road at the edge of Edo, about 1830; drawn with Ume's sheet.
+            manifest: "sprites/village_ume_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "edo", "peaceful"],
+            barks: (
+                idle: ["Tea, rice cakes, and a seat out of the sun.", "*she pours*", "Fifty-three stations to Kyoto. This is the first."],
+                hall: ["Everyone on the Tōkaidō stops here: lords with a thousand men, pilgrims, merchants, poets. The lords must live every other year in Edo, so the road is never empty.", "Hiroshige stopped here to draw the road. Bashō stopped here to complain about his feet. The tea was good both times."],
+            ),
+        ),
+        "npc_history_edo_fishmonger": (
+            display_name: "Fishmonger of Nihonbashi",
+            // An original fish seller at the market by Nihonbashi bridge, about 1830; drawn with Kenji's sheet.
+            manifest: "sprites/village_kenji_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 171 cm.
+            standing_height: Some(66.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "edo", "peaceful"],
+            barks: (
+                idle: ["Bonito! First bonito of the year!", "*he sloshes a bucket of water over the fish*", "Fresh this morning. Very fresh. Mostly."],
+                hall: ["A million people live in Edo, and they all eat fish. The market by the bridge starts before dawn and is done by noon.", "The first bonito of the season sells for a fortune: people pawn their clothes to eat it before their neighbours. A saying of Edo: never let money spend the night with you."],
+            ),
+        ),
         "npc_primeval_twitchell": (
             display_name: "Mildred Twitchell",
             // Watches the birds of the rookery from her hide.

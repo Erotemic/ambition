@@ -1445,3 +1445,124 @@ Dragão do Mar: The sea is free. So is everyone on it.
 -> Goodbye.
     Dragão do Mar: Fair winds. Do not let anyone tell you that one refusal is too small.
 ===
+
+title: history_hojo_tokimune
+---
+Hōjō Tokimune: You came by sea? Then you have seen the bay. Did you see any ships with Mongol flags?
+-> Who are you?
+    Hōjō Tokimune: The regent. The shogun is a child, and the emperor lives in Kyoto and writes poems. My family, the Hōjō, governs Japan from Kamakura. Since 1268, that means me.
+-> What did Kublai Khan want?
+    Hōjō Tokimune: Everything. His letter called our emperor 'the king of a little country' and asked us to be friends, or else. Korea had already given in. The court in Kyoto wanted to send a polite answer. I sent no answer.
+-> What happened then?
+    Hōjō Tokimune: In 1274 they landed here at Hakata with Korean ships and soldiers, with bombs and poisoned arrows, and fought in groups, not one champion against another. Then a storm, and they sailed home. So we built the wall. In 1281 they came with some four thousand ships. They never got past the wall, and in August a typhoon sank most of them.
+-> Goodbye.
+    Hōjō Tokimune: Watch the sea.
+===
+title: history_takezaki_suenaga
+---
+Takezaki Suenaga: Takezaki Suenaga, of Higo! You have heard of me? No? You will. I have a scroll.
+-> What did you do?
+    Takezaki Suenaga: In 1274 I went first into the fight, with my five men. My horse was shot under me; I would have died if Shiraishi had not come. In 1281 I rowed out at night and boarded a Mongol ship. Look at the scroll: it is all there.
+-> Why a scroll?
+    Takezaki Suenaga: After the first war I got nothing. Nobody in Kamakura knew my name. So I rode all the way there and told the magistrate my story myself. He gave me a horse and a piece of land. Then I paid painters, so that nobody would ever doubt it.
+-> Was it vanity?
+    Takezaki Suenaga: Probably. But without my vanity you would know almost nothing of what the Mongol soldiers looked like, how they fought, or what their bombs were. Your museum in Tokyo is glad I was vain.
+-> Goodbye.
+    Takezaki Suenaga: Tell them you met me!
+===
+title: history_matsuo_basho
+---
+Matsuo Bashō: The road out of Edo starts here. Are you going far?
+-> Who are you?
+    Matsuo Bashō: A poet who keeps leaving home. I write haikai: short poems of five, seven and five sounds, about small things that are not small.
+-> Where did you go?
+    Matsuo Bashō: In 1689 my friend Sora and I walked north, to the far end of Honshu and back by the Sea of Japan: some 2,400 kilometres in five months. I wrote The Narrow Road to the Deep North about it. 'The months and days are travellers of a hundred ages.'
+-> Tell me the frog poem.
+    Matsuo Bashō: An old pond. A frog jumps in. The sound of water. ... Yes, that is all of it. People have written whole books about it. I wrote it about a frog.
+-> Goodbye.
+    Matsuo Bashō: Go well. Look at things.
+===
+title: history_hokusai
+---
+Katsushika Hokusai: Don't jog my arm. ... All right, what?
+-> Who are you?
+    Katsushika Hokusai: Today? Gakyō Rōjin, the Old Man Mad About Painting. I have had more than thirty names. People called me Hokusai, so call me that.
+-> Is that the great wave?
+    Katsushika Hokusai: Under the Wave off Kanagawa, one of my Thirty-six Views of Mount Fuji. Look: Fuji is the small one, at the bottom. The printers made thousands. They sold for the price of a double bowl of noodles. Later the whole world copied it. Nobody paid me for that.
+-> How old are you?
+    Katsushika Hokusai: Over seventy. Nothing I drew before seventy is worth much. At eighty I will be better, at ninety I will see the secret of things, and at a hundred and ten every dot will be alive. That is the plan.
+-> Goodbye.
+    Katsushika Hokusai: Shut the door. No, leave it. We are moving again next week.
+===
+title: history_katsushika_oi
+---
+Katsushika Ōi: If you want my father, he is drawing. If you want a painting finished, you want me.
+-> Who are you?
+    Katsushika Ōi: Ōi, Hokusai's third daughter. I married a painter once; I laughed at his pictures and he sent me home. Since then I paint with my father. We live in the mess and move when it gets too bad.
+-> Did you paint his pictures?
+    Katsushika Ōi: Some of them. Some books with his name have my hands in them. He says that in pictures of women, I am better than he is. He does not say that very often, so I say it for him.
+-> What do you paint?
+    Katsushika Ōi: Light. A lantern at night, the faces by it, the dark behind. My father paints the wave and the mountain. I paint the room where someone is reading late.
+-> Goodbye.
+    Katsushika Ōi: Mind the ink.
+===
+title: history_edo_tea_keeper
+---
+Tea Keeper of the Tōkaidō: Sit, sit! Tea, and a rice cake? The road is long.
+-> Where are we?
+    Tea Keeper of the Tōkaidō: At the edge of Edo, on the Tōkaidō: the road to Kyoto, with fifty-three post stations. It starts at Nihonbashi, the bridge just over there. Every distance in Japan is measured from it.
+-> Who uses the road?
+    Tea Keeper of the Tōkaidō: Everyone. The lords must live in Edo every other year, so they march up and down with hundreds of men. Then the pilgrims, the merchants, the poets, the actors. Good for tea.
+-> And the ninja?
+    Tea Keeper of the Tōkaidō: In the theatre, a man in black is the stagehand: we all agree not to see him. Then the playwrights dressed their assassins in black too, so the audience got a fright. Real spies? They dressed like me.
+-> Goodbye.
+    Tea Keeper of the Tōkaidō: Safe journey. Fifty-two more stations!
+===
+title: history_edo_fishmonger
+---
+Fishmonger of Nihonbashi: Bonito! First bonito of the year! You look like a person who wants a bonito.
+-> Where are we?
+    Fishmonger of Nihonbashi: Nihonbashi, the heart of Edo. A million people live in this city, more than in almost any city in the world, and they all eat fish. The market starts before dawn and is done by noon.
+-> Why is the first bonito special?
+    Fishmonger of Nihonbashi: It is the first of the season, so everyone must have it before the neighbours do. People pawn their clothes for it. In Edo we say: never let money spend the night with you.
+-> What about the shogun?
+    Fishmonger of Nihonbashi: The shogun's family has ruled for two hundred years. No war, few foreign ships, a great many rules. The merchants are supposed to be at the bottom. Look at this street, and tell me who is at the bottom.
+-> Goodbye.
+    Fishmonger of Nihonbashi: Come back tomorrow. Earlier!
+===
+title: history_fukuzawa_yukichi
+---
+Fukuzawa Yukichi: Ah, a visitor. Do you read English? Dutch? No matter. Read something.
+-> Who are you?
+    Fukuzawa Yukichi: A teacher. I learned Dutch, then found that the world spoke English, so I learned that. I went to America in 1860 and to Europe in 1862, and came home and wrote down everything I saw. My school is Keiō.
+-> What did you write?
+    Fukuzawa Yukichi: 'Heaven does not make one person above another, nor below.' That was 1872, in An Encouragement of Learning. Study, and you can be anything; do not study, and you will be someone else's servant. It sold in the millions.
+-> Is that all?
+    Fukuzawa Yukichi: No. In 1885 an essay, perhaps mine, said Japan should leave Asia behind and act as the Western powers did. Japan did. Remember that too, when you see my face on old banknotes.
+-> Goodbye.
+    Fukuzawa Yukichi: Learn something today.
+===
+title: history_tsuda_umeko
+---
+Tsuda Umeko: Good afternoon. Do you prefer English or Japanese? I am better at one of them.
+-> Who are you?
+    Tsuda Umeko: In 1871 the government sent five girls to America with the Iwakura Mission, to learn and come back. I was six, the youngest. I lived in Washington for eleven years.
+-> What happened when you came home?
+    Tsuda Umeko: I had forgotten my Japanese. I could not read it. And there was no work in Japan for an educated woman, only marriage. I said no to the marriage.
+-> So what did you do?
+    Tsuda Umeko: I studied biology in America, then came home and taught. In 1900 I founded a school of English for women in Tokyo. It is Tsuda University now. Since 2024 my face is on the 5,000 yen note. I would rather you read my students.
+-> Goodbye.
+    Tsuda Umeko: Goodbye. Study hard.
+===
+title: history_kusumoto_ine
+---
+Kusumoto Ine: Are you hurt? No? Then wash your hands anyway.
+-> Who are you?
+    Kusumoto Ine: A doctor. My mother was a woman of Nagasaki, Taki. My father was Philipp Franz von Siebold, a German doctor at the Dutch trading post. When I was two he was thrown out of Japan for having maps he should not have had.
+-> How did you learn medicine?
+    Kusumoto Ine: From his students, one town after another: surgery, then obstetrics. People said a woman could not, and a child of a foreigner could not. I did both.
+-> What did you do?
+    Kusumoto Ine: I delivered babies, in Nagasaki and then in Tokyo. In 1873 I was called to the imperial court to deliver a child there. Japan's first woman doctor of Western medicine, they say. I was too busy to notice.
+-> Goodbye.
+    Kusumoto Ine: Wash your hands!
+===

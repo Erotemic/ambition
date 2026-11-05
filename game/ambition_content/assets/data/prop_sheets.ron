@@ -365,6 +365,16 @@
     "history_village_forge": (),
     "history_lei_aurea": (),
     "history_bonde": (),
+    // Japan after Heian (wave D3, `targets/props/history_japan_props.py`): the
+    // Mongol fleet's wreck and bombs, Suenaga's scroll, a print stall of Edo,
+    // a rickshaw and a brick front of Ginza, and the train of 1872.
+    "history_mongol_wreck": (),
+    "history_tetsuhau": (),
+    "history_suenaga_scroll": (),
+    "history_ukiyoe_stall": (),
+    "history_jinrikisha": (),
+    "history_ginza_brick": (),
+    "history_meiji_train": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

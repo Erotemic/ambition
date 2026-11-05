@@ -497,6 +497,13 @@ collections:
   - history_village_forge
   - history_lei_aurea
   - history_bonde
+  - history_mongol_wreck
+  - history_tetsuhau
+  - history_suenaga_scroll
+  - history_ukiyoe_stall
+  - history_jinrikisha
+  - history_ginza_brick
+  - history_meiji_train
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -863,6 +870,14 @@ collections:
   - history_andre_reboucas
   - history_luis_gama
   - history_dragao_do_mar
+  - history_hojo_tokimune
+  - history_takezaki_suenaga
+  - history_matsuo_basho
+  - history_hokusai
+  - history_katsushika_oi
+  - history_fukuzawa_yukichi
+  - history_tsuda_umeko
+  - history_kusumoto_ine
   - station_dobbs
   - station_pippin
   - magical_celeste

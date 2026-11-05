@@ -78,8 +78,8 @@ the record and sighs about the footnotes.
              C0       C1            C2              C3           C4          C5          C6     C7          C8
     R0 Americas       beringia      maize           olmecs       maya        taino       haiti
     R½ S. America                   andes           caral        amazonia    palmares    rio 1888
-    R1 East Asia      mammoth st.┐  yellow river    shang        silk road   song        steppe
-    R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla       joseon      heian
+    R1 East Asia      mammoth st.┐  yellow river    shang        silk road   song        steppe kamakura
+    R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla       joseon      heian  edo         meiji
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R2½ SE Asia       sulawesi      austronesians   dong son     srivijaya   angkor
     R3 South Asia     south. route  mehrgarh        indus                                muslin company     ekushey
@@ -148,6 +148,9 @@ The rooms:
 | `history_silla` | `history_gyeongju` | Queen Seondeok, the star watcher | tiger, Asian black bear | over the royal tomb mounds and up Cheomseongdae; the gold crowns; the way up to the Silk Road |
 | `history_joseon` | `history_hanyang` | King Sejong, Jang Yeong-sil | tiger, Asian black bear | the 28 letters of 1446; up the self-striking water clock and the Hall of Worthies; the rain gauge; the way up to Song China (printing) |
 | `history_heian` | `history_heian` | Murasaki Shikibu, Sei Shōnagon | tanuki, Japanese macaque | the ox carriage; over the garden pond by the red bridge; up the veranda and over the mansion's roof; the rivals' two books, in kana |
+| `history_kamakura` | `history_kamakura` | Hōjō Tokimune, Takezaki Suenaga | horse archer, Japanese macaque | Kublai Khan's unanswered letters; Suenaga's scroll; over the stone wall of 1276; the Takashima wreck and its bombs; the typhoon of 1281; the hatch down to Edo |
+| `history_edo` | `ninja_village` (reused) | Matsuo Bashō, the tea keeper, the fishmonger (Ume's and Kenji's sheets), Hokusai, Katsushika Ōi | tanuki, Japanese macaque, one ninja | a Tōkaidō tea house; over Nihonbashi (the pass bridge); the fish market; the print stall and the great wave; the Dōjima rice futures; the ninja's black suit, from the theatre; up to Kamakura |
+| `history_meiji` | `history_meiji` | Fukuzawa Yukichi, Tsuda Umeko, Kusumoto Ine | tanuki | a rickshaw and gas lamps; the train of 1872 over the sea at Takanawa; Ginza in brick; a plain sign for the new empire |
 | `history_sahul` | `history_sahul` | the raft builder | diprotodon, megalania | a bamboo raft carries you over the strait |
 | `history_new_guinea_highlands` | `history_highlands` | the Kuk gardener | cassowary | the garden terraces |
 | `history_mammoth_steppe` | `history_ice_age` | Denny the Denisovan | woolly mammoth, cave bear, steppe wolf | two floors, as Beringia: the steppe on top (up to Beringia, east to the Yellow River); down the bluff, the peninsula that joined Hokkaido to Siberia (east to the Jōmon, down to Sahul) |
@@ -264,6 +267,9 @@ composer script, `tools/ambition_music_renderer/dev/compose_<cue>.py`:
 
 The generator asserts rule 3: a `MUSIC` value that is not a `history_*`
 cue stops it.
+
+New cues by the same rules: `history_japan_floating_world`, "Floating
+World" (city pop with a shamisen), plays in Edo and Meiji Tokyo.
 
 Samples to measure before you use them again (the composer scripts correct
 them per note with `tuning_correction`): the Horse Pulse tagelharpa is up to
@@ -436,7 +442,7 @@ built room, then the links that make the world one. Each wave starts with
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
 | C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son; C2 BUILT: Srivijaya, Borobudur, Angkor), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
 | D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts; D2 BUILT: Song Hangzhou, Joseon, Heian-kyō, with the cue "Ink and Silk"): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
-| D3 | **Japan, after Heian** (next): Kamakura and the Mongol fleets of 1274 and 1281 (east of the steppe; Takezaki Suenaga's scroll), Edo (Hokusai, Bashō, the river of shops at Nihonbashi; dressed with the ninja village's houses, tea house and bridge, and one ninja who admits the black suit came from the theatre), Meiji (Tsuda Umeko; the railway of 1872); later: Nara, the Ryukyu kingdom, Ainu Mosir, and Hiroshima in wave I | Japan (124 million) has only Jōmon and Heian; a Japanese player should find their history, not only ninjas |
+| D3 | **Japan, after Heian** (D3 BUILT: Kamakura above Edo, Meiji east of Edo): Kamakura and the Mongol fleets of 1274 and 1281 (east of the steppe; Takezaki Suenaga's scroll), Edo (Hokusai, Bashō, the river of shops at Nihonbashi; dressed with the ninja village's houses, tea house and bridge, and one ninja who admits the black suit came from the theatre), Meiji (Tsuda Umeko; the railway of 1872); later: Nara, the Ryukyu kingdom, Ainu Mosir, and Hiroshima in wave I | Japan (124 million) has only Jōmon and Heian; a Japanese player should find their history, not only ninjas |
 | E | **Bengal and the cotton** (E BUILT: a row on South Asia's floor, C6-C8): Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia** (F BUILT: South America's floor, C4-C6): the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
 | G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |

@@ -332,6 +332,16 @@ npc_history_palmares_smith
 npc_history_andre_reboucas
 npc_history_luis_gama
 npc_history_dragao_do_mar
+npc_history_hojo_tokimune
+npc_history_takezaki_suenaga
+npc_history_matsuo_basho
+npc_history_hokusai
+npc_history_katsushika_oi
+npc_history_fukuzawa_yukichi
+npc_history_tsuda_umeko
+npc_history_kusumoto_ine
+npc_history_edo_tea_keeper
+npc_history_edo_fishmonger
 
 [Guests from history and the studio]
 npc_genghis_can

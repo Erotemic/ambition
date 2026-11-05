@@ -1,7 +1,7 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Sixty-eight rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
-//! a grid of sixty outdoor rooms, where east is later and each floor is
+//! Seventy-two rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of sixty-four outdoor rooms, where east is later and each floor is
 //! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
@@ -166,6 +166,12 @@ const WAYS: &[(&str, &str)] = &[
     ("history_joseon", "history_heian"),
     ("history_heian", "history_edo"),
     ("history_edo", "history_meiji"),
+    // Central Africa, the floor under Africa: Ishango under Blombos; Kongo
+    // under Benin (both met the Portuguese in the 1480s); Ndongo; the Free State.
+    ("history_southern_coast", "history_ishango"),
+    ("history_benin_city", "history_kongo"),
+    ("history_kongo", "history_ndongo"),
+    ("history_ndongo", "history_congo_free_state"),
     // Kublai Khan's fleets sail for Japan; Japan five centuries on.
     ("history_mongol_steppe", "history_kamakura"),
     ("history_kamakura", "history_edo"),
@@ -211,7 +217,7 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
     // The ways name all the rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 68, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 72, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -340,6 +346,31 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     (
         "history_heian",
         &[("npc_history_murasaki_shikibu", 1), ("npc_history_sei_shonagon", 1), ("tanuki", 2), ("japanese_macaque", 1)],
+    ),
+    // Central Africa.
+    ("history_ishango", &[("npc_history_katanda_fisher", 1), ("npc_history_ishango_carver", 1), ("hippo", 1), ("hyena", 1)]),
+    (
+        "history_kongo",
+        &[
+            ("npc_history_raffia_weaver", 1),
+            ("npc_history_afonso_i", 1),
+            ("npc_history_ne_vunda", 1),
+            ("driver_ants", 2),
+            ("african_grey_parrot", 1),
+        ],
+    ),
+    (
+        "history_ndongo",
+        &[("npc_history_nzinga", 1), ("npc_history_funji", 1), ("giant_sable", 1), ("portuguese_arquebusier", 2)],
+    ),
+    (
+        "history_congo_free_state",
+        &[
+            ("npc_history_george_washington_williams", 1),
+            ("npc_history_rubber_gatherer", 1),
+            ("npc_history_william_sheppard", 1),
+            ("npc_history_alice_seeley_harris", 1),
+        ],
     ),
     // Japan after Heian.
     (

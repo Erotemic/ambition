@@ -489,6 +489,9 @@ collections:
   - history_radio_1971
   - black_caiman
   - capybara
+  - giant_sable
+  - african_grey_parrot
+  - portuguese_arquebusier
   - history_victoria_lily
   - history_jangada
   - history_marajoara_pots
@@ -504,6 +507,18 @@ collections:
   - history_jinrikisha
   - history_ginza_brick
   - history_meiji_train
+  - history_ishango_bone
+  - history_bone_harpoons
+  - history_raffia_loom
+  - history_nzimbu_basket
+  - history_afonso_letter
+  - history_kongo_house
+  - history_kilombo_gate
+  - history_luanda_chair
+  - history_baobab
+  - history_rubber_vine
+  - history_magic_lantern
+  - history_congo_steamer
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -878,6 +893,17 @@ collections:
   - history_fukuzawa_yukichi
   - history_tsuda_umeko
   - history_kusumoto_ine
+  - history_katanda_fisher
+  - history_ishango_carver
+  - history_raffia_weaver
+  - history_afonso_i
+  - history_ne_vunda
+  - history_nzinga
+  - history_funji
+  - history_george_washington_williams
+  - history_rubber_gatherer
+  - history_william_sheppard
+  - history_alice_seeley_harris
   - station_dobbs
   - station_pippin
   - magical_celeste

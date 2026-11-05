@@ -375,6 +375,22 @@
     "history_jinrikisha": (),
     "history_ginza_brick": (),
     "history_meiji_train": (),
+    // Central Africa (wave G, `targets/props/history_central_africa_props.py`):
+    // the Ishango bone and the Katanda harpoons, Kongo's loom, shells, house and
+    // letter, Ndongo's baobab, chair and war camp, and the Congo Free State's
+    // rubber vine, magic lantern and river steamer.
+    "history_ishango_bone": (),
+    "history_bone_harpoons": (),
+    "history_raffia_loom": (),
+    "history_nzimbu_basket": (),
+    "history_afonso_letter": (),
+    "history_kongo_house": (),
+    "history_kilombo_gate": (),
+    "history_luanda_chair": (),
+    "history_baobab": (),
+    "history_rubber_vine": (),
+    "history_magic_lantern": (),
+    "history_congo_steamer": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

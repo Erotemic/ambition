@@ -28,7 +28,7 @@ nodes:
      countries: [ZAF], topics: [first_art, dispersal]}
   - {id: kalahari_san, title: "The San of the Kalahari and Tsodilo", region: southern_africa, years: [-40000, 1900], status: planned,
      countries: [BWA, NAM, ZAF], peoples: [san], topics: [first_art, indigenous_resistance], note: "the oldest continuous way of life in the atlas; their own rock art, not sacred designs"}
-  - {id: ishango, title: "Ishango and the counting bone", region: central_africa, years: [-25000, -18000], status: planned,
+  - {id: ishango, title: "Ishango and the counting bone", region: central_africa, years: [-25000, -18000], status: built, room: history_ishango,
      countries: [COD, UGA], topics: [mathematics, first_art]}
   - {id: green_sahara, title: "The Green Sahara", region: sahel, years: [-9000, -3500], status: built, room: history_green_sahara,
      countries: [TCD, NER, LBY, DZA, MLI, MRT, SDN, EGY], peoples: [amazigh, tuareg], topics: [herding, climate_and_collapse, first_art],
@@ -97,10 +97,10 @@ nodes:
      countries: [UGA, RWA, BDI, TZA, KEN], topics: [african_kingdoms]}
   - {id: madagascar, title: "Madagascar, where Borneo met Africa", region: madagascar, years: [500, 1897], status: planned,
      countries: [MDG, COM], topics: [peopling_of_pacific, seafaring, african_kingdoms], note: "Malagasy is an Austronesian language"}
-  - {id: kongo, title: "The kingdom of Kongo", region: central_africa, years: [1390, 1665], status: planned,
+  - {id: kongo, title: "The kingdom of Kongo", region: central_africa, years: [1390, 1665], status: built, room: history_kongo,
      countries: [AGO, COD, COG], topics: [african_kingdoms, atlantic_slave_trade, slavery_and_resistance],
      note: "Afonso I wrote to Portugal against the trade in 1526"}
-  - {id: nzinga, title: "Ndongo and Matamba, Queen Nzinga's war", region: central_africa, years: [1620, 1663], status: planned,
+  - {id: nzinga, title: "Ndongo and Matamba, Queen Nzinga's war", region: central_africa, years: [1620, 1663], status: built, room: history_ndongo,
      countries: [AGO], topics: [women_rulers, slavery_and_resistance, colonialism]}
   - {id: plantation_islands, title: "São Tomé and Cabo Verde, the first plantation islands", region: atlantic_islands, years: [1460, 1600], status: planned,
      countries: [STP, CPV], topics: [atlantic_slave_trade, crops], mode: sober}
@@ -123,7 +123,7 @@ nodes:
      countries: [MUS, SYC, MDG], peoples: [indian_diaspora], topics: [indentured_labour, climate_and_collapse, slavery_and_resistance]}
   - {id: scramble, title: "The Berlin table, 1884", region: central_africa, years: [1884, 1914], status: planned, mode: archive,
      countries: [COD, NAM, TZA, CMR, TGO, KEN, UGA, NGA, SEN, DZA], topics: [scramble_for_africa, colonialism]}
-  - {id: congo_free_state, title: "The Congo Free State", region: central_africa, years: [1885, 1908], status: planned, mode: sober,
+  - {id: congo_free_state, title: "The Congo Free State", region: central_africa, years: [1885, 1908], status: built, room: history_congo_free_state, mode: sober,
      countries: [COD, BEL], topics: [colonialism, genocide], note: "rubber, the hands; the campaigners who exposed it"}
   - {id: herero_nama, title: "The Herero and Nama genocide", region: southern_africa, years: [1904, 1908], status: candidate, mode: sober, shape: pocket,
      countries: [NAM, DEU], topics: [genocide, colonialism]}

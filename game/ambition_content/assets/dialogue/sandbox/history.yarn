@@ -1566,3 +1566,136 @@ Kusumoto Ine: Are you hurt? No? Then wash your hands anyway.
 -> Goodbye.
     Kusumoto Ine: Wash your hands!
 ===
+
+title: history_katanda_fisher
+---
+Katanda Fisher: Quiet. The fish can hear you. The hippos too, and they are less polite.
+-> Where are we?
+    Katanda Fisher: On the Semliki, the river that runs out of the big lake toward the north. Fish, shellfish, antelope at the water. A good place. People have fished here for a very long time.
+-> What is that?
+    Katanda Fisher: A harpoon. Bone, ground smooth, with barbs cut along one side so the fish stays on. Down the river at Katanda your scientists found points like this. They say they may be 90,000 years old, older than almost anything like them anywhere.
+-> Why does it matter?
+    Katanda Fisher: People once said that clever tools began in Europe, late. Then they dug here. Clever began in Africa, early, and it took the fish with it.
+-> Goodbye.
+    Katanda Fisher: Mind the hippos. I mean it.
+===
+title: history_ishango_carver
+---
+Ishango Carver: Eleven. Thirteen. Seventeen. Nineteen. ... Sorry. Counting.
+-> What are you making?
+    Ishango Carver: A handle, from the leg bone of a baboon, with a chip of quartz in the end to cut with. And notches. Many notches, in groups, in three columns.
+-> What do the notches mean?
+    Ishango Carver: Your scholars cannot agree. One column holds 11, 13, 17 and 19: the primes between ten and twenty. Another holds 9, 19, 21 and 11. Some say it is arithmetic. Some say it counts the days of the moon. Some say the notches only help a hand to hold it. I am not telling.
+-> Where is it now?
+    Ishango Carver: In Brussels, in a museum. A Belgian scientist dug it up in 1950, when Belgium ruled the Congo. Many things went from here to Belgium. Ask about the others.
+-> Goodbye.
+    Ishango Carver: Twenty-one. Twenty-three... Goodbye.
+===
+title: history_raffia_weaver
+---
+Raffia Weaver: Feel this. No, gently. Softer than you thought?
+-> What is it?
+    Raffia Weaver: Cloth of raffia palm fibre, cut and beaten and woven, then cut again into a pile like velvet. The Portuguese called it velvet. Their kings and princes kept our cloth in their treasure rooms.
+-> Is it money?
+    Raffia Weaver: Some of it. A cloth of a certain size is worth a certain amount: you can pay taxes in it, or a bride-price. The other money is nzimbu, little shells from the island off Luanda. Only the king's people may gather them.
+-> And the Portuguese?
+    Raffia Weaver: They came in 1483. Our king took their faith, their letters and their teachers. Then their ships began to want people, not cloth. Ask the king. He is writing about it now.
+-> Goodbye.
+    Raffia Weaver: Go well. Keep your hands off the loom.
+===
+title: history_afonso_i
+---
+Afonso I: Sit. I am writing to my brother the king of Portugal. Again.
+-> Who are you?
+    Afonso I: Mvemba a Nzinga, Manikongo, king of Kongo since 1509. In baptism, Afonso. I sent my sons to study in Lisbon, built schools, and wrote to the kings of Portugal as one king to another.
+-> What is the letter about?
+    Afonso I: The trade. 'Each day the traders are taking our people, sons of this land and sons of our nobles and vassals, and even of our own family.' I asked Portugal to send teachers and doctors and medicine, and to stop the ships of slaves.
+-> Did they stop?
+    Afonso I: No. Their island of São Tomé needed people for its sugar, and the traders had friends in Lisbon. I made rules: every sale must be checked by my officials. The trade grew anyway. It grew for three hundred years.
+-> Goodbye.
+    Afonso I: Go in peace. Remember that we said no.
+===
+title: history_ne_vunda
+---
+Antonio Manuel ne Vunda: I am expected in Rome. Is this the road to Rome?
+-> Who are you?
+    Antonio Manuel ne Vunda: Antonio Manuel ne Vunda, of the house of the king of Kongo. In 1604 King Álvaro II sent me to Rome as his ambassador, to speak for Kongo without Portugal speaking for us.
+-> Why without Portugal?
+    Antonio Manuel ne Vunda: Portugal liked to stand between Kongo and the world. Kongo wanted its own bishop and its own friends in Europe. So I went myself: by Brazil, by Spain, robbed by pirates on the way. It took four years.
+-> What happened in Rome?
+    Antonio Manuel ne Vunda: I arrived in January 1608, sick from the journey, and died a few days later. They buried me with honour and made a marble bust of me. It is still there. I did not see the city.
+-> Goodbye.
+    Antonio Manuel ne Vunda: If you reach Rome, tell them Kongo sent me.
+===
+title: history_nzinga
+---
+Nzinga: Stand up straight when you speak to a queen. Better.
+-> Who are you?
+    Nzinga: Nzinga Mbande, queen of Ndongo and Matamba. My father was king of Ndongo. My brother was king after him. When he needed someone to make peace with the Portuguese in 1622, he sent me.
+-> Tell me about the chair.
+    Nzinga: In Luanda the governor sat in a velvet chair and gave me a mat on the floor, as if I came to beg. I did not sit on his mat. One of my women knelt, and I sat on her back, and spoke to him eye to eye. I got my treaty.
+-> And after?
+    Nzinga: The Portuguese broke the treaty. I took Matamba, made war camps, allied with the Imbangala, and when the Dutch took Luanda in 1641 I allied with them too. I fought for thirty years. In 1657 Portugal made peace with me. I died a queen, at about eighty.
+-> Goodbye.
+    Nzinga: Go. And do not let anyone give you a mat.
+===
+title: history_funji
+---
+Kifunji: Speak quietly. The walls in Luanda have Portuguese ears. So do I.
+-> Who are you?
+    Kifunji: Kifunji, Nzinga's sister. The Portuguese captured me in 1646 and kept me in Luanda. They thought a prisoner was harmless.
+-> What did you do?
+    Kifunji: I wrote to my sister. I told her what the Portuguese planned, how many soldiers came, which ships sailed. My letters went out hidden, to her and to the Dutch.
+-> What happened to you?
+    Kifunji: They found the letters. The records say they drowned me in the Kwanza in 1647. My sister fought on. Remember that a prisoner can still fight.
+-> Goodbye.
+    Kifunji: Not a word to anyone.
+===
+title: history_george_washington_williams
+---
+George Washington Williams: You are an American? No? Then listen anyway. Someone must.
+-> Who are you?
+    George Washington Williams: A soldier of the Civil War at fourteen, then a minister, a lawyer, a member of the Ohio legislature, and the first historian of Black Americans. I came to the Congo in 1890 to see the paradise that King Leopold told the world about.
+-> What did you find?
+    George Washington Williams: Villages burned, people taken hostage, forced labour, killings; and none of the schools or hospitals the king had promised. I wrote him an open letter and listed it all, place by place.
+-> What happened then?
+    George Washington Williams: The king's friends called me a liar. To the American Secretary of State I wrote that these were 'crimes against humanity'. I died of tuberculosis in 1891, at forty-one. Others carried it on.
+-> Goodbye.
+    George Washington Williams: Write down what you see. Then publish it.
+===
+title: history_rubber_gatherer
+---
+Rubber Gatherer: I have no time. The basket must be full by the new moon.
+-> What is the basket for?
+    Rubber Gatherer: Rubber. The vine grows wild in the forest. We cut it, catch the sap, and let it dry on our skin and pull it off in strips. Each village owes so many baskets, every two weeks. The Company soldiers come to count.
+-> And if the basket is not full?
+    Rubber Gatherer: Then they take the women as hostages until it is. They burn the village. They shoot. The vines near us are dead now; we go further and further into the forest, for days.
+-> Why rubber?
+    Rubber Gatherer: For your bicycles, they say, and your new motor cars. Tyres. Somebody across the sea is riding very smoothly.
+-> Goodbye.
+    Rubber Gatherer: Tell them. That is all I ask.
+===
+title: history_william_sheppard
+---
+William Sheppard: Welcome. Mind the river; the steamer does not wait.
+-> Who are you?
+    William Sheppard: William Henry Sheppard, of Virginia: a Presbyterian missionary and explorer. I came here in 1890. I learned the Kuba language and was the first outsider received by their king. London's Royal Geographical Society made me a fellow.
+-> What did you see?
+    William Sheppard: In 1899 I was sent to find out why the villages were empty. I found a raiding camp of the State's soldiers and the dead of the villages they had raided. I counted them and wrote it down.
+-> What then?
+    William Sheppard: My report was printed in America and Britain. In 1909 the rubber company sued me for libel. A Congolese court found me not guilty. I took the Kuba's art home to Hampton, Virginia, and it is still there.
+-> Goodbye.
+    William Sheppard: God keep you. Keep your eyes open.
+===
+title: history_alice_seeley_harris
+---
+Alice Seeley Harris: Hold still. ... There. Thank you.
+-> Who are you?
+    Alice Seeley Harris: An English missionary. I came to the Congo with my husband John in 1898. I meant to teach. I ended up taking photographs.
+-> Why photographs?
+    Alice Seeley Harris: Because nobody in Europe believed the letters. In 1904 a man called Nsala came to our mission and sat in front of our house, with what the soldiers had done to his child. I photographed him. People can argue with a letter. It is harder to argue with a photograph.
+-> What did you do with them?
+    Alice Seeley Harris: We made them into slides for a magic lantern and showed them in hundreds of halls in Britain and America. With Edmund Morel and Roger Casement, the campaign forced the king to give up the Congo in 1908. I lived to be a hundred.
+-> Goodbye.
+    Alice Seeley Harris: Look. And then make others look.
+===

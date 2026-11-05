@@ -697,6 +697,22 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.5, active_s: 0.3, recover_s: 0.7, damage: 1, reach_px: 40.0, step_px: 0.0, rush_px: 200.0)),
         ),
+        // The giant sable lowers its horns and paws the ground (its windup
+        // row), then charges; the African grey parrot pulls up and swoops; the
+        // arquebusier holds a slow aim (its windup row) and fires.
+        "giant_sable_charge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.3, recover_s: 0.8, damage: 2, reach_px: 56.0, step_px: 0.0, rush_px: 220.0)),
+        ),
+        "african_grey_parrot_swoop": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.4, active_s: 0.25, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 170.0)),
+        ),
+        "portuguese_arquebusier_shot": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.3, active_s: 0.1, recover_s: 0.4, damage: 1, reach_px: 34.0)),
+            ranged: Some(Pistol(speed: 460.0, damage: 1)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -8114,6 +8130,95 @@
             hall: ["I am the largest rodent in the world. I can stay under water for five minutes. Can you?", "Birds ride on my back and eat my ticks. Monkeys sit on me. I am very calm. Usually."],
         ),
         ),
+        // The giant sable antelope (palanca negra), found only in Angola: black,
+        // with a white blaze and horns more than a metre long.
+        "giant_sable": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Giant Sable",
+            manifest: "sprites/giant_sable_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(70.0),
+            composition: None,
+            default_action_set: "giant_sable_charge",
+            locomotion: Some((run_speed: 200.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 110.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.7,
+                attack_cooldown_s: 1.3,
+                tactics: (notice_s: 0.7, footsies: Some((hold_px: 160.0, wait_s: 0.9)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(5),
+            mass: Some(5.0),
+            tags: ["enemy", "history", "ndongo", "angola", "beast"],
+        barks: (
+            on_hit: ["*a hard snort*", "*it shakes its great horns*"],
+            provoked: ["*it lowers its horns and paws the ground*"],
+            idle: ["*it grazes, one eye on you*", "*the long horns sweep back over its shoulders*"],
+            hall: ["I live in one corner of Angola and nowhere else. In the civil war people thought I was gone for good. In 2005 a camera in the forest found me again.", "Angola's football team is named after me: the Palancas Negras. I have never been asked to play."],
+        ),
+        ),
+        // The African grey parrot of the Congo forest: grey, with a red tail,
+        // and the best talker of all the birds.
+        "african_grey_parrot": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "African Grey Parrot",
+            manifest: "sprites/african_grey_parrot_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "african_grey_parrot_swoop",
+            locomotion: Some((run_speed: 180.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 560.0,
+                attack_range: 150.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.4, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "kongo", "bird"],
+        barks: (
+            on_hit: ["SQUAWK! Rude!", "*it shrieks a perfect copy of your voice*"],
+            provoked: ["Who's a pretty one? Not you."],
+            idle: ["*it whistles the start of a tune, and stops*", "*a click, a whistle, a creak like a door*"],
+            hall: ["I can learn hundreds of words. I choose to use them on you.", "Traders have taken my kind out of the Congo forests for centuries. There are far fewer of us now. Leave me where I am."],
+        ),
+        ),
+        // A soldier of Portugal's colony in Angola in the 1620s: a morion
+        // helmet, a padded jack and an arquebus fired with a match.
+        "portuguese_arquebusier": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Arquebusier of Luanda",
+            manifest: "sprites/portuguese_arquebusier_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_action_set: "portuguese_arquebusier_shot",
+            locomotion: Some((run_speed: 130.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 600.0,
+                attack_range: 340.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.7,
+                // The match to the pan is slow: he aims for a long time.
+                ranged_volley: Some((windup_s: 1.0, firing_s: 0.2, recovery_s: 1.8)),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "ndongo", "soldier"],
+        barks: (
+            on_hit: ["Ai!", "*he fumbles for the match cord*"],
+            provoked: ["Halt! In the name of the governor!"],
+            idle: ["*he blows on the match to keep it lit*", "The rain puts out the match. The rain puts out everything.", "*he looks at the trees, where nothing moves*"],
+            hall: ["They sent us inland for slaves and silver. We found no silver. We found Nzinga.", "Load, prime, blow on the match, aim, and pray the powder is dry. She attacked while we were blowing on the match."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -12991,6 +13096,197 @@
             barks: (
                 idle: ["Bonito! First bonito of the year!", "*he sloshes a bucket of water over the fish*", "Fresh this morning. Very fresh. Mostly."],
                 hall: ["A million people live in Edo, and they all eat fish. The market by the bridge starts before dawn and is done by noon.", "The first bonito of the season sells for a fortune: people pawn their clothes to eat it before their neighbours. A saying of Edo: never let money spend the night with you."],
+            ),
+        ),
+        // Central Africa (wave G). Afonso I, Antonio Manuel ne Vunda, Nzinga,
+        // Kifunji, George Washington Williams, William Sheppard and Alice
+        // Seeley Harris are real; the fisher, the carver, the weaver and the
+        // rubber gatherer are original.
+        "npc_history_katanda_fisher": (
+            display_name: "Katanda Fisher",
+            // An original fisher of the Semliki river, about 20,000 years ago, with a barbed bone harpoon.
+            manifest: "sprites/history_katanda_fisher_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "ishango", "peaceful"],
+            barks: (
+                idle: ["The fish can hear you.", "*he checks the barbs on the harpoon*", "Mind the hippos. I mean it."],
+                hall: ["Down this river at Katanda, people made barbed harpoons of bone perhaps 90,000 years ago. They said clever tools began in Europe, late. They were wrong.", "Catfish as long as your arm come up the Semliki in the rains. A good harpoon and a quiet foot: that is all you need."],
+            ),
+        ),
+        "npc_history_ishango_carver": (
+            display_name: "Ishango Carver",
+            // An original carver of Ishango, about 20,000 years ago, with a notched bone handle and a stone burin.
+            manifest: "sprites/history_ishango_carver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "ishango", "peaceful"],
+            barks: (
+                idle: ["Eleven. Thirteen. Seventeen. Nineteen.", "*scratch, scratch*", "Do not make me lose count."],
+                hall: ["My bone has three columns of notches. One holds 11, 13, 17 and 19, the primes between ten and twenty. Arithmetic, or the moon, or a good grip? I am not telling.", "A Belgian dug it up in 1950 and it went to Brussels. It is still there. So are many things from the Congo."],
+            ),
+        ),
+        "npc_history_raffia_weaver": (
+            display_name: "Raffia Weaver",
+            // An original raffia-cloth weaver of Kongo, about 1520 (in Kongo men wove the raffia), with a square of raffia velvet.
+            manifest: "sprites/history_raffia_weaver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "kongo", "peaceful"],
+            barks: (
+                idle: ["Softer than you thought?", "*the loom clacks*", "A cloth this size buys a goat. Two, if you like the pattern."],
+                hall: ["The Portuguese called our raffia cloth velvet, and their princes kept it in their treasure rooms. Some of it is still in Europe's museums.", "Cloth is our money, and so are the nzimbu shells from the island off Luanda. Only the king's people may gather those."],
+            ),
+        ),
+        "npc_history_afonso_i": (
+            display_name: "Afonso I of Kongo",
+            // Afonso I Mvemba a Nzinga (about 1456-1542), king of Kongo from 1509, in royal raffia dress and cap.
+            manifest: "sprites/history_afonso_i_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "kongo", "peaceful"],
+            barks: (
+                idle: ["Another letter to Lisbon.", "*he reads a page again, frowning*", "One king to another. As equals."],
+                hall: ["In 1526 I wrote to the king of Portugal: each day the traders are taking our people, even the sons of our nobles. Send us teachers and doctors, I said, not slave ships.", "They did not stop. I made my officials check every sale, and the trade grew anyway. Dozens of our kings' letters survive. Read them."],
+            ),
+        ),
+        "npc_history_ne_vunda": (
+            display_name: "Antonio Manuel ne Vunda",
+            // Antonio Manuel ne Vunda (died 1608), Kongo's ambassador to Rome, in Kongo and Portuguese court dress.
+            manifest: "sprites/history_ne_vunda_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 174 cm.
+            standing_height: Some(67.4),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "kongo", "peaceful"],
+            barks: (
+                idle: ["Is this the road to Rome?", "*he checks his letters of credence*", "Four years on the road. Pirates, twice."],
+                hall: ["King Álvaro II sent me to Rome in 1604, to speak for Kongo without Portugal in between. I went by Brazil and Spain, and pirates robbed me on the way.", "I reached Rome in January 1608, sick, and died a few days later. They made a marble bust of me. It is still there; I never saw the city."],
+            ),
+        ),
+        "npc_history_nzinga": (
+            display_name: "Queen Nzinga",
+            // Nzinga Mbande (about 1583-1663), queen of Ndongo and Matamba, in royal dress, with a bow.
+            manifest: "sprites/history_nzinga_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "ndongo", "peaceful"],
+            barks: (
+                idle: ["Stand up straight.", "*she tests the bowstring*", "Nobody gives me a mat."],
+                hall: ["In Luanda in 1622 the governor gave me a mat on the floor. One of my women knelt, and I sat on her back, eye to eye with him. I got my treaty.", "Portugal broke it, so I fought them for thirty years, with the Imbangala and then the Dutch. In 1657 they made peace with me. I died a queen."],
+            ),
+        ),
+        "npc_history_funji": (
+            display_name: "Kifunji",
+            // Kifunji (died about 1647), Nzinga's sister, who spied for her from captivity in Luanda.
+            manifest: "sprites/history_funji_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "ndongo", "peaceful"],
+            barks: (
+                idle: ["Speak quietly.", "*she folds a tiny letter very small*", "The walls have ears. So do I."],
+                hall: ["The Portuguese caught me in 1646 and kept me in Luanda. They thought a prisoner was harmless. I sent my sister their plans, hidden in letters.", "They found the letters. The records say they drowned me in the Kwanza. Remember that a prisoner can still fight."],
+            ),
+        ),
+        "npc_history_george_washington_williams": (
+            display_name: "George Washington Williams",
+            // George Washington Williams (1849-1891), soldier, minister, lawyer and historian, who exposed the Congo Free State in 1890.
+            manifest: "sprites/history_george_washington_williams_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
+            barks: (
+                idle: ["Write it down.", "*he writes, fast*", "The king promised schools. I found none."],
+                hall: ["I fought in the Civil War at fourteen and wrote the first history of Black Americans. In 1890 I came to see the Congo for myself, and wrote King Leopold an open letter listing what I saw.", "To the American Secretary of State I called it 'crimes against humanity'. I died the next year, at forty-one. Others carried it on."],
+            ),
+        ),
+        "npc_history_rubber_gatherer": (
+            display_name: "Rubber Gatherer",
+            // An original Congolese rubber gatherer of 1904, with an empty basket for wild rubber.
+            manifest: "sprites/history_rubber_gatherer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
+            barks: (
+                idle: ["The basket must be full by the new moon.", "*he looks at the empty basket*", "Further every week. The near vines are dead."],
+                hall: ["Every village owes so many baskets of rubber, every two weeks. When the basket is short, the soldiers take hostages, and they burn, and they shoot.", "It is for tyres, they say: bicycles, and the new motor cars. Somebody across the sea is riding very smoothly."],
+            ),
+        ),
+        "npc_history_william_sheppard": (
+            display_name: "William Sheppard",
+            // William Henry Sheppard (1865-1927), African-American missionary and explorer, in a white tropical suit.
+            manifest: "sprites/history_william_sheppard_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
+            barks: (
+                idle: ["Mind the river.", "*he writes in a small notebook*", "Count them. Write it down. Send it."],
+                hall: ["I learned the Kuba language and was the first outsider their king received. In 1899 I found the dead of a raid by the State's soldiers, counted them, and told the world.", "The rubber company sued me for libel in 1909. A Congolese court found me not guilty. The Kuba art I brought home is still at Hampton, in Virginia."],
+            ),
+        ),
+        "npc_history_alice_seeley_harris": (
+            display_name: "Alice Seeley Harris",
+            // Alice Seeley Harris (1870-1970), English missionary photographer, with a box camera, 1904.
+            manifest: "sprites/history_alice_seeley_harris_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
+            barks: (
+                idle: ["Hold still.", "*click*", "People argue with letters. Not with photographs."],
+                hall: ["I came to teach. I ended up taking photographs, because nobody in Europe believed the letters. In 1904 a man named Nsala came to our house with what the soldiers had done to his child.", "We showed the photographs as lantern slides in hundreds of halls. In 1908 the king had to give the Congo up. I lived to be a hundred."],
             ),
         ),
         "npc_primeval_twitchell": (

@@ -342,6 +342,17 @@ npc_history_tsuda_umeko
 npc_history_kusumoto_ine
 npc_history_edo_tea_keeper
 npc_history_edo_fishmonger
+npc_history_katanda_fisher
+npc_history_ishango_carver
+npc_history_raffia_weaver
+npc_history_afonso_i
+npc_history_ne_vunda
+npc_history_nzinga
+npc_history_funji
+npc_history_george_washington_williams
+npc_history_rubber_gatherer
+npc_history_william_sheppard
+npc_history_alice_seeley_harris
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -525,6 +536,9 @@ gharial
 rhesus_macaque
 black_caiman
 capybara
+giant_sable
+african_grey_parrot
+portuguese_arquebusier
 
 [Mary-O's world]
 mary_o

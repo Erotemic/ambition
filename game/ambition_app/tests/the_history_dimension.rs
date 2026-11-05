@@ -1,7 +1,7 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Seventy-two rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
-//! a grid of sixty-four outdoor rooms, where east is later and each floor is
+//! Seventy-eight rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of seventy outdoor rooms, where east is later and each floor is
 //! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
@@ -113,6 +113,11 @@ const WAYS: &[(&str, &str)] = &[
     ("history_new_guinea_highlands", "history_lapita_voyagers"),
     ("history_lapita_voyagers", "history_wayfinders"),
     ("history_wayfinders", "history_rapa_nui"),
+    ("history_rapa_nui", "history_tonga_samoa"),
+    ("history_tonga_samoa", "history_aotearoa"),
+    ("history_aotearoa", "history_waitangi"),
+    // New Zealand was ruled from New South Wales until 1841.
+    ("history_waitangi", "history_sydney_cove"),
     // South Asia.
     ("history_southern_route", "history_mehrgarh"),
     ("history_mehrgarh", "history_indus_cities"),
@@ -143,13 +148,18 @@ const WAYS: &[(&str, &str)] = &[
     ("history_levant", "history_ice_age_europe"),
     ("history_ice_age_europe", "history_southern_route"),
     ("history_southern_route", "history_sulawesi"),
-    ("history_sulawesi", "history_sahul"),
+    ("history_sahul", "history_lake_mungo"),
+    ("history_lake_mungo", "history_sulawesi"),
     // Southeast Asia, the row under Oceania.
     ("history_sulawesi", "history_austronesian_islands"),
     ("history_austronesian_islands", "history_dong_son"),
     ("history_dong_son", "history_srivijaya"),
     ("history_srivijaya", "history_angkor"),
-    ("history_austronesian_islands", "history_new_guinea_highlands"),
+    // New Guinea's way down is now through Budj Bim; Budj Bim joins Lake Mungo
+    // along the Australian floor.
+    ("history_new_guinea_highlands", "history_budj_bim"),
+    ("history_budj_bim", "history_austronesian_islands"),
+    ("history_lake_mungo", "history_budj_bim"),
     ("history_sahul", "history_mammoth_steppe"),
     ("history_mammoth_steppe", "history_beringia"),
     // Maize goes south to the Andes.
@@ -217,7 +227,7 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
     // The ways name all the rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 72, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 78, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -446,6 +456,34 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     ("history_lapita_voyagers", &[("npc_history_lapita_potter", 1), ("coconut_crab", 2), ("coral_crab", 1)]),
     ("history_wayfinders", &[("npc_history_wayfinder", 1), ("frigatebird", 3), ("coconut_crab", 1)]),
     ("history_rapa_nui", &[("npc_history_moai_carver", 1), ("npc_history_thor_hey_im_right_dahl", 1), ("pacific_rat", 3)]),
+    (
+        "history_tonga_samoa",
+        &[
+            ("npc_history_ngatu_maker", 1),
+            ("npc_history_tuitatui", 1),
+            ("npc_history_tufuga_tatau", 1),
+            ("coconut_crab", 2),
+            ("frigatebird", 1),
+        ],
+    ),
+    (
+        "history_aotearoa",
+        &[("npc_history_moa_hunter", 1), ("npc_history_pounamu_carver", 1), ("moa", 1), ("haast_eagle", 1), ("kiwi", 1)],
+    ),
+    (
+        "history_waitangi",
+        &[("npc_history_henry_williams", 1), ("npc_history_ana_hamu", 1), ("npc_history_hone_heke", 1), ("kiwi", 2)],
+    ),
+    // Australia.
+    (
+        "history_lake_mungo",
+        &[("npc_history_mungo_fisher", 1), ("npc_history_mungo_ranger", 1), ("diprotodon", 1), ("emu", 1)],
+    ),
+    (
+        "history_budj_bim",
+        &[("npc_history_kooyang_farmer", 1), ("npc_history_basket_weaver", 1), ("kooyang", 1), ("black_swan", 1), ("emu", 1)],
+    ),
+    ("history_sydney_cove", &[("npc_history_barangaroo", 1), ("npc_history_bennelong", 1), ("npc_history_pemulwuy", 1)]),
     // East Asia and the steppe.
     ("history_mammoth_steppe", &[("npc_history_denny_denisovan", 1), ("woolly_mammoth", 2), ("cave_bear", 1), ("steppe_wolf", 2)]),
     ("history_yellow_river", &[("npc_history_leizu", 1), ("silk_moth", 2), ("coral_crab", 2)]),

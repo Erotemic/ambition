@@ -492,6 +492,10 @@ collections:
   - giant_sable
   - african_grey_parrot
   - portuguese_arquebusier
+  - moa
+  - haast_eagle
+  - kooyang
+  - black_swan
   - history_victoria_lily
   - history_jangada
   - history_marajoara_pots
@@ -519,6 +523,22 @@ collections:
   - history_rubber_vine
   - history_magic_lantern
   - history_congo_steamer
+  - history_mungo_footprints
+  - history_shell_midden
+  - history_rua_pit
+  - history_pounamu_adze
+  - history_haamonga
+  - history_ngatu_board
+  - history_samoan_fale
+  - history_kava_bowl
+  - history_treaty_house
+  - history_treaty_table
+  - history_flagstaff
+  - history_first_fleet_ship
+  - history_nawi
+  - history_eel_weir
+  - history_stone_house
+  - history_smoking_tree
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -904,6 +924,21 @@ collections:
   - history_rubber_gatherer
   - history_william_sheppard
   - history_alice_seeley_harris
+  - history_mungo_fisher
+  - history_mungo_ranger
+  - history_tuitatui
+  - history_ngatu_maker
+  - history_tufuga_tatau
+  - history_moa_hunter
+  - history_pounamu_carver
+  - history_henry_williams
+  - history_ana_hamu
+  - history_hone_heke
+  - history_barangaroo
+  - history_bennelong
+  - history_pemulwuy
+  - history_kooyang_farmer
+  - history_basket_weaver
   - station_dobbs
   - station_pippin
   - magical_celeste

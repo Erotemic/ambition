@@ -80,7 +80,8 @@ the record and sighs about the footnotes.
     R½ S. America                   andes           caral        amazonia    palmares    rio 1888
     R1 East Asia      mammoth st.┐  yellow river    shang        silk road   song        steppe kamakura
     R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla       joseon      heian  edo         meiji
-    R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
+    R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui    tonga  aotearoa    waitangi
+    R2¼ Australia     lake mungo    budj bim                                                                sydney cove
     R2½ SE Asia       sulawesi      austronesians   dong son     srivijaya   angkor
     R3 South Asia     south. route  mehrgarh        indus                                muslin company     ekushey
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
@@ -178,6 +179,12 @@ The rooms:
 | `history_lapita_voyagers` | `history_lapita` | the Lapita potter | coconut crab, coral crab | an outrigger canoe crosses the lagoon; the way up to the Shang court |
 | `history_wayfinders` | `history_open_ocean` | the wayfinder | frigatebird, coconut crab | a voyaging canoe crosses the open sea |
 | `history_rapa_nui` | `history_rapa_nui` | the moai carver, Thor Hey-I'm-Right-Dahl | Pacific rat | ride a walking moai over the quarry ditch; a plain sign for 1862 |
+| `history_tonga_samoa` | `history_tonga` | the ngatu maker, Tuʻitātui, the tufuga tā tatau | coconut crab, frigatebird | ngatu; up the Haʻamonga ʻa Maui and along its lintel; a voyaging canoe over the lagoon to Samoa; the fale, the kava bowl and the peʻa |
+| `history_aotearoa` | `history_aotearoa` | the moa hunter, the pounamu carver | moa, Haast's eagle, kiwi | the waka; the moa and the eagle, gone in about 150 years; the kūmara store; up the terraces of the pā; the pounamu adze |
+| `history_waitangi` | `history_waitangi` | Henry Williams, Ana Hamu, Hōne Heke | kiwi | the Treaty's two texts side by side; Busby's house; the women who signed; the flagstaff cut down four times; the hatch down to Sydney Cove |
+| `history_lake_mungo` | `history_willandra` | the Mungo fisher, the Mungo ranger | diprotodon, emu | the shell midden; up the Walls of China; the 20,000-year-old footprints; Mungo Man's return in 2017; up to Sahul, down to Sulawesi |
+| `history_budj_bim` | `history_budj_bim` | the kooyang farmer, the basket weaver | kooyang, black swan, emu | wade the eel channels past the stone weirs; up the stony rises to a stone house; the smoking tree; the Eumeralla wars and 2019; up to New Guinea, down to the Austronesians (the atlas's way) |
+| `history_sydney_cove` | `history_sydney_cove` | Barangaroo, Bennelong, Pemulwuy | (none) | a nawi with its fire carries you over the cove past a First Fleet ship; terra nullius and the High Court of 1992; the frontier wars; up to Waitangi |
 
 The buildings, in a row under the grid:
 
@@ -274,7 +281,18 @@ The generator asserts rule 3: a `MUSIC` value that is not a `history_*`
 cue stops it.
 
 New cues by the same rules: `history_japan_floating_world`, "Floating
-World" (city pop with a shamisen), plays in Edo and Meiji Tokyo.
+World" (city pop with a shamisen), plays in Edo and Meiji Tokyo;
+`history_central_africa_sebene`, "Sebene" (Congolese rumba), plays in Kongo
+and Ndongo; `history_pacific_island_reggae`, "Reef Break" (Pacific reggae,
+with a pātē), plays in Tonga and Samoa, Aotearoa and Waitangi.
+
+The library ref `guitar.clean` is Shinyguitar's acoustic program, which is
+silent while CC100 is 0. Until 2026-11-05 the renderer then put a General
+MIDI guitar in its place with only a warning, and four cues (Trade Winds,
+Spinning Jenny, Floating World, Sebene) were published that way. Their
+guitars now set `controls: {100: 126}`, and their sampled backends set
+`optional: false`, so a silent instrument stops the render. Read a cue's
+`reports/quality_brief.txt` for "fallback" before you publish it.
 
 Samples to measure before you use them again (the composer scripts correct
 them per note with `tuning_correction`): the Horse Pulse tagelharpa is up to
@@ -455,7 +473,7 @@ built room, then the links that make the world one. Each wave starts with
 | I | **The world wars** (H8, sober, care first): the Western Front (a corridor; the colonial soldiers), Ethiopia 1935, the war in Asia and the Pacific, the code talkers, the Holocaust (a pocket), Hiroshima (a pocket) | the most obvious gap of all; needs the tone rules and sources ready |
 | J | **Decolonization and the Cold War** (H9): the year of Africa, 1947 (sober), the salt march, the Wall, the Korean War, Montgomery to Selma, Baikonur and the Moon, Mabo | civil rights, decolonization, space flight |
 | K | **The present** (H10): Lagos and Nairobi now, Shenzhen now, Bengaluru now, the rising sea, the network, the warming world | every cluster's story reaches today |
-| L | **Oceania and the Pacific**, in two parts. **L1 (next): Australia and Aotearoa.** The Pacific row goes on east of Rapa Nui: Aotearoa (C5; Rapa Nui, Aotearoa and later Hawaii are the corners of the Polynesian Triangle), Tonga and Samoa (C6), Waitangi 1840 and its two texts (C7). A new row under it, R2¼ Australia, only in the columns where it cuts no way down to Southeast Asia: Lake Mungo under Sahul (C0; the Willandra footprints as the path, the Paakantyi, Mutthi Mutthi and Ngiyampaa as its owners today) and Sydney Cove 1788 and the frontier (C7, sober), whose way up is Waitangi: New Zealand was first governed from New South Wales. **L2:** Budj Bim's eel traps (R2¼ C3), the Hawaiian kingdom (C8), Mabo 1992 (R2¼ C8), Nan Madol and Yap's stone money, Nauru, Bikini and Moruroa (sober) | Australia, New Zealand and the island nations have only deep time now |
+| L | **Oceania and the Pacific**, in two parts. **L1 (L1 BUILT): Australia and Aotearoa.** The Pacific row goes on east of Rapa Nui: Tonga and Samoa (C6: the Tuʻi Tonga's trilithon, ngatu, the Samoan fale and tatau), Aotearoa (C7: Rapa Nui, Aotearoa and later Hawaiʻi are the corners of the Polynesian Triangle; moa and Haast's eagle, gone within a few lifetimes; the pā and pounamu), Waitangi 1840 and its two texts (C8). A new row under it, R2¼ Australia, only in the columns where it cuts no way down that history did not take: Lake Mungo (C1), between Sahul and Sulawesi, so the way down from Sahul lands on its dune and its way down goes on by sea to Sulawesi (the Willandra footprints, Mungo Lady and Mungo Man in words only, the Paakantyi, Mutthi Mutthi and Ngiyampaa as its owners today), Budj Bim (C2), the Gunditjmara eel farms in the lava, at least 6,600 years old, under the Kuk gardens of New Guinea (it fills the cell that New Guinea's way down to the Austronesians crosses; that way now goes through it, and its sign says the Austronesian half is the atlas's fiction), and Warrane (Sydney Cove) 1788 (C8, sober: Barangaroo, Bennelong, Pemulwuy; no creatures), whose way up is Waitangi: New Zealand was governed from New South Wales until 1841. Music: `history_pacific_island_reggae` (Reef Break, Pacific reggae) in the three Pacific rooms; `history_oceania_sahul` in the three Australian rooms. **L2:** the Hawaiian kingdom (C9), Mabo 1992 (R2¼ C9), Nan Madol and Yap's stone money, Nauru, Bikini and Moruroa (sober) | Australia, New Zealand and the island nations had only deep time |
 | M | **North America's nations**: Watson Brake and Poverty Point, Cahokia (tall), Chaco, the Great Law of Peace, the cedar coast, the Thule and the Inuit, Sequoyah and the Trail of Tears | the Indigenous nations of North America |
 | N | **The rest of each cluster**, in the atlas's order: Persia and Baghdad (wave C of the old list), the Indian Ocean (Kilwa, the monsoon sea, the Chola fleets), Great Zimbabwe, Europe's middle (1348, Florence and Mainz, Constantinople), the steppe and Central Asia (the Oxus civilization, Samarkand, the Great Game) | the candidates become planned as the clusters fill |
 

@@ -1200,6 +1200,108 @@
       "twinkle_rate": 0.5,
       "front": 0.3
     },
+    "history_willandra": {
+      "count": 14,
+      "velocity": [
+        10.0,
+        1.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.3,
+      "size": [
+        0.8,
+        1.8
+      ],
+      "alpha": 0.45,
+      "twinkle": 0.0,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
+    "history_aotearoa": {
+      "count": 12,
+      "velocity": [
+        3.0,
+        6.0
+      ],
+      "wander": 14.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.8,
+        1.8
+      ],
+      "alpha": 0.45,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.8,
+      "front": 0.3
+    },
+    "history_tonga": {
+      "count": 14,
+      "velocity": [
+        6.0,
+        -2.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.5,
+      "size": [
+        0.6,
+        1.4
+      ],
+      "alpha": 0.4,
+      "twinkle": 0.5,
+      "twinkle_rate": 1.2,
+      "front": 0.3
+    },
+    "history_waitangi": {
+      "count": 10,
+      "velocity": [
+        5.0,
+        1.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.8,
+        1.6
+      ],
+      "alpha": 0.4,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.8,
+      "front": 0.3
+    },
+    "history_sydney_cove": {
+      "count": 12,
+      "velocity": [
+        2.0,
+        -4.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.3,
+      "size": [
+        1.2,
+        2.6
+      ],
+      "alpha": 0.3,
+      "twinkle": 0.0,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
+    "history_budj_bim": {
+      "count": 12,
+      "velocity": [
+        4.0,
+        -3.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.3,
+      "size": [
+        1.2,
+        2.6
+      ],
+      "alpha": 0.35,
+      "twinkle": 0.0,
+      "twinkle_rate": 0.5,
+      "front": 0.3
+    },
     "history_lapita": {
       "count": 10,
       "velocity": [

@@ -353,6 +353,21 @@ npc_history_george_washington_williams
 npc_history_rubber_gatherer
 npc_history_william_sheppard
 npc_history_alice_seeley_harris
+npc_history_mungo_fisher
+npc_history_mungo_ranger
+npc_history_tuitatui
+npc_history_ngatu_maker
+npc_history_tufuga_tatau
+npc_history_moa_hunter
+npc_history_pounamu_carver
+npc_history_henry_williams
+npc_history_ana_hamu
+npc_history_hone_heke
+npc_history_barangaroo
+npc_history_bennelong
+npc_history_pemulwuy
+npc_history_kooyang_farmer
+npc_history_basket_weaver
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -539,6 +554,10 @@ capybara
 giant_sable
 african_grey_parrot
 portuguese_arquebusier
+moa
+haast_eagle
+kooyang
+black_swan
 
 [Mary-O's world]
 mary_o

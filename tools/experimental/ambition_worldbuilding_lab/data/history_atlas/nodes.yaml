@@ -591,11 +591,11 @@ nodes:
   # =========================================================================
   - {id: sahul, title: "Sahul", region: australia, years: [-65000, -45000], status: built, room: history_sahul,
      countries: [AUS, PNG], peoples: [aboriginal_australians, torres_strait_islanders], topics: [seafaring, dispersal]}
-  - {id: lake_mungo, title: "Lake Mungo", region: australia, years: [-42000, -20000], status: planned,
-     countries: [AUS], peoples: [aboriginal_australians], topics: [ice_age, first_art], note: "Mungo Lady, the oldest known cremation; returned to country in 2017 and 2022"}
+  - {id: lake_mungo, title: "Lake Mungo", region: australia, years: [-42000, -20000], status: built, room: history_lake_mungo,
+     countries: [AUS], peoples: [aboriginal_australians], topics: [ice_age, first_art], note: "Mungo Lady, one of the oldest known cremations, came home in 1992; Mungo Man, in 2017"}
   - {id: murujuga, title: "Murujuga", region: australia, years: [-40000, 1800], status: candidate,
      countries: [AUS], peoples: [aboriginal_australians], topics: [first_art], note: "a million petroglyphs; show skill and age, no sacred designs"}
-  - {id: budj_bim, title: "Budj Bim and the eel traps", region: australia, years: [-4600, 1840], status: planned, shape: tall,
+  - {id: budj_bim, title: "Budj Bim and the eel traps", region: australia, years: [-4600, 1840], status: built, room: history_budj_bim, shape: tall,
      countries: [AUS], peoples: [aboriginal_australians], topics: [aquaculture, farming_origins, indigenous_resistance],
      note: "Gunditjmara channels, at least 6,600 years old; stone houses"}
   - {id: new_guinea_highlands, title: "The New Guinea highlands", region: melanesia, years: [-7000, -4000], status: built, room: history_new_guinea_highlands,
@@ -606,22 +606,22 @@ nodes:
      countries: [PYF, COK, WSM, TON, NZL, USA, FJI], peoples: [pasifika, native_hawaiians, maori], topics: [pacific_navigation, peopling_of_pacific]}
   - {id: rapa_nui, title: "Rapa Nui", region: polynesia, years: [1200, 1862], status: built, room: history_rapa_nui,
      countries: [CHL], peoples: [pasifika], topics: [pacific_navigation, monumental_building, climate_and_collapse, slavery_and_resistance]}
-  - {id: tonga_samoa, title: "The Tuʻi Tonga and Samoa", region: polynesia, years: [950, 1865], status: planned, shape: hub,
+  - {id: tonga_samoa, title: "The Tuʻi Tonga and Samoa", region: polynesia, years: [950, 1865], status: built, room: history_tonga_samoa, shape: hub,
      countries: [TON, WSM, FJI, COK, TUV], peoples: [pasifika], topics: [pacific_navigation, monumental_building],
      note: "a sea empire of chiefly marriages; Tonga was never a colony (a British protectorate only)"}
   - {id: nan_madol_yap, title: "Nan Madol and the stone money of Yap", region: micronesia, years: [1180, 1628], status: planned,
      countries: [FSM, PLW, GUM, MHL, KIR], peoples: [chamorro], topics: [monumental_building, money, pacific_navigation]}
   - {id: marshall_stick_charts, title: "The stick charts", region: micronesia, years: [1500, 1900], status: candidate,
      countries: [MHL, KIR, NRU], topics: [pacific_navigation]}
-  - {id: aotearoa_arrival, title: "Aotearoa", region: aotearoa, years: [1250, 1769], status: planned, shape: tall,
+  - {id: aotearoa_arrival, title: "Aotearoa", region: aotearoa, years: [1250, 1769], status: built, room: history_aotearoa, shape: tall,
      countries: [NZL], peoples: [maori], topics: [peopling_of_pacific, pacific_navigation, climate_and_collapse], note: "the moa; the pā on its hill"}
   - {id: hawaii_kingdom, title: "The Hawaiian kingdom", region: polynesia, years: [1795, 1898], status: planned,
      countries: [USA], peoples: [native_hawaiians], topics: [women_rulers, colonialism, indigenous_resistance], note: "Liliʻuokalani, overthrown 1893"}
   - {id: tupaia, title: "Tupaia's map", region: polynesia, years: [1760, 1770], status: candidate, mode: archive,
      countries: [PYF, NZL, AUS], peoples: [pasifika, maori], topics: [pacific_navigation, age_of_sail], note: "the navigator who guided Cook"}
-  - {id: waitangi, title: "Waitangi, 1840: two texts", region: aotearoa, years: [1840, 1872], status: planned, mode: archive,
+  - {id: waitangi, title: "Waitangi, 1840: two texts", region: aotearoa, years: [1840, 1872], status: built, room: history_waitangi, mode: archive,
      countries: [NZL], peoples: [maori], topics: [colonialism, indigenous_resistance, law], note: "the English and Māori texts say different things"}
-  - {id: australian_frontier, title: "Sydney Cove, 1788, and the frontier", region: australia, years: [1788, 1928], status: planned, mode: sober,
+  - {id: australian_frontier, title: "Sydney Cove, 1788, and the frontier", region: australia, years: [1788, 1928], status: built, room: history_sydney_cove, mode: sober,
      countries: [AUS, GBR, IRL], peoples: [aboriginal_australians, irish_diaspora], topics: [colonialism, indigenous_resistance, genocide]}
   - {id: blackbirding, title: "Blackbirding", region: melanesia, years: [1863, 1904], status: candidate, mode: sober,
      countries: [VUT, SLB, FJI, AUS, PNG, KIR], peoples: [pasifika], topics: [indentured_labour, slavery_and_resistance]}

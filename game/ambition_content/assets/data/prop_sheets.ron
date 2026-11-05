@@ -391,6 +391,29 @@
     "history_rubber_vine": (),
     "history_magic_lantern": (),
     "history_congo_steamer": (),
+    // Australia, Aotearoa, Tonga and Samoa (wave L1,
+    // `targets/props/history_oceania_props.py`): Lake Mungo's footprints and
+    // midden, Aotearoa's kumara store and adze, the Haʻamonga ʻa Maui, ngatu,
+    // fale and kava bowl, Waitangi's house, table and flagstaff, and Sydney
+    // Cove's ship and nawi.
+    "history_mungo_footprints": (),
+    "history_shell_midden": (),
+    "history_rua_pit": (),
+    "history_pounamu_adze": (),
+    "history_haamonga": (),
+    "history_ngatu_board": (),
+    "history_samoan_fale": (),
+    "history_kava_bowl": (),
+    "history_treaty_house": (),
+    "history_treaty_table": (),
+    "history_flagstaff": (),
+    "history_first_fleet_ship": (),
+    "history_nawi": (),
+    // Budj Bim (wave L1, `targets/props/history_budj_bim_props.py`): the eel
+    // weir, the stone house and the smoking tree.
+    "history_eel_weir": (),
+    "history_stone_house": (),
+    "history_smoking_tree": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

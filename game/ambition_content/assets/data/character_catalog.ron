@@ -713,6 +713,26 @@
             melee: Some(Swipe(windup_s: 0.3, active_s: 0.1, recover_s: 0.4, damage: 1, reach_px: 34.0)),
             ranged: Some(Pistol(speed: 460.0, damage: 1)),
         ),
+        // The moa lowers its head and draws one leg up (its windup row), then
+        // kicks; Haast's eagle lifts its wings and stoops on you.
+        "moa_kick": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.7, active_s: 0.25, recover_s: 0.8, damage: 2, reach_px: 60.0, step_px: 0.0, rush_px: 90.0)),
+        ),
+        "haast_eagle_stoop": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.3, recover_s: 0.7, damage: 2, reach_px: 40.0, step_px: 0.0, rush_px: 240.0)),
+        ),
+        // The kooyang rears back (its windup row) and lunges out of the channel;
+        // the black swan draws its neck back with its wings up, then lunges.
+        "kooyang_lunge": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.6, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 80.0)),
+        ),
+        "black_swan_lunge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 120.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -8219,6 +8239,124 @@
             hall: ["They sent us inland for slaves and silver. We found no silver. We found Nzinga.", "Load, prime, blow on the match, aim, and pray the powder is dry. She attacked while we were blowing on the match."],
         ),
         ),
+        // The giant moa of Aotearoa: no wings at all, and with its neck up
+        // about 3.6 m tall. All nine kinds were gone about 150 years after
+        // people came.
+        "moa": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Giant Moa",
+            manifest: "sprites/moa_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(136.0),
+            composition: None,
+            default_action_set: "moa_kick",
+            locomotion: Some((run_speed: 150.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 360.0,
+                attack_range: 90.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.5,
+                attack_cooldown_s: 1.6,
+                tactics: (notice_s: 0.9, footsies: Some((hold_px: 120.0, wait_s: 1.0)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(6),
+            mass: Some(6.0),
+            tags: ["enemy", "history", "aotearoa", "bird", "beast"],
+        barks: (
+            on_hit: ["*a deep, booming grunt*", "*its neck whips back*"],
+            provoked: ["*it lifts its neck as high as a house*"],
+            idle: ["*it strips the leaves off a twig*", "*it sways its long neck*"],
+            hall: ["I had no wings, not even little ones. Before people came, only the great eagle hunted me. I did not know to run.", "Nine kinds of us, the tallest bird that ever lived. About 150 years after people came, we were all gone."],
+        ),
+        ),
+        // Haast's eagle: the largest eagle that ever lived, with talons like a
+        // tiger's claws. It hunted moa, and died out with them.
+        "haast_eagle": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Haast's Eagle",
+            manifest: "sprites/haast_eagle_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(48.0),
+            composition: None,
+            default_action_set: "haast_eagle_stoop",
+            locomotion: Some((run_speed: 220.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 640.0,
+                attack_range: 200.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.5, notice_s: 0.4),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "history", "aotearoa", "bird"],
+        barks: (
+            on_hit: ["*a furious scream*", "*feathers fly*"],
+            provoked: ["*it flares wings three metres wide*"],
+            idle: ["*it watches from above on slow, deep beats*", "*a long, high whistle*"],
+            hall: ["I hunted birds fifteen times my weight. One foot on the hips, one on the neck. Then people came for the same birds.", "When the moa were gone, so was I, about 1400. Māori stories remember a great bird, Pouakai."],
+        ),
+        ),
+        // The kooyang (short-finned eel) of Budj Bim, which the Gunditjmara
+        // farmed in channels of stone for at least 6,600 years.
+        "kooyang": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Kooyang",
+            manifest: "sprites/kooyang_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(20.0),
+            composition: None,
+            default_action_set: "kooyang_lunge",
+            locomotion: Some((run_speed: 90.0, move_style: Float)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 260.0,
+                attack_range: 90.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.5, notice_s: 0.5),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "budj_bim", "fish"],
+        barks: (
+            on_hit: ["*a slippery thrash*", "*it twists out of reach*"],
+            provoked: ["*it rears its head out of the water*"],
+            idle: ["*it sways in the channel*", "*a ripple, and it is gone*"],
+            hall: ["I swim about 3,000 km to the Coral Sea to spawn. My children swim all the way back, up this very channel.", "The Gunditjmara built a whole system of stone for me. I would be flattered, if it did not end in a smoking tree."],
+        ),
+        ),
+        // The black swan of Australia: black, with white flight feathers and a
+        // red bill. Europe said there was no such thing until 1697.
+        "black_swan": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Black Swan",
+            manifest: "sprites/black_swan_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(50.0),
+            composition: None,
+            default_action_set: "black_swan_lunge",
+            locomotion: Some((run_speed: 140.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 320.0,
+                attack_range: 80.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.6,
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.6, footsies: Some((hold_px: 100.0, wait_s: 0.8)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "budj_bim", "bird"],
+        barks: (
+            on_hit: ["*an outraged honk*", "*it beats its wings at you*"],
+            provoked: ["*a long hiss, wings half open*"],
+            idle: ["*it preens a white flight feather*", "*a soft, bugling call*"],
+            hall: ["For centuries Europe said 'a black swan' meant a thing that cannot exist. Then a Dutch ship reached Western Australia in 1697.", "Now a 'black swan' is the thing nobody saw coming. I was here the whole time."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -13287,6 +13425,266 @@
             barks: (
                 idle: ["Hold still.", "*click*", "People argue with letters. Not with photographs."],
                 hall: ["I came to teach. I ended up taking photographs, because nobody in Europe believed the letters. In 1904 a man named Nsala came to our house with what the soldiers had done to his child.", "We showed the photographs as lantern slides in hundreds of halls. In 1908 the king had to give the Congo up. I lived to be a hundred."],
+            ),
+        ),
+        // Australia, Aotearoa, Tonga and Samoa (wave L1). Tuʻitātui, Henry
+        // Williams, Ana Hamu, Hōne Heke, Bennelong, Barangaroo and Pemulwuy are
+        // real; the fisher, the ranger, the ngatu maker, the tufuga, the moa
+        // hunter and the carver are original.
+        "npc_history_mungo_fisher": (
+            display_name: "Mungo Fisher",
+            // An original fisher of the Willandra Lakes, about 40,000 years ago, with a net bag of mussels.
+            manifest: "sprites/history_mungo_fisher_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "lake_mungo", "peaceful"],
+            barks: (
+                idle: ["The lake is full this year.", "*she shakes out a net bag of mussels*", "Mind the fire. Mind the yabbies."],
+                hall: ["Fish, mussels, yabbies, emu eggs in season. Our shell heaps by the fires are still here, forty thousand years on.", "One day the lake will dry and the dune will blow over our camps. We will still be here."],
+            ),
+        ),
+        "npc_history_mungo_ranger": (
+            display_name: "Mungo Ranger",
+            // An original Mutthi Mutthi ranger of Mungo National Park today.
+            manifest: "sprites/history_mungo_ranger_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "lake_mungo", "peaceful"],
+            barks: (
+                idle: ["Mind where you step.", "*she checks the footprints after the rain*", "Walk softly. You are a guest here."],
+                hall: ["Mungo Lady was cremated about 40,000 years ago; Mungo Man was laid out in red ochre about 42,000 years ago. Among the oldest ritual burials known anywhere.", "Mungo Man was kept in Canberra for 43 years. In 2017 we brought him home in a hearse across the country, and people stood by the road."],
+            ),
+        ),
+        "npc_history_tuitatui": (
+            display_name: "Tuʻitātui",
+            // Tuʻitātui, the eleventh Tuʻi Tonga (about 1200), who had the Haʻamonga ʻa Maui built.
+            manifest: "sprites/history_tuitatui_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(69.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "tonga_samoa", "peaceful"],
+            barks: (
+                idle: ["Bow to the stone.", "*he looks along the lintel toward the sunrise*", "My canoes go where my word goes."],
+                hall: ["Two uprights and a lintel of coral stone, more than thirty tonnes each. A gate, a calendar, or both? In 1967 a king of Tonga was out at dawn to check.", "No one ever ruled Tonga. We are still a kingdom."],
+            ),
+        ),
+        "npc_history_ngatu_maker": (
+            display_name: "Ngatu Maker",
+            // An original Tongan woman who makes ngatu (bark cloth), with a wooden beater (ike).
+            manifest: "sprites/history_ngatu_maker_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 163 cm.
+            standing_height: Some(63.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "tonga_samoa", "peaceful"],
+            barks: (
+                idle: ["Thud, thud, thud.", "*she beats the bark thinner*", "Do not ask what the ngatu says. It holds all the gossip."],
+                hall: ["We beat the inner bark of the paper mulberry thin and wide, glue it, and print it brown. A great ngatu is tens of metres long.", "A ngatu is wealth: you give it away at a wedding or a funeral, and everyone remembers."],
+            ),
+        ),
+        "npc_history_tufuga_tatau": (
+            display_name: "Tufuga Tā Tatau",
+            // An original Samoan master of tatau, with a bone comb and a mallet.
+            manifest: "sprites/history_tufuga_tatau_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "tonga_samoa", "peaceful"],
+            barks: (
+                idle: ["Sit. It will hurt.", "*tap, tap, tap*", "Do not cry out. Your family is watching."],
+                hall: ["A man's peʻa goes from the waist to the knees, by hand, over days. The missionaries tried to stop it. They could not.", "English sailors took our word home: tatau. Now half the world has a tattoo and does not know whose word it is."],
+            ),
+        ),
+        "npc_history_moa_hunter": (
+            display_name: "Moa Hunter",
+            // An original hunter of Aotearoa, about 1350, with a spear.
+            manifest: "sprites/history_moa_hunter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "aotearoa", "peaceful"],
+            barks: (
+                idle: ["Shh. A moa.", "*he listens to the bush*", "Fewer every year."],
+                hall: ["My grandfather's fires were full of moa bones. Mine have fewer. My grandchildren will have to ask what a moa was.", "Within about 150 years of our coming, all nine kinds of moa were gone, and then the eagle. Nobody meant it. That is why it is a warning."],
+            ),
+        ),
+        "npc_history_pounamu_carver": (
+            display_name: "Pounamu Carver",
+            // An original carver of Aotearoa, about 1375, who grinds a pounamu (greenstone) adze.
+            manifest: "sprites/history_pounamu_carver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "aotearoa", "peaceful"],
+            barks: (
+                idle: ["Grind, wet, grind, wet.", "*she holds the green blade up to the light*", "One more week."],
+                hall: ["Pounamu comes from the rivers of the South Island. It is the toughest stone we know: weeks of grinding for one blade.", "A pounamu adze is handed down for generations. It has a name, and a story."],
+            ),
+        ),
+        "npc_history_henry_williams": (
+            display_name: "Henry Williams",
+            // Henry Williams (1792-1867), missionary, who with his son Edward put the Treaty of Waitangi into Māori overnight on 4 February 1840.
+            manifest: "sprites/history_henry_williams_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 173 cm.
+            standing_height: Some(67.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "waitangi", "peaceful"],
+            barks: (
+                idle: ["I have not slept.", "*he crosses out a word, and writes it again*", "'Sovereignty' has no word in Māori."],
+                hall: ["I wrote 'kāwanatanga', governorship, for sovereignty, and that the chiefs keep 'tino rangatiratanga', their full chieftainship. Was that the same thing? No.", "Almost all the chiefs signed the Māori text. New Zealand has argued about the difference ever since."],
+            ),
+        ),
+        "npc_history_ana_hamu": (
+            display_name: "Ana Hamu",
+            // Ana Hamu, widow of the chief Te Koki, one of the few women who signed the Treaty of Waitangi, 6 February 1840.
+            manifest: "sprites/history_ana_hamu_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "waitangi", "peaceful"],
+            barks: (
+                idle: ["Read the Māori text.", "*she reads the paper again, carefully*", "A chief is a chief."],
+                hall: ["About a dozen women signed, out of more than five hundred names. Some women of rank were turned away by British officers.", "The paper in our language says we keep our chieftainship and our lands. Whether it was kept is another story."],
+            ),
+        ),
+        "npc_history_hone_heke": (
+            display_name: "Hōne Heke",
+            // Hōne Heke Pōkai (about 1807-1850), Ngāpuhi chief, first to sign the Treaty, who cut down the British flagstaff at Kororāreka four times.
+            manifest: "sprites/history_hone_heke_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "waitangi", "peaceful"],
+            barks: (
+                idle: ["Mind the flagstaff. It falls over a lot.", "*he weighs his axe in his hand*", "Four times."],
+                hall: ["I was the first chief to sign at Waitangi. Within a few years the flag on the hill said who was master. So in 1844 I cut it down.", "They put it up again. I cut it down again. The fourth time it was sheathed in iron and guarded, in March 1845. We cut it down anyway."],
+            ),
+        ),
+        "npc_history_barangaroo": (
+            display_name: "Barangaroo",
+            // Barangaroo (died 1791), a Cammeraygal woman and fisher of the harbour, who refused the colony's ways.
+            manifest: "sprites/history_barangaroo_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "sydney_cove", "peaceful"],
+            barks: (
+                idle: ["Stay out of my way. I am fishing.", "*she re-ties a shell hook to a bark line*", "The fish are biting."],
+                hall: ["I fish from my nawi with my daughters, with a little fire in the canoe to cook the catch. My hook is shell; my line is bark.", "My husband dines with their governor. I do not. I will not wear their clothes. Part of the harbour shore carries my name now. Good."],
+            ),
+        ),
+        "npc_history_bennelong": (
+            display_name: "Bennelong",
+            // Woollarawarre Bennelong (about 1764-1813), of the Wangal, seized in 1789 to be the colony's go-between.
+            manifest: "sprites/history_bennelong_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "sydney_cove", "peaceful"],
+            barks: (
+                idle: ["Good day to you.", "*he adjusts a coat that does not quite fit*", "I learned their manners. They did not learn mine."],
+                hall: ["In 1789 the governor's men seized me and kept me in a chain to learn our language. I escaped. Later I came back, on my terms.", "The governor built me a hut on the point where the Opera House stands now. I sailed to England in 1792 and came home in 1795."],
+            ),
+        ),
+        "npc_history_pemulwuy": (
+            display_name: "Pemulwuy",
+            // Pemulwuy (about 1750-1802), of the Bidjigal, who led the resistance to the colony for twelve years.
+            manifest: "sprites/history_pemulwuy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(69.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "sydney_cove", "peaceful"],
+            barks: (
+                idle: ["I see you.", "*he watches the tree line*", "Remember whose land you walk on."],
+                hall: ["The newcomers took our land for farms, so we fought them, from 1790. They shot me many times. They said I could not be killed. In 1802 they killed me.", "The governor sent my head to England. It has never been found. My son Tedbury fought on."],
+            ),
+        ),
+        // Budj Bim (wave L1). The farmer and the weaver are original.
+        "npc_history_kooyang_farmer": (
+            display_name: "Kooyang Farmer",
+            // An original Gunditjmara man of Budj Bim, who sets woven traps in the stone weirs for kooyang (eels).
+            manifest: "sprites/history_kooyang_farmer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "budj_bim", "peaceful"],
+            barks: (
+                idle: ["The water is rising.", "*he settles the trap in the gap of the weir*", "Step on the stones, not in the channels."],
+                hall: ["Our old people cut these channels in the lava for at least 6,600 years. Some hold eels in ponds for months. That is farming.", "Budj Bim erupted about 37,000 years ago. People were here to see it. We are still here."],
+            ),
+        ),
+        "npc_history_basket_weaver": (
+            display_name: "Basket Weaver",
+            // An original Gunditjmara woman of Budj Bim, who plaits eel traps of sedge.
+            manifest: "sprites/history_basket_weaver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "budj_bim", "peaceful"],
+            barks: (
+                idle: ["Over, under, over, under.", "*she pulls the sedge tight*", "Hold this end for me."],
+                hall: ["An eel trap has a neck the eel swims into and not out of. A good one lasts many seasons.", "The lake was drained for farms. In 2010 our people brought the water back. In 2019 the world listed it as heritage."],
             ),
         ),
         "npc_primeval_twitchell": (

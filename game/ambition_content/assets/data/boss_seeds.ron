@@ -12,7 +12,7 @@
         fair_counters: [Jump, Blink],
         threat: Medium,
         telegraph: (min_s: 0.50, max_s: 1.10),
-        active: (min_s: 0.35, max_s: 3.30),
+        active: (min_s: 0.30, max_s: 3.30),
         instances: [
             "wolf_hammer", // Wolfenstein: both fists into the floor; a shock runs it both ways, and his fists stick
             "trex_tail_whip", // the T-rex: the tail coils, then sweeps low behind him
@@ -54,7 +54,7 @@
         fair_counters: [WalkOut, Dash],
         threat: Heavy,
         telegraph: (min_s: 0.50, max_s: 1.20),
-        active: (min_s: 0.25, max_s: 2.00),
+        active: (min_s: 0.25, max_s: 2.30),
         instances: [
             "inu_dive", // the Inugami: up over you, nose down, its teeth into the floor and a shock both ways: the long window
             "inu_gutter", // the Inugami: its fire spent, it drops to the floor and lies there: the longest window
@@ -174,7 +174,7 @@
         skill_tested: "Move unpredictably; read arrival, not launch.",
         fair_counters: [Jump, Dash, WalkOut, Blink],
         threat: Light,
-        telegraph: (min_s: 0.70, max_s: 1.40),
+        telegraph: (min_s: 0.60, max_s: 1.40),
         active: (min_s: 0.28, max_s: 4.20),
         instances: [
             "wolf_galvanize", // Wolfenstein: sparks mark three places, one under you; lightning strikes them, then he goes flat
@@ -182,6 +182,7 @@
             "overfit_volley", // five sampled ghosts, then five tracking shots
             "overflow_flood", // a falling wall with ONE gap (78px half-width)
             "mockingbird_strafe", // the Mockingbird, enraged: a run along the top of the sky raining fire on the flock, and back low
+            "inu_storm", // the Inugami: three marks, then bolts from the vault strike them
         ],
         recipes: [
             (

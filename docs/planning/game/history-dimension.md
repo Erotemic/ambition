@@ -75,14 +75,14 @@ the record and sighs about the footnotes.
 
 ## The grid
 
-             C0       C1            C2              C3           C4          C5          C6     C7
+             C0       C1            C2              C3           C4          C5          C6     C7          C8
     R0 Americas       beringia      maize           olmecs       maya        taino       haiti
     R½ S. America                   andes           caral
     R1 East Asia      mammoth st.┐  yellow river    shang        silk road   song        steppe
     R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla       joseon      heian
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
     R2½ SE Asia       sulawesi      austronesians   dong son     srivijaya   angkor
-    R3 South Asia     south. route  mehrgarh        indus
+    R3 South Asia     south. route  mehrgarh        indus                                muslin company     ekushey
     R4 Europe         ice age       first farmers   megaliths    celts       vikings     sail   industrial
     R5 Med./SW Asia   levant        crescent        uruk         classical
     R6 Africa cradle  south. coast  green sahara    nile         aksum       timbuktu    benin  the fort
@@ -103,6 +103,8 @@ floor, over a tower of ledges in the lower room):
 | C3 | Taiwan and the Lapita voyagers | the Austronesians sail from Taiwan into the Pacific (this way was the atlas's road from the Shang court until Taiwan was built) |
 | C4 | the Silk Road and Silla | glass from Rome and Persia in Silla's tombs |
 | C5 | Song China and Joseon | printing: Song's movable type, then Korea's metal type |
+| C6 | Dhaka and the Age of Sail | the Company's ships carried the muslin to Europe |
+| C7 | the Company and the Industrial Age | Lancashire's machine cloth undercut Bengal's weavers |
 | C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
 | C4 | Aksum and Rome, Rome and the Celts | the Red Sea trade; the frontier |
 
@@ -137,6 +139,9 @@ The rooms:
 | `history_angkor` | `history_angkor` | the baray engineer, Zhou Da-Guide | king cobra, saltwater crocodile | the West Baray's dike, the sandstone with its peg holes, the causeway over the moat, and Angkor Wat's three tiers |
 | `history_mehrgarh` | `history_indus` | the dentist of Mehrgarh | locust swarm, tiger | the terraces |
 | `history_indus_cities` | `history_indus` | the Priest-King (Probably) | indus unicorn, tiger | the unicorn seal on the granary roof (`history_unicorn_seal`, a pickup) opens the citadel gate |
+| `history_dhaka_muslin` | `history_dhaka_river` | the spinner, the muslin weaver | gharial, rhesus macaque | a country boat over the Buriganga; the loom; up the unfinished walls of Lalbagh fort; the way down to the Age of Sail (the Company's ships) |
+| `history_company_raj` | `history_calcutta` | Ram Mohan Roy, Rani Lakshmibai | gharial, rhesus macaque | sober signs: Plassey, the famine of 1770, 1857 and its two names; the ghat and Fort William's rampart; the way down to the Industrial Age (Lancashire's cloth) |
+| `history_ekushey` | `history_dhaka_spring` | Tagore, Begum Rokeya, a student of 1952, a poet of 1971 | rhesus macaque (the first half only) | Curzon Hall's arches; the air-car of Sultana's Dream over a dream's long drop; the Shaheed Minar and 21 February; 1971. No creatures near the memorial |
 | `history_jomon` | `history_jomon` | the flame potter, the chestnut keeper | Japanese macaque, Asian black bear | up the six chestnut posts of Sannai-Maruyama (a tower? a stage?) and over the shell mound; foragers who never farmed |
 | `history_taiwan` | `history_taiwan` | the jade carver of Fengtian, the farmer of Nankuanli | clouded leopard, coral crab | up the millet terraces; Fengtian jade; nine of the ten first branches of Austronesian; the way down to the Lapita |
 | `history_silla` | `history_gyeongju` | Queen Seondeok, the star watcher | tiger, Asian black bear | over the royal tomb mounds and up Cheomseongdae; the gold crowns; the way up to the Silk Road |
@@ -214,11 +219,42 @@ instruments are real samples, most of them from the Versilian VCSL library.
 | Americas | `history_americas_land_bridge` | Over the Land Bridge | A minor to A major; ocarina, slit drum, wine-glass ice for Beringia |
 
 The buildings take the cue of their region (the Granary, the Great Ger,
-the Timbuktu Library), except where the place has its own mood: the
-tomb and the painted cave (`vault_in_the_dark`), the Colosseum
-(`fighters_guild_oath_of_steel`), the cotton mill
-(`luddites_guild_loom_and_liberty`). The Age of Sail and the Industrial Age
-are not one region's music any more; they keep the cues of their eras.
+the Timbuktu Library), except where the place has its own mood.
+
+### Rules for new cues
+
+Jon, 2026-11-04: "not all songs have to be Smaltzy, or rather if you write
+new music avoid things that are Smaltzy. Do more pop, more genres. But keep
+it video game friendly and loopable. The industrial zone should not reuse
+wolfenstein's fight song. Songs played in castle godwin belong there, so
+need new replacements. But less blaze (although I get it the other songs
+are being respectful, we can be a bit less respectful as we move forward in
+time and towards the dominant power of the time)."
+
+1. **No schmaltz.** A new cue has a groove and a hook, not a slow wash of
+   pads. Use pop and many genres (ska, funk, electro-swing, synth-pop,
+   rock, trip-hop, drum and bass, chiptune), with the region's instruments
+   where they fit.
+2. **Game music first.** It loops without a seam (`dev/measure_loop_join.py`),
+   its sections can stand alone, and its tune does not tire after ten loops.
+3. **A History room plays History's own cues.** It does not borrow a cue
+   that belongs to another place. In the generator's `MUSIC`, every value is
+   a `history_*` cue.
+4. **The tone follows the power.** The early rooms, the colonised and the
+   sober rooms keep their respect. As the map goes forward in time and
+   toward the dominant power of each age (Rome, the Age of Sail, the
+   Industrial Age, the Company), the music can be cheekier and less
+   reverent.
+
+The borrowed cues to replace, with the place each one belongs to:
+
+| History room | borrowed cue | it belongs to |
+| --- | --- | --- |
+| the Industrial Age | `galvanic_march` | Wolfenstein's boss fight |
+| the tomb, the painted cave | `vault_in_the_dark` | the evil moor's catacombs |
+| the Colosseum | `fighters_guild_oath_of_steel` | the Fighters Guild's theme (the guilds of Castle Godwin) |
+| the cotton mill | `luddites_guild_loom_and_liberty` | the Luddites Guild's theme |
+| the Age of Sail | `pirates_guild_black_flag_jig` | the Pirates Guild's theme |
 
 Samples to measure before you use them again (the composer scripts correct
 them per note with `tuning_correction`): the Horse Pulse tagelharpa is up to
@@ -389,7 +425,8 @@ built room, then the links that make the world one. Each wave starts with
 | A, B | the Atlantic world; the Andes and Caral | BUILT |
 | C | **Southeast Asia** (C1 BUILT: Sulawesi, the Austronesian islands, Dong Son; C2 BUILT: Srivijaya, Borobudur, Angkor), the first cluster off the grid: Sulawesi's painted story (51,200 years), the Austronesians come to the islands, Dong Son and its drums (the Trưng sisters), the strait of Srivijaya (a corridor), Angkor (a hub), Borobudur (tall) | 680 million players with no room; it also replaces the Shang-to-Lapita shortcut with Taiwan, the true homeland |
 | D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts; D2 BUILT: Song Hangzhou, Joseon, Heian-kyō, with the cue "Ink and Silk"): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
-| E | **Bengal and the cotton**: Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
+| D3 | **Japan, after Heian** (next): Kamakura and the Mongol fleets of 1274 and 1281 (east of the steppe; Takezaki Suenaga's scroll), Edo (Hokusai, Bashō, the river of shops at Nihonbashi; dressed with the ninja village's houses, tea house and bridge, and one ninja who admits the black suit came from the theatre), Meiji (Tsuda Umeko; the railway of 1872); later: Nara, the Ryukyu kingdom, Ainu Mosir, and Hiroshima in wave I | Japan (124 million) has only Jōmon and Heian; a Japanese player should find their history, not only ninjas |
+| E | **Bengal and the cotton** (E BUILT: a row on South Asia's floor, C6-C8): Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
 | F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
 | G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |
 | H | **The revolutions** (a new column, H7): Philadelphia 1776, Paris 1789, the liberators (a corridor), Mexico 1810, Manila 1896, the Underground Railroad | four obvious topics at once, on four continents |
@@ -433,6 +470,19 @@ a hole; its report says how big.
 7. Names a player knows. A native name gets the familiar one beside it the
    first time it appears (Boriken, Puerto Rico; Ayiti, Haiti and the
    Dominican Republic). Each room has its blurb: where, when, one fact.
+
+8. Reuse before you draw (Jon, 2026-11-04: "we can reuse assets, I saw we
+   made a new cassowary rather than reuse the existing one, it would have
+   been fine to do that if the asset fits well. I.e. we can reuse lots of
+   ninja dimension stuff for japan, but make sure its not all ninjas - we
+   do have respect for history."). Before an art brief names a new
+   creature, prop or biome, search the renderer's targets and the
+   character catalog for one that fits (`cassowary` existed when
+   `cassowary_history` was drawn). Reuse it when it fits the place and the
+   time; draw a new one only when nothing fits. Another dimension's art may
+   dress a History room (the ninja village's houses, tea house, storehouse,
+   bridge and kiln for Edo), but the room is still history: its people and
+   its signs are real, and a borrowed joke enemy is at most one of many.
 
 ### Ideas for mechanics
 

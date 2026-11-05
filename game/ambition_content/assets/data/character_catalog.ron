@@ -677,6 +677,16 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.5, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 36.0, step_px: 0.0, rush_px: 170.0)),
         ),
+        // The gharial swings its long snout sideways (its windup row) and
+        // snaps; the rhesus macaque crouches (its windup row) and leaps to grab.
+        "gharial_snap": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.55, active_s: 0.2, recover_s: 0.8, damage: 2, reach_px: 70.0, step_px: 0.0, rush_px: 60.0)),
+        ),
+        "rhesus_macaque_grab": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 160.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -7971,6 +7981,68 @@
             hall: ["I am not a raccoon. I am a dog. A round dog.", "In the old stories I change shape: into a teakettle, once, and then I could not get my tail back in."],
         ),
         ),
+        // The gharial: the fish-eating crocodile of the Ganges and the
+        // Brahmaputra, with a long thin snout. Critically endangered.
+        "gharial": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Gharial",
+            manifest: "sprites/gharial_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(28.0),
+            composition: None,
+            default_action_set: "gharial_snap",
+            locomotion: Some((run_speed: 110.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 420.0,
+                attack_range: 96.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.6,
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.8, footsies: Some((hold_px: 150.0, wait_s: 0.9))),
+            )),
+            max_health: Some(5),
+            mass: Some(5.0),
+            tags: ["enemy", "history", "bengal", "beast"],
+        barks: (
+            on_hit: ["*a long, offended hiss*", "*clack*"],
+            provoked: ["*the snout swings round, slowly*"],
+            idle: ["*it lies very still, like a log with teeth*", "*a fish vanishes*"],
+            hall: ["The bulb on a male gharial's snout is a ghara: a pot. That is where the name comes from.", "My snout is made for fish. I cannot eat you. I can still bite you. There are only a few hundred of us grown up in the wild: please mind the rivers."],
+        ),
+        ),
+        // The rhesus macaque of the river towns: brown-grey, with a pink-red
+        // face. It lives wherever people leave food about.
+        "rhesus_macaque": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Rhesus Macaque",
+            manifest: "sprites/rhesus_macaque_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "rhesus_macaque_grab",
+            locomotion: Some((run_speed: 240.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 80.0,
+                patrol_effort: 0.7,
+                chase_effort: 1.0,
+                retreat_after_swing_s: 0.4,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.3, waits_its_turn: true, footsies: Some((hold_px: 110.0, wait_s: 0.4)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "bengal", "beast"],
+        barks: (
+            on_hit: ["*SKREE!*", "*it bares its teeth and backs off*"],
+            provoked: ["*it eyes your bag*"],
+            idle: ["*it opens a bag that is not its bag*", "*it eats a mango, noisily*"],
+            hall: ["The Rh in your blood type is for rhesus: the factor was first found in experiments with us.", "In 1948 a rhesus monkey called Albert rode a rocket from New Mexico. We were in space before you."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -12396,6 +12468,145 @@
             barks: (
                 idle: ["Measure twice.", "*he reads the water in the gauge, and writes it down*", "The same rain gauge in every province. Now we can compare."],
                 hall: ["I was born a government slave. King Sejong made me an official, and I made him clocks that ring the hours by themselves, and sundials for the streets.", "People say I made the rain gauge. The records say the crown prince did, in 1441. I will settle for the water clock."],
+            ),
+        ),
+        // Bengal (wave E). Ram Mohan Roy, Rani Lakshmibai, Rabindranath Tagore
+        // and Begum Rokeya are real; the weaver, the spinner, the student of
+        // 1952 and the poet of 1971 are original.
+        "npc_history_muslin_weaver": (
+            display_name: "Muslin Weaver of Dhaka",
+            // An original master weaver of Dhaka muslin, about 1700, with a shuttle and a fold of cloth as fine as mist.
+            manifest: "sprites/history_muslin_weaver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 162 cm.
+            standing_height: Some(62.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["Woven air.", "*the shuttle flies*", "Hold it to the light. You will see your hand through it."],
+                hall: ["A length of our finest muslin could pass through a finger ring. The Mughal court wore it; later, so did the ladies of Paris.", "Then the Company took the trade, and then came the machine cloth of Lancashire, cheaper and coarser. By the 1800s the great looms of Dhaka were quiet."],
+            ),
+        ),
+        "npc_history_cotton_spinner": (
+            display_name: "Spinner of Dhaka",
+            // An original spinner of the fine muslin thread, about 1700, with a slim spindle, a bowl of water and a comb of fish jawbone.
+            manifest: "sprites/history_cotton_spinner_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 152 cm.
+            standing_height: Some(58.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["Quiet. The thread is thinner than a hair.", "*she wets her fingers*", "Morning is best. The damp holds the thread."],
+                hall: ["We spun in the early morning and by the river, while the air was damp: dry air snaps the thread. Young eyes and light fingers spun the finest.", "We cleaned the cotton with the jawbone of the boal fish, its teeth as fine as a comb. Then the phuti karpas cotton was lost, and the finest thread with it."],
+            ),
+        ),
+        "npc_history_ram_mohan_roy": (
+            display_name: "Raja Ram Mohan Roy",
+            // Raja Ram Mohan Roy (1772-1833), reformer and publisher of Calcutta, with a newspaper and a quill.
+            manifest: "sprites/history_ram_mohan_roy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["Read, and then argue.", "*he dips the quill*", "A newspaper is a conversation with a whole city."],
+                hall: ["I published newspapers in Bengali and Persian, and argued for schools of science, for the right of women to inherit, and against sati. In 1829 it was banned.", "I sailed to England in 1830 to speak for the Mughal emperor, and I died in Bristol in 1833. There is a statue of me there now."],
+            ),
+        ),
+        "npc_history_rani_lakshmibai": (
+            display_name: "Rani Lakshmibai",
+            // Rani Lakshmibai of Jhansi (about 1828-1858), a leader of the rising of 1857, in riding dress with a sheathed sword.
+            manifest: "sprites/history_rani_lakshmibai_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 160 cm.
+            standing_height: Some(62.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["Jhansi is mine. I will not give it.", "*her hand rests on the hilt*", "Ride well, or do not ride."],
+                hall: ["When my husband died, the Company would not accept our adopted son as heir, and took Jhansi by its 'doctrine of lapse'. I said: I will not give up my Jhansi.", "In 1857 the rising came. In 1858 I died fighting near Gwalior. The British general who fought me is said to have called me the most dangerous of the rebel leaders."],
+            ),
+        ),
+        "npc_history_rabindranath_tagore": (
+            display_name: "Rabindranath Tagore",
+            // Rabindranath Tagore (1861-1941), poet, composer and painter of Bengal, the first Nobel laureate from outside Europe, with a book and a pen.
+            manifest: "sprites/history_rabindranath_tagore_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["Where the mind is without fear...", "*he hums a tune he has just written*", "Let me finish this song. I have written two thousand."],
+                hall: ["In 1913 I was given the Nobel Prize for Gitanjali, the first to anyone outside Europe. Two countries sing my songs as their anthems: Bangladesh and India.", "In 1919, after the massacre at Amritsar, I gave my knighthood back. Some honours are heavier than others."],
+            ),
+        ),
+        "npc_history_begum_rokeya": (
+            display_name: "Begum Rokeya",
+            // Begum Rokeya Sakhawat Hossain (1880-1932), writer and educator, author of Sultana's Dream (1905), with a book and a model air-car.
+            manifest: "sprites/history_begum_rokeya_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 155 cm.
+            standing_height: Some(60.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["Educate the girls. Then see.", "*she adjusts the end of her sari*", "In my story, the men stay indoors."],
+                hall: ["Girls in my family were not supposed to learn Bengali or English. I learned them at night, by candlelight, with my brother's help.", "In Sultana's Dream women run the country with science: they cook with sunlight, fly air-cars, and win a war with the sun's heat. In 1911 I opened a school for girls in Calcutta, with eight pupils."],
+            ),
+        ),
+        "npc_history_language_student": (
+            display_name: "Student of Dhaka, 1952",
+            // An original student of Dhaka University in the Language Movement, 21 February 1952, with a hand-painted placard and a book.
+            manifest: "sprites/history_language_student_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["We want Bengali as a state language!", "*he grips his placard*", "We are not afraid."],
+                hall: ["In 1948 Pakistan's leaders said Urdu alone would be the state language. Most of us in East Bengal speak Bengali. On 21 February 1952 we marched anyway, and the police fired.", "In 1956 Bengali became a state language of Pakistan. Today the world keeps 21 February as International Mother Language Day. Speak your language to your children."],
+            ),
+        ),
+        "npc_history_freedom_fighter_poet": (
+            display_name: "Poet of 1971",
+            // An original young poet of Bangladesh's war of independence, 1971, with a notebook and a transistor radio.
+            manifest: "sprites/history_freedom_fighter_poet_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bengal", "peaceful"],
+            barks: (
+                idle: ["Listen: the radio.", "*he writes a line, then hides the notebook*", "Joy Bangla."],
+                hall: ["On 25 March 1971 the army struck Dhaka. Nine months of war followed. Some ten million people fled to India, and many of our teachers and writers were killed in the last days.", "On 16 December the war ended, and Bangladesh was free. Every 21 February we walk barefoot to the Shaheed Minar with flowers."],
             ),
         ),
         "npc_primeval_twitchell": (

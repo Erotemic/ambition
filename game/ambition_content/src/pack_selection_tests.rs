@@ -667,8 +667,9 @@ fn selection_is_replaceable_until_consumed_and_idempotent_after() {
 /// A module that `lib.rs` declares under `#[cfg(test)]`, or whose file opens
 /// with `#![cfg(test)]`, is test code and is skipped.
 ///
-/// Nothing in `ambition_app` may reach any of them: the host composes through
-/// the plugin and the registers, which select.
+/// Nothing in `ambition_app` production code may reach any of them: the host
+/// composes through the plugin and the registers, which select. Its test files
+/// are skipped by the same rule as this crate's.
 #[test]
 fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
     const ALLOWED: &[(&str, usize)] = &[
@@ -844,6 +845,10 @@ fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
     let mut app_files = Vec::new();
     walk(&app_src, &mut app_files);
     for path in app_files {
+        let rel = path.strip_prefix(&app_src).unwrap().to_string_lossy().replace('\\', "/");
+        if is_test_file(&rel) {
+            continue;
+        }
         let text = std::fs::read_to_string(&path).expect("readable source");
         assert_eq!(
             production_hits(&text),

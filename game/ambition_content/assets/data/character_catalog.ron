@@ -687,6 +687,16 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 160.0)),
         ),
+        // The black caiman sinks low (its windup row) and lunges; the
+        // capybara lowers its head (its windup row) and charges.
+        "black_caiman_lunge": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.6, active_s: 0.25, recover_s: 0.8, damage: 2, reach_px: 64.0, step_px: 0.0, rush_px: 120.0)),
+        ),
+        "capybara_charge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.5, active_s: 0.3, recover_s: 0.7, damage: 1, reach_px: 40.0, step_px: 0.0, rush_px: 200.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -8043,6 +8053,67 @@
             hall: ["The Rh in your blood type is for rhesus: the factor was first found in experiments with us.", "In 1948 a rhesus monkey called Albert rode a rocket from New Mexico. We were in space before you."],
         ),
         ),
+        // The black caiman: the largest predator of the Amazon, nearly black,
+        // with pale bands on its jaw.
+        "black_caiman": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Black Caiman",
+            manifest: "sprites/black_caiman_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(28.0),
+            composition: None,
+            default_action_set: "black_caiman_lunge",
+            locomotion: Some((run_speed: 120.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 440.0,
+                attack_range: 90.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.6,
+                attack_cooldown_s: 1.2,
+                tactics: (notice_s: 0.8, footsies: Some((hold_px: 150.0, wait_s: 0.9))),
+            )),
+            max_health: Some(5),
+            mass: Some(5.0),
+            tags: ["enemy", "history", "amazonia", "beast"],
+        barks: (
+            on_hit: ["*a deep, wet hiss*", "*the water churns*"],
+            provoked: ["*two eyes, just above the water*"],
+            idle: ["*it is a log. It is not a log.*", "*a slow blink*"],
+            hall: ["I am the largest predator in the Amazon. The jaguar disagrees. We do not discuss it.", "In the last century we were hunted for our skins until few of us were left. We are coming back. Mind the water."],
+        ),
+        ),
+        // The capybara: the largest rodent in the world, calm, half aquatic,
+        // with webbed toes.
+        "capybara": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Capybara",
+            manifest: "sprites/capybara_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "capybara_charge",
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 400.0,
+                attack_range: 80.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.7,
+                attack_cooldown_s: 1.1,
+                tactics: (notice_s: 0.8, footsies: Some((hold_px: 130.0, wait_s: 0.8)), flinch_back_s: 0.3),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "history", "amazonia", "brazil", "beast"],
+        barks: (
+            on_hit: ["*a small, offended whistle*", "*it sits down, then thinks better of it*"],
+            provoked: ["*it lowers its big square head*"],
+            idle: ["*it chews, calmly*", "*a bird lands on its back. It allows this.*"],
+            hall: ["I am the largest rodent in the world. I can stay under water for five minutes. Can you?", "Birds ride on my back and eat my ticks. Monkeys sit on me. I am very calm. Usually."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -12607,6 +12678,145 @@
             barks: (
                 idle: ["Listen: the radio.", "*he writes a line, then hides the notebook*", "Joy Bangla."],
                 hall: ["On 25 March 1971 the army struck Dhaka. Nine months of war followed. Some ten million people fled to India, and many of our teachers and writers were killed in the last days.", "On 16 December the war ended, and Bangladesh was free. Every 21 February we walk barefoot to the Shaheed Minar with flowers."],
+            ),
+        ),
+        // Brazil and Amazonia (wave F). Zumbi, Dandara (as tradition remembers
+        // her), André Rebouças, Luís Gama and the Dragão do Mar are real; the
+        // potter, the gardener and the smith are original.
+        "npc_history_marajoara_potter": (
+            display_name: "Marajoara Potter",
+            // An original potter of Marajó island, about 1000 CE, with a bowl painted in red, black and white, and a fine brush.
+            manifest: "sprites/history_marajoara_potter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 156 cm.
+            standing_height: Some(60.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "amazonia", "peaceful"],
+            barks: (
+                idle: ["Red, black, white. Always in that order? No.", "*she paints a fine band*", "The flood is coming. The pots are ready."],
+                hall: ["We build our houses on mounds above the flood. Some mounds are as long as a village; your diggers count hundreds of them on Marajó.", "Our painted jars lasted a thousand years in the mounds. Your museums keep them now. Look closely: no two bands are the same."],
+            ),
+        ),
+        "npc_history_dark_earth_gardener": (
+            display_name: "Gardener of the Dark Earth",
+            // An original Amazonian gardener, about 1000 CE, with a digging stick and a basket of charcoal and potsherds for terra preta.
+            manifest: "sprites/history_dark_earth_gardener_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "amazonia", "peaceful"],
+            barks: (
+                idle: ["Charcoal, pottery, fish bones: the recipe for soil.", "*he crumbles black earth between his fingers*", "This forest? We planted half of it."],
+                hall: ["The forest soil is poor. We burn slowly, we add our waste and broken pots, and the earth turns black and stays rich. Farmers dig our dark earth today, and sell it.", "Brazil nuts, cacao, palms, manioc: the forest near our towns is full of the trees we liked. Later Europeans saw a wilderness. It was a garden."],
+            ),
+        ),
+        "npc_history_zumbi": (
+            display_name: "Zumbi dos Palmares",
+            // Zumbi (1655-1695), last leader of the Quilombo dos Palmares, with a spear at rest.
+            manifest: "sprites/history_zumbi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(69.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "palmares", "peaceful"],
+            barks: (
+                idle: ["Palmares is free. Keep it free.", "*he looks out over the valley*", "We do not bargain with freedom."],
+                hall: ["In 1678 Ganga Zumba made a peace with the governor: freedom for those born in Palmares, if the rest went back. I refused it. Freedom for some is not freedom. I led Palmares after him.", "They killed me on 20 November 1695. Brazil keeps that day now as Black Consciousness Day."],
+            ),
+        ),
+        "npc_history_dandara": (
+            display_name: "Dandara",
+            // Dandara of Palmares (died 1694), remembered in tradition as a farmer and fighter, with a hoe on her shoulder.
+            manifest: "sprites/history_dandara_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "palmares", "peaceful"],
+            barks: (
+                idle: ["Plant, then defend what you planted.", "*she shifts the hoe on her shoulder*", "Ask me about capoeira. Or don't."],
+                hall: ["Little was written about me by the people who wrote things down. Palmares remembers me: I farmed, I fought, and with Zumbi I said no to the peace of 1678.", "The story goes that in 1694, when Palmares fell, I chose death over slavery. Remember the story, and ask who kept it."],
+            ),
+        ),
+        "npc_history_palmares_smith": (
+            display_name: "Smith of Palmares",
+            // An original blacksmith of Palmares, about 1680, with a hammer and tongs holding a glowing hoe blade.
+            manifest: "sprites/history_palmares_smith_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "palmares", "peaceful"],
+            barks: (
+                idle: ["Hot iron waits for nobody.", "*clang*", "A hoe today. Tomorrow, whatever Palmares needs."],
+                hall: ["Many of us came from the lands of Kongo and Ndongo, where a smith is a respected person. In Palmares we make hoes, axes and blades from scrap and from ore.", "Palmares grows maize, beans, manioc, bananas and sugar cane. We trade with the farms below, when they will trade. Freedom needs tools."],
+            ),
+        ),
+        "npc_history_andre_reboucas": (
+            display_name: "André Rebouças",
+            // André Rebouças (1838-1898), Black Brazilian engineer and abolitionist, with rolled engineering plans.
+            manifest: "sprites/history_andre_reboucas_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 180 cm.
+            standing_height: Some(69.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "rio", "peaceful"],
+            barks: (
+                idle: ["Measure twice, build once.", "*he unrolls a plan of the docks*", "The law is signed. Now the land."],
+                hall: ["I built docks and railways, and I taught engineering. I was one of the few Black men at the emperor's court, and I used my place there to argue for abolition.", "Freedom is not enough, I said: the freed need land, and schools. In 1889 the Republic came, and I went into exile with the emperor's family. I never came home."],
+            ),
+        ),
+        "npc_history_luis_gama": (
+            display_name: "Luís Gama",
+            // Luís Gama (1830-1882), lawyer, poet and abolitionist of São Paulo, with a law book and his papers.
+            manifest: "sprites/history_luis_gama_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "rio", "peaceful"],
+            barks: (
+                idle: ["The law is a weapon. I aim it carefully.", "*he leafs through the papers*", "Next case."],
+                hall: ["I was born free in Bahia. When I was ten my father, a Portuguese nobleman, sold me into slavery to pay his debts.", "At seventeen I learned to read, proved that I had been born free, and became a lawyer without a degree. In court I won freedom for hundreds of enslaved people. I died in 1882, six years too soon."],
+            ),
+        ),
+        "npc_history_dragao_do_mar": (
+            display_name: "Dragão do Mar",
+            // Francisco José do Nascimento (1839-1914), the Dragon of the Sea, jangadeiro of Fortaleza and leader of the strike of 1881, with a coil of rope.
+            manifest: "sprites/history_dragao_do_mar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "rio", "peaceful"],
+            barks: (
+                idle: ["The sea is free. So is everyone on it.", "*he coils the rope*", "No jangada in Fortaleza will carry them. Not one."],
+                hall: ["In 1881 the slave dealers of Fortaleza wanted our jangadas to carry the enslaved out to the ships, to be sold to the south. We said: in the port of Ceará no more slaves are shipped. And none were.", "In 1884 Ceará freed all its enslaved people, four years before the rest of Brazil. They carried my jangada through the streets of Rio and called me the Dragon of the Sea."],
             ),
         ),
         "npc_primeval_twitchell": (

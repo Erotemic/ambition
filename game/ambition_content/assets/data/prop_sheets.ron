@@ -354,6 +354,17 @@
     "history_serampore_press": (),
     "history_shaheed_minar": (),
     "history_radio_1971": (),
+    // Brazil and Amazonia (wave F, `targets/props/history_brazil_props.py`): a
+    // Victoria lily leaf and a jangada to ride, Marajoara pottery, a house on
+    // a mound, a hut and a forge of Palmares, the Golden Law, a mule tram.
+    "history_victoria_lily": (),
+    "history_jangada": (),
+    "history_marajoara_pots": (),
+    "history_teso_house": (),
+    "history_mocambo_hut": (),
+    "history_village_forge": (),
+    "history_lei_aurea": (),
+    "history_bonde": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

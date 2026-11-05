@@ -768,7 +768,7 @@ nodes:
      countries: [PER], topics: [american_civilizations, monumental_building]}
   - {id: nazca_moche, title: "Nazca and the Moche", region: andes, years: [-100, 800], status: planned,
      countries: [PER], topics: [american_civilizations, first_art, women_rulers], note: "the Lady of Cao"}
-  - {id: amazonian_earthworks, title: "The garden cities of the Amazon", region: amazonia, years: [-500, 1500], status: planned, shape: tall,
+  - {id: amazonian_earthworks, title: "The garden cities of the Amazon", region: amazonia, years: [-500, 1500], status: built, room: history_amazonia, shape: tall,
      countries: [BRA, BOL, ECU, PER, COL, GUY, SUR, GUF, VEN], peoples: [amazonian_peoples],
      topics: [american_civilizations, farming_origins, climate_and_collapse], note: "terra preta, the geoglyphs, the Casarabe towns: the forest was a garden"}
   - {id: tiwanaku_wari, title: "Tiwanaku and Wari", region: andes, years: [500, 1000], status: planned, shape: tall,
@@ -786,7 +786,7 @@ nodes:
      countries: [PRY, ARG, BRA, URY], peoples: [guarani], topics: [colonialism, spread_of_religions]}
   - {id: potosi, title: "Potosí, the mountain of silver", region: andes, years: [1545, 1825], status: planned, mode: sober, shape: tall,
      countries: [BOL, PER, ESP], peoples: [quechua_aymara], topics: [money, colonialism, labour_movements], note: "the mita"}
-  - {id: palmares, title: "Palmares", region: amazonia, years: [1605, 1694], status: planned,
+  - {id: palmares, title: "Palmares", region: amazonia, years: [1605, 1694], status: built, room: history_palmares,
      countries: [BRA, AGO], peoples: [afro_latin_americans, maroons], topics: [slavery_and_resistance], note: "Zumbi and Dandara"}
   - {id: tupac_amaru, title: "The rising of Túpac Amaru II and Micaela Bastidas", region: andes, years: [1780, 1783], status: candidate,
      countries: [PER, BOL], peoples: [quechua_aymara], topics: [indigenous_resistance, women_rulers]}
@@ -796,7 +796,7 @@ nodes:
      countries: [ECU], topics: [scientific_revolution]}
   - {id: triple_alliance, title: "The War of the Triple Alliance", region: southern_cone, years: [1864, 1870], status: candidate, mode: sober,
      countries: [PRY, BRA, ARG, URY], peoples: [guarani], topics: [nationalism]}
-  - {id: brazil_1888, title: "Rio, 1888", region: amazonia, years: [1850, 1888], status: planned,
+  - {id: brazil_1888, title: "Rio, 1888", region: amazonia, years: [1850, 1888], status: built, room: history_rio_1888,
      countries: [BRA], peoples: [afro_latin_americans], topics: [abolition, migration], note: "the last abolition in the Americas"}
   - {id: rubber_boom, title: "Manaus and the rubber", region: amazonia, years: [1879, 1912], status: candidate, mode: sober,
      countries: [BRA, PER, COL, BOL], peoples: [amazonian_peoples], topics: [colonialism, globalization]}

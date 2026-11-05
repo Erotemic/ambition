@@ -324,6 +324,14 @@ npc_history_rabindranath_tagore
 npc_history_begum_rokeya
 npc_history_language_student
 npc_history_freedom_fighter_poet
+npc_history_marajoara_potter
+npc_history_dark_earth_gardener
+npc_history_zumbi
+npc_history_dandara
+npc_history_palmares_smith
+npc_history_andre_reboucas
+npc_history_luis_gama
+npc_history_dragao_do_mar
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -505,6 +513,8 @@ clouded_leopard
 tanuki
 gharial
 rhesus_macaque
+black_caiman
+capybara
 
 [Mary-O's world]
 mary_o

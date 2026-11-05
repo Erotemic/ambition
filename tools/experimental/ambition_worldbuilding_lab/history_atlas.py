@@ -123,8 +123,8 @@ def game_rooms() -> set[str]:
     """The room ids `make_specs.py` makes (parsed from its `GRID` and its
     buildings, so that this tool does not import the generator)."""
     text = (SPECS / "make_specs.py").read_text()
-    grid = set(re.findall(r'^\s*\([0-9.]+, [0-9.]+\): "(history_[a-z_]+)"', text, re.M))
-    consts = dict(re.findall(r'^([A-Z]+) = "(history_[a-z_]+)"', text, re.M))
+    grid = set(re.findall(r'^\s*\([0-9.]+, [0-9.]+\): "(history_[a-z0-9_]+)"', text, re.M))
+    consts = dict(re.findall(r'^([A-Z]+) = "(history_[a-z0-9_]+)"', text, re.M))
     buildings = re.search(r"^BUILDINGS = \(([^)]*)\)", text, re.M).group(1)
     return grid | {consts[name.strip()] for name in buildings.split(",") if name.strip()}
 

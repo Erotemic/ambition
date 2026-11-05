@@ -77,7 +77,7 @@ the record and sighs about the footnotes.
 
              C0       C1            C2              C3           C4          C5          C6     C7          C8
     R0 Americas       beringia      maize           olmecs       maya        taino       haiti
-    R½ S. America                   andes           caral
+    R½ S. America                   andes           caral        amazonia    palmares    rio 1888
     R1 East Asia      mammoth st.┐  yellow river    shang        silk road   song        steppe
     R1½ E. coasts     mammoth st.┘  jomon           taiwan       silla       joseon      heian
     R2 Oceania        sahul         highlands       lapita       wayfinders  rapa nui
@@ -105,6 +105,7 @@ floor, over a tower of ledges in the lower room):
 | C5 | Song China and Joseon | printing: Song's movable type, then Korea's metal type |
 | C6 | Dhaka and the Age of Sail | the Company's ships carried the muslin to Europe |
 | C7 | the Company and the Industrial Age | Lancashire's machine cloth undercut Bengal's weavers |
+| C6 | Haiti and Rio, 1888 | haitianismo: Brazil's slaveholders feared another Haiti until the end |
 | C3 | the Nile and Uruk, Uruk and the megalith builders | Egypt and Sumer trade; tin comes south from the north |
 | C4 | Aksum and Rome, Rome and the Celts | the Red Sea trade; the frontier |
 
@@ -159,6 +160,9 @@ The rooms:
 | `history_first_maize` | `history_maize` | the teosinte breeder | green iguana, howler monkey, jaguar | the way down: maize goes south to the Andes |
 | `history_andean_highlands` | `history_andes` | the potato farmer, Antoine Parmen-tater | llama, Andean condor | up the rock steps to the high plain and its chuno; a plain sign for the Irish famine |
 | `history_caral` | `history_supe` | the Caral flautist, the net maker of Aspero | (none: no signs of war are found there) | up the stepped platform pyramid; the quipu that may be the oldest |
+| `history_amazonia` | `history_marajo` | the Marajoara potter, the gardener of the dark earth | black caiman, capybara, howler monkey, jaguar | a house on a mound; a Victoria lily leaf over the flooded forest; terra preta; up a samaúma; the lidar towns |
+| `history_palmares` | `history_palmares` | Dandara, the smith, Zumbi | capybara, jaguar, howler monkey | the mocambo and the forge; up the palisade; Zumbi and 20 November; up the tiers of the serra |
+| `history_rio_1888` | `history_rio_1888` | Luís Gama, André Rebouças, the Dragão do Mar | capybara | the mule tram and the balconies; the Golden Law; a jangada over Guanabara Bay; the strike of 1881; the way up to Haiti |
 | `history_olmec_heartland` | `history_olmec` | the head sculptor | jaguar, howler monkey | a pad of rubber throws you up to the terrace (a jade earspool) |
 | `history_maya_city` | `history_maya` | the Zero Hero, Lady Six Sky-High | howler monkey, jaguar, green iguana | the stone ring (`history_ballcourt_ring`) opens the ballcourt gate |
 | `history_taino_islands` | `history_caribbean` | the Cacica of Boriken, the canoe maker | coral crab | the hammock throws you into the ceiba; a dugout canoe crosses the sea; a plain sign for 1492 |
@@ -246,21 +250,28 @@ time and towards the dominant power of the time)."
    Industrial Age, the Company), the music can be cheekier and less
    reverent.
 
-The borrowed cues to replace, with the place each one belongs to:
+The borrowed cues are replaced (2026-11-04). Each replacement has its own
+composer script, `tools/ambition_music_renderer/dev/compose_<cue>.py`:
 
-| History room | borrowed cue | it belongs to |
-| --- | --- | --- |
-| the Industrial Age | `galvanic_march` | Wolfenstein's boss fight |
-| the tomb, the painted cave | `vault_in_the_dark` | the evil moor's catacombs |
-| the Colosseum | `fighters_guild_oath_of_steel` | the Fighters Guild's theme (the guilds of Castle Godwin) |
-| the cotton mill | `luddites_guild_loom_and_liberty` | the Luddites Guild's theme |
-| the Age of Sail | `pirates_guild_black_flag_jig` | the Pirates Guild's theme |
+| History room | borrowed cue (it belongs to) | its own cue | genre |
+| --- | --- | --- | --- |
+| the Industrial Age | `galvanic_march` (Wolfenstein's boss fight) | `history_industrial_coal_and_swagger`, "Coal and Swagger" | electro-swing |
+| the Age of Sail | `pirates_guild_black_flag_jig` (the Pirates Guild) | `history_age_of_sail_trade_winds`, "Trade Winds, Bad Intentions" | ska |
+| the Colosseum | `fighters_guild_oath_of_steel` (the Fighters Guild) | `history_colosseum_bread_and_circuses`, "Bread and Circuses" | arena rock |
+| the cotton mill | `luddites_guild_loom_and_liberty` (the Luddites Guild) | `history_cotton_mill_spinning_jenny`, "Spinning Jenny" | machine funk |
+| the pyramid tomb | `vault_in_the_dark` (the evil moor's catacombs) | `history_tomb_robbery_papyri`, "The Tomb Robbery Papyri" | trip-hop |
+| the painted cave | `vault_in_the_dark` | `history_painted_cave_hands_on_the_wall`, "Hands on the Wall" | lo-fi |
+
+The generator asserts rule 3: a `MUSIC` value that is not a `history_*`
+cue stops it.
 
 Samples to measure before you use them again (the composer scripts correct
 them per note with `tuning_correction`): the Horse Pulse tagelharpa is up to
 70 cents out on some keys; the VCSL đàn tranh, mbira, kalimba, nyunga nyunga
 and balafon are 20 to 45 cents out in places; VCSL Frame Drum key 60 is
-almost silent. `cue tuning-audit <cue>` measures them.
+almost silent; the orchestral staccato trumpets run 6 to 10 cents flat from
+D4 to F4, and the staccato trombones' F#3 is 21 cents flat. `cue
+tuning-audit <cue>` measures them.
 
 ## The road ahead
 
@@ -427,7 +438,7 @@ built room, then the links that make the world one. Each wave starts with
 | D | **East Asia's other half** (D1 BUILT: Jōmon, Taiwan, Silla; a new floor, East Asia's coasts; D2 BUILT: Song Hangzhou, Joseon, Heian-kyō, with the cue "Ink and Silk"): Taiwan, the Austronesian homeland; Jōmon, among the first pots; Silla and Queen Seondeok's star tower; Heian-kyō; Kaifeng and Hangzhou (printing, paper money, the compass); King Sejong's letters | Japan and the two Koreas have no room; printing is an obvious topic |
 | D3 | **Japan, after Heian** (next): Kamakura and the Mongol fleets of 1274 and 1281 (east of the steppe; Takezaki Suenaga's scroll), Edo (Hokusai, Bashō, the river of shops at Nihonbashi; dressed with the ninja village's houses, tea house and bridge, and one ninja who admits the black suit came from the theatre), Meiji (Tsuda Umeko; the railway of 1872); later: Nara, the Ryukyu kingdom, Ainu Mosir, and Hiroshima in wave I | Japan (124 million) has only Jōmon and Heian; a Japanese player should find their history, not only ninjas |
 | E | **Bengal and the cotton** (E BUILT: a row on South Asia's floor, C6-C8): Dhaka muslin (the other end of the cotton mill), the Company and 1857, the language movement and 1971 | Bangladesh (174 million); colonialism in South Asia |
-| F | **Brazil and Amazonia**: the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
+| F | **Brazil and Amazonia** (F BUILT: South America's floor, C4-C6): the garden cities of the Amazon, Palmares (Zumbi and Dandara), Rio 1888 | Brazil (212 million); Afro-Brazilian and Amazonian peoples |
 | G | **Central Africa**: Ishango's counting bone, the kingdom of Kongo, Queen Nzinga, the Congo Free State (sober) | DR Congo (109 million), Angola; the Scramble |
 | H | **The revolutions** (a new column, H7): Philadelphia 1776, Paris 1789, the liberators (a corridor), Mexico 1810, Manila 1896, the Underground Railroad | four obvious topics at once, on four continents |
 | I | **The world wars** (H8, sober, care first): the Western Front (a corridor; the colonial soldiers), Ethiopia 1935, the war in Asia and the Pacific, the code talkers, the Holocaust (a pocket), Hiroshima (a pocket) | the most obvious gap of all; needs the tone rules and sources ready |
@@ -470,7 +481,6 @@ a hole; its report says how big.
 7. Names a player knows. A native name gets the familiar one beside it the
    first time it appears (Boriken, Puerto Rico; Ayiti, Haiti and the
    Dominican Republic). Each room has its blurb: where, when, one fact.
-
 8. Reuse before you draw (Jon, 2026-11-04: "we can reuse assets, I saw we
    made a new cassowary rather than reuse the existing one, it would have
    been fine to do that if the asset fits well. I.e. we can reuse lots of

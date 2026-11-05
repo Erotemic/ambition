@@ -1,7 +1,7 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Sixty-two rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
-//! a grid of fifty-four outdoor rooms, where east is later and each floor is
+//! Sixty-five rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of fifty-seven outdoor rooms, where east is later and each floor is
 //! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
@@ -98,6 +98,10 @@ const WAYS: &[(&str, &str)] = &[
     ("history_taino_islands", "history_haitian_revolution"),
     // South America.
     ("history_andean_highlands", "history_caral"),
+    // Brazil and Amazonia.
+    ("history_caral", "history_amazonia"),
+    ("history_amazonia", "history_palmares"),
+    ("history_palmares", "history_rio_1888"),
     // East Asia and the steppe.
     ("history_mammoth_steppe", "history_yellow_river"),
     ("history_yellow_river", "history_shang_court"),
@@ -165,6 +169,8 @@ const WAYS: &[(&str, &str)] = &[
     // Bengal's muslin goes to Europe by sea; Lancashire's cloth comes back.
     ("history_dhaka_muslin", "history_age_of_sail"),
     ("history_company_raj", "history_industrial_age"),
+    // Brazil's slaveholders feared another Haiti.
+    ("history_haitian_revolution", "history_rio_1888"),
     // Farming spreads from the crescent; the first cities trade; Rome.
     ("history_green_sahara", "history_fertile_crescent"),
     ("history_fertile_crescent", "history_first_farmers_of_europe"),
@@ -200,7 +206,7 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
     // The ways name all fifty-six rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 62, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 65, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -338,6 +344,33 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     (
         "history_company_raj",
         &[("npc_history_ram_mohan_roy", 1), ("npc_history_rani_lakshmibai", 1), ("gharial", 1), ("rhesus_macaque", 1)],
+    ),
+    // Brazil and Amazonia.
+    (
+        "history_amazonia",
+        &[
+            ("npc_history_marajoara_potter", 1),
+            ("npc_history_dark_earth_gardener", 1),
+            ("black_caiman", 1),
+            ("capybara", 1),
+            ("howler_monkey", 1),
+            ("jaguar", 1),
+        ],
+    ),
+    (
+        "history_palmares",
+        &[
+            ("npc_history_dandara", 1),
+            ("npc_history_palmares_smith", 1),
+            ("npc_history_zumbi", 1),
+            ("capybara", 1),
+            ("jaguar", 1),
+            ("howler_monkey", 1),
+        ],
+    ),
+    (
+        "history_rio_1888",
+        &[("npc_history_luis_gama", 1), ("npc_history_andre_reboucas", 1), ("npc_history_dragao_do_mar", 1), ("capybara", 2)],
     ),
     (
         "history_ekushey",

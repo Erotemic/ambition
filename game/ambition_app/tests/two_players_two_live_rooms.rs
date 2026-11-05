@@ -2472,17 +2472,18 @@ fn walk_through_the_door_leaving_a_shot_and_flipped_gravity(
 
 /// OW1, customer 2: a crossing resets only what it leaves behind. Before
 /// Alice leaves `switch_lab`, the room holds a shot and its gravity is
-/// flipped. With Bob driven, the room stays live with him: the shot stays,
-/// the room keeps its gravity, and the world's sim clock is not reset. The
-/// control, Bob not driven: the crossing replaces the world, and the shot
-/// goes, gravity is put back down and the clock reset is asked for, as
-/// before. In both, Alice enters the hub under the default gravity. Before,
-/// every crossing did all three, so Alice's door unflipped Bob's room and
-/// cancelled his bullet time.
+/// flipped. With Bob driven, the room stays live with him: the shot stays
+/// and the room keeps its gravity. The control, Bob not driven: the crossing
+/// replaces the world, so the shot goes and gravity is put back down. In
+/// both, Alice enters the hub under the default gravity, and ordinary travel
+/// asks for no sim clock reset (only a full rebuild does; see
+/// `travel_keeps_the_shared_clock_scale_and_a_full_rebuild_resets_it`).
+/// Before, every crossing did all three, so Alice's door unflipped Bob's
+/// room and cancelled his bullet time.
 #[test]
 fn a_crossing_resets_only_what_it_leaves_behind() {
     use ambition_platformer2d::characters::control::PlayerSlot;
-    for (slot, rooms, expected) in [(None, 1, (false, true, false)), (Some(PlayerSlot(1)), 2, (true, false, true))] {
+    for (slot, rooms, expected) in [(None, 1, (false, false, false)), (Some(PlayerSlot(1)), 2, (true, false, true))] {
         let (mut sim, _) = alice_leaves_bob_by(slot, walk_through_the_door_leaving_a_shot_and_flipped_gravity);
         assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
         let world = sim.world_mut();

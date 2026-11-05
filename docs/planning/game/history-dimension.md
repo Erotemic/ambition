@@ -219,11 +219,42 @@ instruments are real samples, most of them from the Versilian VCSL library.
 | Americas | `history_americas_land_bridge` | Over the Land Bridge | A minor to A major; ocarina, slit drum, wine-glass ice for Beringia |
 
 The buildings take the cue of their region (the Granary, the Great Ger,
-the Timbuktu Library), except where the place has its own mood: the
-tomb and the painted cave (`vault_in_the_dark`), the Colosseum
-(`fighters_guild_oath_of_steel`), the cotton mill
-(`luddites_guild_loom_and_liberty`). The Age of Sail and the Industrial Age
-are not one region's music any more; they keep the cues of their eras.
+the Timbuktu Library), except where the place has its own mood.
+
+### Rules for new cues
+
+Jon, 2026-11-04: "not all songs have to be Smaltzy, or rather if you write
+new music avoid things that are Smaltzy. Do more pop, more genres. But keep
+it video game friendly and loopable. The industrial zone should not reuse
+wolfenstein's fight song. Songs played in castle godwin belong there, so
+need new replacements. But less blaze (although I get it the other songs
+are being respectful, we can be a bit less respectful as we move forward in
+time and towards the dominant power of the time)."
+
+1. **No schmaltz.** A new cue has a groove and a hook, not a slow wash of
+   pads. Use pop and many genres (ska, funk, electro-swing, synth-pop,
+   rock, trip-hop, drum and bass, chiptune), with the region's instruments
+   where they fit.
+2. **Game music first.** It loops without a seam (`dev/measure_loop_join.py`),
+   its sections can stand alone, and its tune does not tire after ten loops.
+3. **A History room plays History's own cues.** It does not borrow a cue
+   that belongs to another place. In the generator's `MUSIC`, every value is
+   a `history_*` cue.
+4. **The tone follows the power.** The early rooms, the colonised and the
+   sober rooms keep their respect. As the map goes forward in time and
+   toward the dominant power of each age (Rome, the Age of Sail, the
+   Industrial Age, the Company), the music can be cheekier and less
+   reverent.
+
+The borrowed cues to replace, with the place each one belongs to:
+
+| History room | borrowed cue | it belongs to |
+| --- | --- | --- |
+| the Industrial Age | `galvanic_march` | Wolfenstein's boss fight |
+| the tomb, the painted cave | `vault_in_the_dark` | the evil moor's catacombs |
+| the Colosseum | `fighters_guild_oath_of_steel` | the Fighters Guild's theme (the guilds of Castle Godwin) |
+| the cotton mill | `luddites_guild_loom_and_liberty` | the Luddites Guild's theme |
+| the Age of Sail | `pirates_guild_black_flag_jig` | the Pirates Guild's theme |
 
 Samples to measure before you use them again (the composer scripts correct
 them per note with `tuning_correction`): the Horse Pulse tagelharpa is up to

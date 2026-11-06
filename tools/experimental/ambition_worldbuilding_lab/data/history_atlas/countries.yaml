@@ -5,6 +5,9 @@
 # Modern borders and these coarse region tags are discovery aids, not
 # claims that a present-day country or all of its peoples existed in an era.
 # The code is ISO 3166-1 alpha-3 (XKX for Kosovo, which has none).
+# history-atlas-second-pass-20261105: Modern country coverage is a discovery index, not
+# a measure of whether a specific community or era is directly
+# represented. Review each country's actual node subjects.
 # The population is a rounded estimate for about 2024 (UN World Population
 # Prospects order of magnitude), only to weight "where's my history?" by how
 # many players may ask it. It is not a source for anything else.

@@ -1,4 +1,7 @@
 # The links of the History atlas. Each row: [a, b, kind, note].
+# history-atlas-second-pass-20261105: Treat succession/contact/diffusion as authored
+# historical claims. Comparisons are editorial, not assertions
+# of contact, and no candidate link requires a playable passage.
 # Only `built:` is a statement about current physical game connections.
 # `links:` are historical/editorial relationships in a candidate
 # inventory; they neither force room creation nor prescribe traversal.
@@ -712,3 +715,96 @@ links:
   - [jamaica_maroons, freetown_liberia, contact, "Jamaican Maroons were resettled in Sierra Leone in 1800"]
   - [manila_galleons, qing_canton, contact, "silver and merchants connected Manila with Chinese ports"]
   # END history-atlas-representative-superset-20261105
+
+  # BEGIN history-atlas-second-pass-20261105
+  # Country-specific histories, not interchangeable modern-country proxies.
+  - [kaabu_gabu, mali_empire_mansa_musa, succession, "Kaabu's western Mali antecedents and later independent kingdom; political history is not an ethnic lineage"]
+  - [kaabu_gabu, door_of_no_return, contact, "Senegambian regional connections to Atlantic slave trading systems; no assertion of one direct route"]
+  - [kaabu_gabu, freetown_liberia, comparison, "coastal and hinterland political histories in related West African regions across different eras"]
+  - [chollo_upper_nile, great_lakes_kingdoms, comparison, "different African royal traditions: Chollo riverine society is not a Great Lakes kingdom"]
+  - [chollo_upper_nile, south_sudan, atlas_shortcut, "a local Upper Nile historical strand, not the sole origin of the modern nation"]
+  - [chollo_upper_nile, kerma_kush, comparison, "distinct Nile civilizations at very different dates"]
+  - [punakha_dzong_bhutan, tibetan_empire, comparison, "Himalayan Buddhist political histories separated by centuries"]
+  - [punakha_dzong_bhutan, nalanda, comparison, "different institutions and periods in the history of Buddhist learning"]
+  - [punakha_dzong_bhutan, everest_1953, comparison, "two distinct Himalayan experiences, not one shared political history"]
+
+  # Multiple agricultural revolutions and their local ecological settings.
+  - [tilemsi_pearl_millet, green_sahara, succession, "pastoralism and millet cultivation during Sahel-Sahara ecological change"]
+  - [tilemsi_pearl_millet, inland_niger_african_rice, comparison, "distinct West African cereals with different histories and ecological settings"]
+  - [tilemsi_pearl_millet, mehrgarh, comparison, "agriculture and herding developed in several parts of the world"]
+  - [inland_niger_african_rice, ghana_wagadu, atlas_shortcut, "the Niger floodplain's older food economy and subsequent West African states"]
+  - [inland_niger_african_rice, yangtze_rice, comparison, "independent West African and East Asian rice domestication histories"]
+  - [inland_niger_african_rice, timbuktu_coast, atlas_shortcut, "the inland Niger's food production and much later trans-Saharan networks"]
+
+  # Lived history complements civic, religious and monumental anchors.
+  - [old_babylonian_scribal_school, uruk, succession, "southern Mesopotamian urban scribal traditions across changing cities and centuries"]
+  - [old_babylonian_scribal_school, nalanda, comparison, "places of learning in different societies and eras"]
+  - [song_kaifeng_workshop, song_kaifeng, contact, "urban workshop within the existing Song-capital setting"]
+  - [song_kaifeng_workshop, goryeo_jikji, diffusion, "East Asian paper and print traditions; Korean metal type had its own technical development"]
+  - [maya_maize_household, maya_city, contact, "the household-scale life behind a monumental Maya city"]
+  - [maya_maize_household, first_maize, diffusion, "maize cultivation long after its first domestication, with intermediate histories omitted"]
+  - [kilwa_courtyard, kilwa, contact, "a domestic setting within a Swahili trading city"]
+  - [kilwa_courtyard, monsoon_sea, contact, "port households connected to Indian Ocean seasonal maritime commerce"]
+  - [angkor_water_households, angkor, contact, "households and water management inside the Angkor landscape"]
+  - [angkor_water_households, new_guinea_highlands, comparison, "different ways people worked with water and crops; no contact implied"]
+  - [ottoman_coffeehouse, istanbul_1453, succession, "the city's urban life after the Ottoman conquest"]
+  - [ottoman_coffeehouse, mocha_coffee, diffusion, "coffee traded from Yemen through several Ottoman-era markets"]
+  - [ottoman_coffeehouse, amsterdam_voc, comparison, "urban commerce and social spaces in different trade empires"]
+
+  # Sound, oral testimony, art, and modern distribution systems.
+  - [mande_griot_courts, mali_empire_mansa_musa, contact, "oral historical memory and courtly settings of Mande-speaking communities"]
+  - [mande_griot_courts, timbuktu_library, comparison, "oral transmission alongside written scholarship, without treating them as equivalents"]
+  - [mande_griot_courts, kaabu_gabu, contact, "related Mande-speaking cultural settings, not an assertion of identical traditions"]
+  - [new_orleans_early_jazz, kingston_sound_system_culture, diffusion, "US rhythm and blues and other recorded music helped shape Jamaican popular music"]
+  - [new_orleans_early_jazz, trinidad_carnival, comparison, "distinct Afro-diasporic musical developments and festive traditions"]
+  - [new_orleans_early_jazz, civil_rights_usa, comparison, "Black cultural expression and political rights across different US eras"]
+  - [kingston_sound_system_culture, windrush, contact, "Caribbean migration and later circulation of Jamaican music in Britain"]
+  - [kingston_sound_system_culture, trinidad_carnival, comparison, "distinct Caribbean performance histories"]
+  - [rio_samba_communities, brazil_1888, succession, "Afro-Brazilian communities and politics around and after abolition; no simple single origin"]
+  - [rio_samba_communities, trinidad_carnival, comparison, "different Atlantic festive cultures rooted in local histories"]
+  - [java_gamelan_cultures, borobudur, comparison, "two separate temporal windows into Javanese arts and culture"]
+  - [java_gamelan_cultures, angkor, comparison, "distinct Southeast Asian court and community traditions"]
+  - [mumbai_cinema, bombay_influenza_1918, atlas_shortcut, "two very different histories of the same city across time"]
+  - [mumbai_cinema, bangalore_now, atlas_shortcut, "modern Indian cultural production and technology in different cities"]
+  - [lagos_home_video, lagos_nairobi_now, contact, "Nigerian urban media industry within the contemporary Lagos setting"]
+  - [lagos_home_video, internet_now, contact, "the changing distribution of media through digital networks"]
+
+  # Occupation and local civilian experience in the Pacific theater.
+  - [burma_wartime_occupation, pacific_war, contact, "the Burma campaign as one part of a much larger Asian and Pacific war"]
+  - [burma_wartime_occupation, singapore_occupation, comparison, "different occupation regimes and local civilian experiences"]
+  - [burma_wartime_occupation, salt_march, comparison, "different forms and timelines of colonial rule and anticolonial organizing"]
+  - [manila_occupation_liberation, pacific_war, contact, "Philippine wartime civilian experiences within the wider conflict"]
+  - [manila_occupation_liberation, manila_galleons, atlas_shortcut, "one Philippine city in two very different global contexts"]
+  - [manila_occupation_liberation, singapore_occupation, comparison, "distinct occupied cities, not interchangeable civilian narratives"]
+  - [java_wartime_romusha, indonesia_1945, succession, "wartime political mobilization and Indonesia's declaration of independence"]
+  - [java_wartime_romusha, pacific_war, contact, "occupied Java and wartime labor in the wider Pacific conflict"]
+  - [java_wartime_romusha, singapore_occupation, comparison, "occupation and labor histories differing across Southeast Asia"]
+  - [kokoda_papuan_carriers, pacific_war, contact, "Papuan communities and the 1942 campaign in the wider war"]
+  - [kokoda_papuan_carriers, guadalcanal_solomons, comparison, "Melanesian civilian, scout and carrier experiences in different campaigns"]
+  - [kokoda_papuan_carriers, png_first_contact, comparison, "a later war and a different highlands colonial encounter; not the same event"]
+
+  # Work, migration, modern institutions and technology in specific places.
+  - [atacama_nitrate_workers, industrial_age, contact, "nitrates in international manufacturing and agricultural supply chains"]
+  - [atacama_nitrate_workers, triple_alliance, comparison, "different South American territorial conflicts and economic processes"]
+  - [atacama_nitrate_workers, dirty_wars, atlas_shortcut, "separate periods of Chilean political and labor history"]
+  - [buenos_aires_peronism, buenos_aires_migrants, succession, "urban migration, unions, and later mass politics in Argentina"]
+  - [buenos_aires_peronism, brazil_vargas, comparison, "neighboring countries' different populist and labor-state trajectories"]
+  - [buenos_aires_peronism, dirty_wars, atlas_shortcut, "later dictatorship is not an inevitable consequence of Peronism"]
+  - [ukraine_independence_1991, chernobyl_ukraine, succession, "the Ukrainian republic in late Soviet life and the 1991 independence moment"]
+  - [ukraine_independence_1991, singing_revolution, comparison, "distinct national independence movements during Soviet dissolution"]
+  - [ukraine_independence_1991, berlin_wall, comparison, "different events amid the end of the Cold War"]
+  - [nairobi_mobile_money, lagos_nairobi_now, contact, "daily transactions and telecommunications in modern Nairobi"]
+  - [nairobi_mobile_money, internet_now, comparison, "telecommunications and Internet-era systems overlap but are not identical"]
+  - [lahore_partition_lives, partition_1947, contact, "Lahore's families and displacement in the wider partition of British India"]
+  - [lahore_partition_lives, sikh_empire_punjab, atlas_shortcut, "distinct Punjab histories across a century"]
+  - [lahore_partition_lives, bangladesh_language, comparison, "the different experiences of western and eastern partitioned provinces"]
+  - [brazil_coffee_labor, brazil_1888, contact, "coffee agriculture, slavery, abolition and new forms of labor"]
+  - [brazil_coffee_labor, mocha_coffee, contact, "different locations in global coffee production and trade over centuries"]
+  - [brazil_coffee_labor, barbados_sugar, comparison, "contrasting plantation crop systems and labor histories"]
+  - [cairo_black_death, black_death, contact, "Mamluk Cairo and European epidemic sites within the 14th-century pandemic"]
+  - [cairo_black_death, mamluk_cairo, contact, "an epidemic-specific snapshot inside the Mamluk capital's history"]
+  - [cairo_black_death, germ_theory_sanitation, comparison, "different eras and responses in public-health history"]
+  - [kimberley_diamond_labor, scramble, contact, "mineral extraction and expansion of colonial power in southern Africa"]
+  - [kimberley_diamond_labor, apartheid, succession, "long-lived systems of migrant labor and racial inequality; not a complete causal account"]
+  - [kimberley_diamond_labor, industrial_age, contact, "southern African minerals in industrial global markets"]
+  # END history-atlas-second-pass-20261105

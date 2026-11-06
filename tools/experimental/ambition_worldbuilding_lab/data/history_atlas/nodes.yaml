@@ -67,7 +67,7 @@ nodes:
   - {id: kanem_bornu, title: "Kanem-Bornu at Lake Chad", region: sahel, years: [700, 1893], status: candidate,
      countries: [TCD, NER, NGA, CMR], topics: [african_kingdoms, trans_saharan_trade]}
   - {id: ife_igbo_ukwu, title: "Ife and Igbo-Ukwu", region: west_africa_coast, years: [900, 1400], status: planned,
-     countries: [NGA], topics: [african_kingdoms, first_art, bronze_and_iron], note: "the Ife heads; Igbo-Ukwu's bronzes of the 800s"}
+     countries: [NGA], topics: [african_kingdoms, first_art, bronze_and_iron], note: "the Ife heads; Igbo-Ukwu's bronzes of the 800s", peoples: [yoruba, igbo]}
   - {id: benin_city, title: "Benin City", region: west_africa_coast, years: [1200, 1897], status: built, room: history_benin_city,
      countries: [NGA, BEN], topics: [african_kingdoms, colonialism, women_rulers]}
   - {id: hausa_kano, title: "Kano and the Hausa cities", region: sahel, years: [1000, 1804], status: candidate,
@@ -84,7 +84,7 @@ nodes:
      countries: [MAR, TUN, DZA], peoples: [amazigh], topics: [universities, women_rulers, islamic_golden_age],
      note: "founded by Fatima al-Fihri in 859"}
   - {id: kilwa, title: "Kilwa and the Swahili coast", region: swahili_coast, years: [1100, 1505], status: planned, shape: hub,
-     countries: [TZA, KEN, MOZ, COM, SOM], topics: [indian_ocean_trade, african_kingdoms, money]}
+     countries: [TZA, KEN, MOZ, COM, SOM], topics: [indian_ocean_trade, african_kingdoms, money], peoples: [swahili]}
   - {id: mogadishu, title: "Mogadishu and the Horn's ports", region: horn, years: [900, 1500], status: candidate,
      countries: [SOM, DJI], topics: [indian_ocean_trade]}
   - {id: mapungubwe, title: "Mapungubwe", region: southern_africa, years: [1075, 1220], status: candidate,
@@ -280,7 +280,7 @@ nodes:
   - {id: kyivan_rus_novgorod, title: "Kyiv and Novgorod's birch-bark letters", region: eastern_europe, years: [882, 1240], status: planned,
      countries: [UKR, RUS, BLR], topics: [writing, spread_of_religions, mongols], note: "ordinary people's letters, a boy's homework"}
   - {id: medieval_village, title: "A medieval village and its lord", region: western_europe, years: [1000, 1350], status: planned,
-     countries: [FRA, DEU, GBR, BEL, NLD, LUX, CHE, AUT, CZE, POL], topics: [feudalism, labour_movements, everyday_life]}
+     countries: [FRA, DEU, GBR, BEL, NLD, LUX, CHE, AUT, CZE, POL], topics: [feudalism, labour_movements, everyday_life, household_work]}
   - {id: alpine_passes, title: "The Alpine passes and the Swiss oath", region: central_europe, years: [1291, 1499], status: planned, shape: corridor,
      countries: [CHE, LIE, AUT, ITA], topics: [law]}
   - {id: monaco_andorra_sanmarino, title: "The small states that lasted", region: italy, years: [301, 1419], status: planned, shape: corridor, mode: parody,
@@ -415,7 +415,7 @@ nodes:
   - {id: mehrgarh, title: "Mehrgarh", region: indus, years: [-7000, -2500], status: built, room: history_mehrgarh,
      countries: [PAK], topics: [farming_origins, medicine]}
   - {id: indus_cities, title: "The Indus cities", region: indus, years: [-2600, -1900], status: built, room: history_indus_cities,
-     countries: [PAK, IND, AFG], topics: [first_cities, writing, climate_and_collapse, indian_ocean_trade]}
+     countries: [PAK, IND, AFG], topics: [first_cities, writing, climate_and_collapse, indian_ocean_trade, water_sanitation]}
   - {id: vedic_ganges, title: "The Ganges and the sixteen states", region: north_india, years: [-1500, -320], status: candidate, mode: archive,
      countries: [IND, NPL, BGD], topics: [india_empires, spread_of_religions], note: "texts and their dates are argued: show the argument"}
   - {id: ashoka, title: "Ashoka's pillars", region: north_india, years: [-322, -185], status: planned,
@@ -426,7 +426,7 @@ nodes:
      countries: [IND, PAK, BGD, NPL], topics: [mathematics, astronomy, sport_and_play, india_empires],
      note: "Aryabhata, Brahmagupta's zero (628); chess from chaturanga"}
   - {id: nalanda, title: "Nalanda", region: north_india, years: [427, 1193], status: planned, shape: pocket,
-     countries: [IND, CHN, KOR, IDN, NPL, BTN], peoples: [tibetans], topics: [universities, spread_of_religions]}
+     countries: [IND, CHN, KOR, IDN, NPL, BTN], peoples: [tibetans], topics: [universities, spread_of_religions, education_and_apprenticeship]}
   - {id: chola_sea, title: "The Chola fleets", region: south_india, years: [848, 1279], status: planned,
      countries: [IND, LKA, MDV, IDN, MYS], peoples: [tamils], topics: [indian_ocean_trade, india_empires, monumental_building]}
   - {id: maldives_cowries, title: "The cowrie islands", region: south_india, years: [500, 1800], status: candidate,
@@ -441,7 +441,7 @@ nodes:
      countries: [IND], peoples: [tamils], topics: [india_empires, monumental_building]}
   - {id: mughal_agra, title: "Agra and the Mughals", region: north_india, years: [1526, 1707], status: planned, shape: hub,
      countries: [IND, PAK, BGD, AFG], peoples: [punjabis, bengalis], topics: [mughals, monumental_building, crops]}
-  - {id: bengal_muslin, title: "Dhaka muslin", region: north_india, years: [1600, 1850], status: built, room: history_dhaka_muslin,
+  - {id: bengal_muslin, title: "Dhaka muslin", region: bengal, years: [1600, 1850], status: built, room: history_dhaka_muslin,
      countries: [BGD, IND, GBR], peoples: [bengalis], topics: [industrial_revolution, colonialism, crops, cotton_textiles, everyday_life],
      note: "the cloth Britain copied and then undercut: the other end of the cotton mill"}
   - {id: company_raj_1857, title: "The Company and 1857", region: north_india, years: [1757, 1858], status: built, room: history_company_raj, mode: archive,
@@ -452,7 +452,7 @@ nodes:
      countries: [IND, PAK, BGD, ZAF], topics: [nonviolence, decolonization]}
   - {id: partition_1947, title: "1947", region: north_india, years: [1947, 1948], status: planned, mode: sober,
      countries: [IND, PAK, BGD], peoples: [punjabis, bengalis, sikhs], topics: [partition, migration, sikh_history]}
-  - {id: bangladesh_language, title: "The language movement and 1971", region: north_india, years: [1952, 1971], status: built, room: history_ekushey,
+  - {id: bangladesh_language, title: "The language movement and 1971", region: bengal, years: [1952, 1971], status: built, room: history_ekushey,
      countries: [BGD, PAK, IND], peoples: [bengalis], topics: [nationalism, scripts, genocide], note: "21 February, Mother Language Day"}
   - {id: everest_1953, title: "Everest, 1953", region: himalaya, years: [1953, 1953], status: candidate,
      countries: [NPL, NZL, IND, CHN], topics: [sport_and_play], note: "Tenzing Norgay and Edmund Hillary"}
@@ -489,7 +489,7 @@ nodes:
   - {id: heian, title: "Heian-kyō", region: japan, years: [794, 1185], status: built, room: history_heian,
      countries: [JPN], topics: [writing, women_rulers], note: "Murasaki Shikibu, The Tale of Genji"}
   - {id: song_kaifeng, title: "Kaifeng and Hangzhou", region: china, years: [960, 1279], status: built, room: history_song, shape: hub,
-     countries: [CHN], topics: [printing, money, china_dynasties, mathematics], note: "movable type, paper money, the compass, gunpowder"}
+     countries: [CHN], topics: [printing, money, china_dynasties, mathematics, education_and_apprenticeship, communication_media], note: "movable type, paper money, the compass, gunpowder"}
   - {id: goryeo_jikji, title: "Goryeo and the metal type", region: korea, years: [918, 1392], status: planned,
      countries: [KOR, PRK], topics: [printing, mongols], note: "Jikji (1377)"}
   - {id: kamakura_mongols, title: "The kamikaze, 1274 and 1281", region: japan, years: [1185, 1333], status: built, room: history_kamakura,
@@ -547,7 +547,7 @@ nodes:
   - {id: srivijaya, title: "Srivijaya and the strait", region: island_southeast_asia, years: [650, 1290], status: built, room: history_srivijaya, shape: corridor,
      countries: [IDN, MYS, SGP, THA, BRN], topics: [maritime_southeast_asia, indian_ocean_trade, spread_of_religions]}
   - {id: borobudur, title: "Borobudur", region: island_southeast_asia, years: [780, 850], status: built, room: history_borobudur, shape: tall,
-     countries: [IDN], topics: [monumental_building, spread_of_religions]}
+     countries: [IDN], topics: [monumental_building, spread_of_religions], peoples: [javanese]}
   - {id: angkor, title: "Angkor", region: mainland_southeast_asia, years: [802, 1431], status: built, room: history_angkor, shape: hub,
      countries: [KHM, THA, LAO, VNM], topics: [monumental_building, climate_and_collapse, farming_origins], note: "a city of water: the barays"}
   - {id: bagan, title: "Bagan", region: mainland_southeast_asia, years: [849, 1297], status: candidate,
@@ -608,7 +608,7 @@ nodes:
   - {id: rapa_nui, title: "Rapa Nui", region: polynesia, years: [1200, 1862], status: built, room: history_rapa_nui,
      countries: [CHL], peoples: [pasifika], topics: [pacific_navigation, monumental_building, climate_and_collapse, slavery_and_resistance]}
   - {id: tonga_samoa, title: "The Tuʻi Tonga and Samoa", region: polynesia, years: [950, 1865], status: built, room: history_tonga_samoa, shape: hub,
-     countries: [TON, WSM, FJI, COK, TUV, ASM], peoples: [pasifika], topics: [pacific_navigation, monumental_building, everyday_life],
+     countries: [TON, WSM, FJI, COK, TUV, ASM], peoples: [pasifika], topics: [pacific_navigation, monumental_building, everyday_life, performance_oral_history],
      note: "a sea empire of chiefly marriages; Tonga was never a colony (a British protectorate only)"}
   - {id: nan_madol_yap, title: "Nan Madol and the stone money of Yap", region: micronesia, years: [1180, 1628], status: planned,
      countries: [FSM, PLW, GUM, MHL, KIR], peoples: [chamorro], topics: [monumental_building, money, pacific_navigation]}
@@ -737,7 +737,7 @@ nodes:
   - {id: panama_canal, title: "The Panama Canal", region: central_america, years: [1881, 1914], status: candidate, shape: corridor,
      countries: [PAN, USA, JAM, BRB, COL], peoples: [afro_caribbeans], topics: [globalization, labour_movements], note: "dug by West Indian workers"}
   - {id: trinidad_carnival, title: "Port of Spain, carnival and steelpan", region: caribbean, years: [1838, 1962], status: planned,
-     countries: [TTO, GRD, LCA, VCT, DMA, BRB, GUY], peoples: [afro_caribbeans, indian_diaspora], topics: [sport_and_play, indentured_labour, decolonization]}
+     countries: [TTO, GRD, LCA, VCT, DMA, BRB, GUY], peoples: [afro_caribbeans, indian_diaspora], topics: [sport_and_play, indentured_labour, decolonization, performance_oral_history]}
   - {id: cuba_1959, title: "Havana, 1959", region: caribbean, years: [1953, 1991], status: candidate, mode: archive,
      countries: [CUB, USA], topics: [cold_war]}
   - {id: windrush, title: "Windrush, 1948", region: atlantic, years: [1948, 2018], status: planned, shape: corridor,
@@ -835,7 +835,7 @@ nodes:
   - {id: great_depression_world, title: "1929", region: world, years: [1929, 1939], status: planned, mode: archive,
      countries: [USA, DEU, GBR, ARG, BRA, AUS], topics: [great_depression]}
   - {id: internet_now, title: "The network", region: world, years: [1969, 2025], status: planned, shape: hub,
-     countries: [USA, CHN, IND, KOR, KEN, BRA, NGA, EST], topics: [internet, globalization], note: "every region's present meets here"}
+     countries: [USA, CHN, IND, KOR, KEN, BRA, NGA, EST], topics: [internet, globalization, communication_media], note: "every region's present meets here"}
   - {id: climate_now, title: "The warming world", region: world, years: [1958, 2025], status: planned, mode: archive,
      countries: [USA, CHN, IND, TUV, KIR, BGD, NLD, BRA], topics: [climate_change], note: "the Keeling curve and who pays first"}
 
@@ -974,7 +974,7 @@ nodes:
   - {id: germ_theory_sanitation, title: "Cities, microbes and modern sanitation", region: western_europe, years: [1850, 1900], status: candidate,
      countries: [GBR, FRA, DEU], topics: [medicine, everyday_life],
      note: "Urban water and sewage infrastructure, bacteriology and public health; no single heroic discoverer or instant consensus."}
-  - {id: bombay_influenza_1918, title: "Bombay during the 1918 influenza pandemic", region: south_india, years: [1918, 1919], status: candidate, mode: sober,
+  - {id: bombay_influenza_1918, title: "Bombay during the 1918 influenza pandemic", region: western_india, years: [1918, 1919], status: candidate, mode: sober,
      countries: [IND], topics: [medicine, global_epidemics, colonialism, war_civilians],
      note: "India suffered enormous mortality under colonial administration; this city is a situated account of a global pandemic."}
   - {id: nyc_aids_activism, title: "New York and the AIDS activism movement", region: north_america_east, years: [1981, 1996], status: candidate, mode: sober,
@@ -987,3 +987,107 @@ nodes:
      countries: [CHN], topics: [medicine, global_epidemics, globalization],
      note: "An early recognized outbreak and city-level experience in a worldwide pandemic; no blame assigned to a people or place."}
   # END history-atlas-representative-superset-20261105
+
+  # BEGIN history-atlas-second-pass-20261105
+  # ---- Local histories missing behind broad regional proxies ----
+  - {id: kaabu_gabu, title: "Kaabu and the Senegambian hinterland", region: west_africa_coast, years: [1500, 1867], status: candidate,
+     countries: [GNB, SEN, GMB, GIN], topics: [african_kingdoms, atlantic_slave_trade, slavery_and_resistance],
+     note: "Mandinka-led Kaabu developed out of Mali's western provinces; account for Balanta, Jola and Fula communities and coercive trade, not only the ruling court."}
+  - {id: chollo_upper_nile, title: "The Chollo kingdom of the Upper Nile", region: nile, years: [1550, 1850], status: candidate,
+     countries: [SSD, SDN], topics: [african_kingdoms, herding, everyday_life, law],
+     note: "Riverine Shilluk/Chollo kingship around Fashoda, agriculture, cattle and neighboring societies; not a proxy for all South Sudanese peoples."}
+  - {id: punakha_dzong_bhutan, title: "Punakha and the formation of Bhutan", region: himalaya, years: [1616, 1907], status: candidate,
+     countries: [BTN], topics: [spread_of_religions, law, monumental_building],
+     note: "Zhabdrung Ngawang Namgyal's 17th-century state formation, Punakha Dzong and religious-civil governance; distinguish the 1637 building from the longer institutional history."}
+
+  # ---- Food revolutions with independent African evidence ----
+  - {id: tilemsi_pearl_millet, title: "Pearl millet in the western Sahel", region: sahel, years: [-2500, -1800], status: candidate, mode: archive,
+     countries: [MLI], topics: [farming_origins, crops, herding],
+     note: "Late Neolithic millet selection and cultivation in the Tilemsi area; domestication was prolonged and its earliest locus is debated."}
+  - {id: inland_niger_african_rice, title: "African rice on the inland Niger", region: sahel, years: [-300, 600], status: candidate, mode: archive,
+     countries: [MLI], topics: [farming_origins, crops, everyday_life],
+     note: "Jenne-jeno and floodplain rice-fish-cattle livelihoods; African rice is distinct from Asian rice, and the first domestication site is not settled."}
+
+  # ---- Everyday history inside already-represented societies ----
+  - {id: old_babylonian_scribal_school, title: "A scribal school in Old Babylonian Mesopotamia", region: mesopotamia, years: [-1900, -1600], status: candidate, shape: pocket,
+     countries: [IRQ], topics: [writing, education_and_apprenticeship, everyday_life],
+     note: "Clay tablets, exercises, teachers and apprentices; a household-scale history of literacy, rather than another royal palace."}
+  - {id: song_kaifeng_workshop, title: "A print and paper workshop in Song Kaifeng", region: china, years: [1020, 1200], status: candidate, shape: pocket,
+     countries: [CHN], topics: [printing, education_and_apprenticeship, communication_media, everyday_life],
+     note: "Artisans, commerce and printed pages in the Song capital; do not equate printing with modern mass literacy."}
+  - {id: maya_maize_household, title: "A Maya household and maize garden", region: mesoamerica, years: [600, 850], status: candidate, shape: pocket,
+     countries: [GTM, MEX, BLZ], peoples: [maya_peoples], topics: [everyday_life, crops, household_work],
+     note: "Food processing, household craft and garden work among diverse Classic Maya communities; not one uniform Maya lifestyle."}
+  - {id: kilwa_courtyard, title: "An everyday courtyard in medieval Kilwa", region: swahili_coast, years: [1250, 1450], status: candidate, shape: pocket,
+     countries: [TZA], peoples: [swahili], topics: [everyday_life, indian_ocean_trade, household_work],
+     note: "Coastal domestic architecture, household exchange and crafts; complement the port's merchant and political history."}
+  - {id: angkor_water_households, title: "Households and waterworks around Angkor", region: mainland_southeast_asia, years: [1050, 1250], status: candidate, shape: pocket,
+     countries: [KHM], topics: [everyday_life, monumental_building, farming_origins, household_work],
+     note: "Farm work, reservoirs, canal maintenance and ordinary neighborhoods; Angkor was an inhabited landscape, not only temples."}
+  - {id: ottoman_coffeehouse, title: "An Ottoman coffeehouse in Istanbul", region: anatolia, years: [1560, 1720], status: candidate, shape: pocket,
+     countries: [TUR], topics: [everyday_life, crops, indian_ocean_trade],
+     note: "Coffee consumption, urban public conversation and state oversight; imported beans pass through complex networks rather than a single direct voyage."}
+
+  # ---- Oral, musical and modern media cultures ----
+  - {id: mande_griot_courts, title: "Griot traditions of the Mande-speaking world", region: sahel, years: [1250, 1550], status: candidate,
+     countries: [MLI, GIN, SEN], topics: [performance_oral_history, african_kingdoms, everyday_life],
+     note: "Jeli storytelling, genealogy and musical knowledge transmitted by performers; traditions continue and differ among communities."}
+  - {id: new_orleans_early_jazz, title: "New Orleans and early jazz", region: north_america_east, years: [1890, 1930], status: candidate,
+     countries: [USA], peoples: [african_americans], topics: [performance_oral_history, migration, everyday_life],
+     note: "Black and Creole musicians, dance halls and musical exchange; not a claim that one person or night invented jazz."}
+  - {id: kingston_sound_system_culture, title: "Kingston sound systems, ska and reggae", region: caribbean, years: [1950, 1980], status: candidate,
+     countries: [JAM], peoples: [afro_caribbeans], topics: [performance_oral_history, communication_media, civil_rights],
+     note: "Neighborhood sound systems, studio innovation and social commentary; reggae emerges from several Jamaican and international musical traditions."}
+  - {id: rio_samba_communities, title: "Rio's samba communities", region: brazil_atlantic, years: [1910, 1940], status: candidate,
+     countries: [BRA], peoples: [afro_latin_americans], topics: [performance_oral_history, everyday_life, civil_rights],
+     note: "Afro-Brazilian cultural organizations, neighborhood musicians, celebration and state politics; cultural history beyond an official parade."}
+  - {id: java_gamelan_cultures, title: "Javanese gamelan and performance", region: island_southeast_asia, years: [1750, 1900], status: candidate,
+     countries: [IDN], peoples: [javanese], topics: [performance_oral_history, everyday_life],
+     note: "An era-specific window into long-lived instrumental and theatrical traditions; not their purported time of origin."}
+  - {id: mumbai_cinema, title: "Bombay's cinema studios and audiences", region: western_india, years: [1930, 1970], status: candidate,
+     countries: [IND], topics: [communication_media, everyday_life, labour_movements],
+     note: "Film workers, songs, popular language and a mass audience across colonial and independent India; not a synonym for every Indian cinema."}
+  - {id: lagos_home_video, title: "Lagos and the home-video film boom", region: west_africa_coast, years: [1990, 2010], status: candidate,
+     countries: [NGA], topics: [communication_media, globalization, everyday_life],
+     note: "The rise of Nigerian video production and distribution often called Nollywood; treat its industries and regional languages distinctly."}
+
+  # ---- Local histories of World War II, not interchangeable theaters ----
+  - {id: burma_wartime_occupation, title: "Burma during the Second World War", region: mainland_southeast_asia, years: [1942, 1945], status: candidate, mode: sober,
+     countries: [MMR], topics: [world_war_two, colonialism, war_civilians],
+     note: "Japanese occupation, the Burma campaign and civilians of multiple ethnic communities; resistance and allegiances varied and changed."}
+  - {id: manila_occupation_liberation, title: "Manila under occupation and in 1945", region: island_southeast_asia, years: [1942, 1945], status: candidate, mode: sober,
+     countries: [PHL], topics: [world_war_two, war_civilians, colonialism],
+     note: "Filipino civilians, resistance and the devastation of Manila in 1945; do not reduce Philippine wartime experience to foreign armies."}
+  - {id: java_wartime_romusha, title: "Java under occupation and forced labor", region: island_southeast_asia, years: [1942, 1945], status: candidate, mode: sober,
+     countries: [IDN], topics: [world_war_two, war_civilians, colonialism, labour_movements],
+     note: "Occupation, local political movements and romusha forced labor; the transition to independence was complex."}
+  - {id: kokoda_papuan_carriers, title: "Papuan carriers on the Kokoda Track", region: melanesia, years: [1942, 1942], status: candidate, mode: sober,
+     countries: [PNG], topics: [world_war_two, war_civilians, labour_movements],
+     note: "Papuan soldiers, carriers and communities; include coercive recruitment, hardship and agency rather than the one-sided 'Fuzzy Wuzzy Angels' myth."}
+
+  # ---- Regional economic and political transformations ----
+  - {id: atacama_nitrate_workers, title: "The nitrate towns of the Atacama", region: atacama, years: [1880, 1930], status: candidate,
+     countries: [CHL, PER, BOL], topics: [labour_movements, industrial_revolution, nationalism],
+     note: "Nitrate extraction, labor organizing, and the international markets and territorial conflicts around the Atacama desert."}
+  - {id: buenos_aires_peronism, title: "Buenos Aires and Peronist labor politics", region: southern_cone, years: [1945, 1955], status: candidate,
+     countries: [ARG], topics: [labour_movements, nationalism, womens_suffrage],
+     note: "Organized workers, Eva Peron, social welfare and political conflict; neither a purely heroic nor purely dictatorial tableau."}
+  - {id: ukraine_independence_1991, title: "Ukraine's independence referendum of 1991", region: eastern_europe, years: [1991, 1991], status: candidate,
+     countries: [UKR], topics: [cold_war, nationalism, decolonization],
+     note: "Independence and popular voting during the Soviet dissolution; maintain distinct Ukrainian history beyond Cold War superpower narratives."}
+  - {id: nairobi_mobile_money, title: "Nairobi and mobile money", region: great_lakes, years: [2007, 2015], status: candidate,
+     countries: [KEN], topics: [money, internet, globalization, everyday_life],
+     note: "Mobile payments and daily economic life in Kenya, including M-Pesa; distinguish telecommunications systems from the Internet itself."}
+  - {id: lahore_partition_lives, title: "Lahore households during Partition", region: punjab, years: [1947, 1948], status: candidate, mode: sober, shape: pocket,
+     countries: [PAK, IND], peoples: [punjabis, sikhs], topics: [partition, migration, war_civilians, household_work],
+     note: "Displacement, neighbor relations and family survival across religious communities; the lived history behind a border on an atlas."}
+  - {id: brazil_coffee_labor, title: "Coffee estates and work in southeastern Brazil", region: brazil_atlantic, years: [1850, 1930], status: candidate,
+     countries: [BRA], topics: [crops, slavery_and_resistance, abolition, labour_movements],
+     note: "Coffee markets, slavery before 1888, and varied forms of work and migration after abolition; avoid a simple progression to free labor."}
+  - {id: cairo_black_death, title: "Cairo during the Black Death", region: nile, years: [1347, 1351], status: candidate, mode: sober,
+     countries: [EGY], topics: [black_death, medicine, global_epidemics, everyday_life],
+     note: "The Egyptian and Mamluk-era experience of a transregional pandemic; public life, work and loss beyond European plague narratives."}
+  - {id: kimberley_diamond_labor, title: "Kimberley and southern African diamond mining", region: southern_africa, years: [1867, 1914], status: candidate,
+     countries: [ZAF], topics: [colonialism, labour_movements, industrial_revolution, everyday_life],
+     note: "Mining, land, migrant labor and unequal power in the southern African mineral revolution; not just an industrial spectacle."}
+  # END history-atlas-second-pass-20261105

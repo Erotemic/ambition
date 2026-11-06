@@ -133,3 +133,11 @@ topics:
   - [war_civilians, "Civilian experiences of war and occupation", sober]
   - [global_epidemics, "Epidemics, pandemics and public-health responses", sober]
   # END history-atlas-representative-superset-20261105
+
+  # BEGIN history-atlas-second-pass-20261105
+  - [performance_oral_history, "Music, performance and oral historical memory", thread]
+  - [water_sanitation, "Water, hygiene, sewers and sanitation", thread]
+  - [education_and_apprenticeship, "Schools, learning and apprenticeship", thread]
+  - [communication_media, "Media technologies and the circulation of stories", thread]
+  - [household_work, "Households, food preparation and care work", neglected]
+  # END history-atlas-second-pass-20261105

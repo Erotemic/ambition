@@ -9,19 +9,23 @@
 # (`docs/planning/game/history-dimension-long-range-roadmap.md`, section 4).
 # Years: negative is BCE, positive is CE. They overlap on purpose; a node
 # takes the horizon of the middle of its dates unless it names one.
+# history-atlas-second-pass-20261105: A horizon is only a display bucket. Long-lived
+# traditions can cross many horizons; the midpoint does not date
+# their origin, disappearance, or a particular playable scene.
+# Geography is an editorial index, not a mandated traversal map.
 
 clusters:
   africa: {name: Africa, regions: [east_africa, southern_africa, nile, horn, sahel, west_africa_coast, central_africa, great_lakes, swahili_coast, madagascar, atlantic_islands, maghreb]}
   swasia: {name: Southwest Asia, regions: [levant, mesopotamia, anatolia, iran, arabia, caucasus]}
   europe: {name: Europe, regions: [aegean, italy, iberia, western_europe, british_isles, central_europe, nordic, baltic, eastern_europe, balkans]}
   steppe: {name: Central Asia and the steppe, regions: [central_asia, mongolia, siberia]}
-  south_asia: {name: South Asia, regions: [indus, north_india, south_india, himalaya, punjab]}
+  south_asia: {name: South Asia, regions: [indus, north_india, south_india, himalaya, punjab, western_india, bengal]}
   east_asia: {name: East Asia, regions: [china, korea, japan, taiwan]}
   southeast_asia: {name: Southeast Asia, regions: [mainland_southeast_asia, island_southeast_asia]}
   oceania: {name: Oceania, regions: [australia, melanesia, micronesia, polynesia, aotearoa]}
   north_america: {name: North America, regions: [beringia, arctic, north_america_east, plains, southwest, pacific_northwest, california]}
   mesoamerica: {name: Mesoamerica and the Caribbean, regions: [mesoamerica, central_america, caribbean]}
-  south_america: {name: South America, regions: [andes, amazonia, southern_cone, brazil_atlantic]}
+  south_america: {name: South America, regions: [andes, amazonia, southern_cone, brazil_atlantic, atacama]}
   # Not a place: the oceans and the networks that join the clusters. A node
   # here is a crossing (a corridor or a ship), not a homeland.
   seas: {name: The seas and the networks, regions: [atlantic, indian_ocean, pacific, silk_roads, world]}

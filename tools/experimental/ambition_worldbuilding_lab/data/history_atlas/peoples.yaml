@@ -65,3 +65,10 @@ peoples:
   - [sikhs, "Sikh communities", [IND, PAK, GBR, CAN, USA]]
   - [marshallese, "Marshallese", [MHL, USA]]
   # END history-atlas-representative-superset-20261105
+
+  # BEGIN history-atlas-second-pass-20261105
+  - [yoruba, "Yoruba peoples", [NGA, BEN, TGO]]
+  - [igbo, "Igbo peoples", [NGA]]
+  - [swahili, "Swahili coastal communities", [TZA, KEN, MOZ, COM]]
+  - [javanese, "Javanese", [IDN]]
+  # END history-atlas-second-pass-20261105

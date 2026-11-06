@@ -1091,3 +1091,95 @@ nodes:
      countries: [ZAF], topics: [colonialism, labour_movements, industrial_revolution, everyday_life],
      note: "Mining, land, migrant labor and unequal power in the southern African mineral revolution; not just an industrial spectacle."}
   # END history-atlas-second-pass-20261105
+
+  # BEGIN history-atlas-crash-course-20261105
+  - {id: seven_years_war_global, title: The Seven Years War on several continents, region: world, years: [1756, 1763], status: candidate, countries: [
+        GBR, FRA, DEU, USA, CAN, IND], topics: [colonialism, age_of_sail, indian_ocean_trade], note: 'Fighting in Europe, North America and South Asia
+        formed linked but distinct theaters; the war preceded major British colonial expansion. (Crash Course I #26)', shape: corridor}
+  - {id: little_ice_age_alps, title: Alpine villages during the Little Ice Age, region: central_europe, years: [1550, 1850], status: candidate, countries: [
+        CHE, AUT, FRA], topics: [climate_and_collapse, crops, everyday_life], note: 'Advance and retreat of mountain glaciers and local effects on farming;
+        do not treat the Little Ice Age as a simultaneous uniform global cooling. (Crash Course II #206)'}
+  - {id: madras_famine_1876, title: The Madras famine of 1876-1878, region: south_india, years: [1876, 1878], status: candidate, countries: [IND], topics: [
+        famine, colonialism, crops, migration], note: 'Drought, colonial policies, grain markets, mortality and relief debates in southern India; avoid
+        explaining famine only by rainfall. (Crash Course II #208)', mode: sober}
+  - {id: liverpool_manchester_railway, title: The Liverpool and Manchester Railway, region: british_isles, years: [1825, 1840], status: candidate, countries: [
+        GBR], topics: [industrial_revolution, labour_movements, migration], note: 'Steam rail transport connected workers, ports, factories and new timetables;
+        the line opened in 1830. (Crash Course II #214)', shape: corridor}
+  - {id: charles_v_holy_roman_empire, title: Charles V and the Holy Roman Empire, region: central_europe, years: [1519, 1556], status: candidate, countries: [
+        DEU, AUT, ESP, NLD, BEL, ITA], topics: [reformation, law, age_of_sail], note: 'Imperial elections, religious divisions and composite Habsburg realms;
+        distinguish the Holy Roman Empire from the Spanish monarchy and the ruler of both. (Crash Course II #219)'}
+  - {id: congo_wars_1996_2003, title: The First and Second Congo Wars, region: central_africa, years: [1996, 2003], status: candidate, countries: [COD,
+        RWA, UGA, BDI, AGO, ZWE], topics: [war_civilians, migration, decolonization], note: 'Cross-border fighting, displacement, exploitation and civilian
+        consequences in the DRC and neighboring states; distinct from Leopold II''s Congo Free State. (Crash Course II #221)', mode: sober}
+  - {id: early_buddhist_sangha, title: Early Buddhist communities in the Ganges plain, region: north_india, years: [-500, -250], status: candidate, countries: [
+        IND, NPL], topics: [spread_of_religions, everyday_life, education_and_apprenticeship], note: 'The early sangha, monastic life and transmission
+        of teachings; early chronology and exact locations are debated. (Crash Course I #6)'}
+  - {id: confucius_late_zhou, title: Confucius and the late Zhou schools, region: china, years: [-550, -250], status: candidate, countries: [CHN], topics: [
+        china_dynasties, law, education_and_apprenticeship], note: 'Ethical, political and educational debates in the Eastern Zhou world; Confucian traditions
+        developed after the historical Confucius. (Crash Course I #7)'}
+  - {id: alexander_campaigns, title: Alexander's campaigns across the Achaemenid Empire, region: iran, years: [-334, -323], status: candidate, countries: [
+        GRC, TUR, EGY, IRN, AFG, PAK], topics: [greece, persia, india_empires], note: 'Macedonian conquest from Anatolia to western South Asia; distinguish
+        military campaigns from diverse Hellenistic successor kingdoms. (Crash Course I #8)'}
+  - {id: medina_early_community_practice, title: Community life in early Medina, region: arabia, years: [622, 661], status: candidate, countries: [SAU],
+      topics: [spread_of_religions, law, everyday_life], note: 'An era-specific view of collective worship, obligations and communal institutions, without
+        depicting a religious founder as a game character. (Crash Course I #13)', shape: pocket}
+  - {id: da_gama_calicut_1498, title: Vasco da Gama arrives in Calicut, region: south_india, years: [1497, 1503], status: candidate, countries: [IND, PRT],
+      topics: [indian_ocean_trade, age_of_sail, colonialism], note: 'Portuguese fleets entered established Indian Ocean trading networks; show Calicut
+        merchants and local diplomacy rather than a European discovery of India. (Crash Course I #21)'}
+  - {id: cook_pacific_encounters, title: Pacific voyages and Indigenous encounters in Cook's era, region: polynesia, years: [1768, 1779], status: candidate,
+      countries: [GBR, PYF, NZL, AUS], topics: [pacific_navigation, age_of_sail, indigenous_resistance], note: 'Tupaia''s navigational knowledge and encounters
+        with different Pacific communities; European logs are not the only viewpoint. (Crash Course I #27)'}
+  - {id: seville_price_revolution, title: Seville and the early modern Price Revolution, region: iberia, years: [1500, 1650], status: candidate, countries: [
+        ESP], topics: [money, silver_circuits, globalization], note: 'Inflation in early modern Europe reflected complex monetary, population and market
+        changes alongside American silver flows. (Crash Course I #25)'}
+  - {id: brazil_independence_1822, title: Rio de Janeiro and Brazilian independence, region: brazil_atlantic, years: [1821, 1825], status: candidate, countries: [
+        BRA, PRT], topics: [latin_american_independence, nationalism, colonialism], note: 'Brazilian independence in 1822 followed a different political
+        trajectory from Spanish American republics; slavery continued. (Crash Course I #31)'}
+  - {id: chartist_workers, title: Chartists and working-class politics in Britain, region: british_isles, years: [1838, 1858], status: candidate, countries: [
+        GBR], topics: [labour_movements, industrial_revolution, law], note: 'Organized demands for parliamentary reform, mass petitions and working-class
+        political participation alongside capitalist industrialization. (Crash Course I #33)'}
+  - {id: zomia_swidden_highlands, title: Swidden agriculture and highland communities of mainland Southeast Asia, region: mainland_southeast_asia, years: [
+        1700, 1950], status: candidate, countries: [MMR, THA, LAO, VNM, CHN], topics: [indigenous_agriculture, forager_foodways, indigenous_resistance],
+      note: 'Diverse shifting-cultivation practices and relationships with lowland states; Zomia is an analytical region, not a single people or timeless
+        state-free society. (Crash Course II #201)'}
+  - {id: old_babylonian_debt_relief, title: Debt relief edicts in Old Babylonian cities, region: mesopotamia, years: [-1900, -1600], status: candidate,
+      countries: [IRQ], topics: [money, law, everyday_life], note: 'Royal debt-remission edicts and obligations recorded on tablets; ancient credit existed
+        alongside exchange, not after a universal barter phase. (Crash Course II #202)', shape: pocket}
+  - {id: sarajevo_july_crisis, title: Sarajevo and the July Crisis, region: balkans, years: [1914, 1914], status: candidate, countries: [BIH, AUT, SRB,
+        DEU], topics: [world_war_one, nationalism, war_civilians], note: 'Assassination in Sarajevo and diplomatic escalation to war; separate the event
+        from competing explanations of responsibility. (Crash Course II #209)', mode: sober}
+  - {id: eastern_mediterranean_bronze_crisis, title: Eastern Mediterranean networks in the Late Bronze Age crisis, region: levant, years: [-1250, -1150],
+      status: candidate, countries: [SYR, TUR, GRC, CYP, LBN], topics: [bronze_age_collapse, bronze_and_iron, climate_and_collapse, migration], note: 'Interacting
+        changes in trade, warfare, migrations and political systems; no single cause explains the varied disruptions around 1200 BCE. (Crash Course II
+        #211)', shape: corridor}
+  - {id: calcutta_antiimperial_thought, title: Calcutta and anti-imperial literary debate, region: bengal, years: [1880, 1920], status: candidate, countries: [
+        IND], topics: [colonialism, nationalism, education_and_apprenticeship], note: 'Public debate about empire, nationalism and education, including
+        Tagore; avoid attributing one political program to every Bengali thinker. (Crash Course II #213)'}
+  - {id: liang_qichao_reform_press, title: Liang Qichao and the reform press, region: china, years: [1895, 1920], status: candidate, countries: [CHN, JPN],
+      topics: [nationalism, china_dynasties, printing, communication_media], note: 'Reform, journalism and constitutional debate in late Qing and early
+        Republican China; ideas circulated through transnational Asian networks. (Crash Course II #213)'}
+  - {id: cairo_religious_reform_politics, title: Cairo and debates over Islamic reform and politics, region: nile, years: [1870, 1954], status: candidate,
+      countries: [EGY], topics: [spread_of_religions, colonialism, nationalism, education_and_apprenticeship], note: 'Al-Afghani, Muhammad Abduh and later
+        political movements represented distinct positions and eras; political Islam cannot be reduced to a single movement. (Crash Course II #213, #216)'}
+  - {id: bombay_thane_railway, title: The first passenger railway in colonial India, region: western_india, years: [1853, 1880], status: candidate, countries: [
+        IND], topics: [industrial_revolution, colonialism, migration], note: 'Bombay-Thane line opened in 1853; connect mobility, investment, labor and
+        colonial administration without assuming benefits were equally shared. (Crash Course II #214)', shape: corridor}
+  - {id: malthus_population_debate, title: Malthus and the population debates, region: british_isles, years: [1798, 1850], status: candidate, countries: [
+        GBR], topics: [famine, crops, climate_and_collapse], note: 'Published population theories and their critiques; do not present Malthusian predictions
+        as settled laws or famines as inevitable. (Crash Course II #215)'}
+  - {id: east_indies_oil_and_war, title: 'Oil, occupation and war in the Dutch East Indies', region: island_southeast_asia, years: [1940, 1945], status: candidate,
+      countries: [IDN, JPN, NLD], topics: [world_war_two, colonialism, war_civilians], note: 'Petroleum and strategic resource pressures were among several
+        factors in Japanese wartime expansion, occupation and civilian suffering. (Crash Course II #220)', mode: sober}
+  - {id: british_mandate_palestine, title: Palestine under the British Mandate, region: levant, years: [1922, 1948], status: candidate, countries: [PSE,
+        ISR, GBR], topics: [colonialism, nationalism, migration, war_civilians], note: 'The Mandate, Palestinian Arab and Jewish communities, competing
+        national movements, British governance and escalating conflict; neither community has a single viewpoint. (Crash Course II #223)', mode: sober}
+  - {id: post_1967_israel_palestine, title: Israel and Palestinian territories after 1967, region: levant, years: [1967, 1995], status: candidate, countries: [
+        PSE, ISR], topics: [nationalism, migration, war_civilians], note: 'The 1967 war, occupation, Palestinian civilian life, Israeli security and political
+        debates, and efforts toward a negotiated settlement; the conflict continued beyond this snapshot. (Crash Course II #223)', mode: sober}
+  - {id: singapore_container_port, title: Singapore and containerized global shipping, region: island_southeast_asia, years: [1965, 2000], status: candidate,
+      countries: [SGP], topics: [globalization, indian_ocean_trade, labour_movements], note: 'Container ports, standardization and worldwide supply chains;
+        modern maritime globalization has diverse hubs, workers and consequences. (Crash Course I #41-42)'}
+  - {id: bretton_woods_1944, title: Bretton Woods and the postwar monetary institutions, region: north_america_east, years: [1944, 1971], status: candidate,
+      countries: [USA], topics: [money, globalization, law], note: '1944 conference and subsequent IMF/World Bank institutions; an institutional example
+        for comparing postwar economic paths and unequal influence. (Crash Course I #41, II #230)'}
+  # END history-atlas-crash-course-20261105

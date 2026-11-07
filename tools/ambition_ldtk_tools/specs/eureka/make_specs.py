@@ -294,8 +294,12 @@ def coil_lab():
         ledge("coil_gantry_east", 720, floor - 224, 240),
         ledge("bench", 1000, floor - 48, 160),
         resident("npc_eureka_dmitri", "eureka_dmitri", 560, floor),
+        # Nikobolt and Coulomba are together between the two gantries, clear
+        # of the door, the bench, and the gravity-prototype lever.
+        resident("npc_science_nikobolt", "eureka_nikobolt", 750, floor, h=76),
+        resident("npc_science_coulomba", "eureka_coulomba", 840, floor, h=68),
         sign("lab_sign_rules", 640, ceiling + 40, "DO NOT TOUCH THE COILS. The coils will touch you.", 520),
-        sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: back soon", 320),
+        sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: AT WORK", 320),
         # The director's prototype (Jon, 2026-10-30: "a bit of chutzpah"): a
         # lever that turns the lab's gravity over, and its twin hanging from
         # the ceiling for whoever pressed it. The only door is on the floor.

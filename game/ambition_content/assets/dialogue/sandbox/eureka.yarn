@@ -54,6 +54,54 @@ Dmitri: Do not touch that. And do not touch that. You can touch that, it is alre
 -> I will leave you to it.
 ===
 
+title: eureka_nikobolt
+---
+Nikobolt Tesseract: Please keep the blueprints off the floor. I have counted them twice, and I would rather not count them a third time.
+Coulomba Tesseract: You counted them three times. The third time you counted the napkins too.
+-> What are you building?
+    Nikobolt Tesseract: A way to light the whole town without stretching a wire from house to house. The small lamp works. The large coil is less polite.
+    Coulomba Tesseract: The small lamp works because I made him put it in a glass case. Before that, it lit the curtains as well.
+-> Is that the gravity lever?
+    Nikobolt Tesseract: A prototype. It changes which way the room thinks is down. The physics is sound.
+    Coulomba Tesseract: Dmitri installed the second switch on the ceiling. The plumbing was less sound.
+    Nikobolt Tesseract: That is why we test things.
+-> Why do you guard your drawings?
+    Nikobolt Tesseract: Someone borrowed a design for bringing light into a house. Now there is lightning over a castle beyond the gate.
+    Nikobolt Tesseract: I wanted windows to glow at night. I did not want anyone to be afraid of the sky.
+    Coulomba Tesseract: We keep copies now. And I have started writing down who comes through the door.
+-> Are you two always here together?
+    Coulomba Tesseract: No. Sometimes he is on the roof counting pigeons, and I am here explaining why they are not my cousins.
+    Nikobolt Tesseract: I never said they were.
+    Coulomba Tesseract: You made a family tree.
+-> I'll leave you to your work.
+    Nikobolt Tesseract: Thank you. The fourth count can wait.
+===
+
+title: eureka_coulomba
+---
+Coulomba Tesseract: Come in. The crackling is normal. If you smell smoke, please tell Dmitri before you tell Nikobolt.
+Nikobolt Tesseract: I can smell smoke.
+Coulomba Tesseract: You call it "evidence of progress."
+-> Does he ever leave the laboratory?
+    Coulomba Tesseract: We walk through the quad every evening. He stops to examine the lamps. I stop to see the people beneath them.
+    Nikobolt Tesseract: One of those lamps has a loose contact.
+    Coulomba Tesseract: Yes, dear. We have enjoyed that walk for six weeks.
+-> How did you meet?
+    Coulomba Tesseract: He was demonstrating a lamp that needed no wire. Everyone watched the light. I asked what happened when the power went out.
+    Nikobolt Tesseract: She was the only person who asked about the switch.
+    Coulomba Tesseract: He went home and built one. We have been arguing about switches ever since.
+-> Are the pigeons outside your family?
+    Coulomba Tesseract: I am a pigeon. That does not make every pigeon in town my relation.
+    Nikobolt Tesseract: We have no proof either way.
+    Coulomba Tesseract: We also have no reason to collect feathers for your proposed test.
+-> Can I touch the coils?
+    Coulomba Tesseract: I would not. We have a perfectly good conversation that does not require you to become part of the circuit.
+    Nikobolt Tesseract: The coils are insulated.
+    Coulomba Tesseract: Since Tuesday.
+-> Good to meet you both.
+    Coulomba Tesseract: Come by again. Perhaps we will have finished the lamp for the street.
+===
+
 title: eureka_wilbur
 ---
 Wilbur: Mind the grass. I keep it. It does not keep itself, whatever the physicists tell you.

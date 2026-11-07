@@ -44,305 +44,46 @@ authored separately and are not placed in this route yet.
 
 The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/parallax-backgrounds.md).
 
-## Run progress (8 h run, armed 2026-10-10T05:22Z)
+## Art system state
 
-- [x] Parallax panels are sized against what the camera shows of the world.
-  They were sized in window pixels, so the play camera (640 by 360 units in a
-  1600 by 900 window) showed the middle of each panel two and a half times too
-  large. This was the main cause of the "muddy" backgrounds.
-- [x] Eleven scenes drawn again with a numpy paint box: hub, lab, basement,
-  cave, cove, water, forest, skybridge, open_sky, boss, eclipse. Two more
-  came later in the run: alarm and undertown.
-- [x] The old parallax tool in the main repository is retired; the sky of the
-  two-state room look moved to the submodule with the scenes.
-- [x] Terrain skins for ten biomes (twelve at the end of the run), laid on the blocks of each room that names
-  a theme: a fill, and a trim on each open edge.
-- [x] A foreground layer for ten biomes: the one panel in front of the play.
-- [x] Motes that drift in the air of ten biomes (dust, embers, fireflies,
-  bubbles, petals).
-- [x] Ground decor for ten biomes: a few small things on the open top edges of
-  a room's blocks, clear of each thing of the play.
-- [x] Biomes assigned: 28 sandbox rooms and one intro room name a scene of
-  their own (skybridge, eclipse, boss, basement, cave, cove, forest). The
-  count of rooms for each theme at the end of the run: sandbox, 13 `lab`,
-  11 `basement`, 10 `boss`, 8 `skybridge`, 6 `eclipse`, 5 `cave`, 4 `cove`,
-  2 `hub`, 2 `open_sky`, 1 `forest`, 1 `water`, 1 `hub_clean`; intro, 4
-  `undertown`, 3 `alarm`, 3 `lab`, 1 `skybridge`. The hall of characters is
-  `hub` and the rope room is `cave`.
-- [x] Portals: the capture of an end draws its own window when its pair looks
-  at itself (the row of images between two portals that face). Seen in a
-  capture with a pair shot onto two faces: five images of the player in the
-  view. The command is in `docs/systems/portals.md`.
-- [x] `capture_scene --camera-zoom`: a wider zoom shows the portal windows
-  (seven images of the player at `arena`). The note that it showed none was
-  wrong: it was the pair of that capture, not the zoom.
-- [x] Props that are part of a room: doors, ladders, water, blink walls,
-  hazards, decor and its light, ground shadows (see the items below).
-- [ ] Characters. Not started: see "Not done".
-- [x] Gizmos in portal captures: they are drawn. Seen in a capture of two
-  portals that face with `--combat-overlay`: each image of the player in a
-  window has its boxes, its arrows and its bars. No code changed for it.
-- [x] The intro rooms show the skin of their biome: the uniform painted tile
-  layer that hid it is cleared, and the pattern of a skin is fixed to the room
-  (the intro ground is cells of 16).
-- [x] A door for each biome.
-- [x] A room with a look takes the skin of its theme on a device that does not
-  draw the look (`hub_clean` is marble).
-- [x] A shadow on the ground under each actor and the player. **Turned off
-  2026-10-10** (Jon: it does not suit the style of the game). The system is an
-  opt-in for each game (`GroundShadowRooms`), and no game asks.
-- [x] Ladders and water take the art of the biome (steel rungs in the lab, a
-  rope ladder in the cove and the forest).
-- [x] About half of the rooms that share a scene show it mirrored, so two
-  rooms of one biome are less alike.
-- [x] The marble hub has motes of its own.
-- [x] Blink walls are a field of violet light with a line of light on each
-  open edge (the soft kind) and plates of violet armour (the hard kind), in
-  place of a flat tile with a hatch.
-- [x] A biome for the raid in the main game: `alarm`, the lab with its power
-  out, dark, in the red of its beacons, with smoke under the roof, a beam of
-  the gantry down and sparks at the ends of the cut cables. The raid
-  corridor, the escape shaft and the lower gate stack name it. The wake room
-  and the two labs after stay `lab`, so the raid is a change the player sees.
-- [x] A biome for the rooms under the town in the main game: `undertown`,
-  brick drains with the mouths of other drains in the far wall, the mains of
-  the town, lamps in cages, day through the grates of the street, and water
-  that gives a green light. The two relay rooms, the drain alley and the
-  under-town pipes name it. They had the crystal cave, which stays the biome
-  of the cave rooms of the sandbox.
-- [x] Hazard blocks are a danger fill with a row of spikes on each open edge
-  that point out of it, in place of a tile of spikes that pointed up on each
-  side of a block.
-- [x] The foreground of the lab, the basement and the boss room has no long
-  dark thing along the bottom: it was a band on the floor of each room whose
-  camera is low.
-- [x] A pool of light round each thing of the decor that gives light
-  (lanterns, braziers, floor lights, crystals): a published picture, no
-  shader.
-- [x] A ladder wider than its picture is one ladder with long rungs. It was
-  two ladders side by side.
-- [x] The rebound pad is a plate on two springs with two arrows that point
-  up. It had a row of gold triangles, which a player reads as spikes.
-- [x] The dressing of a room is in the room's load manifest: the cover stays
-  until the skin is there (it came in a few frames late).
+The October biome/art run completed the parallax sizing, biome terrain
+skins, foreground layers, motes, light props, portal-capture look and
+room-cover integration. The dated room counts and checked-off build log
+are in Git history. Keep the live art rules above. Ground shadows remain
+opt-in (`GroundShadowRooms`); no game selects them because they conflict
+with the desired look.
 
-## Characters and props, 2026-10-10
+- [ ] **Character art beyond the completed pirate crew:** review the current
+  cast against the authoring inventory before starting a new redesign.
+  See the remaining character work under **Not done** below.
 
-Jon: the pirates and the props can be made again completely, the posing too.
-A sprite never has a drop shadow in it, and a shadow under each body does not
-suit the style of the game.
+## Character and prop art: standing rules and open work
 
-- [x] The five pirates (admiral, raider, quartermaster, lookout, navigator)
-  are five characters: a look for each (`LOOKS` in `_pirate_common.py`), full
-  bodies, a head with a face. The head is a bone of the chest, so no pose
-  takes it away from the body. The arm with the sword is on the side the
-  pirate looks to, and the two arms are in front of the body. Each pose is
-  made again, and each but the death has a foot on the ground. The sheet
-  frame is 220x164.
-- [x] Thirteen entity props are drawn with form and light: the crate (three
-  states), the spikes, the terminal, the boss core, the practice bag, the
-  moving platform, the pogo orb, the catwalk (one-way platform), the bolt of
-  energy, the spike ball and the ability pickup.
-- [x] No published sprite that the game loads has a ground shadow in it. It
-  is gone from eight entity props, the two chests, the shrine, the gate, the
-  Sanic ring and spring, the town tiles, Marie Curry, Admiral Grass Hopper,
-  the parrot and the heavy ninja. Two checks found them: a count of flat
-  blobs of translucent black in the published sheets, and a search of the SVG
-  drawings for a layer with the name shadow (the scan did not see the chests).
-  The copies of the entity props at the top of `assets/sprites/` are old
-  files that no loader reads (the loader reads `sprites/entities/`): they
-  still have the old pictures.
-- [x] The shadow of the engine under each body is off (`GroundShadowRooms`,
-  an opt-in for each game that no game takes).
-- [x] The Kernel Guide is a character on the rig of the pirate crew
-  (`targets/characters/kernel_guide.py`): a hooded robe, glasses of light, a
-  slate. It was a preset of the toon rig with four short rows. It has eight
-  rows now: idle, walk, talk, interact, slash, shoot, hurt and death. It is
-  drawn larger than the pirates (catalog `collision_scale` 1.9). A provoked
-  guide fights (Jon, 2026-10-10): the action set `kernel_guide_slate` is a
-  hit with the slate and a bolt from its screen.
-- [x] The hall of biomes: a hall in the sandbox with a door for each biome
-  (15), from a door in the hub. Each door goes to the same small room in the
-  art of that biome. The rooms are made by
-  `tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py`: a new biome
-  is one row there. Two of the rooms are room looks (`palette`): the
-  clean / corrupted look with its state switch, and the blueprint look.
-- [x] The cart of the intro is drawn again, and it is a platform (Jon,
-  2026-10-10). It is a wooden wagon in a lab of steel: that is the joke, and
-  it is not made to fit the lab. Its bed is a `MovingPlatform` that stands
-  still (`speed: 0`, `one_way`, `visual: intro_cart`), as a shark of the
-  Mockingbird is. Its sheet has four rows of one frame: `idle` is drawn behind
-  each body and `front` (the near rail and the wheels) in front of each body
-  (`PlatformLook::front_row`), so a body on the bed is IN the cart. The back
-  end of the cart is let down as a ramp (the row `ramp`; the row `gate` is the
-  back end shut, for a cart that rolls: not in the game yet). The mover of the
-  player has no slopes, so the collision of the ramp is 14 one-way steps, each
-  7 long and 4 under the one before: a body on the ground lands on a one-way
-  face less than 8 over its feet, so it walks the steps in the two directions
-  (`the_cart_of_the_wake_room.rs`). The first step draws the ramp
-  (`visual: intro_cart_ramp`, a look that names the sheet of the cart) and the
-  others have no picture (`visual: none`). The wake room has no door back to
-  the hub: the door of the hub is one way, and its zone in the wake room is a
-  landing pad on the bed with no picture (`hide_loading_zone`). A look
-  states the frame its numbers were measured in (`frame_px`), so a sheet of a
-  lower tier or of a pack is drawn at the same size. After a new sheet of a
-  packed target (`data/pack_plan.yaml`), build the packs again (the
-  `ultrapack` stage of `scripts/regen/sprites.sh`): the game draws a packed
-  target from its pack, and a stale pack draws the old picture.
-- [x] The boss vault has no dark sun (that is the mark of the eclipse): its
-  scene is the shut gate of a vault with fire behind it. Ground that is not
-  plain brick: `basalt` (boss), `monolith` (eclipse, slabs with signs),
-  `ruin` (deep water), `rock` (skybridge, and `open_sky`, which had no
-  ground dressing and has each part now). `basement`, `undertown` and
-  `hub_clean` are laid courses still.
-- [x] Seen in the game with `capture_scene` (not in a window on a GPU): the
-  five pirates in the hall of characters and in the cove, the crate, the
-  spikes, the pogo orb, and no shadow under a body.
-- [ ] The other entity props (the heart, the coin, the switches, the morph
-  ball, the save point, the doors, the tiles) are as they were.
-- [x] Two new birds for the T-rex's call (Jon, 2026-10-10): the `chicken`
-  (a white cockerel with a dark tail, a ground bird: idle, walk, run, jump,
-  fall, slash, taunt, hurt, death) and the `owl` (a horned owl, its body
-  from the side and its face to the viewer, a flyer: idle, walk, fly, slash,
-  taunt, hurt, death). Each is one SVG posed by a rig on the `bird` anatomy
-  (`scripts/svg_art/{chicken,owl}_art.py` with `birdkit.py`,
-  `scripts/build_{chicken,owl}_rig.py`, `targets/characters/{chicken,owl}.py`
-  with `_bird_fx.py` for the effects). Side view only: the game reads no
-  turnaround row. A further bird is the same four files, one row of the
-  catalog and one row of `FLOCK` in the T-rex's conductor.
-- [x] Ten more birds the same day: `ostrich`, `emu`, `cassowary`, `kiwi` and
-  `shoebill` (one long-legged build: `rigbuild/ratite.py`,
-  `scripts/svg_art/ratites_art.py`, `scripts/build_ratite_rigs.py`),
-  `european_swallow`, `african_swallow` and `vulture` (flyers:
-  `scripts/build_flyer_rigs.py`), and the hens `chicken_hen` and
-  `ostrich_hen`. Rule (Jon): a bird whose two sexes do not look alike has
-  both, the cock by the bird's id and the hen by `<id>_hen`. Seen in the
-  Hall of Characters with `capture_scene`.
-- [x] The coconut is a thing of the world (Jon): NOT in the African
-  swallow's drawing. `coconut` is a held item (a pure throwable) that the
-  player picks up and throws; a thrown item with a row in
-  `ambition_content::items::thrown_impact` hurts the body it strikes and
-  bounces off (the coconut: one blow of 2). A boss is not hurt by one yet.
-- [ ] Still to do for the coconut: a palm that GROWS them (nothing puts a
-  taken ground item back). The African swallow picks one up and lets it go
-  over the player now (the entry on the six rooms, below).
-- [x] A biome of pasta for the Noodly Temple (Jon, 2026-10-12: "a much more
-  noodly biome"): `noodly` (`ParallaxTheme::Noodly`). A colander over the
-  world with the light through its holes, columns of rigatoni, curtains of
-  noodles; ground of noodles under marinara, with noodles under each block
-  and ledges of lasagne. See [`noodly-temple.md`](noodly-temple.md). Seen
-  with `capture_scene` at the ultra profile, not in a window on a GPU.
-- [x] The primeval trail, a linear dinosaur level (Jon): the hub ->
-  `primeval_trailhead` -> `primeval_run` -> `primeval_canopy` ->
-  `primeval_tyrant_hall` (the T-rex, with his own encounter id
-  `primeval.trex`). Its enemies are the flock and the raptors, placed as
-  `EnemySpawn` with a catalog `character_id`. Its rooms are written by
-  `tools/ambition_ldtk_tools/specs/primeval/make_specs.py`. A new biome,
-  `primeval` (a row in each art table, `ParallaxTheme::Primeval`, a mote
-  row), and a scenery prop, `coconut_palm`. First pass: the rooms are
-  simple, the biome has no foreground layer and no room in the hall of
-  biomes, and reaching the tyrant's hall asks nothing of the player but
-  walking there.
-- [x] The trail is six rooms, and two more kinds hunt on it (Jon,
-  2026-10-11): `primeval_rookery` (penguins on rocks) and `primeval_ridge`
-  (a long flat road) are between the run and the canopy, and the run is a
-  third longer. Willson, the pelican on a bicycle, is an enemy row now
-  (`willson_peck`; he stands in the hall because its placements say so): one
-  rides the end of the run and two the ridge road. The penguin is placed in
-  the rookery. An African swallow picks up a coconut at rest in its room,
-  carries it over what it hunts and lets it go
-  (`ambition_content::primeval::swallows_carry_coconuts`; the take and the
-  release are the held-item crate's one take and one release, and the
-  release is shared with the throw). The system keeps no state. Not done: a
-  swallow does not take a coconut out of the air or off a palm, and the
-  European swallows of the run carry nothing.
-- [x] Four dinosaurs that are not birds, for the trail (Jon): the
-  `compsognathus` (tiny, placed in threes), the `dilophosaurus` (it spits
-  from a distance), the `pachycephalosaurus` (it rams) and the `triceratops`
-  (the heavy). The three on two legs are the `ratite` anatomy with arms on
-  the wing bones (`scripts/build_ratite_rigs.py`); the triceratops is the
-  `quadruped` anatomy and a tail bone (`scripts/build_triceratops_rig.py`).
-  The T-rex does not call them: his flock is birds. Its spit flies as the
-  thrown `Rock` and looks like a glob of venom (2026-10-13).
-- [x] Two biomes for Mary-O (Jon, 2026-10-11), in the colours of a magical
-  girl and with the shapes of an old platform game. `starlight` is the land
-  above: a pink sky, a crescent moon, a rainbow, round hills with marks on
-  them, a far castle, round trees and lamps with a star; ground blocks of
-  pink with mint icing. Rooms `mary_o_1_1` and `mary_o_1_3` name it.
-  `starless` is the dark one, for the room under the ground (`mary_o_1_2`):
-  a moon eaten to a ring in a rift, pointed arches, the wheels of a clock,
-  a window of coloured glass, candles; violet brick with a line of magenta
-  light. Each is a row in each art table and a `ParallaxTheme`. Jon on the
-  first look: "the hearts are a bit much", so the trees have round crowns
-  and no decor is a heart.
-- [x] After Jon played it (2026-10-11): the two Mary-O scenes have no
-  foreground layer. Each had one (strings of stars; chains with moons), and
-  it went over the blocks and the coins of rooms that have play at each
-  height of the view. And the blocks under the ground have the skin of
-  their biome: 1-2 stated a `block_color` and the two vaults a `color` on
-  each block, and a block with a colour gets no skin, so they were flat
-  boxes. No level of Mary-O states a colour now. A vault is in the room of
-  its level, so it has the skin of that room (`starlight`): a part of a
-  room can not name a biome of its own.
-- [x] The title screen has a backdrop (Jon, 2026-10-11: "very boring right
-  now"). Behind the launcher is the parallax scene of the game the cursor is
-  on: the hub for Ambition, the open sky for Sanic, the starlight kingdom
-  for Mary-O, the eclipse for Smash Siblings, the cove at night for Exit.
-  Its four layers drift at four speeds and a move of the cursor fades one
-  scene into the next (`game/ambition_app/src/app/title_screen.rs`, host
-  presentation; the art is the published layers). A row of the launcher is
-  the name of its game, with no description, and the Smash row is "Smash
-  Siblings". The text of the row the cursor is on is dark on its gold bar:
-  it was light, because the menu renderer gave a focus that came after the
-  spawn its background and not its text colour. Not done: a character of
-  the game on the screen, a wordmark, a layout that is not the flat menu.
-- [x] The launcher's menu has the shape of a title screen (Jon, 2026-10-11:
-  "style the menu a bit"). The heading is "Choose Game" (it was "Ambition",
-  the name of the first row also) and the tab is "Games". The window is
-  narrow, with round corners and a thin edge; a gold rule is under the
-  heading; each row has round corners and an edge, and the edge of the
-  cursor's row breathes. The host gives the shape
-  (`style_the_launcher_menu`, before the layout of the frame, so a change
-  of tab does not show the renderer's shape for one frame). The fill of a
-  row and its text colour stay the flat renderer's.
-- [x] A ride through a Mary-O pipe makes no landing sound and no dust (Jon,
-  2026-10-11). The transit puts her on its path each tick, and the movement
-  step took her as a body that fell. The pipe now says her pose is not her
-  own (`PoseOwnedExternally`), and the step of a player body reads that
-  fact: it passed a literal `false`.
-- [x] A shader for the two Mary-O biomes: the shimmer
-  (`game/ambition_demo_mary_o/src/shimmer_shader.rs`, `shaders/shimmer.wgsl`).
-  It draws no shape. Each biome has a shimmer picture
-  (`terrain/shimmer.py`, published as `room_dressing/<biome>_shimmer.png`):
-  red is the shapes (sparkles, or embers), green is when each one is bright,
-  blue is ribbons. The shader moves the picture behind the blocks, makes
-  each shape come and go, and gives it its colour. A device with no budget
-  for a shader that fills the screen draws none, and the room is then its
-  scene and its skin.
-- [x] A biome for the void in Mary-O's land, `void` (Jon, 2026-10-30: "a
-  really cool void zone / dungeon ... with the black / white theming of the
-  void characters"). No colour: black things with a white or grey edge. The
-  scene is black space with white specks, broken rings about the heart of
-  the void, stars that went out, and the castle of the land broken into
-  pieces that drift apart (`backgrounds/outdoors.py::void`). The skin is
-  black with one crisp white line on each edge; the door, the ladder, the
-  decor (cracked obelisks, splinters, a fallen star) and the motes (white
-  specks) are the same. Only the play has a pure white edge: the scene and
-  the decor have grey edges, and nothing in the near layer is in the band
-  of the play, so the void enemies stay clear. No ground shadow, no
-  foreground.
-- [x] The snake with the box (`solid_snake`) is drawn again in place (Jon):
-  a body with bands that tapers to its tail, a head with a gold eye under a
-  brow, a bandana with two tails, a box of corrugated board in three faces
-  with tape, a hand hole and a "this side up" mark. Boxed, its eyes show in
-  the hand hole. To peek, the box lifts on one side. Its rows, its frame and
-  the place of its body and its box did not change (the sheet's body
-  metrics moved by 5 px or less).
-- [x] The bonus block has an interrobang again (Jon). The drawing had not
-  changed, but its stroke was as thin as its hook and it read as a `?` in
-  play. The stroke is upright, thicker than the hook, and starts four rows
-  above the hook (`bonus_block_tile` in `targets/props/entities.py`, and the
-  16 px copy in the Mary-O tileset).
+- Do not bake ground shadows into sprites. The pirate crew and many entity
+  props were redrawn during the October run. The old checked receipts,
+  before/after descriptions and per-room census are in Git history.
+- Keep character props integral to the rig only when they are part of the
+  character; coconuts are held world items, not part of a swallow sprite.
+- New bird rows reuse the established anatomy/publishing pipeline. A bird
+  with visibly different sexes has distinct authored variants.
+- Mary-O rooms use `starlight`, `starless` and `void` biomes with legible
+  foreground/play separation. The room has one biome; an embedded vault
+  does not choose another biome on its own.
+
+- [ ] **Remaining entity prop redesigns:** heart, coin, switches, morph ball,
+  save point, doors and tiles. Check the latest assets before selecting an
+  art pass; this is the old October inventory, not a fresh defect report.
+- [ ] **Coconut lifecycle:** a palm must grow/replenish coconuts so a taken
+  ground item can return. The existing swallow carries and drops a coconut;
+  taking one directly from a palm or from the air and equipping the European
+  swallows remain optional follow-up behavior, not completed work.
+- [ ] **Launcher presentation:** the earlier backdrop/menu work landed, but
+  a game-specific character, wordmark and a layout beyond the flat menu were
+  explicitly left unfinished. Revalidate against the current launcher before
+  promoting a presentation redesign.
+
+For completed implementation details use the renderer, biome sources,
+`docs/systems/parallax-backgrounds.md` and Git history.
 
 ## Plain shots, 2026-10-13 (Jon)
 

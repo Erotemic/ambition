@@ -4,9 +4,9 @@
 what keeps Mary-O and Sanic from paying for Ambition. **Asked by:** Jon,
 2026-10-15/16 ("optimize by finding more elegant patterns, instead of chasing
 milliseconds"; "run [approximations] by me first"; "Mary-O and Sanic [must] not
-get bogged down by everything else that is in Ambition"). **Status:** an 8-hour
-run started 2026-10-16T04:40Z; from 13:30Z the target is the hub with Mary-O
-("Hub first" below). This page is the live record.
+get bogged down by everything else that is in Ambition"). **Status:** dated measurement record, not a live run diary. The 2026-10-24 run closed.
+Re-measure against the current build before selecting CPU work; follow-up choices and
+target-device checks are below.
 
 **Related pages (they own their plans; this page ranks across them):**
 [system-composition-audit](system-composition-audit.md) (S1-S6),
@@ -19,590 +19,88 @@ Each claim is **MEASURED** (a run, a census, a profile, or a read of source)
 or **REASONED** (inferred). A number here has the run that made it; run it
 again before you quote it.
 
-## Run progress (live, 2026-10-22 24h)
+## Run outcome and remaining checks (2026-10-24)
 
-**Asked by:** Jon, 2026-10-22: "a 24 hour goal to work on monolith
-decomposition and system consolidation (esp ones that might make maryo and
-ambition faster if it is still bottlenecked on cpu scheduling)". Started
-2026-10-22T21:49Z, ends 2026-10-23T21:49Z. Order: the answer (F40), then
-the systems that run for nothing on the Mary-O route, then the larger
-consolidations and the monolith packets.
+**Completed run:** main-world serial scheduling, dormancy of unused game/capability
+systems, material and presentation reductions, room-look shader reductions, and
+actor-kernel carve packets. The October 24 desktop A/B found a Mary-O main-world
+frame wall of 12.98 → 6.74 ms and an Ambition main-world wall of 13.91 → 5.12 ms.
+These are **dated desktop measurements**, not a present phone-performance claim.
+The completed change-by-change run log is in Git history. The active work is:
 
-**Status, 2026-10-24 08:43Z (MEASURED, desktop census and A/B):** hub Mary-O
-route 1,320 → 901 systems a frame (40 of them the census's own markers, absent on a phone); hub Ambition route 1,323 → 974 since
-the ledger slice; no surveyed room spawns an entity a frame. Desktop A/B of the
-run's start against HEAD (F49, 08:00Z): main-world wall 12.98 → 6.74 ms a frame (Mary-O), 13.91 → 5.12 ms (Ambition); frame p50 24.0 → 20.8 ms (Mary-O), 51.1 → 27.2 ms (Ambition hub; REASONED: mostly the F46 look cuts). Monolith packets this run:
-audio, the trace recorder, the quest producer, the cutscene player, the time
-module, the debris physics adapter, actor construction (K6, its own crate), the gravity-zone mechanic and the body causal recorders (to the runtime), body whereabouts (to construction), the live cluster view (to `ambition_body_seed`), the body-capability conditions (to `ambition_abilities`) and the game-asset decode (to the umbrella) (~9,100 production lines out, 58,758 left, by `wc -l` and the module graph
-at each move). Last full lane: `d1d7f503d` (09:19Z): app lib 253, `ambition_content` 532, Mary-O 204, monolith 1,185 green; `app_it` 1,340 of 1,342. The two reds are not this run's code: `a_banked_runtime_mint_returns_to_the_hand_that_banked_it` walked the body through the hub's moved gate-stack door (MEASURED: deterministic, the log loaded `gate_stack_lower`); fixed in `70c66a22e`, the door now at the west end of the start's platform, 55 + 51 hub-scenario tests green, and `rendered_identities_are_registered` reads two untracked files in the renderer checkout (`bad_apple`, `gravity_apple`). The gauntlet and boot-budget reds of `fc4897c12` are fixed (`b4b487f8d`, `55ec12d29`). Earlier green: `8aae83270` (full `app_it` 1,304 of 1,304). Waiting on: a phone profile of a build with these slices, the measurement that
-says what they bought in frame time; and Jon's three calls in F48 (developer tooling in the play build, Bevy's 3D gizmo groups, Ambition's material types on every route).
-
-| slice | status | measured effect |
-| --- | --- | --- |
-| F40: is the phone still bound by scheduling? | done | see F40 |
-| Smash's select screen sleeps off its routes (`shell_scope_is_on_screen_or_routing`, `5c6846a02`) | done | Smash 14 → 0 systems a frame on the hub's Mary-O route |
-| Sanic's dressers and readout, same condition (`c26e34cb4`) | done | Sanic 4 → 1 |
-| Boss overlays (sauce, flames, space sky, Inugami aura) run only with a boss visual or an overlay (`41c22de78`) | done | Ambition content 54 → 46; all three slices: 1,320 → 1,295 systems a frame |
-| The Mockingbird's space is authored parts posed as sprites (`backgrounds/sky_parts.py`, `presentation/mockingbird_sky.rs`); the full-room `mockingbird_space.wgsl` pass (noise, three star layers, planet, moon and its craters for each pixel, each frame) and its material type are deleted (2026-10-24) | done | MEASURED (`scripts/measure/room_raster_cpu_ab.py`), llvmpipe, `mockingbird_sky` held in phase 3 (`capture_scene --boss-hp 0.2`, 1280x720, rollback on), shader binary against parts binary built from one tree, interleaved, census window 14-44 s: rasterizer CPU a frame lower in 7 of 7 pairs, median 271.6 → 255.1 ms at `high` (-6%), 241.9 → 218.4 ms at `low` (-10%). Frame wall time did not resolve it (load 9-16, ±50% between runs). REASONED: Ambition registers one material type fewer (8); the phone's gain is not measured |
-| Portal presentation in `CapabilityPresentationSet(Portals)`: asleep where no live room uses portals, one clean-up frame after (`f40a9ba7a`) | done | not yet re-measured |
-| The touch joystick's UI stage runs only with work (`93238b9e3`): its two `Node`s were written each frame, so the UI was laid out each frame | done | not yet re-measured; `ui_layout_system` was ~2.4% of the phone's main thread |
-| Conversation effects (challenge, pet, wear, talker spacing) in `CapabilitySet(Dialogue)`; boss volumes and limbs in `BossEncounters`; new `Capability::MatchStocks` (`70657f415`) | done | not yet re-measured; 15 systems a tick in Mary-O's rooms by the census list |
-| Boss presentation (sprites, part binding, stage light, name card, finish, health bar) in `CapabilityPresentationSet(BossEncounters)` (`aa1cb7565`) | done | not yet re-measured; 11 systems a frame |
-| Every main-world schedule serial: `SerialScheduleSweep` in `Plugin::cleanup` (`42e1843d4`) | done | see F41: `ShelterFontSources` 334 → 8 µs a frame, `ProcessLdtkApi` 469 → 24, `ReadInputs` 96 → 28 |
-| Portal observation in `CapabilityPresentationSet(Portals)` (`147e09d9f`) | done | not yet re-measured |
-| The animators write a sprite or anchor only when the frame changes it (`FrameWrites`, `abcc6ec7e`) | done | not yet re-measured; every animated sprite was marked changed each frame, so its extraction re-ran |
-| The flat menu's readers and restylers (14 systems) sleep while no menu control or tab exists; one frame after, so a hover edge resets (`AnyMenuControl`, required by every `AmbitionMenuControl<A>`, `f1cdc7ea8`) | done | census with portal observation and boss presentation: 1,253 → 1,229 systems a frame; `ambition_menu` 11 → 5, host 20 → 11 |
-| The load presentation pass (12 systems) and its shell adapter (4) sleep between loads; the idle pass rewrote the empty model each frame (`447fada93`) | done | census: `ambition_load_presentation` 15 → 0 |
-| The shell's launcher and startup-card presentation (7 systems) sleeps in play: it runs while the launcher or a sequence is up, a root remains, or the launcher, sequence or router changed; its render built the catalog and two strings each frame (`c5f6a8f91`) | done | census: `ambition_game_shell` 29 → 22 |
-| The extension host's request adapters that act only on what was submitted (73 of 81; the 8 held ports, which release on an empty tick, stay as they were) run in `ExtensionSet::LowerSubmitted(phase)`, asleep on a tick whose invocations submitted nothing in the phase | done | census: the simulation 432 → 398 systems a tick, 1,195 → 1,160 a frame (with the row below) |
-| Mary-O's presentation (16 systems: power blocks, fire, goal, pipe signs, shimmer, quasar, cosmic aura and barrier, void looks, readouts) in `MaryOPresentationSet`, asleep while another game is on screen | done | census, hub Ambition route: 1,400 → 1,382 systems a frame (Mary-O's 29 → 13; the rest are her materials' Bevy per-type systems); Mary-O route unchanged |
-| S7c: the shield rings and the guard breaks are one pass over the shielded bodies (`rebuild_shield_views`) | done | `ambition_sim_view` 40 → 39 |
-| Ambition's room looks (9) run while a live room asks for a look and one frame after; the vanity card (3) while a startup sequence runs or a card remains; the grid menu's republish while a menu is open or its tree is up | done | census: `ambition_content` 46 → 34; with the two rows above, 1,229 → 1,195 systems a frame (one new system, the desktop cursor, included) |
-| The player trail is one retained gizmo drawing per room band, rebuilt only when its strips change (`draw_emitted_trails`), instead of four `RoomTrailGizmos` groups of 6 Bevy systems each in every composition | done | census: Mary-O route 1,195 → 1,184 systems a frame, hub Ambition route 1,382 → 1,365; gizmo groups 9 → 5 |
-| The effect quarantine is one pass per phase over its families (`ExternalEffectFamilies`: open, journal, release, discard), not one system per message type per phase; each family's step is the old system as a `&mut World` function | done | census: Mary-O route 1,184 → 1,163 systems a frame (25 quarantine systems → 3, plus the discard on a load) |
-| The host intents' release and prune are one pass each over the registered types (`HostIntentTypes`), reading the live session once | done | 6 → 2 systems (REASONED from the three registered types; app host-intent tests green) |
-| Held and wielded item presentation (in-hand sprite, over-hand sprite, hand requests) in `HeldItemPresentationSet`: runs while an item is held or wielded and one frame after | done | 3 systems a frame where nothing is held (REASONED by count) |
-| Monolith packet: `audio` and `music` leave the actor monolith as `ambition_platformer2d_audio` (`9c23bfefc`); the facade's `audio` installs it, the monolith's `visible` no longer implies audio | done | ~1,200 production and ~1,400 test lines out of the monolith; 0 systems added or removed; Outlander and the minimal game stop linking the audio runtime (REASONED from the feature graph) |
-| New `[census] changed_transforms` (entities whose `Transform` was written this frame, by name). Ground items are kept visuals (they were despawned and spawned each frame); world labels, the shrine and the boss stage write their transform only when it moves | done | census, hub Ambition route: 83 → 53 changed transforms a frame (14 ground-item respawns a frame → 0); Mary-O route was 73-145, mostly moving rig parts and motes |
-| World item visuals (Mary-O's grow caps, wands and beacons) are kept per row of a room and look, not despawned and spawned each frame | done | REASONED: one spawn and one despawn per pickup a frame fewer, with their archetype moves and extraction; witness `a_world_item_visual_is_kept_while_its_row_stays` |
-| New `[census] changed_sprites` (Sprite and Visibility written per frame, by name). The touch controls' roots and the world labels wrote their visibility each frame with no compare | done | census: visibility writes a frame, Mary-O route 14 → 4, hub 28 → 8 (what is left: the dev HUDs, the cutscene overlay, the portal-gun pickup); sprite writes were already near the moving set (motes) |
-| The cutscene overlay is rebuilt only when what it shows changes (banner text, dialogue, fade and skip hold at drawn precision); it was despawned and rebuilt each frame of a cutscene, so its UI was laid out and its text measured each frame. The census row also counts UI `Node` and text writes | done | census, hub route during the intro cutscene: 6 node and 3 text writes a frame from the overlay; Mary-O route 0 and 0 |
-| The dialog view is rewritten only while the dialogue changes: an open dialogue waiting on the player wrote it each tick, and Ambition's dialogue box rebuilds on that change | done | REASONED: no box rebuild (layout, text measure, portrait) on the frames a line is fully shown; witness `a_waiting_dialogue_does_not_rewrite_the_view` |
-| `perf_probe` pass (Mary-O route): the effect and host-intent passes used `resource_scope`, which in Bevy 0.19 takes a resource's entity out and puts it back; with the per-family journals that was 13 archetype moves a frame. Steps are taken out of the list and put back now, and a journal's boundary is copied | done | churn: 26 resource inserts and removes a frame of ours → 0. Our systems allocate ~1,300 times a frame (top: input update 262, rollback lifecycle commit 147, body integration 135, room-transition prefetch trio ~220); none is a slice yet |
-| The music intent rebuilds its playback authority (a copy of each of the provider's track and cue ids) only when the audio selection, the catalogs or the provider change | done | `perf_probe`, `basement_enemies`: `compute_music_intent` 139 → 6 allocations a frame |
-| Bevy's `AnimationPlugin` is left out of every host (`ambition_platformer2d::app::default_plugins`, used by the facade's windowed foundation and the app's desktop and web builders): nothing plays a Bevy clip | done | census, hub Mary-O route: 1,157 → 1,149 systems a frame, 2,121 → 2,109 registered |
-| An open dialogue is no longer rebuilt each frame. The bridge's dispatch ran each frame and took `DialogState` mutably, the menu input handed it on as `&mut`, and each rebuilt choice row arrived as `Interaction::None` and was "left": each marked the state changed, so the view was rewritten each tick and the box was despawned and rebuilt each frame. The dispatch runs only with a request; input and hover write only what they change. The dialogue-view witness from this run (and a parallax one) read `is_changed` after `update`, which is always false; they compare the write's tick now | done | census, the chicken's Hall dialogue waiting on a choice: 16 UI nodes and 5 texts written a frame → 0 and 0, the box still up (same live entity count); witness `a_waiting_dialogue_is_not_written` fails without either fix |
-| Held item visuals are kept per holder, room and item, placed and flipped in place; they were despawned and spawned each frame. The ground item witness read `is_changed` after `update` for its "writes nothing" half; it compares the write's tick now | done | census, Hall: 3 held-item spawns a frame → 0 (`added=0`); witness `a_held_item_visual_is_kept_while_its_holder_holds_it` |
-| Dialogue systems run only with work: the dialogue presentation set while a dialogue is shown or its view changed, the pointer input while one is open, the game-mode sync in the dialogue mode, the markup cue's clear when a cue is set, the runner spawn until there is a runner (with the dispatch from the row above) | done | census, hub Mary-O route: 1,149 → 1,142 systems a frame |
-| Portal labels, gun pickups and shots are reconciled by source and look (`PortalVisualDrawn`), and the held portal gun is one sprite updated in place; all were despawned and spawned each frame, and each label is a `Text2d` laid out again when new. A crossing's two clipped gun copies are still made each frame | done | census: hub spawns a frame 1 → 0 (the pickup); `portal_lab` 0 with its portals' labels kept; witnesses `a_portals_label_is_kept_while_the_portal_stays` and the held-gun half of `transiting_carrier_gun_decomposes_into_two_clipped_charts` fail with the reconcile taken out |
-| The portal captures' copies of the backdrop write their sprite, render layers and transform only when they change (the layers, one per capture and numbered past 64, were built on the heap each frame) | done | census, `portal_lab` standing still: sprite writes 76 → 36 a frame, transform writes 82 → 42; screenshot unchanged but for drifting motes |
-| The boss health bar is rebuilt only when the boss, its health or the fonts change, or it is gone; it was despawned and rebuilt each frame of a boss fight, so its UI was laid out and its two texts measured each frame | done | census, `you_have_to_cut_the_rope`: 6 UI nodes and 2 texts written a frame → 0 and 0, visibility writes 10 → 4; live entities the same series; witness `the_boss_bar_is_kept_while_the_fight_stands_still` |
-| The boss name card is kept through a boss's entrance, its colours, rise and rule written in place (its 72 px name was spawned and shaped again each frame); mark beacons are spawned only when the marks change (each frame, with a path lookup of their art) | done | REASONED from the code; witnesses `the_name_card_is_kept_as_it_comes_in` and `a_beacon_is_kept_while_its_mark_stays` fail with the gate taken out. A code search for systems that open by despawning what they drew finds the rest one-shot or brief (the finish bars, the portal disorientation glyph) or dev-only (the debug health bars) |
-| Monolith packet: the gameplay trace recorder (`dev::trace`) leaves the actor monolith as `ambition_platformer2d_trace`; the runtime installs it, the facade names it `trace_recorder`. The room-entered quest producer moves to the runtime that installs it | done | ~1,340 production and ~910 test lines out of the monolith (36 tests); 0 systems added or removed |
-| Each narrative ledger's release and prune run only while the ledger holds a record (twelve ledgers, two systems each, ran every frame in Ambition's rooms); the match-decided camera zoom sleeps with the stocks rules (`CapabilitySet(MatchStocks)`), as the only writer of its message does; the quest panel builds its text only when the quests, the setting or the panel change | done | census: hub Ambition route 1,323 → 1,298 systems a frame, Mary-O route 1,142 → 1,141 |
-| Monolith packet: the cutscene player (`cutscene`, `CutsceneSchedulePlugin`) moves to the runtime that installs it and that the profiles disable it from | done | ~400 lines out of the monolith; 0 systems added or removed |
-| Monolith packet: the time module (time control and the `SimDt` mirror) moves to the runtime as `sim_clock`; the monolith keeps its two clock-discipline scans | done | ~400 production lines out of the monolith; 0 systems added or removed; monolith 1,240 and runtime 100 lib tests pass |
-| `perf_probe`, hub Ambition route: the parallax theme retirement builds its keep-set only when the live rooms or the room set change (it looked up every live room's neighbours and their themes each frame, then compared); nameplate candidates borrow their ids and words from the nameplate index and the door snapshot instead of copying them, and a still plate's label is not rewritten | done | allocations a frame: `retire_departed_parallax_themes` 193 → 0, `sync_actor_nameplates` 248 → 96 |
-| The touch buttons' glyphs are built again only when the active device, the settings or the seat bindings change, or a button is new; each glyph string was built every frame to be compared | done | `perf_probe`, hub: `update_button_glyph_from_active_input` 22 → 0 allocations a frame. Left as they are, with reasons: the occurrence horizon's mirror key (18) compares cloned values on purpose so a rewind that changes an input is seen; the input action update (262) is leafwing's map, already cut from ~19,000 |
-| Mary-O's castle ending (5 rules: the ending, the charges, the lava, the gate, the thanks) is one set that runs only where the controlled body's room has the switch; each rule searched the room's blocks for the switch by name every tick, in every level | done | REASONED: 5 systems a tick fewer in a level without the switch, and one block search instead of five where there is one; Mary-O 204 lib and 11 switch/lap integration tests pass |
-| The effect pipeline's nine stages run only with work (a request stage while its message is unread, an ageing stage while a visual of its kind exists), as do the slash's three; the puppy slug's dream sync, clean-up and demand while a dreaming slug or an overlay exists; the cut-rope boss's music release while one of its claims stands (it took the music request mutably each tick, so the request was marked changed each tick in every game) | done | census: Mary-O route 1,137 → 1,119 systems a frame, hub Ambition route 1,299 → 1,283; witnesses `an_expired_visual_of_each_kind_is_still_removed` and `the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room` fail with a gate poisoned; the scoping guard lost its one exemption |
-| S7c: the simulation's row views (held, ground and world items, mark beacons, body clocks, shrines, hostile wielded items, projectile views) are rebuilt while a source of their rows exists or the view still holds rows, the tick after the last source goes included; each cleared and refilled its row (and marked it changed) every tick with nothing to show | done | census: Mary-O route 1,119 → 1,110 systems a frame, hub Ambition route 1,283 → 1,275; witness `a_row_view_is_cleared_after_its_last_source_goes` fails with the rows half taken out; 80 item, projectile, shrine, mark and clock app tests pass |
-| The shell's command processors (shell, launcher, sequence, developer quit) run while their message is unread, its event readers (scoped clean-up, routing failures) likewise, its initializer until it is initialized, the sequence tick while a sequence runs and the segment clean-up while a segment-scoped entity exists; the camera's shake and zoom appliers run on their request, and the zoom's hold-and-release tick while a zoom is held or releasing (at rest it wrote the zoom each frame) | done | census: Mary-O route 1,110 → 1,100 systems a frame, hub Ambition route 1,275 → 1,263 (12 each, by the list diff); witness `a_finishing_zoom_releases_and_then_rests_unwritten` fails without the gate; the 63 shell tests and 89 shell, route, shake and zoom app tests pass. A witness that the idle sequence tick wrote its resource passed without the gate (the tick returns before taking it mutably), so it was dropped and the claim with it |
-| Physics debris: the burst subscriber runs on a burst message, the lifetimes while a piece exists, the retirement while a piece waits on its despawn (the avian pause still runs every frame and writes only on a change) | done | census: 3 systems a frame fewer on both routes (Mary-O 1,100 → 1,095 with two noise rows, Ambition 1,263 → 1,260); the plugin-level avian test now also despawns an expired piece through the gated passes and fails with the retirement gate poisoned |
-| Monolith packet: the debris physics adapter (`world::physics`: the avian install, room floors, bursts, lifetimes, retirement) leaves the actor monolith as `ambition_platformer2d_physics_debris`, a leaf the monolith re-exports as `world::physics` | done | ~580 production and ~460 test lines out of the monolith (11 tests with avian, 2 without, in the new crate); 0 systems added or removed; footprint 61 → 62 (declared); the footprint doc's quote, stale since the trace packet, re-quoted |
-| The FPS counter (on by default, also on the phone's `android_dev` build) syncs its setting and fonts on a change, toggles on the hotkey and is placed when the setting, the menu row or its node changes; Mary-O's quasar overlay syncs and tidies while a quasar source or overlay exists | done | census: Mary-O route 1,095 → 1,091 systems a frame (5 by the list diff, one noise row), hub Ambition route 1,260 → 1,257; witness `turning_the_counter_off_hides_it` fails with the placement condition poisoned |
-| The rollback observatory (dev, also in `android_dev`): its proof passes run while a proof runs, its observer while anything of it shows, its HUD while it shows or is still up, the proof request on its hotkey; the HUD wrote its visibility each frame. The gamepad probe samples while shown (a toggle resets its peaks, so hidden samples were thrown away), its text follows the probes and its visibility is written on a change | done | census: Mary-O route 1,091 → 1,082 systems a frame, hub Ambition route 1,257 → 1,248; visibility writes a frame 2 → 0 on both routes (none is left); witness `an_idle_rollback_hud_is_not_written` |
-| Portal systems outside `CapabilitySet(Portals)` that ran in rooms with no portal: the carve bridge runs while a carve stands or a room still holds a hole or glue, the host depths while a portal stands or depths remain, the orphan sweep while a portal or shot exists, the reset clear on `ClearPortals`, the pose-warp declaration on a transit, the dev toggle on its hotkey. The capability's contract holds: a room with no portal still has an empty answer | done | census: 6 systems a frame fewer on both routes (Mary-O 1,082 → 1,075 with one noise row, Ambition 1,248 → 1,244 with two); witness `a_hole_left_after_the_last_carve_is_sealed`; 129 portal, 61 content portal and 74 app portal, carve, transit and reset tests pass |
-| Message and request consumers run only with a message: the nine `SessionScopeSet::Activate` resets on the activation message (the save hand-over on its own session event), and in the simulation the clock reset, ambient gravity, heal, actor spawn and banner requests. Three took their resource mutably each tick and so marked it changed each tick: the quest registry (now gated on a pending event), the switch drain (an activation queued or one resolved last tick) and the cutscene trigger queue (a trigger queued) | done | census: 17 systems a frame fewer on both routes (Mary-O 1,075 → 1,058, Ambition 1,244 → 1,225); witness `a_resolved_activation_is_cleared_and_then_the_drain_rests`; 124 app switch, quest, heal, cutscene, banner, clock, gravity and spawn tests, Mary-O's 204 + 11 + 102 and the scoping guard pass |
-| The combat trigger adapters (fighter specials, status ticks, actor thinks, body contacts, strikes, parries) queue only while an admitted entry binds their port, and once on the tick the admission changes (`ambition_extension_host::trigger_is_bound`); each built its list of bound selectors every tick. Not in the installer: `ModuleEntityTickPort` is bound by placed module entities, which no entry declares (a blanket gate silenced Smash's mines in its 4 tests) | done | census: 0 on both hub routes, which admit Ambition's and Smash's modules for all six ports. REASONED: a composition that admits none for a port (a Mary-O-only build) runs none of its adapters. Witness `a_trigger_adapter_runs_while_its_port_is_bound`; Smash 293, combat 790 and 53 app extension tests pass |
-| Versus-match activation runs only with a match to make or run: preparation while a roster is published, activation while a plan is prepared, the opening hold's release and the live match clock while a match is active, the camera's match framing while a match is active or a framed cast remains | done | census: 5 systems a frame fewer on both hub routes (Mary-O 1,060 → 1,053, Ambition 1,230 → 1,221 with noise rows); Mary-O-only hub (`AMBITION_HUB_GAMES=mary_o`) 981 → 976. Smash 293 and 136 app match, stock, knockout and seating tests pass; gating activation on the active match instead fails all 5 knockout tests |
-| The bubble shield's shader layer writes its scale only on a change, and compares its material before taking it mutably: `Assets::get_mut` marks the material modified, so every shown player's bubble material was prepared for the GPU again each frame (the hit flash already followed this rule and says so) | done | census: `Bubble_Shield_Fx` leaves the changed-transform rows on both routes (1 a frame → 0). REASONED from the code: one material preparation a frame fewer per shown bubble; the census does not count asset modifications |
-| Four world render passes run only with work: the block flinch on a strike or while a flinch plays, the lock-wall slide while a wall slides, the removed-block sweep while a live room's overlay names a removed block, the sprite-handle refresh when `GameAssets` changes (its own early return) | done | census: 4 systems a frame fewer on both routes (Mary-O 1,053 → 1,049, Ambition 1,221 → 1,218 with one noise row); witness `a_struck_block_flinches_and_settles_home`; render 443, 39 app lock, brick, block and wall tests and Mary-O's 102 integration tests pass |
-| The versus stage outside versus: its roster tracking runs while the versus route is open or its roster stands (the teardown arm), its reconciliation while a roster exists, and its scoreboard while a match runs or a slot still holds a readout; the scoreboard cleared its slots every frame in every game, marking the HUD readouts changed every frame | done | census: 3 systems a frame fewer on both routes (Mary-O 1,049 → 1,046, Ambition 1,218 → 1,213 with noise rows); witness `a_finished_scoreboard_is_cleared_once_and_then_rests`; 31 versus lib and 67 app versus, roster and HUD tests pass |
-| The debug and navigation overlays (dev, in `android_dev` too) run while switched on: each system's first test is its run condition, and the label pass runs while a label is queued | done | census: 3 systems a frame fewer on both routes (Mary-O 1,046 → 1,044 with one noise row, Ambition 1,213 → 1,210). REASONED: the conditions are the systems' own early returns, so what draws is unchanged; app lib 253 tests pass |
-| The passes that draw a simulation row view (ground and world items, shrines, mark beacons, body clocks) run while the view holds rows or a drawn entity remains to retire (`ambition_sim_view::rows_or_drawn`), the shrine animation while a shrine is drawn; a shrine's sprite size was written every frame | done | census: Mary-O route 1,044 → 1,038 systems a frame, hub Ambition route 1,210 → 1,208 (its hall has ground items and a shrine); witness `a_drawing_pass_runs_until_its_last_drawn_entity_is_retired`; render 444, sim_view 135 and 74 app item, shrine, mark and clock tests pass |
-| Five effect passes run only with work: the knockout beat on its message, the dizzy stars while a guard is shattered, ray strikes while a strike stands, the unauthored attack volumes while a strike stands or a drawn volume remains to retire, the gravity zone visuals while a zone or its visual stands | done | census: 5 systems a frame fewer on both routes (Mary-O 1,038 → 1,032 with one noise row, Ambition 1,208 → 1,203); witness `an_ended_swings_volume_is_taken_away`; render 445 and 59 app strike, ray, knockout, guard and gravity tests pass |
-| The simulation's request appliers run on their request: item grants, shop transactions, flag, quest, switch and gameplay-SFX effects, NPC provocations and their release, conversation-cut barks, and the projectiles of brain actions. Found on the way: `PauseRequested` (the Android pause, 10-22) was unnamed in the rollback message oracle; it is a shell channel no simulation crate can read, named now | done | census: 10 systems a tick fewer on the Mary-O route, 9 on the hub's Ambition route (1,194 a frame); monolith 1,229, 125 app flag, quest, switch, item, shop, provocation, bark and projectile tests and 129 rollback tests pass |
-| Three hit consumers run on their message: landed-hit effects (`LandedBodyHit`), the player-victim staging (`HitEvent`) and the impact hitstop request (`ResolvedBodyHit`). Not `apply_feature_hit_events`, which does more after its message loop than was vetted | done | census: 3 systems a tick fewer on both routes (Mary-O 1,020, Ambition 1,190 a frame); combat 790, Smash 293, 42 app hit and 229 app Smash, knockback, stock, rollback and combo tests pass |
-| The projectile owners' identity heal (twice a tick, head and tail) runs while a projectile is live; the falling chests while a chest falls | done | census: 3 systems a tick fewer on both routes (Mary-O 1,017, Ambition 1,188 a frame); runtime 114 and 37 app chest, projectile and identity tests pass |
-| Zone snapshots (gravity, force, oscillating zones) run while a zone or a snapshot row stands; item motion while an item moves; projectile perception while a projectile is live or its rows stand. Gated systems' docs no longer promise "every frame" | done | census: 5 systems a tick fewer on both routes (Mary-O 1,017 → 1,012, Ambition 1,188 → 1,184 a frame); poisoned witness `the_snapshot_is_cleared_after_the_last_zone_and_then_rests`; shared_tangle 334, world_items 19, monolith 1,229 tests pass |
-| Twenty-six more passes run only with their work. Sim: hazards (any hazard), death interludes (open on a death, tick and close while one stands), death beats, transform beats, errands, the banner while it is up, clank rebounds, mount-death brain rebuilds, summons, item uses, the cutscene tick while one plays, boss render and frame indices while a boss or a row stands, the shrine pulse while it runs. Render: spirit and void fields while an aura or a field stands, launch trails while a body is launched, chain earth and turf while one is undressed, the bubble-shield pool spawn and its layer attach once, the cutscene overlay while one plays or is drawn. Ambition's seating restatement runs on a change of its inputs, so Mary-O no longer pays for it | done | census: Mary-O 1,012 → 984, Ambition 1,184 → 1,157 systems a frame (26 and 25 gated rows, the rest noise); poisoned witnesses `a_banner_runs_down_and_then_rests_unwritten`, `an_ended_cutscene_leaves_its_resources_unwritten`; combat 791, monolith 1,229, runtime 101, encounter_features 45, sim_view 135, render 445 tests pass |
-| Checkpoint, replay and retire passes run on their message: the commit-time baselines and forgets (four, `CheckpointCommitted`), the replay answers (four, the new `a_replay_is_admitted`: an admitted replay or a pinned committed restore, the two roads `AdmittedReplays` reads), retracted boss mints, the session-retire reset; possession release while a body is possessed | done | census: Mary-O 984 → 975, Ambition 1,157 → 1,147 systems a frame (11 gated rows each); poisoned witness `a_gated_replay_answer_sees_both_roads`; combat 792, monolith 1,229, runtime 101 tests pass |
-| ⛔ REGRESSION FIXED (F45): `7c6745589` gated `apply_clock_reset_requests` with `on_message` inside `GameplayGated`; Bevy evaluates a system's conditions while its set is off, so the condition took a replay's `ClockResetRequest` during the transition hold and the reset never ran. All 56 `on_message` gates of this run now use `ambition_platformer2d_core::a_message_waits` (a peek), as do `a_replay_is_admitted` and the block-flinch condition | done | `git bisect run` over `0d4b5f656..27f7fee6d`: first bad `7c6745589`; removing that gate alone turns 4 red `canonical_reconstitution` tests green; with the peek, 19/19 pass |
-| Presentation passes that ran for nothing on the Mary-O route: ground shadows (no game asks for them since 10-10) while a game asks or one is drawn, the developer health bars while on or drawn, daylight while a game has a `DaylightStyle`, mote drift while a mote stands, world-label fonts on a font or label change, the quest panel on a quest, setting or new-panel change; Ambition's portal-facing setting sync on a change, its reset bridge while a replay waits | done | census: Mary-O 975 → 968, Ambition 1,147 → 1,140 systems a frame (6 gated rows each; daylight and motes have work on both routes); the peek gates add no run; 12 lib suites and 238 `app_it` checkpoint, restore, replay, death, session, activation and clock tests pass |
-| ⛔ REGRESSION FIXED: `1e7616973` (10-22) put Mary-O's presentation to sleep while another game is on screen; her pipe-sign pass had stamped the hub's room at boot (the router was moving), and after a world reload it slept, so the room drew one stamp fewer (`a_world_reload_draws_its_room_once`). A room with no pipe to a level gets no stamp now | done | full `app_it`: 1,303 pass, this 1 failed and now passes; app 253, Mary-O 204 lib tests pass. Still red and not this run's: `ambition_content` `worlds::tests` (3), from `0d4b5f656` (the seventh world) |
-| The themed door and fixture dressers run while one of their rows is undressed | done | census: Mary-O 968 → 965 (one noise row), Ambition 1,140 → 1,138 systems a frame; render 445 tests pass |
-| The room-transition cooldown counts down only while a seat's runs (it wrote the session root's component every tick) | done | census: Mary-O 965 → 964, Ambition 1,138 → 1,137; shared_tangle 334, monolith 1,229 and 76 app reconstitution, door and transition tests pass |
-| Avatar passes: moving platforms advance while a room has one, scripted control frames blank while a body is held (`ControlHolds` is present exactly then), commanded moves drive while one is commanded, mana regenerates while a composition declares `PlayerManaRegen` | done | census: Mary-O 3 gated rows (964 a frame, 3 noise rows), Ambition 1,137 → 1,135; monolith 1,229, runtime 101 and 87 app reconstitution, platform, cutscene, hold, capture and conversation tests pass |
-| Hit passes: hitbox damage and lifetime while a hitbox stands, breakables while one stands, landed and resolved move-hit marks and the pogo bounce while their message waits (peek) | done | census: Mary-O 964 → 955, Ambition 1,135 → 1,129 (6 gated rows each); combat 792, monolith 1,229, runtime 101, Smash 293, Mary-O 204 and 186 app hit, strike, Smash, guard and reconstitution tests pass |
-| F46 cut 1: the hub's two-state look draws its front one texel a 16 px cell into a field each frame, and its skins and overlay read it in place of three to five per-pixel claims | done | hub capture identical (1 pixel by 1 level of 921,600); llvmpipe hub A/B frame p50 40.91 → 36.13 ms; content 519 (3 red, `0d4b5f656`'s) and 17 app look tests pass; phone A/B pending (`AMBITION_ROOM_FRONT_FIELD=off`) |
-| The visual-quality sync and the portal capture budget run on a change of their input or output; the placeholder-sprite override while placeholders are on or a sprite keeps its original. The front field's material adds Bevy's two per-material systems on every route | done | census: 3 gated rows each; net Mary-O 955 → 954, Ambition 1,129 → 1,129; render 445 and 9 app quality, tier and hall tests pass |
-| The room-transition machine's idle passes: readiness authorization while a transition awaits it, the two failure passes while one failed (they took the load state mutably each frame, so it read as changed each frame), and the two exclusive finalizers while a crossing or its restore is pending | done | census: 5 systems a frame fewer on both routes (Mary-O 949, Ambition 1,124), two of them exclusive and per tick; runtime 101 and 200 app transition, door, reconstitution, checkpoint, restore, load and cover tests pass |
-| Two exclusive per-tick passes that returned at once: extension admission runs until the world is admitted, authored commands while one waits (peek) | done | census: 2 systems a tick fewer on both routes (Mary-O 948, Ambition 1,123); extension_host 43, shared_tangle 334 and 94 app extension, module, authored, lever, switch, special and reconstitution tests pass |
-| The two exclusive live-reload publishers run while a pack or a sheet table waits to be published | done | census: 2 systems a frame fewer on both routes (Mary-O 945, Ambition 1,121); 76 app reload, pack and sheet tests pass |
-| Three more exclusive passes that idled: the publication-lease breaker while a reload generation holds a lease, the local GGRS restart on the frame an LDtk reload asks for it, the character capability audit while a sheet demand is outstanding | done | census: 3 systems a frame fewer on both routes (Mary-O 942, Ambition 1,117); monolith 1,229 and 43 app reload, publication, hot-reload and character tests pass |
-| Mary-O's life spend and death voice on a death (peek), her return from the cosmic form while a transform beat stands | done | census: Mary-O 942 → 940 (3 gated rows, one noise); Mary-O 204, Mary-O app 102 and 20 hub Mary-O tests pass |
-| ⛔ F46 cut 1 fix: the state shader's new binding `field` redefined `fn field` and the shader did not compile (veils and overlay undrawn since `4a5ff08cc`); renamed `front_field`. And an exact early-out: the overlay works out no field where no tear can be (plane distance below -230 or above 800) | done | hub capture against the true pre-field baseline: 2 pixels differ, none by more than 8 levels (three runs); the phone run of 21:13 must be repeated; llvmpipe hub A/B with the overlay drawn: frame p50 59.45 → 42.99 ms |
-| Portal carves while a portal stands (or last tick's holes or glues are still to clear); Ambition's ground-item carves while a portal stands, so Mary-O stops paying for them. Not the passages: they rebuild from tuning and body budgets with no portal, and would go stale | done | census: 2 systems a tick fewer on both routes (Mary-O 937, Ambition 1,117 with two noise rows); portal2d 129 and 127 app portal, transit, seam, aperture, gun and window tests pass |
-| The durable-restore slots run only while the save waits to be applied (every member returned at once on the latch); the boss defeat retraction pair on a waiting checkpoint or admitted replay (peeks); Mary-O's four priority-music claims (star, death, victory, cosmic) while a source stands or its claim does (`holds_claims_of_kind`). Tried and reverted: the gate-portal visuals, whose registry is not empty on either route | done | census: Mary-O 937 → 928, Ambition 1,117 → 1,110 systems a tick (both with noise rows); `canonical_reconstitution`, boss replay, save-road and custody tests 84 pass, Mary-O music 37, Sanic restore 3 |
-| Press-only technique handlers (teleport, trapdoor, flyline, vitality) and the fighter-special queue run while an action message waits (a peek). Ambition does not gain: the robot's charge-projectile tick fills that channel every tick | done | census: Mary-O 928 → 922 systems a tick, Ambition 1,110 → 1,109 (noise); app technique and reconstitution tests 48 pass, `smash_it` 52 |
-| The boss special-cast queue runs while a boss stands (`any_with_component::<BossEncounter>`): it casts for each boss and none means none. Declined after reading: the trapdoor, flyline, tether and limb-trail visuals, which visit every body and actor each frame; a condition would repeat that walk, and fusing the four is the remedy if they show in a profile | done | census: Mary-O 922 → 921 (one noise row); boss possession, specials and GNU-ton tests 56 pass |
-| K6: actor construction leaves the monolith as `ambition_platformer2d_construction` (a leaf since K3; K4 was its precondition). No system moved; the tests that drive it through the kernel's lowering stay in the monolith | done | monolith production lines 63,879 → 61,303; the cycle is the four of K3; construction 61 tests (55 + 6), publication 82, room-building app tests 105, absence contracts 55/55 |
-| The gravity-zone mechanic moves up into the runtime, its only installer. Found while proving it: `ambition_workspace_policy` was red from this run's time, music and trace moves (and K4's and S2b's), a lane those moves never ran; its policies now name the new owners. The level-box readers ratchet was red from five reads across 10-20..23; four classified, the slow-zone overlap converted to the footprint | done | monolith 61,303 → 60,612 production lines; workspace policy 38/38, level-box guard green, runtime gravity 9, app gravity 26, Mary-O clock, Hunny slow 13 |
-| Ambition's hub stops running absent bosses' content: the cut-rope flavor chain while a cut-rope arena is live or held, GNU-ton's duel and Mockingbird's moon strike while a boss stands (F47's candidate row, the exact ones) | done | census: Ambition route 1,109 → 1,103 systems a tick; cut-rope, GNU-ton, Mockingbird and reconstitution app tests 95, content lib 29 |
-| The capture passes run with their work: the request appliers (attempt, pummel, throw, carry, parried rebound) while their message waits (peeks), and the seven that visit holds while a body is held (`a_capture_stands`). The anim-facts mirror keeps running: it clears a released body's flags the tick after | done | census: Ambition route 1,103 → 1,093 systems a tick (Mary-O does not use captures); combat capture 42, `smash_it` 52, Smash lib 293, app capture/grab/throw/reconstitution 44 |
-| The mount crate's sets (link, boarding, leases, dismounts, backs as ground, steering, rider sync) run while a mount, rider, reservation or lease is in the world (`mounts_are_in_play`), beside the capability's own room condition | done | census: Ambition route 1,093 → 1,086 systems a tick; mount lib 13, app mount/ride/GNU-ton/FSM/reconstitution 107, `smash_it` 52 |
-| The boss bodies' passes run while a boss body stands, each on the component its query visits: integration and brains (`BossConfig`), phase (`BossPhase`), animators (`BossAnimFrame`), attack trigger and projection, damageable volumes (`BossAttackIntent` / `BossAttackState`), conducted facing, conduct queue (`BossEncounter`). Not the progression chain: it builds a boss room's encounters on entry | done | census: Ambition route 1,086 → 1,074 systems a tick; boss, GNU-ton, Inugami, Wolfenstein, hall, cut-rope, Mockingbird, FSM and reconstitution app tests 233 (the one red, the Hall's Steel and Straw Man with nothing to say, fixed in the next commit), boss lib 226 |
-| Lit fuses (bomb, gravity grenade), temporary gravity zones and respawn grace tick while one exists; stock spending peeks its knockout; the match's pace runs with an active match. The arming passes stay: they visit every ground item | done | census: Ambition route 1,074 → 1,070 systems a tick (two noise rows); Mary-O 922 unchanged; abilities 32, `smash_it` 52, app stock/bomb/grenade/versus/respawn/reconstitution 111 |
-| The wave encounter's effect and cleanup adapters run on a lifecycle event (a peek); the lock walls contribute while a lock wall exists. Checked first: the overlay rebuild clears every contribution each tick (`clear_engine_contributions`), so a sleeping contributor leaves nothing stale. That also clears the mount backs gated above | done | census: Ambition route 1,070 → 1,067 systems a tick (noise rows aside); encounter features 45, app encounter/wave/lock/arena/reconstitution 60 |
-| The boss animator passes (animate, demand part sheets, bind, pose) run while a `BossAnimator` exists: each loops over it alone. The stage veil, name card, finish bars and health bar stay: they fade or retire their UI after a boss leaves | done | census: Ambition route 1,067 → 1,063 systems a tick; render boss tests 5; a capture of GNU-ton's arena draws the giant and GNU-ton |
-| F46 cut 3: the hub look's overlay draws only the front's unsettled band (a mesh cut to the band, hidden when the room is settled). Exact: outside the band the shader returned zero alpha | done | hub capture against the pre-cut binary: 4 px differ by ≤1 level (run-to-run noise ~2,600 px); room_look witnesses 2 new, 5 pass; GPU fragment saving REASONED, needs the phone |
-| Portal simulation runs with a portal: transit, snags, links and apertures while a portal stands or a body carries a transit latch (which transit clears); evictions while a portal stands or the frame history still holds one (the tick a portal closes still evicts); fire, toggles and transit reconcile peek their messages; cooldowns while one runs. Conversation input and reveal while a conversation is open or its hold mark is up. The hub has no placed portal (its LDtk level, MEASURED) | done | census: Ambition route −15 systems a tick (13 portal, 2 dialogue); portal2d 129, app portal/transit/snag/evict/transition/reconstitution/dialog/pause 84, dialog 26 + conversation 28 |
-| The held-item passes run with an item: release, pickup, settle and physics while a `GroundItem` exists (carried or lying); firing and throwing while a body holds a `HeldItem`. Residency stays ungated, as its comment requires | done | census: Ambition route −2 (the hub has ground items, no holder); held items 43 pass. The `a_dog_sent_for_an_item` reds in the shared tree fail with this change reverted too (another session's crossing work) |
-| The portal observation publishers (viewer, camera-continuity focus, F1 sync, scene/affordance tags, body views, transiting bodies, threaded pictures) run while a portal stands or a body carries a transit latch, and one frame after, which publishes the empty answers; the view-cone debug passes run on their trigger (`2f41700b3`) | done | census: Ambition route 1,045 → 1,035 systems a frame (11 here, 1 noise row); app portal/view/continuity/transiting/far-side 43, host 37 |
-| The conversation passes run while a conversation is live: the dialog projection and end stamp while live or shown and the frame after, the end intake peeks `ConversationEnded`, the separation check on a live one, the hold while live or a body is still held (`2835c098a`) | done | census: Ambition route 1,035 → 1,029; `canonical_reconstitution` green |
-| The boss presentation passes (stage light, name card, finish drain and bars, boss bar) run while the boss read model holds a row, and the frame after: `bosses_are_shown_or_were` (`3f5a9992d`) | done | census: Ambition route 1,029 → 1,024, all five idle in the hub; all five run in GNU-ton's arena |
-| The boss encounter sim passes run on their subject: finish slow motion and the encounter wrap on a `BossConfig`, hazards on a `FallingHazard`, payloads on `ReleaseOnDeath`, peeks on `BossPhaseChanged` and `MountDied`, the boss-life switch on a boss-life press, the registry fill until it is filled (`ad07994fb`) | done | census: Ambition route 1,024 → 1,015; app_it `boss` 90, `gnu_ton` 44, `canonical_reconstitution` 19 green |
-| The content portal adapters and the cut-rope room passes run on their subject: fire, pickup, drop and the sfx peek their messages, host attachment on a placed portal, the shot step on a shot; the cut-rope resets on an admitted replay, its "try again" while chosen or pending, its victory NPC while a release waits or an arena is live (`a274c338e`) | done | census: Ambition route 1,015 → 1,005; app_it `portal` 24, content `portal` 62 and `cut_rope` 7 green |
-| Social, match and item passes run on their subject: challenge, pet and wear requests and actor stimuli peek their messages, pet beats and pending challenges on their components; the stocks verdict zoom peeks `StocksMatchDecided`, respawn on `PendingRespawn`, match items with an `ActiveMatch`, held courses on `HeldCourse`, thrown impacts on `ItemStruckBody` (`00de8d98c`) | done | census: Ambition route 1,005 → 993 (11 gated, 1 noise row); Mary-O route 919; app_it pet, wear, conversation, stocks, smash 115, match 43, ride, thrown and `canonical_reconstitution` green; the `persisted_fate_is_built` challenge red is not this slice's (red with it reverted; sent to the gate lane) |
-| The causal recorders of the bodies (movement intent, control frame, movement operations, hit resolutions and reactions) leave the monolith for the runtime's causal adapter, registered beside its frame stamp; the monolith keeps `BodyMovementOps`, the message its kernel writes (`e9d1161a5`) | done | monolith `causal.rs` 750 → 14 lines; no system added; runtime `causal` lib 8 + `causal_it` 6, app_it `causal` 3 (features `causal,rl_sim`) green |
-| Android schedules no hit flash: its four passes were empty stubs there and still ran each frame, and its `Material2dPlugin` paid per-type systems in both worlds for a material no Android frame draws (`0c8aaec1f`) | done | REASONED: 4 main-world systems a frame plus the material's per-type main and render-world systems, on both phone routes; desktop unchanged; render `hit_flash`/`portal_compositing` 18 green; the Android build is NOT checked here (no NDK on this VM) |
-| The dialogue-visit counter runs while a conversation is live: it counts the tick one opens (`7b009182d`) | done | census: 1 system a tick on both routes (REASONED from its body); app_it `visit`/`canonical_reconstitution` 26 green; F48 records what is left |
-| Body whereabouts (where an authored body is away from home: the placed and away-from-home records and the durable-whereabouts predicate) leave the monolith for the construction crate, beside authored placements and persisted fate (`2b70a6203`) | done | monolith -208 lines, no system added; construction 6, runtime 110, workspace policy 38, multi-writer and level-box guards, app_it `persistent` 7, `errand` 4, `canonical_reconstitution` 19 green; `carried` 26/28, the 2 reds are the GNU-ton kick leg's (sent back) |
-| The actor's live cluster view (`ActorMut`, `SeedActorMut`, `ActorClusterQueryData`, the damage i-frame window) leaves the monolith for `ambition_body_seed::clusters`, beside the seed it binds to the simulation (`41972de96`) | done | monolith -255 lines (59,566 left), no system added; body_seed 19, monolith lib 1,214, workspace policy 38 (sweep and archetype policies follow the file), app_it `canonical_reconstitution` 19, `enemy` 8, `boss_lifecycle` 15 green |
-| The body-capability conditions (`body.can`, `body.fits`) leave the monolith for `ambition_abilities::body_conditions`, the crate that owns what a body can do (`35584154c`) | done | monolith -349 lines (59,217 left), no system added; abilities `body_conditions` 12, monolith `gated_lock` 19 green; the session none-arm row for the visit counter's condition added |
-| The prop sheets and the decode of `GameAssets` (`load_game_assets`, boss-sheet residency, sheet reloads) leave the monolith for the umbrella's `game_assets`, their only composer; callers name `ambition_platformer2d::game_assets` (`66c859a31`) | done | monolith -459 production lines (58,758 left), no system added; umbrella lib 17 + `sprite_sheet_reload`, app_it `boss_sheet` 6, `rollback_coverage` 21, workspace policy 38, multi-writer and level-box guards green; content `reload` 88/89: the axe-art red is the item-art change's, not this move's |
-| The title backdrop's removal runs while a backdrop stands; the shell's exit and Ambition's session dressing peek their messages (`9b0076bb0`) | done | census: Mary-O route 919 → 916, Ambition 993 → 988 (3 here, the rest other lanes' gates); app_it `title` 13, `launcher` 10, `shell` 64 (one `shell_host_lifecycle` flake, 21/21 on two reruns), app lib 6 green |
-| The room-transition asset passes run with a transition: the contributor while one is active or its record still holds something to clear, the readiness poll while one is active, the presentation-event handler on a waiting event (`e73837dcb`) | done | census: Mary-O route 916 → 914 (3 idle here; 1 noise row); app_it `room_transition` 17, `walking_into_a_loading_zone` 5, `first_room` 3, `door` 34, `cover` 36, app lib `room_transition` 18 green |
-| SFX playback runs while a cue waits or the last run's records are uncleared; round despawn on a `RoundScopedEntity`; late match art with an `ActiveMatch`; dev gravity on its key (`6522d93c3`) | done | census: Mary-O route 914 → 909, Ambition 988 → 983 (4 here, the rest other lanes'); audio/round libs 16, app_it `sfx`, `sound`, `round` 30, `audio` green |
-| The room-transition cover's driver runs while a transition is active or the last one left a cover or state for its idle branch to clear (`54c9566b6`) | done | REASONED: 1 system a frame on both routes (its idle branch did nothing once cleared; its frame count is compared only within a transition); app_it `room_transition` 17, `cover` 36, `door` 34, `walking_into_a_loading_zone` 5, `first_room` 3, app lib 18 green |
-| The first room's art preparation runs while a session is published or a job of one is still held; its empty `retain` also stopped marking the job store changed each frame (`25b7ae764`) | done | census: Ambition route 983 → 980 (with the cover driver above); a hub capture draws the room; app_it `first_room` 3, `boot` 10, `cover` 36, `launcher` 10 green |
-| The quest registry fills until it is filled; the attunement's banner peeks `EncounterEventMsg` (`ba13b3047`) | done | census: Ambition route 980 → 978; app_it `quest` 36, `attunement` 2, `symmetry` 13, `canonical_reconstitution` 19, content `quest`/`encounter` 34 green |
-| GNU-ton's arena ladder (a world-overlay contributor; the overlay is rebuilt each tick) runs while its arena is a live room (`6ec66901a`) | done | REASONED: 1 system a tick on both routes; app_it `gnu_ton` 46, `ladder` 1, `canonical_reconstitution` 19 green |
-| The boss sprite upgrade runs under `bosses_are_shown_or_were`: it acts only on rows of the boss read model (`4c0ba82b4`) | done | REASONED: 1 system a frame where no boss is shown; GNU-ton's arena capture draws both bodies; render `boss` 5, app_it `boss_sheet` 6, `boss_lifecycle` 15, `gnu_ton` 46 green |
-| The gradient sentinel's lane visual runs while a boss frame holds a hazard lane or a lane is drawn, its own early return lifted into a condition (`66760f85b`) | done | REASONED: 1 system a frame where no lane is in play; render lane test 1 green (no app test drives the lane) |
-| The bubble shield's pooled visual runs while a shield is raised or a bubble is still shown (`acfe82c5a`) | done | MEASURED: idle on the Mary-O route (census row); the route total moves within the census's ±3 noise; render `bubble`/`shield` 10, app_it `shield` 6, `bubble` 1 green |
-| The projectile visual pass runs while a projectile view or a drawn projectile exists (`f0b33cb36`) | done | census: Mary-O route 904 (idle here); render `projectile` 2, app_it `projectile` 6, `shoot` 3 green |
-| The moving-platform visual pass runs while a live room has a moving platform or a platform visual exists (`e22ba6b44`) | done | census: Mary-O route 903 (idle here); render `moving_platform` 8, app_it `platform` 10, `cart` 1 green |
-| The shot-charge visual runs while a player charges a shot or a charge visual exists (`beb098c5a`) | done | REASONED: 1 system a frame while nobody charges; render `projectile`/`charge` 8, app_it `charge` 7, `projectile` 6 green |
-| The morph ball's spawn and sync run while a player is morphed or a ball visual exists (`52dd4d3a0`) | done | REASONED: 2 systems a frame while nobody is morphed; render `morph` 7, app_it `morph` 3 green |
-| The developer hide-sprites override runs while it is on, or the frame after (`9e898af50`) | done | REASONED: 1 system a frame on both routes with developer tools in; render `hide`/`placeholder` 8, app lib 1 green |
+1. **Reprofile on a phone** with the run's changes, including the hub look and
+   the `android` versus `android_dev` product build. Do not infer a device win
+   from a desktop system-count reduction.
+2. **Resolve the shipping tooling policy**: the October 23/24 census found
+   developer tools still installed in the play build; `android_dev` includes
+   `dev_tools`. A play build without debugging tools needs a product choice.
+3. **Measure and decide material/gizmo costs** on a target device before a
+   Bevy fork, removal of debug gizmos, or consolidation of Ambition's room-look
+   materials. There is no standing generic optimization campaign.
+4. **Repair multiroom moving-platform presentation**: the 2026-10-24 witness
+   `the_visual_follows_its_set_while_a_second_room_is_live` was ignored because
+   `sync_moving_platform_visuals` used `Single<…, With<RoomInstanceRoot>>`.
+   With two live room roots, the pass was skipped. Each platform visual must
+   resolve its own room. Revalidate the witness against current code, fix if
+   still reproducible, and remove `#[ignore]` when accepted.
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 
-MEASURED by F44's method: desktop VM, `profiling` build of `capture_scene`,
-xvfb with llvmpipe, `--warmup 1500`, census on, three interleaved rounds per
-binary (`scratchpad/ab/ab_interleave.py`). Base is the run's start
-(`315d36bf0`), head is `27b3e3e74`; both started 07:2x-08:00Z.
-
-| per frame (median of windows) | Mary-O start | Mary-O head | Ambition start | Ambition head |
-| --- | ---: | ---: | ---: | ---: |
-| systems run (census, markers included) | 1,362 | 956 | 1,540 | 983 |
-| main-world wall, summed | 12.98 ms | 6.74 ms | 13.91 ms | 5.12 ms |
-| `Update` wall | 3.92 ms | 1.56 ms | 3.45 ms | 1.61 ms |
-| `PostUpdate` wall | 5.13 ms | 2.70 ms | 6.56 ms | 1.30 ms |
-| `PostUpdate` process CPU | 55.1 ms | 22.7 ms | 72.6 ms | 6.0 ms |
-| `SpawnScene` wall | 0.67 ms | 0.06 ms | 0.54 ms | 0.04 ms |
-| frame p50 | 24.0 ms | 20.8 ms | 51.1 ms | 27.2 ms |
-
-The Ambition hub's frame p50 halved: 51.1 to 27.2 ms. F44's run-end A/B had it
-at 50.9 to 48.0. REASONED: what changed since F44 is the hub look (F46 cuts 1
-and 3: the overlay drawn only over the front's band), the keyed
-reconciliation (no room spawns an entity a frame) and this run's gates. On
-llvmpipe the frame is drawn on the CPU, so fewer fragments and less
-`PostUpdate` work show up as frame time here. The Mary-O frame moved less
-(24.0 to 20.8 ms) because its room has no two-state look. The phone, which
-F40 found CPU-bound, still has to confirm what this buys there.
+Measured in the desktop VM. Mary-O main-world wall 12.98 → 6.74 ms; Ambition
+13.91 → 5.12 ms. The Ambition hub's rendered frame p50 went 51.1 → 27.2 ms,
+with a large room-look component. A phone/GPU A/B remains necessary.
 
 ### F48 — After the content gates: what is left is Bevy's and Jon's (2026-10-24)
 
-MEASURED (desktop census, hub routes, `--warmup 600`, census on, HEAD
-`0c8aaec1f`): 919 systems ran in a Mary-O frame (F47: 921) and 993 in an
-Ambition frame (F47: about 1,110). The Ambition drop is F47's third bullet,
-done: the boss, cut-rope, portal-adapter, conversation, social, match and item
-passes now run on their subject (run table, 10-23 and 10-24 rows).
-
-What the Mary-O frame still pays, by owner:
-
-- **Bevy's gizmo groups: 24 systems a frame, MEASURED.** Five groups
-  (default, AABB, frustum, skinned-mesh bounds, light) cost four fixed-loop
-  passes each, plus one draw pass each for the four 3D groups. The game draws
-  gizmos only in developer overlays and uses only the default group.
-  `GizmoPlugin` and `bevy_light` add the four 3D groups unconditionally
-  (bevy_gizmos 0.19.1 `lib.rs`), so no condition reaches them. **Waits on:** a
-  patched `bevy_gizmos`, or dropping `GizmoPlugin` from a play build with the
-  debug overlays behind `dev_tools`. Jon's call.
-- **Ambition's materials on the Mary-O route: 9 material types, MEASURED.**
-  These are the room look's five (blueprint, state, skin, sky, front field),
-  deep dream, sauce, flame and space. Each costs an `Assets<T>` pass and a
-  specialization check in the main world, plus per-type passes in the render
-  world, in every room of every game. **Waits on:** a single-game build (P1),
-  or folding the room look's five materials into one. That is a shader change
-  to the hub's look, so it goes to Jon first.
-- **Developer tooling: 38 systems a frame** (F47, unchanged). **Waits on:**
-  Jon's `android` versus `android_dev` answer.
-- **Android-only:** the hit flash's four empty stubs and its material no
-  longer install there (`0c8aaec1f`). REASONED: not measurable on this VM,
-  which has no NDK.
-
-Found on the way (MEASURED by the witness `the_visual_follows_its_set_while_a_second_room_is_live`, `#[ignore]` until fixed: the visual stays put with a second room live):
-`moving_platforms::sync_moving_platform_visuals` reads the room through
-`Single<…, With<RoomInstanceRoot>>`. With two live rooms, `Single` fails
-validation and Bevy skips the pass, so platform visuals stop moving while
-two rooms are live (a door's neighbour, a gate link). Every other drawable
-places itself by `LiveRoomOf`. The fix: read every room root and place each
-visual by its own room, as `LiveRoomOf` does.
-
-REASONED: excluding the census markers, the gating campaign is at its floor
-on both routes. Every further cut is one of the three decisions above or K5
-decomposition.
+The October 24 desktop census found 919 systems running in a Mary-O frame
+and 993 in an Ambition frame (profiling build with census). Remaining
+choices: Bevy gizmo groups (24 systems in the older census), Ambition-owned
+material types on other games' routes, and debug tooling in the shipping
+Android profile (38 systems). These counts must be re-measured before a
+tradeoff decision. The multiroom platform-visual defect above was found in
+this pass and is an independent correctness task.
 
 ### F47 — What the per-frame system count waits on now (2026-10-23)
 
-MEASURED (desktop census, hub routes, `--warmup 600`, census on, HEAD
-`bd1d11352`): 921 systems ran in a Mary-O frame, about 1,110 in an Ambition
-frame. Of these, 37 are the census's own phase markers. They are installed only
-when `AMBITION_PROFILE_CENSUS` is set, so they are not phone cost.
-
-What is left, by what it waits on:
-
-- **Developer tooling in the phone build: 38 systems a frame on either route.**
-  These are egui input (16), the developer editors' propose and publish pairs
-  (10), the inspector hooks, and the save, hot-reload and flash passes. MEASURED
-  from the census. `build_for_android.sh` defaults to `--features android_dev`,
-  and `android_dev = ["android", "dev_tools"]`, which brings
-  `bevy-inspector-egui`. REASONED: a play build with `--features android`
-  drops all 38 without touching the game. **Jon's call:** whether the play
-  build keeps developer tooling.
-- **Bevy's per-type systems (79 in the main world).** These are 55
-  `Assets<T>` event passes, one per asset type, and 24 Material2d
-  specialization checks, one per material. F42 and F43 found that they cannot
-  be gated from outside. The render world's per-material systems are not in
-  this count. **Waits on:** a fork item, or materials registered only by a
-  composition whose games use them (a single-game build, P1).
-- **Ambition's own content in the hub (Ambition route).** Ambition declares
-  every capability, so per-boss content systems run in every Ambition room:
-  the cut-rope arena (4), GNU-ton's duel, fist lines and ladder gate,
-  Mockingbird's moon strike, the swallows, and the attunement spawn. Each needs
-  its own exact condition (its arena live, its boss present, its encounter
-  missing), and each saves microseconds. **Candidate**, not done.
-- **Gates tried this evening and reverted or declined.** The gate-portal
-  visuals: the registry is not empty on either route. The trapdoor, flyline,
-  tether and limb-trail visuals: a condition would repeat their walk over
-  every body. The animator's every-frame writes, an F43 row, already compare
-  before writing (`FrameWrites`), so that row is stale.
-
-REASONED: the gating campaign is at its floor on the Mary-O route. The next
-phone-frame wins are the hub look's approximations (F46, Jon's call), the
-`android_dev` question above, and K5-scale decomposition.
+Superseded by F48's later census. The content-specific boss and dialogue
+gates listed here were completed in the run. Retain only the decisions above.
 
 ### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
 
-Jon, 10-23: on the phone and the Steam Deck the central hub is far more
-expensive than any other level. REASONED from the shaders, not yet measured
-on a device. The hub (`central_hub_main`) is the one room with
-`palette = clean_corrupted`. With no saved state it is balanced, so the
-front crosses the middle of the room, and every pixel within the
-not-settled band (plane distance -560..740 px, most of a 1,900 px room)
-evaluates `look_claim` (`room_look_common.wgsl`): four block levels, each
-`look_field` (two `value_noise`) plus up to four `rand_cell`, about fifty
-hashes. A block pixel pays it in BOTH skin quads (`room_skin.wgsl`: each
-quad tests the claim to discard itself; the corrupted one tests again at an
-offset for its burning edge), and the room-wide overlay quad
-(`room_state.wgsl`) pays it again, so three to five claims a pixel, plus an
-alpha-blended full-room layer, which a tiled mobile GPU pays in bandwidth
-even where it writes nothing.
-
-The cuts, none of which changes the picture:
-
-1. The claim is piecewise constant on the 16 px grid (the finest level's
-   cell; each coarser level is a union of them). Render it once a frame
-   into a small target (about 120 x 64 for the hub) and let the three
-   shaders read it: about 250x fewer claim evaluations.
-2. One skin material that samples both skins and picks one: half the
-   claims on block pixels.
-3. The overlay's mesh covers only the not-settled band.
-4. Per-level settle bounds, so more pixels leave `look_claim` early.
-
-MEASURED by Jon on the phone, 10-23: with the lever turned so the hub is all
-corrupted (the front out of the room, every pixel settled), the hub goes
-from about 20 FPS to 30-40 FPS. That is the cost of the band.
-
-**Cut 1 done (2026-10-23):** `RoomFrontFieldMaterial` draws each look
-room's claims into a field, one texel a 16 px cell (`room_front_field.wgsl`,
-a camera of its own on `ROOM_FRONT_FIELD_LAYER`, linear light into an sRGB
-target, as the impostor atlas); the skins and the overlay read it
-(`look_claim_in`, `look_is_corrupt_in`). MEASURED: `capture_scene` of the hub
-at `high`, field on against off, 1 pixel of 921,600 differs, by 1 level; a
-probe that wrote every texel clean changed 132,647, so the field is what is
-read. ⛔ CORRECTED 22:20Z: those two captures compared a broken shader with
-itself. In `room_state.wgsl` the new binding `field` redefined the shader's
-`fn field`, so the state shader did not compile from `4a5ff08cc` until the
-fix (`front_field`): no blink-wall veil and no overlay (loose blocks, tears)
-was drawn, field on or off. With the fix, against the TRUE baseline (the
-pre-field shaders on disk under the same binary): 2 pixels of 921,600 differ,
-none by more than 8 levels, field on and field off alike (MEASURED). Jon's
-phone run of 21:13 (`4a5ff08cc`) drew no overlay, so part of what it showed
-was the missing overlay, not the field. Desktop llvmpipe A/B (the CPU rasterizes, so fragment work shows; both arms without the overlay),
-hub route, three interleaved rounds: frame p50 40.91 -> 36.13 ms,
-rasterizer CPU 345 -> 284 ms a frame (both arms without the overlay, see the
-correction). AGAIN with the shader fixed (`445592083`), both arms drawing the
-overlay: frame p50 59.45 -> 42.99 ms (-28%), rasterizer CPU 460 -> 323 ms a
-frame (MEASURED, 274 and 202 windows). The phone A/B:
-`--launch-env AMBITION_ROOM_FRONT_FIELD=off` makes no field. What the band
-still pays per pixel is noise (`look_field` in the skins' heat and wash, the
-sky's air and fog, the overlay's tears), exact only per pixel; cutting it
-further is an approximation and Jon's call.
-
-**Cut 3 done (2026-10-24):** the overlay of a look with a front draws only
-its unsettled band: its mesh is the room and its pad cut to
-`LOOK_SURELY_CLEAN..=LOOK_SURELY_CORRUPT` (plus 2 px), remade when the front
-moves, and hidden when the band misses the quad (a room the lever settled).
-Outside the band the shader returned zero alpha, so the picture is the same.
-MEASURED: hub captures at `high`, the pre-cut binary against the cut: 4 pixels of
-921,600 differ, by at most 1 level, while two runs of either binary differ by
-about 2,600 (the tears and bobbing blocks animate). Witnesses: the band holds
-every unsettled point of the quad at seven advances and no far-settled one, and the
-band bounds equal the shader's. REASONED, not measured on a device: the
-fragments saved are the settled share of the quad; in the all-corrupted hub, the case Jon
-measured at 30-40 FPS, the overlay's room-sized alpha-blended layer is gone.
-
-The test that confirms the cause on a device: the hub with screen shaders
-off (`budget.shaders`) against on; the look is built to read the same off
-(F-room-look rule, Jon 10-18). A CPU profile shows GPU time only as the
-render thread waiting on the driver.
-
-Monolith cycles, the same day (MEASURED, `measure_kernel_module_graph.py
---scc --cuts`): one cyclic component of four modules, `abilities`,
-`features`, `items`, `session`; no single edge splits it (`items <->
-session`, 20 and 4 references, is A7's). `features` is 26,328 production
-lines.
+Several shader cuts landed and were compared by desktop capture; the phone
+and Steam Deck benefit was not measured. Preserve visual equivalence and
+recheck the hub under a target GPU profile before further changes.
 
 ### F45 — A run condition can eat a message its system never reads (2026-10-23)
 
-MEASURED (source and bisect). Bevy 0.19.1 evaluates a system's own run
-conditions even when a set the system is in has a false condition
-(`schedule/executor/multi_threaded.rs` and `single_threaded.rs`, `should_run`).
-`on_message::<T>` keeps its own cursor and advances it when it is evaluated.
-So on a system in a conditioned set it takes the message while the set is off,
-and when the set comes back on the condition is false and the system never
-reads it. `apply_clock_reset_requests` sits in `GameplayGated`; a room replay
-writes its `ClockResetRequest` during the transition hold, when the set is
-off. `app_it canonical_reconstitution` caught it: four arms rebuilt the room
-one tick younger than a fresh entry (enemy x 420.07 against 420.67). Found by
-`git bisect run` (first bad `7c6745589`), not by the per-slice lib tests or
-the census.
-
-The pattern is `ambition_platformer2d_core::a_message_waits::<T>`: a peek at
-`Messages<T>` that takes nothing. It stays true while the channel holds a
-message read or not, so a system may run one extra frame. REASONED, not
-audited: a condition built on change ticks (`resource_changed`, `is_changed`,
-a `Changed<T>` query) has the same exposure in a conditioned set; this run's
-are in sets with no condition or are covered by an `Added`/`Changed` row on
-the drawn entity.
-
-A sim slice that gates on a message or a change runs
-`cargo test -p ambition_app --test app_it -- canonical_reconstitution` before
-it is pushed.
+**Standing safety rule:** a consuming `on_message` condition can advance the
+message cursor while an enclosing schedule set is asleep. The completed fix
+uses a non-consuming predicate (`a_message_waits`) where the message must
+survive until the consumer runs. Keep the replay and reconstitution witnesses.
 
 ### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
 
-MEASURED (desktop VM, `profiling` build of `capture_scene`, xvfb with
-llvmpipe, hub Mary-O route, `--warmup 1500`, census on; three interleaved
-rounds of each binary, about 100 one-second windows each; script
-`scratchpad/ab/ab_interleave.py`): the run's start (`315d36bf0`) against
-HEAD (`2902cf64e`).
-
-| per frame (median of windows) | run start | HEAD |
-| --- | ---: | ---: |
-| systems run | 1,362 | 1,099 |
-| main-world wall, summed over the main schedules | 13.45 ms | 7.08 ms |
-| `Update` wall | 4.34 ms | 1.60 ms |
-| `PostUpdate` wall | 5.07 ms | 2.85 ms |
-| `PreUpdate` wall | 2.10 ms | 1.67 ms |
-| `SpawnScene` wall | 0.80 ms | 0.07 ms |
-| `Update` process CPU (every thread) | 35.3 ms | 6.8 ms |
-| frame p50 | 23.2 ms | 23.0 ms |
-
-The hub's Ambition route, the same way (about 220 windows a side): systems run
-1,540 → 1,261; main-world wall 14.72 → 7.17 ms; `Update` 3.86 → 1.90 ms;
-`PostUpdate` 6.60 → 2.53 ms; frame p50 50.9 → 48.0 ms.
-
-REASONED from the tables: the frame did not get much shorter here because
-llvmpipe draws it on the CPU and bounds it; the main thread's freed time
-became waiting (the `outside` bucket, 10.4 → 16.3 ms). The census warns that
-render blocking lands in whichever phase brackets it, and both sides draw the
-same scene, so the deltas are the work removed, not a frame-time claim. The
-`Update` CPU drop is mostly F41 (main-world schedules serial: no worker
-threads woken for systems that do nothing). On the phone, which F40 found
-CPU-bound, this is the number that becomes frame time; that is the next
-measurement, and it needs the phone.
-
-Found on the way: the A/B worktree must carry the untracked generated assets
-(FX sheets, parallax tiers, audio) or the base never leaves the launcher; the
-first attempt compared HEAD's gameplay with the base's "load failed" screen
-(751 systems). `cp -rs` of the main tree's asset files into the worktree.
-
-**The run's last A/B (19:55Z, the same method, HEAD `8aae83270`).** The
-machine was slower than at 10:20 (the base's own wall rose 13.45 → 15.27 ms),
-so read each row against its own base:
-
-| per frame (median of windows) | Mary-O start | Mary-O HEAD | Ambition start | Ambition HEAD |
-| --- | ---: | ---: | ---: | ---: |
-| systems run | 1,362 | 972 | 1,540 | 1,141 |
-| main-world wall, summed | 15.27 ms | 7.89 ms | 15.93 ms | 8.47 ms |
-| `Update` wall | 4.99 ms | 2.03 ms | 4.52 ms | 2.25 ms |
-| `PostUpdate` wall | 5.39 ms | 2.72 ms | 6.69 ms | 2.84 ms |
-| `SpawnScene` wall | 0.73 ms | 0.08 ms | 0.64 ms | 0.07 ms |
-| `Update` process CPU | 36.1 ms | 9.1 ms | 28.2 ms | 10.3 ms |
-| frame p50 (llvmpipe-bound) | 30.3 ms | 28.1 ms | 56.5 ms | 55.6 ms |
-
-The afternoon's slices took the systems run from 1,099 to 972 on Mary-O; the
-main-world wall's share of its base stayed about half (46% → 52% removed).
-REASONED: the late slices gate passes that were cheap per run, so on this
-host they count in systems rather than milliseconds; on the phone's executor
-each run's overhead is larger (F3). The phone measurement is still the one
-that says what this buys there.
+Historical desktop A/B, superseded by F49. Do not use it as the current device baseline.
 
 ### F43 — What still changes, spawns and allocates each frame (2026-10-23)
 
-MEASURED (desktop, dev build; the census rows `changed_transforms` and
-`changed_sprites` added in this run, and a `perf_probe` build for
-allocations and churn; `capture_scene --warmup 600-900`, counts not times):
-
-| per frame | Mary-O route | hub (Ambition) | `basement_enemies` |
-| --- | ---: | ---: | ---: |
-| `Transform` written | 68-145 (rig parts, motes, actors) | 53 (was 83) | 98 |
-| entities spawned (`Added<Transform>`) | 0 | 1 (portal-gun pickup, by design) | 0 |
-| `Visibility` written | 4 (dev HUDs; was 14) | 8 (was 28) | 2 |
-| UI `Node` / text written | 0 / 0 | 6 / 3 during the intro cutscene, before the overlay fix | 0 / 0 |
-| allocations in our systems | ~1,300 | | ~1,000 |
-| resource archetype moves of ours | 0 (was 26) | | |
-
-What is left is mostly real per-frame work: animated rig parts and ambient
-motes move, actors move their nameplates and hit-flash mirrors. The largest
-allocators left: the input action update (262, already cut from ~19,000 by
-`press_all_action_update`), the rollback lifecycle commit (147), body
-integration (135), the room-transition prefetch trio (~220, which ranks
-neighbours by where the players stand), the character animator in a room
-of enemies (135) and the nameplates (62-82). None is a slice: the phone
-profile decides whether allocation is a lever at all.
-
-REASONED: on the systems-run axis the hub's Mary-O frame went 1,320 → 1,163
-in this run, and the per-frame churn of what is on screen is now near the
-set of things that move. The next lever needs the phone: a profile after
-the serial schedules (F41) and these slices.
+The dated change census drove completed write-on-change and scoped-system
+fixes. Re-run a new probe before reopening any old row.
 
 ### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
 
-MEASURED (dev build, `capture_scene --route mary_o_gameplay --warmup 600`,
-`AMBITION_SYSTEM_LIST`, head `87da084a0`): 1,195 systems ran in one frame
-(1,320 at the start of this run). By schedule: the simulation 432 a tick
-(28 of them the census's own markers), `Update` 387, `PostUpdate` 137,
-`PreUpdate` 164. Not on the phone: the census and probe markers (40), the
-developer tools and the app's `dev` module (76 with the markers), egui
-(16).
-
-What is left, by kind (MEASURED counts, REASONED reading):
-
-- **Bevy's per-type systems, 339 in all.** `Assets<T>::track_assets` 53
-  (one per registered asset type: Ambition's room-look, sauce, flame, space
-  and dream materials run in Mary-O's frame too); the Material2d
-  specialization checks 25 (one per material); gizmo groups 6 systems each
-  (37: start, end, clear, collect, propagate, meshes), of which 16 were the
-  four `RoomTrailGizmos` bands (now one retained drawing per band) of `Capability::Trails`, which Mary-O's rooms
-  do not use. None of these can be gated from outside: Bevy refuses to
-  configure a system-type set, and a condition per system costs what it
-  saves. They are composition items: a material or gizmo group registered
-  only by a composition whose games use it (P1), the trail drawn as one mesh
-  per band instead of four gizmo groups, or a bevy fork that gates a group's
-  systems on its storage being empty. Run by Jon first.
-- **The simulation, ~404 a tick.** Mary-O's own rules and bodies, combat,
-  the extension host's lowerings (~30 a tick, each draining an outbox; a
-  phase-wide gate is not exact because the held ports, such as a held
-  damage box, a held status or a limb bond, release on an empty tick, and
-  a remembered "last tick" is not rollback-safe), the effect quarantine (16
-  plus 5 in `PreUpdate`, one per effect type) and the sim-view
-  publishers (31, S7c).
-- **Rendering reconciliation**, `ambition_render` 144: mostly real per-frame
-  work (animation, rigged parts, camera, parallax, HUD). The rigged parts
-  already write only on change (`rigged.rs` `write_slots`); its 34 part
-  transforms a frame are real animation.
-
-Next by leverage: S7c (fuse the sim-view publishers sharing one body
-traversal), the held-port classification that would let the drain-only
-extension lowerings sleep per phase, and the composition items above.
-(Since done: the lowerings, `670a8d4f4`; the shield pair, `e97a14eec`.)
-
-**The Ambition route** (MEASURED, same method, after `1e7616973`): 1,342
-systems a frame, against the Mary-O route's 1,160. Other games' systems left
-on it: Mary-O's 13 (her five materials' Bevy per-type systems and two reset
-ledgers) and two of Smash's fighter-special rules, which Ambition's cast
-uses too. The boss domain runs 24 systems a tick and Ambition's per-boss
-rules 12 in the hub room, where no boss stands: they are scoped to
-Ambition's rules, and a finer scope ("a live room holds this boss") must
-keep the save-ledger systems (defeat retraction, a boss's music release)
-running everywhere and the arena trackers' one tidy-up frame. REASONED: a
-per-room capability use derived from a room's authored placements is the
-general form; it is a design step (P18), not a gate.
+Superseded by F48's October 24 census and profile-specific measurements.
 
 ### F41 — The hub's Mary-O route by span, and the schedules left parallel (2026-10-22)
 
-MEASURED (profiling build with `perf_probe`, `capture_scene --route
-mary_o_gameplay --warmup 900`, frames after 300, the VM; read ranks and
-ratios, the probe adds cost to each span):
-
-- **Schedules outside the serial policy.** `serialize_main_schedules`
-  named twelve schedules and ran before the plugins that make the rest, so
-  ~30 schedule runs a frame were on the multi-threaded executor. Each paid a
-  hand-off to the pool for a few systems: `ShelterFontSources` (one system)
-  334 µs a frame, `ProcessLdtkApi` (four) 469, `ReadInputs` (three) 96.
-  `SerialScheduleSweep` serializes every main-world schedule in
-  `Plugin::cleanup` (`42e1843d4`): 8, 24 and 28 µs, and no multi-threaded
-  executor span left. On the phone each hand-off woke pool threads
-  (the compute pool's four threads were ~13% busy each in F40's profile);
-  the next phone profile measures it there.
-- **Avian** stepped on ~60% of frames while debris lived: ~1 ms a stepped
-  frame here, of it ~200 µs in the substep systems themselves. Its
-  schedules are already serial (avian sets them); the rest is the probe's
-  cost per span over ~120 spans a step. Not a lever found here.
-- **Run conditions that read the live rooms**: `room_uses` 13 calls a frame,
-  `in_rules_scope` 14, `session_world_exists` 35, ~1.5-1.8 µs a call. One
-  reading of the live rooms per tick would serve them all, but a room can
-  change inside a tick (a transition commits in the simulation), so a
-  cached reading must be refreshed after the commit too, under rollback.
-  Not done; a measured candidate.
-- **Material2d specialization checks** (upstream `check_entities_needing_specialization`,
-  a `par_iter` with asset-change filters each frame for each material
-  type): hit flash 57, Mary-O's shimmer 47, the portal clip 47, the bubble
-  shield 26, the rigged parts 22 µs a frame. A fork item for Jon.
-- **Changed every frame for nothing** (`changes_by_site.csv`): the animator
-  writes each animated sprite's `Anchor` (34 a frame) and `Sprite` colour
-  each frame with no compare (`draw_animator_frame`,
-  `apply_character_frame`), so each of them is extracted and re-bounded
-  each frame. Bevy UI re-inserts the target camera of each of ~30 UI roots
-  each frame (`propagate_ui_target_cameras`, upstream; its propagation to
-  children compares, so layout does not follow from it).
-- **Extension lowerings** (~30 a tick in Mary-O) each drain an empty
-  outbox. A condition on the whole `ExtensionSet::Lower(phase)` is not
-  exact: `bond_limbs` and others do per-tick work beside the drain.
+Main-world schedules were serialized in the completed policy cut; this is
+not an open migration. The render sub-app keeps its own scheduling policy.
 
 ### F40 — Is the phone still bound by the scheduler? (2026-10-22)
 
-MEASURED (phone, `android-all-mary_o-auto-20261022T213742Z`, build
-`315d36bf0`, the main thread tid 28744, `symbolize_android_profile.py
---ours --by-system --thread`, rows grouped):
-
-| run | main thread, % of process | in our systems (framework under them included) | framework systems | the executor's own loop | run conditions |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `maryo-1-1` (10-16) | 53.5 | 55.2% | 26.1% | 13.0% | 3.5% |
-| `maryo-1-1-morning3` (10-16) | 49.6 | 56.4% | 24.0% | 14.2% | 2.9% |
-| `maryo-terrain` (10-16) | 38.0 | 58.9% | 20.0% | 14.8% | 3.9% |
-| `mary_o-auto-…213742Z` (10-22) | 34.6 | 52.3% | 22.9% | 13.0% | 2.7% |
-
-The main thread is 83% busy (one core), so it is still the limit; the
-other threads are not (the async pool's 19% in this run is the autopilot's
-navigation build, autoplay only). The executor's own loop and the run
-conditions are ~16% of the main thread and have not changed share since
-10-16: the per-frame work fell with the system count, but each system still
-pays the executor. F0's "a third" counted every sample with no system body
-on the stack, a wider set, and is not comparable with this column.
-
-MEASURED (desktop census, `capture_scene --route mary_o_gameplay --warmup
-600`, dev build, `AMBITION_SYSTEM_LIST`): 1,320 of 2,121 systems ran in one
-frame (1,394 on 10-17, F37). Still running for nothing while Mary-O plays:
-Smash's select screen 15, portal presentation 19 and portal publishers 6,
-Ambition's room looks, overlays, vanity card and Inugami field ~30, Sanic's
-dressers 3, the versus roster 3.
-
-Answer (REASONED from the two): yes, in part. The scheduler's share is
-steady at ~16% of the bound thread, so each system that runs for nothing
-costs the frame on the phone; removing them is the lever with no behaviour
-change. The rest of the bound thread is real work in our systems and in
-Bevy's transform, UI and visibility systems (`mark_dirty_trees` ~2.8% of
-the main thread, `ui_layout_system` ~2.4%, `check_visibility_cpu_culling`
-~1.5%, material specialization ~1.4%), which scale with entities and
-changes, not with the system count.
+The measured phone was main-thread-bound, with executor/conditions taking
+about 16% of its main thread in that build. It predates the subsequent
+content and scheduling cuts; reprofile before claiming the same split now.
 
 ## Hub first (2026-10-16, from 13:30Z)
 
@@ -1102,108 +600,30 @@ query; per-room dormancy for Ambition's own rooms (its rooms declare every
 capability, so 45 boss-encounter and 35 fighter-special systems run in the
 hall) is the structural lever, and a design question for Jon.
 
-## Summary (2026-10-16)
+## Earlier October 16 baseline (superseded)
 
-- **One thread is the limit.** On the phone the main thread is 82% busy, the
-  render thread 25%, each of 4 pool workers 8-9% (F11). 62% of the main
-  thread is framework work outside any system body: per-system scheduling,
-  access checks, archetype updates, allocation (F0, F11). The cost follows how
-  many systems run, not what they do; no system body of ours is over 1.4%.
-  Levers: fewer systems per game (P1), a serial executor for the
-  standalone games (P2: MEASURED on the desktop, a standalone tick is ~6×
-  cheaper and the main thread does 23% less work per second while drawing
-  32% more frames, F22). In the hub (what the phone runs) the simulation is
-  already serial and only ~15% of the main thread; the frame phases are the
-  rest (F23).
-- **Input was 82% of a standalone frame's allocations** (19.2k a frame,
-  F13): leafwing rebuilt every action pair on each call though we resolve no
-  clashes. Fixed in this repo: allocations a frame Mary-O 23,407 → 4,128,
-  hub 46,949 → 15,257 (pixel-identical capture). On the phone the pass was
-  4.5% of all CPU samples (~8% of the main thread).
-- **Change detection is defeated.** About 30 components of every body are
-  marked changed every tick whether they change or not (F20), and several
-  resources too; one no-op `&mut` re-folded Mary-O's whole repertoire every
-  tick (F15). The common style re-derives every tick (F16). The new change
-  counter names each such write by source line. Levers: P12, then P5.
-- **Presentation entities in immediate mode** (F21): despawn all and spawn
-  all, every frame. Three loops found, all fixed.
-- **Composition:** standalone Mary-O and Sanic run ~170 systems a frame for
-  capabilities they do not use (P1; D3, D4 for Jon). Both hosts now build the
-  engine without named boss encounters (−13 and −11 systems a frame); most
-  of the rest is in the core extension phases (C1).
-- **Fixed tonight, no behaviour change, each verified by the probe, a
-  pixel-identical hub capture, or a test:** Mary-O's star re-fold (F15),
-  Sanic's gravity visuals (F18), the hub's per-frame parallax respawn and its
-  cause in `first_room_art.rs` (F17), the hub's wielded-item overlays (F21),
-  room isolation walking only when a mask can be stale (F14: 443 → 7.6
-  allocations a frame in Mary-O, 1,118 → 2.0 in Sanic), read-before-write
-  for the SFX authorizer, the ledgers and the trail gizmo bands (F20), HUD,
-  feature-visual and hit-flash writes only of a change (F20), seat bindings
-  projected only on a change, the two whole-world queries filtered (F7), and
-  leafwing's clash pass skipped under `PressAll` (F13).
-- **Before → after tonight** (MEASURED, `perf_probe`, idle, per frame,
-  without the probe's and the census's own work; `probe/*_v2` against
-  `probe/*_final`):
+That run identified main-thread executor cost, input lookups, change-detection
+churn, immediate-mode presentation respawns and over-composed engine systems.
+The leafwing lookup, no-op writes, parallax/held-item respawns and several
+room-isolation paths were repaired. The standalone serial-executor decision
+D12 was subsequently completed on October 17, and further content/condition
+reductions landed through October 24. Do not treat the old proposed P1–P18
+ordering or measured timings as current acceptance evidence.
 
-  | | Mary-O | hub `basement_enemies` |
-  | --- | ---: | ---: |
-  | allocations in our systems | 2,218 → 1,156 (−48%) | 2,328 → 1,743 (−25%) |
-  | all allocations | 24,772 → 23,407 | 47,478 → 46,949 |
-  | of which leafwing input (fixed after this table, F13) | 19,222 | 31,942 |
-  | archetype churn from our code | 10.3 → 7.2 | 22.2 → 7.2 (−68%) |
-  | value changes from our code | 1,575 → 1,379 | 994 → 956 |
+**Still require a fresh measurement before selection:** the selected Android
+profile's current CPU/frame cost; remaining Bevy material/gizmo/debug-tool
+cost; conditional churn/collision paths that a new trace reproduces. The
+separate multiroom moving-platform visual correctness issue is recorded
+under the current run outcome and in `tracks.md`. The cost-tool entry points
+are in the next section.
 
-  After the table, the leafwing fix (F13): all allocations a frame Mary-O
-  23,407 → 4,128, hub 46,949 → 15,257. Sanic act 1 over the whole night
-  (`probe/sanic_act1_v2` → `probe/sanic_act1_final`): all allocations 24,034
-  → 3,492 (−85%), in our systems 1,942 → 692, value changes from our code
-  682 → 503. The large remaining items: the serial executor for the
-  standalone games (D12, needs a yes), then P1 and P12.
-- **Time, desktop** (MEASURED, `scripts/executor_ab.sh`, 3 interleaved
-  repetitions, the same script early in the night and at the end; the box's
-  load differed, so read the direction, not the digit). Main-schedule time
-  per drawn frame: Mary-O today's policy 14.1 → 12.6 ms (−11%), with
-  `serial` (D12) 8.3 → 7.0 ms; hub today's policy 13.4 → 12.4 ms (−7%), with
-  `serial` 12.5 → 10.9 ms. Standalone Sanic at the end only (3 repetitions):
-  simulation 7.21 ms per tick today, 2.98 ms with `serial`; main-schedule
-  time per drawn frame 9.5 → 7.6 ms.
-- **What tonight's fixes held on the phone** (MEASURED, the all-games phone
-  profile of 10-16, `symbolize_android_profile.py --under NAME`, inclusive
-  share of all process CPU samples): `handle_clashes` 3.14%,
-  `reconcile_effective_repertoire` (the star's false change) 1.43%,
-  `isolate_live_rooms` 0.47%, the SFX authorizer 0.40%,
-  `publish_seat_bindings` 0.22%, the HUD 0.13%, the rest under 0.1% each:
-  about 6.2% of all samples, ~11% of the main thread. The first two are gone;
-  the others now run only on a change. REASONED until a new phone run
-  measures it.
-- **Instrumentation:** `perf_probe` (allocations per span, churn and value
-  changes per source line; `profile_desktop.sh --perf-probe`); the phone
-  symbolizer's thread table, `--thread`, `--ours`, `--inclusive` and
-  `--under`; the executor A/B switch (`AMBITION_SCHEDULE_EXECUTOR`,
-  `scripts/executor_ab.sh`, to remove with D12). Each is one switch, one
-  directory or one script to remove.
-- **For Jon:** D1-D12 below (D13 withdrawn: fixed without a fork). None is
-  done. D12 (serial executor default for the standalone games) changes no
-  behaviour and is ready.
+## Selection rule for further performance work
 
-## Next, in order
-
-Updated 2026-10-17. Each one helps every game, not only Mary-O.
-
-1. P14: one composed collision world for each room each tick (F24, F33).
-   Step 1 done 2026-10-17 (six compositions a frame in 1-2 → one); step 2,
-   the layered view, done by the portal work the same day (F24).
-2. P12 and P5: derive on change, and build the read-models once for each
-   presented frame, not each tick (F16, F20). MEASURED 2026-10-17 (F5): the
-   views are ~3% of a tick, so P5 is smaller than this list first said.
-3. P1/S2 and P18: the rest of dormancy (F31) and the conditions of F34.
-4. P15: render primitives apart from simulation objects (F32 is the first).
-5. P16: a repeat-allocation pass from `alloc_traces.csv`.
-6. P4: interned identities. P17: baked navigation graphs.
-7. Fork edits, for Jon: Yarn `fetch_resources` (keep its `SystemState`;
-   it now sleeps outside dialogue rooms, F36),
-   `virtual_joystick::update_ui` (compare before write); `bevy_light` open.
-8. D12: done 2026-10-17 (F22).
+The October 17 priority order is obsolete: some items were implemented,
+others were superseded by later probes. Use the newest run outcome above and
+`queue.md` for active work. For an unselected optimization, reproduce the
+cost on a current machine/profile, identify its source and compare the
+smallest bounded change before reopening an old P-number.
 
 ## How to answer a cost question
 
@@ -2116,60 +1536,7 @@ done:
 
 ## Run log (2026-10-16)
 
-- 04:40Z armed. Inputs: four read-only audits of 10-15 (composition plan
-  status, consolidation C03/C08/C09, GPT's 10-11 notes and the tick-rate audit,
-  warts and queue) and a fresh system census; the phone baseline above.
-- Android attribution: `profile_android.sh` now keeps every sample's call chain
-  (`simpleperf report-sample --show-callchain`); the `-g` reports drop branches
-  under 0.25%, so they could not name a system. `symbolize_android_profile.py`
-  picks the library of the sampled build (it took the first of two installs),
-  and has `--lines` and `--ours` (commit 1e1ca6525's parent).
-- 05:30Z phone: the sample dump of the baseline (Jon) gives F0; the
-  Mary-O-only run gives -17% CPU. Jon cannot run the phone again tonight; the
-  rest of the run measures on the headless desktop.
-- 05:30Z an agent starts the `perf_probe` feature (allocations per span,
-  churn per source line).
-- 05:40Z P1/P2 plans written (an agent's code read); F1/F2/F3 corrected (bosses
-  can already be omitted; twelve ledgers; the windowed demos never serialize).
-- 05:58Z `symbolize_android_profile.py`: a threads table and `--thread`. F11:
-  the main thread is the limit (a first table summed it with the render
-  thread, which has the same name; now split by thread id). F12: no catch-up
-  limit. GPT's diagnosis weighed.
-- 07:41Z `perf_probe` committed (6f14f4eb7): allocations per span, churn and
-  value changes per source line. Findings F13-F20 from its runs (desktop,
-  standalone Mary-O and Sanic, hub `basement_enemies`). Fixes with no
-  behaviour change, verified by the probe or a test: Mary-O's star no longer
-  re-folds the repertoire every tick (F15); gravity-zone visuals are no
-  longer respawned every frame (F18). Next: the hub run with the change
-  counter, to confirm F17.
-- 09:13Z F17 cause found with the change counter and fixed (`first_room_art.rs`);
-  wielded-item overlays updated in place (pixel-identical capture). Executor
-  A/B: standalone Mary-O (F22) and hub (F23); switch committed, defaults
-  unchanged. Sanic change census. Read-before-write fixes for the SFX
-  authorizer, the narrative and host-intent ledger prunes and the trail gizmo
-  bands, verified with the change counter (F20).
-- 09:56Z Room isolation walks only when a mask can be stale (F14); HUD,
-  feature-visual and hit-flash writes only of a change (F20); seat bindings
-  projected only on a change; Mary-O and Sanic hosts without named boss
-  encounters (F1: −13 and −11 systems a frame). Before/after table in the
-  summary. Remaining large items need a yes (D12) or are P1's C1.
-- 11:37Z Leafwing's clash pass skipped in-repo (F13; Mary-O −82%, Sanic −85%,
-  hub −68% of allocations a frame); F7 filters; `--inclusive` and `--under`
-  in the phone symbolizer; F24 (collision world copies). End-of-run check,
-  `cargo test -p ambition_app --test app_it`: 1,250 pass, 5 fail, none from
-  this run: the system-count ceiling (3,505 against 3,500; the leafwing
-  replacement removes two systems and adds two), `EmbeddedPackWatches` not in
-  the rollback ledger (two tests; the content live-reload work), and the FX
-  sheet on disk without a `hit_soft` row (two tests). `ambition_combat` 740 pass;
-  the monolith 1,406 pass, 1 fails, not from this run:
-  `held_item_steps…sit_where_they_say` finds two systems in
-  `HeldItemStep::Physics` (`right_ground_items`, added in 2479a4c37). At 12:33Z
-  the test expects two, and it passes (MEASURED). The runtime
-  crate (executor policy) 83 pass; `ambition_platformer2d` 10 pass.
-- 12:30Z The executor arms' one picture difference traced (F22): the motes
-  read the camera before `capture_scene` pinned it under a serial order. The
-  capture tool now orders its pin first; all three arms are pixel-identical;
-  `capture_scene`'s tests pass (7).
-- 12:35Z Standalone Sanic executor A/B (`capture_sanic`, 2 reps, parallel
-  vs serial): simulation 7.39 → 3.03 ms per tick, the same direction as
-  Mary-O. D12 now has a measurement for both standalone games.
+The completed 2026-10-16/17 implementation diary is retained in Git history.
+Current measurement tools and remaining levers are documented above; do not
+use these old numbers as an acceptance gate.
+

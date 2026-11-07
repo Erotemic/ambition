@@ -132,108 +132,21 @@ no foreign game's gameplay running, not standalone's total.
 
 ### S1 — Serialize the fixed schedules in every host (small) — DONE 2026-10-17
 
-Decision D12 (approved): `serialize_main_schedules` is the one policy of
-every foundation. The A/B switch (`AMBITION_SCHEDULE_EXECUTOR`,
-`apply_executor_policy`, `scripts/executor_ab.sh`) is deleted with the
-decision; F22 keeps its measurements. The record below is history.
-
-**Measured 2026-10-16** ([findings](performance-and-composition-findings.md),
-F22 and F23): the shared switch exists (`AMBITION_SCHEDULE_EXECUTOR`,
-`apply_executor_policy`, `scripts/executor_ab.sh`). Standalone Mary-O: a
-fixed tick took 10.7 ms in parallel and 1.7 ms serial; the hub gains about 3%,
-its simulation being serial already. The default for the standalone games is
-decision D12 there. Mary-O's (95, room replay among them) and Sanic's (42)
-integration tests pass with the switch at `serial`. Context switches and
-simulation-state equality across arms were not measured.
-
-Put `FixedFirst` through `FixedLast` in `serialize_frame_schedules`. Measure
-first, with care:
-
-- `AMBITION_MAIN_SCHEDULES_SINGLE_THREADED=1` is read only by `ambition_app`.
-  It does not reach a standalone demo, whose host does not use that path. The
-  switch must be in the shared composition (`serialize_frame_schedules`) so
-  one executable runs both arms.
-- Bevy 0.19 cannot say which executor a schedule has. The run reports the
-  executor that the switch installed, per schedule, and the A/B counts context
-  switches, which a serial executor makes fewer of.
-- Same optimized executable, warm-up, repeated runs. Fixed-step time and
-  frame time apart; ticks per frame; simulation state equal in both arms.
-  Headless standalone Mary-O and the hub's Mary-O route, with enemies in the
-  room, then a GPU host and the phone.
-- The render sub-app and the GGRS schedules are out of scope (the render app
-  keeps its own executor; GGRS is serial already).
-
-One owner of the executor policy: `ambition_app`'s switch is removed or calls
-the shared function. The report says what the switch requested; context
-switches corroborate it and do not prove it.
-
-Done when both arms are recorded. If one composition gains and another loses,
-the host chooses the executor.
+The shared foundation owns the serial main-schedule policy
+(`serialize_main_schedules`); the experimental executor A/B switch was
+removed. Main-world `FixedFirst` through `FixedLast` follow this policy;
+GGRS and the render sub-app have separate scheduling contracts.
+The 2026-10-16 measurements are in Git history. This is not an open slice.
 
 ### S2 — A game's own content runs only in its session (medium) — DONE 2026-10-21
 
-**Inventory (2026-10-21, hub `capture_scene` per gameplay route, one frame
-after 600 warm-up frames, debug, VM).** The game-owned systems that ran while
-another game played, by group:
-
-| Owner | Ran elsewhere | Group | Disposition |
-| --- | ---: | --- | --- |
-| `ambition_demo_mary_o` | 29 | 10 material asset systems; 17 presentation (`dress_*`, quasar, shimmer, cosmic, pipe signs, readouts); 2 activation (`forget_attempts_on_activation<..>`) | not gated: no gameplay |
-| `ambition_demo_sanic` | 4 | 3 presentation; 1 activation | not gated: no gameplay |
-| `ambition_demo_smash` | 16-18 | 14 frontend (the select route's chain); 2 capability-gated specials rules (`mash_out_of_sleep`, `fill_limit_meters`, where a room uses fighter specials); **2 gameplay** (`open_the_sudden_death_round`, `stamp_smash_module_entities`) | gameplay gated |
-| `ambition_content` | 58-67 | 16 material asset systems; presentation; process (content and Yarn source watchers, content generation); portal adapters (in the portals' capability set); **4 gameplay** (cut-rope arena reset, replay reset and try-again beat; boss idle barks) | gameplay gated |
-
-The sudden-death round now runs only in Smash's rooms (`in_mode`), the module
-stamp only while a match runs (`resource_exists::<ActiveMatch>`: Ambition's
-cast places the same objects in its own rooms, and versus has matches too),
-and the cut-rope rules and idle barks only in Ambition's rooms
-(`AMBITION_RULES`). The idle barks moved from the hub
-(`app::plugins`, under `installs("ambition")`) into
-`AmbitionPresentationPlugin`. `release_cut_rope_music_outside_its_room` stays
-ungated: it releases the boss's music once the player is elsewhere.
-
-Presentation, activation, retirement and material systems are not gated, as
-this step planned: each finds no entity outside its game, and on the serial
-executor an idle system costs about what a false condition does (finding 4).
-Gating them is S4's question, and only where a timing shows a cost.
-
-**Guards.** `a_game_governs_only_its_own_rooms::a_games_simulation_systems_sleep_outside_its_rooms`
-composes the shipped hub under the rollback host and requires every
-simulation system of `ambition_content`, Mary-O, Sanic and Smash to carry a
-run condition on itself or an enclosing set, apart from a named list of
-duties that must run everywhere (it reddens with the list emptied).
-`smash_in_the_host::mary_o_plays_the_same_after_ambition_and_smash_had_the_host`
-plays Ambition, Mary-O, a Smash match, Mary-O in one hub; each Mary-O visit
-runs right for four seconds, finishes 1-1 at its pole (a room transition)
-and replays 1-2, and the second visit reads the same as the first. The
-two-live-room semantics (a gate opens while any live room is in its scope;
-each subject reads its own room's rules) are the unit tests in
-`ambition_combat/src/governing_rules/tests.rs`.
-A session is one game, so the shipped hub has no two live rooms of
-different games to test end to end.
-
-The plan as written before the work:
-
-
-Inventory first (`AMBITION_SYSTEM_LIST`): each game-owned system that runs
-while another game plays, in one of five groups: session gameplay (sleeps),
-process services (run always), preparation and activation, retirement, and
-presentation (its own view lifetime). Only the first group is gated.
-
-Use the scope that exists: `in_rules_scope` and `in_base_mode`/`in_mode`
-(`ambition_platformer2d_runtime::mode_scope`), which Mary-O and Sanic already
-use. No new active-game resource. The scope follows the room, not the
-frontend route, so an incoming session can prepare and an outgoing one can
-retire. One set per game per schedule, since a game's systems are in more than
-one schedule.
-
-Done when the hub runs no foreign game's gameplay, and a lifecycle test passes:
-Ambition, Mary-O, Smash, Mary-O, with a room transition and a replay; the
-second Mary-O behaves as the first. And a two-live-room case: `CurrentRoom::in_scope`
-is true when any live room is in scope, so it decides whether a game's systems
-run, not which actors they touch. Each system still filters its subjects by
-their room, and the test proves that one room's rules do not act on the other
-room's population.
+Each game's gameplay systems run in that game's room scope; activation,
+retirement, rendering and background services keep their correct independent
+lifetimes. `a_game_governs_only_its_own_rooms` and the
+`smash_in_the_host` lifecycle replay guard the boundary. A system must
+still select subjects by their own room when multiple rooms are live.
+Historical registered/run counts and the original migration steps are in
+Git history. S4 owns any new *measured* idle-presentation cost.
 
 ### S2b — A neutral hub: Ambition installs only when selected (medium-large)
 
@@ -342,86 +255,20 @@ atlases. It now adopts only the cameras that draw to a window.
 
 ### S3 — Each game declares the engine capabilities it uses (large) — DONE 2026-10-21
 
-**Inventory (standalone Mary-O census, 2026-10-21).** Of finding 2's list:
-boss encounters were already omitted by her host (the 24 boss systems still
-registered are the extension host's conduct lowering, idle); conversation (8)
-and held use (10 held-item systems and 5 of the abilities domain's own) were
-installed although her rooms declare neither; mounts (7) and wave encounters
-(6) were gated and idle; grabs and throws (`ambition_combat::capture`, 14)
-ran every tick, with no capability to gate them.
+The supported profiles `minimal-platformer`, `level-platformer` and
+`stage-fighter` compose removable capabilities and reject content that needs
+an omitted capability. `OmittedCapabilitiesPlugin` gates unused sets;
+`Captures` is one shared capture/hold/throw capability. The supported-profile
+and demo-host guards protect this behavior. Do not replace the profile model
+with optional resources in each system.
 
-**Boundaries.** Grabs and throws are one capability, `Captures`: acquisition,
-hold, pummel, throws, carry, the release a hit forces, the captive's escape
-and pose, in `CapabilitySet(Captures)` in all three schedules that register
-them. It is gated, not removable: Mary-O's and Sanic's packs author grabs
-for their Smash kits (refusing them would refuse their own packs), a boss's
-seize uses the same hold, and the systems are registered by three schedule
-plugins. Mary-O and Sanic declare it unused (at home neither has an attack);
-Smash and Ambition use it (`grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters`).
-Mounts and wave encounters stay gated capabilities: making them removable
-would restructure their installs for a handful of idle systems, which on the
-serial executor cost about what a false condition does. The "Smash moveset"
-of finding 2 is the fighter specials, which install from their own crate
-since S2b (`ambition_fighter_specials`), and only where a game's cast
-authors them.
-
-**Profiles.** Three new supported profiles made from the same capabilities:
-`minimal-platformer` (every removable capability omitted),
-`level-platformer` (no dialogue, named bosses or held use) and
-`stage-fighter` (no dialogue or named bosses). The witnesses in
-`supported_profiles.rs` build, step and probe each, and
-`check_engine_profiles.py` holds their markers. Mary-O's and Sanic's hosts
-compose `level-platformer`, Smash's `stage-fighter`, each as its
-`ENGINE_PROFILE`; each host compiles its own pack against its profile's
-schemas before the first frame (`EmbeddedPack::compile_for`), so content
-that needs an omitted capability is refused at admission. A guard in each
-demo (`the_host_omits_only_what_the_game_does_not_use`) holds that the
-profile omits only what the game's rooms declare unused and installs none of
-it. In the hub the same capabilities are gated per room, as in S2.
-
-**Measured, standalone Mary-O (`capture_mary_o`, one frame after 600):**
-systems registered 1347 -> 1305, systems run 959 -> 951. No dialogue or
-held-use system is registered, and the capture systems sleep (14 -> 0 run).
-
-**Found on the way, and fixed.** Omitting held use first made the census
-worse (959 -> 977 run): the held-use plugins are also where
-`ItemPickupSet::WieldedAbilities` is put in the player phase and in the
-held-use capability set, so the extension host's wielded-use and
-module-entity phases, which live in that set, ran unordered and ungated.
-`ExtensionCompositionPlugin` now states the set's place itself, and the
-engine group gives the set of every capability a composition omits a
-condition that never holds (`OmittedCapabilitiesPlugin`). The profile
-witness now steps each profile and requires that no system in an omitted
-capability's set ran (it reddens without the plugin).
-
-**Not changed, recorded.** The kernel systems attached to the held-item
-steps (the shrine, the residency and whereabouts recorders, the
-session-start checkpoint resume, the match's item spawn) nest in
-`CoreHeldItems`, which the held-items domain puts in the held-use set. So in
-a full composition they sleep in any room whose game declares no held use
-(Mary-O's and Sanic's, in the hub), and in a composition that omits held use
-they run. Which is right is a question about each attachment, not about the
-capability. Neither game authors a shrine or a match; whether their rooms
-need the residency recorders or the session-start resume is not
-established, and is filed as a follow-up here rather than changed blind.
-
-The plan as written before the work:
-
-
-Inventory first: for each feature finding 2 names, its consumers and a
-boundary that makes sense as one capability (grabs and throws together; the
-Smash moveset only after the generic actions Mary-O uses are separated out;
-mounts only with their lifecycle duties). Not a list of system switches. Then
-extend `Capability` and make each demo host build
-`PlatformerEnginePlugins::for_profile` with its own profile. In the hub, the
-same capabilities are gated per session, as in S2. This follows the existing
-contract in [capability and runtime composition](capability-and-runtime-composition.md):
-supported absence is a tested profile, not an `Option` sprinkled over systems.
-Report not installed and not linked apart. Target three profiles made from the
-same capabilities: a minimal platformer, Mary-O, and a Smash fighter. Done when
-standalone Mary-O does not register the systems of a capability it omits, and
-its supported-profile tests pass, with content that needs an omitted
-capability refused at admission.
+**Unresolved attachment audit:** some kernel duties nested under
+`CoreHeldItems` (shrine, whereabouts/residency recording, session-start
+checkpoint resume and match-item spawning) can behave differently when
+held use is omitted versus merely unused. Their correct owner and phase
+must be determined per duty; the completed S3 migration did not establish
+that all of these lifetimes are right. Revalidate with a real consumer
+before making a new gate or extraction.
 
 ### S4 — Gate by work, only where it is measured (after S2 and S3)
 
@@ -433,39 +280,13 @@ producer makes later in the same tick. A few gates, not one per system.
 
 ### S5 — Third-party per-frame costs (small, parallel) — kira and gizmos DONE 2026-10-21
 
-`virtual_joystick` has an upstream PR. The others named in
-[performance and iteration](performance-and-iteration.md#p1--android-cpu-mary-o-measured-2026-10-13)
-remain. `bevy_kira_audio` ran 34 systems and `bevy_gizmos` 36 in standalone
-Mary-O.
-
-**What drove them.** Both counts were per-type fan-out, not per-frame work:
-
-- **Gizmos:** Bevy runs four gizmo systems (start, end, clear, collect) for
-  each gizmo config group. The player trail registered four room groups, one
-  for each live-room band, in every game. Mary-O, Sanic and Smash draw no
-  trail.
-- **Kira:** `bevy_kira_audio` runs two systems for each typed channel (play,
-  instance states) and one play pass for all dynamic channels together. The
-  adaptive music director's twelve layer channels (six layers, two crossfade
-  banks) were typed.
-
-**Changes.**
-
-- `Capability::Trails` is a removable unit. `level-platformer` and
-  `stage-fighter` omit it, so the Mary-O, Sanic and Smash hosts install no
-  trail plugin and no room gizmo group. Those three games declare their rooms
-  do not use it, and the trail's systems sleep there in the hub.
-- The twelve music layers are named kira dynamic channels. The director's
-  three operations are unchanged; nothing read a layer's instance states.
-
-**Measured** (standalone Mary-O, `capture_mary_o --warmup 600`, debug, VM, at
-`f80132225`): 951 ran / 1305 registered → 907 / 1259. Rows naming
-`bevy_kira_audio` 36 → 12, `bevy_gizmos` 40 → 24, the trail 24 → 4 (its input
-toggle, which stays with the input schedule). Phone: NOT RUN (no device).
-
-**Still open:** the remaining gizmo groups are Bevy's own (default, AABB,
-frustum, skinned-mesh bounds) and come with `GizmoPlugin`; dropping them needs
-the gizmo feature off for a composition that draws no debug lines.
+Trails are an omittable capability; the demo-only hosts do not install the
+unused room gizmo groups. Twelve typed Kira music layers moved to dynamic
+channels. The October 21 standalone Mary-O census went from 951/1305 to
+907/1259 systems run/registered. The phone benefit was not measured.
+**Residual:** Bevy's own gizmo groups remain; remove or fork them only for
+an evidenced profile that needs the savings and preserves required overlays.
+This is a measurement-triggered follow-up, not a standing migration.
 
 ### S6 — Per-player and per-room state off global resources (separate)
 

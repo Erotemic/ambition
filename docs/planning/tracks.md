@@ -181,6 +181,45 @@ slices. Only `queue.md` promotes them.
   staleness advisory and preserve the native no-rebuild path. Owner:
   [`engine/asset-library-editor-and-delivery.md`](engine/asset-library-editor-and-delivery.md).
 
+## Unselected residuals found in the planning cleanup
+
+These were explicit unfinished items inside dated owner diaries. This section
+is a **reservoir**, not a second execution queue; verify each against current
+source before promotion.
+
+- ▢ **Multiroom moving-platform visuals.** A 2026-10-24 ignored witness
+  `the_visual_follows_its_set_while_a_second_room_is_live` reported that
+  `sync_moving_platform_visuals` used `Single<RoomInstanceRoot>` and stopped
+  when two room roots were live. Promote if reproducible: resolve each
+  platform's room, unignore the test, and verify two live rooms. Owner:
+  [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md#f48--after-the-content-gates-what-is-left-is-bevys-and-jons-2026-10-24).
+- ▢ **Parts-only artifact distribution.** P5c is still open: exclude baked
+  `_spritesheet.png` for parts-only characters from shipped products while
+  retaining it as an offline oracle. P6c target-GPU cost/parity evidence is
+  also not established by the offline checks. Promote for a real package
+  build or device validation. Owner:
+  [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
+- ▢ **Parts-versus-baked compatibility cleanup.** The older part-parity run
+  found a `feet_pixel` versus `feet_anchor_norm` inconsistency for director,
+  officer and medic. It also reported baked fallback half-pixel blur and frame
+  clipping. Do not reopen a parts migration: first confirm a current asset
+  reader or remaining baked character still exhibits the discrepancy. Owner:
+  [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
+- ▢ **Foreign/UI optimizer follow-ups.** The 2026-10-17 performance audit
+  mentioned `virtual_joystick::update_ui` compare-before-write and an open
+  `bevy_light` analysis. Reprofile on a current target first and obtain a
+  concrete cost/ownership boundary before selecting upstream or fork work.
+  Owner: [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md).
+- ▢ **Per-duty held-item capability attachment.** S3 finished the supported
+  profile migration but did not validate every shrine, whereabouts,
+  checkpoint and match-item step nested under `CoreHeldItems`. Promote
+  when a real profile reveals an incorrect lifetime. Owner:
+  [`engine/system-composition-audit.md`](engine/system-composition-audit.md).
+- ▢ **October 30 consignment-errand report.** The dated world-detail log
+  reported a test expecting an old Georg Canter dialogue choice. Re-run
+  `the_consignment_errand` before classifying it as a live regression.
+  Owner: [`game/world-detail-24h.md`](game/world-detail-24h.md).
+
 ## Build, platform and performance reservoir
 
 - ▢ **Project build/iteration architecture.** Measure profiles, resource-aware

@@ -28,470 +28,67 @@ to touch, and a little danger outside town. No quest chains.
 - One LDtk file per dimension; rooms come from their generator, not hand
   edits.
 
-## Backlog by dimension (measured 2026-10-30: props p, enemy spawns e)
+## Coverage and next selections by dimension
 
-- **Science** (21 rooms): Eureka's coil lab (p0), elevator station, climb and
-  terminus (p0): the car itself has no art; the GNU-ton halls (p0); the
-  station's spur/spoke (p0). Out of town: a zone past Eureka with enemies.
-- **PvN** (13): the raider's and Iron Mary's volley telegraph is in (a flyer
-  hovers while it aims and orbits again in its recovery). the cove (p0), the Mockingbird arena and sky (p0), the dojo
-  interior (p0); the port and village have props. Out of town: the sky
-  lookout has enemies; the forest could carry more.
-- **Math** (5): the town is dressed (p48); the gate hall is thin. Out of town:
-  nothing yet, a zone with enemies.
-- **Jungle** (dinosaur, 7): trail rooms have enemies and props; the tyrant
-  hall is dressed; the tar pits are out past the trail.
-- **Evil** (8): Castle Godwin is dressed; the gate forest and approaches can
-  carry more flavor; the moor is the first zone out of town.
+The October 30 baseline counts and `p0` labels were measured *before* the
+same-day world-detail run. They are not current defects. The later authored
+regions are listed under **Completed October 30 content run** below. Select
+new work only after inspecting the present generators, checking that each
+room is reachable and legible, and identifying a concrete missing interaction
+or authored detail. `WORLD-LAYERS` owns selection.
 
-## Run progress
-- **Jungle: the fossil beds** (0bdce43ba), down a sinkhole in the ridge
-  road (vertical exit, ladder; directly under the ridge on the flat map):
-  strata and their fossils, a skull under a survey scaffold; Dr Petra
-  Stratton, geologist, who objects that the dinosaurs upstairs are in the
-  wrong layer; compys and a raptor; a tin on the scaffold. Learned: the
-  engine draws a Climbable's ladder, so art must not; the test walker cannot
-  step into a 64-px hole from the floor (start below and climb up first).
-- **PvN: the cellars under customs** (2f33b0b6d), down the gate plaza's
-  old well against its west wall (a vertical exit and a ladder; directly
-  under the plaza on the flat map): the freight customs never sees. The
-  forger's desk, a cursed idol under a sheet, undeclared chickens, the still;
-  Fennimore Slipp, import consultant; three tariff-averse colleagues; a
-  strongbox on the barrels. Verified: the_cellars_under_customs.
-- **Map (Jon's shift, 10-30)**: the LDtk Map page, labels, windowing, pins,
-  a game-owned presentation; the engine's panel and minimap on the same
-  model. Fixed on the way: null Bools made bevy_ecs_ldtk refuse pvn,
-  sandbox, noodle and dinosaur (no tiles painted).
+- **Science:** The run added the Eureka Collider, Test Range, steam plant,
+  GNU-ton orchard, tether car/terminus and station/spoke dressing. Check
+  reachability and coverage rather than re-requesting these as empty rooms.
+- **PvN:** Pirate Cove, Wreckers' Reef, Lighthouse Point, Bamboo Pass,
+  Wreckers' camp and other out-of-town content landed. Verify whether the
+  Mockingbird arena/sky, dojo and forest need further art or interactions.
+- **Math:** Zeno's Aqueduct, Fractal Woods, Mobius Mine and Tower of Hanoi
+  provide out-of-town locations, so the old “none yet” item is complete.
+  Check the current gate hall and connecting routes before choosing more.
+- **Jungle:** The Tar Pits, Smoking Mountain, fossil beds, ranger station,
+  rookery and treetop route work landed. Check current traversal and enemy
+  encounter density before extending trails.
+- **Evil:** Searchlight Moor, Lower Godwin, castle kitchens, allotments,
+  founder's crypt and forest road landed. Verify any remaining empty approach
+  or underused room by inspection, not the old eight-room count.
 
-(Newest first. Each entry: what landed, the commit, what was verified.)
+Keep the world-building scope: authored places, residents, discoverable
+interactions and occasional danger; do not turn this into a quest-chain plan.
 
-- **Magical: more of Mary-O's cast at home**: her Solid Snake (in a box by
-  the bakery since Tuesday) and snake plant (retired to a pot) in the square,
-  the snakes on a paper plane going round over it; the laden swallow on the
-  dune road ("African or European?" "Stardune."); the robot she rescues at
-  the end of every castle, waiting in the keep. The snakes on a Cartesian
-  plane came through the gate to the Math dimension's gate hall.
-- **Magical: the Unlit, where the void is hostile** (Jon, 10-30: "have some
-  areas where the void creatures and void fighters are hostile"): east of
-  the rift, a broken walk of ledges over standing void; down its hole a
-  ring the void built out of the shape of a fight (floor, two platforms, one
-  over them; stands of void stars watching, grey-edged so they read as
-  neither ground nor foe); west at its floor the wastes, back to the falls'
-  foot. A loop. Void stars are enemies here (`npc_void_star`, this game's
-  row on Mary-O's sheet). The void fighters (07f85ece0, the polygons gone
-  dark, fighting with their Smash kits for adventure damage): the shooter
-  on the ledges' last piece, the fists in the wastes, all three in the ring.
-  The ring's purse on its top platform under an empty champion's seat;
-  posts at each lip of the ledges' gaps keep the void stars on their walk
-  (seen after 15 s of play). Mary-O's front door, a pink pipe, in the garden.
-  Every blow a void fighter lands costs 1-3 health, throws, mines and shots
-  included; one struck by an unseen foe turns and comes (4dff28ab2).
-  Verified: the_unlit_is_a_loop_from_the_rift_back_to_the_falls.
-- **Math: two keepers** (2e961cff7 and this): Pierre de Fermette (a parody
-  of Fermat) keeps the Conjectures, every problem on the walls solved, the
-  margins too small to show you; Johannes Kepplar (Kepler) keeps the summit's
-  observatory, pointed at Mars, who wanted an ellipse. Verified:
-  the_zeno_aqueduct (11).
-- **Evil: the guild meeting** (the Henchpersons' Guild's secret room had
-  nobody in it): a meeting in session, off the clock, so nobody fights: a
-  clubman with the agenda (item three, whether the hounds count as staff,
-  six years running), a swordsman taking the minutes, a failed prototype
-  moving to be reclassified "differently successful" (second it).
-  Verified: a_false_wall_in_the_kitchens_hides_the_guild_room.
-- **Magical: the Void** (Jon, 10-30: "a really cool void zone / dungeon set
-  of rooms in the magical world. With the black / white theming of the void
-  characters"; "make sure maryo herself is in the world"; "use more maryo
-  songs"). Past the lizard's bridge: the rift where the colour stops (the
-  castle's stone breaking into black shards; the town's things half rubbed
-  out in white line), the gallery of THINGS THE VOID HAS TAKEN (a curator
-  void star), the falls the void pours down, and the heart: the first star
-  that went out, asleep, as big as the room, its eldest void star beside it.
-  Five joins between four rooms, and a secret: the heart's west wall
-  breaks into the nursery, where a star goes the first time it goes out.
-  The rift's pool of standing void (it starts the room again) is crossed
-  high on a ledge or low on shards that crumble and come back.
-  Mary-O, tall, meets the robot at the gate.
-  Music: support_theme, billions_and_billions, embedded/sparse_theme,
-  castle_crash_override, eternal_cosmic at the heart. The `void` biome
-  (ecc13cdf6): white-edged black terrain, ladder and doors, a grey-line
-  broken castle drifting in the sky, white motes; greyscale only.
-  Verified: the_magical_dimension (8), worlds manifest.
-- **Science: the vector well furnished** (every wall is a floor, so each is
-  furnished as one): a study standing on the east wall (bookcase, fern,
-  reading lamp), a parlour on the west rock (armchair, standard lamp), a
-  table upside down on the vault, and on the real floor the heap where every
-  mistake ends (apples, a top hat, a book on its face, a slipper). Learned:
-  a gnu_ton `--apply` drops the approach's gate terminal; `make_gates.py
-  --apply` puts it back (and repairs intro.ldtk's Bool defs: left out).
-- **The Magical dimension: dressed, and the Void Castle** (Jon, 10-30:
-  "Make sure maryo is a character in this universe and add a void lizard
-  dungeon, but he is not an enemy here ... You can talk to them"). Props for
-  the garden (round hills under the star steps, a star tree, the hatch), the
-  hollow (stars asleep in heaps, the day down each shaft) and the road
-  (dunes, a spilled star cart, the last lamp the void is climbing). East of
-  the road the Void Castle: the keep (Mary-O at a truce, void stars that
-  wander and talk rudely, the lizard's banners, the town's star defaced) and,
-  down either stair, the Void Lizard's bridge over the lava, its tea table,
-  its switch (DO NOT LAND ON). Neutral: they fight only if struck.
-  Verified: the_magical_dimension (4, the castle loop and both talks).
-- **The Magical dimension (Mary-O's), begun** (Jon, 10-30: "start authoring
-  the maryo-dimension for the ambition game. I.e. the magical dimension"):
-  `magical.ldtk`, gate DESTINY (posted LEGAL), in Mary-O's own biomes. The
-  gate garden; Starlight Square east of it (wand repair closed: out fighting
-  the void; the star bakery; the old well); the Starless Hollow under both,
-  down the well and up through the garden's hatch (a loop, AI Slop); the Dune
-  Road east, out of town toward the castle the void took (`specs/magical/make_specs.py`).
-  Doors draw over a room's scenery now (542086951): hidden doors were the
-  ladders' bug again. Verified: the_gate_network (11), worlds manifest.
-- **Science: the rest of GNU-ton's works** (18921675f): a Newton's cradle
-  the height of the conservation hall and the Principia on a lectern; the
-  inversion gallery's chandeliers, one hung and its twin stood on the floor
-  turned over. **Enemies heard** (dfe952fbf and the cue batches): primeval,
-  castle, PvN, mites and the apples have notice/tell/swing/hit cues; reels in
-  `untracked/sfx-candidates/enemy_cues/`. Flyers notice (a50657ce7). PvN
-  rangers aim before they fire, the Oni Leader notices (816b967c1).
-- **Science: GNU-ton's orchard and its apples** (f95faa58a, d3cd43b08):
-  the orchard's trees show what its up fields do (apples falling up to the
-  ceiling; a tree hanging from the vault over the chasm; the swinging
-  field's rail; crates stencilled THIS WAY UP both ways). Jon: "add the bad
-  / gravity apples as enemies in this region ... light on enemies": one Bad
-  Apple (glares, rears back, rolls at you, sits dizzy) and two Gravity
-  Apples (hang with their orbits flaring, then drop), off every puzzle's
-  line. Gravity fields: left amber, right green (a2d7157be, Jon's ask).
-  Verified: the_gnu_ton_handle (14), the_gnu_ton_apples.
-- **Enemy patterns (Jon's shift, 10-30)**: the primeval trail's and Castle
-  Godwin's enemies notice, keep their range, telegraph with held poses and
-  charge, pounce or lunge; flyers hang before a dive; the crawling conscript,
-  the fascist swordsman and clubman, the redrawn shock warden. Their beats
-  and strikes have sounds now (a catalog row's `cues`, dfe952fbf). See
-  `enemy-patterns.md`. The 41 chargen townsfolk had dropped out of the
-  publication (`sprites.yaml` lists them now, f91682c85).
-- **Secrets in every region**: breakable walls hide the amber vault (jungle,
-  32c83ec37) and the conjectures (math: a cellar chalked with unsolved
-  problems, Collatz's 27 plotted). Verified: the_tar_pits, the_zeno_aqueduct (10).
-- **Math composed: the roots** under the Fractal Woods, west of the Mobius
-  Mine, up through a knot of roots (lever below) into the woods: a loop.
-  The test walker keeps over a hole's middle going down a ladder.
-  Verified: the_zeno_aqueduct (9) and every hole/ladder test (24).
-- **Science composed: the steam plant under the Eureka quad** (down a
-  manhole in the street; catwalks, boilers, one gauge in the red labelled
-  FINE; east into the Collider, up its stair: a loop) and **Lab 0** behind a
-  bricked door (a breakable wall). Verified: the_eureka_tether (8), capture.
-- **Jungle composed: the treetops** over the trail, up the great tree's
-  rope ladder in the run, down a gap in the leaves into the rookery
-  (6ba334330). Verified: the_tar_pits treetops test, captures.
-- **Ladders seen; secrets hidden (Jon 10-30: "ladders ... no ladder
-  props/sprites")**: climbables drew under the room's scenery; now over it,
-  under the cast. A secret_ zone draws no doorway. Evil: the catacombs'
-  cracked wall (the first breakable_wall) over the ossuary of the other
-  founders (6a6213768). Verified: captures, the_searchlight_moor.
-- **PvN composed**: the Pirate Port's smugglers' tunnel (cellars -> drain
-  in the waterfront's street, grate opened by a lever below; the hoard
-  behind a plank wall) (79f4130e3); the Ninja Village's hidden way (a loose
-  board in the street -> the shrine's slab, lever below) (b018ae4a1).
-  Verified: the_wreckers_reef (6), the_ninja_village (3).
-- **Evil outdoors composed (Jon 10-30: dense regions, not strings)**:
-  the crypt and the catacombs under the moor and the allotments (in by the
-  crypt stair, up under plot 13); the Searchlight Ridge over them, up the
-  moor's watchtower; Gallows Hill over Lower Godwin, up its bell tower (the
-  gibbet TEMPORARILY UNOCCUPIED, the paupers' graves, the founder's
-  billboard), across a plank bridge onto the ridge, dropped through onto the
-  greenhouse. A surface row with a loop under and a loop over (91fb598ad,
-  130060b47). Verified: the_searchlight_moor (9), check_flat_map evil 0.
-- **Math (subagents, Jon's asks)**: Monty Carlo's game plays an honest
-  round, a won car opens the prize case (13188065e); the Tower of Hanoi's
-  64 disks and three needles are props, laid out as move 555,039 of the
-  solution (97d95bac3).
-- **Science: the Eureka Collider**, down a stair in one of the lecture
-  hall's arches on the quad: the ring's tunnel, its beam pipe and magnets
-  (BEAM ON: do not lick the pipe), the staff's bicycles, the detector end on
-  (rings in rings) with its gallery up a ladder (a chest: a spare quark,
-  charm); Dr. Ilse Quark (chargen, Hall wing); crawlers and a shock warden
-  loose in the tunnel. Verified: the_eureka_tether (7).
-- **PvN: the sail loft**, in at a door added to the net loft on the
-  waterfront: nets on the rafters, bolts of canvas, a sail spread half sewn,
-  and flags to order (skulls with an eyepatch, a monocle, a moustache, a
-  party hat; a smiling one sent back: ships kept sailing up to say hello);
-  Tamsin Bolt the sailmaker (chargen, Hall wing). Verified: the_wreckers_reef
-  loft test, the_pirate_port.
-- **Evil: Crumb's bakery inside**, by its door in Lower Godwin: the
-  castle's black iron oven (the crest on its door) and the hamlet's glowing
-  brick one, shelves of both breads, the counter; behind the flour sacks,
-  the press of the Lower Godwin Gazette, its sheets drying on a line; Silas
-  Prentice the printer (chargen, Hall wing), whose Gazette goes up to the
-  castle wrapped round its bread. Verified: the_searchlight_moor (6).
-- **Jungle: the ranger station**, inside the trailhead's ranger hut (its
-  deck now walked on, a door added): the trail's big map (you are here:
-  please stay here), the radio, specimen jars (ferns, eggs, compys rescued
-  from tar, very annoyed), a cot, the lost-property box (a boot, a monocle,
-  an umbrella); Ranger Dlamini on the radio (chargen, Hall wing). The first
-  chargen seed failed the publish's own check (a walk frame's draws did not
-  reproduce its render: chargen's lane); the next seed published. Verified:
-  the_tar_pits station test, the_primeval_trail (5).
-- **Math: the Tower of Hanoi**, west of the gate hall by a side exit (the
-  hall's "<- Manifest Office" sign points that way): three diamond needles,
-  golden disks part moved, each disk a one-way platform so each stack is a
-  stair, a chest on the tallest; the monks' tally on the wall; Brother Lucas
-  keeps the count (chargen, Hall wing); "Moves left: 18,446,744,073,708,
-  503,040". Verified: the_zeno_aqueduct Hanoi test, the_gate_network (11),
-  check_flat_map math 0. Seen on the way, NOT this lane's: the_consignment_
-  errand fails since 697058efa (10-24) renamed Georg Canter's choice; its
-  test still asks for "Please count the lenses."
-- **Science: Ottoline Hum busks** in the middle arch of the gate court's
-  arcade: a theremin on its stand, an open case of coins from forty
-  dimensions (one technically a button) (chargen, Hall wing). Verified:
-  the_eureka_tether busker test.
-- **PvN: Matsuda referees the Bamboo Pass**: the referee by his tally
-  board at the way in (the day's bouts in 正, the visitors' column a nought),
-  before the first bout (chargen, Hall wing). Verified: the_bamboo_pass (3).
-- **Evil: Lower Godwin**, the hamlet under the castle, west of the
-  allotments by a side exit: crooked thatched cottages, the bakery, the
-  well, the stocks (FOR COMPLAINING), the decree board (DECREE 47: smiling is
-  compulsory on Tuesdays), a barred cottage and a turnip cart; Barnaby
-  Bellows the town crier on his platform, who reads the decrees to the
-  well, and Prudence Crumb the baker, who bakes two breads (chargen, Hall
-  wing). Verified: the_searchlight_moor (5), check_flat_map evil 0.
-- **Jungle: rewards for the climb**: a chest on the highest ledge of the
-  trailhead, the run, the ridge and the canopy (a ranger's lost lunch, a nest
-  of something large, a fossil hunter's cache, an egg the size of a chest),
-  and a sign in each; `scenery_overlay.py` learns chests. Verified:
-  the_primeval_trail (5).
-- **Math: the Mobius Mine**, under the Fractal Woods: a ladder down a hole
-  in their floor (a vertical exit). A mine with one side: at its far end
-  the half twist (a FlipGravity switch) turns it over, the way back is the
-  ceiling where the coins are, and the switch's twin on the ceiling turns
-  it back. Leaning timber sets, ore veins, rails that twist up the back
-  wall, a cart on the floor and one hung on the ceiling; Felix Kleinbottle
-  the miner (chargen, Hall wing); dividing mites. Verified:
-  the_zeno_aqueduct (5: the walker climbs up and down the shaft),
-  check_flat_map math 0.
-- **Science: the spoke's tube** (one drawing in two frames, no noise
-  across the seam): hull ribs, portholes on the stars, conduits and lamps
-  overhead, the tram trench's rails and hazard edges, the lift's shaft at
-  the far end, its own door hatches, a bench, a plant, a mural of the
-  planet (`scenery_overlay.py`). Verified: capture.
-- **PvN: the Lighthouse Point**, out past the Wreckers' Reef by a side
-  exit at its east rocks (floors level): the honest light against the
-  wreckers' false one. The tower in red and white, cut away to its stair of
-  landings up to the gallery and the lamp (a chest there), its beams; the
-  keeper's cottage, garden, upturned boat; Ezra Lamplugh the keeper
-  (chargen, Hall wing); wreckers come round the point. Verified:
-  the_wreckers_reef (3), check_flat_map pvn (only the Mockingbird finding).
-- **Evil: the Prototype Workshop**, down a door added to the barracks by
-  its failed prototypes: where they come from. Tool wall (RETURN THE BIG
-  SPANNER), a walking toaster half built, the copper boiler in the red,
-  blueprints (one REJECTED), the battle kettle (MARK 47: almost), the red
-  button (DO NOT), a crate of spare parts; Dr. Gideon Sprocket the chief
-  engineer (chargen, Hall wing). Verified: the_castle_kitchens (3).
-- **Jungle: the rookery's birdwatcher**: Mildred Twitchell's hide on the
-  raised ground (canvas and palm fronds, a long lens through the slit, her
-  stool, notebook and thermos), and Mildred, who has stopped asking why the
-  penguins are here (chargen, Hall wing; `scenery_overlay.py`). Verified:
-  the_tar_pits birdwatcher test, the_primeval_trail (5).
-- **Math: Zeno Halfway** on the aqueduct's deck, between the 7/8 and 3/4
-  piers: set out for the reservoir at dawn, some years ago, always halfway;
-  his arrow is still in the air (chargen, Hall wing). Verified:
-  the_zeno_aqueduct (4).
-- **Science: the tether's climb**: things passed, each at its sign's
-  altitude: a weather balloon (12 km), a hoop round the ribbon and a dotted
-  line across the room at the Karman line (space, technically), a
-  satellite with a lost glove and a turning spanner (low orbit, and its
-  traffic), a navigation satellite (20,000 km). Verified: captures.
-- **PvN: Ume's tea house inside**, by a door under the noren in the village
-  street (Ume steps aside to her bench): the tea room (tatami, the sunken
-  hearth and its kettle, low tables, the alcove), the step chest up to the
-  loft's two guest rooms, where the family who left before daylight forgot
-  a child's sandals under the futon (Ume's talk) and left a thank-you on
-  the pillow (a chest); Tsuru the travelling medicine seller staying
-  (chargen, Hall wing). Verified: the_ninja_village (2).
-- **Evil: the Castle Allotments**, out of town west of the Searchlight Moor
-  by a side exit (floor level, rooms touching): raised beds of the castle's
-  vegetables (pumpkins that come up scowling, cabbages with teeth,
-  mandrakes not to be pulled), a trellis of nightshade, a steaming compost
-  heap, the scarecrow in the castle's helmet, the Malevolent Marrow on the
-  show bench; the greenhouse's roof climbed by the water butt to a chest;
-  Hester Crabbe the head gardener behind her fence (chargen, Hall wing);
-  zombies, a hound and a failed prototype in the beds. Verified:
-  the_searchlight_moor (4), check_flat_map evil 0.
-- **Jungle: the mammoth's skull**: the block of a skull is redrawn as a
-  mammoth's (a high domed crown, the eye's socket, the tusks' sheath, the
-  tusks in a spiral, clipped at the ground); curved ribs, the spine's
-  vertebrae. Verified: capture.
-- **Math: Monty Carlo hosts the ballroom**: the three doors' host (chargen,
-  Hall wing), who explains why switching wins and sends a goat to each
-  mathematician who writes in. Verified: hylberts_hotel (4).
-- **Science: the tether terminus** (station end of the space elevator):
-  hull hall, the ribbon through collars in floor and vault, a window on the
-  planet's limb, the down car's lift doors and the bay's bulkhead, the
-  arrivals board (every car ON TIME: it is a ribbon), and Dobbs's souvenir
-  kiosk: shirts, snow globes with the planet in them, genuine orbit air
-  (chargen, Hall wing). Verified: the_eureka_tether (5).
-- **PvN: the charcoal burner's camp** in the cedar forest: an earth kiln
-  smoking at its vents, seasoning billets, a bark lean-to against a cedar
-  with a kettle on, charcoal bales; Moriyama (chargen) at his kiln, who
-  tells of the crows' hoard on the fourth branch (a chest there); Hall wing.
-  Verified: the_bamboo_pass (2), the_ninja_village.
-- **Fixed: murky water never landed** (5b4f72f66). MEASURED: the moor's bog,
-  the tar pits and the Bamboo Pass's stream had no Water cells; `area
-  create` built no Water layer, so each paint was refused. A made level now
-  carries every IntGrid layer its project defines (test); the three zones
-  have their water (160, 153, 124 cells). Verified: the zones' tests (9).
-  Open for Jon: murky water looks the same in every biome by design
-  (`terrain/fixtures.py`), so the tar pits' tar reads dark teal, not black.
-- **Evil: the Complaints Department** behind Castle Godwin's kitchens, by a
-  door at their east end: two windows both CLOSED, NOW SERVING 3, a ticket
-  machine, a padlocked suggestions box, and Agnes Mudge (chargen) holding
-  ticket 4,117; Hall wing. Verified: the_castle_kitchens (2).
-- **PvN flat map: the village's high road** (09ccc3977) meets the forest's
-  first branch: the branches step down from y 448 (six now), art and
-  generator. check_flat_map pvn: only the Mockingbird arena's ceiling exit
-  (another lane) remains.
-- **Science: the service deck's clutter** (4567821b4): lockers, a vending
-  machine, the robots' charging dock, DAYS WITHOUT INCIDENT: 0.
-- **Evil: the founder's crypt** (a4cc9e181) under the moor, by a gate
-  beside his plinth: bones, pointing busts, his medals on the sarcophagus;
-  a spectral wolf and conscripts. Verified: the_searchlight_moor (3).
-- **Jungle: Professor Tock keeps the meteor watch** (68ed25bf4) on the
-  mountain's rim; the test walker climbs the mountain to talk to him.
-- **Math: Ivo keeps the Fractal Woods** (811f00ea7), a new Hall wing for
-  the Math town's people.
-- **Residents for the out-of-town zones**: Range Officer Pryce at the Test
-  Range (739b79790), Nell Brine on the Wreckers' Reef's shore (5f9ce8bd5).
-  Verified: their talk tests.
-- **Science: the gate court furnished** (998423f11) and **the observation
-  deck's window** (be6cf39c3).
-- **Jungle: the Smoking Mountain** (24d9f7cd4), past the tar pits: basalt
-  shelves under a volcano's cone, lava pits and crater (DamageVolumes), the
-  meteor watch on the rim. Split frames now overlap by 16 and carry no
-  noise across the seam (a frame's edge column is filtered soft).
-- **Math: the Fractal Woods** (0b661a7f3), out of town east of the summit:
-  the great fractal tree climbed by its limbs to a chest, a Koch hedge, a
-  Sierpinski rock, a computed Mandelbrot topiary; puppy slugs, dividing
-  mites. The buildings' insides moved to y 2400. Verified: Math, hotel,
-  Zeno, gate-network tests (18).
-- **Science: Eureka's quad filled in** (5df747b7d): the raised walk's
-  arcade, the Uncertain Cup's front, the lecture hall's colonnade, a Klein
-  bottle fountain, Tesseract Labs' front with a sparking coil. A still
-  platform with no picture is not ground the test walker's navigation
-  knows: the quad's walks stay ledges.
-- **PvN: the Wreckers' Reef** (67823e0c6), out of the port east of the
-  docks: the GOOD SHIP PROBABLY broken in two on the reef, the wreckers'
-  false lighthouse, the captain's strongbox; Cutlass Vipers, the
-  Quartermaster, a Lookout. Verified: the_wreckers_reef, the_pirate_port.
-- **Evil: the Crooked Lantern** (c9de81e52), an inn at the moor's far west
-  end: Gudrun and Tobias the trapper (who knows the searchlights' blind
-  spots), WANTED posters with the robot's face. Verified:
-  the_searchlight_moor (2).
-- **Chests at the top of each out-of-town climb** (177b78090): moor
-  watchtower, bamboo lookout, tar pits scaffold, Test Range tower.
-- **Math: Hylbert's ballroom** (06fe2abc1): a game show of three lit doors
-  (stay 1/3, switch 2/3); behind them three closets: a goat, a car with a
-  bow and money, a goat. Verified: hylberts_hotel (4).
-- **Science: the coil lab's anti-gravity prototype** (21c2d7a4f): DO NOT
-  PRESS flips the lab's gravity (this room only); its twin on the ceiling
-  (TOLD YOU.) flips it back. Dmitri knows. Verified: the_eureka_tether (3).
-- **Jungle: the trail's people** (36bc19547): Ranger Brandvold at the
-  trailhead by her new hut, Dr Feld at the tar pits' dig camp (now a quiet
-  pocket). `scenery_overlay.py` adds residents and each piece by its own
-  name. Verified: the_tar_pits (2).
-- **Math: Hylbert's guests**: the Paradox Barber, Joseph Furrier and
-  Python Goras at doors of the infinite corridor, with hotel talk
-  (`math.yarn` `hotel_*`). Verified: hylberts_hotel (3).
-- **Science: the damaged spur looks damaged** (21f654b00): a hull breach on
-  the stars, torn deck and severed cables arcing over the live pits, the
-  buckled bulkhead, red emergency lamps, the crew's mess.
-- **PvN: the Bamboo Pass** (22096138a), out of the village east of the
-  cedar forest: the Shadow Clan's sparring ground; grove, rope bridge over a
-  gorge, lookout, waterfall and jizo; Ninja Swordsmen and the Oni Leader
-  (the plain duelist and the heavy author no locomotion and cannot be
-  placed as enemies). Verified: the_bamboo_pass, the_ninja_village.
-- **Evil: the castle kitchens and the castle's staff** (f94f1f248): the
-  first residents of the Evil dimension (chargen, crew family): Mrs
-  Hargreave the cook, Osgood the night porter, Brigid Dunmore of the
-  Henchpersons' Guild; talk, catalog, Hall wing; music doves_of_the_commons.
-  Verified: the_castle_kitchens.
-- **Jungle: the Tar Pits** (16e495c39), past the end of the trail, east of
-  the canopy by a side exit (`specs/primeval/tar_pits.py`): two tar pools
-  (murky water drawn as tar), a mammoth half sunk (its spine a still walk),
-  a sabre-tooth skull, the paleontologists' dig camp and scaffold; raptors,
-  a triceratops, a dilophosaurus, compys, a vulture. Verified: the_tar_pits,
-  check_flat_map dinosaur 0. The new edge first took the id of the canopy's
-  door; only the game refused it, so `validate` now refuses two zones of one
-  id in an area.
-- **Math: the gate hall's arrivals furniture** (6d519ac43): the Manifest
-  Office's booth, the customs desk for axioms on the west gallery, the
-  departures board (infinity cancelled), a porter's cart, polyhedral lamps,
-  banners. Verified: math tests (5), captures.
-- **PvN: the Pirate Sky Lookout's deck** (d3014245e): the lookout's floors
-  were invisible over open sky; now a deck on a hull band, crow's nest and
-  Jolly Roger, the captain's perch, the companionway house, the sharks'
-  hitching rail, a spyglass, an anti-shark gun, four signs
-  (`scenery_overlay.py` adds signs too).
-- **Science: the tether's ground station hall and car** (c2d4e105f): a hall
-  of steel and glass round the ribbon, galleries, console, departures board,
-  altimeter, capsule tube; the cars drawn as `eureka_tether_car` (a
-  platform look). Engine: moving platforms now draw over a room's scenery
-  (a one-picture room hid every platform). Verified: the_eureka_tether,
-  render platform tests.
-- **Evil: the Searchlight Moor** (392716c7a), out of town west of the gate
-  forest by a side exit (`specs/evil_moor/make_specs.py`): a ruined
-  watchtower to climb, its searchlight's beam; a murky bog (IntGrid murky
-  water, its surface in the art) with a drowned cart; the founder toppled
-  face down off his plinth, his back walked on (a still one-way platform
-  with no picture); barbed wire; hounds, failed prototypes, risen
-  conscripts. Verified: the_searchlight_moor, check_flat_map evil 0, room
-  captures. Note: a hidden `SurfaceChain` did not hold a spawned body here.
-- **Math: Hylbert's lift only goes up** (995743d24): its top comes back in at
-  its bottom. Verified: hylberts_hotel (two laps).
-- **Jungle: trail dressing** (9ca12eaba): ferns, fallen logs, nests (one egg
-  hatching), a toppled idol head, a half-sunk ribcage in five trail rooms.
-- **PvN: the hall of the Shadow Clan** (7d76d7249): shoji, rafters as
-  balconies, racks, gong, bonsai shrine, lanterns, and the scroll the
-  Mockingbird "corrected".
-- **Jungle: the trail walks through side exits** (96d318a8c):
-  `specs/primeval/side_exits.py` turns the trail's end doors into edge
-  exits, opens the walls and places the rooms touching. Verified:
-  the_primeval_trail, check_flat_map dinosaur 0.
-- **Science: the Test Range** (cc690ce6c), out of town west of Eureka's gate
-  court: a rocket (PROBABLY FINE III) and its gantry, a blast bunker, an
-  observation tower; crawlers, a shock warden, mites, crash-test dummies.
-- **Evil: the forest road** (876c63fb7): graveyard, mausoleum, dead oak and
-  crows, a broken wheel, fog.
+## Completed October 30 content run
 
-Backlog from the side-exit rule (Jon 2026-10-30): the GNU-ton trail
-(orchard -> vector well -> conservation hall -> inversion gallery ->
-approach) still joins by doors; another lane's boss route, not converted.
+This was a dated **implementation log**, not a live task queue. The rooms,
+people, route links and interactions below were authored during the run.
+The source generators, content pack and map assets now own their details;
+Git history contains the change-by-change reports. Revalidate any room
+coverage before redoing or extending it.
 
-- **A faithful flat map** (a738acdc9, f2eed08cb). Jon: side loading zones
-  connect the world (horizontal and vertical); doors only enter buildings;
-  rooms placed as "a mostly faithful flat map". `specs/check_flat_map.py`
-  reports edge exits whose rooms do not meet, and overlaps. Eureka, the Math
-  town and PvN's port and village moved so neighbours touch with roads level
-  (science 5 -> 0, math 1 -> 0, pvn 9 -> 2; the village's high road fixed
-  since, 09ccc3977). Left: the Mockingbird arena's ceiling exit leads to a
-  side (another lane).
-- **Math: Hylbert's Hotel** (aa3f6171a): its door in the street's passage, the
-  lobby (Hylbert at the desk, the key rack that never ends, the lift whose
-  dial ends in infinity), and the corridor whose east end comes back in at
-  its west end: there is always one more room. Verified: hylberts_hotel.
-- **Jungle: the Tyrant King's hall** (acff766c0): a sunken temple, carved
-  tyrant heads, his throne with a too-small crown. Added by
-  `specs/scenery_overlay.py`: the primeval generator is older than its level
-  (regenerating it drops a gate terminal, water and tuned enemies).
+- **Jungle:** the fossil beds; the ranger station; rewards for the climb; the rookery's birdwatcher; the mammoth's skull; Professor Tock keeps the meteor watch; the Smoking Mountain; the trail's people; the Tar Pits; trail dressing; the trail walks through side exits; the Tyrant King's hall.
+- **PvN:** the cellars under customs; the sail loft; Matsuda referees the Bamboo Pass; the Lighthouse Point; Ume's tea house inside; the charcoal burner's camp; the Wreckers' Reef; the Bamboo Pass; the Pirate Sky Lookout's deck; the hall of the Shadow Clan; the Pirate Cove.
+- **Other:** Map (Jon's shift, 10-30); The Magical dimension (Mary-O's), begun; Enemy patterns (Jon's shift, 10-30); Secrets in every region; PvN composed; Math (subagents, Jon's asks); Residents for the out-of-town zones; Chests at the top of each out-of-town climb; A faithful flat map.
+- **Magical:** more of Mary-O's cast at home; the Unlit, where the void is hostile; the Void.
+- **Math:** two keepers; the Tower of Hanoi; the Mobius Mine; Zeno Halfway; Monty Carlo hosts the ballroom; Ivo keeps the Fractal Woods; the Fractal Woods; Hylbert's ballroom; Hylbert's guests; the gate hall's arrivals furniture; Hylbert's lift only goes up; Hylbert's Hotel; Zeno's Aqueduct.
+- **Evil:** the guild meeting; Crumb's bakery inside; Lower Godwin; the Prototype Workshop; the Castle Allotments; the Complaints Department; the founder's crypt; the Crooked Lantern; the castle kitchens and the castle's staff; the Searchlight Moor; the forest road.
+- **Science:** the vector well furnished; the rest of GNU-ton's works; GNU-ton's orchard and its apples; the Eureka Collider; Ottoline Hum busks; the spoke's tube; the tether's climb; the tether terminus; the service deck's clutter; the gate court furnished; Eureka's quad filled in; the coil lab's anti-gravity prototype; the damaged spur looks damaged; the tether's ground station hall and car; the Test Range; Tesseract Laboratories; Eureka's tether carries its rider.
+- **The Magical dimension:** dressed, and the Void Castle.
+- **Math composed:** the roots.
+- **Science composed:** the steam plant under the Eureka quad.
+- **Jungle composed:** the treetops.
+- **Evil outdoors composed:** dense connected regions instead of isolated strings of rooms.
+- **Fixed:** murky water never landed.
+- **PvN flat map:** the village's high road.
 
-- **Math: Zeno's Aqueduct** (3ee5622bf), the first zone out of town: the
-  aqueduct's deck leaves Euclid Street west over a valley to the reservoir;
-  piers close up by halves, signs count 1/2, 3/4, 7/8 of the way; The Limit
-  island; dividing mites, puppy slugs, an exploding mite, an owl. Fixed on the
-  way: the math generator's stale sprite path, and townsfolk talk that every
-  regenerate dropped (now in the generator). Verified: the_zeno_aqueduct.
-- **PvN: the Pirate Cove** (873532b44): a sea cave open on the night sea,
-  lookout scaffolds, the ladder to the sky hatch, three doorways (the
-  arena's scorched, feathers blown out), longboat, treasure heap, Jolly
-  Roger, wanted board, parrot perch. Verified: LDtk validation, a semantic
-  diff of pvn.ldtk (only the cove's props and a harbour-house re-sync).
-- **Science: Tesseract Laboratories** (d5d039a27): coils with an arc between
-  their toroids, gantries, Van de Graaff, Jacob's ladder, wireless bulb,
-  pigeon coops, the AC/DC chalkboard.
-- **Science: Eureka's tether carries its rider** (58da8bcfc): the ground car
-  waits a hop over the floor; the_eureka_tether passes.
+## Unresolved observations from that run
+
+- **Consignment errand:** the October 30 note said
+  `the_consignment_errand` still expected “Please count the lenses” after
+  Georg Canter's choice text changed in `697058efa` (2026-10-24).
+  Re-run the test against current source before calling this a live defect.
+- **Tar/murky-water presentation:** there was a maintainer question about
+  whether tar should be black rather than the shared dark-teal murky water.
+  The run later reports a rendering repair; verify the current appearance
+  before proposing another change.
+- **World coverage:** the prior dated counts were superseded by the run.
+  `WORLD-LAYERS` owns new selections after a current-source inventory.
+

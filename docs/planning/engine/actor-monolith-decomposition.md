@@ -161,116 +161,31 @@ selects when the work proceeds. The A-packet
 
 ### K1 — Move transition custody interpretation upward — DONE 2026-10-21
 
-**Receipt:** `CustodyEndingAtCommit` now lives in
-`ambition_platformer2d_runtime/src/room_transition/custody.rs`, beside its
-one consumer (`room_transition/loading.rs`). `body_whereabouts` keeps the
-durable whereabouts state and its readers and names no session type; the
-`body_whereabouts -> session` edge is gone. No system, resource or state
-moved: the type is a `SystemParam` the loader already took. The record below
-is the plan it executed.
-
-The adapter depended on
-`session::lifecycle_commit::LifecycleIntent` and
-`rooms::rooms_released_by_transfer`; the runtime transition loader is its
-production consumer (`room_transition/loading.rs`). Move the adapter and
-its tests near the room-transition integration path. Keep durable
-whereabouts state and its ordinary readers in the domain. Do not make the
-low-level body-location module import session operation types.
-
-**Proof:** the same away-from-home population is released or retained after
-crossing, checkpoint restore, same-room replay, and a crossing where another
-player stays. Verify cancellation, rollback and two live rooms. Remove the
-qualified edge and ensure no new registration or hidden query work is added.
+**Receipt:** `CustodyEndingAtCommit` now lives in runtime room-transition custody,
+next to its one loader consumer. Durable `body_whereabouts` no longer imports
+session types. Checkpoint/transfer tests guard custody selection; no
+new simulation state or registration was introduced.
 
 ### K2 — Move commit-facts *selection* above construction — DONE 2026-10-21
 
-**Receipt:** `CommitFactsSource` is defined with the room publication
-transaction (`publication/transaction.rs`, exported as
-`rooms::CommitFactsSource`). Construction still receives one resolved
-`PersistedFates` per commit and no longer names
-`session::checkpoint::CheckpointOperationKey`; the `construction -> session`
-edge is gone. The selector's resolution in `publication/stage.rs` is
-unchanged, so no checkpoint consequence is evaluated earlier than before.
-The record below is the plan it executed.
-
-The selector `CommitFactsSource` contained
-`AfterTheRestore(CheckpointOperationKey)`. `publication/stage.rs` resolves
-that selector, while construction owns the resulting `PersistedFates`.
-Move the *choice of when and where to get facts* to the publication/lifecycle
-coordinator. Construction must still receive one resolved value for a commit.
-Do not read a candidate session's save from the currently live session.
-Do not evaluate checkpoint consequences before the operation is admitted.
-
-**Proof:** a session prepared while another game runs; accepted and refused
-checkpoint reset; replay after save changes; candidate failure; first-tick
-spawn state. Remove `construction -> session` without adding a general facts
-provider registry, new global resource, or duplicate saved state.
+**Receipt:** The room-publication transaction now owns `CommitFactsSource`.
+Construction receives one resolved `PersistedFates` and no longer imports
+`CheckpointOperationKey`. Checkpoint resolution still happens only after
+admission; do not evaluate a candidate session's saved facts early.
 
 ### K3 — Prepare actor construction for a domain owner — DONE 2026-10-21
 
-**Receipt:** construction now names no other module of the monolith.
-
-- **Death and provocation flags.** `ambition_persistence::save_data` owns
-  their spellings (`enemy_dead_flag`, `enemy_dead_until_rest_flag`,
-  `npc_hostile_flag`) beside `DEAD_UNTIL_REST_SUFFIX`, which it already owned
-  because a rest clears those flags. The catalog's
-  `RespawnPolicy::death_record` says which record a policy keeps (an
-  exhaustive match). The policy-to-flag glue stays with the one writer
-  (`body/damage/actor_hit.rs`). The `fate_flags` module is deleted.
-- **Shrine.** `HealShrine`, `heal_save_shrine_system` and its tests moved to
-  the new crate `ambition_shrine`. The crate publishes a `ShrineRest` set;
-  the checkpoint resume orders after the set, not after the function. The
-  monolith still installs the system in the same sets and order, and still
-  registers the component for rollback. `ShrineActivationPulse` stays in
-  `shared_tangle` because the renderer reads it.
-- **Held-item namespace.** `HeldItemId` moved from the monolith's
-  `world::rooms::binding` to `ambition_characters`, beside
-  `held_item_ids()`, the list it resolves against. This was the last
-  `construction -> world` edge.
-- **Instrument.** `measure_kernel_module_graph.py` did not resolve
-  crate-root re-exports, so `crate::rooms::…` (`pub use world::rooms`)
-  counted as no edge. With the fix, K1 and K2 left `construction` in the
-  cycle (nine modules, not the eight first reported). After K3 it is out.
-
-**Can `ambition_platformer2d_actor_spawn` own construction? Not as is.**
-Construction lowers every placement kind, including ground items, chests and
-shrines. Pickup and chest construction belong to item integration. Planning therefore stays separate
-from spawn materialization. Construction is now a leaf of the monolith graph
-and can become its own owner. Its callers are `features` (50 references),
-`world` (5) and `session` (5), so do the move with K4's publication
-coordinator, not before it.
-
-The record below is the plan it executed.
-
-Recheck `construction -> fate_flags` and `construction -> shrine`, plus its
-callers in `features` and `world`. Give death flags and shrine components a
-semantic owner. Do not move a value to `shared_tangle` just to satisfy the
-compiler. Check whether `ambition_platformer2d_actor_spawn` can own more
-planning work without importing the monolith back into itself. If it cannot,
-keep planning separate from spawn materialization. Reuse A3's prepared-plan,
-`SimId`, provenance and preflight tests.
+**Receipt:** Construction stopped naming sibling modules of the monolith. Durable
+save-flag spellings live in persistence, shrine behavior in `ambition_shrine`,
+and held-item names in `ambition_characters`. Its planning still covers
+more than actor spawning, so do not fold it into `actor_spawn` by name.
 
 ### K4 — Room publication owns the transaction — DONE
 
-The room coordinator left `world::rooms` and then the actor kernel in commits
-`348bca4e0`, `b7c8ffd75`, and `bbe442392`. The owner is
-`ambition_platformer2d_publication`. The runtime, provider, and rollback lifecycle
-compose it through the public publication API.
-
-Publication prepares a hidden candidate, checks its receipt, and publishes or
-refuses the result as one operation. Session owns admitted operations, restore
-facts, and retirement. World owns geometry and live-instance identity. Item
-custody stays with its domain.
-
-K15 co-locates the typed room plan, receipt, placement adapters, and transaction.
-Commit and verification operations are private to the publication crate. The
-old actor exports and temporary source guard are deleted. Construction fixtures
-are local test support. No production API is widened for a test.
-
-Keep candidate visibility protection, deferred flushes, rollback identity, and
-lifecycle cancellation intact. Publication tests cover normal load, content
-reload, checkpoint replay, failed candidates, confirmed transitions, and live
-room identity. Independent capability profiles remain an A9 obligation.
+**Receipt:** The publication domain owns candidate/commit transactions. Preserve one
+admission boundary: do not expose partially prepared room, actor or
+checkpoint state. Follow the current publication and construction owners
+rather than the original step-by-step carve diary.
 
 ### K5 — Continue existing domain packets, then assess the residual kernel
 
@@ -403,41 +318,9 @@ a save-semantics change with its own proof, not a module move.
 
 ### K6 — Actor construction becomes its own crate — DONE 2026-10-23
 
-K3 left `construction` a leaf of the monolith graph and named K4 as the
-precondition for giving it an owner; K4 landed on 10-22.
-
-**Receipt:** `ambition_platformer2d_construction` is the planner (the
-recipes, the relations, `PersistedFates`, placement lowering's registry and
-context), moved out of the monolith's `construction` module below it. The
-monolith's features, world and session name it directly; the publication
-coordinator, the provider and the runtime name it; the facade exports it as
-`construction` (`actors::construction` is gone, no re-export under the old
-path). It installs no system: zero ECS invocations added or moved.
-
-- **The tests stay with the lowering they drive.** The 55 tests of
-  `construction/tests.rs` build rooms through the monolith's features
-  (the staging registry, the static lowerers, summons, character runtime),
-  so they are the monolith's `construction_tests`; their fixtures are its
-  `construction_fixtures`, which the coordinator's tests still enable through
-  `test-support`. The 6 persisted-fate tests touch only the planner and moved
-  with it. Same population: 55 + 6.
-- **Kept as is:** the registry owner label (`"ambition_platformer2d_actor_monolith"`)
-  that the recipes register under, and the log target, so no dump or receipt
-  changed.
-- **Measured** (`measure_kernel_module_graph.py`): the monolith's production
-  lines 63,879 → 61,303; `features -> construction` (50), `session ->
-  construction` (5) and `world -> construction` (5) left the graph with the
-  module. The cycle is the four of K3 (`abilities`, `features`, `items`,
-  `session`), unchanged. Capability footprint 62 → 63 nodes, a carve
-  (`construction_entered_the_closure_2026_10_23`).
-
-**The gravity-zone mechanic moves up into the runtime (2026-10-23).**
-`GravityPlugin`, `GravitySet`, the body motion-frame resolution and the reset on
-a room reset are `ambition_platformer2d_runtime::gravity`: the runtime was
-the only installer and nothing else in the monolith named the module (its one
-edge, `ContentRoomResetSet`, the runtime names from above). The zone types and
-systems stay in `shared_tangle::gravity`. No system moved schedule or set.
-Monolith production lines 61,303 → 60,612.
+**Receipt:** Actor construction now lives in `ambition_platformer2d_construction`.
+The caller must use the external owner and keep the source policy in its
+proper domain; the old internal monolith module is not the authority.
 
 ### K7 — Session lifecycle leaves the actor kernel
 

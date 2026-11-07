@@ -13,18 +13,18 @@ Jon, 2026-10-15:
   these objects pass through portals with different cases and velocities. Although maybe not
   all of these run in the default test suite."
 
-## Where it stands (read 2026-10-15)
+## Current implementation (after 2026-10-16)
 
-- **Kernel bodies** (the player, NPCs, bosses, mounts) use the one machine,
-  `transit_step_with_tuning`. They straddle the portal, and the transfer happens when the
-  centroid crosses. `sync_portal_body_pieces` draws them split across the pair.
-- **Projectiles** carry `BodyKinematics`, so `portal_transit` sees them too. But
-  `step_projectiles` also teleports them instantly (`try_projectile_portal_transit`), and
-  whichever road sees the crossing first wins. They record no `SweepSample`, and their visuals
-  are never drawn split.
-- **Ground items** teleport the moment they touch the opening
-  (`portal_teleport_free_bodies`). They open no carve, raise no `PortalBodyTransited`, have no
-  cooldown, and are never drawn split.
+Kernel bodies, ground items and projectiles use the shared portal transit
+machine with one cooldown/event road. Projectiles no longer teleport inline;
+free bodies and projectile/ground-item presentation can straddle and be cut
+at the seam. The seam lab exists as
+`scripts/measure/portal_seam_lab.py` and is not a default test.
+
+The older gaps in the one-transit baseline were fixed; the measurement,
+portal continuity and presentation problems in **Open** below are separate,
+unresolved obligations. The October 16 results are a dated baseline, not a
+current visual-parity guarantee.
 
 ## Steps
 
@@ -56,36 +56,11 @@ Jon, 2026-10-15:
 
 ## What landed (2026-10-16)
 
-- **The seam lab.**
-  - `scripts/measure/portal_seam_lab.py` throws the gauge (renderer target `seam_gauge`, a
-    magenta and blue grid) into each `portal_lab` pair at three speeds. The throw is aimed
-    ballistically into the opening.
-  - The films are made with `capture_scene --tick-per-frame`: one sim tick per shot, with the
-    clock held while a shot is read back.
-  - For the first crossing, the lab reports how much of the gauge is drawn against the whole
-    gauge (`dip` / `double`). It aligns frames to the sim through
-    `ambition_portal::transit_trace`, and reads what the cutter drew from
-    `ambition_portal::piece_trace`.
-  - It is not in the default suite.
-- **One transit.**
-  - Free bodies (`FreePortalBody`, today `GroundItem`) run `portal_transit_free_bodies`: the
-    same machine as kernel bodies, with the same transit and cooldown components and the same
-    event. They open carves by the same rule (`body_opens`, `publish_free_body_carves`).
-  - Projectiles no longer teleport inline. They record a `SweepSample`, and `portal_transit`
-    takes them.
-  - A body that straddles a pair keeps both ends carved, so a shot taken this tick does not
-    meet the exit's wall.
-- **Drawn split.**
-  - Item and shot visuals get the seam facts (`publish_transiting_drawn_bodies`).
-  - `PortalBodyView::body` names the sim body, because an item's visual is made again each
-    frame.
-  - Ground items draw at `WORLD_Z_DUMMY - 0.2`, over the portal frame and window.
-  - A sprite with a stated size is cut without its main-world image (`sprite_frame_basis`).
-- **No blank frame.**
-  - A piece is not drawn on the frame it is first made, so the first body cut in a session
-    vanished for one frame. Characters were affected too.
-  - Pieces are now drawn from the frame a body touches a portal, and its sprite is hidden only
-    once its pieces were drawn the frame before.
+The gauge-based seam lab, common free-body/projectile transit and cut
+visuals landed. `publish_transiting_drawn_bodies` supplies visual seam facts;
+`capture_scene --tick-per-frame` and the portal trace tools inspect the
+first crossing. Do not restore the removed inline projectile teleport path.
+The remaining continuity, coverage and target-speed issues are in **Open**.
 
 ## Measured (2026-10-16, `high`, windows off)
 

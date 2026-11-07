@@ -57,10 +57,12 @@ here.
 
 - ▢ **Open-world residency beyond live rooms.** Several live rooms exist.
   Preserve the distinction among world existence, room residency, simulation
-  activity and local visibility. Promote background simulation of rooms that are
-  not live only when a real mechanic needs it; today the session clock covers
-  time that passes while a room is not live. Owner:
-  [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
+  activity and local visibility. Promote background simulation only when a
+  mechanic needs it; today the session clock covers dormant elapsed time.
+  Conditional leftovers include sole-room reader customers, twin-instance
+  identity, view/prefetch claim budgets and restocking only with actual stock.
+  Keep broader network/island and local-seat acceptance with their owners.
+  Owner: [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 - ▢ **Persistent occurrence/reconstitution semantics.** Terminal versus resettable
   occurrences, foreign-room relocation, unloaded-room items and durable
   relationships must consume the canonical construction/reconstitution model.
@@ -205,11 +207,13 @@ source before promotion.
   clipping. Do not reopen a parts migration: first confirm a current asset
   reader or remaining baked character still exhibits the discrepancy. Owner:
   [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
-- ▢ **Foreign/UI optimizer follow-ups.** The 2026-10-17 performance audit
-  mentioned `virtual_joystick::update_ui` compare-before-write and an open
-  `bevy_light` analysis. Reprofile on a current target first and obtain a
-  concrete cost/ownership boundary before selecting upstream or fork work.
-  Owner: [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md).
+- ▢ **Foreign/UI optimizer follow-ups.** The October performance audits
+  observed `virtual_joystick::update_ui` false writes, Bevy light/PBR/OIT
+  work without the corresponding scene, and zero-intensity hit-flash material
+  refresh. These are historical candidates, not proven current defects.
+  Reprofile on a target before selecting upstream or fork work; prove portal
+  rendering when changing hit-flash behavior. Owner:
+  [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md).
 - ▢ **Per-duty held-item capability attachment.** S3 finished the supported
   profile migration but did not validate every shrine, whereabouts,
   checkpoint and match-item step nested under `CoreHeldItems`. Promote
@@ -242,7 +246,10 @@ source before promotion.
   residency/materialization ownership with the asset architecture rather than a
   generic cache layer.
 - ▢ **Generic CPU optimization.** No standing campaign. Reopen only with a
-  reproduced hotspot and target profile.
+  reproduced hotspot and target profile. Dated collision-world, read-model,
+  identity, navigation and exact-idle-body proposals are catalogued in
+  [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md),
+  not automatically selected.
 
 ## Bevy 0.19 follow-ups
 

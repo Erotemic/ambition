@@ -26,7 +26,8 @@ systems, material and presentation reductions, room-look shader reductions, and
 actor-kernel carve packets. The October 24 desktop A/B found a Mary-O main-world
 frame wall of 12.98 → 6.74 ms and an Ambition main-world wall of 13.91 → 5.12 ms.
 These are **dated desktop measurements**, not a present phone-performance claim.
-The completed change-by-change run log is in Git history. The active work is:
+The completed change-by-change run log is in Git history. Remaining
+acceptance and conditional follow-ups (not a new active optimization campaign):
 
 1. **Reprofile on a phone** with the run's changes, including the hub look and
    the `android` versus `android_dev` product build. Do not infer a device win
@@ -60,17 +61,6 @@ Android profile (38 systems). These counts must be re-measured before a
 tradeoff decision. The multiroom platform-visual defect above was found in
 this pass and is an independent correctness task.
 
-### F47 — What the per-frame system count waits on now (2026-10-23)
-
-Superseded by F48's later census. The content-specific boss and dialogue
-gates listed here were completed in the run. Retain only the decisions above.
-
-### F46 — Why the central hub is the expensive room: the two-state look (2026-10-23)
-
-Several shader cuts landed and were compared by desktop capture; the phone
-and Steam Deck benefit was not measured. Preserve visual equivalence and
-recheck the hub under a target GPU profile before further changes.
-
 ### F45 — A run condition can eat a message its system never reads (2026-10-23)
 
 **Standing safety rule:** a consuming `on_message` condition can advance the
@@ -78,544 +68,124 @@ message cursor while an enclosing schedule set is asleep. The completed fix
 uses a non-consuming predicate (`a_message_waits`) where the message must
 survive until the consumer runs. Keep the replay and reconstitution witnesses.
 
-### F44 — Desktop A/B of the run: the main thread's work halved (2026-10-23)
+## Historical performance findings (not open work by default)
 
-Historical desktop A/B, superseded by F49. Do not use it as the current device baseline.
+The October 16-24 profiles were deliberately collected to motivate the
+completed dormancy, change-filter, presentation, terrain and scheduling cuts.
+The run's underlying per-system traces, dated experiments, abandoned candidates
+and code-review receipts remain in Git history. The table below retains the
+mechanisms needed to interpret a **new** profile, not an assertion that every
+old defect is still present.
 
-### F43 — What still changes, spawns and allocates each frame (2026-10-23)
-
-The dated change census drove completed write-on-change and scoped-system
-fixes. Re-run a new probe before reopening any old row.
-
-### F42 — Where the hub's Mary-O frame's systems are now (2026-10-23)
-
-Superseded by F48's October 24 census and profile-specific measurements.
-
-### F41 — The hub's Mary-O route by span, and the schedules left parallel (2026-10-22)
-
-Main-world schedules were serialized in the completed policy cut; this is
-not an open migration. The render sub-app keeps its own scheduling policy.
-
-### F40 — Is the phone still bound by the scheduler? (2026-10-22)
-
-The measured phone was main-thread-bound, with executor/conditions taking
-about 16% of its main thread in that build. It predates the subsequent
-content and scheduling cuts; reprofile before claiming the same split now.
-
-## Hub first (2026-10-16, from 13:30Z)
-
-**Target, from Jon:** the four-game app with Mary-O active, on the phone
-("It needs to run fast when I open up the main 4 game app and play maryo").
-Standalone Mary-O is a baseline for diagnosis only. D12 is approved at low
-priority. Priority order: P12/P13, then P1/S2/S2b/P3, P5, F19, the hub's frame
-executor, D12, the phone render scale. No tick-rate cut, no physics rewrite,
-no quality cut in place of a fix.
-
-**The phone after last night's fixes** (MEASURED, `android-all-maryo-1-1-morning`
-and `-morning3`, build `f66b3a8aa`, all fixes in it, no throttling in the
-cpufreq logs; p50 per 5 s window):
-
-| scene | last night (`android-all-maryo-1-1`) | this morning |
-| --- | ---: | ---: |
-| hub room (`hub_clean`) | 35-45 ms | 13-17 ms |
-| Mary-O 1-1 in the hub | 24-33 ms | 17 ms at entry, 23-33 ms during play, 36-46 ms in 1-2 |
-
-The first morning run recorded the hub room only (Mary-O started after the
-recording window). ⚠ Every phone profile up to 2026-10-16 is of an
-INCREMENTAL `android-profile` build: `build_for_android.sh` did not set
-`CARGO_INCREMENTAL=0` (fixed 10-16, after a link failure). Incremental makes
-smaller codegen units and less inlining than the shipped build, so the
-framework shares below may be high; the next run is the first like-shipped one. `AMBITION_BOOT_ROUTE=mary_o_gameplay` now boots the hub in
-Mary-O, so a phone profile cannot miss it (`profile_android.sh` records it).
-
-**Reconciliation:**
-
-| item | state | hub effect |
+| Historical findings | Evidence and shipped outcome | Reopening condition |
 | --- | --- | --- |
-| leafwing clash pass (F13) | done | the hub's input allocations 31,942 → 258 a frame |
-| star re-fold, parallax respawn, room isolation, SFX, HUD, seat bindings (F14-F21) | done | measured on the hub probe; not alone on the phone |
-| rigged part slots and label colours written only on a change (F26) | done 10-16 | ~136 slot `Transform`/`Sprite` writes a frame, which woke propagation and extraction |
-| LDtk respawn clean with a kept query state (F25) | done 10-16, replaces D5 | 1.04% of phone samples |
-| ~9.4k allocations a frame with no system owner (old item 7) | resolved: tracing spans of the `trace` feature (F27) | none in the APK |
-| UI, HUD, touch and sprite writes only on a change (F29) | done 10-16 | text re-layout 3.2 → 0.2 a frame; all changes −18% |
-| P1/S2b: foreign games and capabilities while Mary-O plays | in part, 10-16/17 (F31): game scope sets; boss encounters, dialogue, held use and fighter specials sleep where unused | GGRS tick 615 → 470 systems, frame 1,602 → 1,444 |
-| P5 read-models per frame | open | the `ambition_sim_view` rebuilds are ~0.9% of phone samples |
-| F19 live-room lookups | open | `room_instance.rs:172` and `room_graph.rs` ~1.9% |
-| repertoire re-fold in the hub | open, small | 1.3% of phone samples; 0.04 re-folds a frame on the desktop, so room loads and power-ups, not steady state |
-| D12 | done 2026-10-17: `serialize_main_schedules` in every foundation, the switch deleted | none in the hub (its simulation is GGRS, serial already) |
+| F1-F4, F8, F30-F31, F34-F37: foreign-game work | Capabilities and other games were running in profiles that did not use them. Scoped systems, dormancy sets, encounters, dialogue, held-use, fighter special gates and the `RulesScopeSet` reduced the running census through the October run. `bevy_light` visibility now sleeps when no light exists. | Current census shows a specific nonparticipating provider/capability still running |
+| F3, F22-F23, F41: executor policy | `apply_executor_policy`/`serialize_main_schedules` completed the single-executor policy for main-world frame/fixed schedules on 2026-10-17. The standalone tick A/B improved markedly, but the GGRS hub was already serial in its simulation path. Do not redo D12. | New profile isolates an executor cost; preserve rollback schedule ordering |
+| F6-F7, F13-F18, F20-F21, F26-F29, F43: identity/allocator/change churn | Leafwing `PressAll` clash allocations, false `Changed` writes, UI/rig slot refresh, parallax and gravity-visual respawns, wielded overlay churn and terrain sprites were addressed during the run. Terrain mesh chunks reduced Mary-O 1-2 sprite entities 3,423 → 1,250, but the phone median was not improved in that trial. | A fresh allocation/churn/change probe reproduces a named producer rather than reopening all old work |
+| F5, F12, F19: repeated read-model and room lookups | In the October phone sample, read-model rebuilding was ~0.9% and live-room lookup paths ~1.9% of samples. No current cost claim; repeated simulation-tick presentation derivations remain a candidate. | Measured current draw-frame/replay/headless cost; approve the read-model lifetime policy (historical D2) |
+| F10: composition hygiene | Named content in reusable engine crates is a dependency/ownership issue independent of measured CPU cost. | A real capability/customer boundary still violates composition ownership |
+| F11, F40: phone bottleneck | The October phone was main-thread-bound, with the executor/conditions ~16% of that main thread in a pre-cut build. Renderer scaling was not justified by that sample. | Profile a current phone/game scene with CPU, GPU and render thread split |
+| F14-F16, F20: change semantics | Rebuilding room masks or writing unchanged resources woke downstream change filters. Compare before mutating; do not gate a rewinding schedule solely on `Changed` because restored snapshots mark values changed. | New `changes_by_site.csv` identifies a current producer and rollback-equivalent fix |
+| F17, F21: immediate-mode presentation | Room parallax, gravity-zone and wielded overlays were changed to persistent reconciliation. Other candidate presentations were identified (`item_visuals`, `projectile_visuals`, `mark_beacon`, `hud/declared`, portal visuals), but were not all measured as per-frame churn. | A new churn trace demonstrates a remaining concrete offender |
+| F24, F33, F38: collision-world and body stepping | A 1-2 phone sample showed collision-world copies at ~1.6% of all samples, vs ~0.8% in 1-3. Desktop 1-2 stepped 26 actors at ~13.2 us each; a tried indexed block-query rewrite changed 420 → 412 us (noise) and was reverted. | A fresh body/kernel/collision profile justifies composition caching or exact at-rest body skipping |
+| F25, F28, F39: hub and tooling overhead | Hub costs included per-frame systems, LDtk/Yarn and presentation; Tracy's system spans made a hall simulation tick ~5x more expensive in a dated profile. The later hall instruction reduction was 10.0 → 8.5-8.8 M/tick. | Use no-Tracy for absolute timing; use Tracy to rank systems, not as the shipping baseline |
+| F32: terrain entity reduction | Chunk meshes reduced entities and transform work; the original phone median was unchanged. | Further static batching requires a current GPU/render proof, not an entity-count target |
+| F45: message cursor safety | `on_message` under a sleeping set can consume an event without a reader. The completed `a_message_waits` repair is a standing semantic contract. | Keep regression witnesses when modifying run conditions or event consumption |
+| F46, F49: hub look | Shaders/materials were simplified during the run; desktop hub frame p50 was 51.1 → 27.2 ms. | Target GPU capture shows a remaining shader or material bottleneck without a visual regression |
 
-**Objection to the order, from the code and the phone:** the remaining P12
-items are small on the phone; the cost is in how many systems run and in
-third-party systems (F25, F28). So P1/S2b goes before the rest of P12.
-Repeat allocations are no longer the main cost: the hub with Mary-O makes
-~4,900 a frame of its own (desktop probe, without the probe and the spans),
-near standalone Mary-O's 4,128.
+### F0 — A third of the phone's CPU is the executor's work for each system, outside any system
 
-### F35 — Exclusive systems that do their work each frame (2026-10-17)
+**Historical measurement, October 16:** a large share of the Pixel 5 CPU was
+Bevy's per-system scheduling/parameter/archetype overhead rather than a slow
+single Ambition system body. Standalone Mary-O/Sanic ran about 1,040 systems
+per frame, including ~170 systems for unrelated capabilities. This motivated
+scope sets, selective capability installation and the completed executor policy.
+The *number* is not the current phone percentage; recensus before a new cut.
 
-MEASURED (probe, hub `basement_enemies`, ~600 frames, `time_by_span.csv`
-joined with each `fn x(world: &mut World)`): the exclusive systems of ours
-that ran each frame cost ~130 µs a frame, and most of it was no work. Two
-causes. A query made new with `world.query()` or `try_query()` matches each
-archetype of the world (~2,000 in the hub), and `session_world_entity` made
-one at each call. A `resource_scope` that passes `&mut` through the `Mut`
-marks the resource changed even when nothing changed.
+## Still-actionable candidates (unselected until measured)
 
-Done: `advance_pending_route` runs only while a route is pending
-(`a_route_is_pending`), 33.3 → 0 µs (its condition 2.0 µs).
-`SessionRootQuery` keeps the session roots' query state, so
-`session_world_entity` and `session_root_owned_by` update it only for new
-archetypes: `enforce_session_contract` 31.8 → 8.9 µs, `maintain_local_session`
-15.5 → 6.9, `commit_confirmed_lifecycle` 17.7 → 8.0.
-`release_departed_experience_state` runs only on a frame that wrote the
-router. Witnesses `an_idle_frame_does_not_run_the_pending_step`,
-`the_live_root_is_read_through_the_kept_query_and_a_later_root_is_found`,
-`the_shell_releases_on_a_departure_and_an_idle_frame_writes_no_scope`.
+These are **not** an active optimization queue. Keep each proposed lever
+available for a reproduced target-profile hotspot and bounded A/B. Related
+selected tasks continue to live in `queue.md`, with conditional work in
+`tracks.md`.
 
-The same pattern outside exclusive systems: `publish_shell_ui_cues` called
-`ActiveUiCues::sync` through `ResMut` each frame, so the cues were marked
-changed each frame (`changes_by_site.csv`: 1.000 a frame) and
-`rebuild_control_prompt`, which derives on change, derived each frame
-(44 µs). `ActiveUiCues::sync_marked` marks them only when they changed; the
-shell, Smash's select screen and the kaleidoscope call it (witness
-`a_cue_published_again_unchanged_does_not_mark_the_cues_changed`).
-MEASURED (the same probe after): `rebuild_control_prompt` 44.2 → 12.5 µs.
-`prepare_room_plates` found each live and neighbouring room's architecture
-pieces each frame to compare them (34 µs); it now returns at once while the
-live rooms, the room set and the plate count are as it left them and no
-plate draws (witness `a_quiet_frame_prepares_no_plates`): 34.5 → 3.7 µs.
-`release_departed_experience_state` 18.5 → 0 µs (its condition 1.9 µs).
-The debug HUD and quest panel text, the map's status text and visibility,
-the deep-dream overlay and the shield bubbles wrote each frame with no
-compare (a changed `Text` is laid out again); they use `set_if_neq`, and
-their rows of 1.000 a frame are gone from `changes_by_site.csv`. The
-content watchers (`watch_content_sources` 81 µs) are not in the phone build
-(`static_content`).
+| Historical proposal | Current disposition / specific work to preserve |
+| --- | --- |
+| P1 / C1-C7, P3: capability-specific installs | Continue provider-local profile work only where a real customer still runs irrelevant extensions: boss/wielded phase ownership, narrative ledgers/dialog view, mounts, stocks, capture, game profiles, standalone Dialogue/Smash dependency decisions. Profile and source-check before using the old ~55-115 systems/tick estimates. See [system composition](system-composition-audit.md) and [capability composition](capability-and-runtime-composition.md). |
+| P2, P11, P18 | **Completed** for the serial main-world policy, in-repo input clash bypass, and Mary-O/Sanic `RulesScopeSet` move, respectively. An optional upstream Leafwing PR is an external improvement, not a pending local optimization. |
+| P4: identities | Intern identity handles or use entity keys only if current string cloning/sorting is costly and lifetime-safe. Preserve `SimId` and live-room identity semantics. |
+| P5 / D2: read-model lifetime | Consider building render read-models per drawn frame/by change instead of per sim tick; first define headless, rollback and trace reader behavior and verify no changed simulation result. |
+| P6, P12: change-driven writes | Reconcile by input change; avoid hidden snapshot/load changes. Probe first, include the per-game `virtual_joystick::update_ui` compare-before-write follow-up if reproduced. |
+| P7, P8: tools, gizmos and upstream costs | Measure installed shipping debug tools, material/gizmo systems and active LDtk/Yarn/Bevy query-state costs. Use the product decision on Android dev versus play builds; consider forks only after a measured bounded proof. |
+| Other: renderer feature overhead | The old Mary-O route ran `bevy_pbr`/OIT work with no active 3D camera, and some Lunex UI groups had no public sleep set. GPU preprocessing was disabled on the profiled Pixel 5 but active on the desktop VM. Profile the **current** product/renderer and platform before touching shared Bevy plugins or removing visuals. |
+| Other: idle hit-flash materials | A Sanic probe found `HitFlashMaterial` prepared frequently even at intensity zero because its `uv_rect` followed body animation. Before suppressing updates or hiding the overlay, prove flash and portal compositing remain correct for every visible view. |
+| Other: hub repertoire and loading | A hub repertoire re-fold cost was seen mostly around room loads/power-ups, not steady state. Likewise loading presentation and unrelated UI systems were identified; do not optimize either without a new span trace demonstrating an actual target-path burden. |
+| P9: content as data | Follow the existing content/authority owners. Do not charge a composition migration to CPU optimization without measured cost. |
+| P10 / D10: phone render scale | Change visible resolution only if a current target GPU/render-thread profile requires it. |
+| P13: keyed presentation reconcile | Extend retained keyed entity updates to a currently measured spawn/despawn churn site. |
+| P14: collision-world composition | Share one composed world per room/tick or a layered no-copy view when repeated copies are proven costly and replay-equivalent. |
+| P15: static visuals | Batch fixtures/unskinned blocks or hidden sprites only with measured rendering/visibility cost and preserved art equivalence. Terrain skin chunks are done. |
+| P16: repeated allocations | Reuse buffers in demonstrated top allocation sites, including `Layered::near` if a fresh trace supports it. |
+| P17: navigation | Bake/cache graphs by room geometry and body when current autoplay/NPC load customers need it; the older 1-2 phone graph took ~11 seconds to build. |
+| Other: exact idle bodies | Preserve the F38 proposal: fingerprint a body's complete stepping inputs and skip only when a tick is provably a fixed point; compare skipped and stepped actors across rollback and all components. This is **not implemented** by the historical failed block-index experiment. |
+| Other: moveset/roster cache | F39 suggested deriving `MoveSpec::frame_data` once per moveset and reducing `CharacterCatalog`/`Layered::near` work; require a fresh trace and benchmark before implementation. |
 
-### F36 — The hub's Mary-O route, after the dormancy slices (2026-10-17)
+### Historical C1-C7 profile prerequisites (check before selection)
 
-MEASURED (probe, profiling `capture_scene --route mary_o_gameplay`, ~580
-frames): systems run 1,452 a frame, 425 in the GGRS tick. Avian stepped on
-~63% of frames: combat debris (an impact, a ragdoll, a broken block) wakes
-it for its lifetime, and while awake it cost ~2.6 ms a frame. Of that,
-616 µs was `block_on_optimize_trees`: avian clones the debris tree into an
-async task and waits on it. It now optimizes in place on the main thread
-(no spatial query runs during the step): `run_physics_schedule` 1,537 →
-805 µs a frame (witness `avian_optimizes_its_trees_in_place_on_this_thread`).
-Yarn's `fetch_resources` (146 µs) and `continue_runtime` (38 µs) ran with no
-dialogue; its public `YarnSpinnerSystemSet` now sleeps where the room's game
-uses none, once its project is compiled (witness
-`yarn_sleeps_in_rooms_whose_game_uses_no_dialogue`). Not a fork edit after
-all. Left on this route: the solver's six substeps (383 µs while awake; a
-visual change for cosmetic debris), the rigged presentation (145 µs), the
-body step (144 µs), and the render world, which is most of the frame.
-Found on the way: `ParticleBudget::max_particles` and `spawn_rate_scale`
-(16 on Potato, 1,024 on Ultra) were read by nothing but their own tests, so
-the quality tiers did not reduce the debris that wakes avian. Now each burst
-throws `count × spawn_rate_scale` pieces (at least one) and no burst passes
-`max_particles` live pieces; a burst at the cap is dropped before it builds
-its room's floor colliders. On Potato a ragdoll throws 1 piece, not 7
-(witness `a_burst_throws_what_the_particle_budget_allows`). With no
-`ResolvedVisualQuality` (tests, tools), every piece.
+The original P1 proposal had seven bounded steps; these are preserved as
+**candidate contracts**, not blindly re-opened implementation tasks:
 
-### F37 — What still runs for nothing on the Mary-O route (2026-10-17)
+1. **C1:** Boss/wielded extension phases (`technique_execution`,
+   `boss_conduct`, `wielded_use`, `module_entity_tick`) should be installed by
+   their capability owner; no omitted phase port may admit content. Avoid a
+   second `BossCatalog` initializer and registry-free boss animation.
+2. **C2:** Dialogue owns the seven narrative payload ledgers and
+   `rebuild_dialog_view`, instead of a core SimView obligation.
+3. **C3:** Mount pose, mount control and mount ports install only with mounts.
+4. **C4:** Match stocks and match-finish zoom install only for a match profile.
+5. **C5:** Grab/capture control chain and ports install with capture, preserving
+   their schedule order and independent admission schema.
+6. **C6:** Demo hosts use a declared profile (`ENGINE_PROFILE`/`for_profile`)
+   whose supported schemas are checked at pack admission; benchmark any
+   smaller profile against the shipped one.
+7. **C7:** Remove standalone Dialogue/Grabs/Smash kit dependencies only after
+   their authored content and behavior are accounted for (D3/D4).
 
-MEASURED (same probe as F36; `[census] systems_ran` by crate; µs a frame
-from `time_by_span.csv`). After the two slices below, systems run 1,446 →
-1,394 a frame. Shipped on the phone (`android` features):
-- `bevy_lunex` 35/35 systems, 82 µs: it lays out only the kaleidoscope
-  cube, and ran with the cube closed. Its public `UiSystems` sets now sleep
-  with the cube's own render sets (`kaleidoscope_render_needed`): 28
-  systems idle, 82 → 48 µs (witness `lunex_sleeps_while_the_cube_rests`).
-  The 15 left (its software cursor, 2D picking, text animators) are in no
-  public set.
-- `bevy_transform_interpolation` 19/19, 41 µs: avian's
-  `PhysicsInterpolationPlugin` interpolates no body by default and none of
-  ours asks; it is disabled, 41 → 0 µs (witness
-  `avian_runs_no_interpolation_for_bodies_it_does_not_interpolate`).
-- `bevy_pbr` 169 µs and the OIT resolve bind group 130 µs with no 3D camera
-  active: the cube is the only 3D, and OIT is added inside
-  `CorePipelinePlugin`, so neither can be left out from a plugin group. A
-  fork or upstream item; the probe's software GPU inflates both. Bevy's GPU
-  mesh preprocessing is ~185 µs of this (`write_batched_instance_buffers`
-  109 µs, counted under `bevy_render`; `collect_meshes_for_gpu_building` 54;
-  `extract_meshes_for_gpu_building` 22), a fixed task-pool fan-out each frame. The phone does not pay it: Bevy turns
-  GPU preprocessing off for Adreno 730 and older, and the profiled Pixel 5
-  is an Adreno 620. A desktop can turn it off with `PbrPlugin {
-  use_gpu_instance_buffer_builder: false }`, but only in builds whose
-  feature set includes `bevy_pbr` (`set` panics on a plugin the group does
-  not hold), so it is not done.
-- The FPS frame-time graph, ~180 µs (its material is re-uploaded each
-  frame): on by Jon's choice (2026-08-31, `dev/fps_overlay.rs`).
-- `virtual_joystick` writes the stick's `Node`s each frame (the `JoystickFixed`
-  behaviour zeroes `base_offset`, ours sets it back), so the touch UI lays
-  out each frame. A fork edit (compare before write).
-- `ambition_load_presentation` 15/15, 40 µs between loads; `CurrentRoom`
-  conditions (`in_rules_scope`) ~3 µs a call, 12 calls a frame (F19).
-Not on the phone (`static_content`, no `dev_tools`): the pack and content
-watchers (`look_at_the_pack_sources` 197 µs, `watch_content_sources` 133 µs,
-`poll_world_source_changes` 70 µs, `watch_movement_defaults` 33 µs), egui
-(129 µs) and the trace recorders (81 µs, already off on android). A desktop
-probe of the dev build over-counts by about 0.6 ms a frame for these.
+For every currently missing capability, reuse the supported-profile census,
+`Capability::ALL`, absence/admission probes, session-edge guards and full
+rollback witnesses; compare with the completed
+[system-composition audit](system-composition-audit.md) before making changes.
 
-### F25 — Where the phone's main thread goes, hub with Mary-O
+## Historical product choices (not new open maintainer questions)
 
-MEASURED (`android-all-maryo-1-1-morning3`, main thread tid 28006, 83% busy):
-50% of all samples are the main thread; 30% are main-thread samples with no
-frame of ours (framework only). Of these, by the system they are in
-(`scripts` helpers in the run log): the executor's own loop
-(`is_apply_deferred`, `try_run_schedule`, `run_schedule`) ~6.6%, `avian2d`
-2.0%, `bevy_ui` layout and text 1.8%, LDtk `clean_respawn_entities` 1.04%,
-Yarn `fetch_resources` 0.77%, `bevy_light` directional-light visibility
-0.49%, transforms and visibility ~1.2%. Rollback: the shipped one-player
-session is a sync test with `check_distance: 0`, so GGRS saves nothing per
-tick; `SaveWorld`'s 1,146 systems do not run each tick. The archetype count
-does not grow during idle play (2,049 after 15 s, desktop, new
-`[frame-census]` columns); each query that is made new each run matches all of
-them, which is the cost of the LDtk, Yarn and `bevy_light` systems. LDtk is
-fixed (`ambition_platformer2d_ldtk`'s `bevy_runtime::clean`, the hub's `app::ldtk_clean`
-until 2026-10-21). Yarn's system and set are private to the crate: an
-upstream fix (keep the `SystemState`) or a fork, for Jon.
+The October run proposed visible or content-changing decisions. None is
+promoted into the current maintainer-question list by retaining it here.
+The current [decision ledger](../maintainer-decisions.md) and scoped owner
+plans supersede older requests.
 
-### F26 — Rigged part slots were written every frame
-
-MEASURED (desktop probe, hub Mary-O route, 893 frames): `write_slots` wrote
-each slot's `rect`, `custom_size`, anchor and `Transform` each frame, ~136
-entities, with no change; the impostor root did the same. That gave 232
-`TransformTreeChanged` and 151 `GlobalTransform` changes a frame and sprite
-re-extraction. Now each field is written only when it differs.
-
-### F27 — The schedule-level allocations are tracing spans
-
-MEASURED (`AMBITION_PERF_PROBE_TRACE`, hub Mary-O route): of ~9,550
-allocations a frame inside schedule spans with no system span, 3,660 are the
-`name` field format and 3,400 are `Span::new` (one span per system run), 1,500
-the capture tool's loop. Only a build with Bevy's `trace` feature (probe,
-Tracy) makes them; tracing is 0.2% of the phone profile.
-
-### F28 — Foreign systems that run while Mary-O plays in the hub
-
-MEASURED (`[census] systems_ran`, desktop, hub Mary-O route; 1,599 of 2,110
-registered run): `ambition_content` 81, `ambition_demo_smash` 49, portals 39,
-`ambition_boss_encounter` 32, `bevy_pbr`+`bevy_light` 33, `avian2d` 20,
-`bevy_egui` 16, conversation and Yarn ~23, `ambition_demo_sanic` 4: ~300.
-REASONED cost on the phone: ~20 ms of framework time over ~2,200 system runs a
-frame is ~9 µs a run, so ~3-5 ms a frame. S2b step 1 (`AMBITION_HUB_GAMES`)
-removes `ambition_content`'s at build time; the shipped app needs them dormant
-at run time instead (P1/S2: a game's systems in its own schedules, run only
-while its route is live), so the hub can still switch games.
-
-### F29 — UI and sprites marked changed each frame, hub with Mary-O
-
-MEASURED (desktop probe, hub Mary-O route, before → after, a frame): touch
-control `Node`s 20 → 0, HUD `Text` 3 → 0 and `Node` 2 → 0, Bevy text
-re-layout (`ComputedTextBlock`, `TextLayoutInfo`) 3.2 → 0.2, rigged part
-slots 407 → 0, label colours 35 → 3.7, all value changes 2,449 → 2,003. Two
-causes: writes without a compare, and helpers that take `&mut T`. A `&mut T`
-made from a `Mut<T>` marks the value changed before the helper compares; the
-HUD's `set_text_if_changed` did that. A helper that may not write takes the
-`Mut`. On the phone `bevy_ui` layout and text were 1.9% of the main thread;
-not yet measured there after the fix. Left: `virtual_joystick`'s `update_ui`
-(2 `Node` a frame), private in the fork (`Erotemic/virtual_joystick`).
-
-The ~18-a-frame changes of body components (`ActorRoll`, `PogoTargetVolumes`,
-`RangedRefire` and 10 more) have no `Changed<>` reader: they cost nothing
-downstream and are left.
-
-### F30 — The GGRS tick runs other games' systems, twice a frame on the phone
-
-MEASURED (`AMBITION_SYSTEM_LIST`, desktop, hub Mary-O route): 612 systems ran
-in `GgrsSchedule`; ~150 belong to other games or unused capabilities (Smash
-35, boss encounters 34, `ambition_content` 30, portals 17, conversation 15,
-mounts 7, encounters 9). At 30 fps the hub runs ~2 ticks a frame. REASONED
-cost on the phone: GGRS framework-only time (10.2% of samples) over ~1.1 M
-system runs in 30 s is ~4.6 µs a run, so the ~150 cost ~1.4 ms a frame, ~2 ms
-with the frame schedules' foreign systems. A faster frame also runs fewer
-ticks per frame, which is the larger effect.
-
-### F31 — Dormancy: a game's rules and the engine's capabilities sleep where unused (2026-10-16/17)
-
-Two sets, both keyed by the active room, so a session that visits another
-game's room is served there, and a rewind restores what the condition reads:
-
-- `RulesScopeSet(scope)` (`ambition_platformer2d_runtime::mode_scope`): the
-  systems of one game's rules, with `in_rules_scope(scope)` as the condition
-  in each schedule (`add_scoped_systems`). Ambition's gameplay systems are in
-  `AMBITION_RULES` (the untagged rooms).
-- `CapabilitySet(capability)` (`shared_tangle::capability`): a capability's
-  per-tick systems. `ModeScopePlugin` gives each set `room_uses(capability)`:
-  a live room's game declared `UsedCapabilities` naming it, or declared none.
-  Mary-O and Sanic declare no boss encounters, dialogue, held use or fighter
-  specials; Smash declares no boss encounters or dialogue.
-
-MEASURED (desktop capture, hub Mary-O, `AMBITION_SYSTEM_LIST`): systems run a
-frame 1,602 → 1,444; in the GGRS tick 615 → 470. Smash 49 → 15, held items 9
-→ 0, abilities 24 → 3, boss encounters 34 → 9, conversation 42 → 13,
-`ambition_content` 62 → 47. MEASURED (phone, `android-all-maryo-dormant`
-against `-auto`): 1-1 median 22-30 → 20-25 ms; 1-2 unchanged (33-36 ms).
-Left (portals, mounts and encounters done below): cutscenes and inventory are
-used by Mary-O;
-Ambition's hub room and the presentation systems; standalone builds that
-compose only what they declare (P1).
-
-### F32 — The terrain skin was an entity for each piece (2026-10-17)
-
-MEASURED (desktop census, Mary-O 1-2): 1,993 of 3,423 sprite entities were
-pieces of the terrain skin. They are now `SkinQuad`s drawn as a few `Mesh2d`
-chunks for each room (`terrain_skin::lay_room_terrain`): sprites 3,423 →
-1,250, transforms 4,025 → 2,025, the same 1-2 frame pixel for pixel. A block
-that goes now gives its neighbours the trims of their open edges. MEASURED
-(phone, `android-all-maryo-terrain`): 1-2 entities ~5,800 → ~3,800, but its
-median frame did not change (31-37 ms); the render thread went 36% → 33% busy,
-and the visibility and transform systems lost ~0.6 points of samples. The
-entity count followed the cost of 1-2; it did not cause it.
-
-### F33 — What makes 1-2 dear: the body step and the collision world (2026-10-17)
-
-MEASURED (phone, `android-all-maryo-terrain`, `symbolize_android_profile.py
---by-system --thread busiest --window 44,60 --window-b 2,30`, 1-2 play
-against 1-3 play in one run): as a share of the main thread's samples, 1-2 is
-heavier in `integrate_sim_bodies` by 5.9 points, `tick_actor_brains` 1.7,
-`update_body_mode` 0.6, `apply_player_hit_events` 0.5. Under them, the
-collision-world composition (`world_with_sandbox_solids`,
-`world_with_moving_platforms`) is ~1.6% of all samples in 1-2 and ~0.8% in
-1-3: ~4% of the main thread in 1-2. These are the four composers of F24. Each
-copies the room's blocks, so a large room makes each copy dearer, and the
-phone runs ~2 ticks a frame. REASONED: a slower frame runs more ticks a
-frame, so every cost for each tick is paid more often. Per-tick cost is the
-multiplier. Lever: P14.
-
-### F34 — A run condition on each system costs on each system (2026-10-17)
-
-MEASURED (phone, `android-all-maryo-dormant`, by system): the conditions that
-read `CurrentRoom` are 0.57% of samples. Mary-O and Sanic gate each of their
-systems with its own copy of `in_rules_scope`, so the condition runs once a
-system. MEASURED: `bevy_light`'s `check_dir_light_mesh_visibility` and its
-cluster assignment run for the 2D games (~0.45% and ~0.11%). Levers: move each
-game's systems into its `RulesScopeSet` (P18); S2b for 3D lighting.
-
-**P18 done for Mary-O and Sanic (2026-10-17).** Their rules are added with
-`add_scoped_systems`: one `in_rules_scope` condition on the set, asked once a
-schedule run. `run_if` on a tuple had put a copy on each system. MEASURED
-(the schedule graph of the shipped standalone Mary-O app): members of her
-`RulesScopeSet` in the sim schedule 0 → 38, so 38 condition calls a tick
-become one. Witness `her_rules_are_members_of_her_scope_set` (`mary_o_it`;
-red at 0 with the old registration). Sanic's eleven groups moved the same
-way, with no witness of their own. `install_attempt_scoped` keeps its
-condition on its two systems in each game.
-
-**S2b: the light checks sleep without a light (2026-10-17).** Only the hub
-installs Bevy's `LightPlugin`: the cube menu's `bevy_pbr` turns it on
-(MEASURED: no `bevy_light` system in the standalone Mary-O census below). No
-crate of ours spawns a light, and the cube is unlit. Source read
-(`bevy_light` 0.19.1, `check_dir_light_mesh_visibility`): with no light the
-system still queues a command that builds `world.query::<&mut
-ViewVisibility>()`, a new query state over every archetype, each frame.
-`sleep_light_visibility_without_lights` (`ambition_menu_kaleidoscope`) puts
-`SimulationLightSystems::CheckLightVisibility` under one condition: a
-directional, point or spot light exists. Witness
-`the_light_checks_run_only_while_a_light_exists`. The cluster assignment
-(~0.11%) is left: the cube's 3D camera needs its clusters.
-
-**Standalone Mary-O census (2026-10-17, debug `capture_mary_o --warmup 600`,
-`bevy/debug`, 1-1).** MEASURED: 939 of 1,264 of our systems ran in one
-frame. Still running for what she does not use: Kira channel systems 30
-(D6), Bevy gizmo groups 32 (D9), capture (grabs) 14 (D4), the narrative
-ledgers' `forget_narrative_inputs_on_activation` 9, developer-tool
-`editable` 8, mounts 7, boss ticks 5, and in `features::ecs` the pets,
-errands, challenges, wear, summons, fighter ladder, barks and boss bodies
-(~20). No `bevy_light` system.
-
-**The hub with Mary-O playing (2026-10-17, profiling `capture_scene --route
-mary_o_gameplay --warmup 600`, `perf_probe` build, which keeps system
-names).** MEASURED: 1,403 of 2,081 of our systems ran in one frame. Foreign
-to her: portals 38 (19 in `GgrsSchedule`, 19 presentation in `Update`),
-Ambition's content 64 (portal adapters, the cut-rope boss, room looks,
-deep-dream and sauce overlays, the vanity card), Smash 15, developer tools
-16, boss encounters 8, mounts 7.
-
-**Portals sleep where the room's game uses none (2026-10-17).**
-`Capability::Portals`: the portal sets that act (`Pose`, `InputAdapter`,
-`InputWarp`, `WeaponAndProjectiles`, `TransitGuards`, `Frame`, `Transit`)
-are in its `CapabilitySet`. The publishers (`Carves`, `Passages`), the
-orphan cleanup and the reset stay outside it, so a room with no portal
-publishes an empty answer, not the last answer of a room with portals.
-Mary-O declares no portals; Sanic and Smash keep them (`portal.rs`; Sanic's
-Act 3 rifts are portals: declared without them, the rift slept and
-`three_acts` went red, 2026-10-17). `a_game_declares_each_capability_its_maps_author`
-now compares each game's declaration with the entities its LDtk worlds hold
-(red, naming Sanic's `Portal`, with the old declaration). With
-two live rooms the set runs while ANY live room uses the capability
-(`GoverningRules::any_live_room_uses`, the reading `CurrentRoom::in_scope`
-gives game scopes); it ran in each two-room frame before, because THE room
-read as none (review P3, 2026-10-17; witness
-`a_capability_sleeps_while_no_live_room_uses_it`). Witness
-`portals_sleep_in_mary_os_rooms_and_run_in_ambitions` (`app_it`, build-time
-over the composed shipped host): red at "Mary-O's rooms use portals"
-without her declaration, and at "the portal transit is not in the portals'
-capability set" without the set membership. The 19 portal presentation
-systems in `Update` are not gated yet: they despawn visuals, so each needs
-the same publish-or-clean reading first. MEASURED (the same census after it): systems run in
-the GGRS tick 472 → 446 (portal-named 36 → 10), in the frame 1,403 → 1,374.
-
-**Boss behavior and mounts use capability gates.** Boss phase maintenance,
-brain decisions, animation, and the attack trigger and projection use the
-boss capability's set (witness `the_boss_steps_are_in_the_boss_capability`).
-Body integration uses the common body phase for each controller kind. `Capability::Mounts`: the
-mount crate's seven systems, through its sets; Mary-O and Sanic declare no
-mounts, Ambition and Smash keep them (witness
-`mounts_sleep_in_mary_os_rooms_and_run_in_ambitions`, red at each half).
-
-**Wave encounters sleep too (2026-10-17).** `Capability::Encounters`: the
-lifecycle reducer and the cleared list, the occurrence projection, the wave
-driver, its effects and cleanup, the lock walls and the reward chests (nine
-systems). Mary-O and Sanic declare no encounters (their maps hold no
-encounter entity); Smash keeps them undeclared. The switch drain, the switch
-index and the banners stay awake. `UsedCapabilities` is a `u16`. Witness
-`encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions`, red at
-each half.
-
-**Hub frame by system (2026-10-17, `basement_enemies`, the same build,
-`time_by_span.csv`).** MEASURED: Avian's transform propagation before each
-fixed step ran with avian paused (`mark_dirty_trees` 245 µs,
-`propagate_parent_transforms` 76 µs, `sync_simple_transforms` 62 µs a
-step); it now sleeps while avian is paused (witness
-`the_propagation_before_physics_sleeps_while_avian_is_paused`). The
-desktop-only costs (pack and content watchers ~300 µs a frame as a spike
-every 20 frames, the FPS graph, the traces) are not on the phone. Left for
-the phone: `ProcessLdtkApi` ~0.55 ms a frame (P8), Yarn's
-`fetch_resources` 120 µs (fork item), and `check_entities_needing_specialization`
-35-44 µs for each of four materials.
-
-### F38 — What 1-2's simulation costs, measured on the desktop (2026-10-17)
-
-The review asked for 1-2's simulation cost on the phone (P2). No device is on
-this machine, so the same question was asked on the desktop:
-`capture_mary_o --room mary_o_1_X --warmup 300 --walk 900`, profiling build
-with `perf_probe`, `AMBITION_PROFILE_CENSUS=1`, 1-1, 1-2 and 1-3 in one
-session (the box loaded by a parallel `app_it` in each run, so read the
-ratios, not the absolute times).
-
-MEASURED, per tick, 1-2 against 1-3: our simulation systems grow by ~390 µs.
-`integrate_sim_bodies` is 243 of it (420 against 145 µs a call); the
-developer trace recorders are 79 (already off on Android); then
-`rebuild_feature_view_index` 18, and no other system more than 5. In
-`Update`, `dress_power_blocks` was 143 µs a frame in 1-2 (23 in 1-1): it
-decoded the name of each of the 332 blocks each frame.
-
-MEASURED (temporary spans inside `integrate_sim_bodies`, removed): 1-2
-steps 26 actor bodies a tick at 13.2 µs each (342 µs); 1-3 steps 20 at 8.6
-µs (173 µs). The walls of each body (`solids_for`) are ~1 µs; the player's
-step is 8 µs. 1-2's actors are 20 walkers (15 AI Slop, 5 snakes); 1-3's are
-mostly plants and flyers. So 1-2 is dear because it has many walking bodies,
-and each one runs a full kernel step on each tick.
-
-A RECORDED NEGATIVE: six block queries of the kernel (one-way support, the
-brink probe, the two hazard tests, rebound, the supporting block) scan each
-block of the room. Moved onto the room's index (`Layered::near`) with a
-witness that each answer equals the scan's, `integrate_sim_bodies` in 1-2
-went 420 → 412 µs a call: noise. The change was reverted. The terrain is
-already merged into rectangles (`merge_intgrid_rects`), so a scan is short.
-
-The lever (not built): Mary-O's `hostile_wake_radius` (720 px) sleeps a far
-hostile's BRAIN, and its body still steps (`dormancy.rs`: "body physics
-continues"). In a level 7,680 px wide most of the 26 bodies are dormant and
-at rest. A body at rest whose step is a fixed point need not step. It must
-be exact: `ActorMut::update` also advances health, timers, the hit flash and
-what a body carries, so the rule needs its own design and a witness that a
-skipped tick and a stepped tick give the same components, under rollback.
-REASONED, the exact form: the step is a pure function of its inputs, so
-keep for each body the fingerprint of the last step that changed nothing
-(the body's clusters, combat, motion model and control frame, the blocks
-near it, its contact field, its frame), and skip a step whose inputs have
-that fingerprint. No dormancy rule is needed for that; dormancy is what
-makes the case common. The risk is an input the fingerprint leaves out,
-so its witness must step and skip the same bodies side by side over many
-ticks and compare every component.
-
-Done: `dress_power_blocks` does its work only when a block, its art or the
-spent set changed (witness `the_dresser_follows_each_of_its_inputs_and_nothing_else`,
-red at its own assertion with each arm removed). MEASURED (the same capture,
-after): in 1-2, 142.7 → 7.1 µs a frame and 354 → 3 allocations a frame; in
-1-1, 22.9 → 9.3 µs (the "before" on a loaded box).
-
-Done: a rigged body drawn directly that no view shows is hidden and not
-posed (`drive_rigged_presentations`, `seen_by_a_view`: the active
-orthographic cameras on the body's layers, with a 256-unit margin for the
-part reach and the camera's last-frame place). A body read as one image, or
-whose parts a reader asked for, is posed wherever it is; with no camera every
-body is posed. This is the "culling/bounds" rule that
-`semantic-part-rendering-and-ragdolls.md` asked for, for the direct road.
-Witness `a_body_no_view_shows_is_not_posed_until_a_view_shows_it` (red at its
-own assertion with no cull, with the body hidden and still posed, with the
-layers ignored, with a cull when no view exists, and with a view that never
-shows it). MEASURED (same capture, idle box, frames 24-26 ms in both):
-`drive_rigged_presentations` in 1-2 172.7 → 97.7 µs a frame, in 1-1 129.8
-→ 104.3 µs.
-
-### F39 — Ambition's hall, and what Tracy does to a profile (2026-10-18)
-
-Asked by Jon ("my game is running slow, even on my 3090"), on the autoplay
-route (hub, hall of characters, the primeval trail).
-
-MEASURED (VM, same commit, same route, `scripts/measure/profile_desktop.sh
---autoplay`): the Tracy build made the tick ~5× dearer. With `--features
-profile` the simulation sets cost 21 ms a tick; with `--no-tracy` 3.85 ms
-(the GGRS driver 5.68 ms). A span for each of ~560 systems a tick is the
-cost, and with no client connected Tracy also buffers. ⇒ Rank systems with
-Tracy; take milliseconds from a `--no-tracy` run. Jon's host profile (Tracy
-on): the driver 12-21 ms a frame, the simulation sets ~7 ms a tick.
-
-MEASURED (headless hall, `scripts/measure/headless_system_shares.sh`, cycles): the
-per-system cost of running systems at all (executor, parameter fetch,
-`update_archetypes`, deferred application) is ~35% of the main thread at
-~800 systems a tick; then `integrate_sim_bodies` 8%, `tick_actor_brains`
-6%. Local play is a GGRS sync test with `check_distance 0`, which saves
-nothing (ggrs skips `SaveWorld` there), so this is not snapshot cost.
-
-Done (one change each, no behaviour change; the hall, `headless --bench`,
-`scripts/measure/sim_tick_instructions.sh`, interleaved A/B of only these changes):
-**10.0 → 8.5-8.8 M instructions a tick (−13%).**
-
-- The prepared cast is hashed by id, with an ordered id list for walks:
-  each body looked its character up in a `BTreeMap` of ~215 ids each tick
-  (`record_bodies_away_from_home`, the render and pose indexes, wallet
-  shields, rest rows, presentation sources).
-- `record_bodies_away_from_home` asks "at home?" before the durable-row scan.
-- Directional and dash verbs are composed on the stack, not as `String`s
-  (`move_for_attack` ×15 a body a tick in the attack kit).
-- `melee_swing_of` asks for a playing move before walking the verbs.
-- Early outs: `carry_homing_dashes` with nobody dashing; the ranged-route
-  lookup only for a ranged request; a realized sheet before the load ledger.
-- Compare before allocating: presentation source ids, attack VFX sheets.
-- Targeting borrows candidate ids and asks the relation only of a nearer body.
-- The view indexes use the fixed-seed hasher; the OOB recorder's kinds are
-  `&'static str` and its rollback slot scan stops at older rows.
-
-Open, by size (agents' reads, REASONED until built): `MoveSpec::frame_data`
-is derived for each body's kit each tick (hydrating params), ~1% — derive
-once per moveset; `CharacterCatalog` lookups are a `BTreeMap` too
-(`attack_vfx`, `rest_row`), ~1%; `Layered::near` allocates two `Vec`s a
-query; per-room dormancy for Ambition's own rooms (its rooms declare every
-capability, so 45 boss-encounter and 35 fighter-special systems run in the
-hall) is the structural lever, and a design question for Jon.
-
-## Earlier October 16 baseline (superseded)
-
-That run identified main-thread executor cost, input lookups, change-detection
-churn, immediate-mode presentation respawns and over-composed engine systems.
-The leafwing lookup, no-op writes, parallax/held-item respawns and several
-room-isolation paths were repaired. The standalone serial-executor decision
-D12 was subsequently completed on October 17, and further content/condition
-reductions landed through October 24. Do not treat the old proposed P1–P18
-ordering or measured timings as current acceptance evidence.
-
-**Still require a fresh measurement before selection:** the selected Android
-profile's current CPU/frame cost; remaining Bevy material/gizmo/debug-tool
-cost; conditional churn/collision paths that a new trace reproduces. The
-separate multiroom moving-platform visual correctness issue is recorded
-under the current run outcome and in `tracks.md`. The cost-tool entry points
-are in the next section.
+- **D1:** 30 Hz simulation would affect one-way/platform tolerance, hitstop,
+  region size, NPC prediction and AI cadence. Use the dedicated
+  [tick-rate compatibility plan](simulation-tick-rate-compatibility.md) and an
+  actual target game before selecting; do not silently reduce tick rate.
+- **D3/D4:** Omitting Dialogue or Smash/capture from standalone Mary-O/Sanic
+  requires handling authored fallback dialogue, state exit and kit capture
+  verbs. Keep their profile/customer dependency explicit; do not strip content
+  just to reduce registered systems.
+- **D5:** LDtk respawn delay would change reload timing; prefer the existing
+  fixed query-state path unless a new upstream failure is reproduced.
+- **D6:** Kira dynamic channels alter crossfades; require a music-authoring
+  customer and listening/behavior acceptance.
+- **D7:** Unknown boss IDs should be handled at content admission rather than
+  by inventing a fallback identity; verify the current catalog boundary.
+- **D8:** Observer-minted `SimId`s change the deterministic spawn point in
+  the tick; prove replay/identity stability first.
+- **D9:** Per-room gizmo trails should be retained or dropped by explicit
+  local view policy, not by a cross-room global fallback.
+- **D10/D11:** Internal render scale and an overrun tick catch-up limit affect
+  visible rendering/time; select only with measured device behavior and an
+  explicit gameplay policy.
+- **D12** is completed (serial executor). **D13** was withdrawn as a local
+  fork requirement; the input-clash bypass landed in-repo.
 
 ## Selection rule for further performance work
 
@@ -670,873 +240,23 @@ throws 14/14, Smash moveset 13/13, mounts 7/7, held items 9/9, match stocks
 7/7, gizmos 36/36, Kira audio channels 30/30, developer tools and traces 18/18,
 extension lowering 32/34. About 170 systems a frame (17%).
 
-## Findings
-
-### F0 — A third of the phone's CPU is the executor's work for each system, outside any system
-
-MEASURED (phone, `android-all-maryo-1-1`, every sample's full call chain,
-`symbolize_android_profile.py --ours`). 32.2% of all app samples are in the
-schedule executor with no system body on the stack: per system, before or
-after it runs. By innermost frame: access checks over component bitsets
-(`bevy_ecs/query/access.rs` with `fixedbitset`, about 2.9%), the <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
-`TypeId` test that finds apply-deferred points (`system/system.rs` and <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
-`executor/mod.rs`, about 2.5%), archetype-cache updates <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
-(`update_archetypes_unsafe_world_cell`, `query/state.rs`), parameter <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
-validation (`function_system.rs`), and allocation in the executor. A further
-44.8% has no frame of ours at all: the render world, the GPU driver
-(`vulkan.adreno.so`), the kernel, and the task pool.
-
-What it means (REASONED): this cost grows with the number of systems that run
-each frame (about 1000) and, for the access checks, with the number of
-component and resource types the world has registered (about 1900 and 1400).
-It does not depend on what the systems do. So the levers are: fewer systems
-installed (P1, P3), fewer and coarser systems where many small ones do one
-job (the ten narrative ledgers), a set run condition that skips a whole
-feature group when it has no work (a skipped system pays none of the per-system
-work above), and fewer registered types (291 message types, 330 GGRS snapshot
-resources).
-
-Lines of ours that do take time (each under 1.5%): `room_instance.rs:172`
-(1.4%), `room_graph.rs:432` and `:471`, `clip_material.rs:145`,
-`ambition_entity_catalog/src/lib.rs:1563`, `crates/ambition_touch_input/src/virtual_device.rs:50`,
-`wallet_shield.rs:45`, `held_items.rs:108`, `hand.rs:63`.
-
-**Mary-O only, against every game (phone, one run each).** MEASURED: with
-`AMBITION_HUB_GAMES=mary_o` the app used 41.7 s of CPU in 30 s, against
-49.9 s with every game (-17%), and 38% fewer context switches. Frame time was
-not better in this pair (p50 41-69 ms against 24-46 ms), but the pair is
-confounded: other commits (97ff2541e, 11130fb49), one run each, and the place
-in the level. Clocks were at their maximum and thermal status 0 in both.
-
-### F1 — The hosts install everything; the capability profiles can omit five things
-
-MEASURED. Both demo hosts build `PlatformerEnginePlugins::fixed_tick()`
-(`game/ambition_demo_mary_o_app/src/lib.rs:45,143`,
-`game/ambition_demo_sanic_app/src/lib.rs:28,121`); no host calls `for_profile`.
-`Capability` has five variants (`crates/ambition_platformer2d_runtime/src/profile.rs:32`). Grabs and throws, the Smash
-moveset, mounts and match stocks are installed inside `CombatSchedulePlugin`
-(`ambition_platformer2d_runtime/src/combat_schedule.rs`, mounts at `:776`),
-where a plugin group cannot disable them. Boss encounters CAN be omitted
-already: `BossCatalog` is core state (`runtime/src/sim_core_resources.rs:194-203`)
-and the `encounters-without-named-bosses` profile is witnessed; the demo hosts
-simply do not ask. `BossEncounterSimulationPlugin` initializes the catalog a
-second time (`boss_encounter/src/lib.rs:132`), and the run condition at
-`actor_monolith/src/body/mod.rs:1094-1102` tests a resource that is now
-always there. The extension phases `technique_execution` and `boss_conduct`
-(about 29 systems) and `wielded_use`/`module_entity_tick` (about 20) are core,
-whatever the profile. Since 2026-10-16 the Mary-O and Sanic hosts build the
-engine without `Capability::BossEncounters` (their integration tests pass:
-95 and 42). MEASURED: systems run a frame Mary-O 1,079 → 1,066, Sanic 1,086
-→ 1,075; the rest of the boss systems are in the core extension phases (C1).
-Mary-O's and Sanic's own movesets author
-`smash.capture_attempt/pummel/throw`, so Grabs cannot leave a standalone game
-until its fighter kit does (D4).
-
-### F2 — Twelve narrative ledgers run in every game
-
-MEASURED. `NarrativeInputPlugin<M>` (`ambition_conversation/src/ledger.rs:247`)
-adds three systems per payload; twelve payloads (two in `ambition_conversation`,
-seven in `actor_monolith/src/body/mod.rs:1491-1497`, three in
-`ambition_content`) make 36 systems; a standalone game runs nine (27). The seven
-monolith ones and the ten outside `ConversationPlugin` are
-not removed by `Capability::Dialogue`. Every writer is in `ambition_conversation`
-or `ambition_content`.
-
-### F3 — The fixed schedules run on the multi-threaded executor
-
-MEASURED. `serialize_frame_schedules`
-(`ambition_platformer2d_runtime/src/lib.rs:741`) covers `First`..`Last`, not
-`Fixed*`. Standalone games simulate in `FixedUpdate`. `dev/bevy_idle_systems`:
-an idle system costs about 0.016 us on the single-threaded executor and 1.7-12 us
-on the multi-threaded one. The executor policy has a second owner
-(`game/ambition_app/src/app/plugins.rs:356`, an env switch the demos never reach).
-Worse: the windowed demo hosts did not call the policy at all; only the
-headless foundation and `game/ambition_app/src/app/visible_composition.rs`
-did. So windowed Mary-O, Sanic and Smash run `First`..`Last` and `Fixed*` on
-the multi-threaded executor. Since 2026-10-16 all three foundations call
-`apply_executor_policy`, with unchanged defaults (F22, D12). Bevy
-itself runs `Main`, `FixedMain` and `RunFixedMainLoop` serially; the rollback
-crate serializes `GgrsSchedule` only, not `SaveWorld`/`LoadWorld`/`ReadInputs`/
-`AdvanceWorld`.
-
-### F4 — In the hub, each game runs the other games' gameplay
-
-MEASURED (10-14 census). While Ambition plays, Smash runs 49 systems, Mary-O 29,
-Sanic 4. Scope gates: `ambition_demo_smash` 1 of 51 `add_systems`,
-`ambition_demo_sanic` 2 of 33, `ambition_demo_mary_o` 11 of 52,
-`ambition_content` 0 of 150. Physics debris (avian2d 20, interpolation 19) and
-3D lighting (`bevy_light` 19, `bevy_pbr` 14) run in the hub; no code spawns a
-light. Ambition's cast uses techniques that `ambition_demo_smash` registers
-(`smash.counter`, `smash.place_spring`), so the hub cannot leave Smash out.
-
-### F5 — Read-models rebuild each tick, inside the simulation, for the renderer
-
-MEASURED. `SimViewPlugin` (`ambition_sim_view/src/facts.rs:1141-1180`) rebuilds
-its views in the sim schedule's `FeatureViewSync` (about 36 systems); only
-`ambition_render` (and the demo HUDs) read them. A headless host builds them for
-no reader; on a slow frame with several ticks they are built several times.
-
-MEASURED 2026-10-17 (debug, headless standalone Mary-O 1-1, one tick an
-update, `run_system_cached` 200 times for each system): the set holds 30
-systems; the 28 rebuilds of `SimViewPlugin` and `FeatureViewSyncSchedulePlugin`
-cost 0.30 ms a run together (`rebuild_body_pose_views` 0.045,
-`rebuild_feature_view_index` 0.045, `rebuild_actor_anim_index` 0.034,
-`rebuild_actor_render_index` 0.028, `rebuild_nameplate_index` 0.025, the rest
-under 0.02 each), about 3% of the 11 ms tick. Gating the whole set off cut
-the frame by 0.9-1.3 ms, but that arm also starves the readers that wait for
-a view to change, so it overstates the views. REASONED: P5 saves at most one
-build for each extra tick in a frame (~0.3 ms and 30 system runs on a two-tick
-frame), and it moves ~50 registrations across schedules, with two tick-rate
-writers in the set (`advance_body_anim_overlay_clocks`,
-`tick_shrine_activation_pulse`). It is a small lever for its size; keep it
-behind the others.
-
-### F6 — String identities are cloned, compared and sorted every tick
-
-MEASURED (source). `select_actor_targets`, `collect_perception_peers`,
-`rebuild_actor_anim_index`, `rebuild_body_pose_views`,
-`rebuild_actor_render_index`, `rebuild_feature_view_index` and
-`rebuild_nameplate_index` clone `SimId`/`FeatureId` strings, sort by string, or
-key `HashMap`s by `String`, per body per tick.
-
-### F7 — Two systems visit every entity every tick
-
-MEASURED (source). `project_wallet_shields`
-(`actor_monolith/src/body/wallet_shield.rs:32`) and
-`brandish_the_playing_move_s_weapon` (`ambition_combat/src/held_items.rs:91`)
-iterate a query with no required component, so they visit every entity in the
-world each tick (the hub census counts about 8000 entities, 1300 live). A body
-they can act on has `WornCharacter` or `BodyWalletShield`, and `MovePlayback` or
-`MoveBrandishedItem`; the filters `Or<(With<WornCharacter>,
-With<BodyWalletShield>)>` and `Or<(With<MovePlayback>, With<MoveBrandishedItem>)>`
-keep what they do and drop the walk (both applied 2026-10-16; the
-wallet-shield, held-item, Mary-O and Sanic tests pass). Eight other queries in the scan have no
-required component but are only used with `get(entity)`, which costs nothing.
-`project_prepared_character_definitions` (`character_runtime/presentation.rs`)
-walks every body only on the tick the registry changes.
-
-### F8 — Plumbing that scales with what is registered, not with what is used
-
-MEASURED. Gizmos: 8 groups x 4 systems (16 for `RoomTrailGizmos0..3`); Bevy's
-debug gizmo groups are on. Kira: 15 channel types x 2 systems. Message types:
-291 `Messages<T>` resources, each with its own update. Developer tools: about
-18 systems in shipping hosts (`DevToolsSimPlugin`, including a file-watch poll).
-Input: `publish_seat_bindings` builds a `BTreeMap` and formats strings every
-frame to find a rebind.
-
-### F9 — Upstream query-state costs
-
-MEASURED (10-13 phone profile). `virtual_joystick` is fixed in our fork.
-Open: `bevy_ecs_ldtk` `clean_respawn_entities` (~0.8%), `bevy_yarnspinner`
-`fetch_resources` (~0.6%), `bevy_light` `check_dir_light_mesh_visibility`
-(~0.5%), `bevy_ggrs` `handle_requests` (0.2-0.4%).
-
-### F10 — Content in engine crates (composition hygiene, not CPU)
-
-MEASURED. `HELD_ITEMS` (`ambition_characters/src/brain/action_set/mod.rs`, 25
-Ambition items), the closed `ambition_items::Item` enum (its icons are now authored:
-`ItemCatalog::icon`, 2026-10-29),
-`fire_puppy_slug_gun_system` and its rollback key in every game, portal-gun
-`gun_*` modules in the generic `ambition_portal2d`, `BUILTIN_STRIKE_KEYS` with a
-second list of the same 11 keys, the invented `gradient_sentinel` boss.
-
-### F11 — The main thread is the limit; the pool and the render thread are not
-
-MEASURED (both phone runs, the `threads` table and `--thread TID`, 30 s each).
-Busy, as a share of one core over the recording (Mary-O-only / all games):
-
-| thread | busy |
-| --- | --- |
-| main (`android_main`) | 82% / 83% |
-| Bevy render thread (also named `android_main`: an unnamed `std::thread` has its parent's name) | 25% / 26% |
-| compute task pool, 4 workers | 8-9% each |
-
-On the main thread (56.5% of the process samples in the Mary-O-only run):
-
-- 34.9 points (62% of the thread) are under `app.run()`
-  (`ambition_app/src/app/cli.rs:273`) with no system of ours below them:
-  access bitset tests, `update_archetypes_unsafe_world_cell`,
-  `is_apply_deferred`, `run_without_applying_deferred`, mimalloc, and Bevy's
-  own systems.
-- The rest is in system bodies of ours, spread thin: the largest is 1.4 points
-  (`lifecycle/room_instance.rs:172`), all others under 0.6.
-
-The render thread (17.1%) has no frame of ours: kernel, the Adreno Vulkan
-driver, wgpu.
-
-Reading (REASONED): the frame waits on the main thread. It is on-CPU 82% of
-the time; the off-CPU rest is most likely the multi-threaded executor waiting
-for its tasks, because the render thread is busy only a quarter of the time.
-The pool does little: the parallel executor buys almost no parallel work and
-costs the scheduling. This is the strongest support for P2 (serial schedules)
-and P1 (fewer systems). The GPU is not the limit of these runs: the render
-thread, which submits and presents, is idle three quarters of the time.
-
-### F12 — No catch-up limit of ours on the fixed step
-
-MEASURED (code read). The hub's GGRS loop (`bevy_ggrs` `schedule_systems.rs:55`) <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
-runs `while accumulator >= 1/60 s` on `Time::delta()`; the standalone games use
-Bevy's `FixedUpdate`. Neither has a limit of ours; only Bevy's `Time<Virtual>`
-`max_delta` (250 ms) applies, so one slow frame can run up to 15 ticks. The
-offline GGRS session uses `check_distance: 0`, which skips every save
-(`ggrs` `sync_test_session.rs:155`). <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
-
-Reading (REASONED): with p50 frames of 24-46 ms on the phone, a frame runs
-1.5-2.8 ticks on average, and the read-models of `FeatureViewSync` are rebuilt
-on each tick (P5). A lower catch-up limit trades real time for frame time (the
-game slows down under load): D11.
-
-### F13 — Three quarters of a standalone frame's allocations are input lookups
-
-MEASURED (`perf_probe`, desktop debug, 578 frames, allocations per tracing
-span; scratchpad `probe/`). Allocations per frame, standalone Mary-O 1-1 /
-Sanic act 1:
-
-| span | Mary-O | Sanic |
-| --- | --- | --- |
-| `leafwing_input_manager::systems::update_action_state` | 19,222 | 19,222 |
-| multi-threaded executor | 2,293 | 2,116 |
-| `view_isolation::isolate_live_rooms` | 444 | 2,773 |
-| `bevy_render::render_asset::prepare_assets` | — | 1,064 |
-| `hand::reconcile_effective_repertoire` | 596 | — |
-| `starting_character::gate_body_control` | 295 | 123 |
-| `authorize_staged_character_presentation_sources` | 203 | 210 |
-| `dev::trace::actor_oob::record_actor_oob_frame_system` (a developer trace) | 196 | — |
-
-The input number is the same in both games: it does not depend on the scene.
-The hub makes 31,942 a frame (26.6k a call). Two causes in
-`leafwing-input-manager` 0.21, both run twice a frame (frame and fixed loop):
-
-- MEASURED (source read), the larger by the count per call: `InputMap::handle_clashes`
-  calls `get_clashes`, which calls `possible_clashes()` on every call
-  (`src/clashing_inputs.rs:190-232`): every pair of button actions, each
-  binding decomposed into new `Vec`s. The comment there says "cached"; it is
-  not. Our host chooses `ClashStrategy::PressAll` for chord-free maps
-  (`ambition_platformer2d_host/src/lib.rs:379`), and under `PressAll` a clash
-  removes nothing, so all of this work has no effect for us.
-- MEASURED (source read): `CentralInputStore::pressed` and `button_value`
-  (`src/user_input/updating.rs:111-140`) box a clone of the binding for each
-  lookup, to use it as a hash key (`// PERF: surely there's a way to avoid
-  cloning here`).
-
-Split (MEASURED, `crates/ambition_input/tests/leafwing_allocations.rs`, the
-game's own seat map): one `process_actions` call makes 9,611 allocations (the
-probe's per-call figure exactly), and 9,522 of them (99.1%) are
-`handle_clashes`. The boxed lookups are the other ~90.
-
-Fixed in this repo, with no fork (2026-10-16):
-`ambition_input::press_all_action_update` removes leafwing's two
-`update_action_state` systems (`App::remove_systems_in_set`) and adds one that
-skips the clash pass under `PressAll` and calls `process_actions` under any
-other strategy; the first half of `process_actions` is copied, and a test
-compares the two on held keys. Verified (MEASURED, `probe/mary_o_1_1_pressall`):
-all allocations of a standalone Mary-O frame 23,407 → 4,128; the input update
-19,222 → 178. The hub (`probe/basement_enemies_pressall`, what the phone
-runs): 46,949 → 15,257, the input update 31,942 → 258, the capture
-pixel-identical. Tests: `ambition_input` 152, Mary-O 95, Sanic 42. Left for
-an upstream PR: skip the pass in `process_actions` itself, and look up
-without boxing (`hashbrown::Equivalent` on `&dyn Buttonlike`).
-
-On the phone (MEASURED, the existing profiles, `symbolize_android_profile.py
---under handle_clashes`): 4.5% of all process samples in the Mary-O-only run
-(3.1% with every game) were inside `handle_clashes`, about 8% of the
-saturated main thread. REASONED: that is the CPU this fix removes on the
-phone; a new phone run will measure it. The probe counts allocations; their
-time on the phone is inside the 5.2% of `mimalloc` and the 3.1% of `alloc`.
-
-Idle re-runs (MEASURED, `probe/mary_o_1_1_v2`, `probe/basement_enemies_v2`):
-standalone Mary-O makes 26.0k allocations a frame in all spans, 19.2k of them
-in `update_action_state` (74%); the hub makes 61.4k, 31.9k in it (67% without
-the probe's own 13.4k). `gate_body_control` makes 189 a call,
-`authorize_staged_character_presentation_sources` 202.
-
-Caveat on the per-frame numbers (MEASURED): the first Mary-O probe run was taken
-while the VM was loaded, at about 14 fixed ticks a frame against about 1.6 at
-idle, so the per-frame numbers of fixed-step systems are high; the per-call
-numbers (`allocs_per_call` in the CSV) are the ones to compare. Other per-call
-numbers of ours: `reconcile_effective_repertoire` ~40, `gate_body_control`
-~20, `record_actor_oob_frame_system` 13, `integrate_sim_bodies` 9.6. Sanic:
-`prepare_assets<HitFlashMaterial>` ~1,070 a frame (133 KB), so a hit-flash
-material is changed every frame. The write is already guarded
-(`hit_flash.rs:416-437`, write only a change); the material changes because
-each overlay follows its body's animation frame (`uv_rect`) also at intensity
-0, and overlays live as long as their bodies and stay `Visible`. REASONED: an
-overlay at intensity 0 draws nothing; tracking the frame only while a flash
-is on would remove the re-uploads and the draws of idle overlays. The comment
-there explains why the overlay asserts `Visible` (portal compositing), so this
-needs a check of the portal path first.
-
-Open (MEASURED, `probe/basement_enemies_pressall`): after the fix, ~9.4k of
-the hub's 15.3k allocations a frame are on schedule spans, not on a system:
-`GgrsSchedule` 3,877, `Update` 3,067, `PostUpdate` 1,558, `PreUpdate` 857. In
-standalone Mary-O (parallel executor) the same work is on system spans.
-Two explanations are ruled out (MEASURED, source read): command
-application has its own `(commands)` rows (Bevy enters `system_commands` in
-`CommandQueue::apply`), and only Bevy's `DefaultPlugins` are built before
-`capture_scene` installs the subscriber, so no system of ours has a dead span.
-REASONED, left: observers and component hooks, which run with no system span
-(the hub spawns and inserts more than Mary-O), and the executor. Next probe
-step: a span in the probe's own observer path, or a Tracy look at
-`GgrsSchedule`.
-
-### F14 — Room isolation re-derives every room mask every frame
-
-MEASURED (source read; allocations from F13). `isolate_live_rooms`
-(`ambition_render/src/rendering/view_isolation.rs:216`) walks the subtree of
-every entity stamped `InRoomInstance` each frame, with a new `Vec` per root,
-and rebuilds each `RenderLayers` with several clones (`in_room_band`,
-`without_room_layers`). The result changes only when the live-room set or its
-order changes, or when an entity or child is new. The room bands are layers
-256-511 and the local-view band starts at 1024; Bevy's `RenderLayers` keeps one
-`u64` inline (`bevy_camera` `render_layers.rs:23`), so each mask with a room <!-- cite-ok: a source file of a dependency (bevy_ecs, bevy_camera, bevy_ggrs, ggrs), not of this repo -->
-layer is on the heap, and each clone of it allocates. Sanic: 2,773
-allocations a frame; Mary-O: 444.
-
-Fixed (2026-10-16): the walk runs only when a mask can be stale (the
-live-room set or its order changed; a stamp, a child or a `PresentedForView`
-is new or changed; a mask was removed; or, while rooms are banded, another
-system wrote a mask). Verified (MEASURED): allocations a frame Mary-O 443 →
-7.6, Sanic 1,118 → 2.0, hub 274 → 19; the hub capture is pixel-identical; the
-seven view-isolation tests pass. A second, smaller lever is left: put the room
-bands in layers below 64, so a mask fits inline.
-
-### F15 — A `&mut` that writes nothing wakes every change filter downstream
-
-MEASURED (probe: `reconcile_effective_repertoire` ran 901 times in 901 ticks
-of Mary-O, 596 allocations a frame; it is not in Sanic's list; source read).
-Mary-O's `begin_star_power` (`game/ambition_demo_mary_o/src/star.rs:62`) calls
-`worn.unequip(POCKET_QUASAR_ID)` on `Mut<WornEquipment>` every tick. The
-`&mut` call marks `WornEquipment` changed whether or not a row is removed, so
-the change-filtered `reconcile_effective_repertoire` re-folds the whole
-repertoire every tick and writes `ActionSet` and `ActorMoveset`, which marks
-those changed for each of their readers. Fix (no behaviour change): test
-`wears` first, through `Deref`.
-
-Reading (REASONED): this is a class, not one bug. Bevy marks a component
-changed on `DerefMut`, not on a different value. The general answer is a
-detector, not a code search: the probe reports, per component type, the
-entities marked changed per frame; a component changed on every frame for
-every entity is either a per-frame value (expected) or this bug.
-
-### F16 — The common style: re-derive every tick, idempotently
-
-MEASURED (probe allocations, source read). Four of the top allocators of ours
-re-derive, every tick, a value whose inputs change rarely, and say so as a
-virtue ("idempotent by construction", "running every tick can only add"):
-
-| system | re-derives each tick | inputs change when |
-| --- | --- | --- |
-| `isolate_live_rooms` (F14) | every room entity's `RenderLayers` | the live-room set changes, an entity is new |
-| `reconcile_effective_repertoire` (F15) | the repertoire, after a false change | equipment, identity, held item change |
-| `gate_body_control` (`avatar/character_execution.rs:631`) | each body's action scheme (`derive_action_scheme`); the control prompt derives it again | abilities, moveset, action set, techniques change |
-| `authorize_staged_character_presentation_sources` (`character_runtime/presentation.rs:54`) | each staged provider's SFX authorization, with catalog clones; its `ResMut` write marks the selection changed every tick | the cast, a bank or a catalog arrives |
-
-Reading (REASONED): the style is robust (no missed update, no order bug,
-rollback replays it) and its cost is per tick per body. The elegant pattern is
-derive on change: a run condition (`resource_changed`, `any_with_component`),
-a `Changed<T>` filter, or one cached component (`DerivedActionScheme`) that
-both the gate and the prompt read. Under rollback a cached value must be
-rollback state or derived from inputs that a restore marks changed; check
-each cache against that before it lands. Together with F15 this is P12.
-
-**`gate_body_control` done (2026-10-17).** `DerivedActionScheme` (required by
-`ActionSet`) keeps the scheme and what change detection cannot see: the
-driven techniques and which optional authorities were present. The gate
-derives again only when an authority is changed, added or removed. It is
-derived rollback state: a restore writes back a differing authority, which
-marks it changed. MEASURED (probe, hub `basement_enemies`, ~600 frames):
-54.8 → 16.4 µs a frame, 209 → 29 allocations a frame. The control prompt
-already derives on change, from the abilities masked while the pose is held,
-so it does not share the gate's cache. Witness
-`the_gate_derives_the_scheme_again_only_when_an_authority_changed`.
-
-### F17 — The hub respawns a room's parallax every frame
-
-MEASURED (probe churn, hub `basement_enemies`, 595 frames): exactly 1.000
-`PresentedRoomParallax` root spawn, 2.000 parallax layer spawns, 2.000 layer
-despawns and 2.000 `PresentedForView` inserts (`parallax.rs:623`) per frame;
-also 1.000 `WieldedItemVisual` spawn per frame. A steady rate of exactly one
-per frame is a loop, not a load.
-
-Cause (MEASURED with the change counter, `probe/basement_enemies_v2`):
-`GameAssets` was marked changed on 593 of 593 frames, by a caller inside
-`Option::as_deref_mut`. `refresh_parallax_layers_on_quality_change`
-(`parallax.rs:325`) despawns every parallax layer when `GameAssets` is changed,
-and `present_live_room_parallax` spawns them again. The writer:
-`prepare_first_room_art_system` (`crates/ambition_platformer2d/src/world_flow/first_room_art.rs`)
-took `GameAssets`, the atlas layouts and the character load states through
-`as_deref_mut()` every frame, also with no session to prepare. Fixed (it
-returns before the borrows when every published session is answered).
-Verified (`probe/basement_enemies_v3`): `GameAssets` changed on 0 frames, no
-parallax spawn or despawn.
-
-### F18 — Other steady churn of ours (probe)
-
-MEASURED (probe churn, per frame at idle):
-
-- Sanic: `gravity_visuals.rs:29` despawns and respawns every gravity-zone
-  visual every frame (1.43 each way in the first probe run); it runs in
-  `Update` with no condition. Fixed; verified by a unit test (an unchanged
-  zone keeps its entities). The later Sanic runs, before and after the fix,
-  had no live gravity zone at the captured point, so the probe cannot show
-  the difference.
-- Mary-O: `crates/ambition_render/src/rendering/actors/rigged.rs:923` spawns rig part slots and despawns as many, ~1.4 a
-  frame each.
-- Every game: `lifecycle/session.rs:316` and `:326` insert
-  `SessionScopedEntity` and then `InRoomInstance` as two inserts after each
-  session spawn (4-8 a frame each): three archetype moves per spawn instead of
-  one. Fix: one bundle in the spawn.
-- Outside our code: `FixedMainScheduleOrder` removed and inserted per fixed
-  tick (Bevy), `bevy_ggrs` reinserts `Session`, `PlayerInputs` and
-  `FixedTimestepData` every frame.
-
-### F19 — A widely shared system parameter is a per-system cost
-
-MEASURED (phone, `--ours --thread`): the largest line of ours on the main
-thread, 1.36% of the process, is `lifecycle/room_instance.rs:172`, the
-`#[derive(SystemParam)]` of `LiveRooms`: the fetch and validation of its two
-queries (`roots`, and `stamps` over every entity with `InRoomInstance`), with
-the bodies inlined. About 208 parameter declarations in `crates/` and `game/`
-take `LiveRooms` or `LiveRoomOf` (git grep), so the cost is paid once per run
-of each of those systems.
-
-The same holds for the two room-spec parameters of
-`ambition_platformer2d_world/src/rooms/room_graph.rs`: `LiveRoomSpecs` (its
-derive line, 0.51%; it embeds `LiveRooms`) and `SoleLiveRoomSpec` (0.32%).
-Together the room-lookup parameters are ~2.2% of phone samples. All
-parameter fetches together (`get_param`, inclusive, main thread of the
-all-games run) are 3.59%. Users by a
-`git grep` of parameter declarations: `LiveRooms` ~120, `LiveRoomSpecs` ~90,
-`LiveRoomOf` ~72, `SoleLiveRoom` ~17, `SoleLiveRoomSpec` 5. (The next phone
-line of ours, `crates/ambition_touch_input/src/virtual_device.rs:50`, 0.46%, is the touch button's
-`decompose`, called by leafwing's clash pass; it went with F13.)
-
-Reading (REASONED): the live-room set is one or two values that change on a
-room transition. A resource kept by one system (the live rooms in order, and
-each band) is a cheaper parameter than a query: no archetype matching and no
-per-run query validation. A system that asks for the room of its own entities
-can carry `Option<&InRoomInstance>` in its own query. Measure one system first.
-
-### F20 — Every body's whole state is marked changed every tick
-
-MEASURED (probe `changes_by_site.csv`, standalone Mary-O 1-1, 561 frames
-after warm-up, `scratchpad/probe/mary_o_1_1_v2`). About 2,300 component values
-are marked changed a frame. Of ours:
-
-- ~30 simulation components of each of the ~17 bodies, every frame
-  (`BodyKinematics`, `BodyHealth`, `BodyLedgeState`, `BodyDodgeState`,
-  `BodyRestartLatch`, ... at `actor_clusters.rs:170-198`, and
-  `update.rs:1508-1543`). Cause (source read): `as_actor_mut`
-  (`actor_clusters.rs:163`) takes `&mut` of each cluster through `Mut<T>`,
-  which marks it changed whether or not the step writes it.
-- More per-body writes each frame: `BodyLifeStats` (`body/mod.rs:280`),
-  `ResolvedTechniqueEdges` (`starting_character.rs:705`), `BodyMelee`,
-  `RangedRefire`, `AttackGestureState`, `ResolvedAttackGesture`,
-  `PogoTargetVolumes`, `BodyAnimFacts`, `PresentedPose`, `BodyPoseView`.
-- Resources changed every frame by our code: `ActiveAudioSelection`
-  (`authorize_staged_character_presentation_sources`, F16, fixed since), `GizmoConfigStore`
-  (`avatar/trail.rs:677`), `CameraShakeState`, `FinishZoomState`
-  (`camera_ease.rs`), `SeatControlFrameModes`, the narrative ledgers
-  (`prune_narrative_inputs` and `release_narrative_inputs`, both fixed since)
-  in a game with no dialogue, and two developer-tool
-  resources (`EditablePlayerStats`, `PlayerStatsSyncSnapshot`).
-- Rendering: rig part slots (`rigged.rs:1426-1434`, ~148 a frame:
-  animation), the HUD's `Visibility` (`hud/declared.rs:784`, 30 a frame),
-  ambient motes, hit-flash overlays (`hit_flash.rs:416`, fixed since).
-
-Readers today (MEASURED, `git grep` for `Changed<T>`, `Ref<T>` and
-`is_changed` per component): none for `BodyLifeStats`,
-`ResolvedTechniqueEdges`, `BodyMelee`, `RangedRefire`, `AttackGestureState`,
-`ResolvedAttackGesture`, `PogoTargetVolumes`, `BodyAnimFacts`,
-`PresentedPose`, `BodyPoseView`, `DamageableVolumes`, `ActorRoll`,
-`BodyHealth`; three for `BodyKinematics`, one for `ActionSet`. So the per-body
-false changes cost nothing now; the resource false changes did (F15, F17).
-
-Reading (REASONED): a false change costs little by itself. It matters
-because it makes change detection useless: no `Changed<Body…>` filter, and no
-read-model "built by change" (P5, P12), can skip a body while all of its state
-is marked changed every tick. So the order is: first make writes mark only
-real changes (pass `Mut<T>` into the step, or compare before writing), then
-the change-driven read-models pay. The detector verifies each step.
-
-Sanic act 1 (MEASURED, `probe/sanic_act1_v2`, 561 frames idle): ~1,200
-values changed a frame; 79 components and resources of ours are changed on
-about every frame. Among them the portal presentation takes `Assets<Mesh>`,
-`Assets<Image>` and `Assets<ColorMaterial>` through `&mut` every frame
-(`ambition_portal2d_presentation/src/view_cones.rs:1035-1037`) in a game with
-no portals: a composition cost (P1) and a false change. Also every frame: the
-input-system resources (`SeatControlFrameModes`, `SeatRawFrames`,
-`MenuInputState`, ...), the camera read-models, the music and audio state,
-the lifecycle resources of the provider (`ShellRouteHolds`,
-`PreparedPlatformerSessions`, ...), the two trace buffers, and all the
-narrative and host-intent ledgers.
-
-Fixed with read-before-write, verified with the counter (MEASURED,
-`probe/mary_o_1_1_v3`): `ActiveAudioSelection` (the SFX authorizer now runs
-only when one of its inputs changed; its ~200 allocations a frame are gone),
-`GizmoConfigStore` (trail bands), the host-intent ledgers (prune). The
-narrative ledgers had a second every-frame writer, the release
-(`ambition_conversation/src/ledger.rs:194`), now fixed the same way (covered
-by the conversation tests).
-
-Write-only-a-change in the presentation (MEASURED, `probe/mary_o_1_1_v5`
-against `_v4`): the HUD helpers `set_shown`/`set_hidden` took
-`&mut Visibility`, and a `Mut` coerced to it at the call is marked changed
-before the helper's test runs, so every HUD node changed every frame; now
-generic over the `Mut`. The feature visuals (`actors/mod.rs`) and the
-hit-flash overlays now use `set_if_neq`. Per frame: `Visibility` changes 74 →
-1, transforms propagated (`GlobalTransform`) 224 → 182, all value changes
-2,216 → 2,017. The hub capture is pixel-identical.
-
-Verified with it (MEASURED): the `star.rs` fix (F15) works. After it,
-`ActionSet` and `ActorMoveset` were changed 17 times in 561 frames (loading),
-and `reconcile_effective_repertoire` has no allocations left.
-
-### F21 — Presentation entities drawn in immediate mode
-
-MEASURED (probe churn): three presentation systems despawned all their
-entities and spawned them again every frame: gravity-zone visuals (Sanic,
-fixed), the parallax refresh (hub, F17, fixed at its cause), and wielded-item
-overlays (`wielded_item_visuals.rs:153`, hub, 1.000 a frame; rewritten to
-update in place; verified: no churn, pixel-identical capture). A code search for the same shape
-(despawn every entity of a marker, then spawn) also finds
-`item_visuals.rs`, `projectile_visuals.rs`, `mark_beacon.rs`, `hud/declared.rs`
-and the portal presentation (`visuals.rs`, `gun_visuals.rs`, `far_side.rs`);
-not all of them run every frame.
-
-Reading (REASONED): this is immediate-mode drawing written with retained
-entities. Each frame pays two archetype moves per entity, new render
-entities and extraction state, and change marks for everything downstream.
-The elegant pattern is one shared helper: keyed reconcile (key → entity:
-update in place, spawn the new, despawn the gone), as the gravity and wielded
-systems now do by hand.
-
-### F22 — The serial executor makes a standalone tick about 6× cheaper
-
-MEASURED (desktop VM, standalone Mary-O 1-1 offscreen, `capture_mary_o
---warmup 1200`, profiling build, 3 interleaved repetitions per arm, medians;
-`scripts/executor_ab.sh`, `scripts/executor_ab_report.py`; the switch is
-`AMBITION_SCHEDULE_EXECUTOR`, `apply_executor_policy` in
-`ambition_platformer2d_runtime/src/lib.rs`):
-
-| arm | sim wall per tick | main schedules, ms per second | frames per second | process CPU, s |
-| --- | ---: | ---: | ---: | ---: |
-| `parallel` (the windowed demos today) | 10.70 | 968 | 68.5 | 103.0 |
-| `frame-serial` (`First`..`Last` serial; the hub's frame policy) | 10.78 | 918 | 73.1 | 99.4 |
-| `serial` (also `Fixed*`, `StateTransition`, `SpawnScene`) | 1.68 | 745 | 90.1 | 96.6 |
-
-The spread between repetitions is small (sim per tick 1.67-1.76 serial,
-10.52-10.72 parallel). Process CPU is mostly software rendering on this VM
-(llvmpipe), so the schedule times are the measure. Serializing only the frame
-schedules does almost nothing for a standalone game: its simulation is in
-`FixedUpdate` (501 systems), which stays multi-threaded.
-
-Reading (REASONED): with ~500 small systems in `FixedUpdate`, the
-multi-threaded executor's per-system dispatch costs more than the systems.
-The phone shows the same shape (F11: main thread saturated, pool idle). The
-hub's simulation is in `GgrsSchedule`, which the rollback crate already runs
-serially, so this is a standalone-game lever (Mary-O, Sanic, Smash). The
-single-threaded executor runs systems in a valid order of the declared
-constraints; the multi-threaded one already may run unordered systems in any
-order, so no new order is possible. Check of that (MEASURED, the hub A/B
-captures, `capture_scene` steps deterministically, 1,200 frames): the player
-ends at the same point in every run of every arm; `serial` and `frame-serial`
-captures are pixel-identical; `parallel` differs from both in 218 of 921,600
-pixels, the same 218 in each of its three runs. All 218 are brighter in
-`parallel`: the room's ember motes, drawn under `parallel` and off the frame
-under `frame-serial` and `serial`. Cause (MEASURED with temporary logging in
-`drift_room_motes`, not kept): the motes read the camera at y = +290 under
-`parallel` and at y = −290 under `frame-serial`, every frame. The other
-writer of the camera is the capture tool itself: `apply_capture_snapshot`
-(`game/ambition_app_tools/src/bin/capture_scene.rs`) pins the camera with no
-order against `drift_room_motes`, so under `parallel` it runs first and under
-the serial orders after. So this is an artifact of `capture_scene`, not of
-the game: in the game only `camera_follow` writes the camera, and the motes
-run after it. The rest of the frame and the player are the same in every
-arm. Fixed for captures (2026-10-16): `apply_capture_snapshot` now runs before
-`drift_room_motes` and `light_the_world`; the `parallel`, `frame-serial`
-and `serial` hub captures (600 frames) are then pixel-identical (MEASURED). Recommendation: make `Serial` the default
-of every foundation, then remove the switch; check `room_replay` under it
-first.
-
-**Done 2026-10-17 (D12).** `serialize_main_schedules`
-(`ambition_platformer2d_runtime`) is the one executor policy, called by the
-headless, windowed and hub foundations. Deleted with it: `ExecutorPolicy`,
-`apply_executor_policy`, the switch `AMBITION_SCHEDULE_EXECUTOR`,
-`scripts/executor_ab.sh` and its report, and `ambition_app`'s second switch
-`AMBITION_MAIN_SCHEDULES_SINGLE_THREADED`. The tables above are the record of
-the A/B. MEASURED after it (profiling build, `capture_mary_o --warmup 600`
-with `perf_probe`, 1-1, before and after interleaved, two runs each;
-`time_by_span.csv`): `FixedUpdate` 12.66 and 12.51 → 4.31 and 4.13 ms a
-tick, the whole frame 41.6 and 37.9 → 22.8 and 23.1 ms. The probe's spans
-add to every system run, so the probe-free ratio of the table above (6×) is
-the better number. Witness `every_main_schedule_runs_its_systems_on_the_calling_thread`
-(`ambition_platformer2d_runtime`): it can tell the executors apart only with
-`bevy/multi_threaded`, which only the visible builds have; with it, the
-witness is red at "320 of 320 probe runs of First were on another thread"
-without the call, and a headless build prints NOT RUN. So the earlier
-"Mary-O's and Sanic's tests pass with the switch at `serial`" was vacuous:
-their headless builds ran one thread in every arm.
-
-### F23 — In the hub the executor is not the lever; the frame phases are
-
-MEASURED (hub `basement_enemies`, `capture_scene`, same method as F22,
-`CAPTURE="capture_scene basement_enemies 0,0 {png} 1280x720" scripts/executor_ab.sh`):
-
-| arm | sim wall per tick | main schedules, ms per second | frames per second |
-| --- | ---: | ---: | ---: |
-| `parallel` | 1.84 | 946 | 57.6 |
-| `frame-serial` (the hub today) | 1.90 | 847 | 63.2 |
-| `serial` | 1.93 | 823 | 66.1 |
-
-The hub's simulation runs in `GgrsSchedule`, which the rollback crate already
-runs serially, so it costs ~1.9 ms a tick in every arm, and `serial` adds only
-3% less main-thread time over today. Main-thread time per second of the hub
-today, by phase: `RunFixedMainLoop` 227 ms (the simulation is ~120 of it),
-`Update` 193, `PreUpdate` 190, outside any schedule 159, `PostUpdate` 137,
-`StateTransition` 53 (16 systems: about 0.8 ms a frame), `Last` 19,
-`SpawnScene` 18. Standalone Mary-O (F22, parallel) is the opposite shape:
-`RunFixedMainLoop` 673 of 968.
-
-Reading (REASONED): the phone runs the hub app, so for the phone the levers
-are the frame phases: fewer systems in them (P1, P3), the false changes and
-re-derivations (P12, P13), and input (P11). The executor switch (P2) is the
-standalone games' lever. `StateTransition` at ~0.8 ms a frame for 16 systems
-is worth one Tracy look.
-
-### F24 — The collision world is copied whole, by each system that asks
-
-MEASURED (phone, all-games profile, main thread,
-`symbolize_android_profile.py --inclusive --thread 8529`): under
-`integrate_sim_bodies` (2.21% inclusive), `world_with_sandbox_solids` takes
-0.58% (`world_with_moving_platforms`, 0.56%, is inside it). A generic
-`clone` frame at 1.76% sits beside `integrate_body`, but the name is too
-generic (and identical code is folded) to say what it copies.
-Source read: `RoomCollision::solids`
-(`ambition_platformer2d_world/src/collision.rs`) borrows the authored world
-only when the room has no moving platform and an empty overlay; otherwise it
-builds a new `ae::World`: a copy of the whole room, then the platforms, the
-overlay's blocks, lines, gate solids, water and portal carves. The body step
-does it once per room per step (`ComposedRooms`); about twenty other systems
-(`git grep` of `.solids()`: brains' traversal, body modes, damage, held items,
-boss ticks, pets, the traces, ...) each compose their own when they run.
-
-Reading (REASONED): two steps, each without behaviour change. First, one
-composed world per room per tick, kept on the room root and rebuilt when its
-geometry, platforms or overlay changed, which every reader borrows. Then a
-layered view (the authored world plus the dynamic parts, read in place) so
-that nothing copies the room at all; `HostSurfaces` already reads two
-sources in place this way.
-
-**Step 1 done (2026-10-17).** `ComposedSolids` (`collision.rs`) keeps the
-composed walls of each room in a few places; every reader of
-`RoomCollision::solids` borrows them. A place is keyed by the change ticks of
-the room's geometry and platforms, and by the contents of the overlay
-(`FeatureEcsWorldOverlay::composes_like`): the overlay is cleared and filled
-again each tick, so its change tick always moves. A reader whose key no place
-holds composes its own, so the retire (`retire_stale_composed_solids`, after
-the platforms advance) changes only how many readers share, never what one
-collides with. `advance_moving_platforms` no longer marks an empty set
-changed. MEASURED (debug, `mary_o_it` in 1-2, holding right and jumping, the
-cache removed and put back in one run, 3 × 200 frames each, the box loaded by
-a parallel `app_it`): compositions a frame 5.7-6.0 → 1.0; frame time 15.1 →
-13.2, 15.2 → 13.1, 15.2 → 15.2 ms. In 1-1 there are none (no platforms, an
-empty overlay: the borrow fast path). Witness
-`the_readers_of_a_tick_share_one_composed_world_and_a_write_composes_again`
-(red with no place kept, and red at "a reader after the write collides with
-the old overlay" with the overlay left out of the key). Left: the one
-composition a tick in a room with moving platforms (step 2, the layered
-view), and the projectile view (`world_with_gate_solids_and_carves`) and
-`hostable_surfaces`, which compose apart.
-
-**Step 2 done by the portal work (da519ec6d, 2026-10-17).** `World::blocks`
-and `World::chains` are now `ae::layered::Layered`: one shared base and a
-small layer for each world. A clone of the room's world copies no block, and
-`world_with_moving_platforms` and `world_with_sandbox_solids` add the
-platforms and the overlay as a layer. What a composition still copies is
-`water_regions` and `climbable_regions` (`Vec`s, a few entries in each room).
-
-### Not a lever (keep out of this run)
-
-Session-scoped App globals (C03: 30 counted plus 19 uncounted instances) are
-reset only on session edges: correctness work (S6), no per-frame cost. The
-`ambition_platformer2d` facade (209 `pub use`) costs compile time only.
-Rollback costs about 0% offline (`check_distance: 0`).
-
-## Proposals, ranked by structural leverage
-
-| # | Proposal | Removes | Size | Behaviour change |
-| --- | --- | --- | --- | --- |
-| P1 | Per-game engine profiles: `BossCatalog` always present (empty); ledgers under Dialogue; grabs, mounts, match stocks as group members with capabilities; extension lowering installed by the capability that owns the phase; demo hosts call `for_profile` | about 115 systems a tick in Mary-O and Sanic | large | no, except decisions D3, D4 |
-| P2 | DONE 2026-10-17: one executor policy (`serialize_main_schedules`), called by every foundation including the windowed demos, covering `Fixed*` and `StateTransition` (F22, F23): a standalone tick ~6× cheaper for Mary-O and ~2.4× for Sanic, the hub +3% | the multi-threaded executor cost of every frame and fixed system in the windowed demos | small | no |
-| P11 | DONE for the clash pass, in-repo (F13): `press_all_action_update`; an upstream PR for the pass and the boxed lookups remains | 19-32k allocations a frame, ~80% of a standalone frame's | small | no |
-| P12 | Derive on change, not every tick (F15, F16, F20): first writes that mark only real changes (the cluster step, the resources of F20), then the four systems; the change detector (`changes_by_site.csv`) finds the next ones and verifies each | per-tick re-derivations and false changes that wake change filters | small each | no |
-| P14 | One composed collision world per room per tick, shared; then a layered view with no copy (F24) | ~0.6% of phone CPU in the body step, plus each other composer | medium | no |
-| P13 | One keyed-reconcile helper for presentation entities (F21), and the remaining immediate-mode systems moved onto it | per-frame despawn and spawn of presentation entities | small-medium | no |
-| P3 | Hub: gate each game's session gameplay by its scope (S2, in part: F31); install Ambition, physics debris and 3D lighting only for the games that use them (S2b); move shared techniques out of `ambition_demo_smash` | 82+ foreign systems while one game plays, 72 hub-only systems | medium | no |
-| P15 | Render primitives apart from simulation objects: static visuals as built meshes (the terrain skin is done, F32; next the fixtures, unskinned tile blocks, the hidden sprite each skinned block keeps) | per-entity visibility, transform and extraction work for static art | medium | no |
-| P16 | A repeat-allocation pass: the top call sites of `alloc_traces.csv` reuse their buffers | part of the ~4,900 allocations a frame in the hub (F25); mimalloc ~3.5% of phone samples | small each | no |
-| P17 | Baked navigation graphs: a graph is a function of room geometry and body, so build it once (content time or a cache), not at each room entry | the 11 s phone build of 1-2's graph (autoplay, later NPCs) | medium | no |
-| P18 | Each game's systems in its `RulesScopeSet`, not a condition on each system (F34) | a condition evaluation for each gated system | small | no |
-| P6 | Change-driven systems: the two whole-world queries, input bindings, room isolation (F14) | full scans per tick; 444-2,773 allocations a frame in room isolation | small | no |
-| P4 | Interned identities: an integer handle per body, made when its `SimId` is minted; read-model keys by `Entity` | String clones and sorts in 5+ per-tick systems | medium | no |
-| P5 | Read-models built once per drawn frame, by change | repeat builds on slow frames; builds in headless hosts | medium | D2 |
-| P7 | Plumbing: one gizmo trail group, Bevy debug gizmos off in shipping, developer tools only in developer builds, Kira channels | ~80 systems | small-medium | D6, D9 |
-| P8 | Upstream query-state fixes (LDtk, Yarn, bevy_light, GGRS) | ~2% of phone CPU | small each | D5 (only for the LDtk workaround) |
-| P10 | Phone render scale: a reduced main render target, scaled to the surface (`crates/ambition_render/src/quality.rs:190` has no phone path) | fragments, when the GPU is the limit; not the limit today (F11) | medium | D10 |
-| P9 | Content to data: held items, the item enum, Ambition-only item systems | Ambition work in other games; engine edits for content | large | D7 |
-
-## Implementation plans
-
-### P2 — one executor policy (one commit, an A/B, one commit) — DONE 2026-10-17
-
-- Rename `serialize_frame_schedules` to `apply_executor_policy(app)`
-  (`runtime/src/lib.rs:741`), the only place that sets a main-world executor.
-  It serializes each schedule that exists: `First`, `PreUpdate`,
-  `StateTransition`, `Update`, `SpawnScene`, `PostUpdate`, `Last` and
-  `FixedFirst`..`FixedLast`. It leaves the render sub-app and Bevy's own serial
-  schedules alone; the GGRS schedules stay with the rollback crate (measure
-  `SaveWorld`/`LoadWorld` in the same run).
-- Call it from `install_windowed_foundation` as well; delete the second owner
-  (`ambition_app/src/app/plugins.rs:348-374`); fix the false comment at
-  `combat_schedule.rs:985`.
-- A/B: one variable, `AMBITION_SCHEDULE_EXECUTOR` = `frame-serial` (today) |
-  `serial` | `parallel`, read once, logged once, deleted after the decision.
-  Standalone Mary-O needs a committed tick-only binary (`build_demo_app()`,
-  `--ticks N`) so `[census] phases` is not dominated by rendering; 3+
-  interleaved repetitions per arm; equal `AMBITION_SYSTEM_LIST` per arm; the
-  `room_replay` test under each arm for equal state.
-
-### P1 — per-game engine profiles (ordered commits, each green)
-
-`supported_profiles.rs` iterates `SUPPORTED_PROFILES` and `Capability::ALL`, so
-each new capability gets the step test, the not-installed probe and the
-session-edge check from the existing harness.
-
-1. **C1 Extension phases by owner.** `technique_execution` and `boss_conduct`
-   into `BossExtensionPhasesPlugin`; `wielded_use` and `module_entity_tick` into
-   `WieldedExtensionPhasesPlugin` (`extension_composition.rs:32-205`); install
-   order inside each phase kept. Delete the second `BossCatalog` init; gate
-   `drive_boss_animators` on the registry. Test: no port of an omitted phase is
-   offered; a `boss_conduct` module is refused at admission. About 29 + 20
-   systems.
-2. **C2 Dialogue owns the ledgers and the dialog view.** The seven monolith
-   ledgers into `NarrativePayloadLedgersPlugin`; `rebuild_dialog_view` out of
-   `SimViewPlugin` into `DialogViewPlugin`. About 22 systems (only for a game
-   that omits dialogue, D3).
-3. **C3 Mounts.** `MountsPlugin` takes `combat_schedule.rs:776-800` and
-   `install_mount_pose_systems`; the mount ports in the boss phases are
-   installed only with mounts, decided by the composition root. 7 systems.
-4. **C4 Match stocks.** `StocksMatchPlugin` takes `body/mod.rs:925-975` and
-   the finish zoom; the Smash and versus rules assert it. 7 systems.
-5. **C5 Grabs.** `CapturePlugin` takes `combat_schedule.rs:525-672`; the control
-   gate chain splits on two capture-owned sets (same order). 14 systems, only
-   after D4.
-6. **C6 Game profiles.** A profile `platformer-without-bosses-mounts-stocks`;
-   each game exports `ENGINE_PROFILE`; the Mary-O and Sanic hosts call
-   `for_profile`; pack admission compiles against the schemas of the profile.
-   About 55-85 systems a tick per standalone game; re-measure.
-7. **C7** after D3 and D4: Dialogue, Grabs and the Smash moveset leave the
-   standalone profiles.
-
-## Decisions for Jon
-
-Each of these changes what a player sees or what a reader gets. Nothing here
-is done without a yes.
-
-- **D1 — 30 Hz simulation on low tiers.** At most 13-17% of phone CPU (the
-  simulation is 26-35%). Breaks unless fixed first: riders on rising one-way
-  platforms (14 px a tick against 8 px slop), regions under 52 px, hitstop
-  length, NPC jump prediction, AI and enemy cadence in ticks. Needs the
-  tick-rate plan's P0 items.
-- **D2 — Read-models per drawn frame.** RL, headless and trace readers must ask
-  for them.
-- **D3 — Standalone Mary-O and Sanic without Dialogue.** Both have
-  `fallback_dialogue` rows. No standalone build installs a dialogue presenter
-  today (only `ambition_app` installs the Yarn bridge), so those lines are
-  never shown there now. Refuse such rows at admission, or ignore them?
-  REASONED (code read): a standalone game can enter `GameMode::Dialogue` and
-  not leave it. `DialogSimStatePlugin` is installed, its `DialogueNodeIndex` is
-  unpopulated, so `entry_node` opens every non-self conversation
-  (`ambition_dialog/src/context.rs:122`), and `interact.rs:395` sets
-  `Dialogue`; the only system that returns to `Playing` is
-  `sync_dialogue_game_mode`, which only `ambition_app` installs. Today the rows
-  with dialogue are Hall characters (`tier: MainHall`), and the standalone
-  level actors are hostile, so no reached path is known. Omitting Dialogue from
-  the standalone profile (C2/C7) removes the path.
-- **D4 — Smash moveset and grabs out of standalone Mary-O and Sanic.** Their
-  own movesets author attacks and `smash.capture_attempt/pummel/throw`, so this
-  means moving their fighter kits out of the standalone packs (the hub keeps
-  them).
-- **D5 — LDtk respawn one frame late** (a set condition) instead of waiting for
-  the upstream fix.
-- **D6 — Kira dynamic channels.** Changes how music layers crossfade.
-- **D7 — Unknown boss ids refused at admission** instead of the invented
-  fallback boss.
-- **D8 — `SimId` minted by a spawn observer.** Moves where in the tick identity
-  is made (determinism).
-- **D9 — The per-room gizmo trail with two or more live rooms:** rebuild on
-  retained gizmos, or drop.
-- **D10 — Phone render scale** (P10): a lower internal resolution on the low
-  tiers. Visible. Worth it only when a phone run shows the render thread or
-  the GPU as the limit; today the main thread is (F11).
-- **D11 — A catch-up limit** of N ticks per drawn frame (F12): below the limit
-  the game keeps real time; above it, the game slows down instead of dropping
-  more frames. Visible under load only.
-
-Two items are ready and change no behaviour, but each needs a yes for
-another reason:
-
-- **D12 — `Serial` as the default executor of the windowed demos** (F22).
-  One line in `install_windowed_foundation`. With
-  `AMBITION_SCHEDULE_EXECUTOR=serial` these pass: Mary-O's game crate (208),
-  Mary-O's integration tests (95, the room-replay tests among them) and
-  Sanic's (42). Standalone Sanic, same binary, 3 reps per arm (MEASURED,
-  12:40Z; a 2-rep run at 12:35Z gave 7.39 and 3.03): 7.21 ms of simulation
-  per tick parallel, 2.98 ms serial; main thread 948 → 896 ms per second;
-  wall time 14.1 → 12.0 s for the same capture. `frame-serial` (12:37Z, 2 reps) gives 7.18 ms: the saving is all
-  in the `Fixed*` schedules, which only `serial` changes. It changes how every standalone game
-  runs, so it should land with a play test, and the switch is then removed.
-  The one visible difference in the hub captures was the ambient motes, an
-  ordering artifact of `capture_scene`'s camera pin, not of the game (F22).
-- **D13 — withdrawn.** The leafwing clash pass is skipped in this repo with
-  no fork (F13). An upstream PR (skip the pass under `PressAll` in
-  `process_actions`; lookups without boxing) is an outward action for Jon.
-
-## A second opinion, weighed (GPT, 2026-10-16)
-
-Jon passed on GPT's diagnosis. Its points against this page's evidence:
-
-| GPT's point | Here | Verdict |
-| --- | --- | --- |
-| Mary-O pays for Ambition's capabilities; install less, not faster | F0, F1, P1 | agrees; MEASURED (-17% CPU with only Mary-O in the hub; 170 unused systems a frame in standalone Mary-O) |
-| Read-models rebuilt per tick, so slow frames repeat them | P5, D2, F12 | agrees; REASONED (no limit of ours on catch-up, F12) |
-| Phones have no reduced render target | P10, D10 | true (`crates/ambition_render/src/quality.rs:190`); not the limit of today's runs: the main thread is the limit and the render thread is idle 75% of the time (F11) |
-| Transparent overdraw (5.3x on the HD 630) | journal 2026-08-29 | a GPU cost on a desktop iGPU; not measured on the phone; same reasoning as P10 |
-| Effects composite bodies off-screen | — | agrees it is not a steady cost (direct part drawing since 10-05); spikes only; not measured here |
-| Asset upload stalls cause the worst drops | — | plausible for p95; the phone runs did not separate spikes from the steady cost |
-| Single-threaded executor for the standalone fixed step | P2 | agrees, and wider: the windowed demos run every schedule multi-threaded (F3), and F11 shows why it matters |
-| Keep 60 Hz for now | D1 | agrees; D1 stays Jon's call |
-| Do not rewrite movement, broadphase or AI | — | agrees; no system body of ours is over 1.4% on the main thread (F11) |
-
-## A code review of the slices, acted on (GPT, 2026-10-17)
-
-Jon passed on a review of the 10-16/17 slices. Each finding, with what was
-done:
-
-| Finding | Done |
-| --- | --- |
-| P0: the navigation graph key left out world inputs that the kernel reads (`1564bae`) | `geometry_stamp` folds the whole `World` through a serializer (11.5 µs a 400-block room, release; once for each world in a run). `144281d79`; witness `each_part_of_the_world_the_kernel_reads_moves_the_stamp` |
-| P1: terrain mesh invalidation followed only blocks that came or went (`fd40043`) | Also a block's rectangle, the keep-out, the decor density, a picture's size (in the chunk stamp) and a part's picture handle. `407864224`; witness `the_skin_follows_each_of_its_inputs_changed_in_place` (one registered system: a `run_system_once` system sees each filter as changed) |
-| P1: the incremental sprite check trusted a first generation it never checked (`0dc21f5`) | `SheetGeneration::rigs_checked`; an unchanged rig is taken unchecked only from a checked generation. `ba91ba1da` |
-| P2: retired debris took budget places and kept Avian awake (`83bc8a8`); colliders built with debris off | `7aabe0e84` |
-| P3: capability dormancy read THE room, so two live rooms ran every capability | `GoverningRules::any_live_room_uses`. `876c0aea5`; witness `a_capability_sleeps_while_no_live_room_uses_it` |
-| P3: navigation first-build latency | Not changed: only the autopilot builds a graph today, on the async compute pool; no Mary-O body navigates. P17 (baked graphs) stays the direction |
-| P2: profile the Mary-O 1-2 simulation on the phone | No device on this machine; measured on the desktop instead (F38): many walking bodies, each a full kernel step; the dormant-at-rest lever is recorded there |
-
-## Run log (2026-10-16)
-
-The completed 2026-10-16/17 implementation diary is retained in Git history.
-Current measurement tools and remaining levers are documented above; do not
-use these old numbers as an acceptance gate.
-
+## Historical run receipts and how to interpret them
+
+- October 16 Pixel 5 (`97ff2541e`, incremental profile): p50 24-46 ms,
+  p95 37-131 ms per 5-second window. Some samples were confounded by
+  scene/build differences; `android-profile` was incremental until October 16.
+- October 17 Mary-O 1-2: 26 physics actor steps/tick vs 20 in 1-3,
+  and higher collision-world copying. Indexing block queries into
+  `Layered::near` yielded no significant change and was reverted. Deferred
+  exact-at-rest skipping remains conditional, not a completed speedup.
+- October 18 hall: Tracy instrumentation inflated a simulated tick sharply;
+  use a `--no-tracy` capture for absolute costs. Several safe hash/read/early
+  out changes reduced instructions ~13% in an interleaved headless A/B.
+- October 23/24: the latest desktop main-world comparisons and hub-frame
+  results are in F49 above. F48 is the later per-frame system census. Neither
+  is a November phone/GPU acceptance result.
+
+The removed F0-F49 per-probe narratives, code-review diary and historical P1
+implementation sketch remain in Git history. Their obsolete line numbers and
+exact old path references should not be used to select work without a current
+source/profile check.

@@ -10,9 +10,10 @@ Read the pages in this order:
    and lifetime map. It is the human owner of every row's evidence class.
 2. [`consolidation-plan.md`](consolidation-plan.md) — the ranked campaigns, which
    of them are open, and the regression rules of the closed ones.
-3. [`campaign-metrics.md`](campaign-metrics.md) — the current static measurements
+3. [`session-authority-none-arms.md`](session-authority-none-arms.md) — machine-indexed session-authority none-arm dispositions and reasons.
+4. [`campaign-metrics.md`](campaign-metrics.md) — the current static measurements
    and the counting rules behind them.
-4. [`consolidation-ledger.json`](consolidation-ledger.json) — the stable-ID machine
+5. [`consolidation-ledger.json`](consolidation-ledger.json) — the stable-ID machine
    ledger. Update an item instead of adding a second prose account of the same
    fact.
 

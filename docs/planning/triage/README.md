@@ -29,6 +29,10 @@ pages).
   compiler-based method for finding unused dependency declarations, and its
   blind spots. Re-run after a carve.
 
+## Dated audit snapshots
+
+- [`2026-10-11-integration-source-audit.md`](2026-10-11-integration-source-audit.md) — earlier integration source audit; revalidate any residual against the queue or owner document before selecting it.
+
 ## Design and scope pages
 
 - [`ambition-registry-core.md`](ambition-registry-core.md) — registry

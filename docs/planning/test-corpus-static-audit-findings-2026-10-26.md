@@ -117,7 +117,7 @@ Protect the *failure mechanisms*, not the present shape or exact size of each te
 
 ## Suggested order of work
 
-1. **Fix scanner boundaries:** use `git ls-files` or exclude `.worktrees/`, `target/`, and generated/vendor copies. Run near-duplicate selection *after* filtering, not before a global top-N cap. Update terminology: "test-bearing file LOC" is not "test LOC".
+1. **Keep scanner boundaries correct:** the 2026-10-26 follow-up corrected worktree/nested-checkout traversal. Check that the current analyzer still excludes `.worktrees/`, `target/` and vendor/generated copies; use its tracked-only mode when comparing Git-indexed source, and apply near-duplicate selection after filtering. Distinguish "test-bearing file LOC" from actual "test LOC". This is a regression guard, not an outstanding scanner implementation task.
 2. **Refactor repeated app startup:** `smash_ride.rs` and `versus_stage.rs`, retaining all cases and assertions. Run focused `app_it` checks according to `docs/recipes/cheapest-sufficient-check.md`.
 3. **Audit optional diagnostic retention:** first `enemy_body_scale.rs`, `sky_census.rs`, then the rollback-specific probes after consulting active issue state. Do not treat ignored as obsolete by definition.
 4. **Table-drive meaningful variants:** wall penetration, dash/slide, left/right axis. Keep every case and per-case error context.

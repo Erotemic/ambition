@@ -65,7 +65,9 @@ links to.
   restructuring candidates and their triggers.
 - [`moveset-inspector.md`](moveset-inspector.md) — combat inspection and the
   moveset observatory.
-- [`test-corpus-static-audit-phase2.md`](test-corpus-static-audit-phase2.md) — static test-corpus audit and its follow-up evidence.
+- [`test-corpus-static-audit-phase2.md`](test-corpus-static-audit-phase2.md) — initial static test-corpus inventory and analyzer limits.
+- [`test-corpus-static-audit-findings-2026-10-26.md`](test-corpus-static-audit-findings-2026-10-26.md) — corrected historical test-audit evidence.
+- [`test-suite-consolidation-action-plan-2026-10-26.md`](test-suite-consolidation-action-plan-2026-10-26.md) — selected TEST-LANES fixture and diagnostic cleanup plan.
 
 ### Game (`game/`)
 
@@ -83,6 +85,14 @@ links to.
   — character reactions to world state.
 - [`game/inhabited-world-dialogue-pass.md`](game/inhabited-world-dialogue-pass.md) —
   inhabited-world dialogue and presentation follow-up.
+- [`game/art-dimension.md`](game/art-dimension.md) — visual language and art-direction requirements.
+- [`game/enemy-patterns.md`](game/enemy-patterns.md) — reusable enemy behavior and authored encounter design.
+- [`game/history-dimension.md`](game/history-dimension.md) — History dimension world concept.
+- [`game/history-dimension-long-range-roadmap.md`](game/history-dimension-long-range-roadmap.md) — longer-term History work, not an execution queue.
+- [`game/history-atlas-report.md`](game/history-atlas-report.md) — dated History coverage and worldbuilding inventory.
+- [`game/world-composition.md`](game/world-composition.md) — game-specific world structure and composition.
+- [`game/world-layers-and-travel.md`](game/world-layers-and-travel.md) — route, layering, and travel semantics.
+- [`game/world-detail-24h.md`](game/world-detail-24h.md) — completed world-detail run and remaining revalidation.
 - [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
   skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
@@ -111,6 +121,8 @@ links to.
 - [`engine/architecture.md`](engine/architecture.md) — the owner page: converged
   shape, the rules workspace policies cite, decomposition doctrine, target
   authorities, standing decisions and the Engine 1.0 program map.
+- [`engine/network-topology-and-authority-research.md`](engine/network-topology-and-authority-research.md) — network authority models and unresolved topology tradeoffs, not an approved migration.
+- [`engine/peer-room-commit-protocol.md`](engine/peer-room-commit-protocol.md) — live peer-room commit requirements and remaining acceptance.
 - [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md)
   — bounded ownership packets A1–A12 and their state.
 - [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
@@ -167,6 +179,7 @@ links to.
   — shared vocabulary.
 - [`engine/instance-lifetime-provenance-and-persistence.md`](engine/instance-lifetime-provenance-and-persistence.md)
 - [`engine/room-transition-loading.md`](engine/room-transition-loading.md)
+- [`engine/readiness-driven-room-transitions.md`](engine/readiness-driven-room-transitions.md) — readiness and visual transition follow-ups.
 - [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md)
 - [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md)
 - [`engine/binding-resolution-boundary.md`](engine/binding-resolution-boundary.md)
@@ -175,6 +188,7 @@ links to.
 ### Engine: actors, items and control
 
 - [`engine/composable-actor-resources.md`](engine/composable-actor-resources.md)
+- [`engine/actor-effects-and-modifier-composition.md`](engine/actor-effects-and-modifier-composition.md) — planned canonical source-owned effects and modifier phases.
 - [`engine/character-authoring-package.md`](engine/character-authoring-package.md)
 - [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md)
   — occurrence, custody and entitlement.
@@ -198,6 +212,7 @@ links to.
 - [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md)
   Nothing teleports: props and projectiles straddle and cross as bodies
   do, and a seam lab (a gauge prop, a scenario matrix) measures it.
+- [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md) — paired-portal identity and aperture design.
 - [`engine/portals-a-body-in-two-places.md`](engine/portals-a-body-in-two-places.md)
   A body straddling a portal is hit, hurts and collides on both sides, with
   no hacks (Jon, 2026-10-16).
@@ -221,6 +236,7 @@ links to.
 ### Engine: AI, perception and dialogue
 
 - [`engine/fighter-brain.md`](engine/fighter-brain.md)
+- [`engine/fighter-tactical-intent.md`](engine/fighter-tactical-intent.md) — paused tactical-intent experiment; do not substitute for production BRAIN work.
 - [`engine/bounded-perception-and-attention.md`](engine/bounded-perception-and-attention.md)
 - [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md)
 - [`engine/agentic-character-runtime.md`](engine/agentic-character-runtime.md)
@@ -263,6 +279,9 @@ links to.
   — character identity, art families and animation coverage without a game build.
 - [`engine/asset-library-editor-and-delivery.md`](engine/asset-library-editor-and-delivery.md)
   — authored assets, immutable publication, inspector evolution, cleanup and content updates.
+- [`engine/asset-library-implementation-review.md`](engine/asset-library-implementation-review.md) — asset selection, publication and inspector findings.
+- [`engine/sprite-bundle-publication.md`](engine/sprite-bundle-publication.md) — sprite publication design and remaining work.
+- [`engine/tooling-layout-and-editor-consolidation.md`](engine/tooling-layout-and-editor-consolidation.md) — developer tool ownership and layout.
 - [`engine/headless-verification.md`](engine/headless-verification.md)
 - [`engine/prevalidated-content-artifacts.md`](engine/prevalidated-content-artifacts.md)
   — content validated ahead of time for fast admission; deferred.

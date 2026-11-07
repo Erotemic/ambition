@@ -6,10 +6,10 @@ also the Smash execution order; [`queue.md`](../queue.md) row D72 points here.
 Product intent is in [`super-smash-siblings.md`](super-smash-siblings.md).
 Body-generic combat ownership is in
 [`../engine/combat-model.md`](../engine/combat-model.md). Do not copy open rows
-into another Smash plan. **Why it does not yet FEEL like Ultimate, and the
-order to fix that, is
-[`smash-feel-audit-2026-10-29.md`](smash-feel-audit-2026-10-29.md)** (a wired
-row here is not a felt one there).
+into another Smash plan. **The remaining human-play and presentation acceptance** is in
+[`smash-feel-audit-2026-10-29.md`](smash-feel-audit-2026-10-29.md).
+That audit's original implementation roadmap was substantially shipped in
+October; a wired row here is still not proof of game feel.
 
 Legend: `✔` shipped · `◐`/`~` partial · `▢` absent.
 Effort: `S` small slice · `M` medium slice · `C` multi-slice campaign.

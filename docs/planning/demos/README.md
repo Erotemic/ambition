@@ -25,6 +25,11 @@ intent). Each demo crate pair is `game/ambition_demo_<name>` (content) and
 `game/ambition_demo_<name>_app` (standalone shell). Add `--headless` to a
 `run_game.sh` demo target for its sim-only shell.
 
+The [Smash feel audit](smash-feel-audit-2026-10-29.md) is a compact
+record of completed October feel changes and their remaining human-play,
+posing, camera and CPU acceptance. The shipped-features inventory remains
+[Smash parity](smash-parity-inventory.md), not the old feel roadmap.
+
 The [Smash defect review](smash-defect-review-2026-10-31.md) records source
 findings. [SMASH-DEFECTS](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
 owns their execution. [Expressive fighter poses](smash-expressive-fighter-poses.md)

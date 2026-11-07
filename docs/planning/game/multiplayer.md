@@ -87,8 +87,11 @@ remain in [`../engine/local-coop-integration.md`](../engine/local-coop-integrati
   viewport, controls, or gameplay, even when they are in different rooms.
   With shared views, the presentation must separate the affected view before
   showing a private loading cover, or use another presentation that does not
-  cover the other player's image. The current peer room-commit freeze is a
-  known online blocker; the requirement does not certify that protocol.
+  cover the other player's image. Ordinary GGRS peer room travel now commits
+  on the shared input timeline without a global hold/rebase (2026-11-04).
+  The remaining acceptance covers broader peer/feature verification,
+  distinct checkpoint/rebuild barriers, and real external transport; see
+  [peer room commits](../engine/peer-room-commit-protocol.md).
 - **Debugging:** F1 diagnostics must use the viewed room and participant, not
   the primary player's room. Developer-only graphics must obey the same
   room/view isolation rules as gameplay graphics.
@@ -99,12 +102,12 @@ systems. The executable work is the `MULTIPLAYER-SEAMS` row in
 
 ## Configurable party travel
 
-Maintainer request, 2026-11-03. Independent exploration with adaptive split and
-merge remains the default. Keep `Always Split` as a separate view option.
-Add an optional view that follows the designated primary participant. A member
-outside that view gets a return prompt and can return beside the leader with
-the semantic Select control. Use the shared input bindings and platform glyphs.
-A return must preserve the controlled body, its inventory, and its capabilities.
+**Implemented 2026-11-04 (PARTY-TRAVEL-POLICIES).** Independent exploration
+with adaptive split/merge remains the default, and `Always Split` is a separate
+view option. The optional leader-following view, out-of-view return prompt and
+semantic Select return use shared bindings. A return preserves the controlled
+body, inventory and capabilities. The rules below remain the authoritative
+product contract for regression and future extension.
 
 Keep view choice and travel rules separate. A game can configure these travel
 rules for a group:
@@ -140,7 +143,8 @@ selected group once; a follower cannot cross a forbidden edge; all-member
 agreement cancels on departure; conflicting exits do not commit; replay and
 peer confirmation preserve the same group, room state, and item ownership.
 
-The work is [PARTY-TRAVEL-POLICIES](../queue.md#party-travel-policies--configurable-group-crossings-and-a-leader-view).
+The completed [PARTY-TRAVEL-POLICIES receipt](../queue.md#party-travel-policies--configurable-group-crossings-and-a-leader-view)
+records the implementation. Do not requeue its acceptance as if it were unbuilt.
 
 ### Gate connection lifetime
 
@@ -153,13 +157,12 @@ the gate catalog can set another positive duration.
 
 ## Room and world consequences
 
-Different-room play means Ambition cannot assume one globally active room.
-Eventually the session must support at least the minimal case of two resident
-room/active-area partitions with separate controlled bodies, while shared world
-state, quests and persistent objects remain coherent.
-
-The implementation should grow from real two-participant needs rather than
-attempting a fully general open-world streamer in the first slice.
+Different-room play cannot assume one globally active room. Ambition already
+supports multiple live room roots and separately controlled bodies. Persistent
+world facts, item custody and ordinary room crossing use shared session
+semantics; **remote replication, independently rewound regions and late joining
+remain separate unimplemented network capabilities**. Extend from concrete
+customers rather than building a general open-world streamer by default.
 
 ## Game-state questions to answer during implementation
 
@@ -249,75 +252,31 @@ seat, so this is not a regression; it is now written down.
   levels, parallax, body-riding visuals and portals. A second view opens while
   the players are in two rooms and closes when they meet
   (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
-- The through-portal window, built 2026-10-06: each live room that a view
-  frames has the windows of its own portals, made for the body and the camera
-  of that view, and a camera draws the windows of its own room only. Before,
-  measured: the portal pair in the second player's room had no window ("4
-  portals in 2 rooms, rigs=2"), and the window of the first player's room was
-  on a layer that each camera draws (cone layers `[5, 520]`), so it was drawn
-  in the second player's view at the same coordinates.
-  - `PortalViewer` was one resource. It is now `PortalViewers`: one eye for
-    each live room, published by the host from each local view's body
-    (`sync_portal_viewer`; the first view by id that frames a room is its
-    eye). The capture rigs are by (live room, channel).
-  - A window mesh is stamped into its room. `isolate_live_rooms` moves the
-    window layer of a stamped window to a window layer of its room, and a
-    camera adds the window layer of the room its view frames. It is not the
-    room band: a capture adds that band to see its room, and would capture
-    its own window.
-  - The host camera sample was one resource too ("the last writer wins").
-    `camera_follow` now also records it for each view (`PortalObserverViews`),
-    and the windows of a room are clipped to, and captured for, the camera of
-    the view that is its eye.
-  - A body behind a pane is cut by the eye of its own room.
-  - Witnesses (system fixtures; the capture rigs do not run headless, so no
-    shipped-game arm):
-    `each_live_room_that_has_an_eye_has_the_windows_of_its_own_portals` and
-    `the_windows_of_a_room_are_made_for_the_camera_of_its_own_observer`
-    (`ambition_portal2d_presentation` `view_cones/rig_tests.rs`),
-    `each_camera_draws_only_the_windows_of_the_live_room_its_view_frames`
-    (`ambition_render` `view_isolation.rs`),
-    `each_live_room_a_view_frames_has_the_eye_of_that_views_body`
-    (`ambition_platformer2d_host` `portal.rs`),
-    `the_camera_sample_of_each_view_is_recorded_for_that_view`
-    (`ambition_render` `camera.rs`).
-  - Not done: while two rooms are live a window shows no other window (no
-    recursion): the layer of a portal's own window is by channel, and two
-    rooms can hold one channel. The sky copies of a capture are also by
-    channel, and are copied from the root view's sky: two rooms that hold one
-    channel put two skies in each capture of that channel, and the window of
-    the second room shows the first room's sky. Two views of ONE room share
-    the windows of the first view (see A2). The portal camera continuity is
-    still one screen anchor for the process. The developer dump and overlay
-    of the windows describe the first eye only.
-- The player trail is drawn per room (2026-10-06): each trail goes to the
-  gizmo group of its body's room band, so only the camera that shows that
-  room draws it
-  (`each_trail_is_drawn_in_the_gizmo_group_of_its_rooms_band`). Before, every
-  gizmo was in the default group on layer 0, which every view's camera
-  draws, so Bob's trail showed over Alice's room.
-- Not done: the debug overlays (`draw_debug_viz`, the app's
-  `draw_debug_overlay`, `debug_portal_view_zones`) read the primary seat's
-  room (`PrimaryLiveRoom`) and are still in the default gizmo group, so they
-  are drawn in every view, over the other room. They are the developer's
-  own seat by design; the remaining step is to route them to the primary
-  room's band. The rollback observatory draws no ghost while two rooms are
-  live. The banner is session-wide and follows the primary seat. The Q150 ruling (2026-10-03, in
-  [`../maintainer-decisions.md`](../maintainer-decisions.md)) makes the HUD
-  per participant and the local music an authored-priority choice with the
-  primary participant as the tie-break. The music is built. Of the HUD,
-  the built-in vitals HUD is per view: each local view shows the meters of
-  the body it follows (`ViewHudFacts`), in its own column
-  (`each_view_of_the_split_shows_its_own_participants_purse`), and each other
-  seat on a shared view has its own HUD on it
-  (`bob_beside_alice_has_his_own_hud_on_the_shared_view`). While two or
-  more HUDs are on the screen, each says whose it is, as "P1", "P2" (the
-  seat that drives the body it shows, `ViewHudSeat`; one HUD says nothing,
-  because it can only be the player's own; `stacked_huds_say_whose_each_is`).
-  Open: the declared readouts (`HudReadouts`: Mary-O's coins, Sanic's rings)
-  are one per session; and an online peer shows every
-  seat on its shared view, since only A4's client-local layout knows which
-  seats are its own.
+- **Through-portal windows:** each live room has its own portal eye
+  (`PortalViewers`) and per-view camera sample (`PortalObserverViews`); portal
+  meshes and capture rigs isolate windows to their room. Separate-room
+  system witnesses cover eyes, camera samples, room window layers and captures;
+  this does not substitute for a full graphical two-view acceptance test.
+  **Still open:** windows do not recurse across two live rooms sharing a channel;
+  channel-keyed sky captures can mix the rooms' skies. Two views of one room
+  share the first view's portal eye (A2), portal continuity has one process
+  screen anchor, and the portal dump describes only the first eye. The portal
+  owner must address these without regressing room isolation.
+- **Player trails are room-isolated** (2026-10-06): each trail follows
+  its body's room band (`each_trail_is_drawn_in_the_gizmo_group_of_its_rooms_band`).
+- **Developer view isolation fixed (`0e0099f0e`).** The debug presenters
+  now use native room/view-owned retained drawings for grids, labels and
+  portal diagnostics, with separate-room GPU witnesses. See
+  [local co-op integration](../engine/local-coop-integration.md#source-findings-and-confidence).
+  The rollback observatory's cross-room ghost presentation and any untested
+  debug overlay paths need their own evidence; do not revive the old
+  default-gizmo-group diagnosis as a current failure.
+- **HUD/music:** the Q150/Q72 music priority rule is implemented, and vitals
+  HUDs follow their owning views/participants, including stacked shared-view
+  labels. **Still open:** the declared `HudReadouts` (Mary-O coins, Sanic rings)
+  remain session-scoped, and remote local-seat filtering needs A4's
+  client-local layout. Do not confuse those residuals with the finished
+  built-in vitals HUD.
 - A conversation holds only the talker, also with two players in one room
   (ruling 2026-08-06; Q163, its one-room duplicate, closed 2026-10-19):
   the session enters the dialogue mode only while one seat drives a body and

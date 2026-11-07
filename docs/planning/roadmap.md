@@ -127,10 +127,16 @@ Where P2 stands:
   route-facing record. A smashed breakable is session state restored by
   re-authoring, by design (`SpawnOrigin::Dynamic` is not persisted).
   [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md)
-  owns the durable families. The authored world uses few of the conditions;
-  whether that is a content gap is question 55, not an engine deficit.
-- **Item custody.** The exploration half of every migration row is closed. The
-  remainder is two maintainer decisions and one fighter-side call site.
+  owns the durable families. The authored world uses relatively few
+  conditions. Q55 is ruled: do not manufacture demo content merely to
+  exercise each capability family; sparse usage is not itself an engine deficit.
+- **Item custody.** The explored migration paths are documented; remaining
+  work is engineering rather than two pending maintainer rulings. The item
+  owner still records the atomic durable-horizon writer, orphaned holders,
+  match-item provenance and other lifetime residuals. The selected
+  `LOADOUT-AUTHORITY` queue row fixes the separate menu-equipment write path.
+  See [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md)
+  and [`queue.md`](queue.md#loadout-authority--equipment-changes-enter-through-simulation-input).
 - **Occurrence lifetime.** An occurrence enters the whereabouts ledger through
   custody, and the ledger enforces it, so a room unload cannot silently erase a
   persistent instance.

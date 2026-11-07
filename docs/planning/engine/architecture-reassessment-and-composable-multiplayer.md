@@ -10,11 +10,15 @@
 
 ## Why the plans are being reopened
 
-The source has strong deterministic and rollback foundations, but the earlier plan incorrectly
-let whole-App GGRS history, room rebases, session lifecycle and app composition stand in for a
-general multiplayer architecture. The practical result is that independent players in different
-rooms still share a global synchronization/lifecycle barrier. This does not mean the rollback
-engineering was wasted: it remains the correct starting point for bounded competitive games.
+At the October 26 baseline, the source had strong deterministic and rollback
+foundations, but the earlier plan treated whole-App GGRS history, room rebases,
+session lifecycle and app composition as a general multiplayer architecture.
+**The October ordinary-room global barrier was subsequently removed:** by
+November 4 peer crossings applied on a shared input timeline without a global
+hold/rebase. That does **not** implement independent regional rollback,
+replication, late join or host migration. The GGRS investment remains a useful
+basis for bounded competitive games; see
+[peer-room commit protocol](peer-room-commit-protocol.md).
 
 Plans and accepted ADRs are **reviewable engineering decisions**, not source facts or
 irrevocable maintainer constraints. The binding product constraints here are: games can exclude
@@ -86,8 +90,10 @@ admitted regions and committed facts. Examples:
   speculative combat cannot remove a reward already made canonical elsewhere without an explicit
   compensation protocol.
 
-The current GGRS session-wide `lifecycle_commit` protocol remains a valid *implemented safety
-mechanism* for that backend. It must not become a universal rule for every game host. An island
+The GGRS session-wide `lifecycle_commit` barrier remains an implemented
+safety mechanism for checkpoint restores and explicit rebuilds, **not for
+ordinary peer room crossings**. It must not become a universal rule for every
+game host. An island
 proof requires real state isolation, not just a room filter on a global solver or the presence
 of `InRoomInstance`.
 

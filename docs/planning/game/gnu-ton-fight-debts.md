@@ -6,7 +6,13 @@ anything inelegant that you've added, log it in docs/planning for refactor
 later." The fight's design is in `bosses.md`; the debts of the giant's
 PLACES are in `../engine/the-art-says-where-a-body-stands.md`.
 
-Status of each: OPEN. The content comes first.
+**Status: mixed, not all open.** Debt 1 (real portal fist) is paid; the
+held-pair and light-line ports in debt 2 landed. Debts 3, 6 and 12 retain
+specific presentation/identity residuals. Other debt descriptions remain
+candidates for revalidation rather than automatically accepted tasks. The
+encounter design is in [bosses.md](bosses.md); select implementation through
+[`queue.md`](../queue.md) or [`tracks.md`](../tracks.md).
+The content comes first.
 
 ## What was elegant
 

@@ -1,15 +1,16 @@
 # Room-transition loading
 
-**2026-10-26 multiplayer distinction:** The current readiness/commit sequence remains valid for
-its existing one-session implementation; it must not become a universal requirement that one
-client waiting on a new room's assets pauses a different participant's authoritative simulation.
-Target separately scoped prepare, admission, committed body/custody handoff, and viewer-specific
-loading cover. Current GGRS rebases remain safe until an alternative passes a multi-participant
-test; see [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md)
+**2026-11-04 peer-travel correction:** A ready ordinary crossing now applies
+on the shared GGRS input timeline, including rollback/replay, without rebasing
+or holding an unrelated participant's simulation. Its preparation and
+viewer-specific cover remain distinct. Checkpoint restores and explicit
+rebuilds continue to require the confirmed lifecycle barrier; remote external
+transport and broader feature checks are not complete. See
+[peer room commits](peer-room-commit-protocol.md),
+[architecture reassessment](architecture-reassessment-and-composable-multiplayer.md)
 and [ADR 0029](../../adr/0029-direct-gameplay-reveal-is-readiness-gated.md).
-**State:** OPEN. The readiness/authorization transaction is implemented for
-room transitions. Remaining work: transition latency and residency quality, and
-the external peer lifecycle barrier.
+**State:** OPEN for measured transition latency, residency quality and broader
+external peer verification, **not** for reimplementing an ordinary-travel rebase.
 The [checkpoint protocol](checkpoint-restoration-protocol.md) is normative for
 restore inputs, cancellation, prefetch coherence and domain mutation timing.
 
@@ -44,11 +45,21 @@ speculative rollback history can restore an earlier room.
 
 ### Rollback host
 
-A rollback host does **not** mutate the room inside speculative `GgrsSchedule`.
-`commit_confirmed_lifecycle` waits for the lifecycle intent to be confirmed and
-for the same authorized construction plan/readiness transaction. It commits the
-room outside speculative execution and installs a new GGRS frame-zero baseline.
-The old rollback ring is no longer a source of room state.
+**Ordinary peer travel:** the admitted crossing is prepared against its frozen
+content/room plan, then applied through shared frame-input verdicts on the
+simulation timeline. Both peers apply on the same frame; rollback may replay or
+withdraw a speculative crossing. An ordinary crossing does not install a new
+GGRS generation. Presentation covers and confirmed arrival effects are scoped
+to the initiating participant and do not select the commit frame. The
+[peer-room protocol](peer-room-commit-protocol.md) owns the precise validation,
+checksum, cancellation and lifetime gates.
+
+**Checkpoint restore or explicit room rebuild:** the separate
+`commit_confirmed_lifecycle` road waits for confirmed authorization and the
+validated construction/readiness transaction. It commits through the
+lifecycle barrier and installs the new GGRS frame-zero baseline. Do not apply
+this reset path to an ordinary crossing, or bypass it for a whole-session
+reconstruction.
 
 ## Session ownership
 
@@ -68,10 +79,11 @@ Further convergence with replay/restore belongs to
 
 ## Current performance evidence
 
-Transition quality is primarily an asset/readiness/residency question rather
-than a reason to make speculative room mutation part of rollback. Existing
-measurements showed material asset work around room/session activation and later
-render-device materialization can dominate user-visible stalls.
+Transition latency is primarily an asset/readiness/residency measurement,
+separate from ordinary peer crossing authorization. Existing measurements
+showed substantial asset work around room/session activation; render-device
+materialization can dominate visible stalls. Do not infer a synchronization
+protocol from a loading-screen timing problem.
 
 Use [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md) for
 asset demand/materialization/residency architecture and
@@ -125,19 +137,23 @@ Possession/body/item carry policy must derive from explicit lifetime/custody
 semantics. Do not add special transition-only mirrors for populations that the
 construction/reconstitution model should understand.
 
-### T4 — external/P2P coordinated commit is trigger-based
+### T4 — external/P2P transport and reset-path verification are trigger-based
 
-When real external netplay exists, peers need a coordinated confirmed lifecycle
-barrier around the existing plan/commit/rebase seam. Local sync testing cannot
-prove corrected remote input or peer content agreement.
+Ordinary peer travel already has a shared-frame coordination protocol and
+focused delayed-peer/replay witnesses. Real multiprocess transport, additional
+content/disagreement cases and the distinct confirmed barrier for checkpoint
+restore or explicit rebuild still require feature/customer validation. Do not
+reintroduce a whole-session rebase for normal travel.
 
-Owner: [`netcode.md`](netcode.md).
+Owners: [`netcode.md`](netcode.md) and
+[`peer-room-commit-protocol.md`](peer-room-commit-protocol.md).
 
 ## Invariants
 
 - a transition has one target plan and one readiness/authorization result;
 - a failed preflight/readiness check does not publish a half-constructed room;
-- rollback hosts do not cross room boundaries inside speculative history;
+- ordinary peer crossings may be applied and replayed on shared rollback
+  frames, while checkpoint restores/rebuilds retain a confirmed barrier;
 - eager and rollback hosts use the same semantic room constructor;
 - session A's rollback health cannot block session B's room transition;
 - carried/persistent populations follow lifetime/custody policy rather than
@@ -154,8 +170,9 @@ Owner: [`netcode.md`](netcode.md).
 - an invalid target/readiness condition retries/refuses without publishing a
   partial transition;
 - cross-game shell lifecycle leaves the new session able to transition rooms;
-- future external/P2P acceptance proves a peer-coordinated lifecycle rebase rather
-  than a local-only substitute.
+- external/P2P acceptance preserves the shared-frame ordinary-crossing
+  protocol and confirms reset/rebuild barriers separately, without relying
+  solely on local in-memory tests.
 
 ## Admission and publication are separate failure boundaries
 

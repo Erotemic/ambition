@@ -84,11 +84,14 @@ The 2026-10-24 source archive at `057721102dc3` documents:
 - Exact prepared-content identity, rollback schema and input-identity work;
   see [`netcode.md`](netcode.md) and
   [ADR 0026](../../adr/0026-immutable-prepared-content-and-exact-session-identity.md).
-- A **safe but expensive** current peer room-commit mechanism: the replicated
-  simulation freezes through a coordinated commit / new GGRS session
-  generation. `netcode.md` reports **23–43 held updates** at simulated
-  link latency of three updates. This measurement is not a generalized network
-  benchmark, but the unrelated-room stall is a known design problem.
+- **October 24 historical baseline, superseded for ordinary crossings:**
+  the old room-commit path froze the replicated simulation through a new GGRS
+  session generation (**23–43 held updates** at simulated three-update link
+  latency). The ordinary-travel replacement landed by November 4: peer
+  crossings now apply on a shared input timeline without that global hold.
+  Keep the old measurement as experimental provenance, not a current bug or
+  performance baseline. Checkpoint/rebuild barriers remain distinct; see
+  [peer room commits](peer-room-commit-protocol.md).
 
 **Important distinction:** All-peer deterministic simulation and GGRS P2P
 networking are valuable existing investments. Neither guarantees efficient
@@ -198,8 +201,8 @@ implicitly switching authority at room boundaries.
    confirmed combat/quest consequences have explicit persistence semantics.
 6. **Room activity is independent of visibility.** One player's door, blink,
    camera or renderer must not stall someone in an unrelated live room. Keep
-   the existing safe P2P room barrier until a deterministic replacement is
-   proven; do not remove it just to improve responsiveness.
+   the proven shared-frame ordinary-crossing protocol. Do not silently
+   remove the separate checkpoint/rebuild safety barrier.
 7. **Mixed locality from the start.** A connection may own multiple seats;
    local and remote participants must use the same body-assignment protocol.
 8. **Security and trust remain explicit.** A small friendly session may
@@ -238,15 +241,16 @@ comparing modes.
 simulation and loopback delay/fault injection. Measure per-tick simulation
 CPU, worst-frame rollback/resimulation, saved-frame bytes, memory, bandwidth,
 waiting/stall time, and state divergence. Repeat on weaker hardware/Android
-where practical. Separate the known *room-commit barrier* cost from the
-ordinary *multi-room simulation* cost. Do not infer production performance
+where practical. Measure current ordinary-crossing coordination and the
+separate checkpoint/rebuild barrier, rather than reusing the retired October
+room-commit freeze as the baseline. Do not infer production performance
 from an in-memory test alone.
 
 **R2 — Playable multi-process GGRS vertical slice.** Assess the minimum
 transport/handshake to let two actual graphical processes play one match/world
 through existing `PeerTransport` and session identities. A save owner can
-coordinate without changing simulation authority. Preserve the current safe
-room-commit protocol while probing its limitations. This slice is valuable
+coordinate without changing simulation authority. Preserve the shared-frame ordinary-crossing protocol and the separate
+reset/rebuild barrier while probing limitations. This slice is valuable
 even if hosted adventure later wins, especially for Smash.
 
 **R3 — Small host-authoritative feasibility spike, isolated from GGRS.** One
@@ -302,7 +306,8 @@ which investigation to fund.
 
 **Ambition (current authority for what exists):**
 
-- [`netcode.md`](netcode.md) — current peer protocol, lifecycle, measured freezes.
+- [`netcode.md`](netcode.md) and [peer room commits](peer-room-commit-protocol.md)
+  — current peer protocol and lifecycle; the old freeze measurement is historical.
 - [`multiplayer-and-multiview.md`](multiplayer-and-multiview.md) — participants,
   bodies, rooms, views, and locality.
 - [`local-coop-integration.md`](local-coop-integration.md) — real two-player

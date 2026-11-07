@@ -4,9 +4,11 @@
 distinct identities. Local split-screen is a presentation composition, not proof of remote
 multiplayer. Ambition needs independent-room players and no required company server; Smash needs
 an opt-in bounded rollback mode; Mary-O and Sanic may use one level-scoped timeline. Treat
-existing global lifecycle and GGRS rebases as a current constraint, not a design requirement for
-remote world play. See [architecture
-reassessment](architecture-reassessment-and-composable-multiplayer.md).
+the historic global room-travel rebase as a superseded October constraint:
+ordinary peer crossings use the shared input timeline without a global
+hold/rebase (2026-11-04). Checkpoint/rebuild barriers and the lack of
+independent regional histories remain real constraints. See [peer room commits](peer-room-commit-protocol.md)
+and [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **State:** OPEN successor program. Ambition is the primary product customer;
 TwinTrack remains a focused acceptance customer.
 

@@ -14,7 +14,9 @@ world interactions can pass through it and interact on the far side while still
 partly on the near side. This feature is **not** a view-only fake or an instant
 whole-body transport. Most portals are local to an `activeArea` / runtime room.
 Cross-room live portals and dynamic rollback-island merging are **not** required
-by this plan. Loading zones retain their separate transfer semantics.
+by this plan. Loading zones retain their separate transfer semantics;
+[island rollback and input compaction](island-rollback-and-compact-peer-input.md)
+are selected separately and do not block local similarity portals.
 
 The former rule that both ends of a pair expose the *smaller* aperture was a
 shortcut for the isometry implementation, not the desired gameplay policy.

@@ -9,7 +9,11 @@ investigation](architecture-reassessment-and-composable-multiplayer.md). [ADR
 GGRS-selected sessions. A safe whole-session rebase must not be mistaken for the eventual
 general room-transfer protocol.
 **State:** OPEN at the transport/lifecycle frontier. Ephemeral rollback ownership
-and the local sync-test host are established.
+and the local sync-test host are established. **Selected 2026-11-06 priority:**
+[NET-INPUT-WIDTH and SIMULATION-ISLANDS](island-rollback-and-compact-peer-input.md)
+now own per-frame payload reduction and island-scoped rollback. The host model
+below describes the current GGRS implementation until that migration lands;
+this selection does not claim an independent-island backend exists.
 
 ## Durable boundary
 
@@ -262,7 +266,11 @@ product and network-service concerns.
 
 `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and `PeerInput` is a
 `ControlFrame` followed by the peer's verdict (168 bytes for each handle at wire
-identity 8). `ControlFrame` is `derived` (rebuilt from the input stream, not snapshotted), so the
+identity 8: 72 bytes of controls and 96 bytes of preparation metadata).
+**This is now selected for reduction**, independently of island rollout; see
+[the compact-input work](island-rollback-and-compact-peer-input.md#net-input-width-reduce-serialized-per-frame-input-first).
+A reliable side-channel verdict alone is not a substitute for deterministic,
+frame-stamped admission on all peers. `ControlFrame` is `derived` (rebuilt from the input stream, not snapshotted), so the
 rollback dump, the fingerprint and `rollback_codec_shape.txt` do not describe its
 fields. `INPUT_STREAM_VERSION` versions recorded replay files and exempts added
 fields by design; it does not cover the peer payload.

@@ -174,6 +174,7 @@ links to.
 - [`engine/simulation-tick-rate-compatibility.md`](engine/simulation-tick-rate-compatibility.md)
   — audit and plan: a simulation rate other than 60 Hz (PLANNED).
 - [`engine/netcode.md`](engine/netcode.md) — netcode and the rollback host.
+- [`engine/island-rollback-and-compact-peer-input.md`](engine/island-rollback-and-compact-peer-input.md) — selected compact-input and `activeArea`-scoped rollback implementation; loading zones commit transfers, live portals stay local.
 - [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
 - [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
   — shared vocabulary.

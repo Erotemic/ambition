@@ -316,7 +316,11 @@ semantics to local, online and mixed participants and to shared/fixed/adaptive
 split presentation. Local different-room play exists in the engine: separated seats
 each keep a live room and each view draws its own room. A second seat joins by
 an explicit gesture in an opt-in mode (Q153, ruled 2026-10-19; LOCAL-PLAY-MODES). Online transport waits for a real
-customer.
+customer. **Selected immediate architecture work:** reduce the 168-byte peer
+input's idle 96-byte preparation verdict, then provide independent rollback
+histories per live `activeArea` instance. See [compact peer input and simulation
+islands](engine/island-rollback-and-compact-peer-input.md); packet-width reduction
+is not blocked by the larger island migration.
 
 Owners: [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
 and [`game/multiplayer.md`](game/multiplayer.md).

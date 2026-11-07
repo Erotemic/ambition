@@ -11,19 +11,20 @@ carries closed campaigns. Unselected or customer-gated plans live in
 
 ## Current order and selection
 
-1. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
+1. **Network payload and island correctness (maintainer priority, 2026-11-06):** [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) immediately: remove the 96-byte idle room-preparation verdict from each 168-byte peer input without losing deterministic frame agreement. Then [SIMULATION-ISLANDS](#simulation-islands--independent-active-area-rollback-and-committed-crossings): make `activeArea` instances independently rewindable with committed loading-zone handoffs. The input-width win must not wait for island implementation. Keep real live portals local to an island.
+2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
    then LOADOUT-AUTHORITY and LOCAL-PLAY-MODES menu leave. Honor the
    2026-10-19 ruling order for CHARACTER-FORM, COOP-RECOVERY,
    PARTNER-RECOVERY and DIALOGUE-CHECKPOINT; do not re-implement
    already completed morph-ball visibility, joining, party travel, baseline
    split-view or peer room-commit mechanics.
-2. **Selected product/asset fixes (2026-11-01 triage):** ASSET-SELECTION,
+3. **Selected product/asset fixes (2026-11-01 triage):** ASSET-SELECTION,
    SMASH-DEFECTS, ITEM-CONTENT, ASSET-PUBLISH and ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
-3. **Developer iteration:** [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
+4. **Developer iteration:** [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
    EDITOR-SHELL remain selected at their stated boundaries. Portal, rendering,
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
@@ -44,6 +45,26 @@ or updating their source. Check with
 `python3 scripts/checks/check_planning_anchors_resolve.py`.
 
 ## P0 — architecture and correctness
+
+### NET-INPUT-WIDTH — remove idle room consensus from every frame
+
+**Failure:** `PeerInput` is 168 fixed-width bincode bytes per player per tick: 72 bytes of `ControlFrame` plus 96 bytes of `PeerVerdict`, including full plan/content hashes even when no operation is underway. This increases every input stream's traffic irrespective of active room crossings.
+
+**Owner:** [island rollback and compact peer input](engine/island-rollback-and-compact-peer-input.md#net-input-width-reduce-serialized-per-frame-input-first), [netcode](engine/netcode.md#the-input-payload-two-peers-exchange) and [peer room commits](engine/peer-room-commit-protocol.md).
+
+**Next action:** NPI-1 measure and trace all verdict consumers; NPI-2 move rare room-preparation data out of the per-frame hot path while retaining frame-stamped, replay-stable agreement; NPI-3 migrate the wire identity, exact-byte tests and multi-handle fixed width. This task is **independent** of region-scoped rollback and should land first.
+
+**Acceptance:** normal input is at most 80 serialized bytes per player per frame (72 if no small in-band token is required), without the repeated 96-byte verdict; every delayed/corrected/concurrent peer crossing and failure case still agrees on the exact frame with no reintroduced global hold. Source and actual link traffic are measured separately; a changed wire identity refuses incompatible peers. Checkpoint/rebuild barrier behavior is preserved.
+
+### SIMULATION-ISLANDS — independent active-area rollback and committed crossings
+
+**Failure:** multiple live rooms have independent collision geometry, but the GGRS path still saves/resimulates one App-wide history and can exchange unrelated participants' inputs. It does not provide independently rewindable active areas. The November 4 no-global-hold repair is necessary but insufficient.
+
+**Owner:** [island rollback and compact peer input](engine/island-rollback-and-compact-peer-input.md#simulation-islands-independently-rewindable-active-areas) and the [architecture reassessment](engine/architecture-reassessment-and-composable-multiplayer.md#the-boundary-problem-room-region-island-and-session).
+
+**Next action:** ISL-1 inventory cross-area causal ownership; ISL-2 implement actual per-island history, not one global GGRS schedule with room filters; ISL-3 implement confirmed, exactly-once loading-zone custody transfers; ISL-4 scope peer input subscriptions and measure network/CPU costs. One island is a live `activeArea` instance, which may contain seamless LDtk levels; independent instantiated rooms remain distinct even when they share an authored template. Live physical portals stay intra-island.
+
+**Acceptance:** a populated island can rollback while another continues untouched; same-island LDtk seams permit continuous projectiles/collision; cross-island loading zones transfer body, equipment and committed state without duplicating custody; different islands do not exchange unrelated high-frequency inputs. No global hold/rebase for ordinary travel, no cross-island live-portal or dynamic causal bubble requirement. Preserve Smash's bounded rollback and optional no-rollback games.
 
 ### LOADOUT-AUTHORITY — equipment changes enter through simulation input
 

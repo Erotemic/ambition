@@ -2,7 +2,7 @@
 
 **Status: TOPOLOGY STILL UNDECIDED; requirements clarified 2026-10-26.**
 **Recorded:** 2026-10-25; updated following the maintainer's 2026-10-26 architecture discussion.
-**Scope:** Comparative research, not an implementation mandate or queue entry.
+**Scope:** Comparative network-topology research, not itself a queue entry. The 2026-11-06 [compact-input and island-rollback plan](island-rollback-and-compact-peer-input.md) is separately selected, without deciding P2P versus hosted-world topology for every game.
 
 **Explicit constraints now recorded:** no mandatory company-operated service or central game server; independent-room Ambition multiplayer; deterministic simulation; rollback optional for games with unbounded world state and required as an option for Smash. A player temporarily hosting authoritative state is a candidate topology, not a company-run service. See [ADRs 0035-0037](../../adr/README.md) and [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 

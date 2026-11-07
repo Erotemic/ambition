@@ -4,7 +4,7 @@
 
 **Baseline:** `54b1d45c96fa` source snapshot from 2026-10-26; recheck HEAD before writing code.
 
-**Execution:** [`docs/planning/queue.md`](../queue.md) remains the execution selector; this document proposes experiments, not a blanket rewrite.
+**Execution:** [`docs/planning/queue.md`](../queue.md) remains the execution selector. Since this 2026-10-26 broad review, the maintainer selected a *narrower* implementation program: [compact peer inputs and `activeArea` rollback islands](island-rollback-and-compact-peer-input.md). This historical comparison does not override that selection or authorize any other blanket rewrite.
 
 **Proposed ADRs:** [0035 — no mandatory service](../../adr/0035-distributed-multiplayer-without-required-services.md), [0036 — optional synchronization](../../adr/0036-synchronization-is-an-optional-game-capability.md), [0037 — simulation islands](../../adr/0037-causally-isolated-simulation-islands.md), [0038 — physical objects](../../adr/0038-persistent-objects-and-optional-physics.md), and [0039 — crate boundaries](../../adr/0039-evidence-based-crate-boundaries.md).
 

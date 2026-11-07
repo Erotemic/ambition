@@ -38,7 +38,7 @@ These are implemented shapes as of their cited baselines, not irrevocable choice
   until it is published (`Q132`).
 - **Several live rooms.** Each live room is a root entity; entities carry an
   `InRoomInstance` stamp; each view draws the room it frames. A second seat
-  joins with a Jump press at the primary's room
+  joins with an explicit Start press at the primary's room
   (`session/join.rs::seat_a_joining_participant`); the Q153 ruling of
   2026-10-19 (a solo default, an opt-in join, a menu leave) is queue row
   LOCAL-PLAY-MODES. Owner:
@@ -60,14 +60,14 @@ These are implemented shapes as of their cited baselines, not irrevocable choice
 - **Rigged sprites are on** in the shipped game. Owner:
   [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md).
 
-## Active campaigns
+## Campaign ownership
 
 | Campaign | Where it is tracked |
 | --- | --- |
 | One owner per mechanical fact | [AUTHORITY-POLISH](queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel---done-2026-10-09) (C11, closed on a fresh census 2026-10-09) |
 | Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — OPEN, not started in the consolidation ledger; reassess from HEAD before scheduling |
 | Safe reload across every registry | [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload) |
-| Truthful minimal engine profiles | A9 in the queue |
+| Truthful minimal engine profiles | A9 profile proof completed; further composition customers are [conditional tracks](tracks.md#queue-cleanup-unselected-or-conditional-residuals-2026-11-06) |
 | Persistent world | OW cuts in [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md) |
 
 The older statement that netplay is "not a goal this year" is no longer a reliable constraint. The source now includes an in-memory two-App GGRS P2P harness in `game/ambition_app/tests/two_peers.rs`; a local `SyncTestSession` alone is not the extent of the networking tests. Neither proves real-process remote transport, host-authoritative replication, or independent-room session authority. Selection of implementation work still goes through the queue.

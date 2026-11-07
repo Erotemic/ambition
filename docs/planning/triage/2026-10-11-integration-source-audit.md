@@ -6,7 +6,7 @@ life cycles, scheduling and existing plan owners. This is a *source* audit;
 no production Cargo simulation, GPU profiling or rollback replay was run.
 Do not equate an apparent static defect with a measured user-facing failure.
 
-**Execution order:** [queue](../queue.md#review-1011-integration---real-engine-contracts-for-new-demo-behavior).
+**Execution order:** [standing review follow-ups](../tracks.md#queue-cleanup-unselected-or-conditional-residuals-2026-11-06).
 Each engine owner document specifies the target abstraction. This is evidence,
 not a second work tracker.
 

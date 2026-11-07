@@ -289,6 +289,91 @@ Do not promote these until the trigger exists:
 - **Test execution parallelism:** measurements showing execution rather than
   compile/link or memory pressure dominates.
 
+## Queue cleanup: unselected or conditional residuals (2026-11-06)
+
+These entries moved out of `queue.md` because they have no current executable
+slice, await a product/renderer prerequisite, or duplicate another active row.
+They are **not evidence of completed implementation**. Validate against HEAD
+before promotion.
+
+- ▢ **NPC combat-kit census and bounded repairs (`NPC-KIT-1/2`).** Select when
+  expanding the NPC combat roster; inventory executable kits deterministically,
+  then fix uncovered NPCs in bounded batches. Owner: [`game/ambition.md`](game/ambition.md).
+- ▢ **Launcher vanity fade (`VC5`).** The reusable launcher content fade is
+  explicitly open but is cosmetic work, not a correctness interrupt. Owner:
+  [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md).
+- ▢ **Actor effects/modifier composition.** Seven-phase plan needs a selected
+  concrete modifier consumer before implementation; current source may already
+  cover individual effects. Owner:
+  [`engine/actor-effects-and-modifier-composition.md`](engine/actor-effects-and-modifier-composition.md).
+- ▢ **Simulation tick-rate compatibility.** Promote with a target game/profile
+  requiring a 30/40/60/120 Hz selection and measure motion, collision, AI,
+  hitstop and replay across the supported rates. Owner:
+  [`engine/simulation-tick-rate-compatibility.md`](engine/simulation-tick-rate-compatibility.md).
+- ▢ **Controller routing/connection view.** Developer read-only view of
+  devices, participants, unassigned/disconnected claims and active action
+  contexts. Deferred until the multiplayer menu-region and gate work is
+  settled; reuse existing routing authorities. Owner:
+  [`engine/participant-action-system.md`](engine/participant-action-system.md#controller-routing-debug-view--open).
+- ▢ **Architecture/capability census residuals (A9, D166,
+  CONTENT-AUTHORITY-DUPLICATES).** A9 profiles and the external capability
+  witness are built; D166 reports no known residual. Reopen only with a
+  demonstrated duplicate reader, authored/runtime divergence or unsupported
+  profile customer. Owners:
+  [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md),
+  [`engine/character-authoring-package.md`](engine/character-authoring-package.md),
+  [`engine/extension-model.md`](engine/extension-model.md).
+- ▢ **Reach geometry and balance (`REACH-VIEW`).** Authored strike geometry is
+  currently not a trusted proxy for the RON offer; the honest reach change was
+  reverted pending the robot-slash/duel balance ruling `Q168`. Reopen after
+  the ruling with a same-hitbox reach/strike witness and a duel regression.
+  Other possible residuals: high-range dismounted rider without a move and
+  dash/charge travel beyond static hitbox reach. Owner:
+  [`engine/combat-model.md`](engine/combat-model.md).
+- ▢ **Landmark clip loop authoring and shark saddle.** Package landmark time
+  matches looping/one-shot animation, but authored rig loop rows disagree with
+  animator policy; publish one loop bit per row. The shark saddle additionally
+  waits for a published pose/rig attachment. Owners:
+  [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md)
+  and [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md).
+- ▢ **Portal host with limbs in multiple simultaneous links.** Existing host
+  transit selects one pair; extend shared partitioning only when a shipped
+  host or test scene requires two links at once. Owner:
+  [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md).
+- ▢ **Review follow-ups requiring a fresh measurement.** Cold/warm rig table
+  preparation memory and frame stalls; human acceptance for robot
+  crouch/turn/double jump (REVIEW-1014); rendered portal-piece frame cost
+  (IN6); feature-index instance key only when one definition is live twice
+  (IN1); profile large-room terrain skin setup only if still slow;
+  `StageView::room_toward` on rotated gravity (REVIEW-1013); a held
+  portal pair crossing rooms (REVIEW-1012) only when a real customer
+  needs it; human front-idle/combat and fighter-pad acceptance. The
+  second-instance door-routing policy (REVIEW-1011) also needs a live
+  instance-creating customer. Owner:
+  [`triage/2026-10-11-integration-source-audit.md`](triage/2026-10-11-integration-source-audit.md)
+  and relevant renderer/asset documents. Sprite refresh (IN7) was built.
+- ▢ **Readiness/residency transition measurements.** The main room-commit
+  correctness slice remains MULTIPLAYER-SEAMS. For later performance work,
+  measure GPU upload cost, byte-based residency, retained CPU images and the
+  remaining loading-timer regression on a real target profile. Owner:
+  [`engine/readiness-driven-room-transitions.md`](engine/readiness-driven-room-transitions.md).
+- ▢ **Portal presentation seams (S4).** Recheck portal edge strips,
+  parallax continuity and mobile frame cost after the mechanical transit
+  tests, rather than repeating completed body transport. Owner:
+  [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md).
+- ▢ **Movement/portal policy witness.** Finish the portal/gravity-zone
+  behavior witness when that movement slice is selected. Block-to-chain
+  crawl transfer remains customer-gated, not a default engine expansion.
+  Owner: [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md).
+- ▢ **Noodly Temple content polish.** Door feedback, key HUD, weapon pose,
+  meatball presentation and biome placement are authored content follow-ups,
+  not engine correctness blockers. Promote a bounded region slice when
+  selected. Owner: [`game/noodly-temple.md`](game/noodly-temple.md).
+- ▢ **World/playthrough acceptance.** The headless persistent-world path and
+  independent SDK/navigation acceptance are built. Its remaining death/fact
+  horizon work belongs to the active DIALOGUE-CHECKPOINT row; do not restart
+  WORLD-ACCEPTANCE or SDK-GAME as separate campaigns.
+
 ## Standing execution rule
 
 Before promoting a card:

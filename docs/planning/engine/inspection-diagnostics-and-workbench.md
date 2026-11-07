@@ -119,6 +119,10 @@ A diagnostic kept out of rollback state is not independent of rollback. "Out
 of rollback" decides what is rewound; the timeline stamp decides what the
 record means.
 
+## Selected geometry-visibility customer
+
+[`geometry-observability-and-f1.md`](geometry-observability-and-f1.md) is the executable plan for predictable F1 collision/hurt/hit/interaction/portal/navigation geometry and identical headless observation. It is a direct customer of this document's composed read-only discovery doctrine, not authorization to invent a central physics authority. Its GOBS-0 census must distinguish **effective query geometry** from authored/base geometry and ensure every installed supported provider is inspectable.
+
 ## Program areas
 
 - structured entity/domain inspection;

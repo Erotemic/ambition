@@ -25,7 +25,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
-5. **Developer iteration:** [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
+5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) makes the effective geometry behind collisions, attacks, interactions, portals and navigation visible and machine-readable; it is a concrete inspection customer, not a broad spatial rearchitecture. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
    EDITOR-SHELL remain selected at their stated boundaries. Portal, rendering,
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
@@ -269,6 +269,16 @@ payload audit. Keep the explicit strict release path.
 **Acceptance:** local preview uses the same selected file set without hashing
 all media. Missing required files have a useful diagnostic. Android, Steam
 Deck and static web release packages still pass their final asset contracts.
+
+### GEOMETRY-OBSERVABILITY — render the effective geometry behind gameplay
+
+**Failure:** F1 currently draws a useful but hand-assembled set of world, body, combat, portal and feature gizmos. Some outlines represent base authored blocks or coarse AABBs rather than the resolved, subject-specific geometry that simulation actually tests; interaction reach and rejection conditions lack comprehensive visibility. New geometry domains do not automatically become discoverable debug layers.
+
+**Owner:** [geometry observability and F1](engine/geometry-observability-and-f1.md), under the [inspection/workbench program](engine/inspection-diagnostics-and-workbench.md).
+
+**Next action:** GOBS-0 enumerate producers and reproduce a missing/misleading outline; GOBS-1 install composable read-only geometry providers and a shared F1/headless view; GOBS-2 render effective per-body collision and contact decisions; GOBS-3 cover combat, interaction, triggers, navigation and portal pieces; GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
+
+**Acceptance:** a single representative two-room lab exposes actual collision/hit/hurt/interaction/portal/navigation geometry with source identity, state and why-not reasons; a new provider becomes discoverable in F1 and headless inspection without modifying a central game-specific draw switch; overlays are room- and view-correct, off by default, and do no per-frame diagnostic work when disabled. Tests distinguish absent, filtered, intangible and unsupported geometry. Do not confuse an authored block outline with a subject's effective collision world.
 
 ### TOOL-DISCOVERY — find supported commands by developer intent
 

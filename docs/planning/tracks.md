@@ -137,7 +137,7 @@ here.
   [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md).
 - ▢ **Inspection/diagnostics/workbench.** Build read-only discoverability from
   domain-contributed descriptors rather than a new simulation authority. Owner:
-  [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md).
+  [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md). Selected effective-geometry/F1 coverage is tracked in [`GEOMETRY-OBSERVABILITY`](queue.md#geometry-observability--render-the-effective-geometry-behind-gameplay), not as another independent backlog program.
 - ✓ **Art inventory and coverage.** The shared CLI and offline page report
   missing or stale bundles, identities, lineage, and animation coverage.
   Owner: [`engine/art-inspector-and-character-coverage.md`](engine/art-inspector-and-character-coverage.md).

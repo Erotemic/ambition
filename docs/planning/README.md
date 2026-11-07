@@ -96,6 +96,7 @@ links to.
 - [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
   skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
+- [`game/boss-cinematics-gnu2-and-motion.md`](game/boss-cinematics-gnu2-and-motion.md) — roster-wide cinematic intros, real GNU2 portal finale and measured GNU mount/part-motion repair.
 - [`game/chargen-species-knobs-and-2d-overlays.md`](game/chargen-species-knobs-and-2d-overlays.md) — species parameters and per-view overlay art.
 - [`game/character-generations.md`](game/character-generations.md) — audit
   distinct historical visual looks and curate presentation-only skins (Q170 ruled).
@@ -174,7 +175,8 @@ links to.
 - [`engine/simulation-tick-rate-compatibility.md`](engine/simulation-tick-rate-compatibility.md)
   — audit and plan: a simulation rate other than 60 Hz (PLANNED).
 - [`engine/netcode.md`](engine/netcode.md) — netcode and the rollback host.
-- [`engine/island-rollback-and-compact-peer-input.md`](engine/island-rollback-and-compact-peer-input.md) — selected compact-input and `activeArea`-scoped rollback implementation; loading zones commit transfers, live portals stay local.
+- [`engine/island-rollback-and-compact-peer-input.md`](engine/island-rollback-and-compact-peer-input.md) — GGRS compact-input problem and conditional independent rollback branch; live portals stay local.
+- [`engine/hosted-world-networking-experiment.md`](engine/hosted-world-networking-experiment.md) — selected authoritative-host versus GGRS experiment and per-game synchronization decision.
 - [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
 - [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
   — shared vocabulary.
@@ -242,6 +244,7 @@ links to.
 - [`engine/bounded-perception-and-attention.md`](engine/bounded-perception-and-attention.md)
 - [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md)
 - [`engine/agentic-character-runtime.md`](engine/agentic-character-runtime.md)
+- [`engine/radiant-npc-planning.md`](engine/radiant-npc-planning.md) — selected HTN/utility comparison, authored NPC schedules, smart objects and offscreen persistence.
 - [`engine/dialogue-continuity.md`](engine/dialogue-continuity.md)
 - [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md)
 - [`engine/boss-system.md`](engine/boss-system.md) — actor-local boss behavior.
@@ -277,6 +280,7 @@ links to.
 - [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md)
 - [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
 - [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md)
+- [`engine/geometry-observability-and-f1.md`](engine/geometry-observability-and-f1.md) — Godot-class F1 geometry coverage from domain-owned effective collision, hit/hurt, interaction, portal and navigation observations.
 - [`engine/art-inspector-and-character-coverage.md`](engine/art-inspector-and-character-coverage.md)
   — character identity, art families and animation coverage without a game build.
 - [`engine/asset-library-editor-and-delivery.md`](engine/asset-library-editor-and-delivery.md)

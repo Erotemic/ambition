@@ -276,6 +276,19 @@ These are opportunities, not migration work.
 - ▢ **Per-route music.** Preserve as a product capability; do not revive a closed
   audio campaign as its execution authority.
 
+## Boss-encounter content acceptance reservoir
+
+- ▢ **Encounter-specific review, not another boss-system rewrite.** The
+  [`game/bosses.md`](game/bosses.md#current-state-and-outstanding-acceptance-2026-11-06-audit)
+  owner distinguishes implemented fights from remaining playtest, tune,
+  art, audio, validator and arena follow-ups for PCA, T-rex, Hunny Horror,
+  Wolfenstein/Inugami, Mockingbird, GNU-ton and the Hall. Select a bounded
+  encounter task after reproducing its dated findings or accepting the
+  relevant artistic target. Preserve boss-specific telegraph, punish and
+  stage identity; do not impose a universal body-relative attack reach.
+  GNU-ton mechanical debts are owned separately by
+  [`game/gnu-ton-fight-debts.md`](game/gnu-ton-fight-debts.md).
+
 ## Game/customer reservoir
 
 - ▢ **Ambition open-world production.** Primary product driver. Owners:

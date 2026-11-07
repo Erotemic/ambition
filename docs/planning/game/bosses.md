@@ -8,6 +8,27 @@ dialogue→provoke Yarn command) belongs to the reusable actor, projectile,
 animation and interaction owners, not to a common `core`. A boss's stats,
 tuning, placement and dialogue are game content in `ambition_content`.
 
+## Current state and outstanding acceptance (2026-11-06 audit)
+
+This is the **content/design owner**, not a second execution queue. Built systems
+and moves are described below so the intended encounters remain recoverable;
+remaining acceptance work is recorded here until it is selected in
+[`../queue.md`](../queue.md). Unselected work is indexed in
+[`../tracks.md`](../tracks.md). Dated measurements describe their recorded
+build, not necessarily current HEAD; revalidate before reopening a fix.
+
+| Encounter | Remaining acceptance / follow-up |
+|---|---|
+| PCA / Imperfect CA | Encounter and narrative playtest; decide whether Imperfect CA is a boss; review its scale, unowned attack volumes and tail clipping |
+| T-rex | `fight_discovery` balance run and human playtest |
+| Hunny Horror | Audition voice/SFX/music; consider biome, slowed-body feedback, poppable balloon, orphaned sentry gauntlet; run fight discovery/playtest |
+| Wolfenstein | Verify post-rework move/pose/effect coverage and current roster fairness findings; finish missing art/cues/coil involvement and playtest, not a default short-reach rewrite |
+| Inugami Wolfenstein | `inu_storm` seed/telegraph and slam-band review; investigate four dated `content_it` findings; audition cues/music and playtest chase, ward and camera; validate baked fallback/hurt expressions |
+| Mockingbird | SFX audition, rescue cost decision, fight tuning and GPU look review; optional space-gravity and alternate-art follow-ups |
+| Hall of Bosses | Verify whether main-game boss copies need conversion to `practice` without changing hall-only bosses' story semantics |
+| GNU-ton | Review remaining presentation, line/limb, arena/practice, tests, tuning and GPU issues against [`gnu-ton-fight-debts.md`](gnu-ton-fight-debts.md) and current phase-3 implementation |
+| Smirking Behemoth / Mode Collapse | Optional eye-beam material/aim tell; bespoke degenerating Mode Collapse music |
+
 ## The design language
 
 > Every boss is a failed objective function.
@@ -108,83 +129,39 @@ does the rest: pose, volumes, drawn row, rocks. Receipts are a headless
 `trex_fight.rs` in the GNU-ton test's style, a `fight_discovery` run, and
 captures.
 
-**Where it stands (2026-10-05, evening).** Slices 1-4 are in, and the art
-part of 6. He stands on his floor (the placement law, guarded for every boss
-sheet), stalks you, and has the full kit:
+**Built encounter.** The T-rex is a grounded, art-sized, part-rigged boss;
+body, head, tail and legs expose authored hurt geometry and strike poses.
+`ambition_content_modules::trex` conducts the phase pattern and performs
+its moves, while the art-owned jaw attachment positions a captured body.
+The engine's `ambition.combat.body_hold` supplies seize, shake, throw and
+mash-out, rather than a T-rex-specific capture path. The phases use these
+moves and cues:
 
-| phase | moves (pattern key) | the dodge | the punish |
-|---|---|---|---|
-| Hunt | bite (`trex_bite`), tail whip, snap up at a ledge, charge into the wall | back off / jump the tail / leave the ledge edge / ledge or jump | the head after a bite; the stun after the charge |
-| Quake | double bite (one clack of teeth, two snaps), stomp (shocks both ways + rocks), the rest of the Hunt | jump the shock; leave the dust | the stomp's recovery |
-| Extinction | roar (blast + rocks), leap at where you stood (quake + rocks), the charge turns once and comes back | out of the roar's mouth; move off your spot; read the turn | the stun |
+| phase | attack vocabulary | opening / escape |
+|---|---|---|
+| Hunt | `trex_bite`, tail whip, ledge snap, charge into wall | dodge bite/tail, leave ledge, punish the lowered head or stunned wall crash |
+| Quake | double bite, stomp with shockwaves and falling rocks, jaw grab, bird call | jump shock, move from shadow, mash free of the jaw; punish recovery |
+| Extinction | blowback roar, aimed leap/quake, returning charge and raptor call | evade marked landing and charge reversal; punish the crash |
 
-The sheet gained `stunned` (slumped, stars circling), `snap_up` and `leap`,
-and a stomp that rears higher (`scripts/build_trex_enemy_rig.py`); rocks are a
-`trex_rock` prop. A module can shake the camera now
-(`ambition.feedback.camera_shake`, lowered to the quarantined
-`CameraShakeRequest`). Thirteen headless fight tests
-(`game/ambition_app/tests/trex_fight.rs`), each poisoned once.
-
-**2026-10-06 (Jon: "its hurtbox is crazy big … grab the player with its
-mouth, shake its head around … and throw the player … spawning some enemy
-stochastic parrots, raptors").**
-- He is hit through his PARTS (renderer `trex_enemy_body_rig.ron`: eleven
-  hurt parts measured from his art), posed from his pinned row
-  (`resolve_body_rig_poses` reads `PinnedRow`), placed by `RigFeetOffset`.
-- The jaw grab (`trex_jaw_grab`, phase 2 on): `grab_reach` / `grab_shake` /
-  `grab_throw` rows; the engine's capture relation offered to modules as
-  `ambition.combat.body_hold` (seize, carry, pummel, throw, release); mash to
-  break free. The held body rides the `jaw` attachment of his body rig
-  (review 2026-10-06, P2): his art states the point on his jaw joint, his
-  hold names it (`hold_at`), and the capture relation places it from the pose
-  of the tick. His conductor keeps no number for it and makes no thrash of
-  its own: the body moves as `grab_shake` moves his jaw
-  (`trex_fight::the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is`).
-- The call (`trex_call`, phase 2 on): a pair of one kind of his flock, the
-  next kind each call (`FLOCK` in his conductor, twelve kinds): parrots,
-  chickens, owls, kiwis, emus, European swallows, ostriches, African
-  swallows, cassowaries, shoebills, vultures, penguins. The flyers come down from the
-  high corners and the runners come in along the floor. A kind whose two
-  sexes do not look alike comes as a cock and a hen (the chicken, the
-  ostrich). Enraged, raptors along the floor first; at most four alive
-  (`BossConduct::minions`). A new kind of bird is one row of `FLOCK` and one
-  buildable row of the character catalog
-  (`trex_fight::each_call_brings_the_next_kind_of_his_flock`).
-- Roar candidates for Jon's ear: `untracked/sfx-candidates/trex_roar/`
-  (a new source-filter `roar` mode in the SFX renderer).
-- He is DRAWN from his parts too: `BossSheetSpec::parts` names
-  `npc_trex_enemy`, whose sheet the renderer demands; the cell
-  `animate_bosses` draws poses that character's animator by row name, and the
-  rigged driver draws him (`the_trex_is_drawn_from_his_parts.rs`).
-  `animate_bosses` now runs before the character animators and the driver.
-
-- His VOICE (Jon's picks of five audition rounds, 2026-10-06; round 1 "sounds
-  like a lawnmower"): one throat, the SFX renderer's new `creature` mode (the
-  audition code itself, `backends/creature_voice.py`): `boss.trex.roar`, the
-  phase-2 `boss.trex.scream`, seven growls in two takes each
-  (`boss.trex.growl_*`) and the death wail `boss.trex.death`. Each tell's
-  growl is its telegraph cue (which also keeps the moves readable); the
-  conductor screams him into phase 2 (rearing through the encounter's
-  transition lock, `BossConduct::between_phases`), roars the call, growls as
-  he seizes you, snarls as he flings you, yelps on the crash, huffs while he
-  stalks, and wails once dying. `every_boss_telegraph_cue_has_a_recipe` holds
-  every boss's telegraph cues to a recipe (a missing cue plays silence).
-
-- His tail and his crash have their own sounds (`boss.trex.tail_whip`, a whip
-  crack; `boss.trex.crash`, a quake boom; Jon: "its your pick"). His raptors
-  hunt (their catalog row states a profile: with none, a body is lowered
-  with a 0 aggro radius and stands where the call put it). Walking back in on
-  him dead is silent (he wails only for a death he was seen alive before).
+The sheet contains `stunned`, `snap_up`, `leap`, `grab_reach`, `grab_shake`
+and `grab_throw` rows. The flock cycles through twelve authored birds
+(parrots, chickens, owls, kiwis, emus, European swallows, ostriches,
+African swallows, cassowaries, shoebills, vultures, penguins), alternating
+kinds on successive calls and entering from the appropriate floor/sky
+edges; raptors precede the enraged call and at most four minions live.
+Some birds arrive as a cock/hen pair. Each tell has its own creature-voice
+recipe (`boss.trex.*`), including phase scream, growls, tail whip, crash,
+roar and death; the latter plays only on an observed live death. The
+renderer is `npc_trex_enemy` / `trex_enemy_body_rig.ron` and the authored
+rig includes the held-jaw landmark. Tests: `game/ambition_app/tests/trex_fight.rs`
+and `game/ambition_app/tests/the_trex_is_drawn_from_his_parts.rs`.
 
 Still open: `fight_discovery` tuning and Jon's playtest.
 
-Slices: (1) the body: one placement law for every boss drawn from a sheet,
-with the T-rex grounded, the hulls and the art's volumes; (2) the conductor,
-with bite, tail and charge-into-stun; (3) the pattern and arena (width for the
-charge, ledges, ceiling); (4) phase 2 and enrage; (5) sound and effects (tells,
-impacts, stun stars, shockwave, rocks), auditioned before they are ported;
-(6) art: rows the moves need that the sheet lacks (stunned, rear, leap); (7)
-tuning from `fight_discovery` and Jon's playtest.
+Acceptance: run `fight_discovery`, validate that readable tells precede
+strikes and that every move has an honest escape and punish, and playtest
+with the actual character capabilities. Candidate roar auditions are in
+`untracked/sfx-candidates/trex_roar/` when available.
 
 ## The Hunny Horror — the hug (2026-10-14, Jon)
 
@@ -254,49 +231,19 @@ Jon: "really polish the Wolfenstein boss fight ... beef up the boss
 animations, and really plan an excellent metroidvania / hollow knight style
 patterned boss." This section is the plan.
 
-**Built (2026-10-18), Jon: "the boss to be scaled bigger ... an intro
-presentation, more health, and a phase 3 where it injects itself with a
-serum and becomes even bigger ... a better death sequence":**
-
-- Body 84 x 140 (was 60 x 100). The conductor measures every volume on his
-  art through `Body` (world units per frame pixel from his built box), so
-  every reach, step and speed grows with him.
-- 110 HP; phase 2 at 66%, phase 3 (the encounter's enrage) at 33%.
-- Intro (8.28 s, the length of his cue's `awaken`; Jon: "an awesome intro
-  into this fight"). The throne and coils stand by the door. He sleeps in the
-  dark (`wake_radius` 380: an encounter sleeps until a player comes near),
-  eyes faintly lit, a coil crackling, to `oppressive_crush`. Then: dark; the
-  coils flash and show him on the throne; dark; more lightning; dark; the
-  lights flicker on, the coils strike his bolts, he rises (`throne_wake`);
-  the lightning finds him and he roars under his name card; he leaps back
-  from you (`jump`, `fall`, `land_hard`). The dark, the flashes and the card
-  are an engine capability, `ambition.boss.stage` (`rendering::boss_stage`).
-  The first time, a cutscene (`boss_intro_wolfenstein_boss`) holds input.
-- Phase 3, the serum: `serum_tell`, `serum_inject`, `serum_surge`; his guard
-  is up for the beat, and the surge grows him to 1.3x
-  (`ambition.boss.scale`, an engine capability: body box, quad and hurt
-  volumes rebuilt at the new scale, feet planted). After it: a green aura,
-  25% faster.
-- Death: his `death` row (28 frames); the bolts sputter out, a broken howl,
-  the fall, the last spark. Every boss's defeat holds the world 0.4 s, pulls
-  the camera in, shakes, plays the defeat cue and chord, and bursts. His
-  corpse stays; his chest drops (`galvanic_bolts`).
-
-**Built (2026-10-17):** slices 1 and 2. Each pattern step plays at its own
-authored lengths, for every boss (`073f40c5f`). The conductor
-(`ambition_content_modules::wolfenstein`) performs every move below on his
-current rows, the pattern is `Select` arms on where you stand, and the
-validator has no finding for him. Receipts:
-`game/ambition_app/tests/wolfenstein_fight.rs`. Since then: his own 36 rows
-(a tell, strike and window row for each move, the flatline-and-awaken intro,
-the arc lash from his neck bolts), and the Hall of Bosses' own copy of his
-throne room, `hall_wolfenstein_arena` (placement `hall.wolfenstein`, a life
-switch by its door). His sheet turns off the warm placeholder tint
-(`attack_tint: false`): his tells are drawn. Not yet: the coils' part in the
-enrage, effect sheets and sounds (borrowed). His music cue is built:
-`galvanic_march` (score `tools/ambition_music_renderer/scores/active/galvanic_march.music.yaml`), bound
-to his phases in `music_cues.ron` `boss_bindings` (Intro awaken, Phase1
-march, Transition unleash, Phase2 and Stagger howl, Enrage storm).
+**Built state.** The conductor (`ambition_content_modules::wolfenstein`)
+performs the authored `Select` patterns at phase-specific telegraph/strike
+lengths (`game/ambition_app/tests/wolfenstein_fight.rs`). The body was
+scaled to 84 x 140, 110 HP, with thresholds currently recorded at 66% and
+33%. The 8.28 s throne-and-coil intro uses `ambition.boss.stage`; the
+serum enrage scales him by 1.3x through `ambition.boss.scale`, grants a
+green aura and raises speed. The death sequence leaves his corpse and
+`galvanic_bolts` chest. The Hall owns a separate `hall_wolfenstein_arena`.
+The character has attack-specific rows, bolted-neck lightning, and the
+`galvanic_march` music phases. Some conductor effects and sounds still
+use borrowed sources, and the coil's enrage role is not fully realized.
+The older `Scripted`-only, identical-length, single-row attack defects
+were repaired during this implementation, not outstanding prerequisites.
 
 **Jon's rulings (2026-10-17):** first "I want this to be a bipedal boss";
 then, after GPT concept sheets: "we can get rid of the no-all-4's rule, some
@@ -306,25 +253,12 @@ in phase 1 that detunes into a howling theremin theme in phase 2, both in
 enrage. Playable first: the engine fixes and the conductor on his current
 rows come before the rig and art passes.
 
-**Today (read 2026-10-17):** a `Scripted` pattern of three generic strikes
-(`side_sweep`, `floor_slam`, `full_body_pulse`), no conductor, one sheet row
-per strike. Known defects:
-
-- A `Scripted` pattern has no `intro` or `transition`: the pattern ticks only
-  in Phase1, Phase2 and Enrage, and an authored `intro` is refused when the
-  profile is read (BOSS-DRAMATIC-PATTERNS). His conductor plays his wake-up
-  and his transition.
-- A move kept the telegraph and strike lengths of its FIRST occurrence, so
-  the faster phase 2 and enrage timings did nothing, for every boss. Fixed:
-  one move per authored beat (`BossPatternCfg::beats`).
-- The windup and the strike draw the same row. The 0.72 s `slash` row plays
-  out in the 0.95 s windup, so the swing shows before the hit.
-- `attack_side` and `attack_up` never show: three rows name `SideSweep`, and
-  the first wins. Walk and run do not show.
-- The generic volumes do not fit his art: `floor_slam` is below his feet,
-  `side_sweep` reaches 15 px past his body.
-- WOLFENSTEIN-FAIRNESS (`queue.md`): the enrage sweep has no punish window and
-  no move has a telegraph identity.
+**Acceptance still owed.** Recheck the current roster validator before
+claiming a Wolfenstein fairness regression; its historical telegraph and
+punish findings predate the authored conductor and later boss fixes. Do not
+reintroduce them as already-proven defects. Finish omitted effect sheets,
+audit bite/reach/volume against the visible pose, audition borrowed sound,
+and tune the fight with `fight_discovery` and a real playtest.
 
 **The look (Jon, the same day):** the Frankenstein half must read: "make
 the whole body a lot more muscular, think lurch from The Addams family,
@@ -358,10 +292,10 @@ The coils are part of the fight.
 | phase (HP) | name | how he moves | what changes |
 |---|---|---|---|
 | intro | "It's alive" | sits dead on the throne | the coils arc into his bolts; he jolts, stands, howls |
-| 1 (100-60%) | The Order | upright, a heavy lurch at you | drilled and slow; one move at a time; long tells |
+| 1 (100-66%) | The Order | upright, a heavy lurch at you | drilled and slow; one move at a time; long tells |
 | transition | The leash breaks | staggers to the coils | lightning hits him, his stitches flare, the armband tears, a howl |
-| 2 (60-25%) | The Wolf | upright, hunched low, fast | lunges in chains, the wall bound, the pack |
-| enrage (<25%) | Insanity | upright, twitching, faster | chains of 3; the coils fire across the floor |
+| 2 (66-33%) | The Wolf | upright, hunched low, fast | lunges in chains, the wall bound, the pack |
+| enrage (<33%) | Insanity | upright, twitching, faster | chains of 3; the coils fire across the floor |
 | death | | | the charge dies out; a short howl, then "Sorry." |
 
 ### The moves (each is a `Special` that the `wolfenstein` conductor performs)
@@ -414,356 +348,122 @@ authored effect sheets too. No shader draws any of them.
 
 The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
 
-### Slices, in order
+### Remaining polish and acceptance
 
-1. ✔ **Engine:** each step's own telegraph and strike length holds, for
-   every boss. (A pattern has no intro or transition: BOSS-DRAMATIC-PATTERNS.)
-2. ✔ **Conductor** (`ambition_content_modules::wolfenstein`) with the phase 1
-   moves on the rows he has now, and `game/ambition_app/tests/wolfenstein_fight.rs`.
-   The fight is playable from here.
-3. **Rig:** per-key easing and squash and stretch in the person rig.
-4. **Art, phase 1:** idle, walk, hit, flatline and the four rows of rake,
-   hammer, lunge and howl. Volumes measured from the art.
-5. **Phase 2:** the prowl, the bound, the pack, the three-blow rake.
-6. **Intro, transition, enrage:** the throne, the coils, the lightning.
-7. **Effects and sound:** the effect sheets; auditioned sound candidates (the
-   howl, the crackle, the sputter, the slam); his own music cue.
-8. **Acceptance:** the validator has no Wolfenstein finding (then lower the
-   roster pin and close WOLFENSTEIN-FAIRNESS); `fight_discovery` tuning;
-   Jon's playtest.
+The staged implementation established its own attacks, intro, phase 3,
+cutscene, music and defeat. Revalidate rather than automatically reopen
+historical slices 1–7. Open work is the remaining art/easing/pose coverage,
+per-move sound and particle treatment, explicit coil behavior at enrage,
+any *current* roster punish/telegraph findings, and `fight_discovery` plus
+human acceptance. The scene's stated phase percentages above describe the
+original dramatic plan; actual recorded thresholds are 66%/33% until changed
+intentionally. Suggested but **not established** attacks (such as summoned
+hounds, storm of sparks, fake death, final lunge chain) remain optional
+content ideas, not missing shipped mechanics.
 
 ## The Inugami — the wolf unsewn (Jon, 2026-10-20)
 
-**Chase correction (2026-10-26, `e0552155a`).** The old chase used point count
-as distance. Its attacks could push the target back, and its lightning lasted
-one tick. Speed now follows measured target pace and trail distance. A shared
-`FrameAlongside` relation keeps the pursuer in views of its target. Ghost fire
-and lightning damage the target and launch it along the escape route. Attack
-volumes own this damage; permanent body contact is off. Player-focused captures
-use the live camera. Guards: `inugami_fight` checks the live route, visibility,
-both attacks and the forward reaction. Do not use camera state to move the wolf.
+**Current identity.** The Inugami is Wolfenstein's detached spectral head,
+freed from the obedient body. When Wolfenstein falls, the neck stitches
+rupture in red spirit fire, the head grows and rises with its own title,
+**Inugami Wolfenstein**. When it dies, the spirit leaves as a wisp and
+his head falls beside the body. Its own placement and health belong to
+the successor boss (`castle_godwin.wolfenstein_inugami`, plus the separate
+`hall.wolfenstein_inugami`); `BossSpawn::wakes_after` / boss succession
+ensures it remains asleep until Wolfenstein is cleared. The Inugami owns
+its save record, phase progression, health bar and final chest holding
+`galvanic_bolts`.
 
-**Open:** Register `inu_storm` in the boss seed catalog, review the `slam`
-duration band, and resolve roster punish and telegraph findings. Four broader
-`content_it` checks fail on this data. Balance and feel need Jon's playtest.
+**Visual direction.** The head and severed-neck fire glow red. Four blue
+hitodama orbit its head **only while warded**, not as its ordinary aura;
+`ward_ring_kindle`, `ward_ring` and `ward_ring_dispel` are separate drawn
+layers attached to the head's `skull` track, including correct behind/in-front
+ordering and mirrored turns. A `SpiritAura` may add a screen-space ripple
+but the encounter must work with shaders disabled. The head grows to
+176 x 212, then 1.15x and 1.3x at later phases, and shrinks as the spirit
+leaves; published texel density is intentionally lower for the large
+impostor cell. Kagero (`npc_ninja_kagero`) is a separate red-eyed ninja
+with a white scarf and paper talismans, **not** the Shadow Oni Leader.
+Her authored lines include "Noisy one. Even the dead heard you." and
+"It was a dog once. Set it free, ripple-foot." Preserve dialogue
+continuity if her combat role changes.
 
-Jon: "add an additional phase to Wolfenstein where the head resurrects as an
-inugami and you fight the floating spectral head as an additional boss".
-Then: "I think a red spectral glow would be better".
-Then: "maybe the spirits around the head should be blue. and a shader may be
-in order here", and "the head should also get bigger in the fight. so it's a
-giant head".
+**Encounter sequence (built through 2026-10-26).**
 
-**The story.** When Wolfenstein dies, the lights come back on his body. Then
-the seam round his neck gives: the stitches pop in red ghost fire, and his
-head tears off. The fire catches in it, it grows, rises and howls under its
-own name card. The wolf is free of the body that obeyed. When it dies, the
-fire goes out of it, the spirit leaves as a wisp, and his own head drops to
-the floor beside his headless body.
+1. **Throne room duel.** The successor rises only after Wolfenstein's
+   death. The health bar begins after the rise/intro. Its phase 1 is a
+   regular fight in the throne room, without its protective wisps.
+2. **Ward and escape.** At transition the hitodama kindle and make the
+   head invulnerable. It crashes through the east gate (crumble/debris),
+   then withdraws overhead to let the player through.
+3. **The chase.** A continuous route goes right, **down** a shaft and **left**
+   beneath the castle, returning near the gatehouse. The head pursues
+   the player at a distance derived from measured target speed and
+   traveled route length. `FrameAlongside` lets the camera frame both when
+   the gap permits; it must not use the camera to drive motion, snap across
+   segments or teleport into the final arena. While warded, alternating
+   ghost-fire lunges and marked lightning drive the player **forward**
+   along the escape path, not backward; body contact alone is not damage.
+4. **Kagero's spell.** In the final hall, when the wolf has followed within
+   range, Kagero appears and casts talismans (`cast` / `ward_bound` /
+   `dispel`) to extinguish its blue ward. She does not physically cut the
+   head. She departs on her line; her older three-hit attack proposal is
+   superseded by this spell.
+5. **The hall fight.** The unwarded head fights through phase 2 and enrage
+   and leaves the Wolfenstein head as a corpse on defeat.
+6. **Return route.** A caged drain lever available after boss defeat
+   crumbles cracked wall/floor/niche looks and opens a passage back to the
+   castle gatehouse. Lock walls with a `break` row crumble; other looks
+   slide into their lintels. The crack and its hidden breach do not appear
+   open before the correct state change.
 
-**Built (untested in play):**
+**Attack language.** The hunting dog stalks and gathers before its lunge,
+pounces jaws-first onto a marked floor, lashes the **tip** of a broken
+ghost leash across the room (its slack is a punish window), howls with an
+outlined ring, and recharges after a longer string rather than lying tired
+after every move. `inu_storm` uses three floor marks and lightning from
+above. The earlier teleport (`inu_vanish`) and wisp-pack attacks were
+removed; the storm replaces the pack. It remains recognizable as a freed
+hunting wolf, not a generic fireball boss. Lightning still recurs during
+the chase, warded stage and fight. The latest chase attack spacing was
+recorded as 2.4 s when in range; use authored profiles, not this prose,
+for runtime timing truth.
 
-- A second boss placement, `castle_godwin.wolfenstein_inugami` (the Hall of
-  Bosses copy: `hall.wolfenstein_inugami`), with its own health (48), phases
-  (transition at 50%, enrage at 20%), name card ("Inugami", "The Wolf
-  Unsewn"), save record and chest (his `galvanic_bolts` chest moved to it).
-- Engine: a `BossSpawn` can name the `BossSpawn` it wakes after
-  (`wakes_after` EntityRef → `RoomSpec::boss_successions` →
-  `BossConfig::wakes_after`). The successor sleeps until the save records the
-  predecessor `Cleared`. Its conductor sees the predecessor's body
-  (`ambition.boss.conduct` v9, `predecessor`). The health bar shows only an
-  awake boss. A life switch sets the life of the whole succession. A fallen
-  boss with no music state does not stop the cue that its successor plays.
-- Art: renderer `wolfenstein_inugami`, his own head pieces
-  (`wolfenstein.WolfHead`) in a red spirit ink (`SPIRIT`), with red ghost
-  fire from the neck. His sheet adds `unsewn` and `headless`.
-- A giant head: built 176 x 212 (he stands 140). It rises at the size his
-  head was drawn on his body and swells to its build in the rise; it swells
-  again to 1.15x from the transition and 1.3x at the enrage
-  (`ambition.boss.scale`). When the spirit leaves it, it shrinks back to his
-  head. Its sheet publishes at 1.68 texels a world unit (830 px frames, the
-  median character's density), not the game's 3.4 (about 1700 px frames): so
-  its frame fits the largest impostor cell, which its hit flash needs.
-- The onibi round it are blue (sheet wisps and `inugami_onibi`, the cold
-  fire's art); the head and its fire are red.
-- Shader (polish): `ambition_render::spirit_field`, a whole-screen pass: near
-  a `SpiritAura` the picture ripples like air over a fire and takes the
-  aura's tint. `ambition_content::presentation::inugami_field` gives the
-  risen head its red aura. With screen shaders off nothing else changes.
-- Conductor: `ambition_content_modules::inugami`.
+**Movement, presentation and test contracts.** Camera-zone transitions
+should mix without snapping. The body remains above the floor on the route;
+the pursuer does not jump across an obstacle via teleportation. The
+conductor `ambition_content_modules::inugami`, boss profile and part-based
+visuals own state; chase distance, ward, attack volumes, route and
+presentation are tested by `game/ambition_app/tests/inugami_fight.rs`.
+In a part-rendered boss, `RiggedSpriteAsset::face_as` overlays the `Hit`
+face without freezing the current action row. Player/NPC expression
+handling through the character animator is a separate unfinished
+capability where face tracks are present; baked heads require face tracks
+before that technique works. A baked Inugami currently lacks the
+part-only ward layer and therefore needs its fallback evaluated, not
+assumed identical. The fixed chase uses a live-camera view only for
+captures, never movement authority.
 
-| move | the tell | the dodge | the punish |
-|---|---|---|---|
-| `inu_bite` | it draws back, jaws wide | step out of its line | it tumbles past and shakes its head |
-| `inu_dive` | it flies up over you, nose down | leave the spot | its teeth in the floor (1.5 s, and 0.4 s to pull free; 1.2 s in all at the enrage) |
-| `inu_onibi` | fire balls kindle round it | dodge the balls | none |
-| `inu_howl` | head back | walk out of the ring | the howl (it stays still) |
-| `inu_vanish` | it fades out | turn round: it comes back behind you | (a bite follows) |
-| `inu_gutter` | its fire gutters | none needed | the long window on the floor |
+**Remaining acceptance (revalidate against HEAD before selection).**
 
-**Blue spirits (2026-10-21).** Jon: "I want the Japanese ghost spirits
-around him to be blue". Four blue hitodama turn round the head on a tilted
-ring, behind it and in front of it. They go while it throws onibi, and while
-it vanishes or appears.
-
-**Kagero comes to your aid (2026-10-21).** Jon: "I also want a ninja to come
-to your aid in the fight, appear on screen and do a few hits on the boss and
-then fly off the screen (using flyline maybe). It should not be the Shadow
-Oni Leader, a different ninja. We can have some story play in with that."
-
-- Who: Kagero (`npc_ninja_kagero`), a kunoichi who hunts the spirits the
-  regime makes. She followed the inugami into the castle. She is black with
-  red eyes in a dark slit, as the ninjas are; the white of her scarf and her
-  paper talismans says she is not of the dojo. Art: renderer `ninja_kagero`
-  (first draft).
-- When: once, at the first window the head opens (its teeth in the floor,
-  or its fire spent) after you have been in the final hall with it for 3 s:
-  her cuts land while it cannot guard or vanish. The conductor summons her
-  on its far side from you
-  (`ambition.boss.summon` v3: `side: Player`, `holds`).
-- What: her own module performs her visit (`ambition_content_modules::kagero`,
-  status `ambition.kagero_visit`, ticked in `technique_execution`). She comes
-  out of her smoke and speaks, goes at the head, cuts three times (2 + 2 + 3
-  damage, real hits), then her line drops from the sky, she catches it and is
-  reeled up and away. She is dismissed when she is high or after 1.6 s.
-- Her lines: "Noisy one. Even the dead heard you." and "It was a dog once.
-  Set it free, ripple-foot." (the ninjas name the robot by its noise:
-  `docs/brainstorms/llm_brainstorm.md`).
-- Engine: `technique_execution` now also offers `ambition.presentation.drawn_row`,
-  `ambition.feedback.speech_bubble`, `ambition.feedback.burst` and
-  `ambition.feedback.body_sound`, so a module can draw, voice and sound a
-  body it ticks.
-- The line is the engine's body line (`ambition.feedback.body_line`), not
-  Smash's flyline move: that move is a winch for a body on the axis-swept
-  model, and her visit is a short scripted beat.
-
-**Open:** the onibi use the fireball art (`inugami_onibi` in
-`projectile_visuals.ron`); its own sounds (it borrows cues); its own music
-state (it plays `galvanic_march` "howl" and "storm").
-
-### Rework (Jon, 2026-10-22) — slices 1-3 built
-
-Jon, after playing it: "there is a spot that the head cant actually pass on
-the way to the final arena, the camera zones snap the camera in really weird
-ways. Its just a very unbalanced fight. It's got a lot of really good bones on
-it, but it needs to be executed correctly." Then: "You shouldn't be able to
-move into a chase zone until you damage him enough in phase 1 of the fight,
-maybe when he enrages he crashes into a wall so you can do the run and
-chase", "if you get to the final arena before he does he just teleports
-there, that is no good", "I did like the theramin to cue the player into
-something being up with the head, but we should also probably start iron
-toccata a bit sooner". On balance: "Its unpolished ... the spirit fires are
-hard to reason about, but it just doesn't have a strong boss identity or
-attack patterns. And it probably shouldn't get tired so much." And: "add
-more animations and poses to the inugami boss. I.e. better art. Can also add
-more art / animations / posing to wolfenstein too to make the boss move
-smoother."
-
-**Measured (2026-10-22, `inugami_fight.rs`):**
-
-- At its transition the final hall's bounds put the head 7428 px down the
-  castle for one tick (fixed: `arrived`, 5886379b5).
-- The head (176 x 212) was held 11 s on a 48 px step at the throne room's
-  door, and 10 s under the battlements' floor at the top of the tower: its
-  run keeps it 40 px over your centre, so it drags along the floor.
-- Out of the throne room the camera went from still to 38 px a tick; off the
-  tower's top it made up 430 px on its own in under a second (fixed: zones
-  mix across their edges, 0e4bf34ba).
-
-**The fight's new shape (rulings; to build):**
-
-1. **Phase 1 in the throne room.** The arena's walls stay up after
-   Wolfenstein falls; the Inugami's phase 1 is fought in his arena.
-2. **The crash.** At its transition the head goes back, flares, and crashes
-   through the gallery wall: the wall breaks (a gated lock wall the conductor
-   opens, with debris, shake and a slam), and the chase starts through the
-   gap.
-3. **The chase hunts you there.** It flies after you through the whole route,
-   high enough that its jaws are at your height and its bulk is over you
-   (not on the floor), and the route is widened where its 176 x 212 does not
-   fit (Jon: "Widen the route"). If you are in the final hall before it, it
-   comes in after you, at its own speed: no sweep, no teleport.
-4. **Music.** Silence while it waits in his body. When the seam pops, the
-   theremin (Galvanic March's `unleash`) cues that something is wrong with the
-   head; Iron Toccata comes in under the rest of the rise (Jon: "When it tears
-   off").
-5. **Tired less.** It lies spent on the floor (the gutter) once a phase, at
-   the end of its longest string, not at the end of every cycle.
-
-**Identity — Jon: "Yes, build it".** The Inugami is a hunting dog of the regime, set
-free, and its fight is the hunt and the leash it broke. Every move names a
-hunting dog's verb and reads from its silhouette and its fire:
-
-| move | tell | what it does | window |
-|---|---|---|---|
-| **stalk** (replaces the float) | low, ears flat, circles at your height | it keeps a hunting distance and paces you | — |
-| **lunge** (the bite, kept) | it gathers back, jaws open, eyes flare | a straight dart with a fire trail; two snaps | it skids past, shakes its head |
-| **pounce** (the dive, kept) | it climbs over you and points its nose down | drops jaws first; a shock along the floor both ways | its teeth in the floor |
-| **broken leash** (NEW, signature) | the stitches at its neck burn and a ghost chain unrolls | the chain whips across the room in one arc: jump it or duck it | the chain falls slack, it pants |
-| **the pack** (replaces the onibi) | the four blue hitodama drop to the floor and become wolf wisps | they run along the floor at you one at a time, in a visible line: jump each | — |
-| **howl** (kept, readable) | head back, the ring is drawn on the floor first | a ring pushes you off; from phase 2 it calls the pack back | it stays still for the howl |
-| vanish | — | REMOVED: a teleport, and Jon rejected the teleports | — |
-
-Built (`inugami.rs`, `boss_profiles.ron`): each phase is three picks from a
-table, then the gutter (once a cycle of three moves). Phase 1: lunge, pack
-(3 wisps), leash, pounce, howl. Phase 2: a two-lunge chain, a pack of four,
-and the howl sends a wisp each way. The enrage chains a lunge into the
-leash, and the pack into the pounce. The chase alternates a ghost fire lunge
-and marked lightning every 2.4 s while it is close. Its ward stays lit through
-the lunge and skid. The leash hurts only at its tip, which crosses
-the floor under it from behind to in front over the strike; its slack (1.2 s)
-is a window, and Kagero comes in at it too. Kagero stays as built.
-
-**Art — Jon: "Procedural, more rows".** Built: the Inugami got `hunt`,
-`crash`, `pack_tell`, `pack` (one bark a wisp), `leash_tell`, `leash_whip`,
-`leash_slack` (the chain is drawn from its neck to its frame's foot; its tip
-is the game's sparks), and more `idle` and `howl` frames; `onibi`, `vanish`
-and `appear` are gone. Wolfenstein got `turn` (drawn for 0.24 s when he turns
-between moves) and more frames on `walk`, `prowl`, `run`, the three tells and
-the four recoveries. Not built yet from the list below: the Inugami's
-`turn`, `hurt_flinch` and squash on the darts; Wolfenstein's in-betweens
-from a tell into its strike. The proposal was:
-
-- Inugami: new rows `stalk` (a pacing loop), `lunge_gather`, `lunge_skid`,
-  `pounce_turn`, `leash_tell`, `leash_whip`, `leash_slack`, `pack_call`,
-  `crash` (into the wall), `hurt_flinch` (two directions), `turn` (it turns
-  to face you over 4 frames, not a flip), `pant`; more frames on `idle`
-  (breath and ears), `bite` and `howl`; and squash and stretch on every dart.
-- Wolfenstein: in-between frames where his moves now cut (`walk` to `prowl`
-  to `run`, each tell to its strike); a `turn` row; settle frames after
-  `hammer_pull`, `lunge_skid` and `rake_recover`; more frames on `walk` and
-  `run`.
-- Whether the art stays procedural or becomes an authored SVG rig (as the
-  robot's) is Jon's call.
-
-**Slices, in order:** (1) the shape, music and route (rulings, no taste
-call); (2) the identity, after Jon's yes; (3) the art, after Jon's yes.
-
-### Rework 2 (Jon, 2026-10-24) — built
-
-Jon, after playing it: "boss bar comes up to early", "name should be
-'Inugami Wolfenstein'", "default inugami should not have ghost fire around
-its head, we should add them only during the chase where the wolf is
-effectively invincible. They are what force you to run", "The ninja is who
-dispels the flames and lets you fight once you reach the end of the hall",
-"the camera should let the player go much further right, so we can have the
-inugami head on screen", "let's make it a straight level that goes down
-instead of up. And have it sort of loop back topologically under the castle
-so when the fight is over you are close to the start of the level and you
-can open a secret passage back", "Animations are not smooth enough", "The
-poster should probably be on solid wall", "Lightning should still be a theme
-in the inugami fight", "The ninja uses a spell to dispel the blue flames".
-
-The shape now:
-
-1. **Phase 1 in the throne room**, no ward: it is hit as any boss.
-2. **The ward and the crash.** At its transition the four blue hitodama
-   kindle round it (`ward_kindle`); while they burn its conductor guards it
-   (`warded`). It crashes through the arena's east gate, then draws back up
-   under the vault so you can pass under it.
-3. **The chase goes right, down, then left** (Jon, 2026-10-25: "yes loop
-   back. so right, down, then left"). Past the gate a way runs east
-   (1920, as high as the arena; on it you are held right of the picture,
-   the head behind you on the left); at its end a shaft drops; then the run
-   goes straight west under it, the arena and the whole castle, ten steps
-   of 96 down, 640 clear. It follows sampled foot positions in order, with
-   its bottom `RUN_CLEAR` 120 above them. Speed follows the target's measured
-   pace, with a bounded correction toward a `RUN_GAP` 220 separation. A stopped
-   body is caught. Every 2.4 s it alternates a ghost fire lunge and lightning
-   on a marked point. Horizontal catches launch the target forward and up;
-   a catch in the shaft follows the direction of travel. The camera zones
-   keep their authored zoom and offsets. A view also frames the warded head
-   while it is within 1000 units of its target. A larger gap must not force
-   both bodies into the view. Pursuit reads no camera state. Its waypoints
-   use the same room bounds as flight. The live route test reaches the outer
-   shaft wall; the separate camera test checks zone handovers after both
-   bosses die.
-4. **Kagero's spell.** The final hall is the room's end farthest from where
-   it rose: under the gatehouse. When it has howled over the hall and you
-   are in it and it has stalked you to within 400, Kagero comes beside you
-   and casts (`cast`): her talismans stick
-   to it (`ward_bound`) and its ward breaks (`dispel`, at
-   `kagero::DISPEL_AT_S`). She does not cut it; she leaves up her line.
-5. **The fight in the hall** (phase 2, enrage), then its death.
-6. **The way back.** A lever in the hall, caged until it is dead
-   (`boss.cleared`), breaks a wall of cracked stone across the old drain
-   (`world.switch_on castle_godwin_drain_lever`; Jon, 2026-10-25: "Do a
-   cracked stone look"); its door goes up to the gatehouse, near the
-   castle's start. In the gatehouse the drain's mouth is a pit in the floor
-   under a block of cracked stone, flush with the floor, that breaks with
-   the same lever. Shut, each is a `LockWall` look (`castle_cracked_wall`,
-   `castle_cracked_floor`); broken through, the breach behind it shows
-   (`castle_drain_breach`). Lock walls now draw over the room's scenery, so
-   a breach behind a shut wall does not show. The lever's cage is cracked
-   stone too (`castle_cracked_niche`), broken open when it dies.
-
-**Crumble (Jon, 2026-10-25: "Address all open items").** A lock wall's look
-decides how it opens: a look whose sheet has a `break` row crumbles (its
-blocks part from the row's first frame, fall, settle and fade, and then its
-picture goes; `LockWallCrumble`), any other slides into its lintel. The way
-is open from the first frame, which already draws the wall broken. The
-three cracked looks have `break` rows (14 x 45 ms).
-
-**Lightning.** `inu_storm` replaces the pack: the head throws its head back,
-his lightning crawls over it (`storm_tell`), three marks spark on the floor
-(under you and 240 each side), and bolts strike them from the vault (held
-rays, look `strike`). From the transition the howl brings a bolt down on each
-side of it. In the chase its lightning strikes the way ahead of you. The
-blue wisps and `inugami_wisp` are gone.
-
-**Hurt face (Jon, 2026-10-24: "When the character gets hit, he jumps to the
-hurt spritebox ... use part based rendering to only change some of the parts
-to a hurt expression").** A boss drawn from parts (Wolfenstein, the Inugami)
-no longer draws its `Hit` row while its flash runs: it keeps the row it is in
-and wears the `Hit` row's face (`RiggedSpriteAsset::face_as`: the eyes,
-brows, mouth and jaw tracks take the `Hit` frame's parts at the pose's
-places). A baked boss still draws the row. For other rigs the same seam
-serves: a body drawn from parts with named face tracks needs only a row
-whose face is the expression; a hurt face for players and NPCs needs the
-character animator (not the boss path) to set `CharacterAnimator::expression`
-from its hit flash, and rigs whose faces are not separate tracks (one baked
-head part) need their face split into tracks first.
-
-**Other fixes.** The boss bar shows from the end of the intro
-(`BossRenderView::fighting`), not from the wake. Its name is "Inugami
-Wolfenstein" (spawn, encounter, catalog, sheet). Posters in the throne room
-are on stone: the run's barricades and the lintel of the drain.
-
-**Art.** Its rows keep their lengths in more frames (idle 24, rise 30,
-death 34, hunt 16, crash and dive 8, and so on). Kagero got `cast`.
-
-**The ward is a layer (2026-10-25).** Its hitodama are no longer drawn in
-copies of the head rows: `ward_ring_kindle`, `ward_ring` (one whole turn,
-loops) and `ward_ring_dispel` draw only the spirits, and the conductor
-pins them over whatever row the head is in (`DrawnPart::Layer`,
-`ambition.presentation.drawn_row` v3) on its `ward_t` clock, so the ring
-circles through each row change.
-The layer rides the head (its `skull` track, against `idle`'s first frame);
-its `behind` tracks draw under the head; mirrored, it is mirrored about the
-head first, so it keeps its turn when the head turns round. Kagero is
-called on a beat of the ring (a quarter turn), so the ring is where
-`ward_ring_dispel` starts it when her spell breaks it.
-
-**Turn.** Where the head reverses facing on a calm row (float, hunt, a
-tell) it draws `turn` (8 x 30 ms): the head whips round and the fire from
-its neck swings from ahead of it, over it, to behind it.
-
-**Wolfenstein's key poses.** His short rows got in-betweens at the same
-lengths first; then real keys (2026-10-25): each tell ends in a load past
-the cock (`RAKE_LOAD`, `HAMMER_LOAD`, `STAB_LOAD`, `LUNGE_LOAD`,
-`GALV_LOAD`, `LASH_LOAD`) and each strike goes through an arc
-(`RAKE_ARC`, `BACK_ARC`, `HAMMER_ARC`, `STAB_ARC`, `BOUND_PUSH`) and past
-the contact to an overshoot (`RAKE_OVER`, `BACK_OVER`, `HIGH_OVER`,
-`THROWN_OVER`, `LASH_OVER`) before it settles; his skid pitches forward
-past the stop.
-
-**Accepted (Jon did not object, 2026-10-25):** Kagero only casts, she does
-not cut; the Inugami's sheet is 10 pages for its smoother rows and its ward
-rows.
-
-**Limits.** The layer is drawn only by a body drawn from parts: a baked
-Inugami (no part flipbook) shows no ring. The ring keeps its radius while
-Kagero's spell holds it (it was pulled in tight in the old `ward_bound`).
+- Register `inu_storm` in the seed catalog; review the `slam` duration
+  band and current roster punish/telegraph warnings. A dated run reported
+  four failing `content_it` checks; reproduce before treating them as
+  current regressions.
+- Audition dedicated sound and music cues; current Wolfenstein music
+  (`galvanic_march`'s howl/storm) and other borrowed cues are placeholders.
+  The planned transition cues the rising head with theremin, then starts
+  Iron Toccata during the rise; verify the implemented music routing.
+- Review fight/chase balance, route-camera framing and pursuit visibility
+  in a real playtest. Check the chase's attack directions, collision margins,
+  transition bar timing and return-route presentation on a GPU.
+- Inspect remaining authored `hurt_flinch`, dart squash, move-interpolation
+  and turn/pose quality **against the later Oct 24–25 art passes** before
+  assigning work; `turn` and Wolfenstein in-betweens were implemented after
+  the older request, so the old list is not an open task inventory.
+- Ensure a warded part-based body still shows its ring through all pose
+  and mirror changes; evaluate the baked fallback and actor-generic hit-face
+  expression seam rather than duplicating the boss-only path.
 
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
@@ -782,42 +482,14 @@ its treasure falls into a "ground" room below, which joins the chase to the
 normal LDtk levels. The fight must not assume the player can fly (or has the
 fuel to).
 
-What exists (measured 2026-10-06):
-
-- **Parallax:** 4 fixed layers offset by camera position
-  (`ambition_render/src/rendering/parallax.rs`). No time-based scroll, no
-  tiling, no wraparound, no autoscroll camera.
-- **Moving platforms:** `Sweep`, `Path` and `VerticalLoop`, which wraps like an
-  elevator (`ambition_platformer2d_world/src/platforms/mod.rs`). No horizontal
-  wrap. The burning flying shark is a mount sheet, not a platform.
-- **The current fight:** 28 HP in `mockingbird_arena` (960x768, between the
-  cove and the dojo, placement `cove.mockingbird`). It uses `AirSwoop` and
-  cycles `wing_sweep`, `dive_lane`, `broadside` and `echo_fan`.
-
-**Proposal: no "chase level" type. Four room features, each useful on its
-own; the chase room composes them.** The stage is static and only looks like
-it moves:
-
-1. **Autoscrolling parallax:** a room states a scroll velocity, and its
-   layers tile and wrap horizontally at their own factor (a Hanna-Barbera
-   loop). Presentation only.
-2. **A horizontal wrapping motion** for moving platforms, the sideways
-   sibling of `VerticalLoop`. Sharks leave one edge and re-enter at the
-   other, weaving on a bob. A platform can wear a character sheet (the shark
-   rig). The sheet loops its row (the shark's `idle`) and faces the way the
-   platform flies through the air: the sharks drift toward the Mockingbird
-   slower than the sky scrolls past, so they face away from it
-   (`the_mockingbirds_sharks_flee`).
-3. **A fall rescue:** a room rule that, instead of the kill floor, sends a
-   carrier platform up under a falling player and lifts them back into play.
-4. **A reward anchor in another room:** the chest is already keyed by
-   placement id (`BossRewardAnchor.placement_id`). The chase's anchor sits
-   at the top of the ground room, so the treasure falls in from the sky
-   there.
-
-The Mockingbird itself is boss content: it is anchored to one side, with
-volleys (missiles from the wingtip, fireballs), and a dive-in bite that ends
-in a recovery window.
+**Room model now implemented.** This fight uses a sky room above its shore
+instead of a bespoke chase-level type. Reusable features are autoscrolling,
+tiled parallax, horizontally wrapping/bobbing moving shark platforms, a
+fall-rescue carrier and a chest anchored in the shore room. The boss owns
+its fireball, missile and dive attack patterns; it must work for players
+without flight or spare fuel. The sky appears to move while the authored
+rooms remain ordinary rooms. The four features are still valuable generic
+room capabilities rather than Mockingbird-only simulation.
 
 **Ruled (Jon, 2026-10-06):** the player gets up into the chase from the
 ground room on a shark that swoops down and carries them up through the
@@ -944,101 +616,35 @@ when perhaps we should be using part-based spritework there."
   are a little denser; the dust band is fainter.
 ## The hall of bosses: its own instances, and life switches (proposed 2026-10-06, Jon)
 
-**The problem.** Two of the hall's ten doors lead into main-game rooms
-instead of rooms of their own:
+**Built:** the hall's Mockingbird and Clockwork Warden use their own
+`hall_mockingbird_arena` and `hall_warden_arena` copies, with separate
+placement IDs. Hall progress never clears a story placement. A practice
+boss awards coin/health and a small purse, not a story gauntlet, ability
+or quest advancement. The Hall's nine external `SwitchAction::BossLife`
+switches display the corresponding encounter's **live** saved state
+without saving a second switch state. A green-to-red press kills or marks
+it dead without a reward; red-to-green retracts defeat and reseeds a
+loaded boss. Tests include `the_hall_of_bosses_has_its_own_bosses` and
+`boss_lifecycle::a_practice_copy_dies_without_the_story_consequences`.
 
-- the Mockingbird: `hall_to_mockingbird_portal` → `mockingbird_arena`, whose
-  exit leads to the cove;
-- the Clockwork Warden: `hall_to_warden_portal` → `basement_boss`, whose exit
-  leads to the hub.
-
-So you walk through a door and come out somewhere else. The other eight
-lead to dedicated arenas that return to the hall.
-
-**Wanted.** The hall has its own instance of every boss: separate rooms and
-separate placements, so the hall's progress and the main game's progress are
-independent. This already works: progress is keyed by authored placement id
-(Q57). The world already has archetypes placed twice (Mode Collapse, the
-Warden).
-
-**Life switches.** A switch outside each hall door shows that hall boss's
-state: green when it is alive, red when it is dead.
-
-- Flipping red to green revives it. `retract_defeat_records` already moves a
-  placement back to `Untouched` and clears its looted flag.
-- Green to red, if allowed, kills it:
-  - when the boss is loaded, through its death;
-  - when it is not loaded, by recording it `Cleared`, so the next visit finds
-    a corpse.
-
-The switch shows the boss's state; it stores no state of its own. Today's
-`Switch` toggles its own save entry, so this is a new switch action, plus
-the "may this be flipped" rule. There is no interactability condition today
-(`body/interact.rs`).
-
-**Ruled (Jon, 2026-10-06):**
-
-- **Hall kills are practice.** Killing a hall boss leaves the main game's
-  boss untouched: "They are completely separate." A hall kill may drop a
-  reward chest of something small (health, money), but no story reward.
-- **The kill switch is allowed and kills properly.** Flipping a green switch
-  kills the boss on the spot if it is loaded (anyone fighting it sees it
-  die), or marks it dead if it is not. No lock.
-
-**Built (2026-10-06):** the hall's Mockingbird and Warden doors lead to
-`hall_mockingbird_arena` and `hall_warden_arena`, copies of the story rooms
-whose doors return to the hall. Their bosses are `hall.mockingbird` and
-`hall.clockwork_warden`. Both rooms carry the level field `practice`
-(`RoomMetadata::practice` → `BossConfig::practice`). A practice boss's
-death:
-
-- drops the coin and health bounty, and a chest holding a purse
-  (`PRACTICE_CHEST_PURSE`);
-- drops no ability and no gauntlet, and moves no quest.
-
-Pinned by `boss_lifecycle::a_practice_copy_dies_without_the_story_consequences`
-and the `the_hall_of_bosses_has_its_own_bosses` tests.
-
-**Built (2026-10-06): the life switches.** There is one by each of the nine
-boss doors (`SwitchAction::BossLife`, `target_encounter` = the hall boss's
-placement). Each is green while that boss is alive, and stores nothing of
-its own: it shows the boss's record, so a boss killed in a fight turns it
-red. A press on a green switch kills the boss: zero health and `Death` at
-once if loaded, otherwise just recorded dead, and its reward reads looted,
-so a switch kill pays nothing. A press on a red switch revives it: the
-defeat records are retracted and a loaded body is re-seeded at its spawn.
-The hall-only bosses now have placement ids (`hall.trex`, `hall.gnu_ton`,
-…), so existing saves see them alive once. Mode Collapse's hall arena is a
-practice room, because Mode Collapse has a main-game placement (the overfit
-annex).
-
-Hall-only bosses (T-rex, FSM, the Hunny Horror, Overflow, GNU-ton,
-Cut-the-Rope) stay real until each is placed in the main game (Jon,
-2026-10-06).
-
-So a hall placement does not fire these archetype-keyed consequences:
-
-- `QuestAdvanceEvent::BossDefeated(archetype)`;
-- the signature gauntlet drop;
-- the reward contents (`pirate_hoard`);
-- Yarn `boss_cleared("cove.mockingbird")` is keyed by placement, so it is
-  unaffected.
+**Remaining classification check.** The Hall's GNU-ton copy was recorded
+as not yet `practice` after the Science-world placement was added;
+T-rex and the FSM were in the same category. Verify current placement and
+progression rules before changing `practice` metadata. Hall-only bosses
+remain genuine encounters until they acquire story placements. The
+practice policy should be applied per placement, not per archetype.
 
 ## GNU-ton — a giant with arms, and portals (proposed 2026-10-11, Jon)
 
-The giant's new look is in the game, with the fight of today (see
-`art-and-ambiance.md`, "The giant gnu, redrawn"). The fight below is NOT
-built. Concept stills and animations are in `untracked/giant-gnu-candidate/`
-(not in git).
-
-**What the new giant changed in the fight of today (2026-10-11).** The
-giant is larger, so its numbers moved: the scholar's seat is the right
-shoulder, 464 above the floor (it was 217); the `back` the conductor reads
-is the line of the two shoulders; the fists rest 400 to each side of its
-centre (270). The choreography's own heights did not move: `HOVER`,
-`CEILING`, the pivots, and the orbit about the scholar are numbers of the
-room, and with the scholar higher the orbit is higher over the floor than
-it was. The fight was not tuned again for this: that is the rework.
+**Current shape.** The GNU-ton fight has received several reworks through
+2026-10-24: an on-foot scholar duel, a mobile giant with grounded mount
+surfaces, portal punches, a clamp phase with separate fists, and a
+space-launch phase built around Newton's laws. The old 2026-10-11
+"fight below is NOT built" note and its port-missing audit were superseded
+by these implementations. This section keeps the gameplay contract; the
+technical debts remain in [`gnu-ton-fight-debts.md`](gnu-ton-fight-debts.md),
+and placement in the Science gravity works is specified in
+`tools/ambition_ldtk_tools/specs/gnu_ton_gravity/README.md`.
 
 **The body.** A giant like a gnu, almost a centaur: a beast on four long
 legs, a chest that stands up at its front, two arms to two fists, a gnu's
@@ -1054,170 +660,58 @@ horn, and the top of each epaulet. The surfaces are a fact of the body: they
 are ground ridden or not, so the Hall's giant (`npc_giant_gnu_whole`, no
 mount) has them too.
 
-**The fight Jon proposed.**
+**Encounter loop.** Phase 1 teaches a useful portal pair: the scholar
+opens an entry beside the giant and an exit over the targeted player,
+then punches down through it. The exit is both a telegraphed threat and
+a route for a player to reach the giant's shoulders and strike the scholar.
+The arm and the punch are one physical event on both sides of the pair.
+After enough damage, the scholar clamps the portals onto the giant's arms;
+those become look-only lines around autonomous fists during phase 2,
+while authored kicks can still use real portals. At the enrage, the fight
+**does not** use the old proposed one-arm-return sequence: the built
+encounter launches the room into space (Round 3 below). The portal
+surfaces remain ordinary engine portals and are never painted into the
+sprite. Avoid accidental collision/clip at the pair, but keep the arm
+**rigid**: the initial stretchy-arm concept was rejected in the Oct 24
+rework. Player access to the hump, epaulets and horns must be physical,
+not a stand-under-feet exploit.
 
-- Phase 1 (short). The fists are on the arms, so they do not reach far. The
-  scholar opens a REAL portal pair for a time: one flat line by the giant's
-  shoulder, one flat line over the player's head. The giant lifts a fist
-  and punches DOWN into the near line, and the fist comes down out of the
-  far one. A punch down needs no turn of the giant's chest. While the pair
-  is open the player can jump up into the far line (a double jump: for now
-  the fight is made for the full set of abilities) and come up out of the
-  near one, by the shoulders, to strike the scholar. A punch up through a
-  line under a player who jumps, or a line at an angle, were thought of and
-  not chosen.
-- The portals are NOT in the sprite. The game draws them with the engine's
-  portal effect: a thin line of light, two places of the room made one.
-- The blow is ONE smooth motion, and the arm goes into the line square to
-  it (Jon, 2026-10-11). The arm is one picture at each moment. It is drawn
-  on each side of the pair and cut at the line, so what has gone into the
-  near line is what comes out of the far one, at the same angle. An arm of
-  two stiff bones goes in on a slant, and where it crosses the line moves
-  along it. So the arm WARPS: it is one curve from the shoulder to the
-  wrist, its end held square to the line, and it is longer in the blow than
-  at rest. Concepts as animations: `untracked/giant-gnu-candidate/`
-  (`punch_down.gif`: down into a flat line; `punch_side.gif`: across into
-  an upright one; `punch.gif`: the stiff arm, for comparison). With the
-  warp the lines stay flat or upright, which the engine does exactly: a
-  line at an angle is not needed for this.
-- After a few hits the scholar is angry (Jon, 2026-10-11, the second
-  telling). He calls two portals and the arms go through them. Then he does
-  a new thing: the portals CLAMP DOWN about the arms until they are tight
-  to them. From then they are not real portals: they are the portal LOOK
-  only, the arm fills them, and the player can not use them. The far ends
-  move about the room with the fore arms and the fists, in the patterns
-  that today's two fists have.
+**Built architecture, superseding the first-cut proposal.** The conductor
+`ambition_content_modules::gnu_ton` requests actual held portal pairs
+(`ambition.portal.held_pair`) and look-only portal lines
+(`ambition.portal.light_line`), so the engine owns their lifetimes. A
+phase-1 fist is a posed limb/body that **really** transits a portal; its
+hitbox emerges at the far aperture and the arm visual is clipped by that
+same pair (`PortalHostReach`), rather than rendering two imitation fists.
+The near-line and arm/limb geometry are intended to be art-driven, although
+some line placements remain manually encoded (see the debt owner).
+The portal punch tests cover the route from floor through the far line to
+GNU-ton's back. On clamp the real pair closes about the arms, after which
+look-only lines accompany independently acting fists. The later
+2026-10-24 implementation expanded this to both arms and kicks, with
+aim/telegraphs determined by player position and staged punish windows.
 
-**The order of the work (Jon, 2026-10-11).** First the new giant goes into
-the game, with the fight of today. Then the fight is made again, in these
-phases. A portal at an angle may look better and Jon wants angled portals
-in time; they are not a part of this.
+**Remaining debts from the early versions (validate on HEAD).** The original
+plan called for repeated blows, active scholar reactions, authored barks,
+short location-responsive phase-2 cycles, and a clear reward for taking
+the portal route onto the back. Later work added both arms and the third
+space phase, so the earlier proposed arm-return enrage should **not** be
+implemented over the built launch-to-space transition. Check the
+current fight for gaps rather than restoring the first-cut pattern:
 
-**What the engine has for this (read from the code, 2026-10-11; not run).**
-
-- A timed portal pair in free air exists: a move of the smash demo opens
-  one and closes it on a clock (`game/ambition_demo_smash/src/portal.rs`).
-  Each body with kinematics transits it, the player also.
-- A portal with no partner is drawn and does nothing. That is the portal
-  look of phase 2.
-- The look of a portal is a line of light from a shader
-  (`ambition_portal2d_presentation`), not a ring. The ovals in the stills
-  stand in for it.
-
-**What it does not have.**
-
-- The conductor is an extension module and has no port that opens a portal.
-- A fist is posed at an absolute place each tick. A fist that transits is
-  put back on the entry side by the next tick's pose.
-- A fist's damage box is a box in the world at the choreography's place.
-  It is not mapped through a portal: a fist half through hurts nobody at
-  the exit.
-- A fist (about 136 x 114) is larger than the default opening (92 long).
-  Both ends of a pair take the smaller size.
-- A portal can not ride the giant. A free portal that moves 1 px or more is
-  taken as a closed plane, and bodies in it are pushed out.
-- No body can refuse a portal: the scholar, a thrown item, a shot use the
-  pair as the player does.
-- A boss's pair needs its own end: a clock in rollback state, an identity,
-  a despawn on defeat and on a reset of the arena.
-
-**The shape that needs least (a proposal, not decided).** In phase 1 the
-pair is real for the player, and the fist does not transit it: the
-choreography poses the fist on the exit side (it is a body of its own, as
-today) and the arm is drawn into the entry. Then the fist's place and its
-damage box are where the choreography says, as they are today. Open: the
-size of the opening against the size of the fist, and what the pair does
-when the giant bucks or rears.
-
-**Open, for Jon.** Whether the player can walk the slope (about 36 degrees
-on all fours, 46 reared; not checked against the engine). Which shoulder
-the scholar stands on. Where the two fists rest.
-
-**Built 2026-10-11 (first cut; seen in `capture_scene`, not in a window on
-a GPU). What is not elegant in it: `gnu-ton-fight-debts.md`.**
-
-- Phase 1: the giant's arms are on it (rows `armed_*`, `punch_*`). The
-  pattern is one move, `portal_punch`. A real pair opens: the near line by
-  the right shoulder, the far line over where the player was when the
-  telegraph began. The fist's body is put under the far line (rows
-  `through_*` of the fist's sheet) and hurts there. A player that was put on
-  the near line came out of the far line (seen). The way UP was not played.
-- Phase 1 ends at 64% of his health (`phase1_to_transition_hp`): Jon wants
-  it a full phase, not a short one. Its pattern is a slow punch and a quick
-  one; it needs more moves (the left arm, a punch to the side).
-- The clamp: the encounter's lock between the phases (2 s). Two wide lines
-  open and the arms go out into them (row `clamp`); the fists come out as
-  bodies of their own; the lines close on the arms until they are as wide
-  as the arm (`arms::tight`); the giant flinches (row `hit`). Then the
-  fight of before goes on (its phase 1 and its phase 2 are now ONE phase 2).
-- He says four lines, once each (`Bark` in the conductor): at the first
-  punch, when the player is on the giant's back, at the clamp, and when
-  the lines are tight. First words; Jon has not read them.
-- The lines at the shoulders and behind the wrists are a look
-  (`PortalLightLine` of the portal presentation crate), not portals: a free
-  portal that moves pushes each body on its plane.
-- Where: the module `ambition_content_modules::gnu_ton` (`choreography::arms`,
-  `conductor`), `ambition_content::bosses::gnu_ton::portals`, the rows of
-  `giant_art.py`, `boss_profiles.ron`.
-
-**How the fight could play better (2026-10-11; Jon: "rework and improve
-how this fight plays out", phase 2 does not need to be the fight of
-before; and of this list: "Your proposals make sense").** Each line is a
-change that can be made alone. BUILT 2026-10-11: 1 (three blows, the one
-and the two; not "faster on the floor"), 2 (the lock; the one-two is two
-quick punches 0.5 s apart), 3 (he goes to the other shoulder after a
-blow), 4, and of 5 the lines that come open when he is dazed. NOT built:
-the left arm and the punch along the floor (art), barks at each move, the
-bright trail, and 6 (it needs rows with one arm on and one in its line).
-
-1. *Phase 1 has one question: "where is the way up?"* The far line is the
-   threat and the way. Make that plain: the first punch is slow and he says
-   so; a player on the giant's back gets two or three blows before the buck
-   (today the first blow starts it); a player who stays on the floor gets
-   punches that come faster.
-2. *More punches from the same arm.* A punch that follows the player until
-   a lock (as the demonstration does): BUILT 2026-10-11, the far line
-   follows at 360 through the tell and stays for its last 0.3 s. Two punches with one opening: the
-   fist goes back up and comes down again where the player went. Later,
-   with art: the left arm, and a punch along the floor out of an upright
-   line (a thing to jump over).
-3. *The scholar is in the fight.* On the back with him, he is not a target
-   that waits: he steps to the other shoulder, or he calls the buck. In
-   phase 2 he is who you watch: each move starts with his row and a bark,
-   so the fists are read from him.
-4. *Phase 2 is shorter loops that answer the player.* Today it is one list
-   of 35 seconds. Three short lists, chosen by where the player is: near
-   the giant (cradle, stomp), far (demonstration, pendulum), on a perch
-   (fluxions). The apple rain and the eureka come at a part of his health,
-   not at the end of a list.
-5. *The lines stay part of phase 2.* The trail from a shoulder's line to its
-   fist is his spell (Jon). A fist that is stuck pulls its line tight and
-   the trail goes bright: the sign of the punish window. When he is dazed
-   (eureka) the lines flicker and go wide: the arms nearly come out.
-6. *The enrage is the pair again.* Below the last part of his health the
-   clamp breaks: one arm comes back onto the giant and punches through a
-   real pair while the other fist is still a body of its own. The way up is
-   open again for the last blows.
-
-**Known, not done.**
-
-- The tests of the fight were brought up to it (the conductor's parity
-  test, the arena's tests, the two-room apple rain). No test plays phase 1.
-- The limb trail (wisps from the giant to each fist) is still drawn: to the
-  far fist of the punch, and beside the arms in phase 2. It needs a way for
-  a body to say it has no trail.
-- The places of the lines are typed in `choreography::arms` from the
-  drawing (debt 5 of `engine/the-art-says-where-a-body-stands.md`).
-- When the giant bucks, the lines stay at the place of the giant at rest.
-- The hall of characters shows the giant with its arms cut at two lines
-  that are not drawn (no conductor is there).
-- The way up is PLAYED by a test
-  (`the_punchs_pair_is_the_way_up_to_the_giants_back`): from the floor, two
-  jumps go up into the far line (145 over the floor), the player comes up
-  out of the near line, and goes to the side onto the giant's back. For
-  that the near line is OVER the right shoulder (68 over the back): by the
-  shoulder it was too low, and the player came out with no rise left.
-- Not tuned: the times, the damage, how many blows end phase 1.
+- The limb trail must disappear when its fist is on the arm and follow the
+  proper line when separated. The old hall-of-characters representation
+  could show cut arms with invisible lines.
+- Limb/portal line placement must follow the actual animated rig during
+  bucking and rearing; the hand-enter/exit bounds and clipped part visuals
+  require GPU-speed inspection. The dedicated debt owner records this.
+- Verify phase-1 route tests, fight timing/damage tuning and the scholar's
+  barks/reactions across the full encounter. The 2026-10-11 test report
+  did not itself play phase 1, but later tests may now cover that.
+- Check the real portal's clear opening against fist size and giant stance,
+  whether the player can walk the hump and shoulders as intended, and whether
+  the scholar's current shoulder and the fists' rest poses agree with the
+  art. These were open visual/gameplay decisions in the 2026-10-11 plan.
 
 **Aimed blows, a kick, and their weight (built 2026-10-24; Jon, 2026-10-23:
 "it should track where the player is ... down diagonal, horizontal, or up ...
@@ -1316,10 +810,10 @@ mitigated by part based rendering ... is it always with the canvas-right arm?
   throw once he is hurt; a hammer in the floor is an opening that passes one
   blow (app). Art: renderer (the pieces, the rows, the effects).
 
-Open: whether the left jab should be a hook out behind (it is: a left jab
-would bring its near line through the slope of the back); the eight-bone arm
-of a blow is not the smooth curve it was (it bends at its joints); the new
-rows and effects are not yet seen on a GPU at speed.
+The left-arm hook is implemented in the both-arms pass above (not an open
+left-jab proposal). Remaining presentation review: the eight-bone chain has
+visible joints instead of a continuously smooth arm, and the new effect
+rows require observation at GPU speed.
 
 **Placed in the main game (2026-10-23).** Jon asked for a gravity and
 portal puzzle level with GNU-ton at its end. The level is the GNU-ton
@@ -1330,9 +824,9 @@ and his arena `gnu_ton_shoulders`. The arena is the hall's arena as it is,
 with his placement `gnu_ton_handle.gnu_ton`. A `LockWall` gated on
 `boss.cleared gnu_ton_handle.gnu_ton` opens the door home. Room by room:
 `tools/ambition_ldtk_tools/specs/gnu_ton_gravity/README.md`. Proof:
-`game/ambition_app/tests/the_gnu_ton_handle.rs`. Open: the hall's arena is
-not yet `practice` (the rule above for a hall boss that has a main-game
-placement; T-rex and the FSM are not either).
+`game/ambition_app/tests/the_gnu_ton_handle.rs`. Recorded follow-up: verify whether the Hall copy is now `practice`; the
+2026-10-23 pass reported that GNU-ton, T-rex and FSM were not. Do not infer
+current state from that dated observation.
 
 ### Round 3: the whole encounter (built 2026-10-24)
 

@@ -21,6 +21,133 @@ The engine becomes reusable by making those capabilities ordinary Bevy
 plugins/crates and a semantic SDK rather than by exposing Ambition's historical
 crate topology.
 
+## Architecture-completion roadmap: no host recompilation for game development
+
+**Goal:** authors can create and iterate on a playable Ambition game through data,
+world edits, media and bounded procedural behavior without rebuilding the engine
+host. Changing fundamental engine services remains ordinary Rust/Bevy work.
+Static release builds *may* embed/recompile selected content. This is a
+completion path across existing owners, **not** a replacement execution queue.
+Selection and priority remain in [the queue](queue.md); unselected work remains
+in [tracks](tracks.md).
+
+### Precisely which edits avoid compilation?
+
+| Edit class | Target loop | Current posture and owner |
+| --- | --- | --- |
+| Authored gameplay data (moves, characters, rules, items, quests, dialogue, encounters, audio registry) | Save source -> compile/validate pack -> admit -> reconstruct affected session -> observe; **no Cargo or host link** | Implemented for many families; coverage and duplicate Rust readers remain. [Content generation](engine/content-generation-and-reload.md), [I2/I3](engine/fast-iteration-implementation.md), [content-as-data queue](queue.md#content-as-data--content-still-written-as-rust) |
+| LDtk rooms and spatial relationships | Edit -> semantic validation -> candidate world rebuild -> observe; **no host link** | World reload and semantic tools exist; field authorability, typed references, diagnostics and integration with other candidate changes remain. [LDtk tools](engine/ldtk-authoring-and-world-tools.md) |
+| Images, sprite rigs, music, SFX and shaders | Produce/choose local asset -> select -> restart or safe visual refresh; **no host link** | Published assets and some live restatement exist; selected-file/tool agreement and inexpensive publish/preview remain. [Asset library](engine/asset-library-editor-and-delivery.md), [asset preparation](engine/asset-preparation-and-residency.md) |
+| Custom gameplay algorithm with new state | Build **small independent** Rust/WASM module -> admit -> run/rebase -> observe; **no host link**, but the module still compiles | WASM backend and shipped migrated customers exist. Lifecycle cleanup, complete domain coverage, scenario-level reload and scaling proof remain. [Extension model](engine/extension-model.md), [execution](engine/extension-state-and-execution.md) |
+| Literal no-compiler custom algorithm | Edit an interpreted script -> admit -> observe; **no module compilation** | Not a shipped guarantee. Lua/Rhai or another interpreter is a conditional binding choice; it must use the existing procedural state/port contract, not a second authority. [Extension model](engine/extension-model.md#two-scripting-modes-one-procedural-contract) |
+| New physics/simulation/renderer service or native Bevy plugin | Build/test engine source | Intentionally outside the no-host-rebuild content promise. [Architecture](engine/architecture.md), [SDK](engine/public-sdk-1.0.md) |
+
+**Current coverage:** the core ownership and extension model is specified and
+substantially implemented, but the whole *author-to-running-game-to-release*
+path is not yet one proven product contract. Do not call a reload family complete
+because a watcher fired, a schema parsed, or an artifact was accepted without
+observing the changed behavior in the actual host.
+
+### Dependency-ordered completion gates
+
+These are **architectural gates**, not additional scheduled tasks. Complete or
+reconcile each existing owner/queue item rather than creating an independent
+implementation track.
+
+1. **G0 — One observed iteration contract.** For each supported edit class,
+   exercise a real edit, independent preparation, selected admission,
+   first observable gameplay/presentation change, rejection and restoration.
+   Record changed inputs, selected artifact/generation, stage costs and whether
+   Cargo/host linking occurred. Establish cold/no-op/warm numbers on the same
+   machine, then choose budgets from measurements. Reuse
+   [M0-M3](engine/extension-iteration-evidence.md) and
+   [FI1-FI10](engine/fast-iteration-acceptance.md). This gate is partially met;
+   do not reschedule successful fixtures.
+2. **G1 — Finish the cheap content and asset loop.** Close concrete
+   [CONTENT-AS-DATA](queue.md#content-as-data--content-still-written-as-rust)
+   readers and [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload)
+   customers; make selected-file resolution agree across runtime, editor and
+   packager; avoid old-bundle hashing on ordinary publication and release
+   auditing during local preview. Retain usable stale artifacts as diagnostics,
+   not routine hard stops. Owners: [content generation](engine/content-generation-and-reload.md)
+   and [asset library](engine/asset-library-editor-and-delivery.md).
+3. **G2 — Complete world and behavior authorability for real game features.**
+   Discover supported authoring vocabulary; inspect, mutate, validate and render
+   a room through semantic commands. Type the spatial references that currently
+   require strings, with the movement-platform path as the first witness.
+   Make one real custom algorithm and its state portable across control/actor
+   identities through declared domain ports; add a missing *reusable service*
+   only when the real algorithm needs it. Reuse
+   [LDtk tools](engine/ldtk-authoring-and-world-tools.md),
+   [authored orchestration](engine/authored-gameplay-logic-and-orchestration.md),
+   [domain ports](engine/extension-domain-contracts.md) and
+   [FI8](engine/fast-iteration-acceptance.md#fi8---arbitrary-algorithm-and-actor-symmetry).
+   General reusable compositions/prefabs remain customer-gated, not a prerequisite.
+4. **G3 — Make multi-domain change admission coherent.** Explicitly describe
+   which changes are presentation-only, definition changes, room rebuilds or
+   procedural code/schema changes. A candidate must name its exact content,
+   module, world and asset selections and affected references; avoid mixed
+   mechanical generations. Reject malformed or superseded candidates without
+   disturbing the playable old state. A valid mechanical change enters through
+   supported reconstruction, preserving any durable save compatibility policy;
+   remote peers pin compatible mechanical generations. Existing separate world,
+   pack, module and sprite reload roads should be *reconciled*, not replaced with
+   a universal file watcher or unsafe arbitrary state migration. Owners:
+   [generation/reload](engine/content-generation-and-reload.md),
+   [construction](engine/construction-and-reconstitution.md),
+   [extension state](engine/extension-state-and-execution.md),
+   [netcode](engine/netcode.md).
+5. **G4 — One author-facing workflow, not one new source of truth.** From a
+   stable CLI and the existing Editor shell, support `discover -> describe ->
+   propose -> validate -> prepare/publish -> reload -> inspect/diff -> replay`
+   for representative world, character, move, asset and procedural edits. Show
+   the active selection, why an edit was refused, and what remains stale or
+   unselected. The editor is a client of domain tools and read-only derived
+   indexes; the normal runtime never depends on its database. Owners:
+   [authoring/tools](engine/authoring-and-tools.md),
+   [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
+   [inspection](engine/inspection-diagnostics-and-workbench.md).
+6. **G5 — Independent-game and shipping proof.** An out-of-workspace game uses
+   documented public profiles to author a room, body, action, item/encounter,
+   presentation and persistent procedural record. It edits data and an
+   independent module without host relinking; tests headlessly; refuses a bad
+   candidate; replays/restores deterministically; and packages exactly its
+   selected assets, worlds, schema and modules for a supported native target.
+   A second platform is separately proved, not inferred. Release auditing is
+   explicit; local preview remains cheap. Owners:
+   [SDK](engine/public-sdk-1.0.md),
+   [build/distribution](engine/project-build-and-distribution.md),
+   [asset delivery](engine/asset-library-editor-and-delivery.md),
+   [FI9-FI10](engine/fast-iteration-acceptance.md).
+
+### Missing cross-owner agreements to settle as engineering work
+
+- **Selection and version identity:** what exact content, module, world and
+  asset selections produced the observed session and the installed artifact?
+  Which changes require a fresh mechanical timeline versus a visual rebind?
+  Not every media file needs a mechanical digest.
+- **Rebuild scope and author feedback:** which dependent domains need
+  re-preparation, which active rooms need reconstruction, what was reused, and
+  how does the author receive source-qualified refusal and observed activation?
+- **Behavior completeness:** which remaining game-authored mechanisms still
+  require editing Rust tables or private engine wiring; which can use existing
+  data, procedural ports or an intentionally native plugin? Do a real-customer
+  inventory, not a file-count campaign.
+- **Durable boundaries:** state schema, rollback wire identity, save compatibility,
+  multi-room occurrence lifetime and peer admission are separate contracts.
+  Do not treat a working local reload as proof of all of them.
+- **Portable authoring and release:** can a fresh consumer/editor session
+  enumerate installed vocabulary and ship exact artifact closure without
+  the flagship source tree, ignored local files or unnecessary recompilation?
+
+**Scope limit:** complete *architecture* means each kind of game change has one
+supported authority and a testable path from source to observation and release.
+It does not imply all Ambition levels, bosses or content are finished; it does
+not require a Godot clone, a language marketplace, no engine compilation ever,
+background simulation everywhere, or a new central ECS. Keep the broader game
+and runtime programs below active independently when their real customers demand
+work.
+
 ## Engineering priority order
 
 The priorities below are scored on two axes. The first is authority

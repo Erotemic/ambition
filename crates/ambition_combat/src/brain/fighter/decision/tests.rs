@@ -2356,3 +2356,47 @@ fn a_fighter_with_an_engagement_notices_its_foe_before_it_fights() {
     assert!(first_press.is_some_and(|tick| tick >= noticing), "it fights after its notice: {first_press:?}");
     assert!(run_armed(&seat_cfg, &mut seat, 10).iter().any(|pressed| *pressed), "premise: a seat presses at once");
 }
+
+/// Production moves its freshly built world into delayed perception; legacy
+/// callers borrow it. Both must produce identical control, history and RNG
+/// evolution, including when the live foe disappears behind the engagement
+/// gate. This exercises a populated actor list (which the old path cloned).
+#[test]
+fn borrowed_and_owned_fighter_world_views_remain_equivalent() {
+    for engagement in [None, Some(FighterEngagement {
+        aggro_radius: 200.0,
+        notice_s: 0.25,
+        pursuit_effort: 1.0,
+    })] {
+        let mut cfg = FighterCfg::new(immediate_profile());
+        cfg.engagement = engagement;
+        let mut borrowed = FighterState::new(&cfg, 0x5EED);
+        let mut owned = FighterState::new(&cfg, 0x5EED);
+        for tick in 0..90 {
+            let mut view = scene(300.0, 340.0 + (tick % 9) as f32 * 3.0);
+            view.sim_time = tick as f32 / 60.0;
+            // Interleave missing views and invisible enemies, and exercise
+            // engagement's notice-to-pursuit transition on both paths.
+            if tick % 13 == 0 {
+                view.actors.clear();
+            }
+            let mut snapshot = armed_snapshot();
+            snapshot.target_pos = if tick < 20 {
+                ae::Vec2::new(400.0, 0.0)
+            } else {
+                ae::Vec2::new(40.0, 0.0)
+            };
+            let visible = if tick % 17 == 0 { None } else { Some(view) };
+            let mut from_borrow = ActorControlFrame::neutral();
+            let mut from_owned = ActorControlFrame::neutral();
+            tick_fighter(&cfg, &mut borrowed, &snapshot, visible.as_ref(), &mut from_borrow);
+            tick_fighter_owned(&cfg, &mut owned, &snapshot, visible, &mut from_owned);
+            assert_eq!(from_borrow, from_owned, "control mismatch on tick {tick}");
+            assert_eq!(
+                format!("{borrowed:?}"),
+                format!("{owned:?}"),
+                "rollback state mismatch on tick {tick}"
+            );
+        }
+    }
+}

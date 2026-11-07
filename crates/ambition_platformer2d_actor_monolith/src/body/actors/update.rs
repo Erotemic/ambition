@@ -936,11 +936,11 @@ pub fn tick_actor_brains(
                     let actions = action_set.unwrap_or(&peaceful);
                     let beat_before = brain_ref.beat();
                     with_causal_sink(&mut causal, || {
-                        crate::brain_tick::tick_brain_with_actions(
+                        crate::brain_tick::tick_brain_with_actions_owned(
                             brain_ref,
                             actions,
                             &snapshot,
-                            Some(&world_view),
+                            Some(world_view),
                             &mut bf,
                         )
                     });

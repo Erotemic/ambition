@@ -32,7 +32,7 @@ pub mod reeling;
 pub mod rollout;
 pub mod scenarios;
 
-pub use decision::tick_fighter;
+pub use decision::{tick_fighter, tick_fighter_owned};
 
 /// The shipped ladder (`game/ambition_content/assets/data/fighter_brain_ladder.ron`),
 /// for the tests that make a claim about the rungs a player meets. The

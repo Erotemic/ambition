@@ -24,6 +24,8 @@ use ambition_boss_encounter::pattern::tick_boss_pattern_via_state_machine;
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_characters::brain::state_machine::tick_simple_state_machine;
 use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
+use ambition_characters::perception::WorldView;
+use std::borrow::Cow;
 
 /// Tick a brain without the actor's `ActionSet` — the Smash arm falls back to a
 /// peaceful default, which is what a caller that does not know the body's
@@ -37,11 +39,37 @@ pub fn tick_brain(
 }
 
 /// Tick a brain, threading the body's capabilities and its world view.
+/// Borrowing callers retain their existing semantics. A fighter that buffers
+/// the view must clone it because the caller retains ownership.
 pub fn tick_brain_with_actions(
     brain: &mut Brain,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
-    perception: Option<&ambition_characters::perception::WorldView>,
+    perception: Option<&WorldView>,
+    out: &mut ambition_characters::actor::control::ActorControlFrame,
+) {
+    tick_brain_with_view(brain, actions, snapshot, perception.map(Cow::Borrowed), out);
+}
+
+/// The production actor update already owns its freshly constructed view.
+/// Transfer it into a fighter's perception buffer without cloning its actor,
+/// projectile, terrain, portal and string vectors. Non-fighter brains still
+/// receive a borrowed view through the same dispatch.
+pub fn tick_brain_with_actions_owned(
+    brain: &mut Brain,
+    actions: &ActionSet,
+    snapshot: &BrainSnapshot,
+    perception: Option<WorldView>,
+    out: &mut ambition_characters::actor::control::ActorControlFrame,
+) {
+    tick_brain_with_view(brain, actions, snapshot, perception.map(Cow::Owned), out);
+}
+
+fn tick_brain_with_view(
+    brain: &mut Brain,
+    actions: &ActionSet,
+    snapshot: &BrainSnapshot,
+    perception: Option<Cow<'_, WorldView>>,
     out: &mut ambition_characters::actor::control::ActorControlFrame,
 ) {
     let Brain::StateMachine(sm) = brain;
@@ -58,10 +86,16 @@ pub fn tick_brain_with_actions(
             tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
         }
         StateMachineCfg::Smash { cfg, state } => ambition_combat::brain::smash::tick_smash(
-            cfg, state, actions, snapshot, perception, out,
+            cfg, state, actions, snapshot, perception.as_deref(), out,
         ),
         StateMachineCfg::Fighter { cfg, state } => {
-            ambition_combat::brain::fighter::tick_fighter(cfg, state, snapshot, perception, out)
+            ambition_combat::brain::fighter::tick_fighter_owned(
+                cfg,
+                state,
+                snapshot,
+                perception.map(Cow::into_owned),
+                out,
+            )
         }
         StateMachineCfg::StandStill
         | StateMachineCfg::Patrol { .. }

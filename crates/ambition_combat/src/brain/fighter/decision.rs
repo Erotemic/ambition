@@ -109,9 +109,10 @@ fn engages(engagement: FighterEngagement, state: &mut FighterState, snapshot: &B
 /// Order matters and is the spec's: observe, emit the held intent, age the
 /// clocks, mature a pending press, then — on a decision tick — think.
 ///
-/// `view` is this tick's LIVE world, handed in by the integration layer. It goes
-/// straight into the delay buffer and is never read directly; what the brain
-/// reasons over is whatever the buffer hands back.
+/// `view` is this tick's LIVE world. The existing borrowed entrypoint is
+/// preserved for clients that need to retain it; only that entrypoint clones.
+/// The normal actor update uses [`tick_fighter_owned`] to move the view into
+/// the delay buffer, so its vectors and owned actor IDs are never copied.
 pub fn tick_fighter(
     cfg: &FighterCfg,
     state: &mut FighterState,
@@ -119,8 +120,25 @@ pub fn tick_fighter(
     view: Option<&WorldView>,
     out: &mut ActorControlFrame,
 ) {
+    tick_fighter_owned(cfg, state, snapshot, view.cloned(), out);
+}
+
+/// Tick a fighter and consume the view produced for it by the actor update.
+/// Ownership matters here: delayed perception retains multiple whole views.
+pub fn tick_fighter_owned(
+    cfg: &FighterCfg,
+    state: &mut FighterState,
+    snapshot: &BrainSnapshot,
+    view: Option<WorldView>,
+    out: &mut ActorControlFrame,
+) {
+    // The engaged-NPC pursuit rule uses one immediate visibility check. This
+    // is deliberately taken from the live view before it moves into the
+    // history buffer; tactical decisions still see only delayed observations.
+    let no_visible_hostile = cfg.engagement.is_some()
+        && view.as_ref().is_some_and(|view| view.nearest_hostile().is_none());
     if let Some(view) = view {
-        state.perception.observe(view.clone());
+        state.perception.observe(view);
     }
 
     // A room's enemy fights only once it has noticed its foe. Until then, and
@@ -141,7 +159,7 @@ pub fn tick_fighter(
         // sight, one that slipped out of view) is sought where it believes the
         // foe is. Its moves are chosen from what it sees, so out of sight it
         // only goes there.
-        if view.is_some_and(|view| view.nearest_hostile().is_none()) {
+        if no_visible_hostile {
             let side = snapshot.target_delta_local().x;
             state.pending_press = None;
             state.charge_hold_ticks = 0;

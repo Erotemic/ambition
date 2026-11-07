@@ -407,10 +407,12 @@ before promotion.
   waits for a published pose/rig attachment. Owners:
   [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md)
   and [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md).
-- ▢ **Portal host with limbs in multiple simultaneous links.** Existing host
-  transit selects one pair; extend shared partitioning only when a shipped
-  host or test scene requires two links at once. Owner:
-  [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md).
+- **Multi-link portal host (selected via PORTAL-SIMILARITY).** The
+  general canonical-part / similarity implementation now explicitly owns
+  GNU-ton's two simultaneous links and chained third link. Do not schedule
+  the older one-pair host workaround separately; see
+  [`queue.md`](queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals)
+  and [the owner plan](engine/portal-parts-similarity-and-chirality.md).
 - ▢ **Review follow-ups requiring a fresh measurement.** Cold/warm rig table
   preparation memory and frame stalls; human acceptance for robot
   crouch/turn/double jump (REVIEW-1014); rendered portal-piece frame cost

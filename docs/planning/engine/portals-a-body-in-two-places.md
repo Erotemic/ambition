@@ -6,6 +6,14 @@ want any hacks for this. The portal should carry the physical consequences even 
 something is in transit." The first user is GNU-ton's phase-1 punch: the arm goes down
 into the near portal of a pair and the fist hurts at the far one.
 
+**Next architecture:** the implemented G1-G6 `VolumePiece` / `Iso2`
+worklist is the starting point for the approved
+[canonical part and similarity plan](portal-parts-similarity-and-chirality.md).
+That plan strengthens the invariant (no emitted part straddles a traversable
+opening), adds scale and persistent handedness, and revisits the current
+whole-piece-on-budget fallback. The rigid, same-size rules and historical
+results below describe what was built, **not** the completed target.
+
 ## The rule
 
 A volume that crosses the plane of a portal inside its opening, coming from the

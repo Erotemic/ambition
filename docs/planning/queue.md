@@ -828,6 +828,29 @@ production acceptance witness.
 and Q89 were ruled on 2026-10-04: Q62 is the LDTK-SEMANTIC-DIFF task, and a
 stand-in may keep an incomplete kit.)
 
+### PORTAL-SIMILARITY — canonical parts and scaled mirror portals
+
+**Failure / customer:** linked apertures currently collapse to their smaller
+size so transit can remain an isometry; the N-piece partitioner and several
+consumers still use rigid maps or specialized presentation/collision paths.
+A GNU-ton multi-portal limb and a body partially crossing unequal apertures
+need correct scaling, reflection and physically consistent clipping.
+
+**Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
+
+**Next action:** start PSIM-1: prove canonical-material partition invariants,
+add bounded similarity composition/parity, and fix budget refusals before
+extending transit, combat and presentation (PSIM-2 through PSIM-5). Reuse the
+existing `frame::thread` worklist rather than spawning piece actors or
+inventing bespoke boss paths. This is local to one live simulation room;
+cross-island live portals are not an implicit dependency.
+
+**Acceptance:** all five PSIM slices have production-path and deterministic
+witnesses; authored mismatched apertures scale correctly in both directions;
+part geometry, collision, combat and masking agree; reflection persists as
+correct actor chirality after transit; bounded rejected numeric transforms
+show the typed IEEE 754 effect without poisoning simulation or replay.
+
 ### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes
 
 Jon, 2026-10-17: "it should not be structurally possible to add something

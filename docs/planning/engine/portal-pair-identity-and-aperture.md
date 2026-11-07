@@ -7,6 +7,17 @@
 the port that deletes the game reconciler is OPEN. Discovered in the October 11
 late-source review of `abf79de..ed0d1ccd`.
 
+**Superseded aperture policy (2026-11-06):** stable paired identity and
+immutable *authored* endpoint sizes remain correct. The derived
+`min(entry, exit)` **effective opening** was an isometry workaround and is
+not a future invariant. The approved
+[similarity/part plan](portal-parts-similarity-and-chirality.md) keeps each
+endpoint's own full authored aperture and maps the far-side region by the
+directed size ratio. The earlier minimum-rule witnesses below remain
+historical evidence of the *then-current* implementation; replace their
+expected aperture behavior when PSIM-2 lands. Do not regress the identity,
+channel, or rollback safety work while changing the opening semantics.
+
 ## What landed (2026-10-12)
 
 - **A pair keeps its channels.** `resolve_portal_links` keeps the channel

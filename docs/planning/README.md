@@ -213,6 +213,7 @@ links to.
   Nothing teleports: props and projectiles straddle and cross as bodies
   do, and a seam lab (a gauge prop, a scenario matrix) measures it.
 - [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md) — paired-portal identity and aperture design.
+- [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md) — selected exact-part/Sim2 portal scaling, chirality and IEEE 754 numerical-failure plan.
 - [`engine/portals-a-body-in-two-places.md`](engine/portals-a-body-in-two-places.md)
   A body straddling a portal is hit, hurts and collides on both sides, with
   no hacks (Jon, 2026-10-16).

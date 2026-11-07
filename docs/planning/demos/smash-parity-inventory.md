@@ -61,7 +61,7 @@ count toward it.
 | `S0.2` | Grab-contact arbitration | ✔ | Shared combat scheduling resolves hit-before-grab and mutual grab parries: `release_interrupted_captures`, `CapturesAcquired` in `Settle`, `GrabsParried` and recoil. Knocked bodies neither acquire nor receive captures; mutual grabs rebound, while ordinary nonmutual grabs still hold. Production-path and mirror-order witnesses exist. An authored grab-beats-hit exception has no customer and is **not** an open task. Human feel remains unreviewed. |
 | `S0.3` | Hit-volume target and interaction semantics | ◐ | `HitVolume` has `VolumeGuard::{Blockable{extra_shield_damage},Unblockable}` and resolved guard/parry policy; the fingerprint and planner derive from it. **Open, independent subfeatures:** victim posture eligibility (grounded/airborne/prone); clankability/transcendence; per-hit hitlag and SDI multipliers; no-tech override; weight-independent/set-weight reaction; armor bypass. Multiple same-frame volumes retain separate policies. Default ordinary hits must behave identically and at least one shipped move must exercise each introduced rule. Projectiles do not yet author the volume guard policy. |
 | `S0.4` | Airborne capture semantics | ▢ needs a customer or ruling | No aerial grab is authored: every capture goes through `author_standing_grab`. The grounded rule is stated twice (the constructor name and two `on_ground` checks in `capture/systems.rs`). Put posture on the constructor (a sibling of `author_standing_grab`) or a wire type it builds, never as a field every `CaptureAttemptParams` literal must state. Existing standing grabs keep grounded defaults. |
-| `S0.5` | Threshold armor | ◐ | Damage threshold shipped: `ArmorPolicy::{None, Super, Damage{breaks_at}}`, authored as `WindowTag::ArmorUnder{damage}`. Plain `WindowTag::Armor` still lowers to `Super`. `>=` breaks; nothing accumulates; overlapping windows take the stronger. **Open, needs a ruling:** knockback threshold. `HitKnockbackMagnitude` is `FeelScale` or `LaunchSpeed`, so a bare `f32` threshold is forbidden, and the launch velocity is computed below the armor gate. See the `ArmorPolicy` doc. |
+| `S0.5` | Threshold armor | ✔ for selected damage-threshold semantics | Damage threshold shipped: `ArmorPolicy::{None, Super, Damage{breaks_at}}`, authored as `WindowTag::ArmorUnder{damage}`. Plain `WindowTag::Armor` still lowers to `Super`. `>=` breaks; nothing accumulates; overlapping windows take the stronger. **Deferred extension, not an open gate or current maintainer question:** knockback-threshold armor lacks an authored customer and a chosen typed quantity. `HitKnockbackMagnitude` is `FeelScale` or `LaunchSpeed`; a bare `f32` threshold would be incorrect, and launch velocity is computed below the armor gate. Preserve this candidate in [tracks](../tracks.md#deferred-smash-semantics) and revisit only for a concrete move. See the `ArmorPolicy` doc. |
 | `S0.6` | Localized hurtbox defense | ✔ | `HurtboxVolume::defense` and `HurtDefense::{Vulnerable,Intangible}` flow through `ResolvedHurtboxes::world_volumes` and all `strike_reaches_victim` callers; a vulnerable region still registers even when another region is intangible. Production resolver and publisher tests exist. No shipped move presently authors an intangible hurt region; that is a **customer/content decision**, not missing defense infrastructure. |
 | `S0.7` | Character-specific movement traits | ◐ | Smash admits a fighter's authored `WallMobility` wall-jump/cling rather than granting or flattening it globally; adopted and spawned seats agree. **Open:** per-fighter crawl trait. The match-wide `crouch_speed_frac: 0.0` stops every crouch; a crawler must travel while a noncrawler crouches in place, with no fighter-ID branches. Test spawn and respawn. |
 | `S0.8` | Special victim-reaction families | ▢ | No bury, gameplay freeze (distinct from hitlag), paralysis or crumple. Each owns its timer, escape and posture rules through shared reaction/status authority and composes with damage, launch, capture, invulnerability, rollback and KO. |
@@ -87,10 +87,11 @@ customer where required; an isolated kernel test does not close it.
    with distinct real customers, not a universal flag dump.
 3. **S0.7:** add one fighter-authored crawl and prove a noncrawler stops on
    crouch; cover both new spawn and stock respawn.
-4. **S0.4/S0.5:** airborne grabs need an authored customer; knockback-threshold
-   armor needs a typed magnitude/ruling. Do not invent a bare `f32` policy or
-   placeholder client. Implement S0.8 reactions and S0.9 target/effects one
-   coherent customer at a time.
+4. **S0.4:** airborne grabs need an authored customer; do not invent a
+   placeholder client. **S0.5 damage-threshold armor is complete**; its
+   knockback-threshold extension is deferred in [tracks](../tracks.md#deferred-smash-semantics),
+   not a blocker for this gate. Implement S0.8 reactions and S0.9
+   target/effects one coherent customer at a time.
 
 **After S0:** CPU adoption is not a general movement rewrite. Run the shipped
 `fighter_brain_ladder.ron` through `match-report --ladder` and `capture-probe`,
@@ -169,7 +170,7 @@ Preserve these and build new features on their seams.
 | Move invulnerability windows | ✔ | S | E1 | `WindowTag::Invuln` → `Invulnerability::MOVE`; teleports author it via `TeleportParams::intangible_s`. |
 | Move super-armor windows | ✔ | M | E1 | `ArmorPolicy::Super`. |
 | Damage-threshold armor | ✔ | M | E1 | `S0.5`: `WindowTag::ArmorUnder`. |
-| Knockback-threshold armor | ▢ | M | E1 | `S0.5`: needs a ruling on the quantity. |
+| Knockback-threshold armor | ▢ deferred | M | E1 | Candidate only; not required to close `S0.5`. Select an authored customer and typed magnitude before implementation; see [tracks](../tracks.md#deferred-smash-semantics). |
 | On-block cancel windows | ✔ | S/M | E1 | `CancelCondition::OnBlock` from `BlockedBodyHit`. Customer: George's jab → grab. |
 | Sweetspot/sourspot | ✔ | — | E1 | `StrikeRank` author order; one pulse is one hit. |
 | Same-frame hitbox parts | ▢ | M | E1 | `S0.3`. |

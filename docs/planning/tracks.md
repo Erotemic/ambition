@@ -8,6 +8,8 @@ A track row should state only the enduring claim, the trigger for promotion and
 its owner. Revalidate all three against HEAD before moving a row to `queue.md`.
 Do not copy campaign history, volatile counts or closed-work receipts here.
 
+**Selected work moved out of the reservoir (2026-11-06):** the Radiant NPC planner, per-game network-authority experiment, boss cinematic census, GNU2 finale and GNU motion diagnosis now have explicit [`queue.md`](queue.md) entries and owner plans. Do not maintain parallel task checklists here. The unchosen full-island GGRS rollback implementation remains conditional on the network experiment.
+
 ## Replenishment order
 
 Unless Jon or a reproducible report changes the order:
@@ -108,6 +110,10 @@ here.
   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md).
 - ▢ **Real network transport / Matchbox signaling.** Trigger only with an actual
   online Ambition or Smash customer. Owner: [`engine/netcode.md`](engine/netcode.md).
+
+### Conditional GGRS-island rollback
+
+- ▢ **Conditional GGRS-island rollback.** This is the *unselected* `SIMULATION-ISLANDS` branch (ISL-1–ISL-4), not an executable row while [NET-AUTHORITY-EXPERIMENT](queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) is open. Promote only if an accepted backend decision requires distributed GGRS histories in the flagship or another named customer. If hosted authority wins, keep `activeArea` continuity, local live portals, confirmed loading-zone custody and interest scoping in the hosted-region design; do not implement separate GGRS histories to satisfy this old label. Owner: [island rollback and compact input](engine/island-rollback-and-compact-peer-input.md#simulation-islands-independently-rewindable-active-areas).
 
 ### World facts, orchestration and agentic characters
 
@@ -456,6 +462,10 @@ Before promoting a card:
 3. state the product, authority or dependency payoff;
 4. give one inspectable acceptance criterion;
 5. promote only executable work to `queue.md`.
+
+## Deferred Smash semantics
+
+- ▢ **Knockback-threshold armor variant.** Damage-threshold and super armor are implemented (`S0.5`); a separate knockback threshold has no selected authored customer or resolved physical quantity. Do **not** invent a unitless threshold or block the S0 parity gate waiting for a ruling on an unselected extension. Promote when a real move needs it; choose a typed `HitKnockbackMagnitude` interpretation and validate where launch magnitude becomes available. Owner: [Smash parity inventory](demos/smash-parity-inventory.md#smash-local-p0-raw-two-fighter-combat-semantics).
 
 ## Fighter evaluation residuals
 

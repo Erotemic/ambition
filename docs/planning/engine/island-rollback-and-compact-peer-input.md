@@ -1,7 +1,7 @@
 # Simulation islands and compact peer input
 
-**Status:** maintainer-selected implementation direction (2026-11-06); **not implemented**.
-**Execution:** [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) first, then [SIMULATION-ISLANDS](../queue.md#simulation-islands--independent-active-area-rollback-and-committed-crossings).
+**Status:** current GGRS compact-input work is selected; independently rewindable GGRS islands are a **deferred implementation branch** until the [host-authority comparison](hosted-world-networking-experiment.md) selects a topology. The active-area/loading-zone physical boundary remains useful for either topology.
+**Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) determines the flagship model; [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) repairs the current GGRS hot path; [conditional SIMULATION-ISLANDS](../tracks.md#conditional-ggrs-island-rollback) retains ISL-1–ISL-4 for a customer that actually needs distributed GGRS histories.
 **Owners:** [netcode](netcode.md), [peer room commits](peer-room-commit-protocol.md), [open-world residency](open-world-runtime-and-residency.md), [simulation authority](simulation-authority-and-determinism.md), [multiplayer/multiview](multiplayer-and-multiview.md).
 
 ## Why this work is selected
@@ -10,7 +10,9 @@
 
 Separately, multiple live rooms already have room-scoped spatial/collision behavior, but the selected GGRS path still snapshots/resimulates an **App-wide timeline**. November 4's ordinary peer-commit fix eliminated the old global *hold/rebase* for travel; it did **not** implement island-specific rollback or interest-scoped input exchange. Compact input is a near-term performance/correctness task **independent of** the larger rollback partition.
 
-## Selected topology and physical boundary
+## Candidate topology and physical boundary
+
+The `activeArea`/loading-zone distinction remains a useful physical-world boundary regardless of whether the region is an independently rollbackable island or a host-authoritative simulation/interest domain. The following describes the **GGRS-island branch**, not the mandatory network model for every game.
 
 1. **Default island = one runtime `activeArea` instance**, not one LDtk level. Seamlessly joined LDtk levels in the same active area share continuous collision, projectiles and a speculative physics/rollback domain. Two separately instantiated rooms with the same authored area name must *not* share an island merely because their template identifiers match. Island identity includes live instance identity.
 2. **Loading zones cross islands by confirmed, idempotent custody transfer.** The source relinquishes the body and attached inventory exactly once; the destination admits it exactly once from an agreed committed state. Transfer does not imply continuous cross-boundary collision, projectiles, grapples or rollback coupling. Two unrelated islands keep advancing during loading and preparation. Existing room-construction, identity, save and presentation contracts remain authoritative.
@@ -30,6 +32,8 @@ Separately, multiple live rooms already have room-scoped spatial/collision behav
 
 ## SIMULATION-ISLANDS: independently rewindable active areas
 
+**Conditional; not selected for implementation until the backend decision.** The physical active-area boundary and committed transfer principles in the section above are backend-independent; the following ISL-1–ISL-4 prescribe a **specific GGRS island-history backend** only.
+
 **ISL-1 — Scope and causal census.** Inventory every rollback-registered resource, event, entity, physics query, input owner and confirmed-effect producer that can affect two active areas. Classify as island-owned, committed-world-owned, or presentation/host-owned. Demonstrate that cross-area collision, projectile contact, timed environment effects, and direct writes cannot silently bypass an island boundary. Keep the existing `activeArea` level stitching intact, including continuous projectile transit across a seam within one composed runtime room.
 
 **ISL-2 — Partition history, not just visibility.** Implement one speculative rollback authority/history per live island instance, with participant membership and content/schema identity scoped appropriately. Evaluate feasible Bevy/GGRS scheduling and snapshot boundaries; *do not* label a per-room filter on one App-wide `GgrsSchedule` independent rollback. An island can rewind/resimulate while a different populated island advances and retains identical history, side-effect confirmation and committed facts. A bounded Smash arena may continue using a single GGRS rollback domain; a non-rollback game does not inherit this backend.
@@ -43,7 +47,7 @@ Separately, multiple live rooms already have room-scoped spatial/collision behav
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.
-2. Implement **SIMULATION-ISLANDS** as an explicit architecture migration with real acceptance fixtures. Reuse the current peer room-commit constructor and completed no-global-hold work. Do not reintroduce the retired barrier to make the partition easier.
+2. After NET-AUTHORITY-EXPERIMENT, implement **SIMULATION-ISLANDS** only if the selected game/backend needs distributed GGRS histories. Otherwise satisfy continuous same-area physics, confirmed loading-zone transfer and region interest through hosted-world owners, and retain ISL-1–ISL-4 as deferred research. Do not reintroduce the retired barrier.
 3. Do not turn cross-island live portals into a hidden prerequisite for scaled portals. Only the same-island live portal path needs continuous causal geometry; no dynamic island merging/splitting is scheduled.
 4. Preserve existing game rules and deterministic gameplay, and distinguish local simulation from optional GGRS and from a future player-hosted authoritative replication backend. The old [ADR 0037](../../adr/0037-causally-isolated-simulation-islands.md) compared broader possibilities; this maintainer-selected implementation scope is deliberately narrower.
-5. Retire each queue task when its *production* acceptance is met. Do not claim either task complete from documentation, a local-only room filter, or a byte-count unit test in isolation.
+5. Retire each selected queue task when its *production* acceptance is met. Do not claim NET-INPUT-WIDTH complete from a byte-count test alone; do not claim conditional GGRS islands complete from local-only room filtering.

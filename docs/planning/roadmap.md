@@ -1,4 +1,10 @@
-# Roadmap — Ambition and Engine 1.0
+# Roadmap
+
+## Current architecture/product experiments (2026-11-06)
+
+The flagship is being evaluated as a **player-hosted authoritative persistent world**, with client-side prediction for controlled actors and independently simulated/replicated `activeArea` regions. This is **not a completed backend choice**: the [hosted-world vs GGRS experiment](engine/hosted-world-networking-experiment.md) owns the measurement and decision, and [NET-INPUT-WIDTH](queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) still describes the current GGRS input defect. Smash retains rollback. Do not prematurely build independent GGRS histories for every area while the flagship authority model is under evaluation.
+
+NPC life is a first-class customer: [Radiant-style authored HTN plans and smart-object/offscreen semantics](engine/radiant-npc-planning.md) must work without an engine rebuild, not as a giant Bevy entity hierarchy tied to always-resident bodies. Boss content has a separate selected [roster-wide cinematic intro and GNU2 finale/motion fidelity plan](game/boss-cinematics-gnu2-and-motion.md). These add executable queue tasks; they do not redefine the no-compile G0-G5 acceptance gates.
 
 **2026-10-26 architecture revisit:** This roadmap's older priority and dependency ordering is
 reviewable, not a permanent maintainer constraint. The

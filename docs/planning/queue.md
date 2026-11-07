@@ -11,7 +11,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
 
 ## Current order and selection
 
-1. **Network payload and island correctness (maintainer priority, 2026-11-06):** [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) immediately: remove the 96-byte idle room-preparation verdict from each 168-byte peer input without losing deterministic frame agreement. Then [SIMULATION-ISLANDS](#simulation-islands--independent-active-area-rollback-and-committed-crossings): make `activeArea` instances independently rewindable with committed loading-zone handoffs. The input-width win must not wait for island implementation. Keep real live portals local to an island.
+1. **Network architecture (maintainer priority, updated 2026-11-06):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. The [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) GGRS hot-path defect is still concrete; minimize that backend's packets without presuming it is the flagship's final protocol. Keep [GGRS island-history partitioning](tracks.md#conditional-ggrs-island-rollback) deferred until that experiment chooses a backend; `activeArea` physical continuity, loading-zone custody and local live portals remain relevant either way, and are covered by the authority experiment and existing multiplayer owners.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
    then LOADOUT-AUTHORITY and LOCAL-PLAY-MODES menu leave. Honor the
    2026-10-19 ruling order for CHARACTER-FORM, COOP-RECOVERY,
@@ -24,7 +24,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    capability architecture. Continue AP14 ownership work before lower-priority
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
-4. **Developer iteration:** [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
+4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
+5. **Developer iteration:** [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
    EDITOR-SHELL remain selected at their stated boundaries. Portal, rendering,
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
@@ -46,6 +47,16 @@ or updating their source. Check with
 
 ## P0 — architecture and correctness
 
+### NET-AUTHORITY-EXPERIMENT — compare hosted-world replication with GGRS
+
+**Customer:** persistent Ambition multiplayer, NPC lives, late join and different-room participation have different cost/authority needs than Smash rollback. The current 168-byte GGRS input and App-wide rewind may be unnecessary for the flagship's intended player-hosted experience.
+
+**Owner:** [authority-model experiment](engine/hosted-world-networking-experiment.md) and [network topology](engine/network-topology-and-authority-research.md).
+
+**Next action:** NA-1 benchmark the working GGRS path; NA-2 construct a minimal player-hosted authoritative two-region/guest fixture using existing body/seat authorities; NA-3 exercise prediction, interest subscriptions, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
+
+**Acceptance:** runnable headless comparison, byte and CPU measurements, stable guest input/reconciliation, region-scoped replication, persistent host-owned NPC facts, no service dependency, and an explicit per-game synchronization decision. Do not remove GGRS or rewrite working multiplayer merely from prose.
+
 ### NET-INPUT-WIDTH — remove idle room consensus from every frame
 
 **Failure:** `PeerInput` is 168 fixed-width bincode bytes per player per tick: 72 bytes of `ControlFrame` plus 96 bytes of `PeerVerdict`, including full plan/content hashes even when no operation is underway. This increases every input stream's traffic irrespective of active room crossings.
@@ -56,15 +67,45 @@ or updating their source. Check with
 
 **Acceptance:** normal input is at most 80 serialized bytes per player per frame (72 if no small in-band token is required), without the repeated 96-byte verdict; every delayed/corrected/concurrent peer crossing and failure case still agrees on the exact frame with no reintroduced global hold. Source and actual link traffic are measured separately; a changed wire identity refuses incompatible peers. Checkpoint/rebuild barrier behavior is preserved.
 
-### SIMULATION-ISLANDS — independent active-area rollback and committed crossings
+### RADIANT-NPC-HTN — authored NPC lives and replaceable planning
 
-**Failure:** multiple live rooms have independent collision geometry, but the GGRS path still saves/resimulates one App-wide history and can exchange unrelated participants' inputs. It does not provide independently rewindable active areas. The November 4 no-global-hold repair is necessary but insufficient.
+**Customer:** civilian NPCs need schedules, commitments, social interactions, smart-object affordances and meaningful offscreen life; the current `CharacterBrainTemplate` policy catalog is closed. Nikobolt and Coulomba share one laboratory and are the initial integrated customer.
 
-**Owner:** [island rollback and compact peer input](engine/island-rollback-and-compact-peer-input.md#simulation-islands-independently-rewindable-active-areas) and the [architecture reassessment](engine/architecture-reassessment-and-composable-multiplayer.md#the-boundary-problem-room-region-island-and-session).
+**Owner:** [Radiant NPC planner](engine/radiant-npc-planning.md), [agentic character runtime](engine/agentic-character-runtime.md).
 
-**Next action:** ISL-1 inventory cross-area causal ownership; ISL-2 implement actual per-island history, not one global GGRS schedule with room filters; ISL-3 implement confirmed, exactly-once loading-zone custody transfers; ISL-4 scope peer input subscriptions and measure network/CPU costs. One island is a live `activeArea` instance, which may contain seamless LDtk levels; independent instantiated rooms remain distinct even when they share an authored template. Live physical portals stay intra-island.
+**Next action:** compare `bevy_htn` authoring and `bevy_bae` execution to a standalone HTN core with the same benchmark; choose an engine-independent typed planner boundary. Implement an exclusive workbench, goal/plan interruption, and offscreen persistence without bypassing world facts or typed actor actions.
 
-**Acceptance:** a populated island can rollback while another continues untouched; same-island LDtk seams permit continuous projectiles/collision; cross-island loading zones transfer body, equipment and committed state without duplicating custody; different islands do not exchange unrelated high-frequency inputs. No global hold/rebase for ordinary travel, no cross-island live-portal or dynamic causal bubble requirement. Preserve Smash's bounded rollback and optional no-rollback games.
+**Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
+
+### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
+
+**Failure:** a generic boss name card and intro cutscene trigger exist, but name-card opacity is driven by individual `BossStage` requests (Wolfenstein/Inugami explicit), and the shared cutscene library does not provide every boss an intro. A roster-wide guarantee is absent.
+
+**Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
+
+**Next action:** census instantiated boss IDs and intro pathways; add an encounter-owned default title-card beat that leaves unique conductor cinematics intact; correct view/room ownership for multiview and repeated boss attempts. Test all configured bosses rather than only Wolfenstein.
+
+**Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
+
+### GNUTON-GNU2-FINALE — summon a second GNU through a real portal
+
+**Failure:** GNU-ton's phase-3 well uses a real floor/overhead portal pair but changes the existing hall's sky and gravity to represent space. The preferred new finale is a large live portal summoning physically present GNU2, followed by simultaneous GNU and GNU2 combat. GNU2 art is currently an unpublished art-only prototype.
+
+**Owner:** [boss finale and acceptance](game/boss-cinematics-gnu2-and-motion.md) and [GNU-ton debts](game/gnu-ton-fight-debts.md).
+
+**Next action:** register published GNU2 character and combat geometry; author a same-active-area portal staging source, actual through-aperture entrance, combined fight and multi-boss victory policy. Replace obsolete sky/space-phase authority only after replay, reset and exit gating pass.
+
+**Acceptance:** physically observed GNU2 portal emergence, simultaneous independently damageable GNU/GNU2 giants with readable counters, either defeat order supported, door gating on both plus rider yield, no duplicate spawn on retries, and both bosses safely cleaned on teardown. Keep intra-island portal semantics and existing phase 1/2 gameplay.
+
+### GNU-MOTION-PARTS — diagnose and fix non-smooth giant motion
+
+**Failure:** GNU-ton's giant appears to move non-smoothly. It already has part-sheet assets, but the conductor pins mount animation rows separately from its `MountWalk` motion, rider and fist poses. Root/interpolation/part-pose timing has not been measured; missing runtime part use is a hypothesis, not a confirmed cause.
+
+**Owner:** [motion diagnosis and fix](game/boss-cinematics-gnu2-and-motion.md), [semantic-part rendering](engine/semantic-part-rendering-and-ragdolls.md).
+
+**Next action:** capture frame-by-frame mount motion, row clocks, rendered part transforms, portal clipping, rider and fists. Identify root, animation or interpolation discontinuity; unify the responsible pose authority or shared render adapter rather than applying per-boss correction offsets.
+
+**Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
 
 ### LOADOUT-AUTHORITY — equipment changes enter through simulation input
 
@@ -1015,9 +1056,7 @@ the game draws the same at each tier.
 
 ## Receipts
 
-Closed rows that an open row, a script or an inbound link still names.
-
-## Receipts — linked/guarded closed campaigns
+Closed rows retained only where an open row, a script or an inbound link still needs their identity.
 
 ### PARTY-TRAVEL-POLICIES — configurable group crossings and a leader view
 
@@ -1051,6 +1090,6 @@ Done 2026-10-03: peer-stable mechanical identity no longer inherits host-local l
 
 Done 2026-09-16: candidate-world and last-good-world publication are complete. A failed candidate cannot mutate the live published world. Keep this closed row for the consolidation-ledger guards.
 
-### A12 — finish move-contact attribution and reflection identity
+### A12 — finish move-contact attribution and reflection identity — ✅ DONE 2026-09-19
 
 Done 2026-09-19: move-contact and reflection attribution use occurrence identity; an outcome for another/no occurrence grants no move credit. This A12 is not the separate frontier A12 flow-validation task.

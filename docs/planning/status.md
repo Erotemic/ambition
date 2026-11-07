@@ -75,11 +75,11 @@ The older statement that netplay is "not a goal this year" is no longer a reliab
 ## Current execution
 
 Read the rows in `queue.md` before you pick up work; the queue is the only list
-of open rows, and this page does not copy it. P0 is architecture and
-correctness, and P1 is ownership, composition and iteration. Inside each tier,
-take rows in the program priority order: determinism and lifetime, then
-prepared generations, composability, the persistent world, multiview and
-reactive characters.
+of selected executable rows, and this page does not copy it. The active queue
+currently uses one P0 section; the numbered **Current order and selection**
+section at its top supplies the actual cross-campaign order. Do not infer a
+separate P1 tier from historical plans. Customer-gated work belongs in
+[`tracks.md`](tracks.md) until its prerequisite is met.
 
 A row that waits on a maintainer ruling names it in its `**Blocked by:**`
 field. `scripts/checks/check_blocking_set_names_every_gate.py` keeps those fields and

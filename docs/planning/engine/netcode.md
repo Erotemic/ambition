@@ -10,10 +10,12 @@ GGRS-selected sessions. A safe whole-session rebase must not be mistaken for the
 general room-transfer protocol.
 **State:** OPEN at the transport/lifecycle frontier. Ephemeral rollback ownership
 and the local sync-test host are established. **Selected 2026-11-06 priority:**
-[NET-INPUT-WIDTH and SIMULATION-ISLANDS](island-rollback-and-compact-peer-input.md)
-now own per-frame payload reduction and island-scoped rollback. The host model
-below describes the current GGRS implementation until that migration lands;
-this selection does not claim an independent-island backend exists.
+[NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame)
+owns the existing GGRS per-frame payload defect. Independent-island GGRS history
+partitioning is a [conditional track](../tracks.md#conditional-ggrs-island-rollback)
+waiting on the [authority experiment](hosted-world-networking-experiment.md);
+it is not selected implementation work yet. The host model below describes
+the current GGRS implementation and does not claim independent-island rollback.
 
 ## Durable boundary
 

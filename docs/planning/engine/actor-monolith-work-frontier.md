@@ -405,7 +405,7 @@ required; last-good-world retention after native failure is not.
 ## A12. Align flow validation, prepared representation and execution bounds
 
 This A12 is flow validation. `queue.md`'s
-[`A12`](../queue.md#a12--finish-move-contact-attribution-and-reflection-identity)
+[`A12`](../queue.md#a12--finish-move-contact-attribution-and-reflection-identity---done-2026-09-19)
 is move-contact attribution, a different subject on the same `MovePlayback`. Say
 *flow bounds* or *contact attribution*.
 

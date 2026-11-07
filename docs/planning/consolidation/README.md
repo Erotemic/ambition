@@ -24,7 +24,8 @@ resolved and 4 are deliberate separations (the census states the derived split).
 Room and session replacement is one candidate publication. Live construction
 reads only the activated generation. The open consolidation work is C03
 (session-owned state that is still stored as App resources), C08 and C09
-(facade and crate boundaries), and the AUTHORITY-POLISH lane in the queue. The plan's priority
+(facade and crate boundaries). AUTHORITY-POLISH / C11 closed on 2026-10-09;
+its queue entry is a receipt, not an active lane. The plan's priority
 table is the authority for campaign state.
 
 ## Evidence words
@@ -59,7 +60,7 @@ lists).
 | `scripts/checks/check_collapsed_authorities_stay_collapsed.py` | deleted second owners stay deleted in code |
 | `scripts/checks/check_separated_authorities_stay_separated.py` | the `LEGITIMATE_SEPARATION` families keep their separating shape |
 | `scripts/checks/check_discharged_holds_are_rewritten.py` | no `**DO NOT START BEFORE:**` line names a finished campaign |
-| `scripts/checks/check_planning_docs_survive.py` | line floors and required headings for these pages |
+| `scripts/checks/check_planning_docs_survive.py` | required document presence, structural headings and nonempty content (no line-count floors) |
 
 ⚠ A green run of these checks does not say that a `current_truth` sentence is
 still true. An owner can change while every path and name still resolves. Re-read

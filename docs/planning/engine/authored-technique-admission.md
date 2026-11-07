@@ -10,7 +10,7 @@ activation. It does not define an encounter or dialogue sequencer.
 **State:** A11a, A11b and A12a are landed. A12b is half landed. A11c is open.
 Move-contact attribution (`landed_hit` crediting the move that happens to be
 playing, Q101) is tracked in
-[`queue.md`'s A12 row](../queue.md#a12--finish-move-contact-attribution-and-reflection-identity),
+[`queue.md`'s A12 row](../queue.md#a12--finish-move-contact-attribution-and-reflection-identity---done-2026-09-19),
 not here.
 
 ## Decisions

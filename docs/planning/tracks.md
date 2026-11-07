@@ -435,6 +435,22 @@ Before promoting a card:
 4. give one inspectable acceptance criterion;
 5. promote only executable work to `queue.md`.
 
+## Fighter evaluation residuals
+
+- ▢ **Mirror/seat evaluation semantics.** `--paired` currently exchanges
+  noise streams rather than seats, so it cannot remove seat-keyed bias.
+  Separate that rig correction from the policy question of ordinary
+  per-seat cognition streams versus character-keyed symmetry. Promote when
+  representative fighter-ladder evaluation or the Q49 mirror witness needs
+  unbiased pairing. Owner: [fighter brain](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
+- ▢ **Fixed-tick match-report pacing.** The October 30 run-to-run variance
+  investigation found a per-host-frame skipped-simulation-tick cadence and
+  phase-dependent gravity-modifier divergence even while sampled `sim_dt`
+  stayed fixed. The root cause is **not established**. Promote with a
+  reproducible current-HEAD two-process trace before modifying the clock or
+  fighter scoring. Owner: [fighter brain timing investigation](engine/fighter-brain.md#modeling-rules-for-the-option-layer)
+  and the simulation/rollback scheduler.
+
 ## Deferred experiment from the recent plan triage
 
 - **Fighter tactical intent:** the first measured gate failed and the maintainer

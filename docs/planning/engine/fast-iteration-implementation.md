@@ -152,67 +152,23 @@ affected character tests.
   `edit_to_play_through_the_shell::a_movement_tuning_saved_while_the_game_runs_is_played`.
 - Two engine `include_str!` data files remain, and neither is tuning: the LDtk
   entity contract (a schema) and `test_boss_catalog` (behind `test-support`).
-- Not in that count, and still compiled in (seen 2026-10-11, in level and art
-  work on Mary-O; an edit to one needs a build before a capture or a test
-  shows it):
-  - The world file of a demo. ✔ Sanic (2026-10-11): its three worlds are
-    `content_text!` (`ambition_platformer2d`), one `PackText` each, read off
-    disk unless the demo's `static_content` embeds them. A world edit cost
-    10.3 s and compiled `ambition_demo_sanic` and its app; it now costs
-    0.78 s and compiles nothing (`cargo build -p ambition_demo_sanic_app
-    --bins`, warm). Witness
-    `each_world_is_read_off_disk_unless_the_build_embeds_it` (poison: one
-    world embedded, red at its arm); policy
-    `game.demo-worlds-are-not-compiled-in`. ✔ Mary-O (2026-10-11):
-    `MARY_O_WORLD` the same way, and `ldtk_migration_tests` reads it too; a
-    world edit costs 0.69 s and compiles nothing (`cargo build -p
-    ambition_demo_mary_o_app --bins`, warm). Witness
-    `the_world_is_read_off_disk_unless_the_build_embeds_it` (poison: the
-    world embedded, red at its arm and at the policy). A capture
-    (`capture_mary_o`, `capture_scene --route mary_o_gameplay`) reads the
-    world through the same function; not run here. Open: the F11/F12 world
-    reload serves the Ambition world only, so a demo world edit costs a
-    restart.
-  - ✔ The published sprite tree (2026-10-11): each `*_spritesheet.ron`,
-    portrait manifest, body rig, part flipbook, landmark table and
-    ultrapack catalog. `build.rs` of `ambition_sprite_sheet` embeds them
-    only under its `static_content` (forwarded by `ambition_platformer2d`'s,
-    so `desktop_player`, the web build and `android` have them) or on a
-    wasm or Android target, and sets `cfg(embedded_sprites)`. A development
-    build watches no file of the tree: each `baked_*` table is a function
-    that reads the tree on first use (`sprite_tree`, the one scan
-    `build.rs` includes too). Measured with `cargo build -p
-    ambition_demo_sanic_app --bins`, warm, after touching one
-    `*_spritesheet.ron`: 185 s and 23 crates before, 0.67 s and none
-    after. The price: a development build parses a part flipbook's RON
-    when a sheet first realizes it (about 50 ms, against 3.5 ms to decode
-    bincode), and parses the full-resolution flipbooks at startup for the
-    landmark digest, on up to six threads. Witnesses
-    `every_table_decodes_from_its_bincode_to_the_flipbook_its_ron_is` (the
-    bincode road, in both builds) and, under `--features static_content`,
-    `the_embedded_tables_are_the_tables_a_development_build_projects`
-    (poison: one projected table dropped, red at the tables assertion).
-    `run_tests.py` denies `static_*` from the union job, so the job
-    `ambition_sprite_sheet [static_content] — the embedded sprite tree` runs
-    that second witness, and `required_checks.py` requires it for a change
-    to the crate (`test_a_change_to_the_sprite_tree_requires_its_embedded_road`;
-    poison: the rule removed, red).
-  - The entity manifest of a demo world (`mary_o.entities.json`): a schema,
-    as the LDtk entity contract is. Decided 2026-10-11: it stays. It is a
-    `#[cfg(test)]` include in no shipped binary; it pins the manifest the
-    LDtk tools read against the converters the demo installs, and a real
-    change to it needs a converter change in Rust.
-  No packet owned these three. The first two cost a build for each level
-  edit and each sprite publish of a demo.
-- Census, 2026-10-11, after the three above: every `include_str!` and
-  `include_bytes!` in non-test code of `crates/` and `game/` is behind
-  `static_content`, `static_map` or `static_sfx_bank`, is a test fixture
-  (`#[cfg(test)]`, `test-support`), or is one of the two schemas above. The
-  only other build script that watches content (`game/ambition_app/build.rs`,
-  the packed SFX bank) returns early unless `static_sfx_bank` is on. Measured:
-  touching `character_catalog.ron` then `cargo build -p ambition_app --bin
-  ambition_game_bin` compiles nothing (0.83 s). A content edit that still
-  compiles is content written as Rust (the technique row of the M0 results).
+**Completed content extraction (October 2026):** Sanic and Mary-O worlds,
+normal-development sprite tables/portraits/rigs/flipbooks, and other pack
+content read from declared sources without a host rebuild. `static_content`
+retains compiled assets for read-only targets. Relevant witnesses include
+`each_world_is_read_off_disk_unless_the_build_embeds_it`,
+`the_embedded_tables_are_the_tables_a_development_build_projects`, and
+`pack_selection_tests` / `content_sdk_tests`. The LDtk entity contract and
+`test_boss_catalog` remain intentional schema/test inclusions; the Mary-O
+entity manifest is a test-only converter schema. The Oct 11 include census
+found no other ordinary-development embedded non-test data in `crates/` or
+`game/` beyond documented schemas/feature-gated content.
+
+**Still open:** F11/F12 world reload covers the Ambition world, not running
+demo worlds; a demo's authored world edit still requires a demo restart.
+Runtime sprite publication is separate from reading tables without a rebuild;
+see the visual-generation acceptance in I3 below.
+
 - A world read off disk can be a bad save: a provider's source may refuse
   (`ambition_platformer2d_provider::world_source`, `WorldRefusal`), and the
   session's world preparation fails, retryable, with the reasons. Mary-O's
@@ -275,70 +231,34 @@ Steps that remain as rules:
 6. New state or caches carry their generation. Pending plans, handles and
    observers stay with their generation or retire before the new one steps.
 
-**Open:**
+**Published baseline:** App-scoped `SelectedContentPack` is sealed by its
+first reader; subsequent competing selections refuse. All App-owned content
+installs use the selected pack, and the two-composition tests disagree in ten
+families. Candidates for bosses, cast, quest book, cutscenes, audio, music and
+other pack-derived tables are staged and published at the activation boundary,
+not piecemeal. Demo packs support live reload for participating schemas,
+including cast and runtime restaters. This does not imply every schema can
+be changed in an active session; a schema without a suitable restater is
+refused and requires restart.
 
-- Boot-pack readers: DONE (step 1). Every App-owned content install (items,
-  encounter waves, fighter ladder, character catalog and cast, boss fragment,
-  audio registries, quests, cutscenes, music cues, and the startup content
-  validation) derives from the App's `SelectedContentPack`; `plugin.rs` and
-  each `register` call `pack::select` once. The boot read is
-  `pack::shipped()`, named for its subject (offline validation, tools,
-  source-content tests), and
-  `pack_selection_tests::production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads`
-  counts its production uses per file. `two_real_compositions_install_their_own_pack_in_every_family`
-  composes the real plugin over two packs that disagree in ten families.
-  Selection is still not publication: only the reload transaction revises an
-  installed family. The first consumer (`pack::select`) SEALS the selection;
-  `select_pack` of a different pack afterwards is refused and changes nothing
-  (`a_different_pack_selected_after_composition_is_refused_and_changes_nothing`),
-  so the selected identity, the installed families and the lazily filled quest
-  book cannot split across generations. The census also counts the `shipped_*`
-  helpers, `authored_movesets::` and `lineage()`, not only `pack::shipped()`.
-- The presentation provider lookups, match preparation and readers below the
-  monolith still read the App cast on purpose: shell menus have a session gate
-  and no generation.
-- The brain-profile arm of the candidate catalog has no witness. No shipped
-  placement names a `brain_profile`, so a witness must save a room placement
-  and the catalog in one reload.
-- The boss-volume change (`refresh_boss_damageable_volumes` on the frozen
-  catalog) has no witness on a machine without baked boss art:
-  `BossVolumeContext` uses the catalog only for animation keys of
-  sprite-frame-derived boxes. An arm needs the art and an edit to an animation
-  key that the boss plays.
-- A demo pack reloads in a running demo (2026-10-16):
-  `ambition_platformer2d::content::live_reload` watches the pack's files,
-  compiles an edit (Smash 7.7 ms, Mary-O 6.3 ms, Sanic 4.2 ms), and
-  publishes it when no route prepares a session: between sessions, or inside
-  one for a change to schemas read at use where the rollback timeline allows
-  it (`mechanical_mutation_boundary`; a timeline this host owns is rebased in
-  the same step). The schemas the demo reads where it uses them (Smash: `smash_rules`,
-  `smash_stages`, `match_rules`; Mary-O: `mary_o_rules`, `mary_o_forms`; Sanic:
-  `sanic_rules`), and the schemas a demo registered once at start, which a
-  restater states again at the publication: each demo's `room_rules`, its
-  `music_registry` and `sfx_registry`, and `prop_sheets`, `platform_looks`,
-  `projectile_visuals`, `world_item_art`, and the cast (`character_catalog`,
-  `moveset`, `smash_fighter`: one cast revision with its catalog). Every
-  schema of the three demo packs takes part; a schema a future demo reads
-  at start and gives no restater is refused and costs a restart.
-  Each published generation is leaked (a reader holds `&'static` rows), about
-  0.3 MB of source for Smash for each saved edit, in a build that reads
-  off disk only. Open: a restated schema inside a live session.
-- The quest book takes part as session-derived state (2026-10-07): witnesses
-  `a_quest_edit_is_played_from_the_next_session_with_the_players_progress`,
-  `a_refused_candidate_leaves_the_quest_book_at_the_live_generation` and
-  `a_quest_book_with_no_place_for_a_recorded_step_is_refused`. The cutscene
-  library does (2026-10-07):
-  witnesses `a_cutscene_edit_is_visible_with_its_session_and_with_the_other_changed_families`,
-  `a_refused_candidate_leaves_the_cutscene_library_at_the_live_generation`,
-  `an_unchanged_or_stale_cutscene_candidate_publishes_nothing`, and the unit
-  arms `a_cutscene_publication_replaces_only_the_rows_the_pack_owns` and
-  `a_cutscene_file_the_candidate_drops_removes_its_rows_and_only_its_rows`. The
-  music-cue catalog does (2026-10-07): witnesses `an_adaptive_cue_edit_is_visible_with_its_session_and_with_the_other_changed_families`,
-  `a_refused_candidate_leaves_the_adaptive_cues_at_the_live_generation`,
-  `a_candidate_that_drops_the_adaptive_cues_is_refused_and_the_live_cues_survive`
-  and `an_unchanged_or_stale_cue_candidate_publishes_nothing`.
-- I3c tooling: scenario pin and replay, changed-section explanation, activation
-  status and generation-aware cancellation.
+**Outstanding I3 witnesses and tooling:**
+
+- Candidate brain-profile catalog arm: exercise a room placement and the
+  catalog changed in one reload. No shipped placement currently names a
+  `brain_profile`.
+- Boss-volume updates: verify the frozen catalog's animation-key effect on
+  frame-derived boxes when baked boss art is available.
+- Restated demo schemas **inside an active session**, not only between
+  sessions. Measure and manage the development-only retained source per
+  published generation (historically about 0.3 MB for a Smash edit).
+- I3c scenario pin/replay, changed-section explanation, activation status,
+  and generation-aware cancellation. Keep refusal, unchanged-content and
+  sealed-candidate behavior explicit.
+- Running-demo world reload is a distinct I2/I3 customer: the source is read
+  off disk, but the existing F11/F12 reload path does not adopt it in place.
+
+**Reference contracts:** `content-generation-and-reload.md`,
+`immutable-content-and-transactional-construction.md`, `netcode.md`.
 
 **Acceptance:** a valid generation N+1 becomes visible at one boundary; no
 system sees N's definitions with N+1's code or schema. An invalid N+1 leaves
@@ -437,583 +357,47 @@ before you add a port.
    records. Never deep-clone the whole store per callback.
 6. Keep a test-only reference trace for each ported algorithm.
 
-**Open:**
+**Delivered migrations:** GNU-ton's conductor and its boss/mount ports,
+actor-think S1-S3 (the Void Lizard and Laden Swallow), body-contact C1/C2
+(AI Slop and Laden Swallow squash), and the fighter-special F1-F14 route
+(riposte, module entity/spring, sleep/song, dilation, resource refill,
+parry/counter, homing, mark, bomb/mine, steered bolt, tether, portal recovery,
+and shark ride). Their native duplicate systems were removed. The SDK/host
+port catalog and parity witnesses are in the table above and the owner source
+modules. This is completion history, **not** another list of work to redo.
 
-- ✅ 2026-10-11, GNU-ton's conductor as a module. Its back stopped being the
-  conductor's first (2026-10-10): the gnu's character authors it (`CharacterMount::back`) and
-  the mount domain makes a ridden mount's back one-way ground
-  (`ambition_mount::mount_backs_are_ground`), so a module does not need to
-  add collision. The rest moved with the module: the fists (pose, opening,
-  the blow they pass on, their hit volumes), the stomp's travelling shocks,
-  the buck, eureka.
-  Ports land first, each with its adapter witness; the module, its parity
-  harness and the deletion of the native conductor are one slice. Landed:
-  observation `ambition.boss.mount` (the ridden body, its back, the hall under
-  it, its limbs with rest, lost health and hold), with `boss_conduct` ordered
-  after the rider sync; request `ambition.boss.limb_pose` (hold a limb of the
-  ridden mount at a pose, or release it to fall straight down);
-  `ambition.presentation.drawn_row` v2 (a row on the boss, its mount or a
-  limb, with fallback names); trigger `ambition.boss.conduct` v6 (the
-  boss's health and size, whether the encounter refuses damage now, and the
-  tracked body now); requests `ambition.boss.limb_opening` and
-  `ambition.boss.limb_blow` (a fist refuses damage until it is an opening;
-  the blow it takes heals and passes on to the scholar once);
-  `ambition.boss.mount_launch` (the buck's hop) and
-  `ambition.feedback.speech_bubble` (eureka); `ambition.boss.limb_bond`
-  (where a fist's trail starts, 2026-10-12). The fist hit volumes and the
-  stomp's travelling shocks need no new port: `ambition.combat.held_damage_box`
-  v2 keeps a box while it is re-submitted, moves it to the submitted centre,
-  and a new generation re-arms it with a fresh hit memory. The module
-  (`ambition_content_modules::gnu_ton`, with its choreography) conducts the
-  fight. The native conductor and its migration parity harness are deleted.
-  The app reads the module record through `bosses::gnu_ton::conductor_of`.
-  `content.gnu_ton_conductor` left the rollback registry at schema 341.
-  The `gnu_ton_fight` tests cover the live fight, damage windows, the buck,
-  eureka and room isolation. Removing the module from `MODULES` fails these
-  behavior tests. Keep one conductor; do not restore the native reference.
+**Remaining customer migrations and dependencies:**
 
-- 2026-10-11 (S1-S3 ✅), **a custom brain as a module** (`actor_think`).
-  A custom brain now decides through a loaded module after
-  `ActorDecisionSet::Publish` and before the single
-  `PlayerInputSet::ControlGate`. The Void Lizard and Laden Swallow have been
-  migrated and their late native fire writers deleted; the production
-  witnesses cover normal and held bodies. The old after-gate bypass from
-  `ed0d1ccd` is **historical**, not remaining work. Moving their behavior
-  from demo Rust to modules reduced one edit from 23.7 s for a host build
-  to 0.34-0.57 s for a module (different measured edits; no claim of a
-  controlled benchmark). The `Body-control contribution` route in
-  `extension-domain-contracts.md` serves these brains. What remains in
-  demo Rust includes plant/snake/AI Slop and Sanic contact consequences,
-  plus move-invoked techniques: these need a body-contact phase and domain
-  ports, not another custom-brain dispatcher. The SHOT-END-REPLAY
-  rollback defect its sync-test arm found is fixed (a body's motion facts
-  come back with a rewind; [queue](../queue.md#shot-end-replay--a-brain-that-saw-its-shot-end-replays-differently---done-2026-10-11)).
-  - S1 ✅ (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
-    and before `PlayerInputSet::ControlGate`. The trigger
-    `ambition.actor.think` (selector: the `CharacterBrain::Custom` key) gives
-    the body's position, velocity, facing, ground, health, size and the
-    position of its target. The request `ambition.actor.fire` puts a fire
-    direction into the body's control frame, so the gate restricts it like a
-    brain's own fire. ✅ Witness
-    `app_it::a_custom_brain_module_fires_through_the_gate`: the loaded
-    fixture module `thinker` (`fixtures/extension_fixture_modules`) bound to
-    the key `fixture_thinker` fires straight up in the gated frame and the
-    body's moveset fires the shot; a body a script holds fires none; with no
-    module, no frame or shot goes straight up. Poisons: the phase in
-    `WorldPrepSet::AfterIntegrate` (after the gate) is red at the held body's
-    shots (23 frames of shots); the fire dropped by the adapter is red at
-    the free body's gated frame. The sync-test arm found SHOT-END-REPLAY
-    (queue), a defect on the road from a shot's end to a brain.
-  - S2 ✅ (Mary-O): the Void Lizard is the module
-    `ambition_demo_mary_o_modules::void_lizard` (its throws, and its hop
-    through `ambition.motion.velocity`, now offered in `actor_think`); the
-    native `run_void_lizard` is deleted, and `sim_phase_pins` lost that row.
-    The Mary-O app has `wasm_modules`, so a developer run loads the file:
-    an edit is 0.57 s (`scripts/regen/build_extension_modules.sh
-    ambition_demo_mary_o_modules`) against 23.7 s. The hop is one tick
-    earlier than the native rule's: the module asks before the body
-    integrates, the native rule asked after. Witnesses
-    `mary_o_it::the_void_lizard_throws_and_hops_on_its_modules_schedule_and_not_when_held`
-    (each gated frame of a round against the module's schedule; a held
-    lizard throws nothing) and `the_void_lizard_runs_from_its_module_file`
-    (the same round from the `.wasm`, its runner `Loaded`). Poisons: the
-    module not linked is red at tick 34's throw; the hop not asked is red
-    at tick 165; the file not loaded is red at the runner (`Native`).
-  - S3 ✅ (2026-10-11): the Laden Swallow is
-    `ambition_demo_mary_o_modules::laden_swallow`; `ambition.actor.think`
-    v2 gives the placement id, which offsets each bird's drop tick. The
-    native `drop_coconuts` is deleted, and the control-gate census
-    (`sim_phase_pins`) is green: no Mary-O rule writes control after the
-    gate. Witness
-    `mary_o_it::the_laden_swallow_drops_on_its_modules_rule_and_not_when_held`
-    (each gated frame of two periods against `drops_on` and `over`; a held
-    swallow drops nothing). Poison: the adapter sends no placement, red at
-    tick 115 (`EnemySpawn-108048`).
-  - Contact route C1-C2 ✅ (2026-10-12). C1 (engine): the phase
-    `body_contact`, in `WorldPrepSet::AfterIntegrate` and before
-    `WorldPrepSet::ContactDamage`. The trigger `ambition.body.contact`
-    (selector: the `CharacterBrain::Custom` key) gives the touched body and
-    each player body of its own live room that touches it (side to side
-    overlap; top to bottom overlap or meet, so a body standing on a head
-    touches it), in identity order. Requests: `ambition.body.contact_bounce`
-    (a toucher by index jumps off; an optional pogo cue) and
-    `ambition.body.defeat` (health zero before the contact damage, then
-    removed); `ambition.feedback.burst` and `ambition.feedback.body_sound`
-    are offered there too (one burst lowering, generic over the phase).
-    Witnesses `ambition_combat extension::contact::tests` (a stomp bounces
-    and defeats; a side touch, an unbound brain and an untouched body are
-    left alone; a player of another live room does not touch). Poisons: no
-    defeat, red at "the stomped walker is gone"; a strict top, red at
-    "touches(body, standing)"; no room filter, red at "the walker is
-    stomped only by a player of its own room". C2 (Mary-O): the AI Slop and
-    Laden Swallow squash is the module `ambition_demo_mary_o_modules::squash`;
-    the native `bounce_squash_ai_slop` is deleted, and the top/side rule
-    moved into the modules crate (`stomp`), which the native snake shells
-    read through `crate::stomp`, so the two can not disagree. Witness
-    `mary_o_it::a_mob_is_squashed_by_each_player` (each player of the
-    mob's room squashes it, a player of another room does not); poison:
-    the module not linked, red at "the premise: her stomp squashes it".
-    Next: the snake shells and the Sanic badnik. Measured 2026-10-12: the
-    plant is not a contact rule (it moves on its path and stays down near a
-    player: a brain and a pose, `actor_think`). The badnik needs two facts
-    of the toucher that the trigger does not give: that it rolls (the
-    demo's own `ball_dash::Rolling`) and that it harms on contact (the
-    monolith's `Empowerment::HARMS_ON_CONTACT`). Each has one owner now, and
-    a toucher fact copied from it for the port would be a second one; the
-    road is to give the trigger the owner's fact where it is defined, which
-    for the roll means moving `Rolling` out of the demo. The badnik rule
-    read one global `PrimaryPlayer` and no room; since 2026-10-12 it reads
-    each player of the badnik's live room
-    (`badnik::tests::each_player_of_the_badniks_room_squashes_it_and_no_other`).
-    Blocked 2026-10-16 by data: the badnik's bounce speed and the stomp band
-    are now pack data (`badnik.bounce_speed` and `stomp.band` in
-    `sanic_rules.ron`, read by the badnik and the monitors through
-    `rules::feet_on_top`). A module's `schemas` are its own state; no port
-    gives a module its pack's rules. So a port today would move these two
-    facts from the pack into module constants, which the content-as-data
-    rule forbids. Since 2026-10-16 a module can read its provider's rules:
-    the provider owns an observation port whose value is the rows the
-    module reads, and answers it from its published pack at each invocation
-    (`mary_o.rules.stomp`, `ambition_demo_mary_o_modules::rules`, answered
-    by the Mary-O plugin from `stomp` in `mary_o_rules.ron`; the squash
-    module's `BOUNCE_SPEED` and the modules crate's `STOMP_BAND` are
-    deleted, and the shell reads the same `stomp.bounce_speed`). Since
-    2026-10-18 the observation (v2) also gives `stomp.dust`, the one dust
-    row of a stomp, which the snake's shell plays too; the module's `DUST`
-    constant, a second copy of the snake's row, is deleted (witness
-    `mary_o_it::the_squash_plays_the_dust_its_rules_state`). The badnik
-    can take the same road for its two facts; its toucher facts above still
-    block it. The snake shells read Mary-O's
-    `stomp` rule through the modules crate, but their own timers and
-    speeds are Rust in `snake.rs`, and they need module-owned per-body
-    state (box timer, slide speed, kick grace) and wall contact, which no
-    port gives either.
-  - Measured 2026-10-11 (the case before C1-C2): the demo behaviour still in Rust
-    is contact rules and techniques, not brains. Mary-O's plant, snake
-    shells and AI Slop, and Sanic's badnik, decide what a touch does (a
-    stomp bounces the toucher and defeats the body, a roll defeats it) in
-    `WorldPrepSet::AfterIntegrate` before the contact damage: they need a
-    body-contact phase and its ports, which no route in
-    `extension-domain-contracts.md` names yet. Sanic's ball dash and the
-    Smash demo's specials (`bolt`, `bomb`, `counter`, `dilation`, `homing`,
-    `limit`, `mark`, `mine`, `riposte`, `spring`, `tether`, `sing`,
-    `capture`, `portal`) are move-invoked techniques (`technique_execution`
-    exists); each needs its domain's ports (sleep and lock timers, steering,
-    a mine as a module entity). Write the contact route first: it serves
-    four rules in two demos. (Written since: `body_contact`, with
-    `ambition.body.contact`, `contact_bounce` and `defeat`.) Measured
-    2026-10-18 for the smallest special, Smash's `riposte` (105 lines: on
-    its special action, one body strike in front of the fighter): two
-    ports are missing. `technique_execution`'s only trigger is
-    `ambition.boss.special_cast`, so a fighter's special reaches no module;
-    and the cut is a box that follows its owner for `lifetime_s` with a hit
-    sound, where `ambition.combat.strike` (v2) lands in its own tick only
-    and `held_damage_box` (v2) must be submitted again each tick and has no
-    sound. The first port to write is a fighter-special trigger; each
-    special after it then needs only its domain's requests.
-  - Special route F1 ✅ (2026-10-18). The trigger `ambition.fighter.special`
-    (selector: the effect key a move authors) gives the fighter's position,
-    the sign of its facing and the move's params, each leaf by the path an
-    author reads (`ParamValue::leaves`). The request
-    `ambition.combat.body_strike` is a damage box that follows its body for
-    `lifetime_s`, in the body's own frame, with an optional hit sound
-    (`strike::spawn_body_strike`). `install_module_technique` adds a module
-    and declares its key in one statement, and panics at build time when
-    the module does not answer that key. Smash's riposte is the module
-    `ambition_demo_smash_modules::riposte` (workspace policy
-    `game.ambition_demo_smash_modules-portable-closure`); the native
-    `riposte.rs` is deleted. Its run-time check of a counter's answer is
-    deleted too: a counter's answer is a nested effect
-    (`NestedReferences::Effects`), checked at admission, so an answer in the
-    wrong units is refused when the cast is prepared and not skipped in a
-    match. Witnesses: `ambition_demo_smash riposte_tests` (the eight damage
-    tests on the module road, and
-    `the_cut_from_its_module_file_lands_as_the_linked_one_does`, its runner
-    `Loaded`) and `ambition_characters nested_effects`. Poisons: the module
-    not added, seven damage tests red; the adapter without the facing, red
-    at "a left-facing riposte cut somebody standing to its right"; the cut
-    one more in the wasm build only, red at "the loaded cut lands as the
-    linked one does" (12 for 11); the nested loop skipped, both admission
-    tests red. Cost: an edit to the cut builds the module file in 0.55 s
-    (`scripts/regen/build_extension_modules.sh ambition_demo_smash_modules`), and
-    the Ambition app, whose polygons, Gnu-ton and Ramen answer with the
-    riposte, loads it with no relink (`AMBITION_EXTENSION_MODULES`). The
-    Smash demo app does not load module files: none of its fighters
-    authors a special that is a module yet.
-  - Special route F2 ✅ (2026-10-18): a special that leaves something on the
-    stage. `ambition.world.spawn_module_entity` (v2) is offered in
-    `technique_execution` too, and carries the box that bodies touch and the
-    move's params, which the world keeps on the entity unchanged.
-    `ambition.world.module_entity_tick` (v2) gives them back with the
-    entity's `touchers` (the bodies of its live room whose box meets it, any
-    side, in identity order), and `ambition.world.launch_toucher` throws one
-    of them (the velocity set, not added). `ambition.feedback.effect` is
-    offered in both phases. Smash's placed spring is the module
-    `ambition_demo_smash_modules::spring`: its clocks and uses are the record
-    `smash/spring.plate`, and a plate of this game is stamped with the
-    running match (`stamp_smash_module_entities`), so the match's end sweeps
-    it. The native `spring.rs` and its rollback component
-    (`smash.placed_spring`) are deleted (schema 359). One rule changed: two
-    fighters on one plate, the first in identity order is thrown (it was
-    the lowest seat); both are rewind-stable. Found on the way: the host
-    numbered a loaded file's modules by their place in the list the caller
-    gave, so a caller that declared some of a file's modules ran another
-    module's code for them (the spring's drop ran the riposte's and faulted
-    "reach"). A backend now names the number of each module by key
-    (`ModuleBackend::module_index`). Witnesses: `spring_tests` (the throws of
-    one stand at the authored delays, 16, 29 and 42 ticks; the uses; set not
-    add; the clock; one throw for two fighters; the cues and a silent plate;
-    the match stamp; the loaded file, its runner `Loaded`). Poisons: the
-    module number by list place, red at "the loaded plate throws as the
-    linked one does"; a launch that adds, red at "the plate added to his
-    speed"; no stamp, red at "the plate is not the match's".
-  - Special route F3 ✅ (2026-10-20): a special that acts on the bodies
-    around its fighter. The request `ambition.combat.sleep_area` puts every
-    other body of the fighter's live room whose box meets an area (in the
-    fighter's own frame) to sleep for at least the asked time; the sleep is a
-    floor, so two pulses do not add up. Smash's song is the module
-    `ambition_demo_smash_modules::sing`; the native `apply_authored_sleep` is
-    deleted, and the game's mash rule (`mash_out_of_sleep`) stays in the demo
-    and runs before the song is lowered. Admission now checks a song's params
-    (`check_sleep_params`: a time more than 0 and an area that reaches
-    somebody; it was "serde can build it"). One rule changed: a body of
-    another live room is not caught (the native song read every body of the
-    process). Witnesses: the seven sing tests on the module road
-    (`ambition_demo_smash sing::tests`, among them
-    `the_song_from_its_module_file_sleeps_as_the_linked_one_does`, its runner
-    `Loaded`, and `the_song_does_not_reach_another_live_room`). Poisons, each
-    red on its own line: no room check; the singer not excluded; a sleep that
-    adds; a wasm-only drift of the time. Cost: an edit to the song builds the
-    module file in 0.61 s, and the Ambition app, whose performer and Shadow
-    Oni leader sing, loads it with no relink (`AMBITION_EXTENSION_MODULES`).
-  - Special route F4 ✅ (2026-10-20, redone the same day on the status
-    primitive below): a special that changes a body's clock. Smash's time
-    dilation is the module `ambition_demo_smash_modules::dilation`, clock and
-    all: it sets the slowed body's scale (`ambition.body.time_scale`), keeps
-    the remainder in a record on that body, spends it each tick of its status
-    `smash.dilated` on the world's step, and gives the body its own clock
-    back at the end; a newer dilation replaces the scale and the remainder.
-    Its spend entry runs before its dilation entry (`after`), so a dilation
-    of N ticks slows N ticks, a replacing one included. The first version put
-    the clock in the combat engine (`ambition.combat.dilate_time`,
-    `TimeDilated`); both are deleted. Witnesses: the eight tests of
-    `ambition_demo_smash dilation::tests` on the module road, among them
-    `the_dilation_from_its_module_file_slows_as_the_linked_one_does` (runner
-    `Loaded`), the Witch-Time join, the exact tick counts and
-    `a_dilation_that_replaces_another_buys_exactly_its_own_ticks`. Poisons,
-    each red at its own assertion: no restore at the end; the entries
-    declared in the other order without the `after` edge (red at the
-    replacement count; the same order with the edge is green); a wasm-only
-    drift of the time.
-  - Special route F5 ✅ (2026-10-20): a special that fills a meter. The
-    request `ambition.resources.refill` adds an amount to the resource the
-    request names (a resource id) on the body the invocation ran for, up to
-    its cap; a body that holds no such resource gains nothing, and an amount
-    below 0 or not finite is refused. Smash's move fill (`smash.fill_meter`)
-    is the module `ambition_demo_smash_modules::limit`; the native
-    `apply_authored_meter_fills` is deleted. The match's own sources (time,
-    damage, blocks: `fill_limit_meters`) are the game's rule and stay.
-    The Smash tests share one harness for a module special
-    (`module_road::app_on`, linked or loaded). Witnesses: the limit tests
-    on the module road, among them
-    `a_fill_from_its_module_file_fills_as_the_linked_one_does` (runner
-    `Loaded`), `a_negative_fill_from_a_module_is_refused` and
-    `the_module_fills_the_resource_the_match_declares` (the module's spelling
-    of `smash.limit` is the catalog's). Poisons, each red at its own
-    assertion: no refusal of a negative fill; the first resource filled
-    whatever its name (red at "filled a body's OTHER resource"); no fill; a
-    wasm-only drift of the amount. Cost: an edit to the fill builds the module
-    file in 0.55 s.
-  - Special route F6 ✅ (2026-10-20): a counter stance. The request
-    `ambition.combat.parry_window` holds the body's parry window open for at
-    least a time (the longer of the guard's and the asked one, so a stance's
-    re-arm never cuts it short), and with `absorbs_projectiles` its absorb
-    too; it never raises the shield, and a window that is not finite or not
-    more than 0 is refused. Smash's stance (`smash.counter`) is the module
-    `ambition_demo_smash_modules::counter`, asked each tick the stance is
-    live. What a caught parry answers with is the stance's authored data,
-    which the same module answers since the hit-reaction primitive below
-    (the engine answer this entry first moved into `ambition_combat` is
-    deleted). `FighterSpecial::flag` reads a flag param. Witnesses:
-    the counter tests of `ambition_demo_smash` (the riposte answer, the
-    Witch-Time target, no answer outside the stance, a parry without a
-    shield) and the module-road arms
-    `the_stance_from_its_module_file_parries_as_the_linked_one_does` (runner
-    `Loaded`), `a_short_re_arm_keeps_the_longer_window_and_absorbs_only_when_authored`
-    and `a_window_with_no_end_is_refused`. Poisons, each red at its own
-    assertion: a raised shield; the newest window in place of the longer; an
-    absorb opened always; no refusal of an endless window; the answer always
-    on the defender; a wasm-only drift of the window. Cost: an edit to the
-    stance builds the module file in 0.54 s.
-  - Module primitive: a body's statuses ✅ (2026-10-20). Jon, the same day:
-    a game must be able to define its own moves without the engine carrying
-    one mechanic per move, so a port offers a general verb or fact and the
-    move's logic is its module's. A move that lives on a body for a while
-    keeps its state in its module's records on the body and holds a status of
-    its own kind there (`ambition.body.hold_status`; the body's
-    `BodyStatuses`, rollback row `body.statuses`, schema 371). The world ticks
-    each body that holds a bound kind (`ambition.body.status_tick`, in
-    `technique_execution`, each tick with a gameplay step, in identity
-    order), so the module spends its clock and decides the end; the requests
-    of a tick apply in submission order, so a let-go and a later hold leave
-    the status held. `ambition.body.time_scale` sets a body's clock scale.
-    Witnesses: `ambition_combat extension::status::tests` (a fixture module
-    counts its ticks in a record and lets go; a let-go and a hold on one
-    step; a paused world ticks nothing; a scale of 0 is refused). Poisons,
-    each red at its own assertion: ticks while paused; holds applied before
-    let-gos; a scale of 0 accepted.
-  - Module primitive: a body's foes ✅ (2026-10-20). `ambition.combat.foes`
-    (an observation in `technique_execution`) gives the foes of the scope
-    body: each other body of its live room that it may target (the
-    targeting relation: a team outranks a faction, a neutral bystander is not
-    a foe) and can hit (in play, alive, on the playable plane), in identity
-    order. Who is a foe is the engine's answer, which no module restates; a
-    cone, a nearest or a lock-on is the module's rule. Witnesses:
-    `ambition_combat extension::targets::tests` (a teammate and a bystander
-    are not foes; a body out of play is not; a body of another live room is
-    not; the order is the identity order, with three foes so that it is
-    neither the spawn order nor its reverse). Poisons, each red at its own
-    assertion: no relation filter; no can-hit filter; no room filter; entity
-    order in place of identity order. `ambition.motion.velocity` is now also
-    offered in `technique_execution`.
-  - Special route F7 ✅ (2026-10-20): the homing dash, on the primitives.
-    Smash's `smash.homing_dash` is the module
-    `ambition_demo_smash_modules::homing`: its clock, its committed direction
-    and its speed are a record on the fighter under the status
-    `smash.homing`; each tick it bends the heading toward the nearest foe
-    inside the cone and the range (`ambition.combat.foes`, the first of
-    equals by identity, as `assisted_fire_direction` breaks a tie) and sets
-    the velocity. The tick that starts the dash carries it, and a dash
-    pressed during a dash replaces it and lasts as long as a fresh one (the
-    carry entry runs first, `after`). The native systems and the rollback
-    row `smash.homing_dash` are deleted (schema 372). One rule changed: a
-    body of another live room no longer attracts the dash (the native read
-    every body of the process). Witnesses: the twelve tests of
-    `ambition_demo_smash homing::tests` on the module road (the cone, the
-    range, the clock, the committed direction, a KO'd fighter, a teammate, a
-    bystander that does not outbid the foe, the loaded file carries as the
-    linked module does, the first tick, the replacing dash) and the module's
-    heading test. Poisons, each red at its own assertion: the last of equals
-    in place of the first; no cone; the entries in the other order without
-    `after` (with `after` that order is green); a wasm-only drift of the
-    direction.
-  - Module primitive: a reaction to a hit ✅ (2026-10-20). A phase,
-    `hit_reaction` (`CombatSet::ContentFlavor`: after this tick's hits are
-    resolved and while the messages that name them are still readable, which
-    a reader one tick later is not on a rewind), where a module decides what
-    a body does about how its hits came out. The first trigger is
-    `ambition.combat.parried`: a parry the scope caught while a live window
-    of its move sustains a bound effect (the first bound one, so an unbound
-    effect in an earlier window hides nothing), with that effect's params.
-    The request `ambition.combat.answer_parry` presses a technique on the
-    defender or the attacker with the part of the stance's params at a path
-    (`ParamValue::at`, in the syntax of the params' leaves: a params struct
-    writes a nested `ParamValue` as a one-element sequence, so a shipped
-    stance's are at `response_params[0]`); a parry the scope did not catch
-    and a path the stance states nothing at are refused. The parries an
-    answer may name are `TickParries` (derived, schema 373). Smash's counter
-    answer is the entry `smash.counter_answer` of
-    `ambition_demo_smash_modules::counter`, and
-    `ambition_combat::counter` is deleted. Witnesses:
-    `ambition_combat extension::reaction::tests` (the body and the params an
-    answer names; startup, recovery, an unbound effect and a layered window;
-    a poached and a stale parry; a misspelt path), the module's answer test,
-    `the_answer_from_its_module_file_is_the_linked_one` (runner `Loaded`),
-    and the joins `a_parry_answered_with_the_blade_cuts_the_attacker` and
-    `a_witch_time_stance_slows_the_attacker_across_the_frame_boundary`, now
-    on the module road with both modules. Poisons, each red at its own
-    assertion: no defender check; no live-window filter; no bound filter;
-    the answer always on the defender (in the adapter and in the module);
-    the path ignored; an absent path pressed with no params; the module
-    naming the unwrapped path; the loaded road linking the module.
-  - Special route F8 ✅ (2026-10-20): the delayed mark, on four new
-    primitives. `ambition.combat.struck` (a trigger in `hit_reaction`) says a
-    strike whose volume authors an on-hit effect to the effect's module, on
-    the body it struck, with the effect's params and the striker's credit (a
-    `u64` that names a body durably: its simulation identity, hashed; `0` for
-    a striker with none). `ambition.combat.blast` (a request in
-    `technique_execution`) is a damage box centred on the scope body that
-    takes no side (`HitSide::Environment`) and is credited to the body a
-    credit names, or to a `CreditStandIn` that is no participant when that
-    body has left (`ambition_match` stamps it with the running match);
-    a credit of 0 and a box out of its ranges are refused.
-    `ambition.body.status_clock` says how much of a status is left
-    (`StatusClocks`, drawn by the body-clock view's
-    `publish_status_clocks` while the body holds the status; letting go of
-    the status removes it), and `ambition.body.in_play` says whether a body
-    is out of play. `ambition.body.hold_status` is also offered in
-    `hit_reaction`, and `install_module_technique` checks the road the
-    offer's delivery names (`struck` for `OnHit`). Smash's `smash.mark_body`
-    is the module `ambition_demo_smash_modules::mark`: the strike puts a
-    record and the status `smash.marked` on the struck body, each tick
-    spends the fuse and shows the clock, and the tick it runs out asks for
-    the blast and lets go; a tick out of play retires it. The native systems
-    and `BodyMark`, `SeatCreditStandIn` are deleted; the rows
-    `smash.body_mark` and `smash.seat_credit_stand_in` leave and
-    `body.status_clocks`, `combat.credit_stand_in` enter (schema 374). Two
-    rules changed: the strike's own tick applies the mark (the native read
-    the previous tick's on-hit messages, which a rewind clears, so a mark
-    went off a tick later than authored and could diverge between peers),
-    and a striker is credited by its identity, not its match seat, so a
-    seated body with no identity leaves no mark and an unseated one with an
-    identity does. The blast's name is `blast`. Witnesses: the thirteen
-    tests of `ambition_demo_smash mark::tests` on the module road (the body
-    it follows, one blast, the fuse, N ticks of fuse, an unbound effect, the
-    refresh, the credit and its refresh, no identity, the retirement and its
-    rewind, the clock, the stand-in, the loaded file);
-    `ambition_combat extension::{blast, reaction, status}::tests`; the
-    module's two tests; `ambition_match`'s stamp test; and app_it
-    `the_director_leaves_a_note`. Poisons, each red at its own assertion,
-    listed in the commit.
-  - Special routes F9 and F10 ✅ (2026-10-20): the bomb and the remote
-    mine, on module items. `ambition.world.spawn_module_item` (a request in
-    `technique_execution`) is a module entity that is also a held item at
-    rest: any body may pick it up and throw it, it stays its spawner's, and
-    the entity is where the item is, whoever holds it (`follow_module_items`,
-    before the entities are ticked); an unregistered item is refused.
-    `ambition.world.item_state` (an observation in `module_entity_tick`) says
-    whether the item is loose and the hardest it struck (the settle's speed
-    or a body's). `ambition.world.owned_entities` (an observation in
-    `technique_execution`) lists the module entities a body spawned, with
-    their kind, place, age and a handle that credits them and that
-    `ambition.world.end_owned_entity` ends them by (refused for an entity
-    another body spawned). `ambition.combat.blast` is now v2 (the module
-    states the centre) and is also offered in `module_entity_tick`, and
-    `ambition.combat.credit` gives a scope its own credit. `ModuleEntity`
-    gains its spawner and an age counted up as it ages (an hour's lifetime
-    is too long for a step to register on as `lifetime - remaining`).
-    Smash's `smash.drop_bomb` is `ambition_demo_smash_modules::bomb` (the
-    fuse is a record on the bomb, burned each tick, and the bomb goes off on
-    its fuse or a hard loose impact, owning its blast) and
-    `smash.place_mine` is `ambition_demo_smash_modules::mine` (no mine out
-    places one; an armed one, by age, goes off where it is and is ended; an
-    arming one ignores the press; the mine owns its blast). `LiveBomb`,
-    `PlacedMine` and their systems and rows are deleted (schema 375). Rules
-    that changed: a bomb's first tick of fuse is the tick after its drop (the
-    native burned on the drop's own tick), a mine is its placer's by
-    identity rather than match seat, the numbers of a mine's blast are the
-    press's that sets it off (the move that placed it), and a mine nobody
-    sets off lives an hour (or to the end of its room). Witnesses: the nine
-    bomb and nine mine tests of `ambition_demo_smash` on the module road
-    (each with its loaded file), `ambition_abilities module_entity::tests`,
-    the modules' tests, `ambition_combat extension::blast::tests`, and
-    `smash_it::a_match_cleans_up_what_it_created`. Poisons listed in the
-    commit.
-  - Special route F11 ✅ (2026-10-20): the steered bolt, on a flown module
-    entity. In `module_entity_tick`, `ambition.world.move_module_entity`
-    puts the entity where its module says (refused for an item entity, which
-    is where its item is, and for a point that is not finite);
-    `ambition.world.spawner_body` gives the spawner's credit and its
-    player's stick (the steering axis, live while a move roots the body);
-    and `ambition.world.toucher_credits` names each toucher of the tick by
-    its credit, so a module can tell its spawner from a rival. Smash's
-    `smash.steered_bolt` is `ambition_demo_smash_modules::bolt`: the press
-    puts a module entity of the kind `smash.bolt`, and the module keeps its
-    heading, trail clock and clearance in a record, turns it toward the
-    stick by at most the turn rate, hits the first rival it touches
-    (credited to the caster, or to itself when the caster has left) and
-    carries its caster home once clear of them. `SteeredBolt`, its systems
-    and the row `smash.steered_bolt` are deleted (schema 376). Rules that
-    changed: the bolt first moves on the tick after the press, and a tick's
-    contact is read where the bolt was drawn the tick before (the native
-    moved and then read contact in one system); rivals tie-break by
-    identity rather than match seat; contact is the bodies' published boxes
-    rather than their kinematic size. Witnesses: the ten bolt tests of
-    `ambition_demo_smash` on the module road (with its loaded file), the
-    module's tests, `ambition_abilities module_entity::tests`. Poisons
-    listed in the commit.
-  - Special route F12 ✅ (2026-10-20): the tether, on a ledge ahead. In
-    `technique_execution`, `ambition.body.ledge_ahead` gives the first ledge
-    along a body's facing in its own frame, by the ledge authority's own
-    probe every 16 px within a host reach of 400 px (as
-    `ambition.items.aim_cast` casts to a host reach and a module reads the
-    distance), with distance `0` meaning the authority would catch the body
-    where it is; `ambition.body.on_ground` says whether it stands; and
-    `ambition.feedback.body_line` shows or clears the line it holds.
-    Smash's `smash.tether_pull` is `ambition_demo_smash_modules::tether`: a
-    throw from the air bites the first ledge within the move's reach and
-    pulls on that tick; the status `smash.tethered` and a record reel the
-    fighter each tick (`ambition.motion.velocity`), the last pull shortened
-    onto the anchor, stopping her dead where the authority catches her and
-    letting go untouched when the time runs out. `TetherReel`, its systems
-    and the row `smash.tether_reel` are deleted (schema 377), and with them
-    Smash's `motion.rs`, the commanded-velocity seam and its waiver in the
-    velocity policy: no Smash move writes a velocity itself any more.
-    Rule changes: the line is sampled every 16 px from the body rather than
-    at `reach / ceil(reach / 16)`, so a ledge within a pixel or two of the
-    reach can bite or miss differently. Witnesses: the ten tether tests of
-    `ambition_demo_smash` on the module road (with its loaded file), the
-    module's tests, `ambition_abilities extension::tests`, and
-    `smash_it::the_tether_catches_a_ledge`. Poisons listed in the commit.
-  - Special route F13 ✅ (2026-10-20): the portal recovery, on a held portal
-    pair. `ambition.portal.held_pair` (v2) is offered in
-    `technique_execution` as well as `boss_conduct`: a pair remembers the
-    phase that holds it, and only that phase's adapter releases it; its
-    slots are its module's, not its entry's, so the entry that opens a pair
-    and the entry that keeps it name one pair; an end can be asked as deep
-    as authored (`half_thickness`); and a pair asked with `closes_on_use`
-    closes the first time a body comes out of it and stays closed while its
-    slot is asked for. `ambition.fighter.aimed_stick` gives the stick a
-    fighter's move latched. Smash's `smash.portal_pair` is
-    `ambition_demo_smash_modules::portal`: a press opens a pair in the next
-    slot (in place of any she has), and the status `smash.portals_open`
-    keeps it for the move's lifetime. `MovePlacedPortal`, its two systems
-    and the row `smash.move_placed_portal` are deleted (schema 378). Rules
-    that changed: the pair's clock runs from the tick after it opens; a
-    pair's channels are its link's (owner, module, slot) rather than the
-    authored index offset by the match seat, and its colours are the
-    authored index and its partner for every fighter; a pair goes with the
-    fighter who holds it, as a held pair does. Witnesses: the seven portal
-    tests of `ambition_demo_smash` on the module road (with its loaded
-    file), the module's tests, `ambition_portal2d extension::tests`.
-    Poisons listed in the commit.
-  - Special route F14 ✅ (2026-10-20): the shark ride, on a summoned ride.
-    In `technique_execution`, `ambition.world.summon_ride` summons a
-    character where its asker is, on nobody's side, reserved for the asker
-    to ride (the summon executor's one road, `Effect::Summon`), and the body
-    holds a status from birth, so the module that summoned it ticks it (a
-    summon may name statuses: `SummonSpec::holds`). The facts
-    `ambition.body.ride` (awaiting a mount, or aboard and whether it lives),
-    `ambition.body.saddle` (ridden, awaited), `ambition.body.presses` (the
-    jump and burst edges), `ambition.body.tumbling` and `ambition.body.room`
-    (its live room's size), and the requests `ambition.mount.dismount`,
-    `ambition.body.hold_course` (the body steers a velocity in place of its
-    brain, `HeldCourse`) and `ambition.world.dismiss` (a summoned body
-    leaves) are `ambition_abilities::ride`. Smash's `smash.summon_ride` is
-    `ambition_demo_smash_modules::shark`: the status `smash.riding` takes the
-    rider off when the shark dies, a hit launches her, she leaves play, or
-    she jumps or dodges; the status `smash.summoned_ride` on the shark sends
-    it toward the nearer side of its room once nobody rides it and nobody is
-    coming, and dismisses it at the end of the departure. Smash's six shark
-    systems, `Departing` and the row `smash.departing_mount` are deleted
-    (schema 379), and so is the last native fighter-special handler road in
-    Smash (`install_special`). The shark's health, boarding radius and
-    deadline are the move's params (`pirate_admiral.ron`), not Smash's rules
-    file; its departure speed and time are the module's. Rules that changed:
-    the genre rules hold for the ride the move made, not for any rider; a
-    riderless shark sets off on the tick after its saddle empties and holds
-    its course from the next, a tick later than before; "the nearer side" is
-    of its room rather than of the stage's main platform (the same on every
-    Smash stage: each platform is centred in a 640 px room); a rider who
-    leaves play or whose shark dies may be put down a tick later (the rules
-    read her in `technique_execution`, before this tick's hits). Witnesses:
-    the thirteen `smash_ride` tests of `app_it`, the module's tests,
-    `ambition_abilities ride::tests`. Poisons listed in the commit.
-  - Snake Plant follow-up, verified 2026-10-18 against the tree:
-    `run_snake_plants` asks each player of the plant's own live room
-    (`geometry.room_of(player) == room`), witnessed by
-    `mary_o_it::the_snake_plant_is_shy_of_each_player_of_its_room_and_of_no_other`.
-    It lets go of its `PoseHold::Path` whenever it has no pot: a dead plant,
-    a brain that is not the plant's and a pot that is gone take that one
-    branch, and `a_dead_snake_plant_lets_go_of_its_own_hold_only` holds it
-    (and that another holder's hold stays). Keep behavioral decisions
-    distinct from contact consequences: the latter belong in the proposed
-    body-contact phase.
-    See [unified movement](unified-movement-kernel.md#pose-ownership-under-script-encounter-and-plant-control-new-customer).
-  - Module clock contract: preserve elapsed-time and simulation-rate
-    semantics rather than assuming that tick counts always represent
-    60 Hz timing. Coordinate with
-    [simulation tick-rate compatibility](simulation-tick-rate-compatibility.md).
+1. **Mary-O snake shells:** their native `snake.rs` timers and velocities
+   still need module-owned per-body state (box timer, slide speed, kick grace),
+   wall-contact observations, and the same provider-owned stomp facts. Do not
+   duplicate those facts as module constants. Preserve room isolation and
+   body-contact ordering.
+2. **Sanic badnik:** migrate contact consequences through `body_contact`
+   using the existing owner of the toucher's rolling fact (currently the
+   demo's `ball_dash::Rolling`) and contact-harm rule
+   (`Empowerment::HARMS_ON_CONTACT`), without manufacturing a second
+   source of truth. The provider-owned `sanic_rules.ron` bounce speed and
+   stomp band must be exposed through a provider observation, following
+   Mary-O's `mary_o.rules.stomp` precedent. Its current multi-participant,
+   per-room contact behavior is already guarded; preserve it.
+3. **Other native demo consumers:** the Snake Plant's path/pose behavior is
+   an `actor_think` customer rather than a body-contact rule. Sanic ball dash
+   and any remaining move-invoked technique need a concrete domain-port
+   inventory before migration. Recheck the working tree first; the historical
+   list predates F1-F14 and must not re-enqueue completed Smash specials.
+4. **Clock semantics:** modules must use elapsed-time/simulation-rate
+   semantics, not assume every tick is 1/60 second. Coordinate with
+   [tick-rate compatibility](simulation-tick-rate-compatibility.md).
+
+**Guards to retain:** actor control crosses the single control gate;
+`ambition.body.contact` and `contact_bounce`/`defeat` work for each player
+in the body's own live room; Mary-O's stomp and dust rows are read through
+its published rules; a held hitbox, module entity, ride or portal pair is
+retired or re-armed through its own owner. Do not restore the native GNU-ton
+conductor, old special handlers or after-gate AI-fire writers. The next
+migration must add its adapter witness, populated replay and refusal case
+before deleting the native path.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

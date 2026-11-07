@@ -126,15 +126,11 @@ cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig \
   --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron
 ```
 
-**Seat term (removed 2026-10-11).** The contested-grab tie-break gave a
-same-tick mutual grab to the lower `SimId`, which is seat 0. Measured
-2026-10-08 (rung 6, shipped ladder, 40 paired seeds, three fighters): seat 0
-took 26 of 45 decided pairs (58%, within spread), and with the comparator
-inverted 19 of 45; each fighter's split swapped exactly, so the grab tie was
-the whole seat term in this control. A mutual grab now parries: neither grab
-holds and both bodies rebound (S0.2), so no rule treats the seats differently.
-The ladder rig has not been run again since; the figures are in
-`ladder_rig.rs` (`--rungs` docs).
+**Seat-term history:** a same-tick mutual grab formerly preferred a low
+`SimId`, creating seat bias. Mutual grabs now parry for both bodies (S0.2);
+this is guarded in both spawn and message orders. Older ladder numbers
+measured before this fix are not baseline evidence for the current combat
+rules.
 
 **Open rig change.** `--paired` exchanges the two seats' noise streams, which
 cannot cancel a term keyed on seat. To cancel it, the pairing must exchange the
@@ -186,143 +182,33 @@ stage behave identically up to reflection until a modelled asymmetric fact
 symmetry. For the Emmy Noether case this is required. Random variation added
 only so that CPUs look different is not allowed.
 
-**Coverage today (2026-10-04).**
+**Existing regression coverage:** `two_emmys_are_one_fighter_reflected_through_a_mutual_grab`
+compares per-tick reflected state, pose/control and random-stream position;
+`the_decision_of_a_reflected_scene_is_the_reflected_decision` tests decision
+symmetry; `the_shadow_of_a_reflected_scene_is_the_reflected_shadow` covers
+shadow stepping. Specific tests guard supporting-floor tie ordering,
+respawn-facing preservation, zero-side `SignumOr` handling, facing-aware
+support selection, and symmetric mutual-grab parry. Keep those focused
+witnesses; historical poison counts and frame-by-frame debugging live in
+Git/test history.
 
-- `game/ambition_app/tests/smash_cpu_cognition.rs`,
-  `two_emmys_are_one_fighter_reflected_through_a_mutual_grab` (2026-10-08,
-  plan item 1; the grab clause 2026-10-11): each of 1200 frames compares
-  position, velocity, facing, the move and its clock, the published control
-  and the stream position (lateral values negate about the midline) and
-  reports the first frame and field that part. Two Emmys must not part, and
-  the window must hold a parried grab. The control: two ordinary fighters part
-  on a body field. Before the parry the Emmys parted on frame 883, when the
-  lower `SimId`'s grab dash took the other. It replaced an outcome test that
-  compared positions only and asked Emmy to hold 1.5x longer than an ordinary
-  pair.
-- The probe above (`--noise 0` trace) finds defects by hand; it is not a test.
-- `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`,
-  `the_reset_leaves_the_facing_to_its_caller` and
-  `an_arrival_does_not_turn_the_body_around` guard defects that the probe found.
-- `brain/fighter/decision/tests.rs`,
-  `the_decision_of_a_reflected_scene_is_the_reflected_decision` (2026-10-08):
-  eight scenes, each stepped as written and reflected about the stage centre,
-  for 60 ticks at the immediate profile and rungs 3, 6 and 9 (execution noise
-  removed). Lateral fields must negate; vertical fields and buttons must be
-  equal. Three scenes put both bodies at one x. Poison: the zero guard in
-  `apply_movement`'s `side_toward` removed, so `signum(0.0) = +1` chose the
-  side; all three stacked scenes failed on `locomotion.x` at tick 0. No
-  defect was found: the decision layer reflects in every scene.
-  The raw `signum` sites in `rollout.rs` gave no asymmetry in these scenes:
-  the chosen options did not depend on them. The shadow model has its own
-  reflection test since 2026-10-08 (see the next item).
-- `brain/fighter/rollout/tests.rs`,
-  `the_shadow_of_a_reflected_scene_is_the_reflected_shadow` (2026-10-08): two
-  stacked bodies and the reflected scene, stepped with an approach, a dash
-  and an attack start. It found a defect: with `signum(0.0) = +1` both
-  shadows drove to `+side` (x 490 against 490) and both attack starts turned
-  to face `+side`. Every lateral sign in the brain now asks one rule,
-  `ambition_combat::util::SignumOr` (zero gives no side, and an attack start
-  keeps its facing); the two local copies in `brain/smash` are deleted.
-  Control: the same verbs with the foe 60 px to the side.
+**Remaining symmetry questions:**
 
-**Known asymmetry sources (not yet triaged; each is a defect in a Noether
-scene or an authored rule that must be named):**
+- Ordinary fighters currently have per-seat cognition streams; Emmy opts out
+  with `preserves_mirror_symmetry`. Decide whether an ordinary per-seat draw
+  is an intentionally modelled profile fact or whether all fighters should
+  seed by character. Do not add cosmetic randomness just to break a mirror.
+- `--paired` exchanges per-seat noise streams, **not** seats, so it does not
+  cancel a seat-keyed term. If paired results are used as unbiased estimates,
+  change pairing to exchange seats and publish a null control.
+- Review the `brain/smash/mod.rs` perch-side fallback: it uses an absolute
+  `cross.signum()` away from zero. Check it against a new reflected scene
+  before claiming arbitrary-roster mirror correctness. Extend the decision
+  and shadow scenes as concrete failures demand.
 
-- `f32::signum(0.0) = +1` where a zero lateral distance or velocity picks a side
-  (`brain/fighter/decision.rs`, `brain/fighter/rollout.rs`). Fixed 2026-10-08
-  in both: they ask `util::SignumOr` (see Coverage).
-- `brain/smash/mod.rs`, perch side: falls back to `toward` only near zero, else
-  an absolute `cross.signum()` from a seed phase.
-- Grab contention: a same-tick mutual grab was a tie broken by `SimId`.
-  Since 2026-10-11 it parries (S0.2), with no winner:
-  `two_bodies_grabbing_each_other_on_one_tick_parry_and_rebound` runs both
-  spawn orders and both message orders.
-- Target selection breaks an exact-distance tie by `SimId`
-  (`ambition_combat/src/targeting.rs`). Triaged 2026-10-08: not reachable
-  in a two-fighter mirror, where each body has one foe.
-- `movement/recovery.rs`, `DRIFT_SIDES = [0.0, -1.0, 1.0]`: the search tries
-  one side first. Triaged 2026-10-08: not a defect for a decision. The order
-  chooses only which effort `RecoveryOutlook::Regained { steps, effort }`
-  reports, and no production reader reads those two fields: the brain asks
-  `regained()` and `bounded_by()`, which do not depend on the order. A
-  reader that wants `steps` must take the minimum over the efforts first.
-- The measured seat term. Triaged 2026-10-08: it was the grab tie above,
-  which is gone (see **Seat term**). The record was 69% of decided pairs
-  (40 : 18), then 58% (26 : 19, within spread); what moved it was not
-  bisected.
-
-**Per-seat streams.** Ordinary fighters seed cognition per seat
-(`fighter_cognition_seed` in `actor_spawn/brain_builders.rs`), and Emmy opts
-out with `preserves_mirror_symmetry`. Several tests pin that ordinary seats do
-NOT share a stream (`two_participants_of_one_character_do_not_share_a_stream`,
-`the_character_is_not_the_ordinary_symmetry_breaker`,
-`two_seats_of_an_ordinary_selectable_fighter_do_not_share_a_stream`). Under Q49
-a per-seat stream is a modelled fact only if it is an input the design wants
-(for example, a personality draw); it must not be the reason two fighters look
-different. Decide this when MIRROR-SYMMETRY reaches it: either name the
-per-seat draw as a profile fact, or seed by character for every fighter.
-Until then the Emmy exception is the Noether scene.
-
-**Regression to add (queue row MIRROR-SYMMETRY).** Strengthen the Emmy test
-rather than add a second outcome test:
-
-1. ✅ A per-tick reflection comparison of the full state that can diverge
-   (built 2026-10-08, see Coverage):
-   position, velocity, facing, action/move id and phase, the decision
-   published to `ActorControl`, and each body's random-stream position. Report
-   the first tick and the first field that part.
-2. A symmetric stage, mirrored spawns, one brain and profile, and no
-   symmetry-breaking input, so any divergence is a defect.
-3. ✅ A unit-level reflection test of the decision layer (built 2026-10-08,
-   see Coverage). Extend its scenes to reach the `rollout.rs` sites.
-4. ✅ A same-tick tie fixture (2026-10-08): two bodies grab each other on one
-   tick, in both spawn orders. Since S0.2 (`81fd79963`, 2026-10-11) neither
-   grab holds and both bodies rebound by the clank's rule, because a lower
-   `SimId` win treated mirrored bodies differently (Q49)
-   (`two_bodies_grabbing_each_other_on_one_tick_parry_and_rebound`). Two bodies on one ledge are the ledge
-   policy's (`CombatRules::ledge_occupancy`, receipt LEDGE-OCCUPANCY).
-5. Poisons: a `signum(0) = +1` site, an unmirrored random draw, a list-order
-   tie-break and a left-first query must each turn the test red.
-   2026-10-08, the `signum(0)` poison (`SignumOr` returns `signum()` at zero):
-   the per-tick test stays green with the first part on frame 883, so the
-   Emmy match reaches no zero lateral distance before the grab. The poison is
-   effective: `the_shadow_of_a_reflected_scene_is_the_reflected_shadow` is
-   red under it. That unit test is the witness for this source; the match
-   population does not reach it. A placement poison (seat 1 two pixels out in
-   `ambition_match::prepared::seat_placement`) is red at frame 0 through the
-   per-tick claim. The mirror line is the stage's centre, not the first
-   frame's mean, which would move with the poison. An unmirrored stream
-   (Emmy seeded per seat) is red through the shared-stream precondition, not
-   the per-tick claim. A list-order poison (the `supporting_floor` tie by
-   terrain order, the historical mirror break) is null in the match: no body
-   stands over the twin respawn platforms before the grab, because a respawn
-   follows a knockout. The poison is effective:
-   `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`
-   is red under it, and it stays that source's witness. A left-first query
-   (2026-10-08): `brain/fighter/recovery.rs` `nearest_support` (the support a
-   carry route aims at) told two supports at one distance apart by `(x, y)`
-   only, so the left one won for both mirrored bodies. The support on the side
-   the body faces wins now; `(x, y)` decides only two points at one offset
-   along the side, which a reflection does not swap. Witness:
-   `two_supports_at_one_distance_are_told_apart_by_the_facing_and_not_by_x`
-   (poison: the facing comparison removed; red at the reflection claim, both
-   facings aim at the left shelf). The Emmy match does not reach it: two
-   mirrored supports are at one distance only from a body on the centre line,
-   and only a carry route asks.
-   The `Recover` verb steered to the centre of the room (2026-10-11): from
-   below the top of the stage that is under the floor, and the floor stopped
-   the jumps (George mirror, seat 0 at x = 571, y = 353, fell out of the room;
-   the S0.2 parry made the bout reach it). It steers by
-   `WorldView::recovery_ledge` now: out from under the floor, hold the side
-   below the top, go in above it; twin floors are told apart by the facing.
-   Witnesses: `a_recovering_body_below_the_top_does_not_steer_under_the_floor`
-   (poison: the old rule; red at "beside and below") and
-   `twin_floors_are_told_apart_by_the_facing_and_not_by_the_list` (poison: the
-   facing tie removed; red at "facing right").
-
-The current requirement that two ordinary fighters MUST break the mirror stays
-only while per-seat streams are policy; it is a fact about that policy, not a
-goal.
+**Q49 invariant:** mirrored fighters on a symmetric stage produce mirrored
+behavior unless a named asymmetric input, history, profile or world fact
+breaks symmetry. Each new asymmetric tie-break needs a witnessed rationale.
 
 ### Use enough clock for the outcome being measured
 
@@ -488,68 +374,19 @@ general shape; check new code against it.
   by rung); that case waits for the airborne kit to be asked. Measured
   before it: 70-90% of thrown moves whiffed and the refusals missed by a
   median 174 px with the foe 160-190 px off vertically.
-- **Every before/after is `--runs 3` medians** (both seats summed), rungs 5
-  and 9, pair and mirror — see `match_report.rs`'s header: one rung-9 seed
-  gave moves 22–49–71 and damage 9–105–120 across three runs. The report
-  now pins one `update()` to one sim tick for every composition (the
-  shipped one ran off the wall clock: three concurrent reports of one binary
-  gave moves 24 vs 28 and whiffs 17 vs 25 at rung 5), and prints `live
-  ticks` and per-live-minute rates, because a KO ends the round and freezes
-  the rest of the window. Pinned, a seed played in a fresh process
-  (`--runs 1 --first-run N`) reproduces the same seed inside `--runs 3`
-  exactly, run for run (no leak between runs of one process); across
-  invocations seed 0 fell into two outcome classes (4 and 4 of 8
-  processes) with ±2 live-tick jitter inside a class — per-process state
-  the simulation reads. Measured next (2026-10-30, same cell, eight fresh
-  processes each): swapping every `std` `HashMap`/`HashSet` in the sim
-  crates for `BTreeMap`/`BTreeSet` gave 3 classes in 8 — not the cause,
-  kept as hygiene. The seats' entity ids split the classes (`1706/1707`
-  vs `1707/1708`): `GatedLockWallCache` was minted lazily on its first
-  use, before the fighters in some processes and after in others, and a
-  resource is an entity. `init_resource` at plugin build made the ids
-  identical in 8 of 8 — and the outcomes still split (2 classes in 8, six
-  and two, ±2 live ticks inside a class; the id shift was a symptom, not
-  the cause). `match-report` now prints a
-  per-tick trace (`AMBITION_MATCH_REPORT_TRACE_TICKS=1`), and the traces
-  settled it: a divergent pair is the SAME trajectory, tick for tick,
-  shifted by whole ticks at the start — the route transition's
-  asynchronous loading takes 8, 9 or 10 frames before the fighters are
-  released, and the tool's fixed frame count after `GoTo` then seeded the
-  noise at different match ticks. Anchored to the live edge (the first
-  tick a seat moves) the split remains and follows the transition's frame
-  count exactly: 9 frames gave one match in 5 of 5 processes, 8 or 10 the
-  other in 3 of 3. The aligned traces name the read: the divergent
-  trace holds a FRAME WITH NO SIM ADVANCE at its fifth tick (one line
-  repeated) where the other advances — `refresh_world_time` sets
-  `WorldTime::sim_dt = frame_dt × ClockState::time_scale`, and
-  `smooth_sim_clock_toward_target_system` eases that scale toward the
-  requested one by `rate × wall_dt` PER FRAME; `match_live`
-  (`stocks_match.rs`) requests 1.0 when the fighters are released, so the
-  first ticks of every match integrate a 0 → 1 ramp of dt whose phase is
-  the route transition's frame count. The simulation is deterministic
-  given its dt sequence; its dt is not a sim fact. ⇒ The fix is in the
-  sim: the sim steps a fixed dt, and the eased scale is either sim state
-  advanced per tick from sim causes (hitstop, match-live) or presentation
-  only — two peers in rollback cannot agree on a wall-dt ramp. Not settle
-  time (20 s of pre-match ticking changed nothing), not wall time per se
-  (clock pinned), not a run-to-run leak, not the std maps, not the ids,
-  not a parity read in a brain or hit path (the census found none).
-  ⛔ AND NOT THE RAMP EITHER, measured next (2026-10-30, `[clock]` lines,
-  six fresh processes): `ClockState::time_scale` read 1.000 on every
-  frame from the route request through the release and after it, with
-  `sim_dt` 0.016666668 on every sampled tick of every process; the
-  fighters move one frame after they are seated (the tool's roster
-  counts an 18-tick countdown and holds nobody). What the sim-tick trace
-  shows instead: the host runs NO sim tick on one frame in every fifteen
-  (ticks 15, 30, 45 … sampled twice), the phase of that cadence against
-  the match is the transition's frame count, and the first match-relative
-  divergence of a bifurcated pair is a 0.245 px step in the recovering
-  body's height at the uppercut's 0.2 s `GravityModifier` event (match
-  tick 190, both clocks reading `@0.217`). Same ticks, same dt, same move
-  clock, one tick of gravity scaled differently — a per-frame system
-  reaches a per-tick timer across the skipped frame. The skip itself
-  (bevy_ggrs pacing against the pinned frame: 56 sim ticks per 60 frames)
-  is the next thing to measure, and it is not the brain's lane.
+- **Report timing/variance must be accounted for.** Match-report samples
+  use per-live-minute rates and repeated runs; raw fixed frame counts after
+  an asynchronous route change do not guarantee identical sim-tick histories.
+  The Oct 30 investigation found a per-process split in outcomes tied to
+  transition frame cadence, not a demonstrated defect in the fighter brain,
+  standard hash maps, or the clock easing ramp (the observed `sim_dt` remained
+  0.016666668). One of every fifteen host frames could lack a sim tick,
+  shifting the phase of a gravity modifier and yielding the first divergence.
+  **Open engine measurement:** isolate the bevy_ggrs pacing and frame/timer
+  relationship with identical initial conditions and fixed sim tick sequences;
+  do not repair it by retuning AI weights. Preserve the tick trace witness
+  `AMBITION_MATCH_REPORT_TRACE_TICKS=1` and control for live-start timing.
+
 - **The poke the foe closes through is refused, and a recovery special is
   an attack only with the foe inside its region as it opens.** Admission
   asks, as each active window OPENS, where the led foe is: short of the
@@ -594,41 +431,17 @@ general shape; check new code against it.
   `landed` (which then REFUSED the grab for `refuse_ticks`) and to every
   on-hit cancel. `acquire_captures` marks the use that asked
   (`CaptureAttemptRequested::move_instance`), as the throw already did.
-- **A whiff names its cause before it is blamed on the admission.**
-  `match-report` splits `whiffs` into `⇒ evaded` (the foe was unhittable
-  for a tick of the move) and, per move, the whiffs' nearest approach to a
-  live hitbox (`along` / `across`, with the hits' approach as the control).
-  ⛔ The first reading of it was wrong: per-axis medians of `along 0 /
-  across 0` were taken as "the foe was INSIDE the hitbox, overlapped and
-  refused a verdict" (uppercut 28, haymaker 20 at rung-9 mirror). The
-  cause histogram that followed — every tick on which one of combat's own
-  `Hitbox` entities overlapped the victim's hurt geometry (published
-  volumes, else `CenteredAabb`, the resolver's rule) and recorded no hit,
-  classified by respawn grace / invulnerability / damage-invuln timer /
-  shield / evading / hitstop / dead — found ZERO unexplained ticks at rung
-  9, pair and mirror, three runs each; the only such ticks were "already
-  reached this pulse" (the ticks after a landed hit). A `Hitbox` entity
-  existed on every Active-window tick (904/904, 470/470) within 0 px
-  median of the authored box. A hit is never refused; a whiff is a miss.
-  ⚠ ONE GEOMETRY DISAGREEMENT IS REAL, and the table's `inside` column
-  counts it: a move whose clip names a manifest row (`jab`, `attack_*`,
-  `smash_*`, `air_*`, `dash_attack`) strikes with the sprite's authored
-  hit polygon (`AuthoredAttackVolumeResolver`, placed by the feet pixel
-  and the drawn scale), while the brain's `MoveFrameData.coverage` is the
-  RON box. Measured (pair, rung 9, three runs): `polygon_air_up` 4 of 7
-  whiffs and `polygon_air_forward` 1 of 4 had the RON box over the foe
-  while the live hull sat 40-50 px away (`[disagree]` lines: air_forward
-  authored y 131..165, entity y 79..125). The brain is right by its map and
-  the body swings by another; the fix is one authority — build the kit's
-  coverage from the same resolver the strike spawn uses, per character's
-  own manifest. 6 of 96 whiffs; the rest never overlapped at all.
-  The collar (27) has no strike volume to measure; the recovery specials
-  (`polygon_brawler_uppercut`, `polygon_rising_edge`) are pressed as
-  recovery routes and are a quarter to a third of all whiffs (20 of 56, 29
-  of 93, 28 of 112 pooled over three runs). The admission's own share
-  is the pokes thrown while the foe closes through them (`polygon_point`:
-  whiffs start at a 55 px centre gap, hits at 89; nearest approach −10
-  along, the foe already past the thrust's near edge).
+- **A whiff needs a named cause.** `match-report` distinguishes attacks
+  from intentional recovery moves and tracks avoided strikes, near approach,
+  and authored-versus-resolved coverage. The historical `along=0/across=0`
+  median was misinterpreted as an overlapping hitbox refusing a hit. A
+  per-tick overlap/permission audit found no unexplained refused contacts in
+  the sampled fights; the genuine issue was disagreement between RON boxes
+  and the authored sprite hit polygons. The resolved geometry is now shared
+  via `AuthoredAttackVolumeResolver` (see the one-authority rule above).
+  Future whiff diagnosis must inspect live 2-D geometry and contact causes,
+  not infer a refused hit from two independent coordinate medians.
+
 - **The recovery route is legal-now like every attack.** The Recovery list
   skipped `legality`; the route was re-pressed through its own move and the
   helpless fall after it.
@@ -788,12 +601,14 @@ becomes game content. Neither is an AI architecture question.
 
 ## Current work
 
-### Tactical intent experiment (2026-10-30, open)
+### Tactical intent experiment (deferred, not active BRAIN work)
 
-A persistent spacing objective plus an armed punish, tested against this
-reactive policy on identical fixtures: `fighter-tactical-intent.md`. The
-groundwork (nearest-hostile spacing, commitment measured from now) and the
-punish-window census (`scripts/measure/smash_punish_windows.py`) are in.
+The first measured gate did not pass. The maintainer paused this experiment;
+`tactics` stays off in shipped profiles. A later explicit selection should
+restart from the failed punish trace in `fighter-tactical-intent.md`, not
+activate a production rollout because groundwork or a punish-window census
+exists. This is tracked as deferred work in `../tracks.md` and is **not**
+part of the active BRAIN acceptance.
 
 ### F1 — the brain on the new fighter body (2026-10-18, open)
 
@@ -815,100 +630,25 @@ The two Emmys stayed exact reflections for 3000 frames, but they never parried
 a grab, so the test's window no longer reaches the tie it is about. With the
 old 45-frame dodge it passed. The brain dodges as if a dodge were cheap.
 
-### F0 — CPUs self-destruct against an opponent that does nothing (2026-10-18)
+### F0 — passive-opponent self-KO investigation (mostly closed)
 
-`ko_envelope selfko FIGHTER [ticks=N]` seats FIGHTER as the default-level CPU
-against a seat 0 that presses nothing and prints every stock it loses with the
-position the tick before. Every loss is a self-KO. Over 3600 ticks, before the
-fix below: Sanic 14, Alice 4, Robot v3 3 (in 1584 ticks), George 3, Pirate 3,
-Bob 3, Ninja 2, all at 0%, into the pit beside a ledge.
+`ko_envelope selfko FIGHTER [ticks=N]` tests a CPU against a passive seat.
+Root causes included ground rolls near ledges, authored attack momentum,
+recovery steering, and stale self-perception. Roll/ledge and recovery fixes
+are built. Q167/`SELF-PERCEPTION` shipped 2026-10-30: a fighter sees its own
+whole `SelfView` live while foe/world views stay delayed. In the recorded
+23-fighter-minute census the change reduced self-KOs from 39 to 5; those five
+are **not** proof that all per-fighter self-KO behavior is solved. The same
+review found Sanic still capable of left-ledge exits; new reproductions belong
+with the fighter-body and grounded-attack-momentum acceptance, not with a
+reversed Q167 decision. Do not restore the pre-Q167 partial live-kinematics
+probe; it mixed live position with delayed grounded facts.
 
-Two paths, read from `AMBITION_FIGHTER_TRACE=1`:
-
-1. A ground roll toward the ledge. `Dodge` had no ledge penalty, unlike
-   Approach/Dash/Retreat; a Robot rolled off from 33 px out at 530 px/s. Fixed in
-   `movement_options` (`roll_walks_off`). After: Pirate 1, Alice 2, Bob 2, Ninja
-   1, George 2, Robot 3 in 3265 ticks. Sanic is unchanged.
-2. A grounded move's own travel. Smash declares `edge_cancel_recovery`, so a
-   move slides off a lip by design. Sanic chose `sonic_boom` (rooted) on a view
-   showing 164 px of floor at −182 px/s. The brain perceives through the
-   `reaction_ms` delay, including its OWN body (300 ms at level 5), and
-   Approach kept accelerating it, so the move started at −478 px/s with about
-   145 px left and coasted off. Pricing the move's travel against the floor
-   ahead at decision time changed nothing (tried and reverted 2026-10-18): the
-   input is stale, not the formula. Ruled 2026-10-19 (Q167): the brain sees its own body now, as one
-   consistent snapshot, and the foe and world stay delayed (queue row
-   SELF-PERCEPTION).
-
-3. `Recover` held the side whenever the feet were below the top. Just after
-   stepping off, that left the Robot 48 px out, and its teleport (aimed by the
-   stick, 44 px ledge assist) went straight up past the ledge. Level with the
-   floor's side face (`RecoveryLedge::beside`: head above the floor's bottom,
-   not under it), `Recover` now steers in. Below the underside it still holds.
-   Same seeds, excluding Sanic: 16 losses → 12 (Mary-O 5→1, George 2→1, Robot
-   3→2, Bob 2→4, the rest unchanged). One seed each, so noisy.
-4. Advantage and EdgeGuard offered nothing that brakes a run: with Approach
-   priced off the ledge, GNU-ton chose Jump at 530 px/s with 48 px of floor
-   and carried the run off. They now offer Retreat when Approach would walk off
-   or overshoot. Goblin 3→0, GNU-ton 4→2, Oiler 3→2, Pugnacious 4→1, Ramen 4→5.
-   The first eight fighters are within noise (12→13 excluding Sanic).
-
-5. Open: an AIRBORNE Approach is never priced off the ledge (`walks_off` and
-   `overshoots` need a supporting floor). Ramen, jumping at a foe near the
-   left ledge, drifted past it at −230 px/s and the lens found no route home
-   with `divergent_series`. Mary-O's first loss is the same: Approach from a
-   jump at x 218, still accelerating at x 129 (−236 px/s), Recovery at x 68
-   (−300). A fix needs the floor's span on the side axis for an airborne body
-   (`floor_ahead` reads only the supporting floor) and an airborne stopping
-   distance from the body's own law, as `stop_distance` is for the ground.
-   Tried and reverted 2026-10-18: `walks_off` answered in the air from the floor
-   under the body and an `air_stop_distance` law. Roster 46 self-KOs in 20.0
-   fighter-minutes → 50 in 21.2. Mary-O and Ramen were unchanged; Robot 2→5,
-   Bob 3→6. Like item 2, the view is about 300 ms old: at 200–300 px/s that is
-   60–90 px, more than the margin being priced. The stale self-view question
-   comes first.
-
-⭐ MEASURED 2026-10-18, the answer to items 2 and 5: a probe (not shipped) in
-`PerceptionBuffer::observe` gave every buffered view the LIVE `self_view`, so
-the brain sees the world 300 ms late but its own body now. Roster self-KOs
-went from 46 in 20.0 fighter-minutes to 11 in 20.7: Sanic 12→0, Ramen 5→0,
-Mary-O 3→0, Bob 3→0. It changes the humanity contract (the delay buffer is
-the only read path), so it is Jon's decision. A human knows where their own
-hands are without the screen; the probe is that rule. Offense was unchanged by the probe: the CPU eliminated the passive dummy
-within the minute in 10 of 23 runs before and 9 of 23 with it. The blunt probe is not shippable as written: `smash_it` was 50/51 under it,
-and `a_fighter_over_a_floor_open_for_it_plays_as_over_the_void` failed its
-control (a CPU over a closed gate floor played exactly as over the bare void).
-`SelfView` mixes the body's own state with facts read against that tick's
-world, so a live self with a delayed world disagrees with itself. Kinematics only (live `pos` and `vel`, everything else delayed) is
-as strong: Sanic 12→0, Ramen 5→0, Robot 2→0, Bob 3→0, Mary-O 3→1. It fails the
-same control. Not yet known: whether the fixture's premise (the closed-floor
-CPU diverges within 60 ticks) relied on the stale self-view, or the probe
-loses a real read of the floor. Lead: the fixture teleports the CPU (`kin.pos`, about 200 px over the void)
-and observes 60 ticks. Under the delayed view the brain sees its
-pre-teleport position for about 18 of them. Measured on main: bare and closed
-first diverge at tick 25, after that window, so the stale teleport alone does
-not explain it. Under the probe they never diverge in 60 ticks. Traced under the kinematics-only
-probe (`AMBITION_FIGHTER_TRACE=1`): the CPU knows its teleported position at
-once and air-dodges home (x 40 → 83 → 120 within three decisions), reaching the
-stage before the gate floor can matter. So the closed and bare runs are equal.
-The fixture's premise is a CPU slow to notice its own teleport, which is what
-the probe removes; it would need the CPU placed out of reach of home. The trace
-also shows the hazard of a partial copy: `ground=true` at x 40 over the void (a
-live position beside a stale grounded flag). A real version takes the body's
-own motion facts live together.
-
-Totals over one minute each, one seed. The eight fighters with a true baseline:
-32 → 25 (Sanic 14 → 12, item 2). The other fifteen were first measured after
-items 1 and 3: 27 → about 19.
-
-✅ SHIPPED 2026-10-30 (Q167, queue row SELF-PERCEPTION): the whole `SelfView`
-is live, the foe and world stay delayed. Census on one build with only the
-self view toggled: 39 self-KOs → 5 in 23 fighter-minutes. Items 2 and 5 are
-answered by it. The top exits that remained (Carl Stargan's up special
-pressed as an attack after a double jump) are closed: a way home thrown as
-an attack must regain support in the recovery lens
-(`RecoveryLens::route_survives`). Census after, same seeds: 5 (main) → 5,
-no exit through the top (was 2); Sanic 1 → 3 off the left ledge.
+**Remaining actions:** keep passive-opponent self-KO and recovery diagnostics
+in the representative roster matrix; revalidate surviving losses on the
+current body rules, with fighter-specific traces. The new-body brain task F1
+below still owns the two ignored behavior tests and the Noether test whose
+old window fails to reach a grab under the new air-dodge timings.
 
 ### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 

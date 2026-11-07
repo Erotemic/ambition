@@ -49,46 +49,23 @@ This is the intended behavior, not an optional temporary implementation.
 Nothing here mandates two permanent half-screen cameras. Shared, fixed and
 adaptive layouts remain distinct policies over the same views.
 
-## Reported failure and source findings (2026-10-24)
+## Resolved initial integration defects; current acceptance
 
-The player reports that controller 2 can pose or trigger some actions but does
-not appear to move its character, and that the pane created during a split is
-black. Do not mark those behaviors fixed solely because a narrow unit test
-passes. Prove them in the shipped host with a real gamepad and visible render.
+The October 24 source snapshot found two unrelated integration bugs: the
+render sync was primary-player-only and the main Ambition host lacked the
+extra view-camera lifecycle. Both were corrected in the shared host/runtime,
+and subsequent two-controller play confirmed both participants could move
+and adaptive views could split/merge. The original black-pane and stationary
+picture diagnoses are closed; do not replay them as current failures.
+The safe nearby join placement landed October 28 (`1f0956abb`), refusing a
+join if every bounded candidate position is occupied.
 
-Two concrete, separable defects in source snapshot `cc2f82eaf891`:
-
-- `ambition_render::rendering::actors::sync_visuals` places the sprite of the
-  one `PrimaryPlayer`. A second body's simulation/animation can advance while
-  its picture remains at the old transform. It must project **every**
-  `PlayerVisual` from **that entity's** `BodyPoseView`, `PresentedPose`, and
-  `LiveRoomOf<RoomGeometry>`, using the existing authored-offset, feet-anchor,
-  crouch, gravity and roll rules. Keep primary-only sprite-size logging
-  primary-only; do not make rendering position primary-only.
-- The generic presentation plugin registers `present_split_view_rigs`, but the
-  main Ambition host installs a different render composition and omits that
-  lifecycle. `LocalView` facts can therefore exist without a Bevy camera
-  bound to the added view. Register one reusable split-view camera capability
-  in shared host composition. Every extra rig must have `PresentsView`, the
-  gameplay render-layer base, and the expected screen-effect eligibility;
-  the host's primary camera remains host-owned. Extra rigs retire when their
-  views retire.
-
-The packaged code diff addresses these two source defects and adds tests.
-**The remaining physical analog-input defect is not established as fixed.**
-Existing app witnesses primarily exercise D-pad button input. A new left-stick
-regression is included, but the agent must confirm how Bevy populates sampled
-axes under the actual input schedule, including newly connected devices.
-
-**Join placement built 2026-10-28 (`1f0956abb`):** a join no longer puts
-its body on the primary body. The common body recipe supplies its standing
-footprint, including the motion model's terrain clearance. Placement checks
-16 fixed nearby positions against the live room's composed terrain and its
-occupied body boxes. It does not copy the primary body's passage permissions.
-If all positions are blocked, no body is built; another Start press can retry.
-Guards: the six nearby-placement tests in `rooms/spawn.rs` and
-`a_seat_with_no_body_joins_beside_the_primary_on_a_start_press` (including
-rollback). The app compile, 168 session tests and 35 workspace policy tests pass.
+**Still required:** rendered/main-host analog-stick, body/visual and portal
+multi-observer acceptance when those paths change; leave/rejoin and item
+accounting (`LOCAL-PLAY-MODES`); owner-scoped UI and peer consistency
+(`MULTIPLAYER-SEAMS`); and the unresolved two-view performance budget. Treat
+headless camera-count and D-pad tests as insufficient evidence of actual
+rendered pixels or physical analog-device routing.
 
 ## Model and ownership boundaries
 
@@ -235,46 +212,30 @@ controller cannot steal it through an unrelated action.
   sole authority. Shared quest/story decisions are product policy where not
   yet ruled, not a reason to make cameras own simulation state.
 
-## Engineering sequence and evidence
+## Remaining integration work and evidence
 
-These are implementation dependencies, **not** an alternative priority list to
-`../queue.md`. A working end-to-end co-op slice requires all of the following.
+`queue.md` owns execution, not this document. The corrected initial camera,
+sprite, join-position, dialogue, blink, fixed-split, friendly-fire, local
+menu/UI and debug-view slices should not be reselected from their old
+implementation sequence. Preserve the following obligations:
 
-**1. Restore invariants at the existing seams.** Integrate and, if necessary,
-rebase the packaged changes: shared split camera lifecycle, symmetric
-body-to-visual projection, layer parity, and main-game regression witnesses.
-Check that the new camera plugin composes only once with both Ambition and the
-generic platformer presentation. Avoid host-specific second-camera logic.
-
-**2. Prove actual movement and actual pixels.** Test controller A and B with
-D-pad and left stick. Capture per-seat evidence at device raw frame, slot
-control, assignment, `BodyKinematics`, presented pose and sprite transform.
-For the black pane, check `LocalViewId`, `PresentsView`, active camera,
-viewport physical rectangle, projection, visibility mask, rendered room
-layers and camera clear/order. One camera being counted is necessary, not
-sufficient: its viewport must contain the correct pixels.
-
-**3. Close join/leave and respawn contracts.** Add deterministic safe spawn,
-independent pause/leave, item accounting, checkpoint and local respawn
-behavior. Keep participant lifecycle separate from camera lifecycle. Drive
-join/leave through the normal simulation/rollback intents.
-
-**4. Finish per-participant presentation.** Individual vitals already exist;
-finish named HUD, prompts, interactions, inventory menus, screen overlays,
-and UI routing while merged and split. Viewport-aware HUDs must not duplicate
-world actions.
-
-**5. Complete multi-observer portal and polish.** Move one-eye-per-room portal
-presentation toward one-eye-per-view where the same room is watched twice;
-then tune split/merge thresholds, transition animation and camera easing.
-Avoid weakening isolation just to make the pane nonblack.
-
-**6. Profile and guard.** Measure one camera vs two in the shipped Ambition
-hub and Mary-O-sized scenes on desktop/Android. Capture CPU fixed/update,
-visibility/extraction, render passes, portal capture count, parallax and
-memory. Keep single-player overhead bounded: absent a second participant,
-there should be no second gameplay rig or duplicated per-frame simulation.
-Do not force the simulation tick to 60 Hz to make split-screen behave.
+1. **Explicit local leave/rejoin:** stamped body retirement, device claim,
+   equipped/held item conservation, view/HUD cleanup and clean re-admission
+   (`LOCAL-PLAY-MODES`).
+2. **Peer admission and travel verification:** confirm both peers agree on
+   content identity, input event order, room-commit application frame,
+   rollback and failure/invalidated preparation. Ordinary crossings already
+   use the shared input timeline; **do not reintroduce global holds**
+   (`MULTIPLAYER-SEAMS`).
+3. **Partner recovery:** independent death, respawn, full-party checkpoint
+   policy, and consistency during rollback (`COOP-RECOVERY`,
+   `PARTNER-RECOVERY`).
+4. **Multiview acceptance:** same-room portals must use the observing view;
+   verify shared, adaptive and fixed panes, per-view UI/picking, split/merge
+   boundaries and the actual main-app render with two controllers.
+5. **Performance:** compare solo/shared/split rendering and peer operation
+   on desktop and Android; measure camera extraction, portal captures,
+   transition upload budget and frame cost before tuning thresholds.
 
 ## Acceptance matrix and non-regression witnesses
 
@@ -320,7 +281,7 @@ not this baseline's incidental module layout.
 
 ## Follow-up audit: co-op works, but participant and view scope leaks (2026-10-24)
 
-**Baseline:** Ambition local co-op was integrated before source snapshot
+**Historical source baseline:** Ambition local co-op was integrated before source snapshot
 `e2fddc465d5a` (2026-10-24). The maintainer reports that both participants
 can play and adaptive views split and merge. The earlier camera and sprite
 issues are historical findings, not current open defects. The observations
@@ -346,7 +307,7 @@ The current product rules are in
 | Always-split view mode | `VideoSettings::local_view_layout` selects `Adaptive` or `AlwaysSplit` through the shared settings menu. The existing view and camera owners apply it. | **Built 2026-11-01** (`751ad0b34`). Controller and GPU tests cover live switching, retained session/body identity, separate rectangles and drawn panes. |
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
-| Only one player can use the pause/menu | Inventory opening and navigation read each menu owner's `SeatMenuFrames`. Open, focus, page, scroll and cache state belong to menu entities, but the frontend still creates one surface. `ShellPauseMenu` supports an owning seat but Ambition suppresses it and supplies its own menu. | **Confirmed singleton Ambition menu**. The shell seat rule is not two independent menus. |
+| Only one player can use the pause/menu | Ambition menu identity, viewport scene, inputs and pause claims now belong to menu entities, with two-pad controls tested on both Grid and Cube. | **Local multi-menu support built.** Peer-stamped held-item actions and leave/rejoin remain separate tasks. |
 | Either player's door flashes black over both panes | Transition covers and loading foregrounds now use `ParticipantSurface`. Loading input claims name the affected participant. | **Fixed in `e36b067fd` and `c89f0b828`**. Both crossing orders and separate-room GPU witnesses pass. Peer commits still hold the whole timeline. |
 | F1 gizmos show the wrong room or offset | Both presenters use `RetainedDrawings` with native room/view ownership. Body queries are read-only. Strikes use their emission room; the primary inspector is labelled and clipped to P1. | **Fixed in `0e0099f0e`**. Shared-room and separate-room GPU guards cover grids, labels, portal diagnostics and private camera frames. Unit guards cover handle reuse, credit retirement and room retirement. |
 | Adaptive split/merge feels inconsistent | `AdaptiveSplit` keeps `split_beyond`, `merge_within`, `merge_after`, and a local `DistanceSplit` latch. | **No source defect established**. The maintainer deferred threshold and animation polish. Preserve the current policy and test topology only. |
@@ -610,27 +571,20 @@ Separate-room GPU acceptance and both queued-crossing orders passed in
 Layout changes and view retirement use the shared surface resolver. The peer
 hold below is a separate simulation protocol.
 
-**A distinct online blocker:** the existing peer lifecycle path uses a
-synchronized freeze and `PeerLineage` session rebase for a room commit
-(`ambition_platformer2d_rollback_ggrs::lifecycle_commit`). Its 2026-10-04
-measurement reports **23–43 held simulation updates per door crossing** at
-three-update link latency, including the new-session handshake. The freeze
-holds **all rooms**, even if only one participant crosses. A viewport-only
-cover cannot make that gameplay uninterrupted.
+**Online room-commit status (updated 2026-11-04):** The original
+`PeerLineage` rebase and its **23–43 held-update** report describe the
+October 4 implementation, not the current routine-travel path. Ordinary
+peer crossings now commit on the common input timeline without global
+hold/rebase, including delayed-peer and concurrent-loading witnesses
+(`MULTIPLAYER-SEAMS`, `peer-room-commit-protocol.md`). This is not a
+reason to remove the distinct whole-session reset barrier.
 
-Do not remove the freeze as a quick fix: the existing two-peer tests prove that
-committing at different unconfirmed states desynchronizes the peers. Design
-and prove a **routine crossing without a global timeline rebase** (for
-example, prepare immutable room plans off the sim clock and admit a
-confirmed, deterministic lifecycle event at one agreed simulation boundary).
-The design must state how peers agree on content hashes, readiness, event
-ordering, rollback restoration, concurrent operations, and failures. Other
-participants keep simulating until and through the event. Retain an explicit
-global barrier for a true whole-session reset if required. A comparison
-witness must run two real peer simulations through two-room crossings with
-nonzero input and show identical world hashes, no freeze, and clean recovery
-when a peer cannot prepare a room. Do not promise this behavior until those
-tests pass.
+**Open verification:** exercise both real peers with nonzero input during
+crossings, combat and dialogue, deliberately failed/invalidated preparation,
+content hash disagreement, rollback/replay, view cleanup and independent
+room progress. A rendered two-controller end-to-end pass is still part
+of the queue's acceptance. Keep the protocol owner as the source of
+specific application-frame and lifetime gates.
 
 ### Debug view: facts are per room and presentation is per view
 
@@ -665,132 +619,17 @@ small and repeatable. Do not use lint as a substitute for the behavior gate.
 | No new singletons | A search of the changed consumers finds no new `PrimaryPlayerOnly` use for a per-participant timer and no new window-wide UI root for a participant-owned surface. |
 | Performance | Compare solo, shared two-player, adaptive split, and fixed split on desktop and Android. Measure view render cost, menu cameras, transition preparation, and peer rollback cost without a forced 60 Hz sim tick. |
 
-**Implementation order:** (1) owner-scoped dialogue input and view-scoped
-presentation; (2) blink timer symmetry and combat-session policy; (3) explicit
-layout mode; (4) per-seat menus and pause aggregator; (5) view-scoped door
-presentation and per-view gizmos; (6) the peer-lifecycle no-global-hold
-protocol, after the peer-consistency proofs. The queue records exact slices
-and acceptance. These are dependencies and review gates, not separate queues.
+**Completed local menu implementation:** menu entity identity and its own
+focus/scroll/rebind/gesture/publication state; per-participant body/item
+selection; Grid and Cube menu camera isolation and viewport clipping;
+per-seat pause claims, concurrent two-pad open/close, rebind device routing,
+and participant/session retirement. Historical commit-by-commit witnesses
+remain in Git history. Preserve the local menu's per-seat input policy and
+the session's explicit pause aggregation; do not restore singleton gesture,
+body, UI-state, viewport or camera ownership.
 
-Menu events now name their menu entity (`4d4ddf89c`). Press, confirmation,
-preview and scrollbar state belong to that entity. Grid, Cube and shell
-consumers reject events from other menus. Both renderers share one drag reader.
-Guards: `equal_row_keys_in_two_menus_keep_independent_press_arms`,
-`a_destructive_confirmation_in_one_menu_cannot_confirm_another_menu`,
-`two_menu_drags_survive_widget_rebuilds_and_release_independently` and
-`foreign_menu_messages_cannot_drill_turn_or_scroll_this_menu`.
-Do not restore global gesture state or events with no owner.
-
-Menu equipment, actions and maps use the owning participant's current body
-(`69de9c2cd`). Cells, details and confirm hints share the body's inventory view.
-The Grid map updates when that body changes live rooms. Guards:
-`either_backend_uses_the_menu_owners_current_body_and_hand`,
-`each_menu_map_follows_its_controlled_body_between_live_rooms` and
-`an_open_grid_map_follows_the_owner_without_a_map_resource_change`.
-Missing or ambiguous bindings have no body; do not select the primary body.
-Held-item mutations still need stamped intents before peer agreement.
-
-Navigation, quality confirmation, rebind arms, scroll state and caches now
-belong to each menu entity (`d3ea64d9b`). Both backend dispatchers resolve the
-menu named by each event. Cube focus and text use each node's menu owner.
-Each menu has its own publication key. Guards:
-`two_menus_dispatch_drill_quality_rebind_and_close_independently` and
-`each_menu_caches_and_publishes_its_own_system_page_without_idle_churn`.
-The production equipment capture also passes visual review. Do not restore
-resource copies of menu state.
-
-Inventory opening and directional navigation read the menu owner's
-`SeatMenuFrames` (`fe46de32c`). Start latches belong to menu entities. Consuming
-one seat's navigation leaves other seats and the shared shell frame intact.
-Touch drags also reach the primary seat's menu frame. Guard:
-`two_seats_open_navigate_and_close_their_own_menus_with_one_pause` covers both
-backends and release of the last pause claim. The production capture still
-draws the equipment menu. Do not restore a global input fallback.
-Keep a joining seat's Start press distinct from opening its menu.
-
-Cube folds, material fades, camera gates and scrims follow each menu owner
-(`10541009d`). Animation changes only that ring's faces. Material fades resolve
-ownership through the scene tree and retain the settled fast path. Picking
-checks each active camera and its owner's controls inside its viewport.
-Guards: `a_settled_ring_does_not_stop_another_menus_fold`,
-`each_menu_fades_only_its_own_descendants` and
-`each_cubes_camera_and_scrim_follow_its_own_fold`. The production equipment
-capture also passes visual review. Do not restore a global fold state.
-
-Menu scenes now have private render layers and participant regions
-(`c6c696a66`). Dialogue and menus share the `ParticipantSurface` resolver.
-Late cube scenes inherit their own layers and release their cameras with the
-menu root. Narrow regions change field of view, not camera position. Guards:
-`late_menu_scenes_inherit_private_layers_and_release_their_cameras` and
-`adjacent_menu_viewports_share_one_rounded_edge_at_fractional_scale`.
-The GPU guard `two_menu_cameras_draw_only_their_own_scene_into_their_regions`
-(`--ignored`) checks pixels from two four-face scenes. The production equipment
-capture also passes visual review. Do not restore world-layer cube scenes or
-camera-distance fitting.
-
-Grid publication now rebuilds and closes only the owning menu's tree
-(`71ac19417`). Late menus receive scrims. Grid roots, scrims and Cube cameras
-share a linked lifetime with their menu. Guards:
-`grid_trees_rebuild_close_and_retire_with_only_their_own_menu` and
-`late_menus_get_scrims_and_retire_without_removing_the_display_camera`.
-The production equipment capture passes visual review. Do not restore global
-Grid teardown or startup-only scrims.
-
-Wheel input now targets the visible menu under the mouse in its display window
-(`e9600e15f`). Both backend readers use each menu's state. The guard
-`wheel_scrolls_only_the_visible_menu_under_the_mouse` covers both backends,
-adjacent region edges and hidden menus. The Cube guard also covers a second
-participant's drag. Do not restore a global wheel target or a primary-menu
-fallback.
-
-Rebind rows now show each owner's live bindings (`4692366bb`). Capture reads
-only that participant's assigned devices and edits that profile. The primary
-profile persists in settings; other profiles stay on their participants. Both
-frontends use one cached System model and one action consumer. Guards:
-`rebind_capture_follows_the_owners_devices_and_changes_only_that_profile`,
-`each_menu_publishes_and_refreshes_its_owners_rebind_rows` (both backends) and
-`a_backend_change_applies_once_and_the_next_action_uses_the_new_frontend`.
-Do not restore global capture or per-backend action consumers. The current
-two-pad admission and capture guards are below.
-
-Grid text fits its menu region and restores its authored maximum (`c10ff5c21`).
-Guard: `text_fits_its_menu_region_and_recovers_without_changing_another_menu`.
-Grid uses the host font; both renderers receive owner detail text (`72af9be68`).
-Production Rebind and equipment captures pass visual review. Do not restore
-fixed text sizes or a Cube-only detail provider.
-
-Grid gestures now use picking and stable menu owners (`e3c8824da`).
-Guards: `motion_and_release_follow_the_finger_that_armed_each_menu`,
-`tab_gestures_follow_their_own_pointer_across_menus` and `a_raw_release_uses_the_pressed_bounds_after_a_widget_rebuild`.
-Rendered one-frame touches open Rebind and select Map. Do not restore global
-pointer selection or window-only activation.
-
-
-Session admission now uses `SessionParticipants` (`0d184ce24`). Membership
-survives loss of a body assignment and returns with rollback. Guards:
-`start_does_not_readmit_a_participant_without_a_current_body_assignment` and
-`rewinds_across_a_two_human_activation_and_reconstructs_both_seats`.
-Do not derive admission from offered devices or current bodies.
-
-The shared touch confirm prompt follows the primary menu (`e5c60f897`).
-Guards: `the_shared_prompt_follows_the_primary_menu_and_clears_when_it_retires`
-and `an_inventory_context_gets_its_verb_without_a_simulation_tick`.
-Cue publication uses the frame clock and the inventory input context.
-Do not let another participant's menu change this prompt.
-
-Local menus now follow session admission and local handles (`a3d838d1c`).
-The join press stays separate from opening a menu. Rebind capture consumes only
-its owner's menu frame, including Inventory and Map shortcuts. Guards:
-`two_pads_join_open_and_close_their_own_menus_on_both_backends` and
-`participant_and_session_retirement_remove_linked_presentations`.
-Do not derive menu lifetime from device or body presence.
-
-Cube hover now uses pointer identity (`499fa1a51`). Guard:
-`another_participants_pad_does_not_block_mouse_focus_in_a_cube_menu`.
-Another participant's pad must not block mouse focus in a menu.
-
-Slice 4 is complete (`57462d561`, `1861a88b3`): narrow menus use their own
-canvas, shared inventory layout, and page-relative text. Item details fit the
-panel. Guards: `each_layout_publishes_its_item_details_inside_the_panel` and
-`two_pad_menus_draw_in_their_own_regions`, with both captures reviewed.
-Do not restore window-relative page text or fixed navigation dimensions.
+**Remaining menu work:** `LOCAL-PLAY-MODES` owns stamped leave/rejoin and item
+conservation. Held-item/equipment mutations that still enter via host Update
+must become peer-agreed typed intents where needed. Test the completed
+menu surfaces under rollback, independent peer input and rendered two-pane
+presentation; do not infer peer correctness from isolated local UI tests.

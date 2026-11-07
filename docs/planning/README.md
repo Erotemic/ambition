@@ -87,8 +87,8 @@ links to.
   skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
 - [`game/chargen-species-knobs-and-2d-overlays.md`](game/chargen-species-knobs-and-2d-overlays.md) — species parameters and per-view overlay art.
-- [`game/character-generations.md`](game/character-generations.md) — older
-  generations of a character as skins (design; open question Q170).
+- [`game/character-generations.md`](game/character-generations.md) — audit
+  distinct historical visual looks and curate presentation-only skins (Q170 ruled).
 - [`game/noodly-temple.md`](game/noodly-temple.md) — the level of keys and
   doors that ends at the Flying Spaghetti Monster.
 - [`game/ability-loadout.md`](game/ability-loadout.md) — the inventory's

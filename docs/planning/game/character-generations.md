@@ -1,9 +1,11 @@
 # Character generations as skins
 
-**Status:** design; the first pass (every variation recorded, holistic looks
-in the art inspector) is in progress (2026-10-25). Open questions: Q170 in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md#q170--which-generations-of-a-character-does-the-game-ship-as-skins)
-and the list at the end of this page.
+**Status:** design and visual-era census correction. The 2026-10-25 first pass
+recorded Git-linked variations and browsable candidate looks, but the current
+era index is **not a reliable count of distinct visual designs**. Q170 was
+ruled on 2026-11-06: curate shippable looks only *after* auditing the index.
+Remaining implementation/design choices are listed below; this is not an open
+maintainer gate.
 
 Jon, 2026-10-24: "I want to eventually have the game be able to switch between
 different generations of a character as different skins." Jon, 2026-10-06:
@@ -12,10 +14,10 @@ redesigns count.
 
 ## Jon's rulings, 2026-10-25
 
-- **Record every variation; show the holistic looks.** Every look the history
-  drew is recorded (`design_history survey`, `variations.yaml`), but the art
-  inspector leads with the holistic appearances. A string of small same-day
-  patches is one look.
+- **Preserve variations; distinguish real looks.** `design_history survey` and
+  `variations.yaml` retain the underlying change history, but the art inspector
+  leads with distinct holistic appearances. A sequence of small patches is not
+  automatically a sequence of distinct looks, even across multiple days.
 - **Bring the holistic looks into the head of the repository**, so the game
   can swap a character between them. "Having it go from a rather polished
   high quality version of the character to something like an old GPT 5.4
@@ -36,13 +38,38 @@ redesigns count.
   takes the newest version of its family on the commit's date
   (`design_history/models.py`); a commit no model signed is GPT's.
 
+## Q170 ruling — visual eras first, curated shipping (2026-11-06)
+
+- **The current era index needs an audit.** Many entries are effectively one
+  per Git change despite not representing a meaningful visual look change.
+  Existing `lineages.yaml` era counts are *candidates*, not verified visual
+  generations. A Git commit is a provenance locator, not sufficient evidence
+  that a new era exists. A visually distinct redesign might span several
+  commits, and several incremental revisions may belong to a single era.
+- **Curate the published skins.** Only a selected subset of verified visual
+  eras becomes a runtime `WornSkin`. There is no fixed quota per lineage; a
+  character can ship no alternate skin. Keep nonselected eras accessible to
+  design-history tools without packaging them as playable skins.
+- **Audit before implementing publication.** Compare representative rendered
+  holistic looks (silhouette, proportions, palette, face, costume or other
+  meaningful appearance changes) rather than just commits, metadata, pose
+  row counts or generator source diffs. Group revisions producing the same
+  character design into one visual era, choose a representative commit or
+  normalized generator, and preserve the full change chronology separately.
+  Record the evidence and the representative art for each accepted look.
+- **Do not create false gameplay identities.** A historical skin is still
+  presentation-only. Existing intentionally distinct character versions with
+  separate mechanics remain distinct characters unless separately redesigned.
+
 ## Terms
 
 - A **lineage** is one character as the player knows it. An **era** is one
-  major look of it, pinned to a commit
+  materially distinct visual look, with a representative
+  revision and potentially many underlying commits/variations
   (`tools/ambition_sprite2d_renderer/design_history/lineages.yaml`).
-- A **generation** is an era that the game can draw. In this plan it is the
-  same thing as an era.
+- A **generation** is a validated visual era that the game can draw; only
+  curated generations are published as selectable skins. The historical
+  variation index is not by itself an era/generation census.
 - A **skin** is presentation only: `WornSkin` (Q159 ruling, 2026-10-19). It
   never changes collision, attack geometry, movement or any other mechanic.
   The body, its kit and every input of the simulation stay the worn
@@ -50,9 +77,11 @@ redesigns count.
 
 ## What exists (measured 2026-10-24)
 
-- `python -m design_history census`: 95 lineages, 221 eras; 113 of 259
-  character targets and 119 of 243 catalog rows with a sheet have a lineage.
-  A character with one design needs no lineage.
+- `python -m design_history census` historically reported 95 lineages and
+  221 indexed candidate eras; 113 of 259 character targets and 119 of 243
+  catalog rows with a sheet have a lineage. These were tool/index counts on
+  2026-10-24, **not** verified counts of distinct visual looks. A character
+  with one design needs no lineage.
 - `python -m design_history character <id>` goes from a catalog id, a target
   or a lineage to the eras, and from an era to its target and commit.
 - `WornSkin(CharacterId)` names a catalog row whose sheet the body draws. The
@@ -63,26 +92,29 @@ redesigns count.
   pairs, for example `paul_diracula` and `paul_diracula_v2`): both are
   published now, so the old generation already has a runtime sheet. **(2)** A
   redesign in place (Alice, Bob, Noether): the old look is only a commit.
-  Of the 221 eras, 116 are the current look of a published target and 105
-  are older looks of a published target, with no runtime sheet (REASONED:
-  the last era of each target is taken to be its published look).
+  Of the 221 *candidate indexed eras*, 116 were classified as current and
+  105 as older candidates without a runtime sheet (REASONED, 2026-10-24:
+  last indexed era assumed current). This classification must be recomputed
+  after visual-era deduplication; it does not establish 105 distinct skins.
 
 ## What a generation must publish to be a skin
 
-An era that is only a commit has no runtime art. To be a skin, it must be a
-published unit like any other: sheet pages, layout (`_spritesheet.yaml` /
-`.ron`), actor sidecar, part flipbook, portraits when it has them, and the
-three quality tiers. (Superseded 2026-10-25, see Jon's rulings above:
-normalized code may regenerate an old look; the era's own generator at its
-commit is the reference it is checked against.)
+A verified visual era without published runtime art must be published before
+it can ship as a skin: sheet pages, layout (`_spritesheet.yaml` / `.ron`),
+actor sidecar, part flipbook, portraits when available, and the relevant
+quality tiers. Normalized code may regenerate a historical look; a preserved
+render/reference appearance is the check on the look, not a requirement to
+replay old generator code verbatim.
 
-Recommended shape: a publish step `design_history publish <lineage> <era>`
-renders the era at its commit in a scratch worktree (as `build` does for a
-still) and installs it under its own key, `<target>@<era-key>` (for example
-`alice@toon_2026_05`), with a provenance record that names the era commit.
-The step goes through the ordinary sprite publish and its staging root, so it
-is never run beside another publish. The published files are the authority
-for the game; the commit is the authority for regenerating them.
+Recommended shape: after the visual-era audit, a publish step
+`design_history publish <lineage> <era>` renders the curated look via a
+representative historical revision in a scratch worktree or a compatible
+normalized generator, and installs it under `<target>@<era-key>` (for example
+`alice@toon_2026_05`). Record the representative revision(s), visual
+reference and generator used; the representative commit is provenance, not a
+promise that every commit defines another look. The step goes through the
+ordinary sprite publish/staging boundary. Published files are the runtime
+art authority; reference art and provenance constrain regeneration.
 
 A `_vN` pair needs no new publish: the old target is already published.
 
@@ -138,37 +170,48 @@ Rules (all presentation; none changes the simulation):
   publish: `tech_bro_disruptor` at `6314c07` drew a 1.4 MB full-tier sheet
   (now 0.71 MB); `goblin` at `10347d4` drew 12.2 MB (now 12.9 MB). MEASURED,
   two eras.
-- All 105 older looks as skins: about 105 x 1.8 MB = 190 MB at the median,
-  about 430 MB at the mean, against 1.86 GB of sprites today (all tiers).
-  REASONED from the numbers above.
+- Publishing all 105 **uncorrected candidate entries** would have suggested
+  about 190 MB (median estimate) to 430 MB (mean estimate) against the
+  then-current 1.86 GB of sprites. REASONED on 2026-10-24 inputs, **not** an
+  estimate for the actual number of distinct historical looks. Recompute
+  after auditing the index and choosing the curated shipping set.
 
-So the game must not ship every era. Ship a curated set, or ship only the
-lower tiers of a generation, or download generations on demand.
+The game ships only the curated set; tier selection and asset costs are still
+implementation details that require current package measurements.
 
-## Steps (when Jon rules)
+## Remaining implementation work (not gated on Q170)
 
-1. Q170 ruling: which generations ship, and where the player chooses them.
-2. The `generation` field on catalog rows, its validator rule, and the census
-   check that each `generation` names a real era.
-3. `design_history publish <lineage> <era>`: render at the commit, publish
-   under its own key with a provenance record.
-4. The phase-mapped skin draw (rule 1) and the body-box scale (rule 4), with
-   a headless test that a skin changes no simulation state.
-5. The art inspector lists the published generations of each character.
+1. **Audit the visual-era index first.** Generate a per-lineage contact sheet
+   of representative *whole-character appearances*, compare candidate eras,
+   and classify each as a genuine distinct look or an incremental revision.
+   Coalesce adjacent same-look entries, retaining each commit/variation and
+   attribution; review cross-commit redesign boundaries, not just timestamps.
+   Make corrected lineage and era counts reproducible, with a report of merged
+   entries and visually justified distinct appearances. Do not auto-delete
+   history based only on a numeric image-difference threshold.
+2. **Curate the shipping subset.** Make a small explicit list of visually
+   distinct eras selected for the game; keep all other verified looks in the
+   art inspector/design history. This is a content decision, not a request to
+   publish every era or meet a per-character quota.
+3. Add `generation` metadata to curated catalog rows, validate that each
+   refers to a corrected real era, and preserve the no-mechanics rule.
+4. Implement `design_history publish <lineage> <era>` using a reference
+   appearance and representative revision or normalized generator; publish
+   only curated entries with provenance, not every Git commit.
+5. Complete phase-mapped skin drawing and body-box scaling, with a headless
+   test that a skin changes no simulation state. Inspect missing-row fallbacks.
+6. Show corrected visual eras and curated published generations distinctly in
+   the art inspector; validate the package-size budget on real output.
 
-## Open questions for Jon
+## Remaining product/design choices
 
-1. Which generations ship: every major era, a curated few per character, or
-   only on request? (Q170)
-2. Where does the player choose a generation: the Smash select screen only,
-   a wardrobe in the main game, or both? Is a generation unlocked by
-   progress?
-3. Is a `_vN` target beside its base (Paul Diracula v1 and v2) a generation
-   skin of one character, or does it stay a separate catalog character when
-   the old one has its own kit? The player robot versions are separate
-   characters by design (`player_robot_lineage.rs`).
-4. On Android, does a generation ship all four tiers, or only the tiers that
-   the device uses?
-5. When a generation lacks a row (Paul Diracula v2 has no air attacks), is
-   the fallback pose acceptable, or must a generation be completed before it
-   ships?
+1. Where does the player choose a shipped skin: Smash select only, an Ambition
+   wardrobe, or both? Is it unlocked by progression?
+2. Does a `_vN` target with its own kit remain a separate character rather
+   than a skin? The player robot versions are already separate characters by
+   design (`player_robot_lineage.rs`). Do not merge their mechanics by default.
+3. On Android, ship all four asset tiers or only those applicable to the
+   device/package profile?
+4. If an older look lacks modern animation rows (e.g., Paul Diracula v2 has
+   no air attacks), is a fallback acceptable for the selected skin, or must
+   that look be supplemented before shipping?

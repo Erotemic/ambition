@@ -40,6 +40,32 @@ The names live in three crates. What a move *is* is authored data in
 *does* is `ambition_combat` (`capture`, `CapturedBy`). What a body will *accept*
 is `ambition_platformer2d_core` (`BodyActionBuffer`).
 
+## Authored attack reach and matchup behavior (Q168; 2026-11-06)
+
+Attack reach is a property of the authored move and its visible strike, not a
+fixed multiple of the attacker's body width. For a small character with a
+sweeping blade, a hit region extending well past the body is appropriate; the
+Knight's slash in Hollow Knight is a feel reference. The robot family's broad
+forward slash does not by itself classify the robot as a long-range duelist.
+Do **not** shrink that slash solely because the duel robot engages far away or
+because a test assumes similarly sized hitboxes. Conversely, inspect other
+characters whose strikes feel too short and fix their visual and mechanical
+reach together rather than normalizing every attack to a body-width limit.
+
+For `REACH-VIEW`, keep the existing authority principle: the strike used by
+combat, the drawn hit region and the reach reported to a brain agree. The
+remaining work is to measure representative moves (visual blade arc, grounded
+and aerial attacks, distance at which the hit actually connects), identify
+undersized or mismatched authored geometry, and retune those moves as needed.
+A CPU must make progress against a longer-reaching opponent using movement,
+spacing, defense or timing; it must not stall just because the opponent's
+strike box is larger. A deterministic test can pin geometric truth and
+behavioral invariants (valid engagements, no indefinite nonparticipation),
+but should not mandate a particular character's body-relative reach, fixed
+number of swings, or winning outcome. Reapply the earlier reverted reach
+projection only after a focused same-hitbox visual/strike witness and sensible
+CPU-vs-CPU or player-play regression, not to appease an overconstrained test.
+
 ## Extension rules
 
 1. **Add semantics at the narrow owner.** A new knockback form extends hit

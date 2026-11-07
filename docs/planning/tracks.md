@@ -294,6 +294,15 @@ These are opportunities, not migration work.
 - ▢ **Player-facing authored-art repairs.** Treat morph-ball, shrine/glider and
   similar fixes as product work unless a reproduced defect demonstrates a
   reusable renderer or authoring-system problem.
+- ▢ **Character visual-era audit and curated skins (Q170 ruled).** The current
+  design-history era index overcounts actual looks by conflating Git revisions
+  with visual redesigns. Audit rendered holistic appearances per lineage,
+  coalesce minor revisions without deleting provenance, and report corrected
+  candidate eras; only then curate which distinct designs deserve shipped
+  `WornSkin` catalog/publish entries. Promote the index audit before skin
+  publication; selection UI, unlocks and Android tier policy remain
+  owner-plan choices. Owner:
+  [`game/character-generations.md`](game/character-generations.md).
 
 ## Trigger-based work
 
@@ -362,13 +371,16 @@ before promotion.
   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md),
   [`engine/character-authoring-package.md`](engine/character-authoring-package.md),
   [`engine/extension-model.md`](engine/extension-model.md).
-- ▢ **Reach geometry and balance (`REACH-VIEW`).** Authored strike geometry is
-  currently not a trusted proxy for the RON offer; the honest reach change was
-  reverted pending the robot-slash/duel balance ruling `Q168`. Reopen after
-  the ruling with a same-hitbox reach/strike witness and a duel regression.
-  Other possible residuals: high-range dismounted rider without a move and
-  dash/charge travel beyond static hitbox reach. Owner:
-  [`engine/combat-model.md`](engine/combat-model.md).
+- ▢ **Attack reach and brain engagement (`REACH-VIEW`, Q168 ruled).** Do not
+  shorten the robot-family slash on body-width or duel-test grounds: other
+  attacks may be too short, and a large blade arc does not make the robot a
+  long-range duelist. Re-measure representative rendered strike regions and
+  their actual hit geometry; repair mismatches or undersized authored attacks
+  based on play feel. Revisit the reverted reach projection with a same-hitbox
+  visual/strike witness and matchup tests that allow asymmetrical ranges but
+  reject indefinite CPU non-engagement. Preserve rider-without-a-move and
+  dash/charge travel reach as separate possible residuals. Owner:
+  [`engine/combat-model.md`](engine/combat-model.md#authored-attack-reach-and-matchup-behavior-q168-2026-11-06).
 - ▢ **Landmark clip loop authoring and shark saddle.** Package landmark time
   matches looping/one-shot animation, but authored rig loop rows disagree with
   animator policy; publish one loop bit per row. The shark saddle additionally

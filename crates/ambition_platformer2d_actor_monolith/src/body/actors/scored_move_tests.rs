@@ -122,6 +122,79 @@ fn fighter_brain() -> Brain {
     })
 }
 
+/// The actor snapshot builds a fighter's attack kit only when its decision
+/// or active charged-attack path will consume it. `tick_fighter` decrements
+/// both counters before reading the kit. A pending decision or charge must
+/// still see the same full authored repertoire as before.
+#[test]
+fn fighter_attack_kit_is_built_only_when_decisions_or_charge_need_it() {
+    let moveset = ActorMoveset(jab_and_uptilt());
+    let mut brain = fighter_brain();
+    for (ticks_remaining, due) in [(5, false), (2, false), (1, true), (0, true)] {
+        let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut brain else {
+            panic!("the fixture must be a fighter");
+        };
+        state.ticks_until_decision = ticks_remaining;
+        let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
+        assert_eq!(
+            kit.is_empty(),
+            !due,
+            "remaining={ticks_remaining}: the kit is needed exactly when tick_fighter decides"
+        );
+        if due {
+            let ids: Vec<&str> = kit.iter().map(|candidate| candidate.move_id.as_str()).collect();
+            assert_eq!(ids, ["jab", "uptilt"], "decision ticks retain the full attack repertoire");
+        }
+    }
+    // A charged move can be released between decisions when its prospective
+    // strike would otherwise miss. The charge path also reads the kit, but
+    // only if a live hold survives this tick's countdown decrement.
+    if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut brain {
+        state.ticks_until_decision = 5;
+        state.charge_hold_ticks = 4;
+        state.own_attack = Some(ambition_characters::brain::fighter::OwnAttack {
+            binding: ambition_characters::brain::attack_kit::AttackBinding {
+                verb: ambition_characters::brain::attack_kit::AttackVerb::Basic,
+                direction: ambition_characters::actor::attack_gesture::AttackDir::Neutral,
+            },
+            watch_ticks: 10,
+            refuse_ticks: 10,
+            before: None,
+            instance: None,
+            landed: false,
+        });
+    }
+    assert!(
+        !attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None).is_empty(),
+        "a held charge needs its move's frame data even between decisions"
+    );
+    if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut brain {
+        state.own_attack = None;
+    }
+    assert!(
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None).is_empty(),
+        "without a tracked attack, an in-progress hold cannot read the kit"
+    );
+    if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut brain {
+        state.charge_hold_ticks = 1;
+        state.own_attack = Some(ambition_characters::brain::fighter::OwnAttack {
+            binding: ambition_characters::brain::attack_kit::AttackBinding {
+                verb: ambition_characters::brain::attack_kit::AttackVerb::Basic,
+                direction: ambition_characters::actor::attack_gesture::AttackDir::Neutral,
+            },
+            watch_ticks: 10,
+            refuse_ticks: 10,
+            before: None,
+            instance: None,
+            landed: false,
+        });
+    }
+    assert!(
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None).is_empty(),
+        "a hold expiring before the charge check cannot consume the kit"
+    );
+}
+
 /// A hostile foe at `gap` in front, both grounded on a wide stage.
 fn scene(gap: f32) -> WorldView {
     WorldView {

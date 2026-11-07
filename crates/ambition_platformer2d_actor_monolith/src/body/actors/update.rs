@@ -1901,12 +1901,16 @@ pub(super) fn attack_kit_of(
     // MISSING. Like `grounded`, never a choice: a brain that could claim it was
     // running would be picking a move its body cannot perform.
     running: bool,
-    // only a FIGHTER brain reads the kit, and building it is a `Vec` of
-    // owned move ids and frame data — per actor, per tick. Every other brain in
-    // the game would have paid for a list nothing looks at, which is a cost
-    // §13.2 explicitly said to fix by rebuilding on moveset CHANGE. It does not
-    // need that yet: the cheaper answer is not to build it for a brain that
-    // cannot use it, and this is the one place that knows which brain a body has.
+    // A fighter reads the kit on decision ticks AND while reconsidering when
+    // to release a currently charging attack. `tick_fighter` decrements both
+    // countdowns before checking: 0/1 for decisions, >1 for a charge that
+    // remains live after the decrement (and has an own attack to inspect).
+    // On other ticks it only publishes held intent, buffers and reflexes.
+    //
+    // Deriving the kit clones owned move ids and frame data; the caller also
+    // resolves authored sprite hit geometry for every candidate. Skipping
+    // that work on idle ticks follows the brain's own rollback-snapshotted
+    // counters, without a separate timer or gameplay policy.
     brain: Option<&ambition_characters::brain::Brain>,
     // The move that currently owns the body, if any. Each candidate carries
     // whether it could be STARTED this tick, answered by the same
@@ -1931,7 +1935,9 @@ pub(super) fn attack_kit_of(
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
         brain,
-        Some(Brain::StateMachine(StateMachineCfg::Fighter { .. }))
+        Some(Brain::StateMachine(StateMachineCfg::Fighter { state, .. }))
+            if state.ticks_until_decision <= 1
+                || (state.charge_hold_ticks > 1 && state.own_attack.is_some())
     ) {
         return Vec::new();
     }
@@ -1945,7 +1951,10 @@ pub(super) fn attack_kit_of(
     // execution. Include the body's actual running and grounded state;
     // otherwise the AI can score a move different from the one it plays.
     // Carry the resolved press with each candidate.
-    let mut kit: Vec<AttackCandidate> = Vec::new();
+    // The 3 verbs x 5 directions + grab offer at most 16 distinct moves.
+    // Reserve from the authored contract so each due-decision kit normally
+    // grows once rather than repeatedly reallocating while resolving presses.
+    let mut kit: Vec<AttackCandidate> = Vec::with_capacity(moveset.0.moves.len().min(16));
     for (verb, verb_name) in [
         (AttackVerb::Basic, ambition_combat::moveset::ATTACK_VERB),
         (AttackVerb::Smash, ambition_combat::moveset::SMASH_VERB),
@@ -2415,7 +2424,8 @@ fn build_enemy_brain_snapshot(
         // moveset itself, so this is body-derived truth arriving through the
         // world-in port — exactly like `actor_aerial`.
         //
-        // Built every tick like every other snapshot field.
+        // Constructed only when the fighter decision or active-charge path
+        // can consume it; idle ticks retain the same snapshot interface.
         attack_kit: attack_kit_of(
             moveset,
             body.ground.on_ground,

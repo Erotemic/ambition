@@ -8798,3 +8798,57 @@ fn mary_o_plays_the_same_after_ambition_and_smash_had_the_host() {
     let second = visit_mary_o(&mut app);
     assert_eq!(second, first, "Mary-O's second visit differs from her first");
 }
+
+/// The phone profiler must reach an actual all-CPU Smash round through the
+/// production hosted select -> gameplay transition, without touch/gamepad
+/// events. A profile of character select is not evidence about Smash FPS.
+#[test]
+fn an_unattended_smash_profile_enters_a_live_all_cpu_round() {
+    use ambition_platformer2d::actor::{ControllerBinding, MatchParticipantRoster, MatchSeat};
+    use ambition_platformer2d::characters::control::ControlHolds;
+    use ambition_platformer2d::game_shell::ShellRouteId;
+    use ambition_platformer2d::input::SessionSeatingSource;
+    let mut app = shell_host_app();
+    ambition_platformer2d::scripted_input::install_autoplay(&mut app, "smash");
+    app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
+        ambition_demo_smash::SMASH_SELECT_ROUTE,
+    )));
+
+    let mut went_live = false;
+    for _ in 0..700 {
+        app.update();
+        if active_route(&app).as_deref() != Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            continue;
+        }
+        let mut seated_query = app.world_mut().query::<&MatchSeat>();
+        let seated = seated_query.iter(app.world()).count();
+        let mut held_query = app.world_mut().query_filtered::<&MatchSeat, With<ControlHolds>>();
+        let held = held_query.iter(app.world()).count();
+        if seated == 2 && held == 0 {
+            went_live = true;
+            break;
+        }
+    }
+    assert!(went_live, "autoplay captured a menu, held ceremony, or empty stage");
+    let roster = app.world().resource::<MatchParticipantRoster>();
+    assert_eq!(roster.participants.len(), 2);
+    assert!(roster.participants.iter().all(|participant| {
+        matches!(&participant.controller, ControllerBinding::Cpu { .. })
+    }));
+    assert!(matches!(
+        app.world().resource::<SessionSeatingSource>(),
+        SessionSeatingSource::Decided { channels, .. } if channels.channels() == 0
+    ));
+    // A merely populated stage with idle brains could still be cheap and
+    // produce a false performance baseline. They must actually move.
+    let start = seat_positions(&mut app);
+    for _ in 0..300 {
+        app.update();
+    }
+    let moved = seat_positions(&mut app)
+        .iter()
+        .zip(&start)
+        .map(|(now, then)| (now - then).abs())
+        .fold(0.0_f32, f32::max);
+    assert!(moved > 1.0, "autoplay CPUs never moved in the measured match");
+}

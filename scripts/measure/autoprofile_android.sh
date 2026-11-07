@@ -6,6 +6,8 @@
 #   scripts/measure/autoprofile_android.sh                 # Ambition (the hall of characters, then a flight through the primeval trail)
 #   scripts/measure/autoprofile_android.sh castle_godwin   # Castle Godwin combat route
 #   scripts/measure/autoprofile_android.sh mary_o          # Mary-O (the cosmic form, to each goal)
+#   scripts/measure/autoprofile_android.sh smash           # 2 CPUs, real Smash stage
+#   scripts/measure/autoprofile_android.sh smash_4p        # 4 CPUs, real Smash stage
 #   scripts/measure/autoprofile_android.sh ambition --duration 60 --warmup 40
 #
 # PROFILE names an autoplay policy (`AMBITION_AUTOPLAY`). Every
@@ -38,8 +40,9 @@ case "$autoplay_profile" in
     ambition) game="ambition"; route="ambition_gameplay" ;;
     castle_godwin) game="ambition"; route="ambition_gameplay" ;;
     mary_o) game="mary_o"; route="mary_o_gameplay" ;;
+    smash|smash_4p) game="smash"; route="smash_select" ;;
     *)
-        echo "autoprofile_android.sh: no autoplay policy for '$autoplay_profile' (ambition, castle_godwin, mary_o)" >&2
+        echo "autoprofile_android.sh: no autoplay policy for '$autoplay_profile' (ambition, castle_godwin, mary_o, smash, smash_4p)" >&2
         exit 2
         ;;
 esac
@@ -47,7 +50,17 @@ esac
 name="all-${autoplay_profile}-auto-$(date -u +%Y%m%dT%H%M%SZ)"
 echo "[autoprofile] game=$game autoplay=$autoplay_profile boot_route=$route name=$name"
 # Unset, so a build made here bakes in no autoplay (`option_env!`).
-unset AMBITION_BOOT_ROUTE AMBITION_AUTOPLAY
+unset AMBITION_BOOT_ROUTE AMBITION_AUTOPLAY AMBITION_HUB_GAMES
+# A CPU match needs time for the app's startup, the select route, stage
+# preparation, and Smash's opening ceremony. A long default capture makes
+# thermal throttling visible; explicit CLI flags still override both.
+if [[ "$game" == "smash" ]]; then
+    default_warmup=35
+    default_duration=60
+else
+    default_warmup=25
+    default_duration=30
+fi
 exec "$repo_root/scripts/measure/profile_android.sh" all \
     --profile-build --launch --launch-env "AMBITION_BOOT_ROUTE=$route" --launch-env "AMBITION_AUTOPLAY=$autoplay_profile" \
-    --warmup 25 --duration 30 --name "$name" "$@"
+    --warmup "$default_warmup" --duration "$default_duration" --name "$name" "$@"

@@ -11,6 +11,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod autoplay;
 pub mod bolt;
 pub mod bomb;
 mod capture;
@@ -2007,6 +2008,16 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         )
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin);
+
+        // An unattended CPU match is a measurement workload, not a new
+        // gameplay route. The profilers select it through `AMBITION_AUTOPLAY`
+        // and boot the normal character-select frontend first. The driver
+        // publishes the CPU roster before it requests the gameplay route.
+        app.init_resource::<autoplay::SmashAutoplayDriver>();
+        app.add_systems(
+            bevy::prelude::Update,
+            autoplay::drive_smash_autoplay.run_if(autoplay::is_smash_autoplay),
+        );
 
         // What this experience owns, and what leaves with it.
         //

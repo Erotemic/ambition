@@ -1183,3 +1183,15 @@ visual, audio, conceptual.
 The inhabitants of this dimension likely hate the gates the most. We could use
 bob ross, picasso, lots of other parodies are possible here. Escher, Khalo, van
 Goh, Dali, Banksy, Doyal, Lietz, Tolkien, Poe, Shelly, ...
+
+----
+
+
+In the art dimension I want writers / directors with:
+
+T-71 to parody a T-70 Terminator (with Cameron / Hurd) and
+NDR-115 to parody a NDR-114 Bicentennial Man
+
+Need an Asimov parody.
+
+Also need MAL-9000 for HAL-9000 parody, with Clarke and Kubrick. 

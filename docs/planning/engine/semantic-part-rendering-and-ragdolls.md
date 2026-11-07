@@ -1,383 +1,146 @@
 # Semantic Part Rendering and 2D Ragdoll Roadmap
 
-**2026-10-26 scope amendment:** Ragdoll-capable pose providers are an **optional presentation
-capability**, not a requirement that deaths become authoritative articulated rigid bodies. An
-interactive corpse/prop with gameplay collision is a different, region-owned mechanical object.
-Keep cosmetic body-part physics locally adjustable; do not imply an Avian dependency for every
-semantic-part character or for the custom player controller. See [ADR
-0038](../../adr/0038-persistent-objects-and-optional-physics.md) and [architecture
-reassessment](architecture-reassessment-and-composable-multiplayer.md).
-## Status
+**Authority:** semantic-part identity and pose belong to the character rig, not to
+an independent renderer skeleton. A ragdoll pose provider is optional cosmetic
+presentation; gameplay collision for a persistent corpse or prop belongs to
+region mechanics. See [ADR 0038](../../adr/0038-persistent-objects-and-optional-physics.md)
+and [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 
-Selected architectural direction; **phases 0, 2 and 6 implemented, 3 and 5 by
-demand-driven composition, 1 measured and held for Mary-O, 7's pose seam built**
-(2026-10-05). See "Discovery results and
-the implemented shape" below for what was measured, what shipped, and what is
-still open.
+## Current implementation and remaining work
 
-This document plans the migration from the current mandatory whole-body part compositor toward a semantic-part presentation model that preserves the advantages of vector-authored parts, supports high-resolution presentation without blurry upscaling, and creates a direct path to future 2D ragdolls.
+This status is a consolidation of the October 5–26 implementation notes, **not
+fresh verification against HEAD**. Recheck the relevant code and published art
+before making changes. Completed implementation diaries and detailed benchmark
+runs remain available in Git history.
 
-The current part pipeline was a useful compatibility bridge: it let part-authored characters continue to look like one ordinary body sprite to portals, fades, color effects, and other one-image consumers. The problem is not that render-to-texture composition exists. The problem is that whole-body composition has become the mandatory presentation path, and its current implementation uses ordinary Bevy cameras and atlas-page redraws for work that is fundamentally local character composition.
+**Shipped baseline:** semantic parts normally render directly as world sprites,
+following the root's transform, mirror, visibility and tint. The body requests
+an optional composed image only while a consumer needs one (and for a 30-frame
+hold to prevent thrash). Known consumers include hit flash, portal transit and
+far-side pieces, puppy-slug dream, Mary-O star power and whole-frame fades.
+`FrameInSprite` describes a composed frame's in-cell bounds. Cell margins
+include the authored art overhang and tween envelope; pages do not regrow in
+place and unused last pages retire. `AMBITION_PART_PRESENTATION=impostor`
+remains an A/B comparison knob. Owner:
+`crates/ambition_render/src/rendering/actors/rigged/`.
 
-The long-term engine should not require every semantic body part to be flattened back into one body image every frame. Whole-body or local composition should be a derived presentation operation used only where its mathematics or an unmigrated consumer require it.
+**Measured decisions to preserve:** scene and composed images use compatible
+linear-light blending. The attempt to put only the world camera in sRGB
+compositing broke the multi-camera window stack; do not reintroduce it without
+fixing the camera format contract. Whole-frame translucency needs group
+composition (`fade(composite(parts))` is not equivalent to fading loose parts).
+`measure_rigged_parity.py` and `measure_composition_switch.py` established the
+parity/transition baseline; the historical host used llvmpipe. Some thin-outline
+differences from the SVG/PIL gamma reference remained an art-direction trade.
+Preserve the common camera-format witness, composition-switch coverage and
+runtime-law parity rather than treating the early gamma experiment as an open
+migration. **Still needs human visual acceptance:** compare the remaining
+thin-outline differences against published SVG/PIL art on the target GPU before
+changing the agreed blending policy.
 
-## New part-set consumer: a held item in the hand of the pose (2026-10-13)
+**Measured throughput (historical, 100 actors):** direct parts 9.65 ms per
+frame versus composited 56.3 ms in `examples/rigged_sprite_bench.rs --render`.
+These are not current hardware performance claims. Whole-page compositor
+redraws remain a possible cost even though demand is sparse.
 
-Jon: "swings need to have character art that looks like they are swinging to
-go with held items." An item in a hand was drawn at a fixed place on the body
-box and turned there by a formula (`item_swing_angle`). The art did not know.
+### Open: held-item pose and strike agreement
 
-Now the art leads (`rendering/posed_hand.rs`). A body that is drawn from parts
-has a hand track (`near_hand`, `front_hand`, `right_hand`, and the far names).
-An item is held rigidly in that hand part: it is where the part is, and it
-turns as the part turns, in the frame that is drawn. A swing is a row of the
-character's art.
+`rendering/posed_hand.rs` reads the active posed hand from `PartSetDraws` for
+both in-hand and over-hand visual roads. The item follows the animated hand;
+non-part or missing-hand bodies keep the fallback. Pirate heavies and the robot
+`item_swing` provide authored customers. `moveset_render --hold ITEM` exposes
+this for inspection. Authored hand tracks include `near_hand`, `front_hand`,
+`right_hand` and their far-hand counterparts. An unturned hand holds an item
+at `ITEM_REST_ANGLE` (24 degrees above body facing); the artist turns the
+hand part to swing it, rather than the game inventing another swing angle.
 
-- The reader asks the holder's rigged root for its hand tracks (one ask for
-  each hand) and reads `PartSetDraws`. Both item roads use it: the in-hand road
-  (`sync_held_item_visual`) and the over-hand road
-  (`sync_wielded_item_visuals`).
-- The contract with the art: a hand part that is not turned holds an item that
-  points the way the body faces and `ITEM_REST_ANGLE` (24) degrees up. An
-  artist turns the hand part to turn the item. This is true of each hand. The
-  player robot's far blade is drawn pointing back, so its item strikes
-  (`ITEM_STRIKES`) do not give the far hand the turn of the far blade.
-- The hand is the character's `gesture_hand`, then the other. On a mirror row
-  it is the other hand first, because the item stays in the hand that holds it.
-- An item that fires (a gun-sword) is in the posed hand and points at its aim.
-- A body that is not drawn from parts, or has no hand track, is drawn the old
-  way: the fixed place and the formula.
-- An item is registered one time (`HeldItemArtManifest`). The in-hand road
-  also draws the item of a living hostile when the over-hand catalog does not
-  have it.
+- Publish/review `item_swing_up`, `item_swing_down` and `item_swing_back`
+  instead of silently using their fallback row.
+- Align the **simulation hit volume** of a swung item with the posed hand;
+  visual attachment alone does not make its gameplay geometry correct.
+- Preserve mirrored-hand selection and the gun-sword's posed aiming direction.
 
-Art that uses it: the pirate heavies (`right_hand`, turned as the haft), and
-the player robot's `item_swing` row (a keyed strike with no blade).
-`moveset_render --hold ITEM` shows a swing with the item in the hand, and
-`--face-left` shows the mirror row.
+### Open: part-group geometry and barrier lifecycle
 
-Open: the rows `item_swing_up`, `item_swing_down` and `item_swing_back` do not
-exist on a sheet; a swing in those directions draws a fallback row. The sim's
-hit volume of an item does not follow the posed hand.
+`PartSetRequest` / `PartSetDraws` in
+`crates/ambition_render/src/rendering/actors/rigged/part_set.rs` expose ordered
+named tracks as placed parts. Multiple independent readers now use named
+`ask_for_parts` / `forget_parts` leases; each sees only its requested tracks,
+and one reader's departure preserves the others. Mary-O's cosmic barrier is
+the first effect consumer. **This fixes destructive single-consumer ownership,
+not general geometry or lifetime semantics.**
 
-## New part-set consumer: outline geometry and lifetime (2026-10-11)
+- The barrier shader supports at most **four parts from one atlas page with
+  unrotated/unscaled geometry**. Unsupported geometry now refuses drawing,
+  rather than silently truncating. The remaining implementation should render
+  a complete correct group or provide an intentional visible fallback, not
+  misrepresent a fifth part, a second page or a transformed part.
+- A reusable part-group result should resolve all requested tracks in current
+  body-pose space, support multi-page/rotated/scaled coverage and offer a
+  deliberate draw-list/mask/contour form. Keep Mary-O-specific color, timing
+  and pixel effects outside `ambition_render`.
+- Make barrier presentation body-owned: despawn, recharacterization, rewind,
+  visibility, room and `RenderLayers` changes must follow the body. Publish
+  geometry before the portal-candidate boundary. Avoid a global orphan scan.
+- Verify two consumers surviving independent create/teardown and cover form
+  change, quality-tier change, hybrid baked row, rewind and despawn. Existing
+  tests prove independent readers and safe refusal, **not** that full lifecycle.
+- **Acceptance:** at least five parts over two atlas pages, a 30-degree turn,
+  mirrored/scaled part, second live room, portal transit, recharacterization
+  and owner despawn. Exercise the actual material/mesh, not only bounds math;
+  keep headless builds valid.
+- **Promotion trigger:** build a general GPU mask/contour cache only after a
+  second real part-group effect needs it or published art exceeds the current
+  barrier limits. Measure CPU, GPU passes, draw calls, cached bytes and quality
+  tiers first. A correct named-reader API is required independently of that
+  optimization trigger.
 
-`PartSetRequest` and `PartSetDraws` are a useful **general engine API**:
-`crates/ambition_render/src/rendering/actors/rigged/part_set.rs` publishes
-an ordered set of named-tracked `PlacedPart`s with their page, UV rectangle,
-anchor, position, turn and scale. This is better than making a game infer its
-art from the whole-body sprite. The first consumer is Mary-O's cosmic barrier
-(`game/ambition_demo_mary_o/src/cosmic_barrier.rs`). It exposes gaps that
-should not become permanent assumptions of the engine API:
+### Open: pose authority, attachments and future physics
 
-- `barrier_of` uses `parts.first().image` and then only parts on that first
-  atlas page. A change to a second page silently drops geometry.
-- It takes at most `MOST_PARTS = 4`. A fifth selected track's part is
-  silently absent from the outline.
-- It ignores `PlacedPart.local.rotation` and `.scale`. The present Mary-O
-  frames have no such turns, but the general part API expressly supports
-  them. A reused barrier would outline the wrong geometry.
-- The barrier quad is not a child of its body. `HasCosmicBarrier(Entity)`
-  and `drop_the_barrier_of_a_body_that_is_gone` implement their own lifetime
-  protocol, including an all-quad/all-owner cleanup scan after any owner
-  removal. `RenderLayers` is copied on spawn but not resynchronized later.
-- `raise_her_barrier` runs after `drive_rigged_presentations`; it has no
-  declared place in the `BodyOwnedDrawableSync` -> portal candidate boundary.
-  Check far-side panes and transit rather than assuming a secondary mesh
-  participates in body portal compositing.
+`rigged::PosedParts` can bind flipbook tracks to body-rig joints, and
+`rigged::PartPose` lets a provider drive parts from joint frames without
+changing the drawing road. Mary-O's three forms measure near-exact agreement;
+three tracks had small residual placement drift (0.86–0.95 px) to explain.
+Pirate sheets still compute independent rotations for several parts: nine of
+about 26 tracks aligned with rig joints in the earlier measurement. In
+particular, face and hat cannot both use the head joint's one angle.
 
-**Target:** the renderer exposes one prepared **part-group geometry** result
-in the body's pose space, with explicit track resolution, coverage and current
-part transforms. It does not promise that arbitrary parts share a page or can
-be represented as four axis-aligned boxes. A reader requests a named group,
-then selects a deliberate output form: body-local mask, contour or draw list.
-A mask/compositor chooses a correct bound and handles multiple pages, angle,
-scale and source sampling. Keep Mary-O's colour, band, pixel grid and timing
-in Mary-O. Do not put cosmic lore in `ambition_render`.
+- Converge the pirate painter/body rig without moving authored gameplay
+  attachments. Add accessory joints where parts need independent turns, then
+  gate with `scripts/measure/measure_track_joints.py`.
+- Publish each flipbook track's owning `track_joints` binding in authoring;
+  the current `PosedParts::bind` inference is not a permanent source of truth.
+- Build an optional physics/joint pose provider on a suitable existing body
+  (Mary-O is a candidate). It should feed the **same** `PartPose` and renderer,
+  without requiring every death to use articulated rigid bodies or changing
+  the custom player movement authority.
 
-**Near-term correctness slice:** keep the existing `PartSetDraws` API; for
-unsupported shapes, provide an explicit refusal or fallback rather than
-quietly drop parts. Cover multi-page and turned/scaled synthetic sets in pure
-tests. Make the barrier a derived, body-owned presentation with a single
-teardown road. Its owner, render layer, visibility and room follow the body;
-its geometry is published before portal candidate collection. Retraction on
-form change, despawn and rewind must work without a global scan for orphans.
-Retain the no-render/headless build path. Use Bevy parent/child lifetime where
-it fits; do not add a new entity registry solely for one effect.
+### Open: effects, composition, quality and presentation verification
 
-**Promotion rule for the larger mask API:** only implement a renderer-wide
-part-group contour/mask cache after the second part-group effect needs it, or
-a real authored Mary-O frame violates the near-term limits. Compare CPU work,
-GPU passes, draw calls, cached bytes and scale/quality tier behavior before
-choosing CPU unions, an offscreen mask, stencil or another method. The
-correctness contract holds either way. This also informs the future
-part-aware portal compositor and 2D ragdoll pose road.
+- Hit flash still requires temporary group composition to mix a white
+  silhouette; a part material could eventually remove that need. Color shift
+  without a production inserter remains composition-only. Audit remaining
+  readers before changing their route.
+- Atlas composition still redraws every body in a changed page. Improve only
+  with a measured real customer; see the local semantic-part caching plan.
+- A page allocated mid-play can leave its first body temporarily without a
+  composed image. Validate a composed reader across that creation frame.
+- A `PartPose` extending beyond its composed cell is drawn directly and loses
+  composed readers (flash and portal pieces). If ragdoll/posed content needs
+  those effects, select a cell from the current pose reach or an authored
+  envelope. This is already selected as
+  [RIG-IMPOSTOR-CONTAINMENT](../queue.md#rig-impostor-containment--a-part-drawn-body-is-drawn-whole-or-refused);
+  do not spin it into a duplicate campaign.
+- The part-visual `Ultra` realization still needs deliberate vector-source
+  resolution/quality policy; do not upscale lower-tier rasters when SVG truth
+  exists. Measure caching, package size, startup, memory and display quality.
+- Recheck portal/transit clipping and far-side panes with actual part-drawn
+  bodies, including posed or transformed parts. Normal direct rendering does
+  not by itself prove part-aware portal correctness.
+- The composition-switch study found second-sampling differences on thin
+  lines. Maintain parity tests at game scale, not only geometry-unit tests.
 
-**Acceptance:** 5+ parts across 2 atlas pages, one part turned 30 degrees,
-one mirrored/scaled part, body recharacterization, a body in a second live
-room, a portal transit and owner despawn. Test the actual mesh material, not
-just its bounds arithmetic. Poison: silently skip the fifth part or remove
-owner-following layer sync.
-
-### A part-set demand cannot be owned by one effect component
-
-**What landed (2026-10-12):** each reader asks under its own name
-(`ask_for_parts` / `forget_parts`); `PartSetRequest` holds the asks by
-reader and `PartSetDraws` the answer of each (`parts(reader)`), from one
-pass over the driver's draws. A reader forgets only its own ask; the
-components go with the last ask. The cosmic barrier asks as
-`mary_o_cosmic_barrier`, and draws no barrier for parts its shader can not
-draw (more than four, a second page, a turned or scaled part), where it
-took the first page and the first four and read them with no turn.
-Witnesses: `ambition_render part_set a_reader_forgets_its_own_ask_and_no_other`;
-`ambition_demo_mary_o cosmic_barrier parts_the_shader_can_not_draw_give_no_barrier`.
-Poisons: forget removes both components (fails); the old truncating
-barrier (fails at "a fifth part"). The driver's split by reader, on the
-published raider: `ambition_render rigged the_driver_answers_each_reader_with_its_own_tracks`
-(two readers on two tracks, a reader of both gets both, one forgets and the
-others keep theirs); every reader given every draw fails it. Not
-witnessed: recharacterize,
-tier change, hybrid row, rewind and despawn. The text below is the case
-as found.
-
-The new `PartSetRequest` is a **single component** on the body root:
-`crates/ambition_render/src/rendering/actors/rigged/part_set.rs:23-40`
-contains just `Vec<String>` and has one `PartSetDraws` answer. The first
-consumer, `cosmic_barrier.rs:214-227`, removes both components whenever
-its own barrier is no longer wanted. If another effect asks for a
-different set of tracks on the same body, its request is overwritten or
-silently reused; ending the cosmic effect deletes the other effect's
-answer. This is a compositional API problem **in addition** to the
-barrier's four-part/one-page/axis-aligned geometry loss.
-
-**Correct direction:** the **named consumer** owns a request/lease, and
-the rigged driver answers current draws per named track group or
-consumer, with a single shared pose evaluation. Adding/removing one
-consumer must not change the other consumer's requested groups or
-lifetime. A small source-keyed collection on the root, or a typed
-per-consumer read API over the driver's current authoritative draws,
-is sufficient; do not create a universal graph/cache or copy a whole
-rig for every effect. Treat `PartSetDraws` as derived presentation, not
-saved state. Keep the existing fast path for one consumer if it can
-represent the multi-consumer contract without hidden arbitration.
-
-**Witness:** one rigged body has a barrier request for torso/hair and a
-second effect requesting hands/weapon. Both receive correct groups in
-one frame; removing or disabling the barrier does not clear the second
-effect's answer. Then recharacterize, change quality tier, switch to a
-hybrid baked row, rewind and despawn. A second effect is required before
-promoting a general GPU part-mask compositor, but the request protocol
-must not make that effect mutually exclusive today.
-
-## Discovery results and the implemented shape (2026-10-05)
-
-All numbers MEASURED on this host (llvmpipe) unless marked.
-
-### The colour space was the whole parity question
-
-Drawing the parts directly with the main camera first failed parity badly:
-anti-aliased outlines over other parts made blobs of 11 to 18 px, and a
-translucent blink made 559 px (`scripts/measure/measure_rigged_parity.py`, robot, sybil,
-ninja_shadow_oni_leader, alice: 99 frames). The art is composited in **gamma
-space** (the renderer's PIL compositing over stored sRGB values), and a Bevy
-camera with no `CompositingSpace` blends in linear light. The impostor had been
-getting gamma blending by a trick: raw (undecoded) pages into a plain
-`Rgba8Unorm` target.
-
-Bevy 0.19 has the property directly: `CompositingSpace::Srgb` on a camera
-renders into `Rgba8Unorm`, has every sprite and mesh2d shader write sRGB-encoded
-values, and decodes once at output. With it, the direct parts measured a largest
-blob of 3 on robot, blink included.
-
-**Decision, revised the same day, twice.** Gamma for the gameplay camera
-shipped first and blacked out every game on Jon's GPU host: an `Srgb` camera
-renders into an `Rgba8Unorm` main texture while the HUD and cube-menu cameras
-sharing the window keep `Rgba8UnormSrgb`, Bevy keys main textures by (target,
-usages, format, MSAA), and the later cameras' never-cleared texture was written
-over the world. `capture_scene` renders into an image and could not see it.
-`window_camera_stack` now reports any camera that layers onto another of its
-window with a different main-texture key, naming both
-(`the_shipped_window_cameras_share_one_main_texture`, whose control arm puts the
-gameplay camera back in `Srgb`).
-
-Then ONE LAW: the world cameras blend in linear light (`WORLD_COMPOSITING`, a
-constant), and so does the atlas (`impostor_compositing`). With the atlas in the
-art's gamma and the world in linear, a body changed its outlines every time it
-switched road (a hit flash, a portal): MEASURED by
-`scripts/measure/measure_composition_switch.py` (robot, alice, ninja_shadow_oni_leader,
-623 frames, one texel a pixel), the same frame on the two roads differed by more
-than 8 levels on a median 100 and up to 1,088 pixels (peak 68 levels) with a
-gamma atlas, and on none (peak 8) with a linear one. On opaque frames at half
-scale the linear atlas is also the closer (826 against 934 pixels on robot's
-idle).
-
-At game scale the largest switch was not the law: a cell's fixed 16 px margin
-cut off art reaching farther past the frame (the oni leader's banner and ears
-in its jumps, a blob of 522 px at half scale, on every hit flash). A cell's
-margin is now the farthest its flipbook's art reaches (`art_overhang`, measured
-from every draw at parse) plus a 2 px fringe, at least 16 (`impostor_margin`).
-After it, at half scale (linear law): worst switch 0.90% and a blob of 25,
-median 0.01%. What remains is the composited road's second resampling (parts
-rasterized at sheet resolution, then the cell minified), 551 pixels past 8
-levels on the median frame, peaking at 116 on thin lines — a road property, the
-same under either law; rendering a cell at the body's drawn scale would remove
-it.
-
-The published art is the DRIFT reference, not the runtime's law. The parity
-gate replays the published draws through a model of the GPU's sprite road
-(`measure_rigged_parity.py`'s `_runtime_oracle`: sRGB texels decoded, then
-bilinear, blended in linear light), independent of the runtime's code: every
-frame of the four targets within 0.00% and a blob of 0 on both roads, and
-dropping one draw from each frame fails 154 of them. Against the art's own gamma
-replay (`AMBITION_PARITY_COMPOSITING=srgb` captures in gamma; linear captures
-against the PIL replay drift) the runtime is at most 0.51% apart with outline
-blobs to 21 px: GPU filtering of sRGB pages in linear light thins and lightens
-1-px lines and outlines a shade. That is an art-direction trade for Jon to
-confirm (the alternative is a whole-world offscreen gamma surface presented
-under the HUD); it is measured, not hidden.
-
-The 6 custom 2D material shaders and the screen filter handle `SRGB_OUTPUT`, so
-they would follow a gamma world unchanged. Part pages are ordinary sRGB sheet
-images (`load_part_page` and its raw decode are gone).
-
-### Group opacity is the one thing loose parts cannot do
-
-`fade(composite(parts)) != composite(fade(part_i))`, measured: alice's blink drawn
-by spreading the frame opacity over her parts differed from the composited fade
-by 12% with blobs of 654 px, an x-ray look (her arm through her coat). Five
-characters fade a frame as one picture (`frame_opacity`: alice and bob's blinks,
-and alice, bob, player_robot_v3, richard_duckling and anne_druid's deaths). These
-frames are composited.
-
-### Implemented: direct by default, composited while read as one image
-
-- **Direct presentation is the default** (`rigged::drive_rigged_presentations`):
-  each part slot is a world sprite in the root's own render layers, under an
-  owner placed through the same quad the animator gave the root (`body_quad`:
-  size, anchor, facing, squash, mirror row), so no anchor convention is
-  re-derived. The root draws nothing. The owner follows the root's visibility
-  (its own `Visibility` for a top-level root: `InheritedVisibility` is a frame
-  late) and the root's colour multiplies every part.
-- **The owner takes the root's whole transform** (2026-10-05). The feet offset
-  and the mirror are in the root's own frame, and the root's transform is
-  applied after them. The first direct road took only the root's translation.
-  So a body whose root is turned (the gravity of its room, a somersault, a
-  crawler on a wall) was drawn level: in a room with sideways gravity the
-  player's collision box lay along the wall and the art did not (Jon,
-  2026-10-05). A composited body was not affected, because its root draws the
-  cell through its own transform.
-- **Composition on demand** (`ComposedBodyDemand`, declared in
-  `ComposedBodyDemandSet` before the driver): a body takes an atlas cell, and its
-  root draws that cell, only while something reads it as one image, and for
-  [`COMPOSED_HOLD_FRAMES`] (30) after, so a flickering cue does not move it every
-  frame. The census of one-image readers found five, and each now declares:
-  the hit flash (`declare_hit_flash_demand`, the same `overlay_look` the flash
-  uses), the portal's transit and far-side pieces (`declare_portal_body_demand`,
-  by room: both readers decide late in the frame), the puppy slug's dream, and
-  Mary-O's star power; a fading frame composites itself. `CharacterColorShift`
-  has no production inserter; it still applies only to a composited body.
-- **A reader of a SET of parts asks for their draws** (`PartSetRequest` on the
-  root, answered each frame in `PartSetDraws`, 2026-10-11;
-  `rigged/part_set.rs`). A composited image has no parts, so a reader of it
-  cannot draw about a body and not about its wings. The request names tracks as
-  the flipbook names them; the answer is their draws (page, rect, size, pivot,
-  place under the feet) and the place of the feet in the world, the same on
-  both roads. The engine draws nothing for it. First reader: the barrier of
-  Eternal Cosmic Mary-O (`cosmic_barrier.rs`), about her hair and her figure.
-  Not done: a part that is turned or scaled is in the answer, and that first
-  reader reads each part as not turned.
-- **A composited root states where its frame is** (`FrameInSprite`): the cell is
-  square with the frame inside its margin, where a baked frame was its whole
-  image. A reader that patterns over the body (the slug's dream, Mary-O's
-  quasar) maps through it (the `ambition_render::frame_in_sprite` WGSL import);
-  laid over the whole cell, the dream was magnified onto the slug's thin band
-  and read as diagonal stripes (Jon, 2026-10-05). A silhouette reader (the hit
-  flash) needs no frame.
-- **Pages never regrow.** A class opens a new page one growth step larger than
-  the last; a page regrown in place blanked every body already drawn in it, which
-  mattered once cells are taken mid-play. A body whose cell lands on a page built
-  that frame draws directly once more (its cameras arrive with the frame's
-  commands). The last page of a class is retired (cameras, quad and targets)
-  once its last body leaves, so a burst of composition does not hold its
-  targets for the session.
-- `AMBITION_PART_PRESENTATION=impostor` composites every body (the A/B knob);
-  `measure_rigged_parity.py --composed` measures it.
-
-Parity: see above (exact against the runtime-law replay, on both roads). Cost (`examples/rigged_sprite_bench.rs --render`,
-100 actors): composited 56.3 ms a frame, 49.0 ms over the baked sheets, in 6
-sprite batches; direct 9.65 ms, 2.45 ms over baked, in 1 batch.
-
-Tests: `rigged/tests.rs` keeps the compositor's tests (their app declares every
-body) and adds the direct road: `a_body_nothing_reads_draws_its_parts_in_the_world`,
-`a_direct_part_lands_where_the_baked_frame_would_for_either_anchor`,
-`a_body_read_as_one_image_is_composited_while_it_is_read`,
-`a_fading_frame_is_composited_with_nothing_reading_it`,
-`a_direct_body_tints_its_parts_with_its_root_colour`. The shipped game's
-player in sideways gravity:
-`a_body_drawn_from_parts_turns_with_gravity::the_players_parts_turn_with_sideways_gravity`
-(before the change: the player turned 1.07 rad, its parts 0).
-
-### Phase 1 measured: one decomposition for Mary-O, two for the pirates
-
-`scripts/measure/measure_track_joints.py` asks the shipped files whether each part track
-rides a body-rig joint: its pivot and angle, taken in the joint's frame, constant
-over every frame both files share. Mary-O's three forms: every track turns with
-its joint exactly (0 degrees), and 17 of 20 hold their place within 0.75 px; the
-other 3 (fire's `torso` and `back_wings`, tall's `near_leg`) drift 0.86 to 0.95 px,
-still to be explained before a provider relies on them. The five pirates: 9 of
-about 26 tracks ride a joint. The pivots of 23 sit on a joint to 0.2 px, but the
-lower legs, hands, head, hat, coat tails and sword are drawn at angles the body
-rig does not publish (19 to 103 degrees apart). The pirate body rig publishes each
-bone's evaluated angle, and the paint pass draws those parts at angles it
-computes itself. So for the pirates the flipbook is still a second rotation
-authority.
-
-The same measurement is in the engine (`rigged::PosedParts`): at bind time a
-body whose sheet publishes a rig has each track bound to the joint it rides
-(within a pixel and a degree), with its pivot and angle in that joint's frame.
-`mary_os_parts_are_placed_by_her_body_rigs_pose` holds the claim for Mary-O's
-three forms: with every draw's placement wiped, the rig's own frame of each
-shared clip puts every part back within a pixel and 0.02 rad. The flipbook's
-transform table is, for her, a cache of the rig's pose. (The joint's angle is
-read off its frame's y axis: one frame mirrors her head by a negative x scale.)
-
-### Implemented: the pose provider seam (phase 7's interface)
-
-`rigged::PartPose` on a root (joint frames by rig joint index) makes the driver
-place every part that rides a joint from that pose instead of the flipbook's
-frame; the frame still says which parts draw, in what order and colour. Same
-slots, same road, direct or composited. Tests:
-`a_pose_no_clip_authored_moves_the_parts_that_ride_the_turned_joint` (the arm's
-parts swing rigidly about the arm joint, every other part stays) and
-`a_part_pose_on_the_root_places_its_parts` (in the renderer). What is not built
-yet is a provider: a physics step that writes `PartPose` from rigid bodies.
-
-### Still open
-
-- **Converge the pirate rig** (phase 1): publish each joint's frame as the
-  frame its parts are drawn in (`_pirate_body_rig.py`), or paint each part at
-  its bone's angle. Gate: `measure_track_joints.py` reports every rig-part track
-  riding. Gameplay does not move: an attachment is a point
-  (`joint.transform_point2(offset)`, offsets zero), so re-deriving each joint's
-  local frame from unchanged world points keeps the muzzle where it is. ⚠ One
-  angle per joint is not enough: the face and the hat both sit on the head joint
-  and turn apart from it and from each other (31 and 19 degrees of spread), so
-  they are accessories that need joints of their own ("Attachment/accessory"
-  above), a decision to make before the emitter changes.
-- **Publish the track's joint** with the flipbook (`track_joints`), from the
-  painter, so the binding is stated rather than measured at load. Today
-  `PosedParts::bind` infers it, which is exact for Mary-O and leaves the pirates'
-  turning parts unbound.
-- **A physics pose provider** (phase 7): rigid bodies and joints that write a
-  `PartPose`, on Mary-O first, whose decomposition already agrees.
-- **Hit flash without composition** would need a part material (a sprite can only
-  multiply its colour, and a silhouette must mix toward white). Composition on
-  demand covers it at the cost of a cell while it flashes.
-- **Compositor efficiency** matters less now that few bodies are composited; a
-  page still redraws every body in it when one changes.
-- **Ultra from the vector source** (the 2x tier from the 4x render) is unchanged.
-- **A page built mid-play** costs its first body one frame without an image for
-  its readers.
+## Enduring design and acceptance contract
 
 ## North-star requirements
 
@@ -680,104 +443,30 @@ A symmetric-half optimization must have a runtime-representative parity test inc
 
 If a part cannot prove equivalence, store the full part. Do not accumulate an opaque blacklist without a testable reason.
 
-## Migration phases
+## Migration phases (current disposition)
 
-### Phase 0 - discovery and measurement
+The numbered phases describe design dependencies, **not eight unstarted
+campaigns**. Do not reimplement an already-shipped road merely because an
+older phase used imperative wording.
 
-Before changing the primary renderer, answer the discovery questions listed later in this document and capture baseline measurements for:
+| Phase | Disposition | Remaining gate |
+|---|---|---|
+| 0 — discovery/measurement | Baselines captured in October | Refresh host/room/render-thread, GPU, memory, loading and image-parity measurements before replacing a mechanism; Tracy overhead alone is not baseline |
+| 1 — single semantic pose authority | Measured, partially converged | Pirate joints/accessory identity and authored `track_joints`; confirm no independent second pose truth |
+| 2 — direct semantic-part world rendering | Shipped default | Preserve anchor, mirror, ordering, quality and parity checks as regression coverage |
+| 3 — inherited simple effects | Partly handled by demand-driven composition | Classify flash, HSV, star power, opacity, visibility and tint; migrate only when parity/customer supports it |
+| 4 — local visual-layer cache | Planned | Dirty semantic-part/cell invalidation, shared cache keys, bounded atlas targets, no per-character compositor cameras and no duplicate pose authority |
+| 5 — portals and one-image readers | Composition on demand shipped | Prove geometry/transit behavior and classify each residual reader as parts, inherited presentation or required group composition |
+| 6 — remove mandatory impostors | Shipped for normal world presentation | Do not remove optional group composition required by fades/portals; avoid default compositor regression |
+| 7 — ragdoll proof | Pose-provider interface shipped, physics provider open | Bounded animation-to-physics provider proof using the same semantic part IDs/renderer; full gameplay ragdolls and rollback policy deferred |
 
-- Hall render-thread time;
-- main-thread part-presentation time;
-- atlas/render-target memory;
-- total GPU texture memory attributable to part characters;
-- loading/preparation time for representative part characters;
-- visual parity against baked/vector references;
-- draw-call/batch behavior for direct loose parts.
-
-Do not use Tracy instrumentation overhead as the sole performance baseline.
-
-### Phase 1 - make the semantic authority explicit
-
-Establish/document the authoritative mapping from authored/vector rig data to semantic part IDs and current semantic pose.
-
-Remove or de-authorize any independent visual per-frame transform table that duplicates the semantic pose. Published visual data may cache derived transforms if necessary for performance, but the derivation and invalidation must be explicit and there must be one semantic source of truth.
-
-Add validation that visual semantic-part IDs, attachments, and pose channels resolve against the same character rig authority.
-
-### Phase 2 - first-class direct semantic-part rendering
-
-Implement a direct world-space rendering path for semantic parts without using the current body-impostor cameras.
-
-Start with a small representative set of characters and prove:
-
-- correct anchoring;
-- flip/mirror behavior;
-- animation parity;
-- ordering of overlapping body parts;
-- quality-tier selection;
-- stable batching/performance;
-- no new simulation authority.
-
-Do not remove the compatibility compositor yet.
-
-### Phase 3 - migrate simple whole-character effects
-
-Move effects that can naturally be inherited by parts to character-level presentation parameters consumed by every relevant semantic part.
-
-At minimum audit:
-
-- hit flash;
-- HSV/color shifting;
-- star-power/character color overlays;
-- visibility;
-- ordinary tint;
-- sprite flipping/mirroring assumptions.
-
-Every migrated effect should have an equivalence regression against the existing body presentation.
-
-### Phase 4 - local visual-layer composition
-
-Introduce or refactor the compositor so it can resolve **local semantic parts** such as a head with expression layers.
-
-Requirements:
-
-- no ordinary Bevy camera per character or atlas page merely to composite parts;
-- dirty semantic-part/cell invalidation rather than whole-page redraw as the primitive;
-- shared cache entries where identical visual-layer states are actually reusable;
-- conservative bounds/containment for any atlas-backed cache;
-- no second semantic pose authority.
-
-The exact GPU implementation is a discovery/measurement decision. A custom render pass, batched offscreen compositor, compute path, or another explicit mechanism is acceptable if it is simpler and measured. Do not prematurely optimize around the current camera topology.
-
-### Phase 5 - part-aware portals and remaining one-image consumers
-
-Audit every consumer that still requires a resolved whole-body image.
-
-Migrate portals deliberately. For each remaining consumer, decide whether it should:
-
-1. operate on semantic parts directly;
-2. consume shared character-level presentation parameters;
-3. request optional temporary/group composition because the operation mathematically requires it.
-
-Do not retain mandatory whole-body composition merely because a consumer has not yet been migrated.
-
-### Phase 6 - demote/remove mandatory body impostors
-
-Once ordinary world presentation and the important consumers no longer require mandatory whole-body flattening:
-
-- remove the per-page Bevy-camera compositor road from normal character rendering;
-- remove page-generation/cell machinery that has no remaining optional-composition customer;
-- retain only a smaller explicit composition/cache facility for the cases that still need it.
-
-Do not keep two equally supported default rendering authorities indefinitely.
-
-### Phase 7 - ragdoll proof and later physics work
-
-After semantic-part rendering is stable, build a bounded ragdoll proof on one suitable character using the same semantic IDs and renderer.
-
-The proof should establish the interface between a physics pose provider and the semantic pose without committing every character to one ragdoll topology.
-
-Full gameplay ragdolls, recovery animations, networking/rollback policy, limb damage, and portal-aware physics can be subsequent tasks. The renderer architecture should no longer block them.
+For Phase 4, measure blend/color-space parity, premultiplied-alpha behavior,
+per-cell dirty updates, GPU passes, page/cell containment and renderer-thread
+cost before choosing a custom pass, compute path or atlas layout. Phase 7
+must not become an unsolicited rigid-body dependency on every character. A
+realized physics profile may choose only some semantic parts as physical;
+articulated recovery, networking, limb damage and portal-aware rigid bodies
+are later, customer-driven work.
 
 ## Discovery gates for the implementation agents
 

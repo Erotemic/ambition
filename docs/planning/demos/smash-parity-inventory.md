@@ -57,13 +57,13 @@ count toward it.
 
 | Order | packet | status | open work / closure contract |
 |---|---|---|---|
-| `S0.1` | Clash and projectile priority | ◐ engineering done | Swings and shots arbitrate in one contest: `ambition_combat::clank::resolve_clashes`, supplied by `ambition_projectile_combat::clash_arbitration`, scheduled before both damage roads. Order keys are `SimId::strike_volume` and `ProjectileSeq`, never `Entity`. A beaten shot is spent, not despawned. Authored priority decides when present; damage is the proxy otherwise (Jon). **Open, Jon's:** every shipped ruleset declares `clank_damage_window: 0.0`, so clanking never runs in a shipped room. Turning it on retunes the ground game; play-test `9.0` first. |
-| `S0.2` | Grab-contact arbitration | ✔ | A hit now breaks a grab in every host: `release_interrupted_captures` installs once in `CombatSchedulePlugin` under `ambition_combat::capture::GrabInterruptionApplied` (guard `the_shipped_engine_installs_the_grab_interruption_exactly_once`). Jon has not played the change. ✔ 2026-10-11, grab-vs-grab: two bodies that grab each other on one tick parry. Neither grab holds, both grab moves end, and both bodies rebound by the clank's rule (`clank_rebound_speed`, the recoil lock; `GrabsParried`, `rebound_from_parried_grabs`, one shared `recoil_apart`). A parried body is spent for the tick, so a third body's grab does not take it. Chains that are not mutual keep the matching. Witnesses: `two_bodies_grabbing_each_other_on_one_tick_parry_and_rebound` (both spawn and message orders; control `a_grab_that_nobody_returns_holds`), and `two_emmys_are_one_fighter_reflected_through_a_mutual_grab` (the mirror does not part; it parted at the old tie-break). ✔ 2026-10-11, hit-vs-grab: an ordinary hit beats an ordinary grab on one tick. Acquisition runs in `Settle`, after damage resolves and after the release (`CapturesAcquired`); in `Materialize` it ended the captive's move, and its same-tick hit with it. A body a hit is moving (`BodyCombat::is_knocked`, the one rule the release and a module's seize also read) neither grabs nor is grabbed. Witnesses: `a_body_a_hit_is_moving_neither_grabs_nor_is_grabbed` (poisons: each refusal removed, red at its arm) and `the_shipped_engine_acquires_captures_after_damage_resolves` (poisons: no `.after`, red at the order; in `Materialize`, red at `Settle`). Not built: an authored exception (a grab that beats a hit) has no customer. |
-| `S0.3` | Hit-volume target and interaction semantics | ◐ | `HitVolume` has geometry, damage, knockback, reaction, on-hit and presentation fields only. Add victim posture eligibility (grounded/airborne/prone at minimum), guard/blockability and extra shield damage, clankability/transcendence, per-hit hitlag/SDI, a no-tech override, weight-independent/set-weight reaction, and armor bypass. Same-frame parts stay independently meaningful when target or policy differs. Defaults preserve every ordinary hit. ✔ 2026-10-11, the guard: `HitVolume::guard` (`VolumeGuard::{Blockable { extra_shield_damage }, Unblockable}`, absent in data: blockable at its damage) rides `Hitbox::guard` and `HitKnockback::guard` (`HitGuard`) to the one place a guard is offered (`GuardUnderFire::offered_to`, beside the windbox rule): an unblockable strike meets no guard and no parry (`Hitbox::meets_guard`), and a block spends `raw_damage + extra_shield_damage` (pushback stays the hit's own). The staged player hit's fingerprint hashes it (schema 343), and the planner's `ignores_guard` is derived from it (`frame_data_says_a_move_with_an_unblockable_strike_ignores_the_guard`). Witnesses: `an_unblockable_hit_lands_through_a_guard_and_a_guard_breaker_spends_more`, `a_parry_window_does_not_catch_an_unblockable_strike`, `a_volumes_guard_policy_rides_its_live_strike`, `the_guard_policy_is_in_the_fingerprint` (poisons: each road reverted, red at its own arm). Projectiles keep the ordinary guard: `ProjectileSpawn` carries no policy yet. Open: the posture filter, clank/transcendence, hitlag/SDI multipliers, no-tech, set-weight knockback, armor bypass. |
+| `S0.1` | Clash and projectile priority | ◐ engineering done | `ambition_combat::clank::resolve_clashes` and `ambition_projectile_combat::clash_arbitration` arbitrate shots and swings deterministically before damage, using `SimId::strike_volume` and `ProjectileSeq`, not entity order. **Open:** shipped rulesets still declare `clank_damage_window: 0.0`, so clashes never occur in a normal room. Try `9.0` in playable Smash, require a real authored clash in a match-path test, and obtain feel approval before shipping the ground-game retune. A beaten projectile is spent, not despawned. |
+| `S0.2` | Grab-contact arbitration | ✔ | Shared combat scheduling resolves hit-before-grab and mutual grab parries: `release_interrupted_captures`, `CapturesAcquired` in `Settle`, `GrabsParried` and recoil. Knocked bodies neither acquire nor receive captures; mutual grabs rebound, while ordinary nonmutual grabs still hold. Production-path and mirror-order witnesses exist. An authored grab-beats-hit exception has no customer and is **not** an open task. Human feel remains unreviewed. |
+| `S0.3` | Hit-volume target and interaction semantics | ◐ | `HitVolume` has `VolumeGuard::{Blockable{extra_shield_damage},Unblockable}` and resolved guard/parry policy; the fingerprint and planner derive from it. **Open, independent subfeatures:** victim posture eligibility (grounded/airborne/prone); clankability/transcendence; per-hit hitlag and SDI multipliers; no-tech override; weight-independent/set-weight reaction; armor bypass. Multiple same-frame volumes retain separate policies. Default ordinary hits must behave identically and at least one shipped move must exercise each introduced rule. Projectiles do not yet author the volume guard policy. |
 | `S0.4` | Airborne capture semantics | ▢ needs a customer or ruling | No aerial grab is authored: every capture goes through `author_standing_grab`. The grounded rule is stated twice (the constructor name and two `on_ground` checks in `capture/systems.rs`). Put posture on the constructor (a sibling of `author_standing_grab`) or a wire type it builds, never as a field every `CaptureAttemptParams` literal must state. Existing standing grabs keep grounded defaults. |
 | `S0.5` | Threshold armor | ◐ | Damage threshold shipped: `ArmorPolicy::{None, Super, Damage{breaks_at}}`, authored as `WindowTag::ArmorUnder{damage}`. Plain `WindowTag::Armor` still lowers to `Super`. `>=` breaks; nothing accumulates; overlapping windows take the stronger. **Open, needs a ruling:** knockback threshold. `HitKnockbackMagnitude` is `FeelScale` or `LaunchSpeed`, so a bare `f32` threshold is forbidden, and the launch velocity is computed below the armor gate. See the `ArmorPolicy` doc. |
-| `S0.6` | Localized hurtbox defense | ✔ | 2026-10-11: `HurtboxVolume::defense` (`HurtDefense::{Vulnerable, Intangible}`, absent in data: vulnerable). The damageable publisher does not publish an intangible region (`ResolvedHurtboxes::world_volumes`, its one caller), so every hit road that asks `strike_reaches_victim` passes through it; a strike that also reaches a vulnerable region lands there. Witness: `a_strike_passes_through_an_intangible_region_and_lands_on_a_vulnerable_one` (resolver, publisher and `apply_hitbox_damage`; poison: the filter removed, red at "only an intangible arm landed"; control: the same arm vulnerable). Not built: no shipped move authors an intangible region yet, and a rig's hurt parts are always vulnerable. |
-| `S0.7` | Character-specific movement traits | ◐ | ✔ 2026-10-11, the wall verbs: Smash's ceiling (`permitted` in its `match_rules.ron`) admits `wall_jump` and `wall_cling` and the floor does not, so a fighter that authors `WallMobility` keeps them (robot v3 and v2, the two default fighters, lost them at the stage) and no other fighter gets them. Witnesses: `a_fighter_keeps_the_wall_verbs_it_authors_and_no_other_fighter_gets_them` (poison: the old ceiling, red at "lost them") and `an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field`, which now compares each seat with its own fighter's levelled set (it compared the seats with each other, which held only while the ceiling flattened them). **Open:** crawl. Smash sets one match-wide `crouch_speed_frac: 0.0`; a crawler needs a per-fighter trait, and non-crawlers keep the stopped crouch. No fighter-ID checks. |
+| `S0.6` | Localized hurtbox defense | ✔ | `HurtboxVolume::defense` and `HurtDefense::{Vulnerable,Intangible}` flow through `ResolvedHurtboxes::world_volumes` and all `strike_reaches_victim` callers; a vulnerable region still registers even when another region is intangible. Production resolver and publisher tests exist. No shipped move presently authors an intangible hurt region; that is a **customer/content decision**, not missing defense infrastructure. |
+| `S0.7` | Character-specific movement traits | ◐ | Smash admits a fighter's authored `WallMobility` wall-jump/cling rather than granting or flattening it globally; adopted and spawned seats agree. **Open:** per-fighter crawl trait. The match-wide `crouch_speed_frac: 0.0` stops every crouch; a crawler must travel while a noncrawler crouches in place, with no fighter-ID branches. Test spawn and respawn. |
 | `S0.8` | Special victim-reaction families | ▢ | No bury, gameplay freeze (distinct from hitlag), paralysis or crumple. Each owns its timer, escape and posture rules through shared reaction/status authority and composes with damage, launch, capture, invulnerability, rollback and KO. |
 | `S0.9` | Target/effect interaction primitives | ▢ | No projectile follows a semantic target (the homing dash and steered bolt are different things). No production lifesteal/heal-on-hit consumer of `OnHitEffectMessage`. Ship both with projectile-owned deterministic steering state, the resolved-hit effect seam, production-path tests and stable rollback identity. |
 
@@ -72,45 +72,33 @@ interaction, Smash rules or content select the behavior where required, rollback
 identity and order are deterministic, and no character-ID branch exists. An
 `S0.*` label on a row below means the gate overrides that section's order.
 
-### Small execution packets for the remaining gate
+### Execution packets for the remaining gate
 
-Use **one packet per change**; update its existing table row and remove this
-handoff when it no longer adds information. The shipped ladder and ordinary
-match must exercise each mechanic, not just an isolated kernel unit test.
+Use **one packet per change** and update its `S0.*` table row. Every new
+mechanic needs production-path and rollback evidence plus an authored Smash
+customer where required; an isolated kernel test does not close it.
 
-1. **S0.1, remaining customer activation:** the clash implementation already
-   exists. Recheck the shipped `clank_damage_window: 0.0` declarations; try the
-   proposed `9.0` in a playable Smash configuration, get maintainer feel
-   approval before shipping the retune, and add a match-path test in which two
-   authored strikes actually clank. Do **not** replace the arbitration code.
-   While human tuning is pending, treat this as blocked and take S0.3.
-2. **S0.3a, posture eligibility:** introduce a default-compatible grounded /
-   airborne / prone hit-volume filter at the hit-volume authoring and hit
-   resolution seam. Cover each posture and a split hit with two differently
-   eligible volumes; exercise a shipped move. Then close only that subfeature
-   inside S0.3. Follow with clank/transcendence, per-hit hitlag/SDI, no-tech,
-   set-weight and armor bypass as *separate* subfeatures with real customers.
-   The guard/shield-damage portion of S0.3 is already built; do not redo it.
-3. **S0.7, crawler trait:** retain match-wide crouch permission, but make
-   crouch travel a fighter-authored property; one crawler should move and a
-   non-crawler should crouch in place. Test both initial spawn and stock
-   respawn. Do not branch on fighter ID or globally change crouch speed.
-4. **S0.4 / S0.5:** their missing airborne-grab customer and knockback-armor
-   threshold require the rulings described in their rows. Do not invent a
-   placeholder semantic just to mark these complete. Tackle S0.8 and S0.9 as
-   one reaction/effect family at a time, with an authored customer and rollback
-   witness, rather than one broad status-system rewrite.
+1. **S0.1:** implementation exists, but real matches disable clanking. Try
+   `clank_damage_window: 9.0`, measure and play-test before authorizing a
+   gameplay-wide retune. While human tuning is pending, take S0.3.
+2. **S0.3:** posture eligibility first (grounded/airborne/prone), including
+   two differently eligible volumes in one move. Keep guard/shield-damage
+   closed. Implement the other listed hit properties in separate slices
+   with distinct real customers, not a universal flag dump.
+3. **S0.7:** add one fighter-authored crawl and prove a noncrawler stops on
+   crouch; cover both new spawn and stock respawn.
+4. **S0.4/S0.5:** airborne grabs need an authored customer; knockback-threshold
+   armor needs a typed magnitude/ruling. Do not invent a bare `f32` policy or
+   placeholder client. Implement S0.8 reactions and S0.9 target/effects one
+   coherent customer at a time.
 
-**After the S0 gate:** CPU adoption is its own work, not a pretext to rewrite
-movement. Under [CPU adoption](#14-cpu-adoption), use the actual shipped
-`fighter_brain_ladder.ron` in `match-report --ladder` and `capture-probe` to
-choose *one* underused move family (first smashes, shield or grab). Add only
-missing observation/option policy on the common fighter brain, verify the
-sampled CPU uses the authored move without violating the human movement rules,
-and update that one inventory row. UI defects SD-01 to SD-07 are separately
-owned by [SMASH-DEFECTS](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
-and the [source review](smash-defect-review-2026-10-31.md); fix only when they
-block an S0 test or the queue selects them.
+**After S0:** CPU adoption is not a general movement rewrite. Run the shipped
+`fighter_brain_ladder.ron` through `match-report --ladder` and `capture-probe`,
+pick one underused family (smash, shield, grab), and add only its missing
+observation/option. UI defects SD-01–SD-07 belong to
+[SMASH-DEFECTS](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
+and [its source review](smash-defect-review-2026-10-31.md) unless they block an
+S0 witness.
 
 ## Scope and implementation rules
 
@@ -279,102 +267,29 @@ Preserve these and build new features on their seams.
 
 ### Ledge occupancy
 
-**Built 2026-10-08: one corner is one edge.** `resolve_ledge_trumps`
-(`ambition_combat/src/ledge_trump.rs`) keys an edge by the ledge, not by the
-hanging body's centre: `LedgeContact::edge_key` is the midpoint of the anchor
-and the climb target, which the probe places on opposite sides of the corner
-by the body's half size, so the size cancels; the face (`wall_normal_x`) is
-part of the key. Occupancy is derived each tick from the rollback-registered
-hang (`actor.motion_model`), so release, a death and a knockoff free the edge
-with no stored occupant to forget. Witness:
-`two_fighters_of_different_sizes_on_one_corner_are_one_edge` (contacts from
-the kernel's probe for a 28 by 46 and a 44 by 76 body; control: one on each
-face keeps both). Kept: a newcomer may grab while the holder is mid-getup
-(`a_body_mid_getup_is_neither_trumper_nor_trumped`), and a grab is never
-refused (the trump knocks off after both latched, by design).
+**Shipped October 8, revalidate against current rules before retuning.**
+`ambition_combat::ledge_trump::resolve_ledge_trumps` identifies one corner by
+`LedgeContact::edge_key` and wall face, independent of hanging body size.
+Occupancy derives each tick from rollback-registered hang state, not a
+separate stale occupant registry. A body in getup does not hold the edge;
+a simultaneous new grab may latch before the trump resolves.
 
-**Built 2026-10-08: a rewind across a trump gives the same holder.**
-`a_rewind_across_a_ledge_trump_gives_the_same_holder` (app_it) drops two
-player bodies past one floating lip in the calibration lab: seat 1's body
-takes the edge on tick 2 and Alice trumps it on tick 14. A GGRS sync-test
-session (rewinding 4 frames each tick) gives the same holders on all 60
-ticks as a world with no rollback session, and stays healthy. Poison: the
-trump kept a one-shot memo in a `Local` (state the rollback does not
-restore); the resimulated tick 15 had both bodies hanging and GGRS reported
-a checksum mismatch at frame 14. A second poison, the trump moved to
-`Update`, failed the fixed-tick precondition instead (both bodies hung for
-one tick), so it says nothing about the rewind.
-
-**Built 2026-10-08: the regrab limit.** `AxisManeuverState::ledge_grabs`
-counts the grabs a body made since it landed or was hit (rollback state,
-schema 328). Each grab's earned intangibility is scaled by
-`ledge_regrab_invuln_scale` (1.0, 0.8, 0.5, then 0), and a grab past
-`LEDGE_GRABS_PER_AIRTIME` (6) is refused. Landing resets the count, and so
-does a launch that is not flinchless (the hit that charges hitstun), at the
-kernel's launch gateway; a windbox push does not. The airtime clock still
-buys the window: the two rules compose, as in Ultimate. Witnesses:
-`each_regrab_before_landing_earns_less_and_the_seventh_is_refused` and
-`a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not`.
-
-**Built 2026-10-08: the trumped body's lockout, a declared rule.**
-`CombatRules::ledge_trump_lockout` (seconds; `None` and `0.0` leave the
-loser in control, as every trump did) sets
-`BodyCombat::ledge_trump_lock_timer` on the body the trump knocks off. It
-is a sixth cause of `BodyCombat::hard_lock_timer`, so the input gate strips
-every verb while it runs (schema 329). The Smash rules declare 0.5 s, a
-tuning value from Ultimate's unverified "about 30 frames". Witness:
-`a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped`
-(controls: the winner gets no lock; no declared lockout gives none).
-Not built: Ultimate's "the trumping body cannot let go for about 20 frames"
-(from the same unverified source).
-
-**Built 2026-10-08: a body out of play holds no edge.** A hazard can kill a
-hanging body (Q43), and no death road ends the hang: the body keeps it
-through its death beat until its respawn starts it again
-(`reset_body_clusters`). `resolve_ledge_trumps` reads every hang, so under
-Hog a dead camper knocked a live newcomer off (measured before the fix:
-the newcomer lost the edge). The resolver now skips a body with `OutOfPlay`.
-Witness: `a_body_out_of_play_holds_no_edge` (control: the camper alive keeps
-the edge under Hog).
-
-**Target.** Super Smash Bros. Ultimate-like ledge occupancy and trump. Do not
-guess Ultimate's timings from memory: research them (getup/roll/jump options,
-trump, the trumped body's state, invincibility on regrab, what a hit, a death
-or a respawn does to the hold) and write the result here before you build.
-
-**Ultimate's rules, researched 2026-10-08.** Sources: SmashWiki
-[Edge](https://www.ssbwiki.com/Edge) and [Ledge](https://www.ssbwiki.com/Ledge).
-
-| Rule | Ultimate | Source |
-|---|---|---|
-| Occupancy | One holder per edge. The only exception is the two Ice Climbers of one player. | Edge |
-| Trump | A body that grabs an occupied edge takes it; the holder is "gently removed" and falls with no intangibility. | Edge, Ledge |
-| Trumped body's lockout | About 30 frames before it can act, and the trumping body cannot let go for about 20. **Unverified**: a forum measurement seen only through a search summary (the thread returned 403). Treat as a tuning value, not a fact. | — |
-| Grab intangibility | `60 * (a / 300) + (44 - p / 120 * 44)` frames, `a` = airtime (max 300), `p` = damage percent (max 120); minimum 23, maximum 123. | Edge, Ledge |
-| Regrab | At most 6 grabs before landing; hitstun resets the count. Intangibility ×0.8 after the first regrab, ×0.5 after the second, none from the third. | Edge, Ledge |
-| Hang time | 6.5 s under 100%. | Edge, Ledge |
-| Options | Climb, getup attack, roll, jump, drop (and the drop-down attack). | Edge |
-
-Not found in the sources: whether a body may take an edge while its holder
-is mid-getup, and what a hit or a KO does to the hold beyond freeing it. The
-engine keeps its tested rule for the first
-(`a_body_mid_getup_is_neither_trumper_nor_trumped`: a body mid-getup has left
-the edge, so it is not trumped and does not block a newcomer), and a hit that
-ends the hang, a death and a knockoff free the edge.
-
-**Model to define.** A deterministic occupancy relation keyed by the ledge
-itself (its authored corner in its live room, not a body-size-dependent
-anchor): at most one holder per ledge. It covers contention between two actors
-on one tick (an authored rule, named: Ultimate's trump, the `Hog` knob),
-release, getup, death, knockoff and transfer of the hold. It is derived from or
-stored in rollback state so a rewind resimulates it exactly; the existing
-custody state is rollback-registered (`actor.motion_model`, `actor.ledge`).
-
-**Acceptance.** Focused multiplayer regressions with two fighters of different
-sizes on one corner: one holder; the trump rule applied; release, death and
-knockoff free the ledge; a rewind across a trump gives the same holder. The
-current tests in `ledge_trump/tests.rs` keep passing or are rewritten around
-ledge identity.
+- **Rollback:** `a_rewind_across_a_ledge_trump_gives_the_same_holder` checks
+  the same holder and healthy sync across resimulation. Keep the simulation
+  schedule and rollback identity; moving the rule to ordinary `Update` is not
+  equivalent.
+- **Regrabs:** six ledge grabs per airtime; intangibility multiplier 1.0, 0.8,
+  0.5, then 0. Landing or a flinching hit resets the count; a windbox does
+  not. The airtime-earned intangibility is scaled by the regrab rule, not
+  replaced by it. Owner `AxisManeuverState::ledge_grabs`.
+- **Trumps:** `CombatRules::ledge_trump_lockout` declares an optional loser
+  input lock; Smash uses 0.5 s. The winner is not locked. Null/zero retains
+  free control. Witnesses include `two_fighters_of_different_sizes_on_one_corner_are_one_edge`,
+  `each_regrab_before_landing_earns_less_and_the_seventh_is_refused`, and
+  `a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped`.
+- **Still not built:** a mandatory ~20-frame commitment preventing the
+  trumping body from voluntarily letting go; source behavior was unverified.
+  Require a concrete authored parity customer before adding this rule.
 
 ## 6. Grabs and capture
 

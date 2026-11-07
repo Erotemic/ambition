@@ -170,7 +170,12 @@ fn cast_state(world: &mut World) -> (usize, usize) {
 /// An unseatable id must fail loudly. Otherwise the match has no fighter
 /// brain and every number is zero, which reads as a quiet fight.
 fn seat_the_match(world: &mut World, fighters: usize, character: &str) {
-    world.insert_resource(ambition_demo_smash::smash_roster(vec![character; fighters]));
+    // The regular roster makes seat 0 human. All profiler seats are CPUs.
+    world.insert_resource(ambition_demo_smash::smash_roster_at_levels(
+        vec![character; fighters],
+        &vec![3; fighters],
+    ));
+    eprintln!("[smash-profile] cpu_seats={fighters} brain=duelist_l3");
     world.write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )));

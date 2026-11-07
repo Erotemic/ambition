@@ -2014,6 +2014,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         // and boot the normal character-select frontend first. The driver
         // publishes the CPU roster before it requests the gameplay route.
         app.init_resource::<autoplay::SmashAutoplayDriver>();
+        use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
             bevy::prelude::Update,
             autoplay::drive_smash_autoplay.run_if(autoplay::is_smash_autoplay),

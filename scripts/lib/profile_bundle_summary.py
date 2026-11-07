@@ -622,6 +622,7 @@ def build_summary(bundle: Bundle) -> str:
         f"| cargo profile | `{meta.get('cargo_profile', '?')}` (`target/{meta.get('profile_dir', '?')}`) |",
         f"| cargo features | `{meta.get('cargo_features') or '<none>'}` |",
         f"| executable | `{meta.get('binary_path', '?')}` |",
+        f"| capture target | `{meta.get('capture_target', 'launcher (legacy capture)')}` |",
         f"| package / bin | `{meta.get('package', '?')}` / `{meta.get('binary', '?')}` |",
         f"| rust target | `{meta.get('rust_target', '?')}` |",
         f"| rustc | `{meta.get('rustc_version', '?')}` |",
@@ -654,10 +655,56 @@ def build_summary(bundle: Bundle) -> str:
             "",
         ]
 
+    # A successful build alone does not establish that live gameplay ran.
+    if meta.get("workload") == "smash-match":
+        section(lines, "Smash match coverage")
+        live = "[smash-profile] live after" in log
+        done = "[smash-profile] done seats_at_end=" in log
+        cpu_declared = "[smash-profile] cpu_seats=" in log
+        expected_end = meta.get("smash_seconds", "0") != "0" and not headless
+        lines += [
+            f"- Entered live match: **{'yes' if live else 'NO'}**.",
+            f"- All-CPU roster in log: **{'yes' if cpu_declared else 'not recorded'}**.",
+            f"- Completed measured window: **{'yes' if done else 'NO' if expected_end else 'not required (manual exit or headless)'}**.",
+        ]
+        if expected_end and not done:
+            lines += [
+                "- **INCOMPLETE:** the requested live-time budget did not reach",
+                "  the match driver's normal completion marker.",
+            ]
+        if "ROSTER MISMATCH" in log or "POPULATION CHANGED DURING MEASUREMENT" in log:
+            lines.append("- **Roster mismatch or population change**; consult the game log.")
+        if "the match ended" in log or "no seats remain" in log:
+            lines.append("- **Round may have ended early**; later frames may be menus/results.")
+        lines.append("")
+
     for line in bundle.read("host-environment.txt").splitlines():
         if line.startswith("model name") or line.startswith("logical_cpus") or line.startswith("MemTotal"):
             lines.append(f"- {line.strip()}")
     lines.append("")
+
+    section(lines, "Frame pacing")
+    pacing = bundle.rows("census_visual_quality.csv")
+    if pacing:
+        modes = sorted({(r.get("frame_cap", "?"), r.get("present_mode", "?")) for r in pacing})
+        lines += [
+            "| observed frame cap | observed present mode |",
+            "| --- | --- |",
+            *[f"| `{cap}` | `{present}` |" for cap, present in modes],
+            "",
+        ]
+        if any(cap != "Off" or present != "Immediate" for cap, present in modes):
+            lines += [
+                "**REFRESH/CAP-LIMITED BENCHMARK:** VSync (`Fifo`) and/or a frame",
+                "cap were active. Steady FPS near the monitor refresh rate is",
+                "not the game's uncapped throughput. Native hotspot and stall",
+                "measurements are still informative.",
+                "",
+            ]
+        else:
+            lines += ["VSync and frame cap were off in all sampled rows.", ""]
+    else:
+        lines += ["Frame-pacing census unavailable; uncapped FPS not established.", ""]
 
     # ── Renderer ─────────────────────────────────────────────────────────
     section(lines, "Renderer")
@@ -1033,7 +1080,9 @@ def build_summary(bundle: Bundle) -> str:
     if tracy:
         body = [line for line in tracy.splitlines() if not line.startswith("# ")]
         lines += body[:70]
-        lines += ["", "Full report: `tracy_summary.md`. Raw trace: `tracy.trace`.", ""]
+        raw_in_archive = os.environ.get("AMBITION_PROFILE_INCLUDE_RAW_DATA", "no") == "yes"
+        trace_location = "included in archive" if raw_in_archive else "local capture directory only"
+        lines += ["", f"Full report: `tracy_summary.md`. Raw `tracy.trace`: {trace_location}.", ""]
     elif skipped:
         lines += [
             "UNAVAILABLE — no Tracy capture:",
@@ -1568,6 +1617,8 @@ def build_summary(bundle: Bundle) -> str:
 
     # ── Status and file map ──────────────────────────────────────────────
     section(lines, "Collection status")
+    if bundle.exists("capture.skipped"):
+        lines.append("- **CAPTURE NOT STARTED:** " + bundle.read("capture.skipped").strip())
     for name in ("warm-build", "perf-record", "perf_report", "perf-report-by-dso",
                  "perf-stat", "strace"):
         if bundle.exists(f"{name}.status"):
@@ -1576,7 +1627,7 @@ def build_summary(bundle: Bundle) -> str:
         lines.append(f"- `perf.data`: {os.path.getsize(os.path.join(bundle.path, 'perf.data'))} bytes")
     lines.append("")
 
-    section(lines, "Files in this bundle")
+    section(lines, "Files in the local capture directory and shareable archive")
     known = [
         ("summary.md", "this file"),
         ("metadata.txt / metadata.json", "build, commit, host, and capture settings"),
@@ -1610,11 +1661,24 @@ def build_summary(bundle: Bundle) -> str:
         ("game-stderr-stamped.txt", "the game's own log, stamped with seconds since launch"),
         ("perf.data", "the raw perf capture"),
     ]
-    lines += ["| file | contents | present |", "| --- | --- | --- |"]
+    lines += [
+        "Raw `perf.data` and `tracy.trace` are retained in the local capture",
+        "directory but omitted from the default shareable archive. Use",
+        "`--include-raw-data` to include them in the archive.",
+        "",
+        "| file | contents | local | archived |",
+        "| --- | --- | --- | --- |",
+    ]
+    raw_in_archive = os.environ.get("AMBITION_PROFILE_INCLUDE_RAW_DATA", "no") == "yes"
+    raw_files = {"tracy.trace", "perf.data"}
     for name, description in known:
         first = name.split(" / ")[0].rstrip("/")
-        present = "yes" if bundle.exists(first) else "no"
-        lines.append(f"| `{name}` | {description} | {present} |")
+        present = bundle.exists(first)
+        archived = present and (first not in raw_files or raw_in_archive)
+        lines.append(
+            f"| `{name}` | {description} | {'yes' if present else 'no'} | "
+            f"{'yes' if archived else 'no'} |"
+        )
     lines.append("")
     return "\n".join(lines) + "\n"
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Collect a self-contained desktop profiling bundle for Ambition.
 #
-# `scripts/measure/profile_desktop.sh` acts like `./run_game.sh`, and additionally dumps
-# the diagnostics needed to explain a slowdown afterwards. Run it, play, quit;
-# read `summary.md` in the directory it prints.
+# `scripts/measure/profile_desktop.sh` asks `./run_game.sh --print-plan` for the
+# exact build and runtime command; it compiles before enabling perf or Tracy.
+# Run it, play, quit; it dumps the diagnostics needed to explain a slowdown.
+# Read `summary.md` in the directory it prints.
 #
 # Design goals:
 # - one command, no interactive profiler session, no capture button;
@@ -43,13 +44,14 @@ pid=""
 #   ledger row with the new path.
 out_base="${AMBITION_PROFILE_BASE:-$repo_root/dev/ambition_dev_measurements/profiles}"
 profile_name=""
-# Empty means "pick per mode": timeline-run records without call graphs so an
-# open-ended session stays small on disk; bounded modes keep DWARF stacks.
+# Open-ended timelines omit call graphs to bound disk growth; timed Smash
+# matches retain DWARF stacks for agent-readable CPU hotspot analysis.
 perf_call_graph=""
 perf_events="task-clock,cycles,instructions,context-switches,cpu-migrations,page-faults,cache-misses"
 run_args=()
 warm_build="auto"
 report_preset="fast"
+report_preset_explicit="no"
 report_timeout="45"
 include_raw_data="no"
 include_perf_script="no"
@@ -207,16 +209,20 @@ Options:
                            worktree use `scripts/agent_worktree.sh jobs N`.
   -o, --out DIR           Output base directory. Default: profiles/ (untracked,
                           outside target/ so it survives `cargo clean`).
-  --name NAME             Output directory name suffix. Default: MODE-TIMESTAMP.
+  --name NAME             Output directory suffix. Existing names are never
+                           overwritten (a timestamp is appended on collision).
   --events LIST           perf stat events.
   --call-graph SPEC       perf call graph spec, or 'none'.
-  --report-preset PRESET  none, fast, or full. Default: fast.
+  --report-preset PRESET  none, fast, or full. Default: full for timed
+                           Smash matches, fast otherwise.
   --report-timeout SEC    Max seconds per perf report command. Default: 45.
   --include-perf-script   Also run bounded perf script and gzip it.
-  --include-raw-data      Include perf.data in the bundle tarball.
-  --no-raw-data           Do not include perf.data in the tarball. Default.
+  --include-raw-data      Include perf.data and tracy.trace in the tarball.
+  --no-raw-data           Omit large raw perf/Tracy captures from the tarball.
+                          Default. Full captures remain in the local directory.
   --warm-build            Build before launch-based captures.
-  --no-warm-build         Skip the pre-profile build step.
+  --no-warm-build         Use an existing binary without compiling; error if
+                           absent. Never invoke cargo inside a capture.
   --                      Arguments after -- are passed to ./run_game.sh.
 
 Examples:
@@ -234,8 +240,9 @@ Notes:
   - Ctrl-C during a capture ends the recording and still writes the reports.
   - Every optional profiler is optional: a missing perf, Tracy, GPU timestamp
     query, or strace records WHY it is missing and the run continues.
-  - Raw perf.data is excluded from the tarball by default (DWARF stacks reach
-    hundreds of MB). Re-run with --include-raw-data when it is needed.
+  - Raw perf.data and tracy.trace are retained locally but excluded from
+    the shareable tarball by default. The text/CSV reports remain included.
+    Add --include-raw-data only when an external tool needs full raw captures.
 USAGE
 }
 
@@ -274,8 +281,8 @@ while [[ $# -gt 0 ]]; do
         --events=*) perf_events="${1#--events=}" ;;
         --call-graph) shift; [[ $# -gt 0 ]] || fail "--call-graph requires a value"; perf_call_graph="$1" ;;
         --call-graph=*) perf_call_graph="${1#--call-graph=}" ;;
-        --report-preset) shift; [[ $# -gt 0 ]] || fail "--report-preset requires a value"; report_preset="$1" ;;
-        --report-preset=*) report_preset="${1#--report-preset=}" ;;
+        --report-preset) shift; [[ $# -gt 0 ]] || fail "--report-preset requires a value"; report_preset="$1"; report_preset_explicit="yes" ;;
+        --report-preset=*) report_preset="${1#--report-preset=}"; report_preset_explicit="yes" ;;
         --report-timeout) shift; [[ $# -gt 0 ]] || fail "--report-timeout requires a value"; is_positive_int "$1" || fail "--report-timeout must be positive"; report_timeout="$1" ;;
         --report-timeout=*) report_timeout="${1#--report-timeout=}"; is_positive_int "$report_timeout" || fail "--report-timeout must be positive" ;;
         --chunks) shift; [[ $# -gt 0 ]] || fail "--chunks requires a value"; is_positive_int "$1" || fail "--chunks must be positive"; timeline_chunks="$1" ;;
@@ -315,6 +322,11 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# Timed Smash matches are unattended: spend the extra report time here so
+# the resulting archive has self and inclusive symbol rankings for an agent.
+if [[ "$workload" == "smash-match" && "$smash_seconds" != "0" && "$report_preset_explicit" == "no" ]]; then
+    report_preset="full"
+fi
 case "$report_preset" in none|fast|full) ;; *) fail "--report-preset must be none, fast, or full" ;; esac
 case "$build_profile" in dev|release|profiling|ship) ;; *) fail "--build-profile must be dev, release, profiling, or ship" ;; esac
 [[ "$census_hz" =~ ^[0-9]+(\.[0-9]+)?$ ]] || fail "--census-hz must be a number"
@@ -486,14 +498,18 @@ plan_build_cmd=()
 # different cargo fingerprint, so the warm build warms nothing and the launch
 # rebuilds the world INSIDE the perf capture.
 plan_build_env=()
+plan_game_args=()
+plan_runtime_env=()
 plan_status="unresolved"
 resolve_launch_plan() {
     local line key value
     plan_build_cmd=()
     plan_build_env=()
+    plan_game_args=()
+    plan_runtime_env=()
     if ! plan_text="$("$repo_root/run_game.sh" --print-plan "${effective_run_args[@]}" 2>/dev/null)"; then
         plan_status="run_game.sh --print-plan failed"
-        log "could not resolve the launch plan; falling back to a bare launch"
+        log "could not resolve the launch plan; launch captures will stop before profiling"
         return 0
     fi
     while IFS= read -r line; do
@@ -506,6 +522,8 @@ resolve_launch_plan() {
             features) plan_features="$value" ;;
             build_arg) plan_build_cmd+=("$value") ;;
             build_env) plan_build_env+=("$value") ;;
+            game_arg) plan_game_args+=("$value") ;;
+            runtime_env) plan_runtime_env+=("$value") ;;
         esac
     done <<< "$plan_text"
     plan_status="ok"
@@ -517,7 +535,12 @@ resolve_launch_plan() {
 if [[ "$mode" != "timeline-run" && -z "$duration" ]]; then duration="$default_bounded_duration"; fi
 if [[ -z "$perf_call_graph" ]]; then
     case "$mode" in
-        timeline-run) perf_call_graph="none" ;;
+        timeline-run)
+            if [[ "$workload" == "smash-match" && "$smash_seconds" != "0" ]]; then
+                perf_call_graph="dwarf,4096"
+            else
+                perf_call_graph="none"
+            fi ;;
         *) perf_call_graph="dwarf,8192" ;;
     esac
 fi
@@ -728,7 +751,17 @@ describe_window() {
 make_profile_dir() {
     local local_mode="$1" suffix
     if [[ -n "$profile_name" ]]; then suffix="$profile_name"; else suffix="$local_mode-$stamp"; fi
-    local dir="$out_base/desktop-$suffix"
+    local base="$out_base/desktop-$suffix" index=2
+    local dir="$base"
+    # Never mix an old capture's raw reports with a new run sharing --name.
+    # Same-name repetitions get an unambiguous timestamped suffix.
+    if [[ -e "$dir" || -e "$dir.tar.gz" ]]; then
+        dir="$base-$stamp"
+        while [[ -e "$dir" || -e "$dir.tar.gz" ]]; do
+            dir="$base-$stamp-$index"
+            index=$((index + 1))
+        done
+    fi
     mkdir -p "$dir"
     printf '%s\n' "$dir"
 }
@@ -830,9 +863,9 @@ run_warm_build_if_needed() {
     local out_dir="$1" local_mode="$2"
     if ! warm_build_is_enabled_for "$local_mode"; then echo "skipped" > "$out_dir/warm-build.status"; return 0; fi
     if [[ "${#plan_build_cmd[@]}" -eq 0 ]]; then
-        echo "no build plan (run_game.sh --print-plan failed); the launch will build instead" \
+        echo "no valid build plan; refusing to start a capture that could compile" \
             > "$out_dir/warm-build.status"
-        return 0
+        return 1
     fi
     require_tool cargo
     # ⛔⛔ THE PLAN'S ENVIRONMENT, NOT THIS SHELL'S. `run_game.sh` exports
@@ -938,6 +971,11 @@ write_metadata() {
         echo "census_hz=$census_hz"
         echo "run_command=$(quote_cmd "${run_cmd[@]}")"
         echo "warm_build_setting=$warm_build"
+        if mode_uses_launch "$local_mode"; then
+            echo "capture_target=direct-built-binary"
+        else
+            echo "capture_target=attach-existing-process"
+        fi
         echo "script_command=$(quote_cmd "$0" "${original_args[@]}")"
         echo "hostname=$(hostname 2>/dev/null || true)"
         # ⛔⛔ THE HOSTNAME IS NOT THE MACHINE. These hosts reuse names -- two
@@ -1176,8 +1214,9 @@ write_bundle_reports() {
     local out_dir="$1"
     python3 "$repo_root/scripts/lib/profile_census_csv.py" "$out_dir" \
         || log "census CSV extraction failed; the stamped log is still in the bundle"
-    python3 "$repo_root/scripts/lib/profile_bundle_summary.py" "$out_dir" \
-        || log "summary generation failed; the raw artifacts are still in the bundle"
+    AMBITION_PROFILE_INCLUDE_RAW_DATA="$include_raw_data" \
+        python3 "$repo_root/scripts/lib/profile_bundle_summary.py" "$out_dir" \
+        || log "summary generation failed; the local artifacts are still available"
 }
 
 package_dir() {
@@ -1191,6 +1230,7 @@ package_dir() {
             --exclude='*/perf.data' \
             --exclude='*/perf-script.txt' \
             --exclude='*/perf-script.txt.gz' \
+            --exclude='*/tracy.trace' \
             -C "$(dirname "$out_dir")" "$base"
     fi
     log "wrote $tarball"
@@ -1287,7 +1327,27 @@ run_instrumented_launch() {
 prepare_launch_mode() {
     local out_dir="$1" local_mode="$2"
     write_metadata "$out_dir" "$local_mode"
-    run_warm_build_if_needed "$out_dir" "$local_mode" || true
+    # Attach modes profile an existing process, even if its binary is outside
+    # this checkout. Preserve that contract; only *-run modes need a build.
+    if ! mode_uses_launch "$local_mode"; then
+        run_warm_build_if_needed "$out_dir" "$local_mode"
+        return $?
+    fi
+    if [[ "$plan_status" != "ok" || -z "$plan_binary" ]]; then
+        printf 'Cannot capture: %s (no executable plan).\n' "$plan_status" > "$out_dir/capture.skipped"
+        printf 'no executable plan\n' > "$out_dir/warm-build.status"
+        return 1
+    fi
+    if ! run_warm_build_if_needed "$out_dir" "$local_mode"; then
+        printf 'Build failed; capture not started. See warm-build.stderr.\n' > "$out_dir/capture.skipped"
+        return 1
+    fi
+    if [[ ! -x "$plan_binary" ]]; then
+        printf 'Built executable missing or not executable: %s\n' "$plan_binary" > "$out_dir/capture.skipped"
+        log "cannot profile: $plan_binary does not exist or is not executable"
+        return 1
+    fi
+    printf 'Direct executable (no Cargo inside capture): %s\n' "$plan_binary" > "$out_dir/capture-target.txt"
 }
 
 run_perf_record() {
@@ -1295,7 +1355,7 @@ run_perf_record() {
     require_tool perf
     ensure_perf_kernel_level
     ensure_kernel_symbol_visibility
-    prepare_launch_mode "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode" || return 1
     local record_argv=() item
     while IFS= read -r -d '' item; do record_argv+=("$item"); done < <(perf_record_argv "$out_dir/perf.data")
     if [[ "$local_mode" == "perf-attach" ]]; then
@@ -1318,7 +1378,7 @@ run_perf_stat() {
     require_tool perf
     ensure_perf_kernel_level
     ensure_kernel_symbol_visibility
-    prepare_launch_mode "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode" || return 1
     # `-o` keeps perf's interval table off stderr, which belongs to the game's
     # census rows.
     if [[ "$local_mode" == "stat-attach" ]]; then
@@ -1337,7 +1397,7 @@ run_perf_stat() {
 run_asset_trace() {
     local local_mode="$1" out_dir="$2"
     require_tool strace; require_tool python3
-    prepare_launch_mode "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode" || return 1
     if [[ "$local_mode" == "asset-attach" ]]; then
         local target_pid; target_pid="$(find_game_pid)"; record_attach_target "$out_dir" "$target_pid"
         log "recording strace asset opens on PID $target_pid for ${duration}s"
@@ -1378,7 +1438,7 @@ run_timeline() {
     require_tool perf; require_tool python3
     ensure_perf_kernel_level
     ensure_kernel_symbol_visibility
-    prepare_launch_mode "$out_dir" "$local_mode"
+    prepare_launch_mode "$out_dir" "$local_mode" || return 1
     local capture_argv=() item
     while IFS= read -r -d '' item; do capture_argv+=("$item"); done < <(
         record_argv=()
@@ -1396,21 +1456,33 @@ run_timeline() {
 }
 
 run_one_mode() {
-    local local_mode="$1" out_dir="$2"
+    local local_mode="$1" out_dir="$2" status=0
     mkdir -p "$out_dir"
     case "$local_mode" in
-        perf-run|perf-attach) run_perf_record "$local_mode" "$out_dir" ;;
-        stat-run|stat-attach) run_perf_stat "$local_mode" "$out_dir" ;;
-        asset-run|asset-attach) run_asset_trace "$local_mode" "$out_dir" ;;
-        timeline-run) run_timeline "$local_mode" "$out_dir" ;;
+        perf-run|perf-attach) run_perf_record "$local_mode" "$out_dir" || status=$? ;;
+        stat-run|stat-attach) run_perf_stat "$local_mode" "$out_dir" || status=$? ;;
+        asset-run|asset-attach) run_asset_trace "$local_mode" "$out_dir" || status=$? ;;
+        timeline-run) run_timeline "$local_mode" "$out_dir" || status=$? ;;
         *) fail "unsupported mode '$local_mode'" ;;
     esac
     write_bundle_reports "$out_dir"
+    return "$status"
 }
 
 main() {
     mkdir -p "$out_base"; cd "$repo_root"
     resolve_launch_plan
+    # `run_game.sh --print-plan` is the authority for both target and runtime
+    # arguments. Running its binary directly makes Cargo compilation outside
+    # the perf process tree an invariant, not a best-effort warm-build guess.
+    if [[ "$plan_status" == "ok" ]]; then
+        local assignment
+        for assignment in "${plan_runtime_env[@]}"; do export "$assignment"; done
+        export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
+        if mode_uses_launch "$mode" || [[ "$mode" == "all-run" ]]; then
+            run_cmd=("$plan_binary" "${plan_game_args[@]+"${plan_game_args[@]}"}")
+        fi
+    fi
     log "profiling the $build_profile build: ${plan_binary:-<unresolved>}"
     if [[ -n "$plan_features" ]]; then log "cargo features: $plan_features"; fi
     if [[ "$workload" == "ambition-autoplay" ]]; then
@@ -1430,16 +1502,21 @@ main() {
         log "headless run: scenario $headless_scenario, $headless_ticks ticks"
         log "  GPU and render-pass measurements are not applicable to a headless run"
     fi
-    local out_dir tarball
+    local out_dir tarball run_status=0
     if [[ "$mode" == "all-run" ]]; then
         out_dir="$(make_profile_dir "$mode")"; mkdir -p "$out_dir"; write_metadata "$out_dir" "$mode"
-        run_one_mode perf-run "$out_dir/perf-run"
-        run_one_mode stat-run "$out_dir/stat-run"
-        run_one_mode asset-run "$out_dir/asset-run"
+        # A failed build is fatal for capture, not for bundle finalization.
+        run_one_mode perf-run "$out_dir/perf-run" || run_status=$?
+        if [[ "$run_status" -eq 0 ]]; then
+            run_one_mode stat-run "$out_dir/stat-run" || run_status=$?
+        fi
+        if [[ "$run_status" -eq 0 ]]; then
+            run_one_mode asset-run "$out_dir/asset-run" || run_status=$?
+        fi
         write_bundle_reports "$out_dir"
     else
         out_dir="$(make_profile_dir "$mode")"
-        run_one_mode "$mode" "$out_dir"
+        run_one_mode "$mode" "$out_dir" || run_status=$?
     fi
     tarball="$(package_dir "$out_dir")"
     if grep -q 'SOFTWARE RENDERING' "$out_dir/summary.md" 2>/dev/null; then
@@ -1451,6 +1528,16 @@ main() {
     log "profiling bundle: file://$out_dir"
     log "read first:       file://$out_dir/summary.md"
     log "archive:          file://$tarball"
+    if [[ "$include_raw_data" == "no" ]]; then
+        log "shareable archive omits perf.data and tracy.trace (retained locally)"
+    fi
+    if [[ "$workload" == "smash-match" && "$headless" == "no" ]]; then
+        log "frame pacing: read summary.md for observed VSync/frame-cap settings"
+    fi
+    if [[ "$run_status" -ne 0 ]]; then
+        log "capture did not complete (status $run_status); diagnostic bundle is still ready"
+        return "$run_status"
+    fi
     if [[ "$record_history" == "yes" ]]; then
         # ⛔ NON-FATAL ON PURPOSE. A profiling run that succeeded must not report
         # failure because the bookkeeping step did -- the expensive artifact is

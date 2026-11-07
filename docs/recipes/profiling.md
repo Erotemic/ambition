@@ -532,8 +532,12 @@ finalizes the trace when the game exits, then exports
 `tracy_zones.csv` + `tracy_summary.md` — a ranked table of zones by total time,
 count, mean, and max. No GUI, no connect button, no timing on your part.
 
-The GUI is still there if you want it: open `tracy.trace` from the bundle in
-`tracy-profiler`. Note that a live GUI capture must be connected before the
+The GUI is still there if you want it: open `tracy.trace` from the **local
+capture directory** in `tracy-profiler`. The default uploadable `.tar.gz`
+omits this potentially very large file and `perf.data`, while keeping the
+Tracy zone summaries, frame census, and symbolized CPU reports. Use
+`--include-raw-data` if you deliberately need both raw captures in the archive.
+Note that a live GUI capture must be connected before the
 game starts to see T=0, which is exactly the coordination the script removes.
 
 ### What's captured
@@ -576,10 +580,10 @@ What it does, in order:
    to — it never guesses a path;
 2. builds it with the optimized `profiling` cargo profile and
    `--features profile`;
-3. starts `tracy-capture` (headless, no GUI) if the tools are installed and
-   that binary carries the Tracy client;
-4. launches the game under `perf record`, with `AMBITION_PROFILE_CENSUS=1` so
-   the in-process workload censuses run at 1 Hz;
+3. checks that the build succeeded and resolves a directly executable binary;
+4. starts `tracy-capture` (headless, no GUI) when available, then captures
+   the **built binary directly** under `perf record`, with censuses at 1 Hz;
+   no `cargo run` or second compilation can enter the measured process tree;
 5. stamps every line the game logs with seconds since launch;
 6. when the game exits — normally, by Ctrl-C, or by crashing — finalizes the
    Tracy trace, slices the perf capture into time windows, turns the census log
@@ -595,27 +599,26 @@ artifact, records why, and the rest of the run is still collected.
 ./scripts/measure/profile_desktop.sh --smash
 ```
 
-Play the match. Quit the game when you are done. Read the `summary.md` whose
-path the script prints, then hand the bundle to the history:
+For an unattended four-CPU match, **one command** builds the game, measures
+90 seconds of live gameplay, writes agent-readable reports, ingests the local
+history ledger, and packages a `.tar.gz` for sharing:
 
 ```bash
-python3 scripts/lib/profile_bundle_to_history.py \
-    dev/ambition_dev_measurements/profiles/desktop-timeline-run-<stamp> \
-    --label "smash match, RTX 4070"
+scripts/measure/profile_desktop.sh \
+    --smash --smash-fighters 4 --smash-seconds 90 \
+    --name smash-4cpu-baseline
 ```
 
-Unattended variants:
-
-```bash
-./scripts/measure/profile_desktop.sh --smash --smash-seconds 90     # quits itself
-./scripts/measure/profile_desktop.sh --smash --smash-fighters 4     # a full roster
-```
+All four seats use `duelist_l3` CPU brains. The summary reports whether the
+round became live, whether it finished its time budget, and whether VSync or
+a frame cap limited the visible FPS. A failed build produces a diagnostic
+archive without starting a capture.
 
 ⛔ **`--smash` is not `-- smash`.** `run_game.sh smash` builds the standalone
 demo and opens it on CHARACTER SELECT, so profiling it profiles a menu.
-`--smash` launches `run_game.sh smash-match`, which builds the SHIPPED
-composition (rollback host and all), installs a roster, routes to the smash
-gameplay screen, and waits for the opening ceremony to release the cast before
+`--smash` resolves the `run_game.sh smash-match` build plan, builds the shipped
+composition (rollback host and all), runs its binary directly, installs an
+all-CPU roster, routes to the Smash gameplay screen, and waits for the opening ceremony to release the cast before
 it reports that it is measuring anything. If the ceremony never releases it, the
 run aborts with exit code 3 rather than filing a menu under a match's name.
 
@@ -811,7 +814,7 @@ present/absent column. The rest:
 | `asset_activity.csv`, `image_decodes.csv` | cumulative decode work; every notable texture with its path |
 | `tracy_summary.md`, `tracy_zones.csv` | per-Bevy-system and per-render-pass zones, ranked |
 | `tracy_zone_windows.csv` | the same zones bucketed into time windows (needs a `tracy-csvexport` with `--unwrap`) |
-| `tracy.trace` | the raw trace, if you do want the GUI |
+| `tracy.trace` | raw local Tracy trace for the GUI; omitted from default shareable archive |
 | `alloc_by_span.csv`, `churn_by_site.csv`, `changes_by_site.csv` | `--perf-probe` only: allocations per span, structural changes and value changes per source line (§1d) |
 | `perf_windows/`, `perf_report.txt`, `perf-report-by-dso.txt` | the native profile |
 | `game-stderr-stamped.txt` | the game's whole log, stamped with seconds since launch |

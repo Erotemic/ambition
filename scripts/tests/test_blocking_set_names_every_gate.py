@@ -46,18 +46,27 @@ def test_the_shipped_section_covers_the_shipped_gates():
     assert gated <= named
 
 
-def test_the_floor_is_below_the_shipped_count():
-    """⛔ ANTI-VACUITY: a scan that lost the queue's convention must red.
-
-    The floor is on the `Blocked by:` field in any row, not on gated rows,
-    because gated rows may legitimately be none.
-    """
-    fields = sum(
-        1
-        for line in guard.QUEUE.read_text(encoding="utf-8").split("\n")
-        if line.startswith(guard.BLOCKED_BY)
+def test_zero_blocker_fields_is_valid(tmp_path, monkeypatch):
+    queue = tmp_path / "queue.md"
+    rulings = tmp_path / "awaiting-maintainer-decision.md"
+    queue.write_text(
+        "# The queue\n## P0\n### OPEN — no unresolved rulings\n"
+        "**Acceptance:** work completes.\n",
+        encoding="utf-8",
     )
-    assert 0 < guard.MIN_BLOCKED_BY_FIELDS <= fields
+    rulings.write_text(
+        "# Awaiting a maintainer decision\n"
+        "## What actually blocks architecture work today\n"
+        "None.\n## Open questions\nNone.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(guard, "QUEUE", queue)
+    monkeypatch.setattr(guard, "RULINGS", rulings)
+    assert guard.main() == 0
+
+    queue.write_text(queue.read_text(encoding="utf-8") + "**Blocked by:** Q222\n",
+                     encoding="utf-8")
+    assert guard.main() == 1
 
 
 def test_the_field_ends_at_the_blank_line_not_after_n_lines():

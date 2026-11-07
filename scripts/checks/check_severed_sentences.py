@@ -21,7 +21,8 @@ anchor an insertion on a whole paragraph, never on a line that ends mid-clause.
 
 TWO DETECTORS, and they are deliberately not the same strength.
 
-`stranded continuation` GATES. A prose line starting lowercase whose previous
+`stranded continuation` fails this checker when it is run. A prose line
+starting lowercase whose previous
 line ends a sentence is a wrap that cannot be one: in this corpus's wrapped
 style, a genuine continuation follows a line that does NOT terminate.
 

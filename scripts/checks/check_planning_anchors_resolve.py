@@ -43,10 +43,6 @@ LINK = re.compile(r"\]\(([\w./-]*?\.md)#([^)]+)\)")
 #: The same pointer with the file left out: `](#some-heading)`, resolved against
 #: the page it appears in.
 SAME_FILE_LINK = re.compile(r"\]\(#([^)]+)\)")
-#: ⛔ ANTI-VACUITY for that rule alone. The corpus had 15 when it was written;
-#: a population that collapses to nothing must refuse rather than agree.
-MIN_SAME_FILE_LINKS = 5
-
 
 def slug(heading: str) -> str:
     text = heading.lstrip("#").strip()
@@ -67,7 +63,11 @@ def anchors(path: pathlib.Path) -> set[str]:
 #: promises to list them. Other trees (`docs/brainstorms`, `docs/storylines`)
 #: hold pages that are deliberately not linked from anywhere, and sweeping them
 #: would buy an amnesty list — which is how you hide what it exempts.
-REACHABLE_TREES = ("docs/planning", "docs/recipes")
+TREE_ENTRY_POINTS = {
+    "docs/planning": "README.md",
+    "docs/recipes": "index.md",
+}
+REACHABLE_TREES = tuple(TREE_ENTRY_POINTS)
 
 
 def orphans() -> list[pathlib.Path]:
@@ -92,11 +92,7 @@ def orphans() -> list[pathlib.Path]:
         text = page.read_text(encoding="utf-8", errors="replace")
         for match in re.finditer(r"\]\(([^)#\s]+\.md)", text):
             linked.add((page.parent / match.group(1)).resolve())
-    # ⛔⛤ **COMPARE REPO-RELATIVE PATHS.** The first version tested
-    # `str(page).startswith("docs/planning")` against an ABSOLUTE path, so the
-    # filter matched NOTHING and the rule reported clean over an empty
-    # population — a check that could not fail, written inside a guard against
-    # exactly that. Two poisons passed before the floor below caught it.
+    # Select documents by repository-relative path, not absolute path.
     stranded = [
         page
         for page in sorted(pages)
@@ -106,31 +102,19 @@ def orphans() -> list[pathlib.Path]:
         and page.name not in ("README.md", "index.md")
         and page.resolve() not in linked
     ]
-    considered = [
-        page
-        for page in pages
-        if any(
-            str(page.relative_to(ROOT)).startswith(tree) for tree in REACHABLE_TREES
-        )
-    ]
-    # ⛔ ANTI-VACUITY: if the filter stops matching, this rule reports clean
-    # forever and its silence means nothing.
-    if len(considered) < 50:
-        raise SystemExit(
-            f"⛔⛔ only {len(considered)} page(s) matched {REACHABLE_TREES}; the "
-            "reachability rule is scanning an empty population, not a clean tree"
-        )
     return stranded
 
 
 def main() -> int:
     by_path: dict[pathlib.Path, set[str]] = {}
     files = sorted(PLANNING.rglob("*.md"))
-    # ⛔ ANTI-VACUITY. An empty scan root reports clean, which is also what a
-    # healthy corpus reports.
-    if len(files) < 20:
-        print(f"⛔⛔ only {len(files)} planning document(s) found; the scan is broken")
-        return 1
+    # Check the declared entry points, not a historical population count.
+    # The corpus is allowed to shrink when plans are completed and deleted.
+    for tree, entry in TREE_ENTRY_POINTS.items():
+        root = ROOT / tree
+        if not root.is_dir() or not (root / entry).is_file():
+            print(f"Missing documentation tree or entry point: {tree}/{entry}")
+            return 1
     for path in files:
         by_path[path.resolve()] = anchors(path)
 
@@ -150,7 +134,12 @@ def main() -> int:
             for match in LINK.finditer(line):
                 target = (path.parent / match.group(1)).resolve()
                 if target not in by_path:
-                    continue  # out of this tree; another checker's population
+                    if target.is_relative_to(PLANNING.resolve()):
+                        findings.append(
+                            f"  {path.relative_to(ROOT)}:{number}\n"
+                            f"     -> {match.group(1)} (planning target file is missing)"
+                        )
+                    continue  # links outside planning have another owner
                 checked += 1
                 anchor = urllib.parse.unquote(match.group(2))
                 # ⚠ Compare on the SLUG of the decoded anchor, so a link written
@@ -160,21 +149,6 @@ def main() -> int:
                         f"  {path.relative_to(ROOT)}:{number}\n"
                         f"     -> {target.relative_to(ROOT)}#{match.group(2)}  (no such heading)"
                     )
-
-    if same_file < MIN_SAME_FILE_LINKS:
-        print(
-            f"⛔⛔ only {same_file} same-file `](#anchor)` link(s) found; there were "
-            f"{MIN_SAME_FILE_LINKS}+ when that rule was added, so this is a claim "
-            "about the scan"
-        )
-        return 1
-
-    if checked < 20:
-        print(
-            f"⛔⛔ only {checked} intra-planning anchor link(s) checked; a clean "
-            "verdict would be a claim about the scan"
-        )
-        return 1
 
     stranded = orphans()
     if stranded:

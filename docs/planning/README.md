@@ -293,10 +293,10 @@ links to.
 
 ## Mechanical checks
 
-`scripts/checks/check_planning_docs_survive.py` makes sure that the live control-plane
-documents exist, are not trivial, and keep their required headings. Its module
-docstring and `LIVE_CONTROL_PLANE` table are the reference; do not copy them
-here.
+`scripts/checks/check_planning_docs_survive.py` checks that named control-plane
+documents exist and retain their required headings and body content. It does
+not require a minimum number of lines or open tasks. Its
+`LIVE_CONTROL_PLANE` table names the protected documents.
 
 For the full list of checks on this tree, run `./run_tests.sh --maintenance` and
 read the job names. The lane prints what it does not run; `pytest scripts/tests`
@@ -306,6 +306,17 @@ is not part of it. Three classes of check are easy to forget:
 - a number copied away from its source;
 - a link to a heading. A heading rename breaks it, and only
   `scripts/checks/check_planning_anchors_resolve.py` sees that.
+
+Sentence-continuation and adjacent-heading checks are optional prose audits,
+not mandatory gates. Run the checker directly, or enable both pytest corpus
+checks when reviewing substantial Markdown edits:
+
+```sh
+python3 scripts/checks/check_severed_sentences.py
+AMBITION_PLANNING_PROSE_LINT=1 python3 -m pytest -q \
+  scripts/tests/test_planning_markdown_structure.py \
+  scripts/tests/test_no_severed_sentences.py
+```
 
 ## Authority order
 

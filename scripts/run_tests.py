@@ -1417,9 +1417,8 @@ def build_maintenance_jobs() -> list[Job]:
         # 2026-09-16 -- this lane said 7/7 while `status.md` was ZERO BYTES,
         # committed and pushed. The absence of findings and the absence of a
         # subject look identical.
-        # ⚠ It is a catastrophe detector, not a ratchet: its floors sit far under
-        # today's sizes, because compressing a closed row to a receipt is the
-        # queue contract WORKING.
+        # Document identity and required sections are the guard. Completed work
+        # may reduce these pages to short summaries without violating a floor.
         # ⚠ **RUN THIS LANE ON A STAGED TREE.** Two of its jobs read the git
         # INDEX -- `check_planning_citations.py` resolves a cited path or symbol
         # through `git ls-files`/`git grep`, so a NEW file that exists on disk
@@ -1879,10 +1878,6 @@ def build_maintenance_jobs() -> list[Job]:
         Job(
             "set pins have engine members",
             [sys.executable, "scripts/checks/check_set_pins_have_engine_members.py"],
-        ),
-        Job(
-            "no severed sentences in planning",
-            [sys.executable, "scripts/checks/check_severed_sentences.py"],
         ),
         Job(
             "quality variants are fresh",

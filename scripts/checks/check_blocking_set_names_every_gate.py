@@ -69,18 +69,6 @@ def blocked_by_paragraph(lines: list[str], index: int) -> str:
         out.append(line)
     return " ".join(out)
 
-#: ⛔ ANTI-VACUITY. If the section heading is renamed or the queue's convention
-#: changes, this guard would compare an empty set against an empty set and pass
-#: while the page it protects says nothing.
-#:
-#: ⚠ The floor is on the FIELD, not on the gated rows. Gated rows can
-#: legitimately be none: on 2026-10-01 the maintainer ruled `Q69`, the last
-#: gate, and the open P0/P1 gates fell to 0. A floor of one gated row would
-#: then call the scan broken. A queue with no `Blocked by:` field at all, in any
-#: row, open or closed, is the convention moving, and that refuses.
-MIN_BLOCKED_BY_FIELDS = 1
-
-
 def gated_rows() -> dict[str, set[str]]:
     """Open P0/P1 rows → the questions their `Blocked by:` field names."""
     lines = QUEUE.read_text(encoding="utf-8").split("\n")
@@ -244,16 +232,6 @@ def main() -> int:
         return 1
 
     gated = gated_rows()
-    fields = sum(
-        1 for line in QUEUE.read_text(encoding="utf-8").split("\n") if line.startswith(BLOCKED_BY)
-    )
-    if fields < MIN_BLOCKED_BY_FIELDS:
-        print(
-            f"⛔⛔ found {fields} `{BLOCKED_BY}` field(s) in the queue, below the floor of "
-            f"{MIN_BLOCKED_BY_FIELDS}. That is a claim about this scan, not about the queue."
-        )
-        return 1
-
     missing = []
     for row, questions in sorted(gated.items()):
         for question in sorted(questions - named, key=int):

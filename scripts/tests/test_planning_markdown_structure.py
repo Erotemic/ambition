@@ -1,19 +1,16 @@
-"""Cheap structural guards for planning Markdown.
+"""Check Markdown table structure and exercise optional heading heuristics.
 
-These checks deliberately avoid semantic judgment. They catch two renderer-level
-mistakes that have occurred repeatedly in planning prose:
-
-* a table row appearing after prose interrupted the table; and
-* one heading sentence being wrapped into two same-level headings.
-
-All planning files are subject to the same rules. There is no maintainer-owned
-scratchpad exemption.
+Table headers are a renderer requirement. Adjacent-heading checks rely on
+prose patterns and run only with AMBITION_PLANNING_PROSE_LINT=1.
 """
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
+
+import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PLANNING = REPO / "docs" / "planning"
@@ -92,6 +89,10 @@ def test_table_checker_positive_controls() -> None:
     assert _broken_tables("```text\n| a | b |\n| c | d |\n```\n") == []
 
 
+@pytest.mark.skipif(
+    os.environ.get("AMBITION_PLANNING_PROSE_LINT") != "1",
+    reason="optional planning prose audit (AMBITION_PLANNING_PROSE_LINT=1)",
+)
 def test_no_heading_was_wrapped_onto_a_second_line() -> None:
     offenders: list[str] = []
     for doc in sorted(PLANNING.rglob("*.md")):

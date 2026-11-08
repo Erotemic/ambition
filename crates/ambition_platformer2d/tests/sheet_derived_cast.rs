@@ -10,7 +10,7 @@
 
 use ambition_platformer2d::characters::actor::definition::BodySource;
 use ambition_platformer2d::characters::prepared::{close_preparation_barrier_admitting, PreparedCharacterRegistry};
-use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch};
+use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch, SpriteSheetWatchPolicy};
 use ambition_platformer2d::content::EmbeddedPack;
 use ambition_sprite_sheet::baked_sheet_rons::current;
 mod common;
@@ -111,6 +111,7 @@ fn a_sheet_edit_states_again_the_body_scale_of_the_cast_made_from_it() {
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
     app.init_resource::<ambition_platformer2d::combat::technique::InstalledTechniques>();
     app.insert_resource(ambition_platformer2d::characters::actor::BodyRigAdmission::ADMIT);
+    app.insert_resource(SpriteSheetWatchPolicy::Enabled);
     app.add_plugins(SpriteSheetReloadPlugin { manual: true });
     pack.cast("probe", None).register(&mut app);
     close_preparation_barrier_admitting(app.world_mut(), &Default::default());

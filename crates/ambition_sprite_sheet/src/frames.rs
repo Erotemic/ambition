@@ -110,6 +110,23 @@ impl SheetRow {
         self.rects.iter().any(|r| r.page != self.page)
     }
 
+    /// Number of cells preceding `limit` on `page`. Uniform rows can count
+    /// directly; only freely packed rows need to inspect individual cells.
+    /// This is called for each preceding row by `flat_index_in_page`, so do
+    /// not recheck packing for every frame in that row.
+    fn cells_on_page_before(&self, page: u32, limit: usize) -> usize {
+        if !(self.uses_explicit_rects() && self.is_packed()) {
+            return if self.page == page { limit } else { 0 };
+        }
+        let explicit = limit.min(self.rects.len());
+        let on_page = self.rects[..explicit]
+            .iter()
+            .filter(|rect| rect.page == page)
+            .count();
+        // `cell_page` falls back to the nominal page for missing rects.
+        on_page + if self.page == page { limit - explicit } else { 0 }
+    }
+
     /// Which page image frame `f` of this row draws from. Per-frame for packed
     /// rows (the packer can scatter one animation across pages for fill); the
     /// row's nominal page otherwise.
@@ -216,11 +233,7 @@ impl SheetRecord {
             } else {
                 row.frame_count as usize
             };
-            for g in 0..limit {
-                if row.cell_page(g) == page {
-                    count += 1;
-                }
-            }
+            count += row.cells_on_page_before(page, limit);
         }
         count
     }

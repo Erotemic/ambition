@@ -101,6 +101,8 @@ smash_fighters="2"
 smash_cast="mirror"
 smash_character="performer"
 smash_stocks="40"
+# Only Avian cosmetic debris changes; fighter kinematics are unaffected.
+smash_debris="on"
 # Wall seconds of LIVE match before the game quits itself, or 0 for "play until
 # you quit", which is timeline-run's own default shape.
 smash_seconds="0"
@@ -169,6 +171,9 @@ Build selection:
                            Timed, windowed Smash normally runs a clean native
                            perf pass followed automatically by a Tracy-only
                            diagnostic pass, both packaged in one archive.
+  AMBITION_SPRITE_WATCH=0  Disable the runtime sprite-sheet watcher (Android
+                           already defaults to off); recorded in metadata and
+                           separated from the default benchmark identity.
   --perf-probe            Also add --features perf_probe: allocations per Bevy
                            system / tracing span and archetype churn per source
                            line, written to alloc_by_span.csv and
@@ -192,6 +197,8 @@ Smash match (a real round, not the character-select menu):
   --smash-fighters N      Fighters on the roster, 2-4. Default: 2.
   --smash-cast NAME       mirror (default) or mixed-v1 (four fixed, distinct ids).
   --smash-character ID    Character for a mirror match. Default: performer.
+  --smash-debris MODE     on (default) or off; isolates secondary Avian debris.
+                           Recorded as a distinct workload, not a speedup claim.
   --smash-stocks N        Stocks per CPU for profiling. Default: 40.
                            Ordinary gameplay rules are unchanged.
   --smash-seconds N       Quit after N seconds of LIVE match (the clock starts
@@ -328,6 +335,8 @@ while [[ $# -gt 0 ]]; do
         --smash-cast=*) smash_cast="${1#--smash-cast=}"; workload="smash-match" ;;
         --smash-character) shift; [[ $# -gt 0 ]] || fail "--smash-character requires a catalog id"; smash_character="$1"; workload="smash-match" ;;
         --smash-character=*) smash_character="${1#--smash-character=}"; workload="smash-match" ;;
+        --smash-debris) shift; [[ $# -gt 0 ]] || fail "--smash-debris requires on or off"; smash_debris="$1"; workload="smash-match" ;;
+        --smash-debris=*) smash_debris="${1#--smash-debris=}"; workload="smash-match" ;;
         --smash-stocks) shift; [[ $# -gt 0 ]] || fail "--smash-stocks requires a stock count"; is_positive_int "$1" || fail "--smash-stocks must be positive"; smash_stocks="$1"; workload="smash-match" ;;
         --smash-stocks=*) smash_stocks="${1#--smash-stocks=}"; is_positive_int "$smash_stocks" || fail "--smash-stocks must be positive"; workload="smash-match" ;;
         --smash-seconds) shift; [[ $# -gt 0 ]] || fail "--smash-seconds requires a value"; [[ "$1" =~ ^[0-9]+$ ]] || fail "--smash-seconds must be a non-negative integer"; workload="smash-match"; smash_seconds="$1" ;;
@@ -357,6 +366,7 @@ done
 if [[ "$workload" == "smash-match" ]]; then
     [[ "$smash_fighters" =~ ^[234]$ ]] || fail "Smash profiling requires 2-4 fighters"
     [[ "$smash_stocks" =~ ^[1-9][0-9]*$ ]] || fail "--smash-stocks must be positive"
+    [[ "$smash_debris" == "on" || "$smash_debris" == "off" ]] || fail "--smash-debris must be on or off"
     [[ "$smash_cast" == "mirror" || "$smash_cast" == "mixed-v1" ]] || fail "--smash-cast must be mirror or mixed-v1"
     [[ "$smash_character" =~ ^[a-z0-9_]+$ ]] || fail "--smash-character must be a catalog id"
     if [[ "$smash_cast" == "mixed-v1" && "$smash_character" != "performer" ]]; then
@@ -483,12 +493,21 @@ build_effective_run_args() {
         else
             scenario_id="smash-match-${smash_fighters}p-mixed-v1-${smash_stocks}stocks"
         fi
+        if [[ "$smash_debris" == "off" ]]; then
+            scenario_id+="-no-debris"
+        fi
+        if [[ "${AMBITION_SPRITE_WATCH:-}" == "0" || "${AMBITION_SPRITE_WATCH:-}" == "off" || "${AMBITION_SPRITE_WATCH:-}" == "false" ]]; then
+            scenario_id+="-no-sprite-watch"
+        fi
         if [[ "$headless" == "yes" ]]; then
             effective_run_args+=(--headless)
             headless_scenario="$scenario_id"
         fi
         effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
         extra_game_args+=(--fighters "$smash_fighters" --cast "$smash_cast" --stocks "$smash_stocks")
+        if [[ "$smash_debris" == "off" ]]; then
+            extra_game_args+=(--debris off)
+        fi
         if [[ "$smash_cast" == "mirror" ]]; then
             extra_game_args+=(--character "$smash_character")
         fi
@@ -1040,6 +1059,7 @@ write_metadata() {
         echo "capture_strategy=$([[ "$two_pass_smash" == "yes" ]] && echo split-native-perf-and-tracy || echo single-pass)"
         echo "capture_role=$capture_role"
         echo "profile_uncapped=$uncapped"
+        echo "sprite_sheet_watch=${AMBITION_SPRITE_WATCH:-platform-default}"
         echo "cargo_profile=$build_profile"
         echo "cargo_jobs=${cargo_jobs:-<cargo default>}"
         echo "profile_dir=$plan_profile_dir"
@@ -1073,6 +1093,7 @@ write_metadata() {
             echo "smash_cast=$smash_cast"
             echo "smash_character=$smash_character"
             echo "smash_stocks=$smash_stocks"
+            echo "smash_debris=$smash_debris"
             echo "smash_characters=$(smash_seat_character_ids)"
             echo "smash_cpu_level=3"
         fi

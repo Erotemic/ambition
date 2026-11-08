@@ -81,6 +81,7 @@ struct ProfileConfig {
     fighters: usize,
     stocks: u32,
     cast: ProfileCast,
+    debris_enabled: bool,
 }
 
 fn profile_roster(
@@ -316,7 +317,17 @@ fn main() {
             }
         },
     };
-    let config = ProfileConfig { fighters, cast, stocks };
+    // Presentation-only experiment: suppress Avian debris while retaining
+    // the same kinematic fighter collision / GGRS simulation.
+    let debris_enabled = match arg_value(&args, "--debris").as_deref() {
+        None | Some("on") => true,
+        Some("off") => false,
+        Some(other) => {
+            eprintln!("[smash-profile] ABORT: --debris must be on or off, got '{other}'");
+            std::process::exit(2);
+        }
+    };
+    let config = ProfileConfig { fighters, cast, stocks, debris_enabled };
     // Wall seconds of live match to measure before quitting, windowed only.
     // It starts when the round goes live, not at process start, because cold
     // launch time varies by machine. Zero (the default) means "until the
@@ -335,6 +346,17 @@ fn main() {
     } else {
         run_windowless(config, ticks, scaling_sprites);
     }
+}
+
+/// Apply after composition: the physics plugin installs its default during
+/// construction. This changes only secondary visual debris, not the fighter
+/// controller or the rollback simulation.
+fn set_profile_debris(app: &mut App, enabled: bool) {
+    let Some(mut settings) = app.world_mut().get_resource_mut::<ambition_platformer2d::sim::PhysicsSandboxSettings>() else {
+        panic!("Smash profile cannot set debris: PhysicsSandboxSettings missing");
+    };
+    settings.debris_enabled = enabled;
+    eprintln!("[smash-profile] debris={}", if enabled { "on" } else { "off" });
 }
 
 /// The no-GPU arm: build the app with no window, step it by hand, measure a
@@ -356,6 +378,8 @@ fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
             _app.add_plugins(bevy::log::LogPlugin::default());
         },
     );
+
+    set_profile_debris(&mut app, config.debris_enabled);
 
     for _ in 0..SETTLE_FRAMES {
         app.update();
@@ -473,6 +497,7 @@ fn run_windowed(config: ProfileConfig, seconds: f32) {
             app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
         },
     );
+    set_profile_debris(&mut app, config.debris_enabled);
     // No startup ceremony: its cards are ten seconds of measured logo.
     app.insert_resource(MatchDriver {
         config: config.clone(),
@@ -621,6 +646,7 @@ mod tests {
             fighters: 4,
             stocks: PROFILE_STOCKS,
             cast: ProfileCast::Mirror(DEFAULT_CHARACTER.to_string()),
+            debris_enabled: true,
         };
         let (roster, cast) = profile_roster(&config, &seatable()).unwrap();
         assert_eq!(cast, vec![DEFAULT_CHARACTER; 4]);
@@ -640,6 +666,7 @@ mod tests {
             fighters: 4,
             stocks: 40,
             cast: ProfileCast::MixedV1,
+            debris_enabled: true,
         };
         let (roster, cast) = profile_roster(&config, &seatable()).unwrap();
         assert_eq!(cast, MIXED_CAST_V1.iter().map(|id| id.to_string()).collect::<Vec<_>>());
@@ -653,11 +680,22 @@ mod tests {
     }
 
     #[test]
+    fn debris_arm_changes_only_visual_physics_settings() {
+        let mut app = App::new();
+        app.insert_resource(ambition_platformer2d::sim::PhysicsSandboxSettings::default());
+        set_profile_debris(&mut app, false);
+        assert!(!app.world().resource::<ambition_platformer2d::sim::PhysicsSandboxSettings>().debris_enabled);
+        set_profile_debris(&mut app, true);
+        assert!(app.world().resource::<ambition_platformer2d::sim::PhysicsSandboxSettings>().debris_enabled);
+    }
+
+    #[test]
     fn mixed_v1_rejects_missing_character_instead_of_measuring_a_different_cast() {
         let config = ProfileConfig {
             fighters: 4,
             stocks: 40,
             cast: ProfileCast::MixedV1,
+            debris_enabled: true,
         };
         let partial = vec![DEFAULT_CHARACTER.to_string()];
         assert!(profile_roster(&config, &partial)

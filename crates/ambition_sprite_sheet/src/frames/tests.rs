@@ -181,3 +181,39 @@ fn trimmed_render_identity_and_fixed_point() {
         "full={full:?} trimmed={trimmed:?}"
     );
 }
+
+/// Match the original per-cell walk for grid, packed, malformed, and short
+/// rect lists. Packed rows can assign a frame to a different page than their
+/// nominal one; missing rects still fall back to the row's nominal page.
+#[test]
+fn page_local_index_matches_reference_per_cell_count() {
+    let packed = row("packed", 0, 0, vec![
+        rect(0, 0, 8, 8, 0, (0, 0)),
+        rect(8, 0, 8, 8, 1, (0, 0)),
+        rect(16, 0, 8, 8, 0, (0, 0)),
+        rect(24, 0, 8, 8, 2, (0, 0)),
+    ]);
+    let mut short = row("short", 1, 1, vec![
+        rect(0, 0, 8, 8, 2, (0, 0)),
+        rect(8, 0, 8, 8, 1, (0, 0)),
+    ]);
+    short.frame_count = 5;
+    let mut grid = row("grid", 2, 0, Vec::new());
+    grid.frame_count = 7;
+    let invalid = row("invalid", 3, 2, vec![
+        rect(-1, 0, 8, 8, 1, (0, 0)),
+        rect(0, 0, 8, 8, 2, (0, 0)),
+    ]);
+    let rec = record(8, 8, vec![packed, short, grid, invalid]);
+    for ri in 0..rec.rows.len() {
+        for f in 0..=rec.rows[ri].frame_count as usize + 2 {
+            let bounded = f.min((rec.rows[ri].frame_count as usize).saturating_sub(1));
+            let page = rec.rows[ri].cell_page(bounded);
+            let reference = rec.rows.iter().enumerate().take(ri + 1).map(|(index, row)| {
+                let limit = if index == ri { bounded } else { row.frame_count as usize };
+                (0..limit).filter(|frame| row.cell_page(*frame) == page).count()
+            }).sum::<usize>();
+            assert_eq!(rec.flat_index_in_page(ri, f), reference, "row {ri} frame {f} page {page}");
+        }
+    }
+}

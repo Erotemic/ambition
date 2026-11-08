@@ -3,7 +3,7 @@
 #![cfg(feature = "content_pack")]
 mod common;
 use common::*;
-use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch};
+use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch, SpriteSheetWatchPolicy};
 use ambition_asset_manager::library_source::LibraryAssets;
 use ambition_sprite_sheet::baked_sheet_rons::current;
 use bevy::prelude::*;
@@ -52,6 +52,7 @@ fn native_admission_keeps_files_metadata_and_apps_together() {
     app.add_plugins(MinimalPlugins);
     install(&mut app, &owner);
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
+    app.insert_resource(SpriteSheetWatchPolicy::Enabled);
     app.add_plugins(SpriteSheetReloadPlugin { manual: true });
     app.update();
     look(&mut app);
@@ -181,6 +182,7 @@ fn game_relative_media_use_and_reload_their_selected_library() {
     app.init_asset::<ImportedImage>().init_asset_loader::<ImportedImageLoader>();
     app.init_asset::<Image>().init_asset_loader::<PixelLoader>();
     install(&mut app, &owner);
+    app.insert_resource(SpriteSheetWatchPolicy::Enabled);
     app.add_plugins(SpriteSheetReloadPlugin { manual: true });
     app.finish();
     let image = app.world().resource::<AssetServer>().load("game://sprites/body.png");
@@ -202,4 +204,26 @@ fn game_relative_media_use_and_reload_their_selected_library() {
     wait_for_pixel(&mut app, &sky, b'l');
     wait_for_pixel(&mut app, &frozen, b'f');
     std::fs::remove_dir_all(owner).unwrap();
+}
+
+/// Turning off the watcher must retain the published sprite content and
+/// install no `SpriteSheetWatch` resource or background scan. Android's
+/// default uses the same disabled branch.
+#[test]
+fn disabled_sprite_watch_keeps_content_without_a_watcher() {
+    let owner = std::env::temp_dir().join(format!("disabled_sprite_watch_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&owner);
+    std::fs::create_dir_all(owner.join("assets/sprites")).unwrap();
+    library(&owner, true);
+    save(&owner, 1.0, 0, b"initial");
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install(&mut app, &owner);
+    app.insert_resource(SpriteSheetWatchPolicy::Disabled);
+    app.add_plugins(SpriteSheetReloadPlugin::default());
+    app.update();
+    assert!(app.world().get_resource::<SpriteSheetWatch>().is_none());
+    assert_eq!(*app.world().resource::<SpriteSheetWatchPolicy>(), SpriteSheetWatchPolicy::Disabled);
+    assert_eq!(bytes(&app), b"initial");
+    let _ = std::fs::remove_dir_all(owner);
 }

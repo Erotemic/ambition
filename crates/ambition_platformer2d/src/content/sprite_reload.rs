@@ -22,6 +22,30 @@ use bevy::prelude::*;
 /// between two checks of the background thread that its watch still lives.
 const LOOK_EVERY: Duration = Duration::from_secs(1);
 
+/// Whether to poll native sprite publications for live editor changes.
+///
+/// Set this resource before installing `SpriteSheetReloadPlugin` to override
+/// platform defaults. Android disables the watcher by default, avoiding its
+/// filesystem scans and wakeups. Other development builds keep hot reload.
+/// An explicit `AMBITION_SPRITE_WATCH=0` or `=1` also overrides the default;
+/// `static_content` builds do not install this plugin at all.
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpriteSheetWatchPolicy {
+    Enabled,
+    Disabled,
+}
+
+impl Default for SpriteSheetWatchPolicy {
+    fn default() -> Self {
+        match std::env::var("AMBITION_SPRITE_WATCH").ok().as_deref() {
+            Some("0" | "off" | "false") => Self::Disabled,
+            Some("1" | "on" | "true") => Self::Enabled,
+            _ if cfg!(target_os = "android") => Self::Disabled,
+            _ => Self::Enabled,
+        }
+    }
+}
+
 /// Adds the sprite sheet watch where the build reads its sprite tree off
 /// disk. In a build that embeds its sprites it adds nothing.
 #[derive(Default)]
@@ -36,6 +60,13 @@ impl Plugin for SpriteSheetReloadPlugin {
     fn build(&self, app: &mut App) {
         let manual = self.manual;
         app.init_resource::<ambition_sprite_sheet::SpriteContent>();
+        app.init_resource::<SpriteSheetWatchPolicy>();
+        // No startup scanner, worker thread, update systems, or filesystem
+        // notifications when disabled. The initial published sheet remains
+        // available through SpriteContent, independent of hot reload.
+        if *app.world().resource::<SpriteSheetWatchPolicy>() == SpriteSheetWatchPolicy::Disabled {
+            return;
+        }
         app.add_systems(Startup, move |world: &mut World| {
             let libraries = world.get_resource::<ContentLibraries>().cloned().unwrap_or_default();
             if libraries.iter().all(|library| library.is_embedded()) { return; }

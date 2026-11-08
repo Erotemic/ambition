@@ -11,6 +11,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -193,6 +194,8 @@ fi
         self.assertIn("profile_uncapped=yes", meta)
         self.assertIn("smash_cast=mirror", meta)
         self.assertIn("smash_stocks=40", meta)
+        self.assertIn("smash_debris=on", meta)
+        self.assertIn("sprite_sheet_watch=platform-default", meta)
         self.assertIn("smash_characters=performer,performer,performer,performer", meta)
         self.assertIn("scenario_id=smash-match-4p-mirror-performer-40stocks", meta)
         self.assertIn("direct-built-binary", summary)
@@ -228,6 +231,31 @@ fi
         meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
         self.assertIn("smash_characters=sanic,sanic,sanic,sanic", meta)
         self.assertIn("scenario_id=smash-match-4p-mirror-sanic-60stocks", meta)
+
+    def test_no_debris_is_a_separate_benchmark_workload(self):
+        completed = self.capture("--smash-debris", "off")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-4500:])
+        calls = self.logfile.read_text().splitlines()
+        self.assertIn("--debris off", calls[2])
+        meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
+        self.assertIn("smash_debris=off", meta)
+        self.assertIn("scenario_id=smash-match-4p-mirror-performer-40stocks-no-debris", meta)
+
+    def test_invalid_debris_rejected_before_compilation(self):
+        completed = self.capture("--smash-debris", "maybe")
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("--smash-debris must be on or off", completed.stderr)
+        self.assertFalse(self.logfile.exists())
+
+    def test_watch_off_is_recorded_and_not_combined_with_watch_on(self):
+        # Pass an explicit env override to the subprocess without changing the
+        # machine-global test environment or the other test cases.
+        with mock.patch.dict(os.environ, {"AMBITION_SPRITE_WATCH": "0"}):
+            completed = self.capture()
+        self.assertEqual(completed.returncode, 0, completed.stderr[-4500:])
+        meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
+        self.assertIn("sprite_sheet_watch=0", meta)
+        self.assertIn("scenario_id=smash-match-4p-mirror-performer-40stocks-no-sprite-watch", meta)
 
     def test_invalid_cast_rejected_before_compilation(self):
         completed = self.capture("--smash-cast", "some-other-cast")

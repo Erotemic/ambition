@@ -1016,6 +1016,44 @@ and CPU level. The launcher writes those settings into `metadata.txt` and
 includes the cast/stock count in `scenario_id`, so old 3-stock baselines and
 mixed-character captures are not pooled as equivalent workloads.
 
+### Isolating secondary physics and sprite watching
+
+The shipped four-CPU `mirror` and `mixed-v1` baselines keep their existing
+settings. To identify secondary-physics costs, run a separately named arm:
+
+```bash
+scripts/measure/profile_desktop.sh --smash --smash-fighters 4 \
+  --smash-cast mixed-v1 --smash-seconds 90 --smash-debris off \
+  --name smash-4cpu-mixed-no-debris
+```
+
+`--smash-debris off` disables only Avian's cosmetic debris creation through
+`PhysicsSandboxSettings`; fighter movement, attacks, and rollback remain in
+their ordinary simulation. This changes the visual workload, so the metadata
+records `smash_debris=off` and the scenario ID receives `-no-debris`.
+Compare repeated runs of both arms before claiming a performance effect.
+
+The sprite publication watcher is enabled by default on desktop development
+builds and **disabled by default on Android**, including native loose-content
+builds. `static_content` builds omit it independently. Set
+`AMBITION_SPRITE_WATCH=0` at launch to disable the entire watcher plugin
+(thread, filesystem notifications, and update systems) on desktop too. Set
+`AMBITION_SPRITE_WATCH=1` to opt in on Android development builds. A caller
+that constructs an `App` directly can insert `SpriteSheetWatchPolicy::Disabled`
+or `Enabled` before installing `SpriteSheetReloadPlugin`. Disabling the
+watcher does not change the initially published sprite content or turn off
+other independent developer watches. The profiler records the environment
+setting and separates explicitly disabled watches into a `-no-sprite-watch`
+scenario.
+
+For the remaining GGRS / Bevy allocation cost, run a **diagnostic** capture
+with `--perf-probe` (see §1d) and inspect `alloc_by_span.csv`,
+`time_by_span.csv`, and `churn_by_site.csv` for the actual allocating
+systems. The GGRS and main-world executors are already single-threaded;
+without caller attribution, changing their scheduling or rollback storage is
+premature. Do not compare `--perf-probe` FPS against the native runs because
+the allocator instrumentation changes the measured costs.
+
 Timed windowed Smash now sets `AMBITION_PROFILE_UNCAPPED=1` for **both**
 performance and Tracy passes. The host applies VSync Off (`Immediate`) and
 frame limiter Off without modifying `UserSettings` or writing `settings.ron`.

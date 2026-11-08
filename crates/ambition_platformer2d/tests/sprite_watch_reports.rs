@@ -8,7 +8,7 @@
 
 #![cfg(feature = "content_pack")]
 
-use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch};
+use ambition_platformer2d::content::sprite_reload::{SpriteSheetReloadPlugin, SpriteSheetWatch, SpriteSheetWatchPolicy};
 use bevy::prelude::*;
 use std::time::{Duration, Instant};
 mod common;
@@ -54,6 +54,7 @@ fn the_watch_looks_when_a_file_changes_and_not_while_none_does() {
     app.init_resource::<ambition_platformer2d::actor::ActiveSessionScope>();
     common::library(&owner, false);
     common::install(&mut app, &owner);
+    app.insert_resource(SpriteSheetWatchPolicy::Enabled);
     app.add_plugins(SpriteSheetReloadPlugin { manual: false });
     app.update();
     let looks = |app: &App| app.world().resource::<SpriteSheetWatch>().looks();

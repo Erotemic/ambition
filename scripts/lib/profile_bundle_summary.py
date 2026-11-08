@@ -639,6 +639,44 @@ def build_summary(bundle: Bundle) -> str:
         f"| scenario | `{meta.get('scenario_id') or meta.get('headless_scenario', 'n/a')}` |",
         "",
     ]
+    if meta.get("capture_strategy") == "split-native-perf-and-tracy":
+        lines += [
+            "**Two-pass timed Smash capture.** The primary frame, census, and native",
+            "`perf` reports come from a separate build **without Tracy**. The",
+            "`tracy_diagnostic/` directory is a second launch built with the `profile`",
+            "feature for per-system zone analysis. Do not combine their absolute",
+            "frame-time or CPU percentages as if they were the same run.",
+            "No native recorder remains active during Tracy shutdown/export.",
+            "If the primary pass lacks GPU/render diagnostics, inspect the second",
+            "pass at `tracy_diagnostic/render_diagnostics.csv`.",
+            "",
+        ]
+        match_window = bundle.read("match-window.json")
+        if match_window:
+            try:
+                match_info = json.loads(match_window)
+            except json.JSONDecodeError:
+                match_info = {}
+            if match_info.get("status") == "ok":
+                lines += [
+                    f"- Active match in primary capture: "
+                    f"**{match_info['live_start_s']:.1f}–{match_info['match_end_s']:.1f}s** "
+                    f"({match_info['active_seconds']:.1f}s).",
+                    "- The `perf-report-active*.txt` tables exclude startup and "
+                    "post-match samples using an approximate perf time filter.",
+                    f"- Match ended early: **{'yes' if match_info['match_ended_early'] else 'no'}**.",
+                    "",
+                ]
+            else:
+                lines += [
+                    f"- Active-only native reports: **unavailable** "
+                    f"({match_info.get('status', 'missing window data')}).",
+                    "",
+                ]
+        if bundle.exists("tracy-diagnostic.status"):
+            lines.append(f"- Tracy diagnostic build/launch status: `{bundle.status('tracy-diagnostic')}`.")
+            lines.append("")
+
     if meta.get("cargo_profile") == "dev":
         lines += [
             "> **This is the DEVELOPMENT build.** Workspace crates are built at low",
@@ -1251,7 +1289,7 @@ def build_summary(bundle: Bundle) -> str:
     # profiler is a large share then every frame time in this bundle is
     # inflated -- which is a conclusion about the whole report, not a footnote.
     section(lines, "Observer effect (what the profiler itself cost)")
-    threads = bundle.read("perf-report-by-thread.txt")
+    threads = bundle.read("perf-report-active-by-thread.txt") or bundle.read("perf-report-by-thread.txt")
     profiler_share = 0.0
     if threads:
         tally: dict[str, float] = {}
@@ -1299,7 +1337,7 @@ def build_summary(bundle: Bundle) -> str:
 
     # ── Native profile ───────────────────────────────────────────────────
     section(lines, "Where the native time went")
-    dso = bundle.read("perf-report-by-dso.txt")
+    dso = bundle.read("perf-report-active-by-dso.txt") or bundle.read("perf-report-by-dso.txt")
     if dso:
         tally: dict[str, float] = {}
         for line in dso.splitlines():
@@ -1346,12 +1384,15 @@ def build_summary(bundle: Bundle) -> str:
                     "",
                 ]
             lines += [
-                "This split is by SHARED OBJECT, not by thread: statically linked",
+                "If present, active-match native reports exclude startup and results", 
+            "screen time; see `match-window.json` for the selected interval.",
+            "",
+            "This split is by SHARED OBJECT, not by thread: statically linked",
                 "profiler, allocator, and runtime code all report as the game binary.",
                 "Read it together with the observer-effect section above.",
                 "",
             ]
-    report = bundle.read("perf_report.txt")
+    report = bundle.read("perf-report-active.txt") or bundle.read("perf_report.txt")
     if report:
         rows = [line[:200] for line in report.splitlines() if PERCENT.match(line)][:35]
         if rows:
@@ -1657,6 +1698,11 @@ def build_summary(bundle: Bundle) -> str:
         ("changes_by_site.csv", "perf_probe: component and resource values marked changed, per source line"),
         ("perf_windows/", "one flat perf report per time slice"),
         ("perf_report.txt", "whole-run flat perf report"),
+        ("perf-report-active.txt", "native symbols restricted to the live-match interval"),
+        ("perf-report-active-by-dso.txt", "live-match-only shared-object CPU proportions"),
+        ("perf-report-active-by-thread.txt", "live-match-only thread CPU proportions"),
+        ("match-window.json", "primary pass live-start/end markers and native filter bounds"),
+        ("tracy_diagnostic", "second launch: Tracy build, stderr, and diagnostic metadata"),
         ("perf-report-by-dso.txt", "which shared object owned the CPU"),
         ("game-stderr-stamped.txt", "the game's own log, stamped with seconds since launch"),
         ("perf.data", "the raw perf capture"),

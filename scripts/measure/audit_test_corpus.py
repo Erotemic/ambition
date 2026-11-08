@@ -10,8 +10,10 @@ from collections import Counter, defaultdict
 from difflib import SequenceMatcher
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import subprocess
 
 TEST_ATTR = re.compile(r'#\s*\[\s*(?:test|tokio::test)(?:\s*\([^\]]*\))?\s*\]')
 FUNC = re.compile(r'\b(?:async\s+)?fn\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(')
@@ -21,6 +23,85 @@ STEP = re.compile(r'\.\s*(?:update|step)\s*\(')
 BUILD = re.compile(r'\b(?:App::new|build_visible_app|Platformer2dSimHarness::new[_A-Za-z0-9]*)\s*\(')
 PROBE = re.compile(r'^(?:probe_|measure_|which_|name_)')
 TOKEN = re.compile(r'[A-Za-z_][A-Za-z_0-9]*|\d+(?:\.\d+)?|"(?:\\.|[^"\\])*"|\S')
+
+# A workspace scan must not count other copies of the repository. Keep the
+# default filesystem scan inclusive of new, untracked tests, but prune the
+# checkout's alternate worktrees, build outputs, and nested Git checkouts.
+EXCLUDED_DIRECTORY_NAMES = frozenset({
+    '.git', '.worktrees', 'worktrees', 'target', 'node_modules',
+})
+
+
+def rust_source_files(root: Path, base: Path, *, tracked_only: bool = False) -> tuple[list[Path], list[dict]]:
+    """Select Rust sources from exactly one checkout, not from its worktrees.
+
+    Filesystem mode includes untracked work, while --tracked-only inventories
+    the Git index. Both modes exclude known worktree/build paths and symlinks.
+    Return the skipped-tree inventory for the report's provenance section.
+    """
+    relative_scope = base.relative_to(root)
+    if any(part in EXCLUDED_DIRECTORY_NAMES for part in relative_scope.parts):
+        raise ValueError(f'scope points inside an excluded directory: {relative_scope}')
+    if not base.is_dir():
+        raise ValueError(f'scope is not a directory: {base}')
+    if base != root and (base / '.git').exists():
+        raise ValueError(f'scope is a nested Git checkout; use --root {base} --scope .')
+
+    selected: list[Path] = []
+    skipped: list[dict] = []
+
+    if tracked_only:
+        try:
+            proc = subprocess.run(
+                ['git', '-C', str(root), 'ls-files', '--cached', '-z'],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+            )
+        except FileNotFoundError as ex:
+            raise ValueError('--tracked-only requires Git') from ex
+        if proc.returncode:
+            explanation = proc.stderr.decode('utf-8', errors='replace').strip()
+            raise ValueError(f'git ls-files failed: {explanation}')
+        for raw in proc.stdout.split(b'\0'):
+            if not raw:
+                continue
+            rel = Path(os.fsdecode(raw))
+            if any(part in EXCLUDED_DIRECTORY_NAMES for part in rel.parts):
+                continue
+            candidate = root / rel
+            if not candidate.is_relative_to(base):
+                continue
+            if candidate.suffix == '.rs' and candidate.is_file() and not candidate.is_symlink():
+                selected.append(candidate)
+        return sorted(set(selected)), skipped
+
+    # os.walk with top-down pruning avoids even opening nested checkout trees.
+    # Filtering the output of rglob() would still visit those huge directories.
+    for current, dirnames, filenames in os.walk(base, topdown=True, followlinks=False):
+        here = Path(current)
+        kept_dirs = []
+        for name in sorted(dirnames):
+            child = here / name
+            rel = child.relative_to(root).as_posix()
+            reason = None
+            if name in EXCLUDED_DIRECTORY_NAMES:
+                reason = 'alternate worktree' if name in {'.worktrees', 'worktrees'} else 'build or metadata directory'
+            elif child.is_symlink():
+                reason = 'symlink directory'
+            elif (child / '.git').exists():
+                reason = 'nested Git checkout'
+            if reason is None:
+                kept_dirs.append(name)
+            else:
+                skipped.append({'path': rel, 'reason': reason})
+        dirnames[:] = kept_dirs
+        for name in sorted(filenames):
+            if not name.endswith('.rs'):
+                continue
+            candidate = here / name
+            if candidate.is_file() and not candidate.is_symlink():
+                selected.append(candidate)
+    return sorted(selected), skipped
+
 
 
 def mask_comments(source: str) -> str:
@@ -146,10 +227,14 @@ def main():
     ap.add_argument('--window',type=int,default=10)
     ap.add_argument('--threshold',type=float,default=.88)
     ap.add_argument('--pair-limit',type=int,default=250)
+    ap.add_argument('--tracked-only',action='store_true',help='restrict to the current Git index; omit untracked files and submodules')
     args=ap.parse_args()
     root=args.root.resolve(); base=(root/args.scope).resolve()
     if not base.is_relative_to(root):ap.error('scope escapes root')
-    files=sorted(p for p in base.rglob('*.rs') if p.is_file() and not any(part in ('target','.git') for part in p.relative_to(base).parts))
+    try:
+        files, skipped = rust_source_files(root, base, tracked_only=args.tracked_only)
+    except ValueError as ex:
+        ap.error(str(ex))
     data=[];tests=[]; inventory=[]
     for p in files:
         path=p.relative_to(root).as_posix()
@@ -166,14 +251,22 @@ def main():
     duplicates=grouped_duplicates(data,args.window,3)
     pairs=similarity(tests,args.threshold,args.pair_limit)
     safe_tests=[{k:v for k,v in t.items() if k!='symbols'} for t in tests]
-    stats=dict(scope=args.scope,files=len(data),test_functions=len(tests),ignored=sum(t['ignored'] for t in tests),
+    stats=dict(scope=args.scope,scan_mode='git-index' if args.tracked_only else 'filesystem-pruned',
+        selected_rust_files=len(files),excluded_trees=len(skipped),
+        files=len(data),test_functions=len(tests),ignored=sum(t['ignored'] for t in tests),
         probe_named=sum(t['probe'] for t in tests),total_file_lines=sum(f['lines'] for f in inventory),
         duplicate_groups=len(duplicates),near_duplicate_pairs=len(pairs))
-    report=dict(summary=stats,files=sorted(inventory,key=lambda x:x['lines'],reverse=True),tests=safe_tests,
+    report=dict(summary=stats,excluded_tree_paths=skipped,
+        files=sorted(inventory,key=lambda x:x['lines'],reverse=True),tests=safe_tests,
         repeated_blocks=duplicates,near_duplicate_tests=pairs)
     args.out.mkdir(parents=True,exist_ok=True)
     (args.out/'audit.json').write_text(json.dumps(report,indent=2)+'\n')
     md=['# Rust test corpus static audit','',f"Scope: `{args.scope}`",'',
+        '## Scan boundaries','',
+        f"- Discovery mode: `{stats['scan_mode']}`; selected Rust files: {len(files)}",
+        f"- Excluded directory trees: {len(skipped)} (see `excluded_tree_paths` in JSON)",
+        '- `.worktrees/`, `worktrees/`, nested Git repositories, symlinked directories, and build outputs are not traversed in filesystem mode.',
+        '- `--tracked-only` reads the current Git index, omitting untracked sources and submodules.','',
         '## Inventory','',f"- Rust test-bearing files: {stats['files']}",f"- Extracted test functions: {stats['test_functions']}",
         f"- Ignored tests (heuristic): {stats['ignored']}",f"- Probe-named tests: {stats['probe_named']}",
         f"- Repeated block groups: {len(duplicates)}",f"- Near-duplicate test pairs: {len(pairs)}",'',

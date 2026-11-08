@@ -703,6 +703,19 @@ if [[ "$print_plan" -eq 1 ]]; then
         echo "features="
     fi
     if [[ "${#game_args[@]}" -gt 0 ]]; then printf 'game_arg=%s\n' "${game_args[@]}"; fi
+    # A profiler can now build once and execute the planned binary directly,
+    # without placing a second `cargo run` (and possible compilation) inside
+    # the measured process tree. Publish launcher-supplied runtime environment
+    # as well as its arguments. Caller-supplied env is already inherited.
+    for runtime_assignment in "${launcher_config_applied[@]}"; do
+        printf 'runtime_env=%s\n' "$runtime_assignment"
+    done
+    if [[ "$autoplay" -eq 1 ]]; then
+        printf 'runtime_env=AMBITION_AUTOPLAY=%s\n' "$AMBITION_AUTOPLAY"
+        if [[ "$target_bin" != "mary_o_demo" ]]; then
+            printf 'runtime_env=AMBITION_BOOT_ROUTE=%s\n' "$AMBITION_BOOT_ROUTE"
+        fi
+    fi
     printf 'build_arg=%s\n' "${plan_build[@]}"
     # ⛔⛔ THE PLAN IS THE COMMAND *AND* ITS ENVIRONMENT. A caller that replays
     # `build_arg` alone builds something else: `CARGO_INCREMENTAL` above is part

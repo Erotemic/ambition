@@ -309,7 +309,7 @@ fn cast_ray(
             let (pairs, hops, convention) = match passages {
                 Some(p) => (
                     p.pairs_in(room),
-                    p.budget_for(Some(owner), room).map_or(0, |budget| u32::from(budget.max_hops)),
+                    u32::from(p.budget_for(Some(owner), room).max_hops),
                     p.convention(),
                 ),
                 None => (Vec::new(), 0, Default::default()),

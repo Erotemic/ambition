@@ -54,7 +54,7 @@ fn partition_allocations() {
     ];
     for (name, volume, root, links, first) in cases {
         let before = ALLOCATIONS.load(Ordering::Relaxed);
-        let p = std::hint::black_box(partition(&volume, root, &links, first, PieceBudget::COMPOSED, MapConvention::Reflection));
+        let p = std::hint::black_box(partition(crate::frame::thread::MaterialPrimitive::world(&volume), root, &links, first, PieceBudget::COMPOSED, MapConvention::Reflection));
         let made = ALLOCATIONS.load(Ordering::Relaxed) - before;
         println!("{name:<28} {made:>4} allocations ({} pieces)", p.as_ref().map_or(0, |parts| parts.len()));
     }

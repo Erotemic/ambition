@@ -374,13 +374,10 @@ pub fn carry_through_pairs(
             }
             let reach = reach.map(|reach| reach.0);
             let budget = match reach {
-                Some(_) => Some(PieceBudget::SINGLE_HOP),
-                None => passages.as_deref().map_or(Some(PieceBudget::SINGLE_HOP), |passages| {
+                Some(_) => PieceBudget::SINGLE_HOP,
+                None => passages.as_deref().map_or(PieceBudget::SINGLE_HOP, |passages| {
                     passages.budget_for(Some(view.body), Some(placement.room))
                 }),
-            };
-            let Some(budget) = budget else {
-                continue;
             };
             let (min, max) = aabb.map_or((view.pos - view.size * 0.5, view.pos + view.size * 0.5), |aabb| {
                 engine_bounds(&placement.frame, aabb, at)
@@ -445,14 +442,11 @@ pub fn carry_through_pairs(
             let links = room_links(all);
             let budget = passages
                 .as_deref()
-                .map_or(Some(PieceBudget::SINGLE_HOP), |passages| passages.budget_for(None, Some(placement.room)));
-            let Some(budget) = budget else {
-                continue;
-            };
+                .map_or(PieceBudget::SINGLE_HOP, |passages| passages.budget_for(None, Some(placement.room)));
             let corners = vec![min, Vec2::new(max.x, min.y), max, Vec2::new(min.x, max.y)];
             let cut = match reaches_from {
-                Some(_) => partition_reaching(&ae::CombatVolume::convex(corners), root, &links, None, budget, convention),
-                None => partition(&ae::CombatVolume::convex(corners), root, &links, None, budget, convention),
+                Some(_) => partition_reaching(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), root, &links, None, budget, convention),
+                None => partition(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), root, &links, None, budget, convention),
             };
             let Ok(cut) = cut else { continue; };
             let Some(through) = cut.iter().find(|piece| piece.is_carried()) else {
@@ -578,9 +572,9 @@ pub fn carry_through_pairs(
         let corners = vec![lo, Vec2::new(hi.x, lo.y), hi, Vec2::new(lo.x, hi.y)];
         let first = links.iter().find(|link| link.key == carry.link).map(|link| link.key);
         let cut = if carry.reaching {
-            partition_reaching(&ae::CombatVolume::convex(corners), carry.root, &links, first, budget, convention)
+            partition_reaching(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), carry.root, &links, first, budget, convention)
         } else {
-            partition(&ae::CombatVolume::convex(corners), carry.root, &links, first, budget, convention)
+            partition(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), carry.root, &links, first, budget, convention)
         };
         let Ok(cut) = cut else { continue; };
         let through = cut.iter().any(VolumePiece::is_carried);
@@ -589,7 +583,8 @@ pub fn carry_through_pairs(
             let bounds = piece.active_bounds();
             let planes: Vec<Vec4> = bounds.iter().map(|plane| clip_plane_render(&carry.frame, plane.point, plane.inward)).collect();
             let (base, flip, name) = if piece.is_carried() {
-                let copy = ambition_portal2d::copy_transform_of(&piece.transform());
+                let Ok(path_map) = piece.path_transform() else { continue; };
+                let copy = ambition_portal2d::copy_transform_of(&path_map);
                 let Ok(mapped_middle) = piece.carry(middle) else { continue; };
                 let base = Transform {
                     translation: carry.frame.to_render(mapped_middle, crate::PORTAL_EXIT_COPY_Z),

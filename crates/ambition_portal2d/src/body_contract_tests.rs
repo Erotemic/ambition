@@ -395,12 +395,9 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
     }
 }
 
-/// How much of a body the portals carry is a rule of the game
-/// ([`crate::PortalGeometry`]), and a body may ask for its own
-/// ([`PortalPieceBudget`]): a body the portals move whole meets only its own
-/// side (no glue), and its volumes are whole.
+/// Each body uses its own material budget when it has one.
 #[test]
-fn a_body_the_portals_move_whole_meets_only_its_own_side() {
+fn a_body_budget_overrides_the_room_budget() {
     use ambition_platformer2d_core::frame::thread::PieceBudget;
     use ambition_platformer2d_shared_tangle::portal_passages::{PortalPassages, PortalPieceBudget};
     let glued = |geometry: crate::PortalGeometry, own: Option<PortalPieceBudget>| {
@@ -425,16 +422,11 @@ fn a_body_the_portals_move_whole_meets_only_its_own_side() {
         let passages = app.world().resource::<PortalPassages>();
         (glues, passages.budget_for(Some(body), None))
     };
-    let composed = crate::PortalGeometry::Composed { max_hops: 3, max_pieces: 24 };
-    assert_eq!(glued(crate::PortalGeometry::SingleHop, None), (1, Some(PieceBudget::SINGLE_HOP)));
-    assert_eq!(glued(composed, None), (1, Some(PieceBudget { max_hops: 3, max_pieces: 24 })));
-    assert_eq!(glued(crate::PortalGeometry::TransferOnly, None), (0, None));
-    // A body's own policy over the game's, both ways.
-    assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(PortalPieceBudget(None))), (0, None));
-    assert_eq!(
-        glued(crate::PortalGeometry::TransferOnly, Some(PortalPieceBudget(Some(PieceBudget::COMPOSED)))),
-        (1, Some(PieceBudget::COMPOSED))
-    );
+    let composed = crate::PortalGeometry::Composed { max_scale_exponent: 12, max_hops: 3, max_pieces: 24 };
+    assert_eq!(glued(crate::PortalGeometry::SingleHop, None), (1, PieceBudget::SINGLE_HOP));
+    assert_eq!(glued(composed, None), (1, PieceBudget { max_hops: 3, max_pieces: 24, max_scale_exponent: 12 }));
+    assert_eq!(glued(composed, Some(PortalPieceBudget(PieceBudget::SINGLE_HOP))), (1, PieceBudget::SINGLE_HOP));
+    assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(PortalPieceBudget(PieceBudget::COMPOSED))), (1, PieceBudget::COMPOSED));
 }
 
 

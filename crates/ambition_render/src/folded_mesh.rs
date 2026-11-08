@@ -248,8 +248,9 @@ pub fn fold(tris: &Tris, pieces: &[VolumePiece]) -> Result<Tris, ae::frame::Nume
     }
     let mut out = Tris::default();
     for piece in pieces {
+        let root_bounds = piece.root_bounds()?;
         for tri in tris.triangles() {
-            let clipped = clip_all(tri.to_vec(), piece.source_bounds());
+            let clipped = clip_all(tri.to_vec(), &root_bounds);
             let carried = clipped.into_iter().map(|(point, color)| piece.carry(point).map(|point| (point, color)))
                 .collect::<Result<Vec<_>, _>>()?;
             out.polygon(&carried);
@@ -422,7 +423,7 @@ mod tests {
         let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(400.0, 300.0), Vec2::new(0.0, -1.0)), half_length: 40.0 };
         let links = PortalLink::both_ways(0, (enter, exit));
         let bounds = tris.bounds().unwrap();
-        partition(&ae::CombatVolume::aabb(bounds), Vec2::ZERO, &links, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection)
+        partition(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::aabb(bounds)), Vec2::ZERO, &links, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection)
             .unwrap()
     }
 

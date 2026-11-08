@@ -145,19 +145,10 @@ impl AbilityBase {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug)]
 pub struct AuthoredMovementTuning(pub crate::movement::MovementTuning);
 
-/// Position, velocity, AABB size, and facing shared by every actor body.
-///
-/// Systems with multiple mutable `BodyKinematics` queries must make them
-/// provably disjoint with marker filters rather than introducing parallel body
-/// components. Boss brains emit `desired_vel`; their stored `vel` remains
-/// [`Vec2::ZERO`].
-///
-/// A body carries its per-tick derived facts. They are required here, not
-/// only put in a spawn bundle, because a rewind spawns a body again from its
-/// snapshot, and a snapshot holds only rollback state: without the
-/// requirement that body comes back without its derived facts, and moves
-/// another way (measured 2026-10-09, a sync test of a despawned body). The
-/// gravity plugin requires the resolved motion frame the same way.
+/// Position, velocity, canonical dimensions, material axes and authored facing.
+/// The material transform owns physical scale and parity. Facing selects a pose.
+/// Mutable queries for this component must have disjoint entity sets.
+/// Restored bodies require the same derived contact facts as new bodies.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
 #[require(BodyEnvironmentContact, crate::BodyMotionFacts)]
 pub struct BodyKinematics {
@@ -169,9 +160,7 @@ pub struct BodyKinematics {
 }
 
 impl Default for BodyKinematics {
-    /// Player-flavored default (the only `::default()` callers are player
-    /// spawn helpers): a default-sized body at the origin, at rest, facing
-    /// right. Matches the pre-unification `PlayerKinematics::default`.
+    /// A body at rest at the origin, with default canonical dimensions.
     fn default() -> Self {
         let body = crate::movement::default_player_body_size();
         Self {
@@ -318,11 +307,8 @@ impl SweepSample {
     }
 }
 
-/// The player's authored *standing* body size — the baseline the morph /
-/// crouch / slide stances and the sprite-scale math read from. Player-only;
-/// it is deliberately NOT part of the shared [`BodyKinematics`] (enemies and
-/// bosses have no stance-baseline concept), so it rides in its own component
-/// alongside the rest of the player clusters.
+/// The canonical standing shape. Stance and morph operations use this baseline.
+/// Physical material scale does not change the authored dimensions.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
 pub struct BodyBaseSize {
     pub base_size: Vec2,

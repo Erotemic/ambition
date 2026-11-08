@@ -51,7 +51,7 @@ fn authored_entry() -> PortalChannel {
     PortalChannel::Authored(PortalChannelColor::Purple)
 }
 
-fn spawn_body(app: &mut App, budget: Option<PieceBudget>, y: f32, entry: PortalChannel) -> Entity {
+fn spawn_body(app: &mut App, budget: PieceBudget, y: f32, entry: PortalChannel) -> Entity {
     let body = app.world_mut().spawn(PortalPieceBudget(budget)).id();
     let pos = Vec2::new(498.0, y);
     let size = Vec2::splat(48.0);
@@ -163,7 +163,7 @@ fn warm_app() -> App {
     app
 }
 
-fn alone(budget: Option<PieceBudget>, y: f32) -> Outcome {
+fn alone(budget: PieceBudget, y: f32) -> Outcome {
     let mut app = warm_app();
     let visual = spawn_body(&mut app, budget, y, authored_entry());
     app.update();
@@ -172,10 +172,10 @@ fn alone(budget: Option<PieceBudget>, y: f32) -> Outcome {
 
 #[test]
 fn each_body_keeps_its_piece_policy_with_another_body_on_the_same_link() {
-    let transfer = alone(None, 280.0);
-    let single = alone(Some(PieceBudget::SINGLE_HOP), 280.0);
-    let composed = alone(Some(PieceBudget::COMPOSED), 280.0);
-    assert!(transfer.on_world && !transfer.active_capture && transfer.pieces.is_empty());
+    let blocked = alone(PieceBudget { max_hops: 0, ..PieceBudget::SINGLE_HOP }, 280.0);
+    let single = alone(PieceBudget::SINGLE_HOP, 280.0);
+    let composed = alone(PieceBudget::COMPOSED, 280.0);
+    assert!(!blocked.active_capture && blocked.pieces.is_empty());
     assert!(!single.active_capture && single.pieces.is_empty(), "a one-hop budget must refuse the second aperture");
     assert!(
         composed.pieces.len() > single.pieces.len(),
@@ -183,8 +183,8 @@ fn each_body_keeps_its_piece_policy_with_another_body_on_the_same_link() {
     );
 
     for budgets in [
-        [None, Some(PieceBudget::SINGLE_HOP)],
-        [Some(PieceBudget::SINGLE_HOP), Some(PieceBudget::COMPOSED)],
+        [PieceBudget { max_hops: 0, ..PieceBudget::SINGLE_HOP }, PieceBudget::SINGLE_HOP],
+        [PieceBudget::SINGLE_HOP, PieceBudget::COMPOSED],
     ] {
         let expected = [alone(budgets[0], 280.0), alone(budgets[1], 320.0)];
         for order in [[0, 1], [1, 0]] {
@@ -215,7 +215,7 @@ fn a_free_drawable_keeps_the_room_policy_beside_a_body_with_its_own_policy() {
     let scene = |with_body: bool| {
         let mut app = warm_app();
         app.insert_resource(ambition_portal2d::PortalTuning {
-            geometry: ambition_portal2d::PortalGeometry::Composed {
+            geometry: ambition_portal2d::PortalGeometry::Composed { max_scale_exponent: 12,
                 max_hops: PieceBudget::COMPOSED.max_hops,
                 max_pieces: PieceBudget::COMPOSED.max_pieces,
             },
@@ -224,7 +224,7 @@ fn a_free_drawable_keeps_the_room_policy_beside_a_body_with_its_own_policy() {
         let body = with_body.then(|| {
             spawn_body(
                 &mut app,
-                Some(PieceBudget::SINGLE_HOP),
+                PieceBudget::SINGLE_HOP,
                 280.0,
                 authored_entry(),
             )
@@ -249,7 +249,7 @@ fn a_free_drawable_keeps_the_room_policy_beside_a_body_with_its_own_policy() {
     let body = body.expect("the second scene includes the body");
     assert!(expected.active_capture && expected.pieces.len() > body.pieces.len());
     assert_eq!(actual, expected);
-    assert_eq!(body, alone(Some(PieceBudget::SINGLE_HOP), 280.0));
+    assert_eq!(body, alone(PieceBudget::SINGLE_HOP, 280.0));
 }
 
 #[test]
@@ -261,7 +261,7 @@ fn a_body_stays_visible_on_the_first_frame_of_an_authored_or_new_gun_pair() {
         } else {
             authored_entry()
         };
-        let visual = spawn_body(&mut app, Some(PieceBudget::SINGLE_HOP), 300.0, entry);
+        let visual = spawn_body(&mut app, PieceBudget::SINGLE_HOP, 300.0, entry);
         if placed_late {
             app.update();
         }
@@ -285,7 +285,7 @@ fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
     let entry = authored_entry();
     let a = app.world_mut().spawn(PlacedPortal::fixed(entry, Vec2::new(2200.0, 876.0), Vec2::X, 100.0)).id();
     let b = app.world_mut().spawn(PlacedPortal::fixed(entry.partner(), Vec2::new(2550.0, 680.0), Vec2::X, 100.0)).id();
-    let visual = spawn_body(&mut app, Some(PieceBudget::COMPOSED), 300.0, entry);
+    let visual = spawn_body(&mut app, PieceBudget::COMPOSED, 300.0, entry);
     app.world_mut().entity_mut(visual).insert(Aabb {
         center: Vec3::ZERO.into(),
         half_extents: Vec3::new(24.0, 24.0, 0.0).into(),

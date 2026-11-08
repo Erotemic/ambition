@@ -1788,7 +1788,7 @@ fn a_portal_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
     body.sweep = Some(&mut sweep);
     let result = step_motion(&mut model, &mut body, MotionStepContext {
         world: &world, portal: Some(MotionAdmission { links: &links, first: None,
-            budget: PieceBudget { max_hops: 0, max_pieces: 1 }, convention: MapConvention::Reflection }),
+            budget: PieceBudget { max_scale_exponent: 12, max_hops: 0, max_pieces: 1 }, convention: MapConvention::Reflection }),
         input: InputState::default(), frame, facing_intent: 0.0, dt: 1.0 / 30.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false,
         recovery_commitment_outstanding: false,

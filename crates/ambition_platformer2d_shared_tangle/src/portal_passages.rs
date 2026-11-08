@@ -2,23 +2,20 @@
 //! portal's: where a volume is when a pair cuts it
 //! (`docs/planning/engine/portals-a-body-in-two-places.md`).
 //!
-//! The portal domain writes it each tick after its transit; a composition with
-//! no portals leaves it empty, and every volume is whole.
+//! The portal domain publishes apertures before movement and refreshes body
+//! material maps after transit. A composition with no portals has no links.
 
-use ambition_platformer2d_core::frame::thread::{partition, partition_reaching, Partition, PieceBudget, PortalLink, VolumePiece};
-use ambition_platformer2d_core::frame::{MapConvention, PortalAperture};
+use ambition_platformer2d_core::frame::thread::{partition, partition_reaching, MaterialPrimitive, Partition, PieceBudget, PortalLink, Refusal, RefusalReason};
+use ambition_platformer2d_core::frame::{MapConvention, NumericFault, PortalAperture, Sim2};
 use ambition_platformer2d_core::{CombatVolume, Vec2};
 use bevy::prelude::{Component, Entity, Resource};
 
 use crate::lifecycle::LiveRoomInstance;
 
-/// A body's own portal geometry policy, over its room's: how far its volumes
-/// are cut (`None`: not at all; it is moved whole at a crossing, and meets
-/// one side). For a body or an ability that asks for more, or less, than the
-/// room gives every body (`docs/planning/engine/portals-a-body-in-two-places.md`,
-/// Policy).
+/// A body's material budget overrides the room budget.
+/// An exhausted budget refuses the operation.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PortalPieceBudget(pub Option<PieceBudget>);
+pub struct PortalPieceBudget(pub PieceBudget);
 
 /// A drawable that reaches out from a point that is not its own centre: a
 /// swing drawn in front of the body that swings it. The point is in engine
@@ -31,10 +28,11 @@ pub struct ReachesFrom(pub Vec2);
 #[derive(Resource, Clone, Debug)]
 pub struct PortalPassages {
     convention: MapConvention,
+    materials: std::collections::BTreeMap<Entity, Result<Sim2, NumericFault>>,
     /// How far the volumes of a room with no budget of its own are cut.
-    default_budget: Option<PieceBudget>,
+    default_budget: PieceBudget,
     /// The bodies with a policy of their own ([`PortalPieceBudget`]).
-    bodies: Vec<(Entity, Option<PieceBudget>)>,
+    bodies: Vec<(Entity, PieceBudget)>,
     /// Each live room's links (each pair both ways, in the pairs' order) and
     /// how far its volumes are cut ([`PieceBudget`]).
     rooms: Vec<PassageRoom>,
@@ -47,8 +45,8 @@ pub struct PortalPassages {
 struct PassageRoom {
     room: Option<LiveRoomInstance>,
     links: Vec<PortalLink>,
-    /// `None`: the volumes of the room are not cut (each is whole where it is).
-    budget: Option<PieceBudget>,
+    /// The material budget of this room.
+    budget: PieceBudget,
 }
 
 impl Default for PortalPassages {
@@ -61,16 +59,23 @@ impl PortalPassages {
     pub fn new(convention: MapConvention) -> Self {
         Self {
             convention,
-            default_budget: Some(PieceBudget::SINGLE_HOP),
+            materials: Default::default(),
+            default_budget: PieceBudget::SINGLE_HOP,
             bodies: Vec::new(),
             rooms: Vec::new(),
             straddling: Vec::new(),
         }
     }
 
+    pub fn clear_materials(&mut self) { self.materials.clear(); }
+
+    pub fn set_body_material(&mut self, body: Entity, material: Result<Sim2, NumericFault>) {
+        self.materials.insert(body, material);
+    }
+
     /// How far the volumes of every room are cut, unless a room says
     /// otherwise ([`Self::set_budget`]).
-    pub fn with_default_budget(mut self, budget: Option<PieceBudget>) -> Self {
+    pub fn with_default_budget(mut self, budget: PieceBudget) -> Self {
         self.default_budget = budget;
         self
     }
@@ -101,17 +106,17 @@ impl PortalPassages {
         links.extend(PortalLink::both_ways(index, pair));
     }
 
-    /// How far the volumes of `room` are cut; `None` leaves each whole.
-    pub fn set_budget(&mut self, room: Option<LiveRoomInstance>, budget: Option<PieceBudget>) {
+    /// The material budget of `room`.
+    pub fn set_budget(&mut self, room: Option<LiveRoomInstance>, budget: PieceBudget) {
         self.room_mut(room).budget = budget;
     }
 
-    pub fn budget_in(&self, room: Option<LiveRoomInstance>) -> Option<PieceBudget> {
+    pub fn budget_in(&self, room: Option<LiveRoomInstance>) -> PieceBudget {
         self.room(room).map_or(self.default_budget, |r| r.budget)
     }
 
     /// `body` has a policy of its own ([`PortalPieceBudget`]).
-    pub fn set_body_budget(&mut self, body: Entity, budget: Option<PieceBudget>) {
+    pub fn set_body_budget(&mut self, body: Entity, budget: PieceBudget) {
         match self.bodies.iter_mut().find(|(b, _)| *b == body) {
             Some((_, b)) => *b = budget,
             None => self.bodies.push((body, budget)),
@@ -120,7 +125,7 @@ impl PortalPassages {
 
     /// How far the volumes of `owner` in `room` are cut: its own policy, else
     /// its room's.
-    pub fn budget_for(&self, owner: Option<Entity>, room: Option<LiveRoomInstance>) -> Option<PieceBudget> {
+    pub fn budget_for(&self, owner: Option<Entity>, room: Option<LiveRoomInstance>) -> PieceBudget {
         owner
             .and_then(|owner| self.bodies.iter().find(|(b, _)| *b == owner))
             .map_or_else(|| self.budget_in(room), |(_, budget)| *budget)
@@ -140,7 +145,7 @@ impl PortalPassages {
     pub fn clear_straddlers(&mut self) { self.straddling.clear(); }
 
     pub fn motion_for(&self, body: Entity, room: Option<LiveRoomInstance>) -> Option<ambition_platformer2d_core::frame::thread::MotionAdmission<'_>> {
-        let budget = self.budget_for(Some(body), room)?;
+        let budget = self.budget_for(Some(body), room);
         Some(ambition_platformer2d_core::frame::thread::MotionAdmission {
             links: self.links_in(room), first: self.straddled_by(body).map(|link| link.key),
             budget, convention: self.convention,
@@ -167,8 +172,7 @@ impl PortalPassages {
     /// pair, or does the carrier straddle one? These are the links
     /// [`Self::pieces`] cuts by, so a `false` here is a whole volume there. A
     /// body in transit in another room, or another body in transit, cuts
-    /// nothing of this volume. (A body's own policy may still leave its
-    /// volumes whole.)
+    /// nothing of this volume.
     pub fn cuts_in(&self, room: Option<LiveRoomInstance>, carrier: Option<Entity>) -> bool {
         !self.links_in(room).is_empty() || carrier.is_some_and(|carrier| self.straddled_by(carrier).is_some())
     }
@@ -211,18 +215,22 @@ impl PortalPassages {
         room: Option<LiveRoomInstance>,
     ) -> Partition {
         let cut_by = if reaching { partition_reaching } else { partition };
-        let Some(budget) = self.budget_for(owner, room) else {
-            return Ok(vec![VolumePiece::whole(volume.clone())]);
-        };
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        let root_map = owner.and_then(|owner| self.materials.get(&owner)).copied()
+            .unwrap_or(Ok(Sim2::IDENTITY)).map_err(numeric)?;
+        let canonical = ambition_platformer2d_core::frame::thread::map_volume(volume, &root_map.inverse().map_err(numeric)?)
+            .map_err(numeric)?;
+        let source = MaterialPrimitive { domain: &canonical, to_world: root_map };
+        let budget = self.budget_for(owner, room);
         let straddled = owner.and_then(|owner| self.straddled_by(owner));
         let links = self.links_in(room);
         let cut = match straddled {
             Some(link) if !links.contains(&link) => {
                 let mut with: Vec<PortalLink> = links.to_vec();
                 with.push(link);
-                cut_by(volume, root, &with, Some(link.key), budget, self.convention)
+                cut_by(source, root, &with, Some(link.key), budget, self.convention)
             }
-            _ => cut_by(volume, root, links, straddled.map(|l| l.key), budget, self.convention),
+            _ => cut_by(source, root, links, straddled.map(|l| l.key), budget, self.convention),
         };
         cut
     }
@@ -231,6 +239,7 @@ impl PortalPassages {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d_core::frame::thread::VolumePiece;
     use ambition_platformer2d_core::frame::PortalFrame;
     use ambition_platformer2d_core::Aabb;
 
@@ -259,5 +268,30 @@ mod tests {
             let whole = pieces == vec![VolumePiece::whole(volume.clone())];
             assert_eq!(!passages.cuts_in(Some(here), carrier), whole, "{carrier:?}: the predicate and the pieces disagree");
         }
+    }
+}
+
+
+#[cfg(test)]
+mod material_tests {
+    use super::*;
+
+    #[test]
+    fn a_carrier_supplies_material_axes_without_moving_world_geometry() {
+        let body = Entity::from_raw_u32(1).unwrap();
+        let root = Sim2::new(2.0, bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y), Vec2::new(100.0, 200.0)).unwrap();
+        let canonical = CombatVolume::aabb(ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::new(10.0, 20.0)));
+        let world = ambition_platformer2d_core::frame::thread::map_volume(&canonical, &root).unwrap();
+        let mut passages = PortalPassages::default();
+        passages.set_body_material(body, Ok(root));
+        let pieces = passages.pieces(&world, Some(body), Vec2::new(100.0, 200.0), None).unwrap();
+        assert_eq!(pieces.len(), 1);
+        assert_eq!(pieces[0].source(), &canonical);
+        assert!(pieces[0].transform().reflected());
+        assert_eq!(pieces[0].world_volume(), &world);
+        assert_eq!(pieces[0].carry(Vec2::new(103.0, 205.0)).unwrap(), Vec2::new(103.0, 205.0));
+        let independent = passages.pieces(&world, None, Vec2::new(100.0, 200.0), None).unwrap();
+        assert_eq!(independent[0].source(), &world);
+        assert!(!independent[0].transform().reflected());
     }
 }

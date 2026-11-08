@@ -3262,7 +3262,7 @@ fn a_strike_through_two_chained_pairs_hurts_where_the_room_lets_it_reach() {
         let mut passages = ambition_platformer2d_shared_tangle::portal_passages::PortalPassages::new(MapConvention::Reflection);
         passages.add_pair(None, (ap(0.0, 0.0, -1.0), ap(500.0, -200.0, 1.0)));
         passages.add_pair(None, (ap(500.0, -170.0, -1.0), ap(900.0, -200.0, 1.0)));
-        passages.set_budget(None, Some(budget));
+        passages.set_budget(None, budget);
         let mut app = portal_strike_app(Some(passages));
         let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(0.0, -60.0));
         // Its top 10 under the second ceiling.
@@ -3319,17 +3319,16 @@ fn a_ranked_sibling_is_placed_by_its_own_anchor() {
     }
 }
 
-/// A body whose own portal policy moves it whole is hit where it is, and not
-/// at its far end.
+/// A refused body partition gives no false contact at the partner.
 #[test]
-fn a_body_the_portals_move_whole_is_not_hit_at_its_far_end() {
+fn a_refused_body_partition_is_not_hit_at_its_far_end() {
     let mut passages = floor_to_ceiling();
     let (floor, ceiling) = passages.pairs_in(None)[0];
     let mut app = portal_strike_app(None);
     let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -100.0));
     let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
     passages.add_straddler(victim, floor, ceiling);
-    passages.set_body_budget(victim, None);
+    passages.set_body_budget(victim, ae::frame::thread::PieceBudget { max_hops: 0, ..ae::frame::thread::PieceBudget::COMPOSED });
     app.insert_resource(passages);
     strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, -90.0) }, ae::Vec2::splat(5.0));
     app.update();

@@ -28,6 +28,7 @@ pub fn linked_pairs(portals: &[PlacedPortal]) -> Vec<(ae::frame::PortalAperture,
 pub fn publish_portal_apertures(
     portals: Query<(Entity, &PlacedPortal)>,
     transits: Query<(Entity, &PortalTransit)>,
+    bodies: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
     own_policies: Query<(Entity, &PortalPieceBudget)>,
     live: LiveRooms,
     tuning: Option<Res<PortalTuning>>,
@@ -40,6 +41,7 @@ pub fn publish_portal_apertures(
     for (body, own) in &own_policies {
         passages.set_body_budget(body, own.0);
     }
+    write_materials(&mut passages, &bodies);
     let by_room = PortalsByRoom::collect(&portals, &live);
     let mut rings: Vec<(crate::rooms::PortalRoom, Vec<u32>)> = Vec::new();
     for (room, all) in by_room.rooms() {
@@ -49,7 +51,7 @@ pub fn publish_portal_apertures(
         // A ring of pairs (a pair facing itself, two doors in line) cuts a
         // volume in it again and again until the budget stops it: said once,
         // where pieces are composed.
-        if tuning.geometry.budget().is_some_and(|b| b.max_hops > 1) {
+        if tuning.geometry.budget().max_hops > 1 {
             let ring = ae::frame::thread::recursive_links(passages.links_in(room));
             if !ring.is_empty() {
                 if !rings_said.iter().any(|(r, said)| *r == room && *said == ring) {
@@ -71,9 +73,11 @@ pub fn publish_portal_apertures(
 pub fn publish_portal_passages(
     portals: Query<(Entity, &PlacedPortal)>,
     transits: Query<(Entity, &PortalTransit)>,
+    bodies: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
     live: LiveRooms,
     mut passages: ResMut<PortalPassages>,
 ) {
+    write_materials(&mut passages, &bodies);
     let by_room = PortalsByRoom::collect(&portals, &live);
     write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
 }
@@ -90,5 +94,16 @@ fn write_straddlers(
         if let (Some(front), Some(back)) = (
             find_portal(all, transit.straddling), find_portal(all, transit.straddling.partner()),
         ) { passages.add_straddler(body, front.aperture(), back.aperture()); }
+    }
+}
+
+
+fn write_materials(
+    passages: &mut PortalPassages,
+    bodies: &Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
+) {
+    passages.clear_materials();
+    for (body, kin, sweep) in bodies {
+        passages.set_body_material(body, kin.material_map(ae::SweepSample::down_or(sweep, ae::Vec2::Y)));
     }
 }

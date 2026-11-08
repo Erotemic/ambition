@@ -1,6 +1,6 @@
 //! Validated similarities for canonical material and portal charts.
 
-use bevy_math::Mat2;
+use bevy_math::{DMat2, DVec2, Mat2};
 
 use super::{map_vec_between, MapConvention, PortalAperture};
 use crate::Vec2;
@@ -19,24 +19,24 @@ pub enum NumericFault {
 /// A finite, invertible map `scale * orthogonal * point + translation`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sim2 {
-    scale: f32,
-    orthogonal: Mat2,
+    scale: f64,
+    orthogonal: DMat2,
     translation: bevy_math::DVec2,
 }
 
 impl Sim2 {
     pub const IDENTITY: Self = Self {
         scale: 1.0,
-        orthogonal: Mat2::IDENTITY,
+        orthogonal: DMat2::IDENTITY,
         translation: bevy_math::DVec2::ZERO,
     };
 
     /// Both the map and its inverse must fit the coordinate representation.
     pub fn new(scale: f32, orthogonal: Mat2, translation: Vec2) -> Result<Self, NumericFault> {
-        Self::from_wide_translation(scale, orthogonal, translation.as_dvec2())
+        Self::from_wide_translation(f64::from(scale), orthogonal_wide(orthogonal)?, translation.as_dvec2())
     }
 
-    fn from_wide_translation(scale: f32, orthogonal: Mat2, translation: bevy_math::DVec2) -> Result<Self, NumericFault> {
+    fn from_wide_translation(scale: f64, orthogonal: DMat2, translation: bevy_math::DVec2) -> Result<Self, NumericFault> {
         if !scale.is_finite() || !orthogonal.is_finite() || !translation.is_finite() {
             return Err(NumericFault::NonFinite);
         }
@@ -44,13 +44,14 @@ impl Sim2 {
             return Err(NumericFault::InvalidScale);
         }
         let gram = orthogonal.transpose() * orthogonal;
-        let error = (gram.x_axis - Vec2::X)
+        let error = (gram.x_axis - DVec2::X)
             .abs()
-            .max((gram.y_axis - Vec2::Y).abs());
+            .max((gram.y_axis - DVec2::Y).abs());
         if error.max_element() > 2.0e-5 {
             return Err(NumericFault::InvalidFrame);
         }
-        let inverse_scale = narrow_positive(1.0 / f64::from(scale))?;
+        narrow_positive(scale)?;
+        let inverse_scale = narrow_positive(1.0 / scale)?;
         let inverse_translation = -rotate_wide(orthogonal.transpose(), translation);
         if !(inverse_translation * f64::from(inverse_scale)).is_finite() {
             return Err(NumericFault::Overflow);
@@ -86,22 +87,33 @@ impl Sim2 {
                 return Err(NumericFault::InvalidFrame);
             }
         }
-        let scale = narrow_positive(f64::from(exit.half_length) / f64::from(enter.half_length))?;
-        let orthogonal = Mat2::from_cols(
+        let scale = f64::from(exit.half_length) / f64::from(enter.half_length);
+        let orthogonal = orthogonal_wide(Mat2::from_cols(
             map_vec_between(Vec2::X, enter.frame.normal, exit.frame.normal, convention),
             map_vec_between(Vec2::Y, enter.frame.normal, exit.frame.normal, convention),
-        );
-        let offset = rotate_wide(orthogonal, enter.frame.origin.as_dvec2()) * f64::from(scale);
+        ))?;
+        let offset = rotate_wide(orthogonal, enter.frame.origin.as_dvec2()) * scale;
         let translation = exit.frame.origin.as_dvec2() - offset;
         Self::from_wide_translation(scale, orthogonal, translation)
     }
 
     pub fn scale(self) -> f32 {
-        self.scale
+        self.scale as f32
+    }
+
+    pub fn admits_scale_exponent(self, exponent: u8) -> bool {
+        let limit = 2.0_f64.powi(i32::from(exponent));
+        self.scale >= 1.0 / limit && self.scale <= limit
+    }
+
+    pub fn admits_scale_product(self, next: Self, exponent: u8) -> bool {
+        let product = self.scale * next.scale;
+        let limit = 2.0_f64.powi(i32::from(exponent));
+        product >= 1.0 / limit && product <= limit
     }
 
     pub fn orthogonal(self) -> Mat2 {
-        self.orthogonal
+        Mat2::from_cols(self.orthogonal.x_axis.as_vec2(), self.orthogonal.y_axis.as_vec2())
     }
 
     pub fn translation(self) -> bevy_math::DVec2 {
@@ -118,7 +130,7 @@ impl Sim2 {
             return Err(NumericFault::NonFinite);
         }
         narrow_vec(
-            rotate_wide(self.orthogonal, point.as_dvec2()) * f64::from(self.scale)
+            rotate_wide(self.orthogonal, point.as_dvec2()) * self.scale
                 + self.translation,
         )
     }
@@ -127,12 +139,12 @@ impl Sim2 {
         if !vector.is_finite() {
             return Err(NumericFault::NonFinite);
         }
-        narrow_vec(rotate_wide(self.orthogonal, vector.as_dvec2()) * f64::from(self.scale))
+        narrow_vec(rotate_wide(self.orthogonal, vector.as_dvec2()) * self.scale)
     }
 
     /// Unit directions and normalized covectors use only the orthogonal part.
     pub fn direction(self, direction: Vec2) -> Vec2 {
-        self.orthogonal * direction
+        (self.orthogonal * direction.as_dvec2()).as_vec2()
     }
 
     pub fn length(self, length: f32) -> Result<f32, NumericFault> {
@@ -145,20 +157,20 @@ impl Sim2 {
         if length == 0.0 {
             return Ok(0.0);
         }
-        narrow_positive(f64::from(length) * f64::from(self.scale))
+        narrow_positive(f64::from(length) * self.scale)
     }
 
     /// Apply this map first, then `next`.
     pub fn then(self, next: Self) -> Result<Self, NumericFault> {
-        let scale = narrow_positive(f64::from(self.scale) * f64::from(next.scale))?;
-        let translation = rotate_wide(next.orthogonal, self.translation) * f64::from(next.scale) + next.translation;
+        let scale = self.scale * next.scale;
+        let translation = rotate_wide(next.orthogonal, self.translation) * next.scale + next.translation;
         Self::from_wide_translation(scale, next.orthogonal * self.orthogonal, translation)
     }
 
     pub fn inverse(self) -> Result<Self, NumericFault> {
-        let scale = narrow_positive(1.0 / f64::from(self.scale))?;
+        let scale = 1.0 / self.scale;
         let orthogonal = self.orthogonal.transpose();
-        let translation = -rotate_wide(orthogonal, self.translation) / f64::from(self.scale);
+        let translation = -rotate_wide(orthogonal, self.translation) / self.scale;
         Self::from_wide_translation(scale, orthogonal, translation)
     }
 
@@ -187,8 +199,20 @@ impl Sim2 {
     }
 }
 
-fn rotate_wide(orthogonal: Mat2, vector: bevy_math::DVec2) -> bevy_math::DVec2 {
-    orthogonal.x_axis.as_dvec2() * vector.x + orthogonal.y_axis.as_dvec2() * vector.y
+fn rotate_wide(orthogonal: DMat2, vector: DVec2) -> DVec2 {
+    orthogonal * vector
+}
+
+fn orthogonal_wide(matrix: Mat2) -> Result<DMat2, NumericFault> {
+    if !matrix.is_finite() { return Err(NumericFault::NonFinite); }
+    let matrix = DMat2::from_cols(matrix.x_axis.as_dvec2(), matrix.y_axis.as_dvec2());
+    let gram = matrix.transpose() * matrix;
+    if (gram.x_axis - DVec2::X).abs().max((gram.y_axis - DVec2::Y).abs()).max_element() > 2.0e-5 {
+        return Err(NumericFault::InvalidFrame);
+    }
+    let x = matrix.x_axis.normalize();
+    let parity = matrix.determinant().signum();
+    Ok(DMat2::from_cols(x, DVec2::new(-x.y, x.x) * parity))
 }
 
 fn narrow_vec(value: bevy_math::DVec2) -> Result<Vec2, NumericFault> {
@@ -226,6 +250,16 @@ mod tests {
             frame: PortalFrame::fixed(at, normal),
             half_length,
         }
+    }
+
+    #[test]
+    fn repeated_turns_keep_an_invertible_orthogonal_frame() {
+        let turn = Sim2::new(1.0, Mat2::from_angle(0.37), Vec2::ZERO).unwrap();
+        let mut composed = Sim2::IDENTITY;
+        for _ in 0..100_000 { composed = composed.then(turn).unwrap(); }
+        let point = Vec2::new(7.0, 13.0);
+        assert!((composed.vector(point).unwrap().length() - point.length()).abs() < 0.00001);
+        assert!((composed.then(composed.inverse().unwrap()).unwrap().point(point).unwrap() - point).length() < 0.00001);
     }
 
     #[test]

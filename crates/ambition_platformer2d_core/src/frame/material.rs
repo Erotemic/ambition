@@ -20,8 +20,8 @@ impl BodyMaterial {
     pub const IDENTITY: Self = Self { scale: 1.0, orthogonal: Mat2::IDENTITY };
 
     pub fn new(scale: f32, orthogonal: Mat2) -> Result<Self, NumericFault> {
-        Sim2::new(scale, orthogonal, Vec2::ZERO)?;
-        Ok(Self { scale, orthogonal })
+        let map = Sim2::new(scale, orthogonal, Vec2::ZERO)?;
+        Ok(Self { scale, orthogonal: map.orthogonal() })
     }
 
     pub fn scale(self) -> f32 { self.scale }

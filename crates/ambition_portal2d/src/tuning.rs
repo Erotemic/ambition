@@ -50,27 +50,21 @@ impl PortalConvention {
 /// (`PortalPieceBudget`).
 #[derive(Clone, Copy, Debug, Default, Reflect, PartialEq, Eq)]
 pub enum PortalGeometry {
-    /// A body is in one place: moved whole at the crossing, meeting one side.
-    /// No pieces: strikes and hurtboxes are whole, nothing is glued, the
-    /// picture is not cut.
-    TransferOnly,
-    /// A body is in two places through one pair at a time: what went
-    /// through one pair is not cut by another.
+    /// A path can cross one pair. Refuse an operation that needs another cut.
     #[default]
     SingleHop,
-    /// Through pairs one after another (a chain), up to `max_hops`, and at
-    /// most `max_pieces` pieces; past that an opening is solid to the piece.
-    Composed { max_hops: u8, max_pieces: u16 },
+    /// Limit path length, part count and cumulative scale.
+    /// Refuse an operation that exceeds a limit.
+    Composed { max_hops: u8, max_pieces: u16, max_scale_exponent: u8 },
 }
 
 impl PortalGeometry {
-    /// How far a volume is cut, `None` for not at all.
-    pub fn budget(self) -> Option<ambition_platformer2d_core::frame::thread::PieceBudget> {
+    /// The complete material budget for this policy.
+    pub fn budget(self) -> ambition_platformer2d_core::frame::thread::PieceBudget {
         use ambition_platformer2d_core::frame::thread::PieceBudget;
         match self {
-            Self::TransferOnly => None,
-            Self::SingleHop => Some(PieceBudget::SINGLE_HOP),
-            Self::Composed { max_hops, max_pieces } => Some(PieceBudget { max_hops, max_pieces }),
+            Self::SingleHop => PieceBudget::SINGLE_HOP,
+            Self::Composed { max_hops, max_pieces, max_scale_exponent } => PieceBudget { max_scale_exponent, max_hops, max_pieces },
         }
     }
 }

@@ -819,7 +819,7 @@ pub fn strike_pieces(
 ) -> ambition_platformer2d_core::frame::thread::Partition {
     let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
     let volume = hitbox.world_volume(owner_pos);
-    match passages.filter(|p| p.cuts_in(room, carrier)) {
+    match passages {
         Some(p) if carrier.is_some() => p.pieces_reaching(&volume, carrier, owner_pos, room),
         Some(p) => p.pieces(&volume, carrier, spatial_source_of(hitbox, owner_pos), room),
         None => Ok(vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)]),
@@ -836,7 +836,7 @@ pub fn hurt_pieces_of(
     passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> ambition_platformer2d_core::frame::thread::Partition {
-    match passages.filter(|p| p.cuts_in(room, Some(body))) {
+    match passages {
         Some(passages) => {
             let mut pieces = Vec::new();
             for part in &parts { pieces.extend(passages.pieces(part, Some(body), center, room)?); }
@@ -1274,7 +1274,7 @@ pub fn apply_hitbox_damage(
                 };
                 // The strike's own chart into the victim's own: through the pair
                 // the strike piece was carried by, back through the victim's.
-                let Ok(into_victim) = victim_piece.transform().inverse().and_then(|back| strike_piece.transform().then(back)) else { continue; };
+                let Ok(into_victim) = victim_piece.path_transform().and_then(|map| map.inverse()).and_then(|back| strike_piece.path_transform()?.then(back)) else { continue; };
                 let Ok(from_victim) = into_victim.inverse() else { continue; };
                 let through = strike_piece.is_carried() || victim_piece.is_carried();
                 // Where they touch: in the chart they meet in.

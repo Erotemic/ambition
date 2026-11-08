@@ -30,7 +30,7 @@ fn an_isolated_rotated_pair_cuts_a_translated_body_once() {
             let volume = CombatVolume::convex(box_corners(crate::Aabb::new(center, Vec2::splat(24.0))).to_vec());
             for convention in [MapConvention::Reflection, MapConvention::Rotation] {
                 for budget in [PieceBudget::SINGLE_HOP, PieceBudget::COMPOSED] {
-                    let cut = partition(&volume, root, &links(&[pair]), Some(0), budget, convention)
+                    let cut = partition(crate::frame::thread::MaterialPrimitive::world(&volume), root, &links(&[pair]), Some(0), budget, convention)
                         .unwrap_or_else(|reason| panic!("center={center:?}, degree={degree}, convention={convention:?}, budget={budget:?}: {reason:?}"));
                     assert!(
                         cut.len() == 2
@@ -76,7 +76,7 @@ fn thread_volume(
     pairs: &[(PortalAperture, PortalAperture)],
     convention: MapConvention,
 ) -> Vec<VolumePiece> {
-    partition(volume, root, &links(pairs), None, PieceBudget::SINGLE_HOP, convention).unwrap()
+    partition(crate::frame::thread::MaterialPrimitive::world(volume), root, &links(pairs), None, PieceBudget::SINGLE_HOP, convention).unwrap()
 }
 
 fn links(pairs: &[(PortalAperture, PortalAperture)]) -> Vec<PortalLink> {
@@ -134,7 +134,7 @@ fn a_volume_across_an_end_keeps_its_part_beside_the_opening() {
     assert!(!hits(&pieces, Vec2::new(30.0, 15.0)));
     // Reaching from the same root, the root sees part of what is past the end
     // through the opening (the wedge through the right end is x = 40 + y·4/3).
-    let reached = partition_reaching(&wide, ABOVE, &links(&[floor_pair()]), None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
+    let reached = partition_reaching(crate::frame::thread::MaterialPrimitive::world(&wide), ABOVE, &links(&[floor_pair()]), None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
     let at = |p: Vec2| reached.iter().any(|piece| piece.meets(&victim_small(p)));
     assert!(at(Vec2::new(58.0, 3.0)), "outside the wedge: beside, here");
     assert!(!at(Vec2::new(52.0, 15.0)), "in the wedge: through, not here");
@@ -151,7 +151,7 @@ fn a_swing_goes_through_in_the_wedge_from_its_root() {
     // (x = ±40·(1 + y/20)), so at 10 deep it spans ±60.
     let shoulder = Vec2::new(0.0, -20.0);
     let slash = boxed(Vec2::new(0.0, 5.0), Vec2::new(60.0, 15.0));
-    let pieces = partition_reaching(&slash, shoulder, &links(&[floor_pair()]), None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
+    let pieces = partition_reaching(crate::frame::thread::MaterialPrimitive::world(&slash), shoulder, &links(&[floor_pair()]), None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
     let at = |p: Vec2| pieces.iter().any(|piece| piece.meets(&victim_small(p)));
     let through = pieces.iter().find(|p| p.is_carried()).expect("a part goes through");
     // 10 deep and 55 to the side: past the end, in the wedge. It comes out
@@ -322,7 +322,7 @@ fn a_body_across_four_pairs_has_a_piece_through_each() {
         })
         .collect();
     let giant = boxed(Vec2::new(150.0, 10.0), Vec2::new(200.0, 20.0));
-    let p = partition(&giant, Vec2::new(150.0, -50.0), &links(&pairs), None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+    let p = partition(crate::frame::thread::MaterialPrimitive::world(&giant), Vec2::new(150.0, -50.0), &links(&pairs), None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
     assert_tiles(&giant, &p);
     let carried: Vec<_> = p.iter().filter(|p| p.is_carried()).collect();
     assert_eq!(carried.len(), 4, "{:#?}", p);
@@ -346,7 +346,7 @@ fn a_piece_through_two_pairs_is_in_the_chart_of_both() {
     // 150 deep: 100 of it comes out of B down to C, and 50 through C.
     let arm = boxed(Vec2::new(0.0, 75.0), Vec2::new(10.0, 75.0));
     let all = links(&[(a, b), (c, d)]);
-    let p = partition(&arm, Vec2::new(0.0, -10.0), &all, None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+    let p = partition(crate::frame::thread::MaterialPrimitive::world(&arm), Vec2::new(0.0, -10.0), &all, None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
     assert_tiles(&arm, &p);
     let deepest = p.iter().max_by_key(|p| p.path.len()).unwrap();
     assert_eq!(deepest.path, vec![0, 2]);
@@ -358,7 +358,7 @@ fn a_piece_through_two_pairs_is_in_the_chart_of_both() {
     assert!(!hits(&p, Vec2::new(900.0, -200.0 + 56.0)));
     assert!(!hits(&p, Vec2::new(500.0, -100.0 + 20.0)), "nothing in C's floor");
     assert!(hits(&p, Vec2::new(500.0, -100.0 - 10.0)), "between B and C");
-    let one = partition(&arm, Vec2::new(0.0, -10.0), &all, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection);
+    let one = partition(crate::frame::thread::MaterialPrimitive::world(&arm), Vec2::new(0.0, -10.0), &all, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection);
     assert_eq!(one.unwrap_err(), Refusal { path: vec![0], link: Some(2), reason: RefusalReason::HopLimit });
 }
 
@@ -392,7 +392,7 @@ fn the_order_links_are_given_in_does_not_change_the_pieces() {
     let mut shuffled = all.clone();
     shuffled.rotate_left(2);
     let body = boxed(Vec2::new(60.0, 0.0), Vec2::new(90.0, 30.0));
-    let at = |links: &[PortalLink]| partition(&body, Vec2::new(60.0, -40.0), links, None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+    let at = |links: &[PortalLink]| partition(crate::frame::thread::MaterialPrimitive::world(&body), Vec2::new(60.0, -40.0), links, None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
     assert_eq!(at(&all), at(&reversed));
     assert_eq!(at(&all), at(&shuffled));
 }
@@ -420,8 +420,8 @@ fn a_pair_facing_itself_stops_at_its_budget() {
     // 4000 deep: twenty times round.
     let pole = boxed(Vec2::new(0.0, 1990.0), Vec2::new(5.0, 2000.0));
     let all = links(&[(floor, ceiling)]);
-    for budget in [PieceBudget::SINGLE_HOP, PieceBudget::COMPOSED, PieceBudget { max_hops: 50, max_pieces: 12 }] {
-        let refusal = partition(&pole, Vec2::new(0.0, -10.0), &all, None, budget, MapConvention::Reflection).unwrap_err();
+    for budget in [PieceBudget::SINGLE_HOP, PieceBudget::COMPOSED, PieceBudget { max_scale_exponent: 12, max_hops: 50, max_pieces: 12 }] {
+        let refusal = partition(crate::frame::thread::MaterialPrimitive::world(&pole), Vec2::new(0.0, -10.0), &all, None, budget, MapConvention::Reflection).unwrap_err();
         assert!(matches!(refusal.reason, RefusalReason::HopLimit | RefusalReason::PieceLimit | RefusalReason::WorkLimit));
         assert!(refusal.path.len() <= usize::from(budget.max_hops));
         assert!(refusal.path.iter().all(|key| *key == 0));
@@ -434,9 +434,9 @@ fn the_pair_a_body_straddles_cuts_it_first_whatever_side_its_centre_is_on() {
     let body = boxed(Vec2::new(0.0, 0.0), Vec2::splat(12.0));
     let all = links(&[pair]);
     // Its centre on the plane: from neither side.
-    let free = partition(&body, Vec2::ZERO, &all, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
+    let free = partition(crate::frame::thread::MaterialPrimitive::world(&body), Vec2::ZERO, &all, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
     assert_eq!(free.len(), 1);
-    let straddling = partition(&body, Vec2::ZERO, &all, Some(0), PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
+    let straddling = partition(crate::frame::thread::MaterialPrimitive::world(&body), Vec2::ZERO, &all, Some(0), PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
     assert_eq!(straddling.len(), 2);
     assert_tiles(&body, &straddling);
 }
@@ -450,7 +450,7 @@ fn partition_cost() {
         let start = std::time::Instant::now();
         let mut pieces = 0;
         for _ in 0..n {
-            pieces += std::hint::black_box(partition(volume, root, links, first, budget, MapConvention::Reflection)).map_or(0, |parts| parts.len());
+            pieces += std::hint::black_box(partition(crate::frame::thread::MaterialPrimitive::world(volume), root, links, first, budget, MapConvention::Reflection)).map_or(0, |parts| parts.len());
         }
         let per = start.elapsed().as_secs_f64() / n as f64 * 1e6;
         println!("{name:<32} {per:>8.2} µs  ({} pieces)", pieces / n);
@@ -480,7 +480,7 @@ fn a_link_that_goes_so_deep_keeps_what_is_deeper_where_it_is() {
     let (floor, ceiling) = floor_pair();
     let link = PortalLink { enter: floor, exit: ceiling, key: 0, depth: Some(25.0) };
     let picture = boxed(Vec2::new(0.0, 20.0), Vec2::new(20.0, 40.0));
-    let p = partition(&picture, ABOVE, &[link], Some(0), PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
+    let p = partition(crate::frame::thread::MaterialPrimitive::world(&picture), ABOVE, &[link], Some(0), PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
     assert_tiles(&picture, &p);
     // 25 out of the ceiling, and no more.
     assert!(hits(&p, Vec2::new(500.0, -200.0 + 20.0)));
@@ -496,8 +496,8 @@ fn a_partition_is_never_larger_than_its_budget() {
     let (floor, ceiling) = floor_pair();
     let link = PortalLink { enter: floor, exit: ceiling, key: 0, depth: Some(25.0) };
     let picture = boxed(Vec2::new(0.0, 20.0), Vec2::new(60.0, 40.0));
-    let cut = |max_pieces| partition(&picture, ABOVE, &[link], Some(0),
-        PieceBudget { max_hops: 1, max_pieces }, MapConvention::Reflection);
+    let cut = |max_pieces| partition(crate::frame::thread::MaterialPrimitive::world(&picture), ABOVE, &[link], Some(0),
+        PieceBudget { max_scale_exponent: 12, max_hops: 1, max_pieces }, MapConvention::Reflection);
     let free = cut(16).unwrap();
     assert_eq!(free.len(), 5);
     assert_tiles(&picture, &free);
@@ -511,8 +511,8 @@ fn a_partition_is_never_larger_than_its_budget() {
     }).collect();
     let giant = boxed(Vec2::new(150.0, 10.0), Vec2::new(200.0, 40.0));
     for max_pieces in 0..=24 {
-        match partition(&giant, Vec2::new(150.0, -50.0), &four, None,
-            PieceBudget { max_hops: 4, max_pieces }, MapConvention::Reflection) {
+        match partition(crate::frame::thread::MaterialPrimitive::world(&giant), Vec2::new(150.0, -50.0), &four, None,
+            PieceBudget { max_scale_exponent: 12, max_hops: 4, max_pieces }, MapConvention::Reflection) {
             Ok(parts) => {
                 assert!(parts.len() <= usize::from(max_pieces));
                 assert_tiles(&giant, &parts);
@@ -555,7 +555,7 @@ fn unequal_apertures_preserve_source_material_and_scale_world_area() {
         exit.half_length *= ratio;
         let volume = boxed(Vec2::new(0.0, 5.0), Vec2::new(10.0, 20.0));
         for convention in [MapConvention::Reflection, MapConvention::Rotation] {
-            let parts = partition(&volume, ABOVE, &links(&[(enter, exit)]), None, PieceBudget::COMPOSED, convention).unwrap();
+            let parts = partition(crate::frame::thread::MaterialPrimitive::world(&volume), ABOVE, &links(&[(enter, exit)]), None, PieceBudget::COMPOSED, convention).unwrap();
             assert_tiles(&volume, &parts);
             for piece in &parts {
                 let source = piece.source_region().unwrap();
@@ -573,9 +573,51 @@ fn scaled_circle_parts_keep_their_analytic_radius() {
     let (enter, mut exit) = floor_pair();
     exit.half_length *= 0.5;
     let ball = CombatVolume::circle(Vec2::ZERO, 20.0);
-    let parts = partition(&ball, ABOVE, &links(&[(enter, exit)]), None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+    let parts = partition(crate::frame::thread::MaterialPrimitive::world(&ball), ABOVE, &links(&[(enter, exit)]), None, PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
     let through = parts.iter().find(|part| part.is_carried()).unwrap();
     assert!(matches!(through.world_volume(), CombatVolume::Circle { radius, .. } if (*radius - 10.0).abs() < 1.0e-5));
     assert!(!through.meets(&victim_small(Vec2::new(509.0, -191.0))));
     assert!(through.meets(&victim_small(Vec2::new(500.0, -195.0))));
+}
+
+#[test]
+fn canonical_parts_include_root_parity_and_keep_world_geometry_on_rebase() {
+    let domain = boxed(Vec2::ZERO, Vec2::new(10.0, 20.0));
+    let root = Sim2::new(2.0, bevy_math::Mat2::from_cols(-Vec2::X, Vec2::Y), Vec2::new(0.0, -5.0)).unwrap();
+    let (enter, mut exit) = floor_pair();
+    exit.half_length *= 0.5;
+    let link = PortalLink::both_ways(0, (enter, exit))[0];
+    let parts = partition(MaterialPrimitive { domain: &domain, to_world: root },
+        root.point(Vec2::ZERO).unwrap(), &[link], Some(link.key), PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+    assert_eq!(parts.len(), 2);
+    let canonical_area: f32 = parts.iter().map(|part| area(&part.source_region().unwrap())).sum();
+    assert!((canonical_area - area(&domain.polygon().unwrap())).abs() < 0.001);
+    for part in parts {
+        assert_eq!(part.source(), &domain);
+        assert_eq!(part.transform().reflected(), !part.is_carried());
+        let world = part.region().unwrap();
+        let before_path = part.is_carried();
+        let rebased = part.rebased_through(&link, MapConvention::Reflection).unwrap();
+        assert_eq!(rebased.region().unwrap(), world);
+        assert_eq!(rebased.transform(), part.transform());
+        assert_ne!(rebased.is_carried(), before_path);
+        let canonical = part.source_region().unwrap()[0];
+        let new_root = root.then(link.map(MapConvention::Reflection).unwrap()).unwrap().point(canonical).unwrap();
+        assert!((rebased.carry(new_root).unwrap() - part.transform().point(canonical).unwrap()).length() < 0.001);
+    }
+}
+
+#[test]
+fn cumulative_scale_refuses_by_policy_before_a_numeric_fault() {
+    for (root_scale, ratio) in [(4.0, 2.0), (0.25, 0.5)] {
+        let domain = boxed(Vec2::ZERO, Vec2::splat(10.0));
+        let root = Sim2::new(root_scale, bevy_math::Mat2::IDENTITY, Vec2::new(0.0, -1.0)).unwrap();
+        let (enter, mut exit) = floor_pair();
+        exit.half_length *= ratio;
+        let budget = PieceBudget { max_scale_exponent: 2, ..PieceBudget::COMPOSED };
+        let refusal = partition(MaterialPrimitive { domain: &domain, to_world: root },
+            root.point(Vec2::ZERO).unwrap(), &links(&[(enter, exit)]), Some(0), budget, MapConvention::Reflection).unwrap_err();
+        assert_eq!(refusal.reason, RefusalReason::ScaleLimit);
+        assert_eq!(refusal.link, Some(0));
+    }
 }

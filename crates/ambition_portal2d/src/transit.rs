@@ -196,7 +196,7 @@ pub fn publish_portal_carves(
     // The record of a body's last step has its DOWN: the core has no frame
     // of a body, and it asks the box the body has.
     bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>, Option<&PortalBackside>)>,
-    transits: Query<(Entity, &PortalTransit, Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPieceBudget>)>,
+    transits: Query<(Entity, &PortalTransit)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     tuning: Option<Res<PortalTuning>>,
@@ -207,7 +207,6 @@ pub fn publish_portal_carves(
     carves.glues.clear();
     let dt = time.map_or(0.0, |time| time.get());
     let convention = tuning.as_deref().map(|t| t.convention.map_convention()).unwrap_or_default();
-    let geometry = tuning.as_deref().map(|t| t.geometry).unwrap_or_default();
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {
         return;
@@ -244,17 +243,10 @@ pub fn publish_portal_carves(
     // stay open through the crossing, in the straddling body's room. With
     // only the end it entered open, a body the pair took this tick and that
     // moves later in the tick (a shot) met the closed exit's wall.
-    for (body_entity, t, own) in &transits {
+    for (body_entity, t) in &transits {
         let room = live.of(body_entity);
         carve(room, t.straddling, body_entity, &mut carves);
         carve(room, t.straddling.partner(), body_entity, &mut carves);
-        // And it meets the far side: behind the end its centre is in front
-        // of, as deep as a hole is, is what is in front of the other. A body
-        // the portals move whole (`PortalGeometry::TransferOnly`, its own or
-        // the game's) meets only its own side.
-        if own.map_or(geometry.budget(), |own| own.0).is_none() {
-            continue;
-        }
         let all = by_room.in_room(room);
         if let (Some(front), Some(back)) = (find_portal(all, t.straddling), find_portal(all, t.straddling.partner())) {
             let glue = ambition_platformer2d_shared_tangle::feature_overlay::PortalGlue {

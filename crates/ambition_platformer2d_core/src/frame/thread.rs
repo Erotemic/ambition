@@ -115,6 +115,8 @@ impl PortalLink {
 /// the body (`docs/planning/engine/portals-a-body-in-two-places.md`, Policy).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PieceBudget {
+    /// The cumulative scale stays in [2^-exponent, 2^exponent].
+    pub max_scale_exponent: u8,
     /// Pairs a piece may be carried through, one after another.
     pub max_hops: u8,
     /// Refuse a candidate that needs more parts. Zero admits no partition.
@@ -123,10 +125,24 @@ pub struct PieceBudget {
 
 impl PieceBudget {
     /// One pair: a piece carried through a pair is not cut again.
-    pub const SINGLE_HOP: Self = Self { max_hops: 1, max_pieces: 16 };
+    pub const SINGLE_HOP: Self = Self { max_hops: 1, max_pieces: 16, max_scale_exponent: 12 };
     /// Pairs in sequence and side by side: a chain of four, a body across a
     /// handful.
-    pub const COMPOSED: Self = Self { max_hops: 4, max_pieces: 32 };
+    pub const COMPOSED: Self = Self { max_hops: 4, max_pieces: 32, max_scale_exponent: 12 };
+}
+
+/// A canonical primitive and its root placement in the world.
+#[derive(Clone, Copy)]
+pub struct MaterialPrimitive<'a> {
+    pub domain: &'a CombatVolume,
+    pub to_world: Sim2,
+}
+
+impl<'a> MaterialPrimitive<'a> {
+    /// World-authored effects use the world itself as their source chart.
+    pub fn world(domain: &'a CombatVolume) -> Self {
+        Self { domain, to_world: Sim2::IDENTITY }
+    }
 }
 
 /// Canonical material in one chart. World geometry is a private projection.
@@ -135,6 +151,7 @@ pub struct VolumePiece {
     source: Arc<CombatVolume>,
     source_bounds: Vec<HalfPlane>,
     to_piece: Sim2,
+    root_map: Sim2,
     volume: CombatVolume,
     bounds: Vec<HalfPlane>,
     pub path: Vec<u32>,
@@ -144,22 +161,44 @@ impl VolumePiece {
     pub fn whole(volume: CombatVolume) -> Self {
         Self {
             source: Arc::new(volume.clone()), source_bounds: Vec::new(),
-            to_piece: Sim2::IDENTITY, volume, bounds: Vec::new(), path: Vec::new(),
+            to_piece: Sim2::IDENTITY, root_map: Sim2::IDENTITY, volume, bounds: Vec::new(), path: Vec::new(),
         }
+    }
+
+    pub fn from_material(source: MaterialPrimitive<'_>) -> Result<Self, NumericFault> {
+        Self::projected(Arc::new(source.domain.clone()), Vec::new(), source.to_world, source.to_world, Vec::new())
+    }
+
+    /// Change the root chart while each material region stays in place.
+    pub fn rebased_through(&self, link: &PortalLink, convention: MapConvention) -> Result<Self, NumericFault> {
+        let mut rebased = self.clone();
+        rebased.root_map = self.root_map.then(link.map(convention)?)?;
+        if rebased.path.first() == Some(&link.key) {
+            rebased.path.remove(0);
+        } else {
+            rebased.path.insert(0, link.key ^ 1);
+        }
+        Ok(rebased)
     }
 
     pub fn source(&self) -> &CombatVolume { &self.source }
     pub fn source_bounds(&self) -> &[HalfPlane] { &self.source_bounds }
     pub fn transform(&self) -> Sim2 { self.to_piece }
+    pub fn path_transform(&self) -> Result<Sim2, NumericFault> {
+        self.root_map.inverse()?.then(self.to_piece)
+    }
+    pub fn root_bounds(&self) -> Result<Vec<HalfPlane>, NumericFault> {
+        self.source_bounds.iter().map(|plane| plane.mapped(&self.root_map)).collect()
+    }
     pub fn world_volume(&self) -> &CombatVolume { &self.volume }
     pub fn world_bounds(&self) -> &[HalfPlane] { &self.bounds }
     pub fn is_carried(&self) -> bool { !self.path.is_empty() }
 
-    /// Callers use points and vectors from the admitted source domain.
-    pub fn carry(&self, p: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.point(p) }
-    pub fn carry_dir(&self, v: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.vector(v) }
-    pub fn uncarry(&self, p: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.inverse()?.point(p) }
-    pub fn uncarry_dir(&self, v: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.inverse()?.vector(v) }
+    /// Points and vectors from a producer use its root world chart.
+    pub fn carry(&self, p: Vec2) -> Result<Vec2, NumericFault> { self.path_transform()?.point(p) }
+    pub fn carry_dir(&self, v: Vec2) -> Result<Vec2, NumericFault> { self.path_transform()?.vector(v) }
+    pub fn uncarry(&self, p: Vec2) -> Result<Vec2, NumericFault> { self.path_transform()?.inverse()?.point(p) }
+    pub fn uncarry_dir(&self, v: Vec2) -> Result<Vec2, NumericFault> { self.path_transform()?.inverse()?.vector(v) }
 
     pub fn is_empty(&self) -> bool {
         !self.source_bounds.is_empty() && !holds(&self.source, self.source_bounds.iter().copied())
@@ -172,7 +211,7 @@ impl VolumePiece {
     }
 
     pub fn region(&self) -> Option<Vec<Vec2>> {
-        self.source_region()?.into_iter().map(|p| self.carry(p)).collect::<Result<Vec<_>, _>>().ok()
+        self.source_region()?.into_iter().map(|p| self.to_piece.point(p)).collect::<Result<Vec<_>, _>>().ok()
     }
 
     pub fn center(&self) -> Vec2 {
@@ -220,24 +259,24 @@ impl VolumePiece {
     }
 
     fn projected(
-        source: Arc<CombatVolume>, source_bounds: Vec<HalfPlane>, to_piece: Sim2, path: Vec<u32>,
+        source: Arc<CombatVolume>, source_bounds: Vec<HalfPlane>, to_piece: Sim2, root_map: Sim2, path: Vec<u32>,
     ) -> Result<Self, NumericFault> {
         let volume = map_volume(&source, &to_piece)?;
         let bounds = source_bounds.iter().map(|plane| plane.mapped(&to_piece)).collect::<Result<Vec<_>, _>>()?;
-        Ok(Self { source, source_bounds, to_piece, volume, bounds, path })
+        Ok(Self { source, source_bounds, to_piece, root_map, volume, bounds, path })
     }
 
     fn bounded(&self, more: &[HalfPlane]) -> Result<Self, NumericFault> {
         let inverse = self.to_piece.inverse()?;
         let mut source_bounds = self.source_bounds.clone();
         source_bounds.extend(more.iter().map(|plane| plane.mapped(&inverse)).collect::<Result<Vec<_>, _>>()?);
-        Self::projected(self.source.clone(), source_bounds, self.to_piece, self.path.clone())
+        Self::projected(self.source.clone(), source_bounds, self.to_piece, self.root_map, self.path.clone())
     }
 
     fn carried(&self, map: Sim2, link: u32) -> Result<Self, NumericFault> {
         let mut path = self.path.clone();
         path.push(link);
-        Self::projected(self.source.clone(), self.source_bounds.clone(), self.to_piece.then(map)?, path)
+        Self::projected(self.source.clone(), self.source_bounds.clone(), self.to_piece.then(map)?, self.root_map, path)
     }
 }
 
@@ -409,6 +448,7 @@ pub enum RefusalReason {
     HopLimit,
     PieceLimit,
     WorkLimit,
+    ScaleLimit,
     Numeric(NumericFault),
 }
 
@@ -424,28 +464,31 @@ pub type Partition = Result<Vec<VolumePiece>, Refusal>;
 
 /// Admit a complete material partition, or refuse the source operation.
 pub fn partition(
-    volume: &CombatVolume, root: Vec2, links: &[PortalLink], first: Option<u32>,
+    source: MaterialPrimitive<'_>, root: Vec2, links: &[PortalLink], first: Option<u32>,
     budget: PieceBudget, convention: MapConvention,
 ) -> Partition {
-    partition_from(volume, root, false, links, first, budget, convention)
+    partition_from(source, root, false, links, first, budget, convention)
 }
 
 /// Reaching uses the wedge from the owner through the aperture endpoints.
 pub fn partition_reaching(
-    volume: &CombatVolume, root: Vec2, links: &[PortalLink], first: Option<u32>,
+    source: MaterialPrimitive<'_>, root: Vec2, links: &[PortalLink], first: Option<u32>,
     budget: PieceBudget, convention: MapConvention,
 ) -> Partition {
-    partition_from(volume, root, true, links, first, budget, convention)
+    partition_from(source, root, true, links, first, budget, convention)
 }
 
 fn partition_from(
-    volume: &CombatVolume, root: Vec2, reaching: bool, links: &[PortalLink], first: Option<u32>,
+    source: MaterialPrimitive<'_>, root: Vec2, reaching: bool, links: &[PortalLink], first: Option<u32>,
     budget: PieceBudget, convention: MapConvention,
 ) -> Partition {
     let initial = |reason| Refusal { path: Vec::new(), link: None, reason };
     if budget.max_pieces == 0 { return Err(initial(RefusalReason::PieceLimit)); }
     if !root.is_finite() { return Err(initial(RefusalReason::Numeric(NumericFault::NonFinite))); }
-    map_volume(volume, &Sim2::IDENTITY).map_err(|fault| initial(RefusalReason::Numeric(fault)))?;
+    if !source.to_world.admits_scale_exponent(budget.max_scale_exponent) {
+        return Err(initial(RefusalReason::ScaleLimit));
+    }
+    let whole = VolumePiece::from_material(source).map_err(|fault| initial(RefusalReason::Numeric(fault)))?;
     for link in links {
         link.map(convention).map_err(|fault| Refusal {
             path: Vec::new(), link: Some(link.key), reason: RefusalReason::Numeric(fault),
@@ -453,7 +496,7 @@ fn partition_from(
     }
     let mut work = WORK.take();
     work.clear();
-    work.push_back((VolumePiece::whole(volume.clone()), root));
+    work.push_back((whole, root));
     let result = (|| {
         let mut out = Vec::new();
         let mut steps = 0usize;
@@ -475,11 +518,14 @@ fn partition_from(
             let refusal = |reason| Refusal { path: piece.path.clone(), link: Some(link.key), reason };
             if steps > step_limit { return Err(refusal(RefusalReason::WorkLimit)); }
             if piece.path.len() >= usize::from(budget.max_hops) { return Err(refusal(RefusalReason::HopLimit)); }
+            let map = link.map(convention).map_err(|fault| refusal(RefusalReason::Numeric(fault)))?;
+            if !piece.to_piece.admits_scale_product(map, budget.max_scale_exponent) {
+                return Err(refusal(RefusalReason::ScaleLimit));
+            }
             let parts = cut_by(&piece, reach, link, convention).map_err(|fault| refusal(RefusalReason::Numeric(fault)))?;
             if out.len() + work.len() + parts.len() > usize::from(budget.max_pieces) {
                 return Err(refusal(RefusalReason::PieceLimit));
             }
-            let map = link.map(convention).map_err(|fault| refusal(RefusalReason::Numeric(fault)))?;
             let local = link.enter.frame.to_local(root);
             let along = map.direction(link.enter.frame.tangent()).dot(link.exit.frame.tangent()) * map.scale();
             let exit_root = link.exit.frame.from_local(Vec2::new((local.x * along).clamp(-link.exit.half_length, link.exit.half_length), 0.0));
@@ -508,7 +554,7 @@ impl MotionAdmission<'_> {
     /// Validate both occupancy and the complete translated collision sweep.
     pub fn admit(&self, from: crate::Aabb, to: crate::Aabb) -> Result<(), Refusal> {
         let source = CombatVolume::aabb(to);
-        partition(&source, from.center(), self.links, self.first, self.budget, self.convention)?;
+        partition(crate::frame::thread::MaterialPrimitive::world(&source), from.center(), self.links, self.first, self.budget, self.convention)?;
         let mut points = box_corners(from).into_iter().chain(box_corners(to)).collect::<Vec<_>>();
         if points.iter().any(|p| !p.is_finite()) {
             return Err(Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(NumericFault::NonFinite) });
@@ -533,7 +579,7 @@ impl MotionAdmission<'_> {
         let mut upper = chain(&points);
         lower.pop(); upper.pop(); lower.extend(upper);
         if lower.len() >= 3 {
-            partition(&CombatVolume::convex(lower), from.center(), self.links, self.first, self.budget, self.convention)?;
+            partition(crate::frame::thread::MaterialPrimitive::world(&CombatVolume::convex(lower)), from.center(), self.links, self.first, self.budget, self.convention)?;
         }
         Ok(())
     }

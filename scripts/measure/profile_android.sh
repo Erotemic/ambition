@@ -30,6 +30,8 @@ adb_bin="${ADB:-adb}"
 serial=""
 launch_mode="auto"
 launch_env=()
+smash_autoplay=""
+launch_env_pending="no"
 warmup_seconds="0"
 device_perf="/data/local/tmp/ambition.simpleperf.data"
 device_heap_trace="/data/misc/perfetto-traces/ambition.heap.${stamp}.perfetto-trace"
@@ -67,6 +69,13 @@ Common one-command workflows:
   # Symbol-friendly build/install, then profile. This is the default recommendation.
   scripts/measure/profile_android.sh all --profile-build --duration 30
 
+  # Four CPU Smash fighters, one-shot CLI autoplay (normal APK play stays available):
+  scripts/measure/profile_android.sh all --profile-build --launch \
+    --launch-env AMBITION_BOOT_ROUTE=smash_select \
+    --launch-env AMBITION_AUTOPLAY=smash_4p \
+    --warmup 35 --duration 60 --name "smash-4cpu-$(date -u +%Y%m%dT%H%M%SZ)"
+  # Short form: scripts/measure/autoprofile_android.sh smash_4p
+
   # App is already running in the slow state; do not relaunch.
   scripts/measure/profile_android.sh all --no-launch --duration 30
 
@@ -102,7 +111,8 @@ Options:
                           AMBITION_AUTOPLAY=mary_o. Written to the app's launch_env
                           file before launch; the app adopts and deletes it at
                           startup, so the next launch from the icon is the plain game.
-                          The app is stopped after the capture.
+                          The app is stopped after the capture. Smash profiles
+                          wait for a LIVE CPU match before recording.
   --device-perf PATH      Device-side perf.data path. Default: /data/local/tmp/ambition.simpleperf.data.
   --device-heap-trace PATH
                            Device-side Perfetto heap trace path.
@@ -240,6 +250,14 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# The Android Smash driver must reach the live CPU match before sampling.
+for entry in "${launch_env[@]}"; do
+    case "$entry" in
+        AMBITION_AUTOPLAY=smash|AMBITION_AUTOPLAY=smash_4p)
+            smash_autoplay="${entry#*=}" ;;
+    esac
+done
+
 adb_cmd=("$adb_bin")
 if [[ -n "$serial" ]]; then adb_cmd+=(-s "$serial"); fi
 if [[ "$mode" == "prepare" && "$profile_build" != "yes" ]]; then
@@ -341,52 +359,133 @@ run_profile_build() {
     if [[ "$android_rustflags" != *"--build-id"* ]]; then
         android_rustflags="${android_rustflags:+$android_rustflags }-C link-arg=-Wl,--build-id=sha1"
     fi
-    echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS=$(printf '%q' "$android_rustflags") CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off $(quote_cmd "${cmd[@]}")" > "$out_dir/profile-build.command.txt"
-    log "building/installing symbol-friendly Android profile APK: $(quote_cmd "${cmd[@]}")"
+    # Compile-time fallback variables must not turn a one-shot autoplay request
+    # into an APK that autoplays every time it is launched from the icon.
+    local -a build_cmd=("${cmd[@]}")
+    if [[ "${#launch_env[@]}" -gt 0 ]]; then
+        build_cmd=(env -u AMBITION_AUTOPLAY -u AMBITION_BOOT_ROUTE -u AMBITION_HUB_GAMES "${cmd[@]}")
+    fi
+    echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS=$(printf '%q' "$android_rustflags") CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off $(quote_cmd "${build_cmd[@]}")" > "$out_dir/profile-build.command.txt"
+    log "building/installing symbol-friendly Android profile APK: $(quote_cmd "${build_cmd[@]}")"
     log "profile-build Android Rust flags: $android_rustflags"
-    printf '[profile-android] profile-build: %s\n' "$(quote_cmd "${cmd[@]}")"
+    printf '[profile-android] profile-build: %s\n' "$(quote_cmd "${build_cmd[@]}")"
     set +e
     (cd "$repo_root" && \
         CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="$android_rustflags" \
         CARGO_PROFILE_RELEASE_STRIP=none \
         CARGO_PROFILE_RELEASE_DEBUG=1 \
         CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=off \
-        "${cmd[@]}") > >(tee "$out_dir/profile-build.stdout") 2> >(tee "$out_dir/profile-build.stderr" >&2)
+        "${build_cmd[@]}") > >(tee "$out_dir/profile-build.stdout") 2> >(tee "$out_dir/profile-build.stderr" >&2)
     local status=$?
     set -e
     echo "$status" > "$out_dir/profile-build.status"
     if [[ "$status" -ne 0 ]]; then log "profile build failed; see $out_dir/profile-build.stderr"; return "$status"; fi
 }
 
-# The one-shot launch order (`--launch-env`): the app reads this file at
-# startup, sets each KEY=VALUE as its environment and deletes it, so only the
-# launch that follows plays itself. Removed here too once the app is up, in
-# case it never read it.
+# The app removes the file after reading the one-shot launch settings.
+# Do not remove it on a timer: a slow Android startup may not have read it.
 launch_env_path() { echo "/sdcard/Android/data/$package/files/launch_env"; }
 write_launch_env() {
-    local out_dir="$1"
+    local out_dir="$1" path
     [[ ${#launch_env[@]} -gt 0 ]] || return 0
     [[ "$launch_mode" != "no" ]] || fail "--launch-env needs a launch (not --no-launch)"
+    path="$(launch_env_path)"
+    launch_env_pending="yes"
     log "launch env: ${launch_env[*]}"
-    # A running process would not read it: start fresh.
-    run_logged "$out_dir" launch-env-force-stop "${adb_cmd[@]}" shell am force-stop "$package" || true
-    run_logged "$out_dir" launch-env-mkdir "${adb_cmd[@]}" shell mkdir -p "$(dirname "$(launch_env_path)")"
-    printf '%s\n' "${launch_env[@]}" | "${adb_cmd[@]}" shell "cat > $(launch_env_path)"
+    run_logged "$out_dir" launch-env-force-stop "${adb_cmd[@]}" shell am force-stop "$package"
+    "${adb_cmd[@]}" shell mkdir -p "$(dirname "$path")" || fail "could not create Android launch environment directory"
+    printf '%s\n' "${launch_env[@]}" | "${adb_cmd[@]}" shell "cat > $path" || fail "could not write Android launch environment"
+    "${adb_cmd[@]}" shell test -s "$path" || fail "Android launch environment was not written: $path"
     launch_mode="yes"
 }
-remove_launch_env() {
-    local out_dir="$1"
+wait_for_launch_env_consumption() {
+    local out_dir="$1" attempt path
     [[ ${#launch_env[@]} -gt 0 ]] || return 0
-    sleep 3
-    run_logged "$out_dir" launch-env-remove "${adb_cmd[@]}" shell rm -f "$(launch_env_path)" || true
+    path="$(launch_env_path)"
+    for ((attempt = 0; attempt < 45; attempt++)); do
+        if "${adb_cmd[@]}" shell test ! -e "$path" >/dev/null 2>&1; then
+            echo "consumed" > "$out_dir/launch-env-consumption.txt"
+            log "app consumed the one-shot launch environment"
+            return 0
+        fi
+        sleep 1
+    done
+    echo "not-consumed" > "$out_dir/launch-env-consumption.txt"
+    fail "Android app did not read $path within 45s; cannot profile a plain menu as autoplay"
 }
-# After the capture: the profiled process plays itself, so it is stopped and
-# the next launch from the icon is the plain game.
+# Run even when the profile build, launch, readiness check, or capture fails.
+# The next icon launch must not inherit a pending profiling request.
+cleanup_pending_launch_env() {
+    local status=$?
+    if [[ "$launch_env_pending" == "yes" ]]; then
+        log "cleaning up one-shot Android autoplay launch"
+        "${adb_cmd[@]}" shell rm -f "$(launch_env_path)" >/dev/null 2>&1 || true
+        "${adb_cmd[@]}" shell am force-stop "$package" >/dev/null 2>&1 || true
+    fi
+    return "$status"
+}
 stop_after_launch_env() {
     local out_dir="$1"
     [[ ${#launch_env[@]} -gt 0 ]] || return 0
     log "stopping $package (it was launched to play itself)"
-    run_logged "$out_dir" launch-env-stop "${adb_cmd[@]}" shell am force-stop "$package" || true
+    # Clear the request first, including if the app did not remove it.
+    "${adb_cmd[@]}" shell rm -f "$(launch_env_path)" || fail "could not remove one-shot Android launch environment"
+    run_logged "$out_dir" launch-env-stop "${adb_cmd[@]}" shell am force-stop "$package"
+    [[ "$(cat "$out_dir/launch-env-stop.status")" == "0" ]] || fail "could not stop Android autoplay process"
+    launch_env_pending="no"
+}
+
+# Logcat receives Rust stderr on Android. Refuse to sample select/ceremony
+# frames under a Smash label. A slow phone may take longer than --warmup.
+wait_for_smash_autoplay_live() {
+    local out_dir="$1" pid="$2" log_file="$out_dir/smash-autoplay-preflight.log"
+    local attempt current_pid
+    [[ -n "$smash_autoplay" ]] || return 0
+    [[ -n "$pid" ]] || fail "Smash autoplay app has no PID"
+    for ((attempt = 0; attempt < 45; attempt++)); do
+        "${adb_cmd[@]}" logcat -d --pid="$pid" > "$log_file" 2> "$out_dir/smash-autoplay-preflight.stderr" \
+            || fail "could not inspect Android logcat for Smash autoplay readiness"
+        if grep -aF '[smash-autoplay] FAILED:' "$log_file" >/dev/null; then
+            echo "failed" > "$out_dir/smash-autoplay-readiness.txt"
+            fail "Smash autoplay failed before CPU profiling; see $log_file"
+        fi
+        if grep -aF '[smash-autoplay] LIVE:' "$log_file" >/dev/null; then
+            echo "live" > "$out_dir/smash-autoplay-readiness.txt"
+            log "Smash autoplay $smash_autoplay reached the live CPU match"
+            return 0
+        fi
+        current_pid="$(get_pid)"
+        [[ "$pid" == "$current_pid" ]] || fail "Smash autoplay process exited before reaching a live match"
+        sleep 1
+    done
+    echo "not-live" > "$out_dir/smash-autoplay-readiness.txt"
+    fail "Smash autoplay did not reach a live CPU match within 45s after warmup; see $log_file"
+}
+
+# LIVE is a one-shot message. By the end of a long simpleperf capture the
+# logcat ring may have evicted it, even though the match is still running.
+# Readiness records the successful transition; capture checks the same PID
+# survived and that the retained log reports no explicit autoplay failure.
+validate_smash_autoplay_capture() {
+    local out_dir="$1" log_file="$out_dir/game-log.stdout" recorded_pid current_pid
+    [[ -n "$smash_autoplay" ]] || return 0
+    [[ -f "$log_file" ]] || capture_game_log "$out_dir"
+    if [[ "$(cat "$out_dir/smash-autoplay-readiness.txt" 2>/dev/null || true)" != "live" ]]; then
+        echo "not-live-at-start" > "$out_dir/smash-autoplay-capture-status.txt"
+        return 1
+    fi
+    if grep -aF '[smash-autoplay] FAILED:' "$log_file" >/dev/null; then
+        echo "failed" > "$out_dir/smash-autoplay-capture-status.txt"
+        return 1
+    fi
+    recorded_pid="$(cat "$out_dir/pid-capture.txt" 2>/dev/null || true)"
+    current_pid="$(get_pid)"
+    if [[ -z "$recorded_pid" || "$recorded_pid" != "$current_pid" ]]; then
+        echo "process-exited-or-restarted" > "$out_dir/smash-autoplay-capture-status.txt"
+        return 1
+    fi
+    echo "live" > "$out_dir/smash-autoplay-capture-status.txt"
+    return 0
 }
 
 prepare_app() {
@@ -404,9 +503,13 @@ prepare_app() {
         *) fail "invalid launch mode '$launch_mode'" ;;
     esac
     after_pid="$(wait_for_pid 20 || true)"; echo "$after_pid" > "$out_dir/pid-capture.txt"
-    remove_launch_env "$out_dir"
-    if [[ -z "$after_pid" ]]; then log "warning: no running PID found for $package"; fi
+    if [[ -z "$after_pid" ]]; then
+        [[ ${#launch_env[@]} -eq 0 ]] || fail "one-shot Android app did not start"
+        log "warning: no running PID found for $package"
+    fi
+    wait_for_launch_env_consumption "$out_dir"
     if [[ "$warmup_seconds" -gt 0 ]]; then log "warming up for ${warmup_seconds}s"; sleep "$warmup_seconds"; fi
+    wait_for_smash_autoplay_live "$out_dir" "$after_pid"
 }
 
 find_symbol_candidates() {
@@ -911,7 +1014,11 @@ capture_game_log() {
 
 main() {
     require_tool "$adb_bin"; require_tool python3
-    local out_dir; out_dir="$(make_profile_dir "$mode")"
+    # EXIT also handles failed/interruptible device operations.
+    trap cleanup_pending_launch_env EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    local out_dir smash_capture_ok="yes"; out_dir="$(make_profile_dir "$mode")"
     write_metadata "$out_dir" "$mode"
     prepare_app "$out_dir"
     case "$mode" in
@@ -932,6 +1039,9 @@ main() {
             ;;
         *) fail "unknown mode '$mode'" ;;
     esac
+    if ! validate_smash_autoplay_capture "$out_dir"; then
+        smash_capture_ok="no"
+    fi
     stop_after_launch_env "$out_dir"
     write_summary "$out_dir"
     package_dir "$out_dir"
@@ -939,9 +1049,10 @@ main() {
     # (page: android-play-ledger.md). Not fatal: a run that did not reach
     # gameplay is refused there, and the bundle is still complete. Its output
     # goes to stderr, so the last stdout line stays the tarball path.
-    if [[ -f "$out_dir/frame-census.txt" ]]; then
+    if [[ "$smash_capture_ok" == "yes" && -f "$out_dir/frame-census.txt" ]]; then
         python3 "$repo_root/scripts/lib/android_profile_ledger.py" append "$out_dir" >&2 \
             || log "not added to the play ledger; to add it later: python3 scripts/lib/android_profile_ledger.py append $out_dir"
     fi
+    [[ "$smash_capture_ok" == "yes" ]] || fail "Smash autoplay ended or failed during capture; see $out_dir/smash-autoplay-capture-status.txt"
 }
 main

@@ -940,17 +940,33 @@ output; use a visible device run for that evidence.
 scripts/measure/autoprofile_android.sh            # Ambition: the hall of characters, then a flight through the primeval trail
 scripts/measure/autoprofile_android.sh mary_o     # Mary-O: the cosmic form, to each goal
 scripts/measure/autoprofile_android.sh castle_godwin --duration 300 --warmup 10
+scripts/measure/autoprofile_android.sh smash_4p --warmup 35 --duration 60
 ```
 
-It is the recipe below with the game's boot route and autoplay set; any
-further argument goes to `profile_android.sh`. The hub boots into the game,
-and the game plays itself by navigation (both read at compile time for an
-APK):
+The wrapper passes the game-specific route and autoplay policy to
+`profile_android.sh` as one-shot CLI launch settings. It does not build
+an APK with autoplay enabled. You can also call the profiler directly:
 
 ```bash
-AMBITION_BOOT_ROUTE=mary_o_gameplay AMBITION_AUTOPLAY=mary_o \
-  scripts/measure/profile_android.sh all --profile-build --launch --warmup 25 --duration 30 --name all-maryo-auto
+# Four CPU fighters in a real 40-stock Smash match.
+scripts/measure/profile_android.sh all --profile-build --launch \
+  --launch-env AMBITION_BOOT_ROUTE=smash_select \
+  --launch-env AMBITION_AUTOPLAY=smash_4p \
+  --warmup 35 --duration 60 --name android-smash-4cpu
+
+# Mary-O with the same one-shot launch mechanism.
+scripts/measure/profile_android.sh all --profile-build --launch \
+  --launch-env AMBITION_BOOT_ROUTE=mary_o_gameplay \
+  --launch-env AMBITION_AUTOPLAY=mary_o \
+  --warmup 25 --duration 30 --name all-maryo-auto
 ```
+
+Use `AMBITION_AUTOPLAY=smash` in place of `smash_4p` for two CPUs.
+The profiler checks the launch-file handoff and waits for a live Smash match
+before recording CPU samples. The output includes the readiness status and
+logcat evidence. The one-shot settings are removed after capture or failure,
+and the process is stopped. The installed game remains playable from its icon.
+See [the measure script guide](../../scripts/measure/README.md#unattended-smash-profiling-on-android).
 
 The startup cards play first (about 6 s), then the hub goes to the boot route.
 On the desktop: `AMBITION_AUTOPLAY=mary_o capture_scene --route mary_o_gameplay ...`.
@@ -1034,7 +1050,10 @@ scripts/measure/profile_desktop.sh --smash --smash-fighters 4 \
 
 `frame_wait.csv` contains one row per second of active play. It reports mean
 `main_wall_ms`, `gap_wall_ms`, `gap_p95_ms`, the count of gaps at least 10 ms,
-and CPU time for the main thread in each interval. A large wall gap with little
+and CPU time for the main thread in each interval. It also reports
+`focused_frames`, `unfocused_frames`, `focus_transitions`, and separate
+focused/unfocused gap timings. The summary flags captures that contain
+unfocused frames. A large wall gap with little
 main-thread CPU means that thread is waiting or other threads are running.
 These marks alone do not separate render submission, swapchain acquisition,
 OS event dispatch, and GPU presentation. The render diagnostics and native

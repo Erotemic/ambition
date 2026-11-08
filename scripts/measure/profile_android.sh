@@ -462,16 +462,26 @@ wait_for_smash_autoplay_live() {
     fail "Smash autoplay did not reach a live CPU match within 45s after warmup; see $log_file"
 }
 
+# LIVE is a one-shot message. By the end of a long simpleperf capture the
+# logcat ring may have evicted it, even though the match is still running.
+# Readiness records the successful transition; capture checks the same PID
+# survived and that the retained log reports no explicit autoplay failure.
 validate_smash_autoplay_capture() {
-    local out_dir="$1" log_file="$out_dir/game-log.stdout"
+    local out_dir="$1" log_file="$out_dir/game-log.stdout" recorded_pid current_pid
     [[ -n "$smash_autoplay" ]] || return 0
     [[ -f "$log_file" ]] || capture_game_log "$out_dir"
+    if [[ "$(cat "$out_dir/smash-autoplay-readiness.txt" 2>/dev/null || true)" != "live" ]]; then
+        echo "not-live-at-start" > "$out_dir/smash-autoplay-capture-status.txt"
+        return 1
+    fi
     if grep -aF '[smash-autoplay] FAILED:' "$log_file" >/dev/null; then
         echo "failed" > "$out_dir/smash-autoplay-capture-status.txt"
         return 1
     fi
-    if ! grep -aF '[smash-autoplay] LIVE:' "$log_file" >/dev/null; then
-        echo "no-live-marker" > "$out_dir/smash-autoplay-capture-status.txt"
+    recorded_pid="$(cat "$out_dir/pid-capture.txt" 2>/dev/null || true)"
+    current_pid="$(get_pid)"
+    if [[ -z "$recorded_pid" || "$recorded_pid" != "$current_pid" ]]; then
+        echo "process-exited-or-restarted" > "$out_dir/smash-autoplay-capture-status.txt"
         return 1
     fi
     echo "live" > "$out_dir/smash-autoplay-capture-status.txt"

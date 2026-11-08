@@ -74,10 +74,15 @@ def fake_android(tmp_path: Path):
             elif cmd and cmd[0] == 'dumpsys':
                 print('mock gfxinfo')
         elif args and args[0] == 'logcat':
+            state['logcat_calls'] = state.get('logcat_calls', 0) + 1
             result = os.environ.get('FAKE_AUTOPLAY_RESULT', 'live')
+            if result == 'evicted-live' and state['logcat_calls'] > 1:
+                result = 'none'
+            elif result == 'failed-after-live':
+                result = 'live' if state['logcat_calls'] == 1 else 'failed'
             if result == 'failed':
-                print('[smash-autoplay] FAILED: mock startup failure')
-            elif result == 'live':
+                print('[smash-autoplay] FAILED: mock match failure')
+            elif result in ('live', 'evicted-live'):
                 print('[smash-autoplay] LIVE: seats=4, ceremony_released=true, all_cpu=true')
         state_file.write_text(json.dumps(state))
         sys.exit(code)
@@ -137,3 +142,21 @@ def test_failed_smash_autoplay_does_not_leave_one_shot_file(fake_android):
     assert state['launch_file'] == ''
     assert (out / 'smash-autoplay-readiness.txt').read_text().strip() == 'failed'
     assert not any('shell dumpsys gfxinfo' in event for event in state['events'])
+
+
+def test_live_marker_evicted_after_sampling_is_not_a_capture_failure(fake_android):
+    completed, state, out, _ = invoke(fake_android, result='evicted-live')
+    assert completed.returncode == 0, completed.stderr
+    assert (out / 'smash-autoplay-readiness.txt').read_text().strip() == 'live'
+    assert '[smash-autoplay] LIVE:' in (out / 'smash-autoplay-preflight.log').read_text()
+    assert '[smash-autoplay] LIVE:' not in (out / 'game-log.stdout').read_text()
+    assert (out / 'smash-autoplay-capture-status.txt').read_text().strip() == 'live'
+    assert state['running'] is False
+
+
+def test_failed_after_live_is_rejected(fake_android):
+    completed, state, out, _ = invoke(fake_android, result='failed-after-live')
+    assert completed.returncode != 0
+    assert (out / 'smash-autoplay-readiness.txt').read_text().strip() == 'live'
+    assert (out / 'smash-autoplay-capture-status.txt').read_text().strip() == 'failed'
+    assert state['running'] is False

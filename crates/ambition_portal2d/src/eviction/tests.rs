@@ -55,7 +55,7 @@ fn vanished_portal_evicts_a_straddler_to_its_centroids_side() {
     let kin = app.world().get::<BodyKinematics>(body).unwrap();
     // Pushed UP (—y) fully clear of the old plane: bottom edge above y=300.
     assert!(
-        kin.pos.y + kin.size.y * 0.5 <= 300.0 + 1e-3,
+        kin.pos.y + kin.size().y * 0.5 <= 300.0 + 1e-3,
         "evicted clear: {:?}",
         kin.pos
     );

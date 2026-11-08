@@ -41,7 +41,7 @@ pub use camera_continuity::{
 };
 pub use clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
-    SpriteFrameBasis, CLIP_PLANE_OFF,
+    SpriteFrameBasis,
 };
 /// Re-exported for hosts. A host must be able to say "run this only when a
 /// portal exists" without a new dependency edge to `ambition_portal2d` just to

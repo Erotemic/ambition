@@ -56,7 +56,7 @@ use ambition_platformer2d_shared_tangle::camera_layers::{
 use ae::frame::thread::{partition, partition_reaching, PieceBudget, PortalLink, VolumePiece};
 use ambition_portal2d::{find_portal, PlacedPortal};
 
-use crate::clip_material::{clip_piece_transform, clip_plane_render, ClipQuadPool, PortalClipMaterial, CLIP_PLANES};
+use crate::clip_material::{clip_piece_transform, clip_plane_render, ClipQuadPool, PortalClipMaterial};
 use crate::{PortalBodyPiece, PortalFrames, PortalSceneBody, PortalWorldFrame};
 
 /// The drawable is part of the picture of another (a body's parts, the parts
@@ -236,7 +236,6 @@ pub struct CarryAssets<'w> {
     atlases: Option<Res<'w, Assets<TextureAtlasLayout>>>,
     meshes: Option<ResMut<'w, Assets<Mesh>>>,
     materials: Option<ResMut<'w, Assets<PortalClipMaterial>>>,
-    quad: Option<Res<'w, crate::clip_material::PortalPieceQuad>>,
 }
 
 /// The texels a world unit takes on the screen: the densest main view's.
@@ -334,10 +333,6 @@ pub fn carry_through_pairs(
         // carried.
         return;
     };
-    let mesh = match assets.quad.as_deref() {
-        Some(quad) => quad.0.clone(),
-        None => meshes.add(Rectangle::default()),
-    };
     // The cameras and their textures, made before the first need.
     if any_portal && atlas.slots.is_empty() {
         if let Some((density, physical)) = screen_density(&cameras.main) {
@@ -350,7 +345,7 @@ pub fn carry_through_pairs(
             }
             // The quads too: a quad made on the frame of its first piece was
             // not drawn on that frame.
-            pool.0.warm(&mut commands, materials, &mesh, WARM_QUADS, PortalBodyPiece);
+            pool.0.warm(&mut commands, materials, meshes, WARM_QUADS, PortalBodyPiece);
             pool.0.begin(|_| true);
         }
     }
@@ -592,9 +587,6 @@ pub fn carry_through_pairs(
         let image = atlas.slots[slot].image.clone();
         for piece in &cut {
             let bounds = piece.active_bounds();
-            if bounds.len() > CLIP_PLANES {
-                bevy::log::warn_once!("a carried piece is bounded by {} planes; it is drawn clipped by the first {CLIP_PLANES}", bounds.len());
-            }
             let planes: Vec<Vec4> = bounds.iter().map(|plane| clip_plane_render(&carry.frame, plane.point, plane.inward)).collect();
             let (base, flip, name) = if piece.is_carried() {
                 let copy = ambition_portal2d::copy_transform_of(&piece.transform());
@@ -612,15 +604,15 @@ pub fn carry_through_pairs(
             pool.0.draw(
                 &mut commands,
                 materials,
-                &mesh,
+                meshes,
                 PortalClipMaterial::new(
                     uv,
                     Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 1.0),
                     Vec4::ONE,
-                    &planes,
                     image.clone(),
                 ),
                 pose,
+                &planes,
                 (PortalBodyPiece, ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(carry.room)),
                 name,
             );

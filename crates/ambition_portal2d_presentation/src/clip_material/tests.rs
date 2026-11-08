@@ -196,5 +196,45 @@ fn an_asset_only_host_does_not_warm_a_clip_quad() {
     add_portal_clip_material_plugin(&mut app);
     app.update();
     assert!(!app.world().contains_resource::<Assets<Mesh>>());
-    assert!(!app.world().contains_resource::<PortalPieceQuad>());
+}
+
+
+#[test]
+fn the_piece_mesh_obeys_every_plane_and_keeps_source_uvs() {
+    let radius = 0.45;
+    let planes: Vec<_> = (0..8).map(|index| {
+        let outward = Vec2::from_angle(index as f32 * std::f32::consts::TAU / 8.0);
+        let point = outward * radius;
+        Vec4::new(point.x, point.y, -outward.x, -outward.y)
+    }).collect();
+    let mesh = PieceMesh::clipped(&Transform::IDENTITY, &planes);
+    assert_eq!(mesh.positions.len(), 8);
+    for (position, uv) in mesh.positions.iter().zip(&mesh.uvs) {
+        let point = Vec2::new(position[0], position[1]);
+        for plane in &planes {
+            assert!((point - Vec2::new(plane.x, plane.y)).dot(Vec2::new(plane.z, plane.w)) >= -1.0e-6);
+        }
+        assert!((Vec2::from_array(*uv) - Vec2::new(point.x + 0.5, 0.5 - point.y)).length() < 1.0e-6);
+    }
+    let area: f32 = mesh.indices.chunks_exact(3).map(|triangle| {
+        let p = |i: u32| Vec2::new(mesh.positions[i as usize][0], mesh.positions[i as usize][1]);
+        (p(triangle[1]) - p(triangle[0])).perp_dot(p(triangle[2]) - p(triangle[0])).abs() * 0.5
+    }).sum();
+    let expected = 8.0 * radius * radius * (std::f32::consts::PI / 8.0).tan();
+    assert!((area - expected).abs() < 1.0e-6);
+}
+
+#[test]
+fn mesh_clipping_uses_the_final_reflected_pose() {
+    let transform = Transform::from_xyz(16000.0, -8000.0, 2.0)
+        .with_rotation(Quat::from_rotation_z(0.37)).with_scale(Vec3::new(-300.0, 120.0, 1.0));
+    let plane = Vec4::new(16000.0, -8000.0, 1.0, 0.0);
+    let mesh = PieceMesh::clipped(&transform, &[plane]);
+    assert!(!mesh.indices.is_empty());
+    for position in &mesh.positions {
+        let world = transform.transform_point(Vec3::from_array(*position));
+        assert!(world.x >= 16000.0 - 0.002);
+    }
+    assert!(mesh.positions.iter().any(|position| position[0] < -0.4));
+    assert!(mesh.positions.iter().all(|position| position[0] < 0.2));
 }

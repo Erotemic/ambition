@@ -1,26 +1,7 @@
-//! The portal-clip material: a `Material2d` that draws one texture-accurate
-//! piece of a sprite mid-portal-transit, discarding every fragment behind
-//! a world-space clip half-plane.
-//!
-//! This is the render-side realization of the Core invariant in
-//! [`ambition_portal2d::pieces`]: a body straddling a portal pair is ONE logical
-//! object with TWO spatial pieces. The carry ([`crate::carry`]) draws what a
-//! pair carries as sibling mesh quads with this material: the `here` slice
-//! clipped to the front of the entry plane, the `through` slice clipped to the
-//! front of the exit plane (plus the exit aperture span). The portal map is an
-//! isometry, so the slices tile continuously across the seam: nothing pops
-//! when the position snaps at the centroid crossing, and the sunk slice never
-//! draws over the far side of a thin wall. The far-side compositor draws a
-//! body's uncovered remainder with it too.
-//!
-//! Clipping runs in the fragment shader against final render-world positions,
-//! so it is exact for any anchor, trim rect, flip, roll, or scale — the
-//! `Sprite.rect` alternative would have to re-derive all of those per frame.
-//! The quad + atlas-frame UV mapping follows the hit-flash overlay pattern
-//! (`ambition_render::rendering::hit_flash`), the established way to draw "the
-//! sprite's current frame" as a mesh.
+//! Textured portal pieces with complete mesh clipping.
 
-use bevy::asset::embedded_asset;
+use bevy::asset::{embedded_asset, RenderAssetUsages};
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::AsBindGroup;
@@ -29,123 +10,140 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 
 use crate::PortalWorldFrame;
 
-/// A clip half-plane that rejects nothing (zero normal = disabled in-shader).
-pub const CLIP_PLANE_OFF: Vec4 = Vec4::ZERO;
-
-/// Material2d for one portal-clipped sprite piece.
-///
-/// Bindings follow the WebGL2-friendly convention of the hit-flash /
-/// deep-dream overlays: plain `vec4` uniforms, no struct UBOs, no arrays.
+/// Texture and colour for a clipped material region.
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
 pub struct PortalClipMaterial {
-    /// Current atlas frame as a UV rect on the sprite sheet:
-    /// `(min.x, min.y, max.x, max.y)` normalized.
     #[uniform(0)]
     pub uv_rect: Vec4,
-    /// `(flip_x, flip_y, silhouette, premultiplied)`. `flip_x > 0.5` mirrors
-    /// the frame horizontally; `silhouette > 0.5` paints `tint.rgb` masked by
-    /// the sample's alpha and `tint.a` -- the look a declared non-sprite
-    /// drawable asks for; `premultiplied > 0.5`: the texture's colour is
-    /// premultiplied by its alpha (a camera's capture over a clear of
-    /// nothing), and the shader divides it out before it is blended.
+    /// Horizontal flip, vertical flip, silhouette and premultiplied alpha.
     #[uniform(1)]
     pub control: Vec4,
-    /// Sprite tint (linear RGBA), multiplied into the sample.
     #[uniform(2)]
     pub tint: Vec4,
-    /// Clip half-planes `(point.xy, normal.xy)` in render-world space;
-    /// fragments with `dot(p - point, normal) < 0` are discarded. Zero
-    /// normal disables a plane ([`CLIP_PLANE_OFF`]).
-    #[uniform(3)]
-    pub clip0: Vec4,
-    #[uniform(4)]
-    pub clip1: Vec4,
-    #[uniform(5)]
-    pub clip2: Vec4,
-    #[uniform(8)]
-    pub clip3: Vec4,
-    /// A piece carried through two pairs is bounded by more planes.
-    #[uniform(9)]
-    pub clip4: Vec4,
-    #[uniform(10)]
-    pub clip5: Vec4,
     #[texture(6)]
     #[sampler(7)]
     pub color_texture: Handle<Image>,
 }
 
-/// How many half planes a piece can be clipped by.
-pub const CLIP_PLANES: usize = 6;
-
 impl PortalClipMaterial {
-    /// A piece of `color_texture`'s frame `uv_rect`, clipped by `planes`
-    /// (render-space, [`clip_plane_render`]); the planes past
-    /// [`CLIP_PLANES`] are dropped.
-    pub fn new(uv_rect: Vec4, control: Vec4, tint: Vec4, planes: &[Vec4], color_texture: Handle<Image>) -> Self {
-        let mut clip = [CLIP_PLANE_OFF; CLIP_PLANES];
-        for (slot, plane) in clip.iter_mut().zip(planes) {
-            *slot = *plane;
-        }
-        let [clip0, clip1, clip2, clip3, clip4, clip5] = clip;
-        Self { uv_rect, control, tint, clip0, clip1, clip2, clip3, clip4, clip5, color_texture }
+    pub fn new(uv_rect: Vec4, control: Vec4, tint: Vec4, color_texture: Handle<Image>) -> Self {
+        Self { uv_rect, control, tint, color_texture }
     }
 
     fn same_as(&self, other: &Self) -> bool {
-        self.uv_rect == other.uv_rect
-            && self.control == other.control
-            && self.tint == other.tint
-            && [self.clip0, self.clip1, self.clip2, self.clip3, self.clip4, self.clip5]
-                == [other.clip0, other.clip1, other.clip2, other.clip3, other.clip4, other.clip5]
-            && self.color_texture == other.color_texture
+        self.uv_rect == other.uv_rect && self.control == other.control
+            && self.tint == other.tint && self.color_texture == other.color_texture
     }
 }
 
-/// The clipped quads one system draws, kept from frame to frame: a frame
-/// takes the quads it needs in order, sets each one's material and pose, and
-/// hides the rest. A quad and its material are made once, when a frame first
-/// needs that many, and reused after; nothing is spawned or added per frame.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct PieceMesh {
+    positions: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    indices: Vec<u32>,
+}
+
+impl PieceMesh {
+    /// Clip in double precision. UVs remain in the source rectangle.
+    fn clipped(transform: &Transform, planes: &[Vec4]) -> Self {
+        use bevy::math::DVec2;
+        let x = (transform.rotation * Vec3::X * transform.scale.x).truncate().as_dvec2();
+        let y = (transform.rotation * Vec3::Y * transform.scale.y).truncate().as_dvec2();
+        let origin = transform.translation.truncate().as_dvec2();
+        let mut polygon = vec![DVec2::new(-0.5, -0.5), DVec2::new(0.5, -0.5), DVec2::new(0.5, 0.5), DVec2::new(-0.5, 0.5)];
+        for plane in planes {
+            let normal = DVec2::new(f64::from(plane.z), f64::from(plane.w));
+            let point = plane.truncate().truncate().as_dvec2();
+            let side = |p: DVec2| (origin + x * p.x + y * p.y - point).dot(normal);
+            let Some(&last) = polygon.last() else { break; };
+            let mut previous = last;
+            let mut before = side(previous);
+            let mut clipped = Vec::with_capacity(polygon.len() + 1);
+            for current in polygon {
+                let after = side(current);
+                if (before >= 0.0) != (after >= 0.0) {
+                    clipped.push(previous + (current - previous) * (before / (before - after)));
+                }
+                if after >= 0.0 { clipped.push(current); }
+                previous = current;
+                before = after;
+            }
+            polygon = clipped;
+        }
+        let mut mesh = Self::default();
+        if polygon.len() < 3 { return mesh; }
+        for point in polygon {
+            mesh.positions.push([point.x as f32, point.y as f32, 0.0]);
+            mesh.uvs.push([(point.x + 0.5) as f32, (0.5 - point.y) as f32]);
+        }
+        for i in 1..mesh.positions.len() as u32 - 1 {
+            mesh.indices.extend([0, i, i + 1]);
+        }
+        mesh
+    }
+
+    fn mesh(&self) -> Mesh {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; self.positions.len()]);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone());
+        mesh.insert_indices(Indices::U32(self.indices.clone()));
+        mesh
+    }
+}
+
+struct ClipSlot {
+    entity: Entity,
+    material: Handle<PortalClipMaterial>,
+    mesh: Handle<Mesh>,
+    geometry: PieceMesh,
+}
+
+/// Reuse each piece's entity, mesh and texture material across frames.
 #[derive(Default)]
 pub struct ClipQuadPool {
-    slots: Vec<(Entity, Handle<PortalClipMaterial>)>,
+    slots: Vec<ClipSlot>,
     used: usize,
-    /// Quads made, ever.
     made: usize,
 }
 
 impl ClipQuadPool {
-    /// Start a frame. `alive` says which quads still exist (a room that
-    /// unloads takes its quads with it).
     pub fn begin(&mut self, alive: impl Fn(Entity) -> bool) {
-        self.slots.retain(|(entity, _)| alive(*entity));
+        self.slots.retain(|slot| alive(slot.entity));
         self.used = 0;
     }
 
-    /// Draw one piece with the next quad. `with` is what else the quad
-    /// carries this frame (its marker, its room's stamp).
+    #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &mut self,
         commands: &mut Commands,
         materials: &mut Assets<PortalClipMaterial>,
-        mesh: &Handle<Mesh>,
+        meshes: &mut Assets<Mesh>,
         material: PortalClipMaterial,
         transform: Transform,
+        planes: &[Vec4],
         with: impl Bundle,
         name: &'static str,
     ) -> Entity {
-        let entity = match self.slots.get(self.used) {
-            Some((entity, handle)) => {
-                if materials.get(handle).is_none_or(|old| !old.same_as(&material)) {
-                    materials.insert(handle.id(), material).ok();
+        let geometry = PieceMesh::clipped(&transform, planes);
+        let entity = match self.slots.get_mut(self.used) {
+            Some(slot) => {
+                if materials.get(&slot.material).is_none_or(|old| !old.same_as(&material)) {
+                    materials.insert(slot.material.id(), material).ok();
                 }
-                commands.entity(*entity).insert((transform, Visibility::Inherited, with));
-                *entity
+                if slot.geometry != geometry {
+                    meshes.insert(slot.mesh.id(), geometry.mesh()).ok();
+                    slot.geometry = geometry;
+                }
+                commands.entity(slot.entity).insert((transform, Visibility::Inherited, with));
+                slot.entity
             }
             None => {
-                let handle = materials.add(material);
-                let entity = commands
-                    .spawn((Mesh2d(mesh.clone()), MeshMaterial2d(handle.clone()), transform, Visibility::Inherited, with, Name::new(name)))
-                    .id();
-                self.slots.push((entity, handle));
+                let material = materials.add(material);
+                let mesh = meshes.add(geometry.mesh());
+                let entity = commands.spawn((Mesh2d(mesh.clone()), MeshMaterial2d(material.clone()),
+                    transform, Visibility::Inherited, with, Name::new(name))).id();
+                self.slots.push(ClipSlot { entity, material, mesh, geometry });
                 self.made += 1;
                 entity
             }
@@ -154,34 +152,29 @@ impl ClipQuadPool {
         entity
     }
 
-    /// Quads made, ever: a quad made on a frame may not be drawn on it.
-    pub fn made(&self) -> usize {
-        self.made
-    }
+    pub fn made(&self) -> usize { self.made }
 
-    /// Make `count` quads before the first frame needs them, hidden, each
-    /// with `with`.
     pub fn warm(
         &mut self,
         commands: &mut Commands,
         materials: &mut Assets<PortalClipMaterial>,
-        mesh: &Handle<Mesh>,
+        meshes: &mut Assets<Mesh>,
         count: usize,
         with: impl Bundle + Clone,
     ) {
         while self.slots.len() < count {
-            let handle = materials.add(PortalClipMaterial::new(Vec4::new(0.0, 0.0, 1.0, 1.0), Vec4::ZERO, Vec4::ZERO, &[], Handle::default()));
-            let entity = commands
-                .spawn((Mesh2d(mesh.clone()), MeshMaterial2d(handle.clone()), Transform::default(), Visibility::Hidden, with.clone(), Name::new("Portal clip quad")))
-                .id();
-            self.slots.push((entity, handle));
+            let material = materials.add(PortalClipMaterial::new(Vec4::new(0.0, 0.0, 1.0, 1.0), Vec4::ZERO, Vec4::ZERO, Handle::default()));
+            let geometry = PieceMesh::default();
+            let mesh = meshes.add(geometry.mesh());
+            let entity = commands.spawn((Mesh2d(mesh.clone()), MeshMaterial2d(material.clone()),
+                Transform::default(), Visibility::Hidden, with.clone(), Name::new("Portal piece mesh"))).id();
+            self.slots.push(ClipSlot { entity, material, mesh, geometry });
         }
     }
 
-    /// End a frame: the quads it did not take are hidden.
     pub fn end(&mut self, commands: &mut Commands) {
-        for (entity, _) in &self.slots[self.used..] {
-            commands.entity(*entity).insert(Visibility::Hidden);
+        for slot in &self.slots[self.used..] {
+            commands.entity(slot.entity).insert(Visibility::Hidden);
         }
     }
 }
@@ -217,12 +210,6 @@ pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
     app.add_systems(Startup, warm_the_clip_material);
 }
 
-/// The unit quad every clipped piece is drawn with, made at startup with
-/// the warm-up below: a mesh made on the frame of the first cut was not
-/// drawn on that frame.
-#[derive(Resource, Clone)]
-pub struct PortalPieceQuad(pub Handle<Mesh>);
-
 /// A clear quad of the clip material, drawn for the whole run, so its
 /// pipeline is compiled before the first piece needs it. A pipeline is
 /// compiled the first time something is drawn with it, in the background:
@@ -236,14 +223,12 @@ fn warm_the_clip_material(
     mut materials: ResMut<Assets<PortalClipMaterial>>,
 ) {
     let quad = meshes.add(Rectangle::default());
-    commands.insert_resource(PortalPieceQuad(quad.clone()));
     commands.spawn((
         Mesh2d(quad),
         MeshMaterial2d(materials.add(PortalClipMaterial::new(
             Vec4::new(0.0, 0.0, 1.0, 1.0),
             Vec4::ZERO,
             Vec4::ZERO,
-            &[],
             Handle::default(),
         ))),
         Transform::default(),
@@ -252,7 +237,7 @@ fn warm_the_clip_material(
     ));
 }
 
-/// An engine-space half-plane (point + outward normal) as the shader's
+/// An engine-space half-plane (point + inward normal) as a mesh clip
 /// render-space `(point.xy, normal.xy)` uniform. Positions go through the one
 /// canonical engine→Bevy adapter ([`PortalWorldFrame::to_render`]); directions
 /// only flip y (engine is y-down, render is y-up).
@@ -295,9 +280,9 @@ mod idempotency_tests {
         add_portal_clip_material_plugin(&mut app);
         add_portal_clip_material_plugin(&mut app);
         app.update();
-        let quad = app.world().resource::<PortalPieceQuad>();
+        let quad = app.world_mut().query::<&Mesh2d>().single(app.world()).unwrap().0.clone();
         let meshes = app.world().resource::<Assets<Mesh>>();
-        assert!(meshes.get(&quad.0).is_some());
+        assert!(meshes.get(&quad).is_some());
         assert_eq!(meshes.len(), 1);
     }
 }

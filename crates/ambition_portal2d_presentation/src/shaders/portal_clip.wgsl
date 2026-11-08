@@ -1,15 +1,4 @@
-// Portal-clipped body piece: samples the source sprite's atlas frame (same
-// UV mapping as the hit-flash overlay) and discards every fragment behind any
-// active world-space clip half-plane. This is the texture-accurate version of
-// the AABB piece decomposition in `ambition_portal2d::pieces` — the `here`
-// slice is the sprite clipped to the front of the entry plane, the `through`
-// slice is the exit copy clipped to the front of the exit plane (plus the
-// exit aperture span), so the two slices tile continuously across the seam
-// while a body straddles a portal pair.
-//
-// Clipping happens in RENDER-world space (Bevy 2D, y-up), entirely
-// independent of atlas trim rects, anchors, flips, and rotations — the mesh
-// pose handles those, the plane test only sees final world positions.
+// The mesh contains the complete clipped material region.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #ifdef SRGB_OUTPUT
@@ -27,25 +16,8 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> control: vec4<f32>;
 // Straight-alpha sprite tint (linear RGBA), multiplied into the sample.
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> tint: vec4<f32>;
-// Clip half-planes as (point.xy, normal.xy) in render-world coordinates.
-// Fragments with dot(p - point, normal) < 0 are discarded. A zero normal
-// disables the plane (WebGL2-friendly: plain vec4 uniforms, no arrays).
-@group(#{MATERIAL_BIND_GROUP}) @binding(3) var<uniform> clip0: vec4<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(4) var<uniform> clip1: vec4<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> clip2: vec4<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(8) var<uniform> clip3: vec4<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(9) var<uniform> clip4: vec4<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(10) var<uniform> clip5: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(6) var color_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(7) var color_sampler: sampler;
-
-fn behind_plane(plane: vec4<f32>, p: vec2<f32>) -> bool {
-    // Zero-length normal = plane disabled.
-    if dot(plane.zw, plane.zw) < 0.5 {
-        return false;
-    }
-    return dot(p - plane.xy, plane.zw) < 0.0;
-}
 
 fn shade(mesh: VertexOutput) -> vec4<f32> {
     // Sample BEFORE any position-dependent discard: implicit-derivative
@@ -64,11 +36,6 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     );
     let sample = textureSample(color_texture, color_sampler, atlas_uv);
 
-    let p = mesh.world_position.xy;
-    if behind_plane(clip0, p) || behind_plane(clip1, p) || behind_plane(clip2, p) || behind_plane(clip3, p)
-        || behind_plane(clip4, p) || behind_plane(clip5, p) {
-        discard;
-    }
     if sample.a <= 0.01 {
         discard;
     }

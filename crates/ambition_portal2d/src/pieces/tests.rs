@@ -93,51 +93,6 @@ fn straddle_requires_plane_crossing_and_aperture_overlap() {
 }
 
 #[test]
-fn feet_in_feet_out_decomposition() {
-    let enter = floor(Vec2::new(100.0, 300.0));
-    let exit = right_wall(Vec2::new(400.0, 200.0));
-    // Body centered just above the floor with its lower 10px sunk in.
-    let body = ae::Aabb::new(Vec2::new(100.0, 290.0), Vec2::new(12.0, 20.0));
-    let pieces = compute_body_pieces(body, Some((enter, exit)), MapConvention::Reflection);
-    // `here` is the part above the floor plane (y <= 300).
-    assert!(
-        pieces.here.max.y <= 300.0 + 1e-3,
-        "here below plane: {:?}",
-        pieces.here
-    );
-    // A through-piece exists, emerging from the exit (x < 400).
-    let through = pieces.through.expect("feet should poke through");
-    assert!(
-        through.aabb.max.x <= 400.0 + 1e-3,
-        "through in front of exit: {:?}",
-        through.aabb
-    );
-    // The 90° turn maps the crossed DEPTH (10px below the floor) onto the
-    // emergence depth out of the wall (10px along the exit normal, x), and
-    // the body WIDTH (24px) onto the lateral extent (y).
-    assert!(
-        (through.aabb.max.x - through.aabb.min.x - 10.0).abs() < 1e-2,
-        "depth {:?}",
-        through.aabb
-    );
-    assert!(
-        (through.aabb.max.y - through.aabb.min.y - 24.0).abs() < 1e-2,
-        "lateral {:?}",
-        through.aabb
-    );
-}
-
-#[test]
-fn no_straddle_returns_whole_body() {
-    let enter = floor(Vec2::new(100.0, 300.0));
-    let exit = right_wall(Vec2::new(400.0, 200.0));
-    let body = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(12.0, 20.0));
-    let pieces = compute_body_pieces(body, Some((enter, exit)), MapConvention::Reflection);
-    assert!(pieces.through.is_none());
-    assert!((pieces.here.center() - body.center()).length() < 1e-3);
-}
-
-#[test]
 fn front_distance_signs() {
     let f = floor(Vec2::new(100.0, 300.0));
     assert!(

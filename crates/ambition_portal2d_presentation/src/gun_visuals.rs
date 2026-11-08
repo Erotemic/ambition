@@ -4,17 +4,12 @@
 //! module from the generic portal presentation crate.
 
 use bevy::prelude::*;
-use bevy::sprite_render::MeshMaterial2d;
 
-use ambition_platformer2d_core as ae;
-use ambition_portal2d::pieces as pp;
 use ambition_portal2d::{
-    find_portal, PlacedPortal, PortalChannel, PortalGun, PortalGunPickup, PortalShot, PortalTransit,
+    PortalChannel, PortalGun, PortalGunPickup, PortalShot,
 };
 
-use crate::clip_material::{
-    clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
-};
+use crate::carry::PortalDrawnWith;
 use crate::{
     PortalAffordanceBody, PortalAimHint, PortalBodyView, PortalFrames, PortalGunArt, PortalVisual,
 };
@@ -32,15 +27,13 @@ const PORTAL_GUN_DISPLAY: Vec2 = Vec2::new(52.0, 24.0);
 /// to point where the host says the portal opener is aiming. This is a gun UI
 /// affordance, not part of portal topology or transit math.
 ///
-/// During transit the gun follows the body's chart decomposition: one clipped
-/// copy per chart on the main-camera layer. Without clip assets, use the
-/// single-gun fallback.
+/// The gun belongs to the carrier's drawable family. The shared carry path
+/// clips and maps it with every other attachment.
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
     aim_hint: Option<Res<PortalAimHint>>,
     frames: PortalFrames,
     art: Option<Res<PortalGunArt>>,
-    visuals: Query<(Entity, Has<Mesh2d>), With<PortalModeIndicator>>,
     mut plain: Query<
         (
             Entity,
@@ -49,37 +42,17 @@ pub fn sync_portal_mode_indicator(
             // Read: `PortalFrames` reads the stamps too. A new room is inserted.
             &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
             Option<&ambition_sprite_fx::SpriteEffect>,
+            &PortalDrawnWith,
         ),
         (With<PortalModeIndicator>, Without<Mesh2d>),
     >,
-    portals: Query<(Entity, &PlacedPortal)>,
-    images: Option<Res<Assets<Image>>>,
-    layouts: Option<Res<Assets<bevy::image::TextureAtlasLayout>>>,
-    meshes: Option<ResMut<Assets<Mesh>>>,
-    clip_materials: Option<ResMut<Assets<PortalClipMaterial>>>,
-    mut unit_mesh: Local<Option<Handle<Mesh>>>,
     carriers: Query<
-        (Entity, &PortalBodyView, &PortalGun, Option<&PortalTransit>),
+        (Entity, &PortalBodyView, &PortalGun),
         With<PortalAffordanceBody>,
     >,
-    tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
-    // The session's portal map convention, from the resource that owns it — not
-    // from a process global. `Option` because a composition without the portal
-    // plugin has no tuning, and the default convention is the honest answer.
-    let convention = tuning
-        .as_deref()
-        .map(|tuning| tuning.convention.map_convention())
-        .unwrap_or_default();
-    // The two clipped copies of a crossing are made again each frame, for the
-    // few frames a crossing lasts. The plain gun is one sprite, kept.
-    for (entity, piece) in &visuals {
-        if piece {
-            commands.entity(entity).despawn();
-        }
-    }
-    let wanted: Option<(Sprite, Transform, ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance, f32)> = 'draw: {
-    let Ok((carrier, kin, gun, transit)) = carriers.single() else {
+    let wanted: Option<(Sprite, Transform, ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance, f32, Entity)> = 'draw: {
+    let Ok((carrier, kin, gun)) = carriers.single() else {
         break 'draw None;
     };
     if !gun.active {
@@ -119,117 +92,6 @@ pub fn sync_portal_mode_indicator(
     }
     .normalize_or_zero();
 
-    // Mid-transit with a through slice: the gun exists in both charts, like
-    // the body. Decompose against the same pair, from the same Core function.
-    if let Some(transit) = transit {
-        let by_room = frames.portals_by_room(portals.iter());
-        let all = by_room.in_room(Some(placement.room));
-        if let (Some(enter_portal), Some(exit_portal)) = (
-            find_portal(all, transit.straddling),
-            find_portal(all, transit.straddling.partner()),
-        ) {
-            let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-            let pieces = pp::compute_body_pieces(
-                body,
-                Some((enter_portal.aperture(), exit_portal.aperture())),
-                convention,
-            );
-            if pieces.through.is_some() {
-                if let (Some(images), Some(layouts), Some(mut meshes), Some(mut materials)) =
-                    (images, layouts, meshes, clip_materials)
-                {
-                    let probe = Sprite {
-                        image: image.clone(),
-                        custom_size: Some(PORTAL_GUN_DISPLAY),
-                        ..default()
-                    };
-                    if let Some(basis) = sprite_frame_basis(&probe, &layouts, &images) {
-                        let (enter, exit) = (enter_portal.aperture(), exit_portal.aperture());
-                        let mesh = unit_mesh
-                            .get_or_insert_with(|| meshes.add(Rectangle::default()))
-                            .clone();
-                        let along = exit.frame.tangent();
-                        let aperture_half = exit.half_length;
-                        // The through chart: map the gun's world point and the
-                        // aim vector through the pair — exact under the
-                        // isometry, no facing/offset re-derivation.
-                        let charts = [
-                            (
-                                "here",
-                                12.0,
-                                pos,
-                                aim,
-                                clip_plane_render(&frame, enter.frame.origin, enter.frame.normal),
-                                CLIP_PLANE_OFF,
-                                CLIP_PLANE_OFF,
-                            ),
-                            (
-                                "through",
-                                crate::PORTAL_EXIT_COPY_Z + 0.05,
-                                pp::map_point(pos, &enter.frame, &exit.frame, convention),
-                                pp::portal_map_vec(
-                                    aim,
-                                    enter.frame.normal,
-                                    exit.frame.normal,
-                                    convention,
-                                ),
-                                clip_plane_render(&frame, exit.frame.origin, exit.frame.normal),
-                                clip_plane_render(
-                                    &frame,
-                                    exit.frame.origin - along * aperture_half,
-                                    along,
-                                ),
-                                clip_plane_render(
-                                    &frame,
-                                    exit.frame.origin + along * aperture_half,
-                                    -along,
-                                ),
-                            ),
-                        ];
-                        for (chart, chart_z, chart_pos, chart_aim, clip0, clip1, clip2) in charts {
-                            let angle = (-chart_aim.y).atan2(chart_aim.x);
-                            let base = Transform {
-                                translation: frame.to_render(chart_pos, chart_z),
-                                rotation: Quat::from_rotation_z(angle),
-                                scale: Vec3::ONE,
-                            };
-                            let flip_y = chart_aim.x < 0.0;
-                            commands.spawn((
-                                PortalModeIndicator,
-                                Mesh2d(mesh.clone()),
-                                MeshMaterial2d(materials.add(PortalClipMaterial {
-                                    uv_rect: basis.uv_rect,
-                                    control: Vec4::new(
-                                        0.0,
-                                        if flip_y { 1.0 } else { 0.0 },
-                                        0.0,
-                                        0.0,
-                                    ),
-                                    // Untinted: a non-default gun shows its authored
-                                    // colour for these few frames. This material
-                                    // multiplies, and a hue rotation is not a
-                                    // multiply, so a pair colour would darken it.
-                                    tint: Vec4::ONE,
-                                    clip0,
-                                    clip1,
-                                    clip2,
-                                    clip3: CLIP_PLANE_OFF,
-                                    clip4: CLIP_PLANE_OFF,
-                                    clip5: CLIP_PLANE_OFF,
-                                    color_texture: image.clone(),
-                                })),
-                                clip_piece_transform(&base, Vec2::ZERO, basis.size),
-                                placement.stamp(),
-                                Name::new(format!("Held portal gun ({chart})")),
-                            ));
-                        }
-                        break 'draw None;
-                    }
-                }
-            }
-        }
-    }
-
     let angle = (-aim.y).atan2(aim.x);
     let sprite = Sprite {
         image,
@@ -238,16 +100,17 @@ pub fn sync_portal_mode_indicator(
         ..default()
     };
     let transform = Transform::from_translation(frame.to_render(pos, 12.0)).with_rotation(Quat::from_rotation_z(angle));
-    Some((sprite, transform, placement.stamp(), gun.next_color.art_hue_shift()))
+    Some((sprite, transform, placement.stamp(), gun.next_color.art_hue_shift(), carrier))
     };
     let mut existing = plain.iter_mut();
-    if let Some((want, transform, room, shift)) = wanted {
-        if let Some((entity, mut sprite, mut drawn, drawn_room, effect)) = existing.next() {
+    if let Some((want, transform, room, shift, carrier)) = wanted {
+        if let Some((entity, mut sprite, mut drawn, drawn_room, effect, with)) = existing.next() {
             if sprite.image != want.image || sprite.flip_y != want.flip_y {
                 sprite.image = want.image;
                 sprite.flip_y = want.flip_y;
             }
             drawn.set_if_neq(transform);
+            if with.0 != carrier { commands.entity(entity).insert(PortalDrawnWith(carrier)); }
             if *drawn_room != room {
                 commands.entity(entity).insert(room);
             }
@@ -265,7 +128,7 @@ pub fn sync_portal_mode_indicator(
                 }
             }
         } else {
-            let held = commands.spawn((PortalModeIndicator, want, transform, room, Name::new("Held portal gun"))).id();
+            let held = commands.spawn((PortalModeIndicator, PortalDrawnWith(carrier), want, transform, room, Name::new("Held portal gun"))).id();
             // A gun on a non-default pair is the same art hue-rotated onto its
             // own colour, which keeps shading and antialiased edges. Only add
             // the effect for a non-zero rotation: any shader effect moves the
@@ -404,100 +267,25 @@ pub(crate) fn spawn_gun_visual(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_portal2d::PortalChannel;
-    use bevy::image::TextureAtlasLayout;
 
-    /// Mid-transit the held gun draws once per chart as clip-material quads
-    /// (like the body pieces) instead of a single sprite at the authoritative
-    /// pose — the single gun visibly SNAPPED by the pair separation at the
-    /// centroid crossing while the body slices stayed continuous.
     #[test]
-    fn transiting_carrier_gun_decomposes_into_two_clipped_charts() {
+    fn the_gun_stays_attached_to_its_carrier_drawable() {
         let mut app = App::new();
         crate::one_live_room(&mut app, Vec2::new(1000.0, 600.0));
-        app.insert_resource(Assets::<Image>::default());
-        app.insert_resource(Assets::<TextureAtlasLayout>::default());
-        app.insert_resource(Assets::<Mesh>::default());
-        app.insert_resource(Assets::<PortalClipMaterial>::default());
+        app.insert_resource(PortalGunArt { blue: Handle::default(), orange: Handle::default() });
         app.add_systems(Update, sync_portal_mode_indicator);
-
-        let mut image = Image::default();
-        image.texture_descriptor.size.width = 140;
-        image.texture_descriptor.size.height = 64;
-        let handle = app.world_mut().resource_mut::<Assets<Image>>().add(image);
-        app.insert_resource(PortalGunArt {
-            blue: handle.clone(),
-            orange: handle,
-        });
-
-        let left = PlacedPortal::fixed(
-            PortalChannel::Authored(ambition_portal2d::PortalChannelColor::Purple),
-            Vec2::new(500.0, 300.0),
-            Vec2::new(-1.0, 0.0),
-            46.0,
-        );
-        let right = PlacedPortal::fixed(
-            PortalChannel::Authored(ambition_portal2d::PortalChannelColor::Yellow),
-            Vec2::new(532.0, 300.0),
-            Vec2::new(1.0, 0.0),
-            46.0,
-        );
-        app.world_mut().spawn(left.clone());
-        app.world_mut().spawn(right);
-        app.world_mut().spawn((
-            PortalAffordanceBody,
-            PortalBodyView {
-                pos: Vec2::new(498.0, 300.0),
-                size: Vec2::new(24.0, 40.0),
-                facing: 1.0,
-                body: Entity::PLACEHOLDER,
-            },
-            PortalGun::default(),
-            PortalTransit {
-                straddling: left.channel,
-                crossed: false,
-            },
-        ));
+        let carrier = app.world_mut().spawn((PortalAffordanceBody, PortalBodyView {
+            pos: Vec2::new(498.0, 300.0), size: Vec2::new(24.0, 40.0),
+            facing: 1.0, body: Entity::PLACEHOLDER,
+        }, PortalGun::default())).id();
         app.update();
-
-        let guns: Vec<(String, bool)> = app
-            .world_mut()
-            .query_filtered::<(&Name, Has<Mesh2d>), With<PortalModeIndicator>>()
-            .iter(app.world())
-            .map(|(n, m)| (n.to_string(), m))
-            .collect();
-        assert_eq!(guns.len(), 2, "one gun copy per chart, got {guns:?}");
-        assert!(
-            guns.iter().all(|(_, mesh)| *mesh),
-            "both copies are clip-material quads, got {guns:?}"
-        );
-
-        // Without a transit, exactly one plain-sprite gun.
-        let player = app
-            .world_mut()
-            .query_filtered::<Entity, With<PortalGun>>()
-            .single(app.world())
-            .unwrap();
-        app.world_mut().entity_mut(player).remove::<PortalTransit>();
+        let gun = app.world_mut().query_filtered::<(Entity, &PortalDrawnWith), With<PortalModeIndicator>>()
+            .single(app.world()).map(|(entity, with)| { assert_eq!(with.0, carrier); entity }).unwrap();
         app.update();
-        let guns = app
-            .world_mut()
-            .query_filtered::<Has<Mesh2d>, With<PortalModeIndicator>>()
-            .iter(app.world())
-            .collect::<Vec<_>>();
-        assert_eq!(guns, vec![false], "no transit: one plain sprite gun");
-
-        // Held still, it is the same sprite, not written; the gun is not
-        // despawned and spawned each frame.
-        let gun = |app: &mut App| {
-            app.world_mut()
-                .query_filtered::<(Entity, Ref<Transform>), With<PortalModeIndicator>>()
-                .iter(app.world())
-                .map(|(entity, transform)| (entity, transform.last_changed()))
-                .collect::<Vec<_>>()
-        };
-        let held = gun(&mut app);
+        assert_eq!(app.world_mut().query_filtered::<Entity, With<PortalModeIndicator>>()
+            .single(app.world()).unwrap(), gun);
+        app.world_mut().get_mut::<PortalGun>(carrier).unwrap().active = false;
         app.update();
-        assert_eq!(gun(&mut app), held, "a gun held still is kept and not written");
+        assert!(app.world().get_entity(gun).is_err());
     }
 }

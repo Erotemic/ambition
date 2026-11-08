@@ -1,23 +1,5 @@
-//! Pure portal-piece geometry — the Core invariant of the portal system.
-//!
-//! > Every gameplay-relevant volume is representable as zero, one, or two
-//! > portal-aware spatial pieces. Every system that asks "where is this thing?"
-//! > uses those pieces instead of the raw body AABB.
-//!
-//! A portal pair joins two parts of the world. A body that straddles a portal
-//! plane is one object with two pieces: the part on the entry side (`here`),
-//! and the part that crossed, mapped to the exit portal (`through`).
-//!
-//! This module holds the pure, deterministic math: the portal map (point,
-//! AABB, velocity), half-space clipping, the piece decomposition
-//! ([`compute_body_pieces`]), and the carve hole ([`carve_hole`]; the
-//! rectangle subtraction is `ambition_platformer2d_core::geometry::subtract_aabb`).
-//! It has no ECS and no RNG, so headless sims and tests use the same geometry
-//! as the game.
-//!
-//! Pieces are AABBs. For a floor, wall or ceiling portal they are exact; for
-//! a portal on a slope each piece is the box that bounds the true (turned)
-//! piece, and the plane and opening tests are exact.
+//! Aperture geometry for portal placement, transit and host carving.
+//! Material partitions belong to `ambition_platformer2d_core::frame::thread`.
 
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
@@ -107,49 +89,6 @@ fn bound_clipped(b: ae::Aabb, planes: &[(Vec2, Vec2)]) -> Option<ae::Aabb> {
     ae::geometry::aabb_from_min_max(min.x, min.y, max.x, max.y)
 }
 
-/// Clip `b` laterally to a portal's opening span, so a body wider than the
-/// aperture shows only the slice that fits through.
-fn clip_to_aperture(b: ae::Aabb, ap: &PortalAperture) -> Option<ae::Aabb> {
-    let along = ap.frame.tangent();
-    let o = ap.frame.origin;
-    let half = ap.half_length;
-    bound_clipped(b, &[(o - along * half, along), (o + along * half, -along)])
-}
-
-/// A body's representation in one local chart (one side of a portal pair).
-#[derive(Clone, Copy, Debug)]
-pub struct ThroughPiece {
-    /// The clipped piece on the EXIT side, in exit-local world space.
-    pub aabb: ae::Aabb,
-    /// The portal the body is sinking into (its plane clips `here`).
-    pub enter: PortalAperture,
-    /// The linked portal the piece emerges from.
-    pub exit: PortalAperture,
-}
-
-/// The portal-aware decomposition of one body: always a `here` piece on the
-/// body's current side, plus an optional `through` piece on the far side of a
-/// straddled portal. Their union reconstructs the whole body across two charts.
-#[derive(Clone, Copy, Debug)]
-pub struct BodyPieces {
-    /// The piece on the body's own side: clipped to the front of the straddled
-    /// portal when mid-transit, else the whole body.
-    pub here: ae::Aabb,
-    /// The piece that has crossed the portal plane, mapped to the exit side.
-    /// `None` when the body straddles no portal.
-    pub through: Option<ThroughPiece>,
-}
-
-impl BodyPieces {
-    /// A body that straddles no portal: a single, whole piece.
-    pub fn whole(body: ae::Aabb) -> Self {
-        Self {
-            here: body,
-            through: None,
-        }
-    }
-}
-
 /// Does `body` straddle `ap`'s plane within the opening? True when the plane
 /// passes through the body's extent AND the body overlaps the aperture span,
 /// for a plane of any angle.
@@ -160,41 +99,6 @@ pub fn straddles(body: ae::Aabb, ap: &PortalAperture) -> bool {
     let reach = |axis: Vec2| h.x * axis.x.abs() + h.y * axis.y.abs();
     // The plane cuts the box, and the box reaches the opening along the face.
     d.dot(n).abs() < reach(n) && d.dot(t).abs() < reach(t) + ap.half_length
-}
-
-/// Decompose `body` against a linked portal pair. Finds the portal whose plane
-/// the body straddles (within its opening), keeps the front slice as `here`, and
-/// maps the crossed slice through to the linked exit as `through`. If the body
-/// straddles neither portal, returns the whole body.
-///
-/// Works in both directions: before the centroid crosses and after it (the
-/// trailing slice maps back to the entry). The plane the body straddles now
-/// is the "entry".
-pub fn compute_body_pieces(
-    body: ae::Aabb,
-    pair: Option<(PortalAperture, PortalAperture)>,
-    convention: MapConvention,
-) -> BodyPieces {
-    let Some((a, b)) = pair else {
-        return BodyPieces::whole(body);
-    };
-    for (enter, exit) in [(a, b), (b, a)] {
-        if !straddles(body, &enter) {
-            continue;
-        }
-        // The front slice stays here, clipped at the plane; the back slice has
-        // crossed.
-        let here = clip_halfspace(body, enter.frame.origin, enter.frame.normal).unwrap_or(body);
-        let through = clip_halfspace(body, enter.frame.origin, -enter.frame.normal)
-            .map(|back| map_aabb(back, &enter.frame, &exit.frame, convention))
-            // The emerged piece shows only what is in front of the exit and
-            // within its opening.
-            .and_then(|mapped| clip_halfspace(mapped, exit.frame.origin, exit.frame.normal))
-            .and_then(|mapped| clip_to_aperture(mapped, &exit))
-            .map(|aabb| ThroughPiece { aabb, enter, exit });
-        return BodyPieces { here, through };
-    }
-    BodyPieces::whole(body)
 }
 
 /// Signed distance of `point` from `frame`'s plane along its outward normal:

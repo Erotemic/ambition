@@ -72,7 +72,6 @@ pub fn composite_far_side_bodies(
     layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
     clip_materials: Option<ResMut<Assets<PortalClipMaterial>>>,
-    mut unit_mesh: Local<Option<Handle<Mesh>>>,
     mut candidates: Query<(
         Entity,
         &PortalCompositingCandidate,
@@ -123,10 +122,6 @@ pub fn composite_far_side_bodies(
     // Each room's panes, each list in the stable order: a pane covers only
     // the bodies of its own live room.
     let panes_by_room = frames.portals_by_room(portals.iter());
-
-    let mesh = unit_mesh
-        .get_or_insert_with(|| meshes.add(Rectangle::default()))
-        .clone();
 
     for (entity, candidate, sprite, declared, anchor, transform, transit, carried, reaches_from) in &mut candidates {
         let min = candidate.drawn_centre - candidate.drawn_half;
@@ -198,9 +193,10 @@ pub fn composite_far_side_bodies(
             pool.draw(
                 &mut commands,
                 &mut materials,
-                &mesh,
-                PortalClipMaterial::new(look.uv_rect, control, look.tint, &planes, look.image.clone()),
+                &mut meshes,
+                PortalClipMaterial::new(look.uv_rect, control, look.tint, look.image.clone()),
                 clip_piece_transform(&base, look.anchor, look.size),
+                &planes,
                 (PortalFarSidePiece, placement.stamp()),
                 "Portal far-side piece",
             );

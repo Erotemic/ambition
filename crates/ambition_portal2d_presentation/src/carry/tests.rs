@@ -76,7 +76,7 @@ struct Piece {
     at: Vec3,
     scale: Vec3,
     rotation: Quat,
-    planes: [Vec4; CLIP_PLANES],
+    positions: Vec<[f32; 3]>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -113,15 +113,16 @@ fn outcome(app: &mut App, visual: Entity) -> Outcome {
         };
     };
     let quads: Vec<_> = world
-        .query_filtered::<(&Transform, &MeshMaterial2d<PortalClipMaterial>, &Visibility), With<PortalBodyPiece>>()
+        .query_filtered::<(&Transform, &MeshMaterial2d<PortalClipMaterial>, &Mesh2d, &Visibility), With<PortalBodyPiece>>()
         .iter(world)
-        .filter(|(_, _, shown)| **shown != Visibility::Hidden)
-        .map(|(transform, material, _)| (*transform, material.0.clone()))
+        .filter(|(_, _, _, shown)| **shown != Visibility::Hidden)
+        .map(|(transform, material, mesh, _)| (*transform, material.0.clone(), mesh.0.clone()))
         .collect();
     let materials = world.resource::<Assets<PortalClipMaterial>>();
+    let meshes = world.resource::<Assets<Mesh>>();
     let mut pieces: Vec<_> = quads
         .into_iter()
-        .filter_map(|(transform, handle)| {
+        .filter_map(|(transform, handle, mesh)| {
             let material = materials
                 .get(&handle)
                 .expect("a visible quad has its material");
@@ -129,14 +130,10 @@ fn outcome(app: &mut App, visual: Entity) -> Outcome {
                 at: transform.translation,
                 scale: transform.scale,
                 rotation: transform.rotation,
-                planes: [
-                    material.clip0,
-                    material.clip1,
-                    material.clip2,
-                    material.clip3,
-                    material.clip4,
-                    material.clip5,
-                ],
+                positions: match meshes.get(&mesh).unwrap().attribute(Mesh::ATTRIBUTE_POSITION).unwrap() {
+                    bevy::mesh::VertexAttributeValues::Float32x3(positions) => positions.clone(),
+                    _ => panic!("piece positions must have three components"),
+                },
             })
         })
         .collect();
@@ -179,7 +176,7 @@ fn each_body_keeps_its_piece_policy_with_another_body_on_the_same_link() {
     let single = alone(Some(PieceBudget::SINGLE_HOP), 280.0);
     let composed = alone(Some(PieceBudget::COMPOSED), 280.0);
     assert!(transfer.on_world && !transfer.active_capture && transfer.pieces.is_empty());
-    assert!(!single.on_world && single.active_capture && single.pieces.len() >= 2);
+    assert!(!single.active_capture && single.pieces.is_empty(), "a one-hop budget must refuse the second aperture");
     assert!(
         composed.pieces.len() > single.pieces.len(),
         "the second pair must require composed geometry"
@@ -285,8 +282,6 @@ fn a_body_stays_visible_on_the_first_frame_of_an_authored_or_new_gun_pair() {
 #[test]
 fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
     let mut app = test_app();
-    let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(Rectangle::default());
-    app.insert_resource(crate::clip_material::PortalPieceQuad(mesh));
     let entry = authored_entry();
     let a = app.world_mut().spawn(PlacedPortal::fixed(entry, Vec2::new(2200.0, 876.0), Vec2::X, 100.0)).id();
     let b = app.world_mut().spawn(PlacedPortal::fixed(entry.partner(), Vec2::new(2550.0, 680.0), Vec2::X, 100.0)).id();

@@ -910,11 +910,13 @@ need correct scaling, reflection and physically consistent clipping.
 
 **Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
 
-**Next action:** start PSIM-1: prove canonical-material partition invariants,
-add bounded similarity composition/parity, and fix budget refusals before
-extending transit, combat and presentation (PSIM-2 through PSIM-5). Reuse the
-existing `frame::thread` worklist rather than spawning piece actors or
-inventing bespoke boss paths. This is local to one live simulation room;
+**Next action:** static planning only until Jon releases the hold
+(2026-11-08). Follow the owner's
+[implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan).
+Then start PSIM-1A and PSIM-1B: prove canonical-material partition invariants,
+add bounded similarity composition/parity, and make budget refusal stop the
+source motion before extending transit, combat and presentation. Reuse the
+existing `frame::thread` worklist. This is local to one live simulation room;
 cross-island live portals are not an implicit dependency.
 
 **Acceptance:** all five PSIM slices have production-path and deterministic

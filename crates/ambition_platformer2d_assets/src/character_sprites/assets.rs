@@ -453,12 +453,15 @@ fn build_optional_via_catalog(sprite_content: &ambition_sprite_sheet::SpriteCont
         }
         return None;
     };
-    if parts_admitted {
+    let rigged = if parts_admitted {
         let directory = path.rsplit_once('/').map_or("", |(directory, _)| directory);
-        if let Some(rigged) = super::rigged::rigged_pages_in(&sprite_content, spec, resolved, directory, asset_server) {
-            if rigged.flipbook.baked_clip_names().next().is_none() {
-                return Some(parts_only_realization(layouts, spec, requested, resolved, rigged));
-            }
+        super::rigged::rigged_pages_in(&sprite_content, spec, resolved, directory, asset_server)
+    } else {
+        None
+    };
+    if let Some(rigged) = rigged.as_ref() {
+        if rigged.flipbook.baked_clip_names().next().is_none() {
+            return Some(parts_only_realization(layouts, spec, requested, resolved, rigged.clone()));
         }
     }
     Some(load_sprite_pages(&sprite_content,
@@ -469,6 +472,7 @@ fn build_optional_via_catalog(sprite_content: &ambition_sprite_sheet::SpriteCont
         spec,
         requested,
         resolved,
+        rigged,
     ))
 }
 
@@ -532,6 +536,7 @@ fn load_sprite_pages(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // The tier `page0_path` and `spec` actually came from — equal to `requested` when the
     // variant existed, `Full` when the caller fell back to the authored PNG.
     resolved: TextureResolutionScale,
+    rigged: Option<ambition_sprite_sheet::character::rigged::RiggedSpritePages>,
 ) -> CharacterSpriteAsset {
     let parent = page0_path
         .rsplit_once('/')
@@ -541,16 +546,17 @@ fn load_sprite_pages(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // `pages` stays indexed BY PAGE NUMBER — the animator addresses it as
     // `pages[frame_page]` — so the vector keeps its full length. What changes
     // is which entries carry a real handle: only the pages this target's
-    // frames actually reference. For a dedicated sheet that is every page and
-    // nothing changes; for a target inside a shared pack it is a handful
-    // instead of the whole pack.
-    let used_pages = spec.used_pages();
+    // baked rows reference. A mixed part/baked sheet can omit pages that
+    // only part rows use. Packed sheets still keep their sparse indices.
+    let used_pages = match &rigged {
+        Some(rigged) => spec.pages_for_rows(rigged.flipbook.baked_clip_names()),
+        None => spec.used_pages(),
+    };
     let pages: Vec<CharacterSpritePage> = (0..page_count)
         .map(|page| {
             if !used_pages.contains(&page) {
-                // Never sampled: no frame rect names this page. A default
-                // handle costs no decode and no VRAM, and reaching it would
-                // mean the frame→page mapping disagrees with `used_pages`.
+                // No baked row needs this page. Keep its slot for the
+                // animator without decoding its image.
                 return CharacterSpritePage {
                     texture: Handle::default(),
                     layout: Handle::default(),
@@ -602,7 +608,7 @@ fn load_sprite_pages(sprite_content: &ambition_sprite_sheet::SpriteContent,
         pages,
         requested_tier: requested,
         resolved_tier: resolved,
-        rigged: None,
+        rigged,
     }
 }
 
@@ -672,6 +678,7 @@ pub fn build_prop_sprite_asset_packed(sprite_content: &ambition_sprite_sheet::Sp
         &spec,
         scale,
         resolved,
+        None,
     ))
 }
 
@@ -777,6 +784,7 @@ pub fn ensure_fx_sheet_loaded(sprite_content: &ambition_sprite_sheet::SpriteCont
                 SpriteTextureResolutionScale::Quarter => TextureResolutionScale::Quarter,
                 SpriteTextureResolutionScale::Potato => TextureResolutionScale::Potato,
             },
+            None,
         ),
     );
     true
@@ -854,6 +862,7 @@ pub fn load_prop_sheet_for_target(sprite_content: &ambition_sprite_sheet::Sprite
         &spec,
         TextureResolutionScale::Full,
         TextureResolutionScale::Full,
+        None,
     ))
 }
 

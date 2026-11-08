@@ -92,14 +92,31 @@ impl CharacterSpriteAsset {
         self.texture == NO_BAKED_IMAGE
     }
 
-    /// The images a body needs resident before it is drawn from this
-    /// realization: its part pages when it is drawn from parts alone, else its
-    /// baked page.
-    pub fn presentation_images(&self) -> Vec<&Handle<Image>> {
-        match (&self.rigged, self.parts_only()) {
-            (Some(rigged), true) => rigged.pages.iter().collect(),
-            _ => vec![&self.texture],
+    /// Pages with baked frames that this realization can draw. A mixed
+    /// rigged/baked character does not need pages used only by part clips.
+    pub fn required_baked_pages(&self) -> std::collections::BTreeSet<u32> {
+        match &self.rigged {
+            Some(rigged) => self.spec.pages_for_rows(rigged.flipbook.baked_clip_names()),
+            None => self.spec.used_pages(),
         }
+    }
+
+    /// Images that must be ready before a character becomes visible.
+    /// Include every required baked page and each part page for a mixed rig.
+    pub fn presentation_images(&self) -> Vec<&Handle<Image>> {
+        let mut images: Vec<_> = self
+            .pages
+            .iter()
+            .filter(|page| page.texture != Handle::default() && page.texture != NO_BAKED_IMAGE)
+            .map(|page| &page.texture)
+            .collect();
+        if images.is_empty() && self.rigged.is_none() {
+            images.push(&self.texture);
+        }
+        if let Some(rigged) = &self.rigged {
+            images.extend(rigged.pages.iter());
+        }
+        images
     }
 }
 

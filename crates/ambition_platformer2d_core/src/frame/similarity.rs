@@ -21,18 +21,22 @@ pub enum NumericFault {
 pub struct Sim2 {
     scale: f32,
     orthogonal: Mat2,
-    translation: Vec2,
+    translation: bevy_math::DVec2,
 }
 
 impl Sim2 {
     pub const IDENTITY: Self = Self {
         scale: 1.0,
         orthogonal: Mat2::IDENTITY,
-        translation: Vec2::ZERO,
+        translation: bevy_math::DVec2::ZERO,
     };
 
     /// Both the map and its inverse must fit the coordinate representation.
     pub fn new(scale: f32, orthogonal: Mat2, translation: Vec2) -> Result<Self, NumericFault> {
+        Self::from_wide_translation(scale, orthogonal, translation.as_dvec2())
+    }
+
+    fn from_wide_translation(scale: f32, orthogonal: Mat2, translation: bevy_math::DVec2) -> Result<Self, NumericFault> {
         if !scale.is_finite() || !orthogonal.is_finite() || !translation.is_finite() {
             return Err(NumericFault::NonFinite);
         }
@@ -47,8 +51,10 @@ impl Sim2 {
             return Err(NumericFault::InvalidFrame);
         }
         let inverse_scale = narrow_positive(1.0 / f64::from(scale))?;
-        let inverse_translation = -rotate_wide(orthogonal.transpose(), translation.as_dvec2());
-        narrow_vec(inverse_translation * f64::from(inverse_scale))?;
+        let inverse_translation = -rotate_wide(orthogonal.transpose(), translation);
+        if !(inverse_translation * f64::from(inverse_scale)).is_finite() {
+            return Err(NumericFault::Overflow);
+        }
         Ok(Self {
             scale,
             orthogonal,
@@ -86,8 +92,8 @@ impl Sim2 {
             map_vec_between(Vec2::Y, enter.frame.normal, exit.frame.normal, convention),
         );
         let offset = rotate_wide(orthogonal, enter.frame.origin.as_dvec2()) * f64::from(scale);
-        let translation = narrow_vec(exit.frame.origin.as_dvec2() - offset)?;
-        Self::new(scale, orthogonal, translation)
+        let translation = exit.frame.origin.as_dvec2() - offset;
+        Self::from_wide_translation(scale, orthogonal, translation)
     }
 
     pub fn scale(self) -> f32 {
@@ -98,7 +104,7 @@ impl Sim2 {
         self.orthogonal
     }
 
-    pub fn translation(self) -> Vec2 {
+    pub fn translation(self) -> bevy_math::DVec2 {
         self.translation
     }
 
@@ -113,7 +119,7 @@ impl Sim2 {
         }
         narrow_vec(
             rotate_wide(self.orthogonal, point.as_dvec2()) * f64::from(self.scale)
-                + self.translation.as_dvec2(),
+                + self.translation,
         )
     }
 
@@ -145,17 +151,15 @@ impl Sim2 {
     /// Apply this map first, then `next`.
     pub fn then(self, next: Self) -> Result<Self, NumericFault> {
         let scale = narrow_positive(f64::from(self.scale) * f64::from(next.scale))?;
-        let translation = next.point(self.translation)?;
-        Self::new(scale, next.orthogonal * self.orthogonal, translation)
+        let translation = rotate_wide(next.orthogonal, self.translation) * f64::from(next.scale) + next.translation;
+        Self::from_wide_translation(scale, next.orthogonal * self.orthogonal, translation)
     }
 
     pub fn inverse(self) -> Result<Self, NumericFault> {
         let scale = narrow_positive(1.0 / f64::from(self.scale))?;
         let orthogonal = self.orthogonal.transpose();
-        let translation = narrow_vec(
-            -rotate_wide(orthogonal, self.translation.as_dvec2()) / f64::from(self.scale),
-        )?;
-        Self::new(scale, orthogonal, translation)
+        let translation = -rotate_wide(orthogonal, self.translation) / f64::from(self.scale);
+        Self::from_wide_translation(scale, orthogonal, translation)
     }
 
     /// Check the feature in the destination chart and its local float spacing.

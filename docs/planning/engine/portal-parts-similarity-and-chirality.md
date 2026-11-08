@@ -2,10 +2,10 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** RUST DRAFT IN A WORKTREE (Jon, 2026-11-08).
-Use assigned slot 1 and branch `portal-similarity-draft`. Do not compile,
-run simulations, or measure performance. Main integration and compilation
-wait for Jon to finish his work on main. See
+**Work state:** IMPLEMENTATION AND TESTING IN WORKTREE SLOT 1
+(Jon, 2026-11-08). Use branch `portal-similarity-draft` and its own bound target.
+All 12 VM CPUs are available. Keep implementation and tests in this worktree
+while Jon uses main for Android profiling. Main integration remains pending. See
 [Implementation plan](#implementation-plan) and [Draft status](#draft-status).
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -567,9 +567,10 @@ No PSIM slice has passed its acceptance checks.
 - Aperture publication precedes body integration. The later passage publication
   refreshes occupancy without replacing that tick's aperture inputs.
 
-Before integration, compile and run the focused tests. The draft has only
-been parsed with rustfmt and checked by static inspection. The numerical,
-partition, and movement assertions have not run. The allocation measurement
+The initial foundation now passes all 724 core library tests and the
+assembled `ambition_app` check. The translated rotating-pair regression
+requires composed translation to remain in double precision until projection.
+Other PSIM acceptance remains open. The allocation measurement
 still exists; sharing source primitives and copying movement candidates change
 its inputs, so record a new result after compilation is permitted.
 

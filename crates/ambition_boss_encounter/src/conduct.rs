@@ -195,7 +195,7 @@ fn limb_contact(world: &World, limb: Entity, kin: &ae::BodyKinematics) -> Option
         Some((link, convention))
             if ae::frame::thread::opening(&link.enter).iter().all(|plane| plane.contains(point)) =>
         {
-            link.map(convention).point(point)
+            link.map(convention).and_then(|map| map.point(point)).ok()?
         }
         _ => point,
     })

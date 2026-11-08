@@ -30,7 +30,8 @@ fn an_isolated_rotated_pair_cuts_a_translated_body_once() {
             let volume = CombatVolume::convex(box_corners(crate::Aabb::new(center, Vec2::splat(24.0))).to_vec());
             for convention in [MapConvention::Reflection, MapConvention::Rotation] {
                 for budget in [PieceBudget::SINGLE_HOP, PieceBudget::COMPOSED] {
-                    let cut = partition(&volume, root, &links(&[pair]), Some(0), budget, convention).unwrap();
+                    let cut = partition(&volume, root, &links(&[pair]), Some(0), budget, convention)
+                        .unwrap_or_else(|reason| panic!("center={center:?}, degree={degree}, convention={convention:?}, budget={budget:?}: {reason:?}"));
                     assert!(
                         cut.len() == 2
                             && cut.iter().all(|piece| piece.bounds.len() <= 3 && piece.path.len() <= 1),

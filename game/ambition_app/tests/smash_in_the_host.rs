@@ -8804,12 +8804,21 @@ fn mary_o_plays_the_same_after_ambition_and_smash_had_the_host() {
 /// events. A profile of character select is not evidence about Smash FPS.
 #[test]
 fn an_unattended_smash_profile_enters_a_live_all_cpu_round() {
+    assert_unattended_smash_profile_enters_live_match("smash", 2);
+}
+
+#[test]
+fn an_unattended_four_cpu_smash_profile_enters_a_live_round() {
+    assert_unattended_smash_profile_enters_live_match("smash_4p", 4);
+}
+
+fn assert_unattended_smash_profile_enters_live_match(profile: &str, expected_seats: usize) {
     use ambition_platformer2d::actor::{ControllerBinding, MatchParticipantRoster, MatchSeat};
     use ambition_platformer2d::characters::control::ControlHolds;
     use ambition_platformer2d::game_shell::ShellRouteId;
     use ambition_platformer2d::input::SessionSeatingSource;
     let mut app = shell_host_app();
-    ambition_platformer2d::scripted_input::install_autoplay(&mut app, "smash");
+    ambition_platformer2d::scripted_input::install_autoplay(&mut app, profile);
     app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_SELECT_ROUTE,
     )));
@@ -8824,14 +8833,15 @@ fn an_unattended_smash_profile_enters_a_live_all_cpu_round() {
         let seated = seated_query.iter(app.world()).count();
         let mut held_query = app.world_mut().query_filtered::<&MatchSeat, With<ControlHolds>>();
         let held = held_query.iter(app.world()).count();
-        if seated == 2 && held == 0 {
+        if seated == expected_seats && held == 0 {
             went_live = true;
             break;
         }
     }
     assert!(went_live, "autoplay captured a menu, held ceremony, or empty stage");
     let roster = app.world().resource::<MatchParticipantRoster>();
-    assert_eq!(roster.participants.len(), 2);
+    assert_eq!(roster.participants.len(), expected_seats);
+    assert_eq!(roster.rules.stocks, Some(40));
     assert!(roster.participants.iter().all(|participant| {
         matches!(&participant.controller, ControllerBinding::Cpu { .. })
     }));

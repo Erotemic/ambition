@@ -15,9 +15,10 @@
 # below. The APK installs every game and bakes in nothing: the game and the
 # boot route are this one launch's environment (`--launch-env`), which the
 # app adopts and deletes at startup, and the app is stopped after the
-# capture, so opening it from the icon afterwards is the plain game. The startup cards
-# take about 6 s before the boot route: the warmup covers them and the walk
-# to the first door.
+# capture, so opening it from the icon afterwards is the plain game. The
+# profiler confirms the launch settings were read. For Smash it waits for a
+# live CPU match before sampling. The startup cards take about 6 s before
+# the boot route: the warmup covers them and the walk to the first door.
 #
 # Read the result with `scripts/measure/symbolize_android_profile.py DIR` (the
 # script prints DIR at the end).

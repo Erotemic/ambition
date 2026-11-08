@@ -243,6 +243,7 @@ mod tests {
         for expected in [2, 4] {
             let roster = profile_roster(&available, expected).expect("seatable cast");
             assert_eq!(roster.participants.len(), expected);
+            assert_eq!(roster.rules.stocks, Some(PROFILE_STOCKS));
             assert_eq!(roster.local_channel_plan().channels(), 0);
             assert!(roster.participants.iter().all(|participant| {
                 matches!(

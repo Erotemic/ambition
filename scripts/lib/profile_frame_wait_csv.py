@@ -13,7 +13,11 @@ FIELD = re.compile(r"([a-z_0-9]+)=([^\s]+)")
 COLUMNS = (
     "capture_s", "t", "frames", "gaps", "main_wall_ms", "main_cpu_ms",
     "gap_wall_ms", "gap_cpu_ms", "gap_p95_ms", "gap_over_10ms", "cpu_clock",
+    "focused_frames", "unfocused_frames", "unknown_focus_frames",
+    "focus_transitions", "focused_gaps", "unfocused_gaps",
+    "unknown_focus_gaps", "focused_gap_ms", "unfocused_gap_ms",
 )
+REQUIRED_COLUMNS = COLUMNS[:11]
 
 
 def extract(source: Path, dest: Path) -> int:
@@ -26,9 +30,10 @@ def extract(source: Path, dest: Path) -> int:
         if not line.startswith("[frame-wait] "):
             continue
         fields = dict(FIELD.findall(line[len("[frame-wait] "):]))
-        if not all(key in fields for key in COLUMNS if key != "capture_s"):
+        if not all(key in fields for key in REQUIRED_COLUMNS if key != "capture_s"):
             continue
-        rows.append({"capture_s": capture_s, **fields})
+        rows.append({column: capture_s if column == "capture_s" else fields.get(column, "")
+                     for column in COLUMNS})
     if not rows:
         return 0
     with dest.open("w", newline="") as file:

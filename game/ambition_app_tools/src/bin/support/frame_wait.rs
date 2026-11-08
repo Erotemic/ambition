@@ -8,6 +8,7 @@
 use bevy::app::MainScheduleOrder;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use std::time::{Duration, Instant};
 
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
@@ -20,7 +21,17 @@ struct AfterMain;
 struct FrameWaitProbe {
     started_at: Option<Instant>,
     epoch: Option<Instant>,
-    last_end: Option<(Instant, Option<Duration>)>,
+    last_end: Option<(Instant, Option<Duration>, Option<bool>)>,
+    last_focus: Option<bool>,
+    focused_frames: u32,
+    unfocused_frames: u32,
+    unknown_focus_frames: u32,
+    focus_transitions: u32,
+    focused_gaps: u32,
+    unfocused_gaps: u32,
+    unknown_focus_gaps: u32,
+    focused_gap_ms: f64,
+    unfocused_gap_ms: f64,
     begin: Option<(Instant, Option<Duration>)>,
     main_total_ms: f64,
     main_cpu_ms: f64,
@@ -55,7 +66,11 @@ fn cpu_delta_ms(earlier: Option<Duration>, later: Option<Duration>) -> f64 {
     }
 }
 
-fn begin_frame(mut probe: ResMut<FrameWaitProbe>, driver: Option<Res<super::MatchDriver>>) {
+fn begin_frame(
+    mut probe: ResMut<FrameWaitProbe>,
+    driver: Option<Res<super::MatchDriver>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+) {
     if !driver.is_some_and(|driver| matches!(driver.stage, super::Stage::Live(_))) {
         probe.last_end = None;
         probe.begin = None;
@@ -69,12 +84,41 @@ fn begin_frame(mut probe: ResMut<FrameWaitProbe>, driver: Option<Res<super::Matc
     if probe.epoch.is_none() {
         probe.epoch = Some(now);
     }
-    if let Some((last_wall, last_cpu)) = probe.last_end.take() {
+    let focused = windows.iter().next().map(|window| window.focused);
+    if let (Some(before), Some(after)) = (probe.last_focus, focused) {
+        if before != after {
+            probe.focus_transitions += 1;
+            eprintln!(
+                "[frame-focus] t={:.3} focused={after}",
+                now.duration_since(probe.epoch.expect("epoch is set above")).as_secs_f64(),
+            );
+        }
+    }
+    probe.last_focus = focused;
+    match focused {
+        Some(true) => probe.focused_frames += 1,
+        Some(false) => probe.unfocused_frames += 1,
+        None => probe.unknown_focus_frames += 1,
+    }
+    if let Some((last_wall, last_cpu, previous_focus)) = probe.last_end.take() {
         let gap_ms = now.duration_since(last_wall).as_secs_f64() * 1000.0;
         probe.gap_total_ms += gap_ms;
         probe.gap_cpu_ms += cpu_delta_ms(last_cpu, cpu);
         probe.gaps_over_10ms += u32::from(gap_ms >= 10.0);
         probe.gaps_ms.push(gap_ms);
+        // A gap that touches an unfocused sample is not a focused frame.
+        // It can include event-loop throttling independent of simulation.
+        match (previous_focus, focused) {
+            (Some(true), Some(true)) => {
+                probe.focused_gaps += 1;
+                probe.focused_gap_ms += gap_ms;
+            }
+            (Some(false), _) | (_, Some(false)) => {
+                probe.unfocused_gaps += 1;
+                probe.unfocused_gap_ms += gap_ms;
+            }
+            _ => probe.unknown_focus_gaps += 1,
+        }
     }
     probe.begin = Some((now, cpu));
 }
@@ -88,7 +132,8 @@ fn end_frame(mut probe: ResMut<FrameWaitProbe>) {
     probe.main_total_ms += now.duration_since(start).as_secs_f64() * 1000.0;
     probe.main_cpu_ms += cpu_delta_ms(start_cpu, cpu);
     probe.main_count += 1;
-    probe.last_end = Some((now, cpu));
+    let focused = probe.last_focus;
+    probe.last_end = Some((now, cpu, focused));
     let started_at = probe.started_at.expect("begin_frame sets the timestamp");
     if now.duration_since(started_at) < Duration::from_secs(1) {
         return;
@@ -102,7 +147,7 @@ fn end_frame(mut probe: ResMut<FrameWaitProbe>) {
         .saturating_sub(1);
     let p95 = probe.gaps_ms.get(p95_index).copied().unwrap_or(0.0);
     eprintln!(
-        "[frame-wait] t={:.3} frames={} gaps={} main_wall_ms={:.4} main_cpu_ms={:.4} gap_wall_ms={:.4} gap_cpu_ms={:.4} gap_p95_ms={:.4} gap_over_10ms={} cpu_clock={}",
+        "[frame-wait] t={:.3} frames={} gaps={} main_wall_ms={:.4} main_cpu_ms={:.4} gap_wall_ms={:.4} gap_cpu_ms={:.4} gap_p95_ms={:.4} gap_over_10ms={} cpu_clock={} focused_frames={} unfocused_frames={} unknown_focus_frames={} focus_transitions={} focused_gaps={} unfocused_gaps={} unknown_focus_gaps={} focused_gap_ms={:.4} unfocused_gap_ms={:.4}",
         now.duration_since(probe.epoch.expect("begin_frame sets the epoch")).as_secs_f64(),
         probe.main_count,
         gap_count,
@@ -113,6 +158,15 @@ fn end_frame(mut probe: ResMut<FrameWaitProbe>) {
         p95,
         probe.gaps_over_10ms,
         if cpu.is_some() { "thread" } else { "unavailable" },
+        probe.focused_frames,
+        probe.unfocused_frames,
+        probe.unknown_focus_frames,
+        probe.focus_transitions,
+        probe.focused_gaps,
+        probe.unfocused_gaps,
+        probe.unknown_focus_gaps,
+        if probe.focused_gaps > 0 { probe.focused_gap_ms / f64::from(probe.focused_gaps) } else { 0.0 },
+        if probe.unfocused_gaps > 0 { probe.unfocused_gap_ms / f64::from(probe.unfocused_gaps) } else { 0.0 },
     );
     probe.started_at = Some(now);
     probe.main_total_ms = 0.0;
@@ -122,12 +176,23 @@ fn end_frame(mut probe: ResMut<FrameWaitProbe>) {
     probe.main_count = 0;
     probe.gaps_over_10ms = 0;
     probe.gaps_ms.clear();
+    probe.focused_frames = 0;
+    probe.unfocused_frames = 0;
+    probe.unknown_focus_frames = 0;
+    probe.focus_transitions = 0;
+    probe.focused_gaps = 0;
+    probe.unfocused_gaps = 0;
+    probe.unknown_focus_gaps = 0;
+    probe.focused_gap_ms = 0.0;
+    probe.unfocused_gap_ms = 0.0;
 }
 
 pub(super) fn install(app: &mut App) {
     app.init_resource::<FrameWaitProbe>();
     app.add_systems(BeforeMain, begin_frame);
     app.add_systems(AfterMain, end_frame);
+    // The first mark also samples the primary window focus state. A 60 Hz
+    // background cap can otherwise look like expensive simulation work.
     // Schedule boundary marks have a known order. Systems inside First or Last
     // do not have this guarantee. Keep the existing schedule order intact.
     let mut order = app.world_mut().resource_mut::<MainScheduleOrder>();

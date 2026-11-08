@@ -1016,6 +1016,53 @@ and CPU level. The launcher writes those settings into `metadata.txt` and
 includes the cast/stock count in `scenario_id`, so old 3-stock baselines and
 mixed-character captures are not pooled as equivalent workloads.
 
+### Diagnosing frame waits and renderer-independent physics cost
+
+The standard frame-phase census already reports process-wide wall and CPU
+costs by main Bevy schedule. Its `outside` bucket includes render-app work,
+window/event-loop work, frame pacing, and presentation waits. Use the opt-in
+Smash probe to measure the wall gap and **main-thread** CPU usage directly:
+
+```bash
+scripts/measure/profile_desktop.sh --smash --smash-fighters 4 \
+  --smash-cast mixed-v1 --smash-seconds 90 --smash-debris on \
+  --smash-wait-probe --no-tracy --name smash-mixed-wait-on
+scripts/measure/profile_desktop.sh --smash --smash-fighters 4 \
+  --smash-cast mixed-v1 --smash-seconds 90 --smash-debris off \
+  --smash-wait-probe --no-tracy --name smash-mixed-wait-off
+```
+
+`frame_wait.csv` contains one row per second of active play. It reports mean
+`main_wall_ms`, `gap_wall_ms`, `gap_p95_ms`, the count of gaps at least 10 ms,
+and CPU time for the main thread in each interval. A large wall gap with little
+main-thread CPU means that thread is waiting or other threads are running.
+These marks alone do not separate render submission, swapchain acquisition,
+OS event dispatch, and GPU presentation. The render diagnostics and native
+thread samples can narrow that next. The new probe is opt-in; compare both
+sides with the same probe setting.
+
+A normal windowless Smash host does not install presentation-owned Avian.
+`--smash-debris on` versus `off` there is therefore not a physics test. For an
+independent CPU measurement, explicitly install Avian in **both** windowless
+arms and seed 48 persistent synthetic bodies only in the on arm:
+
+```bash
+scripts/measure/profile_desktop.sh --smash --headless \
+  --smash-cast mixed-v1 --smash-fighters 4 --headless-ticks 3600 \
+  --smash-headless-physics --smash-debris on --no-tracy --name smash-synthetic-avian-on
+scripts/measure/profile_desktop.sh --smash --headless \
+  --smash-cast mixed-v1 --smash-fighters 4 --headless-ticks 3600 \
+  --smash-headless-physics --smash-debris off --no-tracy --name smash-synthetic-avian-off
+```
+
+The driver advances exactly the requested number of session simulation ticks.
+It reports `windowless_sim_ticks`, `host_updates`, `ms_per_sim_tick`, and
+`p95_host_update_ms`. It verifies that all 48 synthetic bodies remain in the
+on arm and none exist in the off arm. These runs measure the incremental cost
+of a fixed Avian population without any rendering. They do not reproduce the
+match's natural bursts or imply an equivalent FPS improvement on a GPU.
+`-synthetic-avian-48` is part of the recorded benchmark identity.
+
 ### Isolating secondary physics and sprite watching
 
 The shipped four-CPU `mirror` and `mixed-v1` baselines keep their existing

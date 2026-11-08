@@ -26,6 +26,7 @@ class SingleCommandProfilerTests(unittest.TestCase):
         for relative in (
             "scripts/measure/profile_desktop.sh",
             "scripts/lib/profile_census_csv.py",
+            "scripts/lib/profile_frame_wait_csv.py",
             "scripts/lib/profile_bundle_summary.py",
             "scripts/lib/profile_metadata_json.py",
             "scripts/lib/profile_timeline.py",
@@ -103,6 +104,9 @@ if [[ "${FAKE_PROFILE_SLOW_GAME:-}" == "1" ]]; then
     sleep 0.7
     echo '[smash-profile] WARNING: the match ended -- later samples are results' >&2
     sleep 0.1
+fi
+if [[ " $* " == *" --wait-probe "* ]]; then
+    echo '[frame-wait] t=1.001 frames=61 gaps=60 main_wall_ms=3.1 main_cpu_ms=2.5 gap_wall_ms=13.1 gap_cpu_ms=0.1 gap_p95_ms=15.0 gap_over_10ms=57 cpu_clock=thread' >&2
 fi
 echo '[smash-profile] done seats_at_end=4' >&2
 EOF
@@ -231,6 +235,40 @@ fi
         meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
         self.assertIn("smash_characters=sanic,sanic,sanic,sanic", meta)
         self.assertIn("scenario_id=smash-match-4p-mirror-sanic-60stocks", meta)
+
+    def test_wait_probe_is_forwarded_and_recorded(self):
+        completed = self.capture("--smash-cast", "mixed-v1", "--smash-wait-probe")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-3000:])
+        calls = self.logfile.read_text().splitlines()
+        self.assertIn("--wait-probe", calls[2])
+        meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
+        self.assertIn("smash_wait_probe=yes", meta)
+        self.assertIn("smash_debris=on", meta)
+        import csv
+        with (self.root / "profiles/desktop-unit/frame_wait.csv").open() as file:
+            rows = list(csv.DictReader(file))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["gap_wall_ms"], "13.1")
+
+    def test_synthetic_avian_headless_workload_is_distinct(self):
+        completed = self.capture("--smash-headless-physics", "--headless", "--smash-debris", "on")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-3000:])
+        calls = self.logfile.read_text().splitlines()
+        self.assertIn("--headless-physics", calls[2])
+        self.assertIn("--ticks", calls[2])
+        meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
+        self.assertIn("smash_headless_physics=yes", meta)
+        self.assertIn("-synthetic-avian-48", meta)
+
+    def test_synthetic_avian_rejects_windowed(self):
+        completed = self.capture("--smash-headless-physics")
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("requires --headless", completed.stderr)
+
+    def test_wait_probe_rejects_headless(self):
+        completed = self.capture("--smash-wait-probe", "--headless")
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("requires a windowed Smash", completed.stderr)
 
     def test_no_debris_is_a_separate_benchmark_workload(self):
         completed = self.capture("--smash-debris", "off")

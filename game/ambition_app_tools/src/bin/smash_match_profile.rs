@@ -34,6 +34,9 @@
 
 use bevy::prelude::*;
 
+#[path = "support/frame_wait.rs"]
+mod frame_wait;
+
 use ambition_platformer2d::actor::{BodyKinematics, MatchParticipantRoster, MatchSeat};
 use ambition_platformer2d::characters::control::{ControlHolds, SlotControls};
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
@@ -327,6 +330,8 @@ fn main() {
             std::process::exit(2);
         }
     };
+    let wait_probe = arg_flag(&args, "--wait-probe");
+    let headless_physics = arg_flag(&args, "--headless-physics");
     let config = ProfileConfig { fighters, cast, stocks, debris_enabled };
     // Wall seconds of live match to measure before quitting, windowed only.
     // It starts when the round goes live, not at process start, because cold
@@ -342,9 +347,17 @@ fn main() {
         .unwrap_or(0);
 
     if arg_flag(&args, "--window") {
-        run_windowed(config, seconds);
+        if headless_physics {
+            eprintln!("[smash-profile] ABORT: --headless-physics requires a windowless run");
+            std::process::exit(2);
+        }
+        run_windowed(config, seconds, wait_probe);
     } else {
-        run_windowless(config, ticks, scaling_sprites);
+        if wait_probe {
+            eprintln!("[smash-profile] ABORT: --wait-probe requires --window");
+            std::process::exit(2);
+        }
+        run_windowless(config, ticks, scaling_sprites, headless_physics);
     }
 }
 
@@ -361,7 +374,7 @@ fn set_profile_debris(app: &mut App, enabled: bool) {
 
 /// The no-GPU arm: build the app with no window, step it by hand, measure a
 /// fixed number of ticks after the round goes live.
-fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
+fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize, headless_physics: bool) {
     // One App, one process, so a global tracing subscriber is safe here.
     // `build_visible_app` drops `LogPlugin` from windowless modes, and Tracy's
     // recorder is a layer on that subscriber, so without this a
@@ -376,6 +389,14 @@ fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
         |_app| {
             #[cfg(feature = "profile")]
             _app.add_plugins(bevy::log::LogPlugin::default());
+            if headless_physics {
+                use ambition_platformer2d::world::physics;
+                // The no-window host normally omits this presentation-owned
+                // plugin. Install it in BOTH arms of the synthetic comparison.
+                if !_app.is_plugin_added::<physics::AmbitionPhysicsPlugin>() {
+                    _app.add_plugins(physics::AmbitionPhysicsPlugin);
+                }
+            }
         },
     );
 
@@ -437,6 +458,11 @@ fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
         config.fighters
     );
 
+    if headless_physics {
+        seed_windowless_debris(&mut app, config.debris_enabled);
+        verify_windowless_debris(&mut app, if config.debris_enabled { 48 } else { 0 });
+    }
+
     // After the round goes live: sprites spawned during the opening ceremony
     // are removed by the teardown between lobby and stage.
     if scaling_sprites > 0 {
@@ -453,17 +479,48 @@ fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
     //
     // Sampled every 50 ticks, so the instrument does not join the population
     // it measures.
+    // ManualDuration(1/60) makes each update advance simulated time. Count
+    // the authoritative session tick, not calls to `App::update`, since GGRS
+    // can run zero or multiple simulation steps for one host update.
+    let start_tick = app.world().get_resource::<ambition_platformer2d::time::SimTick>()
+        .expect("live Smash match has a SimTick").0;
+    let target_tick = start_tick.saturating_add(u64::from(ticks));
+    let start_wall = std::time::Instant::now();
+    let mut update_costs_ms = Vec::with_capacity(ticks as usize);
     let mut live_samples = 0usize;
     let mut total_samples = 0usize;
-    for tick in 0..ticks {
+    let mut updates = 0u64;
+    let max_updates = u64::from(ticks).saturating_mul(3).saturating_add(100);
+    while app.world().resource::<ambition_platformer2d::time::SimTick>().0 < target_tick
+        && updates < max_updates
+    {
+        let start = std::time::Instant::now();
         app.update();
-        if tick % 50 == 0 {
+        update_costs_ms.push(start.elapsed().as_secs_f64() * 1000.0);
+        if updates % 50 == 0 {
             total_samples += 1;
             if cast_state(app.world_mut()).0 > 0 {
                 live_samples += 1;
             }
         }
+        updates += 1;
     }
+    let elapsed_ms = start_wall.elapsed().as_secs_f64() * 1000.0;
+    let actual_tick = app.world().resource::<ambition_platformer2d::time::SimTick>().0;
+    let measured_ticks = actual_tick.saturating_sub(start_tick);
+    if actual_tick != target_tick {
+        eprintln!("[smash-profile] ABORT: reached {measured_ticks}/{ticks} simulated ticks in {updates} host updates");
+        std::process::exit(3);
+    }
+    update_costs_ms.sort_by(f64::total_cmp);
+    let p95_idx = (update_costs_ms.len().saturating_mul(95).saturating_add(99) / 100)
+        .saturating_sub(1);
+    let p95_ms = update_costs_ms.get(p95_idx).copied().unwrap_or(0.0);
+    eprintln!(
+        "[smash-profile] windowless_sim_ticks={measured_ticks} host_updates={updates} elapsed_ms={elapsed_ms:.3} ms_per_sim_tick={:.4} p95_host_update_ms={p95_ms:.4} sim_ticks_per_second={:.2}",
+        elapsed_ms / measured_ticks.max(1) as f64,
+        measured_ticks as f64 * 1000.0 / elapsed_ms.max(f64::EPSILON),
+    );
     let coverage = if total_samples == 0 {
         100.0
     } else {
@@ -479,7 +536,58 @@ fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
     }
     eprintln!("[smash-profile] measured_window_live_cast={coverage:.0}%");
 
+    if headless_physics {
+        verify_windowless_debris(&mut app, if config.debris_enabled { 48 } else { 0 });
+    }
     report_end_of_run(app.world_mut(), seated_now);
+}
+
+/// A fixed synthetic debris population in the live headless Smash host.
+///
+/// The normal no-window composition omits debris physics. A comparison that
+/// only flips `debris_enabled` there would measure no Avian work in either arm.
+/// The isolated arm installs Avian in both modes and seeds bodies in the ON arm.
+/// This measures incremental Avian/debris costs without a render backend;
+/// it does not reproduce the exact debris events of a windowed match.
+fn seed_windowless_debris(app: &mut App, enabled: bool) {
+    use avian2d::prelude::{Collider, LinearVelocity, RigidBody};
+    use ambition_platformer2d::world::physics::PhysicsDebris;
+    // Keep the synthetic population alive through the whole measurement.
+    let mut settings = app.world_mut().resource_mut::<ambition_platformer2d::sim::PhysicsSandboxSettings>();
+    settings.default_lifetime = 10_000.0;
+    if !enabled {
+        eprintln!("[smash-profile] headless_physics=on synthetic_dynamic_bodies=0");
+        return;
+    }
+    app.world_mut().spawn((
+        RigidBody::Static,
+        Collider::rectangle(1100.0, 20.0),
+        Transform::from_xyz(0.0, -400.0, 0.0),
+    ));
+    for i in 0..48 {
+        let x = (i % 12) as f32 * 28.0 - 154.0;
+        let y = (i / 12) as f32 * 28.0 + 80.0;
+        app.world_mut().spawn((
+            RigidBody::Dynamic,
+            Collider::rectangle(18.0, 18.0),
+            LinearVelocity(bevy::prelude::Vec2::new((i % 5) as f32 * 8.0, 0.0)),
+            PhysicsDebris { lifetime: 10_000.0 },
+            Transform::from_xyz(x, y, 0.0),
+        ));
+    }
+    eprintln!("[smash-profile] headless_physics=on synthetic_dynamic_bodies=48");
+}
+
+fn verify_windowless_debris(app: &mut App, expected: usize) {
+    use ambition_platformer2d::world::physics::PhysicsDebris;
+    let count = app.world_mut()
+        .query_filtered::<(), With<PhysicsDebris>>()
+        .iter(app.world())
+        .count();
+    if count != expected {
+        eprintln!("[smash-profile] ABORT: synthetic debris count={count}, expected={expected}");
+        std::process::exit(3);
+    }
 }
 
 /// The GPU arm: a real window, winit's event loop, hardware rendering.
@@ -487,7 +595,7 @@ fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
 /// The loop is not ours here: `app.run()` returns only when the window
 /// closes. [`MatchDriver`] runs the windowless arm's settle / seat /
 /// wait-for-live sequence one frame at a time, with the same conditions.
-fn run_windowed(config: ProfileConfig, seconds: f32) {
+fn run_windowed(config: ProfileConfig, seconds: f32, wait_probe: bool) {
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::Windowed,
         true,
@@ -508,6 +616,10 @@ fn run_windowed(config: ProfileConfig, seconds: f32) {
         stage: Stage::Settling(SETTLE_FRAMES),
     });
     app.add_systems(Update, drive_match);
+    if wait_probe {
+        frame_wait::install(&mut app);
+        eprintln!("[smash-profile] frame_wait_probe=on");
+    }
     eprintln!(
         "[smash-profile] windowed: fighters={} measure_for={}",
         config.fighters,

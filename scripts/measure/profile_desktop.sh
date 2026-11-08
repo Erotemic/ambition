@@ -103,6 +103,8 @@ smash_character="performer"
 smash_stocks="40"
 # Only Avian cosmetic debris changes; fighter kinematics are unaffected.
 smash_debris="on"
+smash_wait_probe="no"
+smash_headless_physics="no"
 # Wall seconds of LIVE match before the game quits itself, or 0 for "play until
 # you quit", which is timeline-run's own default shape.
 smash_seconds="0"
@@ -198,6 +200,11 @@ Smash match (a real round, not the character-select menu):
   --smash-cast NAME       mirror (default) or mixed-v1 (four fixed, distinct ids).
   --smash-character ID    Character for a mirror match. Default: performer.
   --smash-debris MODE     on (default) or off; isolates secondary Avian debris.
+  --smash-wait-probe      Log per-second main-schedule vs between-frame time
+                           and main-thread CPU time; windowed Smash only.
+  --smash-headless-physics  Install Avian without a renderer in both arms,
+                           then seed 48 synthetic debris bodies with debris=on.
+                           Requires --headless; compare only with the same flag.
                            Recorded as a distinct workload, not a speedup claim.
   --smash-stocks N        Stocks per CPU for profiling. Default: 40.
                            Ordinary gameplay rules are unchanged.
@@ -328,6 +335,8 @@ while [[ $# -gt 0 ]]; do
         --perf-probe) want_perf_probe="yes" ;;
         --headless) headless="yes" ;;
         --smash|--smash-match) workload="smash-match" ;;
+        --smash-wait-probe) workload="smash-match"; smash_wait_probe="yes" ;;
+        --smash-headless-physics) workload="smash-match"; smash_headless_physics="yes" ;;
         --autoplay) workload="ambition-autoplay" ;;
         --smash-fighters) shift; [[ $# -gt 0 ]] || fail "--smash-fighters requires a value"; is_positive_int "$1" || fail "--smash-fighters must be positive"; workload="smash-match"; smash_fighters="$1" ;;
         --smash-fighters=*) smash_fighters="${1#--smash-fighters=}"; is_positive_int "$smash_fighters" || fail "--smash-fighters must be positive"; workload="smash-match" ;;
@@ -365,6 +374,12 @@ done
 # A benchmark identity cannot silently clamp seats or accept a different cast.
 if [[ "$workload" == "smash-match" ]]; then
     [[ "$smash_fighters" =~ ^[234]$ ]] || fail "Smash profiling requires 2-4 fighters"
+    if [[ "$smash_wait_probe" == "yes" && "$headless" == "yes" ]]; then
+        fail "--smash-wait-probe requires a windowed Smash match"
+    fi
+    if [[ "$smash_headless_physics" == "yes" && "$headless" != "yes" ]]; then
+        fail "--smash-headless-physics requires --headless"
+    fi
     [[ "$smash_stocks" =~ ^[1-9][0-9]*$ ]] || fail "--smash-stocks must be positive"
     [[ "$smash_debris" == "on" || "$smash_debris" == "off" ]] || fail "--smash-debris must be on or off"
     [[ "$smash_cast" == "mirror" || "$smash_cast" == "mixed-v1" ]] || fail "--smash-cast must be mirror or mixed-v1"
@@ -496,6 +511,9 @@ build_effective_run_args() {
         if [[ "$smash_debris" == "off" ]]; then
             scenario_id+="-no-debris"
         fi
+        if [[ "$smash_headless_physics" == "yes" ]]; then
+            scenario_id+="-synthetic-avian-48"
+        fi
         if [[ "${AMBITION_SPRITE_WATCH:-}" == "0" || "${AMBITION_SPRITE_WATCH:-}" == "off" || "${AMBITION_SPRITE_WATCH:-}" == "false" ]]; then
             scenario_id+="-no-sprite-watch"
         fi
@@ -505,6 +523,12 @@ build_effective_run_args() {
         fi
         effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
         extra_game_args+=(--fighters "$smash_fighters" --cast "$smash_cast" --stocks "$smash_stocks")
+        if [[ "$smash_wait_probe" == "yes" ]]; then
+            extra_game_args+=(--wait-probe)
+        fi
+        if [[ "$smash_headless_physics" == "yes" ]]; then
+            extra_game_args+=(--headless-physics)
+        fi
         if [[ "$smash_debris" == "off" ]]; then
             extra_game_args+=(--debris off)
         fi
@@ -1094,6 +1118,8 @@ write_metadata() {
             echo "smash_character=$smash_character"
             echo "smash_stocks=$smash_stocks"
             echo "smash_debris=$smash_debris"
+            echo "smash_wait_probe=$smash_wait_probe"
+            echo "smash_headless_physics=$smash_headless_physics"
             echo "smash_characters=$(smash_seat_character_ids)"
             echo "smash_cpu_level=3"
         fi
@@ -1345,6 +1371,8 @@ write_bundle_reports() {
     local out_dir="$1"
     python3 "$repo_root/scripts/lib/profile_census_csv.py" "$out_dir" \
         || log "census CSV extraction failed; the stamped log is still in the bundle"
+    python3 "$repo_root/scripts/lib/profile_frame_wait_csv.py" "$out_dir" \
+        || log "frame-wait extraction failed; the stamped log is still in the bundle"
     AMBITION_PROFILE_INCLUDE_RAW_DATA="$include_raw_data" \
         python3 "$repo_root/scripts/lib/profile_bundle_summary.py" "$out_dir" \
         || log "summary generation failed; the local artifacts are still available"

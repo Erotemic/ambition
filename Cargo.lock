@@ -213,9 +213,11 @@ dependencies = [
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
  "ambition_sim_harness",
+ "avian2d",
  "bevy",
  "clap",
  "image",
+ "libc",
  "serde_json",
 ]
 

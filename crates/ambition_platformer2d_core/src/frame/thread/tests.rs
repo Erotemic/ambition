@@ -403,9 +403,11 @@ fn a_volume_on_the_plane_or_grazing_an_end_is_not_cut() {
     // Its bottom on the plane.
     let resting = boxed(Vec2::new(0.0, -10.0), Vec2::splat(10.0));
     assert_eq!(thread_volume(&resting, ABOVE, &pair, MapConvention::Reflection), vec![VolumePiece::whole(resting.clone())]);
-    // A hair past it: no area to speak of.
+    // A positive material region remains a part, even when it is thin.
     let grazing = boxed(Vec2::new(0.0, -10.0 + 1e-5), Vec2::splat(10.0));
-    assert_eq!(thread_volume(&grazing, ABOVE, &pair, MapConvention::Reflection).len(), 1);
+    let grazing_parts = thread_volume(&grazing, ABOVE, &pair, MapConvention::Reflection);
+    assert_eq!(grazing_parts.len(), 2);
+    assert_tiles(&grazing, &grazing_parts);
     // Past the plane, its edge on the opening's end: beside it, whole.
     let at_the_end = boxed(Vec2::new(50.0, 10.0), Vec2::splat(10.0));
     assert_eq!(thread_volume(&at_the_end, Vec2::new(50.0, -30.0), &pair, MapConvention::Reflection).len(), 1);
@@ -619,5 +621,55 @@ fn cumulative_scale_refuses_by_policy_before_a_numeric_fault() {
             root.point(Vec2::ZERO).unwrap(), &links(&[(enter, exit)]), Some(0), budget, MapConvention::Reflection).unwrap_err();
         assert_eq!(refusal.reason, RefusalReason::ScaleLimit);
         assert_eq!(refusal.link, Some(0));
+    }
+}
+
+
+#[test]
+fn small_world_primitives_keep_their_through_material() {
+    let enter = aperture(Vec2::ZERO, UP, 0.04);
+    let exit = aperture(Vec2::new(0.5, -0.2), DOWN, 0.04);
+    let domain = boxed(Vec2::new(0.0, -0.0005), Vec2::splat(0.002));
+    assert!(reaches_through(&domain, &enter));
+    let parts = partition(MaterialPrimitive::world(&domain), domain.center(), &links(&[(enter, exit)]),
+        Some(0), PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+    assert_eq!(parts.len(), 2);
+    assert!(parts.iter().all(|part| part.source_region().is_some()));
+    let covered: f32 = parts.iter().map(|part| area(&part.source_region().unwrap())).sum();
+    assert!((covered - area(&domain.polygon().unwrap())).abs() < 1.0e-10);
+}
+
+#[test]
+fn canonical_coverage_does_not_depend_on_the_world_scale() {
+    let domain = boxed(Vec2::ZERO, Vec2::splat(20.0));
+    for exponent in [-12, -8, 0, 8, 12] {
+        let scale = 2.0_f32.powi(exponent);
+        let root = Sim2::new(scale, bevy_math::Mat2::IDENTITY, Vec2::new(0.0, -5.0 * scale)).unwrap();
+        let enter = aperture(Vec2::ZERO, UP, 40.0 * scale);
+        let exit = aperture(Vec2::new(500.0, -200.0) * scale, DOWN, 40.0 * scale);
+        let parts = partition(MaterialPrimitive { domain: &domain, to_world: root }, root.point(Vec2::ZERO).unwrap(),
+            &links(&[(enter, exit)]), Some(0), PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+        assert_eq!(parts.len(), 2, "scale exponent {exponent}");
+        assert_tiles(&domain, &parts);
+    }
+}
+
+
+#[test]
+fn clipped_circles_have_no_world_size_contact_halo() {
+    for exponent in [-12, -8, 0, 8, 12] {
+        let scale = 2.0_f32.powi(exponent);
+        let domain = CombatVolume::circle(Vec2::ZERO, 20.0);
+        let root = Sim2::new(scale, bevy_math::Mat2::IDENTITY, Vec2::ZERO).unwrap();
+        let enter = aperture(Vec2::ZERO, UP, 40.0 * scale);
+        let exit = aperture(Vec2::new(500.0, -200.0) * scale, DOWN, 40.0 * scale);
+        let parts = partition(MaterialPrimitive { domain: &domain, to_world: root }, Vec2::new(0.0, -10.0) * scale,
+            &links(&[(enter, exit)]), Some(0), PieceBudget::COMPOSED, MapConvention::Reflection).unwrap();
+        let through = parts.iter().find(|part| part.is_carried()).unwrap();
+        for (offset, touches) in [(-2.0, false), (2.0, true)] {
+            let target = VolumePiece::whole(CombatVolume::circle(exit.frame.origin + Vec2::Y * (offset * scale), 0.25 * scale));
+            assert_eq!(through.meets(&target), touches, "exponent {exponent}, offset {offset}");
+            assert_eq!(target.meets(through), touches, "contact must be symmetric");
+        }
     }
 }

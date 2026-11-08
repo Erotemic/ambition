@@ -67,6 +67,56 @@ impl HalfPlane {
     }
 }
 
+/// A canonical cut: `inward.dot(point) >= offset`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MaterialPlane {
+    pub inward: DVec2,
+    pub offset: f64,
+}
+
+impl From<HalfPlane> for MaterialPlane {
+    fn from(plane: HalfPlane) -> Self {
+        let inward = plane.inward.as_dvec2();
+        Self { inward, offset: inward.dot(plane.point.as_dvec2()) }
+    }
+}
+
+impl MaterialPlane {
+    fn side(self, point: DVec2) -> f64 { point.dot(self.inward) - self.offset }
+
+    fn error_at(self, point: DVec2) -> f64 {
+        (point.abs().dot(self.inward.abs()) + self.offset.abs()) * f64::EPSILON * 8.0
+    }
+
+    fn validate(self) -> Result<Self, NumericFault> {
+        if !self.inward.is_finite() || !self.offset.is_finite() { return Err(NumericFault::NonFinite); }
+        if self.inward.length_squared() == 0.0 { return Err(NumericFault::InvalidFrame); }
+        Ok(self)
+    }
+
+    fn mapped(self, map: &Sim2) -> Result<Self, NumericFault> {
+        self.validate()?;
+        self.projected(map).validate()
+    }
+
+    fn projected(self, map: &Sim2) -> Self {
+        let inward = map.direction_wide(self.inward);
+        Self { inward, offset: self.offset * map.scale_wide() + inward.dot(map.translation()) }
+    }
+
+    fn pulled_back(self, map: &Sim2) -> Result<Self, NumericFault> {
+        self.validate()?;
+        Self { inward: map.inverse_direction_wide(self.inward),
+            offset: (self.offset - self.inward.dot(map.translation())) / map.scale_wide() }.validate()
+    }
+
+    fn in_world(self, map: &Sim2) -> Result<HalfPlane, NumericFault> {
+        let plane = self.mapped(map)?;
+        let point = plane.inward * (plane.offset / plane.inward.length_squared());
+        Ok(HalfPlane { point: Sim2::IDENTITY.point_from_wide(point)?, inward: plane.inward.as_vec2() })
+    }
+}
+
 /// One way through a pair: in at `enter`, out at `exit`. `key` orders the
 /// links of a room (the passages give each end of each pair its own) and
 /// names the link in a piece's path.
@@ -149,7 +199,7 @@ impl<'a> MaterialPrimitive<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct VolumePiece {
     source: Arc<CombatVolume>,
-    source_bounds: Vec<HalfPlane>,
+    source_bounds: Vec<MaterialPlane>,
     to_piece: Sim2,
     root_map: Sim2,
     volume: CombatVolume,
@@ -182,13 +232,13 @@ impl VolumePiece {
     }
 
     pub fn source(&self) -> &CombatVolume { &self.source }
-    pub fn source_bounds(&self) -> &[HalfPlane] { &self.source_bounds }
+    pub fn source_bounds(&self) -> &[MaterialPlane] { &self.source_bounds }
     pub fn transform(&self) -> Sim2 { self.to_piece }
     pub fn path_transform(&self) -> Result<Sim2, NumericFault> {
         self.root_map.inverse()?.then(self.to_piece)
     }
     pub fn root_bounds(&self) -> Result<Vec<HalfPlane>, NumericFault> {
-        self.source_bounds.iter().map(|plane| plane.mapped(&self.root_map)).collect()
+        self.source_bounds.iter().map(|plane| plane.in_world(&self.root_map)).collect()
     }
     pub fn world_volume(&self) -> &CombatVolume { &self.volume }
     pub fn world_bounds(&self) -> &[HalfPlane] { &self.bounds }
@@ -211,7 +261,8 @@ impl VolumePiece {
     }
 
     pub fn region(&self) -> Option<Vec<Vec2>> {
-        self.source_region()?.into_iter().map(|p| self.to_piece.point(p)).collect::<Result<Vec<_>, _>>().ok()
+        let outline = self.source.polygon().unwrap_or_else(|| box_outline(self.source.bounds()));
+        cut_wide(outline, &self.source_bounds)?.into_iter().map(|p| self.to_piece.point_from_wide(p)).collect::<Result<Vec<_>, _>>().ok()
     }
 
     pub fn center(&self) -> Vec2 {
@@ -221,6 +272,13 @@ impl VolumePiece {
     }
 
     pub fn meets(&self, other: &VolumePiece) -> bool {
+        if let (CombatVolume::Circle { center: a, radius: ra }, CombatVolume::Circle { center: b, radius: rb }) = (&*self.source, &*other.source) {
+            let a = (self.to_piece.point_wide(a.as_dvec2()), f64::from(*ra) * self.to_piece.scale_wide());
+            let b = (other.to_piece.point_wide(b.as_dvec2()), f64::from(*rb) * other.to_piece.scale_wide());
+            let planes: Vec<_> = self.source_bounds.iter().map(|plane| plane.projected(&self.to_piece))
+                .chain(other.source_bounds.iter().map(|plane| plane.projected(&other.to_piece))).collect();
+            return circles_meet(a, b, &planes);
+        }
         if self.bounds.is_empty() && other.bounds.is_empty() {
             return self.volume.intersects(&other.volume);
         }
@@ -235,12 +293,7 @@ impl VolumePiece {
         if let Some(outline) = self.volume.polygon() {
             return cut(outline, &planes).is_some_and(|p| other.volume.intersects(&CombatVolume::convex(p)));
         }
-        match (&self.volume, &other.volume) {
-            (CombatVolume::Circle { center: a, radius: ra }, CombatVolume::Circle { center: b, radius: rb }) => {
-                circles_meet((*a, *ra), (*b, *rb), &planes)
-            }
-            _ => unreachable!("only a circle has no polygon"),
-        }
+        unreachable!("only a circle has no polygon")
     }
 
     pub fn active_bounds(&self) -> Vec<HalfPlane> {
@@ -248,8 +301,11 @@ impl VolumePiece {
         let mut kept: Vec<usize> = (0..self.source_bounds.len()).collect();
         let mut i = 0;
         while i < kept.len() {
-            let without: Vec<HalfPlane> = kept.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, index)| self.source_bounds[*index]).collect();
-            if cut(outline.clone(), &without).is_some_and(|region| region.iter().any(|p| self.source_bounds[kept[i]].side(*p) < -EPS)) {
+            let without: Vec<MaterialPlane> = kept.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, index)| self.source_bounds[*index]).collect();
+            if cut_wide(outline.clone(), &without).is_some_and(|region| region.iter().any(|p| {
+                let plane = self.source_bounds[kept[i]];
+                plane.side(*p) < -plane.error_at(*p)
+            })) {
                 i += 1;
             } else {
                 kept.remove(i);
@@ -259,17 +315,16 @@ impl VolumePiece {
     }
 
     fn projected(
-        source: Arc<CombatVolume>, source_bounds: Vec<HalfPlane>, to_piece: Sim2, root_map: Sim2, path: Vec<u32>,
+        source: Arc<CombatVolume>, source_bounds: Vec<MaterialPlane>, to_piece: Sim2, root_map: Sim2, path: Vec<u32>,
     ) -> Result<Self, NumericFault> {
         let volume = map_volume(&source, &to_piece)?;
-        let bounds = source_bounds.iter().map(|plane| plane.mapped(&to_piece)).collect::<Result<Vec<_>, _>>()?;
+        let bounds = source_bounds.iter().map(|plane| plane.in_world(&to_piece)).collect::<Result<Vec<_>, _>>()?;
         Ok(Self { source, source_bounds, to_piece, root_map, volume, bounds, path })
     }
 
     fn bounded(&self, more: &[HalfPlane]) -> Result<Self, NumericFault> {
-        let inverse = self.to_piece.inverse()?;
         let mut source_bounds = self.source_bounds.clone();
-        source_bounds.extend(more.iter().map(|plane| plane.mapped(&inverse)).collect::<Result<Vec<_>, _>>()?);
+        source_bounds.extend(more.iter().map(|plane| MaterialPlane::from(*plane).pulled_back(&self.to_piece)).collect::<Result<Vec<_>, _>>()?);
         Self::projected(self.source.clone(), source_bounds, self.to_piece, self.root_map, self.path.clone())
     }
 
@@ -356,23 +411,25 @@ fn entry_opening(ap: &PortalAperture, reach: Option<Vec2>) -> [HalfPlane; 3] {
 /// Does `volume` reach past `ap`'s plane inside its opening?
 pub fn reaches_through(volume: &CombatVolume, ap: &PortalAperture) -> bool {
     let link = PortalLink { enter: *ap, exit: *ap, key: 0, depth: None };
-    piece_reaches_through(&VolumePiece::whole(volume.clone()), &link, None)
+    piece_reaches_through(&VolumePiece::whole(volume.clone()), &link, None).unwrap_or(false)
 }
 
-fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink, reach: Option<Vec2>) -> bool {
+fn piece_reaches_through(piece: &VolumePiece, link: &PortalLink, reach: Option<Vec2>) -> Result<bool, NumericFault> {
     let ap = &link.enter;
-    // The box around the volume first: most openings are nowhere near.
-    let b = piece.volume.bounds();
-    let corners = [b.min, Vec2::new(b.max.x, b.min.y), b.max, Vec2::new(b.min.x, b.max.y)].map(|c| ap.frame.to_local(c));
-    let h = ap.half_length;
-    if corners.iter().all(|l| l.y >= 0.0) {
-        return false;
+    let origin = ap.frame.origin.as_dvec2();
+    let normal = ap.frame.normal.as_dvec2();
+    let tangent = ap.frame.tangent().as_dvec2();
+    let corners = box_corners(piece.source.bounds()).map(|point| {
+        let offset = piece.to_piece.point_wide(point.as_dvec2()) - origin;
+        DVec2::new(offset.dot(tangent), offset.dot(normal))
+    });
+    if corners.iter().all(|p| p.y >= 0.0) { return Ok(false); }
+    let half = f64::from(ap.half_length);
+    if reach.is_none() && (corners.iter().all(|p| p.x <= -half) || corners.iter().all(|p| p.x >= half)) {
+        return Ok(false);
     }
-    // Square on, a box wholly past an end is beside the opening.
-    if reach.is_none() && (corners.iter().all(|l| l.x <= -h) || corners.iter().all(|l| l.x >= h)) {
-        return false;
-    }
-    holds(&piece.volume, piece.bounds.iter().copied().chain(link.through_from(reach)))
+    let cuts = link.through_from(reach).map(|plane| MaterialPlane::from(plane).pulled_back(&piece.to_piece)).collect::<Result<Vec<_>, _>>()?;
+    Ok(holds(&piece.source, piece.source_bounds.iter().copied().chain(cuts)))
 }
 
 /// The partitioner's working memory, kept between calls on a thread so that a
@@ -392,7 +449,7 @@ thread_local! {
 }
 
 /// Does any of `volume` lie in every one of `planes`?
-fn holds(volume: &CombatVolume, planes: impl Iterator<Item = HalfPlane>) -> bool {
+fn holds<P: Into<MaterialPlane>>(volume: &CombatVolume, planes: impl Iterator<Item = P>) -> bool {
     SCRATCH.with_borrow_mut(|Scratch { outline, kept }| {
         outline.clear();
         match volume {
@@ -405,13 +462,13 @@ fn holds(volume: &CombatVolume, planes: impl Iterator<Item = HalfPlane>) -> bool
             CombatVolume::Convex { .. } => outline.extend(volume.polygon().into_iter().flatten().map(Vec2::as_dvec2)),
         }
         for plane in planes {
-            clip_into(outline, plane, kept);
+            clip_into(outline, plane.into(), kept);
             std::mem::swap(outline, kept);
             if outline.len() < 3 {
                 return false;
             }
         }
-        if twice_area(outline).abs() <= f64::from(EPS) {
+        if !has_area(outline) {
             return false;
         }
         match volume {
@@ -505,15 +562,18 @@ fn partition_from(
             steps += 1;
             let forced = (steps == 1).then_some(first).flatten();
             let reach = reaching.then_some(root);
-            let next = links.iter().filter(|link| {
-                (Some(link.key) == forced || link.enter.frame.to_local(root).y > 0.0)
-                    && piece_reaches_through(&piece, link, reach)
-            }).min_by(|a, b| {
-                let rank = |link: &PortalLink| if Some(link.key) == forced {
-                    f32::NEG_INFINITY
-                } else { link.enter.frame.to_local(root).y };
-                rank(a).total_cmp(&rank(b)).then(a.key.cmp(&b.key))
-            });
+            let rank = |link: &PortalLink| if Some(link.key) == forced { f32::NEG_INFINITY }
+                else { link.enter.frame.to_local(root).y };
+            let mut next: Option<&PortalLink> = None;
+            for link in links {
+                if Some(link.key) != forced && link.enter.frame.to_local(root).y <= 0.0 { continue; }
+                let reaches = piece_reaches_through(&piece, link, reach).map_err(|fault| Refusal {
+                    path: piece.path.clone(), link: Some(link.key), reason: RefusalReason::Numeric(fault),
+                })?;
+                if reaches && next.is_none_or(|old| rank(link).total_cmp(&rank(old)).then(link.key.cmp(&old.key)).is_lt()) {
+                    next = Some(link);
+                }
+            }
             let Some(link) = next else { out.push(piece); continue; };
             let refusal = |reason| Refusal { path: piece.path.clone(), link: Some(link.key), reason };
             if steps > step_limit { return Err(refusal(RefusalReason::WorkLimit)); }
@@ -665,26 +725,34 @@ pub fn face_rect_planes(rect: &super::FaceRect) -> [HalfPlane; 4] {
     ]
 }
 
-fn cut(outline: Vec<Vec2>, planes: &[HalfPlane]) -> Option<Vec<Vec2>> {
+fn cut<P: Copy + Into<MaterialPlane>>(outline: Vec<Vec2>, planes: &[P]) -> Option<Vec<Vec2>> {
+    cut_wide(outline, planes).map(|outline| outline.into_iter().map(|p| p.as_vec2()).collect())
+}
+
+fn cut_wide<P: Copy + Into<MaterialPlane>>(outline: Vec<Vec2>, planes: &[P]) -> Option<Vec<DVec2>> {
     let mut outline: Vec<DVec2> = outline.into_iter().map(Vec2::as_dvec2).collect();
     let mut kept = Vec::with_capacity(outline.len() + planes.len());
     for plane in planes {
-        clip_into(&outline, *plane, &mut kept);
+        clip_into(&outline, (*plane).into(), &mut kept);
         std::mem::swap(&mut outline, &mut kept);
-        if outline.len() < 3 {
-            return None;
-        }
+        if outline.len() < 3 { return None; }
     }
-    (twice_area(&outline).abs() > f64::from(EPS)).then(|| outline.into_iter().map(|p| p.as_vec2()).collect())
+    has_area(&outline).then_some(outline)
+}
+
+fn has_area(outline: &[DVec2]) -> bool {
+    let Some(&origin) = outline.first() else { return false; };
+    let extent = outline.iter().map(|p| (*p - origin).abs().max_element()).fold(0.0_f64, f64::max);
+    let magnitude = outline.iter().map(|p| p.abs().max_element()).fold(extent, f64::max);
+    twice_area(outline).abs() > f64::EPSILON * magnitude * extent * outline.len() as f64 * 32.0
 }
 
 /// `outline`'s part on `plane`'s inward side, into `kept`.
-fn clip_into(outline: &[DVec2], plane: HalfPlane, kept: &mut Vec<DVec2>) {
+fn clip_into(outline: &[DVec2], plane: MaterialPlane, kept: &mut Vec<DVec2>) {
     kept.clear();
-    let (point, inward) = (plane.point.as_dvec2(), plane.inward.as_dvec2());
     for i in 0..outline.len() {
         let (a, b) = (outline[i], outline[(i + 1) % outline.len()]);
-        let (sa, sb) = ((a - point).dot(inward), (b - point).dot(inward));
+        let (sa, sb) = (plane.side(a), plane.side(b));
         if sa >= 0.0 {
             kept.push(a);
         }
@@ -706,13 +774,24 @@ fn twice_area(outline: &[DVec2]) -> f64 {
 /// the planes' region, where an edge of it meets a circle, where the circles
 /// meet, or any point of a circle that is wholly inside the rest; one of those
 /// is in all of them.
-fn circles_meet(a: (Vec2, f32), b: (Vec2, f32), planes: &[HalfPlane]) -> bool {
-    let bounds = crate::Aabb::new(a.0, Vec2::splat(a.1));
-    let Some(region) = cut(box_outline(bounds), planes) else {
-        return false;
+fn circles_meet(a: (DVec2, f64), b: (DVec2, f64), planes: &[MaterialPlane]) -> bool {
+    let error = (a.0.abs().max_element() + b.0.abs().max_element() + a.1 + b.1) * f64::EPSILON * 32.0;
+    if a.0.distance(b.0) > a.1 + b.1 + error { return false; }
+    if planes.is_empty() { return true; }
+    let lo = a.0 - DVec2::splat(a.1);
+    let hi = a.0 + DVec2::splat(a.1);
+    let mut region = vec![lo, DVec2::new(hi.x, lo.y), hi, DVec2::new(lo.x, hi.y)];
+    let mut kept = Vec::new();
+    for plane in planes {
+        clip_into(&region, *plane, &mut kept);
+        std::mem::swap(&mut region, &mut kept);
+        if region.is_empty() { return false; }
+    }
+    let in_disc = |p: DVec2, (c, r): (DVec2, f64)| {
+        let error = (p.abs().max_element() + c.abs().max_element() + r) * f64::EPSILON * 32.0;
+        p.distance(c) <= r + error
     };
-    let in_disc = |p: Vec2, (c, r): (Vec2, f32)| p.distance(c) <= r + EPS;
-    let mut candidates: Vec<Vec2> = region.clone();
+    let mut candidates: Vec<DVec2> = region.clone();
     for i in 0..region.len() {
         let (p, q) = (region[i], region[(i + 1) % region.len()]);
         for disc in [a, b] {
@@ -720,13 +799,13 @@ fn circles_meet(a: (Vec2, f32), b: (Vec2, f32), planes: &[HalfPlane]) -> bool {
         }
     }
     candidates.extend(circles_cross(a, b));
-    candidates.extend([a.0 + Vec2::new(a.1, 0.0), b.0 + Vec2::new(b.1, 0.0), a.0, b.0]);
+    candidates.extend([a.0 + DVec2::new(a.1, 0.0), b.0 + DVec2::new(b.1, 0.0), a.0, b.0]);
     candidates
         .into_iter()
-        .any(|p| in_disc(p, a) && in_disc(p, b) && planes.iter().all(|plane| plane.contains(p)))
+        .any(|p| in_disc(p, a) && in_disc(p, b) && planes.iter().all(|plane| plane.side(p) >= -plane.error_at(p)))
 }
 
-fn segment_meets_circle(p: Vec2, q: Vec2, (c, r): (Vec2, f32)) -> Vec<Vec2> {
+fn segment_meets_circle(p: DVec2, q: DVec2, (c, r): (DVec2, f64)) -> Vec<DVec2> {
     let d = q - p;
     let f = p - c;
     let (aa, bb, cc) = (d.dot(d), 2.0 * f.dot(d), f.dot(f) - r * r);
@@ -742,7 +821,7 @@ fn segment_meets_circle(p: Vec2, q: Vec2, (c, r): (Vec2, f32)) -> Vec<Vec2> {
         .collect()
 }
 
-fn circles_cross((a, ra): (Vec2, f32), (b, rb): (Vec2, f32)) -> Vec<Vec2> {
+fn circles_cross((a, ra): (DVec2, f64), (b, rb): (DVec2, f64)) -> Vec<DVec2> {
     let d = a.distance(b);
     if d <= 0.0 || d > ra + rb || d < (ra - rb).abs() {
         return Vec::new();

@@ -2,7 +2,7 @@
 
 use bevy_math::{DMat2, DVec2, Mat2};
 
-use super::{map_vec_between, MapConvention, PortalAperture};
+use super::{MapConvention, PortalAperture};
 use crate::Vec2;
 
 /// A numerical reason for refusing a geometric operation.
@@ -88,13 +88,24 @@ impl Sim2 {
             }
         }
         let scale = f64::from(exit.half_length) / f64::from(enter.half_length);
-        let orthogonal = orthogonal_wide(Mat2::from_cols(
-            map_vec_between(Vec2::X, enter.frame.normal, exit.frame.normal, convention),
-            map_vec_between(Vec2::Y, enter.frame.normal, exit.frame.normal, convention),
-        ))?;
+        let enter_normal = enter.frame.normal.as_dvec2().normalize();
+        let exit_normal = exit.frame.normal.as_dvec2().normalize();
+        let enter_tangent = DVec2::new(-enter_normal.y, enter_normal.x);
+        let exit_tangent = DVec2::new(-exit_normal.y, exit_normal.x);
+        let along = match convention { MapConvention::Reflection => 1.0, MapConvention::Rotation => -1.0 };
+        let orthogonal = DMat2::from_cols(
+            -exit_normal * enter_normal.x + exit_tangent * (along * enter_tangent.x),
+            -exit_normal * enter_normal.y + exit_tangent * (along * enter_tangent.y),
+        );
         let offset = rotate_wide(orthogonal, enter.frame.origin.as_dvec2()) * scale;
         let translation = exit.frame.origin.as_dvec2() - offset;
         Self::from_wide_translation(scale, orthogonal, translation)
+    }
+
+    pub(super) fn scale_wide(self) -> f64 { self.scale }
+
+    pub(super) fn inverse_direction_wide(self, direction: DVec2) -> DVec2 {
+        self.orthogonal.transpose() * direction
     }
 
     pub fn scale(self) -> f32 {
@@ -125,14 +136,21 @@ impl Sim2 {
         self.orthogonal.determinant() < 0.0
     }
 
+    pub(super) fn point_wide(self, point: DVec2) -> DVec2 {
+        self.orthogonal * point * self.scale + self.translation
+    }
+
+    pub(super) fn direction_wide(self, direction: DVec2) -> DVec2 {
+        self.orthogonal * direction
+    }
+
+    pub(super) fn point_from_wide(self, point: DVec2) -> Result<Vec2, NumericFault> {
+        if !point.is_finite() { return Err(NumericFault::NonFinite); }
+        narrow_vec(self.point_wide(point))
+    }
+
     pub fn point(self, point: Vec2) -> Result<Vec2, NumericFault> {
-        if !point.is_finite() {
-            return Err(NumericFault::NonFinite);
-        }
-        narrow_vec(
-            rotate_wide(self.orthogonal, point.as_dvec2()) * self.scale
-                + self.translation,
-        )
+        self.point_from_wide(point.as_dvec2())
     }
 
     pub fn vector(self, vector: Vec2) -> Result<Vec2, NumericFault> {

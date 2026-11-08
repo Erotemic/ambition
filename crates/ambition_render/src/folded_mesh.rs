@@ -240,20 +240,22 @@ fn clip_all(mut poly: Vec<(Vec2, [f32; 4])>, planes: &[HalfPlane]) -> Vec<(Vec2,
 /// `tris` where the portal pieces put them: each piece's part of each
 /// triangle, carried into the piece's chart. One whole piece is `tris` as
 /// built.
-pub fn fold(tris: &Tris, pieces: &[VolumePiece]) -> Tris {
+pub fn fold(tris: &Tris, pieces: &[VolumePiece]) -> Result<Tris, ae::frame::NumericFault> {
     if let [piece] = pieces {
-        if piece.bounds.is_empty() && !piece.is_carried() {
-            return tris.clone();
+        if piece.source_bounds().is_empty() && !piece.is_carried() {
+            return Ok(tris.clone());
         }
     }
     let mut out = Tris::default();
     for piece in pieces {
         for tri in tris.triangles() {
-            let carried: Vec<_> = tri.iter().map(|&(p, c)| (piece.carry(p), c)).collect();
-            out.polygon(&clip_all(carried, &piece.bounds));
+            let clipped = clip_all(tri.to_vec(), piece.source_bounds());
+            let carried = clipped.into_iter().map(|(point, color)| piece.carry(point).map(|point| (point, color)))
+                .collect::<Result<Vec<_>, _>>()?;
+            out.polygon(&carried);
         }
     }
-    out
+    Ok(out)
 }
 
 /// `tris` with the rectangle `min..max` cut out of each triangle whose
@@ -362,8 +364,9 @@ fn write_folded_meshes(
         let room = rooms.of(entity);
         let tris = match (passages.as_deref(), mesh.tris.bounds()) {
             (Some(passages), Some(bounds)) if passages.cuts_in(room, mesh.carrier) => {
-                let pieces = passages.pieces(&ae::CombatVolume::aabb(bounds), mesh.carrier, mesh.root, room);
-                fold(&mesh.tris, &pieces)
+                let Ok(pieces) = passages.pieces(&ae::CombatVolume::aabb(bounds), mesh.carrier, mesh.root, room) else { continue; };
+                let Ok(tris) = fold(&mesh.tris, &pieces) else { continue; };
+                tris
             }
             _ => mesh.tris.clone(),
         };
@@ -420,13 +423,13 @@ mod tests {
         let links = PortalLink::both_ways(0, (enter, exit));
         let bounds = tris.bounds().unwrap();
         partition(&ae::CombatVolume::aabb(bounds), Vec2::ZERO, &links, None, PieceBudget::SINGLE_HOP, MapConvention::Reflection)
-            .pieces
+            .unwrap()
     }
 
     #[test]
     fn a_mesh_with_no_pair_near_it_is_drawn_as_built() {
         let band = quad(Vec2::new(0.0, -5.0), Vec2::new(60.0, 5.0));
-        assert_eq!(fold(&band, &pieces_of(&band)), band);
+        assert_eq!(fold(&band, &pieces_of(&band)).unwrap(), band);
     }
 
     /// ⭐ What reaches through a pair is drawn out of its other end, and
@@ -434,7 +437,7 @@ mod tests {
     #[test]
     fn a_band_through_a_pair_comes_out_of_the_other_end() {
         let band = quad(Vec2::new(0.0, -5.0), Vec2::new(160.0, 5.0));
-        let folded = fold(&band, &pieces_of(&band));
+        let folded = fold(&band, &pieces_of(&band)).unwrap();
         assert!((area(&folded) - area(&band)).abs() < 1.0, "{} vs {}", area(&folded), area(&band));
         assert!(folded.positions.iter().all(|p| p.x <= 100.0 + 1e-3 || p.y <= 300.0 + 1e-3), "nothing is left behind the wall");
         let out: Vec<Vec2> = folded.positions.iter().copied().filter(|p| p.x > 300.0).collect();

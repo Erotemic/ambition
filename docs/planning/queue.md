@@ -910,10 +910,12 @@ need correct scaling, reflection and physically consistent clipping.
 
 **Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
 
-**Next action:** static planning only until Jon releases the hold
-(2026-11-08). Follow the owner's
-[implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan).
-Then start PSIM-1A and PSIM-1B: prove canonical-material partition invariants,
+**Next action:** draft Rust in assigned worktree slot 1 without compilation
+(Jon, 2026-11-08). Keep main integration and compile work pending while Jon
+finishes main. Follow the owner's
+[implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
+and [draft status](engine/portal-parts-similarity-and-chirality.md#draft-status).
+PSIM-1A and PSIM-1B: prove canonical-material partition invariants,
 add bounded similarity composition/parity, and make budget refusal stop the
 source motion before extending transit, combat and presentation. Reuse the
 existing `frame::thread` worklist. This is local to one live simulation room;

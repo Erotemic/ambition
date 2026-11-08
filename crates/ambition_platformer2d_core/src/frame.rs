@@ -272,6 +272,9 @@ impl Iso2 {
     }
 }
 
+mod similarity;
+pub use similarity::{NumericFault, Sim2};
+
 pub mod thread;
 
 #[cfg(test)]

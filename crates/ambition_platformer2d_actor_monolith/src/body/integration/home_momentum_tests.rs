@@ -77,6 +77,7 @@ fn step_as(
         None,
         // A momentum rig with one body in it: nobody to be solid to.
         ae::BodyContactField::NONE,
+        None,
     )
 }
 

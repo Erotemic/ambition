@@ -38,6 +38,7 @@ pub(crate) trait ActorMutIntegrationExt {
         tumbling: bool,
         out_of_play: bool,
         contact_field: ae::BodyContactField<'_>,
+        portal: Option<ae::frame::thread::MotionAdmission<'_>>,
     ) -> (
         ambition_characters::actor::control::ActorControlFrame,
         ae::FrameEvents,
@@ -59,6 +60,7 @@ pub(crate) trait ActorMutIntegrationExt {
         out_of_play: bool,
         pose_owned_externally: bool,
         contact_field: ae::BodyContactField<'_>,
+        portal: Option<ae::frame::thread::MotionAdmission<'_>>,
     ) -> ae::FrameEvents;
 
     fn aabb(&self) -> ae::Aabb;
@@ -111,6 +113,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // Inert for every body whose composition never granted the capability, which is every
         // body outside a smash match.
         contact_field: ae::BodyContactField<'_>,
+        portal: Option<ae::frame::thread::MotionAdmission<'_>>,
     ) -> (
         ambition_characters::actor::control::ActorControlFrame,
         ae::FrameEvents,
@@ -178,6 +181,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
                 out_of_play,
                 pose_owned_externally,
                 contact_field,
+                portal,
             );
             return (still, events);
         }
@@ -217,6 +221,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             // crate learning what a saddle is.
             pose_owned_externally,
             contact_field,
+            portal,
         );
 
         // A body on a ledge faces the ledge: the ledge tick set that facing,
@@ -278,6 +283,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // Something else owns this body's pose — see `step_body`'s own note.
         pose_owned_externally: bool,
         contact_field: ae::BodyContactField<'_>,
+        portal: Option<ae::frame::thread::MotionAdmission<'_>>,
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
         let mut tuning = self
@@ -376,6 +382,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             // know about each other. This is its first consumer.
             pose_owned_externally,
             ae::MotionStepContext {
+                portal,
                 world,
                 input,
                 frame: motion_frame,
@@ -555,6 +562,7 @@ pub(crate) trait SeedActorIntegrationTestExt:
                 false,
                 // A single-body rig: nobody to be solid to.
                 ae::BodyContactField::NONE,
+                None,
             )
             .0
     }

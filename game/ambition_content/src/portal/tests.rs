@@ -45,6 +45,7 @@ fn step_axis_scratch(
         model,
         &mut clusters,
         ae::MotionStepContext {
+            portal: None,
             world,
             input,
             frame,

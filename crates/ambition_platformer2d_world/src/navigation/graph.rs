@@ -762,6 +762,7 @@ pub(super) fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFr
         model,
         &mut clusters,
         MotionStepContext {
+            portal: None,
             world,
             input,
             frame,

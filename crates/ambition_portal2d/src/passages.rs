@@ -24,10 +24,8 @@ pub fn linked_pairs(portals: &[PlacedPortal]) -> Vec<(ae::frame::PortalAperture,
         .collect()
 }
 
-/// Rebuilt after the transit, so it says where each body is this tick: each
-/// linked pair of each live room once, and the pair each body in transit
-/// straddles, the end its centre is in front of first.
-pub fn publish_portal_passages(
+/// Publish current apertures and occupancy before body integration.
+pub fn publish_portal_apertures(
     portals: Query<(Entity, &PlacedPortal)>,
     transits: Query<(Entity, &PortalTransit)>,
     own_policies: Query<(Entity, &PortalPieceBudget)>,
@@ -66,15 +64,31 @@ pub fn publish_portal_passages(
         }
     }
     *rings_said = rings;
-    let mut straddlers: Vec<(Entity, &PortalTransit)> = transits.iter().collect();
-    // Query order is archetype order, which a resimulation may not repeat.
-    straddlers.sort_by_key(|(body, _)| *body);
-    for (body, transit) in straddlers {
-        let all = by_room.in_room(live.of(body));
-        if let (Some(front), Some(back)) =
-            (find_portal(all, transit.straddling), find_portal(all, transit.straddling.partner()))
-        {
-            passages.add_straddler(body, front.aperture(), back.aperture());
-        }
+    write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
+}
+
+/// Refresh body occupancy after transit without changing the admitted apertures.
+pub fn publish_portal_passages(
+    portals: Query<(Entity, &PlacedPortal)>,
+    transits: Query<(Entity, &PortalTransit)>,
+    live: LiveRooms,
+    mut passages: ResMut<PortalPassages>,
+) {
+    let by_room = PortalsByRoom::collect(&portals, &live);
+    write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
+}
+
+fn write_straddlers(
+    passages: &mut PortalPassages,
+    by_room: &PortalsByRoom,
+    mut straddlers: Vec<(Entity, crate::rooms::PortalRoom, PortalTransit)>,
+) {
+    passages.clear_straddlers();
+    straddlers.sort_by_key(|(body, _, _)| *body);
+    for (body, room, transit) in straddlers {
+        let all = by_room.in_room(room);
+        if let (Some(front), Some(back)) = (
+            find_portal(all, transit.straddling), find_portal(all, transit.straddling.partner()),
+        ) { passages.add_straddler(body, front.aperture(), back.aperture()); }
     }
 }

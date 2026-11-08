@@ -45,6 +45,7 @@ fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat
             // This fixture steps a body nothing is holding.
             false,
             ae::MotionStepContext {
+                portal: None,
                 world: &world,
                 input: ae::InputState::default(),
                 frame: frame(),
@@ -91,6 +92,7 @@ fn stepped(
             // This fixture steps a body nothing is holding.
             false,
             ae::MotionStepContext {
+                portal: None,
                 world: &world,
                 input,
                 frame: frame(),

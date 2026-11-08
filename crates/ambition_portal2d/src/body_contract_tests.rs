@@ -408,7 +408,7 @@ fn a_body_the_portals_move_whole_meets_only_its_own_side() {
         app.insert_resource(PortalTuning { geometry, ..PortalTuning::default() });
         app.init_resource::<crate::PortalCarves>();
         app.init_resource::<PortalPassages>();
-        app.add_systems(Update, (crate::publish_portal_carves, crate::publish_portal_passages));
+        app.add_systems(Update, (crate::publish_portal_apertures, crate::publish_portal_carves, crate::publish_portal_passages).chain());
         wall_pair(&mut app);
         let body = app
             .world_mut()

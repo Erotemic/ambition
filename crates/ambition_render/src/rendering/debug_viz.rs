@@ -347,7 +347,7 @@ fn draw_volume_piece(
     let Some(region) = piece.region() else {
         return;
     };
-    let delta = piece.carry_dir(delta);
+    let Ok(delta) = piece.carry_dir(delta) else { return; };
     let region: Vec<ae::Vec2> = region.into_iter().map(|p| p + delta).collect();
     draw_hitbox_volume(
         gizmos,

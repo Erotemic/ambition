@@ -348,10 +348,13 @@ pub fn hit_reaches_victim_through(
         Some(published) if published.published() => published.volumes.clone(),
         _ => vec![ambition_platformer2d_core::CombatVolume::aabb(victim_aabb.aabb())],
     };
-    parts
-        .iter()
-        .flat_map(|part| passages.pieces(part, Some(victim), victim_aabb.center, room))
-        .any(|piece| event.meets(&piece.volume))
+    let cut = parts.iter().map(|part| passages.pieces(part, Some(victim), victim_aabb.center, room))
+        .collect::<Result<Vec<_>, _>>();
+    let Ok(cut) = cut else { return false; };
+    cut.into_iter().flatten().any(|piece| {
+        event.pieces.iter().any(|hit| hit.meets(&piece))
+            || (event.pieces.is_empty() && piece.meets(&ae::frame::thread::VolumePiece::whole(event.volume.clone())))
+    })
 }
 
 pub fn strike_reaches_victim(
@@ -564,16 +567,16 @@ impl StrikeVictimItem<'_, '_> {
         &self,
         passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    ) -> Vec<ambition_platformer2d_core::frame::thread::VolumePiece> {
+    ) -> ambition_platformer2d_core::frame::thread::Partition {
         use ambition_platformer2d_core::frame::thread::VolumePiece;
         let parts: Vec<ambition_platformer2d_core::CombatVolume> = match self.volumes {
-            Some(published) if published.intangible() => return Vec::new(),
+            Some(published) if published.intangible() => return Ok(Vec::new()),
             Some(published) if published.published() => published.volumes.clone(),
             _ => vec![ambition_platformer2d_core::CombatVolume::aabb(self.aabb.aabb())],
         };
         match passages {
             Some(passages) => hurt_pieces_of(self.entity, self.aabb.center, parts, Some(passages), room),
-            None => parts.into_iter().map(VolumePiece::whole).collect(),
+            None => Ok(parts.into_iter().map(VolumePiece::whole).collect()),
         }
     }
 
@@ -783,7 +786,7 @@ fn turned_aside(
         strike.iter().find_map(|sp| {
             let gp = guard_pieces.iter().find(|gp| sp.meets(gp))?;
             // Where the strike comes from, in the guard's chart.
-            let source = gp.uncarry(sp.carry(source));
+            let source = gp.uncarry(sp.carry(source).ok()?).ok()?;
             guard
                 .covers(source, down)
                 .then(|| (guard.guard, midpoint(sp.center(), gp.center())))
@@ -813,13 +816,13 @@ pub fn strike_pieces(
     hitbox: &Hitbox,
     owner_pos: ae::Vec2,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-) -> Vec<ambition_platformer2d_core::frame::thread::VolumePiece> {
+) -> ambition_platformer2d_core::frame::thread::Partition {
     let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
     let volume = hitbox.world_volume(owner_pos);
     match passages.filter(|p| p.cuts_in(room, carrier)) {
         Some(p) if carrier.is_some() => p.pieces_reaching(&volume, carrier, owner_pos, room),
         Some(p) => p.pieces(&volume, carrier, spatial_source_of(hitbox, owner_pos), room),
-        None => vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)],
+        None => Ok(vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)]),
     }
 }
 
@@ -832,10 +835,14 @@ pub fn hurt_pieces_of(
     parts: Vec<ae::CombatVolume>,
     passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-) -> Vec<ambition_platformer2d_core::frame::thread::VolumePiece> {
+) -> ambition_platformer2d_core::frame::thread::Partition {
     match passages.filter(|p| p.cuts_in(room, Some(body))) {
-        Some(passages) => parts.iter().flat_map(|part| passages.pieces(part, Some(body), center, room)).collect(),
-        None => parts.into_iter().map(ambition_platformer2d_core::frame::thread::VolumePiece::whole).collect(),
+        Some(passages) => {
+            let mut pieces = Vec::new();
+            for part in &parts { pieces.extend(passages.pieces(part, Some(body), center, room)?); }
+            Ok(pieces)
+        },
+        None => Ok(parts.into_iter().map(ambition_platformer2d_core::frame::thread::VolumePiece::whole).collect()),
     }
 }
 
@@ -908,9 +915,9 @@ pub fn apply_hitbox_damage(
 ) {
     use ambition_platformer2d_core::frame::thread::VolumePiece;
     // Each victim's pieces, cut once a tick.
-    let mut victim_pieces: std::collections::BTreeMap<Entity, Vec<VolumePiece>> = std::collections::BTreeMap::new();
+    let mut victim_pieces: std::collections::BTreeMap<Entity, ae::frame::thread::Partition> = std::collections::BTreeMap::new();
     // Each victim's guards, cut once a tick.
-    let mut victim_guards: std::collections::BTreeMap<Entity, Vec<CutGuard>> = std::collections::BTreeMap::new();
+    let mut victim_guards: std::collections::BTreeMap<Entity, Result<Vec<CutGuard>, ae::frame::thread::Refusal>> = std::collections::BTreeMap::new();
     // ⭐⭐ THE PULSE'S LEDGER, collected here and written to every sibling after
     // the sweep. `(striker, owner, victim)`.
     //
@@ -996,7 +1003,7 @@ pub fn apply_hitbox_damage(
                 entity,
                 owner: hitbox.owner,
                 rank: *rank,
-                pieces: place(entity, hitbox, owner_pos).1,
+                pieces: place(entity, hitbox, owner_pos).1.ok()?,
                 source: spatial_source_of(hitbox, owner_pos),
                 meets_guard: hitbox.meets_guard(),
                 exclusions,
@@ -1037,9 +1044,10 @@ pub fn apply_hitbox_damage(
         let body_source = (hitbox.source != HitSide::Neutral).then_some(*cause);
 
         let (strike_room, pieces) = place(hitbox_entity, hitbox, owner_pos);
+        let Ok(pieces) = pieces else { continue; };
         // What a feature (a boss, a breakable) is hit by: the pieces, when a
         // pair cut the strike; else the volume, whole.
-        let cut = pieces.len() != 1 || !pieces[0].bounds.is_empty();
+        let cut = pieces.len() != 1 || !pieces[0].source_bounds().is_empty();
         let feature_pieces = || if cut { pieces.clone() } else { Vec::new() };
         if let Some(source_kind) = body_source {
             let owner_grudge = attacker.grudge(hitbox.owner);
@@ -1151,7 +1159,7 @@ pub fn apply_hitbox_damage(
                     if passages.as_deref().is_some_and(|p| p.cuts_in(victim_room, Some(victim.entity))) {
                         return VictimReach::Anywhere;
                     }
-                    let hurt = victim.hurt_pieces(None, victim_room).into_iter().map(|piece| piece.volume.bounds());
+                    let hurt = victim.hurt_pieces(None, victim_room).into_iter().flatten().map(|piece| piece.world_volume().bounds());
                     let guarded = turning
                         .get(victim.entity)
                         .into_iter()
@@ -1171,10 +1179,11 @@ pub fn apply_hitbox_damage(
                     let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
                     victim.hurt_pieces(threaded, victim_room)
                 });
-                let guards_here: &[CutGuard] = victim_guards.entry(victim.entity).or_insert_with(|| {
+                let Ok(hurt) = hurt else { continue; };
+                let guards_here = victim_guards.entry(victim.entity).or_insert_with(|| {
                     let threaded = passages.as_deref().filter(|p| p.cuts_in(victim_room, Some(victim.entity)));
                     turning.get(victim.entity).map_or_else(
-                        |_| Vec::new(),
+                        |_| Ok(Vec::new()),
                         |turning| {
                             turning
                                 .pieces
@@ -1183,14 +1192,15 @@ pub fn apply_hitbox_damage(
                                     let volume = ae::CombatVolume::aabb(guard.volume);
                                     let cut = match threaded {
                                         Some(passages) => passages.pieces(&volume, Some(victim.entity), victim.aabb.center, victim_room),
-                                        None => vec![VolumePiece::whole(volume)],
+                                        None => Ok(vec![VolumePiece::whole(volume)]),
                                     };
-                                    (*guard, cut)
+                                    cut.map(|pieces| (*guard, pieces))
                                 })
                                 .collect()
                         },
                     )
                 });
+                let Ok(guards_here) = guards_here else { continue; };
                 let down = victim.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
                 // ⭐ A GUARD IS ASKED BEFORE THE BODY. A strike that meets a
                 // guard from a side it covers is turned aside and reaches
@@ -1264,9 +1274,8 @@ pub fn apply_hitbox_damage(
                 };
                 // The strike's own chart into the victim's own: through the pair
                 // the strike piece was carried by, back through the victim's.
-                let to_victim = |p: ae::Vec2| victim_piece.uncarry(strike_piece.carry(p));
-                let to_victim_dir = |v: ae::Vec2| victim_piece.uncarry_dir(strike_piece.carry_dir(v));
-                let from_victim = |p: ae::Vec2| strike_piece.uncarry(victim_piece.carry(p));
+                let Ok(into_victim) = victim_piece.transform().inverse().and_then(|back| strike_piece.transform().then(back)) else { continue; };
+                let Ok(from_victim) = into_victim.inverse() else { continue; };
                 let through = strike_piece.is_carried() || victim_piece.is_carried();
                 // Where they touch: in the chart they meet in.
                 let impact = if through {
@@ -1274,7 +1283,7 @@ pub fn apply_hitbox_damage(
                 } else {
                     midpoint(victim.aabb.center, world_volume.center())
                 };
-                let source_here = to_victim(spatial_source);
+                let Ok(source_here) = into_victim.point(spatial_source) else { continue; };
                 // A PERFECT SHIELD CATCHES THE STRIKE, and it is resolved HERE
                 // because this is the one seam every body-strike passes through.
                 // The two damage roads below it did not agree: the primary
@@ -1378,6 +1387,21 @@ pub fn apply_hitbox_damage(
                     // could not tell one from a weak one.
                     HitKnockbackMagnitude::LaunchSpeed(_) => magnitude,
                 };
+                let Ok(victim_in_source) = from_victim.point(victim_body.center()) else { continue; };
+                let launch_dir = hitbox.launch_world(spatial_source, victim_in_source)
+                    .map(|launch| into_victim.vector(launch.world()).map(ae::hit_response::WorldLaunchDir::from_world))
+                    .transpose();
+                let Ok(launch_dir) = launch_dir else { continue; };
+                let follow = hitbox.autolink().map(|link| -> Result<_, ae::frame::NumericFault> {
+                    Ok(ae::hit_response::AutolinkFollow {
+                        anchor_world: into_victim.point(ae::hit_response::autolink_anchor_world(
+                            ae::Vec2::new(link.anchor.0, link.anchor.1), owner_pos, hitbox.facing, hitbox.frame_down,
+                        ))?,
+                        carry: link.carry, pull: link.pull, max_speed: link.max_speed,
+                        source_vel: into_victim.vector(owner_kin.get(hitbox.owner).map(|kin| kin.vel).unwrap_or(ae::Vec2::ZERO))?,
+                    })
+                }).transpose();
+                let Ok(follow) = follow else { continue; };
                 let knockback = Some(HitKnockback {
                     // ⭐ A GUST IS THROWN THE SAME WAY A PUNCH IS — the strength
                     // and direction above are the volume's ordinary authoring —
@@ -1404,44 +1428,8 @@ pub fn apply_hitbox_damage(
                     // LOWERED HERE, as the autolink anchor below is: the
                     // volume has the facing and the frame of the body that
                     // threw it, and the reaction of the victim has neither.
-                    launch_dir: hitbox
-                        .launch_world(spatial_source, from_victim(victim_body.center()))
-                        .map(|launch| launch.mapped(to_victim_dir)),
-                    // AUTOLINK, and the ATTACKER'S VELOCITY is sampled HERE.
-                    // The reaction holds a victim and no attacker entity, and
-                    // the velocity is a fact about this pulse rather than about
-                    // the move — so the producer, which has the owner, is the
-                    // only place that can honestly answer it. ⭐ this is what
-                    // makes a RISING multi-hit work: the correction only closes
-                    // a gap, and a fighter climbing fast outruns any gap-closing
-                    // term. A body with no kinematics contributes nothing, which
-                    // reads as a stationary attacker — the correct answer for a
-                    // volume nothing is carrying.
-                    follow: hitbox
-                        .autolink()
-                        .map(|link| ae::hit_response::AutolinkFollow {
-                            // ⭐ RESOLVED HERE, against the ATTACKER'S facing and
-                            // frame — both of which the hitbox carries from the
-                            // body that spawned it. The victim side used to
-                            // rebuild this point from `dir` (the victim's
-                            // away-side, NOT the attacker's facing) and the
-                            // victim's gravity (not the attacker's), so a hit
-                            // catching somebody BEHIND the attacker mirrored the
-                            // anchor toward them, and two bodies in different
-                            // frames disagreed about where "toward the feet" was.
-                            anchor_world: to_victim(ae::hit_response::autolink_anchor_world(
-                                ae::Vec2::new(link.anchor.0, link.anchor.1),
-                                owner_pos,
-                                hitbox.facing,
-                                hitbox.frame_down,
-                            )),
-                            carry: link.carry,
-                            pull: link.pull,
-                            max_speed: link.max_speed,
-                            source_vel: to_victim_dir(
-                                owner_kin.get(hitbox.owner).map(|kin| kin.vel).unwrap_or(ae::Vec2::ZERO),
-                            ),
-                        }),
+                    launch_dir,
+                    follow,
                 });
                 out.hit_events.write(HitEvent {
                     pieces: Vec::new(),

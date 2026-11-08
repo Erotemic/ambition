@@ -26,10 +26,11 @@
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use bevy_math::DVec2;
 
-use super::{Iso2, MapConvention, PortalAperture, PortalFrame};
+use super::{Iso2, MapConvention, NumericFault, PortalAperture, PortalFrame, Sim2};
 use crate::{AabbExt, CombatVolume, Vec2};
 
 /// Slack (px) on a point's side of a plane: a point on the plane is on both
@@ -58,8 +59,11 @@ impl HalfPlane {
     }
 
     /// The half plane `map` takes this one to.
-    pub fn mapped(&self, map: &Iso2) -> Self {
-        Self { point: map.point(self.point), inward: map.vec(self.inward) }
+    pub fn mapped(&self, map: &Sim2) -> Result<Self, NumericFault> {
+        if !self.inward.is_finite() || self.inward.length_squared() <= 0.0 {
+            return Err(NumericFault::InvalidFrame);
+        }
+        Ok(Self { point: map.point(self.point)?, inward: map.direction(self.inward.normalize()) })
     }
 }
 
@@ -90,8 +94,8 @@ impl PortalLink {
     }
 
     /// The map of the link.
-    pub fn map(&self, convention: MapConvention) -> Iso2 {
-        Iso2::through(&self.enter.frame, &self.exit.frame, convention)
+    pub fn map(&self, convention: MapConvention) -> Result<Sim2, NumericFault> {
+        Sim2::through(&self.enter, &self.exit, convention)
     }
 
     /// The half planes of what goes through, at the entry: past the plane,
@@ -113,8 +117,7 @@ impl PortalLink {
 pub struct PieceBudget {
     /// Pairs a piece may be carried through, one after another.
     pub max_hops: u8,
-    /// A cut that would make the partition larger than this is refused, so a
-    /// partition is never larger than this (or than one piece, for none).
+    /// Refuse a candidate that needs more parts. Zero admits no partition.
     pub max_pieces: u16,
 }
 
@@ -126,74 +129,58 @@ impl PieceBudget {
     pub const COMPOSED: Self = Self { max_hops: 4, max_pieces: 32 };
 }
 
-/// A volume's part in one place: the whole shape placed in that place's
-/// chart, and the half planes that bound the part of it that is there.
+/// Canonical material in one chart. World geometry is a private projection.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VolumePiece {
-    pub volume: CombatVolume,
-    /// No half planes: all of `volume` is here.
-    pub bounds: Vec<HalfPlane>,
-    /// The volume's own chart (its root's) into the piece's: the pairs it was
-    /// carried through, composed.
-    pub to_piece: Iso2,
-    /// The links it was carried through, first first. Empty: it is in the
-    /// volume's own chart.
+    source: Arc<CombatVolume>,
+    source_bounds: Vec<HalfPlane>,
+    to_piece: Sim2,
+    volume: CombatVolume,
+    bounds: Vec<HalfPlane>,
     pub path: Vec<u32>,
 }
 
 impl VolumePiece {
     pub fn whole(volume: CombatVolume) -> Self {
-        Self { volume, bounds: Vec::new(), to_piece: Iso2::IDENTITY, path: Vec::new() }
+        Self {
+            source: Arc::new(volume.clone()), source_bounds: Vec::new(),
+            to_piece: Sim2::IDENTITY, volume, bounds: Vec::new(), path: Vec::new(),
+        }
     }
 
-    /// Was it carried through a pair?
-    pub fn is_carried(&self) -> bool {
-        !self.path.is_empty()
-    }
+    pub fn source(&self) -> &CombatVolume { &self.source }
+    pub fn source_bounds(&self) -> &[HalfPlane] { &self.source_bounds }
+    pub fn transform(&self) -> Sim2 { self.to_piece }
+    pub fn world_volume(&self) -> &CombatVolume { &self.volume }
+    pub fn world_bounds(&self) -> &[HalfPlane] { &self.bounds }
+    pub fn is_carried(&self) -> bool { !self.path.is_empty() }
 
-    /// A point of the volume's own chart (its owner, the source of a strike),
-    /// in this piece's chart.
-    pub fn carry(&self, p: Vec2) -> Vec2 {
-        self.to_piece.point(p)
-    }
+    /// Callers use points and vectors from the admitted source domain.
+    pub fn carry(&self, p: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.point(p) }
+    pub fn carry_dir(&self, v: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.vector(v) }
+    pub fn uncarry(&self, p: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.inverse()?.point(p) }
+    pub fn uncarry_dir(&self, v: Vec2) -> Result<Vec2, NumericFault> { self.to_piece.inverse()?.vector(v) }
 
-    /// A direction of the volume's own chart, in this piece's chart.
-    pub fn carry_dir(&self, v: Vec2) -> Vec2 {
-        self.to_piece.vec(v)
-    }
-
-    /// A point of this piece's chart, in the volume's own chart.
-    pub fn uncarry(&self, p: Vec2) -> Vec2 {
-        self.to_piece.inverse().point(p)
-    }
-
-    /// A direction of this piece's chart, in the volume's own chart.
-    pub fn uncarry_dir(&self, v: Vec2) -> Vec2 {
-        self.to_piece.inverse().vec(v)
-    }
-
-    /// Does the piece hold any of its volume?
     pub fn is_empty(&self) -> bool {
-        !self.bounds.is_empty() && !holds(&self.volume, self.bounds.iter().copied())
+        !self.source_bounds.is_empty() && !holds(&self.source, self.source_bounds.iter().copied())
     }
 
-    /// The part that is here, as a convex polygon in the piece's chart: exact
-    /// for a polygon volume; for a circle, the part of its bounding box (the
-    /// circle's own test stays exact in [`Self::meets`]).
+    /// Polygon regions are exact. A circle keeps its analytic contact test.
+    pub fn source_region(&self) -> Option<Vec<Vec2>> {
+        let outline = self.source.polygon().unwrap_or_else(|| box_outline(self.source.bounds()));
+        cut(outline, &self.source_bounds)
+    }
+
     pub fn region(&self) -> Option<Vec<Vec2>> {
-        let outline = self.volume.polygon().unwrap_or_else(|| box_outline(self.volume.bounds()));
-        cut(outline, &self.bounds)
+        self.source_region()?.into_iter().map(|p| self.carry(p)).collect::<Result<Vec<_>, _>>().ok()
     }
 
-    /// The middle of the part that is here: where it touches what it meets.
     pub fn center(&self) -> Vec2 {
         self.region().map_or(self.volume.center(), |region| {
             region.iter().copied().sum::<Vec2>() / region.len() as f32
         })
     }
 
-    /// Do the two pieces share a point? Two whole pieces are tested exactly
-    /// as their volumes are ([`CombatVolume::intersects`]).
     pub fn meets(&self, other: &VolumePiece) -> bool {
         if self.bounds.is_empty() && other.bounds.is_empty() {
             return self.volume.intersects(&other.volume);
@@ -203,8 +190,6 @@ impl VolumePiece {
             return false;
         }
         let planes: Vec<HalfPlane> = self.bounds.iter().chain(&other.bounds).copied().collect();
-        // Cut the one that is a polygon by every plane, and test the other
-        // against what is left.
         if let Some(outline) = other.volume.polygon() {
             return cut(outline, &planes).is_some_and(|p| self.volume.intersects(&CombatVolume::convex(p)));
         }
@@ -219,47 +204,68 @@ impl VolumePiece {
         }
     }
 
-    /// The half planes of [`Self::bounds`] that cut the volume: without one
-    /// of them the part here would be larger. What a drawing clips by.
     pub fn active_bounds(&self) -> Vec<HalfPlane> {
-        let outline = self.volume.polygon().unwrap_or_else(|| box_outline(self.volume.bounds()));
-        let mut kept = self.bounds.clone();
+        let outline = self.source.polygon().unwrap_or_else(|| box_outline(self.source.bounds()));
+        let mut kept: Vec<usize> = (0..self.source_bounds.len()).collect();
         let mut i = 0;
         while i < kept.len() {
-            let without: Vec<HalfPlane> = kept.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, p)| *p).collect();
-            let cuts = cut(outline.clone(), &without).is_some_and(|region| region.iter().any(|p| kept[i].side(*p) < -EPS));
-            if cuts {
+            let without: Vec<HalfPlane> = kept.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, index)| self.source_bounds[*index]).collect();
+            if cut(outline.clone(), &without).is_some_and(|region| region.iter().any(|p| self.source_bounds[kept[i]].side(*p) < -EPS)) {
                 i += 1;
             } else {
                 kept.remove(i);
             }
         }
-        kept
+        kept.into_iter().map(|index| self.bounds[index]).collect()
     }
 
-    fn bounded(&self, more: impl IntoIterator<Item = HalfPlane>) -> Self {
-        let mut piece = self.clone();
-        piece.bounds.extend(more);
-        piece
+    fn projected(
+        source: Arc<CombatVolume>, source_bounds: Vec<HalfPlane>, to_piece: Sim2, path: Vec<u32>,
+    ) -> Result<Self, NumericFault> {
+        let volume = map_volume(&source, &to_piece)?;
+        let bounds = source_bounds.iter().map(|plane| plane.mapped(&to_piece)).collect::<Result<Vec<_>, _>>()?;
+        Ok(Self { source, source_bounds, to_piece, volume, bounds, path })
+    }
+
+    fn bounded(&self, more: &[HalfPlane]) -> Result<Self, NumericFault> {
+        let inverse = self.to_piece.inverse()?;
+        let mut source_bounds = self.source_bounds.clone();
+        source_bounds.extend(more.iter().map(|plane| plane.mapped(&inverse)).collect::<Result<Vec<_>, _>>()?);
+        Self::projected(self.source.clone(), source_bounds, self.to_piece, self.path.clone())
+    }
+
+    fn carried(&self, map: Sim2, link: u32) -> Result<Self, NumericFault> {
+        let mut path = self.path.clone();
+        path.push(link);
+        Self::projected(self.source.clone(), self.source_bounds.clone(), self.to_piece.then(map)?, path)
     }
 }
 
-/// `volume` placed where `map` takes it.
-pub fn map_volume(volume: &CombatVolume, map: &Iso2) -> CombatVolume {
-    match volume {
-        CombatVolume::Aabb(a) => boxed(map.point(a.center()), a.half_size(), map.vec(Vec2::X)),
+/// Derive world geometry from canonical material and one admitted map.
+pub fn map_volume(volume: &CombatVolume, map: &Sim2) -> Result<CombatVolume, NumericFault> {
+    let bounds = volume.bounds();
+    if !bounds.min.is_finite() || !bounds.max.is_finite() {
+        return Err(NumericFault::NonFinite);
+    }
+    for corner in box_corners(bounds) { map.point(corner)?; }
+    let dimensions = bounds.max - bounds.min;
+    let feature = dimensions.min_element();
+    if feature > 0.0 { map.admits_resolution(volume.center(), feature)?; }
+    Ok(match volume {
+        CombatVolume::Aabb(a) => boxed(map.point(a.center())?, a.half_size() * map.scale(), map.direction(Vec2::X)),
         CombatVolume::Obb { center, half, rotation } => {
-            boxed(map.point(*center), *half, map.vec(Vec2::from_angle(*rotation)))
+            boxed(map.point(*center)?, *half * map.scale(), map.direction(Vec2::from_angle(*rotation)))
         }
-        CombatVolume::Circle { center, radius } => CombatVolume::circle(map.point(*center), *radius),
-        CombatVolume::Convex { points, .. } => CombatVolume::convex(points.iter().map(|p| map.point(*p)).collect()),
-    }
+        CombatVolume::Circle { center, radius } => CombatVolume::circle(map.point(*center)?, map.length(*radius)?),
+        CombatVolume::Convex { points, .. } => CombatVolume::convex(points.iter().map(|p| map.point(*p)).collect::<Result<Vec<_>, _>>()?),
+    })
 }
 
-/// `volume` mapped through the pair: placed at `exit` as its part past
-/// `enter`'s plane emerges there.
-pub fn carry_volume(volume: &CombatVolume, enter: &PortalFrame, exit: &PortalFrame, convention: MapConvention) -> CombatVolume {
-    map_volume(volume, &Iso2::through(enter, exit, convention))
+/// A rigid frame map for callers whose geometry has no aperture scale.
+pub fn carry_volume(volume: &CombatVolume, enter: &PortalFrame, exit: &PortalFrame, convention: MapConvention) -> Result<CombatVolume, NumericFault> {
+    let rigid = Iso2::through(enter, exit, convention);
+    let map = Sim2::new(1.0, rigid.linear, rigid.translation)?;
+    map_volume(volume, &map)
 }
 
 /// A box about `center` whose own x axis is `x_axis`: one along a world axis
@@ -377,200 +383,160 @@ fn holds(volume: &CombatVolume, planes: impl Iterator<Item = HalfPlane>) -> bool
     })
 }
 
-/// `piece` cut by `link`: its part in front of the entry plane, its parts past
-/// the plane and beside the opening (seen from `reach`, for a piece that
-/// reaches from it), its part deeper than the link goes, and (unless
-/// `refused`) its part through the opening, at the exit. Empty parts are left
-/// out.
-fn cut_by(piece: &VolumePiece, reach: Option<Vec2>, link: &PortalLink, convention: MapConvention, refused: bool) -> Vec<VolumePiece> {
+/// Partition material at the finite aperture before moving the through region.
+fn cut_by(piece: &VolumePiece, reach: Option<Vec2>, link: &PortalLink, convention: MapConvention) -> Result<Vec<VolumePiece>, NumericFault> {
     let [behind, lo, hi] = entry_opening(&link.enter, reach);
     let mut parts = Vec::with_capacity(5);
-    let mut stay = |more: &[HalfPlane]| {
-        if holds(&piece.volume, piece.bounds.iter().chain(more).copied()) {
-            parts.push(piece.bounded(more.iter().copied()));
-        }
+    let mut stay = |planes: &[HalfPlane]| -> Result<(), NumericFault> {
+        let part = piece.bounded(planes)?;
+        if !part.is_empty() { parts.push(part); }
+        Ok(())
     };
-    stay(&[behind.flipped()]);
-    stay(&[behind, lo.flipped()]);
-    stay(&[behind, hi.flipped()]);
+    stay(&[behind.flipped()])?;
+    stay(&[behind, lo.flipped()])?;
+    stay(&[behind, hi.flipped()])?;
     if let Some(deepest) = link.deepest(&link.enter) {
-        stay(&[lo, hi, deepest.flipped()]);
+        stay(&[lo, hi, deepest.flipped()])?;
     }
-    if !refused {
-        let map = link.map(convention);
-        let [exit_behind, _, _] = opening(&link.exit);
-        let mut path = piece.path.clone();
-        path.push(link.key);
-        // Out of the exit, as deep as it went in.
-        let shallow = link.depth.map(|d| HalfPlane {
-            point: link.exit.frame.origin + link.exit.frame.normal * d,
-            inward: -link.exit.frame.normal,
-        });
-        let through = VolumePiece {
-            volume: map_volume(&piece.volume, &map),
-            bounds: piece
-                .bounds
-                .iter()
-                .map(|plane| plane.mapped(&map))
-                .chain([exit_behind.flipped(), lo.mapped(&map), hi.mapped(&map)])
-                .chain(shallow)
-                .collect(),
-            to_piece: piece.to_piece.then(&map),
-            path,
-        };
-        if !through.is_empty() {
-            parts.push(through);
-        }
-    }
-    parts
+    let planes: Vec<_> = [behind, lo, hi].into_iter().chain(link.deepest(&link.enter)).collect();
+    let through = piece.bounded(&planes)?;
+    if !through.is_empty() { parts.push(through.carried(link.map(convention)?, link.key)?); }
+    Ok(parts)
 }
 
-/// A cut the budget refused: the piece whose path is `path` would have been
-/// carried through `link`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RefusalReason {
+    HopLimit,
+    PieceLimit,
+    WorkLimit,
+    Numeric(NumericFault),
+}
+
+/// A rejected candidate has no partial geometry to publish.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Refusal {
     pub path: Vec<u32>,
-    pub link: u32,
-    /// How the piece was kept. False: the opening was solid to it, and its
-    /// part through the opening is not anywhere. True: the budget could not
-    /// pay even for the parts in front and beside (or the step limit was
-    /// reached), so the piece stayed whole where it is, its part through the
-    /// opening with it.
-    pub whole: bool,
+    pub link: Option<u32>,
+    pub reason: RefusalReason,
 }
 
-/// Where a volume is: its pieces, and the cuts its budget refused.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Partition {
-    pub pieces: Vec<VolumePiece>,
-    pub refused: Vec<Refusal>,
-}
+pub type Partition = Result<Vec<VolumePiece>, Refusal>;
 
-/// Where `volume`, which comes from `root` (its owner), is among `links`.
-///
-/// A piece is cut by the link it reaches through from that link's front;
-/// among several, the one whose plane is nearest the piece's root, then the
-/// lowest key — so the result does not depend on the order of `links`. A
-/// piece carried through a link has its root on that link's exit. The part
-/// through is cut again, and the parts that stay are too, until no piece
-/// reaches through a link from its front. `first` is a link the root piece is
-/// cut by first whatever side its root is on: the pair a body straddles.
-///
-/// The budget bounds the work. A cut it refuses leaves the opening solid to
-/// that piece: the part that would have gone through is not anywhere, and the
-/// refusal says so; the parts in front and beside stay. When even those parts
-/// would make the partition larger than the budget, the piece stays whole
-/// where it is, as at the step limit.
+/// Admit a complete material partition, or refuse the source operation.
 pub fn partition(
-    volume: &CombatVolume,
-    root: Vec2,
-    links: &[PortalLink],
-    first: Option<u32>,
-    budget: PieceBudget,
-    convention: MapConvention,
+    volume: &CombatVolume, root: Vec2, links: &[PortalLink], first: Option<u32>,
+    budget: PieceBudget, convention: MapConvention,
 ) -> Partition {
     partition_from(volume, root, false, links, first, budget, convention)
 }
 
-/// [`partition`] for a volume that reaches from `root` (a swing from its
-/// owner): what it reaches past a plane goes through in the wedge from its
-/// root through the opening's ends ([`opening_from`]), and what is beside it
-/// stays. A piece carried through reaches from where its root's line came
-/// out of the exit.
+/// Reaching uses the wedge from the owner through the aperture endpoints.
 pub fn partition_reaching(
-    volume: &CombatVolume,
-    root: Vec2,
-    links: &[PortalLink],
-    first: Option<u32>,
-    budget: PieceBudget,
-    convention: MapConvention,
+    volume: &CombatVolume, root: Vec2, links: &[PortalLink], first: Option<u32>,
+    budget: PieceBudget, convention: MapConvention,
 ) -> Partition {
     partition_from(volume, root, true, links, first, budget, convention)
 }
 
 fn partition_from(
-    volume: &CombatVolume,
-    root: Vec2,
-    reaching: bool,
-    links: &[PortalLink],
-    first: Option<u32>,
-    budget: PieceBudget,
-    convention: MapConvention,
+    volume: &CombatVolume, root: Vec2, reaching: bool, links: &[PortalLink], first: Option<u32>,
+    budget: PieceBudget, convention: MapConvention,
 ) -> Partition {
-    let mut out = Partition::default();
+    let initial = |reason| Refusal { path: Vec::new(), link: None, reason };
+    if budget.max_pieces == 0 { return Err(initial(RefusalReason::PieceLimit)); }
+    if !root.is_finite() { return Err(initial(RefusalReason::Numeric(NumericFault::NonFinite))); }
+    map_volume(volume, &Sim2::IDENTITY).map_err(|fault| initial(RefusalReason::Numeric(fault)))?;
+    for link in links {
+        link.map(convention).map_err(|fault| Refusal {
+            path: Vec::new(), link: Some(link.key), reason: RefusalReason::Numeric(fault),
+        })?;
+    }
     let mut work = WORK.take();
     work.clear();
     work.push_back((VolumePiece::whole(volume.clone()), root));
-    // A partition that stops growing ends: each cut bounds its parts by the
-    // link's planes, and no part of it reaches through that link again. This
-    // stops one that the budget lets grow without end, should one exist.
-    let mut steps = 0usize;
-    let step_limit = 8 * usize::from(budget.max_pieces).max(1) * links.len().max(1);
-    while let Some((piece, root)) = work.pop_front() {
-        steps += 1;
-        let forced = (steps == 1).then_some(first).flatten();
-        let reach = reaching.then_some(root);
-        let reaching = links
-            .iter()
-            .filter(|link| {
+    let result = (|| {
+        let mut out = Vec::new();
+        let mut steps = 0usize;
+        let step_limit = 8usize.saturating_mul(usize::from(budget.max_pieces)).saturating_mul(links.len().max(1));
+        while let Some((piece, root)) = work.pop_front() {
+            steps += 1;
+            let forced = (steps == 1).then_some(first).flatten();
+            let reach = reaching.then_some(root);
+            let next = links.iter().filter(|link| {
                 (Some(link.key) == forced || link.enter.frame.to_local(root).y > 0.0)
                     && piece_reaches_through(&piece, link, reach)
-            })
-            .min_by(|a, b| {
-                let rank = |link: &PortalLink| {
-                    if Some(link.key) == forced {
-                        f32::NEG_INFINITY
-                    } else {
-                        link.enter.frame.to_local(root).y
-                    }
-                };
+            }).min_by(|a, b| {
+                let rank = |link: &PortalLink| if Some(link.key) == forced {
+                    f32::NEG_INFINITY
+                } else { link.enter.frame.to_local(root).y };
                 rank(a).total_cmp(&rank(b)).then(a.key.cmp(&b.key))
             });
-        let Some(link) = reaching else {
-            out.pieces.push(piece);
-            continue;
-        };
-        if steps > step_limit {
-            out.refused.push(Refusal { path: piece.path.clone(), link: link.key, whole: true });
-            out.pieces.push(piece);
-            continue;
-        }
-        // The budget is checked on the parts a cut makes, not on a guess of
-        // their number: a link with a depth makes five, and a refused cut
-        // makes up to four. The parts take the place of the piece.
-        let kept = out.pieces.len() + work.len();
-        let fits = |parts: &[VolumePiece]| kept + parts.len() <= usize::from(budget.max_pieces);
-        let through = (piece.path.len() < usize::from(budget.max_hops))
-            .then(|| cut_by(&piece, reach, link, convention, false))
-            .filter(|parts| fits(parts));
-        let parts = match through {
-            Some(parts) => parts,
-            None => {
-                let parts = cut_by(&piece, reach, link, convention, true);
-                let whole = !fits(&parts);
-                out.refused.push(Refusal { path: piece.path.clone(), link: link.key, whole });
-                if whole {
-                    out.pieces.push(piece);
-                    continue;
-                }
-                parts
+            let Some(link) = next else { out.push(piece); continue; };
+            let refusal = |reason| Refusal { path: piece.path.clone(), link: Some(link.key), reason };
+            if steps > step_limit { return Err(refusal(RefusalReason::WorkLimit)); }
+            if piece.path.len() >= usize::from(budget.max_hops) { return Err(refusal(RefusalReason::HopLimit)); }
+            let parts = cut_by(&piece, reach, link, convention).map_err(|fault| refusal(RefusalReason::Numeric(fault)))?;
+            if out.len() + work.len() + parts.len() > usize::from(budget.max_pieces) {
+                return Err(refusal(RefusalReason::PieceLimit));
             }
-        };
-        // The exit point the root's line meets: where a carried piece came
-        // from, for the next link's front.
-        let exit_root = |link: &PortalLink| {
+            let map = link.map(convention).map_err(|fault| refusal(RefusalReason::Numeric(fault)))?;
             let local = link.enter.frame.to_local(root);
-            let along = link.map(convention).vec(link.enter.frame.tangent()).dot(link.exit.frame.tangent());
-            let h = link.exit.half_length;
-            link.exit.frame.from_local(Vec2::new((local.x * along).clamp(-h, h), 0.0))
-        };
-        for part in parts {
-            let part_root = if part.path.len() > piece.path.len() { exit_root(link) } else { root };
-            work.push_back((part, part_root));
+            let along = map.direction(link.enter.frame.tangent()).dot(link.exit.frame.tangent()) * map.scale();
+            let exit_root = link.exit.frame.from_local(Vec2::new((local.x * along).clamp(-link.exit.half_length, link.exit.half_length), 0.0));
+            for part in parts {
+                let part_root = if part.path.len() > piece.path.len() { exit_root } else { root };
+                work.push_back((part, part_root));
+            }
         }
-    }
+        Ok(out)
+    })();
+    work.clear();
     WORK.set(work);
-    out
+    result
+}
+
+/// The aperture snapshot used by one body's movement operation.
+#[derive(Clone, Copy)]
+pub struct MotionAdmission<'a> {
+    pub links: &'a [PortalLink],
+    pub first: Option<u32>,
+    pub budget: PieceBudget,
+    pub convention: MapConvention,
+}
+
+impl MotionAdmission<'_> {
+    /// Validate both occupancy and the complete translated collision sweep.
+    pub fn admit(&self, from: crate::Aabb, to: crate::Aabb) -> Result<(), Refusal> {
+        let source = CombatVolume::aabb(to);
+        partition(&source, from.center(), self.links, self.first, self.budget, self.convention)?;
+        let mut points = box_corners(from).into_iter().chain(box_corners(to)).collect::<Vec<_>>();
+        if points.iter().any(|p| !p.is_finite()) {
+            return Err(Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(NumericFault::NonFinite) });
+        }
+        points.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
+        points.dedup();
+        let chain = |vertices: &[Vec2]| {
+            let mut result: Vec<Vec2> = Vec::new();
+            for point in vertices {
+                while result.len() >= 2 {
+                    let a = result[result.len() - 2];
+                    let b = result[result.len() - 1];
+                    if (b - a).perp_dot(*point - b) > 0.0 { break; }
+                    result.pop();
+                }
+                result.push(*point);
+            }
+            result
+        };
+        let mut lower = chain(&points);
+        points.reverse();
+        let mut upper = chain(&points);
+        lower.pop(); upper.pop(); lower.extend(upper);
+        if lower.len() >= 3 {
+            partition(&CombatVolume::convex(lower), from.center(), self.links, self.first, self.budget, self.convention)?;
+        }
+        Ok(())
+    }
 }
 
 /// The links that lead back to themselves: what goes in at one comes out

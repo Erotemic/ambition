@@ -1404,6 +1404,50 @@ impl BodyClusterScratch {
         self
     }
 
+    /// Copy one movement candidate before it can change the live body.
+    pub(crate) fn candidate(model: &crate::MotionModel, body: &BodyClustersMut<'_>) -> Self {
+        Self {
+            model: model.clone(), abilities: body.abilities.clone(),
+            kinematics: (*body.kinematics).clone(),
+            base_size: (*body.base_size).clone(),
+            ground: (*body.ground).clone(),
+            wall: (*body.wall).clone(),
+            jump: (*body.jump).clone(),
+            dash: (*body.dash).clone(),
+            flight: (*body.flight).clone(),
+            blink: (*body.blink).clone(),
+            ledge: (*body.ledge).clone(),
+            dodge: (*body.dodge).clone(),
+            shield: (*body.shield).clone(),
+            body_mode: (*body.body_mode).clone(),
+            env_contact: (*body.env_contact).clone(),
+            action_buffer: (*body.action_buffer).clone(),
+            restart: (*body.restart).clone(),
+            resources: body.resources.as_deref().cloned(),
+        }
+    }
+
+    /// Publish a candidate only after all movement constraints admit it.
+    pub(crate) fn commit(self, model: &mut crate::MotionModel, body: &mut BodyClustersMut<'_>) {
+        *model = self.model;
+        *body.kinematics = self.kinematics;
+        *body.base_size = self.base_size;
+        *body.ground = self.ground;
+        *body.wall = self.wall;
+        *body.jump = self.jump;
+        *body.dash = self.dash;
+        *body.flight = self.flight;
+        *body.blink = self.blink;
+        *body.ledge = self.ledge;
+        *body.dodge = self.dodge;
+        *body.shield = self.shield;
+        *body.body_mode = self.body_mode;
+        *body.env_contact = self.env_contact;
+        *body.action_buffer = self.action_buffer;
+        *body.restart = self.restart;
+        if let (Some(target), Some(value)) = (body.resources.as_deref_mut(), self.resources) { *target = value; }
+    }
+
     /// Split-borrow the scratch body into its policy and its cluster view,
     /// mirroring the ECS shape (the model is a separate component from the
     /// clusters) so scratch callers can hand both to [`crate::step_motion`].

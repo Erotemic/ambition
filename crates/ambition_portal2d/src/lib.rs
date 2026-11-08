@@ -71,7 +71,7 @@ pub use placement::{
     raycast_through_portals, raycast_through_portals_tuned, somersault_roll_for_convention,
     transit_step, transit_step_with_tuning, SweptSample, TransitStep,
 };
-pub use passages::{linked_pairs, publish_portal_passages};
+pub use passages::{linked_pairs, publish_portal_apertures, publish_portal_passages};
 pub use transit::{
     portal_transit, portal_transit_free_bodies, portals_or_transits, publish_free_body_carves, publish_portal_carves,
     reconcile_transited_bodies,

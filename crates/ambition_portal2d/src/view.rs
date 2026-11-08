@@ -186,6 +186,7 @@ pub struct PortalCopyTransform {
     pub roll: f32,
     /// Whether the copied sprite should invert `Sprite::flip_x`.
     pub flip_x: bool,
+    pub scale: f32,
 }
 
 fn copy_transform_with_map(
@@ -199,6 +200,7 @@ fn copy_transform_with_map(
     PortalCopyTransform {
         roll: -factor.sin.atan2(factor.cos),
         flip_x: factor.flip_x,
+        scale: 1.0,
     }
 }
 
@@ -229,9 +231,9 @@ pub fn copy_transform(
 
 /// Sprite transform for a copy placed by `map` (a pair's map, or several
 /// composed).
-pub fn copy_transform_of(map: &ae::frame::Iso2) -> PortalCopyTransform {
-    let factor = factor_orthogonal(map.vec(Vec2::X), map.vec(Vec2::Y));
-    PortalCopyTransform { roll: -factor.sin.atan2(factor.cos), flip_x: factor.flip_x }
+pub fn copy_transform_of(map: &ae::frame::Sim2) -> PortalCopyTransform {
+    let factor = factor_orthogonal(map.direction(Vec2::X), map.direction(Vec2::Y));
+    PortalCopyTransform { roll: -factor.sin.atan2(factor.cos), flip_x: factor.flip_x, scale: map.scale() }
 }
 
 impl PortalCopyTransform {

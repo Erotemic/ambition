@@ -21,6 +21,7 @@ use super::{
 #[derive(Clone, Copy)]
 pub struct MotionStepContext<'a> {
     pub world: &'a World,
+    pub portal: Option<crate::frame::thread::MotionAdmission<'a>>,
     /// The typed, already-frame-resolved motion intent (see [`InputState`]).
     pub input: InputState,
     /// The body's current acceleration/reference frame. Every policy arm
@@ -148,6 +149,37 @@ impl MotionStepResult {
 /// This is the only public movement-kernel gateway.  Model dispatch happens
 /// inside the trusted kernel, while body/controller identity remains outside.
 pub fn step_motion(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: MotionStepContext<'_>,
+) -> MotionStepResult {
+    let Some(portal) = ctx.portal.filter(|portal| !portal.links.is_empty()) else {
+        return step_admitted_motion(model, clusters, ctx);
+    };
+    let retained_down = SweepSample::down_or(clusters.sweep.as_deref(), ctx.frame.down());
+    let mut candidate = crate::body_clusters::BodyClusterScratch::candidate(model, clusters);
+    let mut sweep = SweepSample::at_rest(*clusters.kinematics, retained_down);
+    let result = {
+        let (candidate_model, mut body) = candidate.parts();
+        body.sweep = Some(&mut sweep);
+        step_admitted_motion(candidate_model, &mut body, ctx)
+    };
+    let from = crate::Aabb::new(sweep.prev, sweep.half);
+    let to = candidate.kinematics.collision_box(Some(&sweep));
+    if let Err(refusal) = portal.admit(from, to) {
+        if let Some(sample) = clusters.sweep.as_deref_mut() {
+            *sample = SweepSample::at_rest(*clusters.kinematics, retained_down);
+        }
+        let mut events = FrameEvents::default();
+        events.portal_refusal = Some(refusal);
+        return MotionStepResult::from_events(events, ctx.frame);
+    }
+    candidate.commit(model, clusters);
+    if let Some(target) = clusters.sweep.as_deref_mut() { *target = sweep; }
+    result
+}
+
+fn step_admitted_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,

@@ -36,6 +36,7 @@ fn step_axis_for_test(
         model,
         &mut clusters,
         ae::MotionStepContext {
+            portal: None,
             world,
             input,
             frame,

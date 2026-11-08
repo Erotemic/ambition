@@ -143,6 +143,7 @@ impl Body {
             model,
             &mut clusters,
             MotionStepContext {
+                portal: None,
                 world,
                 input,
                 frame: self.frame,

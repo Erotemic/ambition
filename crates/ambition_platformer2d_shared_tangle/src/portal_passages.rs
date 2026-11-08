@@ -5,7 +5,7 @@
 //! The portal domain writes it each tick after its transit; a composition with
 //! no portals leaves it empty, and every volume is whole.
 
-use ambition_platformer2d_core::frame::thread::{partition, partition_reaching, PieceBudget, PortalLink, VolumePiece};
+use ambition_platformer2d_core::frame::thread::{partition, partition_reaching, Partition, PieceBudget, PortalLink, VolumePiece};
 use ambition_platformer2d_core::frame::{MapConvention, PortalAperture};
 use ambition_platformer2d_core::{CombatVolume, Vec2};
 use bevy::prelude::{Component, Entity, Resource};
@@ -137,6 +137,16 @@ impl PortalPassages {
         self.straddling.push((body, link));
     }
 
+    pub fn clear_straddlers(&mut self) { self.straddling.clear(); }
+
+    pub fn motion_for(&self, body: Entity, room: Option<LiveRoomInstance>) -> Option<ambition_platformer2d_core::frame::thread::MotionAdmission<'_>> {
+        let budget = self.budget_for(Some(body), room)?;
+        Some(ambition_platformer2d_core::frame::thread::MotionAdmission {
+            links: self.links_in(room), first: self.straddled_by(body).map(|link| link.key),
+            budget, convention: self.convention,
+        })
+    }
+
     /// The links of `room`: each pair of it both ways.
     pub fn links_in(&self, room: Option<LiveRoomInstance>) -> &[PortalLink] {
         self.room(room).map_or(&[], |r| &r.links)
@@ -167,15 +177,15 @@ impl PortalPassages {
     /// pair its `owner` straddles (a volume the owner carries with it), and by
     /// every opening of the room it reaches through from that opening's
     /// front, as far as the owner's policy, else the room's, lets it; or
-    /// whole. A cut the budget refuses leaves that opening solid to the
-    /// piece: what would have gone through is not anywhere.
+    /// whole. A refused candidate returns its reason without partial geometry.
+    /// The movement owner must retain the last admitted pose.
     pub fn pieces(
         &self,
         volume: &CombatVolume,
         owner: Option<Entity>,
         root: Vec2,
         room: Option<LiveRoomInstance>,
-    ) -> Vec<VolumePiece> {
+    ) -> Partition {
         self.pieces_from(volume, owner, root, false, room)
     }
 
@@ -188,7 +198,7 @@ impl PortalPassages {
         owner: Option<Entity>,
         root: Vec2,
         room: Option<LiveRoomInstance>,
-    ) -> Vec<VolumePiece> {
+    ) -> Partition {
         self.pieces_from(volume, owner, root, true, room)
     }
 
@@ -199,10 +209,10 @@ impl PortalPassages {
         root: Vec2,
         reaching: bool,
         room: Option<LiveRoomInstance>,
-    ) -> Vec<VolumePiece> {
+    ) -> Partition {
         let cut_by = if reaching { partition_reaching } else { partition };
         let Some(budget) = self.budget_for(owner, room) else {
-            return vec![VolumePiece::whole(volume.clone())];
+            return Ok(vec![VolumePiece::whole(volume.clone())]);
         };
         let straddled = owner.and_then(|owner| self.straddled_by(owner));
         let links = self.links_in(room);
@@ -214,20 +224,7 @@ impl PortalPassages {
             }
             _ => cut_by(volume, root, links, straddled.map(|l| l.key), budget, self.convention),
         };
-        for refusal in &cut.refused {
-            let kept = if refusal.whole {
-                "it stays whole where it is, its part through the opening with it"
-            } else {
-                "its opening is solid to it"
-            };
-            tracing::debug!(
-                target: "ambition_portal::refusal",
-                "a volume of {owner:?} was not carried through link {} after {:?}: {kept} ({budget:?})",
-                refusal.link,
-                refusal.path
-            );
-        }
-        cut.pieces
+        cut
     }
 }
 
@@ -258,7 +255,7 @@ mod tests {
         // Across the floor opening: a carrier that straddles it is cut.
         let volume = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(12.0)));
         for carrier in [None, Some(other), Some(traveller)] {
-            let pieces = passages.pieces(&volume, carrier, Vec2::new(0.0, -1.0), Some(here));
+            let pieces = passages.pieces(&volume, carrier, Vec2::new(0.0, -1.0), Some(here)).unwrap();
             let whole = pieces == vec![VolumePiece::whole(volume.clone())];
             assert_eq!(!passages.cuts_in(Some(here), carrier), whole, "{carrier:?}: the predicate and the pieces disagree");
         }

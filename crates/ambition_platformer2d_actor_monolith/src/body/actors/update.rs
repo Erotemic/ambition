@@ -1083,6 +1083,7 @@ fn integrate_actor_body(
     // composition never granted the capability, which is every body outside a
     // ruleset that opted its cast in.
     contact_field: ae::BodyContactField<'_>,
+    portal: Option<ae::frame::thread::MotionAdmission<'_>>,
 ) {
     // The brain's intent for this body, produced upstream in `tick_actor_brains`.
     let brain_frame = control
@@ -1150,6 +1151,7 @@ fn integrate_actor_body(
         tumbling,
         out_of_play,
         contact_field,
+        portal,
     );
     if was_dead && em.health.alive() {
         combat.hit_flash = 0.24;
@@ -1309,10 +1311,8 @@ pub fn snapshot_body_contact(
         let Some(passages) = passages.as_deref().filter(|passages| passages.straddled_by(entity).is_some()) else {
             continue;
         };
-        for piece in passages
-            .pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room,
-            )
-            .iter()
+        let Ok(pieces) = passages.pieces(&ae::CombatVolume::aabb(contact_box), Some(entity), kinematics.pos, room) else { continue; };
+        for piece in pieces.iter()
             .filter(|piece| piece.is_carried())
         {
             // The part of the box the pair carries, as a box (exact for a
@@ -1320,7 +1320,7 @@ pub fn snapshot_body_contact(
             let Some(part) = piece.region().and_then(|region| bounding_box(&region)) else {
                 continue;
             };
-            let velocity = piece.carry_dir(kinematics.vel);
+            let Ok(velocity) = piece.carry_dir(kinematics.vel) else { continue; };
             snapshot.push_part(entity, room, part, velocity);
             boxes.push((entity, room, part, velocity));
         }
@@ -1392,6 +1392,7 @@ pub struct BodyIntegrationMessages<'w> {
 /// collision world for its room and its own contact, tuning, and envelope data.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
+    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
     // Empty in every composition that has not granted the capability, and an empty snapshot
     // answers `BodyContactField::NONE` for every body.
     contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
@@ -1591,6 +1592,7 @@ pub fn integrate_sim_bodies(
             #[cfg(feature = "causal")]
             cues.movement_ops.as_mut(),
             contact.field_for(actor_entity, &mut contact_scratch),
+            passages.as_deref().and_then(|p| p.motion_for(actor_entity, body_rooms.get(actor_entity).ok().map(|room| room.0))),
         );
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.
@@ -1668,6 +1670,7 @@ pub fn integrate_sim_bodies(
             // the spec's gate rather than the component's presence.
             playback.map(|pb| &*pb),
             contact.field_for(player_entity, &mut contact_scratch),
+            passages.as_deref().and_then(|p| p.motion_for(player_entity, body_rooms.get(player_entity).ok().map(|room| room.0))),
         );
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
         // Input-relative facts the model projection can't know: republished

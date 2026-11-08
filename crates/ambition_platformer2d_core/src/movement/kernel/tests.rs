@@ -53,6 +53,7 @@ fn step(
         model,
         &mut clusters,
         MotionStepContext {
+            portal: None,
             world,
             input,
             frame,
@@ -1109,6 +1110,7 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
                 &mut model,
                 &mut clusters,
                 MotionStepContext {
+                    portal: None,
                     world: &world,
                     input,
                     frame,
@@ -1225,6 +1227,7 @@ fn walk_a_pair(
                 &mut models[which],
                 &mut clusters,
                 MotionStepContext {
+                    portal: None,
                     world: &world,
                     input,
                     frame,
@@ -1379,6 +1382,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
             &mut model,
             &mut clusters,
             MotionStepContext {
+                portal: None,
                 world: &world,
                 input: InputState::default(),
                 frame,
@@ -1408,6 +1412,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
             &mut model,
             &mut clusters,
             MotionStepContext {
+                portal: None,
                 world: &world,
                 input: InputState::default(),
                 frame,
@@ -1429,6 +1434,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
             &mut model,
             &mut clusters,
             MotionStepContext {
+                portal: None,
                 world: &world,
                 input,
                 frame,
@@ -1492,6 +1498,7 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
                 &mut model,
                 &mut clusters,
                 MotionStepContext {
+                    portal: None,
                     world: &world,
                     input: InputState::default(),
                     frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
@@ -1535,6 +1542,7 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
             model,
             &mut clusters,
             MotionStepContext {
+                portal: None,
                 world: &world,
                 input: InputState::default(),
                 frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
@@ -1611,6 +1619,7 @@ fn a_held_body_pinned_inside_solid_does_not_land() {
             &mut model,
             &mut clusters,
             MotionStepContext {
+                portal: None,
                 world: &world,
                 input: InputState::default(),
                 frame,
@@ -1721,6 +1730,7 @@ fn a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not() {
                 &mut model,
                 &mut clusters,
                 MotionStepContext {
+                    portal: None,
                     world: &world,
                     input: InputState::default(),
                     frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
@@ -1757,4 +1767,36 @@ fn a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not() {
 fn a_tall_body_rides_a_circle_whose_bottom_is_its_feet() {
     let size = Vec2::new(30.0, 48.0);
     assert_eq!(surface_momentum::body_radius(size), size.y * 0.5);
+}
+
+#[test]
+fn a_portal_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
+    use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink, RefusalReason};
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame};
+    let world = empty_world();
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 500.0), Vec2::NEG_Y), half_length: 80.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(900.0, 200.0), Vec2::Y), half_length: 80.0 };
+    let links = PortalLink::both_ways(0, (entry, exit));
+    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 465.0), AbilitySet::default());
+    scratch.kinematics.vel = Vec2::new(0.0, 6000.0);
+    let initial = scratch.kinematics;
+    let mut sweep = crate::SweepSample { prev: initial.pos - Vec2::Y * 20.0, curr: initial.pos,
+        vel: initial.vel, half: initial.size * 0.5, down: Vec2::Y };
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let frame = MotionFrame::from_direction(Vec2::Y, 0.0);
+    let mut body = scratch.as_mut();
+    body.sweep = Some(&mut sweep);
+    let result = step_motion(&mut model, &mut body, MotionStepContext {
+        world: &world, portal: Some(MotionAdmission { links: &links, first: None,
+            budget: PieceBudget { max_hops: 0, max_pieces: 1 }, convention: MapConvention::Reflection }),
+        input: InputState::default(), frame, facing_intent: 0.0, dt: 1.0 / 30.0,
+        contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false,
+        recovery_commitment_outstanding: false,
+    });
+    assert_eq!(result.events.portal_refusal.as_ref().map(|r| r.reason), Some(RefusalReason::HopLimit));
+    assert_eq!(body.kinematics.pos, initial.pos);
+    assert_eq!(body.kinematics.vel, initial.vel);
+    assert!(result.events.operations.is_empty());
+    assert!(result.events.reset.is_none());
+    assert_eq!(body.sweep.as_deref().unwrap().delta(), Vec2::ZERO);
 }

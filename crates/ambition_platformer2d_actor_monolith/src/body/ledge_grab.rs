@@ -25,6 +25,7 @@ mod tests {
             model,
             &mut clusters,
             ae::MotionStepContext {
+                portal: None,
                 world,
                 input,
                 frame,

@@ -2,9 +2,11 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** STATIC PLANNING ONLY (Jon, 2026-11-08). Do not change runtime
-code, build, run simulations, or measure performance until Jon releases this
-hold. See [Implementation plan](#implementation-plan) for the proposed work order.
+**Work state:** RUST DRAFT IN A WORKTREE (Jon, 2026-11-08).
+Use assigned slot 1 and branch `portal-similarity-draft`. Do not compile,
+run simulations, or measure performance. Main integration and compilation
+wait for Jon to finish his work on main. See
+[Implementation plan](#implementation-plan) and [Draft status](#draft-status).
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
 [portals are moving frames](portals-are-moving-frames.md), and
@@ -271,12 +273,13 @@ the transition through the current code. They are implementation proposals;
 they do not add maintainer rulings. Finish each packet with its named
 behavioral evidence and remove the old authority in the same change.
 
-### Current source owners
+### Implementation baseline
 
-Last verified by static inspection: 2026-11-08, at `f0e8bb16cd64`.
-Check these owners again after the current optimization work ends.
+The table describes the source inspected on 2026-11-08 at `f0e8bb16cd64`,
+before the draft. The draft starts at `540cce6c186f2b2dc2c589d0aeb05bc4a06596e4`.
+Check the affected owners again after the optimization work ends.
 
-| Concern | Current owner and required change |
+| Concern | Baseline owner and required change |
 | --- | --- |
 | Pair algebra | `crates/ambition_platformer2d_core/src/frame.rs`: `Iso2` has public matrix fields and uses transpose as inverse. Pair helpers take frames, which have no aperture sizes. Introduce validated `Sim2` and derive portal maps from apertures. |
 | Partition | `crates/ambition_platformer2d_core/src/frame/thread.rs`: `VolumePiece` stores a mapped volume, world bounds, an `Iso2`, and a path. Keep canonical source regions as authority. Replace both the whole-piece fallback and the fallback that omits through-material. |
@@ -546,3 +549,42 @@ three-link, and refused-cycle cases. Record active primitives, cells, parts,
 cut work, capture pixels, allocations, CPU frame cost, and GPU capture cost.
 Use target-device results for GPU conclusions. Performance changes must not
 reduce physical correctness or add a separate controller path.
+
+### Draft status
+
+The branch contains PSIM-1A code and an initial PSIM-1B body admission path.
+No PSIM slice has passed its acceptance checks.
+
+- `Sim2` validates scale, orientation, composition, inverse, coordinates,
+  feature resolution, and moving-surface velocity. Numerical failure is typed.
+- `VolumePiece` keeps canonical source material and cut planes. Its world
+  volume and planes are private projections of that source and its map.
+- Partition failure returns no partial geometry. Combat, contact queries,
+  observations, folded meshes, and capture copies use the new result.
+- The body kernel checks a private movement candidate and its recorded sweep
+  before commit. Rejection retains body state and clears stale travelled paths.
+  Both controller adapters receive the same admission input.
+- Aperture publication precedes body integration. The later passage publication
+  refreshes occupancy without replacing that tick's aperture inputs.
+
+Before integration, compile and run the focused tests. The draft has only
+been parsed with rustfmt and checked by static inspection. The numerical,
+partition, and movement assertions have not run. The allocation measurement
+still exists; sharing source primitives and copying movement candidates change
+its inputs, so record a new result after compilation is permitted.
+
+The lowest-confidence part is movement admission. Check retained support facts,
+curved paths, control-phase displacement, topology changes after the aperture
+snapshot, and the cost of candidate copies.
+Finish refusal at projectile/free-body sweeps, externally owned poses, and
+moving aperture hosts. A body-kernel hook alone does not close PSIM-1B.
+
+Persistent root scale/parity and transit rebasing, the full-map transit event,
+common exact collision/contact projections, removal of `BodyPieces`, arbitrary
+visual clipping, and the unequal-aperture switch remain in packets 3 through 5.
+GNU-ton acceptance and numerical-fault presentation remain in packets 6 and 7.
+The minimum-opening policy remains in production until the coordinated switch.
+
+When main is ready, merge main into the draft branch or apply the draft commits
+on main as Jon directs. Use the prepared main target for the compile pass.
+Review shared schema changes semantically before selecting any version number.

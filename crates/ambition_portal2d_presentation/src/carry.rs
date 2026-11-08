@@ -459,7 +459,8 @@ pub fn carry_through_pairs(
                 Some(_) => partition_reaching(&ae::CombatVolume::convex(corners), root, &links, None, budget, convention),
                 None => partition(&ae::CombatVolume::convex(corners), root, &links, None, budget, convention),
             };
-            let Some(through) = cut.pieces.iter().find(|piece| piece.is_carried()) else {
+            let Ok(cut) = cut else { continue; };
+            let Some(through) = cut.iter().find(|piece| piece.is_carried()) else {
                 continue;
             };
             let link = through.path[0];
@@ -586,20 +587,22 @@ pub fn carry_through_pairs(
         } else {
             partition(&ae::CombatVolume::convex(corners), carry.root, &links, first, budget, convention)
         };
-        let through = cut.pieces.iter().any(VolumePiece::is_carried);
+        let Ok(cut) = cut else { continue; };
+        let through = cut.iter().any(VolumePiece::is_carried);
         let image = atlas.slots[slot].image.clone();
-        for piece in &cut.pieces {
+        for piece in &cut {
             let bounds = piece.active_bounds();
             if bounds.len() > CLIP_PLANES {
                 bevy::log::warn_once!("a carried piece is bounded by {} planes; it is drawn clipped by the first {CLIP_PLANES}", bounds.len());
             }
             let planes: Vec<Vec4> = bounds.iter().map(|plane| clip_plane_render(&carry.frame, plane.point, plane.inward)).collect();
             let (base, flip, name) = if piece.is_carried() {
-                let copy = ambition_portal2d::copy_transform_of(&piece.to_piece);
+                let copy = ambition_portal2d::copy_transform_of(&piece.transform());
+                let Ok(mapped_middle) = piece.carry(middle) else { continue; };
                 let base = Transform {
-                    translation: carry.frame.to_render(piece.carry(middle), crate::PORTAL_EXIT_COPY_Z),
+                    translation: carry.frame.to_render(mapped_middle, crate::PORTAL_EXIT_COPY_Z),
                     rotation: Quat::from_rotation_z(copy.rolled(0.0)),
-                    scale: Vec3::ONE,
+                    scale: Vec3::splat(copy.scale),
                 };
                 (base, copy.flip_x, "Portal carry piece (through)")
             } else {

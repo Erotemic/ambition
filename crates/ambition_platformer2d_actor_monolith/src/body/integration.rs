@@ -74,6 +74,7 @@ pub(super) fn integrate_home_body(
     // `BodyContactField::NONE` for a body whose composition never granted the capability, which
     // is every body in Ambition today.
     contact_field: ae::BodyContactField<'_>,
+    portal: Option<ae::frame::thread::MotionAdmission<'_>>,
 ) -> Option<ae::Vec2> {
     let actor_control = actor_control.damped_by_move_motion(move_motion_scale);
     let input = engine_input_from_actor_control(
@@ -105,6 +106,7 @@ pub(super) fn integrate_home_body(
         // drives.
         pose_owned_externally,
         ae::MotionStepContext {
+            portal,
             world,
             input,
             frame: motion_frame,

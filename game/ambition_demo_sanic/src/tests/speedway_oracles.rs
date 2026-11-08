@@ -122,6 +122,7 @@ impl Probe {
             &mut self.model,
             &mut clusters,
             ae::MotionStepContext {
+                portal: None,
                 world,
                 input: ae::InputState {
                     movement: ae::ActionEdges::EMPTY.with(

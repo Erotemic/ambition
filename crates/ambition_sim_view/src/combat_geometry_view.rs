@@ -264,8 +264,9 @@ pub fn rebuild_combat_geometry_view(
 ) {
     let passages = passages.as_deref();
     // A cut that left one whole piece is no cut.
-    let cut = |pieces: Vec<ae::frame::thread::VolumePiece>| {
-        (pieces.len() > 1 || pieces.iter().any(|piece| piece.is_carried() || !piece.bounds.is_empty())).then_some(pieces)
+    let cut = |result: ae::frame::thread::Partition| {
+        let Ok(pieces) = result else { return Some(Vec::new()); };
+        (pieces.len() > 1 || pieces.iter().any(|piece| piece.is_carried() || !piece.source_bounds().is_empty())).then_some(pieces)
     };
     view.bodies.clear();
     view.strikes.clear();

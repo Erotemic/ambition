@@ -13,6 +13,7 @@ fn step_axis_player(
         model,
         &mut clusters,
         ae::MotionStepContext {
+            portal: None,
             world,
             input,
             frame,

@@ -123,6 +123,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
             &mut model,
             &mut clusters,
             ae::MotionStepContext {
+                portal: None,
                 world: &world,
                 input: ae::InputState {
                     axes: ae::LocalAxes::new(run, 0.0),

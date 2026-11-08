@@ -91,6 +91,7 @@ pub struct BlinkEvent {
 /// Engine events emitted by one player simulation step.
 #[derive(Clone, Debug, Default)]
 pub struct FrameEvents {
+    pub portal_refusal: Option<crate::frame::thread::Refusal>,
     pub operations: Vec<MovementOp>,
     pub blinks: Vec<BlinkEvent>,
     /// Why this step is asking the body's owner to apply its reset policy, or
@@ -119,6 +120,7 @@ impl FrameEvents {
     /// This is used by the two-clock update path: control/intent is processed
     /// in real time, then physical evolution is processed in scaled game time.
     pub fn extend(&mut self, other: FrameEvents) {
+        self.portal_refusal = self.portal_refusal.take().or(other.portal_refusal);
         self.operations.extend(other.operations);
         self.blinks.extend(other.blinks);
         // The FIRST cause across the two clocks wins. A body that asked to

@@ -279,6 +279,7 @@ fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f3
         model,
         &mut clusters,
         MotionStepContext {
+            portal: None,
             world,
             input,
             frame,

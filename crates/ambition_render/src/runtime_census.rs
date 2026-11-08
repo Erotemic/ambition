@@ -173,10 +173,18 @@ pub fn report_visual_quality_census(
         .ok()
         .filter(|v| !v.trim().is_empty())
         .unwrap_or_else(|| "unlimited".to_string());
-    let frame_cap = settings
-        .as_deref()
-        .map(|settings| format!("{:?}", settings.video.frame_cap))
-        .unwrap_or_else(|| "unrecorded".to_string());
+    // The native profile override affects the actual limiter, without writing
+    // into UserSettings. Report the effective cap, not the saved preference.
+    let frame_cap = if ambition_persistence::settings::video::profile_uncapped()
+        && settings.is_some()
+    {
+        "Off".to_string()
+    } else {
+        settings
+            .as_deref()
+            .map(|settings| format!("{:?}", settings.video.frame_cap))
+            .unwrap_or_else(|| "unrecorded".to_string())
+    };
     let Some(quality) = quality else {
         // Report, do not skip. No quality resource is a real state (headless, no
         // renderer), and a missing row would look like "the tier did not matter".

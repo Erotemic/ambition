@@ -56,6 +56,12 @@ report_timeout="45"
 include_raw_data="no"
 include_perf_script="no"
 timeline_chunks="12"
+# Timed Smash uses separate native and Tracy runs so native samples cannot
+# include Tracy client drain/export work. Both remain one user command/bundle.
+two_pass_smash="no"
+capture_role="primary"
+# Uncapped by default for timed windowed Smash; never changes saved settings.
+uncapped="auto"
 
 # ── What is being profiled ────────────────────────────────────────────────
 # The optimized `profiling` cargo profile is the default because the question
@@ -149,8 +155,15 @@ Build selection:
                            edit/play build slow", which is a DIFFERENT question
                            from "why is the optimized runtime slow"; the report
                            names which one it measured.
-  --no-tracy              Do not add --features profile. Drops per-Bevy-system
-                           zones and Bevy's render-pass diagnostics.
+  --uncapped              Override video pacing for this process (VSync Off,
+                          frame cap Off), without changing saved user settings.
+  --respect-video-settings
+                          Disable the override; compare against normal pacing.
+                          Timed windowed Smash defaults to --uncapped.
+  --no-tracy              Disable Tracy and use a single native capture.
+                           Timed, windowed Smash normally runs a clean native
+                           perf pass followed automatically by a Tracy-only
+                           diagnostic pass, both packaged in one archive.
   --perf-probe            Also add --features perf_probe: allocations per Bevy
                            system / tracing span and archetype churn per source
                            line, written to alloc_by_span.csv and
@@ -292,6 +305,8 @@ while [[ $# -gt 0 ]]; do
         --build-profile) shift; [[ $# -gt 0 ]] || fail "--build-profile requires a value"; build_profile="$1" ;;
         --build-profile=*) build_profile="${1#--build-profile=}" ;;
         --dev-build|--dev-profile) build_profile="dev" ;;
+        --uncapped) uncapped="yes" ;;
+        --respect-video-settings) uncapped="no" ;;
         --no-tracy) want_tracy="no" ;;
         --perf-probe) want_perf_probe="yes" ;;
         --headless) headless="yes" ;;
@@ -322,10 +337,36 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# Benchmark FPS instead of monitor refresh. The actual window and limiter
+# follow this environment-only override; UserSettings and settings.ron remain
+# untouched by the profile. Apply it to both passes of timed Smash.
+if [[ "$uncapped" == "auto" ]]; then
+    if [[ "$workload" == "smash-match" && "$smash_seconds" != "0" && "$headless" == "no" ]]; then
+        uncapped="yes"
+    else
+        uncapped="no"
+    fi
+fi
+if [[ "$uncapped" == "yes" ]]; then
+    export AMBITION_PROFILE_UNCAPPED=1
+else
+    unset AMBITION_PROFILE_UNCAPPED || true
+fi
+
 # Timed Smash matches are unattended: spend the extra report time here so
 # the resulting archive has self and inclusive symbol rankings for an agent.
 if [[ "$workload" == "smash-match" && "$smash_seconds" != "0" && "$report_preset_explicit" == "no" ]]; then
     report_preset="full"
+fi
+# The normal timed Smash invocation uses two launches: first an uninstrumented
+# binary under perf; then a Tracy-enabled build for per-system diagnostics.
+# --no-tracy deliberately retains the legacy single-pass behavior.
+if [[ "$workload" == "smash-match" && "$smash_seconds" != "0" \
+      && "$headless" == "no" && "$want_tracy" == "yes" \
+      && "$want_perf_probe" == "no" \
+      && "$mode" == "timeline-run" ]]; then
+    two_pass_smash="yes"
+    want_tracy="no"
 fi
 case "$report_preset" in none|fast|full) ;; *) fail "--report-preset must be none, fast, or full" ;; esac
 case "$build_profile" in dev|release|profiling|ship) ;; *) fail "--build-profile must be dev, release, profiling, or ship" ;; esac
@@ -605,8 +646,10 @@ binary_has_tracy() {
     grep -aqm1 -e 'tracy_emit_zone_begin' -e 'TracyPlot' "$bin" 2>/dev/null
 }
 
-# Start a Tracy capture in the background if this run can produce one. Echoes
-# the capture PID so the caller can wait on it; echoes nothing when skipped.
+# Start Tracy as a child of the profiling shell, rather than in a command
+# substitution subshell. That shell needs to be able to reap its child after
+# tracing; orphaned/zombie PIDs make `kill -0` waits unreliable.
+tracy_capture_pid=""
 start_tracy_capture() {
     local out_dir="$1"
     if [[ "$want_tracy" == "no" ]]; then
@@ -637,12 +680,22 @@ start_tracy_capture() {
         log "$tracy_tsc_note"
     fi
     tracy-capture -o "$out_dir/tracy.trace" -f > "$out_dir/tracy-capture.log" 2>&1 &
-    printf '%s\n' "$!"
+    tracy_capture_pid=$!
 }
 
 # Turn the trace into the thing that is actually readable without a GUI: a
 # ranked table of the costliest zones (Bevy systems and render passes), plus
 # per-window tables when the exporter can unwrap individual zone instances.
+# kill -0 succeeds for an exited child that has not yet been reaped. Treat a
+# zombie as finished, otherwise every successful capture can wait its full save
+# budget before exporting reports.
+tracy_capture_running() {
+    local capture_pid="$1" state
+    kill -0 "$capture_pid" 2>/dev/null || return 1
+    state="$(ps -o stat= -p "$capture_pid" 2>/dev/null || true)"
+    [[ "$state" != Z* && -n "$state" ]]
+}
+
 finish_tracy_capture() {
     local out_dir="$1" capture_pid="${2:-}"
     [[ -n "$capture_pid" ]] || return 0
@@ -653,15 +706,15 @@ finish_tracy_capture() {
     # gameplay-length trace takes longer than that. So: wait (the save scales
     # with the run), then SIGINT and wait again, and only then SIGTERM.
     local waited=0 save_budget=$(( 60 + ${duration:-60} * 2 ))
-    while kill -0 "$capture_pid" 2>/dev/null && (( waited < save_budget )); do
+    while tracy_capture_running "$capture_pid" && (( waited < save_budget )); do
         sleep 1
         waited=$((waited + 1))
     done
-    if kill -0 "$capture_pid" 2>/dev/null; then
+    if tracy_capture_running "$capture_pid"; then
         log "tracy-capture still running after ${waited}s; asking it to save (SIGINT)"
         kill -INT "$capture_pid" 2>/dev/null || true
         waited=0
-        while kill -0 "$capture_pid" 2>/dev/null && (( waited < save_budget )); do
+        while tracy_capture_running "$capture_pid" && (( waited < save_budget )); do
             sleep 1
             waited=$((waited + 1))
         done
@@ -937,6 +990,9 @@ write_metadata() {
         echo "report_timeout_seconds=$report_timeout"
         echo "include_raw_data=$include_raw_data"
         echo "include_perf_script=$include_perf_script"
+        echo "capture_strategy=$([[ "$two_pass_smash" == "yes" ]] && echo split-native-perf-and-tracy || echo single-pass)"
+        echo "capture_role=$capture_role"
+        echo "profile_uncapped=$uncapped"
         echo "cargo_profile=$build_profile"
         echo "cargo_jobs=${cargo_jobs:-<cargo default>}"
         echo "profile_dir=$plan_profile_dir"
@@ -1277,7 +1333,9 @@ run_instrumented_launch() {
     echo "$(quote_cmd "$@")" > "${status_file%.status}.command.txt"
 
     local tracy_pid=""
-    tracy_pid="$(start_tracy_capture "$out_dir")"
+    tracy_capture_pid=""
+    start_tracy_capture "$out_dir"
+    tracy_pid="$tracy_capture_pid"
     if [[ "$want_perf_probe" == "yes" ]]; then export AMBITION_PERF_PROBE_DIR="$out_dir"; fi
 
     local heartbeat_pid=""
@@ -1304,13 +1362,28 @@ run_instrumented_launch() {
     # With a handler installed, perf still takes the interrupt and flushes
     # perf.data, and this script survives to write the reports.
     trap 'log "interrupt received; ending capture and writing reports"' INT
+    # Process substitutions are asynchronous: the game can exit before the
+    # stampers have consumed the final LIVE/results markers. Use FIFOs with
+    # tracked consumer PIDs so match-window reports never see a partial log.
+    local stdout_fifo="$out_dir/.profile-stdout.fifo"
+    local stderr_fifo="$out_dir/.profile-stderr.fifo"
+    rm -f "$stdout_fifo" "$stderr_fifo"
+    mkfifo "$stdout_fifo" "$stderr_fifo"
+    python3 -u -c "$stamp_py" < "$stdout_fifo" > "$out_dir/game-stdout-stamped.txt" &
+    local stdout_stamper_pid=$!
+    (python3 -u -c "$stamp_py" < "$stderr_fifo" | tee "$out_dir/game-stderr-stamped.txt" >&2) &
+    local stderr_stamper_pid=$!
     set +e
-    "$@" \
-        > >(python3 -u -c "$stamp_py" > "$out_dir/game-stdout-stamped.txt") \
-        2> >(python3 -u -c "$stamp_py" | tee "$out_dir/game-stderr-stamped.txt" >&2)
+    "$@" > "$stdout_fifo" 2> "$stderr_fifo"
     local status=$?
+    wait "$stdout_stamper_pid" "$stderr_stamper_pid"
+    local stamp_status=$?
     set -e
+    rm -f "$stdout_fifo" "$stderr_fifo"
     trap - INT
+    if [[ "$stamp_status" -ne 0 ]]; then
+        log "WARNING: game log stamper exited with status $stamp_status"
+    fi
     kill "$heartbeat_pid" 2>/dev/null || true
     wait "$heartbeat_pid" 2>/dev/null || true
     echo "$status" > "$status_file"
@@ -1320,7 +1393,11 @@ run_instrumented_launch() {
     # The heartbeat stops with the game, and what follows can take another half
     # minute (tracy-capture drains and saves the trace: minutes for a gameplay-length run). Silence there
     # reads as a hang, which is the same complaint the heartbeat exists to avoid.
-    log "game process exited; finalizing perf.data and the Tracy trace (tracy-capture drains and saves the trace, which can take minutes, then csvexport runs over it)"
+    if [[ "$want_tracy" == "yes" ]]; then
+        log "game exited; Tracy is now draining/exporting outside any native perf capture"
+    else
+        log "game exited; native perf capture has ended (no Tracy drain in this pass)"
+    fi
     finish_tracy_capture "$out_dir" "$tracy_pid"
 }
 
@@ -1371,6 +1448,7 @@ run_perf_record() {
         run_instrumented_launch "$out_dir" "$out_dir/perf-record.status" "${capture_argv[@]}"
     fi
     write_perf_reports "$out_dir"
+    write_active_match_perf_reports "$out_dir"
 }
 
 run_perf_stat() {
@@ -1433,6 +1511,44 @@ write_timeline_reports() {
     done
 }
 
+# The Smash driver can reach its results screen before --smash-seconds elapses.
+# Preserve the whole-run perf tables, but also export symbol/DSO/thread reports
+# restricted to the interval between LIVE and the first match-ended warning.
+# Percentages are relative to perf.data's sampled time range; small startup
+# offset is recorded as an approximation in match-window.json.
+write_active_match_perf_reports() {
+    local out_dir="$1" window data_file="$out_dir/perf.data"
+    [[ "$workload" == "smash-match" && -s "$data_file" ]] || return 0
+    if ! python3 "$repo_root/scripts/lib/profile_smash_match_window.py" "$out_dir"; then
+        log "unable to derive live Smash window; whole-run perf reports remain available"
+        return 0
+    fi
+    window="$(python3 - "$out_dir/match-window.json" <<'PY_MATCH_WINDOW'
+import json, sys
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+print(data.get("perf_time_percent", ""))
+PY_MATCH_WINDOW
+)"
+    [[ -n "$window" ]] || return 0
+    log "native perf: generating active-match-only reports for $window"
+    run_timed_report "$out_dir" perf-report-active \
+        perf report -i "$data_file" --stdio --sort comm,dso,symbol \
+        --no-children --call-graph none --percent-limit 0.25 \
+        --no-inline --no-source --time "$window"
+    run_timed_report "$out_dir" perf-report-active-by-dso \
+        perf report -i "$data_file" --stdio --no-children --sort dso \
+        --call-graph none --percent-limit 0 --no-inline --no-source --time "$window"
+    run_timed_report "$out_dir" perf-report-active-by-thread \
+        perf report -i "$data_file" --stdio --sort comm \
+        --call-graph none --percent-limit 0 --no-inline --no-source --time "$window"
+    if [[ "$report_preset" == "full" ]]; then
+        run_timed_report "$out_dir" perf-report-active-self-symbols \
+            perf report -i "$data_file" --stdio --no-children --sort comm,dso,symbol \
+            --percent-limit 0.25 --no-inline --no-source --time "$window"
+    fi
+}
+
 run_timeline() {
     local local_mode="$1" out_dir="$2"
     require_tool perf; require_tool python3
@@ -1451,6 +1567,7 @@ run_timeline() {
     fi
     run_instrumented_launch "$out_dir" "$out_dir/perf-record.status" "${capture_argv[@]}"
     write_timeline_reports "$out_dir"
+    write_active_match_perf_reports "$out_dir"
     python3 "$repo_root/scripts/lib/profile_timeline.py" "$out_dir" "$timeline_chunks" "$marker_regex" \
         || log "timeline summary failed; the per-window perf reports are still in the bundle"
 }
@@ -1467,6 +1584,60 @@ run_one_mode() {
     esac
     write_bundle_reports "$out_dir"
     return "$status"
+}
+
+# The primary pass has already finished perf record and all perf reports.
+# Cargo may rebuild to enable the `profile` feature here, but that compilation
+# is outside BOTH captures. The Tracy client is never present in the native
+# pass, and no perf recorder is running while Tracy drains or exports.
+run_tracy_diagnostic_pass() {
+    local out_dir="$1" diag="$1/tracy_diagnostic" assignment
+    mkdir -p "$diag"
+    capture_role="tracy-diagnostic"
+    want_tracy="yes"
+    build_effective_run_args
+    resolve_launch_plan
+    if [[ "$plan_status" == "ok" ]]; then
+        for assignment in "${plan_runtime_env[@]}"; do export "$assignment"; done
+        run_cmd=("$plan_binary" "${plan_game_args[@]+"${plan_game_args[@]}"}")
+    fi
+    log "pass 2/2: Tracy diagnostic (no perf recorder; separate compilation)"
+    local diag_status=0
+    if prepare_launch_mode "$diag" "$mode"; then
+        run_instrumented_launch "$diag" "$diag/tracy-only.status" "${run_cmd[@]}"
+        diag_status="$(cat "$diag/tracy-only.status" 2>/dev/null || echo 1)"
+        if [[ "$diag_status" -ne 0 ]]; then
+            log "Tracy diagnostic game exited with status $diag_status; retaining partial trace"
+        fi
+        python3 "$repo_root/scripts/lib/profile_census_csv.py" "$diag" \
+            || log "Tracy pass census extraction failed"
+    else
+        diag_status=1
+        log "Tracy diagnostic build failed; preserving the clean native results"
+    fi
+    echo "$diag_status" > "$out_dir/tracy-diagnostic.status"
+    # Make zone tables discoverable at the existing top-level paths. Do not
+    # duplicate the potentially multi-gigabyte raw trace: a relative symlink
+    # keeps the local GUI path and respects the --no-raw-data archive exclude.
+    rm -f "$out_dir/tracy.skipped"
+    local name
+    for name in tracy.trace tracy_zones.csv tracy_zone_windows.csv \
+            tracy_summary.md tracy-capture.log tracy-csvexport.stderr \
+            tracy.skipped tracy.caveat tracy_zone_instances.removed; do
+        if [[ -e "$diag/$name" ]]; then
+            rm -f "$out_dir/$name"
+            ln -s "tracy_diagnostic/$name" "$out_dir/$name"
+        fi
+    done
+    if [[ "$diag_status" -ne 0 && ! -e "$out_dir/tracy.skipped" ]]; then
+        printf 'Tracy diagnostic build or launch failed; see tracy_diagnostic/warm-build.stderr and tracy-only.status\n' \
+            > "$out_dir/tracy.skipped"
+    fi
+    # Restore root profiling metadata, whose executable reflects the primary
+    # pass, so the summary does not silently use the Tracy build as its source.
+    capture_role="primary"
+    want_tracy="no"
+    return 0
 }
 
 main() {
@@ -1516,7 +1687,15 @@ main() {
         write_bundle_reports "$out_dir"
     else
         out_dir="$(make_profile_dir "$mode")"
+        if [[ "$two_pass_smash" == "yes" ]]; then
+            log "pass 1/2: native perf and frame census (no Tracy client)"
+        fi
         run_one_mode "$mode" "$out_dir" || run_status=$?
+        if [[ "$two_pass_smash" == "yes" && "$run_status" -eq 0 \
+              && ! -e "$out_dir/capture.skipped" ]]; then
+            run_tracy_diagnostic_pass "$out_dir"
+            write_bundle_reports "$out_dir"
+        fi
     fi
     tarball="$(package_dir "$out_dir")"
     if grep -q 'SOFTWARE RENDERING' "$out_dir/summary.md" 2>/dev/null; then

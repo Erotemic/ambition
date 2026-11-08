@@ -1156,3 +1156,50 @@ fn a_sprint_draws_the_run_on_a_sheet_without_a_sprint_row() {
     assert_eq!(drawn.spec.resolve_anim(CharacterAnim::Sprint), CharacterAnim::Sprint);
     assert_eq!(drawn.spec.resolve_anim(CharacterAnim::Run), CharacterAnim::Run);
 }
+
+/// The hot combat path must not change the quad's dimensions when it stops
+/// cloning every `SheetRow` just to calculate a render size.
+#[test]
+fn borrowed_render_size_matches_owned_spec_across_baked_sheets() {
+    let content = crate::test_support::shared_sprites();
+    let sample_keys = ["player_robot_v3", "robot", "solid_snake"];
+    let mut checked = 0;
+    for key in sample_keys {
+        let Some(record) = record_for_sheet_key(&content, key) else { continue; };
+        for tuning in [SheetTuning::default(), SheetTuning::new(2.1, 1)] {
+            let owned = spec_from_record(record, &tuning);
+            for collision in [Vec2::new(30.0, 48.0), Vec2::new(12.0, 18.0)] {
+                let expected = sprite_render_size(&owned, collision);
+                let actual = sprite_render_size_for_record(record, &tuning, collision);
+                assert_eq!(actual, expected, "{key} tuning={tuning:?} collision={collision:?}");
+                checked += 1;
+            }
+        }
+    }
+    assert!(checked >= 8, "expected to compare at least two shipped sheets");
+}
+
+/// A manifest with no measured body uses catalog tuning, and a manifest with
+/// authored tuning takes precedence over the catalog, including in the fast path.
+#[test]
+fn borrowed_render_size_respects_fallback_and_authored_tuning() {
+    for override_tuning in [false, true] {
+        let tuning_text = if override_tuning {
+            "tuning: Some((collision_scale: 3.7, frame_sample_inset: 2)),"
+        } else {
+            ""
+        };
+        let record: SheetRecord = ron::from_str(&format!(r#"(
+            target: "test", image: "test.png", label_width: 0,
+            frame_width: 64, frame_height: 72,
+            {tuning_text}
+            rows: [(animation: "idle", row_index: 0, frame_count: 1,
+                duration_ms: 100, duration_secs: 0.1)],
+        )"#)).expect("fallback sheet parses");
+        let tuning = SheetTuning::new(2.1, 1);
+        let collision = Vec2::new(22.0, 48.0);
+        let owned = spec_from_record(&record, &tuning);
+        assert_eq!(sprite_render_size_for_record(&record, &tuning, collision),
+            sprite_render_size(&owned, collision));
+    }
+}

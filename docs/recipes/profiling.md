@@ -614,6 +614,25 @@ round became live, whether it finished its time budget, and whether VSync or
 a frame cap limited the visible FPS. A failed build produces a diagnostic
 archive without starting a capture.
 
+**Timed windowed Smash uses two automatic passes in the same command.** The
+first builds without Tracy, runs the real all-CPU match under native `perf`,
+and produces the primary frame census and CPU hotspot reports. The second
+rebuilds with `--features profile`, runs the same roster in a new match without
+`perf`, and exports Tracy's per-system zone reports. Compilation and Tracy
+shutdown/export happen outside the native perf capture. The two matches can
+play out differently: compare performance and Tracy zone costs as separate
+measurements rather than treating them as simultaneous frame samples.
+
+The archive includes `match-window.json` and `perf-report-active*.txt` for
+the portion of the primary run between the opening bell and the first
+match-ended/results marker. The match-only native reports use approximate
+`perf report --time` percentages calculated from timestamped game logs; the
+whole-run native reports are also retained. The diagnostic pass lives in
+`tracy_diagnostic/`, and the top-level `tracy_summary.md` and `tracy_zones.csv`
+refer to that second pass. Raw `perf.data` and `tracy.trace` stay on the
+local machine and are omitted from the upload archive unless explicitly
+requested. If Tracy is not needed, `--no-tracy` keeps the single-pass path.
+
 ⛔ **`--smash` is not `-- smash`.** `run_game.sh smash` builds the standalone
 demo and opens it on CHARACTER SELECT, so profiling it profiles a menu.
 `--smash` resolves the `run_game.sh smash-match` build plan, builds the shipped
@@ -974,3 +993,22 @@ build_room(...);
 
 These spans show up automatically in Tracy under `--features profile`
 and are no-ops in default builds.
+
+
+### Uncapped four-CPU Smash benchmark (single command)
+
+```bash
+scripts/measure/profile_desktop.sh --smash --smash-fighters 4 --smash-seconds 90 --name smash-4cpu-uncapped
+```
+
+Timed windowed Smash now sets `AMBITION_PROFILE_UNCAPPED=1` for **both**
+performance and Tracy passes. The host applies VSync Off (`Immediate`) and
+frame limiter Off without modifying `UserSettings` or writing `settings.ron`.
+The `census_visual_quality.csv` reports the effective `frame_cap=Off` and
+`present_mode=Immediate`, and `metadata.txt` records `profile_uncapped=yes`.
+This is essential when the desktop otherwise plateaus at its monitor's 144 Hz.
+
+To deliberately measure the user's ordinary video settings, add
+`--respect-video-settings`. For a non-Smash profiling command, use `--uncapped`
+to request the same process-local override. The final compact `.tar.gz`
+continues to exclude `perf.data` and `tracy.trace` while keeping their reports.

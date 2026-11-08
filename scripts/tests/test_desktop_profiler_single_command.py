@@ -28,6 +28,8 @@ class SingleCommandProfilerTests(unittest.TestCase):
             "scripts/lib/profile_bundle_summary.py",
             "scripts/lib/profile_metadata_json.py",
             "scripts/lib/profile_timeline.py",
+            "scripts/lib/profile_smash_match_window.py",
+            "scripts/lib/tracy_zone_report.py",
         ):
             target = self.root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -40,12 +42,16 @@ if [[ "$1" != "--print-plan" ]]; then
     printf 'ERROR: launcher ran inside capture\\n' >> "$FAKE_CALL_LOG"
     exit 79
 fi
+features=
+for arg in "$@"; do
+    if [[ "$arg" == profile ]]; then features=profile; fi
+done
 cat <<EOF
 package=ambition_app_tools
 binary=smash_match_profile
 profile_dir=profiling
 binary_path=$FAKE_REPO/target/profiling/smash_match_profile
-features=profile
+features=$features
 game_arg=--window
 game_arg=--fighters
 game_arg=4
@@ -55,6 +61,11 @@ build_arg=cargo
 build_arg=build
 build_arg=-p
 build_arg=ambition_app_tools
+EOF
+if [[ "$features" == profile ]]; then
+    printf 'build_arg=--features\nbuild_arg=profile\n'
+fi
+cat <<EOF
 build_env=CARGO_INCREMENTAL=0
 runtime_env=FAKE_PROFILE_RUNTIME=from-launch-plan
 EOF
@@ -75,9 +86,21 @@ printf 'game %s runtime=%s\\n' "$*" "$FAKE_PROFILE_RUNTIME" >> "$FAKE_CALL_LOG"
 [[ "$FAKE_PROFILE_RUNTIME" == "from-launch-plan" ]]
 echo '[smash-profile] cpu_seats=4 brain=duelist_l3' >&2
 echo '[smash-profile] live after 40 frames; fighters=4' >&2
-echo '[census] visual_quality t=1 profile=High frame_cap=Auto present_mode=Fifo' >&2
+if [[ "${AMBITION_PROFILE_UNCAPPED:-}" == "1" ]]; then
+    echo '[census] visual_quality t=1 profile=High frame_cap=Off present_mode=Immediate' >&2
+else
+    echo '[census] visual_quality t=1 profile=High frame_cap=Auto present_mode=Fifo' >&2
+fi
+if [[ "${FAKE_PROFILE_SLOW_GAME:-}" == "1" ]]; then
+    sleep 0.7
+    echo '[smash-profile] WARNING: the match ended -- later samples are results' >&2
+    sleep 0.1
+fi
 echo '[smash-profile] done seats_at_end=4' >&2
 EOF
+if [[ " $* " == *" --features profile "* ]]; then
+    printf '# TracyPlot\n' >> "$FAKE_REPO/target/profiling/smash_match_profile"
+fi
 chmod +x "$FAKE_REPO/target/profiling/smash_match_profile"
 ''')
         self._executable(self.bin / "perf", '''#!/usr/bin/env bash
@@ -90,7 +113,7 @@ if [[ "$1" == "record" ]]; then
         case "$1" in
             -o) shift
                 printf 'synthetic-perf-data\\n' > "$1"
-                printf 'synthetic-tracy-data\\n' > "$(dirname "$1")/tracy.trace" ;;
+                : ;;
             --) shift; exec "$@" ;;
         esac
         shift
@@ -103,6 +126,21 @@ if [[ "$1" == "report" ]]; then
 fi
 printf 'unexpected perf call: %s\\n' "$*" >> "$FAKE_CALL_LOG"
 exit 82
+''')
+        self._executable(self.bin / "tracy-capture", '''#!/usr/bin/env bash
+set -euo pipefail
+printf 'tracy capture\n' >> "$FAKE_CALL_LOG"
+[[ "$1" == "-o" ]]
+printf 'fake-trace\n' > "$2"
+''')
+        self._executable(self.bin / "tracy-csvexport", '''#!/usr/bin/env bash
+set -euo pipefail
+printf 'tracy export %s\n' "$*" >> "$FAKE_CALL_LOG"
+if [[ "${1:-}" == "--unwrap" ]]; then
+    printf 'name,ns_since_start,exec_time_ns\nframe,1000000000,1000000\n'
+else
+    printf 'name,total_ns,counts,mean_ns,max_ns,min_ns\nframe,1000000,1,1000000,1000000,1000000\n'
+fi
 ''')
         self.logfile = Path(self.temp.name) / "calls.log"
 
@@ -142,19 +180,28 @@ exit 82
         summary = (bundle / "summary.md").read_text()
         self.assertIn("All-CPU roster in log: **yes**", summary)
         self.assertIn("Completed measured window: **yes**", summary)
-        self.assertIn("REFRESH/CAP-LIMITED BENCHMARK", summary)
+        self.assertIn("VSync and frame cap were off in all sampled rows", summary)
+        self.assertIn("profile_uncapped=yes", (bundle / "metadata.txt").read_text())
         self.assertIn("direct-built-binary", summary)
         self.assertTrue((self.root / "profiles/desktop-unit.tar.gz").is_file())
         # The local directory retains raw captures, but the uploadable
         # archive excludes them by default.
         self.assertTrue((bundle / "perf.data").is_file())
-        self.assertTrue((bundle / "tracy.trace").is_file())
+        self.assertFalse((bundle / "tracy.trace").exists())
         with tarfile.open(self.root / "profiles/desktop-unit.tar.gz", "r:gz") as archive:
             names = archive.getnames()
             self.assertTrue(any(name.endswith("/summary.md") for name in names))
             self.assertFalse(any(name.endswith("/perf.data") for name in names))
             self.assertFalse(any(name.endswith("/tracy.trace") for name in names))
-        self.assertIn("| `tracy.trace` | the raw Tracy trace, for the GUI | yes | no |", summary)
+        self.assertIn("| `tracy.trace` | the raw Tracy trace, for the GUI | no | no |", summary)
+
+    def test_respect_video_settings_opt_out(self):
+        completed = self.capture("--respect-video-settings")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-4500:])
+        bundle = self.root / "profiles/desktop-unit"
+        summary = (bundle / "summary.md").read_text()
+        self.assertIn("REFRESH/CAP-LIMITED BENCHMARK", summary)
+        self.assertIn("profile_uncapped=no", (bundle / "metadata.txt").read_text())
 
     def test_include_raw_data_is_explicit_opt_in(self):
         completed = self.capture("--include-raw-data")
@@ -162,9 +209,60 @@ exit 82
         with tarfile.open(self.root / "profiles/desktop-unit.tar.gz", "r:gz") as archive:
             names = archive.getnames()
             self.assertTrue(any(name.endswith("/perf.data") for name in names))
-            self.assertTrue(any(name.endswith("/tracy.trace") for name in names))
+            self.assertFalse(any(name.endswith("/tracy.trace") for name in names))
         summary = (self.root / "profiles/desktop-unit/summary.md").read_text()
-        self.assertIn("| `tracy.trace` | the raw Tracy trace, for the GUI | yes | yes |", summary)
+        self.assertIn("| `tracy.trace` | the raw Tracy trace, for the GUI | no | no |", summary)
+
+    def test_timed_smash_runs_clean_native_then_tracy_diagnostic_in_one_archive(self):
+        completed = self.capture_with_tracy()
+        self.assertEqual(completed.returncode, 0, completed.stderr[-5500:])
+        calls = self.logfile.read_text().splitlines()
+        native_build = next(i for i, row in enumerate(calls) if row == "cargo build -p ambition_app_tools")
+        native_perf = calls.index("perf record")
+        native_game = next(i for i, row in enumerate(calls) if row.startswith("game "))
+        tracy_build = next(i for i, row in enumerate(calls) if row == "cargo build -p ambition_app_tools --features profile")
+        tracy_game = next(i for i, row in enumerate(calls) if row.startswith("game ") and i > native_game)
+        self.assertLess(native_build, native_perf)
+        self.assertLess(native_perf, native_game)
+        self.assertLess(native_game, tracy_build)
+        self.assertLess(tracy_build, tracy_game)
+        self.assertEqual(calls.count("perf record"), 1, calls)
+        self.assertIn("tracy capture", calls)
+        self.assertGreater(calls.index("tracy capture"), tracy_build)
+        bundle = self.root / "profiles/desktop-unit"
+        self.assertEqual((bundle / "warm-build.status").read_text().strip(), "0")
+        self.assertEqual((bundle / "tracy_diagnostic/warm-build.status").read_text().strip(), "0")
+        self.assertEqual((bundle / "tracy-diagnostic.status").read_text().strip(), "0")
+        self.assertTrue((bundle / "tracy.trace").is_symlink())
+        self.assertTrue((bundle / "tracy_zones.csv").is_file())
+        self.assertTrue((bundle / "perf-report-active.txt").is_file(),
+                        (bundle / "match-window.json").read_text() + completed.stderr[-1200:])
+        window = (bundle / "match-window.json").read_text()
+        self.assertIn('"status": "ok"', window)
+        summary = (bundle / "summary.md").read_text()
+        self.assertIn("Two-pass timed Smash capture", summary)
+        self.assertIn("The `perf-report-active*.txt` tables exclude startup", summary)
+        with tarfile.open(self.root / "profiles/desktop-unit.tar.gz", "r:gz") as archive:
+            paths = archive.getnames()
+            self.assertFalse(any(name.endswith("tracy.trace") for name in paths))
+            self.assertFalse(any(name.endswith("perf.data") for name in paths))
+            self.assertTrue(any(name.endswith("tracy_summary.md") for name in paths))
+            self.assertTrue(any(name.endswith("perf-report-active.txt") for name in paths))
+
+    def capture_with_tracy(self, *extra):
+        # Preserve the default caller interface; drop only --no-tracy.
+        env = dict(os.environ)
+        env.update(FAKE_CALL_LOG=str(self.logfile), FAKE_REPO=str(self.root),
+                   FAKE_PROFILE_SLOW_GAME="1", DISPLAY=":unit-test")
+        env["PATH"] = f"{self.bin}{os.pathsep}{env.get('PATH', '')}"
+        cmd = [
+            str(self.root / "scripts/measure/profile_desktop.sh"),
+            "--smash", "--smash-fighters", "4", "--smash-seconds", "1",
+            "--name", "unit", "--out", str(self.root / "profiles"),
+            "--no-record", "--chunks", "2", *extra,
+        ]
+        return subprocess.run(cmd, cwd=self.root, env=env, text=True,
+                              capture_output=True, timeout=70)
 
     def test_failed_build_never_starts_perf_but_packages_diagnostics(self):
         # Use a wrapper for the environment variable without changing the

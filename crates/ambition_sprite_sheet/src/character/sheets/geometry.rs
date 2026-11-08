@@ -64,9 +64,42 @@ pub fn sprite_render_size_scaled(
     collision: Vec2,
     visual_scale: f32,
 ) -> Vec2 {
-    let frame = spec.frame_pixels();
+    sprite_render_size_from_parts(
+        spec.frame_pixels(),
+        spec.body_pixel_extent(CharacterAnim::Idle),
+        collision,
+        spec.collision_scale,
+        visual_scale,
+    )
+}
+
+/// Calculate the sprite quad directly from a borrowed manifest record. Combat
+/// only needs its render size, not an owned `CharacterSheetSpec` (whose
+/// `record.clone()` copies every frame rectangle in every `SheetRow`).
+/// This shares the exact scaling arithmetic with the renderer above.
+pub fn sprite_render_size_for_record(
+    record: &SheetRecord,
+    tuning: &SheetTuning,
+    collision: Vec2,
+) -> Vec2 {
+    let frame = Vec2::new(record.frame_width.max(1) as f32, record.frame_height.max(1) as f32);
+    let body = record.body_metrics.as_ref()
+        .and_then(|metrics| metrics.body_pixel_extent(CharacterAnim::Idle))
+        .and_then(|(w, h)| (w > 0.0 && h > 0.0).then_some(Vec2::new(w, h)));
+    let collision_scale = record.tuning.map(|t| t.collision_scale)
+        .unwrap_or(tuning.collision_scale);
+    sprite_render_size_from_parts(frame, body, collision, collision_scale, 1.0)
+}
+
+fn sprite_render_size_from_parts(
+    frame: Vec2,
+    body: Option<Vec2>,
+    collision: Vec2,
+    collision_scale: f32,
+    visual_scale: f32,
+) -> Vec2 {
     let scale = visual_scale.max(0.05);
-    if let Some(body) = spec.body_pixel_extent(CharacterAnim::Idle) {
+    if let Some(body) = body {
         // Preserve aspect ratio and keep the published body inside the collision box.
         let fit = (collision.x.max(1.0) / body.x).min(collision.y.max(1.0) / body.y);
         if fit.is_finite() && fit > 0.0 {
@@ -74,7 +107,7 @@ pub fn sprite_render_size_scaled(
         }
     }
     // Compatibility fallback for sheets without a published body bbox.
-    let height = collision.x.max(collision.y).max(8.0) * spec.collision_scale * scale;
+    let height = collision.x.max(collision.y).max(8.0) * collision_scale * scale;
     Vec2::new(height * frame.x / frame.y, height)
 }
 

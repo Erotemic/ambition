@@ -32,6 +32,10 @@ fn sync_framepace_from_settings(
     if !settings.is_changed() {
         return;
     }
+    if ambition_persistence::settings::video::profile_uncapped() {
+        framepace.limiter = Limiter::Off;
+        return;
+    }
     framepace.limiter = match settings.video.frame_cap {
         FramePaceCap::Auto => Limiter::Auto,
         FramePaceCap::Off => Limiter::Off,

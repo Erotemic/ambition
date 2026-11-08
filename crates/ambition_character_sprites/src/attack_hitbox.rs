@@ -230,9 +230,15 @@ pub fn actor_attack_hitbox_local(sprite_content: &ambition_sprite_sheet::SpriteC
     // Scale by the quad the art is drawn at, by the renderer's own rule. The
     // catalog join is NOT asked again: it answers for the placement box, which
     // a sprite-authored or posed body is not drawn from.
-    let render_size = catalog_join::sheet_for_character_id_from_data(&sprite_content, authored, catalog.data(), character_id)
-        .map(|spec| sheets::drawn_render_size(&spec, collision, drawn_quad))
-        .unwrap_or_else(|| drawn_quad.unwrap_or(collision));
+    // The quad already carried by the actor is authoritative. Otherwise read
+    // render dimensions from the borrowed manifest; constructing a full sheet
+    // spec here clones all SheetRows on the recurring attack-geometry path.
+    let render_size = drawn_quad.unwrap_or_else(|| {
+        catalog_join::render_size_for_character_id_from_data(
+            sprite_content, authored, catalog.data(), character_id, collision,
+        )
+        .unwrap_or(collision)
+    });
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
 }
 

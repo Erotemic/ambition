@@ -294,3 +294,29 @@ fn an_authored_blade_is_scaled_by_the_quad_the_body_is_drawn_at() {
         width(Some(rule))
     );
 }
+
+/// Attack geometry must retain the previous render sizing, both with a carried
+/// quad and when it must fit the sprite to the collision body. The new lookup
+/// avoids copying the full `SheetRecord` in the latter case.
+#[test]
+fn borrowed_render_size_keeps_authored_attack_volumes() {
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let authored = Default::default();
+    let catalog = catalog();
+    for character in ["player_robot_v3", "robot"] {
+        for quad in [None, Some(ae::Vec2::new(75.0, 88.0))] {
+            let Some(entry) = catalog.get(character) else { panic!("missing {character}"); };
+            let target = entry.manifest_target().expect("manifest target");
+            let record = file_root_registry(&sprites).get(target).expect("baked sheet");
+            let old_size = ambition_sprite_sheet::character::catalog_join::sheet_for_character_id_from_data(
+                &sprites, &authored, catalog.data(), character,
+            ).map(|spec| sheets::drawn_render_size(&spec, collision(), quad))
+                .unwrap_or_else(|| quad.unwrap_or(collision()));
+            let expected = manifest_attack_hitbox_local(record, "attack_side", collision(), old_size, None);
+            let actual = actor_attack_hitbox_local(
+                &sprites, &authored, &catalog, character, "attack_side", collision(), quad, None,
+            );
+            assert_eq!(format!("{actual:?}"), format!("{expected:?}"), "{character} quad={quad:?}");
+        }
+    }
+}

@@ -39,7 +39,11 @@ fn sync_present_mode_from_settings(
     let Ok(mut window) = window.single_mut() else {
         return;
     };
-    let wanted = present_mode_for(settings.video.vsync);
+    let wanted = if ambition_platformer2d::persistence::settings::video::profile_uncapped() {
+        PresentMode::Immediate
+    } else {
+        present_mode_for(settings.video.vsync)
+    };
     // Read-compare-write: a `DerefMut` on `Window` marks it changed and makes
     // winit re-examine the window, which every other settings edit would pay.
     if window.present_mode != wanted {

@@ -141,6 +141,13 @@ impl FlashIntensity {
     }
 }
 
+/// Opt into an uncapped measurement without mutating or saving user video settings.
+/// Only the desktop profiler sets this; normal launches keep the user's choices.
+/// Both native-performance and Tracy-diagnostic passes use the same override.
+pub fn profile_uncapped() -> bool {
+    std::env::var("AMBITION_PROFILE_UNCAPPED").ok().as_deref() == Some("1")
+}
+
 /// Whether presentation waits for the display's vertical blank. `On` is
 /// `PresentMode::Fifo` (Bevy's default): no mid-scan frames, and the frame rate
 /// cannot exceed the refresh rate. A frame that misses a refresh costs a whole

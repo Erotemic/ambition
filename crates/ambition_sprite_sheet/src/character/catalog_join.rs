@@ -71,6 +71,34 @@ pub fn sheet_for_character_id_from_data(content: &crate::SpriteContent,
     spec
 }
 
+/// A collision-sized sprite quad without building an owned `CharacterSheetSpec`.
+///
+/// An attack-volume query needs the draw size, not the complete animation
+/// registry. This selects the same authored-then-baked valid Idle record as
+/// `sheet_for_character_id_from_data`, and the shared geometry helper keeps
+/// the full renderer and borrowed fast path numerically identical.
+pub fn render_size_for_character_id_from_data(
+    content: &crate::SpriteContent,
+    authored: &sheets::AuthoredSheets,
+    catalog: &CharacterCatalogData,
+    character_id: &str,
+    collision: Vec2,
+) -> Option<Vec2> {
+    let entry = catalog.characters.get(character_id)?;
+    let target = entry.manifest_target()?;
+    let tuning = entry.sprite_tuning
+        .map(|spec| sheets::SheetTuning::from_parts(
+            spec.collision_scale, spec.frame_sample_inset, spec.feet_anchor_y,
+        ))
+        .unwrap_or_default();
+    let supports_idle = |record: &&crate::SheetRecord| {
+        record.rows.iter().any(|row| CharacterAnim::from_name(&row.animation) == Some(CharacterAnim::Idle))
+    };
+    let record = authored.get(target).filter(supports_idle)
+        .or_else(|| sheets::record_for_sheet_key(content, target).filter(supports_idle))?;
+    Some(sheets::sprite_render_size_for_record(record, &tuning, collision))
+}
+
 /// Collision footprint from a character's published sprite body metrics, and
 /// the render-quad size that keeps the sprite the same size as the legacy
 /// `collision_scale` render.

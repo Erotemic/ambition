@@ -998,8 +998,23 @@ and are no-ops in default builds.
 ### Uncapped four-CPU Smash benchmark (single command)
 
 ```bash
-scripts/measure/profile_desktop.sh --smash --smash-fighters 4 --smash-seconds 90 --name smash-4cpu-uncapped
+# Direct successor of the four-Performer baseline, with longer matches.
+scripts/measure/profile_desktop.sh --smash --smash-fighters 4 --smash-seconds 90 --name smash-4cpu-mirror-40stocks
+
+# Independent workload with four different characters.
+scripts/measure/profile_desktop.sh --smash --smash-fighters 4 --smash-seconds 90 --smash-cast mixed-v1 --name smash-4cpu-mixed-40stocks
 ```
+
+Both use 40 profiling stocks by default (ordinary matches retain the authored
+stock count) and all seats use CPU `duelist_l3`. The default `mirror` cast is
+four Performers, matching the older baseline's character behavior. `mixed-v1`
+uses the fixed seat order `performer`, `player_robot_v3`, `sanic`,
+`projectile_polygon` and refuses to profile if any is not seatable. For a
+custom mirror, pass `--smash-character ID`; to change the profiling stock
+budget, pass `--smash-stocks N`. The output logs the exact roster, stock count,
+and CPU level. The launcher writes those settings into `metadata.txt` and
+includes the cast/stock count in `scenario_id`, so old 3-stock baselines and
+mixed-character captures are not pooled as equivalent workloads.
 
 Timed windowed Smash now sets `AMBITION_PROFILE_UNCAPPED=1` for **both**
 performance and Tracy passes. The host applies VSync Off (`Immediate`) and

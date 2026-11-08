@@ -96,6 +96,11 @@ scenario_id=""
 # alias opens the standalone demo on character select, so it profiles a menu.
 smash_launch_target="smash-match"
 smash_fighters="2"
+# A named cast and stock budget are part of the scenario identity, rather
+# than metadata-only labels that let different matches share a history row.
+smash_cast="mirror"
+smash_character="performer"
+smash_stocks="40"
 # Wall seconds of LIVE match before the game quits itself, or 0 for "play until
 # you quit", which is timeline-run's own default shape.
 smash_seconds="0"
@@ -185,6 +190,10 @@ Smash match (a real round, not the character-select menu):
                            arm; the two are recorded as different experiments
                            and the history refuses to compare them.
   --smash-fighters N      Fighters on the roster, 2-4. Default: 2.
+  --smash-cast NAME       mirror (default) or mixed-v1 (four fixed, distinct ids).
+  --smash-character ID    Character for a mirror match. Default: performer.
+  --smash-stocks N        Stocks per CPU for profiling. Default: 40.
+                           Ordinary gameplay rules are unchanged.
   --smash-seconds N       Quit after N seconds of LIVE match (the clock starts
                            at the opening bell, not at process start), so an
                            unattended run bounds itself. Default: 0, meaning
@@ -242,6 +251,7 @@ Examples:
   scripts/measure/profile_desktop.sh
   scripts/measure/profile_desktop.sh --smash
   scripts/measure/profile_desktop.sh --smash --smash-seconds 90 --smash-fighters 4
+  scripts/measure/profile_desktop.sh --smash --smash-seconds 90 --smash-fighters 4 --smash-cast mixed-v1
   scripts/measure/profile_desktop.sh --smash --headless
   scripts/measure/profile_desktop.sh --headless
   scripts/measure/profile_desktop.sh --dev-build
@@ -314,6 +324,12 @@ while [[ $# -gt 0 ]]; do
         --autoplay) workload="ambition-autoplay" ;;
         --smash-fighters) shift; [[ $# -gt 0 ]] || fail "--smash-fighters requires a value"; is_positive_int "$1" || fail "--smash-fighters must be positive"; workload="smash-match"; smash_fighters="$1" ;;
         --smash-fighters=*) smash_fighters="${1#--smash-fighters=}"; is_positive_int "$smash_fighters" || fail "--smash-fighters must be positive"; workload="smash-match" ;;
+        --smash-cast) shift; [[ $# -gt 0 ]] || fail "--smash-cast requires mirror or mixed-v1"; smash_cast="$1"; workload="smash-match" ;;
+        --smash-cast=*) smash_cast="${1#--smash-cast=}"; workload="smash-match" ;;
+        --smash-character) shift; [[ $# -gt 0 ]] || fail "--smash-character requires a catalog id"; smash_character="$1"; workload="smash-match" ;;
+        --smash-character=*) smash_character="${1#--smash-character=}"; workload="smash-match" ;;
+        --smash-stocks) shift; [[ $# -gt 0 ]] || fail "--smash-stocks requires a stock count"; is_positive_int "$1" || fail "--smash-stocks must be positive"; smash_stocks="$1"; workload="smash-match" ;;
+        --smash-stocks=*) smash_stocks="${1#--smash-stocks=}"; is_positive_int "$smash_stocks" || fail "--smash-stocks must be positive"; workload="smash-match" ;;
         --smash-seconds) shift; [[ $# -gt 0 ]] || fail "--smash-seconds requires a value"; [[ "$1" =~ ^[0-9]+$ ]] || fail "--smash-seconds must be a non-negative integer"; workload="smash-match"; smash_seconds="$1" ;;
         --smash-seconds=*) smash_seconds="${1#--smash-seconds=}"; [[ "$smash_seconds" =~ ^[0-9]+$ ]] || fail "--smash-seconds must be a non-negative integer"; workload="smash-match" ;;
         --headless-ticks) shift; [[ $# -gt 0 ]] || fail "--headless-ticks requires a value"; is_positive_int "$1" || fail "--headless-ticks must be positive"; headless="yes"; headless_ticks="$1" ;;
@@ -336,6 +352,17 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# A benchmark identity cannot silently clamp seats or accept a different cast.
+if [[ "$workload" == "smash-match" ]]; then
+    [[ "$smash_fighters" =~ ^[234]$ ]] || fail "Smash profiling requires 2-4 fighters"
+    [[ "$smash_stocks" =~ ^[1-9][0-9]*$ ]] || fail "--smash-stocks must be positive"
+    [[ "$smash_cast" == "mirror" || "$smash_cast" == "mixed-v1" ]] || fail "--smash-cast must be mirror or mixed-v1"
+    [[ "$smash_character" =~ ^[a-z0-9_]+$ ]] || fail "--smash-character must be a catalog id"
+    if [[ "$smash_cast" == "mixed-v1" && "$smash_character" != "performer" ]]; then
+        fail "--smash-character is only meaningful with --smash-cast mirror"
+    fi
+fi
 
 # Benchmark FPS instead of monitor refresh. The actual window and limiter
 # follow this environment-only override; UserSettings and settings.ron remain
@@ -451,13 +478,20 @@ build_effective_run_args() {
         # ⭐ THE ROSTER SIZE IS PART OF THE WORKLOAD, so it is part of the id. A
         # four-fighter round is not a two-fighter round with noise on it, and
         # one shared id would let a roster change read as a regression.
-        scenario_id="smash-match-${smash_fighters}p"
+        if [[ "$smash_cast" == "mirror" ]]; then
+            scenario_id="smash-match-${smash_fighters}p-mirror-${smash_character}-${smash_stocks}stocks"
+        else
+            scenario_id="smash-match-${smash_fighters}p-mixed-v1-${smash_stocks}stocks"
+        fi
         if [[ "$headless" == "yes" ]]; then
             effective_run_args+=(--headless)
             headless_scenario="$scenario_id"
         fi
         effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
-        extra_game_args+=(--fighters "$smash_fighters")
+        extra_game_args+=(--fighters "$smash_fighters" --cast "$smash_cast" --stocks "$smash_stocks")
+        if [[ "$smash_cast" == "mirror" ]]; then
+            extra_game_args+=(--character "$smash_character")
+        fi
         if [[ "$headless" == "yes" ]]; then
             extra_game_args+=(--ticks "$headless_ticks")
         elif [[ "$smash_seconds" != "0" ]]; then
@@ -972,6 +1006,19 @@ run_warm_build_if_needed() {
     if [[ "$status" -ne 0 ]]; then log "warm build failed; see $out_dir/warm-build.stderr"; return "$status"; fi
 }
 
+smash_seat_character_ids() {
+    local members=() i
+    local mixed=(performer player_robot_v3 sanic projectile_polygon)
+    for ((i=0; i<smash_fighters; i++)); do
+        if [[ "$smash_cast" == "mirror" ]]; then
+            members+=("$smash_character")
+        else
+            members+=("${mixed[$i]}")
+        fi
+    done
+    (IFS=,; printf '%s\n' "${members[*]}")
+}
+
 write_metadata() {
     local out_dir="$1" local_mode="$2"
     {
@@ -1022,6 +1069,13 @@ write_metadata() {
         echo "actor_brain_profile=${AMBITION_ACTOR_BRAIN_PROFILE:-}"
         echo "smash_fighters=$smash_fighters"
         echo "smash_seconds=$smash_seconds"
+        if [[ "$workload" == "smash-match" ]]; then
+            echo "smash_cast=$smash_cast"
+            echo "smash_character=$smash_character"
+            echo "smash_stocks=$smash_stocks"
+            echo "smash_characters=$(smash_seat_character_ids)"
+            echo "smash_cpu_level=3"
+        fi
         echo "tracy_requested=$want_tracy"
         echo "census_enabled=$census"
         echo "census_hz=$census_hz"
@@ -1660,7 +1714,7 @@ main() {
         log "workload: Ambition plays itself (the hall of characters, then a flight through the primeval trail); quit the game or pass --duration to end the capture"
     fi
     if [[ "$workload" == "smash-match" ]]; then
-        log "workload: a LIVE Smash match ($smash_fighters fighters), not the character-select menu"
+        log "workload: a LIVE Smash match ($smash_fighters fighters, $smash_stocks stocks, cast=$smash_cast, characters=$(smash_seat_character_ids)), not the character-select menu"
         if [[ "$headless" == "no" ]]; then
             if [[ "$smash_seconds" == "0" ]]; then
                 log "  windowed: play the match, then quit the game to end the capture"

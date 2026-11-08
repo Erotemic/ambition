@@ -34,7 +34,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+use ambition_platformer2d::actor::{BodyKinematics, MatchParticipantRoster, MatchSeat};
 use ambition_platformer2d::characters::control::{ControlHolds, SlotControls};
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
@@ -53,6 +53,65 @@ const LIVE_DEADLINE_FRAMES: u32 = 600;
 /// archetype set, and a live match has over two thousand entities. Checking
 /// every frame would perturb the measurement.
 const PREMISE_CHECK_EVERY: u32 = 120;
+
+/// Match-profiling only. Ordinary Smash still uses its authored stock count.
+/// Match the Android autoplay budget so a 90-second capture survives KOs.
+const PROFILE_STOCKS: u32 = 40;
+const PROFILE_CPU_LEVEL: u8 = 3;
+const DEFAULT_CHARACTER: &str = "performer";
+
+/// Fixed workload v1: four different movesets and render paths, including a
+/// projectile fighter. Do not silently change this list: history comparisons
+/// depend on the exact seats. Introduce a new cast name for a different set.
+const MIXED_CAST_V1: [&str; 4] = [
+    "performer",
+    "player_robot_v3",
+    "sanic",
+    "projectile_polygon",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ProfileCast {
+    Mirror(String),
+    MixedV1,
+}
+
+#[derive(Debug, Clone)]
+struct ProfileConfig {
+    fighters: usize,
+    stocks: u32,
+    cast: ProfileCast,
+}
+
+fn profile_roster(
+    config: &ProfileConfig,
+    seatable: &[String],
+) -> Result<(MatchParticipantRoster, Vec<String>), String> {
+    if !(2..=SlotControls::MAX_SLOTS).contains(&config.fighters) {
+        return Err(format!("profiling requires 2-{} fighters", SlotControls::MAX_SLOTS));
+    }
+    let ids: Vec<String> = match &config.cast {
+        ProfileCast::Mirror(character) => vec![character.clone(); config.fighters],
+        ProfileCast::MixedV1 => MIXED_CAST_V1[..config.fighters]
+            .iter()
+            .map(|id| (*id).to_string())
+            .collect(),
+    };
+    for id in &ids {
+        if !seatable.iter().any(|available| available == id) {
+            return Err(format!(
+                "character '{id}' is not seatable by this composition; available: {}",
+                seatable.join(", ")
+            ));
+        }
+    }
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+        ids.iter().map(String::as_str),
+        &vec![PROFILE_CPU_LEVEL; ids.len()],
+    );
+    ambition_demo_smash::apply_smash_match_rules(&mut roster, config.stocks);
+    Ok((roster, ids))
+}
 
 fn arg_value(args: &[String], name: &str) -> Option<String> {
     args.iter()
@@ -169,16 +228,27 @@ fn cast_state(world: &mut World) -> (usize, usize) {
 ///
 /// An unseatable id must fail loudly. Otherwise the match has no fighter
 /// brain and every number is zero, which reads as a quiet fight.
-fn seat_the_match(world: &mut World, fighters: usize, character: &str) {
-    // The regular roster makes seat 0 human. All profiler seats are CPUs.
-    world.insert_resource(ambition_demo_smash::smash_roster_at_levels(
-        vec![character; fighters],
-        &vec![3; fighters],
-    ));
-    eprintln!("[smash-profile] cpu_seats={fighters} brain=duelist_l3");
+fn seat_the_match(world: &mut World, config: &ProfileConfig) -> Result<(), String> {
+    let seatable = world
+        .get_resource::<ambition_demo_smash::select::SmashRoster>()
+        .ok_or("no assembled SmashRoster; the composition cannot seat fighters")?;
+    let (roster, characters) = profile_roster(config, &seatable.0)?;
+    eprintln!(
+        "[smash-profile] workload cast={:?} stocks={} cpu_level={} characters={}",
+        config.cast,
+        config.stocks,
+        PROFILE_CPU_LEVEL,
+        characters.join(",")
+    );
+    world.insert_resource(roster);
+    eprintln!(
+        "[smash-profile] cpu_seats={} brain=duelist_l{PROFILE_CPU_LEVEL}",
+        config.fighters
+    );
     world.write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )));
+    Ok(())
 }
 
 /// Check the premise. A profile of a match that ended is a profile of a
@@ -213,15 +283,40 @@ fn main() {
     let ticks: u32 = arg_value(&args, "--ticks")
         .and_then(|v| v.parse().ok())
         .unwrap_or(3000);
-    // Four is the cap: `SlotControls::MAX_SLOTS` is 4, and a longer roster
-    // would be silently clamped.
+    // Four is the cap: `SlotControls::MAX_SLOTS` is 4. The desktop launcher
+    // rejects out-of-range values; direct binary callers are clamped.
     let fighters: usize = arg_value(&args, "--fighters")
         .and_then(|v| v.parse().ok())
         .unwrap_or(2)
         .clamp(2, SlotControls::MAX_SLOTS);
-    // Which fighter. The default is the stand-in this bin has always seated,
-    // so existing invocations measure the same thing.
-    let character: String = arg_value(&args, "--character").unwrap_or_else(|| "performer".to_string());
+    // The historic mirror remains the default. Mixed-v1 has four explicitly
+    // named fighters; both workloads have separate identities in history.
+    let cast_name = arg_value(&args, "--cast").unwrap_or_else(|| "mirror".to_string());
+    let cast = match cast_name.as_str() {
+        "mirror" => ProfileCast::Mirror(
+            arg_value(&args, "--character").unwrap_or_else(|| DEFAULT_CHARACTER.to_string()),
+        ),
+        "mixed-v1" if arg_value(&args, "--character").is_none() => ProfileCast::MixedV1,
+        "mixed-v1" => {
+            eprintln!("[smash-profile] ABORT: --character cannot be used with --cast mixed-v1");
+            std::process::exit(2);
+        }
+        other => {
+            eprintln!("[smash-profile] ABORT: unknown --cast '{other}'; use mirror or mixed-v1");
+            std::process::exit(2);
+        }
+    };
+    let stocks = match arg_value(&args, "--stocks") {
+        None => PROFILE_STOCKS,
+        Some(value) => match value.parse::<u32>() {
+            Ok(stocks) if stocks > 0 => stocks,
+            _ => {
+                eprintln!("[smash-profile] ABORT: --stocks must be a positive integer");
+                std::process::exit(2);
+            }
+        },
+    };
+    let config = ProfileConfig { fighters, cast, stocks };
     // Wall seconds of live match to measure before quitting, windowed only.
     // It starts when the round goes live, not at process start, because cold
     // launch time varies by machine. Zero (the default) means "until the
@@ -236,15 +331,15 @@ fn main() {
         .unwrap_or(0);
 
     if arg_flag(&args, "--window") {
-        run_windowed(fighters, seconds, character);
+        run_windowed(config, seconds);
     } else {
-        run_windowless(fighters, ticks, scaling_sprites, character);
+        run_windowless(config, ticks, scaling_sprites);
     }
 }
 
 /// The no-GPU arm: build the app with no window, step it by hand, measure a
 /// fixed number of ticks after the round goes live.
-fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character: String) {
+fn run_windowless(config: ProfileConfig, ticks: u32, scaling_sprites: usize) {
     // One App, one process, so a global tracing subscriber is safe here.
     // `build_visible_app` drops `LogPlugin` from windowless modes, and Tracy's
     // recorder is a layer on that subscriber, so without this a
@@ -265,24 +360,10 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
     for _ in 0..SETTLE_FRAMES {
         app.update();
     }
-    // Which cast this composition can seat. `SmashRoster` is `SMASH_ROSTER`
-    // filtered at `Startup` to ids in the assembled catalog. Printed so a
-    // profile names its cast (see D189).
-    let seatable = app
-        .world()
-        .get_resource::<ambition_demo_smash::select::SmashRoster>()
-        .map(|roster| roster.0.clone())
-        .unwrap_or_default();
-    eprintln!(
-        "[smash-profile] composition_can_seat={} ids{}",
-        seatable.len(),
-        if seatable.is_empty() {
-            String::new()
-        } else {
-            format!(" — {}", seatable.join(", "))
-        }
-    );
-    seat_the_match(app.world_mut(), fighters, &character);
+    if let Err(reason) = seat_the_match(app.world_mut(), &config) {
+        eprintln!("[smash-profile] ABORT: {reason}");
+        std::process::exit(3);
+    }
 
     let mut live_at = None;
     for tick in 0..LIVE_DEADLINE_FRAMES {
@@ -294,34 +375,21 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
         }
     }
     let Some(live_at) = live_at else {
-        // Name the real cause. The common reason to get here is a character
-        // this composition does not carry, not a stuck ceremony.
-        if !seatable.is_empty() && !seatable.iter().any(|id| id == &character) {
-            eprintln!(
-                "[smash-profile] ABORT: '{character}' is not one of the {} ids this \
-                 composition carries, so no fighter was ever seated and the ceremony had \
-                 nothing to release. Carried: {}",
-                seatable.len(),
-                seatable.join(", ")
-            );
-        } else {
-            eprintln!(
-                "[smash-profile] ABORT: the opening ceremony never released the cast, so \
-                 nothing below would have measured a match"
-            );
-        }
+        eprintln!(
+            "[smash-profile] ABORT: opening ceremony never released the requested cast"
+        );
         std::process::exit(3);
     };
     // The roster asked for is not always the roster that seated (for
     // example `--fighters 4` can seat 3). A different count answers a
     // different question, so check it.
     let (seated_now, _) = cast_state(app.world_mut());
-    if seated_now != fighters {
+    if seated_now != config.fighters {
         eprintln!(
-            "[smash-profile] ⛔ ROSTER MISMATCH: asked for {fighters} fighters, {seated_now} are \
-             seated. This run does NOT measure a {fighters}-fighter match, and comparing it \
-             against another arm compares different rosters."
+            "[smash-profile] ABORT: roster mismatch: asked for {} fighters, {seated_now} seated",
+            config.fighters
         );
+        std::process::exit(3);
     }
     // The entity count at the quiet moment. Later, combat VFX make the live
     // count swing by ~40 within one run, as much as a whole fighter. Right
@@ -339,9 +407,10 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
         .iter(app.world())
         .count();
     eprintln!(
-        "[smash-profile] fighters={fighters} seated={seated_now} live_after_ticks={live_at} \
+        "[smash-profile] fighters={} seated={seated_now} live_after_ticks={live_at} \
          entities_at_go_live={live_entities} sprites_at_go_live={live_sprites} \
-         measuring={ticks}"
+         measuring={ticks}",
+        config.fighters
     );
 
     // After the round goes live: sprites spawned during the opening ceremony
@@ -394,7 +463,7 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
 /// The loop is not ours here: `app.run()` returns only when the window
 /// closes. [`MatchDriver`] runs the windowless arm's settle / seat /
 /// wait-for-live sequence one frame at a time, with the same conditions.
-fn run_windowed(fighters: usize, seconds: f32, character: String) {
+fn run_windowed(config: ProfileConfig, seconds: f32) {
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::Windowed,
         true,
@@ -406,8 +475,7 @@ fn run_windowed(fighters: usize, seconds: f32, character: String) {
     );
     // No startup ceremony: its cards are ten seconds of measured logo.
     app.insert_resource(MatchDriver {
-        fighters,
-        character,
+        config: config.clone(),
         measure_for: (seconds > 0.0).then_some(seconds),
         live_frames: 0,
         warned_empty: false,
@@ -416,7 +484,8 @@ fn run_windowed(fighters: usize, seconds: f32, character: String) {
     });
     app.add_systems(Update, drive_match);
     eprintln!(
-        "[smash-profile] windowed: fighters={fighters} measure_for={}",
+        "[smash-profile] windowed: fighters={} measure_for={}",
+        config.fighters,
         if seconds > 0.0 {
             format!("{seconds}s of live match")
         } else {
@@ -447,9 +516,7 @@ enum Stage {
 
 #[derive(Resource)]
 struct MatchDriver {
-    fighters: usize,
-    /// The catalog id every seat wears. See `seat_the_match`.
-    character: String,
+    config: ProfileConfig,
     /// `None` means "until the window closes".
     measure_for: Option<f32>,
     /// Frames since the round went live, for [`PREMISE_CHECK_EVERY`].
@@ -472,8 +539,14 @@ fn drive_match(world: &mut World) {
     };
     match driver.stage {
         Stage::Settling(0) => {
-            seat_the_match(world, driver.fighters, &driver.character);
-            driver.stage = Stage::WaitingForLive(0);
+            match seat_the_match(world, &driver.config) {
+                Ok(()) => driver.stage = Stage::WaitingForLive(0),
+                Err(reason) => {
+                    eprintln!("[smash-profile] ABORT: {reason}");
+                    world.write_message(bevy::app::AppExit::from_code(3));
+                    driver.stage = Stage::Done;
+                }
+            }
         }
         Stage::Settling(left) => driver.stage = Stage::Settling(left - 1),
         Stage::WaitingForLive(waited) => {
@@ -481,16 +554,19 @@ fn drive_match(world: &mut World) {
             if seated > 0 && held == 0 {
                 eprintln!(
                     "[smash-profile] live after {waited} frames; fighters={}",
-                    driver.fighters
+                    driver.config.fighters
                 );
                 driver.seats_at_live = cast_state(world).0;
-                if driver.seats_at_live != driver.fighters {
+                if driver.seats_at_live != driver.config.fighters {
                     eprintln!(
-                        "[smash-profile] ⛔ ROSTER MISMATCH: asked for {} fighters, {} are seated.",
-                        driver.fighters, driver.seats_at_live
+                        "[smash-profile] ABORT: roster mismatch: asked for {} fighters, {} seated",
+                        driver.config.fighters, driver.seats_at_live
                     );
+                    world.write_message(bevy::app::AppExit::from_code(3));
+                    driver.stage = Stage::Done;
+                } else {
+                    driver.stage = Stage::Live(std::time::Instant::now());
                 }
-                driver.stage = Stage::Live(std::time::Instant::now());
             } else if waited >= LIVE_DEADLINE_FRAMES {
                 eprintln!(
                     "[smash-profile] ABORT: the opening ceremony never released the cast, so \
@@ -528,4 +604,64 @@ fn drive_match(world: &mut World) {
         Stage::Done => {}
     }
     world.insert_resource(driver);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::actor::ControllerBinding;
+
+    fn seatable() -> Vec<String> {
+        MIXED_CAST_V1.iter().map(|id| (*id).to_string()).collect()
+    }
+
+    #[test]
+    fn mirror_is_four_level_three_cpus_with_profiling_stocks() {
+        let config = ProfileConfig {
+            fighters: 4,
+            stocks: PROFILE_STOCKS,
+            cast: ProfileCast::Mirror(DEFAULT_CHARACTER.to_string()),
+        };
+        let (roster, cast) = profile_roster(&config, &seatable()).unwrap();
+        assert_eq!(cast, vec![DEFAULT_CHARACTER; 4]);
+        assert_eq!(roster.rules.stocks, Some(40));
+        assert_eq!(roster.participants.len(), 4);
+        for (seat, participant) in roster.participants.iter().enumerate() {
+            assert_eq!(participant.character.as_str(), DEFAULT_CHARACTER);
+            assert_eq!(participant.controller.brain_profile(), Some("duelist_l3"));
+            assert_eq!(participant.team.as_deref(), Some(format!("seat {}", seat + 1).as_str()));
+            assert!(matches!(&participant.controller, ControllerBinding::Cpu { .. }));
+        }
+    }
+
+    #[test]
+    fn mixed_v1_uses_four_distinct_verified_characters() {
+        let config = ProfileConfig {
+            fighters: 4,
+            stocks: 40,
+            cast: ProfileCast::MixedV1,
+        };
+        let (roster, cast) = profile_roster(&config, &seatable()).unwrap();
+        assert_eq!(cast, MIXED_CAST_V1.iter().map(|id| id.to_string()).collect::<Vec<_>>());
+        assert_eq!(roster.rules.stocks, Some(40));
+        assert_eq!(roster.participants.len(), 4);
+        for (seat, participant) in roster.participants.iter().enumerate() {
+            assert_eq!(participant.character.as_str(), MIXED_CAST_V1[seat]);
+            assert_eq!(participant.controller.brain_profile(), Some("duelist_l3"));
+            assert!(matches!(&participant.controller, ControllerBinding::Cpu { .. }));
+        }
+    }
+
+    #[test]
+    fn mixed_v1_rejects_missing_character_instead_of_measuring_a_different_cast() {
+        let config = ProfileConfig {
+            fighters: 4,
+            stocks: 40,
+            cast: ProfileCast::MixedV1,
+        };
+        let partial = vec![DEFAULT_CHARACTER.to_string()];
+        assert!(profile_roster(&config, &partial)
+            .unwrap_err()
+            .contains("player_robot_v3"));
+    }
 }

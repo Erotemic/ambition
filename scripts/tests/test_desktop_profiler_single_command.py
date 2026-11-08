@@ -62,6 +62,13 @@ build_arg=build
 build_arg=-p
 build_arg=ambition_app_tools
 EOF
+# Echo passthrough game flags like the real launcher --print-plan. Without
+# this, the stub only exposes its fixed --window/--seconds arguments.
+passed=no
+for arg in "$@"; do
+    if [[ "$passed" == yes ]]; then printf 'game_arg=%s\n' "$arg"; fi
+    if [[ "$arg" == -- ]]; then passed=yes; fi
+done
 if [[ "$features" == profile ]]; then
     printf 'build_arg=--features\nbuild_arg=profile\n'
 fi
@@ -172,7 +179,8 @@ fi
         calls = self.logfile.read_text().splitlines()
         self.assertEqual(calls[0], "cargo build -p ambition_app_tools")
         self.assertEqual(calls[1], "perf record")
-        self.assertTrue(calls[2].startswith("game --window --fighters 4 --seconds 1 runtime=from-launch-plan"), calls)
+        self.assertTrue(calls[2].startswith("game --window --fighters 4 --seconds 1 "), calls)
+        self.assertIn("--fighters 4 --cast mirror --stocks 40 --character performer", calls[2])
         self.assertFalse(any("launcher ran inside capture" in row for row in calls))
         bundle = self.root / "profiles/desktop-unit"
         self.assertEqual((bundle / "warm-build.status").read_text().strip(), "0")
@@ -181,7 +189,12 @@ fi
         self.assertIn("All-CPU roster in log: **yes**", summary)
         self.assertIn("Completed measured window: **yes**", summary)
         self.assertIn("VSync and frame cap were off in all sampled rows", summary)
-        self.assertIn("profile_uncapped=yes", (bundle / "metadata.txt").read_text())
+        meta = (bundle / "metadata.txt").read_text()
+        self.assertIn("profile_uncapped=yes", meta)
+        self.assertIn("smash_cast=mirror", meta)
+        self.assertIn("smash_stocks=40", meta)
+        self.assertIn("smash_characters=performer,performer,performer,performer", meta)
+        self.assertIn("scenario_id=smash-match-4p-mirror-performer-40stocks", meta)
         self.assertIn("direct-built-binary", summary)
         self.assertTrue((self.root / "profiles/desktop-unit.tar.gz").is_file())
         # The local directory retains raw captures, but the uploadable
@@ -194,6 +207,33 @@ fi
             self.assertFalse(any(name.endswith("/perf.data") for name in names))
             self.assertFalse(any(name.endswith("/tracy.trace") for name in names))
         self.assertIn("| `tracy.trace` | the raw Tracy trace, for the GUI | no | no |", summary)
+
+    def test_mixed_cast_has_distinct_character_ids_and_history_identity(self):
+        completed = self.capture("--smash-cast", "mixed-v1")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-4500:])
+        calls = self.logfile.read_text().splitlines()
+        self.assertIn("--fighters 4 --cast mixed-v1 --stocks 40", calls[2])
+        self.assertNotIn("--character", calls[2])
+        meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
+        self.assertIn("smash_cast=mixed-v1", meta)
+        self.assertIn("smash_characters=performer,player_robot_v3,sanic,projectile_polygon", meta)
+        self.assertIn("smash_cpu_level=3", meta)
+        self.assertIn("scenario_id=smash-match-4p-mixed-v1-40stocks", meta)
+
+    def test_custom_stocks_and_mirror_character_change_workload_identity(self):
+        completed = self.capture("--smash-character", "sanic", "--smash-stocks", "60")
+        self.assertEqual(completed.returncode, 0, completed.stderr[-4500:])
+        calls = self.logfile.read_text().splitlines()
+        self.assertIn("--cast mirror --stocks 60 --character sanic", calls[2])
+        meta = (self.root / "profiles/desktop-unit/metadata.txt").read_text()
+        self.assertIn("smash_characters=sanic,sanic,sanic,sanic", meta)
+        self.assertIn("scenario_id=smash-match-4p-mirror-sanic-60stocks", meta)
+
+    def test_invalid_cast_rejected_before_compilation(self):
+        completed = self.capture("--smash-cast", "some-other-cast")
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("--smash-cast must be mirror or mixed-v1", completed.stderr)
+        self.assertFalse(self.logfile.exists())
 
     def test_respect_video_settings_opt_out(self):
         completed = self.capture("--respect-video-settings")

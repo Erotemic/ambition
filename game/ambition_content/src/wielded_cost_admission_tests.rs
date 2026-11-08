@@ -49,7 +49,7 @@ fn world(modules: Vec<ModuleDescriptor>, item: &str, mana: f32) -> (App, Entity)
         .world_mut()
         .spawn((
             ae::BodyAbilities::default(),
-            ae::BodyKinematics { pos: ae::Vec2::new(200.0, 300.0), size: ae::Vec2::new(24.0, 40.0), facing: 1.0, ..Default::default() },
+            ae::BodyKinematics { pos: ae::Vec2::new(200.0, 300.0), canonical_size: ae::Vec2::new(24.0, 40.0), facing: 1.0, ..Default::default() },
             ae::BodyBaseSize::default(),
             ae::BodyGroundState::default(),
             ae::BodyWallState::default(),

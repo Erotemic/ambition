@@ -38,7 +38,7 @@ fn step_transit_step(
 ) -> Halves {
     let world = room(None);
     let mut scratch = BodyClusterScratch::new_with_abilities(start, AbilitySet::default());
-    scratch.kinematics.size = BODY;
+    scratch.kinematics.canonical_size = BODY;
     scratch.base_size.base_size = BODY;
     scratch.kinematics.facing = -1.0;
     let mut sample = SweepSample::default();
@@ -112,7 +112,7 @@ fn a_transit_in_oblique_gravity_keeps_the_box_of_the_body() {
 fn a_transit_after_a_change_of_size_turns_the_new_size() {
     let resized = Vec2::new(30.0, 60.0);
     let halves = step_transit_step(axis(), None, START, sideways_gravity(), |clusters| {
-        clusters.kinematics.size = resized;
+        clusters.kinematics.canonical_size = resized;
     });
     assert_eq!(halves.next, Vec2::new(30.0, 15.0), "premise: the next step moves the new size along the gravity");
     assert_eq!(
@@ -152,7 +152,7 @@ fn a_transit_in_normal_gravity_keeps_the_level_box() {
 #[test]
 fn a_body_no_step_has_moved_arrives_with_its_level_box() {
     let mut scratch = BodyClusterScratch::new_with_abilities(START, AbilitySet::default());
-    scratch.kinematics.size = BODY;
+    scratch.kinematics.canonical_size = BODY;
     let mut sample = SweepSample::default();
     let (model, mut clusters) = scratch.parts();
     clusters.sweep = Some(&mut sample);
@@ -182,10 +182,10 @@ fn the_snapshot_of_a_record_holds_its_down() {
 #[test]
 fn the_down_of_a_body_is_of_its_last_step_and_else_of_its_frame() {
     let frame_down = Vec2::new(0.0, 1.0);
-    let body = crate::body_clusters::BodyKinematics {
+    let body = crate::body_clusters::BodyKinematics { material: Default::default(),
         pos: START,
         vel: Vec2::ZERO,
-        size: BODY,
+        canonical_size: BODY,
         facing: 1.0,
     };
     assert_eq!(SweepSample::down_or(None, frame_down), frame_down, "no record");

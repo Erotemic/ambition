@@ -173,7 +173,7 @@ fn spawn_teleporting_body(app: &mut bevy::prelude::App, pos: ae::Vec2) -> bevy::
             ae::BodyAbilities::default(),
             ae::BodyKinematics {
                 pos,
-                size: ae::Vec2::new(24.0, 48.0),
+                canonical_size: ae::Vec2::new(24.0, 48.0),
                 ..Default::default()
             },
             ae::BodyBaseSize::default(),
@@ -854,7 +854,7 @@ fn ambush_through_the_system(me: ae::Vec2, foe: ae::Vec2, gravity_dir: ae::Vec2)
     app.world_mut().spawn((
         ae::BodyKinematics {
             pos: foe,
-            size: ae::Vec2::new(24.0, 48.0),
+            canonical_size: ae::Vec2::new(24.0, 48.0),
             ..Default::default()
         },
         ambition_combat::targeting::MatchTeam::new("blue"),

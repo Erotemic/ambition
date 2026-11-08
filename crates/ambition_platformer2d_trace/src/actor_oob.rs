@@ -61,7 +61,7 @@ pub fn body_snapshot(
         kind,
         pos: kin.pos.into(),
         vel: kin.vel.into(),
-        size: kin.size.into(),
+        size: kin.size().into(),
         aabb: aabb.into(),
         facing: kin.facing,
         room: None,
@@ -242,10 +242,10 @@ mod tests {
     }
 
     fn kin(pos: ae::Vec2) -> ae::BodyKinematics {
-        ae::BodyKinematics {
+        ae::BodyKinematics { material: Default::default(),
             pos,
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(40.0, 40.0),
+            canonical_size: ae::Vec2::new(40.0, 40.0),
             facing: 1.0,
         }
     }
@@ -288,10 +288,10 @@ mod tests {
     /// `offset` from its centre. `down` is the DOWN of its last step.
     fn beside_a_solid(offset: ae::Vec2, down: ae::Vec2) -> Option<String> {
         let at = ae::Vec2::new(480.0, 384.0);
-        let body = ae::BodyKinematics {
+        let body = ae::BodyKinematics { material: Default::default(),
             pos: at,
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(24.0, 40.0),
+            canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
         let solid = ae::Aabb::new(at + offset, ae::Vec2::splat(2.0));

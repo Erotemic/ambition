@@ -139,7 +139,7 @@ fn app() -> App {
 }
 
 fn body(app: &mut App, slot: u8, at: ae::Vec2) -> Entity {
-    let kin = ae::BodyKinematics { pos: at, facing: 1.0, size: ae::Vec2::new(28.0, 64.0), ..Default::default() };
+    let kin = ae::BodyKinematics { pos: at, facing: 1.0, canonical_size: ae::Vec2::new(28.0, 64.0), ..Default::default() };
     app.world_mut().spawn((kin, SimId::player_slot(slot))).id()
 }
 

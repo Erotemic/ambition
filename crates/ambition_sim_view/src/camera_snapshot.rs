@@ -1358,7 +1358,7 @@ fn frame_the_cast(
         members += 1;
         now.push((*entity, kin.pos, kin.vel));
         let at = kin.pos + presented.get(*entity).map_or(ae::Vec2::ZERO, |pose| pose.delta());
-        let half = kin.size / 2.0;
+        let half = kin.size() / 2.0;
         member_bodies.push((at, half));
         min.x = min.x.min(at.x - half.x);
         min.y = min.y.min(at.y - half.y);
@@ -1537,7 +1537,7 @@ pub fn resolve_camera_observation(
                 Some((kin, subject)) => (
                     kin,
                     ae::BodyBaseSize {
-                        base_size: kin.size,
+                        base_size: kin.size(),
                     },
                     // No home avatar means no blink state to ease from, which is
                     // correct rather than a fallback: a fighter does not blink.
@@ -1652,7 +1652,7 @@ pub fn resolve_camera_observation(
                             // number by construction, so saying so once here
                             // makes the compensation vanish instead of being
                             // special-cased downstream.
-                            size: presented,
+                            canonical_size: presented,
                             ..Default::default()
                         },
                         // The PRESENTED framing, not the raw box — the two must
@@ -1738,7 +1738,7 @@ pub fn resolve_camera_observation(
     let focus = CameraFocus2d {
         center_world: player_body.pos,
         tick_center_world: subject_sim_pos,
-        size: player_body.size,
+        size: player_body.size(),
         base_size: player_base_size.base_size,
         facing: player_body.facing,
         velocity_world: player_body.vel,
@@ -1768,8 +1768,8 @@ pub fn resolve_camera_observation(
             CameraFocus2d {
                 center_world: center,
                 tick_center_world: kin.pos,
-                size: kin.size,
-                base_size: kin.size,
+                size: kin.size(),
+                base_size: kin.size(),
                 facing: kin.facing,
                 velocity_world: kin.vel,
             },
@@ -1853,8 +1853,8 @@ pub fn resolve_camera_observation(
                 continue;
             }
             companions = true;
-            bounds.min = bounds.min.min(at - kin.size * 0.5);
-            bounds.max = bounds.max.max(at + kin.size * 0.5);
+            bounds.min = bounds.min.min(at - kin.size() * 0.5);
+            bounds.max = bounds.max.max(at + kin.size() * 0.5);
         }
         let (base_view, must_frame_world) = if companions {
             let span: ae::Vec2 = (bounds.max - bounds.min).into();
@@ -3660,7 +3660,7 @@ mod resolved_snapshot_lifetime_tests {
     fn cast_member(app: &mut App, at: ae::Vec2) -> Entity {
         let mut kin = ambition_platformer2d_core::BodyKinematics::default();
         kin.pos = at;
-        kin.size = ae::Vec2::new(24.0, 40.0);
+        kin.canonical_size = ae::Vec2::new(24.0, 40.0);
         app.world_mut().spawn(kin).id()
     }
 
@@ -3767,7 +3767,7 @@ mod resolved_snapshot_lifetime_tests {
         let paired = frame_of(&app).expect("the subject has a view").snapshot;
         for entity in [subject, companion] {
             let kin = app.world().get::<ambition_platformer2d_core::BodyKinematics>(entity).unwrap();
-            let extent = (kin.pos - paired.center_world).abs() + kin.size * 0.5;
+            let extent = (kin.pos - paired.center_world).abs() + kin.size() * 0.5;
             assert!(extent.x <= paired.visible_view.x * 0.5 + 0.01);
             assert!(extent.y <= paired.visible_view.y * 0.5 + 0.01);
         }
@@ -3846,11 +3846,11 @@ mod resolved_snapshot_lifetime_tests {
         let home = {
             let mut kin = ambition_platformer2d_core::BodyKinematics::default();
             kin.pos = ae::Vec2::new(900.0, 0.0);
-            kin.size = ae::Vec2::new(24.0, 40.0);
+            kin.canonical_size = ae::Vec2::new(24.0, 40.0);
             app.world_mut()
                 .spawn((
                     kin,
-                    ae::BodyBaseSize { base_size: kin.size },
+                    ae::BodyBaseSize { base_size: kin.size() },
                     ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(),
                     ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                     ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,

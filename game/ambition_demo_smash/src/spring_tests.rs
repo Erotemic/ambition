@@ -82,7 +82,7 @@ fn body(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
     use ambition_platformer2d::platformer::sim_id::{SimId, SimIdCounter};
     app.world_mut()
         .spawn((
-            ae::BodyKinematics { pos: at, facing: 1.0, size: HALF * 2.0, ..Default::default() },
+            ae::BodyKinematics { pos: at, facing: 1.0, canonical_size: HALF * 2.0, ..Default::default() },
             ae::CenteredAabb::new(at, HALF),
             ambition_platformer2d::actor::ActorFaction::Player,
             ambition_platformer2d::platformer::lifecycle::FeatureSimEntity,

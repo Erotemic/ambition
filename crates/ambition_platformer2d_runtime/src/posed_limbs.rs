@@ -40,8 +40,8 @@ pub fn stop_posed_limbs_at_what_they_meet(
             continue;
         }
         let delta = step.curr - step.prev;
-        let half = kin.size * 0.5;
-        if delta.length() <= 1e-4 || delta.length() > 4.0 * kin.size.max_element().max(1.0) {
+        let half = kin.size() * 0.5;
+        if delta.length() <= 1e-4 || delta.length() > 4.0 * kin.size().max_element().max(1.0) {
             continue;
         }
         let Some(world) = composed.solids_for(&collision, room, limb) else {
@@ -95,7 +95,7 @@ mod tests {
         let limb = app
             .world_mut()
             .spawn((
-                ae::BodyKinematics { pos: at, vel: ae::Vec2::ZERO, size: ae::Vec2::splat(16.0), facing: 1.0 },
+                ae::BodyKinematics { material: Default::default(), pos: at, vel: ae::Vec2::ZERO, canonical_size: ae::Vec2::splat(16.0), facing: 1.0 },
                 ae::SweepSample { prev: at, curr: at, ..Default::default() },
                 ae::PoseOwnedExternally::only(ae::PoseHold::Conductor),
                 ambition_characters::actor::Limb {

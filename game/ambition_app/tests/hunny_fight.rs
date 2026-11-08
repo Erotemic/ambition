@@ -112,7 +112,7 @@ fn stand_in_front_until(
         let (kin, _) = player(sim);
         let (reach, _) = module::swipe_box();
         let x = b.kin.pos.x + b.side * reach.x;
-        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size().y * 0.5 - 1.0));
         sim.step(AgentAction::default());
         if until(sim) {
             return;
@@ -265,7 +265,7 @@ fn far_away_he_lobs_honey_that_lies_in_puddles_that_slow_you() {
     let hall = b.view.hall.expect("room");
     let far = if b.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 300.0 } else { hall.right - 300.0 };
     let (kin, _) = player(&mut sim);
-    let stand = ae::Vec2::new(far, hall.floor - kin.size.y * 0.5 - 1.0);
+    let stand = ae::Vec2::new(far, hall.floor - kin.size().y * 0.5 - 1.0);
     for _ in 0..60 * 40 {
         place_player(&mut sim, stand);
         sim.step(AgentAction::default());

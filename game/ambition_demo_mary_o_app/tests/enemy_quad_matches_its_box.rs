@@ -77,7 +77,7 @@ fn a_live_ai_slop_wears_the_size_its_character_authors() {
     let live: Vec<(bevy::prelude::Vec2, bevy::prelude::Vec2)> = q
         .iter(app.world())
         .filter(|(_, _, config)| ambition_demo_mary_o::ai_slop::is_ai_slop_brain(&config.brain))
-        .map(|(kin, aabb, _)| (kin.size, aabb.half_size))
+        .map(|(kin, aabb, _)| (kin.size(), aabb.half_size))
         .collect();
 
     // the zero floor. A run that tagged no slop at all would otherwise

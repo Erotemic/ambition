@@ -147,7 +147,7 @@ mod breakable_tests {
                 PlayerEntity,
                 BodyKinematics {
                     pos,
-                    size: ae::Vec2::new(28.0, 46.0),
+                    canonical_size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                     ..Default::default()
                 },

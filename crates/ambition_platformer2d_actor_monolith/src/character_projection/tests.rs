@@ -819,7 +819,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
             ambition_characters::actor::WornCharacter::new("serpent"),
             ambition_platformer2d_core::BodyBaseSize { base_size: own_box },
             ambition_platformer2d_core::BodyKinematics {
-                size: own_box,
+                canonical_size: own_box,
                 ..Default::default()
             },
         ))
@@ -962,7 +962,7 @@ fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
             ambition_characters::actor::WornCharacter::new("guide"),
             ambition_platformer2d_core::BodyBaseSize { base_size: standing },
             ambition_platformer2d_core::BodyKinematics {
-                size: standing,
+                canonical_size: standing,
                 ..Default::default()
             },
         ))
@@ -1010,7 +1010,7 @@ fn a_quad_the_spawn_stated_stands_until_the_body_wears_another_character() {
             ambition_characters::actor::WornCharacter::new("guide"),
             ambition_platformer2d_core::BodyBaseSize { base_size: standing },
             ambition_platformer2d_core::BodyKinematics {
-                size: standing,
+                canonical_size: standing,
                 ..Default::default()
             },
             ambition_combat::components::ActorRenderSize(built),

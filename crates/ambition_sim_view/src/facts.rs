@@ -389,7 +389,7 @@ pub fn rebuild_held_item_view(
                 HeldItemFact {
                     support: supported_carry_fact(&positions, &landmarks, &features, body, basis.down),
                     pos: kin.pos,
-                    size: kin.size,
+                    size: kin.size(),
                     facing: kin.facing,
                     item_id: held.spec.id.clone(),
                     ranged: held.spec.ranged.is_some(),
@@ -513,7 +513,7 @@ pub fn rebuild_controlled_bodies_view(
     view.0.clear();
     view.0.extend(bodies.iter().map(|(entity, kin)| ControlledBodyFact {
         center: kin.pos,
-        size: kin.size,
+        size: kin.size(),
         room: live.of(entity),
     }));
 }
@@ -723,7 +723,7 @@ pub fn publish_status_clocks(
             view.0.push(BodyClockFact {
                 body,
                 pos: kin.pos,
-                half_height: kin.size.y * 0.5,
+                half_height: kin.size().y * 0.5,
                 remaining_fraction: remaining,
             });
         }
@@ -823,7 +823,7 @@ pub fn rebuild_hostile_wielded_items_view(
         if !drawn_over_the_hand(Some(*disposition), health.map(|health| health.alive())) {
             continue;
         }
-        let wielder_height = kin.size.y;
+        let wielder_height = kin.size().y;
         let down = motion_frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
         let hand_world = ambition_held_items::holding_hand_world(&landmarks, entity, kin, down);
         let basis = ae::AccelerationFrame::new(down);
@@ -885,7 +885,7 @@ pub fn rebuild_projectile_views(
             visual_id: visual_id.0.clone(),
             pos: kin.pos,
             vel: kin.vel,
-            size: kin.size,
+            size: kin.size(),
         };
         match view {
             Some(mut view) => *view = next,
@@ -1241,7 +1241,7 @@ fn blink_reticle(
     Some(BlinkReticle {
         target,
         precision: motion_facts.blink_aiming,
-        body_min_extent: kin.size.min_element(),
+        body_min_extent: kin.size().min_element(),
         room: live_room,
     })
 }
@@ -1705,7 +1705,7 @@ mod held_item_view_tests {
         app.world_mut().spawn((
             BodyKinematics {
                 pos: ae::Vec2::new(x, 0.0),
-                size: ae::Vec2::splat(32.0),
+                canonical_size: ae::Vec2::splat(32.0),
                 ..Default::default()
             },
             ambition_combat::held_items::HeldItem::new(spec),
@@ -1729,7 +1729,7 @@ mod held_item_view_tests {
         };
         let mut body = app.world_mut().spawn((
             BodyKinematics {
-                size: ae::Vec2::splat(32.0),
+                canonical_size: ae::Vec2::splat(32.0),
                 ..Default::default()
             },
             ambition_combat::held_items::HeldItem::new(spec),
@@ -1906,10 +1906,10 @@ mod blink_preview_room_tests {
         let subject = app
             .world_mut()
             .spawn((
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(100.0, 200.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 32.0),
+                    canonical_size: ae::Vec2::new(16.0, 32.0),
                     facing: 1.0,
                 },
                 ae::BodyAbilities::new(ae::AbilitySet::sandbox_all()),
@@ -2005,7 +2005,7 @@ mod wielded_aim_tests {
         let wielder = app.world_mut().spawn((
             BodyKinematics {
                 pos: ae::Vec2::new(10.0, 20.0),
-                size: ae::Vec2::new(48.0, 80.0),
+                canonical_size: ae::Vec2::new(48.0, 80.0),
                 facing: 1.0,
                 ..Default::default()
             },

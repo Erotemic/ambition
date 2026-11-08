@@ -102,7 +102,7 @@ fn crawl(
 ) -> Vec<Vec2> {
     let mut scratch =
         BodyClusterScratch::new_with_abilities(start, crate::abilities::AbilitySet::default());
-    scratch.kinematics.size = SLUG_SIZE;
+    scratch.kinematics.canonical_size = SLUG_SIZE;
     scratch.base_size.base_size = SLUG_SIZE;
     let (model, mut clusters) = scratch.parts();
     switch_motion_model(

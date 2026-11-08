@@ -8,10 +8,10 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing,
             },
             BodyBaseSize {
@@ -40,10 +40,10 @@ fn picking_up_the_portal_gun_activates_it() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(50.0, 50.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -102,10 +102,10 @@ fn picking_up_the_gun_announces_who_equipped_it() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(50.0, 50.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -183,10 +183,10 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(50.0, 50.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -466,10 +466,10 @@ fn two_seats_grabbing_one_gun_produce_exactly_one_gun() {
         app.world_mut()
             .spawn((
                 PlayerEntity,
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos,
                     vel: Vec2::ZERO,
-                    size: Vec2::new(24.0, 40.0),
+                    canonical_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
                 BodyBaseSize {

@@ -71,7 +71,7 @@ impl Probe {
     ) -> Self {
         let mut scratch =
             ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::default());
-        scratch.kinematics.size = ae::Vec2::splat(32.0);
+        scratch.kinematics.canonical_size = ae::Vec2::splat(32.0);
         scratch.kinematics.vel = vel;
         let mut model = ae::MotionModel::surface_momentum(params);
         let ae::MotionModel::SurfaceMomentum(m) = &mut model else {

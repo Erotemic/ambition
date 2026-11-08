@@ -1804,7 +1804,7 @@ pub fn advance_move_playback(
                                 &character_catalog,
                                 sprite_cid,
                                 clip,
-                                kin.size,
+                                kin.size(),
                                 drawn_quad,
                                 Some(window.start_s),
                             )
@@ -1814,7 +1814,7 @@ pub fn advance_move_playback(
                         let art_floor = room_rules.of(owner).map_or(0.0, |rules| rules.art_hit_area_min);
                         let manifest = match manifest {
                             Some(volume) if art_floor > 0.0 => {
-                                Some(volume.at_least(ae::Vec2::splat(art_floor * kin.size.y)))
+                                Some(volume.at_least(ae::Vec2::splat(art_floor * kin.size().y)))
                             }
                             other => other,
                         };

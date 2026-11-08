@@ -80,10 +80,10 @@ fn projectile_fired_into_portal_a_emerges_from_portal_b_with_rotated_velocity() 
     let proj = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(20.0, 200.0),
                 vel: Vec2::new(-400.0, 0.0),
-                size: Vec2::new(8.0, 8.0),
+                canonical_size: Vec2::new(8.0, 8.0),
                 facing: -1.0,
             },
             straight_projectile(),
@@ -143,10 +143,10 @@ fn projectile_nowhere_near_a_portal_flies_straight_through() {
     let proj = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(200.0, 50.0), // far from both wall portals
                 vel: Vec2::new(150.0, 0.0),
-                size: Vec2::new(8.0, 8.0),
+                canonical_size: Vec2::new(8.0, 8.0),
                 facing: 1.0,
             },
             straight_projectile(),
@@ -201,10 +201,10 @@ fn a_carried_acceleration_is_rotated_by_the_same_map_as_the_velocity() {
     let proj = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(20.0, 200.0),
                 vel: entry_vel,
-                size: Vec2::new(8.0, 8.0),
+                canonical_size: Vec2::new(8.0, 8.0),
                 facing: -1.0,
             },
             ProjectileGameplay {

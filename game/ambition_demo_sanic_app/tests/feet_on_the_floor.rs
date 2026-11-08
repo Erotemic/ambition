@@ -30,7 +30,7 @@ fn sanic_stands_on_the_floor_he_rides() {
         .map(|(kin, ground)| (*kin, ground.on_ground))
         .expect("the demo spawned Sanic");
     assert!(on_ground, "the premise: he has settled onto the speedway floor");
-    let feet = kin.pos.y + kin.size.y * 0.5;
+    let feet = kin.pos.y + kin.size().y * 0.5;
     // The painted floor under him: the nearest floor segment (authored left to
     // right) below his centre.
     let floor = world

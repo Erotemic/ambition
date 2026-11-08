@@ -19,7 +19,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2) {
         PlayerEntity,
         BodyKinematics {
             pos,
-            size: ae::Vec2::new(28.0, 46.0),
+            canonical_size: ae::Vec2::new(28.0, 46.0),
             facing: 1.0,
             ..Default::default()
         },
@@ -146,7 +146,7 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
             pos: end,
             // ZERO: the wall took it at time-of-impact, as `zero_axis_vel` does.
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(28.0, 46.0),
+            canonical_size: ae::Vec2::new(28.0, 46.0),
             facing: 1.0,
             ..Default::default()
         },

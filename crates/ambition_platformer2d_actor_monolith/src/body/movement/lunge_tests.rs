@@ -35,7 +35,7 @@ fn windup_travel(sprite_content: &ambition_sprite_sheet::SpriteContent, melee: M
         CharacterBrain::Passive,
         &[],
     );
-    let half_h = seed.kin.size.y * 0.5;
+    let half_h = seed.kin.size().y * 0.5;
     seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
     seed.kin.vel = ae::Vec2::ZERO;
     seed.kin.facing = 1.0;
@@ -43,7 +43,7 @@ fn windup_travel(sprite_content: &ambition_sprite_sheet::SpriteContent, melee: M
     seed.body = ActorBody::from_abilities(
         ae::AbilitySet::classic_actor(),
         false,
-        seed.kin.size,
+        seed.kin.size(),
     );
     seed.body.0.ground.on_ground = true;
     // The move's opening beats, applied as `advance_move_playback` applies

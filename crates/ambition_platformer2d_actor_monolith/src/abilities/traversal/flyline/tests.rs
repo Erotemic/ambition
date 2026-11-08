@@ -20,7 +20,7 @@ fn app_with_body(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
         .spawn((
             ae::BodyKinematics {
                 pos,
-                size: HALF * 2.0,
+                canonical_size: HALF * 2.0,
                 vel: ae::Vec2::new(120.0, 340.0),
                 ..Default::default()
             },

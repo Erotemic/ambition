@@ -27,10 +27,10 @@ fn carried_run_after_fling(body_down: Vec2) -> f32 {
     let body = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(100.0, 100.0),
                 vel: EXIT_NORMAL * SPEED,
-                size: Vec2::new(16.0, 32.0),
+                canonical_size: Vec2::new(16.0, 32.0),
                 facing: 1.0,
             },
             frame,
@@ -103,10 +103,10 @@ fn portal_schedule_plugin_carries_a_fling_for_any_game() {
     let body = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(100.0, 300.0),
                 vel: Vec2::new(0.0, SPEED),
-                size: Vec2::new(16.0, 32.0),
+                canonical_size: Vec2::new(16.0, 32.0),
                 facing: 1.0,
             },
             frame,

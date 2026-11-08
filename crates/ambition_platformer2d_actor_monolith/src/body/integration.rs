@@ -159,7 +159,7 @@ pub(super) fn integrate_home_body(
     ambition_combat::body_geometry::publish_body_footprint(
         hurtbox,
         clusters.kinematics.pos,
-        clusters.kinematics.size,
+        clusters.kinematics.size(),
         clusters.kinematics.facing,
         -result.surface_normal,
     );

@@ -22,10 +22,10 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -462,10 +462,10 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
     let body = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(100.0, 100.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             ActionSet::default(),
@@ -1879,10 +1879,10 @@ mod multi_seat {
     fn seated(app: &mut App, slot: u8, sim: &str, pos: Vec2) -> Entity {
         app.world_mut()
             .spawn((
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos,
                     vel: Vec2::ZERO,
-                    size: Vec2::new(24.0, 40.0),
+                    canonical_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
                 BodyBaseSize {
@@ -2234,7 +2234,7 @@ fn a_settled_item_rides_the_platform_of_its_own_live_room() {
 fn a_held_thing_is_in_the_answered_hand_else_at_the_fixed_hand() {
     let mut kin = BodyKinematics::default();
     kin.pos = Vec2::new(100.0, 200.0);
-    kin.size = Vec2::new(20.0, 48.0);
+    kin.canonical_size = Vec2::new(20.0, 48.0);
     kin.facing = -1.0;
     let answered = Vec2::new(96.0, 216.0);
     assert_eq!(hand_or_fixed(Some(answered), &kin, Vec2::Y), answered);

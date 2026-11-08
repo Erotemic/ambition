@@ -182,10 +182,10 @@ fn eviction_app() -> App {
 
 /// A body in the plane of the floor portal at x=100.
 fn straddler() -> BodyKinematics {
-    BodyKinematics {
+    BodyKinematics { material: Default::default(),
         pos: Vec2::new(100.0, 300.0),
         vel: Vec2::ZERO,
-        size: Vec2::new(24.0, 40.0),
+        canonical_size: Vec2::new(24.0, 40.0),
         facing: 1.0,
     }
 }

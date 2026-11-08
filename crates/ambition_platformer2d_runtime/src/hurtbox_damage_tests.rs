@@ -140,7 +140,7 @@ fn spawn_authored_body(app: &mut App, player: bool) -> Entity {
         CenteredAabb::new(ae::Vec2::ZERO, COARSE_HALF),
         ae::BodyKinematics {
             pos: ae::Vec2::ZERO,
-            size: COARSE_HALF * 2.0,
+            canonical_size: COARSE_HALF * 2.0,
             ..Default::default()
         },
         ActorFaction::Player,
@@ -263,7 +263,7 @@ fn an_authored_empty_window_is_invulnerable_not_a_fallback_to_the_box() {
             CenteredAabb::new(ae::Vec2::ZERO, COARSE_HALF),
             ae::BodyKinematics {
                 pos: ae::Vec2::ZERO,
-                size: COARSE_HALF * 2.0,
+                canonical_size: COARSE_HALF * 2.0,
                 ..Default::default()
             },
             ActorFaction::Player,
@@ -312,7 +312,7 @@ fn an_unauthored_body_is_still_hit_on_its_coarse_box() {
         CenteredAabb::new(ae::Vec2::ZERO, COARSE_HALF),
         ae::BodyKinematics {
             pos: ae::Vec2::ZERO,
-            size: COARSE_HALF * 2.0,
+            canonical_size: COARSE_HALF * 2.0,
             ..Default::default()
         },
         ActorFaction::Player,
@@ -459,7 +459,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
             CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::new(4.0, 18.0)),
             ae::BodyKinematics {
                 pos: ae::Vec2::ZERO,
-                size: ae::Vec2::new(8.0, 36.0),
+                canonical_size: ae::Vec2::new(8.0, 36.0),
                 facing: 1.0,
                 ..Default::default()
             },

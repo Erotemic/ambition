@@ -88,7 +88,7 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
     app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION, ae::RoomGeometry(hall)));
     let player = app
         .world_mut()
-        .spawn(BodyKinematics { pos: ae::Vec2::new(640.0, 870.0), vel: ae::Vec2::ZERO, size: ae::Vec2::new(20.0, 30.0), facing: 1.0 })
+        .spawn(BodyKinematics { material: Default::default(), pos: ae::Vec2::new(640.0, 870.0), vel: ae::Vec2::ZERO, canonical_size: ae::Vec2::new(20.0, 30.0), facing: 1.0 })
         .id();
     let catalog = crate::bosses::shipped_boss_catalog(&sprite_content);
     let mut boss = BossClusterScratch::new(&sprite_content,
@@ -108,7 +108,7 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
     let kin = boss.kin;
     app.world_mut().spawn((
         boss.kin,
-        ae::CenteredAabb::new(kin.pos, kin.size * 0.5),
+        ae::CenteredAabb::new(kin.pos, kin.size() * 0.5),
         boss.config,
         boss.status,
         boss.health,

@@ -1397,7 +1397,7 @@ fn place_of(
     let clear = ambition_platformer2d::world::rooms::validated_spawn(
         &spec.world,
         kinematics.pos,
-        kinematics.size,
+        kinematics.size(),
     );
     Some((kinematics.pos, clear.distance(kinematics.pos) < 0.01))
 }

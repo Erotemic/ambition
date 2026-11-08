@@ -1075,7 +1075,7 @@ mod host_adapter {
         } else {
             enter.frame()
         };
-        let normal_half_extent = (body.size * 0.5).dot(frame.normal.abs()).max(1.0);
+        let normal_half_extent = (body.size() * 0.5).dot(frame.normal.abs()).max(1.0);
         let front = ambition_portal2d::pieces::front_distance(body.pos, &frame);
         let progress = if transit.crossed {
             0.5 + front / (normal_half_extent * 2.0)
@@ -1312,10 +1312,10 @@ mod tests {
     use bevy::prelude::*;
 
     fn body(pos: Vec2) -> BodyKinematics {
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos,
             vel: Vec2::ZERO,
-            size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         }
     }

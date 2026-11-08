@@ -134,10 +134,10 @@ fn the_resize_holds_the_feet() {
             ActorRenderSize(geometry(&sprite_content, CharacterAnim::Idle).render),
             ActorSpriteOffset(geometry(&sprite_content, CharacterAnim::Idle).sprite_offset),
             ActorAnimOverride(CharacterAnim::ShellIdle),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(0.0, ground_y - walking.collision.y * 0.5),
                 vel: ae::Vec2::ZERO,
-                size: walking.collision,
+                canonical_size: walking.collision,
                 facing: 1.0,
             },
         ))
@@ -187,10 +187,10 @@ fn a_stance_survives_the_per_tick_resync() {
             // Published with the posed body when it is granted.
             ActorRenderSize(geometry(&sprite_content, CharacterAnim::Idle).render),
             ActorSpriteOffset(geometry(&sprite_content, CharacterAnim::Idle).sprite_offset),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: standing.collision,
+                canonical_size: standing.collision,
                 facing: 1.0,
             },
             ae::BodyModeState {
@@ -278,10 +278,10 @@ fn drawn_body_rect(sprite_content: &ambition_sprite_sheet::SpriteContent, mode: 
             // Published with the posed body when it is granted.
             ActorRenderSize(geometry(&sprite_content, CharacterAnim::Idle).render),
             ActorSpriteOffset(geometry(&sprite_content, CharacterAnim::Idle).sprite_offset),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(0.0, ground - standing.collision.y * 0.5),
                 vel: ae::Vec2::ZERO,
-                size: standing.collision,
+                canonical_size: standing.collision,
                 facing: 1.0,
             },
             ae::BodyBaseSize {
@@ -324,7 +324,7 @@ fn drawn_body_rect(sprite_content: &ambition_sprite_sheet::SpriteContent, mode: 
     let frame_origin = kin.pos + offset - render * 0.5;
     let art_min = frame_origin + ae::Vec2::new(bbox.x as f32, bbox.y as f32) * SCALE;
     let art_max = art_min + ae::Vec2::new(bbox.w as f32, bbox.h as f32) * SCALE;
-    (art_min, art_max, kin.pos.y + kin.size.y * 0.5)
+    (art_min, art_max, kin.pos.y + kin.size().y * 0.5)
 }
 
 /// The ground a crouching body's ART stands on must be the ground its COLLIDER
@@ -406,10 +406,10 @@ fn the_resize_holds_the_face_of_the_bodys_own_gravity() {
             ActorRenderSize(walking.render),
             ActorSpriteOffset(walking.sprite_offset),
             ActorAnimOverride(CharacterAnim::ShellIdle),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(0.0, ceiling_y + walking.collision.y * 0.5),
                 vel: ae::Vec2::ZERO,
-                size: walking.collision,
+                canonical_size: walking.collision,
                 facing: 1.0,
             },
             frame,

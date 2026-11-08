@@ -99,7 +99,7 @@ fn every_ability_answers_to_its_own_field_name_and_value() {
 /// A body of a given height, driven by the player.
 fn body_of_height(app: &mut App, height: f32) {
     let mut kinematics = BodyKinematics::default();
-    kinematics.size.y = height;
+    kinematics.canonical_size.y = height;
     app.world_mut().spawn((
         kinematics,
         ambition_characters::control::DrivingParticipant(
@@ -197,7 +197,7 @@ fn an_opening_that_is_not_positive_is_unanswerable() {
 fn the_opening_is_measured_against_the_bodys_own_height_not_its_world_footprint() {
     let mut app = App::new();
     let mut kinematics = BodyKinematics::default();
-    kinematics.size = bevy::math::Vec2::new(64.0, 30.0);
+    kinematics.canonical_size = bevy::math::Vec2::new(64.0, 30.0);
     app.world_mut().spawn((
         kinematics,
         ambition_characters::control::DrivingParticipant(
@@ -252,7 +252,7 @@ fn abilities_with(wall_climb: bool) -> BodyAbilities {
 
 fn kinematics_of_height(height: f32) -> BodyKinematics {
     let mut kinematics = BodyKinematics::default();
-    kinematics.size.y = height;
+    kinematics.canonical_size.y = height;
     kinematics
 }
 

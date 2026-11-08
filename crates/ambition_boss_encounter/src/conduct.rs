@@ -103,7 +103,7 @@ pub fn queue_boss_conducts(
             bosses.iter().find_map(|(other, other_config, _, other_kin, other_health, _, _, other_side, _)| {
                 (other_config.id == after && live_rooms.of(other) == live_rooms.of(boss)).then(|| Predecessor {
                     position: [other_kin.pos.x, other_kin.pos.y],
-                    size: [other_kin.size.x, other_kin.size.y],
+                    size: [other_kin.size().x, other_kin.size().y],
                     side: other_side.copied().unwrap_or(ConductedFacing::of_facing(other_kin.facing)).0,
                     alive: other_health.alive(),
                 })
@@ -150,9 +150,9 @@ pub fn queue_boss_conducts(
                 health: health.current(),
                 invulnerable: encounter.encounter.as_ref().is_some_and(|state| state.boss_invulnerable()),
                 target_body: target.and_then(|t| t.entity).and_then(|tracked| bodies.get(tracked).ok()).map(|(body, playback)| {
-                    BodyBox { position: [body.pos.x, body.pos.y], size: [body.size.x, body.size.y], swing: playback.map(swing_of) }
+                    BodyBox { position: [body.pos.x, body.pos.y], size: [body.size().x, body.size().y], swing: playback.map(swing_of) }
                 }),
-                size: [kin.size.x, kin.size.y],
+                size: [kin.size().x, kin.size().y],
                 awake: encounter.encounter_phase() != BossEncounterPhase::Dormant,
                 predecessor,
             },
@@ -182,7 +182,7 @@ fn swing_of(playback: &ambition_combat::moveset::MovePlayback) -> BodySwing {
 /// that is: at the far end when the touch is through the pair.
 fn limb_contact(world: &World, limb: Entity, kin: &ae::BodyKinematics) -> Option<ae::Vec2> {
     let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(limb);
-    let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+    let body = ae::Aabb::new(kin.pos, kin.size() * 0.5);
     let point = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
         let walls = room.solids_for(limb)?;
         ae::collision_semantics::touching_point(&walls, body, 1.0)
@@ -240,7 +240,7 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
                     Some(MountLimb {
                         slot: slot.as_str().to_owned(),
                         position: [limb_kin.pos.x, limb_kin.pos.y],
-                        size: [limb_kin.size.x, limb_kin.size.y],
+                        size: [limb_kin.size().x, limb_kin.size().y],
                         home_offset: [home.x, home.y],
                         lost_health: lost,
                         held: world
@@ -259,7 +259,7 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
     Some(MountView {
         position: [kin.pos.x, kin.pos.y],
         velocity: [kin.vel.x, kin.vel.y],
-        size: [kin.size.x, kin.size.y],
+        size: [kin.size().x, kin.size().y],
         facing: kin.facing,
         unmirrored,
         back,
@@ -983,7 +983,7 @@ mod mount_view_tests {
     fn body(pos: ae::Vec2, size: ae::Vec2) -> ae::BodyKinematics {
         let mut kin = ae::BodyKinematics::default();
         kin.pos = pos;
-        kin.size = size;
+        kin.canonical_size = size;
         kin
     }
 

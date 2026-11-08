@@ -82,7 +82,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
             ambition_platformer2d_core::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
             BodyKinematics {
                 pos: world_spawn,
-                size: Vec2::new(30.0, 48.0),
+                canonical_size: Vec2::new(30.0, 48.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -117,7 +117,7 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
         ActorControl::default(),
         BodyKinematics {
             pos,
-            size: Vec2::new(30.0, 48.0),
+            canonical_size: Vec2::new(30.0, 48.0),
             facing: 1.0,
             ..Default::default()
         },
@@ -325,7 +325,7 @@ fn jump_press_from_morph_ball_transitions_to_standing() {
     }
     {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
-        kin.size = Vec2::new(14.0, 14.0);
+        kin.canonical_size = Vec2::new(14.0, 14.0);
     }
     set_control(&mut app, player, |c| c.jump_pressed = true);
     app.update();
@@ -349,7 +349,7 @@ fn local_up_intent_from_morph_ball_transitions_to_standing() {
     }
     {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(player).unwrap();
-        kin.size = Vec2::new(14.0, 14.0);
+        kin.canonical_size = Vec2::new(14.0, 14.0);
     }
     // Local-up (toward the head) = negative local-down axis.
     set_control(&mut app, player, |c| {

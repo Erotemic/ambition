@@ -28,7 +28,7 @@ fn step(app: &mut App, frame: ControlFrame) {
 fn player_body(app: &mut App) -> (Vec2, Vec2) {
     let mut query = app.world_mut().query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
     let kin = query.iter(app.world()).next().expect("gameplay has a primary player");
-    (kin.pos, kin.size)
+    (kin.pos, kin.size())
 }
 
 fn in_a_pipe(app: &mut App) -> bool {

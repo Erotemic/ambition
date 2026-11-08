@@ -194,7 +194,7 @@ fn a_body_in_the_air_is_given_a_landing_in_reach() {
 
 #[test]
 fn a_wall_takes_its_stretch_out_of_a_surface() {
-    let size = walker().kinematics.size;
+    let size = walker().kinematics.size();
     let frame = NavFrame { side: Vec2::X, down: Vec2::Y };
     let floor = Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(2000.0, 64.0));
     let open = World::new("open", Vec2::new(2000.0, 3000.0), Vec2::ZERO, vec![floor.clone()]);

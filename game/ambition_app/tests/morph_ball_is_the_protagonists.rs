@@ -20,7 +20,7 @@ fn primary(sim: &mut ambition_app::Platformer2dSimHarness) -> (ae::BodyMode, ae:
 }
 
 fn feet(kin: &ae::BodyKinematics) -> f32 {
-    kin.pos.y + kin.size.y * 0.5
+    kin.pos.y + kin.size().y * 0.5
 }
 
 /// **THE PROTAGONIST IN AMBITION CURLS INTO THE BALL AND STANDS BACK UP.**

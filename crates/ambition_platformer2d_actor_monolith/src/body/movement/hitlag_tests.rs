@@ -43,7 +43,7 @@ fn walk_distance_with_hitstop(sprite_content: &ambition_sprite_sheet::SpriteCont
         CharacterBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
-    let half_h = seed.kin.size.y * 0.5;
+    let half_h = seed.kin.size().y * 0.5;
     seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
     seed.kin.vel = ae::Vec2::ZERO;
     seed.kin.facing = 1.0;
@@ -54,7 +54,7 @@ fn walk_distance_with_hitstop(sprite_content: &ambition_sprite_sheet::SpriteCont
             ..ae::AbilitySet::NONE
         }),
         false,
-        seed.kin.size,
+        seed.kin.size(),
     );
     seed.body.0.ground.on_ground = true;
 

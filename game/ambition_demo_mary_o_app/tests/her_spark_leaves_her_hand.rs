@@ -120,7 +120,7 @@ fn requests(app: &App, owner: Entity) -> Vec<(Vec2, Vec2)> {
         .filter(|request| request.owner == owner)
         .map(|request| {
             let kin = &request.projectile.body.kin;
-            (kin.pos, kin.size * 0.5)
+            (kin.pos, kin.size() * 0.5)
         })
         .collect()
 }
@@ -379,7 +379,7 @@ fn a_spark_thrown_against_a_wall_does_not_pass_the_wall() {
             },
         );
         let kin = app.world().get::<BodyKinematics>(body).expect("a live body");
-        if kin.pos.x - kin.size.x * 0.5 <= 0.05 {
+        if kin.pos.x - kin.size().x * 0.5 <= 0.05 {
             at_wall = true;
             break;
         }

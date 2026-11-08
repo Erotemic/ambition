@@ -59,7 +59,7 @@ fn cross(body: &BodyClusterScratch, gap: f32, rise: f32, jump: bool) -> Crossing
         ],
     );
     let mut body = body.clone();
-    let half = body.kinematics.size * 0.5;
+    let half = body.kinematics.size() * 0.5;
     {
         let (model, mut clusters) = body.parts();
         ae::movement::transit_body(

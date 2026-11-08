@@ -283,7 +283,7 @@ pub mod volley {
                 continue;
             }
             let base_angle = aim.y.atan2(aim.x);
-            let origin = volley_origin_world(kin.pos, kin.size, aim_local, frame);
+            let origin = volley_origin_world(kin.pos, kin.size(), aim_local, frame);
             let spread = VOLLEY_SPREAD_DEG.to_radians();
             for i in 0..VOLLEY_SHOT_COUNT {
                 // Centered fan: t in [-0.5, 0.5].

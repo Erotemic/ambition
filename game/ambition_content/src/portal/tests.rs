@@ -82,10 +82,10 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             ambition_characters::control::DrivingParticipant(
                 ambition_characters::control::PlayerSlot::PRIMARY,
             ),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing,
             },
             BodyBaseSize {
@@ -425,10 +425,10 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     let small = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(20.0, 200.0),
                 vel: Vec2::new(-100.0, 0.0),
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: -1.0,
             },
         ))
@@ -436,10 +436,10 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     let big = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(20.0, 200.0),
                 vel: Vec2::new(-100.0, 0.0),
-                size: Vec2::new(80.0, 200.0),
+                canonical_size: Vec2::new(80.0, 200.0),
                 facing: -1.0,
             },
         ))
@@ -662,10 +662,10 @@ fn roll_eases_back_to_gravity_upright_in_air() {
     let player = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             ActorRoll {
@@ -722,10 +722,10 @@ fn actors_get_an_aerial_roll_through_portals() {
     let actor = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(200.0, 380.0),
                 vel: Vec2::new(0.0, 100.0),
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             ActorRoll::default(),
@@ -828,10 +828,10 @@ fn a_gunless_player_transits_an_authored_pair() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(200.0, 285.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {

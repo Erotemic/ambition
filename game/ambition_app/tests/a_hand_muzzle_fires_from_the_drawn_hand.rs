@@ -74,7 +74,7 @@ fn shot_of(sim: &ambition_app::Platformer2dSimHarness, owner: Entity) -> Option<
         .find(|request| request.owner == owner)
         .map(|request| {
             let kin = &request.projectile.body.kin;
-            (kin.pos, kin.size * 0.5, kin.vel.normalize_or_zero())
+            (kin.pos, kin.size() * 0.5, kin.vel.normalize_or_zero())
         })
 }
 

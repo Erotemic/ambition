@@ -1190,10 +1190,10 @@ fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
         ));
         app.world_mut().spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(20.0, 40.0),
+                canonical_size: ae::Vec2::new(20.0, 40.0),
                 facing: 1.0,
             },
             InRoomInstance(player_room),
@@ -1275,10 +1275,10 @@ fn a_death_fails_only_the_encounter_of_its_own_live_room() {
             .world_mut()
             .spawn((
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-                ambition_platformer2d_core::BodyKinematics {
+                ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(20.0, 40.0),
+                    canonical_size: ae::Vec2::new(20.0, 40.0),
                     facing: 1.0,
                 },
                 InRoomInstance(died_in),
@@ -1374,10 +1374,10 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
         app.world_mut()
             .spawn((
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-                ambition_platformer2d_core::BodyKinematics {
+                ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(20.0, 40.0),
+                    canonical_size: ae::Vec2::new(20.0, 40.0),
                     facing: 1.0,
                 },
                 InRoomInstance(room),
@@ -1525,10 +1525,10 @@ fn liveness_by_room(dead: usize,
         app.world_mut().spawn((RoomInstanceRoot, room, goblin));
         app.world_mut().spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(20.0, 40.0),
+                canonical_size: ae::Vec2::new(20.0, 40.0),
                 facing: 1.0,
             },
             InRoomInstance(room),

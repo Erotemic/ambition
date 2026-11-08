@@ -184,10 +184,10 @@ fn release_on_death_emits_payload_once_at_host_position() {
             status,
             health,
             sim,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: ambition_platformer2d_core::Vec2::new(120.0, 80.0),
                 vel: ambition_platformer2d_core::Vec2::ZERO,
-                size: ambition_platformer2d_core::Vec2::splat(32.0),
+                canonical_size: ambition_platformer2d_core::Vec2::splat(32.0),
                 facing: 1.0,
             },
             ReleaseOnDeath,

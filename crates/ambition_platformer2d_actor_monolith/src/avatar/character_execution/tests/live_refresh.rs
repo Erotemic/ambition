@@ -583,10 +583,10 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
     // state cannot even EXIST under the momentum policy now (it lives inside
     // the AxisSwept variant, ADR 0024 O4) — the assertions below pin that the
     // fresh axis destination starts with none.
-    let pose = ambition_platformer2d_core::BodyKinematics {
+    let pose = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
         pos: ambition_platformer2d_core::Vec2::new(321.0, 654.0),
         vel: ambition_platformer2d_core::Vec2::new(900.0, -50.0),
-        size: ambition_platformer2d_core::Vec2::new(24.0, 40.0),
+        canonical_size: ambition_platformer2d_core::Vec2::new(24.0, 40.0),
         facing: -1.0,
     };
     *app.world_mut()

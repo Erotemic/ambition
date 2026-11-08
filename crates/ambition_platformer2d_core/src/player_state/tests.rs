@@ -122,8 +122,8 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_and_shrinks() {
         Vec::new(),
     );
     let mut s = scratch_at(Vec2::new(100.0, 100.0));
-    let original_size = s.kinematics.size;
-    let original_feet = s.kinematics.pos.y + s.kinematics.size.y * 0.5;
+    let original_size = s.kinematics.size();
+    let original_feet = s.kinematics.pos.y + s.kinematics.size().y * 0.5;
 
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
@@ -136,9 +136,9 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_and_shrinks() {
     );
     assert!(ok);
     assert_eq!(s.body_mode.body_mode, BodyMode::Crouching);
-    assert!(s.kinematics.size.y < original_size.y);
-    assert_eq!(s.kinematics.size.x, original_size.x);
-    let new_feet = s.kinematics.pos.y + s.kinematics.size.y * 0.5;
+    assert!(s.kinematics.size().y < original_size.y);
+    assert_eq!(s.kinematics.size().x, original_size.x);
+    let new_feet = s.kinematics.pos.y + s.kinematics.size().y * 0.5;
     assert!((new_feet - original_feet).abs() < 1e-3);
 }
 
@@ -191,7 +191,7 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_sideways_gravity()
     );
     let gravity = Vec2::new(1.0, 0.0);
     let mut s = scratch_at(Vec2::new(100.0, 100.0));
-    let original_size = s.kinematics.size;
+    let original_size = s.kinematics.size();
     let original_feet = s.kinematics.aabb_oriented(gravity).feet_coord(gravity);
 
     let ok = try_change_body_mode_clusters(
@@ -205,7 +205,7 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_sideways_gravity()
     );
     assert!(ok);
     assert!(
-        s.kinematics.size.y < original_size.y,
+        s.kinematics.size().y < original_size.y,
         "local height should shrink"
     );
     let new_feet = s.kinematics.aabb_oriented(gravity).feet_coord(gravity);
@@ -229,8 +229,8 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_inverted_gravity()
         Vec::new(),
     );
     let mut s = scratch_at(Vec2::new(100.0, 100.0));
-    let original_size = s.kinematics.size;
-    let original_feet = s.kinematics.pos.y - s.kinematics.size.y * 0.5; // TOP edge
+    let original_size = s.kinematics.size();
+    let original_feet = s.kinematics.pos.y - s.kinematics.size().y * 0.5; // TOP edge
 
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
@@ -242,8 +242,8 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_inverted_gravity()
         |_| true,
     );
     assert!(ok);
-    assert!(s.kinematics.size.y < original_size.y, "body should shrink");
-    let new_feet = s.kinematics.pos.y - s.kinematics.size.y * 0.5;
+    assert!(s.kinematics.size().y < original_size.y, "body should shrink");
+    let new_feet = s.kinematics.pos.y - s.kinematics.size().y * 0.5;
     assert!(
         (new_feet - original_feet).abs() < 1e-3,
         "top-edge feet must stay planted under inverted gravity (moved {})",
@@ -290,14 +290,14 @@ fn try_change_body_mode_back_to_standing_uses_base_size() {
     );
     assert!(ok);
     assert_eq!(s.body_mode.body_mode, BodyMode::Standing);
-    assert_eq!(s.kinematics.size, base);
+    assert_eq!(s.kinematics.size(), base);
 }
 
 #[test]
 fn try_change_body_mode_blocked_stand_up_under_low_ceiling() {
     let player_spawn = Vec2::new(100.0, 100.0);
     let mut s = scratch_at(player_spawn);
-    let standing_top = s.kinematics.pos.y - s.kinematics.size.y * 0.5;
+    let standing_top = s.kinematics.pos.y - s.kinematics.size().y * 0.5;
     let ceiling_bottom = standing_top + 5.0;
     let ceiling_top = ceiling_bottom - 30.0;
     let world = World::new(
@@ -345,7 +345,7 @@ fn try_change_body_mode_to_same_mode_is_no_op_success() {
     );
     let mut s = scratch_at(Vec2::new(100.0, 100.0));
     let pos_before = s.kinematics.pos;
-    let size_before = s.kinematics.size;
+    let size_before = s.kinematics.size();
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
         &s.base_size,
@@ -357,7 +357,7 @@ fn try_change_body_mode_to_same_mode_is_no_op_success() {
     );
     assert!(ok);
     assert_eq!(s.kinematics.pos, pos_before);
-    assert_eq!(s.kinematics.size, size_before);
+    assert_eq!(s.kinematics.size(), size_before);
 }
 
 #[test]
@@ -468,4 +468,35 @@ fn body_mode_from_clusters_reads_authoritative_field() {
         body_mode: BodyMode::Crouching,
     };
     assert_eq!(BodyMode::from_clusters(&bm), BodyMode::Crouching);
+}
+
+
+#[test]
+fn stance_changes_keep_material_scale_parity_and_planted_feet() {
+    let world = World::new("material stance", Vec2::splat(5000.0), Vec2::ZERO, Vec::new());
+    for scale in [0.125, 1.0, 8.0] {
+        for angle in [0.0, 0.37, std::f32::consts::FRAC_PI_2] {
+            for reflected in [false, true] {
+                let mut basis = bevy_math::Mat2::from_angle(angle);
+                if reflected { basis.x_axis = -basis.x_axis; }
+                for down in [Vec2::Y, Vec2::X, -Vec2::Y] {
+                    let mut body = scratch_at(Vec2::splat(1000.0));
+                    body.kinematics.material = crate::frame::BodyMaterial::new(scale, basis).unwrap();
+                    let before = body.kinematics;
+                    let feet = before.pos + down * before.half_oriented(down).dot(down.abs());
+                    for mode in [BodyMode::Crouching, BodyMode::Standing] {
+                        assert!(try_change_body_mode_clusters(
+                            &mut body.kinematics, &body.base_size, &mut body.body_mode,
+                            mode, &world, down, |_| true,
+                        ));
+                        assert_eq!(body.kinematics.material, before.material);
+                        assert_eq!(body.kinematics.canonical_size, mode.shape(body.base_size.base_size).size);
+                        let now = body.kinematics.pos + down * body.kinematics.half_oriented(down).dot(down.abs());
+                        assert!((now - feet).length() < 0.001);
+                    }
+                    assert!((body.kinematics.pos - before.pos).length() < 0.001);
+                }
+            }
+        }
+    }
 }

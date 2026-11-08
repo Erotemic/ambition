@@ -228,7 +228,7 @@ fn fire_the_side_b(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteC
             .world()
             .get::<ambition_platformer2d::engine_core::BodyKinematics>(admiral)
             .expect("the admiral has kinematics");
-        ambition_platformer2d::mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size.y)
+        ambition_platformer2d::mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size().y)
     };
     // The rig's weapon hand in the world: the same placement the hand muzzle
     // makes, from the pose the simulation resolved.
@@ -241,7 +241,7 @@ fn fire_the_side_b(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteC
             .get::<BodyRigPose>(admiral)?
             .attachment(&rig.0, ambition_platformer2d::characters::actor::body_rig::HAND_NEAR)?;
         let down = Vec2::Y;
-        Some(kin.pos + down * (kin.size.y * 0.5) + BodyRigPose::to_body(hand, kin.facing, down))
+        Some(kin.pos + down * (kin.size().y * 0.5) + BodyRigPose::to_body(hand, kin.facing, down))
     };
     // The hand the art draws on this tick. ⚠ From the DRAW table the renderer
     // draws the row from, not from the landmark table the muzzle reads.
@@ -279,7 +279,7 @@ fn fire_the_side_b(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteC
                 .world()
                 .get::<ambition_platformer2d::engine_core::BodyKinematics>(admiral)
                 .expect("the admiral has kinematics");
-            kin.pos.y + kin.size.y * 0.5
+            kin.pos.y + kin.size().y * 0.5
         };
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
@@ -300,7 +300,7 @@ fn fire_the_side_b(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteC
             q.iter(world)
                 .find(|(owner, _, _, _)| owner.0 == admiral)
                 .map(|(_, visual, gameplay, kin)| {
-                    (visual.0.clone(), gameplay.damage, kin.pos, kin.vel.normalize_or_zero(), kin.size.y * 0.5)
+                    (visual.0.clone(), gameplay.damage, kin.pos, kin.vel.normalize_or_zero(), kin.size().y * 0.5)
                 })
         };
         if let Some(found) = found {

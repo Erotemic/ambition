@@ -841,10 +841,10 @@ fn spawn_character_at<'a>(
         .with_source_receiver_channel(character.receiver_channel),
         ProperTimeCooldown2d::default(),
         receiver,
-        ae::BodyKinematics {
+        ae::BodyKinematics { material: Default::default(),
             pos: position,
             vel: Vec2::ZERO,
-            size: Vec2::splat(radius * 1.3),
+            canonical_size: Vec2::splat(radius * 1.3),
             facing: 1.0,
         },
         ambition_platformer2d::platformer::sim_id::SimId::placement(&stable),

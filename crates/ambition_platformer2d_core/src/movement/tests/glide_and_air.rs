@@ -255,7 +255,7 @@ fn one_way_platform_works_under_flipped_gravity() {
         );
     }
     // Rests under the one-way's bottom face (y=212): player top ~= 212.
-    let top = scratch.kinematics.pos.y - scratch.kinematics.size.y * 0.5;
+    let top = scratch.kinematics.pos.y - scratch.kinematics.size().y * 0.5;
     assert!(
         (top - 212.0).abs() < 6.0,
         "player should rest under the one-way's bottom (y=212), got top={top}"
@@ -1005,7 +1005,7 @@ fn a_body_on_a_platform_that_goes_down_stays_on_it_and_does_not_land_again() {
             if scratch.ground.on_ground {
                 grounded += 1;
             }
-            let feet = scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5;
+            let feet = scratch.kinematics.pos.y + scratch.kinematics.size().y * 0.5;
             assert!(
                 (feet - world.blocks[0].aabb.min.y).abs() < 0.05,
                 "the feet of the rider are {} px from the platform (one_way {one_way}, {speed} px a tick)",

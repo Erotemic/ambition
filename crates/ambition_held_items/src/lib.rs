@@ -243,7 +243,7 @@ pub struct SupportedCarryGeometry {
 impl SupportedCarry {
     pub fn anchor(primary: &BodyKinematics, supporter: &BodyKinematics, down: Vec2) -> Vec2 {
         (primary.pos + supporter.pos) * 0.5
-            + down * (primary.size.y.max(supporter.size.y) * 0.5 + 8.0)
+            + down * (primary.size().y.max(supporter.size().y) * 0.5 + 8.0)
     }
 }
 
@@ -317,7 +317,7 @@ pub fn holding_hand_world(
 
 /// `hand`, else the fixed hand offset of a body at `kin`.
 fn hand_or_fixed(hand: Option<Vec2>, kin: &ae::BodyKinematics, down: Vec2) -> Vec2 {
-    hand.unwrap_or_else(|| ambition_mount::rider_hand_world_pos_in_frame(kin.pos, kin.facing, kin.size.y, down))
+    hand.unwrap_or_else(|| ambition_mount::rider_hand_world_pos_in_frame(kin.pos, kin.facing, kin.size().y, down))
 }
 
 impl ItemWorldPos<'_, '_> {
@@ -1867,13 +1867,13 @@ pub fn throw_held_item_system(
         let frame =
             ae::AccelerationFrame::new(gravity.dir_for(
                 room.map(|stamp| stamp.0),
-                ae::Aabb::new(kin.pos, kin.size * 0.5),
+                ae::Aabb::new(kin.pos, kin.size() * 0.5),
             ));
         let (throw_pos, throw_vel) = match release {
             // The launch for the press's direction, in the local frame → world,
             // with part of the thrower's own motion.
             Release::Throw => {
-                let (from, launch) = throw_launch(aimed, facing, kin.size);
+                let (from, launch) = throw_launch(aimed, facing, kin.size());
                 (kin.pos + frame.to_world(from), frame.to_world(launch) + kin.vel * THROW_MOMENTUM)
             }
             // ⭐ WHERE THE BODY IS, WITH NOTHING ADDED. Not "a weak throw": a drop

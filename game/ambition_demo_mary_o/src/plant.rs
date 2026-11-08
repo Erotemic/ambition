@@ -130,7 +130,7 @@ pub fn run_snake_plants(
         let held = holds.is_some_and(|holds| holds.holds(ae::PoseHold::Path));
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
-        let (pos, half_height) = (clusters.kinematics.pos, clusters.kinematics.size.y * 0.5);
+        let (pos, half_height) = (clusters.kinematics.pos, clusters.kinematics.size().y * 0.5);
         let pot = (is_snake_plant_brain(&config.brain) && health.alive())
             .then(|| geometry.of(entity).and_then(|room| pot_of(&room.0, pos)))
             .flatten();

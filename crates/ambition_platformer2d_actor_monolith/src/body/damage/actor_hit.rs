@@ -276,7 +276,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
         // `Copy` reads taken before the guard borrows the velocity.
         let victim_facing = em.kin.facing;
         let victim_pos = em.kin.pos;
-        let victim_size = em.kin.size;
+        let victim_size = em.kin.size();
         let resolution = ambition_damage::resolve_body_hit(
             combat,
             Some(&mut *em.health),
@@ -639,7 +639,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 }
                 // A spirit bursts into shots that run the floor out of it.
                 if let (Some(burst), Some(projectiles)) = (caps.bursts_into.as_ref(), writers.projectiles.as_mut()) {
-                    let feet = em.kin.pos.y + em.kin.size.y * 0.5;
+                    let feet = em.kin.pos.y + em.kin.size().y * 0.5;
                     for k in 0..burst.count {
                         let dir = if k % 2 == 0 { 1.0 } else { -1.0 };
                         let spawn = ambition_projectiles::ProjectileSpawn {

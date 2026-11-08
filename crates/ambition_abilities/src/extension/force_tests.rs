@@ -110,7 +110,7 @@ fn velocities_in(min: [f32; 2], max: [f32; 2]) -> [Vec2; 5] {
     .map(|(down, instance, external)| {
         let kin = BodyKinematics {
             pos: Vec2::ZERO,
-            size: Vec2::new(4.0, 20.0),
+            canonical_size: Vec2::new(4.0, 20.0),
             ..Default::default()
         };
         let mut body = app.world_mut().spawn((

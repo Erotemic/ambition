@@ -104,10 +104,10 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         PlayerEntity,
         PrimaryPlayer,
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(1000.0, 1000.0),
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(24.0, 40.0),
+            canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
     ));
@@ -116,10 +116,10 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         .world_mut()
         .spawn((
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement("possessed_actor"),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: zone_center,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
         ))
@@ -260,10 +260,10 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         // What `ensure_sim_id` gives a primary avatar on every host; see the
         // note in `a_possessed_actor_triggers_a_room_transition_through_a_walk_zone`.
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos: end,
             vel,
-            size: ae::Vec2::new(24.0, 40.0),
+            canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
         ae::SweepSample {
@@ -412,11 +412,11 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     let build = |sample: Option<ae::SweepSample>| {
         room_crossed_to(
             ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: stopped_at,
                 // ZERO, and that is the whole point: the wall took it.
                 vel: ae::Vec2::ZERO,
-                size: body_half * 2.0,
+                canonical_size: body_half * 2.0,
                 facing: 1.0,
             },
             sample,
@@ -467,7 +467,7 @@ fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches
     let arrival = ae::Vec2::new(300.0, 200.0);
     let mut scratch =
         ae::BodyClusterScratch::new_with_abilities(ae::Vec2::new(100.0, 100.0), ae::AbilitySet::default());
-    scratch.kinematics.size = size;
+    scratch.kinematics.canonical_size = size;
     scratch.base_size.base_size = size;
     let world = empty_world("sideways");
     let mut sample = ae::SweepSample::default();
@@ -526,10 +526,10 @@ fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches
 fn a_body_moved_past_its_record_in_sideways_gravity_crosses_the_zone_its_own_box_touches() {
     let size = ae::Vec2::new(48.0, 22.0);
     let stands_at = ae::Vec2::new(300.0, 200.0);
-    let body = ambition_platformer2d_core::BodyKinematics {
+    let body = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
         pos: stands_at,
         vel: ae::Vec2::ZERO,
-        size,
+        canonical_size: size,
         facing: 1.0,
     };
     // The record of its last step, in sideways gravity, far from where it is.
@@ -986,7 +986,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
     let start = ae::Vec2::new(band_left - body_half.x - 120.0, floor_top - body_half.y);
     let mut scratch =
         ae::BodyClusterScratch::new_with_abilities(start, ae::AbilitySet::sandbox_all());
-    scratch.kinematics.size = body_half * 2.0;
+    scratch.kinematics.canonical_size = body_half * 2.0;
     let frame = ae::MotionFrame::from_acceleration(
         ambition_platformer2d_core::movement::DEFAULT_GRAVITY_DIR
             * ambition_platformer2d_core::movement::GRAVITY,
@@ -1381,10 +1381,10 @@ fn app_with_a_door(
                 PlayerEntity,
                 PrimaryPlayer,
                 ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
+                    canonical_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
             ))
@@ -1631,10 +1631,10 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
             .spawn((
                 ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
                 InRoomInstance(room),
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos: b_zone,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
+                    canonical_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
             ))

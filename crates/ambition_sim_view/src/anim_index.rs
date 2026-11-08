@@ -466,7 +466,7 @@ pub fn rebuild_actor_anim_index(
                                     let down = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
                                     ambition_character_sprites::Recoil::of(
                                         a.combat.struck_height,
-                                        ambition_character_sprites::extent_along(a.kin.size, down),
+                                        ambition_character_sprites::extent_along(a.kin.size(), down),
                                         !a.ground.on_ground,
                                     )
                                 }),

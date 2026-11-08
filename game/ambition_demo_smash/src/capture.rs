@@ -99,7 +99,7 @@ use ambition_platformer2d::engine_core as ae;
                     ambition_platformer2d::engine_core::BodyKinematics {
                         pos: ambition_platformer2d::engine_core::Vec2::new(x, 0.0),
                         facing: 1.0,
-                        size: ambition_platformer2d::engine_core::Vec2::new(16.0, 24.0),
+                        canonical_size: ambition_platformer2d::engine_core::Vec2::new(16.0, 24.0),
                         ..Default::default()
                     },
                     ambition_platformer2d::combat::components::CenteredAabb::new(
@@ -316,7 +316,7 @@ use ambition_platformer2d::engine_core as ae;
                 ambition_platformer2d::engine_core::BodyKinematics {
                     pos: ambition_platformer2d::engine_core::Vec2::new(20.0, 0.0),
                     facing: 1.0,
-                    size: ambition_platformer2d::engine_core::Vec2::new(16.0, 24.0),
+                    canonical_size: ambition_platformer2d::engine_core::Vec2::new(16.0, 24.0),
                     ..Default::default()
                 },
                 ambition_platformer2d::characters::actor::BodyCombat::default(),

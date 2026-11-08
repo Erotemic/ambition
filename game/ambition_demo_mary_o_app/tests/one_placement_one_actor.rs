@@ -251,7 +251,7 @@ fn two_walkers_meet_without_overlap_and_turn_away() {
     let pair = [slops[0], slops[1]];
     for (entity, x, facing) in [(pair[0], 350.0, 1.0), (pair[1], 410.0, -1.0)] {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(entity).unwrap();
-        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size.y * 0.5);
+        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size().y * 0.5);
         kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
         kin.facing = facing;
     }
@@ -325,7 +325,7 @@ fn a_walker_hurts_mary_o_without_turning_away() {
     let enemy_size = app.world().get::<BodyKinematics>(enemy).unwrap().size;
     for (entity, x, facing) in [(player, 350.0, 1.0), (enemy, 350.0 + (player_size.x + enemy_size.x) * 0.5, -1.0)] {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(entity).unwrap();
-        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size.y * 0.5);
+        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size().y * 0.5);
         kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
         kin.facing = facing;
     }
@@ -361,7 +361,7 @@ fn walking_into_a_boxed_snake_still_kicks_it() {
     for _ in 0..4 { app.update(); }
     for (entity, x) in [(player, 350.0), (snake, 420.0)] {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(entity).unwrap();
-        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size.y * 0.5);
+        kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size().y * 0.5);
         kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
     }
     app.world_mut().resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>().0 = ambition_platformer2d::input::ControlFrame { axis_x: 1.0, ..Default::default() };
@@ -403,7 +403,7 @@ fn retain_contact_walkers(app: &mut App, keep: &[Entity]) {
 
 fn place_contact_body(app: &mut App, body: Entity, x: f32, facing: f32) {
     let mut kin = app.world_mut().get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(body).unwrap();
-    kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size.y * 0.5);
+    kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size().y * 0.5);
     kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
     kin.facing = facing;
     if let Some(mut ground) = app.world_mut().get_mut::<ambition_platformer2d::engine_core::BodyGroundState>(body) {

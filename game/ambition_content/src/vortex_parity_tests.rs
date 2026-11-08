@@ -86,10 +86,10 @@ fn body(app: &mut App, name: &str, at: ae::Vec2, side: ActorFaction) -> Entity {
     app.world_mut()
         .spawn((
             FeatureSimEntity,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: at,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             side,
@@ -137,10 +137,10 @@ fn world(road: Road) -> (App, Vec<Entity>) {
         let mut control = ActorControl::default();
         control.0.aim = ae::LocalAxes::new(c.aim[0], c.aim[1]);
         let mut entity = app.world_mut().spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: c.at,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             control,

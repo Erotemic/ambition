@@ -198,7 +198,7 @@ pub fn speak_conversation_cut_barks(
             continue;
         };
         vfx.for_room(rooms.of(request.speaker)).write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
-            pos: kin.pos + ambition_platformer2d_core::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0),
+            pos: kin.pos + ambition_platformer2d_core::Vec2::new(0.0, -kin.size().y * 0.72 - 16.0),
             text: line.to_string(),
         });
     }

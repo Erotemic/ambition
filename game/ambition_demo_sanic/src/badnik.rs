@@ -141,7 +141,7 @@ mod tests {
         let mut kin = ae::BodyKinematics::default();
         kin.pos = pos;
         kin.vel = vel;
-        kin.size = ae::Vec2::new(28.0, 32.0);
+        kin.canonical_size = ae::Vec2::new(28.0, 32.0);
         kin
     }
 

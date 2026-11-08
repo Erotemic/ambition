@@ -59,7 +59,7 @@ fn world_with_patrolling_npc(sprite_content: &ambition_sprite_sheet::SpriteConte
             ..ae::AbilitySet::NONE
         },
         false,
-        seed.kin.size,
+        seed.kin.size(),
     );
     // This is a patrol MOVEMENT test: it needs a patrol brain to drive the body,
     // not the brain-SELECTION logic (which now lives in `resolve_npc_brain` and is
@@ -106,7 +106,7 @@ fn tick_peaceful(
         actor_pos: seed.kin.pos,
         actor_vel: seed.kin.vel,
         actor_facing: seed.kin.facing,
-        actor_half_width: seed.kin.size.x * 0.5,
+        actor_half_width: seed.kin.size().x * 0.5,
         control_down: gravity,
         movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
         aim_frame_mode: ae::InputFrameMode::ScreenRelative,
@@ -190,7 +190,7 @@ fn npc_falls_to_floor_under_gravity() {
         npc.body.0.ground.on_ground,
         "NPC must land on the floor under gravity"
     );
-    let body_bottom = npc.kin.pos.y + npc.kin.size.y * 0.5;
+    let body_bottom = npc.kin.pos.y + npc.kin.size().y * 0.5;
     assert!(
         (body_bottom - 600.0).abs() < 1.0,
         "expected body bottom near floor top (600); got {body_bottom}"
@@ -353,7 +353,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         );
     }
-    let half_w = enemy.kin.size.x * 0.5;
+    let half_w = enemy.kin.size().x * 0.5;
     let wall_left_edge = 300.0;
     assert!(
         enemy.kin.pos.x + half_w <= wall_left_edge + 0.5,
@@ -419,7 +419,7 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         );
     }
-    let half_w = enemy.kin.size.x * 0.5;
+    let half_w = enemy.kin.size().x * 0.5;
     let wall_left_edge = 200.0;
     assert!(
         enemy.kin.pos.x + half_w <= wall_left_edge + 0.5,

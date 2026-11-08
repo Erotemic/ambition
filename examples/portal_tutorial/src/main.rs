@@ -224,7 +224,7 @@ fn observe_body(
     let (kin, mut view, mut transform) = body.into_inner();
     *view = PortalBodyView {
         pos: kin.pos,
-        size: kin.size,
+        size: kin.size(),
         facing: kin.facing,
     };
     transform.translation = world_to_render(kin.pos, 20.0);

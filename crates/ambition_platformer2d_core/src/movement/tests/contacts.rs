@@ -102,7 +102,7 @@ fn rising_into_a_bonk_only_block_reports_a_head_contact() {
     for _ in 0..30 {
         step_scratch(&base, &mut settle, InputState::default());
     }
-    let standing_head = settle.kinematics.pos.y - settle.kinematics.size.y * 0.5;
+    let standing_head = settle.kinematics.pos.y - settle.kinematics.size().y * 0.5;
 
     // A hidden block a comfortable hop above her head, spanning her column.
     let underside = standing_head - 40.0;
@@ -133,7 +133,7 @@ fn rising_into_a_bonk_only_block_reports_a_head_contact() {
     let mut peak = f32::INFINITY;
     for _ in 0..90 {
         let events = step_scratch(&world, &mut scratch, jump());
-        peak = peak.min(scratch.kinematics.pos.y - scratch.kinematics.size.y * 0.5);
+        peak = peak.min(scratch.kinematics.pos.y - scratch.kinematics.size().y * 0.5);
         for contact in &events.contacts {
             let ContactSource::Block { kind, .. } = &contact.source else {
                 continue;

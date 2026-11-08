@@ -451,10 +451,10 @@ mod tests {
         let mut fighter = |x: f32| -> Entity {
             app.world_mut()
                 .spawn((
-                    ae::BodyKinematics {
+                    ae::BodyKinematics { material: Default::default(),
                         pos: ae::Vec2::new(x, 0.0),
                         vel: ae::Vec2::ZERO,
-                        size: ae::Vec2::new(16.0, 32.0),
+                        canonical_size: ae::Vec2::new(16.0, 32.0),
                         facing: 1.0,
                     },
                     ambition_characters::actor::BodyCombat::default(),

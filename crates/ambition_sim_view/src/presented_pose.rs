@@ -317,7 +317,7 @@ pub fn advance_presented_body_poses(
             // First sight: no history, so it presents exactly where it spawned
             // rather than extrapolating away from a default.
             let mut first = PresentedPose::new(pose.pos, tick.0);
-            first.size = pose.size;
+            first.size = pose.size();
             commands.entity(entity).insert(first);
             continue;
         };
@@ -333,7 +333,7 @@ pub fn advance_presented_body_poses(
             } else {
                 let down = frame
                     .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-                let resized = resize_shift(presented.size, pose.size, down);
+                let resized = resize_shift(presented.size, pose.size(), down);
                 let continuous = travelled_under_own_power(
                     presented.current + resized,
                     pose.pos,
@@ -342,7 +342,7 @@ pub fn advance_presented_body_poses(
                 );
                 presented.push(pose.pos, tick.0, continuous, resized);
             }
-            presented.size = pose.size;
+            presented.size = pose.size();
             // The shake belongs to the VICTIM: the body a hit flashed and froze.
             // The attacker shares the freeze and holds still.
             let frozen = combat.is_some_and(|c| c.hitstop_timer > 0.0 && c.hit_flash > 0.0);

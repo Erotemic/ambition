@@ -1089,7 +1089,7 @@ fn enemy_hitbox_over_player_app_dealing(
             ActorFaction::Player,
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -1260,7 +1260,7 @@ fn player_melee_never_targets_its_owner() {
             ),
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
-                size: ae::Vec2::new(20.0, 40.0),
+                canonical_size: ae::Vec2::new(20.0, 40.0),
                 ..Default::default()
             },
             ambition_platformer2d_core::BodyMotionFacts::default(),
@@ -2305,7 +2305,7 @@ mod strike_rank {
             ActorFaction::Player,
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(victim_x, 100.0),
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -3438,7 +3438,7 @@ fn profile_strike_resolution_with_guards() {
             ActorFaction::Player,
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(x, 100.0),
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: -1.0,
                 ..Default::default()
             },

@@ -103,7 +103,7 @@ fn seizes(down: ae::Vec2, facing: f32, victim_at: ae::Vec2) -> bool {
         ae::BodyKinematics {
             pos: ae::Vec2::ZERO,
             facing,
-            size: ae::Vec2::new(16.0, 24.0),
+            canonical_size: ae::Vec2::new(16.0, 24.0),
             ..Default::default()
         },
         ActorFaction::Enemy,
@@ -116,7 +116,7 @@ fn seizes(down: ae::Vec2, facing: f32, victim_at: ae::Vec2) -> bool {
             ae::BodyKinematics {
                 pos: victim_at,
                 facing: 1.0,
-                size: ae::Vec2::new(16.0, 16.0),
+                canonical_size: ae::Vec2::new(16.0, 16.0),
                 ..Default::default()
             },
             crate::components::CenteredAabb::new(victim_at, ae::Vec2::new(8.0, 8.0)),
@@ -301,7 +301,7 @@ fn held_from_the_captor(captor: JawCaptor, hold_at: Option<&str>, hold_offset: [
             ae::BodyKinematics {
                 pos: CAPTOR_AT,
                 facing: captor.facing,
-                size: ae::Vec2::new(16.0, 24.0),
+                canonical_size: ae::Vec2::new(16.0, 24.0),
                 ..Default::default()
             },
             ActorFaction::Enemy,
@@ -321,7 +321,7 @@ fn held_from_the_captor(captor: JawCaptor, hold_at: Option<&str>, hold_offset: [
             ae::BodyKinematics {
                 pos: victim_at,
                 facing: 1.0,
-                size: ae::Vec2::new(16.0, 16.0),
+                canonical_size: ae::Vec2::new(16.0, 16.0),
                 ..Default::default()
             },
             ae::BodyGroundState::default(),
@@ -470,7 +470,7 @@ fn the_attachment_observation_gives_each_point_from_the_position_of_the_body() {
             ae::BodyKinematics {
                 pos: CAPTOR_AT,
                 facing: -1.0,
-                size: ae::Vec2::new(16.0, 24.0),
+                canonical_size: ae::Vec2::new(16.0, 24.0),
                 ..Default::default()
             },
             jaw_rig(5.0),

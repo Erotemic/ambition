@@ -449,10 +449,10 @@ mod tests {
             .world_mut()
             .spawn((
                 ae::CenteredAabb::from_center_size(center, ae::Vec2::new(20.0, 40.0)),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: center,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(20.0, 40.0),
+                    canonical_size: ae::Vec2::new(20.0, 40.0),
                     facing: 1.0,
                 },
                 ambition_platformer2d_core::BodyGroundState::default(),

@@ -121,7 +121,7 @@ fn seated_bodies(app: &mut App) -> Vec<SeatedBody> {
                 character: world
                     .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
                     .map(|w| w.id().to_string()),
-                size: kin.size,
+                size: kin.size(),
                 drawn_quad: world.get::<ActorRenderSize>(entity).map(|quad| quad.0),
                 art_floor,
                 facing: if kin.facing < 0.0 { -1.0 } else { 1.0 },

@@ -172,10 +172,10 @@ mod tests {
         app.world_mut()
             .spawn((
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
-                ambition_platformer2d_core::BodyKinematics {
+                ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                     pos,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(24.0, 40.0),
+                    canonical_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
                 ResolvedMotionFrame::default(),
@@ -277,10 +277,10 @@ mod tests {
         let aerial = app
             .world_mut()
             .spawn((
-                ambition_platformer2d_core::BodyKinematics {
+                ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(50.0, 50.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(20.0, 20.0),
+                    canonical_size: ae::Vec2::new(20.0, 20.0),
                     facing: 1.0,
                 },
                 config,
@@ -318,10 +318,10 @@ mod tests {
         };
         let body = |x: f32| {
             (
-                ambition_platformer2d_core::BodyKinematics {
+                ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(x, 50.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(20.0, 20.0),
+                    canonical_size: ae::Vec2::new(20.0, 20.0),
                     facing: 1.0,
                 },
                 config.clone(),

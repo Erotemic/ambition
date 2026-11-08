@@ -112,10 +112,10 @@ pub fn charge_shot_birth(
     let facing = if kin.facing.abs() < f32::EPSILON { 1.0 } else { kin.facing.signum() };
     let shoot_row = LandmarkPose::Clip { chain: SHOOT_CLIPS, phase: SHOOT_RELEASE_PHASE };
     let Some(hand) = landmarks.gesture_hand(body, shoot_row) else {
-        return kin.pos + to_world(box_muzzle_local_offset(local_dir, facing, kin.size));
+        return kin.pos + to_world(box_muzzle_local_offset(local_dir, facing, kin.size()));
     };
-    let local = hand_local_offset(hand, local_dir, facing, kin.size, half_extent);
-    clear_of_the_feet(kin.pos + to_world(local), kin.pos, kin.size.y, down, half_extent)
+    let local = hand_local_offset(hand, local_dir, facing, kin.size(), half_extent);
+    clear_of_the_feet(kin.pos + to_world(local), kin.pos, kin.size().y, down, half_extent)
 }
 
 #[cfg(test)]

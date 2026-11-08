@@ -422,7 +422,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
                 &zone.zone.id,
                 zone.zone.aabb,
                 kin.pos,
-                kin.size.y * 0.5,
+                kin.size().y * 0.5,
                 kin.facing,
                 crossing,
                 arrival,

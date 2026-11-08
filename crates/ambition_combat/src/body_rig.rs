@@ -42,7 +42,7 @@ pub struct RigFeetOffset(pub Vec2);
 /// height. The one rule for a reader that places a rig-space point from the
 /// body's position: its hurt parts, its attachment points.
 pub fn rig_feet_from_centre(feet: Option<&RigFeetOffset>, kin: Option<&ambition_platformer2d_core::BodyKinematics>) -> Vec2 {
-    feet.map_or_else(|| Vec2::new(0.0, kin.map_or(0.0, |kin| kin.size.y * 0.5)), |feet| feet.0)
+    feet.map_or_else(|| Vec2::new(0.0, kin.map_or(0.0, |kin| kin.size().y * 0.5)), |feet| feet.0)
 }
 
 /// Where this body's joints and attachments are this tick, in its rig space:

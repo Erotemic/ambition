@@ -210,7 +210,7 @@ pub(super) fn step_crawler(
     // floors, walls, ceilings), so a MOVING surface carries it by the FULL
     // velocity — both axes, not just the gravity-perpendicular component a
     // gravity-resting body gets. Probe toward the surface it's clinging to.
-    let half = clusters.kinematics.size * 0.5;
+    let half = clusters.kinematics.size() * 0.5;
     let (body_long, body_thick) = (half.x, half.y);
     {
         let toward_surface = -normal;
@@ -360,7 +360,7 @@ fn crawl_chain(
         return;
     }
     let f = surface.frame_at(next_s);
-    let body_thick = clusters.kinematics.size.y * 0.5;
+    let body_thick = clusters.kinematics.size().y * 0.5;
     clusters.kinematics.pos = f.point + f.normal * body_thick;
     clusters.kinematics.vel = f.tangent * facing * speed;
     motion.state = CrawlerState::attached_to_chain(
@@ -437,7 +437,7 @@ fn publish_attachment_contact(
     let Some(normal) = motion.state.attached_normal(world) else {
         return;
     };
-    let half = clusters.kinematics.size * 0.5;
+    let half = clusters.kinematics.size() * 0.5;
     let body_thick = half.y;
     let probe = Aabb::new(
         clusters.kinematics.pos - normal * 2.0,
@@ -521,7 +521,7 @@ fn fall_step(
     // Adhesion: a chain surface the body's underside touches captures the
     // crawler mid-fall — arbitrary-angle attachment through the same geometry
     // the momentum policy rides.
-    let body_thick = clusters.kinematics.size.y * 0.5;
+    let body_thick = clusters.kinematics.size().y * 0.5;
     if let Some((chain, s)) = chain_capture(world, clusters.kinematics.pos, body_thick) {
         motion.state = CrawlerState::attached_to_chain(chain, s);
         clusters.kinematics.vel = Vec2::ZERO;

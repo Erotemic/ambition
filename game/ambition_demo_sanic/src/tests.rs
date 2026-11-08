@@ -492,7 +492,7 @@ impl MomentumRig {
             frame.point + frame.normal * 16.0,
             ae::AbilitySet::default(),
         );
-        scratch.kinematics.size = ae::Vec2::splat(32.0);
+        scratch.kinematics.canonical_size = ae::Vec2::splat(32.0);
         scratch.kinematics.vel = frame.tangent * v_t;
         let mut model = ae::MotionModel::surface_momentum(params);
         let ae::MotionModel::SurfaceMomentum(m) = &mut model else {
@@ -1750,7 +1750,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     }
     fn spawn_sanic(app: &mut App, rings: i32) -> bevy::prelude::Entity {
         let mut kin = ae::BodyKinematics::default();
-        kin.size = ae::Vec2::new(28.0, 32.0);
+        kin.canonical_size = ae::Vec2::new(28.0, 32.0);
         app.world_mut()
             .spawn((
                 ambition_platformer2d::platformer::markers::PlayerEntity,
@@ -1834,7 +1834,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let body = ae::Vec2::new(100.0, 100.0);
     let mut kin = ae::BodyKinematics::default();
     kin.pos = body;
-    kin.size = ae::Vec2::new(28.0, 32.0);
+    kin.canonical_size = ae::Vec2::new(28.0, 32.0);
     let sanic = app
         .world_mut()
         .spawn((
@@ -2138,7 +2138,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let body = ae::Vec2::new(200.0, 200.0);
     let mut kin = ae::BodyKinematics::default();
     kin.pos = body;
-    kin.size = ae::Vec2::new(28.0, 32.0);
+    kin.canonical_size = ae::Vec2::new(28.0, 32.0);
     let sanic = app
         .world_mut()
         .spawn((
@@ -2233,7 +2233,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     app.add_systems(bevy::prelude::Update, crate::scatter_rings_on_hit);
 
     let mut kin = ae::BodyKinematics::default();
-    kin.size = ae::Vec2::new(28.0, 32.0);
+    kin.canonical_size = ae::Vec2::new(28.0, 32.0);
     let player_id = SimId::player_slot(0);
     let sanic = app
         .world_mut()
@@ -2432,7 +2432,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
 
     let mut kin = ae::BodyKinematics::default();
     kin.pos = ae::Vec2::new(100.0, 100.0);
-    kin.size = ae::Vec2::new(28.0, 32.0);
+    kin.canonical_size = ae::Vec2::new(28.0, 32.0);
     let sanic = app
         .world_mut()
         .spawn((

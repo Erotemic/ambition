@@ -852,7 +852,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     {
         contact = probe_ledge_grab_in_frame(
             clusters.kinematics.pos,
-            clusters.kinematics.size,
+            clusters.kinematics.size(),
             wall_normal,
             world,
             frame.down(),
@@ -865,7 +865,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
         for trial_normal in [-1.0_f32, 1.0_f32] {
             if let Some(found) = probe_ledge_grab_in_frame(
                 clusters.kinematics.pos,
-                clusters.kinematics.size,
+                clusters.kinematics.size(),
                 trial_normal,
                 world,
                 frame.down(),
@@ -881,7 +881,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
 
     let grab_quality = classify_ledge_grab_in_frame(
         clusters.kinematics.pos,
-        clusters.kinematics.size,
+        clusters.kinematics.size(),
         contact,
         frame.down(),
     );

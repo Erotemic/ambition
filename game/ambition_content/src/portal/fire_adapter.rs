@@ -127,10 +127,10 @@ mod tests {
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: home_pos,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -141,10 +141,10 @@ mod tests {
         let holder = app
             .world_mut()
             .spawn((
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos: holder_pos,
                     vel: Vec2::ZERO,
-                    size: Vec2::new(24.0, 40.0),
+                    canonical_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
                 PortalGun {
@@ -193,10 +193,10 @@ mod tests {
             let holder = app
                 .world_mut()
                 .spawn((
-                    BodyKinematics {
+                    BodyKinematics { material: Default::default(),
                         pos: Vec2::ZERO,
                         vel: Vec2::ZERO,
-                        size: Vec2::new(24.0, 40.0),
+                        canonical_size: Vec2::new(24.0, 40.0),
                         facing: 1.0,
                     },
                     PortalGun {

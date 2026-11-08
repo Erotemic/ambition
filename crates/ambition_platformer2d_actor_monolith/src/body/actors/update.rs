@@ -667,7 +667,7 @@ pub fn tick_actor_brains(
                         let art_floor = room_rules
                             .of(this_actor_entity)
                             .map_or(0.0, |rules| rules.art_hit_area_min);
-                        let size = body.kin.size;
+                        let size = body.kin.size();
                         let resolve = |clip: &str, start_s: f32| {
                             coverage_source
                                 .resolver
@@ -708,7 +708,7 @@ pub fn tick_actor_brains(
                     // An `Unmirrored` mount shows no turn, so its rider turns
                     // by its own box.
                     if let Some((mount, false, ..)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
-                        snapshot.actor_half_width = snapshot.actor_half_width.max(mount.size.x * 0.5);
+                        snapshot.actor_half_width = snapshot.actor_half_width.max(mount.size().x * 0.5);
                     }
                     // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body
                     // whose profile turns there. The rider knows its surface, so
@@ -724,7 +724,7 @@ pub fn tick_actor_brains(
                                 &momentum.state,
                                 resolved_frame.get(),
                                 body.kin.facing,
-                                body.kin.size.x * 0.5 + 8.0,
+                                body.kin.size().x * 0.5 + 8.0,
                             );
                         }
                     }
@@ -1116,7 +1116,7 @@ fn integrate_actor_body(
         if let Some(neighbor) = steering.neighbor_by_entity.get(&actor_entity).copied() {
             if crawler_neighbor_blocks(
                 em.kin.pos,
-                em.kin.size,
+                em.kin.size(),
                 em.kin.facing,
                 em.surface.surface_normal,
                 neighbor,
@@ -1247,7 +1247,7 @@ fn integrate_actor_body(
     // collision box IS its footprint. This is the one universal `CenteredAabb`
     // publish rule (AJ5.1); it replaces the boss's old bespoke render-sized
     // publish, so the same `to_world_half(size*0.5)` box comes out either way.
-    let footprint = envelope.unwrap_or(em.kin.size);
+    let footprint = envelope.unwrap_or(em.kin.size());
     ambition_combat::body_geometry::publish_body_footprint(
         aabb,
         em.kin.pos,
@@ -2403,7 +2403,7 @@ fn build_enemy_brain_snapshot(
         actor_vel: body.kin.vel,
         actor_facing: body.kin.facing,
         // Its own box; `tick_actor_brains` widens it to a mount's.
-        actor_half_width: body.kin.size.x * 0.5,
+        actor_half_width: body.kin.size().x * 0.5,
         control_down: gravity_dir,
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
@@ -2674,7 +2674,7 @@ pub fn tick_npc_idle_barks(
         ) else {
             continue;
         };
-        let anchor = kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0);
+        let anchor = kin.pos + ae::Vec2::new(0.0, -kin.size().y * 0.72 - 16.0);
         vfx.write_in(room, ambition_vfx::vfx::VfxMessage::SpeechBubble {
             pos: anchor,
             text: line.to_string(),

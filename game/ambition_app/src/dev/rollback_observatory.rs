@@ -407,7 +407,7 @@ fn capture_loaded_world(
         ghosts.push(RollbackGhost {
             sim_id: sim_id.as_str().to_owned(),
             loaded_pos: body.pos,
-            size: body.size,
+            size: body.size(),
             entity_recreated,
         });
     }

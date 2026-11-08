@@ -271,7 +271,7 @@ pub fn sync_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spri
         // that the +gravity face stays planted; the direction has to be the
         // body's, not the default's.
         let gravity_dir = frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-        if kin.size != posed_collision {
+        if kin.size() != posed_collision {
             // Feet-anchored, through the engine's one feet-planted resize op: hold the +gravity
             // face and move the centre by half the change, so a withdraw/emerge never drives the
             // body through the ground it is standing on.

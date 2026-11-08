@@ -99,7 +99,7 @@ fn fight(sim: &mut Platformer2dSimHarness, boss: Entity, player: Entity) -> (Vec
         let world = sim.world_mut();
         let boss_kin = world.get::<BodyKinematics>(boss).expect("the boss has a body").clone();
         let mut player_kin = world.get_mut::<BodyKinematics>(player).expect("the player has a body");
-        let gap = (boss_kin.pos.x - player_kin.pos.x).abs() - (boss_kin.size.x + player_kin.size.x) * 0.5;
+        let gap = (boss_kin.pos.x - player_kin.pos.x).abs() - (boss_kin.size().x + player_kin.size().x) * 0.5;
         if made.is_empty() {
             if gap < KEEP_AWAY {
                 let far = PLAYER_PLACES

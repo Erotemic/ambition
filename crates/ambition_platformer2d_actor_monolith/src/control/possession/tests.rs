@@ -53,10 +53,10 @@ fn spawn_home(app: &mut App) -> Entity {
             SimId::player_slot(0),
             Brain::stand_still(),
             ActorControl::default(),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: vec2(0.0, 0.0),
                 vel: vec2(0.0, 0.0),
-                size: vec2(24.0, 40.0),
+                canonical_size: vec2(24.0, 40.0),
                 facing: 1.0,
             },
             // The vacate-exit is a discrete transit through the home body's

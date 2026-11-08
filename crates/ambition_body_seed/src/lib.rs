@@ -522,10 +522,10 @@ impl ActorClusterSeed {
             return seed;
         }
         Self {
-            kin: BodyKinematics {
+            kin: BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: collision_size,
+                canonical_size: collision_size,
                 facing: 1.0,
             },
             status: ActorStatus {
@@ -730,10 +730,10 @@ impl ActorClusterSeed {
         // AND recorded on the baseline a reset restores.
         let gravity_scale = if is_aerial { 0.0 } else { 1.0 };
         Self {
-            kin: BodyKinematics {
+            kin: BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: collision_size,
+                canonical_size: collision_size,
                 facing: 1.0,
             },
             status: ActorStatus {
@@ -1153,7 +1153,7 @@ mod tests {
         let source = ambition_characters::actor::definition::BodySource::SpriteAuthored {
             world_per_pixel: WORLD_PER_PIXEL,
         };
-        let built = seed_for(Some(&source)).kin.size;
+        let built = seed_for(Some(&source)).kin.size();
         assert_eq!(
             built, from_the_sheet.collision,
             "a `SpriteAuthored` body was constructed at {built:?} while the pose              pass sizes it at {:?} — two derivations of one authored scale, and              the body is resized out from under whatever already bound it",
@@ -1188,7 +1188,7 @@ mod tests {
             unsourced_seed.posed, None,
             "a body that authors no source carries a resolved sheet geometry"
         );
-        let unsourced = unsourced_seed.kin.size;
+        let unsourced = unsourced_seed.kin.size();
         assert_eq!(
             unsourced, placement_size,
             "a body that authors no source was sized from a sheet it never named"

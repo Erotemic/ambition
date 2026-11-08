@@ -397,15 +397,21 @@ impl SnapshotState for crate::body_clusters::BodyKinematics {
     fn encode(&self, out: &mut Vec<u8>) {
         put_vec2(out, self.pos);
         put_vec2(out, self.vel);
-        put_vec2(out, self.size);
+        put_vec2(out, self.canonical_size);
         put_f32(out, self.facing);
+        put_f32(out, self.material.scale());
+        put_vec2(out, self.material.orthogonal().x_axis);
+        put_vec2(out, self.material.orthogonal().y_axis);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(crate::body_clusters::BodyKinematics {
             pos: r.vec2()?,
             vel: r.vec2()?,
-            size: r.vec2()?,
+            canonical_size: r.vec2()?,
             facing: r.f32()?,
+            material: crate::frame::BodyMaterial::new(
+                r.f32()?, bevy_math::Mat2::from_cols(r.vec2()?, r.vec2()?),
+            ).ok()?,
         })
     }
 }

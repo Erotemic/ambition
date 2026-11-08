@@ -250,7 +250,7 @@ fn lizard_feet(app: &mut App) -> Vec<f32> {
         .filter(|(config, health, _)| {
             ambition_demo_mary_o::void_lizard::is_void_lizard_brain(&config.brain) && health.alive()
         })
-        .map(|(_, _, kin)| kin.pos.y + kin.size.y * 0.5)
+        .map(|(_, _, kin)| kin.pos.y + kin.size().y * 0.5)
         .collect()
 }
 

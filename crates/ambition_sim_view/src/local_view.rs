@@ -1473,10 +1473,10 @@ mod tests {
         let room = LiveRoomInstance::ACTIVATION;
         let leader = app.world_mut().spawn((DrivingParticipant(PlayerSlot(0)), InRoomInstance(room),
             BodyWallet { balance: 7 }, BodyHealth::new(Health::new(5)),
-            ae::BodyKinematics { pos: ae::Vec2::ZERO, vel: ae::Vec2::ZERO, size: ae::Vec2::splat(20.0), facing: 1.0 })).id();
+            ae::BodyKinematics { material: Default::default(), pos: ae::Vec2::ZERO, vel: ae::Vec2::ZERO, canonical_size: ae::Vec2::splat(20.0), facing: 1.0 })).id();
         let follower = app.world_mut().spawn((DrivingParticipant(PlayerSlot(1)), InRoomInstance(room.next()),
             BodyWallet { balance: 9 }, BodyHealth::new(Health::new(5)),
-            ae::BodyKinematics { pos: ae::Vec2::ZERO, vel: ae::Vec2::ZERO, size: ae::Vec2::splat(20.0), facing: 1.0 })).id();
+            ae::BodyKinematics { material: Default::default(), pos: ae::Vec2::ZERO, vel: ae::Vec2::ZERO, canonical_size: ae::Vec2::splat(20.0), facing: 1.0 })).id();
         let view = app.world_mut().spawn((LocalView, LocalViewId::FIRST, PartyLeaderFocus(PlayerSlot(0)),
             ViewParticipant(PlayerSlot(0)), ResolvedViewSubject(Some(leader)), ViewHudFacts::default(), ViewHudSeat::default(),
             SharedViewHudFacts::default(), ResolvedCameraSnapshot(Some(ResolvedCameraFrame {

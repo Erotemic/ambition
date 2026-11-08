@@ -13,7 +13,7 @@ fn player_at(app: &mut App, pos: ae::Vec2) -> bevy::prelude::Entity {
             ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
             BodyKinematics {
                 pos,
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -86,7 +86,7 @@ fn currency_pickup_credits_the_player_wallet() {
             ambition_characters::actor::BodyWallet::default(),
             BodyKinematics {
                 pos: center,
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -137,7 +137,7 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
         ambition_characters::actor::BodyWallet::default(),
         BodyKinematics {
             pos: center,
-            size: ae::Vec2::new(28.0, 46.0),
+            canonical_size: ae::Vec2::new(28.0, 46.0),
             facing: 1.0,
             ..Default::default()
         },

@@ -502,7 +502,7 @@ pub fn run_snake_shells(
             if let Some(mut strike) = strikes.spawn(entity, owner, HitSide::Environment, kin.pos, DamageBox {
                 cause: HitSource::Contact,
                 move_instance: None,
-                half_extent: kin.size * 0.5,
+                half_extent: kin.size() * 0.5,
                 shape: None,
                 damage: crate::rules::mary_o_rules().shell.damage,
                 knockback: HitboxKnockback::FeelScale(1.0),

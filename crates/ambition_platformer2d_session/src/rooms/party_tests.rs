@@ -46,8 +46,8 @@ fn fixture(mode: PartyTravelMode, activation: LoadingZoneActivation) -> (App, [E
         .add_message::<ambition_sfx::OwnedSfxMessage>();
     let bodies = [0, 1].map(|slot| app.world_mut().spawn((
         SimId::player_slot(slot), InRoomInstance(LiveRoomInstance::ACTIVATION), DrivingParticipant(PlayerSlot(slot)),
-        ae::BodyKinematics { pos: ae::Vec2::new(500.0, 100.0), vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(28.0, 46.0), facing: 1.0 },
+        ae::BodyKinematics { material: Default::default(), pos: ae::Vec2::new(500.0, 100.0), vel: ae::Vec2::ZERO,
+            canonical_size: ae::Vec2::new(28.0, 46.0), facing: 1.0 },
     )).id());
     app.add_systems(Update, detect_room_transition_system);
     (app, bodies)

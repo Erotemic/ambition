@@ -1520,7 +1520,7 @@ fn every_seat_gets_the_body_facts_its_character_authors() {
             &ambition_platformer2d_shared_tangle::body::Mass,
         ), With<MatchSeat>>();
         q.iter(world)
-            .map(|(kin, mass)| ((kin.size.x, kin.size.y), mass.0))
+            .map(|(kin, mass)| ((kin.size().x, kin.size().y), mass.0))
             .collect()
     };
     assert_eq!(facts.len(), 2, "a mirror match is two bodies");
@@ -2861,7 +2861,7 @@ mod activation_transaction {
             health.max(),
             kin.pos.x,
             kin.facing,
-            kin.size,
+            kin.size(),
         )
     }
 

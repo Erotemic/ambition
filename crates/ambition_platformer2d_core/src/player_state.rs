@@ -337,9 +337,13 @@ pub fn resize_feet_planted(
     new_size: Vec2,
     gravity_dir: Vec2,
 ) {
-    let shrink = kinematics.size - new_size;
-    kinematics.pos += gravity_dir * (shrink * 0.5);
-    kinematics.size = new_size;
+    let old_half = kinematics.half_oriented(gravity_dir);
+    let mut candidate = *kinematics;
+    candidate.canonical_size = new_size;
+    let new_half = candidate.half_oriented(gravity_dir);
+    let down = crate::AccelerationFrame::new(gravity_dir).down;
+    kinematics.pos += down * (old_half - new_half).dot(down.abs());
+    kinematics.canonical_size = new_size;
 }
 
 /// Attempt to change `player.body_mode` to `new_mode`.
@@ -386,8 +390,10 @@ where
     let frame = crate::AccelerationFrame::new(gravity_dir);
     let new_shape = new_mode.shape(base_size.base_size);
 
-    let old_world_half = frame.to_world_half(kinematics.size * 0.5);
-    let new_world_half = frame.to_world_half(new_shape.size * 0.5);
+    let old_world_half = kinematics.half_oriented(gravity_dir);
+    let mut candidate = *kinematics;
+    candidate.canonical_size = new_shape.size;
+    let new_world_half = candidate.half_oriented(gravity_dir);
     let gravity_axis = frame.down;
     let old_feet_half =
         old_world_half.x * gravity_axis.x.abs() + old_world_half.y * gravity_axis.y.abs();
@@ -412,7 +418,7 @@ where
         return false;
     }
     kinematics.pos = new_center;
-    kinematics.size = new_shape.size;
+    kinematics.canonical_size = new_shape.size;
     body_mode_state.body_mode = new_mode;
     true
 }

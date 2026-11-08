@@ -16,10 +16,10 @@ fn interacting_at_the_shrine_heals_to_full() {
             PlayerEntity,
             PrimaryPlayer,
             ActorControl::default(),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(100.0, 100.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -76,10 +76,10 @@ fn no_heal_without_interact_or_when_not_touching() {
             PlayerEntity,
             PrimaryPlayer,
             ActorControl::default(),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(100.0, 100.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -138,10 +138,10 @@ fn two_driven_bodies_resting_at_a_shrine_both_heal_and_write_one_checkpoint() {
             .world_mut()
             .spawn((
                 ActorControl::default(),
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
-                    size: Vec2::new(24.0, 40.0),
+                    canonical_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
                 BodyBaseSize {
@@ -240,10 +240,10 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
         PlayerEntity,
         PrimaryPlayer,
         ActorControl::default(),
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos: Vec2::new(50.0, 900.0),
             vel: Vec2::ZERO,
-            size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
         BodyBaseSize {
@@ -262,10 +262,10 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
         .world_mut()
         .spawn((
             ActorControl::default(),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(700.0, 100.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -360,10 +360,10 @@ fn resting_revives_only_the_bodies_whose_policy_says_until_rest() {
             PlayerEntity,
             PrimaryPlayer,
             ActorControl::default(),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(100.0, 100.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {
@@ -458,10 +458,10 @@ fn a_body_rests_only_at_a_shrine_in_its_own_live_room() {
             .world_mut()
             .spawn((
                 ActorControl::default(),
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos: Vec2::new(100.0, 100.0),
                     vel: Vec2::ZERO,
-                    size: Vec2::new(24.0, 40.0),
+                    canonical_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
                 BodyBaseSize {
@@ -519,10 +519,10 @@ fn a_body_in_sideways_gravity_rests_at_the_shrine_its_own_box_touches() {
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);
         let pos = Vec2::new(100.0, 100.0);
-        let body = BodyKinematics {
+        let body = BodyKinematics { material: Default::default(),
             pos,
             vel: Vec2::ZERO,
-            size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
         let mut control = ActorControl::default();

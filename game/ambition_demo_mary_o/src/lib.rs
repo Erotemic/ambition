@@ -1982,7 +1982,7 @@ fn warp_through_secret_pipe(
         let warps = room.map_or(NO_ROOM_NO_WARPS, |spec| warp_pipes_for_room(&spec.id));
         let down = control.0.locomotion.y > DIR_DEADZONE;
         let up = control.0.locomotion.y < -DIR_DEADZONE;
-        let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        let body = ae::Aabb::new(kin.pos, kin.size() * 0.5);
 
         // every AUTHORED tube IN THIS ROOM, not two hand-named ones. Each
         // entrance answers only its own direction — the mouth field says which —
@@ -3378,7 +3378,7 @@ mod tests {
             ambition_platformer2d::platformer::markers::PlayerEntity,
             ambition_platformer2d::engine_core::BodyKinematics {
                 pos: at,
-                size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),
+                canonical_size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),
                 ..Default::default()
             },
             ambition_platformer2d::characters::equipment::WornEquipment::new(vec![
@@ -3595,13 +3595,13 @@ mod tests {
             app.add_plugins(MaryORulesPlugin::global());
             let body = app
                 .world_mut()
-                .spawn(ambition_platformer2d::engine_core::BodyKinematics {
+                .spawn(ambition_platformer2d::engine_core::BodyKinematics { material: Default::default(),
                     pos: ambition_platformer2d::engine_core::Vec2::new(
                         at.x,
                         (at.top_y + at.base_y) * 0.5,
                     ),
                     vel: ambition_platformer2d::engine_core::Vec2::ZERO,
-                    size: ambition_platformer2d::engine_core::Vec2::new(24.0, 40.0),
+                    canonical_size: ambition_platformer2d::engine_core::Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 })
                 .id();

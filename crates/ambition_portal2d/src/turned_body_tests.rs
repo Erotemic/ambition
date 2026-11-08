@@ -69,10 +69,10 @@ fn x_after_the_blue(size: Vec2, down: Vec2, opening: f32) -> f32 {
     for channel in [BLUE, ORANGE] {
         app.world_mut().spawn(wall(channel, opening));
     }
-    let body = BodyKinematics {
+    let body = BodyKinematics { material: Default::default(),
         pos: Vec2::new(20.0, 200.0),
         vel: Vec2::new(-100.0, 0.0),
-        size,
+        canonical_size: size,
         facing: -1.0,
     };
     let entity = app.world_mut().spawn((body, record(body, down))).id();
@@ -125,10 +125,10 @@ fn holes_cut(size: Vec2, down: Vec2) -> usize {
     for channel in [BLUE, ORANGE] {
         app.world_mut().spawn(wall(channel, STANDARD));
     }
-    let body = BodyKinematics {
+    let body = BodyKinematics { material: Default::default(),
         pos: Vec2::new(50.0, 200.0),
         vel: Vec2::ZERO,
-        size,
+        canonical_size: size,
         facing: -1.0,
     };
     app.world_mut().spawn((body, record(body, down)));
@@ -164,10 +164,10 @@ fn after_the_floor_closes(size: Vec2, down: Vec2) -> Vec2 {
         .world_mut()
         .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), normal, crate::PORTAL_OPENING_HALF))
         .id();
-    let body = BodyKinematics {
+    let body = BodyKinematics { material: Default::default(),
         pos: Vec2::new(500.0, 285.0),
         vel: Vec2::ZERO,
-        size,
+        canonical_size: size,
         facing: 1.0,
     };
     let entity = app.world_mut().spawn((body, record(body, down))).id();

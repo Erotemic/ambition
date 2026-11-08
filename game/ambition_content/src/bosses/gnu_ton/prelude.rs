@@ -94,7 +94,7 @@ pub fn flee_to_the_hall(
         if !health.health.invulnerable.holds(Invulnerability::SCRIPTED) {
             health.health.invulnerable.set(Invulnerability::SCRIPTED, true);
             vfx.for_room(Some(room)).write(VfxMessage::SpeechBubble {
-                pos: kin.pos - ae::Vec2::new(0.0, kin.size.y * 0.5 + 20.0),
+                pos: kin.pos - ae::Vec2::new(0.0, kin.size().y * 0.5 + 20.0),
                 text: RUNS.to_string(),
             });
         }
@@ -106,7 +106,7 @@ pub fn flee_to_the_hall(
             health.damage(all);
             commands.entity(entity).remove::<CommandedMove>();
             vfx.for_room(Some(room)).write(VfxMessage::SpeechBubble {
-                pos: kin.pos - ae::Vec2::new(0.0, kin.size.y * 0.5 + 20.0),
+                pos: kin.pos - ae::Vec2::new(0.0, kin.size().y * 0.5 + 20.0),
                 text: GONE.to_string(),
             });
             continue;

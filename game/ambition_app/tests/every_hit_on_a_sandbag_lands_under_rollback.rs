@@ -41,7 +41,7 @@ fn sandbag_hp(check_distance: usize, standoff: f32, input: &[AgentAction]) -> Ve
         sim.step(base());
     }
     let (kin, _) = sandbag(&mut sim);
-    sim.teleport_player((kin.pos.x - kin.size.x * 0.5 - standoff, kin.pos.y));
+    sim.teleport_player((kin.pos.x - kin.size().x * 0.5 - standoff, kin.pos.y));
     {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<&mut ae::BodyKinematics, PrimaryPlayerOnly>();

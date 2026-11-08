@@ -103,8 +103,8 @@ fn body(app: &mut App) -> Option<Body> {
         .world_mut()
         .query_filtered::<(&ae::BodyKinematics, &ae::BodyGroundState), With<PrimaryPlayer>>();
     q.iter(app.world()).next().map(|(kin, ground)| {
-        let right = kin.pos.x + kin.size.x * 0.5;
-        let feet = kin.pos.y + kin.size.y * 0.5;
+        let right = kin.pos.x + kin.size().x * 0.5;
+        let feet = kin.pos.y + kin.size().y * 0.5;
         let threat_ahead = threats
             .iter()
             .filter(|t| t.max.x > right && (t.max.y - feet).abs() < 96.0)
@@ -115,7 +115,7 @@ fn body(app: &mut App) -> Option<Body> {
             });
         Body {
             pos: kin.pos,
-            size: kin.size,
+            size: kin.size(),
             on_ground: ground.on_ground,
             threat_ahead,
         }
@@ -1065,7 +1065,7 @@ fn pressing_jump_as_she_lands_on_a_snake_still_stomps_it() {
         let feet = {
             let mut q = app.world_mut().query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
             let kin = q.single(app.world()).expect("her body");
-            kin.pos.y + kin.size.y * 0.5
+            kin.pos.y + kin.size().y * 0.5
         };
         let near = feet > snake.min.y - 40.0 && feet < snake.max.y;
         step(&mut app, if near && tick % 2 == 0 { with_jump(idle()) } else { idle() });

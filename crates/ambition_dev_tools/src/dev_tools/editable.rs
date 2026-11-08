@@ -716,10 +716,8 @@ pub fn project_developer_body_profile(
         if (base_size.base_size - desired).length_squared() > 0.01 {
             // Resize the body while preserving the planted-foot position.
             let new_size = desired;
-            let old_bottom = kinematics.pos.y + kinematics.size.y * 0.5;
             base_size.base_size = new_size;
-            kinematics.size = new_size;
-            kinematics.pos.y = old_bottom - new_size.y * 0.5;
+            ambition_platformer2d_core::resize_feet_planted(&mut kinematics, new_size, Vec2::Y);
         }
     }
 }
@@ -736,9 +734,7 @@ pub fn apply_player_body_profile(
     profile: PlayerBodyProfile,
 ) {
     let new_size = profile.size();
-    let old_bottom = kinematics.pos.y + kinematics.size.y * 0.5;
-    kinematics.size = new_size;
-    kinematics.pos.y = old_bottom - new_size.y * 0.5;
+    ambition_platformer2d_core::resize_feet_planted(kinematics, new_size, Vec2::Y);
 }
 
 /// Apply a movement profile to the reflected tuning resource and refresh live

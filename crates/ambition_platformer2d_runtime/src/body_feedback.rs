@@ -35,7 +35,7 @@ pub(crate) fn emit_body_movement_feedback(
         if output.reset.is_some() { continue; }
         let events = &output.events;
         emit_movement_fx(&mut sfx, &mut vfx.for_room(room.map(|room| room.0)),
-            events, kin.pos, kin.facing, kin.size, source.map(BodyPresentationSource::id));
+            events, kin.pos, kin.facing, kin.size(), source.map(BodyPresentationSource::id));
         if let Some(mut anim) = anim {
             arm_ground_contact_anim_overlay(&mut anim, events.ground_contact);
             arm_movement_anim_overlays(&mut anim, events);

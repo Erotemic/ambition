@@ -811,7 +811,7 @@ pub fn sync_riders_to_mounts(
         // mount is alive. The same footprint remains after dismount; larger
         // cove pirates are separate authored actor spawns.
         if let Some(size) = mounted_size {
-            rider_kin.size = size.0;
+            rider_kin.canonical_size = size.0;
         }
         // Snap pose to the mount. Vel zeroed so update_ecs_actors'
         // integrator can't drift the rider off the mount on the
@@ -822,7 +822,7 @@ pub fn sync_riders_to_mounts(
         let frame = mount_frame.basis();
         // The rider stands on the seat: its centre is half ITS height above it,
         // in the mount's frame.
-        let rider_centre = mountable.seat - ae::Vec2::new(0.0, rider_kin.size.y * 0.5);
+        let rider_centre = mountable.seat - ae::Vec2::new(0.0, rider_kin.size().y * 0.5);
         let rider_local = saddle_world_offset(
             rider_centre,
             ae::mirror_side(mount_kin.facing, mount_unmirrored),
@@ -1268,7 +1268,7 @@ pub fn apply_dismount_requests(
         // Restore an actor's authored size when it has a spawn baseline.
         // Other bodies keep their size when the ride ends.
         if let Some(baseline) = baseline {
-            kin.size = baseline.size;
+            kin.canonical_size = baseline.size;
         }
         // The centre only: the next publish states the footprint of the
         // restored size (see `sync_riders_to_mounts`).
@@ -1634,7 +1634,7 @@ pub fn enforce_mount_rider_link(
                     }
                 }
                 if let Some(baseline) = rider_spawn {
-                    rider_kin.size = baseline.size;
+                    rider_kin.canonical_size = baseline.size;
                 }
                 // Same-frame presentation / combat sees where the rider is.
                 // The restored size is usually the same size as MountedSize;
@@ -2417,10 +2417,10 @@ mod footprint_tests {
     const START: Vec2 = Vec2::new(500.0, 300.0);
 
     fn body(pos: Vec2, size: Vec2) -> ae::BodyKinematics {
-        ae::BodyKinematics {
+        ae::BodyKinematics { material: Default::default(),
             pos,
             vel: Vec2::ZERO,
-            size,
+            canonical_size: size,
             facing: 1.0,
         }
     }

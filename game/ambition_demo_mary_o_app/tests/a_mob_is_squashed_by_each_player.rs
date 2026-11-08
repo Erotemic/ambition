@@ -40,10 +40,10 @@ fn a_mob() -> (App, Entity) {
 fn a_player_body(app: &mut App, room: LiveRoomInstance) -> Entity {
     app.world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 32.0),
+                canonical_size: Vec2::new(24.0, 32.0),
                 facing: 1.0,
             },
             PlayerEntity,

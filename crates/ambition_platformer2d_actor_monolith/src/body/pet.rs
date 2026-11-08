@@ -288,7 +288,7 @@ pub fn apply_pet_requests(
             // published box is on the world axes.
             None => {
                 on_side(aabb.center)
-                    + side * (half_on(aabb.half_size, frame.side) + petter_kin.size.x * 0.5 + PET_STANDOFF)
+                    + side * (half_on(aabb.half_size, frame.side) + petter_kin.size().x * 0.5 + PET_STANDOFF)
             }
         };
         // The mark as a place: on the side axis, at the petter's own height.

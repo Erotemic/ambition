@@ -178,7 +178,7 @@ fn body(app: &mut App) -> Body {
     Body {
         pos: kin.pos,
         vel: kin.vel,
-        size: kin.size,
+        size: kin.size(),
         on_ground: ground.on_ground,
     }
 }

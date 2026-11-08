@@ -274,6 +274,8 @@ impl Iso2 {
 
 mod similarity;
 pub use similarity::{NumericFault, Sim2};
+mod material;
+pub use material::BodyMaterial;
 
 pub mod thread;
 

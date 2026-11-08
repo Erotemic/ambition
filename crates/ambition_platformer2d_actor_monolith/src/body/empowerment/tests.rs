@@ -27,10 +27,10 @@ fn app_with_striker_and_victim(
             Empowered::for_seconds(traits, seconds),
             BodyHealth::new(Health::new(5)),
             ActorFaction::Player,
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size,
+                canonical_size: size,
                 facing: 1.0,
             },
         ))

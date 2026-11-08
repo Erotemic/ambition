@@ -161,7 +161,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
                 let view = ambition_platformer2d::sim_view::the_only_view(world);
                 let snap = &world.get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(view)
                     .and_then(|s| s.frame()).expect("the chase has a camera frame").snapshot;
-                let extent = (h.kin.pos - snap.center_world).abs() + h.kin.size * 0.5;
+                let extent = (h.kin.pos - snap.center_world).abs() + h.kin.size() * 0.5;
                 assert!(extent.x <= snap.visible_view.x * 0.5 + 1.0 && extent.y <= snap.visible_view.y * 0.5 + 1.0,
                     "the live pursuer is outside the camera: head={:?}, camera={snap:?}", h.kin);
             }

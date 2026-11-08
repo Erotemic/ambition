@@ -111,10 +111,10 @@ impl Loop {
                 ambition_platformer2d::platformer::markers::PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
                 BodyBaseSize { base_size: size },
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 0.0),
                     vel: ae::Vec2::ZERO,
-                    size,
+                    canonical_size: size,
                     facing: 1.0,
                 },
                 // A peaceful identity: any ranged verb she ends up with can ONLY
@@ -701,10 +701,10 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
         .spawn((
             PrimaryPlayer,
             ambition_platformer2d::characters::actor::ActorFaction::Player,
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(360.0, 300.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(30.0, 48.0),
+                canonical_size: ae::Vec2::new(30.0, 48.0),
                 facing: 1.0,
             },
         ))
@@ -913,10 +913,10 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         app.world_mut().spawn((
             PrimaryPlayer,
             ambition_platformer2d::platformer::markers::PlayerEntity,
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(body.pos.x, head + 0.5 - PLAYER_HEIGHT * 0.5),
                 vel: ae::Vec2::new(0.0, 120.0),
-                size: ae::Vec2::new(30.0, PLAYER_HEIGHT),
+                canonical_size: ae::Vec2::new(30.0, PLAYER_HEIGHT),
                 facing: 1.0,
             },
         ));
@@ -1022,10 +1022,10 @@ fn a_dead_snake_stops_and_emits_no_strikes() {
     app.world_mut().spawn((
         PrimaryPlayer,
         ambition_platformer2d::platformer::markers::PlayerEntity,
-        ae::BodyKinematics {
+        ae::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(410.0, 300.0),
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(30.0, 48.0),
+            canonical_size: ae::Vec2::new(30.0, 48.0),
             facing: 1.0,
         },
     ));
@@ -1140,10 +1140,10 @@ fn body_standing_at(app: &mut App, pos: ae::Vec2) -> Entity {
         .spawn((
             PrimaryPlayer,
             ambition_platformer2d::platformer::markers::PlayerEntity,
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::movement::default_player_body_size(),
+                canonical_size: ae::movement::default_player_body_size(),
                 facing: 1.0,
             },
             ambition_platformer2d::platformer::body::AncillaryMovementBundle::from_scratch(

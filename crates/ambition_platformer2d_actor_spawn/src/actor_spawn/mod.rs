@@ -810,7 +810,7 @@ impl NpcActorSpawnPlan {
         );
         let motion_model = self.seed.config.tuning.motion_model(&self.seed.policy.0);
         let footprint = built_footprint(&self.seed);
-        let body_size = self.seed.kin.size;
+        let body_size = self.seed.kin.size();
         let cluster_bundle = self.seed.into_components();
         scope.insert_session_scoped((
                 Name::new(self.entity_name),
@@ -992,7 +992,7 @@ fn boss_actor_cluster(
         actor_config,
         ambition_platformer2d_shared_tangle::body::SpawnBaseline {
             pos: kin.pos,
-            size: kin.size,
+            size: kin.size(),
         },
         ambition_body_seed::ActorMotionPath::default(),
         ambition_platformer2d_core::body_clusters::ActorSurfaceState {
@@ -1005,7 +1005,7 @@ fn boss_actor_cluster(
             ambition_body_seed::ActorBody::from_abilities(
                 movement_kit,
                 true,
-                kin.size,
+                kin.size(),
             )
             .0,
         ),
@@ -1051,7 +1051,7 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     // A placement's authored size outranks the sheet's body. `kin.size` is
     // the collision body; the render basis stays in `status.render_size`.
     if let Some(size) = overrides.combat_size {
-        boss.kin.size = size;
+        boss.kin.canonical_size = size;
     }
     bevy::log::info!(
         target: "ambition_platformer2d::boss_spawn",
@@ -1707,7 +1707,7 @@ pub fn spawn_enemy_with_faction_into(sprite_content: &ambition_sprite_sheet::Spr
             .map_or(enemy.config.tuning.is_hostile, |disposition| {
                 disposition.is_hostile()
             });
-        let body_size = enemy.kin.size;
+        let body_size = enemy.kin.size();
         spawn_solo_enemy_into(
             &mut scope.reborrow(),
             enemy,
@@ -1992,11 +1992,11 @@ fn attach_mount_role_from(
 /// taken from the placement is the size the level drew, not the size the
 /// character's art gives the body, and the publish corrected it one tick later.
 fn built_footprint(seed: &ambition_body_seed::ActorClusterSeed) -> CenteredAabb {
-    let mut footprint = CenteredAabb::from_center_size(seed.kin.pos, seed.kin.size);
+    let mut footprint = CenteredAabb::from_center_size(seed.kin.pos, seed.kin.size());
     ambition_combat::body_geometry::publish_body_footprint(
         &mut footprint,
         seed.kin.pos,
-        seed.kin.size,
+        seed.kin.size(),
         seed.kin.facing,
         -seed.surface.surface_normal,
     );

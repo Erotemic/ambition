@@ -197,7 +197,7 @@ const LEDGE_X: f32 = 112.0;
 
 fn stand_on_the_ledge(sim: &mut Platformer2dSimHarness) {
     let (kin, _) = player(sim);
-    place_player(sim, ae::Vec2::new(LEDGE_X, LEDGE_TOP - kin.size.y * 0.5 - 1.0));
+    place_player(sim, ae::Vec2::new(LEDGE_X, LEDGE_TOP - kin.size().y * 0.5 - 1.0));
 }
 
 /// The ledge is a refuge from the charge: his lowered head runs under it.
@@ -254,7 +254,7 @@ fn wounded_he_stomps_a_shock_along_the_floor_and_the_ceiling_comes_down() {
     // A player standing in its path, clear of him, is caught by it.
     let x = if r.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 80.0 } else { hall.right - 80.0 };
     let (kin, _) = player(&mut sim);
-    place_player(&mut sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+    place_player(&mut sim, ae::Vec2::new(x, hall.floor - kin.size().y * 0.5 - 1.0));
     untouchable_player(&mut sim, false);
     let (_, before) = player(&mut sim);
     let mut fell = 0;
@@ -318,7 +318,7 @@ fn enraged_he_leaps_at_where_you_stood() {
     // Out of the way, so where he lands is where you stood, not where you are.
     let hall = rex(&mut sim).view.hall.expect("hall");
     let away = if stood > (hall.left + hall.right) * 0.5 { hall.left + 60.0 } else { hall.right - 60.0 };
-    place_player(&mut sim, ae::Vec2::new(away, hall.floor - kin.size.y * 0.5 - 1.0));
+    place_player(&mut sim, ae::Vec2::new(away, hall.floor - kin.size().y * 0.5 - 1.0));
     let floor = hall.floor;
     let feet = |sim: &mut Platformer2dSimHarness| rex(sim).kin.pos.y + module::feet_below();
     step_until(&mut sim, 60, "him to leave the floor", |sim| floor - feet(sim) > 150.0);
@@ -347,7 +347,7 @@ fn enraged_he_roars_you_off_him() {
     let hall = r.view.hall.expect("hall");
     let (kin, _) = player(&mut sim);
     let x = r.kin.pos.x + r.side * (module::ram_front() + 40.0);
-    place_player(&mut sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+    place_player(&mut sim, ae::Vec2::new(x, hall.floor - kin.size().y * 0.5 - 1.0));
     untouchable_player(&mut sim, false);
     let (_, before) = player(&mut sim);
     step_until(&mut sim, 60 * 2, "the roar to land", |sim| player(sim).1 < before);
@@ -469,7 +469,7 @@ fn stand_in_front_until(
         let hall = r.view.hall.expect("hall");
         let (kin, _) = player(sim);
         let x = r.kin.pos.x + r.side * (module::ram_front() - 10.0);
-        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size().y * 0.5 - 1.0));
         sim.step(AgentAction::default());
         if until(sim) {
             return;

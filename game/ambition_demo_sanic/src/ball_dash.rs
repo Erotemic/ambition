@@ -298,7 +298,7 @@ pub fn tick_ball_dash(
                 );
                 if rolling.is_none() {
                     commands.entity(entity).insert(Rolling);
-                    kin.size = tuning.ball_size();
+                    kin.canonical_size = tuning.ball_size();
                 }
             }
         }
@@ -333,7 +333,7 @@ pub fn tick_rolling(
             ae::SurfaceMotion::Airborne => kin.vel.length(),
         };
         if speed < tuning.exit_speed {
-            kin.size = base.base_size;
+            kin.canonical_size = base.base_size;
             commands.entity(entity).remove::<Rolling>();
         }
     }
@@ -362,7 +362,7 @@ pub fn clear_ball_dash_on_restart(
         *input = BallDashInput::default();
     }
     if let Ok((base, mut kin)) = rolls.get_mut(body) {
-        kin.size = base.base_size;
+        kin.canonical_size = base.base_size;
         commands.entity(body).remove::<Rolling>();
     }
 }

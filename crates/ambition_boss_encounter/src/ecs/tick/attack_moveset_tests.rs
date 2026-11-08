@@ -89,10 +89,10 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
             FeatureSimEntity,
             intent,
             moveset,
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,
-                size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+                canonical_size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
                 facing: 1.0,
             },
         ))
@@ -162,10 +162,10 @@ fn telegraph_boss_app() -> (App, Entity) {
             BossAttackState::default(),
             moveset,
             ambition_characters::actor::ActorFaction::Boss,
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,
-                size: combat_size,
+                canonical_size: combat_size,
                 facing: 1.0,
             },
         ))
@@ -450,10 +450,10 @@ fn two_boss_moves_separated_by_idle_take_different_occurrences() {
                 ..Default::default()
             },
             moveset,
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,
-                size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+                canonical_size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
                 facing: 1.0,
             },
         ))
@@ -549,10 +549,10 @@ fn the_trigger_plays_the_move_of_the_steps_beat() {
                     strike_s,
                 },
                 moveset.clone(),
-                ambition_platformer2d_core::BodyKinematics {
+                ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                     pos: ambition_platformer2d_core::Vec2::ZERO,
                     vel: ambition_platformer2d_core::Vec2::ZERO,
-                    size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+                    canonical_size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
                     facing: 1.0,
                 },
             ))

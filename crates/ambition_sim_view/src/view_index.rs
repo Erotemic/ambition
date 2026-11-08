@@ -608,8 +608,8 @@ pub fn rebuild_feature_view_index(
                     Some(
                         host.pos
                             + ae::Vec2::new(
-                                reach.x.clamp(-host.size.x * 0.3, host.size.x * 0.3),
-                                reach.y.clamp(-host.size.y * 0.25, host.size.y * 0.25),
+                                reach.x.clamp(-host.size().x * 0.3, host.size().x * 0.3),
+                                reach.y.clamp(-host.size().y * 0.25, host.size().y * 0.25),
                             ),
                     )
                 }),

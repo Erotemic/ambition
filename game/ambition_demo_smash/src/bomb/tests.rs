@@ -168,7 +168,7 @@ fn a_carried_bomb_blasts_where_its_holder_is() {
         .world_mut()
         .spawn(ae::BodyKinematics {
             pos: carried_to,
-            size: ae::Vec2::new(28.0, 64.0),
+            canonical_size: ae::Vec2::new(28.0, 64.0),
             facing: 1.0,
             ..Default::default()
         })

@@ -40,7 +40,7 @@ fn hostile(sprite_content: &ambition_sprite_sheet::SpriteContent,
         ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_brain.into()),
         &[],
     );
-    enemy.kin.size = size;
+    enemy.kin.canonical_size = size;
     enemy.kin.pos = pos;
     enemy.health.reset();
     (
@@ -688,7 +688,7 @@ fn a_mount_travels_no_faster_than_its_rider_has_clearance() {
             .spawn((
                 ambition_mount::rider_of(mount),
                 ActorControl(rider_frame),
-                ae::BodyKinematics { pos: rider_pos, vel: ae::Vec2::ZERO, size: ae::Vec2::new(40.0, 56.0), facing: 1.0 },
+                ae::BodyKinematics { material: Default::default(), pos: rider_pos, vel: ae::Vec2::ZERO, canonical_size: ae::Vec2::new(40.0, 56.0), facing: 1.0 },
             ))
             .id();
         app.world_mut().entity_mut(mount).insert(MountSlot { rider: Some(rider) });
@@ -1126,10 +1126,10 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     let giant = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: giant_pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(220.0, 220.0),
+                canonical_size: ae::Vec2::new(220.0, 220.0),
                 facing: 1.0,
             },
             ActorSurfaceState {
@@ -1320,10 +1320,10 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     let giant = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: giant_pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(220.0, 220.0),
+                canonical_size: ae::Vec2::new(220.0, 220.0),
                 facing: 1.0,
             },
             ActorSurfaceState {

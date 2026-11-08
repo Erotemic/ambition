@@ -122,10 +122,10 @@ fn a_camera_state_does_not_change_a_bodys_gait_or_rig_pose() {
                 on_ground: true,
                 ..Default::default()
             },
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::ZERO,
                 vel: Vec2::new(11.0, 0.0),
-                size: Vec2::new(12.0, 16.0),
+                canonical_size: Vec2::new(12.0, 16.0),
                 facing: 1.0,
             },
             BodyMotionFacts::default(),

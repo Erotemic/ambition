@@ -217,10 +217,10 @@ fn spawn_character(app: &mut App, pos: ae::Vec2, character_id: &str) -> Entity {
             ActorIdentity::new("placement", character_id),
             ActorInteraction { interactable },
             sim_id(character_id),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size,
+                canonical_size: size,
                 facing: -1.0,
             },
             BodyAnimFacts::default(),

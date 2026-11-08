@@ -269,7 +269,7 @@ fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
     let pca = q
         .iter(world)
         .find(|(f, _)| f.as_str() == DUEL_PCA_ID)
-        .map(|(_, kin)| kin.size)
+        .map(|(_, kin)| kin.size())
         .expect("duel PCA present");
     // The authored duel box is 14x23 half → 28x46 full. The PCA sprite body is much
     // taller than that; require the body to have grown past the LDtk box, proving

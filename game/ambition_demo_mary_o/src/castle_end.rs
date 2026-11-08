@@ -449,7 +449,7 @@ pub fn run_castle_ending(
     let stomper = Stomper {
         pos: kin.pos,
         vel: kin.vel,
-        half: kin.size * 0.5,
+        half: kin.size() * 0.5,
         on_ground: ground.is_some_and(|ground| ground.on_ground),
     };
     let facts = CastleFacts { planks_left, boss_left };
@@ -551,7 +551,7 @@ pub fn the_lava_takes_the_boss(
         if live.of(entity) != room {
             continue;
         }
-        let (top, feet) = (kin.pos.y - kin.size.y * 0.5, kin.pos.y + kin.size.y * 0.5);
+        let (top, feet) = (kin.pos.y - kin.size().y * 0.5, kin.pos.y + kin.size().y * 0.5);
         let lava = pools
             .iter()
             .map(|(_, pool)| *pool)

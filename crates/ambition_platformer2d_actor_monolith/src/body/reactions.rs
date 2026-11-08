@@ -44,10 +44,10 @@ mod tests {
             let body = app
                 .world_mut()
                 .spawn((
-                    BodyKinematics {
+                    BodyKinematics { material: Default::default(),
                         pos: Vec2::ZERO,
                         vel: Vec2::ZERO,
-                        size: Vec2::splat(16.0),
+                        canonical_size: Vec2::splat(16.0),
                         facing: 1.0,
                     },
                     BodyCombat {

@@ -155,10 +155,10 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
     let player = app
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(500.0, 870.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(20.0, 30.0),
+                canonical_size: ae::Vec2::new(20.0, 30.0),
                 facing: 1.0,
             },
             PlayerEntity,
@@ -184,7 +184,7 @@ fn world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, ro
     let kin = boss.kin;
     let mut god = app.world_mut().spawn((
         boss.kin,
-        ae::CenteredAabb::new(kin.pos, kin.size * 0.5),
+        ae::CenteredAabb::new(kin.pos, kin.size() * 0.5),
         boss.config,
         boss.status,
         boss.health,

@@ -66,10 +66,10 @@ fn prompt(arm: Arm) -> InteractVariant {
     app.add_systems(Update, update_nearest_interactable);
 
     app.world_mut().spawn((
-        ambition_platformer2d_core::BodyKinematics {
+        ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: BODY,
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(24.0, 40.0),
+            canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
         ambition_platformer2d_shared_tangle::markers::PlayerEntity,

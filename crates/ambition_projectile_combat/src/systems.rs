@@ -918,7 +918,7 @@ pub fn step_projectiles(
         let contact_end = match ambition_portal2d::first_portal_crossing_through(
             leg_start,
             kin.pos,
-            kin.size,
+            kin.size(),
             portals_by_room.in_room(shot_room),
             carved.backside_of(proj_entity),
         ) {
@@ -940,7 +940,7 @@ pub fn step_projectiles(
             prev: leg_start,
             curr: kin.pos,
             vel: kin.vel,
-            half: kin.size * 0.5,
+            half: kin.size() * 0.5,
             down: ae::Vec2::ZERO,
         });
 
@@ -970,7 +970,7 @@ pub fn step_projectiles(
         // The shot's box where the leg BEGAN — the directional one-way rule asks
         // which side of the support face the shot started on, and the endpoint
         // is on the far side by construction whenever it crossed.
-        let shot_box_at_leg_start = ae::Aabb::new(leg_start, kin.size * 0.5);
+        let shot_box_at_leg_start = ae::Aabb::new(leg_start, kin.size() * 0.5);
         let blocks_this_shot = move |block: &ae::Block| {
             ambition_projectiles::block_obstructs_shot(
                 shot_world_hit,
@@ -998,7 +998,7 @@ pub fn step_projectiles(
         } else {
             ae::cast::body_sweep(
                 &collision_world,
-                ae::Aabb::new(leg_start, kin.size * 0.5),
+                ae::Aabb::new(leg_start, kin.size() * 0.5),
                 travel_leg,
                 blocks_this_shot,
             )
@@ -1104,7 +1104,7 @@ pub fn step_projectiles(
             // finite time, ordering by "whose centre is nearer the muzzle" can
             // disagree with "whom it reached first"; a big body slightly further
             // out is touched before a small one dead ahead.
-            let shot_half = kin.size * 0.5;
+            let shot_half = kin.size() * 0.5;
             let leg = contact_end - leg_start;
             // ⛔⛔ **THE FEATURE CANDIDATE IS RESOLVED HERE, BESIDE THE BODIES,
             // BECAUSE THEY ARE COMPETING FOR THE SAME CONTACT.** It used to be
@@ -1776,10 +1776,10 @@ mod parry_tests {
             ))
             .id();
         app.world_mut().spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::new(100.0, 0.0),
-                size: ae::Vec2::new(8.0, 8.0),
+                canonical_size: ae::Vec2::new(8.0, 8.0),
                 facing: 1.0,
             },
             ambition_sfx::BodyPresentationSource(ambition_sfx::PresentationSourceId::new(
@@ -1827,10 +1827,10 @@ mod parry_tests {
         let parrier = app.world_mut().spawn_empty().id();
         let proj = app
             .world_mut()
-            .spawn(BodyKinematics {
+            .spawn(BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::new(100.0, -40.0),
-                size: ae::Vec2::new(8.0, 8.0),
+                canonical_size: ae::Vec2::new(8.0, 8.0),
                 facing: 1.0,
             })
             .id();

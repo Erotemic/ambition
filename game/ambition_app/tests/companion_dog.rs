@@ -61,7 +61,7 @@ fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
     );
     let feet = |sim: &ambition_app::Platformer2dSimHarness| {
         let kin = sim.world().get::<BodyKinematics>(dog).expect("the dog stays in the room");
-        kin.pos + bevy::math::Vec2::Y * kin.size.y * 0.5
+        kin.pos + bevy::math::Vec2::Y * kin.size().y * 0.5
     };
     let home = graph.surface_at(feet(&sim)).expect("the dog starts on a standing surface");
     let reachable: BTreeSet<usize> = graph.reachable_from(home).into_iter().collect();
@@ -200,7 +200,7 @@ fn the_dog_under_a_sync_test(
         else {
             continue;
         };
-        let (feet, on_ground) = (kin.pos + bevy::math::Vec2::Y * kin.size.y * 0.5, ground.on_ground);
+        let (feet, on_ground) = (kin.pos + bevy::math::Vec2::Y * kin.size().y * 0.5, ground.on_ground);
         if on_ground {
             let navigation = world.resource::<RoomNavigation>();
             if let Some(surface) = navigation.graphs().next().and_then(|graph| graph.surface_at(feet)) {
@@ -798,7 +798,7 @@ fn gap_to_the_dog(sim: &ambition_app::Platformer2dSimHarness, player: Entity, do
         .world()
         .get::<ambition_platformer2d::combat::components::CenteredAabb>(dog)
         .expect("the dog has a footprint");
-    (kin.pos.x - footprint.center.x).abs() - footprint.half_size.x - kin.size.x * 0.5
+    (kin.pos.x - footprint.center.x).abs() - footprint.half_size.x - kin.size().x * 0.5
 }
 
 /// Press Interact and wait for a conversation with the dog to open.

@@ -310,7 +310,7 @@ pub fn refuse_a_weaker_form_pickup(
     let mut taken = Vec::new();
     for (body, worn, mut wallet) in &mut players {
         use ae::AabbExt as _;
-        let body_aabb = ae::Aabb::new(body.pos, body.size * 0.5);
+        let body_aabb = ae::Aabb::new(body.pos, body.size() * 0.5);
         let rank = worn_form_rank(worn);
         for (entity, item) in &items {
             if taken.contains(&entity) || !body_aabb.strict_intersects(item.aabb()) {
@@ -1586,10 +1586,10 @@ mod tests {
                 PrimaryPlayer,
                 PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
+                    canonical_size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))
@@ -1645,10 +1645,10 @@ mod tests {
                 PrimaryPlayer,
                 PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
+                    canonical_size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))
@@ -1714,10 +1714,10 @@ mod tests {
                 PrimaryPlayer,
                 PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
+                    canonical_size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
                 WornEquipment::new(vec![cinder_beacon()]),
@@ -1787,10 +1787,10 @@ mod tests {
                 PrimaryPlayer,
                 PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
+                    canonical_size: form_body_size(&sprite_content, SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))
@@ -2529,7 +2529,7 @@ mod loose_form_tests {
             PlayerEntity,
             ae::BodyKinematics {
                 pos: at,
-                size: ae::Vec2::new(30.0, 48.0),
+                canonical_size: ae::Vec2::new(30.0, 48.0),
                 ..Default::default()
             },
             WornEquipment::new(vec![cinder_beacon()]),
@@ -2557,7 +2557,7 @@ mod loose_form_tests {
             PlayerEntity,
             ae::BodyKinematics {
                 pos: at,
-                size: ae::Vec2::new(30.0, 48.0),
+                canonical_size: ae::Vec2::new(30.0, 48.0),
                 ..Default::default()
             },
         ));

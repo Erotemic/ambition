@@ -88,7 +88,7 @@ fn player_body(app: &mut App) -> (Vec2, Vec2) {
         .iter(app.world())
         .next()
         .expect("gameplay has a primary player");
-    (kin.pos, kin.size)
+    (kin.pos, kin.size())
 }
 
 fn place_player(app: &mut App, pos: Vec2) {

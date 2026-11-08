@@ -196,7 +196,7 @@ impl<'a> BossRef<'a> {
     /// `behavior.combat_size` is authoring input to that resolution, not a
     /// second answer.
     pub fn combat_size(&self) -> ae::Vec2 {
-        self.kin.size
+        self.kin.size()
     }
 
     /// The side the boss is drawn and shaped toward: its sprite, off-centre
@@ -295,7 +295,7 @@ impl<'a> BossMut<'a> {
             }
             None => None,
         };
-        self.kin.size = body.unwrap_or(self.kin.size * ratio);
+        self.kin.canonical_size = body.unwrap_or(self.kin.canonical_size * ratio);
         // Feet where they were: the bottom of the new box on the old one's.
         let after = self.as_ref().aabb();
         self.kin.pos.y += before.max.y - after.max.y;
@@ -405,12 +405,12 @@ impl BossClusterScratch {
         // the body's health.
         let seed = BossSeed::resolved(boss_catalog, &behavior.id, &name, health.max);
         let mut boss = Self {
-            kin: BodyKinematics {
+            kin: BodyKinematics { material: Default::default(),
                 pos: center,
                 // Bosses float: the brain emits a new `desired_vel` each tick,
                 // so `vel` is never integrated and stays `ZERO`.
                 vel: ae::Vec2::ZERO,
-                size: collision_size,
+                canonical_size: collision_size,
                 facing: 1.0,
             },
             config: BossConfig {
@@ -452,7 +452,7 @@ impl BossClusterScratch {
         };
         self.status.sprite_metrics = Some(metrics);
         if let Some(body) = body {
-            self.kin.size = body;
+            self.kin.canonical_size = body;
         }
     }
 

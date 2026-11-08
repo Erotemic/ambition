@@ -32,7 +32,7 @@ fn the_first_frames() -> (usize, Vec<(String, f32)>) {
             if matches!(output.events.ground_contact, ae::GroundContactTransition::Landed { .. }) {
                 landings += 1;
             }
-            let now = kin.pos.y + kin.size.y * 0.5;
+            let now = kin.pos.y + kin.size().y * 0.5;
             let entry = feet.entry(id.0.clone()).or_insert((now, now));
             entry.1 = entry.1.max(now);
         }

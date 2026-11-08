@@ -337,10 +337,10 @@ fn move_played_for_moveset(
             AttackGestureState::default(),
             AttackGestureTuning::default(),
             ResolvedAttackGesture::default(),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 32.0),
+                canonical_size: ae::Vec2::new(24.0, 32.0),
                 facing: 1.0,
             },
             ae::BodyGroundState {

@@ -747,7 +747,7 @@ fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
             .world_mut()
             .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(player)
             .unwrap();
-        kin.pos.y = floor + kin.size.y;
+        kin.pos.y = floor + kin.size().y;
         kin.vel = Default::default();
     }
     sim.rebase_rollback_history()

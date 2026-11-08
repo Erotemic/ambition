@@ -2781,7 +2781,7 @@ fn place_player_beside(
     // the motion authority (ADR 0024).
     let at = ae::Vec2::new(
         target.pos.x + target.size.x * 0.5,
-        target.pos.y + (target.size.y - clusters.kinematics.size.y) * 0.5,
+        target.pos.y + (target.size.y - clusters.kinematics.size().y) * 0.5,
     );
     ae::movement::transit_body(&mut model, &mut clusters, at, ae::movement::TransitVelocity::Zero);
     if config.interact_on_arrival {

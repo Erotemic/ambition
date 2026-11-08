@@ -103,10 +103,10 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
             PlayerEntity,
             PrimaryPlayer,
             ActorControl::default(),
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: Vec2::new(412.0, 396.0),
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             BodyBaseSize {

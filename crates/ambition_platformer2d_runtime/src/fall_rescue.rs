@@ -72,7 +72,7 @@ pub(crate) fn rescue_falling_bodies(
             if specs.live().of(body) != room || ground.on_ground || kin.vel.y <= 0.0 {
                 continue;
             }
-            let feet = kin.pos.y + kin.size.y * 0.5;
+            let feet = kin.pos.y + kin.size().y * 0.5;
             if feet < size.y - RESCUE_LINE_PX {
                 continue;
             }
@@ -80,7 +80,7 @@ pub(crate) fn rescue_falling_bodies(
             // One carrier a fall: a body already over a ferry is being caught.
             let caught = platforms.0.iter().any(|p| {
                 p.is_ferry()
-                    && (p.pos.x - kin.pos.x).abs() < half.x + kin.size.x * 0.5
+                    && (p.pos.x - kin.pos.x).abs() < half.x + kin.size().x * 0.5
                     && p.pos.y - half.y >= feet - 8.0
             });
             if caught {

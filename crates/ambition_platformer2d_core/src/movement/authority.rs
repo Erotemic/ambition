@@ -308,7 +308,7 @@ mod tests {
     fn body_at(x: f32) -> crate::body_clusters::BodyKinematics {
         crate::body_clusters::BodyKinematics {
             pos: Vec2::new(x, 500.0),
-            size: Vec2::new(20.0, 40.0),
+            canonical_size: Vec2::new(20.0, 40.0),
             ..Default::default()
         }
     }

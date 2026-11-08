@@ -39,10 +39,10 @@ fn cues_at_one_instant(
     app.add_systems(Update, (dispatch_move_events, process_fx_requests).chain());
     let owner = app
         .world_mut()
-        .spawn(ae::BodyKinematics {
+        .spawn(ae::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::ZERO,
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(16.0, 24.0),
+            canonical_size: ae::Vec2::new(16.0, 24.0),
             facing: 1.0,
         })
         .id();

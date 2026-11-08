@@ -156,10 +156,10 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     // The possessed body the player is DRIVING, standing on the switch.
     let subject = app
         .world_mut()
-        .spawn(BodyKinematics {
+        .spawn(BodyKinematics { material: Default::default(),
             pos: subject_pos,
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(24.0, 40.0),
+            canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         })
         .id();
@@ -473,10 +473,10 @@ fn spawn_switch(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
 fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
     app.world_mut()
         .spawn((
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             ambition_characters::actor::BodyAnimFacts::default(),

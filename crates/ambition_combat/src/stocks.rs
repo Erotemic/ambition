@@ -756,10 +756,10 @@ mod tests {
         let died_at = ambition_platformer2d_core::Vec2::new(-420.0, 310.0);
         app.world_mut()
             .entity_mut(body)
-            .insert(ambition_platformer2d_core::BodyKinematics {
+            .insert(ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: died_at,
                 vel: ambition_platformer2d_core::Vec2::new(0.0, -1261.0),
-                size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
+                canonical_size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
                 facing: 1.0,
             });
         app.update();

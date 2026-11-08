@@ -38,7 +38,7 @@ fn effective_faction_maps_a_driven_body_to_the_player_side() {
 fn dummy_player_body(pos: ae::Vec2) -> BodyKinematics {
     BodyKinematics {
         pos,
-        size: ae::Vec2::new(28.0, 46.0),
+        canonical_size: ae::Vec2::new(28.0, 46.0),
         facing: 1.0,
         ..Default::default()
     }

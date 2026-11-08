@@ -20,10 +20,10 @@ fn app() -> App {
 fn straddling_body(app: &mut App, pos: Vec2) -> Entity {
     app.world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 40.0),
+                canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
         ))

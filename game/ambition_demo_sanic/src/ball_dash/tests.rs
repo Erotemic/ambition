@@ -181,7 +181,7 @@ fn body_app() -> (App, Entity) {
     app.add_systems(bevy::app::Update, (tick_ball_dash, tick_rolling).chain());
 
     let mut kin = ae::BodyKinematics::default();
-    kin.size = ae::Vec2::new(24.0, 40.0);
+    kin.canonical_size = ae::Vec2::new(24.0, 40.0);
     kin.facing = 1.0;
     let mut motion = MotionModel::SurfaceMomentum(SurfaceMomentumMotion::new(Default::default()));
     if let MotionModel::SurfaceMomentum(m) = &mut motion {

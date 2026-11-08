@@ -453,7 +453,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
 }
 
 pub(crate) fn bark_anchor(kin: &ae::BodyKinematics) -> ae::Vec2 {
-    kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0)
+    kin.pos + ae::Vec2::new(0.0, -kin.size().y * 0.72 - 16.0)
 }
 
 /// A body's contact attack, read from its motion and authored tuning.

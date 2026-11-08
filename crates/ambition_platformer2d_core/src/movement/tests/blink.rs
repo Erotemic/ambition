@@ -348,7 +348,7 @@ fn god_blink_accepts_destinations_inside_walls_and_outside_the_world() {
         assert_eq!(to, target, "God Blink stopped at {kind:?}");
         let inside_wall = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(230.0, 140.0));
         assert_eq!(inside_wall, Vec2::new(230.0, 140.0));
-        assert!(crate::geometry::Aabb::new(inside_wall, god.kinematics.size * 0.5).strict_intersects(world.blocks[0].aabb));
+        assert!(crate::geometry::Aabb::new(inside_wall, god.kinematics.size() * 0.5).strict_intersects(world.blocks[0].aabb));
         let outside = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(5000.0, -5000.0));
         assert_eq!(outside, Vec2::new(5000.0, -5000.0));
     }
@@ -361,7 +361,7 @@ fn a_blink_with_no_free_destination_emits_no_committed_effect() {
     world.blocks.clear();
     let mut scratch = scratch_at(Vec2::new(140.0, 140.0));
     world.blocks.push(crate::world::Block::solid(
-        "flush wall", scratch.kinematics.pos + Vec2::new(scratch.kinematics.size.x * 0.5, -100.0),
+        "flush wall", scratch.kinematics.pos + Vec2::new(scratch.kinematics.size().x * 0.5, -100.0),
         Vec2::new(200.0, 300.0)));
     scratch.axis_mut().blink_hold_active = true;
     let from = scratch.kinematics.pos;
@@ -390,7 +390,7 @@ fn god_blink_can_land_inside_a_solid_outline() {
     let god = scratch_with(crate::AbilityGrant::GodBlink.to_set(), Vec2::new(140.0, 140.0));
     let to = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(240.0, 140.0));
     assert_eq!(to, Vec2::new(240.0, 140.0));
-    assert!(crate::solid_lines::put_out_of_solid_lines(&world, crate::Aabb::new(to, god.kinematics.size * 0.5)).is_some());
+    assert!(crate::solid_lines::put_out_of_solid_lines(&world, crate::Aabb::new(to, god.kinematics.size() * 0.5)).is_some());
     let beyond = blink_destination_to_point_clusters(&world, &god.kinematics, &god.abilities, Vec2::new(340.0, 140.0));
     assert_eq!(beyond, Vec2::new(340.0, 140.0));
 }
@@ -458,7 +458,7 @@ fn god_blink_does_not_freeze_one_way_drops_flight_or_collision_recovery() {
             set.unrestricted_blink = unrestricted;
             let mut body = scratch_with(set, Vec2::new(260.0, 200.0));
             if scenario == 0 {
-                body.kinematics.pos.y = 200.0 - body.kinematics.size.y * 0.5;
+                body.kinematics.pos.y = 200.0 - body.kinematics.size().y * 0.5;
                 body.ground.on_ground = true;
                 body.axis_mut().drop_through_timer = 1.0;
             }

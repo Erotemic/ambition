@@ -229,7 +229,7 @@ fn the_players_body(world: &World, player: Entity) -> ae::BodyClusterScratch {
     let size = world.get::<ae::BodyKinematics>(player).expect("a body").size;
     let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
     body.model = model;
-    body.kinematics.size = size;
+    body.kinematics.canonical_size = size;
     body.base_size.base_size = size;
     body
 }
@@ -558,7 +558,7 @@ pub fn fight(
         let candidates: Vec<(Entity, ae::Vec2, ae::Vec2)> = bodies
             .iter(world)
             .filter(|(entity, _, health)| *entity != player && health.alive())
-            .map(|(entity, kin, _)| (entity, kin.pos, kin.size * 0.5))
+            .map(|(entity, kin, _)| (entity, kin.pos, kin.size() * 0.5))
             .collect();
         let nearest = candidates
             .into_iter()

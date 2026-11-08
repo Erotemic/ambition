@@ -497,7 +497,7 @@ pub fn portal_transit(
         // aperture as wall or floor/ceiling relative to this body's down.
         let gravity_dir = gravity.dir_for(room, ambition_platformer2d_core::Aabb::new(
             kin.pos,
-            kin.size * 0.5,
+            kin.size() * 0.5,
         ));
         // Body latch (`PortalTransitCooldown`), ticked by
         // `tick_portal_cooldowns`, scoped to the pair just crossed.
@@ -848,17 +848,17 @@ mod tests {
 
     #[test]
     fn portal_sweep_sample_uses_kernel_segment_when_live_endpoint_matches() {
-        let kin = BodyKinematics {
+        let kin = BodyKinematics { material: Default::default(),
             pos: Vec2::new(10.0, 20.0),
             vel: Vec2::new(0.0, 30.0),
-            size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
         let sweep = ae::SweepSample {
             prev: Vec2::new(10.0, 12.0),
             curr: kin.pos,
             vel: Vec2::new(0.0, 240.0),
-            half: kin.size * 0.5,
+            half: kin.size() * 0.5,
             down: Vec2::new(0.0, 1.0),
         };
 
@@ -869,10 +869,10 @@ mod tests {
 
     #[test]
     fn portal_sweep_sample_rejects_post_sim_teleport_gap() {
-        let kin = BodyKinematics {
+        let kin = BodyKinematics { material: Default::default(),
             pos: Vec2::new(1000.0, 1000.0),
             vel: Vec2::ZERO,
-            size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
         let sweep = ae::SweepSample {

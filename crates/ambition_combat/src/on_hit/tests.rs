@@ -76,10 +76,10 @@ fn pogo_app(
     let owner = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
             },
             ambition_platformer2d_core::BodyGroundState {
@@ -203,10 +203,10 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
         .spawn((
             ActorFaction::Player,
             ae::CenteredAabb::from_center_size(owner_center, ae::Vec2::new(20.0, 40.0)),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: owner_center,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(20.0, 40.0),
+                canonical_size: ae::Vec2::new(20.0, 40.0),
                 facing: 1.0,
             },
             ambition_platformer2d_core::BodyGroundState {

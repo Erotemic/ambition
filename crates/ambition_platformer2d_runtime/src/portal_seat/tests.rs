@@ -61,10 +61,10 @@ fn same_wall_pair_app(who: Body) -> (App, Entity) {
             ambition_portal2d::PORTAL_OPENING_HALF,
         ));
     }
-    let mut body = app.world_mut().spawn(BodyKinematics {
+    let mut body = app.world_mut().spawn(BodyKinematics { material: Default::default(),
         pos: Vec2::new(20.0, 200.0),
         vel: Vec2::new(-100.0, 0.0),
-        size: Vec2::new(24.0, 40.0),
+        canonical_size: Vec2::new(24.0, 40.0),
         facing: -1.0,
     });
     match who {

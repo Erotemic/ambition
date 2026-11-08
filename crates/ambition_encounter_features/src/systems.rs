@@ -291,10 +291,10 @@ pub fn drive_wave_encounters(
                 use bevy::math::bounding::IntersectsVolume;
                 let player_aabb = ae::aabb_from_min_size(
                     ae::Vec2::new(
-                        body.pos.x - body.size.x * 0.5,
-                        body.pos.y - body.size.y * 0.5,
+                        body.pos.x - body.size().x * 0.5,
+                        body.pos.y - body.size().y * 0.5,
                     ),
-                    body.size,
+                    body.size(),
                 );
                 trigger.intersects(&player_aabb)
             });

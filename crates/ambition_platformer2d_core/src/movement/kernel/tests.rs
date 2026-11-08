@@ -90,7 +90,7 @@ fn grounded_spawn_initializes_without_a_landing_edge() {
     let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
     let mut model = MotionModel::axis_swept(AxisSweptParams::default());
     let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
-    scratch.kinematics.pos = Vec2::new(100.0, 400.0 - scratch.kinematics.size.y * 0.5);
+    scratch.kinematics.pos = Vec2::new(100.0, 400.0 - scratch.kinematics.size().y * 0.5);
     scratch.ground = crate::BodyGroundState::uninitialized();
 
     let result = step(
@@ -117,7 +117,7 @@ fn airborne_spawn_can_land_during_its_first_tick() {
     let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
     // Start beyond the resting-contact slop but close enough that a fast
     // downward spawn crosses the floor during this first 1/60 s step.
-    scratch.kinematics.pos = Vec2::new(100.0, 394.0 - scratch.kinematics.size.y * 0.5);
+    scratch.kinematics.pos = Vec2::new(100.0, 394.0 - scratch.kinematics.size().y * 0.5);
     scratch.kinematics.vel = Vec2::new(0.0, 600.0);
     scratch.ground = crate::BodyGroundState::uninitialized();
 
@@ -337,7 +337,7 @@ fn a_frame_change_is_not_a_model_change_and_preserves_private_state() {
     );
     let mut scratch =
         BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 500.0), AbilitySet::default());
-    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 16.0);
     let mut model = MotionModel::adhesive_crawler(CrawlerParams::default());
     let down = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
     for _ in 0..240 {
@@ -493,7 +493,7 @@ fn the_crawler_announces_its_attach_and_detach_edges() {
     );
     let mut scratch =
         BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 500.0), AbilitySet::default());
-    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 16.0);
     let mut model = MotionModel::adhesive_crawler(CrawlerParams::default());
     let down = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
 
@@ -574,7 +574,7 @@ fn a_crawler_given_no_command_stays_where_it_clings() {
     let seated = |input: InputState| {
         let mut scratch =
             BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 560.0), AbilitySet::default());
-        scratch.kinematics.size = Vec2::new(24.0, 16.0);
+        scratch.kinematics.canonical_size = Vec2::new(24.0, 16.0);
         scratch.kinematics.facing = 1.0;
         let mut model = MotionModel::adhesive_crawler(CrawlerParams {
             crawl_speed: 120.0,
@@ -611,7 +611,7 @@ fn the_crawler_crawls_wraps_a_convex_corner_and_keeps_gluing() {
     );
     let mut scratch =
         BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 560.0), AbilitySet::default());
-    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 16.0);
     scratch.kinematics.facing = 1.0;
     let mut model = MotionModel::adhesive_crawler(CrawlerParams {
         crawl_speed: 120.0,
@@ -780,14 +780,14 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
     );
     let mut scratch =
         BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 560.0), AbilitySet::default());
-    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 16.0);
     scratch.kinematics.facing = 1.0;
     let mut model = MotionModel::adhesive_crawler(CrawlerParams {
         crawl_speed: 240.0,
         ..CrawlerParams::default()
     });
     let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
-    let half = scratch.kinematics.size * 0.5;
+    let half = scratch.kinematics.size() * 0.5;
 
     let mut seen: std::collections::BTreeSet<(i32, i32)> = std::collections::BTreeSet::new();
     for _ in 0..2000 {
@@ -853,7 +853,7 @@ fn an_oblique_frame_crawler_attaches_to_the_landed_surfaces_true_normal() {
     let mut model = MotionModel::adhesive_crawler(CrawlerParams::default());
     let mut scratch =
         BodyClusterScratch::new_with_abilities(Vec2::new(1200.0, 700.0), AbilitySet::default());
-    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 16.0);
 
     let mut attached = None;
     for _ in 0..600 {
@@ -916,9 +916,9 @@ fn the_crawler_circumnavigates_an_arbitrarily_rotated_chain_island() {
         center + Vec2::new(0.0, -320.0),
         AbilitySet::default(),
     );
-    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 16.0);
     scratch.kinematics.facing = 1.0;
-    let body_thick = scratch.kinematics.size.y * 0.5;
+    let body_thick = scratch.kinematics.size().y * 0.5;
     let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 300.0);
 
     let mut segments_seen = std::collections::BTreeSet::new();
@@ -1606,7 +1606,7 @@ fn a_held_body_pinned_inside_solid_does_not_land() {
     // As the census found her: 70x56 at y = -8, so her feet are 20 px into a
     // 32 px ceiling and the rest of her is above the room. The shallow way out
     // is UP, onto the ceiling's top face.
-    scratch.kinematics.size = Vec2::new(70.0, 56.0);
+    scratch.kinematics.canonical_size = Vec2::new(70.0, 56.0);
     let pinned = Vec2::new(300.0, -8.0);
     let mut landings = 0;
     for _ in 0..60 {
@@ -1781,7 +1781,7 @@ fn a_portal_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
     scratch.kinematics.vel = Vec2::new(0.0, 6000.0);
     let initial = scratch.kinematics;
     let mut sweep = crate::SweepSample { prev: initial.pos - Vec2::Y * 20.0, curr: initial.pos,
-        vel: initial.vel, half: initial.size * 0.5, down: Vec2::Y };
+        vel: initial.vel, half: initial.size() * 0.5, down: Vec2::Y };
     let mut model = MotionModel::axis_swept(AxisSweptParams::default());
     let frame = MotionFrame::from_direction(Vec2::Y, 0.0);
     let mut body = scratch.as_mut();

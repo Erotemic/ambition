@@ -36,7 +36,7 @@ fn stand_west_of_him(sim: &mut Platformer2dSimHarness, by: f32) {
     let w = wolf(sim);
     let hall = w.view.hall.expect("room");
     let (kin, _) = player(sim);
-    place_player(sim, ae::Vec2::new((w.kin.pos.x - by).max(hall.left + 30.0), hall.floor - kin.size.y * 0.5 - 1.0));
+    place_player(sim, ae::Vec2::new((w.kin.pos.x - by).max(hall.left + 30.0), hall.floor - kin.size().y * 0.5 - 1.0));
 }
 
 /// The throne room, his intro over: you came near and he woke.
@@ -176,7 +176,7 @@ fn stand_until(
         let hall = w.view.hall.expect("room");
         let (kin, _) = player(sim);
         let x = (w.kin.pos.x + w.side * ahead).clamp(hall.left + 30.0, hall.right - 30.0);
-        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size().y * 0.5 - 1.0));
         sim.step(AgentAction::default());
         if until(sim) {
             return;
@@ -197,7 +197,7 @@ fn stand_far_until(
         let hall = w.view.hall.expect("room");
         let x = if w.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 60.0 } else { hall.right - 60.0 };
         let (kin, _) = player(sim);
-        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size().y * 0.5 - 1.0));
         sim.step(AgentAction::default());
         if until(sim) {
             return;
@@ -220,7 +220,7 @@ fn he_stands_on_the_floor() {
         if matches!(w.view.performing, Some((Move::Bound | Move::Lunge, true))) {
             continue;
         }
-        let feet = w.kin.pos.y + module::Body::of_height(w.kin.size.y).feet_below();
+        let feet = w.kin.pos.y + module::Body::of_height(w.kin.size().y).feet_below();
         assert!((feet - floor).abs() < 0.5, "his feet are {feet}, the floor {floor}: {w:?}");
     }
 }
@@ -302,7 +302,7 @@ fn the_galvanize_strikes_where_you_stood_and_leaves_him_flat() {
     step_until(&mut sim, 60 * 2, "him to go flat", |sim| wolf(sim).view.flat);
     // Flat: a window, not a flinch, and touching him does not hurt.
     let w = wolf(&mut sim);
-    let (trunk, _) = module::Body::of_height(w.kin.size.y).trunk();
+    let (trunk, _) = module::Body::of_height(w.kin.size().y).trunk();
     untouchable_player(&mut sim, false);
     let (_, before) = player(&mut sim);
     for _ in 0..60 {
@@ -338,7 +338,7 @@ fn unleashed_he_bounds_off_the_wall_and_his_howl_calls_the_pack() {
         let hall = w.view.hall.expect("room");
         let (kin, _) = player(&mut sim);
         let x = (w.kin.pos.x - w.side * 40.0).clamp(hall.left + 30.0, hall.right - 30.0);
-        place_player(&mut sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+        place_player(&mut sim, ae::Vec2::new(x, hall.floor - kin.size().y * 0.5 - 1.0));
         sim.step(AgentAction::default());
         if summoned(&mut sim) > 0 {
             return;
@@ -358,7 +358,7 @@ fn a_player_on_a_gallery_is_answered_by_the_arc_lash() {
     // 160 over the floor; the room's west wall is 16 thick.
     let room_x = hall.left - 16.0;
     let (kin, _) = player(&mut sim);
-    let on_gallery = ae::Vec2::new(room_x + 1376.0, hall.floor - 160.0 - kin.size.y * 0.5 - 1.0);
+    let on_gallery = ae::Vec2::new(room_x + 1376.0, hall.floor - 160.0 - kin.size().y * 0.5 - 1.0);
     let mut lashed = false;
     for _ in 0..60 * 60 {
         place_player(&mut sim, on_gallery);
@@ -394,7 +394,7 @@ fn one_lash_is_one_ray() {
     let hall = wolf(&mut sim).view.hall.expect("room");
     let room_x = hall.left - 16.0;
     let (kin, _) = player(&mut sim);
-    let on_gallery = ae::Vec2::new(room_x + 1376.0, hall.floor - 160.0 - kin.size.y * 0.5 - 1.0);
+    let on_gallery = ae::Vec2::new(room_x + 1376.0, hall.floor - 160.0 - kin.size().y * 0.5 - 1.0);
     let mut rays = std::collections::BTreeSet::new();
     let mut struck = false;
     for _ in 0..60 * 60 {

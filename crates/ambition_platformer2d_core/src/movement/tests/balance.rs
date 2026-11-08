@@ -39,7 +39,7 @@ fn ledge() -> World {
 /// it does not catch a ledge it goes off.
 fn settled(world: &World, size: Vec2, x: f32, ticks: usize, tuning: crate::test_support::TestTuning) -> BodyClusterScratch {
     let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(x, TOP - size.y * 0.5 - 2.0), AbilitySet::NONE);
-    scratch.kinematics.size = size;
+    scratch.kinematics.canonical_size = size;
     scratch.ground.on_ground = false;
     for _ in 0..ticks {
         update_player_with_tuning_scratch(world, &mut scratch, InputState::default(), 1.0 / 60.0, tuning);

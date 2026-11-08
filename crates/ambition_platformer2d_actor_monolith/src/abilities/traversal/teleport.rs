@@ -349,7 +349,7 @@ pub fn apply_authored_teleports(
         .map(|(entity, kin, faction, team, driving, sim)| FoeCandidate {
             entity,
             pos: kin.pos,
-            half: kin.size * 0.5,
+            half: kin.size() * 0.5,
             faction: faction.copied().unwrap_or_default(),
             team: team.cloned(),
             driving: driving.cloned(),

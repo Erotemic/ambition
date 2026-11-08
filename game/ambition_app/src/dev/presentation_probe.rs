@@ -424,7 +424,7 @@ fn collect_players(world: &mut World) -> Vec<PlayerProbe> {
                 bound_character: bound.map(|bound| bound.id.clone()),
                 sim_pos: kinematics.map(|body| ae_v2(body.pos)),
                 sim_vel: kinematics.map(|body| ae_v2(body.vel)),
-                sim_size: kinematics.map(|body| ae_v2(body.size)),
+                sim_size: kinematics.map(|body| ae_v2(body.size())),
                 pose: pose.map(|pose| PoseProbe {
                     size: ae_v2(pose.size),
                     base_size: ae_v2(pose.base_size),

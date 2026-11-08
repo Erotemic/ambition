@@ -35,7 +35,7 @@ fn dash_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_dash: boo
         &[],
     );
     // Rest the body on the floor top (y = 100): center a half-height above it.
-    let half_h = seed.kin.size.y * 0.5;
+    let half_h = seed.kin.size().y * 0.5;
     seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
     seed.kin.vel = ae::Vec2::ZERO;
     seed.kin.facing = 1.0;
@@ -49,7 +49,7 @@ fn dash_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_dash: boo
             ..ae::AbilitySet::NONE
         }),
         false,
-        seed.kin.size,
+        seed.kin.size(),
     );
     seed.body.0.ground.on_ground = true;
     let start_x = seed.kin.pos.x;
@@ -169,7 +169,7 @@ fn walk_run_staggered(sprite_content: &ambition_sprite_sheet::SpriteContent, mut
         CharacterBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
-    let half_h = seed.kin.size.y * 0.5;
+    let half_h = seed.kin.size().y * 0.5;
     seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
     seed.kin.vel = ae::Vec2::ZERO;
     seed.kin.facing = 1.0;
@@ -273,10 +273,10 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         CharacterBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
-    let half_h = seed.kin.size.y * 0.5;
+    let half_h = seed.kin.size().y * 0.5;
     seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
     seed.surface.gravity_scale = 1.0;
-    seed.body = ActorBody::from_abilities(ambition_platformer2d_core::AbilitySet::classic_actor(), false, seed.kin.size);
+    seed.body = ActorBody::from_abilities(ambition_platformer2d_core::AbilitySet::classic_actor(), false, seed.kin.size());
     seed.body.0.ground.on_ground = true;
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
@@ -332,7 +332,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     seed.kin.vel = ae::Vec2::ZERO;
     seed.surface.gravity_scale = 0.0;
     // Aerial body: is_aerial forces the fly ability + fly_enabled from spawn.
-    seed.body = ActorBody::from_abilities(ambition_platformer2d_core::AbilitySet::classic_actor(), true, seed.kin.size);
+    seed.body = ActorBody::from_abilities(ambition_platformer2d_core::AbilitySet::classic_actor(), true, seed.kin.size());
     let start = seed.kin.pos;
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
@@ -394,7 +394,7 @@ fn fly_toggle_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_fly
         CharacterBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
-    let half_h = seed.kin.size.y * 0.5;
+    let half_h = seed.kin.size().y * 0.5;
     seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
     seed.kin.vel = ae::Vec2::ZERO;
     seed.kin.facing = 1.0;
@@ -410,7 +410,7 @@ fn fly_toggle_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_fly
             ..ae::AbilitySet::NONE
         }),
         false,
-        seed.kin.size,
+        seed.kin.size(),
     );
     seed.body.0.ground.on_ground = true;
     let start_y = seed.kin.pos.y;

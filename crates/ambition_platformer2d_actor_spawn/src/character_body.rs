@@ -191,7 +191,7 @@ impl GrantedBodyFacts {
                             .get::<ambition_platformer2d_core::BodyModeState>()
                             .map_or(base_size, |mode| mode.body_mode.shape(base_size).size);
                         if let Some(mut kin) = body.get_mut::<ambition_platformer2d_core::BodyKinematics>() {
-                            if kin.size != stance {
+                            if kin.size() != stance {
                                 ambition_platformer2d_core::resize_feet_planted(&mut kin, stance, gravity_dir);
                             }
                         }
@@ -553,7 +553,7 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
                     .get::<ambition_platformer2d_core::BodyModeState>()
                     .map_or(base_size, |mode| mode.body_mode.shape(base_size).size);
                 if let Some(mut kin) = body.get_mut::<ambition_platformer2d_core::BodyKinematics>() {
-                    if kin.size != stance {
+                    if kin.size() != stance {
                         ambition_platformer2d_core::resize_feet_planted(&mut kin, stance, gravity_dir);
                     }
                 }

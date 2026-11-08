@@ -113,7 +113,7 @@ impl Body {
     /// a body with none is tested at its end only.
     pub(super) fn step(self, world: &World, sampled: bool) -> Stepped {
         let mut scratch = BodyClusterScratch::new_with_abilities(self.pos, self.abilities);
-        scratch.kinematics.size = BODY;
+        scratch.kinematics.canonical_size = BODY;
         scratch.base_size.base_size = BODY;
         scratch.kinematics.vel = self.vel;
         scratch.kinematics.facing = -1.0;

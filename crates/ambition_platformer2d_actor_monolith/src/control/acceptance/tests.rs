@@ -838,10 +838,10 @@ fn a_lured_boss(
     let boss = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::splat(40.0),
+                canonical_size: ae::Vec2::splat(40.0),
                 facing: -1.0,
             },
             BodyHealth::new(ambition_characters::actor::Health {

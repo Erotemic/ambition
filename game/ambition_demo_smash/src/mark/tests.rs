@@ -50,7 +50,7 @@ fn app() -> App {
 fn fighter(app: &mut App, seat: u8, at: ae::Vec2) -> Entity {
     let mut kin = ae::BodyKinematics::default();
     kin.pos = at;
-    kin.size = ae::Vec2::new(24.0, 40.0);
+    kin.canonical_size = ae::Vec2::new(24.0, 40.0);
     app.world_mut().spawn((kin, MatchSeat(seat as usize), SimId::player_slot(seat))).id()
 }
 

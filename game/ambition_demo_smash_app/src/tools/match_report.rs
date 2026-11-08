@@ -881,7 +881,7 @@ fn sample_camera(app: &mut App, camera: &mut CameraTally) {
     let mut seats = world.query::<(&MatchSeat, &ae::BodyKinematics)>();
     let mut bodies: Vec<(usize, ae::Vec2, ae::Vec2)> = seats
         .iter(world)
-        .map(|(seat, kin)| (seat.0, kin.pos, kin.size))
+        .map(|(seat, kin)| (seat.0, kin.pos, kin.size()))
         .collect();
     bodies.sort_by_key(|(seat, ..)| *seat);
     camera
@@ -1215,7 +1215,7 @@ fn sample(
                 entity,
                 center: aabb.center,
                 hurt,
-                body_box: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size * 0.5)),
+                body_box: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size() * 0.5)),
                 dead: out_of_play || !health.alive(),
                 respawn: health.health.invulnerable.holds(
                     ambition_platformer2d::characters::actor::Invulnerability::RESPAWN,
@@ -1351,7 +1351,7 @@ fn sample(
                     captured.is_some(),
                     combat.recoil_lock_timer,
                     kin.pos.y,
-                    kin.size * 0.5,
+                    kin.size() * 0.5,
                 )
             },
         )

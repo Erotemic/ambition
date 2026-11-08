@@ -114,7 +114,7 @@ mod tests {
             .spawn((
                 ae::BodyKinematics {
                     pos: at,
-                    size: ae::Vec2::new(28.0, 46.0),
+                    canonical_size: ae::Vec2::new(28.0, 46.0),
                     ..Default::default()
                 },
                 ae::CenteredAabb::from_center_size(at, ae::Vec2::new(28.0, 46.0)),

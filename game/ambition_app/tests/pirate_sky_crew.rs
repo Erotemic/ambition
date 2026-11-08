@@ -63,7 +63,7 @@ fn the_cove_crew_fights_together_and_nobody_rides_inside_the_ceiling() {
             }
             rider.alive_ticks += 1;
             rider.shots += usize::from(control.0.fire.is_some());
-            rider.buried += usize::from(inside_solid(kin.pos, kin.size));
+            rider.buried += usize::from(inside_solid(kin.pos, kin.size()));
             rider.above_player.push(player_y - kin.pos.y);
         }
     }

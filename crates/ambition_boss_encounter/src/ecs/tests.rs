@@ -57,10 +57,10 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     };
     app.world_mut().spawn((
         ambition_characters::actor::ActorFaction::Boss,
-        ambition_platformer2d_core::BodyKinematics {
+        ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(300.0, 300.0),
             vel: ae::Vec2::ZERO,
-            size: combat_size,
+            canonical_size: combat_size,
             facing: 1.0,
         },
         intent,

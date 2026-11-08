@@ -70,10 +70,10 @@ fn press_shield_attack(carrying: Carrying) -> Outcome {
         PlayerEntity,
         PrimaryPlayer,
         DrivingParticipant(PlayerSlot::PRIMARY),
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos: Vec2::new(100.0, 100.0),
             vel: Vec2::ZERO,
-            size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
         ambition_platformer2d_core::BodyBaseSize {
@@ -213,10 +213,10 @@ fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
                 .spawn((
                     PlayerEntity,
                     DrivingParticipant(PlayerSlot(slot)),
-                    BodyKinematics {
+                    BodyKinematics { material: Default::default(),
                         pos: Vec2::new(x, 100.0),
                         vel: Vec2::ZERO,
-                        size: Vec2::new(24.0, 40.0),
+                        canonical_size: Vec2::new(24.0, 40.0),
                         facing: 1.0,
                     },
                     ambition_platformer2d_core::BodyBaseSize {

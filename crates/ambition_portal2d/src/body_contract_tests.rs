@@ -108,8 +108,8 @@ fn a_crossing_that_skipped_begin_leaves_the_body_straddling_the_exit() {
     let mut app = transit_app();
     wall_pair(&mut app);
     // Kernel: its step began 30 px in front of blue and ends 6 px behind it.
-    let kin = BodyKinematics { pos: Vec2::new(14.0, 200.0), vel: Vec2::new(-1800.0, 0.0), size: Vec2::splat(16.0), facing: 1.0 };
-    let record = SweepSample { prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size * 0.5, down: Vec2::new(0.0, 1.0) };
+    let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(14.0, 200.0), vel: Vec2::new(-1800.0, 0.0), canonical_size: Vec2::splat(16.0), facing: 1.0 };
+    let record = SweepSample { prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::new(0.0, 1.0) };
     let kernel = app.world_mut().spawn((kin, record)).id();
     let free = app
         .world_mut()
@@ -135,7 +135,7 @@ fn a_crossing_that_skipped_begin_leaves_the_body_straddling_the_exit() {
 fn the_last_pair_closing_ends_every_straddle() {
     let mut app = transit_app();
     let [blue, orange] = wall_pair(&mut app);
-    let kin = BodyKinematics { pos: Vec2::new(22.0, 200.0), vel: Vec2::ZERO, size: Vec2::splat(16.0), facing: 1.0 };
+    let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(22.0, 200.0), vel: Vec2::ZERO, canonical_size: Vec2::splat(16.0), facing: 1.0 };
     let kernel = app.world_mut().spawn((kin, PortalTransit { straddling: BLUE, crossed: false })).id();
     let free = app
         .world_mut()
@@ -228,7 +228,7 @@ fn planes_closing_together_push_a_body_the_same_whatever_their_order() {
                     app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), normal, HALF)).id()
                 })
                 .collect();
-            let kin = BodyKinematics { pos: Vec2::new(500.0, 300.0), vel: Vec2::ZERO, size: Vec2::splat(16.0), facing: 1.0 };
+            let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(500.0, 300.0), vel: Vec2::ZERO, canonical_size: Vec2::splat(16.0), facing: 1.0 };
             let body = app.world_mut().spawn(kin).id();
             app.update();
             for plane in planes {
@@ -331,7 +331,7 @@ fn a_posed_body_is_in_the_pair_it_reaches_into_and_is_not_moved() {
     let body = app
         .world_mut()
         .spawn((
-            BodyKinematics { pos: Vec2::new(60.0, 200.0), vel: Vec2::ZERO, size: Vec2::splat(16.0), facing: 1.0 },
+            BodyKinematics { material: Default::default(), pos: Vec2::new(60.0, 200.0), vel: Vec2::ZERO, canonical_size: Vec2::splat(16.0), facing: 1.0 },
             ambition_platformer2d_core::PoseOwnedExternally::only(ambition_platformer2d_core::PoseHold::Conductor),
         ))
         .id();
@@ -413,7 +413,7 @@ fn a_body_the_portals_move_whole_meets_only_its_own_side() {
         let body = app
             .world_mut()
             .spawn((
-                BodyKinematics { pos: Vec2::new(22.0, 200.0), vel: Vec2::ZERO, size: Vec2::splat(16.0), facing: -1.0 },
+                BodyKinematics { material: Default::default(), pos: Vec2::new(22.0, 200.0), vel: Vec2::ZERO, canonical_size: Vec2::splat(16.0), facing: -1.0 },
                 PortalTransit { straddling: BLUE, crossed: false },
             ))
             .id();

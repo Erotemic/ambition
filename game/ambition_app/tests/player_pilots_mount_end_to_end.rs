@@ -462,7 +462,7 @@ mod constrained_motion {
             let seat = sim.world().get::<Mountable>(mount).unwrap().seat;
             let expected = mount_kin.pos
                 + ambition_platformer2d::mount::saddle_world_offset(
-                    seat - ae::Vec2::new(0.0, rider_kin.size.y * 0.5),
+                    seat - ae::Vec2::new(0.0, rider_kin.size().y * 0.5),
                     mount_kin.facing,
                     ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
                 );

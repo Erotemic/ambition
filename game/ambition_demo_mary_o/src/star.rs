@@ -173,10 +173,10 @@ mod tests {
                 ambition_platformer2d::characters::actor::BodyHealth::new(
                     ambition_platformer2d::characters::actor::Health::new(1),
                 ),
-                ambition_platformer2d::engine_core::BodyKinematics {
+                ambition_platformer2d::engine_core::BodyKinematics { material: Default::default(),
                     pos: ambition_platformer2d::engine_core::Vec2::ZERO,
                     vel: ambition_platformer2d::engine_core::Vec2::ZERO,
-                    size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),
+                    canonical_size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),
                     facing: 1.0,
                 },
             ))

@@ -31,7 +31,7 @@ fn a_body_that_grabs_a_ledge_turns_to_face_it() {
     );
     let mut abilities = ae::AbilitySet::classic_actor();
     abilities.ledge_grab = true;
-    seed.body = ActorBody::from_abilities(abilities, false, seed.kin.size);
+    seed.body = ActorBody::from_abilities(abilities, false, seed.kin.size());
     seed.kin.pos = ae::Vec2::new(86.0, 110.0);
     seed.kin.vel = ae::Vec2::new(30.0, 20.0);
     seed.kin.facing = -1.0;

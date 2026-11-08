@@ -246,13 +246,13 @@ fn run(options: &Options, policy: Policy) -> Run {
             body.dormant += usize::from(dormant);
             body.targeting += usize::from(targeting);
             body.moving += usize::from(kin.vel.length() > 5.0);
-            let (pressed, buried) = ceiling_contact(&solids, kin.pos, kin.size);
+            let (pressed, buried) = ceiling_contact(&solids, kin.pos, kin.size());
             body.at_ceiling += usize::from(pressed);
             body.buried += usize::from(buried);
             body.above_player.push(player_pos.y - kin.pos.y);
             body.distance.push((kin.pos - player_pos).length());
             body.x.push(kin.pos.x);
-            body.top_min = body.top_min.min(kin.pos.y - kin.size.y * 0.5);
+            body.top_min = body.top_min.min(kin.pos.y - kin.size().y * 0.5);
             if kin.vel.y.abs() > STILL_VY {
                 let sign = kin.vel.y.signum();
                 if body.vy_sign != 0.0 && sign != body.vy_sign {

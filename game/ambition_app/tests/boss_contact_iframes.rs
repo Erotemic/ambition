@@ -80,7 +80,7 @@ fn read_player(world: &mut World) -> PlayerSnapshot {
     PlayerSnapshot {
         pos: kin.pos,
         vel: kin.vel,
-        half: kin.size * 0.5,
+        half: kin.size() * 0.5,
         invuln: combat.damage_invuln_timer,
         hitstun: combat.hitstun_timer,
         recoil: combat.recoil_lock_timer,
@@ -100,7 +100,7 @@ fn read_boss(world: &mut World) -> Option<BossSnapshot> {
     )>();
     q.iter(world).next().map(|(kin, cfg, combat)| BossSnapshot {
         pos: kin.pos,
-        combat_size: cfg.behavior.combat_size.unwrap_or(kin.size),
+        combat_size: cfg.behavior.combat_size.unwrap_or(kin.size()),
         hit_flash: if combat.recently_struck() { 1.0 } else { 0.0 },
     })
 }

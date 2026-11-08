@@ -106,7 +106,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
         ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
         &[],
     );
-    seed.kin.size = size;
+    seed.kin.canonical_size = size;
     seed.kin.pos = pos;
     seed.health.reset();
     let mut params = ae::DEFAULT_TUNING.axis_swept_params();
@@ -198,7 +198,7 @@ fn a_scripted_sequence_silences_a_possessed_body() {
         ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
         &[],
     );
-    seed.kin.size = size;
+    seed.kin.canonical_size = size;
     seed.kin.pos = pos;
     seed.health.reset();
     let body = app
@@ -252,7 +252,7 @@ fn driven_body_app(slot: ambition_characters::control::PlayerSlot) -> (App, Enti
         ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
         &[],
     );
-    seed.kin.size = size;
+    seed.kin.canonical_size = size;
     seed.kin.pos = pos;
     let body = app
         .world_mut()

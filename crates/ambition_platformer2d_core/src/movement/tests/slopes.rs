@@ -98,7 +98,7 @@ fn a_falling_body_lands_on_a_ramp_once_and_stays() {
     assert_eq!(landings, 1);
     // Centred at 550, the box's uphill edge is at 564: the line there is at
     // 852 - (564 - 400) / 2.
-    let at_edge = 852.0 - (550.0 + scratch.kinematics.size.x * 0.5 - 400.0) / 2.0;
+    let at_edge = 852.0 - (550.0 + scratch.kinematics.size().x * 0.5 - 400.0) / 2.0;
     assert!((feet(&scratch) - at_edge).abs() < 0.5, "feet {} on the line {at_edge}", feet(&scratch));
 }
 

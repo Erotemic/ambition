@@ -122,7 +122,7 @@ fn median(mut values: Vec<f32>) -> f32 {
 
 // These entities contain camera input samples. They have no motion model.
 fn body_sample(pos: ae::Vec2, vel: ae::Vec2) -> ae::BodyKinematics {
-    ae::BodyKinematics { pos, vel, size: BODY, ..Default::default() }
+    ae::BodyKinematics { pos, vel, canonical_size: BODY, ..Default::default() }
 }
 
 /// Run `scenario` with a fresh camera; `human` seats a controlled body in 0.

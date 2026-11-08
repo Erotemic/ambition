@@ -297,7 +297,7 @@ pub fn cross_on_errands(
                 if moving.len() != 1 {
                     continue;
                 }
-                let size = cluster.kinematics.size;
+                let size = cluster.kinematics.size();
                 let feet = ae::Vec2::new(crossing.arrival.x, crossing.arrival.y + size.y * 0.5);
                 if occurrences.admit_crossing(sim_id.clone(), &crossing.into_id, feet) {
                     commands.entity(body).despawn();
@@ -314,7 +314,7 @@ pub fn cross_on_errands(
         ae::movement::transit_body(&mut model, &mut clusters, crossing.arrival, ae::movement::TransitVelocity::Zero);
         if let Some(occurrences) = occurrences.as_deref_mut() {
             if durable {
-                let feet = ae::Vec2::new(crossing.arrival.x, crossing.arrival.y + clusters.kinematics.size.y * 0.5);
+                let feet = ae::Vec2::new(crossing.arrival.x, crossing.arrival.y + clusters.kinematics.size().y * 0.5);
                 let admitted = occurrences.admit_crossing(sim_id.clone(), &crossing.into_id, feet);
                 // A body that walks is in no custody, and a body with a
                 // terminal row is not alive to walk.

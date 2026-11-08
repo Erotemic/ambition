@@ -2113,7 +2113,7 @@ fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
             ambition_characters::actor::ActorFaction::Enemy,
             ae::BodyKinematics {
                 pos: ae::Vec2::new(500.0, 300.0),
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 ..Default::default()
             },
             ae::CenteredAabb::from_center_size(
@@ -2205,7 +2205,7 @@ fn a_closed_parry_window_lets_the_shot_through() {
         ambition_characters::actor::ActorFaction::Enemy,
         ae::BodyKinematics {
             pos: ae::Vec2::new(500.0, 300.0),
-            size: ae::Vec2::new(28.0, 46.0),
+            canonical_size: ae::Vec2::new(28.0, 46.0),
             ..Default::default()
         },
         ae::CenteredAabb::from_center_size(
@@ -2273,7 +2273,7 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
         ambition_characters::actor::ActorFaction::Enemy,
         ae::BodyKinematics {
             pos: ae::Vec2::new(500.0, 300.0),
-            size: ae::Vec2::new(28.0, 46.0),
+            canonical_size: ae::Vec2::new(28.0, 46.0),
             ..Default::default()
         },
         ae::CenteredAabb::from_center_size(
@@ -2354,7 +2354,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
                     ambition_characters::actor::ActorFaction::Enemy,
                     ae::BodyKinematics {
                         pos: ae::Vec2::new(500.0, 300.0),
-                        size: ae::Vec2::new(28.0, 46.0),
+                        canonical_size: ae::Vec2::new(28.0, 46.0),
                         ..Default::default()
                     },
                     ae::CenteredAabb::from_center_size(
@@ -2382,7 +2382,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
                     ambition_characters::actor::ActorFaction::Enemy,
                     ae::BodyKinematics {
                         pos: ae::Vec2::new(508.0, 300.0),
-                        size: ae::Vec2::new(28.0, 46.0),
+                        canonical_size: ae::Vec2::new(28.0, 46.0),
                         ..Default::default()
                     },
                     ae::CenteredAabb::from_center_size(
@@ -2690,7 +2690,7 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
          refuses one-ways outright and there is no tie to decide"
     );
 
-    let half = body.kin.size * 0.5;
+    let half = body.kin.size() * 0.5;
     // The wall's RIGHT face and the platform's TOP face, each `REACH` px from
     // the shot's box along its own axis.
     let wall_right = start.x - half.x - REACH;

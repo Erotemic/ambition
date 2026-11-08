@@ -746,7 +746,7 @@ fn prepare_alice_returning_to_bobs_fight(sim: &mut Platformer2dSimHarness) {
             &mut ambition_platformer2d::actor::MotionModel)>();
         for (id, mut clusters, mut model) in bodies.iter_mut(world) {
             let dx = if id.0 == "ow1_bob" { -48.0 } else if id.0 == PEER_COMBAT_VICTIM { 48.0 } else { continue };
-            let half = clusters.kinematics.size * 0.5;
+            let half = clusters.kinematics.size() * 0.5;
             let at = ambition_platformer2d::engine_core::Vec2::new(floor.center().x + dx, floor.top() - half.y);
             ambition_platformer2d::engine_core::movement::transit_body(&mut model, &mut clusters.as_clusters_mut(), at,
                 ambition_platformer2d::engine_core::movement::TransitVelocity::Zero);

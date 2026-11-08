@@ -96,7 +96,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     // route through -- but the policy matches the receiver's NAME and cannot
     // tell a scratch bag from a simulated body. This is the seam it points at.
     .with_velocity(ae::Vec2::ZERO);
-    scratch.kinematics.size = size;
+    scratch.kinematics.canonical_size = size;
     let mut model = ae::MotionModel::surface_momentum(params);
     let ae::MotionModel::SurfaceMomentum(motion) = &mut model else {
         unreachable!();

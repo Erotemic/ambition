@@ -372,7 +372,7 @@ fn wielder_of(
         pressed,
         driven,
         position: [kin.pos.x, kin.pos.y],
-        size: [kin.size.x, kin.size.y],
+        size: [kin.size().x, kin.size().y],
         facing: kin.facing,
         frame_side: [basis.side.x, basis.side.y],
         frame_down: [basis.down.x, basis.down.y],
@@ -553,7 +553,7 @@ fn ledge_ahead_of(world: &World, scope: Entity) -> Option<ambition_combat_port::
             let distance = sample as f32 * LEDGE_SAMPLE_PX;
             ambition_platformer2d_core::ledge_grab::probe_ledge_grab_in_frame(
                 kin.pos + reach_dir * distance,
-                kin.size,
+                kin.size(),
                 wall_normal_x,
                 &solids,
                 frame.down(),
@@ -905,7 +905,7 @@ mod tests {
     fn reacher(world: &mut bevy::prelude::World, at: bevy::prelude::Vec2, facing: f32) -> bevy::prelude::Entity {
         world
             .spawn((
-                super::BodyKinematics { pos: at, size: bevy::prelude::Vec2::new(28.0, 46.0), facing, ..Default::default() },
+                super::BodyKinematics { pos: at, canonical_size: bevy::prelude::Vec2::new(28.0, 46.0), facing, ..Default::default() },
                 super::ResolvedMotionFrame::default(),
             ))
             .id()

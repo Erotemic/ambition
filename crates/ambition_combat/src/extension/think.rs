@@ -97,7 +97,7 @@ pub fn queue_actor_thinks(
             ActorThink {
                 position: [kin.pos.x, kin.pos.y],
                 velocity: [kin.vel.x, kin.vel.y],
-                size: [kin.size.x, kin.size.y],
+                size: [kin.size().x, kin.size().y],
                 facing: kin.facing,
                 on_ground: ground.is_some_and(|ground| ground.on_ground),
                 health: health.current(),

@@ -183,7 +183,7 @@ fn swallows_carry_coconuts(
         let anchor = helper
             .filter(|j| rooms.of(leader) == rooms.of(birds[*j].entity))
             .map_or(
-                birds[i].kin.pos + ae::Vec2::Y * (birds[i].kin.size.y * 0.5 + 8.0),
+                birds[i].kin.pos + ae::Vec2::Y * (birds[i].kin.size().y * 0.5 + 8.0),
                 |j| SupportedCarry::anchor(&birds[i].kin, &birds[j].kin, ae::Vec2::Y),
             );
         let intact = helper.is_some_and(|j| {
@@ -295,7 +295,7 @@ fn swallows_carry_coconuts(
             if bird.alive && !bird.available {
                 continue;
             }
-            let from = bird.kin.pos + ae::Vec2::new(0.0, bird.kin.size.y * 0.5 + 8.0);
+            let from = bird.kin.pos + ae::Vec2::new(0.0, bird.kin.size().y * 0.5 + 8.0);
             let decision = bird
                 .target
                 .and_then(|target| hunted.get(target).ok())
@@ -353,7 +353,7 @@ fn swallows_carry_coconuts(
         }) else {
             continue;
         };
-        let approach = nut.pos - ae::Vec2::Y * (bird.kin.size.y * 0.5 + 4.0);
+        let approach = nut.pos - ae::Vec2::Y * (bird.kin.size().y * 0.5 + 4.0);
         let arrived = bird.kin.pos.distance(approach) <= fetch.join_radius;
         let partner = birds
             .iter()
@@ -511,7 +511,7 @@ mod tests {
                 BodyHealth::new(ambition_characters::actor::Health::new(1)),
                 ae::BodyKinematics {
                     pos,
-                    size: ae::Vec2::new(24.0, 20.0),
+                    canonical_size: ae::Vec2::new(24.0, 20.0),
                     ..default()
                 },
                 SimId::placement(id),

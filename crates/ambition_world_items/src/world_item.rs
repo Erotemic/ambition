@@ -262,10 +262,10 @@ mod tests {
     use bevy::ecs::system::RunSystemOnce;
 
     fn kin(pos: ae::Vec2) -> BodyKinematics {
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos,
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(28.0, 32.0),
+            canonical_size: ae::Vec2::new(28.0, 32.0),
             facing: 1.0,
         }
     }

@@ -756,7 +756,7 @@ pub fn prepare_match(sprite_content: &ambition_sprite_sheet::SpriteContent,
 
         // Use the size the seed resolved. The small placeholder applies only
         // to a character that authors no size.
-        let body_px = seed.kin.size;
+        let body_px = seed.kin.size();
         // Every "what can this body do" question below reads this, so the kit,
         // abilities, and AI capability read agree.
         let seat_abilities = effective_abilities(definition.abilities, rules.abilities);

@@ -45,8 +45,8 @@ fn the_player(sim: &mut ambition_app::Platformer2dSimHarness) -> (ae::BodyCluste
     let kinematics = *world.get::<ae::BodyKinematics>(player).expect("a body");
     let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
     body.model = model;
-    body.kinematics.size = kinematics.size;
-    body.base_size.base_size = kinematics.size;
+    body.kinematics.canonical_size = kinematics.size();
+    body.base_size.base_size = kinematics.size();
     (body, kinematics.pos)
 }
 

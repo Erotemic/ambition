@@ -641,10 +641,10 @@ mod tests {
                 47,
                 Default::default(),
             ),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: center,
                 vel: ae::Vec2::new(220.0, -180.0),
-                size: ae::Vec2::new(12.0, 24.0),
+                canonical_size: ae::Vec2::new(12.0, 24.0),
                 // the body has TURNED since its move committed.
                 facing: 1.0,
             },

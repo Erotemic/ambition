@@ -63,7 +63,7 @@ fn app(blocks: Vec<Block>) -> App {
 fn fighter(app: &mut App, at: ae::Vec2, on_ground: bool) -> Entity {
     app.world_mut()
         .spawn((
-            ae::BodyKinematics { pos: at, size: PLAYER_SIZE, facing: 1.0, ..Default::default() },
+            ae::BodyKinematics { pos: at, canonical_size: PLAYER_SIZE, facing: 1.0, ..Default::default() },
             ae::BodyGroundState { on_ground, ..Default::default() },
             ambition_platformer2d::world::ResolvedMotionFrame::default(),
         ))
@@ -197,7 +197,7 @@ fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
     let world = ae::World::new("tether", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, stage());
     let contact = ae::ledge_grab::probe_ledge_grab_in_frame(
         kin.pos,
-        kin.size,
+        kin.size(),
         -1.0,
         &world,
         ambition_platformer2d::world::ResolvedMotionFrame::default().down(),

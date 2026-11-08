@@ -61,7 +61,7 @@ fn fight(character: &str, gap: f32, seconds: usize) -> Fight {
         let mut q = world.query::<(&FeatureId, &ae::BodyKinematics, &ae::BodyGroundState, Option<&MovePlayback>)>();
         let (_, kin, ground, playback) = q.iter(world).find(|(id, ..)| id.as_str() == FOE).expect("the foe was built");
         if frame == 40 {
-            out.size = kin.size;
+            out.size = kin.size();
             out.grounded = ground.on_ground;
         }
         let playing = playback.map(|playback| playback.spec.id.to_string());

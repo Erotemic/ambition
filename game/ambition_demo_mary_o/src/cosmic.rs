@@ -251,7 +251,7 @@ pub fn the_sky_has_a_top(
     >,
 ) {
     for (entity, mut kin, mut sweep, ground) in &mut bodies {
-        let half = kin.size.y * 0.5;
+        let half = kin.size().y * 0.5;
         // The top of a room is the line y = 0 of its own space. With no live
         // room, that line is the top.
         let top = rooms.as_ref().and_then(|rooms| rooms.spec_of(entity)).map_or(0.0, crate::sky_top);

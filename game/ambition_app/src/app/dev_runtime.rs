@@ -549,7 +549,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         world_manifest,
         &current_room_id,
         preserved_pos,
-        clusters.kinematics.size,
+        clusters.kinematics.size(),
     )?;
 
     let candidate_index = ldtk_world::LdtkRuntimeIndex::from_project(&transaction.project);
@@ -889,7 +889,7 @@ pub(super) fn reload_ldtk_world_from_disk(
                 Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
             )>()
             .iter(world)
-            .map(|(body, kinematics)| (body, kinematics.pos, kinematics.size))
+            .map(|(body, kinematics)| (body, kinematics.pos, kinematics.size()))
             .collect();
         for (body, at, size) in others {
             let Some(clear) = world_rooms::live_room_spec_of(world, body)

@@ -29,7 +29,7 @@ fn the_dog(sim: &mut ambition_app::Platformer2dSimHarness) -> ae::BodyClusterScr
     let size = world.get::<ae::BodyKinematics>(dog).expect("the dog has a body").size;
     let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
     body.model = model;
-    body.kinematics.size = size;
+    body.kinematics.canonical_size = size;
     body.base_size.base_size = size;
     body
 }

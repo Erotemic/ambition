@@ -337,7 +337,7 @@ pub fn spawn_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // the box it displaced so a later change of character can put it back;
     // seeding the sprite box here would make that record the sprite box too.
     if let Some(size) = physical.as_ref().and_then(|p| p.standing_size()) {
-        initial_scratch.kinematics.size = size;
+        initial_scratch.kinematics.canonical_size = size;
     }
     if let Some(size) = physical.as_ref().and_then(|p| p.explicit_size()) {
         initial_scratch.base_size.base_size = size;

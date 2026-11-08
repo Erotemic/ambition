@@ -225,7 +225,7 @@ impl RecoveryLens {
         // born with. A character that authors its own gravity, air accel or jump
         // is probed as itself.
         body.model = ae::MotionModel::axis_swept(self.kit.movement.axis_swept_params());
-        body.kinematics.size = self.body_size;
+        body.kinematics.canonical_size = self.body_size;
         body.base_size.base_size = self.body_size;
         body.ground.on_ground = false;
         // NOT a refresh. `new_with_abilities` hands out a full air-jump budget

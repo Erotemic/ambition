@@ -95,7 +95,7 @@ fn place(sim: &mut Platformer2dSimHarness, body: Entity, face: f32, lip: f32, ab
         .world_mut()
         .get_mut::<ae::BodyKinematics>(body)
         .expect("the body has kinematics");
-    let half = kin.size * 0.5;
+    let half = kin.size() * 0.5;
     kin.pos = ae::Vec2::new(face + half.x + 1.0, lip - above + half.y);
     kin.vel = ae::Vec2::ZERO;
 }

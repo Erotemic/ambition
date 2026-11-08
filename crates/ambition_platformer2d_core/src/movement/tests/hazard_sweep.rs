@@ -69,7 +69,7 @@ fn step_with_sample(
         1.0 / 60.0,
         TEST_TUNING,
     );
-    let half = clusters.kinematics.size * 0.5;
+    let half = clusters.kinematics.size() * 0.5;
     (events.reset, sample, half)
 }
 

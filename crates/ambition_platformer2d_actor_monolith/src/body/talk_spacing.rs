@@ -140,7 +140,7 @@ pub fn space_the_talkers(
         on_side(other_box.center)
             + side
                 * (super::pet::half_on(other_box.half_size, frame.side)
-                    + initiator_kin.size.x * 0.5
+                    + initiator_kin.size().x * 0.5
                     + TALK_GAP)
     };
     let level = initiator_kin.pos.dot(frame.down);

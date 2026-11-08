@@ -464,7 +464,7 @@ fn accept_external_launch(
             let mut body = SurfaceBody {
                 pos: clusters.kinematics.pos,
                 vel: clusters.kinematics.vel,
-                radius: surface_momentum::body_radius(clusters.kinematics.size),
+                radius: surface_momentum::body_radius(clusters.kinematics.size()),
                 depth_lane: momentum.depth_lane,
                 motion: momentum.state,
                 route_memory: momentum.route_memory,
@@ -497,7 +497,7 @@ fn step_surface_momentum(
     let mut body = SurfaceBody {
         pos: clusters.kinematics.pos,
         vel: clusters.kinematics.vel,
-        radius: surface_momentum::body_radius(clusters.kinematics.size),
+        radius: surface_momentum::body_radius(clusters.kinematics.size()),
         depth_lane: motion.depth_lane,
         motion: motion.state,
         route_memory: motion.route_memory,

@@ -291,7 +291,7 @@ pub(crate) fn draw_body_debug(
     // reports (velocity, stance, contacts) still come from the clusters.
     let pos = draw_pos;
     let vel = clusters.kinematics.vel;
-    let size = clusters.kinematics.size;
+    let size = clusters.kinematics.size();
     let facing = clusters.kinematics.facing;
     let on_ground = clusters.ground.on_ground;
     let on_wall = clusters.wall.on_wall;
@@ -308,7 +308,7 @@ pub(crate) fn draw_body_debug(
             // the shared-geometry guarantee above is about the SHAPE, and moving
             // the centre onto the render clock leaves that untouched.
             pos,
-            size: clusters.kinematics.size,
+            size: clusters.kinematics.size(),
             facing: clusters.kinematics.facing,
             frame_down: gravity_dir,
         },

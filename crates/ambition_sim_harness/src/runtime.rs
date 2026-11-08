@@ -543,7 +543,7 @@ impl Platformer2dSimHarness {
         let vel = cluster.as_ref().map(|c| c.kinematics.vel).unwrap_or(zero);
         let size = cluster
             .as_ref()
-            .map(|c| c.kinematics.size)
+            .map(|c| c.kinematics.size())
             .unwrap_or(default_body);
         let facing = cluster.as_ref().map(|c| c.kinematics.facing).unwrap_or(1.0);
         let water = cluster.as_ref().and_then(|c| c.env_contact.water);

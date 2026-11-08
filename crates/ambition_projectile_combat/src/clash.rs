@@ -122,7 +122,7 @@ fn arbitrate_attack_clashes(
             // body to pair against, and `Entity::PLACEHOLDER` cannot equal a
             // real owner, so it never suppresses a pair by accident.
             owner: owner.map(|o| o.0).unwrap_or(Entity::PLACEHOLDER),
-            volume: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size * 0.5)),
+            volume: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size() * 0.5)),
             family: ClashFamily::Shot,
             damage: game.damage,
             allegiance: ambition_combat::targeting::Combatant {
@@ -256,10 +256,10 @@ mod tests {
         let mut fighter = |team: &str| -> Entity {
             app.world_mut()
                 .spawn((
-                    ae::BodyKinematics {
+                    ae::BodyKinematics { material: Default::default(),
                         pos: ae::Vec2::ZERO,
                         vel: ae::Vec2::ZERO,
-                        size: ae::Vec2::new(16.0, 32.0),
+                        canonical_size: ae::Vec2::new(16.0, 32.0),
                         facing: 1.0,
                     },
                     ae::BodyGroundState {
@@ -348,10 +348,10 @@ mod tests {
             let mut fighter = |team: &str| -> Entity {
                 app.world_mut()
                     .spawn((
-                        ae::BodyKinematics {
+                        ae::BodyKinematics { material: Default::default(),
                             pos: ae::Vec2::ZERO,
                             vel: ae::Vec2::ZERO,
-                            size: ae::Vec2::new(16.0, 32.0),
+                            canonical_size: ae::Vec2::new(16.0, 32.0),
                             facing: 1.0,
                         },
                         ae::BodyGroundState {
@@ -468,10 +468,10 @@ mod tests {
     fn a_swinging_fighter(app: &mut App, pos: ae::Vec2, team: &str, grounded: bool) -> Entity {
         app.world_mut()
             .spawn((
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 32.0),
+                    canonical_size: ae::Vec2::new(16.0, 32.0),
                     facing: 1.0,
                 },
                 ae::BodyGroundState { on_ground: grounded, ..Default::default() },
@@ -891,10 +891,10 @@ mod tests {
         let fighter = |app: &mut App, x: f32, faction: ambition_characters::actor::ActorFaction, facing: f32| {
             app.world_mut()
                 .spawn((
-                    ae::BodyKinematics {
+                    ae::BodyKinematics { material: Default::default(),
                         pos: ae::Vec2::new(x, 0.0),
                         vel: ae::Vec2::ZERO,
-                        size: ae::Vec2::new(16.0, 32.0),
+                        canonical_size: ae::Vec2::new(16.0, 32.0),
                         facing,
                     },
                     faction,

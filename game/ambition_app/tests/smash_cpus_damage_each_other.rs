@@ -567,7 +567,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     )>();
                     for (seat, kin) in pq.iter(w) {
                         if seat.0 < 2 {
-                            half_extent[seat.0] = Some(kin.size.x * 0.5);
+                            half_extent[seat.0] = Some(kin.size().x * 0.5);
                         }
                     }
                     let mut pos: [Option<ambition_platformer2d::engine_core::Vec2>; 2] =

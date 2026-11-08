@@ -962,10 +962,10 @@ fn parry_ready_player_app() -> (App, Entity) {
         .spawn((
             PlayerEntity,
             ambition_characters::actor::ActorFaction::Player,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: player_pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             // Published combat footprint used by victim geometry.
@@ -1186,10 +1186,10 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     let player_pos = ae::Vec2::new(200.0, 200.0);
     app.world_mut().spawn((
         PlayerEntity,
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos: player_pos,
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(24.0, 40.0),
+            canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
         // Published combat footprint used by victim geometry.

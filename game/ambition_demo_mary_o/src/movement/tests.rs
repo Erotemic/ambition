@@ -12,10 +12,10 @@ fn body(app: &mut App) -> Entity {
             // A player body, not the first player: the policy is for each player.
             ambition_platformer2d::platformer::markers::PlayerEntity,
             ActorControl::default(),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(30.0, 48.0),
+                canonical_size: ae::Vec2::new(30.0, 48.0),
                 facing: 1.0,
             },
         ))

@@ -236,10 +236,10 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     app.init_resource::<Seen>();
     let owner = app
         .world_mut()
-        .spawn(ae::BodyKinematics {
+        .spawn(ae::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(10.0, 20.0),
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(16.0, 24.0),
+            canonical_size: ae::Vec2::new(16.0, 24.0),
             facing: 1.0,
         })
         .id();
@@ -348,10 +348,10 @@ fn a_moves_cosmetic_effect_is_asked_for_in_its_owners_live_room() {
         let owner = app
             .world_mut()
             .spawn((
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(x, 20.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 24.0),
+                    canonical_size: ae::Vec2::new(16.0, 24.0),
                     facing: 1.0,
                 },
                 InRoomInstance(room),
@@ -678,7 +678,7 @@ fn app_with_victim() -> (App, Entity) {
             ActorFaction::Player,
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(128.0, 100.0),
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: -1.0,
                 ..Default::default()
             },
@@ -701,10 +701,10 @@ fn spawn_attacker(app: &mut App, pos: ae::Vec2, body: ae::Vec2, spec: MoveSpec) 
             ae::CenteredAabb::new(pos, body),
             // The playback system resolves the owner's gravity frame from
             // its authoritative kinematics, like every real actor carries.
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: body,
+                canonical_size: body,
                 facing: 1.0,
             },
             ActorFaction::Enemy,
@@ -732,10 +732,10 @@ fn spawn_charged_attacker(app: &mut App, pos: ae::Vec2, body: ae::Vec2, spec: Mo
     app.world_mut()
         .spawn((
             ae::CenteredAabb::new(pos, body),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: body,
+                canonical_size: body,
                 facing: 1.0,
             },
             ActorFaction::Enemy,
@@ -1719,7 +1719,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
         ActorFaction::Player,
         ambition_platformer2d_core::BodyKinematics {
             pos: ae::Vec2::new(128.0, 100.0),
-            size: ae::Vec2::new(28.0, 46.0),
+            canonical_size: ae::Vec2::new(28.0, 46.0),
             facing: -1.0,
             ..Default::default()
         },
@@ -1734,10 +1734,10 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     frame.special_pressed = true;
     app.world_mut().spawn((
         ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
-        ae::BodyKinematics {
+        ae::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(100.0, 100.0),
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(15.0, 24.0),
+            canonical_size: ae::Vec2::new(15.0, 24.0),
             facing: 1.0,
         },
         ActorFaction::Enemy,
@@ -2014,10 +2014,10 @@ fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
     let body = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: -1.0,
             },
             ActorFaction::Enemy,
@@ -2060,10 +2060,10 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     app.add_systems(Update, dispatch_move_events);
     let owner = app
         .world_mut()
-        .spawn(ae::BodyKinematics {
+        .spawn(ae::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(42.0, 7.0),
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(16.0, 24.0),
+            canonical_size: ae::Vec2::new(16.0, 24.0),
             facing: 1.0,
         })
         .id();
@@ -2173,10 +2173,10 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     let owner = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 50.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(16.0, 24.0),
+                canonical_size: ae::Vec2::new(16.0, 24.0),
                 facing: 1.0,
             },
             ActionSet {
@@ -2265,10 +2265,10 @@ fn a_moves_shot_carries_the_instance_from_the_event_not_the_live_playback() {
     let owner = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 50.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(16.0, 24.0),
+                canonical_size: ae::Vec2::new(16.0, 24.0),
                 facing: 1.0,
             },
             ActionSet {
@@ -2341,10 +2341,10 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     let owner = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 50.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(16.0, 24.0),
+                canonical_size: ae::Vec2::new(16.0, 24.0),
                 facing: 1.0,
             },
             ActionSet {
@@ -2423,10 +2423,10 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
         let owner = app
             .world_mut()
             .spawn((
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(100.0, 50.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 24.0),
+                    canonical_size: ae::Vec2::new(16.0, 24.0),
                     facing,
                 },
                 ActionSet {
@@ -2519,10 +2519,10 @@ fn a_fire_intent_triggers_the_ranged_move() {
         .spawn((
             ActorMoveset(contract),
             control,
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(16.0, 24.0),
+                canonical_size: ae::Vec2::new(16.0, 24.0),
                 facing: 1.0,
             },
         ))
@@ -2593,10 +2593,10 @@ fn a_recharging_weapon_refuses_the_firing_move_and_acceptance_spends_it() {
                     remaining: cooldown,
                     armed: cooldown,
                 },
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::ZERO,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 24.0),
+                    canonical_size: ae::Vec2::new(16.0, 24.0),
                     facing: 1.0,
                 },
             ))
@@ -2690,10 +2690,10 @@ fn a_weapon_at_its_live_shot_limit_refuses_the_firing_move() {
                     ..Default::default()
                 },
                 crate::components::RangedRefire::default(),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::ZERO,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 24.0),
+                    canonical_size: ae::Vec2::new(16.0, 24.0),
                     facing: 1.0,
                 },
             ))
@@ -2840,10 +2840,10 @@ fn spawn_mover(app: &mut App, playing: MoveSpec, control: ActorControl) -> Entit
         .spawn((
             ActorMoveset(swat_moveset()),
             control,
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
             MovePlayback::new(playing, 1.0),
@@ -2914,10 +2914,10 @@ fn a_body_that_has_started_a_move_never_loses_its_occurrence() {
         .spawn((
             ActorMoveset(swat_moveset()),
             pressing_attack(),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
         ))
@@ -2964,10 +2964,10 @@ fn removing_the_occurrence_mid_move_is_caught() {
         .spawn((
             ActorMoveset(swat_moveset()),
             pressing_attack(),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
         ))
@@ -3025,10 +3025,10 @@ fn two_moves_separated_by_an_idle_tick_do_not_share_an_occurrence() {
         .spawn((
             ActorMoveset(swat_moveset()),
             pressing_attack(),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
         ))
@@ -3120,10 +3120,10 @@ fn effect_bridge_app(moveset: MovesetContract) -> (App, Entity) {
             // test reads stays empty for a reason that has nothing to do with
             // the property under test.
             ActorFaction::Enemy,
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
         ))
@@ -4502,10 +4502,10 @@ fn spawn_pressing_body(app: &mut App) -> Entity {
         .spawn((
             ActorMoveset(swat_moveset()),
             pressing_attack(),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
         ))
@@ -4702,10 +4702,10 @@ fn buffer_app(moveset: MovesetContract, buffer_s: f32) -> (App, Entity) {
     let body = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(16.0, 32.0),
+                canonical_size: ae::Vec2::new(16.0, 32.0),
                 facing: 1.0,
             },
             ActorMoveset(moveset),
@@ -5092,10 +5092,10 @@ fn smash_charge_app() -> (App, Entity) {
     let body = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(16.0, 32.0),
+                canonical_size: ae::Vec2::new(16.0, 32.0),
                 facing: 1.0,
             },
             ActorFaction::Player,
@@ -5781,10 +5781,10 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     let body = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(16.0, 32.0),
+                canonical_size: ae::Vec2::new(16.0, 32.0),
                 facing: 1.0,
             },
             ActorFaction::Player,
@@ -7497,10 +7497,10 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
             .world_mut()
             .spawn((
                 ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(15.0, 24.0),
+                    canonical_size: ae::Vec2::new(15.0, 24.0),
                     facing: 1.0,
                 },
                 ActorFaction::Enemy,
@@ -7604,10 +7604,10 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
             .world_mut()
             .spawn((
                 ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(100.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(15.0, 24.0),
+                    canonical_size: ae::Vec2::new(15.0, 24.0),
                     facing: 1.0,
                 },
                 ActorFaction::Enemy,
@@ -7726,10 +7726,10 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
         let mana = test_bank(meter);
         let mut body = app.world_mut().spawn((
             ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
             ActorFaction::Enemy,
@@ -8077,10 +8077,10 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
         let owner = app
             .world_mut()
             .spawn((
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::ZERO,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 24.0),
+                    canonical_size: ae::Vec2::new(16.0, 24.0),
                     facing: 1.0,
                 },
                 ActionSet {
@@ -9496,7 +9496,7 @@ fn latch_after(
         .world_mut()
         .spawn((
             ae::BodyKinematics {
-                size: ae::Vec2::new(16.0, 32.0),
+                canonical_size: ae::Vec2::new(16.0, 32.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -10379,7 +10379,7 @@ fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() 
         .spawn((
             ae::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -10525,7 +10525,7 @@ fn a_flow_takes_the_blocked_road_and_only_the_blocked_road() {
         app.world_mut().spawn((
             ae::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -10652,10 +10652,10 @@ fn a_brain_started_swing_arms_its_authored_pace_and_a_driven_one_does_not() {
         let mut body = app.world_mut().spawn((
             ActorMoveset(swat_moveset()),
             pressing_attack(),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(15.0, 24.0),
+                canonical_size: ae::Vec2::new(15.0, 24.0),
                 facing: 1.0,
             },
             crate::components::BodyMelee::default(),

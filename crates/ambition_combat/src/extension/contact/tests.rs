@@ -78,7 +78,7 @@ fn walker(app: &mut App, brain: &str, at: ae::Vec2) -> Entity {
                 brain: CharacterBrain::Custom(brain.into()),
                 preserves_mirror_symmetry: false,
             },
-            ae::BodyKinematics { pos: at, size: ae::Vec2::new(40.0, 30.0), ..Default::default() },
+            ae::BodyKinematics { pos: at, canonical_size: ae::Vec2::new(40.0, 30.0), ..Default::default() },
             BodyHealth::new(Health::new(3)),
             SimId::placement(&format!("walker_{}", at.x)),
         ))
@@ -89,7 +89,7 @@ fn player(app: &mut App, id: &str, at: ae::Vec2, vel: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
             PlayerEntity,
-            ae::BodyKinematics { pos: at, vel, size: ae::Vec2::new(24.0, 44.0), ..Default::default() },
+            ae::BodyKinematics { pos: at, vel, canonical_size: ae::Vec2::new(24.0, 44.0), ..Default::default() },
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
             SimId::placement(id),
         ))
@@ -194,7 +194,7 @@ fn a_touch_is_between_the_boxes_the_bodies_collide_with() {
         let expected = if turned { vec![(body, vec![beside])] } else { vec![] };
         assert_eq!(table, expected, "turned {turned}: the player touches the walker only with its turned box");
     }
-    let kin = ae::BodyKinematics { pos: ae::Vec2::new(140.0, 900.0), size: ae::Vec2::new(24.0, 44.0), ..Default::default() };
+    let kin = ae::BodyKinematics { pos: ae::Vec2::new(140.0, 900.0), canonical_size: ae::Vec2::new(24.0, 44.0), ..Default::default() };
     let step = ae::SweepSample::at_rest(kin, ae::Vec2::X);
     assert_eq!(contact_body(&kin, Some(&step)).size, [44.0, 24.0], "the module is given the box the body collides with");
     assert_eq!(contact_body(&kin, None).size, [24.0, 44.0], "with no step, the level box");

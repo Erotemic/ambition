@@ -155,7 +155,7 @@ fn the_scale_is_the_posed_bodys_own_or_its_quad_over_the_frame_height() {
 fn the_feet_are_the_middle_of_the_face_toward_down() {
     let kin = ae::BodyKinematics {
         pos: Vec2::new(100.0, 200.0),
-        size: Vec2::new(30.0, 48.0),
+        canonical_size: Vec2::new(30.0, 48.0),
         ..Default::default()
     };
     assert_eq!(feet_of(&kin, Vec2::new(0.0, 1.0)), Vec2::new(100.0, 224.0));
@@ -170,7 +170,7 @@ fn a_rig_point_is_placed_from_the_feet_mirrored_and_turned() {
     let body = |facing: f32| {
         let mut kin = ae::BodyKinematics::default();
         kin.pos = Vec2::new(100.0, 200.0);
-        kin.size = Vec2::new(20.0, 48.0);
+        kin.canonical_size = Vec2::new(20.0, 48.0);
         kin.facing = facing;
         kin
     };

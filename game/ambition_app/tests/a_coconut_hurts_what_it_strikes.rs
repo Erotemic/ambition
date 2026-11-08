@@ -42,7 +42,7 @@ fn a_coconut_that_falls_on_the_player_is_one_blow_and_bounces_off() {
     }
     let (kin, before) = player(&mut sim);
     // A fall of 150 arrives at about 640, which is over the coconut's bar.
-    let nut = loose_coconut(&mut sim, kin.pos - ae::Vec2::new(0.0, kin.size.y * 0.5 + 150.0));
+    let nut = loose_coconut(&mut sim, kin.pos - ae::Vec2::new(0.0, kin.size().y * 0.5 + 150.0));
     let mut went_up = false;
     for _ in 0..240 {
         sim.step(base());
@@ -62,7 +62,7 @@ fn the_player_picks_a_coconut_up_and_throws_it() {
     }
     let (kin, _) = player(&mut sim);
     // At the player's feet, so the fall is too short to be a blow.
-    let nut = loose_coconut(&mut sim, kin.pos + ae::Vec2::new(0.0, kin.size.y * 0.5 - 12.0));
+    let nut = loose_coconut(&mut sim, kin.pos + ae::Vec2::new(0.0, kin.size().y * 0.5 - 12.0));
     for _ in 0..30 {
         sim.step(base());
     }
@@ -108,7 +108,7 @@ fn a_coconut_that_falls_on_a_sandbag_hurts_it() {
         sim.step(base());
     }
     let (kin, before) = sandbag(&mut sim);
-    let nut = loose_coconut(&mut sim, kin.pos - ae::Vec2::new(0.0, kin.size.y * 0.5 + 120.0));
+    let nut = loose_coconut(&mut sim, kin.pos - ae::Vec2::new(0.0, kin.size().y * 0.5 + 120.0));
     let mut fastest = 0.0_f32;
     for _ in 0..180 {
         sim.step(base());
@@ -131,7 +131,7 @@ fn a_coconut_that_crosses_the_player_in_one_tick_is_one_blow() {
     }
     let (kin, before) = player(&mut sim);
     let half = ae::Vec2::new(9.0, 7.5);
-    let body = kin.size * 0.5;
+    let body = kin.size() * 0.5;
     // Clear of the body on its left, and one tick later clear of it on its
     // right: the coconut overlaps it at neither end of the tick.
     let start = ae::Vec2::new(kin.pos.x - body.x - half.x - 2.0, kin.pos.y);
@@ -166,7 +166,7 @@ fn the_player_throws_a_coconut_the_way_the_stick_points() {
             sim.step(base());
         }
         let (kin, _) = player(&mut sim);
-        let nut = loose_coconut(&mut sim, kin.pos + ae::Vec2::new(0.0, kin.size.y * 0.5 - 12.0));
+        let nut = loose_coconut(&mut sim, kin.pos + ae::Vec2::new(0.0, kin.size().y * 0.5 - 12.0));
         for _ in 0..30 {
             sim.step(base());
         }

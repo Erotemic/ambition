@@ -693,7 +693,7 @@ pub fn seat_spans(app: &mut App, seat: usize) -> Option<((f32, f32), (f32, f32),
     )>();
     let (mut mine, mut theirs, mut falling) = (None, None, false);
     for (at, kin) in q.iter(world) {
-        let half = kin.size.y * 0.5;
+        let half = kin.size().y * 0.5;
         let span = (kin.pos.y - half, kin.pos.y + half);
         if at.0 == 0 {
             mine = Some(span);

@@ -33,10 +33,10 @@ fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
     let proj = sim
         .world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: entry_pos,
                 vel: -entry_normal * 400.0,
-                size: Vec2::new(8.0, 8.0),
+                canonical_size: Vec2::new(8.0, 8.0),
                 facing: 1.0,
             },
             Name::new("test projectile body"),

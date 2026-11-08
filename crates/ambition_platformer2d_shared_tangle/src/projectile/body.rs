@@ -354,12 +354,12 @@ impl ProjectileBody {
     /// owner entity), not anything stored on the body.
     pub fn from_spec(spec: ProjectileSpec) -> Self {
         Self {
-            kin: BodyKinematics {
+            kin: BodyKinematics { material: Default::default(),
                 pos: spec.origin,
                 vel: spec.initial_velocity(),
                 // Full size = 2 * half-extent so `kin.aabb()` ==
                 // the historical `Aabb::new(pos, half_extent)`.
-                size: spec.half_extent * 2.0,
+                canonical_size: spec.half_extent * 2.0,
                 // Projectiles don't use facing for orientation; keep it
                 // at the player-flavored default so the field is sane.
                 facing: 1.0,
@@ -408,7 +408,7 @@ impl ProjectileBody {
     }
     /// Hitbox half-extent (= `kin.size * 0.5`).
     pub fn half_extent(&self) -> Vec2 {
-        self.kin.size * 0.5
+        self.kin.size() * 0.5
     }
     pub fn world_hit(&self) -> super::WorldHitPolicy {
         self.game.world_hit
@@ -444,10 +444,10 @@ mod tests {
 
     fn fireball(pos: Vec2, vel: Vec2, bounces: u8) -> ProjectileBody {
         ProjectileBody {
-            kin: BodyKinematics {
+            kin: BodyKinematics { material: Default::default(),
                 pos,
                 vel,
-                size: Vec2::new(8.0, 8.0),
+                canonical_size: Vec2::new(8.0, 8.0),
                 facing: 1.0,
             },
             game: ProjectileGameplay {

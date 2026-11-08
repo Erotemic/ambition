@@ -91,10 +91,10 @@ fn ticks_out(app: &mut App, plant: Entity, on_the_pipe: Option<Entity>) -> usize
 fn another_player(app: &mut App, room: LiveRoomInstance) -> Entity {
     app.world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 32.0),
+                canonical_size: Vec2::new(24.0, 32.0),
                 facing: 1.0,
             },
             PlayerEntity,

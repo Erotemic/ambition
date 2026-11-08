@@ -280,7 +280,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
                     e,
                     (kin.pos.x, kin.pos.y),
                     (kin.vel.x, kin.vel.y),
-                    (kin.size.x * 0.5, kin.size.y * 0.5),
+                    (kin.size().x * 0.5, kin.size().y * 0.5),
                     kin.facing,
                     seat.map(|s| s.0),
                     worn.map(|w| w.id().to_string()),
@@ -448,7 +448,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
             (
                 kin.pos,
                 kin.vel,
-                kin.size,
+                kin.size(),
                 shot.damage,
                 owner.map(|owner| owner.0),
                 sim_id.map(|id| id.as_str().to_string()),

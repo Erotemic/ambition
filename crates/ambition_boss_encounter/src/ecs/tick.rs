@@ -580,7 +580,7 @@ pub fn tick_boss_brains_system(
         let target_body_size = target
             .entity
             .and_then(|entity| target_bodies.get(entity).ok())
-            .map_or(ae::Vec2::ZERO, |(kin, _)| kin.size);
+            .map_or(ae::Vec2::ZERO, |(kin, _)| kin.size());
 
         // The front-wall standoff the pattern probes with — read before the brain
         // borrow that `brain.tick` needs.
@@ -617,7 +617,7 @@ pub fn tick_boss_brains_system(
                     actor_half_width: riding
                         .and_then(|riding| target_bodies.get(riding.mount).ok())
                         .filter(|(_, unmirrored)| !unmirrored)
-                        .map_or(boss.kin.size.x, |(mount, _)| mount.size.x.max(boss.kin.size.x))
+                        .map_or(boss.kin.size().x, |(mount, _)| mount.size().x.max(boss.kin.size().x))
                         * 0.5,
                     hp_current: health.current(),
                     hp_max: health.max(),

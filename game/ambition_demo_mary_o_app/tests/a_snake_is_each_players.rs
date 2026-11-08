@@ -39,10 +39,10 @@ fn a_walking_snake() -> (App, Entity) {
 fn a_player_body(app: &mut App, room: LiveRoomInstance) -> Entity {
     app.world_mut()
         .spawn((
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
-                size: Vec2::new(24.0, 32.0),
+                canonical_size: Vec2::new(24.0, 32.0),
                 facing: 1.0,
             },
             PlayerEntity,
@@ -138,7 +138,7 @@ fn joined_shell_party() -> (App, Entity, [Entity; 2]) {
     for body in [alice, bob, snake] {
         app.world_mut().entity_mut(body).insert(BodyHealth::new(Health::new(100)));
         let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
-        kin.pos = Vec2::new(350.0, 416.0 - kin.size.y * 0.5);
+        kin.pos = Vec2::new(350.0, 416.0 - kin.size().y * 0.5);
         kin.vel = Vec2::ZERO;
     }
     app.world_mut().entity_mut(snake).insert(

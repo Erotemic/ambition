@@ -475,7 +475,7 @@ fn update_body_simulation_inner(
             // The box a solid stops is the body's box turned to the frame's
             // DOWN, as in every collision of the step.
             clusters.kinematics.aabb_oriented(frame.down()),
-            clusters.kinematics.size,
+            clusters.kinematics.size(),
             frame.down(),
         ) {
             crate::ledge_grab::LedgeCarry::Stay => {}

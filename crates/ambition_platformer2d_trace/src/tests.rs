@@ -524,7 +524,7 @@ fn a_platform_is_ridden_when_it_is_under_the_bodys_own_feet() {
     let right_face = platform.aabb().center().x + platform.aabb().half_size().x;
     let riding = |feet_dir: ae::Vec2| {
         let mut scratch = dummy_player(ae::Vec2::ZERO);
-        let half_width = scratch.kinematics.size.x * 0.5;
+        let half_width = scratch.kinematics.size().x * 0.5;
         scratch.kinematics.pos = ae::Vec2::new(right_face + half_width, platform.aabb().center().y);
         scratch.ground.on_ground = true;
         let clusters = scratch.as_mut();
@@ -871,7 +871,7 @@ fn oob_beside_a_solid(offset: ae::Vec2, down: ae::Vec2) -> Option<OobReason> {
         vec![Block::solid("thin", solid.min, solid.max - solid.min)],
     );
     let mut scratch = dummy_player(at);
-    scratch.kinematics.size = ae::Vec2::new(24.0, 40.0);
+    scratch.kinematics.canonical_size = ae::Vec2::new(24.0, 40.0);
     let mut record = ae::SweepSample::at_rest(scratch.kinematics, down);
     let mut clusters = scratch.as_mut();
     clusters.sweep = Some(&mut record);

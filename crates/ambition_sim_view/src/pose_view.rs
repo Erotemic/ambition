@@ -706,9 +706,9 @@ pub fn rebuild_body_pose_views(
     ) in &mut bodies
     {
         let gravity_dir = body_down(body_frame);
-        let base = base_size.map_or(kinematics.size, |b| b.base_size);
+        let base = base_size.map_or(kinematics.size(), |b| b.base_size);
         let stance_ratio_y = base_size
-            .map(|b| (kinematics.size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
+            .map(|b| (kinematics.size().y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
             .unwrap_or(1.0);
         let squash = squash_and_stretch(
             anim_facts.map_or(0.0, |f| f.land_anim_timer),
@@ -910,7 +910,7 @@ pub fn rebuild_body_pose_views(
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
-            size: kinematics.size,
+            size: kinematics.size(),
             base_size: base,
             facing: drawn_facing,
             turn_secs,
@@ -991,7 +991,7 @@ pub fn rebuild_body_pose_views(
                             recoil: combat.filter(|c| c.hitstun_timer > 0.05).map(|c| {
                                 ambition_character_sprites::Recoil::of(
                                     c.struck_height,
-                                    ambition_character_sprites::extent_along(kinematics.size, gravity_dir),
+                                    ambition_character_sprites::extent_along(kinematics.size(), gravity_dir),
                                     !ground.is_some_and(|g| g.on_ground),
                                 )
                             }),
@@ -1165,7 +1165,7 @@ pub fn rebuild_shield_views(
         if let Some(phase) = shield.break_phase() {
             breaks.0.push(GuardBreakFact {
                 pos: presented.map_or(kin.pos, |p| p.presented()),
-                size: kin.size,
+                size: kin.size(),
                 phase,
                 gravity_dir: body_down(frame),
                 room: live.of(entity),
@@ -1186,10 +1186,10 @@ fn shield_ring_fact(
 ) -> ShieldRingFact {
     let down = body_down(frame);
     // From the middle of the body to the middle of the bubble.
-    let lean = down * (shield_half_height(kin.size, down) * shield.shield_tilt);
+    let lean = down * (shield_half_height(kin.size(), down) * shield.shield_tilt);
     ShieldRingFact {
         pos: presented.map_or(kin.pos, |p| p.presented()) + lean,
-        size: kin.size,
+        size: kin.size(),
         parrying: shield.parrying(),
         integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
         stun_secs: shield.stun_timer,
@@ -1366,7 +1366,7 @@ pub fn rebuild_launched_bodies_view(
                 launched.then(|| LaunchedBodyFact {
                     pos: presented.map_or(kin.pos, |p| p.presented()),
                     vel: kin.vel,
-                    size: kin.size,
+                    size: kin.size(),
                     launch_beat_secs: combat.map_or(0.0, |c| c.recoil_lock_timer),
                     tumble_speed: match model {
                         Some(ambition_platformer2d_core::MotionModel::AxisSwept(axis)) => {
@@ -1467,10 +1467,10 @@ mod pose_view_tests {
             shield.break_timer = 0.5;
             shield.break_total = 1.0;
             app.world_mut().spawn((
-                ae::BodyKinematics {
+                ae::BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::new(100.0, 200.0),
                     vel: ae::Vec2::new(900.0, 0.0),
-                    size: ae::Vec2::new(16.0, 32.0),
+                    canonical_size: ae::Vec2::new(16.0, 32.0),
                     facing: 1.0,
                 },
                 facts,
@@ -1559,10 +1559,10 @@ mod pose_view_tests {
         frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
             sideways, 0.0,
         ));
-        let kin = ambition_platformer2d_core::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::ZERO,
             vel: ambition_platformer2d_core::Vec2::ZERO,
-            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            canonical_size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
             facing: 1.0,
         };
         let seat = app.world_mut().spawn((PosedBody, kin, frame)).id();
@@ -1582,10 +1582,10 @@ mod pose_view_tests {
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
-        let kin = ambition_platformer2d_core::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::ZERO,
             vel: ambition_platformer2d_core::Vec2::ZERO,
-            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            canonical_size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
             facing: 1.0,
         };
 
@@ -1658,10 +1658,10 @@ mod pose_view_tests {
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
-        let kin = ambition_platformer2d_core::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::ZERO,
             vel: ambition_platformer2d_core::Vec2::ZERO,
-            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            canonical_size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
             facing: 1.0,
         };
         let quad = ambition_platformer2d_core::Vec2::new(61.0, 73.0);
@@ -1721,10 +1721,10 @@ mod pose_view_tests {
         app.init_resource::<LaunchedBodiesView>();
         app.add_systems(bevy::prelude::Update, rebuild_launched_bodies_view);
 
-        let kin = |x: f32| BodyKinematics {
+        let kin = |x: f32| BodyKinematics { material: Default::default(),
             pos: Vec2::new(x, 0.0),
             vel: Vec2::new(900.0, 0.0),
-            size: Vec2::new(30.0, 48.0),
+            canonical_size: Vec2::new(30.0, 48.0),
             facing: 1.0,
         };
         let tumbling = BodyMotionFacts {
@@ -1796,10 +1796,10 @@ mod pose_view_tests {
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
-        let kin = ambition_platformer2d_core::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::ZERO,
             vel: ambition_platformer2d_core::Vec2::ZERO,
-            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            canonical_size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
             facing: 1.0,
         };
         let unpinned = app.world_mut().spawn((PlayerVisual, kin)).id();
@@ -1846,10 +1846,10 @@ mod posed_body_gate_tests {
         let mut app = App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.add_systems(Update, rebuild_body_pose_views);
-        let kin = ambition_platformer2d_core::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::new(10.0, 20.0),
             vel: ambition_platformer2d_core::Vec2::ZERO,
-            size: ambition_platformer2d_core::Vec2::new(24.0, 40.0),
+            canonical_size: ambition_platformer2d_core::Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
         // A seated fighter: `PosedBody`, and deliberately NO `PlayerVisual`.

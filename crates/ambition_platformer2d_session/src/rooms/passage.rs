@@ -806,7 +806,7 @@ mod tests {
             ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
                 app.world_mut(), ae::RoomGeometry(world.clone()));
             app.world_mut().entity_mut(body).insert((
-                ae::BodyKinematics { pos: start, vel: ae::Vec2::ZERO, size: ae::Vec2::new(30.065935, 48.000004), facing: 1.0 },
+                ae::BodyKinematics { material: Default::default(), pos: start, vel: ae::Vec2::ZERO, canonical_size: ae::Vec2::new(30.065935, 48.000004), facing: 1.0 },
                 ZonePassage {
                     kind: PassageKind::Door, stage: PassageStage::Exiting, elapsed: 0.0,
                     from: start, foot: start + ae::Vec2::new(0.0, 24.0), heart: start,

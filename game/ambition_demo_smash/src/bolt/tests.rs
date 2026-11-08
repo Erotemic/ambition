@@ -35,7 +35,7 @@ fn fighter(app: &mut App, slot: u8, x: f32) -> Entity {
     let at = ae::Vec2::new(x, 0.0);
     app.world_mut()
         .spawn((
-            ae::BodyKinematics { pos: at, facing: 1.0, size: HALF * 2.0, ..Default::default() },
+            ae::BodyKinematics { pos: at, facing: 1.0, canonical_size: HALF * 2.0, ..Default::default() },
             ae::CenteredAabb::new(at, HALF),
             ambition_platformer2d::actor::ActorFaction::Player,
             ambition_platformer2d::platformer::lifecycle::FeatureSimEntity,

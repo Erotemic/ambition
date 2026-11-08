@@ -163,7 +163,8 @@ pub struct AuthoredMovementTuning(pub crate::movement::MovementTuning);
 pub struct BodyKinematics {
     pub pos: Vec2,
     pub vel: Vec2,
-    pub size: Vec2,
+    pub canonical_size: Vec2,
+    pub material: crate::frame::BodyMaterial,
     pub facing: f32,
 }
 
@@ -176,16 +177,24 @@ impl Default for BodyKinematics {
         Self {
             pos: Vec2::ZERO,
             vel: Vec2::ZERO,
-            size: body,
+            canonical_size: body,
+            material: Default::default(),
             facing: 1.0,
         }
     }
 }
 
 impl BodyKinematics {
+    /// Dimensions in world units, before the material turn.
+    pub fn size(self) -> Vec2 { self.canonical_size * self.material.scale() }
+
+    pub fn material_map(self, down: Vec2) -> Result<crate::frame::Sim2, crate::frame::NumericFault> {
+        self.material.at(self.pos, down)
+    }
+
     /// The body's world-space AABB (centered on `pos`, half-extents `size/2`).
     pub fn aabb(self) -> crate::Aabb {
-        crate::Aabb::new(self.pos, self.size * 0.5)
+        self.aabb_oriented(Vec2::ZERO)
     }
 
     /// The body's AABB ORIENTED to its gravity/acceleration frame: width<->height
@@ -198,7 +207,7 @@ impl BodyKinematics {
 
     /// The half-extents of [`Self::aabb_oriented`].
     pub fn half_oriented(self, gravity_dir: crate::Vec2) -> crate::Vec2 {
-        crate::AccelerationFrame::new(gravity_dir).to_world_half(self.size * 0.5)
+        self.material.half_extent(self.canonical_size * 0.5, gravity_dir)
     }
 
     /// The COLLISION box of the body where it is now, turned as its last step
@@ -1061,7 +1070,7 @@ pub fn reset_body_clusters(
     let dash_charges = abilities.dash_charge_count();
     let air_jumps = abilities.air_jump_count(air_jumps_default);
 
-    clusters.kinematics.size = body;
+    clusters.kinematics.canonical_size = body;
     if let ResetFacing::Toward(side) = facing {
         if side != 0.0 {
             clusters.kinematics.facing = side.signum();
@@ -1356,10 +1365,10 @@ impl BodyClusterScratch {
         Self {
             model: crate::movement::MotionModel::default(),
             abilities: BodyAbilities { abilities },
-            kinematics: BodyKinematics {
+            kinematics: BodyKinematics { material: Default::default(),
                 pos: spawn,
                 vel: Vec2::ZERO,
-                size: body,
+                canonical_size: body,
                 facing: 1.0,
             },
             base_size: BodyBaseSize { base_size: body },
@@ -1610,10 +1619,10 @@ mod reset_tests {
             crate::abilities::AbilitySet::default(),
         );
         // An identity authority (Mary-O's `sync_grown_form`) grew her.
-        scratch.kinematics.size = grown;
+        scratch.kinematics.canonical_size = grown;
         scratch.base_size.base_size = grown;
         // ...and something transient shrank the live collider, as a crouch would.
-        scratch.kinematics.size = Vec2::new(30.0, 40.0);
+        scratch.kinematics.canonical_size = Vec2::new(30.0, 40.0);
 
         let spawn = Vec2::new(64.0, 352.0);
         let (model, mut clusters) = scratch.parts();
@@ -1630,7 +1639,7 @@ mod reset_tests {
             "a reset must not redefine the body's identity size"
         );
         assert_eq!(
-            scratch.kinematics.size, grown,
+            scratch.kinematics.size(), grown,
             "and it restores the collider TO that identity size, undoing the \
              transient crouch — not to the global player default"
         );
@@ -1645,7 +1654,7 @@ mod reset_tests {
             Vec2::new(400.0, 400.0),
             crate::abilities::AbilitySet::default(),
         );
-        scratch.kinematics.size = Vec2::new(30.0, 40.0);
+        scratch.kinematics.canonical_size = Vec2::new(30.0, 40.0);
 
         let spawn = Vec2::new(64.0, 352.0);
         let (model, mut clusters) = scratch.parts();
@@ -1657,7 +1666,7 @@ mod reset_tests {
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
-        assert_eq!(scratch.kinematics.size, default);
+        assert_eq!(scratch.kinematics.size(), default);
         assert_eq!(scratch.base_size.base_size, default);
     }
 

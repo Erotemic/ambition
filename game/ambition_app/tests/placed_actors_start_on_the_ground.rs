@@ -75,7 +75,7 @@ fn the_start_of_with(
         let bodies: Vec<(Vec2, String, bool)> = bodies
             .iter(world)
             .map(|(entity, kin, ground, id, worn, is_player)| {
-                let feet = kin.pos + Vec2::new(0.0, kin.size.y * 0.5);
+                let feet = kin.pos + Vec2::new(0.0, kin.size().y * 0.5);
                 let name = match (id, worn) {
                     (Some(id), Some(worn)) => format!("{} ({})", id.0, worn.id()),
                     (Some(id), None) => id.0.clone(),

@@ -249,7 +249,7 @@ pub fn rig_point_in_world(point: Vec2, kin: &ae::BodyKinematics, down: Vec2) -> 
 
 /// A body's feet: the middle of the face of its box that is toward `down`.
 pub fn feet_of(kin: &ae::BodyKinematics, down: Vec2) -> Vec2 {
-    kin.pos + down * (kin.size.y * 0.5)
+    kin.pos + down * (kin.size().y * 0.5)
 }
 
 #[cfg(test)]

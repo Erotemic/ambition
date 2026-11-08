@@ -105,7 +105,7 @@ impl TraversalEnvelope {
         if !is_cardinal(side) || !is_cardinal(down) {
             return None;
         }
-        let size = body.kinematics.size;
+        let size = body.kinematics.size();
         let half_along = (size * side).abs().length() * 0.5;
         let half_tall = (size * down).abs().length() * 0.5;
         // Room for any speed the kernel can give a running body in the time

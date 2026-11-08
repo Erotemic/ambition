@@ -161,10 +161,10 @@ fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
         .spawn((
             ChargesProjectiles,
             ambition_projectiles::PlayerProjectileState::default(),
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: body_pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             ActorControl::default(),

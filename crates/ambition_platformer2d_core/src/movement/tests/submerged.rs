@@ -60,7 +60,7 @@ fn a_submerged_body_travels_along_its_surface_and_stops_at_the_ledge() {
     for _ in 0..240 {
         let _ = step_scratch(&world, &mut outward, stick(1.0));
     }
-    let half_width = outward.kinematics.size.x * 0.5;
+    let half_width = outward.kinematics.size().x * 0.5;
     assert!(
         outward.kinematics.pos.x + half_width <= 600.0 + 4.0,
         "she travelled to x = {}, which is past the platform's right edge at 600 — \

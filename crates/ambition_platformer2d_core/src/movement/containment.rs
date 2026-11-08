@@ -101,7 +101,7 @@ pub fn probe_containment(
         crate::AbilitySet::sandbox_all(),
     );
     if let Some(size) = probe.body_size {
-        scratch.kinematics.size = size;
+        scratch.kinematics.canonical_size = size;
     }
     // The scratch OWNS its motion model, exactly like a real body does — so the
     // probe drives the same component the simulation drives, not a copy beside it.

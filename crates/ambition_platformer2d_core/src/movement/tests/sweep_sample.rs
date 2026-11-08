@@ -56,7 +56,7 @@ fn the_sample_records_the_integration_segment() {
         "a moving body records a non-zero segment"
     );
     assert_eq!(sample.vel, Vec2::new(120.0, 0.0), "vel = velocity at prev");
-    assert_eq!(sample.half, scratch.kinematics.size * 0.5);
+    assert_eq!(sample.half, scratch.kinematics.size() * 0.5);
 }
 
 #[test]

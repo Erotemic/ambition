@@ -527,10 +527,10 @@ mod tests {
             ambition_platformer2d::platformer::lifecycle::InRoomInstance(room),
             PlayerEntity,
             // Feet at y 204, inside the stomp band of the lid at y 200.
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(116.0, 184.0),
                 vel: ae::Vec2::new(0.0, 120.0),
-                size: ae::Vec2::new(20.0, 40.0),
+                canonical_size: ae::Vec2::new(20.0, 40.0),
                 facing: 1.0,
             },
             ambition_platformer2d::characters::actor::WornCharacter::new("sanic"),

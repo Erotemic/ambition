@@ -65,7 +65,7 @@ impl NavGraphKey {
     pub fn probe_body(&self) -> BodyClusterScratch {
         let mut body = BodyClusterScratch::new_with_abilities(Vec2::ZERO, self.abilities);
         ae::movement::switch_motion_model(&mut body.model, self.spec);
-        body.kinematics.size = self.size;
+        body.kinematics.canonical_size = self.size;
         body.base_size = self.base_size;
         body
     }

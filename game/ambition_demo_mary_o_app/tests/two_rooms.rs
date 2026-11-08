@@ -550,7 +550,7 @@ fn player_body(app: &mut App) -> (Vec2, Vec2) {
         .iter(app.world())
         .next()
         .expect("gameplay has a primary player");
-    (kin.pos, kin.size)
+    (kin.pos, kin.size())
 }
 
 /// Hold jump. `jump_pressed` rides along with `jump_held` because her jump is an

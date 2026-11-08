@@ -35,10 +35,10 @@ fn wall(channel: PortalChannel) -> PlacedPortal {
 
 /// A body at the blue portal, moving into it.
 fn into_blue() -> BodyKinematics {
-    BodyKinematics {
+    BodyKinematics { material: Default::default(),
         pos: Vec2::new(20.0, 200.0),
         vel: Vec2::new(-100.0, 0.0),
-        size: Vec2::new(24.0, 40.0),
+        canonical_size: Vec2::new(24.0, 40.0),
         facing: -1.0,
     }
 }
@@ -127,10 +127,10 @@ fn a_closing_portal_evicts_only_the_bodies_of_its_room() {
     // #0 has its own blue elsewhere, which does not move.
     app.world_mut().spawn((floor(Vec2::new(100.0, 300.0)), InRoomInstance(live[0])));
     let straddler = |room| {
-        let body = BodyKinematics {
+        let body = BodyKinematics { material: Default::default(),
             pos: Vec2::new(500.0, 290.0),
             vel: Vec2::ZERO,
-            size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
         (body, InRoomInstance(room))

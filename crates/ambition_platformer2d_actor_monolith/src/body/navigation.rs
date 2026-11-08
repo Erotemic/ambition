@@ -188,7 +188,7 @@ pub fn advise_navigation(
             stamp,
             model.spec(),
             abilities.abilities,
-            kinematics.size,
+            kinematics.size(),
             *base_size,
             frame.get(),
         );
@@ -214,7 +214,7 @@ pub fn advise_navigation(
                 })
         });
         let target_place = attended
-            .and_then(|at| graph.place_beside(feet, at, kinematics.size.x + TARGET_ROOM, TARGET_DEPTH));
+            .and_then(|at| graph.place_beside(feet, at, kinematics.size().x + TARGET_ROOM, TARGET_DEPTH));
         let target_shares_surface = attended.is_some_and(|at| {
             let under = graph.surface_under(at, TARGET_DEPTH);
             under.is_some() && under == graph.surface_at(feet)
@@ -314,7 +314,7 @@ mod tests {
         let abilities = AbilitySet { move_horizontal: true, jump: true, ..AbilitySet::NONE };
         let body = ae::BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
         let stamp = ambition_platformer2d_world::navigation::geometry_stamp(world, &[]);
-        read(cache.graph_of(world, stamp, body.model.spec(), abilities, body.kinematics.size, body.base_size, frame))
+        read(cache.graph_of(world, stamp, body.model.spec(), abilities, body.kinematics.size(), body.base_size, frame))
     }
 
     /// Two bodies whose frames have one net acceleration and are not one

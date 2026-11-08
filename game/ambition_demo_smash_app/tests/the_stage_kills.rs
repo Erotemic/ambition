@@ -1224,8 +1224,8 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
             let mut members = 0usize;
             for (_, kin) in seats.iter(world) {
                 members += 1;
-                min = min.min(kin.pos - kin.size / 2.0);
-                max = max.max(kin.pos + kin.size / 2.0);
+                min = min.min(kin.pos - kin.size() / 2.0);
+                max = max.max(kin.pos + kin.size() / 2.0);
             }
             (members, (min + max) / 2.0)
         };

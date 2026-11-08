@@ -737,7 +737,7 @@ mod tests {
                 ae::BodyKinematics {
                     pos,
                     facing: 1.0,
-                    size: ae::Vec2::new(16.0, 24.0),
+                    canonical_size: ae::Vec2::new(16.0, 24.0),
                     ..Default::default()
                 },
                 crate::components::CenteredAabb::new(pos, ae::Vec2::new(8.0, 12.0)),

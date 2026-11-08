@@ -535,10 +535,10 @@ fn a_viewer_perceives_only_the_bodies_of_its_own_live_room() {
     for (id, room) in [("alice", Some(first)), ("bob", Some(first.next())), ("carol", Some(first)), ("dave", None)] {
         let mut body = app.world_mut().spawn((
             ambition_combat::components::FeatureId::new(id),
-            ambition_platformer2d_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(10.0, 20.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(14.0, 22.0),
+                canonical_size: ae::Vec2::new(14.0, 22.0),
                 facing: 1.0,
             },
             BodyHealth::new(Health::new(5)),
@@ -566,10 +566,10 @@ fn collect_perception_peers_snapshots_every_body() {
     let mut app = App::new();
     app.init_resource::<PerceptionPeers>();
     app.add_systems(Update, collect_perception_peers);
-    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics {
+    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics { material: Default::default(),
         pos: ae::Vec2::new(x, 20.0),
         vel: ae::Vec2::ZERO,
-        size: ae::Vec2::new(14.0, 22.0),
+        canonical_size: ae::Vec2::new(14.0, 22.0),
         facing: 1.0,
     };
     let alice = app
@@ -676,10 +676,10 @@ fn a_perceivable_body_with_no_canonical_identity_is_refused() {
     app.init_resource::<PerceptionPeers>();
     app.add_systems(Update, collect_perception_peers);
     app.world_mut().spawn((
-        ambition_platformer2d_core::BodyKinematics {
+        ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(10.0, 20.0),
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(14.0, 22.0),
+            canonical_size: ae::Vec2::new(14.0, 22.0),
             facing: 1.0,
         },
         BodyHealth::new(Health::new(5)),
@@ -698,10 +698,10 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
     let mut app = App::new();
     app.init_resource::<PerceptionProjectiles>();
     app.add_systems(Update, collect_perception_projectiles);
-    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics {
+    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics { material: Default::default(),
         pos: ae::Vec2::new(x, 0.0),
         vel: ae::Vec2::new(-100.0, 0.0),
-        size: ae::Vec2::new(8.0, 8.0),
+        canonical_size: ae::Vec2::new(8.0, 8.0),
         facing: -1.0,
     };
     let game = |dmg: i32| ambition_projectiles::ProjectileGameplay {

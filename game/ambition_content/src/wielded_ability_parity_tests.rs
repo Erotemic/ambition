@@ -145,10 +145,10 @@ fn world(road: Road, ability: &Ability) -> (App, Vec<Entity>) {
         let mut frame = ResolvedMotionFrame::default();
         frame.publish_resolved_frame(ae::MotionFrame::from_direction(spec.gravity, 900.0));
         let mut entity = app.world_mut().spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(200.0 + 50.0 * i as f32, 300.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: if i % 2 == 0 { 1.0 } else { -1.0 },
             },
             ActorControl::default(),
@@ -448,10 +448,10 @@ mod transits {
                 }
             }
             let mut entity = app.world_mut().spawn((
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos,
                     vel: ae::Vec2::new(30.0, -10.0),
-                    size: ae::Vec2::new(24.0, 40.0),
+                    canonical_size: ae::Vec2::new(24.0, 40.0),
                     facing: if i % 2 == 0 { 1.0 } else { -1.0 },
                 },
                 ActorControl::default(),

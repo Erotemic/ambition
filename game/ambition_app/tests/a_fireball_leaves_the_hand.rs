@@ -34,7 +34,7 @@ fn requests(sim: &Platformer2dSimHarness, owner: Entity) -> Vec<(Vec2, Vec2)> {
         .filter(|request| request.owner == owner)
         .map(|request| {
             let kin = &request.projectile.body.kin;
-            (kin.pos, kin.size * 0.5)
+            (kin.pos, kin.size() * 0.5)
         })
         .collect()
 }

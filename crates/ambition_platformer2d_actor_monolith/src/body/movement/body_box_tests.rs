@@ -46,7 +46,7 @@ fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: 
     assert_eq!(seed.kin.size, BODY, "premise: the body is not square");
     seed.kin.vel = ae::Vec2::ZERO;
     seed.surface.gravity_scale = 1.0;
-    seed.body = ActorBody::from_abilities(ae::AbilitySet::classic_actor(), false, seed.kin.size);
+    seed.body = ActorBody::from_abilities(ae::AbilitySet::classic_actor(), false, seed.kin.size());
     seed.config.tuning.body_contact_damage = true;
 
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
@@ -71,11 +71,11 @@ fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: 
         ae::BodyContactField::NONE,
     );
     let attack = super::ContactAttack::from_body(em.kin, em.surface, &em.config.tuning).expect("premise: the body has a contact attack");
-    let mut footprint = ae::CenteredAabb::from_center_size(em.kin.pos, em.kin.size);
+    let mut footprint = ae::CenteredAabb::from_center_size(em.kin.pos, em.kin.size());
     ambition_combat::body_geometry::publish_body_footprint(
         &mut footprint,
         em.kin.pos,
-        em.kin.size,
+        em.kin.size(),
         em.kin.facing,
         -em.surface.surface_normal,
     );

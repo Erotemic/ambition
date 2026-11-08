@@ -2471,7 +2471,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
             ambition_combat::components::BodyMelee::default(),
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::ZERO,
-                size: ae::Vec2::new(20.0, 40.0),
+                canonical_size: ae::Vec2::new(20.0, 40.0),
                 facing: 1.0,
                 ..Default::default()
             },

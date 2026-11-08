@@ -136,7 +136,7 @@ fn an_ordinary_grounded_body_starts_a_lift() {
     app.world_mut().spawn((
         ae::BodyKinematics {
             pos: ae::Vec2::new(400.0, 767.0),
-            size: ae::Vec2::new(30.0, 48.0),
+            canonical_size: ae::Vec2::new(30.0, 48.0),
             ..Default::default()
         },
         ae::BodyGroundState {
@@ -185,7 +185,7 @@ fn lift_contacts_use_the_body_frame_and_collision_plane() {
         let mut app = lift_app();
         let kin = ae::BodyKinematics {
             pos: ae::Vec2::new(298.5, 800.0),
-            size: ae::Vec2::new(30.0, 48.0),
+            canonical_size: ae::Vec2::new(30.0, 48.0),
             ..Default::default()
         };
         app.world_mut().spawn((
@@ -226,7 +226,7 @@ fn a_body_starts_only_its_own_live_rooms_lift() {
     app.world_mut().spawn((
         ae::BodyKinematics {
             pos: ae::Vec2::new(400.0, 767.0),
-            size: ae::Vec2::new(30.0, 48.0),
+            canonical_size: ae::Vec2::new(30.0, 48.0),
             ..Default::default()
         },
         ae::BodyGroundState {

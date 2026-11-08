@@ -160,10 +160,10 @@ mod tests {
     // production ordering rather than a shape that only exists in a test.
 
     fn body_at(x: f32) -> ae::BodyKinematics {
-        ae::BodyKinematics {
+        ae::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(x, 0.0),
             vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(16.0, 32.0),
+            canonical_size: ae::Vec2::new(16.0, 32.0),
             facing: 1.0,
         }
     }

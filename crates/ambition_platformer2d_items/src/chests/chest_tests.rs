@@ -41,7 +41,7 @@ fn player(app: &mut App, pos: ae::Vec2, buffered: bool) -> Entity {
             PrimaryPlayer,
             BodyKinematics {
                 pos,
-                size: ae::Vec2::new(28.0, 46.0),
+                canonical_size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
                 ..Default::default()
             },
@@ -263,7 +263,7 @@ fn two_driven_bodies_each_open_their_own_chest() {
             .spawn((
                 BodyKinematics {
                     pos,
-                    size: ae::Vec2::new(28.0, 46.0),
+                    canonical_size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                     ..Default::default()
                 },
@@ -352,7 +352,7 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
             app.world_mut().spawn((
                 BodyKinematics {
                     pos,
-                    size: ae::Vec2::new(28.0, 46.0),
+                    canonical_size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                     ..Default::default()
                 },
@@ -481,7 +481,7 @@ fn two_bodies_on_one_chest_in_one_tick_are_paid_once() {
                 .spawn((
                     BodyKinematics {
                         pos: center,
-                        size: ae::Vec2::new(28.0, 46.0),
+                        canonical_size: ae::Vec2::new(28.0, 46.0),
                         facing: 1.0,
                         ..Default::default()
                     },

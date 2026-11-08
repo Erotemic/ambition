@@ -26,7 +26,7 @@ fn player(sim: &mut Platformer2dSimHarness) -> (f32, f32) {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     let kin = q.iter(world).next().expect("the room has a player");
-    (kin.pos.x, kin.pos.y + kin.size.y * 0.5)
+    (kin.pos.x, kin.pos.y + kin.size().y * 0.5)
 }
 
 #[test]

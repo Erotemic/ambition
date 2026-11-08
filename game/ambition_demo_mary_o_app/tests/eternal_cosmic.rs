@@ -233,7 +233,7 @@ fn in_the_form_she_does_not_fly_over_the_top_of_the_room() {
             idle(&mut app, 1);
         }
         let kin = kin(&app, body);
-        highest = highest.min(kin.pos.y - kin.size.y * 0.5);
+        highest = highest.min(kin.pos.y - kin.size().y * 0.5);
     }
     assert!(highest < 40.0, "she did not get near the top of the room, so this measured nothing (top {highest})");
     assert!(highest >= -0.5, "her head went {} px over the top of the room", -highest);

@@ -28,7 +28,7 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
     ));
 
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    scratch.kinematics.pos = Vec2::new(450.0, plat_top_y - scratch.kinematics.size.y * 0.5);
+    scratch.kinematics.pos = Vec2::new(450.0, plat_top_y - scratch.kinematics.size().y * 0.5);
     scratch.kinematics.vel = Vec2::ZERO;
     scratch.ground.on_ground = false;
 
@@ -261,7 +261,7 @@ fn wall_jump_does_not_catapult_player_off_wall_overlap() {
 fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    let half = scratch.kinematics.size * 0.5;
+    let half = scratch.kinematics.size() * 0.5;
     let wall_right = 36.0;
     scratch.kinematics.pos.x = wall_right + half.x - 0.05;
     scratch.kinematics.pos.y = world.size.y * 0.5; // ~450, well inside the room
@@ -309,7 +309,7 @@ fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
 fn a_body_that_clings_to_a_wall_faces_away_from_it() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    let half = scratch.kinematics.size * 0.5;
+    let half = scratch.kinematics.size() * 0.5;
     let wall_right = 36.0;
     scratch.kinematics.pos.x = wall_right + half.x - 0.05;
     scratch.kinematics.pos.y = world.size.y * 0.5;
@@ -501,7 +501,7 @@ fn deep_ceiling_penetration_resolves_down_not_out_the_far_x_edge() {
     step_scratch(&world, &mut scratch, InputState::default());
 
     let pos = scratch.kinematics.pos;
-    let half = scratch.kinematics.size * 0.5;
+    let half = scratch.kinematics.size() * 0.5;
     assert!(
         (pos.x - 800.0).abs() < 2.0,
         "deep ceiling de-pen shoved the body sideways out the far edge: x={}",
@@ -620,7 +620,7 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    scratch.kinematics.size = Vec2::new(30.0, 48.0);
+    scratch.kinematics.canonical_size = Vec2::new(30.0, 48.0);
     scratch.base_size.base_size = Vec2::new(30.0, 48.0);
     scratch.kinematics.pos = Vec2::new(1000.0, 56.01); // top ~= ceiling bottom (32)
     scratch.kinematics.vel = Vec2::new(-760.0, 0.0); // flying left, fast
@@ -671,7 +671,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         edges: Default::default(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    scratch.kinematics.size = Vec2::new(30.0, 48.0);
+    scratch.kinematics.canonical_size = Vec2::new(30.0, 48.0);
     scratch.base_size.base_size = Vec2::new(30.0, 48.0);
     scratch.kinematics.pos = Vec2::new(1000.9404, 56.01338);
     scratch.kinematics.vel = Vec2::new(-760.0, 1.6108618);
@@ -729,7 +729,7 @@ fn one_way_drop_through_works_under_inverted_gravity() {
     let plat_bottom = plat_min_y + 12.0;
 
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    scratch.kinematics.pos = Vec2::new(450.0, plat_bottom + scratch.kinematics.size.y * 0.5);
+    scratch.kinematics.pos = Vec2::new(450.0, plat_bottom + scratch.kinematics.size().y * 0.5);
     scratch.kinematics.vel = Vec2::ZERO;
     scratch.ground.on_ground = false;
 
@@ -1235,7 +1235,7 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
     let settle = |blocks: Vec<Block>| {
         let world = world_with(blocks);
         let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
-        scratch.kinematics.size = Vec2::new(30.0, 48.0);
+        scratch.kinematics.canonical_size = Vec2::new(30.0, 48.0);
         scratch.base_size.base_size = Vec2::new(30.0, 48.0);
         scratch.kinematics.pos = start;
         scratch.kinematics.vel = Vec2::ZERO;
@@ -1269,7 +1269,7 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
         |blocks: Vec<Block>| -> Option<crate::collision_semantics::AxisConstraintConflict> {
             let world = world_with(blocks);
             let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
-            scratch.kinematics.size = Vec2::new(30.0, 48.0);
+            scratch.kinematics.canonical_size = Vec2::new(30.0, 48.0);
             scratch.base_size.base_size = Vec2::new(30.0, 48.0);
             scratch.kinematics.pos = start;
             scratch.kinematics.vel = Vec2::ZERO;
@@ -1543,7 +1543,7 @@ fn a_jump_beside_stacked_wall_blocks_is_not_a_ceiling_hit() {
                         world.blocks.push(Block::solid("ceiling over body", Vec2::new(start.x - 16.0, 436.0), Vec2::new(32.0, 32.0)));
                     }
                     let mut body = scratch_with(AbilitySet::basic(), start);
-                    body.kinematics.size = Vec2::new(width, 30.0);
+                    body.kinematics.canonical_size = Vec2::new(width, 30.0);
                     for _ in 0..6 {
                         step_scratch(&world, &mut body, InputState { axes: crate::LocalAxes::new(facing, 0.0), ..Default::default() });
                     }

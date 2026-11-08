@@ -581,7 +581,7 @@ pub(crate) fn handle_player_damage_events(
     // `BodyKinematics`, and `pos`/`facing` are `Copy`.
     let facing_now = clusters.kinematics.facing;
     let pos_now = clusters.kinematics.pos;
-    let size_now = clusters.kinematics.size;
+    let size_now = clusters.kinematics.size();
     let resolution = resolve_body_hit(
         combat,
         player_health.as_deref_mut(),

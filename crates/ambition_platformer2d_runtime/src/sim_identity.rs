@@ -383,10 +383,10 @@ mod unminted_body_census_tests {
     }
 
     fn body() -> BodyKinematics {
-        BodyKinematics {
+        BodyKinematics { material: Default::default(),
             pos: bevy::math::Vec2::ZERO,
             vel: bevy::math::Vec2::ZERO,
-            size: bevy::math::Vec2::splat(16.0),
+            canonical_size: bevy::math::Vec2::splat(16.0),
             facing: 1.0,
         }
     }

@@ -300,7 +300,7 @@ pub fn fits(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         ));
     }
     let opening = opening as f32;
-    let short_enough = |body: &BodyKinematics| body.size.y <= opening;
+    let short_enough = |body: &BodyKinematics| body.size().y <= opening;
     // The DRIVEN population, for the reason [`driven_bodies`] states: a
     // possessed vessel's height is the one that has to fit, not the resting
     // home avatar's.
@@ -325,7 +325,7 @@ pub fn fits_for(world: &World, subject: bevy::prelude::Entity, args: &[AuthoredA
         ));
     }
     let opening = opening as f32;
-    let short_enough = world.get::<BodyKinematics>(subject).is_some_and(|body| body.size.y <= opening);
+    let short_enough = world.get::<BodyKinematics>(subject).is_some_and(|body| body.size().y <= opening);
     ConditionOutcome::from_bool(short_enough, || {
         WhyNot::new("body.fits", format!("{opening}"), "this body is not short enough")
     })

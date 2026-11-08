@@ -345,7 +345,7 @@ pub fn drive_autopilot(
     let body = BodyTuning {
         spec: model.spec(),
         abilities: abilities.abilities,
-        size: kin.size,
+        size: kin.size(),
         base_size: *base_size,
         frame: motion,
     };

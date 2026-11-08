@@ -115,7 +115,7 @@ pub fn record_placed_bodies(
         let room = &room_set.rooms().spec(definition).id;
         let feet = ambition_platformer2d_core::Vec2::new(
             kinematics.pos.x,
-            kinematics.pos.y + kinematics.size.y * 0.5,
+            kinematics.pos.y + kinematics.size().y * 0.5,
         );
         let write = match occurrences.whereabouts(sim_id) {
             Some(OccurrenceWhereabouts::InCustody) => true,

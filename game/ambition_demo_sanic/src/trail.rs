@@ -58,8 +58,8 @@ pub fn emit_speed_dust(
     vfx.for_room(rooms.of(body))
         .write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: ae::Vec2::new(
-                kin.pos.x + behind * kin.size.x * 0.4,
-                kin.pos.y + kin.size.y * 0.45,
+                kin.pos.x + behind * kin.size().x * 0.4,
+                kin.pos.y + kin.size().y * 0.45,
             ),
             count,
             speed,

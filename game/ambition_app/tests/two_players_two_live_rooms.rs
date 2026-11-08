@@ -1831,7 +1831,7 @@ fn a_boss_fires_beside_bob(
                 Option<&InRoomInstance>,
             )>()
             .iter(world)
-            .filter(|(owner, id, kin, _)| owner.0 == boss && shot(id.as_str(), kin.size))
+            .filter(|(owner, id, kin, _)| owner.0 == boss && shot(id.as_str(), kin.size()))
             .map(|(_, _, _, room)| room.map(|room| room.0))
             .collect();
         if !rooms.is_empty() {

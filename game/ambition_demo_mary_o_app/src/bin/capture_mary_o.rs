@@ -425,7 +425,7 @@ fn report_body_against_sprite(
         ae::Vec2,
     )> = bodies
         .iter()
-        .map(|(e, kin, id)| (e, kin.pos, kin.size, id.map(|i| i.0.clone()), kin.vel))
+        .map(|(e, kin, id)| (e, kin.pos, kin.size(), id.map(|i| i.0.clone()), kin.vel))
         .filter(|(_, _, size, _, _)| size.x > 1.0 && size.y > 1.0)
         // ⛔⛔ A MOVING BODY BREAKS THE INVARIANT THIS TABLE IS BUILT ON, and mixing
         // moving bodies in is what made the first version of this table irreproducible.

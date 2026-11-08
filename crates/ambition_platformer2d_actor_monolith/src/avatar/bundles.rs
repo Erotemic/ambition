@@ -212,7 +212,7 @@ impl PlayerSimulationBundle {
         // `BodyKinematics` is the shared kinematic truth (its own component);
         // copy it out before the rest folds into the shared movement bundle.
         let kinematics = scratch.kinematics;
-        let hurtbox = CenteredAabb::from_center_size(kinematics.pos, kinematics.size);
+        let hurtbox = CenteredAabb::from_center_size(kinematics.pos, kinematics.size());
         Self {
             identity_kit: kit.identity_kit,
             identity: PlayerIdentityBundle::new(seat),

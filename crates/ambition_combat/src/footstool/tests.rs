@@ -51,11 +51,11 @@ fn fighter_on_team(
     app.world_mut()
         .spawn((
             SimId::placement(id),
-            ae::BodyKinematics {
+            ae::BodyKinematics { material: Default::default(),
                 pos,
                 // Falling: the footstool refuses a body on the way up.
                 vel: ae::Vec2::new(0.0, 120.0),
-                size: SIZE,
+                canonical_size: SIZE,
                 facing: 1.0,
             },
             ae::BodyGroundState::default(),

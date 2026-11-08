@@ -19,10 +19,10 @@ pub fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             ActorControl::default(),
@@ -89,10 +89,10 @@ pub fn spawn_primary_player_holding_at(
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing,
             },
             ActorControl::default(),
@@ -130,10 +130,10 @@ pub fn spawn_seated_body_holding(
     let spec = held_item_by_id(held_item_id).unwrap();
     app.world_mut()
         .spawn((
-            BodyKinematics {
+            BodyKinematics { material: Default::default(),
                 pos,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
+                canonical_size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
             ActorControl::default(),

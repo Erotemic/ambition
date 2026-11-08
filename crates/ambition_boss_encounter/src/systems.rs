@@ -652,10 +652,10 @@ mod phase_feedback_tests {
         app.world_mut()
             .spawn((
                 FeatureId::new("gradient_sentinel"),
-                BodyKinematics {
+                BodyKinematics { material: Default::default(),
                     pos: ae::Vec2::ZERO,
                     vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::splat(64.0),
+                    canonical_size: ae::Vec2::splat(64.0),
                     facing: 1.0,
                 },
                 CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::splat(64.0)),

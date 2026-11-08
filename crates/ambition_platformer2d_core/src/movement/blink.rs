@@ -90,7 +90,7 @@ pub fn blink_destination_clusters(
     blink_destination_internal(
         world,
         kinematics.pos,
-        kinematics.size,
+        kinematics.size(),
         &abilities.abilities,
         aim,
         max_distance,
@@ -107,7 +107,7 @@ pub fn blink_destination_to_point_clusters(
     blink_destination_to_point_internal(
         world,
         kinematics.pos,
-        kinematics.size,
+        kinematics.size(),
         &abilities.abilities,
         target,
     )

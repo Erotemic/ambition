@@ -315,7 +315,7 @@ impl RoomTransitionApplication<'_, '_> {
             if !present { return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing }); }
         }
         let body = self.bodies.clusters.get(subject).expect("the complete body was checked");
-        let size = body.kinematics.size;
+        let size = body.kinematics.size();
         let arrival_pos = body.kinematics.pos;
         let gravity_dir = self.bodies.motion_frames.get(subject).map(|frame| frame.down())
             .unwrap_or(ae::Vec2::new(0.0, 1.0));

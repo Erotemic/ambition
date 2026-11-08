@@ -581,7 +581,7 @@ fn the_shore_shark_carries_you_up_into_the_sky() {
         .map(|(id, pos, ..)| (id, pos))
         .expect("the shore has its shark");
     let (kin, _) = player(&mut sim);
-    place_player(&mut sim, ae::Vec2::new(pos.x, pos.y - 11.0 - kin.size.y * 0.5 - 1.0));
+    place_player(&mut sim, ae::Vec2::new(pos.x, pos.y - 11.0 - kin.size().y * 0.5 - 1.0));
     let mut reached = false;
     for _ in 0..60 * 6 {
         sim.step(AgentAction::default());

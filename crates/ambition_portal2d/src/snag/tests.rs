@@ -144,7 +144,7 @@ fn a_kernel_body_half_past_an_end_is_held() {
     app.add_systems(Update, crate::snag_straddlers);
     app.world_mut().spawn(floor());
     app.world_mut().spawn(exit());
-    let kin = BodyKinematics { pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), size: BODY * 2.0, facing: 1.0 };
+    let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), canonical_size: BODY * 2.0, facing: 1.0 };
     let record = SweepSample { prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
     let body = app.world_mut().spawn((kin, record)).id();
     app.update();
@@ -218,7 +218,7 @@ fn a_body_that_comes_at_an_opening_from_behind_is_on_its_back() {
     app.world_mut().spawn(floor());
     app.world_mut().spawn(exit());
     // Rising from under the floor portal (behind it), through it.
-    let kin = |y: f32| BodyKinematics { pos: Vec2::new(0.0, y), vel: Vec2::new(0.0, -200.0), size: BODY * 2.0, facing: 1.0 };
+    let kin = |y: f32| BodyKinematics { material: Default::default(), pos: Vec2::new(0.0, y), vel: Vec2::new(0.0, -200.0), canonical_size: BODY * 2.0, facing: 1.0 };
     let body = app.world_mut().spawn(kin(312.0)).id();
     app.update();
     assert_eq!(

@@ -253,7 +253,7 @@ fn guard_and_down_drops_through_a_soft_platform_but_spot_dodges_on_solid_ground(
     guard_and_down.shield_held = true;
 
     let feet =
-        |scratch: &BodyClusterScratch| scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5;
+        |scratch: &BodyClusterScratch| scratch.kinematics.pos.y + scratch.kinematics.size().y * 0.5;
 
     let land_on_the_platform = |tuning: crate::test_support::TestTuning| {
         let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 100.0));
@@ -272,10 +272,10 @@ fn guard_and_down_drops_through_a_soft_platform_but_spot_dodges_on_solid_ground(
         // gets read as a mechanic that misfired.
         assert!(
             scratch.ground.on_ground
-                && (scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5 - 300.0).abs() < 6.0,
+                && (scratch.kinematics.pos.y + scratch.kinematics.size().y * 0.5 - 300.0).abs() < 6.0,
             "the fixture never landed on the one-way platform: on_ground={} feet={}",
             scratch.ground.on_ground,
-            scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5
+            scratch.kinematics.pos.y + scratch.kinematics.size().y * 0.5
         );
         scratch
     };
@@ -1001,7 +1001,7 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
     for _ in 0..200 {
         // Press only once the body is genuinely about to touch down: falling,
         // and within a third of the tech window of the floor at this speed.
-        let rest_y = world.size.y - 48.0 - scratch.kinematics.size.y * 0.5;
+        let rest_y = world.size.y - 48.0 - scratch.kinematics.size().y * 0.5;
         let close = scratch.kinematics.vel.y > 1.0
             && scratch.kinematics.pos.y + scratch.kinematics.vel.y * (knockdown::TECH_WINDOW / 3.0)
                 >= rest_y;

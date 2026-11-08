@@ -474,7 +474,7 @@ pub fn collect_perception_peers(
             // keeps full size (`aabb()` halves it); the view's contract is halves.
             // The half is in the body's OWN frame, not turned to the world
             // axes: see `PerceivedActor::half_extent`.
-            half_extent: kin.size * 0.5,
+            half_extent: kin.size() * 0.5,
             gravity_down: frame.map(|frame| frame.down()),
             faction: *faction,
             alive: health.alive(),
@@ -1200,7 +1200,7 @@ pub(crate) fn perception_body_for(
         // records is why this is a half extent). It is in the body's OWN
         // frame, not turned: the recovery lens hands it to a kernel body,
         // which turns it. See `SelfView::half_extent`.
-        half_extent: body.kin.size * 0.5,
+        half_extent: body.kin.size() * 0.5,
         faction,
         gravity_down,
         on_ground: body.ground.on_ground,

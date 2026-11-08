@@ -250,7 +250,7 @@ pub fn build_frame(
         player: PlayerTraceState {
             pos: clusters.kinematics.pos.into(),
             vel: clusters.kinematics.vel.into(),
-            size: clusters.kinematics.size.into(),
+            size: clusters.kinematics.size().into(),
             aabb: body_box(clusters).into(),
             facing: clusters.kinematics.facing,
             on_ground: clusters.ground.on_ground,

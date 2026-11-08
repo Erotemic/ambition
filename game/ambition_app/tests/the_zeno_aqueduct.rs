@@ -128,7 +128,7 @@ fn the_tower_of_hanoi_has_sixty_four_disks_never_a_larger_on_a_smaller() {
     let body = crate::neighbor_prefetch_prepares_rooms::alice(&mut app);
     let at = |app: &App| {
         let kin = app.world().get::<ae::BodyKinematics>(body).expect("the player");
-        (kin.pos.x, kin.pos.y + kin.size.y * 0.5)
+        (kin.pos.x, kin.pos.y + kin.size().y * 0.5)
     };
     let mut keys = Keys::new(&mut app);
     for frame in 0..1200 {

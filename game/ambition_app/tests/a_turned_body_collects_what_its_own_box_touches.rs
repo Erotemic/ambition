@@ -77,7 +77,7 @@ fn one_tick_at(sim: &mut Platformer2dSimHarness, name: &str, offset: Vec2) -> Ou
         (record.down - Vec2::new(1.0, 0.0)).length() < 1.0e-3,
         "premise: the kernel stepped the player in gravity toward +x: {record:?}"
     );
-    let level = kin.size * 0.5;
+    let level = kin.size() * 0.5;
     let turned = Vec2::new(level.y, level.x);
     Outcome {
         turned_box_touches: overlaps(Aabb::new(kin.pos, turned), pickup),
@@ -104,7 +104,7 @@ fn the_player_in_sideways_gravity_collects_the_heart_her_own_box_touches() {
     }
     sim.step(base());
     let (kin, _) = body(&mut sim);
-    let level = kin.size * 0.5;
+    let level = kin.size() * 0.5;
     assert!((level.x - level.y).abs() > 4.0, "premise: the player is not square: {:?}", kin.size);
     // Half way between the reach of the short side and the reach of the long
     // side: one box touches the pickup and the other does not.

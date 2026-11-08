@@ -1095,29 +1095,19 @@ pub fn apply_hitbox_damage(
                 if exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity)) {
                     continue;
                 }
-                // THE BROAD PHASE: a strike that reaches none of a body's
-                // parts and none of its guards does nothing to it, and the
-                // rules below cost more than this test. Not for a strike or a
-                // body that a pair cuts: their pieces are elsewhere.
-                let reach = *victim_reach.entry(victim.entity).or_insert_with(|| {
-                    let room = rooms.of(victim.entity);
-                    if passages.as_deref().is_some_and(|p| p.cuts_in(room, Some(victim.entity))) {
-                        return VictimReach::Anywhere;
-                    }
-                    let hurt = victim.hurt_pieces(None, room).into_iter().map(|piece| piece.volume.bounds());
-                    let guarded = turning
-                        .get(victim.entity)
-                        .into_iter()
-                        .flat_map(|turning| turning.pieces.iter().map(|guard| guard.volume));
-                    hurt.chain(guarded)
-                        .reduce(|a, b| ae::Aabb { min: a.min.min(b.min), max: a.max.max(b.max) })
-                        .map_or(VictimReach::Nowhere, VictimReach::Within)
-                });
-                match (strike_bounds, reach) {
-                    (_, VictimReach::Nowhere) => continue,
-                    (Some(strike), VictimReach::Within(within)) if !boxes_touch(strike, within) => continue,
-                    _ => {}
+                // Spent contacts are the common case for a sustained strike.
+                // This lookup also precedes room, relation and geometry work.
+                // Repeating windboxes never add the victim to this ledger.
+                if hits.hit.contains(&victim.entity) {
+                    continue;
                 }
+                // PERF: eligibility is cheaper than constructing a victim's
+                // published hurt volumes, guard reach, and portal cut. These
+                // checks are read-only and do not affect strike arbitration:
+                // reject bodies that cannot receive this strike BEFORE the
+                // lazy broad-phase cache materializes their geometry. In
+                // particular, long-lived boxes mostly revisit the same
+                // entries in `HitboxHits` on subsequent ticks.
                 // Structural tangibility gate: a dead body is
                 // an intangible corpse — the swing passes through it. Skipping
                 // here means NO event and NO impact VFX are produced at the
@@ -1126,7 +1116,8 @@ pub fn apply_hitbox_damage(
                 if victim.is_corpse() {
                     continue;
                 }
-                if rooms.of(victim.entity) != strike_room {
+                let victim_room = rooms.of(victim.entity);
+                if victim_room != strike_room {
                     continue;
                 }
                 // ⛔ A HAZARD ASKS NO RELATIONSHIP QUESTION EITHER, and routing
@@ -1152,10 +1143,28 @@ pub fn apply_hitbox_damage(
                 {
                     continue;
                 }
-                if hits.hit.contains(&victim.entity) {
-                    continue;
+                // THE BROAD PHASE: only an eligible victim needs reach geometry.
+                // Bodies threaded by a portal remain conservatively Anywhere;
+                // exact piece collision and sweetspot arbitration below are
+                // unchanged. Cache the envelope once per eligible victim/tick.
+                let reach = *victim_reach.entry(victim.entity).or_insert_with(|| {
+                    if passages.as_deref().is_some_and(|p| p.cuts_in(victim_room, Some(victim.entity))) {
+                        return VictimReach::Anywhere;
+                    }
+                    let hurt = victim.hurt_pieces(None, victim_room).into_iter().map(|piece| piece.volume.bounds());
+                    let guarded = turning
+                        .get(victim.entity)
+                        .into_iter()
+                        .flat_map(|turning| turning.pieces.iter().map(|guard| guard.volume));
+                    hurt.chain(guarded)
+                        .reduce(|a, b| ae::Aabb { min: a.min.min(b.min), max: a.max.max(b.max) })
+                        .map_or(VictimReach::Nowhere, VictimReach::Within)
+                });
+                match (strike_bounds, reach) {
+                    (_, VictimReach::Nowhere) => continue,
+                    (Some(strike), VictimReach::Within(within)) if !boxes_touch(strike, within) => continue,
+                    _ => {}
                 }
-                let victim_room = rooms.of(victim.entity);
                 // Cut by the victim's own room and transit, not the strike's:
                 // the pieces are kept for each strike of the tick.
                 let hurt = victim_pieces.entry(victim.entity).or_insert_with(|| {

@@ -1106,6 +1106,33 @@ fn enemy_hitbox_over_player_app_dealing(
     (app, player)
 }
 
+/// A live volume must not consult/resolve this body again once its hit
+/// ledger has consumed the contact. The resolver now checks that ledger
+/// before preparing the victim's hurt/guard broad-phase geometry, but the
+/// authored strike still publishes its unresolved feature half.
+#[test]
+fn a_previously_hit_body_is_skipped_without_suppressing_the_feature_strike() {
+    let (mut app, player) = enemy_hitbox_over_player_app(FactionRelations::default());
+    let hitbox = {
+        let mut boxes = app.world_mut().query_filtered::<Entity, With<Hitbox>>();
+        boxes.single(app.world()).expect("one strike")
+    };
+    app.world_mut()
+        .get_mut::<HitboxHits>(hitbox)
+        .expect("strike ledger")
+        .hit
+        .insert(player);
+
+    app.update();
+    let captured = app.world().resource::<CapturedHits>();
+    assert!(captured.body_hits().is_empty(), "a spent contact must not hit again");
+    assert_eq!(
+        captured.unresolved_feature_hits().len(),
+        1,
+        "the strike still reaches features even when every body was already hit"
+    );
+}
+
 /// Default (combat-baseline) relations keep Enemy hostile to Player, so an enemy
 /// swing over the player lands — ordinary play is unchanged.
 #[test]

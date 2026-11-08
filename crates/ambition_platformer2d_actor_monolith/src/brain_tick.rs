@@ -55,6 +55,17 @@ pub fn tick_brain_with_actions(
 /// Transfer it into a fighter's perception buffer without cloning its actor,
 /// projectile, terrain, portal and string vectors. Non-fighter brains still
 /// receive a borrowed view through the same dispatch.
+///
+/// PERF REVIEW (commit c62122dfe5c05cb66a0c0d130433250976dee2df):
+/// The owned-view change was measured against the earlier borrowed-view path
+/// in four-CPU Smash captures. `tick_actor_brains` was ~1.012 ms before and
+/// ~1.064 ms after; the combat/render schedules also became slower in that
+/// capture, so the comparison does NOT establish either a win or a causal
+/// regression for this copy removal. A future agent should A/B the two paths
+/// with matched match state and profiling overhead, inspecting allocations,
+/// `Cow::into_owned`, and delayed-perception history. Keep or revert the
+/// owned path based on that evidence, not on the assumption that fewer clones
+/// necessarily improves frame time.
 pub fn tick_brain_with_actions_owned(
     brain: &mut Brain,
     actions: &ActionSet,

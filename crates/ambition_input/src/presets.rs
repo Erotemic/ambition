@@ -50,10 +50,11 @@ pub struct ActionKeys {
     /// The shift layer (`ShiftLayer`): both Shift keys, in every preset, so
     /// either hand holds it. Held, Move is a walk.
     pub shift_layer: [KeyCode; 2],
-    /// The raw modifier button. It is the attack key in every preset: Mary-O,
-    /// the one body that reads it, has no melee verb, so the key has one
-    /// meaning per body (see `arrows_zxc`). It left Left Shift on 2026-09-29,
-    /// when Shift became the shift layer.
+    /// The modifier slot's button: a slot whose sustain is the point. Each
+    /// preset uses one of its unused letters, as for `grab`, so no key gets a
+    /// second meaning. A body's run or fire does not live here: a technique
+    /// goes on the slot whose position it has (Mary-O's run is on Attack),
+    /// so every device reaches it through that slot's binding.
     pub modifier: KeyCode,
     pub utility: KeyCode,
     pub map: KeyCode,
@@ -125,17 +126,7 @@ impl KeyboardPreset {
                 taunt: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
-                // The modifier slot gives Mary-O both run and fire: `modifier_held` is her
-                // run, `modifier_pressed` is her spark (see `mary_o::movement`). The
-                // `attack` binding on the same key is a separate action that is inert for
-                // her, because `resolve_control_slots` calls `clear_attack` on a body with
-                // no melee verb. For Sanic, X resolves to his `spin_dash` technique and his
-                // modifier is not read.
-                //
-                // The gamepad-Special note below refuses a double binding for a different
-                // reason. Only an actor with both a melee verb and a modifier technique
-                // would fire two actions here; none exists.
-                modifier: KeyCode::KeyX,
+                modifier: KeyCode::KeyR,
                 utility: KeyCode::KeyD,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyI,
@@ -170,7 +161,7 @@ impl KeyboardPreset {
                 taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
-                modifier: KeyCode::KeyJ,
+                modifier: KeyCode::KeyP,
                 utility: KeyCode::KeyU,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyV,
@@ -205,7 +196,7 @@ impl KeyboardPreset {
                 taunt: KeyCode::KeyU,
                 interact: KeyCode::KeyF,
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
-                modifier: KeyCode::KeyE,
+                modifier: KeyCode::KeyS,
                 utility: KeyCode::KeyG,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyI,
@@ -240,7 +231,7 @@ impl KeyboardPreset {
                 taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
-                modifier: KeyCode::KeyP,
+                modifier: KeyCode::KeyG,
                 utility: KeyCode::KeyK,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyV,

@@ -138,7 +138,7 @@ fn top_speed(app: &mut App, body: Entity, running: bool) -> f32 {
         step(
             app,
             ControlFrame {
-                modifier_held: running,
+                attack_held: running,
                 ..aim(1.0, 0.0)
             },
         );
@@ -191,7 +191,7 @@ fn mary_o_at_home_can_only_run_and_jump() {
     let run = top_speed(&mut app, body, true);
     assert!(
         run > walk * 1.2,
-        "the run modifier must still make her run: walk {walk}, run {run}"
+        "the run button must still make her run: walk {walk}, run {run}"
     );
 
     let grounded = |app: &App| {
@@ -242,10 +242,10 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
         let mut ran = false;
         for tick in 0..90 {
             let mut frame = ControlFrame {
-                modifier_held: true,
+                attack_held: true,
                 ..aim(1.0, 0.0)
             };
-            frame.modifier_pressed = tick % 30 == 0;
+            frame.attack_pressed = tick % 30 == 0;
             step(app, frame);
             // She runs when the full throttle, not the walk's, reaches her body.
             ran |= app
@@ -284,7 +284,7 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
     fn run_label(app: &App) -> Option<String> {
         app.world()
             .resource::<ambition_platformer2d::sim_view::ControlPrompt>()
-            .label_for(ambition_platformer2d::entity_catalog::action_scheme::ControlSlot::Modifier)
+            .label_for(ambition_platformer2d::entity_catalog::action_scheme::ControlSlot::Attack)
             .map(str::to_owned)
     }
 
@@ -395,8 +395,8 @@ fn her_sparks_leave_at_their_authored_cadence_and_two_fly_at_once() {
         step(
             &mut app,
             ControlFrame {
-                modifier_held: true,
-                modifier_pressed: true,
+                attack_held: true,
+                attack_pressed: true,
                 ..aim(0.0, 0.0)
             },
         );
@@ -462,8 +462,8 @@ fn a_restart_gives_her_weapon_back_ready() {
         step(
             &mut app,
             ControlFrame {
-                modifier_held: true,
-                modifier_pressed: true,
+                attack_held: true,
+                attack_pressed: true,
                 ..aim(0.0, 0.0)
             },
         );
@@ -509,8 +509,8 @@ fn her_spark_does_not_push_her_back() {
         step(
             &mut app,
             ControlFrame {
-                modifier_pressed: tick == 0,
-                modifier_held: tick < 4,
+                attack_pressed: tick == 0,
+                attack_held: tick < 4,
                 ..ControlFrame::default()
             },
         );
@@ -559,4 +559,91 @@ fn a_jump_emits_the_voice_declared_by_its_body() {
     let spec = registry.spec_for_id(ambition_platformer2d::sfx::SfxId::from_static("player.jump"))
         .expect("the body's registry authorizes and voices the emitted jump");
     assert!(spec.duration > 0.0 && spec.volume > 0.0);
+}
+
+// ---------------------------------------------------------------------------
+// Every device runs her with the button it binds to Attack
+// ---------------------------------------------------------------------------
+
+/// Device input needs the host's input pipeline (`--features input`); the
+/// other tests here drive a scripted frame.
+#[cfg(feature = "input")]
+mod devices {
+use super::*;
+
+
+/// Her real host, driven by its devices rather than by a scripted frame.
+fn boot_with_devices() -> App {
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(TEST_COURSE_ROOM_ID.to_string()));
+    for _ in 0..LIVENESS_CAP {
+        app.update();
+        if seated(&mut app).is_some() {
+            for _ in 0..30 {
+                app.update();
+            }
+            return app;
+        }
+    }
+    panic!("Mary-O never took a seat in her own demo");
+}
+
+/// A pad button, pressed or released the way the OS reports it.
+#[derive(Clone, Copy, Debug)]
+struct Physical(Entity, GamepadButton);
+
+fn set(app: &mut App, Physical(pad, button): Physical, down: bool) {
+    app.world_mut().write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+        bevy::input::gamepad::RawGamepadButtonChangedEvent::new(pad, button, if down { 1.0 } else { 0.0 }),
+    ));
+}
+
+/// Hold `controls` until her side speed stops climbing; the top speed reached.
+fn top_speed_holding(app: &mut App, body: Entity, controls: &[Physical]) -> f32 {
+    let (mut best, mut stalled) = (0.0f32, 0);
+    for _ in 0..LIVENESS_CAP {
+        for control in controls {
+            set(app, *control, true);
+        }
+        app.update();
+        let speed = app.world().get::<ae::BodyKinematics>(body).map_or(0.0, |kin| kin.vel.x.abs());
+        if speed > best + 0.5 {
+            (best, stalled) = (speed, 0);
+        } else {
+            stalled += 1;
+            if stalled > 60 {
+                break;
+            }
+        }
+    }
+    for control in controls {
+        set(app, *control, false);
+    }
+    for _ in 0..120 {
+        app.update();
+    }
+    best
+}
+
+/// The run button is the button a device binds to Attack, on every device.
+///
+/// On the keyboard her run was the attack key, but only because each preset
+/// copied the attack key onto the modifier slot; the pad bound the modifier
+/// to the left trigger, so its attack button (West) walked. Her run is now a
+/// technique on the Attack slot, and no device binds a key for her. The
+/// keyboard reaches the same Attack action (`mary_o_at_home_can_only_run_and_jump`
+/// runs her from it), so the pad is the device to witness.
+#[test]
+fn the_pad_runs_her_with_the_button_it_binds_to_attack() {
+    let mut app = boot_with_devices();
+    let body = seated(&mut app).expect("Mary-O is seated");
+    let pad = app.world_mut().spawn(bevy::input::gamepad::Gamepad::default()).id();
+    app.update();
+
+    let right = Physical(pad, GamepadButton::DPadRight);
+    let walk = top_speed_holding(&mut app, body, &[right]);
+    let run = top_speed_holding(&mut app, body, &[right, Physical(pad, GamepadButton::West)]);
+    assert!(walk > 0.0, "premise: the pad moves her at all (walk {walk})");
+    assert!(run > walk * 1.2, "the pad's attack button must make her run: walk {walk}, run {run}");
+}
 }

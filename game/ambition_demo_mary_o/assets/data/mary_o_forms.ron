@@ -77,7 +77,7 @@
                     // so.
                     Technique((
                         id: ("run"),
-                        slot: Modifier,
+                        slot: Attack,
                         display_name: Some("Run / Spark"),
                         gate: Technique("run"),
                     )),

@@ -213,9 +213,13 @@ impl Loop {
             .get_mut::<ActorControl>(self.body)
             .unwrap();
         control.0.locomotion.x = x;
-        control.0.modifier_held = run_held;
-        control.0.modifier_pressed = run_pressed;
         control.0.fire = None;
+        // The `run` edge, as the control gate routes it from the Attack slot.
+        self.app
+            .world_mut()
+            .get_mut::<ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges>(self.body)
+            .unwrap()
+            .set("run", ae::Edge { pressed: run_pressed, held: run_held, released: false });
     }
 
     fn hit(&mut self) {

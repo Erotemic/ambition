@@ -12,6 +12,7 @@ fn body(app: &mut App) -> Entity {
             // A player body, not the first player: the policy is for each player.
             ambition_platformer2d::platformer::markers::PlayerEntity,
             ActorControl::default(),
+            ResolvedTechniqueEdges::default(),
             ae::BodyKinematics { material: Default::default(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
@@ -30,11 +31,16 @@ fn app_with_policy() -> (App, Entity) {
     (app, body)
 }
 
-/// Set this tick's brain-produced intent, as `tick_controlled_brains` would.
+/// The `run` edge the control gate routes from the Attack slot.
+fn route_run(app: &mut App, body: Entity, pressed: bool, held: bool) {
+    let mut edges = app.world_mut().get_mut::<ResolvedTechniqueEdges>(body).unwrap();
+    edges.set(RUN, ae::Edge { pressed, held, released: false });
+}
+
+/// Set this tick's intent, as the brain tick and the control gate would.
 fn intend(app: &mut App, body: Entity, x: f32, run_held: bool) {
-    let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
-    control.0.locomotion.x = x;
-    control.0.modifier_held = run_held;
+    app.world_mut().get_mut::<ActorControl>(body).unwrap().0.locomotion.x = x;
+    route_run(app, body, false, run_held);
 }
 
 fn throttle(app: &App, body: Entity) -> f32 {
@@ -87,7 +93,8 @@ fn the_walk_throttle_is_symmetric() {
 
 /// The held state survives the frame->tick latch. A sustained technique that
 /// evaporated on a catch-up tick would drop the player out of a run mid-stride, so
-/// the modifier must be carried as a LEVEL (retained) and not as an EDGE (consumed).
+/// the run button (the Attack slot) must be carried as a LEVEL (retained) and not
+/// as an EDGE (consumed).
 #[test]
 fn the_held_run_survives_the_frame_to_tick_latch() {
     use ambition_platformer2d::engine_core::ControlFrameLatch;
@@ -95,23 +102,23 @@ fn the_held_run_survives_the_frame_to_tick_latch() {
     let mut latch = ControlFrameLatch::default();
     latch.accumulate(ControlFrame {
         axis_x: 1.0,
-        modifier_held: true,
-        modifier_pressed: true,
+        attack_held: true,
+        attack_pressed: true,
         ..ControlFrame::default()
     });
 
     let first = latch.take();
-    assert!(first.modifier_held, "the first tick sees the hold");
-    assert!(first.modifier_pressed, "and the press edge");
+    assert!(first.attack_held, "the first tick sees the hold");
+    assert!(first.attack_pressed, "and the press edge");
 
     // A second tick in the same frame (the sim catching up) with no new sample.
     let second = latch.take();
     assert!(
-        second.modifier_held,
+        second.attack_held,
         "the HOLD is retained — she stays running through a catch-up tick"
     );
     assert!(
-        !second.modifier_pressed,
+        !second.attack_pressed,
         "but the press fires exactly once, so one tap is one spark"
     );
 }
@@ -228,9 +235,7 @@ fn app_with_fire(worn: WornEquipment) -> (App, Entity) {
 }
 
 fn press_run(app: &mut App, body: Entity) {
-    let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
-    control.0.modifier_pressed = true;
-    control.0.modifier_held = true;
+    route_run(app, body, true, true);
 }
 
 fn fired(app: &App, body: Entity) -> bool {
@@ -273,9 +278,7 @@ fn without_the_beacon_the_run_button_does_not_fire() {
 #[test]
 fn holding_run_does_not_repeat_fire() {
     let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon()]));
-    let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
-    control.0.modifier_held = true;
-    control.0.modifier_pressed = false;
+    route_run(&mut app, body, false, true);
     app.update();
 
     assert!(

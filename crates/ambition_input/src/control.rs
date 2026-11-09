@@ -63,8 +63,8 @@ pub fn read_gameplay_control_frame_with_settings(
     // scale it, so an analog tilt that is already a walk stays the same. The
     // rule is the same for every source bound to `Move`.
     //
-    // Read `ShiftLayer`, not `Modifier`: Mary-O uses `modifier_held` as her
-    // run.
+    // Read `ShiftLayer`, not `Modifier`: the modifier is a body slot that a
+    // technique may hold.
     let shift_held = actions.pressed(&Platformer2dInputActionMonolith::ShiftLayer);
     let axis = if shift_held {
         let magnitude = axis.length();

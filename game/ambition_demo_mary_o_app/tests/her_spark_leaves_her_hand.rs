@@ -149,8 +149,8 @@ fn throw_facing(app: &mut App, body: Entity, facing: f32) -> Throw {
     step(
         app,
         ControlFrame {
-            modifier_held: true,
-            modifier_pressed: true,
+            attack_held: true,
+            attack_pressed: true,
             ..ControlFrame::default()
         },
     );
@@ -160,7 +160,7 @@ fn throw_facing(app: &mut App, body: Entity, facing: f32) -> Throw {
         step(
             app,
             ControlFrame {
-                modifier_held: true,
+                attack_held: true,
                 ..ControlFrame::default()
             },
         );
@@ -346,8 +346,8 @@ fn a_spark_thrown_against_a_wall_does_not_pass_the_wall() {
             step(
                 app,
                 ControlFrame {
-                    modifier_held: true,
-                    modifier_pressed: tick == 0,
+                    attack_held: true,
+                    attack_pressed: tick == 0,
                     ..ControlFrame::default()
                 },
             );

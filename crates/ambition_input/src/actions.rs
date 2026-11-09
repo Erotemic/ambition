@@ -72,11 +72,10 @@ pub enum Platformer2dInputActionMonolith {
     /// the adapter, as another value on the control frame. The simulation never
     /// asks whether Shift is down.
     ///
-    /// It is its own action, not [`Self::Modifier`]. Mary-O reads
-    /// `modifier_held` as her run (`ambition_demo_mary_o::movement`), so a walk
-    /// on the modifier would make her run key slow her down. Until 2026-09-29
-    /// this was `Walk`, on Right Shift only; `ControlSettings` migrates a saved
-    /// remap of that name.
+    /// It is its own action, not [`Self::Modifier`]: the modifier is a body's
+    /// slot, which a technique may hold, and the shift layer is the device's
+    /// own chord. `ControlSettings` migrates a saved remap of the old name,
+    /// `Walk`.
     ShiftLayer,
     Modifier,
     Utility,

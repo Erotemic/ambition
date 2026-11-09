@@ -160,7 +160,7 @@ fn idle() -> ControlFrame {
     ControlFrame::default()
 }
 
-/// Move horizontally. `run` sustains the modifier slot — she walks at half
+/// Move horizontally. `run` sustains the run button (the Attack slot) — she walks at half
 /// throttle without it, and pits B and C are NOT walkable, so the open stretches
 /// are run-gated while the precision beats are deliberately walked.
 fn move_x(dir: f32, run: bool) -> ControlFrame {
@@ -168,7 +168,7 @@ fn move_x(dir: f32, run: bool) -> ControlFrame {
         axis_x: dir,
         right_pressed: dir > 0.0,
         left_pressed: dir < 0.0,
-        modifier_held: run,
+        attack_held: run,
         ..ControlFrame::default()
     }
 }

@@ -1473,8 +1473,9 @@ impl Plugin for MaryORulesPlugin {
                 scope,
                 crate::USED_CAPABILITIES,
             );
-            // The modifier runs, whichever body she drives. The cinder beacon
-            // relabels the same slot while she wears it (see `run_technique`).
+            // The run button (the Attack slot) runs, whichever body she
+            // drives. The cinder beacon relabels the same slot while she
+            // wears it (see `run_technique`).
             app.declare_rules(
                 scope,
                 ambition_platformer2d::characters::action_scheme::DrivenTechniques(vec![
@@ -1672,17 +1673,19 @@ impl Plugin for MaryORulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
             .after(ambition_platformer2d::actors::body::empowerment::EmpowermentExpiry);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
-        // sustained control slot off the body's freshly-produced `ActorControl`,
-        // so they sit after the brain tick and before the shared movement phase
-        // consumes the frame — the throttle they set then flows through the
-        // ordinary body path, replay and rollback included.
+        // `run` technique edge, which the control gate routes (in `WorldPrep`,
+        // after both control publications), so they sit after the gate and
+        // before the shared movement phase consumes the frame — the throttle
+        // they set then flows through the ordinary body path, replay and
+        // rollback included.
         let gait = (
             movement::walk_by_default_run_while_held,
             movement::fire_spark_on_run_press,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
-            .after(ambition_platformer2d::actors::control::ControlledBrainTick);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
+            .after(ambition_platformer2d::actors::control::BodyControlGate)
+            .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::Integrate);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
         // collision overlay's `removed_block_names` so they stop colliding (and, via

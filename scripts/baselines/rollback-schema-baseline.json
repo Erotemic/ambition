@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v424",
+    "version": "ggrs-rollback-schema-v427",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -41,6 +41,7 @@
       "body.action_buffer\tcomponent-canonical\tBodyActionBuffer",
       "body.base_size\tcomponent-canonical\tBodyBaseSize",
       "body.blink\tcomponent-canonical\tBodyBlinkState",
+      "body.carried_acceleration\tcomponent-canonical\tCarriedAcceleration",
       "body.dash\tcomponent-canonical\tBodyDashState",
       "body.depth_plane\tcomponent-canonical\tDepthPlane",
       "body.dodge\tcomponent-canonical\tBodyDodgeState",
@@ -254,6 +255,7 @@
     "ambition_platformer2d_session::SessionParticipants",
     "ambition_platformer2d_shared_tangle::construction::SpawnOrigin",
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
+    "ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration",
     "ambition_platformer2d_shared_tangle::frame_env::ForceZone",
     "ambition_platformer2d_shared_tangle::gravity::BaseGravity",
     "ambition_platformer2d_shared_tangle::gravity::GravityField",

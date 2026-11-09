@@ -225,7 +225,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Relative arrivals retain a live body reference until the commit frame.
 /// Party travel rules and exact exit agreements belong to session rollback state.
 // Body material scale and orientation are persistent state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 426;
+// Portal steps retain the start pose and the host's displacement and turn.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 427;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

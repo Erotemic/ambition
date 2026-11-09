@@ -17,11 +17,14 @@ use crate::types::{find_portal, PlacedPortal};
 /// from the end whose channel orders first: the pairs every reader of
 /// [`PortalPassages`] and the drawing of pieces cut by.
 pub fn linked_pairs(portals: &[PlacedPortal]) -> Vec<(ae::frame::PortalAperture, ae::frame::PortalAperture)> {
+    linked_pairs_iter(portals).map(|(a,b)|(a.aperture(),b.aperture())).collect()
+}
+
+fn linked_pairs_iter(portals:&[PlacedPortal]) -> impl Iterator<Item=(&PlacedPortal,PlacedPortal)> {
     portals
         .iter()
         .filter(|p| p.channel <= p.channel.partner())
-        .filter_map(|p| find_portal(portals, p.channel.partner()).map(|q| (p.aperture(), q.aperture())))
-        .collect()
+        .filter_map(move |p| find_portal(portals, p.channel.partner()).map(|q| (p,q)))
 }
 
 /// Publish current apertures and occupancy before body integration.
@@ -45,8 +48,8 @@ pub fn publish_portal_apertures(
     let by_room = PortalsByRoom::collect(&portals, &live);
     let mut rings: Vec<(crate::rooms::PortalRoom, Vec<u32>)> = Vec::new();
     for (room, all) in by_room.rooms() {
-        for pair in linked_pairs(all) {
-            passages.add_pair(room, pair);
+        for (a,b) in linked_pairs_iter(all) {
+            passages.add_pair_with_steps(room,[(a.aperture(),a.step),(b.aperture(),b.step)]);
         }
         // A ring of pairs (a pair facing itself, two doors in line) cuts a
         // volume in it again and again until the budget stops it: said once,

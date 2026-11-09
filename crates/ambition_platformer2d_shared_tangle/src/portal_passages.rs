@@ -125,9 +125,15 @@ impl PortalPassages {
     }
 
     pub fn add_pair(&mut self, room: Option<LiveRoomInstance>, pair: (PortalAperture, PortalAperture)) {
+        let (a,b)=pair;
+        self.add_pair_with_steps(room,[(a,ambition_platformer2d_core::frame::ApertureStep::fixed(a.frame.origin,a.frame.normal)),
+            (b,ambition_platformer2d_core::frame::ApertureStep::fixed(b.frame.origin,b.frame.normal))]);
+    }
+
+    pub fn add_pair_with_steps(&mut self,room:Option<LiveRoomInstance>,pair:[(PortalAperture,ambition_platformer2d_core::frame::ApertureStep);2]) {
         let links = &mut self.room_mut(room).links;
         let index = links.len() / 2;
-        links.extend(PortalLink::both_ways(index, pair));
+        links.extend(PortalLink::both_ways_with_steps(index,pair));
     }
 
     /// The material budget of `room`.
@@ -162,7 +168,7 @@ impl PortalPassages {
             .flat_map(|r| &r.links)
             .find(|link| link.enter == front && link.exit == back)
             .copied()
-            .unwrap_or(PortalLink { enter: front, exit: back, key: u32::MAX, depth: None });
+            .unwrap_or(PortalLink::new(front,back,u32::MAX));
         self.straddling.push((body, link));
     }
 

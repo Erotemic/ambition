@@ -494,7 +494,6 @@ mod tests {
             ),
             pos: at,
             normal,
-            prev_normal: normal,
             half_length: 46.0,
             half_thickness: 9.0,
             partner_opening_half: None,
@@ -502,7 +501,7 @@ mod tests {
             vel: Vec2::ZERO,
             spin: 0.0,
             pivot: Vec2::ZERO,
-            prev_pos: at,
+            step: ambition_platformer2d_core::frame::ApertureStep::fixed(at, normal),
         }
     }
 

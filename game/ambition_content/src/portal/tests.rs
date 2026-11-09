@@ -1618,7 +1618,9 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
         (ridden.x - 2.0).abs() < 1e-3 && ridden.y.abs() < 1e-3,
         "aperture rides the host displacement, moved {ridden:?}"
     );
-    assert_eq!(p.pos - p.prev_pos, ridden, "the aperture's own sweep sample");
+    assert_eq!(p.pos - p.step.origin, ridden, "the aperture's own sweep sample");
+    assert_eq!(p.step.displacement,Vec2::new(2.0,0.0));
+    assert_eq!(p.step.turn,0.0);
     assert!(
         (p.vel.x - 120.0).abs() < 1e-3,
         "px/s velocity derived from the host block, got {:?}",
@@ -1683,10 +1685,79 @@ fn a_portal_on_a_spinning_plank_turns_with_it_and_carries_its_spin() {
     let spin = 30f32.to_radians();
     assert!((p.spin - spin).abs() < 1e-3, "the plank's turn per second: {}", p.spin);
     assert!(p.pivot.distance(Vec2::new(400.0, 500.0)) < 1e-3, "about its center: {:?}", p.pivot);
-    let turned = p.prev_normal.angle_to(p.normal);
+    let turned = p.step.normal.angle_to(p.normal);
     assert!((turned - spin / 60.0).abs() < 1e-4, "turned with it this tick: {turned}");
+    let line=ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world())
+        .unwrap().0[0].as_collision_line().unwrap();
+    assert_eq!(p.step.turn,line.turn);
+    assert_eq!(p.step.displacement,line.velocity);
+    let half_step=ae::SurfaceChain {velocity:line.velocity*0.5,turn:line.turn*0.5,
+        pivot:line.pivot-line.velocity*0.5,..line};
+    let middle=p.step.sample(p.aperture(),0.5).unwrap();
+    assert!(middle.frame.origin.distance(half_step.carried(p.step.origin))<0.001);
     // Still 40 px along the line from its center.
     assert!((p.pos.distance(p.pivot) - 40.0).abs() < 0.5, "{:?}", p.pos);
+}
+
+#[test]
+fn a_wrapping_host_closes_its_old_plane_without_sweeping_the_wrap() {
+    use crate::portal::host_adapter::{attach_portal_hosts, refresh_hosted_portal_frames};
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
+    use ambition_platformer2d_world::platforms::{MovingPlatformState, Plank, PlatformTurn};
+
+    for spinning in [false, true] {
+        let mut app = App::new();
+        ambition_platformer2d::session::insert_live_room_component(
+            app.world_mut(),
+            RoomGeometry(ae::World::new("wrap", Vec2::splat(1000.0), Vec2::ZERO, vec![])),
+        );
+        let mut host = MovingPlatformState::from_vertical_loop(
+            "wrap", "wrap", Vec2::new(400.0, 499.0), Vec2::new(200.0, 20.0),
+            100.0, 500.0, 120.0, true,
+        );
+        if spinning {
+            host.plank = Some(Plank {
+                turn: PlatformTurn::Spin { deg_per_s: 30.0 },
+                ..Plank::default()
+            });
+        }
+        let start = host.pos + Vec2::new(40.0, if spinning { 0.0 } else { -10.0 });
+        ambition_platformer2d::session::insert_live_room_component(
+            app.world_mut(), MovingPlatformSet(vec![host]),
+        );
+        app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
+        app.init_resource::<ambition_portal2d::PortalFrameHistory>();
+        app.add_systems(Update, (
+            attach_portal_hosts,
+            refresh_hosted_portal_frames,
+            ambition_portal2d::evict_straddlers_on_portal_change,
+        ).chain());
+        let portal = app.world_mut().spawn(PlacedPortal::fixed(
+            PURPLE, start, Vec2::NEG_Y, ambition_portal2d::PORTAL_OPENING_HALF,
+        )).id();
+        let body_start = start - Vec2::Y * 2.0;
+        let body = app.world_mut().spawn(BodyKinematics {
+            pos: body_start, canonical_size: Vec2::new(24.0, 40.0),
+            vel: Vec2::ZERO, facing: 1.0, material: Default::default(),
+        }).id();
+        app.update();
+        assert_eq!(app.world().get::<BodyKinematics>(body).unwrap().pos, body_start);
+
+        ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(
+            app.world_mut(),
+        ).unwrap().0[0].update(1.0 / 60.0);
+        app.update();
+
+        let p = app.world().get::<PlacedPortal>(portal).unwrap();
+        assert!(p.host.is_hosted());
+        assert_eq!(p.step.displacement, Vec2::new(0.0, 2.0));
+        let continuous_start = p.step.sample(p.aperture(), 0.0).unwrap();
+        assert!(continuous_start.frame.origin.distance(start - Vec2::Y * 400.0) < 0.001);
+        assert!(continuous_start.frame.normal.distance(Vec2::NEG_Y) < 0.00001);
+        assert!(p.step.sample(p.aperture(), 0.5).unwrap().frame.origin.y < 110.0);
+        let evicted = app.world().get::<BodyKinematics>(body).unwrap();
+        assert!((evicted.pos.y - (start.y - 21.0)).abs() < 0.001);
+    }
 }
 
 /// OW1: a portal finds its host face in its OWN live room. A moving platform

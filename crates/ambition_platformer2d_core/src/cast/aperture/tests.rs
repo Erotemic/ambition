@@ -157,12 +157,7 @@ fn composed_reach_uses_the_scale_on_each_segment() {
 
 #[test]
 fn a_scale_cycle_refuses_at_the_limit_with_no_partial_ray() {
-    let link = PortalLink {
-        enter: aperture(10.0, -Vec2::X, 10.0),
-        exit: aperture(0.0, Vec2::X, 20.0),
-        key: 7,
-        depth: None,
-    };
+    let link = PortalLink::new(aperture(10.0,-Vec2::X,10.0),aperture(0.0,Vec2::X,20.0),7);
     let budget = RayBudget {
         max_hops: 100,
         max_scale_exponent: 2,

@@ -124,6 +124,8 @@ impl MaterialPlane {
 pub struct PortalLink {
     pub enter: PortalAperture,
     pub exit: PortalAperture,
+    pub enter_step: super::ApertureStep,
+    pub exit_step: super::ApertureStep,
     pub key: u32,
     /// How deep past the entry plane what goes through goes; deeper stays
     /// where it is. `None`: all of it past the plane. A host's picture is cut
@@ -132,15 +134,53 @@ pub struct PortalLink {
     pub depth: Option<f32>,
 }
 
+/// One instant of a directed portal link.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub struct PortalLinkPose {
+    pub enter:PortalAperture,
+    pub exit:PortalAperture,
+    pub key:u32,
+    pub depth:Option<f32>,
+}
+
+impl PortalLinkPose {
+    pub fn map(self,convention:MapConvention) -> Result<Sim2,NumericFault> {
+        Sim2::through(&self.enter,&self.exit,convention)
+    }
+}
+
 impl PortalLink {
+    pub fn new(enter:PortalAperture, exit:PortalAperture, key:u32) -> Self {
+        Self {enter,exit,key,depth:None,
+            enter_step:super::ApertureStep::fixed(enter.frame.origin,enter.frame.normal),
+            exit_step:super::ApertureStep::fixed(exit.frame.origin,exit.frame.normal)}
+    }
+
+    /// Read one instant of the recorded motion.
+    pub fn snapshot_at(self,time:f64) -> Result<PortalLinkPose,NumericFault> {
+        Ok(PortalLinkPose {enter:self.enter_step.sample(self.enter,time)?,exit:self.exit_step.sample(self.exit,time)?,
+            key:self.key,depth:self.depth})
+    }
+
+    pub fn moves(self) -> bool {
+        self.enter_step.origin!=self.enter.frame.origin || self.enter_step.normal!=self.enter.frame.normal
+            || self.exit_step.origin!=self.exit.frame.origin || self.exit_step.normal!=self.exit.frame.normal
+            || self.enter_step.displacement!=Vec2::ZERO || self.exit_step.displacement!=Vec2::ZERO
+            || self.enter_step.turn!=0.0 || self.exit_step.turn!=0.0
+    }
+
     /// Both ways through the pair `(a, b)`: `a → b` keyed `2 * index`, `b → a`
     /// keyed `2 * index + 1`.
     pub fn both_ways(index: usize, (a, b): (PortalAperture, PortalAperture)) -> [PortalLink; 2] {
+        Self::both_ways_with_steps(index,[(a,super::ApertureStep::fixed(a.frame.origin,a.frame.normal)),
+            (b,super::ApertureStep::fixed(b.frame.origin,b.frame.normal))])
+    }
+
+    pub fn both_ways_with_steps(index:usize,pair:[(PortalAperture,super::ApertureStep);2]) -> [Self;2] {
         let key = 2 * index as u32;
-        [
-            PortalLink { enter: a, exit: b, key, depth: None },
-            PortalLink { enter: b, exit: a, key: key + 1, depth: None },
-        ]
+        let [(a,a_step),(b,b_step)]=pair;
+        [Self {enter_step:a_step,exit_step:b_step,..Self::new(a,b,key)},
+            Self {enter_step:b_step,exit_step:a_step,..Self::new(b,a,key+1)}]
     }
 
     /// The map of the link.
@@ -413,7 +453,7 @@ fn entry_opening(ap: &PortalAperture, reach: Option<Vec2>) -> [HalfPlane; 3] {
 
 /// Does `volume` reach past `ap`'s plane inside its opening?
 pub fn reaches_through(volume: &CombatVolume, ap: &PortalAperture) -> bool {
-    let link = PortalLink { enter: *ap, exit: *ap, key: 0, depth: None };
+    let link = PortalLink::new(*ap,*ap,0);
     piece_reaches_through(&VolumePiece::whole(volume.clone()), &link, None).unwrap_or(false)
 }
 

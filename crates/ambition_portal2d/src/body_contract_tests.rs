@@ -429,6 +429,38 @@ fn a_body_budget_overrides_the_room_budget() {
     assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(PortalPieceBudget(PieceBudget::COMPOSED))), (1, PieceBudget::COMPOSED));
 }
 
+#[test]
+fn passage_publication_keeps_the_recorded_motion_in_both_directions() {
+    use ambition_platformer2d_shared_tangle::portal_passages::PortalPassages;
+    let mut app=App::new();
+    app.init_resource::<PortalPassages>();
+    app.add_systems(Update,crate::publish_portal_apertures);
+    let [a,b]=wall_pair(&mut app);
+    {
+        let mut portal=app.world_mut().get_mut::<PlacedPortal>(a).unwrap();
+        portal.step.origin=portal.pos-Vec2::new(20.0,0.0);
+        portal.step.displacement=Vec2::new(20.0,0.0);
+        portal.vel=Vec2::new(1200.0,0.0);
+    }
+    {
+        let mut portal=app.world_mut().get_mut::<PlacedPortal>(b).unwrap();
+        portal.step.turn=std::f32::consts::TAU*2.0;
+        portal.pivot=portal.pos;
+        portal.spin=portal.step.turn*60.0;
+    }
+    app.update();
+    let passages=app.world().resource::<PortalPassages>();
+    let links=passages.links_in(None);
+    assert_eq!(links.len(),2);
+    assert_eq!(links[0].enter_step,links[1].exit_step);
+    assert_eq!(links[0].exit_step,links[1].enter_step);
+    assert_eq!(links[0].enter_step.displacement,Vec2::new(20.0,0.0));
+    assert_eq!(links[0].exit_step.turn,std::f32::consts::TAU*2.0);
+    let sample=links[0].snapshot_at(0.125).unwrap();
+    assert!(sample.enter.frame.origin.distance(links[0].enter_step.origin+Vec2::new(2.5,0.0))<1.0e-5);
+    assert!(sample.exit.frame.normal.distance(links[0].exit.frame.tangent())<1.0e-5);
+}
+
 
 /// A dog (93 px wide) at a floor portal whose opening is 92: its centre over
 /// the opening opens the hole, though its box is partly past the end (it is

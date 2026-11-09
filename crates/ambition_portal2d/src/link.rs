@@ -253,7 +253,6 @@ mod aperture_partner_tests {
             channel,
             pos: Vec2::new(x, 0.0),
             normal: Vec2::new(0.0, 1.0),
-            prev_normal: Vec2::new(0.0, 1.0),
             half_length: opening,
             half_thickness: PORTAL_THICKNESS_HALF,
             partner_opening_half: None,
@@ -261,7 +260,7 @@ mod aperture_partner_tests {
             vel: Vec2::ZERO,
             spin: 0.0,
             pivot: Vec2::ZERO,
-            prev_pos: Vec2::new(x, 0.0),
+            step: ambition_platformer2d_core::frame::ApertureStep::fixed(Vec2::new(x, 0.0), Vec2::new(0.0, 1.0)),
         }
     }
 

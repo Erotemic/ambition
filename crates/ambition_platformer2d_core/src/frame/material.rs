@@ -53,6 +53,24 @@ impl BodyMaterial {
     }
 }
 
+impl crate::snapshot::SnapshotState for BodyMaterial {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use crate::snapshot::{put_f32, put_vec2};
+        put_f32(out, self.scale);
+        put_vec2(out, self.orthogonal.x_axis);
+        put_vec2(out, self.orthogonal.y_axis);
+    }
+
+    fn decode(reader: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
+        let scale = reader.f32()?;
+        let orthogonal = Mat2::from_cols(reader.vec2()?, reader.vec2()?);
+        Sim2::new(scale, orthogonal, Vec2::ZERO).ok()?;
+        // Restore the admitted bits. Normalization can change signed zero
+        // or round an axis again and change the peer checksum.
+        Some(Self { scale, orthogonal })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,5 +116,19 @@ mod snapshot_tests {
         let mut invalid = bytes;
         invalid[28..32].copy_from_slice(&0.0_f32.to_le_bytes());
         assert!(decode_state::<crate::BodyKinematics>(&invalid).is_none());
+    }
+
+    #[test]
+    fn restoring_material_keeps_every_snapshot_bit() {
+        for material in [
+            BodyMaterial::IDENTITY,
+            BodyMaterial::new(3.0, Mat2::from_angle(0.37)).unwrap(),
+            BodyMaterial::new(0.25, Mat2::from_cols(Vec2::Y, Vec2::X)).unwrap(),
+        ] {
+            let body = crate::BodyKinematics { material, ..Default::default() };
+            let saved = encode_state(&body);
+            let restored = decode_state::<crate::BodyKinematics>(&saved).unwrap();
+            assert_eq!(encode_state(&restored), saved);
+        }
     }
 }

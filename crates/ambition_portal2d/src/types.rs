@@ -25,14 +25,8 @@ pub struct PlacedPortal {
     /// Unit surface normal, pointing out of the host surface into the room,
     /// at any angle. The opening runs along its tangent.
     pub normal: Vec2,
-    /// The pose (`pos`, `normal`) at the start of this tick, before its host
-    /// moved it. The host refresh sets it for every portal each tick, and
-    /// anything that places a portal sets it to the new pose. So a portal
-    /// whose start pose is not the last tick's end pose was placed again
-    /// (eviction), and `prev → now` is the host's rigid motion this tick
-    /// (the relative swept transit trigger).
-    pub prev_pos: Vec2,
-    pub prev_normal: Vec2,
+    /// The start pose and the host's published travel during this tick.
+    pub step: ae::frame::ApertureStep,
     /// The opening as its owner placed it: half its length along the face,
     /// and half its thickness across it. The opening that transit, carve and
     /// drawing use is [`Self::opening_half_length`]: a pair opens the
@@ -111,7 +105,6 @@ impl PlacedPortal {
             channel,
             pos,
             normal,
-            prev_normal: normal,
             half_length,
             half_thickness,
             partner_opening_half: None,
@@ -119,7 +112,7 @@ impl PlacedPortal {
             vel: Vec2::ZERO,
             spin: 0.0,
             pivot: pos,
-            prev_pos: pos,
+            step: ambition_platformer2d_core::frame::ApertureStep::fixed(pos, normal),
         }
     }
 
@@ -128,8 +121,7 @@ impl PlacedPortal {
     pub fn place_at(&mut self, pos: Vec2, normal: Vec2) {
         self.pos = pos;
         self.normal = normal.normalize_or_zero();
-        self.prev_pos = self.pos;
-        self.prev_normal = self.normal;
+        self.step = ae::frame::ApertureStep::fixed(self.pos,self.normal);
         self.vel = Vec2::ZERO;
         self.spin = 0.0;
         self.pivot = pos;
@@ -137,7 +129,8 @@ impl PlacedPortal {
 
     /// Did its host move or turn it this tick?
     pub fn moved_this_tick(&self) -> bool {
-        self.pos != self.prev_pos || self.normal != self.prev_normal
+        self.pos != self.step.origin || self.normal != self.step.normal
+            || self.step.displacement!=Vec2::ZERO || self.step.turn!=0.0
     }
 
     /// The two ends of its opening's line.
@@ -214,7 +207,8 @@ impl PlacedPortal {
     /// point fixed to the aperture is at `frame().from_local(l)` where it was
     /// at `prev_frame().from_local(l)`.
     pub fn prev_frame(&self) -> PortalFrame {
-        PortalFrame { origin: self.prev_pos, normal: self.prev_normal, ..self.frame() }
+        PortalFrame { origin: self.step.origin, normal: self.step.normal,
+            pivot:self.pivot-self.step.displacement,..self.frame() }
     }
 
     /// The half-length of the opening this frame: the authored one, made
@@ -355,7 +349,6 @@ mod find_portal_determinism_tests {
             channel,
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
-            prev_normal: Vec2::new(0.0, 1.0),
             half_length: PORTAL_OPENING_HALF,
             half_thickness: PORTAL_THICKNESS_HALF,
             partner_opening_half: None,
@@ -363,7 +356,7 @@ mod find_portal_determinism_tests {
             vel: Vec2::ZERO,
             spin: 0.0,
             pivot: Vec2::ZERO,
-            prev_pos: Vec2::new(x, y),
+            step: ambition_platformer2d_core::frame::ApertureStep::fixed(Vec2::new(x, y), Vec2::new(0.0, 1.0)),
         }
     }
 
@@ -416,7 +409,6 @@ mod stable_order_tests {
             channel: PortalChannelColor::Purple.channel(),
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
-            prev_normal: Vec2::new(0.0, 1.0),
             half_length: PORTAL_OPENING_HALF,
             half_thickness: PORTAL_THICKNESS_HALF,
             partner_opening_half: None,
@@ -424,7 +416,7 @@ mod stable_order_tests {
             vel: Vec2::ZERO,
             spin: 0.0,
             pivot: Vec2::ZERO,
-            prev_pos: Vec2::new(x, y),
+            step: ambition_platformer2d_core::frame::ApertureStep::fixed(Vec2::new(x, y), Vec2::new(0.0, 1.0)),
         }
     }
 

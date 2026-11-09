@@ -585,6 +585,8 @@ loading work. No complete PSIM acceptance slice is closed.
   refuses the operation and returns no partial geometry. The default scale
   range is `1/4096..=4096`; a body or room can set its exponent limit.
 - Body dimensions remain canonical. Snapshots retain material scale and axes.
+  Restore validates the saved axes without normalizing them again. A byte
+  round-trip test guards signed zero and rounding in the peer checksum.
   Each movement policy derives world units for its step and then restores the
   authored parameters. World gravity and body time do not change with scale.
 - The body kernel validates a private candidate, its sweep and mapped part
@@ -597,7 +599,7 @@ loading work. No complete PSIM acceptance slice is closed.
   that reconstructed rigid maps from normals are removed.
 - Carried acceleration is a shared body capability. Projectile construction,
   stepping, snapshots and restoration use that value. World gravity and force
-  zones keep their own contributions. The rollback schema is 426.
+  zones keep their own contributions. The rollback schema is 427.
 - Source admission checks carried acceleration along each path. It does not
   map world gravity or world force fields. Projectile flight validates a
   candidate before it commits motion or contacts. Refusal clears stale travel
@@ -617,7 +619,11 @@ loading work. No complete PSIM acceptance slice is closed.
   hits a moving wall that misses the far part at both endpoint poses, before
   the root transits. Aperture cells still use the current frame snapshot.
   Their motion, rotating obstacles, moving line hosts and physical righting
-  remain open.
+  remain open. Each directed link now retains the start pose and the host's
+  published displacement and turn. Sampling follows the host arc and keeps
+  full windings. Both directions share that recorded motion. Collision cells
+  still need to consume it over the whole operation. A host wrap closes the
+  old plane; its aperture does not sweep between the two locations.
 - Projectile world contacts use the original collider and the selected part.
   The response uses its normal and physical contact point. Surface velocity
   returns through the inverse path with the moving-frame law. Flight and

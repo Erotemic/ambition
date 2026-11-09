@@ -275,6 +275,8 @@ impl Iso2 {
 mod similarity;
 pub use similarity::{NumericFault, Sim2};
 pub(crate) use similarity::{scale_bound, scale_quantity};
+mod motion;
+pub use motion::ApertureStep;
 mod material;
 pub use material::BodyMaterial;
 

@@ -115,7 +115,7 @@ fn host_carried_motion_does_not_evict_a_straddler() {
             ),
             lift: 0.0,
         };
-        p.prev_pos = p.pos;
+        p.step.origin = p.pos;
         p.pos += Vec2::new(0.0, -8.0);
     }
     let before = app.world().get::<BodyKinematics>(body).unwrap().pos;
@@ -125,10 +125,8 @@ fn host_carried_motion_does_not_evict_a_straddler() {
 }
 
 /// A portal on a turning host (a spinning plank) turns a little every tick.
-/// The host turned it, so a body standing in it stays: before `prev_normal`,
-/// every tick read as a new plane and shoved the body out, and nobody could
-/// enter a portal on a plank. An owner turning it (no `prev_normal`) still
-/// evicts.
+/// A host turn retains the start pose. An owner turn starts a new placement
+/// and removes the body's prior straddle.
 #[test]
 fn a_host_turn_does_not_evict_but_an_owner_turn_does() {
     let turned = Vec2::new(0.1, -1.0).normalize();
@@ -143,11 +141,11 @@ fn a_host_turn_does_not_evict_but_an_owner_turn_does() {
         {
             let mut p = app.world_mut().get_mut::<PlacedPortal>(portal).unwrap();
             if host_turned {
-                p.prev_normal = p.normal;
+                p.step.normal = p.normal;
             }
             p.turn_to(turned);
             if !host_turned {
-                p.prev_normal = p.normal;
+                p.step.normal = p.normal;
             }
         }
         let before = app.world().get::<BodyKinematics>(body).unwrap().pos;

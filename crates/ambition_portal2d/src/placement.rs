@@ -30,9 +30,7 @@ pub fn raycast_through_portals(
     ordered.sort_by(|a, b| crate::stable_portal_order(a, b));
     let links = ordered.into_iter().enumerate().filter_map(|(key, enter)| {
         let exit = find_portal(portals, enter.channel.partner())?;
-        Some(ae::frame::thread::PortalLink {
-            enter: enter.aperture(), exit: exit.aperture(), key: key as u32, depth: None,
-        })
+        Some(ae::frame::thread::PortalLink::new(enter.aperture(),exit.aperture(),key as u32))
     }).collect::<Vec<_>>();
     ae::cast::trace_through_apertures(
         world, &links, ae::cast::PortalRay { origin, direction: dir, reach: max_dist },

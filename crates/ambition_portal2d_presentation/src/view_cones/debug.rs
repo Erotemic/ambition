@@ -1330,7 +1330,6 @@ mod compositing_report_tests {
             channel: PortalChannel::Authored(PortalChannelColor::Purple),
             pos: Vec2::new(100.0, 300.0),
             normal: Vec2::new(0.0, 1.0),
-            prev_normal: Vec2::new(0.0, 1.0),
             half_length: 46.0,
             half_thickness: 9.0,
             partner_opening_half: None,
@@ -1338,7 +1337,7 @@ mod compositing_report_tests {
             vel: Vec2::ZERO,
             spin: 0.0,
             pivot: Vec2::ZERO,
-            prev_pos: Vec2::new(100.0, 300.0),
+            step: ambition_platformer2d_core::frame::ApertureStep::fixed(Vec2::new(100.0, 300.0), Vec2::new(0.0, 1.0)),
         }
     }
 

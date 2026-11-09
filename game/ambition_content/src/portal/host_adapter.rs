@@ -95,12 +95,10 @@ pub fn attach_portal_hosts(
     }
 }
 
-/// Start each portal's tick where the last ended, then move each hosted
-/// aperture with its host face or line, in the portal's own live room (OW1).
+/// Move each hosted aperture with its host face or line, in its own live room.
 ///
-/// Every portal's start pose (`prev_pos`, `prev_normal`) is its pose now, and
-/// its motion is none. A hosted portal then takes its host's pose and the
-/// motion its host published (CC6): a face's velocity, or a line's velocity
+/// An unhosted portal has zero travel. A hosted portal takes its host's pose
+/// and published motion (CC6): a face's velocity, or a line's velocity
 /// and turn about its pivot. The host is looked up where it is, by its id or
 /// name, and the room is not copied. A portal in no live room keeps its frame
 /// while two rooms are live.
@@ -117,8 +115,7 @@ pub fn refresh_hosted_portal_frames(
     for (entity, mut portal) in &mut portals {
         let pos = portal.pos;
         let normal = portal.normal;
-        portal.prev_pos = pos;
-        portal.prev_normal = normal;
+        portal.step = ae::frame::ApertureStep::fixed(pos, normal);
         portal.vel = Vec2::ZERO;
         portal.spin = 0.0;
         portal.pivot = pos;
@@ -157,6 +154,9 @@ pub fn refresh_hosted_portal_frames(
         portal.vel = shift * per_second;
         portal.spin = turn * per_second;
         portal.pivot = pivot;
+        // Use the host's continuous start pose. A wrap closes the old plane;
+        // it does not sweep an aperture across the space between locations.
+        portal.step = ae::frame::ApertureStep::ending_at(portal.frame(), shift, turn);
     }
 }
 

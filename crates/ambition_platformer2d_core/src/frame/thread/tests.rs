@@ -1,4 +1,41 @@
 use super::*;
+
+#[test]
+fn sampled_portal_motion_preserves_a_common_frame_boost() {
+    use bevy_math::Mat2;
+    use crate::frame::ApertureStep;
+    let endpoint=|origin:Vec2,normal:Vec2,pivot:Vec2,shift:Vec2,turn:f32,half_length:f32| {
+        let rotation=Mat2::from_angle(turn);
+        let end=PortalAperture {frame:PortalFrame {origin:pivot+shift+rotation*(origin-pivot),
+            normal:(rotation*normal).normalize(),velocity:shift*4.0,spin:turn*4.0,pivot:pivot+shift},half_length};
+        (end,ApertureStep {origin,normal,displacement:shift,turn})
+    };
+    let pair=[endpoint(Vec2::new(10.0,4.0),-Vec2::Y,Vec2::ZERO,Vec2::new(3.0,7.0),0.4,40.0),
+        endpoint(Vec2::new(300.0,100.0),-Vec2::X,Vec2::new(280.0,90.0),Vec2::new(-6.0,8.0),-0.6,20.0)];
+    let base=PortalLink::both_ways_with_steps(0,pair)[0];
+    let boost=Vec2::new(14.0,-9.0);
+    let mut boosted_pair=pair;
+    for (end,step) in &mut boosted_pair {
+        end.frame.origin+=boost;
+        end.frame.pivot+=boost;
+        end.frame.velocity+=boost*4.0;
+        step.displacement+=boost;
+    }
+    let boosted=PortalLink::both_ways_with_steps(0,boosted_pair)[0];
+    for convention in [MapConvention::Reflection,MapConvention::Rotation] {
+        for time in [0.0,0.125,0.5,0.875,1.0] {
+            let a=base.snapshot_at(time).unwrap();
+            let b=boosted.snapshot_at(time).unwrap();
+            let point=Vec2::new(17.0,-3.0); let velocity=Vec2::new(110.0,-30.0);
+            let map=a.map(convention).unwrap(); let moved=b.map(convention).unwrap();
+            let source=point+boost*time as f32;
+            assert!(moved.point(source).unwrap().distance(map.point(point).unwrap()+boost*time as f32)<0.001);
+            let original=map.velocity(&a.enter.frame,&a.exit.frame,point,velocity).unwrap();
+            let result=moved.velocity(&b.enter.frame,&b.exit.frame,source,velocity+boost*4.0).unwrap();
+            assert!(result.distance(original+boost*4.0)<0.002,"{convention:?}, t={time}: {original:?} / {result:?}");
+        }
+    }
+}
 use crate::{Aabb, AabbExt};
 
 #[test]
@@ -480,7 +517,7 @@ fn partition_cost() {
 fn a_link_that_goes_so_deep_keeps_what_is_deeper_where_it_is() {
     // A picture 60 deep into the floor's opening; its limb went 25 deep.
     let (floor, ceiling) = floor_pair();
-    let link = PortalLink { enter: floor, exit: ceiling, key: 0, depth: Some(25.0) };
+    let link = PortalLink {depth:Some(25.0),..PortalLink::new(floor,ceiling,0)};
     let picture = boxed(Vec2::new(0.0, 20.0), Vec2::new(20.0, 40.0));
     let p = partition(crate::frame::thread::MaterialPrimitive::world(&picture), ABOVE, &[link], Some(0), PieceBudget::SINGLE_HOP, MapConvention::Reflection).unwrap();
     assert_tiles(&picture, &p);
@@ -496,7 +533,7 @@ fn a_link_that_goes_so_deep_keeps_what_is_deeper_where_it_is() {
 #[test]
 fn a_partition_is_never_larger_than_its_budget() {
     let (floor, ceiling) = floor_pair();
-    let link = PortalLink { enter: floor, exit: ceiling, key: 0, depth: Some(25.0) };
+    let link = PortalLink {depth:Some(25.0),..PortalLink::new(floor,ceiling,0)};
     let picture = boxed(Vec2::new(0.0, 20.0), Vec2::new(60.0, 40.0));
     let cut = |max_pieces| partition(crate::frame::thread::MaterialPrimitive::world(&picture), ABOVE, &[link], Some(0),
         PieceBudget { max_scale_exponent: 12, max_hops: 1, max_pieces }, MapConvention::Reflection);

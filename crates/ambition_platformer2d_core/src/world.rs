@@ -1209,6 +1209,26 @@ impl MaterialCollider<'_> {
     pub fn displacement(self) -> Vec2 {
         match self { Self::Block(block) => block.velocity, Self::Chain { chain, .. } => chain.velocity }
     }
+
+    /// Surface speed at the physical contact point, in world units per second.
+    pub fn velocity_at(self, point: Vec2, dt: f32) -> Result<Vec2, crate::frame::NumericFault> {
+        use crate::frame::{NumericFault, Sim2};
+        let displacement = self.displacement();
+        let turn = match self { Self::Chain { chain, .. } => chain.turn, _ => 0.0 };
+        if !point.is_finite() || !displacement.is_finite() || !turn.is_finite() || !dt.is_finite() {
+            return Err(NumericFault::NonFinite);
+        }
+        if displacement == Vec2::ZERO && turn == 0.0 { return Ok(Vec2::ZERO); }
+        if dt <= 0.0 { return Err(NumericFault::InvalidFrame); }
+        let mut velocity = displacement.as_dvec2() / f64::from(dt);
+        if let Self::Chain { chain, .. } = self {
+            if !chain.pivot.is_finite() { return Err(NumericFault::NonFinite); }
+            let r = point.as_dvec2()-chain.pivot.as_dvec2();
+            velocity += bevy_math::DVec2::new(-r.y,r.x) * (f64::from(turn)/f64::from(dt));
+        }
+        Sim2::IDENTITY.vector_from_wide(velocity)
+    }
+
 }
 
 #[derive(Clone, Debug)]
@@ -1232,6 +1252,47 @@ impl MaterialWorldHit<'_> {
         self.contact.toi.total_cmp(&other.contact.toi).then(identity)
             .then_with(|| self.contact.path.cmp(&other.contact.path)).is_lt()
     }
+}
+
+/// Remove only the finite face intervals that lead to another spatial cell.
+fn material_line_segments(
+    a: Vec2, b: Vec2, part: &crate::frame::thread::VolumePiece,
+    cells: &crate::frame::material_cast::MaterialCastCells<'_>,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<Vec<[Vec2;2]>, crate::frame::thread::Refusal> {
+    use crate::frame::{NumericFault, Sim2};
+    use crate::frame::thread::{Refusal,RefusalReason};
+    let mut intervals=vec![(0.0_f64,1.0_f64)];
+    let edge=b.as_dvec2()-a.as_dvec2();
+    if let Some(admission)=admission {
+        for link in admission.links {
+            let has_exit=cells.parts().iter().any(|other| other.path.len()>part.path.len()
+                && other.path.starts_with(&part.path) && other.path[part.path.len()]==link.key);
+            if !has_exit { continue; }
+            let n=link.enter.frame.normal.as_dvec2();
+            let offset=a.as_dvec2()-link.enter.frame.origin.as_dvec2();
+            if edge.dot(n)!=0.0 || offset.dot(n)!=0.0 { continue; }
+            let tangent=bevy_math::DVec2::new(-n.y,n.x);
+            let span=edge.dot(tangent);
+            if span==0.0 { continue; }
+            let along=offset.dot(tangent);
+            let lo=(-f64::from(link.enter.half_length)-along)/span;
+            let hi=(f64::from(link.enter.half_length)-along)/span;
+            let (lo,hi)=(lo.min(hi).max(0.0),lo.max(hi).min(1.0));
+            if hi<=lo { continue; }
+            intervals=intervals.into_iter().flat_map(|(start,end)| {
+                let mut kept=Vec::new();
+                if start<lo { kept.push((start,end.min(lo))); }
+                if end>hi { kept.push((start.max(hi),end)); }
+                kept
+            }).collect();
+        }
+    }
+    let reason=|reason:NumericFault| Refusal { path:part.path.clone(),link:None,reason:RefusalReason::Numeric(reason) };
+    intervals.into_iter().map(|(lo,hi)| Ok([
+        Sim2::IDENTITY.point_from_wide(a.as_dvec2()+edge*lo).map_err(reason)?,
+        Sim2::IDENTITY.point_from_wide(a.as_dvec2()+edge*hi).map_err(reason)?,
+    ])).collect()
 }
 
 /// A resolved host-face anchor: where an identified face IS this frame.
@@ -1594,41 +1655,65 @@ impl World {
     }
 
     /// Cast the actual material through its spatial cells against room geometry.
-    pub fn first_material_sweep<F>(
-        &self,
+    pub fn first_material_sweep<'w, F>(
+        &'w self,
         cast: crate::frame::material_cast::MaterialCast<'_>,
         admission: Option<crate::frame::thread::MotionAdmission<'_>>,
         mut accepts: F,
-    ) -> Result<Option<MaterialWorldHit<'_>>, crate::frame::thread::Refusal>
-    where F: FnMut(MaterialCollider<'_>, &crate::frame::thread::VolumePiece) -> bool,
+    ) -> Result<Option<MaterialWorldHit<'w>>, crate::frame::thread::Refusal>
+    where F: FnMut(MaterialCollider<'w>, &crate::frame::thread::VolumePiece, &crate::frame::material_cast::MaterialCastHit)
+            -> Result<bool, crate::frame::thread::Refusal>,
     {
         let cells = cast.cells(admission)?;
-        let mut best: Option<MaterialWorldHit<'_>> = None;
+        let mut best: Option<MaterialWorldHit<'w>> = None;
+        let mut refused: Option<(MaterialWorldHit<'w>, crate::frame::thread::Refusal)> = None;
+        let mut consider = |hit: MaterialWorldHit<'w>, part: &crate::frame::thread::VolumePiece| {
+            match accepts(hit.collider, part, &hit.contact) {
+                Ok(true) => if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); },
+                Ok(false) => {},
+                Err(reason) => if refused.as_ref().is_none_or(|(first,_)| hit.precedes(first)) { refused=Some((hit,reason)); },
+            }
+        };
         for part in cells.parts() {
             let bounds = cells.bounds(part)?;
             for block in self.blocks.near(bounds) {
                 let collider = MaterialCollider::Block(block);
-                if !accepts(collider,part) { continue; }
                 let a = block.aabb;
                 let polygon = [a.min,Vec2::new(a.max.x,a.min.y),a.max,Vec2::new(a.min.x,a.max.y)];
                 if let Some(contact) = cells.against(part,&polygon)? {
                     let hit = MaterialWorldHit { collider,contact };
-                    if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); }
+                    consider(hit,part);
                 }
             }
             for (index,chain) in self.chains.indexed_near(bounds) {
+                if chain.closed && chain.kind == SurfaceKind::Solid && chain.points.len() >= 3 {
+                    if let Some(contact) = cells.against(part,&chain.points)? {
+                        let point = contact.world_point.as_dvec2();
+                        let distance = |segment| {
+                            let (a,b) = chain.segment(segment);
+                            let a = a.as_dvec2(); let edge = b.as_dvec2()-a;
+                            let along = if edge == bevy_math::DVec2::ZERO { 0.0 }
+                                else { ((point-a).dot(edge)/edge.length_squared()).clamp(0.0,1.0) };
+                            point.distance_squared(a+edge*along)
+                        };
+                        let segment = (0..chain.segment_count()).min_by(|a,b| distance(*a).total_cmp(&distance(*b)).then(a.cmp(b)))
+                            .expect("a solid polygon has edges");
+                        consider(MaterialWorldHit { collider: MaterialCollider::Chain { chain,index,segment },contact },part);
+                    }
+                    continue;
+                }
                 for segment in 0..chain.segment_count() {
                     let collider = MaterialCollider::Chain { chain,index,segment };
-                    if !accepts(collider,part) { continue; }
                     let (a,b)=chain.segment(segment);
-                    if let Some(contact)=cells.against(part,&[a,b])? {
-                        let hit=MaterialWorldHit { collider,contact };
-                        if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); }
+                    for line in material_line_segments(a,b,part,&cells,admission)? {
+                        if let Some(contact)=cells.against(part,&line)? {
+                            consider(MaterialWorldHit { collider,contact },part);
+                        }
                     }
                 }
             }
         }
-        Ok(best)
+        match refused { Some((_,reason)) => Err(reason), None => Ok(best) }
     }
 
     /// CC2 §3.3 (the sweep law, authoring half): water + climbable regions are

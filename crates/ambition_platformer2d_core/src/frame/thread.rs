@@ -614,6 +614,20 @@ pub struct MotionAdmission<'a> {
 }
 
 impl MotionAdmission<'_> {
+    /// Pull physical surface motion back through the contact path.
+    pub fn uncarry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2) -> Result<Vec2, Refusal> {
+        for index in (0..path.len()).rev() {
+            let key = path[index];
+            let refusal = |fault| Refusal { path: path[..index].to_vec(), link: Some(key), reason: RefusalReason::Numeric(fault) };
+            let link = self.links.iter().find(|link| link.key == key)
+                .ok_or_else(|| refusal(NumericFault::InvalidFrame))?;
+            let inverse = link.map(self.convention).map_err(refusal)?.inverse().map_err(refusal)?;
+            velocity = inverse.velocity(&link.exit.frame, &link.enter.frame, point, velocity).map_err(refusal)?;
+            point = inverse.point(point).map_err(refusal)?;
+        }
+        Ok(velocity)
+    }
+
     /// Validate both occupancy and the complete translated collision sweep.
     pub fn admit(&self, from: crate::Aabb, to: crate::Aabb, root_map: Sim2, velocity: Vec2, carried_vectors: &[Vec2]) -> Result<(), Refusal> {
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
@@ -772,7 +786,7 @@ fn cut_wide<P: Copy + Into<MaterialPlane>>(outline: Vec<Vec2>, planes: &[P]) -> 
     has_area(&outline).then_some(outline)
 }
 
-fn has_area(outline: &[DVec2]) -> bool {
+pub(super) fn has_area(outline: &[DVec2]) -> bool {
     let Some(&origin) = outline.first() else { return false; };
     let extent = outline.iter().map(|p| (*p - origin).abs().max_element()).fold(0.0_f64, f64::max);
     let magnitude = outline.iter().map(|p| p.abs().max_element()).fold(extent, f64::max);

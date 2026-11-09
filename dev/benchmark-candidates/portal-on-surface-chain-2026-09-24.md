@@ -4,11 +4,13 @@ Act 3 first put floor portals on rideable surface chains. The portals loaded,
 but a grounded runner crossed no portal. The headless test reached the goal
 with zero `PortalBodyTransited` messages.
 
-`ambition_platformer2d_world::collision` applies portal carves to blocks. It
-does not cut a surface chain. The surface rider stays on the chain and does
-not cross the portal plane. Act 3 now uses vertical rifts that the runner
-crosses while moving right. The same headless test records a transit.
+The initial block carve did not cut the rideable chain. The surface rider
+stayed on the chain and did not cross the portal plane. Vertical rifts let
+the runner cross while moving right, and the same headless test recorded a
+transit.
 
-If a future level needs a portal in a chain floor, add a shared carve rule to
-the surface solver and test a real body crossing it. A portal placement and a
-portal render alone do not prove transit.
+A block-only hole cannot open a rideable route. The surface solver must end
+the route at the aperture. Verify a real body crossing it; a placement and a
+render do not prove transit. For material contacts, keep the original room
+geometry and derive the finite opening from the spatial cells. See
+[carve margins and material contacts](portal-material-collision-and-carve-grace.md).

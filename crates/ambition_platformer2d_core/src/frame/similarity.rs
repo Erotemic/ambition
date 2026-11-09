@@ -144,7 +144,7 @@ impl Sim2 {
         self.orthogonal * direction
     }
 
-    pub(crate) fn point_from_wide(self, point: DVec2) -> Result<Vec2, NumericFault> {
+    pub fn point_from_wide(self, point: DVec2) -> Result<Vec2, NumericFault> {
         if !point.is_finite() { return Err(NumericFault::NonFinite); }
         narrow_vec(self.point_wide(point))
     }
@@ -154,10 +154,13 @@ impl Sim2 {
     }
 
     pub fn vector(self, vector: Vec2) -> Result<Vec2, NumericFault> {
-        if !vector.is_finite() {
-            return Err(NumericFault::NonFinite);
-        }
-        narrow_vec(rotate_wide(self.orthogonal, vector.as_dvec2()) * self.scale)
+        self.vector_from_wide(vector.as_dvec2())
+    }
+
+    /// Map a vector and check its final coordinate representation.
+    pub fn vector_from_wide(self, vector: DVec2) -> Result<Vec2, NumericFault> {
+        if !vector.is_finite() { return Err(NumericFault::NonFinite); }
+        narrow_vec(rotate_wide(self.orthogonal, vector) * self.scale)
     }
 
     /// Unit directions and normalized covectors use only the orthogonal part.

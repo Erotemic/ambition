@@ -601,8 +601,24 @@ loading work. No complete PSIM acceptance slice is closed.
 - The material cast query partitions a swept spatial domain and clips each
   physical obstacle in that domain. It casts the actual primitive, keeps
   circles analytic and returns the source collider and directed path.
-  The query covers translation against a room snapshot. It is not yet the
-  live body solver. Moving obstacles and physical righting remain open.
+  Projectiles use this query for world contacts. Actor kernels still use
+  their prior contact paths. Moving-obstacle casts and physical righting
+  remain open.
+- Projectile world contacts use the original collider and the selected part.
+  The response uses its normal and physical contact point. Surface velocity
+  returns through the inverse path with the moving-frame law. Flight and
+  response are prepared before commit. A bounce changes the body once and
+  spends one bounce. The motion record ends at contact and retains the
+  incoming velocity.
+- Projectiles query uncarved room geometry. A solid that only touches a
+  spatial-cell boundary does not occupy that cell. Line hosts lose only
+  their finite opening intervals. The old carve box removed obstacles up to
+  16 pixels in front of an exit. A live portal-lab test now stops a shot on
+  an obstacle two pixels outside the exit, before its root transits.
+- The block-only endpoint scan, overlap snap, one-pixel bounce lift and
+  projectile crossing nudge are removed. The same material query orders and
+  resolves each world contact. Body and feature hit queries still need to
+  use the shared cast. Oblique line-host alignment also needs verification.
 - Rays use directed links and the common similarity. Reach is measured in
   the initial chart, with each segment divided by cumulative scale. They
   start at the exit face without a fixed offset. Hop, scale and numerical
@@ -618,23 +634,19 @@ loading work. No complete PSIM acceptance slice is closed.
   Pooled textured meshes clip against every boundary; the six-plane shader
   limit is removed. Folded meshes clip in the source chart.
 
-`cargo check -p ambition_app` passes on the ray change.
-Library tests pass: 755 core, 815 combat, 350 shared-state, 139 portal and
-517 renderer tests. Five tests remain ignored across those crates.
-The portal content ray test passes with the `portal` feature. Removing the
-ray's scale conversion makes the nearby-exit target assertion fail.
-The ray integration passes the assembled eye-laser test and the 26 tests
-selected by `portal`.
-The Smash host passes 71 tests, with six tests ignored. The 35 workspace
-policy tests pass. An angled exit-host regression fails before the exit point
-is constrained to its aperture plane. The final correction passes the core
-library, portal content ray test and app compile check.
-The preceding transfer work also passed geometry, projectile, runtime and
-presentation tests and the workspace all-targets check. These results do not
-close the full replay, visual or performance acceptance checks.
+`cargo check -p ambition_app` passes on the contact change. Focused library
+tests pass: 759 core, 350 shared-state, 46 projectile and 29 projectile-combat
+tests. One core measurement remains ignored. The assembled app passes all
+11 tests selected by `projectile`; the runtime library passes 59 projectile
+tests. The new far-contact test failed while the carve box was still in use.
+The contact change also passes 71 Smash host tests and 35 workspace policy
+tests. Six Smash tests remain ignored. The preceding ray work passed combat,
+portal and renderer libraries and the assembled eye-laser and portal cases.
+These results do not close replay, visual or performance acceptance.
 
 Finish source admission for free-body sweeps, externally owned poses and
-moving aperture hosts. Audit projectile contact responses and the remaining attack updates.
+moving aperture hosts. Finish projectile body and feature contact queries,
+and the remaining attack updates.
 Body-attached ray origins still need the common material pose pass. Ray wall
 clipping still uses its centre line; finite-width contact remains open.
 Check retained support facts, curved paths, control-phase displacement,

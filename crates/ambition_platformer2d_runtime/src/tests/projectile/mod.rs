@@ -98,8 +98,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
         app.world_mut(),
         RoomGeometry(world),
     );
-    // `step_projectiles` collides against the portal-carved world; no carves in
-    // these tests, so the overlay is empty (collision == raw world).
+    // The fixture adds no contributed surfaces to the room.
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     app.insert_resource(SeatRawFrames::default());
     app.insert_resource(ambition_persistence::settings::UserSettings::default());

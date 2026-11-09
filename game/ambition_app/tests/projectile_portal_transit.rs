@@ -151,3 +151,73 @@ fn a_projectile_refuses_a_portal_cut_before_motion_and_resumes_when_admitted() {
     }
     assert!(arrived, "the same shot must cross when the cut is admitted; entry={:?}, exit={:?}, poses={history:?}", enter.pos, exit.pos);
 }
+
+#[test]
+fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
+    use ambition_platformer2d::engine_core::{Block, GeoId, PlacementId, RoomGeometry};
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    use ambition_platformer2d::portal::PortalBodyTransited;
+    use ambition_platformer2d::projectiles::{ProjectileOwner, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
+    use ambition_platformer2d::vfx::{VfxInRoom, VfxMessage};
+
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    let owner = {
+        let world = sim.world_mut();
+        world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap()
+    };
+    let (enter, exit) = crate::common::first_floor_authored_portal_pair(&mut sim);
+    let tangent = Vec2::new(-exit.normal.y, exit.normal.x);
+    let center = exit.pos + exit.normal * 2.5;
+    let half = tangent.abs() * 20.0 + exit.normal.abs() * 0.5;
+    let mut block = Block::solid("exit contact", center-half, half*2.0);
+    block.id = GeoId::placement(PlacementId::new("portal_lab_exit_contact"), 0);
+    {
+        let world = sim.world_mut();
+        world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks.push(block);
+    }
+    sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        origin: enter.pos + enter.normal * 40.0,
+        dir: -enter.normal,
+        speed: 600.0,
+        damage: 1,
+        max_lifetime: 2.0,
+        half_extent: Vec2::splat(5.0),
+        gravity: 0.0,
+        visual_id: "far_contact_gauge".into(),
+        bounces: 0,
+        bounce_on_world_contact: false,
+        splash_half_extent: 0.0,
+        boomerang_return_s: None,
+    }, ProjectileStart::StepNextTick));
+    sim.step(base());
+    let shot = {
+        let world = sim.world_mut();
+        world.query::<(Entity, &ProjectileOwner, &ProjectileVisualId)>().iter(world)
+            .find(|(_, by, visual)| by.0 == owner && visual.0 == "far_contact_gauge")
+            .map(|(entity, _, _)| entity).expect("the production materializer creates the shot")
+    };
+    let mut transited = false;
+    let mut impact = false;
+    let mut expired = false;
+    for _ in 0..12 {
+        sim.step(base());
+        transited |= sim.world().resource::<Messages<PortalBodyTransited>>()
+            .iter_current_update_messages().any(|event| event.body == shot);
+        impact |= sim.world().resource::<Messages<VfxInRoom>>()
+            .iter_current_update_messages().any(|event| match event.vfx {
+                VfxMessage::Impact { pos, .. } => {
+                    let offset = pos-exit.pos;
+                    (offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01
+                }
+                _ => false,
+            });
+        if sim.world().get::<BodyKinematics>(shot).is_none() {
+            expired = true;
+            break;
+        }
+    }
+    assert!(expired, "the far-side wall must stop the shot");
+    assert!(!transited, "the material must meet the far wall before its root crosses");
+    assert!(impact, "the impact must be at the physical far-side contact");
+}

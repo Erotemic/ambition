@@ -10,7 +10,7 @@ use ambition_platformer2d_core::Vec2;
 
 use super::spec::ProjectileSpec;
 use crate::frame_env::CarriedAcceleration;
-use ambition_platformer2d_core::{Aabb, AabbExt};
+use ambition_platformer2d_core::Aabb;
 
 /// Ownership is deliberately absent here. Before ECS materialization the body is
 /// just projectile state; `ProjectileSpawnRequest.owner` is the authoritative
@@ -118,31 +118,10 @@ impl bevy::ecs::entity::MapEntities for ProjectileHits {
     }
 }
 
-/// `pub(crate)` so the shared obstruction/response policy in
-/// [`super::collision`] reads the SAME down axis this module's landing test
-/// does; two spellings of "which way is down" is how the two sides drift.
-/// How far a contact may miss a support face and still count as touching it.
-/// Shared with the obstruction predicate in [`super::collision`] so the sweep
-/// that ORDERS a one-way contact and the response that resolves it cannot
-/// disagree about the width of a touch.
-pub(crate) const CONTACT_SLOP: f32 = 1.0;
-
+/// The field's down direction. A zero field uses the authored world down.
 pub(crate) fn projectile_down(gravity_dir: Vec2) -> Vec2 {
-    if gravity_dir.x.abs() > gravity_dir.y.abs() {
-        Vec2::new(gravity_dir.x.signum(), 0.0)
-    } else if gravity_dir.y.abs() > 0.0 {
-        Vec2::new(0.0, gravity_dir.y.signum())
-    } else {
-        Vec2::new(0.0, 1.0)
-    }
-}
-
-fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
-    if gravity_dir.x.abs() > gravity_dir.y.abs() {
-        body.bottom() > surface.top() && body.top() < surface.bottom()
-    } else {
-        body.right() > surface.left() && body.left() < surface.right()
-    }
+    let down=gravity_dir.as_dvec2().normalize_or_zero().as_vec2();
+    if down == Vec2::ZERO { Vec2::Y } else { down }
 }
 
 impl ProjectileGameplay {
@@ -197,109 +176,7 @@ impl ProjectileGameplay {
         true
     }
 
-    /// True when the contact geometry qualifies as a support-face landing:
-    /// projectile moving toward its feet, with overlap on the perpendicular axis,
-    /// and with the body straddling the candidate surface's support face. The
-    /// face-straddle check is important: a tall side wall also has a top/head
-    /// face, but a projectile overlapping the wall halfway down should expire
-    /// instead of treating that distant top face as a floor.
-    fn is_support_landing(
-        &self,
-        body: &BodyKinematics,
-        block_aabb: Aabb,
-        gravity_dir: Vec2,
-    ) -> bool {
-        let down = projectile_down(gravity_dir);
-        let body_aabb = body.aabb();
-        let moving_toward_feet = body.vel.dot(down) > 0.0;
-        let support_face = block_aabb.head_coord(down);
-        let body_head = body_aabb.head_coord(down);
-        let body_feet = body_aabb.feet_coord(down);
-        moving_toward_feet
-            && body_head <= support_face + CONTACT_SLOP
-            && body_feet >= support_face - CONTACT_SLOP
-            && perpendicular_overlap(body_aabb, block_aabb, down)
-    }
 
-    /// Reposition the body so its feet rest just outside the support face,
-    /// reflect velocity along local down with restitution, and decrement the
-    /// bounce budget. Caller has already checked that `bounces_remaining > 0`.
-    fn apply_support_bounce(
-        &mut self,
-        body: &mut BodyKinematics,
-        block_aabb: Aabb,
-        gravity_dir: Vec2,
-    ) {
-        // The 1px lift prevents an immediate re-hit on the next tick when gravity
-        // has not yet reaccelerated toward the support.
-        const SETTLE_LIFT: f32 = 1.0;
-        let down = projectile_down(gravity_dir);
-        let body_aabb = body.aabb();
-        body.pos += down * (block_aabb.head_coord(down) - SETTLE_LIFT - body_aabb.feet_coord(down));
-        let toward_feet = body.vel.dot(down).max(0.0);
-        let side = body.vel - down * body.vel.dot(down);
-        body.vel = side - down * (toward_feet * self.rebound.restitution).max(self.rebound.min_speed);
-        self.bounces_remaining -= 1;
-    }
-
-    /// Resolution outcome when this projectile overlaps a solid block.
-    /// The caller decides what to do: bounce paths re-position the
-    /// body and continue the next tick; expire paths despawn the
-    /// projectile (and optionally trigger a hit VFX).
-    ///
-    /// `Bounced` is reserved for support-face contacts: the projectile is
-    /// arriving from the anti-gravity side and moving toward its feet. Side
-    /// and ceiling contacts always expire so the gameplay is predictable — a
-    /// flying horizontal projectile does not suddenly retrace its path.
-    pub fn resolve_solid_hit(
-        &mut self,
-        body: &mut BodyKinematics,
-        block_aabb: Aabb,
-    ) -> ProjectileSolidHit {
-        self.resolve_solid_hit_in_frame(body, block_aabb, Vec2::new(0.0, 1.0))
-    }
-
-    pub fn resolve_solid_hit_in_frame(
-        &mut self,
-        body: &mut BodyKinematics,
-        block_aabb: Aabb,
-        gravity_dir: Vec2,
-    ) -> ProjectileSolidHit {
-        if self.is_support_landing(body, block_aabb, gravity_dir) && self.bounces_remaining > 0 {
-            self.apply_support_bounce(body, block_aabb, gravity_dir);
-            ProjectileSolidHit::Bounced
-        } else {
-            ProjectileSolidHit::Expired
-        }
-    }
-
-    /// Resolution outcome when this projectile overlaps a one-way
-    /// platform. A support-face landing bounces the same way a solid
-    /// support would — fireballs skip across thin platforms identically to
-    /// thick supports. Every other contact (sides, feet-side, support-side
-    /// with no bounce budget) returns `Passthrough` so the projectile keeps
-    /// flying — the platform is non-solid from those directions.
-    pub fn resolve_one_way_hit(
-        &mut self,
-        body: &mut BodyKinematics,
-        block_aabb: Aabb,
-    ) -> ProjectileSolidHit {
-        self.resolve_one_way_hit_in_frame(body, block_aabb, Vec2::new(0.0, 1.0))
-    }
-
-    pub fn resolve_one_way_hit_in_frame(
-        &mut self,
-        body: &mut BodyKinematics,
-        block_aabb: Aabb,
-        gravity_dir: Vec2,
-    ) -> ProjectileSolidHit {
-        if self.is_support_landing(body, block_aabb, gravity_dir) && self.bounces_remaining > 0 {
-            self.apply_support_bounce(body, block_aabb, gravity_dir);
-            ProjectileSolidHit::Bounced
-        } else {
-            ProjectileSolidHit::Passthrough
-        }
-    }
 }
 
 /// Per-frame physics state of an in-flight projectile: kinematics plus
@@ -358,16 +235,6 @@ impl ProjectileBody {
         self.game.is_expired()
     }
 
-    /// See [`ProjectileGameplay::resolve_solid_hit`].
-    pub fn resolve_solid_hit(&mut self, block_aabb: Aabb) -> ProjectileSolidHit {
-        self.game.resolve_solid_hit(&mut self.kin, block_aabb)
-    }
-
-    /// See [`ProjectileGameplay::resolve_one_way_hit`].
-    pub fn resolve_one_way_hit(&mut self, block_aabb: Aabb) -> ProjectileSolidHit {
-        self.game.resolve_one_way_hit(&mut self.kin, block_aabb)
-    }
-
     // Field-style accessors forward to the appropriate half.
 
     pub fn pos(&self) -> Vec2 {
@@ -389,23 +256,6 @@ impl ProjectileBody {
     pub fn bounces_remaining(&self) -> u8 {
         self.game.bounces_remaining
     }
-}
-
-/// Outcome of [`ProjectileGameplay::resolve_solid_hit`] /
-/// [`ProjectileGameplay::resolve_one_way_hit`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ProjectileSolidHit {
-    /// Projectile bounced off the support face; `bounces_remaining`
-    /// decremented and local-down velocity reflected. Caller keeps the body alive.
-    Bounced,
-    /// Projectile should be removed (no bounces left on a solid hit,
-    /// or contact was not a support-face landing on a solid).
-    Expired,
-    /// Projectile flies through the block unaffected. Only returned
-    /// from one-way resolution: the body keeps its position and
-    /// velocity and the caller treats the contact as if the block
-    /// weren't there.
-    Passthrough,
 }
 
 #[cfg(test)]
@@ -498,38 +348,7 @@ mod tests {
         assert_eq!(bb.max, Vec2::new(54.0, 64.0));
     }
 
-    #[test]
-    fn fireball_bounces_off_a_floor_top_then_expires_when_budget_runs_out() {
-        // Body just above a block, moving down, one bounce left.
-        let mut p = fireball(Vec2::new(50.0, 50.0), Vec2::new(0.0, 100.0), 1);
-        let block = ambition_platformer2d_core::aabb_from_min_size(
-            Vec2::new(40.0, 54.0),
-            Vec2::new(20.0, 20.0),
-        );
 
-        let first = p.resolve_solid_hit(block);
-        assert_eq!(first, ProjectileSolidHit::Bounced);
-        assert!(p.kin.vel.y < 0.0, "bounce reverses vertical velocity");
-        assert_eq!(p.game.bounces_remaining, 0, "bounce spends the budget");
 
-        // Re-aim downward into the same floor with no budget left → expires.
-        p.kin.vel.y = 100.0;
-        let second = p.resolve_solid_hit(block);
-        assert_eq!(second, ProjectileSolidHit::Expired);
-    }
 
-    #[test]
-    fn side_contact_expires_instead_of_bouncing() {
-        // Body fully inside the block's y-range = a side hit, never a bounce.
-        let mut p = fireball(Vec2::new(50.0, 60.0), Vec2::new(100.0, 0.0), 2);
-        let block = ambition_platformer2d_core::aabb_from_min_size(
-            Vec2::new(40.0, 40.0),
-            Vec2::new(20.0, 60.0),
-        );
-        assert_eq!(p.resolve_solid_hit(block), ProjectileSolidHit::Expired);
-        assert_eq!(
-            p.game.bounces_remaining, 2,
-            "a side hit does not spend a bounce"
-        );
-    }
 }

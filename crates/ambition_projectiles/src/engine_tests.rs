@@ -5,9 +5,19 @@ use ambition_platformer2d_core::Vec2;
 use crate::spawn::{ProjectileSpawner, SpawnFailure};
 use crate::{
     FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionTechnique, ProjectileBody,
-    ProjectileKind, ProjectileSolidHit,
+    ProjectileKind, WorldHitOutcome,
 };
 use ambition_platformer2d_core::{aabb_from_min_size, Aabb, AabbExt};
+
+fn world_contact(body: &mut ProjectileBody, aabb: Aabb, kind: ambition_platformer2d_core::BlockKind) -> WorldHitOutcome {
+    use ambition_platformer2d_core::{Block, World};
+    let mut block=Block::solid("contact",aabb.min,aabb.max-aabb.min); block.kind=kind;
+    let world=World::new("projectile kind",Vec2::splat(1000.0),Vec2::ZERO,vec![block]);
+    let mut before=body.kin; before.pos-=before.vel*0.1;
+    let response=crate::resolve_world_collision(before,body.kin,body.game,&world,Vec2::Y,0.1,None).unwrap();
+    body.kin=response.body; body.game.bounces_remaining=response.bounces_remaining;
+    response.outcome
+}
 
 // The named gesture patterns now live in content; these mirror
 // `ambition_content::input_techniques` so the recognizer mechanics stay tested
@@ -211,8 +221,8 @@ fn fireball_bounces_off_floor_top() {
     let starting_bounces = body.game.bounces_remaining;
     let floor = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 32.0));
     assert!(starting_bounces > 0, "fireball must spawn with bounces");
-    let outcome = body.resolve_solid_hit(floor);
-    assert_eq!(outcome, ProjectileSolidHit::Bounced);
+    let outcome = world_contact(&mut body,floor,ambition_platformer2d_core::BlockKind::Solid);
+    assert!(matches!(outcome, WorldHitOutcome::Bounced { .. }));
     assert_eq!(body.game.bounces_remaining, starting_bounces - 1);
     assert!(
         body.kin.vel.y < 0.0,
@@ -235,8 +245,8 @@ fn fireball_expires_on_non_floor_contact() {
     body.kin.pos = Vec2::new(180.0, 100.0);
     body.kin.vel = Vec2::new(360.0, 60.0);
     let wall = block_aabb(Vec2::new(190.0, 0.0), Vec2::new(32.0, 400.0));
-    let outcome = body.resolve_solid_hit(wall);
-    assert_eq!(outcome, ProjectileSolidHit::Expired);
+    let outcome = world_contact(&mut body,wall,ambition_platformer2d_core::BlockKind::Solid);
+    assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
 
 /// Once `bounces_remaining` reaches zero, even a top-of-block
@@ -249,8 +259,8 @@ fn fireball_expires_when_bounce_budget_exhausted() {
     body.kin.vel = Vec2::new(200.0, 240.0);
     body.kin.pos = Vec2::new(150.0, 195.0);
     let floor = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 32.0));
-    let outcome = body.resolve_solid_hit(floor);
-    assert_eq!(outcome, ProjectileSolidHit::Expired);
+    let outcome = world_contact(&mut body,floor,ambition_platformer2d_core::BlockKind::Solid);
+    assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
 
 /// One-way platforms must bounce a fireball coming down on top
@@ -265,8 +275,8 @@ fn fireball_bounces_off_one_way_platform_top() {
     body.kin.pos = Vec2::new(150.0, 195.0);
     let starting_bounces = body.game.bounces_remaining;
     let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
-    let outcome = body.resolve_one_way_hit(platform);
-    assert_eq!(outcome, ProjectileSolidHit::Bounced);
+    let outcome = world_contact(&mut body,platform,ambition_platformer2d_core::BlockKind::OneWay);
+    assert!(matches!(outcome, WorldHitOutcome::Bounced { .. }));
     assert_eq!(body.game.bounces_remaining, starting_bounces - 1);
     assert!(body.kin.vel.y < 0.0);
     assert!(body.aabb().bottom() <= platform.top() + 1.0);
@@ -287,8 +297,8 @@ fn fireball_passes_through_one_way_on_non_top_contact() {
     let pos_before = body.kin.pos;
     let vel_before = body.kin.vel;
     let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
-    let outcome = body.resolve_one_way_hit(platform);
-    assert_eq!(outcome, ProjectileSolidHit::Passthrough);
+    let outcome = world_contact(&mut body,platform,ambition_platformer2d_core::BlockKind::OneWay);
+    assert_eq!(outcome, WorldHitOutcome::Continue);
     assert_eq!(body.game.bounces_remaining, bounces_before);
     assert_eq!(body.kin.pos, pos_before);
     assert_eq!(body.kin.vel, vel_before);
@@ -305,8 +315,8 @@ fn fireball_with_no_bounces_passes_through_one_way_top() {
     body.kin.vel = Vec2::new(200.0, 240.0);
     body.kin.pos = Vec2::new(150.0, 195.0);
     let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
-    let outcome = body.resolve_one_way_hit(platform);
-    assert_eq!(outcome, ProjectileSolidHit::Passthrough);
+    let outcome = world_contact(&mut body,platform,ambition_platformer2d_core::BlockKind::OneWay);
+    assert_eq!(outcome, WorldHitOutcome::Continue);
 }
 
 /// Hadouken spawns with 0 bounces, so the very first solid hit
@@ -318,8 +328,8 @@ fn hadouken_expires_on_first_solid_hit() {
     let mut body = ProjectileBody::from_spec(spec);
     assert_eq!(body.game.bounces_remaining, 0);
     let wall = block_aabb(Vec2::new(60.0, 0.0), Vec2::new(32.0, 400.0));
-    let outcome = body.resolve_solid_hit(wall);
-    assert_eq!(outcome, ProjectileSolidHit::Expired);
+    let outcome = world_contact(&mut body,wall,ambition_platformer2d_core::BlockKind::Solid);
+    assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
 
 /// Grace QCF detector accepts the easier 2-step keyboard motion

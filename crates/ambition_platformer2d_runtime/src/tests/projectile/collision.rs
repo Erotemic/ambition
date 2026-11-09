@@ -2687,7 +2687,7 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
     body.acceleration.0 = ae::Vec2::ZERO;
     assert!(
         body.game.bounces_remaining > 0,
-        "the shot must have a bounce budget: with none, `shot_policy_admits` \
+        "the shot must have a bounce budget: with none, the contact policy \
          refuses one-ways outright and there is no tie to decide"
     );
 
@@ -2725,33 +2725,20 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
         vec![wall, platform],
     );
 
-    // ⭐ THE SWEEP'S ANSWER, ASKED DIRECTLY. This is the half the ordering road
-    // uses to refuse targets; the assertions below are about whether the
-    // PHYSICS agrees with it.
-    let box_at_leg_start = ae::Aabb::new(start, half);
-    let selected = ae::cast::body_sweep(
-        &world,
-        box_at_leg_start,
-        body.kin.vel * DT,
-        |block: &ae::Block| {
-            ambition_projectiles::block_obstructs_shot(
-                body.game.world_hit,
-                body.game.bounces_remaining,
-                body.kin.vel,
-                box_at_leg_start,
-                ae::Vec2::new(0.0, 1.0),
-                block,
-            )
-        },
-    )
-    .expect("the shot reaches both colliders within the tick");
+    let mut destination=body.kin;
+    destination.pos+=destination.vel*DT;
+    let selected=ambition_projectiles::resolve_world_collision(
+        body.kin,destination,body.game,&world,ae::Vec2::Y,DT,None,
+    ).expect("the contact is representable");
+    let Some(ae::world::MaterialCollider::Block(selected_block))=selected.contact.as_ref().map(|hit|hit.collider)
+        else { panic!("the shot must reach a block"); };
     assert_eq!(
-        selected.block.name, "platform",
+        selected_block.name, "platform",
         "the fixture only witnesses the disagreement if the SWEEP picks the \
          one-way: it ties with the wall and wins on centre-x. It picked {:?} at \
          t={} instead, so the geometry drifted and this test is measuring \
          something else",
-        selected.block.name, selected.time_of_impact
+        selected_block.name, selected.contact.as_ref().unwrap().contact.toi
     );
 
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);

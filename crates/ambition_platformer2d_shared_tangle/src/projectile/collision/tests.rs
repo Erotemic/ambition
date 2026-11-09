@@ -1,12 +1,19 @@
-//! ⚠ EVERY CALL HERE PASSES `None` FOR THE WITNESS, AND THAT IS THE POINT OF
-//! THIS MODULE. These are ENDPOINT tests: they place a body already overlapping
-//! a block and ask what the policy does with the overlap — the case a swept
-//! caller reaches when the sweep declined a grazing start, or when the shot did
-//! not move. The witness road is the caller's, and it is exercised where the
-//! sweep actually runs
-//! (`ambition_platformer2d_actor_monolith::projectile_tests::collision`).
+//! The fixtures cast one step to their stated destination pose.
 
 use super::*;
+
+fn resolve_motion(
+    kin: &mut BodyKinematics, game: &mut ProjectileGameplay, world: &ae::World,
+    policy: WorldHitPolicy, gravity: ae::Vec2,
+) -> WorldHitOutcome {
+    let mut before=*kin;
+    before.pos-=kin.vel*0.1;
+    game.world_hit=policy;
+    let response=super::resolve_world_collision(before,*kin,*game,world,gravity,0.1,None).unwrap();
+    *kin=response.body;
+    game.bounces_remaining=response.bounces_remaining;
+    response.outcome
+}
 
 fn world_with_block(kind: ae::BlockKind, center: ae::Vec2, half: ae::Vec2) -> ae::World {
     let mut w = ae::World::new("test", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![]);
@@ -42,48 +49,44 @@ fn straight_projectile(pos: ae::Vec2) -> crate::projectile::ProjectileBody {
 }
 
 #[test]
-fn enemy_policy_expires_on_solid_contact() {
+fn expire_policy_expires_on_solid_contact() {
     let world = world_with_block(
         ae::BlockKind::Solid,
         ae::Vec2::new(100.0, 100.0),
         ae::Vec2::new(50.0, 50.0),
     );
     let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
-    let outcome = resolve_world_collision(
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::ExpireOnContact,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
 
 #[test]
-fn enemy_policy_expires_on_one_way_contact() {
-    // The "enemy treats one-way as solid" rule is the whole
-    // reason enemy/projectile world-collision can't share the
-    // player policy directly. Pin it here.
+fn expire_policy_expires_on_one_way_contact() {
+    // This policy expires on every face of a one-way surface.
     let world = world_with_block(
         ae::BlockKind::OneWay,
         ae::Vec2::new(100.0, 100.0),
         ae::Vec2::new(50.0, 4.0),
     );
     let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
-    let outcome = resolve_world_collision(
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::ExpireOnContact,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
 
 #[test]
-fn player_policy_expires_on_solid_when_out_of_bounces() {
+fn bouncing_policy_expires_on_solid_when_out_of_bounces() {
     let world = world_with_block(
         ae::BlockKind::Solid,
         ae::Vec2::new(100.0, 100.0),
@@ -91,42 +94,37 @@ fn player_policy_expires_on_solid_when_out_of_bounces() {
     );
     let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
     // bounces_remaining = 0 (straight shot)
-    let outcome = resolve_world_collision(
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
 
 #[test]
-fn player_policy_passes_through_one_way_at_zero_bounces() {
-    // Player straight shot (0 bounces) travelling horizontally past a
-    // thin one-way platform should NOT be stopped — pins the
-    // asymmetry with enemy policy.
+fn bouncing_policy_passes_through_one_way_at_zero_bounces() {
+    // A shot with no bounces passes through a one-way surface.
     let world = world_with_block(
         ae::BlockKind::OneWay,
         ae::Vec2::new(100.0, 100.0),
         ae::Vec2::new(50.0, 4.0),
     );
     let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
-    let outcome = resolve_world_collision(
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Continue));
 }
 
-/// A player projectile with bounce budget that lands on the support face of
-/// a one-way platform should skip off it exactly like a solid support.
-fn falling_player_projectile(pos: ae::Vec2, bounces: u8) -> crate::projectile::ProjectileBody {
+/// A falling shot uses the same support response on solid and one-way surfaces.
+fn falling_shot(pos: ae::Vec2, bounces: u8) -> crate::projectile::ProjectileBody {
     let mut body = straight_projectile(pos);
     body.kin.pos = pos;
     body.kin.vel = ae::Vec2::new(0.0, 80.0); // toward world +Y, normal down-gravity case
@@ -165,7 +163,7 @@ fn frame_world_with_block(
 }
 
 #[test]
-fn player_projectile_bounce_is_frame_equivalent_on_solid_supports() {
+fn bouncing_shot_bounce_is_frame_equivalent_on_solid_supports() {
     for gravity_dir in cardinal_gravity_dirs() {
         let (world, frame) = frame_world_with_block(
             gravity_dir,
@@ -179,14 +177,13 @@ fn player_projectile_bounce_is_frame_equivalent_on_solid_supports() {
         body.kin.vel = local_to_world(frame, ae::Vec2::new(-15.0, 80.0));
         body.game.bounces_remaining = 2;
 
-        let outcome = resolve_world_collision(
+        let outcome = resolve_motion(
             &mut body.kin,
             &mut body.game,
             &world,
             WorldHitPolicy::Bouncing,
             gravity_dir,
-            None,
-        );
+            );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
             "solid support should bounce in frame {gravity_dir:?}: {outcome:?}"
@@ -198,7 +195,7 @@ fn player_projectile_bounce_is_frame_equivalent_on_solid_supports() {
 }
 
 #[test]
-fn player_projectile_bounce_is_frame_equivalent_on_one_way_supports() {
+fn bouncing_shot_bounce_is_frame_equivalent_on_one_way_supports() {
     for gravity_dir in cardinal_gravity_dirs() {
         let (world, frame) = frame_world_with_block(
             gravity_dir,
@@ -212,14 +209,13 @@ fn player_projectile_bounce_is_frame_equivalent_on_one_way_supports() {
         body.kin.vel = local_to_world(frame, ae::Vec2::new(20.0, 80.0));
         body.game.bounces_remaining = 2;
 
-        let outcome = resolve_world_collision(
+        let outcome = resolve_motion(
             &mut body.kin,
             &mut body.game,
             &world,
             WorldHitPolicy::Bouncing,
             gravity_dir,
-            None,
-        );
+            );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
             "one-way support should bounce in frame {gravity_dir:?}: {outcome:?}"
@@ -237,7 +233,7 @@ fn player_projectile_bounce_is_frame_equivalent_on_one_way_supports() {
 }
 
 #[test]
-fn player_projectile_one_way_passthrough_is_frame_equivalent_from_feet_side() {
+fn bouncing_shot_one_way_passthrough_is_frame_equivalent_from_feet_side() {
     for gravity_dir in cardinal_gravity_dirs() {
         let (world, frame) = frame_world_with_block(
             gravity_dir,
@@ -251,14 +247,13 @@ fn player_projectile_one_way_passthrough_is_frame_equivalent_from_feet_side() {
         body.kin.vel = local_to_world(frame, ae::Vec2::new(0.0, -80.0));
         body.game.bounces_remaining = 2;
 
-        let outcome = resolve_world_collision(
+        let outcome = resolve_motion(
             &mut body.kin,
             &mut body.game,
             &world,
             WorldHitPolicy::Bouncing,
             gravity_dir,
-            None,
-        );
+            );
         assert!(
             matches!(outcome, WorldHitOutcome::Continue),
             "one-way should pass through from feet side in frame {gravity_dir:?}: {outcome:?}"
@@ -268,7 +263,7 @@ fn player_projectile_one_way_passthrough_is_frame_equivalent_from_feet_side() {
 }
 
 #[test]
-fn player_projectile_bounces_off_one_way_top_landing_with_budget() {
+fn bouncing_shot_bounces_off_one_way_top_landing_with_budget() {
     // Thin one-way platform, top at y=96.
     let world = world_with_block(
         ae::BlockKind::OneWay,
@@ -276,14 +271,13 @@ fn player_projectile_bounces_off_one_way_top_landing_with_budget() {
         ae::Vec2::new(50.0, 4.0),
     );
     // Falling onto the platform top, overlapping it from above.
-    let mut body = falling_player_projectile(ae::Vec2::new(100.0, 94.0), 2);
-    let outcome = resolve_world_collision(
+    let mut body = falling_shot(ae::Vec2::new(100.0, 94.0), 2);
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(
         matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -300,7 +294,7 @@ fn player_projectile_bounces_off_one_way_top_landing_with_budget() {
 }
 
 #[test]
-fn player_projectile_passes_through_one_way_from_below() {
+fn bouncing_shot_passes_through_one_way_from_below() {
     // Same platform, but the projectile rises into it from underneath
     // with full bounce budget — a one-way is non-solid from below, so
     // it must pass through rather than bounce.
@@ -312,13 +306,12 @@ fn player_projectile_passes_through_one_way_from_below() {
     let mut body = straight_projectile(ae::Vec2::new(100.0, 106.0));
     body.kin.vel = ae::Vec2::new(0.0, -80.0); // upward
     body.game.bounces_remaining = 2;
-    let outcome = resolve_world_collision(
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(
         matches!(outcome, WorldHitOutcome::Continue),
@@ -331,7 +324,7 @@ fn player_projectile_passes_through_one_way_from_below() {
 }
 
 #[test]
-fn player_projectile_bounces_off_solid_top_landing_with_budget() {
+fn bouncing_shot_bounces_off_solid_top_landing_with_budget() {
     // Skip-across-floor on a thick solid (parity with the one-way top
     // landing), to pin that both surfaces bounce identically.
     let world = world_with_block(
@@ -339,14 +332,13 @@ fn player_projectile_bounces_off_solid_top_landing_with_budget() {
         ae::Vec2::new(100.0, 100.0),
         ae::Vec2::new(50.0, 50.0),
     );
-    let mut body = falling_player_projectile(ae::Vec2::new(100.0, 48.0), 2);
-    let outcome = resolve_world_collision(
+    let mut body = falling_shot(ae::Vec2::new(100.0, 48.0), 2);
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(
         matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -363,13 +355,60 @@ fn no_contact_returns_continue() {
         ae::Vec2::new(10.0, 10.0),
     );
     let mut body = straight_projectile(ae::Vec2::new(100.0, 100.0));
-    let outcome = resolve_world_collision(
+    let outcome = resolve_motion(
         &mut body.kin,
         &mut body.game,
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
-        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Continue));
+}
+
+#[test]
+fn a_projectile_meets_the_far_wall_before_its_root_crosses() {
+    use ae::frame::{MapConvention,PortalAperture,PortalFrame};
+    use ae::frame::thread::{PieceBudget,PortalLink};
+    let links=PortalLink::both_ways(0,(
+        PortalAperture { frame:PortalFrame::fixed(Vec2::ZERO,-Vec2::X),half_length:40.0 },
+        PortalAperture { frame:PortalFrame::fixed(Vec2::new(100.0,0.0),Vec2::X),half_length:20.0 },
+    ));
+    let mut shot=straight_projectile(Vec2::new(-20.0,0.0));
+    shot.kin.canonical_size=Vec2::splat(20.0);
+    let before=shot.kin;
+    let mut after=before; after.pos=Vec2::ZERO;
+    let world=world_with_block(ae::BlockKind::Solid,Vec2::new(103.0,0.0),Vec2::new(1.0,20.0));
+    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,Some(admission)).unwrap();
+    assert!(matches!(response.outcome,WorldHitOutcome::Expired { .. }));
+    assert!((response.body.pos.x+6.0).abs()<0.001,"{response:?}");
+    let contact=response.contact.unwrap();
+    assert_eq!(contact.contact.path,vec![0]);
+    assert_eq!(contact.contact.world_point.x,102.0);
+    assert!(response.body.pos.x<0.0);
+}
+
+#[test]
+fn a_far_side_bounce_uses_relative_surface_motion_in_the_root_chart() {
+    use ae::frame::{MapConvention,PortalAperture,PortalFrame};
+    use ae::frame::thread::{PieceBudget,PortalLink};
+    let mut enter=PortalAperture { frame:PortalFrame::fixed(Vec2::ZERO,-Vec2::Y),half_length:40.0 };
+    let mut exit=PortalAperture { frame:PortalFrame::fixed(Vec2::new(100.0,0.0),Vec2::X),half_length:20.0 };
+    enter.frame.velocity=Vec2::new(0.0,5.0); exit.frame.velocity=Vec2::new(3.0,0.0);
+    let links=PortalLink::both_ways(0,(enter,exit));
+    let mut shot=falling_shot(Vec2::new(0.0,-12.0),2);
+    shot.kin.canonical_size=Vec2::splat(10.0);
+    shot.kin.vel=Vec2::new(0.0,110.0);
+    shot.game.rebound=crate::projectile::Rebound { restitution:0.5,min_speed:0.0 };
+    shot.game.world_hit=WorldHitPolicy::Bouncing;
+    let before=shot.kin; let mut after=before; after.pos.y=-1.0;
+    let mut world=world_with_block(ae::BlockKind::Solid,Vec2::new(102.0,0.0),Vec2::new(1.0,40.0));
+    world.blocks[0].velocity=Vec2::X;
+    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,Some(admission)).unwrap();
+    assert!(matches!(response.outcome,WorldHitOutcome::Bounced { .. }),"{response:?}");
+    assert_eq!(response.bounces_remaining,1);
+    assert!((response.body.vel.y+26.5).abs()<0.001,"{response:?}");
+    assert!(response.body.pos.y<0.0);
+    assert_eq!(response.contact.unwrap().contact.path,vec![0]);
 }

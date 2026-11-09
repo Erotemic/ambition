@@ -173,6 +173,8 @@ impl MaterialCastCells<'_> {
             }
         }
         region.dedup();
+        // A solid that only touches the cell boundary occupies no area in it.
+        if obstacle.len() >= 3 && !super::thread::has_area(&region) { return Ok(None); }
         let contact = match self.material.domain {
             CombatVolume::Circle { center, radius } => {
                 circle_cast(center.as_dvec2(), f64::from(*radius), self.delta, &region)
@@ -310,13 +312,21 @@ fn polygon_cast(body: &[DVec2], delta: DVec2, obstacle: &[DVec2]) -> Option<Cast
     }
     if penetrating {
         normal = shallowest.1;
-        if delta.dot(normal) >= 0.0 {
+        if delta.dot(normal) > 0.0 {
             return None;
         }
         enter = 0.0;
     }
     let time = enter.max(0.0);
-    if time > 1.0 || exit < time || normal == DVec2::ZERO || delta.dot(normal) >= 0.0 {
+    if time > 1.0
+        || exit < time
+        || normal == DVec2::ZERO
+        || if penetrating {
+            delta.dot(normal) > 0.0
+        } else {
+            delta.dot(normal) >= 0.0
+        }
+    {
         return None;
     }
     let moved = body.iter().map(|p| *p + delta * time).collect::<Vec<_>>();
@@ -354,28 +364,33 @@ fn closest_polygons(a: &[DVec2], b: &[DVec2]) -> DVec2 {
 }
 
 fn circle_cast(center: DVec2, radius: f64, delta: DVec2, obstacle: &[DVec2]) -> Option<CastHit> {
-    if obstacle.is_empty() || delta == DVec2::ZERO || radius < 0.0 {
+    if obstacle.is_empty() || radius < 0.0 {
         return None;
     }
     let area: f64 = edges(obstacle).map(|(a, b)| a.perp_dot(b)).sum();
     let inside = obstacle.len() >= 3
         && edges(obstacle).all(|(a, b)| (b - a).perp_dot(center - a) * area.signum() >= 0.0);
-    let closest = edges(obstacle)
-        .map(|(a, b)| closest_on_segment(center, a, b))
-        .min_by(|a, b| {
+    let (a, b, closest) = edges(obstacle)
+        .map(|(a, b)| (a, b, closest_on_segment(center, a, b)))
+        .min_by(|(_, _, a), (_, _, b)| {
             center
                 .distance_squared(*a)
                 .total_cmp(&center.distance_squared(*b))
         })?;
     let distance = center.distance(closest);
     if inside || distance < radius {
-        let normal = if inside {
+        let offset = if inside {
             closest - center
         } else {
             center - closest
-        }
-        .normalize_or_zero();
-        if normal == DVec2::ZERO || delta.dot(normal) >= 0.0 {
+        };
+        let normal = if offset == DVec2::ZERO {
+            let edge = b - a;
+            DVec2::new(edge.y, -edge.x).normalize_or_zero() * if area < 0.0 { -1.0 } else { 1.0 }
+        } else {
+            offset.normalize()
+        };
+        if normal == DVec2::ZERO || delta.dot(normal) > 0.0 {
             return None;
         }
         return Some(CastHit {
@@ -384,13 +399,16 @@ fn circle_cast(center: DVec2, radius: f64, delta: DVec2, obstacle: &[DVec2]) -> 
             point: closest,
         });
     }
+    if delta == DVec2::ZERO {
+        return None;
+    }
     let mut best: Option<CastHit> = None;
     let mut take = |time: f64, point: DVec2| {
         if !(0.0..=1.0).contains(&time) {
             return;
         }
         let normal = (center + delta * time - point).normalize_or_zero();
-        if normal == DVec2::ZERO || delta.dot(normal) >= 0.0 {
+        if normal == DVec2::ZERO || delta.dot(normal) > 0.0 {
             return;
         }
         if best.is_none_or(|hit| time < hit.time) {

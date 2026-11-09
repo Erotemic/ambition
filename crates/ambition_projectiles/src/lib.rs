@@ -45,8 +45,8 @@ pub use visual::{
 
 // Keep all producers on the shared projectile-physics primitive through this facade.
 pub use ambition_platformer2d_shared_tangle::projectile::{
-    block_obstructs_shot, resolve_world_collision, InFlightProjectile, ProjectileBody,
-    ProjectileGameplay, ProjectileSolidHit, ProjectileSpec, Rebound, WorldHitOutcome, WorldHitPolicy,
+    resolve_world_collision, ProjectileWorldCollision, InFlightProjectile, ProjectileBody,
+    ProjectileGameplay, ProjectileSpec, Rebound, WorldHitOutcome, WorldHitPolicy,
 };
 pub use ambition_projectile_spec::ProjectileSpawn;
 

@@ -673,7 +673,7 @@ fn shot_may_touch(
 pub fn step_projectiles(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
-    carved: ambition_projectiles::collision_world::ProjectileCollisionWorld,
+    collision: ambition_projectiles::collision_world::ProjectileCollisionWorld,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut projectiles: Query<
         (
@@ -777,7 +777,7 @@ pub fn step_projectiles(
     )> = Vec::new();
     // The pairs a shot's leg can enter, by live room.
     #[cfg(feature = "portal")]
-    let portals_by_room = carved.portals_by_room();
+    let portals_by_room = collision.portals_by_room();
     let tick = trace.current_tick();
 
     // Collect + sort by the GLOBAL spawn sequence (a single deterministic order
@@ -828,23 +828,19 @@ pub fn step_projectiles(
         // The shot flies in one live room, collides with that room's walls
         // and reaches only that room's bodies (OW1 cut 4). A shot whose room
         // is not live is not stepped.
-        let shot_room = carved.shot_room(proj_entity, owner_entity);
+        let shot_room = collision.shot_room(proj_entity, owner_entity);
         let friendly_fire = tuning.in_room(shot_room).map(|t| t.damage_policy()).unwrap_or_default();
         let room_index = match composed.iter().position(|(room, _)| *room == shot_room) {
             Some(index) => index,
             None => {
-                composed.push((shot_room, carved.solids_in(shot_room)));
+                composed.push((shot_room, collision.solids_in(shot_room)));
                 composed.len() - 1
             }
         };
         let Some(room_world) = composed[room_index].1.as_deref() else {
             continue;
         };
-        // The room's walls with the portal holes this shot opened cut.
-        let holes = carved.holes_for(shot_room, proj_entity);
-        let met = ambition_platformer2d_world::collision::as_met_by(room_world, &[], &holes.iter().collect::<Vec<_>>(), &[], &[],
-        );
-        let collision_world: &ambition_platformer2d_core::World = &met;
+        let collision_world: &ambition_platformer2d_core::World = room_world;
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
         // Projectile allegiance is frozen launch authority and rollback state. Parry may
         // deliberately rewrite it; it must not be re-derived from a firer that may be gone.
@@ -886,16 +882,6 @@ pub fn step_projectiles(
         // road that decides who it damages. The pre-integration position is right
         // here; taking it costs a copy and removes the coincidence.
         let leg_start = kin.pos;
-        // ⛔⛔ **ONE OBSTRUCTION MODEL, AND THERE USED TO BE TWO.** The world
-        // branch swept this shot's BOX against the blocks its own
-        // `WorldHitPolicy` says stop it; the victim branch cast a CENTRE RAY at
-        // the victim's centre with `include_one_way = false` hard-coded. So a
-        // wall that covers a victim's body but not its centre point did not
-        // block the shot, a wall the shot's box clips at the corner did not
-        // either, and an `ExpireOnContact` shot — whose contract is that a
-        // one-way stops it — damaged straight through one. Two answers to "is
-        // something in the way", disagreeing on shape and on policy.
-        let shot_world_hit = game.world_hit;
         let before = *kin;
         let mut candidate = before;
         let mut candidate_game = *game;
@@ -910,8 +896,27 @@ pub fn step_projectiles(
             continue;
         }
 
+        // Transit owns the next chart. This leg stops on the entry plane.
         #[cfg(feature = "portal")]
-        if let Err(refusal) = carved.admit_motion(proj_entity, shot_room, before, candidate, *acceleration) {
+        let contact_end = match ambition_portal2d::first_portal_crossing_through(
+            leg_start,
+            candidate.pos,
+            candidate.size(),
+            portals_by_room.in_room(shot_room),
+            collision.backside_of(proj_entity),
+        ) {
+            Some((t, _, _)) => {
+                let at = leg_start + (candidate.pos - leg_start) * t;
+                candidate.pos = at;
+                at
+            }
+            None => candidate.pos,
+        };
+        #[cfg(not(feature = "portal"))]
+        let contact_end = candidate.pos;
+
+        #[cfg(feature = "portal")]
+        if let Err(refusal) = collision.admit_motion(proj_entity, shot_room, before, candidate, *acceleration) {
             // Refused motion does not stop the projectile's lifetime.
             *game = candidate_game;
             commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
@@ -919,35 +924,22 @@ pub fn step_projectiles(
                 "projectile motion refused before commit");
             continue;
         }
+
+        let world_response = match resolve_world_collision(
+            before, candidate, candidate_game, collision_world, gravity_dir, dt,
+            collision.motion_for(proj_entity, shot_room),
+        ) {
+            Ok(response) => response,
+            Err(refusal) => {
+                *game = candidate_game;
+                commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+                bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
+                    "projectile contact refused before commit");
+                continue;
+            }
+        };
         *kin = candidate;
         *game = candidate_game;
-
-        // ⭐ THE LEG ENDS AT A PORTAL, AND GOES ON AT ITS PARTNER. Where the
-        // shot's centre enters a paired opening, the pair takes it
-        // (`portal_transit`, after this step), so the rest of the leg is not
-        // in this room: a wall or a body behind the portal, in the room the
-        // shot is leaving, is not reached. The step ends there, just past the
-        // plane: the pair puts the shot at the exit, and its next step sweeps
-        // the far side from the plane, walls and bodies alike. The rest of
-        // this step is the next one's, not skipped (a step carried whole to
-        // the far end passed a body inside it).
-        #[cfg(feature = "portal")]
-        let contact_end = match ambition_portal2d::first_portal_crossing_through(
-            leg_start,
-            kin.pos,
-            kin.size(),
-            portals_by_room.in_room(shot_room),
-            carved.backside_of(proj_entity),
-        ) {
-            Some((t, enter, _)) => {
-                let at = leg_start + (kin.pos - leg_start) * t;
-                kin.pos = at - enter.frame.normal * 0.01;
-                at
-            }
-            None => kin.pos,
-        };
-        #[cfg(not(feature = "portal"))]
-        let contact_end = kin.pos;
 
         // A shot crosses a portal as every body does (`portal_transit`): it
         // straddles the opening and the pair takes it when its centre
@@ -961,70 +953,13 @@ pub fn step_projectiles(
             down: ae::Vec2::ZERO,
         });
 
-        // ⛔⛔ **ONE OBSTRUCTION MODEL, AND IT IS THE RESPONSE'S OWN.** The
-        // world branch swept this shot's BOX against the blocks its own
-        // `WorldHitPolicy` says stop it; the victim branch cast a CENTRE RAY at
-        // the victim's centre with `include_one_way = false` hard-coded. So a
-        // wall that covers a victim's body but not its centre point did not
-        // block the shot, a wall the shot's box clips at the corner did not
-        // either, and an `ExpireOnContact` shot — whose contract is that a
-        // one-way stops it — damaged straight through one.
-        //
-        // ⛔⛔ **AND EXCLUDING EVERY ONE-WAY FOR A `Bouncing` SHOT WAS THE THIRD
-        // ANSWER.** `resolve_world_collision` checks one-ways and bounces when
-        // the approach qualifies, so a fireball descending onto a platform was
-        // ORDERED as though nothing were there — free to damage a target
-        // standing behind it — and then physically bounced off it. Obstruction
-        // and response now read ONE function, `block_obstructs_shot`, which is
-        // where the directional one-way rule lives.
-        //
-        // ⚠ IT IS ASKED AFTER THE TICK BECAUSE IT IS DIRECTIONAL. "Is this shot
-        // descending onto that support face?" is a fact about the leg the shot
-        // just travelled, so the filter cannot be built before the leg exists.
-        // Nothing between the old site and this one used it.
-        let shot_bounces = game.bounces_remaining;
-        let shot_velocity = kin.vel;
-        // The shot's box where the leg BEGAN — the directional one-way rule asks
-        // which side of the support face the shot started on, and the endpoint
-        // is on the far side by construction whenever it crossed.
-        let shot_box_at_leg_start = ae::Aabb::new(leg_start, kin.size() * 0.5);
-        let blocks_this_shot = move |block: &ae::Block| {
-            ambition_projectiles::block_obstructs_shot(
-                shot_world_hit,
-                shot_bounces,
-                shot_velocity,
-                shot_box_at_leg_start,
-                gravity_dir,
-                block,
-            )
-        };
-
-        // Compute one blocking sweep for this projectile leg. Compare
-        // separately resolved body and feature contacts against the
-        // earliest independent blocking surface; an exact tie goes to
-        // that surface. A target's own contributed solid is not an
-        // independent blocker, so the contact can damage the target
-        // and apply the surface response once.
-        //
-        // The shot's obstruction policy decides whether one-way
-        // surfaces count. Carry the selected collider through contact
-        // ordering, pull-back, and resolution instead of reselecting it.
-        let travel_leg = contact_end - leg_start;
-        let blocked_at: Option<ae::cast::WorldSweepHit<'_>> = if travel_leg == ae::Vec2::ZERO {
-            None
-        } else {
-            ae::cast::body_sweep(
-                &collision_world,
-                ae::Aabb::new(leg_start, kin.size() * 0.5),
-                travel_leg,
-                blocks_this_shot,
-            )
-        };
+        let travel_leg = contact_end-leg_start;
+        let blocked_at = world_response.contact.as_ref();
         // `true` when an independent blocker reaches this leg no later than the
         // candidate contact — strictly earlier, or at an exact tie, which the
         // protocol awards to the wall.
         let wall_reaches_first = move |contact_time: f32| {
-            wall_reaches_first(blocked_at.map(|hit| hit.time_of_impact), contact_time)
+            wall_reaches_first(blocked_at.map(|hit| hit.contact.toi as f32), contact_time)
         };
         // ⭐⭐ THE SAME QUESTION, ASKED ABOUT A TARGET THAT MAY OWN THE WALL.
         // Now that a live object's contributed surface is in this shot's world,
@@ -1035,7 +970,7 @@ pub fn step_projectiles(
         let wall_blocks_reaching = move |contact_time: f32, target_id: &str| {
             wall_reaches_first(contact_time)
                 && !wall_is_the_targets_own_surface(
-                    blocked_at.map(|hit| hit.block),
+                    blocked_at.and_then(|hit| match hit.collider { ae::world::MaterialCollider::Block(block) => Some(block), _ => None }),
                     Some(target_id),
                 )
         };
@@ -1139,7 +1074,7 @@ pub fn step_projectiles(
                 feature_leg,
                 |target| {
                     shot_may_touch(owner_entity, &already_hit, target)
-                        && carved.room_of(target) == shot_room
+                        && collision.room_of(target) == shot_room
                 },
                 &ecs_breakables,
             )
@@ -1150,7 +1085,7 @@ pub fn step_projectiles(
                 feature_leg,
                 |target| {
                     shot_may_touch(owner_entity, &already_hit, target)
-                        && carved.room_of(target) == shot_room
+                        && collision.room_of(target) == shot_room
                 },
                 &ecs_bosses,
             ))
@@ -1167,7 +1102,7 @@ pub fn step_projectiles(
             .min_by(super::feature_contact::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
                 .iter()
-                .filter(|victim| carved.room_of(victim.entity) == shot_room)
+                .filter(|victim| collision.room_of(victim.entity) == shot_room)
                 .filter_map(|victim| {
                     victim
                         .reached_along(leg_start, shot_half, leg)
@@ -1312,28 +1247,7 @@ pub fn step_projectiles(
                     continue;
                 }
                 let victim_body = victim.aabb.aabb();
-                // ⛔⛔ D199: A WALL BETWEEN THE MUZZLE AND THE VICTIM STOPS THE SHOT
-                // FIRST. This loop runs BEFORE `resolve_world_collision`, so
-                // without this a shot whose endpoint lands on a body standing
-                // behind blocking geometry damaged it before anything asked
-                // whether a wall had stopped the travel. Confirmed behaviourally
-                // 2026-08-29 by `a_shot_does_not_damage_a_victim_standing_behind_a_wall`,
-                // which took the victim from 4 HP to 3 through a solid block.
-                //
-                // ⛔ NOT A SWAP OF THE TWO BLOCKS — the row's own warning is that
-                // resolving the world first trades this wrong answer for its
-                // opposite when the body genuinely came first.
-                //
-                // ⛔⛔ AND IT ASKS ABOUT THE CONTACT, NOT ABOUT THE CENTRE. This
-                // swept its own leg from the muzzle to the victim's CENTRE, which
-                // answers *"is a wall before the victim's middle?"* — a different
-                // question, and wrong in the direction that costs a legitimate
-                // hit. On a large body the shot reaches the near face first; a
-                // wall standing between that face and the centre is behind the
-                // contact that actually happened, and the old test refused the
-                // hit anyway. `contact_time` is when the shot's box first touches
-                // this victim, and `wall_reaches_first` compares against the ONE
-                // world sweep taken over the shot's real travel leg.
+                // An independent world surface wins an exact contact tie.
                 if wall_reaches_first(*contact_time) {
                     continue;
                 }
@@ -1667,35 +1581,13 @@ pub fn step_projectiles(
             }
         }
 
-        // World collision: the policy is the projectile's own (authored on its
-        // spec/ability, firer-agnostic) — NOT a function of who fired it. A
-        // bouncing fireball arcs whoever throws it; a lasersword detonates on
-        // the wall. (B2: retires the faction→policy fork.)
-        let world_hit = shot_world_hit;
-        // A swept hit moves the whole projectile box to the selected
-        // blocking surface. This catches thin walls and corner clips
-        // that an endpoint or centre-line test misses. Use the same
-        // contact for physical response; another endpoint search could
-        // select a different wall or one-way platform.
-        if let Some(hit) = blocked_at {
-            // ⭐ A HAIR INSIDE, not exactly tangent. `time_of_impact` puts the
-            // box touching the block, and `strict_intersects` — which every
-            // policy below reads — is false for a touch. Nudging toward the hit
-            // block's centre works for a corner clip too, where the leg
-            // direction is tangential and nudging ALONG it would not overlap
-            // anything.
-            let contact = leg_start + travel_leg * hit.time_of_impact;
-            let inward = (hit.block.aabb.center() - contact).normalize_or_zero();
-            kin.pos = contact + inward * 0.5;
-        }
-        match resolve_world_collision(
-            &mut kin,
-            &mut game,
-            &collision_world,
-            world_hit,
-            gravity_dir,
-            blocked_at.map(|hit| hit.block),
-        ) {
+        *kin = world_response.body;
+        game.bounces_remaining = world_response.bounces_remaining;
+        commands.entity(proj_entity).insert(ae::SweepSample {
+            prev: leg_start, curr: kin.pos, vel: candidate.vel,
+            half: kin.half_oriented(ae::Vec2::ZERO), down: ae::Vec2::ZERO,
+        });
+        match world_response.outcome {
             WorldHitOutcome::Bounced { pos } => {
                 sfx.write_for_body(bolt_source.as_ref(), SfxMessage::Hit { pos });
             }

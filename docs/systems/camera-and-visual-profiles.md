@@ -6,6 +6,16 @@ room declarative: LDtk tells the sandbox what camera / art mood a room wants,
 and runtime systems consume typed specs instead of inferring intent from names
 or music ids.
 
+## A held look
+
+A body that stands with its head up, or crouches still, for
+`LOOK_DELAY_SECS` (0.8 s) leans its view that way, up to `LOOK_SHARE_OF_VIEW`
+(30%) of the view's height over `LOOK_RAMP_SECS` (0.5 s), and the view eases
+back when it lets go. The hold is the pose view's clock
+(`BodyPoseView::gaze_secs`); the resolver reads it through `camera_look` and
+leans along the subject's down, after the soft framing and before the room
+clamp (`crates/ambition_sim_view/src/camera_snapshot.rs`).
+
 ## CameraZone entities
 
 `CameraZone` entities on the `Ambition` layer lower into

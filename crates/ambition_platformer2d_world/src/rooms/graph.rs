@@ -484,6 +484,29 @@ impl RoomSet {
     }
 
     /// Whether the room `room_id` of this set holds the zone `zone_id`.
+    /// Which way a body can go through the zone `zone` of `room`
+    /// ([`ZoneWay`]), read off the links: a zone with no link out is a place
+    /// to arrive at, and one whose far side has no link back to this room is
+    /// a way out with no return.
+    pub fn way_of(&self, room: LiveRoomDefinition, zone: &str) -> ZoneWay {
+        let Some(&node) = self.room_nodes.get(room.index()) else {
+            return ZoneWay::BothWays;
+        };
+        let Some(out) = self
+            .graph
+            .edges_directed(node, Direction::Outgoing)
+            .find(|edge| edge.weight().from_zone == zone)
+        else {
+            return ZoneWay::InOnly;
+        };
+        let far = &out.weight().to_zone;
+        let back = self
+            .graph
+            .edges_directed(out.target(), Direction::Outgoing)
+            .any(|edge| &edge.weight().from_zone == far && edge.target() == node);
+        if back { ZoneWay::BothWays } else { ZoneWay::OutOnly }
+    }
+
     pub fn has_zone(&self, room_id: &str, zone_id: &str) -> bool {
         self.room_index_by_id(room_id).is_some_and(|room| self.zone_by_id(room, zone_id).is_some())
     }
@@ -711,6 +734,17 @@ impl RoomSet {
         }
         warnings
     }
+}
+
+/// Which way a body can go through a loading zone ([`RoomSet::way_of`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ZoneWay {
+    /// Through it and back again.
+    BothWays,
+    /// Out, with no way back through the zone it leads to: a one-way door.
+    OutOnly,
+    /// Only into the room: a place to arrive at, which leads nowhere.
+    InOnly,
 }
 
 #[cfg(test)]
@@ -1034,5 +1068,59 @@ mod room_identity_tests {
             1,
             "a refused id moved the active room, so a caller that ignores the              `None` runs in a room nobody asked for"
         );
+    }
+}
+
+#[cfg(test)]
+mod zone_way_tests {
+    use super::*;
+
+    /// A door whose far side leads back is a door both ways; one whose far
+    /// side does not is a way out with no return; a zone that leads nowhere
+    /// is a place to arrive at.
+    #[test]
+    fn a_zone_is_one_way_when_its_far_side_does_not_lead_back() {
+        let world = || ae::World::new("w".to_string(), ae::Vec2::new(320.0, 240.0), ae::Vec2::new(16.0, 16.0), Vec::new());
+        let room = |id: &str, zones: &[&str]| {
+            let mut room = RoomSpec::new(id, world());
+            for zone in zones {
+                room.loading_zones.push(LoadingZone {
+                    id: zone.to_string(),
+                    name: zone.to_string(),
+                    activation: LoadingZoneActivation::Door,
+                    aabb: ae::Aabb::new(ae::Vec2::new(40.0, 40.0), ae::Vec2::new(16.0, 32.0)),
+                });
+            }
+            room
+        };
+        let link = |from_room: &str, from_zone: &str, to_room: &str, to_zone: &str, bidirectional| RoomLink {
+            from_room: from_room.into(),
+            from_zone: from_zone.into(),
+            to_room: to_room.into(),
+            to_zone: to_zone.into(),
+            bidirectional,
+        };
+        let set = RoomSet::from_parts_or_panic(
+            "station",
+            vec![room("station", &["bay", "chute", "pad"]), room("hall", &["back"]), room("ground", &["landing"])],
+            vec![
+                link("station", "bay", "hall", "back", true),
+                link("station", "chute", "ground", "landing", false),
+            ],
+        );
+        let station = set.definition_by_id("station").unwrap();
+        assert_eq!(set.way_of(station, "bay"), ZoneWay::BothWays);
+        assert_eq!(set.way_of(station, "chute"), ZoneWay::OutOnly);
+        assert_eq!(set.way_of(station, "pad"), ZoneWay::InOnly);
+        let ground = set.definition_by_id("ground").unwrap();
+        assert_eq!(set.way_of(ground, "landing"), ZoneWay::InOnly, "the chute's foot leads nowhere");
+
+        // Two one-way links that make a pair are both ways.
+        let pair = RoomSet::from_parts_or_panic(
+            "station",
+            vec![room("station", &["chute"]), room("ground", &["landing"])],
+            vec![link("station", "chute", "ground", "landing", false), link("ground", "landing", "station", "chute", false)],
+        );
+        assert_eq!(pair.way_of(pair.definition_by_id("station").unwrap(), "chute"), ZoneWay::BothWays);
     }
 }

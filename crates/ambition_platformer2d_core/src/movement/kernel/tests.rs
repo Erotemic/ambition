@@ -1794,6 +1794,7 @@ fn a_portal_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
         recovery_commitment_outstanding: false,
     });
     assert_eq!(result.events.portal_refusal.as_ref().map(|r| r.reason), Some(RefusalReason::HopLimit));
+    assert_eq!(body.sweep.as_deref().unwrap().time, [1.0, 1.0]);
     assert_eq!(body.kinematics.pos, initial.pos);
     assert_eq!(body.kinematics.vel, initial.vel);
     assert!(result.events.operations.is_empty());

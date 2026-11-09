@@ -307,6 +307,11 @@ impl SweepSample {
         }
     }
 
+    /// Record the final pose without a prior travel interval.
+    pub fn at_tick_end(body: BodyKinematics, down: Vec2) -> Self {
+        Self { time: [1.0, 1.0], ..Self::at_rest(body, down) }
+    }
+
     /// The DOWN of a body, for a reader that has its frame and its record: the
     /// DOWN of its last step if a step has moved it, else `frame_down`.
     ///

@@ -467,3 +467,43 @@ fn a_body_wider_than_the_opening_stays_on_the_host() {
             "the host must hold the complete body: host_y={host_y}, body={kin:?}");
     }
 }
+
+
+#[test]
+fn the_lab_g_spinner_cannot_transfer_a_body_whose_source_motion_was_refused() {
+    use ambition_platformer2d::engine_core::{frame::thread::PieceBudget, SweepSample};
+    use ambition_platformer2d::platformer::{markers::PrimaryPlayerOnly, portal_passages::PortalPieceBudget};
+    use ambition_platformer2d::portal::{link_hash, PlacedPortal, PortalBodyTransited, PortalLink};
+    use ambition_platformer2d::world::{collision::MovingPlatformSet, platforms::PlatformTurn};
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    let (enter, entity) = {
+        let world = sim.world_mut();
+        let enter = world.query::<(&PlacedPortal, &PortalLink)>().iter(world)
+            .filter(|(_, link)| link.0 == link_hash("lab_g"))
+            .map(|(portal, _)| portal.clone()).max_by(|a, b| a.pos.x.total_cmp(&b.pos.x)).unwrap();
+        let entity = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+        (enter, entity)
+    };
+    let root = enter.pos + Vec2::new(-enter.normal.y, enter.normal.x) * 10.0 + enter.normal * 4.0;
+    let before = BodyKinematics { pos: root, vel: Vec2::ZERO, ..*sim.world().get::<BodyKinematics>(entity).unwrap() };
+    sim.world_mut().entity_mut(entity).insert((before, SweepSample::at_rest(before, Vec2::Y),
+        PortalPieceBudget(PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED })));
+    let mut host = ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(sim.world_mut()).unwrap();
+    let plank = host.0.iter_mut().find(|host| host.name == "G spinning plank").unwrap().plank.as_mut().unwrap();
+    plank.turned_s = plank.angle.to_degrees() / 21600.0;
+    plank.turn = PlatformTurn::Spin { deg_per_s: 21600.0 };
+    drop(host);
+    sim.step(base());
+    assert_eq!(*sim.world().get::<BodyKinematics>(entity).unwrap(), before,
+        "source refusal must retain the body through the final transit pass");
+    assert!(!sim.world_mut().resource_mut::<Messages<PortalBodyTransited>>().drain()
+        .any(|event| event.body == entity), "refused motion must not publish a transfer");
+    let sample = sim.world().get::<SweepSample>(entity).unwrap();
+    assert_eq!(sample.time, [1.0, 1.0], "a refused operation has no earlier travel interval");
+    sim.world_mut().entity_mut(entity).remove::<PortalPieceBudget>();
+    sim.step(base());
+    assert!(sim.world_mut().resource_mut::<Messages<PortalBodyTransited>>().drain()
+        .any(|event| event.body == entity), "the same body can cross when the source operation is admitted");
+    assert!(sim.world().get::<BodyKinematics>(entity).unwrap().pos.distance(root) > 100.0);
+}

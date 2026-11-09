@@ -189,7 +189,7 @@ pub fn step_motion(
     })();
     if let Err(refusal) = admitted {
         if let Some(sample) = clusters.sweep.as_deref_mut() {
-            *sample = SweepSample::at_rest(*clusters.kinematics, retained_down);
+            *sample = SweepSample::at_tick_end(*clusters.kinematics, retained_down);
         }
         let mut events = FrameEvents::default();
         events.portal_refusal = Some(refusal);

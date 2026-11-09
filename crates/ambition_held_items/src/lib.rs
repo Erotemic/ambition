@@ -387,7 +387,7 @@ impl GroundItem {
 
     pub fn released(spec: HeldItemSpec, pos: Vec2, vel: Vec2, half_extent: Vec2) -> GroundItemBundle {
         let body = BodyKinematics { pos, vel, canonical_size: half_extent * 2.0, ..Default::default() };
-        let sweep = ae::SweepSample { time: [1.0, 1.0], ..ae::SweepSample::at_rest(body, Vec2::ZERO) };
+        let sweep = ae::SweepSample::at_tick_end(body, Vec2::ZERO);
         GroundItemBundle { item: Self { spec }, body, sweep }
     }
 }
@@ -687,7 +687,7 @@ pub fn ground_item_physics(
         // ZERO`, because "resting" and "in a hand" are different states that
         // happen to share a velocity, and only one of them may be stepped.
         if !custody.in_world() {
-            *sweep = ae::SweepSample { time: [1.0, 1.0], ..ae::SweepSample::at_rest(*item, Vec2::ZERO) };
+            *sweep = ae::SweepSample::at_tick_end(*item, Vec2::ZERO);
             continue;
         }
         let before = *item;
@@ -999,7 +999,7 @@ pub fn return_released_items(
         commands.entity(holder).remove::<SupportedCarry>();
         // A released object is at rest, not mid-throw.
         let body = BodyKinematics { pos, vel: Vec2::ZERO, ..*body };
-        commands.entity(entity).insert((body, ae::SweepSample { time: [1.0, 1.0], ..ae::SweepSample::at_rest(body, Vec2::ZERO) }));
+        commands.entity(entity).insert((body, ae::SweepSample::at_tick_end(body, Vec2::ZERO)));
         *custody = ItemCustody::InWorld;
         // ⭐ AND THIS IS NOT A `Release` AT ALL — it is a stow, from the menu or
         // a brandish swap. It stamps no `ReleasedAs`, so a bomb that leaves a
@@ -1334,7 +1334,7 @@ pub fn take_ground_item(
     // stale world velocity would resume mid-arc the moment it is put
     // back down.
     let resting = BodyKinematics { vel: Vec2::ZERO, ..*item_body };
-    commands.entity(item).insert((resting, ae::SweepSample { time: [1.0, 1.0], ..ae::SweepSample::at_rest(resting, Vec2::ZERO) }));
+    commands.entity(item).insert((resting, ae::SweepSample::at_tick_end(resting, Vec2::ZERO)));
 }
 
 /// Empty a body's hand of whatever it holds — a held item, the portal gun, or
@@ -1949,7 +1949,7 @@ pub fn release_carried_item(
         return false;
     };
     let released = BodyKinematics { pos, vel, ..*item_body };
-    commands.entity(entity).insert((released, ae::SweepSample { time: [1.0, 1.0], ..ae::SweepSample::at_rest(released, Vec2::ZERO) }));
+    commands.entity(entity).insert((released, ae::SweepSample::at_tick_end(released, Vec2::ZERO)));
     *custody = ItemCustody::InWorld;
     // The release SAYS what it was. Every fuse downstream reads this
     // rather than re-deriving intent from the launch vector.

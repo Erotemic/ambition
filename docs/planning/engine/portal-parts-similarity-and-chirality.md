@@ -4,8 +4,8 @@
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** IMPLEMENTATION RESUMED ON MAIN (Jon, 2026-11-09).
 The slot 1 work was merged. Main is the active checkout. Jon asked for a safe
-commit point before the pause. The shared item-body packet is committed as
-`821ce15c3`. The prior root-scan packet is `e3ebef90f`. Their affected checks pass.
+commit point before the pause. The native source-admission packet is committed as `9098b5d54`. The shared
+item-body packet is `821ce15c3`. Their affected checks pass.
 Jon asked to continue and finish the work. Preserve the merged
 slot 1 checkpoint, `portal-similarity-draft`. Feature acceptance remains open.
 See [Committed checkpoint](#committed-checkpoint) and [Draft status](#draft-status).
@@ -610,9 +610,12 @@ A returning shot also resolves a later wall after its feature hit.
 This packet passes 835 core tests, 138 portal tests, 19 shared projectile tests,
 60 runtime projectile tests and 13 assembled-app portal tests. One core test
 remains ignored. The assembled app check passes. Logs use the
-`target/portal-native-prefix-` prefix. Source refusal at the final transit
-consumer still needs an end-to-end witness. No complete PSIM acceptance slice
-is closed.
+`target/portal-native-prefix-` prefix. A real-app follow-up exposed a refused actor that still crossed through the
+full-turn G aperture. Refusal now records only the retained pose at tick end;
+it does not invent an earlier stationary path. The actor remains in place with
+zero hops and crosses after its budget is restored. Both G app tests pass.
+The focused kernel refusal test, 47 item tests and 29 projectile-combat tests
+also pass. No complete PSIM acceptance slice is closed.
 
 
 Code checkpoint: `e3ebef90f` (2026-11-09). Lab map checkpoint: `16018b5` in

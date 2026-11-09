@@ -891,7 +891,7 @@ pub fn step_projectiles(
                 Ok(map) => map,
                 Err(reason) => {
                     *game = candidate_game;
-                    commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+                    commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
                     bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?reason,
                         "projectile root map refused before commit");
                     continue;
@@ -910,7 +910,7 @@ pub fn step_projectiles(
                 Ok(None) => (candidate.pos, 1.0, ae::LinearTravel::Complete),
                 Err(refusal) => {
                     *game = candidate_game;
-                    commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+                    commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
                     bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
                         "projectile root crossing refused before commit");
                     continue;
@@ -924,7 +924,7 @@ pub fn step_projectiles(
         if let Err(refusal) = collision.admit_motion(proj_entity, shot_room, before, BodyKinematics { pos: contact_end, ..candidate }, 0.0..1.0, travel, *acceleration) {
             // Refused motion does not stop the projectile's lifetime.
             *game = candidate_game;
-            commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+            commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
             bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
                 "projectile motion refused before commit");
             continue;
@@ -938,7 +938,7 @@ pub fn step_projectiles(
             Ok(response) => response,
             Err(refusal) => {
                 *game = candidate_game;
-                commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+                commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
                 bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
                     "projectile contact refused before commit");
                 continue;

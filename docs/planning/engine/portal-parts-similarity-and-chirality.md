@@ -548,6 +548,11 @@ apertures, persistent scale, asymmetric handedness, two reflections, two
 simultaneous paths and a chained third path. Include bounded refusal examples.
 Use targeted LDtk tool edits. The original creation spec does not include all
 current stations. Use these examples for the render and seam-lab witnesses.
+The [station draft](../../../tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml)
+adds an 80/40 pair, an asymmetric javelin, a two-reflection prompt and a
+simultaneous/three-link arrangement. Its authoring preview adds 17 entities
+and changes no existing geometry or station. Apply it with the production
+switch; the current minimum-aperture rule cannot demonstrate its scale labels.
 
 Retain current clipping scratch reuse and presentation pools when they fit
 the new authority. After Jon's optimization work ends, record a fresh baseline
@@ -585,24 +590,33 @@ loading work. No complete PSIM acceptance slice is closed.
 - Carried acceleration is a shared body capability. Projectile construction,
   stepping, snapshots and restoration use that value. World gravity and force
   zones keep their own contributions. The rollback schema is 426.
+- Source admission checks carried acceleration along each path. It does not
+  map world gravity or world force fields. Projectile flight validates a
+  candidate before it commits motion or contacts. Refusal clears stale travel
+  and keeps the prior pose; lifetime continues. The same shot resumes after
+  its budget is restored.
+- An approaching body prepares both host openings for its own use. A fast
+  crossing can skip the begin latch and still advance from the exit without
+  meeting that exit's uncut host. This applies to both body storage types.
 - Apertures publish before integration. Body material maps refresh after
   transit. Combat and presentation consume fallible partitions.
 - `BodyPieces` is removed. The held gun uses the shared attachment carry path.
   Pooled textured meshes clip against every boundary; the six-plane shader
   limit is removed. Folded meshes clip in the source chart.
 
-On the tree reconciled with main, `cargo check -p ambition_app` passes.
-Library tests pass: 739 core tests, 349 shared tests, 134 portal tests and
-126 presentation tests. One core measurement remains ignored. The transfer
-change also passes 138 portal, 350 shared-state, 46 projectile and six runtime
-transfer tests. All 25 assembled-app tests selected by `portal` pass. Omitting
-carried-vector mapping makes its atomic-transfer witness fail. This does not
-close the assembled runtime, replay, visual or performance acceptance checks.
+`cargo check -p ambition_app` and the workspace all-targets check pass.
+Focused library tests pass: 740 core, 63 geometry, 350 shared-state, 139 portal,
+46 projectile, six runtime transfer and 126 presentation tests. One core
+measurement remains ignored. The 26 assembled-app tests selected by `portal`
+pass. Omitting carried-vector mapping makes its atomic-transfer witness fail.
+The preceding transfer change passes the 35 workspace policy tests. These results do
+not close the full replay, visual or performance acceptance checks.
 
-Finish source admission for projectile and free-body sweeps, externally owned
-poses and moving aperture hosts. Check retained support facts, curved paths,
-control-phase displacement, topology changes after the aperture snapshot and
-candidate-copy cost. The body-kernel gate alone does not close PSIM-1B.
+Finish source admission for free-body sweeps, externally owned poses and
+moving aperture hosts. Audit projectile contact responses and attack updates.
+Check retained support facts, curved paths, control-phase displacement,
+topology changes after the aperture snapshot and candidate-copy cost.
+The existing gates do not close PSIM-1B.
 
 Live root transit and righting, common exact collision/contact projections
 and the unequal-aperture switch remain open.

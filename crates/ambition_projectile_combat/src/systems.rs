@@ -896,7 +896,10 @@ pub fn step_projectiles(
         // one-way stops it — damaged straight through one. Two answers to "is
         // something in the way", disagreeing on shape and on policy.
         let shot_world_hit = game.world_hit;
-        if !game.tick(&mut kin, *acceleration, dt, gravity_dir) {
+        let before = *kin;
+        let mut candidate = before;
+        let mut candidate_game = *game;
+        if !candidate_game.tick(&mut candidate, *acceleration, dt, gravity_dir) {
             if let Some(burst) = expiry_burst {
                 outcome_fx.write(said_by(burst.request(shot_room, kin.pos), bolt_source.as_ref(),
                 ));
@@ -906,6 +909,18 @@ pub fn step_projectiles(
             commands.entity(proj_entity).despawn();
             continue;
         }
+
+        #[cfg(feature = "portal")]
+        if let Err(refusal) = carved.admit_motion(proj_entity, shot_room, before, candidate, *acceleration) {
+            // Refused motion does not stop the projectile's lifetime.
+            *game = candidate_game;
+            commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+            bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
+                "projectile motion refused before commit");
+            continue;
+        }
+        *kin = candidate;
+        *game = candidate_game;
 
         // ⭐ THE LEG ENDS AT A PORTAL, AND GOES ON AT ITS PARTNER. Where the
         // shot's centre enters a paired opening, the pair takes it

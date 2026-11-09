@@ -186,8 +186,8 @@ impl FrameEnv<'_, '_> {
         MotionFrame::with_accelerations(
             AccelerationFrame::new(dir),
             gravity_acceleration,
-            external_acceleration + carried.0,
-        )
+            external_acceleration,
+        ).with_carried_acceleration(carried.0)
     }
 }
 

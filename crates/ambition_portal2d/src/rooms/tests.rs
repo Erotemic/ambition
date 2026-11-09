@@ -109,7 +109,7 @@ fn carve_rooms(body_room: usize) -> Vec<PortalRoom> {
 #[test]
 fn a_carve_is_cut_only_for_a_body_of_the_pairs_room() {
     let (_, live) = two_rooms();
-    assert_eq!(carve_rooms(0), vec![Some(live[0])], "control: the body in #0 opens its pair's wall");
+    assert_eq!(carve_rooms(0), vec![Some(live[0]); 2], "control: the body in #0 opens both ends of its pair");
     assert_eq!(carve_rooms(1), Vec::<PortalRoom>::new(), "a body in #1 opened the wall of #0");
 }
 

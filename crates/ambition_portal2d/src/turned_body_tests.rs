@@ -140,12 +140,12 @@ fn holes_cut(size: Vec2, down: Vec2) -> usize {
 #[test]
 fn a_level_body_cuts_the_hole_of_the_opening_it_touches() {
     assert_eq!(holes_cut(TALL, LEVEL), 0, "the level body is 12 deep toward the wall, and is 15 from the opening");
-    assert_eq!(holes_cut(WIDE, LEVEL), 1, "the level body is 20 deep toward the wall");
+    assert_eq!(holes_cut(WIDE, LEVEL), 2, "the level body is 20 deep toward the wall");
 }
 
 #[test]
 fn a_body_that_lies_toward_the_wall_cuts_the_hole_of_the_opening_its_own_box_touches() {
-    assert_eq!(holes_cut(TALL, SIDEWAYS), 1, "the body is 20 deep toward the wall, and touches the opening");
+    assert_eq!(holes_cut(TALL, SIDEWAYS), 2, "the body is 20 deep toward the wall, and touches the opening");
 }
 
 #[test]

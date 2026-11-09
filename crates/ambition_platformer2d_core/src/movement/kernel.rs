@@ -176,7 +176,7 @@ pub fn step_motion(
         crate::frame::thread::map_volume(&domain, &root_map).map_err(|fault| crate::frame::thread::Refusal {
             path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
         })?;
-        if let Some(portal) = portal { portal.admit(from, to, root_map, candidate.kinematics.vel)?; }
+        if let Some(portal) = portal { portal.admit(from, to, root_map, candidate.kinematics.vel, &[ctx.frame.carried_acceleration()])?; }
         Ok(())
     })();
     if let Err(refusal) = admitted {

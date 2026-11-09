@@ -1,0 +1,210 @@
+# Add these stations with entity add. Keep the existing portal-lab geometry.
+level_id: portal_lab
+entities:
+- type: Portal
+  px:
+  - 1860
+  - 887
+  size:
+  - 80
+  - 18
+  fields:
+    id: similarity_h_large
+    name: H 80 to 40
+    link: portal_lab_h_similarity
+    normal: up
+    color: purple
+- type: Portal
+  px:
+  - 2420
+  - 887
+  size:
+  - 40
+  - 18
+  fields:
+    id: similarity_h_small
+    name: H 40 to 80
+    link: portal_lab_h_similarity
+    normal: up
+    color: purple
+- type: DebugLabel
+  px:
+  - 1820
+  - 744
+  size:
+  - 380
+  - 36
+  fields:
+    name: lab_sign_h
+    text: 'H: 80 / 40. Enter either end to change size.'
+    category: Custom
+- type: DebugLabel
+  px:
+  - 2290
+  - 800
+  size:
+  - 420
+  - 36
+  fields:
+    name: lab_sign_h_return
+    text: Return through the pair to restore size and handedness.
+    category: Custom
+- type: GroundItem
+  px:
+  - 1828
+  - 878
+  size:
+  - 20
+  - 14
+  fields:
+    id: portal_lab_asymmetric_javelin
+    name: javelin
+    held_item: javelin
+- type: DebugLabel
+  px:
+  - 1210
+  - 660
+  size:
+  - 400
+  - 36
+  fields:
+    name: lab_sign_i
+    text: 'I: carry the javelin through the wall pair twice.'
+    category: Custom
+- type: Portal
+  px:
+  - 2691
+  - 700
+  size:
+  - 18
+  - 160
+  fields:
+    id: similarity_j_a_in
+    name: J first cut
+    link: portal_lab_j_first
+    normal: left
+    color: purple
+- type: Portal
+  px:
+  - 2731
+  - 740
+  size:
+  - 18
+  - 80
+  fields:
+    id: similarity_j_a_out
+    name: J first cut
+    link: portal_lab_j_first
+    normal: left
+    color: purple
+- type: Portal
+  px:
+  - 2727
+  - 740
+  size:
+  - 18
+  - 80
+  fields:
+    id: similarity_j_b_in
+    name: J second cut
+    link: portal_lab_j_second
+    normal: right
+    color: purple
+- type: Portal
+  px:
+  - 2320
+  - 771
+  size:
+  - 80
+  - 18
+  fields:
+    id: similarity_j_b_out
+    name: J second cut
+    link: portal_lab_j_second
+    normal: up
+    color: purple
+- type: Portal
+  px:
+  - 2320
+  - 767
+  size:
+  - 80
+  - 18
+  fields:
+    id: similarity_j_c_in
+    name: J third cut
+    link: portal_lab_j_third
+    normal: down
+    color: purple
+- type: Portal
+  px:
+  - 2471
+  - 700
+  size:
+  - 18
+  - 40
+  fields:
+    id: similarity_j_c_out
+    name: J third cut
+    link: portal_lab_j_third
+    normal: right
+    color: purple
+- type: Portal
+  px:
+  - 2600
+  - 823
+  size:
+  - 160
+  - 18
+  fields:
+    id: similarity_j_d_in
+    name: J simultaneous cut
+    link: portal_lab_j_other
+    normal: up
+    color: purple
+- type: Portal
+  px:
+  - 2260
+  - 641
+  size:
+  - 80
+  - 18
+  fields:
+    id: similarity_j_d_out
+    name: J simultaneous cut
+    link: portal_lab_j_other
+    normal: up
+    color: purple
+- type: DebugLabel
+  px:
+  - 2592
+  - 592
+  size:
+  - 480
+  - 36
+  fields:
+    name: lab_sign_j
+    text: 'J: grow, jump and reach into both openings.'
+    category: Custom
+- type: DebugLabel
+  px:
+  - 2260
+  - 560
+  size:
+  - 420
+  - 36
+  fields:
+    name: lab_sign_j_chain
+    text: Follow one part through three linked cuts.
+    category: Custom
+- type: DebugLabel
+  px:
+  - 2592
+  - 640
+  size:
+  - 490
+  - 36
+  fields:
+    name: lab_sign_j_limit
+    text: A link limit must stop entry and keep the material whole.
+    category: Custom

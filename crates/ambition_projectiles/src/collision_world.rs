@@ -57,6 +57,8 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     // without the portal plugin has no tuning.
     #[cfg(feature = "portal")]
     tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
+    #[cfg(feature = "portal")]
+    passages: Option<Res<'w, ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
     /// The pair each shot is on the back of: it does not take the shot, so
     /// the shot's leg does not end at it (`first_portal_crossing`).
     #[cfg(feature = "portal")]
@@ -97,6 +99,26 @@ impl ProjectileCollisionWorld<'_, '_> {
                 &overlay.removed_block_names,
             ),
         )
+    }
+
+    /// Admit the complete swept material before the projectile commits its step.
+    #[cfg(feature = "portal")]
+    pub fn admit_motion(
+        &self,
+        shot: Entity,
+        room: Option<LiveRoomInstance>,
+        before: ae::BodyKinematics,
+        after: ae::BodyKinematics,
+        acceleration: ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
+    ) -> Result<(), ae::frame::thread::Refusal> {
+        let Some(admission) = self.passages.as_deref().and_then(|p| p.motion_for(shot, room)) else {
+            return Ok(());
+        };
+        if admission.links.is_empty() { return Ok(()); }
+        let map = after.material_map(ae::Vec2::ZERO).map_err(|reason| ae::frame::thread::Refusal {
+            path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+        })?;
+        admission.admit(before.aabb(), after.aabb(), map, after.vel, &[acceleration.0])
     }
 
     /// The pair `shot` is on the back of, if any.

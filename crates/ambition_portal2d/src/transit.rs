@@ -135,6 +135,13 @@ pub struct PortalHole {
 }
 
 impl PortalCarves {
+    /// A root crossing changes its chart. Both host openings must be ready.
+    fn open_pair(&mut self, room: PortalRoom, enter: &PlacedPortal, exit: &PlacedPortal, body: Entity) {
+        for end in [enter, exit] {
+            self.open(room, pp::carve_face_with_depth(&end.aperture(), f32::INFINITY), body);
+        }
+    }
+
     /// `body` is in the pair `glue` in `room`: one glue per pair end, for each
     /// body in it.
     fn glue(&mut self, room: PortalRoom, glue: ambition_platformer2d_shared_tangle::feature_overlay::PortalGlue, body: Entity) {
@@ -219,10 +226,8 @@ pub fn publish_portal_carves(
         let Some(enter) = find_portal(all, channel) else {
             return;
         };
-        if find_portal(all, channel.partner()).is_none() {
-            return;
-        }
-        carves.open(room, pp::carve_face_with_depth(&enter.aperture(), f32::INFINITY), body);
+        let Some(exit) = find_portal(all, channel.partner()) else { return; };
+        carves.open_pair(room, &enter, &exit, body);
     };
 
     let default_depths = PortalHostDepthsByRoom::default();
@@ -247,7 +252,6 @@ pub fn publish_portal_carves(
     for (body_entity, t) in &transits {
         let room = live.of(body_entity);
         carve(room, t.straddling, body_entity, &mut carves);
-        carve(room, t.straddling.partner(), body_entity, &mut carves);
         let all = by_room.in_room(room);
         if let (Some(front), Some(back)) = (find_portal(all, t.straddling), find_portal(all, t.straddling.partner())) {
             let glue = ambition_platformer2d_shared_tangle::feature_overlay::PortalGlue {
@@ -353,10 +357,9 @@ pub fn publish_free_body_carves<B: FreePortalBody>(
             }
             let opens = straddling.is_some_and(|c| c == p.channel || c.partner() == p.channel)
                 || body_opens(p, aabb, body.pos(), body.vel(), depths.in_room(room).depth(p.channel));
-            if !opens || find_portal(all, p.channel.partner()).is_none() {
-                continue;
-            }
-            carves.open(room, pp::carve_face_with_depth(&p.aperture(), f32::INFINITY), entity);
+            if !opens { continue; }
+            let Some(exit) = find_portal(all, p.channel.partner()) else { continue; };
+            carves.open_pair(room, p, &exit, entity);
         }
     }
 }

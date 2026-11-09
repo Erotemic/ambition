@@ -615,11 +615,20 @@ pub struct MotionAdmission<'a> {
 
 impl MotionAdmission<'_> {
     /// Validate both occupancy and the complete translated collision sweep.
-    pub fn admit(&self, from: crate::Aabb, to: crate::Aabb, root_map: Sim2, velocity: Vec2) -> Result<(), Refusal> {
+    pub fn admit(&self, from: crate::Aabb, to: crate::Aabb, root_map: Sim2, velocity: Vec2, carried_vectors: &[Vec2]) -> Result<(), Refusal> {
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
         let inverse = root_map.inverse().map_err(numeric)?;
         let verify_motion = |parts: Vec<VolumePiece>| -> Result<(), Refusal> {
             for part in parts.iter().filter(|part| part.is_carried()) {
+                for vector in carried_vectors {
+                    let mut vector = *vector;
+                    for (index, key) in part.path.iter().enumerate() {
+                        let link = self.links.iter().find(|link| link.key == *key)
+                            .expect("partition paths name links from this aperture snapshot");
+                        let refusal = |fault| Refusal { path: part.path[..index].to_vec(), link: Some(*key), reason: RefusalReason::Numeric(fault) };
+                        vector = link.map(self.convention).map_err(refusal)?.vector(vector).map_err(refusal)?;
+                    }
+                }
                 for point in part.source_region_wide().into_iter().flatten() {
                     let mut point = root_map.point_from_wide(point).map_err(numeric)?;
                     let mut velocity = velocity;

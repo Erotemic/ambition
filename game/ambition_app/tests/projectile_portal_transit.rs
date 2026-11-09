@@ -87,3 +87,67 @@ fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
          emerged on the far side in the real app schedule",
     );
 }
+
+#[test]
+fn a_projectile_refuses_a_portal_cut_before_motion_and_resumes_when_admitted() {
+    use ambition_platformer2d::engine_core::frame::thread::PieceBudget;
+    use ambition_platformer2d::platformer::portal_passages::PortalPieceBudget;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    use ambition_platformer2d::projectiles::{ProjectileOwner, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    let owner = {
+        let world = sim.world_mut();
+        world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap()
+    };
+    let (enter, exit) = crate::common::first_floor_authored_portal_pair(&mut sim);
+    sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        origin: enter.pos + enter.normal * 80.0, dir: -enter.normal, speed: 1200.0,
+        damage: 1, max_lifetime: 3.0, half_extent: Vec2::splat(5.0), gravity: 0.0,
+        visual_id: "seam_gauge".into(), bounces: 0, bounce_on_world_contact: false,
+        splash_half_extent: 0.0, boomerang_return_s: None,
+    }, ProjectileStart::StepNextTick));
+    sim.step(base());
+    let shot = {
+        let world = sim.world_mut();
+        world.query::<(Entity, &ProjectileOwner, &ProjectileVisualId)>().iter(world)
+            .find(|(_, by, visual)| by.0 == owner && visual.0 == "seam_gauge")
+            .map(|(entity, _, _)| entity).expect("the production materializer creates the shot")
+    };
+    sim.world_mut().entity_mut(shot).insert(PortalPieceBudget(PieceBudget {
+        max_hops: 0, max_pieces: 1, max_scale_exponent: 12,
+    }));
+    let initial = sim.world().get::<BodyKinematics>(shot).unwrap().pos;
+    let mut previous = initial;
+    let mut refused_ticks = 0;
+    let mut previous_age = sim.world().get::<ambition_platformer2d::projectiles::ProjectileGameplay>(shot).unwrap().age;
+    for _ in 0..12 {
+        sim.step(base());
+        let body = sim.world().get::<BodyKinematics>(shot).expect("refusal keeps the projectile");
+        let age = sim.world().get::<ambition_platformer2d::projectiles::ProjectileGameplay>(shot).unwrap().age;
+        assert!(age > previous_age, "refused motion must not make a projectile live forever");
+        previous_age = age;
+        assert!((body.pos - enter.pos).dot(enter.normal) >= 5.0,
+            "the source body crossed a cut it cannot represent");
+        if body.pos == previous {
+            refused_ticks += 1;
+            let sweep = sim.world().get::<ambition_platformer2d::engine_core::SweepSample>(shot).unwrap();
+            assert_eq!(sweep.delta(), Vec2::ZERO, "refusal must retire the prior travel segment");
+        }
+        previous = body.pos;
+    }
+    assert!(initial.distance(previous) > 20.0, "the shot must actually approach the aperture");
+    assert!(refused_ticks >= 3, "the shot must reach and remain at the refused boundary");
+    sim.world_mut().entity_mut(shot).remove::<PortalPieceBudget>();
+    let mut arrived = false;
+    let mut history = Vec::new();
+    for _ in 0..12 {
+        sim.step(base());
+        history.push(sim.world().get::<BodyKinematics>(shot).copied());
+        if sim.world().get::<BodyKinematics>(shot).is_some_and(|body| body.pos.distance(exit.pos) < 70.0) {
+            arrived = true;
+            break;
+        }
+    }
+    assert!(arrived, "the same shot must cross when the cut is admitted; entry={:?}, exit={:?}, poses={history:?}", enter.pos, exit.pos);
+}

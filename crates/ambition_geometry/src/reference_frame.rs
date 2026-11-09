@@ -424,7 +424,7 @@ pub struct AccelerationFrame {
 /// The complete per-body acceleration frame used by the movement kernel.
 ///
 /// Pairs the [`AccelerationFrame`] basis with separate gravity/orienting and
-/// external world-space acceleration, which stay independent even when
+/// world-force and carried acceleration, which stay independent even when
 /// ordinary gravity aligns them. Build it once per body tick and pass the
 /// same value to input interpretation and the active movement policy.
 ///
@@ -434,6 +434,7 @@ pub struct AccelerationFrame {
 pub struct MotionFrame {
     gravity_acceleration: Vec2,
     external_acceleration: Vec2,
+    carried_acceleration: Vec2,
     basis: AccelerationFrame,
 }
 
@@ -463,8 +464,20 @@ impl MotionFrame {
         Self {
             gravity_acceleration,
             external_acceleration,
+            carried_acceleration: Vec2::ZERO,
             basis,
         }
+    }
+
+    /// Add acceleration carried by the body without changing its basis.
+    pub const fn with_carried_acceleration(mut self, acceleration: Vec2) -> Self {
+        self.carried_acceleration = acceleration;
+        self
+    }
+
+    /// The carried contribution must pass through the material's portal path.
+    pub const fn carried_acceleration(self) -> Vec2 {
+        self.carried_acceleration
     }
 
     /// Derive both orientation and force from a non-zero world-space
@@ -485,7 +498,7 @@ impl MotionFrame {
 
     /// Full world-space acceleration applied this tick.
     pub fn acceleration(self) -> Vec2 {
-        self.gravity_acceleration + self.external_acceleration
+        self.gravity_acceleration + self.external_acceleration()
     }
 
     /// The gravity/orienting contribution. Jump-arc laws may scale this term.
@@ -493,9 +506,10 @@ impl MotionFrame {
         self.gravity_acceleration
     }
 
-    /// Non-orienting world-space acceleration. Jump-arc laws must not scale it.
+    /// World-force and carried acceleration. Jump-arc laws must not scale them.
     pub const fn external_acceleration(self) -> Vec2 {
-        self.external_acceleration
+        Vec2::new(self.external_acceleration.x + self.carried_acceleration.x,
+            self.external_acceleration.y + self.carried_acceleration.y)
     }
 
     /// Magnitude of the complete acceleration in world units per second squared.

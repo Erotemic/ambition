@@ -1888,3 +1888,40 @@ fn an_unrepresentable_part_velocity_refuses_before_body_commit() {
     assert_eq!(*clusters.kinematics, before);
     assert_eq!(result.events.portal_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
 }
+
+#[test]
+fn carried_acceleration_is_admitted_before_the_source_body_moves() {
+    use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink, RefusalReason};
+    use crate::frame::{MapConvention, NumericFault, PortalAperture, PortalFrame};
+    let world = empty_world();
+    let links = PortalLink::both_ways(0, (
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 500.0), -Vec2::Y), half_length: 40.0 },
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(900.0, 500.0), Vec2::Y), half_length: 80.0 },
+    ));
+    for carried in [false, true] {
+        let mut body = BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 499.0), AbilitySet::default());
+        body.kinematics.vel = Vec2::Y;
+        let before = body.kinematics;
+        let mut params = AxisSweptParams::default();
+        params.locomotion.max_fall_speed = f32::INFINITY;
+        let mut model = MotionModel::axis_swept(params);
+        let acceleration = Vec2::Y * (f32::MAX * 0.75);
+        let frame = if carried {
+            MotionFrame::from_direction(Vec2::Y, 0.0).with_carried_acceleration(acceleration)
+        } else {
+            MotionFrame::with_accelerations(crate::AccelerationFrame::new(Vec2::Y), Vec2::ZERO, acceleration)
+        };
+        let result = step_motion(&mut model, &mut body.as_mut(), MotionStepContext {
+            world: &world, portal: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
+            input: InputState::default(), frame, facing_intent: 0.0, dt: 1.0e-18,
+            contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
+        });
+        if carried {
+            assert_eq!(body.kinematics, before);
+            assert_eq!(result.events.portal_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
+        } else {
+            assert!(result.events.portal_refusal.is_none(), "world forces do not travel with material");
+            assert!(body.kinematics.pos.y > before.pos.y + 100.0, "the control must move through the aperture");
+        }
+    }
+}

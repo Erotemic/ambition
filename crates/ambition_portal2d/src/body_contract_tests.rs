@@ -519,3 +519,32 @@ fn a_carried_vector_is_mapped_atomically_for_both_body_storage_types() {
         assert_eq!(events.len(), if refused { 0 } else { 2 });
     }
 }
+
+#[test]
+fn an_approaching_body_prepares_both_charts_before_begin() {
+    let mut app = App::new();
+    app.init_resource::<crate::PortalCarves>();
+    app.add_systems(Update, (crate::publish_portal_carves, crate::publish_free_body_carves::<Probe>).chain());
+    wall_pair(&mut app);
+    let kernel = app.world_mut().spawn(BodyKinematics {
+        pos: Vec2::new(70.0, 200.0), vel: Vec2::new(-4000.0, 0.0),
+        canonical_size: Vec2::splat(16.0), ..Default::default()
+    }).id();
+    let free = app.world_mut().spawn(Probe {
+        pos: Vec2::new(70.0, 230.0), vel: Vec2::new(-4000.0, 0.0), step: None,
+    }).id();
+    let bystander = app.world_mut().spawn(BodyKinematics {
+        pos: Vec2::new(600.0, 200.0), ..Default::default()
+    }).id();
+    app.update();
+    let holes = &app.world().resource::<crate::PortalCarves>().holes;
+    assert_eq!(holes.len(), 2);
+    for hole in holes {
+        assert!(hole.open_for.contains(&kernel));
+        assert!(hole.open_for.contains(&free));
+        assert!(!hole.open_for.contains(&bystander));
+    }
+    for body in [kernel, free] {
+        assert!(app.world().get::<PortalTransit>(body).is_none());
+    }
+}

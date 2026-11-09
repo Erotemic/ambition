@@ -316,11 +316,8 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
     let vel = Vec2::new(-2400.0, 0.0);
     let taken = |from: Vec2, to: Vec2| {
         matches!(
-            transit_step_with_tuning(
-                to,
-                size,
-                vel,
-                Some(SweptSample { travel: Default::default(), time: [0.0, 1.0], pos: from, vel }),
+            transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: to, canonical_size: size, vel: vel, ..Default::default() },
+                Some(SweptSample { down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], pos: from, vel }),
                 None,
                 None,
                 &portals,

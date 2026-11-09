@@ -181,6 +181,17 @@ impl BodyKinematics {
         self.material.at(self.pos, down)
     }
 
+    /// Project the canonical box onto a world-space axis.
+    pub fn projected_half_extent(self, down: Vec2, axis: bevy_math::DVec2) -> Result<f64, crate::frame::NumericFault> {
+        use crate::frame::NumericFault;
+        if !axis.is_finite() || !self.canonical_size.is_finite() { return Err(NumericFault::NonFinite); }
+        if self.canonical_size.min_element() <= 0.0 { return Err(NumericFault::InvalidScale); }
+        let map = self.material.at(self.pos, down)?;
+        let half = self.canonical_size.as_dvec2() * 0.5;
+        Ok((map.direction_wide(bevy_math::DVec2::X).dot(axis).abs() * half.x
+            + map.direction_wide(bevy_math::DVec2::Y).dot(axis).abs() * half.y) * map.scale_wide())
+    }
+
     /// The body's world-space AABB (centered on `pos`, half-extents `size/2`).
     pub fn aabb(self) -> crate::Aabb {
         self.aabb_oriented(Vec2::ZERO)

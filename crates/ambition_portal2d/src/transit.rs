@@ -334,7 +334,7 @@ fn portal_sweep_sample(
     sweep: Option<&ae::SweepSample>,
 ) -> Option<SweptSample> {
     let sweep = sweep?.ending_at(kin.pos)?;
-    Some(SweptSample {
+    Some(SweptSample { down: sweep.down,
         time: sweep.time,
         travel: sweep.travel,
         pos: sweep.prev,
@@ -465,15 +465,9 @@ pub fn portal_transit(
         // is used only when its `curr` equals the live `kin.pos`, so teleports
         // outside the sim phase are not swept travel.
         let sweep = portal_sweep_sample(&*kin, record);
-        // The size of the box the body has: its collision box, turned as its
-        // last step turned it. The core has no frame of a body.
-        let size = kin.collision_box(record).half_size() * 2.0;
         let backside = backside.copied();
         let usable = usable_portals(all, backside);
-        let step = transit_step_with_tuning(
-            kin.pos,
-            size,
-            kin.vel,
+        let step = transit_step_with_tuning(*kin,
             sweep,
             transit.as_deref().copied(),
             cooldown_pair,

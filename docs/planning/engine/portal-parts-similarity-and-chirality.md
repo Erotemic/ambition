@@ -584,7 +584,18 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
-Latest code checkpoint: `821ce15c3` (2026-11-09). Loose items now use the shared
+Source refusal checkpoint: `46058c220`. A rejected operation records only the
+retained pose at tick end. The real-app G test covers refusal and later transfer
+when its budget is restored.
+
+The native transit packet replaces its box envelope with the canonical body
+and material map. The opening fit uses physical material axes. A long turned
+body can pass when its material fits even if its envelope is too wide. The
+witness covers two scales and both parities. All 139 portal tests, 64 content
+portal tests and 14 app portal tests pass. The assembled app check passes.
+These checks do not close actor collision, root rebasing or PSIM acceptance.
+
+Shared item-body checkpoint: `821ce15c3` (2026-11-09). Loose items now use the shared
 body and sweep state. Custody removes stored bodies from spatial queries. The
 separate free-body portal path is removed. Item impact response belongs to the
 item motion owner. Rollback schema 429 records the new storage contract.
@@ -757,9 +768,8 @@ loading work. No complete PSIM acceptance slice is closed.
   Transit uses that record instead of a line through the projected endpoint.
   Motion samples use rollback schema 428. Physical righting,
   persistent root material rebasing, motion after a crossing and complete
-  motion-source admission remain open. The generic transit adapter still
-  supplies a collision-box envelope; the projectile scan supplies canonical
-  material. The root scan does not close angular transit acceptance.
+  motion-source admission remain open. The generic transit adapter and projectile scan both supply canonical
+  material and its physical axes. The root scan does not close angular transit acceptance.
   A host wrap closes the
   old plane; its aperture does not sweep between the two locations.
 - Projectile world contacts use the original collider and the selected part.

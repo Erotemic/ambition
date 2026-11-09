@@ -167,11 +167,8 @@ fn a_body_that_cuts_the_plane_past_an_end_is_not_taken() {
     let portals = [floor(), exit()];
     let straddling = Some(PortalTransit { straddling: BLUE, crossed: false });
     let step = |x: f32| {
-        transit_step_with_tuning(
-            Vec2::new(x, 302.0),
-            BODY * 2.0,
-            Vec2::new(0.0, 100.0),
-            Some(crate::SweptSample { travel: Default::default(), pos: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0] }),
+        transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(x, 302.0), canonical_size: BODY * 2.0, vel: Vec2::new(0.0, 100.0), ..Default::default() },
+            Some(crate::SweptSample { down: Vec2::ZERO, travel: Default::default(), pos: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0] }),
             straddling,
             None,
             &portals,

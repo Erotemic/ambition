@@ -257,12 +257,9 @@ fn add_character_asset(draft: &mut RoomManifestDraft, label: &str, asset: &Chara
         return;
     }
 
-    // `pages` is indexed by the source page number and therefore includes
-    // placeholder slots for sparse packed sheets. The sheet spec is the
-    // semantic authority for which pages any frame can actually draw from.
-    // Manifest only those pages; an unused pack page is not a presentation
-    // dependency of this character.
-    for index in asset.spec.used_pages() {
+    // The realized draw path names the baked pages needed by this character.
+    // Part-only rows in a mixed rig do not require their baked pages.
+    for index in asset.required_baked_pages() {
         // Logging and continuing omitted the character from the barrier entirely, so the
         // barrier could report Ready and reveal the room with missing presentation.
         let page = asset.pages.get(index as usize);
@@ -286,6 +283,12 @@ fn add_character_asset(draft: &mut RoomManifestDraft, label: &str, asset: &Chara
                     .unresolved
                     .insert(format!("{label}:page:{index} (required, unrealized)"));
             }
+        }
+    }
+    // A mixed rig also draws from part pages. These must be ready before reveal.
+    if let Some(rigged) = &asset.rigged {
+        for (index, page) in rigged.pages.iter().enumerate() {
+            add_image_handle(draft, format!("{label}:parts:{index}"), page);
         }
     }
 }
@@ -1968,6 +1971,75 @@ mod tests {
         );
         let room = RoomSpec::new("d153_room", world);
         build_loaded_room_asset_manifest(&room, &["d153_fighter".to_owned()], &assets, None)
+    }
+
+    /// A mixed part/baked character waits on its part image and only the
+    /// baked row's image. The part row's baked page stays unloaded.
+    #[test]
+    fn hybrid_manifest_waits_only_on_images_it_can_draw() {
+        use std::sync::Arc;
+        use crate::sprite_sheet::character::{
+            CharacterSpriteAsset, CharacterSpritePage,
+        };
+        use crate::sprite_sheet::character::rigged::{RiggedSpriteAsset, RiggedSpritePages};
+
+        let sprite_content = crate::sprite_sheet::test_support::shared_sprites();
+        let spec = a_synthetic_spec(&sprite_content, 2, &[0, 1]);
+        let flipbook = RiggedSpriteAsset::from_published_ron(r#"(
+            schema_version: 1,
+            target: "d153_synthetic_sheet",
+            pages: ["parts.png"],
+            frame_size: (20, 30),
+            feet_pixel: (10.0, 29.0),
+            parts: [
+                (name: "body", page: 0, rect: (0, 0, 4, 5), pivot: (2.0, 2.5)),
+            ],
+            clips: {
+                "idle": (frame_duration_s: 0.1, frames: [
+                    [(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))],
+                ]),
+            },
+            baked_clips: ["run"],
+        )"#).expect("a mixed flipbook parses");
+        flipbook.check_rows(spec.row_names()).expect("the flipbook covers both rows");
+
+        let mut images = Assets::<Image>::default();
+        let baked = images.add(Image::default());
+        let part = images.add(Image::default());
+        let asset = CharacterSpriteAsset {
+            texture: baked.clone(),
+            layout: Handle::default(),
+            spec,
+            pages: vec![
+                CharacterSpritePage { texture: Handle::default(), layout: Handle::default() },
+                CharacterSpritePage { texture: baked.clone(), layout: Handle::default() },
+            ],
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: Some(RiggedSpritePages {
+                flipbook: Arc::new(flipbook),
+                pages: vec![part.clone()],
+            }),
+        };
+        assert_eq!(asset.required_baked_pages().into_iter().collect::<Vec<_>>(), vec![1]);
+        let images = asset.presentation_images();
+        assert_eq!(images.len(), 2);
+        assert!(images.contains(&&baked));
+        assert!(images.contains(&&part));
+
+        let mut draft = RoomManifestDraft::default();
+        add_character_asset(&mut draft, "character:hybrid", &asset);
+        assert!(draft.unresolved.is_empty());
+        assert_eq!(draft.by_label.len(), 2);
+        assert_eq!(draft.by_label["character:hybrid:page:1"], baked.id());
+        assert_eq!(draft.by_label["character:hybrid:parts:0"], part.id());
+        assert!(!draft.by_label.contains_key("character:hybrid:page:0"));
+
+        let mut missing = asset.clone();
+        missing.pages[1].texture = Handle::default();
+        let mut broken = RoomManifestDraft::default();
+        add_character_asset(&mut broken, "character:hybrid", &missing);
+        assert_eq!(broken.unresolved.len(), 1);
     }
 
     /// A page the SPEC requires and the REALIZATION does not have must refuse the reveal.

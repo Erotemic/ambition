@@ -127,6 +127,25 @@ impl CharacterSheetSpec {
         self.record.used_pages()
     }
 
+    /// Pages used by the named rows. A row can span several atlas pages.
+    /// Keep the page numbers from the published frame algebra.
+    pub fn pages_for_rows<'a>(
+        &self,
+        rows: impl IntoIterator<Item = &'a str>,
+    ) -> std::collections::BTreeSet<u32> {
+        let names: std::collections::BTreeSet<&str> = rows.into_iter().collect();
+        self.record
+            .rows
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| names.contains(row.animation.as_str()))
+            .flat_map(|(slot, row)| {
+                (0..row.frame_count as usize)
+                    .map(move |frame| self.record.frame_page_of(slot, frame))
+            })
+            .collect()
+    }
+
     /// Which page image `(anim, frame)` draws from (per-frame: a freely-packed
     /// sheet can scatter one animation across pages).
     pub fn page_of(&self, anim: CharacterAnim, frame: usize) -> u32 {

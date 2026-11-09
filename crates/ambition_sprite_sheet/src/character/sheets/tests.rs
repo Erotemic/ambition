@@ -1203,3 +1203,29 @@ fn borrowed_render_size_respects_fallback_and_authored_tuning() {
             sprite_render_size(&owned, collision));
     }
 }
+
+/// The published frame pages decide residency. A baked row can cross pages;
+/// a part row must not cause a baked image request.
+#[test]
+fn named_baked_rows_keep_all_their_pages_without_loading_part_rows() {
+    let record: SheetRecord = ron::from_str(r#"(
+        target: "mixed_pages", image: "page_0.png",
+        images: ["page_0.png", "page_1.png", "page_2.png"],
+        label_width: 0, frame_width: 32, frame_height: 32,
+        rows: [
+            (animation: "idle", row_index: 0, frame_count: 1,
+             duration_ms: 100, duration_secs: 0.1,
+             rects: [(x: 0, y: 0, w: 32, h: 32, page: 0)]),
+            (animation: "slash", row_index: 1, frame_count: 2,
+             duration_ms: 100, duration_secs: 0.1,
+             rects: [(x: 0, y: 0, w: 32, h: 32, page: 2),
+                     (x: 0, y: 0, w: 32, h: 32, page: 1)]),
+        ],
+    )"#).expect("a multi-page sheet parses");
+    let spec = spec_from_record(&record, &SheetTuning::default());
+    assert_eq!(spec.used_pages().into_iter().collect::<Vec<_>>(), vec![0, 1, 2]);
+    assert_eq!(spec.pages_for_rows(["slash"]).into_iter().collect::<Vec<_>>(), vec![1, 2]);
+    assert_eq!(spec.pages_for_rows(["idle"]).into_iter().collect::<Vec<_>>(), vec![0]);
+    assert!(spec.pages_for_rows(["absent"]).is_empty());
+    assert_eq!(spec.pages_for_rows(["idle", "slash"]), spec.used_pages());
+}

@@ -257,4 +257,35 @@ mod tests {
             );
         }
     }
+
+    /// A crawler goes out of a doorway in the room's wall and round the
+    /// outside of the room; a barrier across the doorway (an edge exit, for a
+    /// body that cannot travel through it) holds it in, as a wall does.
+    #[test]
+    fn a_crawler_leaves_by_a_doorway_and_a_barrier_across_it_holds_it_in() {
+        let (size, wall) = (Vec2::new(480.0, 320.0), 16.0);
+        let mut world = walled_box(size, wall);
+        // A doorway in the right wall, above the floor.
+        let door_h = 96.0;
+        world.blocks.retain(|block| block.name != "box_wall_right");
+        world.blocks.push(crate::world::Block::solid("box_wall_right_top", Vec2::new(size.x - wall, 0.0), Vec2::new(wall, size.y - wall - door_h)));
+        let bounds = Aabb { min: Vec2::ZERO, max: size };
+        let crawl = |world: &World| {
+            probe_containment(
+                world,
+                MotionModelSpec::AdhesiveCrawler(Default::default()),
+                world.spawn,
+                bounds,
+                ContainmentProbe::holding(LocalAxes::new(1.0, 0.0)),
+            )
+        };
+        let open = crawl(&world);
+        assert!(!open.contained(), "premise: the crawler leaves by the open doorway (ended at {:?})", open.final_pos);
+
+        let mut barrier = crate::world::Block::solid("zone-wall:exit", Vec2::new(size.x - wall, size.y - wall - door_h), Vec2::new(wall, door_h));
+        barrier.kind = crate::world::BlockKind::Barrier;
+        world.blocks.push(barrier);
+        let walled = crawl(&world);
+        assert!(walled.contained(), "the barrier did not hold the crawler: it left by {:.1}px, ended at {:?}", walled.max_escape_px, walled.final_pos);
+    }
 }

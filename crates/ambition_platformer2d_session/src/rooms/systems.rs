@@ -529,11 +529,77 @@ pub fn party_exit_walls(
         || slot == party.rules().leader || !party.members(admitted).contains(&slot) { return Vec::new(); }
     rooms.spec(definition).loading_zones.iter().filter(|zone|
         zone.activation != LoadingZoneActivation::Door && route_zone(rooms, definition, &zone.id, network).is_some())
-        .map(|zone| {
-            let name = format!("party-exit:{}", zone.id);
-            let mut block = ae::Block::solid(&name, zone.aabb.min, zone.aabb.half_size() * 2.0);
-            block.kind = ae::BlockKind::Barrier;
-            block.id = ae::GeoId::placement(ae::PlacementId::new(name), 0);
-            block
-        }).collect()
+        .map(|zone| zone_wall("party-exit", zone)).collect()
+}
+
+/// A loading zone as a barrier block named `prefix:<zone id>`.
+fn zone_wall(prefix: &str, zone: &ambition_platformer2d_world::rooms::LoadingZone) -> ae::Block {
+    use ae::AabbExt as _;
+    let name = format!("{prefix}:{}", zone.id);
+    let mut block = ae::Block::solid(&name, zone.aabb.min, zone.aabb.half_size() * 2.0);
+    block.kind = ae::BlockKind::Barrier;
+    block.id = ae::GeoId::placement(ae::PlacementId::new(name), 0);
+    block
+}
+
+/// How near a zone a body must be for the zone to be a wall for it this tick.
+/// Larger than any body moves in one tick; a body farther away does not need
+/// the wall, and does not pay for a world of its own.
+const ZONE_WALL_REACH: f32 = 96.0;
+
+/// A loading zone is a wall for every body that cannot travel through it.
+///
+/// Only a driven body crosses a zone (`detect_room_transition_system`). For
+/// every other body a zone is an opening in the room's boundary, and a body
+/// that follows surfaces (a crawler) went out through it and round the
+/// outside of the room. The zone is a [`BodyBarrier`] for each body near it
+/// that does not travel: not a driven body, and not the mount a driven body
+/// rides (the mount carries its rider into the zone). Only an edge exit is
+/// an opening in the boundary: a door is pressed, and a walk zone stands in
+/// the room.
+///
+/// [`BodyBarrier`]: ambition_platformer2d_shared_tangle::feature_overlay::BodyBarrier
+pub fn contribute_loading_zone_walls(
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    drivers: Query<(Entity, Option<&ambition_mount::RidingOn>), bevy::prelude::With<ambition_characters::control::DrivingParticipant>>,
+    bodies: Query<(Entity, &ae::BodyKinematics)>,
+    mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
+) {
+    let travellers: Vec<Entity> = drivers
+        .iter()
+        .flat_map(|(driver, riding)| std::iter::once(driver).chain(riding.map(|riding| riding.mount)))
+        .collect();
+    // Each live room's zones, and the bodies near each.
+    let mut walls: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, ae::Block, Vec<Entity>)> = Vec::new();
+    for (room, spec) in rooms.live_specs() {
+        for zone in spec.loading_zones.iter().filter(|zone| zone.activation == LoadingZoneActivation::EdgeExit) {
+            walls.push((room, zone_wall("zone-wall", zone), Vec::new()));
+        }
+    }
+    if walls.is_empty() {
+        return;
+    }
+    for (entity, kin) in &bodies {
+        if travellers.contains(&entity) {
+            continue;
+        }
+        let Some(room) = rooms.live().of(entity) else { continue };
+        let body = kin.aabb();
+        for (wall_room, wall, near) in &mut walls {
+            let reach = wall.aabb;
+            let apart = (body.min.x - reach.max.x).max(reach.min.x - body.max.x).max(body.min.y - reach.max.y).max(reach.min.y - body.max.y);
+            if *wall_room == room && apart < ZONE_WALL_REACH {
+                near.push(entity);
+            }
+        }
+    }
+    for (room, block, bodies) in walls {
+        if bodies.is_empty() {
+            continue;
+        }
+        let stamp = ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room);
+        if let Some(mut overlay) = overlays.for_room(Some(&stamp)) {
+            overlay.body_barriers.push(ambition_platformer2d_shared_tangle::feature_overlay::BodyBarrier { block, bodies });
+        }
+    }
 }

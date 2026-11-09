@@ -239,9 +239,9 @@ fn raycast_sees_through_a_portal_pair_and_recurses() {
         Vec2::new(0.0, 1.0),
         6000.0,
         false,
-        2,
+        ae::cast::RayBudget { max_hops: 2, max_scale_exponent: 12 },
         MapConvention::Reflection,
-    );
+    ).unwrap();
     assert!(
         hit.is_some_and(|(p, n)| (p.x - 20.0).abs() < 1.0 && n.x > 0.5),
         "ray should recurse through the pair and hit the left wall, got {hit:?}"

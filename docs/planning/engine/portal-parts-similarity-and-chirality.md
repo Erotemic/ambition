@@ -598,22 +598,45 @@ loading work. No complete PSIM acceptance slice is closed.
 - An approaching body prepares both host openings for its own use. A fast
   crossing can skip the begin latch and still advance from the exit without
   meeting that exit's uncut host. This applies to both body storage types.
+- The material cast query partitions a swept spatial domain and clips each
+  physical obstacle in that domain. It casts the actual primitive, keeps
+  circles analytic and returns the source collider and directed path.
+  The query covers translation against a room snapshot. It is not yet the
+  live body solver. Moving obstacles and physical righting remain open.
+- Rays use directed links and the common similarity. Reach is measured in
+  the initial chart, with each segment divided by cumulative scale. They
+  start at the exit face without a fixed offset. Hop, scale and numerical
+  refusals return no partial ray. The full strike band is admitted before
+  publication. Short rays keep their authored length and width.
+- `PartSource` separates body material from world material with an optional
+  policy owner. A world strike can use its author's budget without using the
+  author's body chart or active transit. Ray admission, hit resolution and
+  the folded line mesh retain that policy owner.
 - Apertures publish before integration. Body material maps refresh after
   transit. Combat and presentation consume fallible partitions.
 - `BodyPieces` is removed. The held gun uses the shared attachment carry path.
   Pooled textured meshes clip against every boundary; the six-plane shader
   limit is removed. Folded meshes clip in the source chart.
 
-`cargo check -p ambition_app` and the workspace all-targets check pass.
-Focused library tests pass: 740 core, 63 geometry, 350 shared-state, 139 portal,
-46 projectile, six runtime transfer and 126 presentation tests. One core
-measurement remains ignored. The 26 assembled-app tests selected by `portal`
-pass. Omitting carried-vector mapping makes its atomic-transfer witness fail.
-The preceding transfer change passes the 35 workspace policy tests. These results do
-not close the full replay, visual or performance acceptance checks.
+`cargo check -p ambition_app` passes on the ray change.
+Library tests pass: 755 core, 815 combat, 350 shared-state, 139 portal and
+517 renderer tests. Five tests remain ignored across those crates.
+The portal content ray test passes with the `portal` feature. Removing the
+ray's scale conversion makes the nearby-exit target assertion fail.
+The ray integration passes the assembled eye-laser test and the 26 tests
+selected by `portal`.
+The Smash host passes 71 tests, with six tests ignored. The 35 workspace
+policy tests pass. An angled exit-host regression fails before the exit point
+is constrained to its aperture plane. The final correction passes the core
+library, portal content ray test and app compile check.
+The preceding transfer work also passed geometry, projectile, runtime and
+presentation tests and the workspace all-targets check. These results do not
+close the full replay, visual or performance acceptance checks.
 
 Finish source admission for free-body sweeps, externally owned poses and
-moving aperture hosts. Audit projectile contact responses and attack updates.
+moving aperture hosts. Audit projectile contact responses and the remaining attack updates.
+Body-attached ray origins still need the common material pose pass. Ray wall
+clipping still uses its centre line; finite-width contact remains open.
 Check retained support facts, curved paths, control-phase displacement,
 topology changes after the aperture snapshot and candidate-copy cost.
 The existing gates do not close PSIM-1B.

@@ -14,15 +14,7 @@ use super::transit::PortalTransit;
 use super::tuning::PortalTuning;
 use super::types::{find_portal, PlacedPortal};
 
-/// Portal-aware raycast. If the ray enters a portal aperture from its front
-/// before it hits a solid, the rest of the ray continues from the linked
-/// portal. Line of sight, beams, grapples, and aim traces use this. The
-/// returned `(hit, normal)` is in the chart where the ray ends. `max_depth`
-/// stops two facing portals from looping forever.
-///
-/// The traversal is [`ae::cast::ray_through_apertures`]. This wrapper supplies
-/// the aperture pairs from the placed portals; the caller supplies the map
-/// convention.
+/// Cast through placed portals. A refusal publishes no partial ray.
 #[allow(clippy::too_many_arguments)]
 pub fn raycast_through_portals(
     world: &ae::World,
@@ -31,26 +23,21 @@ pub fn raycast_through_portals(
     dir: Vec2,
     max_dist: f32,
     include_one_way: bool,
-    max_depth: u32,
+    budget: ae::cast::RayBudget,
     convention: MapConvention,
-) -> Option<(Vec2, Vec2)> {
-    let pairs: Vec<(ae::frame::PortalAperture, ae::frame::PortalAperture)> = portals
-        .iter()
-        .filter_map(|enter| {
-            let exit = find_portal(portals, enter.channel.partner())?;
-            Some((enter.aperture(), exit.aperture()))
+) -> Result<Option<(Vec2, Vec2)>, ae::frame::thread::Refusal> {
+    let mut ordered = portals.iter().collect::<Vec<_>>();
+    ordered.sort_by(|a, b| crate::stable_portal_order(a, b));
+    let links = ordered.into_iter().enumerate().filter_map(|(key, enter)| {
+        let exit = find_portal(portals, enter.channel.partner())?;
+        Some(ae::frame::thread::PortalLink {
+            enter: enter.aperture(), exit: exit.aperture(), key: key as u32, depth: None,
         })
-        .collect();
-    ae::cast::ray_through_apertures(
-        world,
-        &pairs,
-        origin,
-        dir,
-        max_dist,
-        include_one_way,
-        max_depth,
-        convention,
-    )
+    }).collect::<Vec<_>>();
+    ae::cast::trace_through_apertures(
+        world, &links, ae::cast::PortalRay { origin, direction: dir, reach: max_dist },
+        include_one_way, budget, convention,
+    ).map(|trace| trace.hit)
 }
 
 /// Portal-aware raycast using the editable portal recursion budget.
@@ -62,7 +49,7 @@ pub fn raycast_through_portals_tuned(
     max_dist: f32,
     include_one_way: bool,
     tuning: &PortalTuning,
-) -> Option<(Vec2, Vec2)> {
+) -> Result<Option<(Vec2, Vec2)>, ae::frame::thread::Refusal> {
     raycast_through_portals(
         world,
         portals,
@@ -70,7 +57,10 @@ pub fn raycast_through_portals_tuned(
         dir,
         max_dist,
         include_one_way,
-        tuning.raycast_recursion_depth,
+        ae::cast::RayBudget {
+            max_hops: tuning.raycast_recursion_depth,
+            max_scale_exponent: tuning.geometry.budget().max_scale_exponent,
+        },
         tuning.convention.map_convention(),
     )
 }

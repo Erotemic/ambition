@@ -203,7 +203,7 @@ impl RayStrike {
     /// from the start along `dir`, `width` across.
     pub fn shape(&self) -> ae::VolumeShape {
         let across = self.dir.perp() * (self.width * 0.5);
-        let end = self.dir * self.length.max(1.0);
+        let end = self.dir * self.length.max(0.0);
         ae::VolumeShape::Convex { points: vec![across, end + across, end - across, -across] }
     }
 }

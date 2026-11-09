@@ -16,7 +16,7 @@ Several independently implemented systems now meet at the same idea:
 - [`ambition_portal2d`](../../crates/ambition_portal2d/src/lib.rs) models portal
   transit as a spatial mapping over ordinary bodies rather than as a separate
   actor type;
-- [`ray_through_apertures`](../../crates/ambition_platformer2d_core/src/cast.rs)
+- [`trace_through_apertures`](../../crates/ambition_platformer2d_core/src/cast/aperture.rs)
   maps both points and directions through aperture pairs while preserving a
   bounded distance budget;
 - [`ambition_relativity`](../../crates/ambition_relativity/src/lib.rs) provides a
@@ -133,7 +133,7 @@ the same edge coherently.
 
 This makes portals comparable less to an engine's “teleport actor” call and more
 to adding a non-Euclidean edge to the frame graph. That perspective explains
-why `ray_through_apertures` belongs in shared geometry and why ordinary bodies
+why `trace_through_apertures` belongs in shared geometry and why ordinary bodies
 remain ordinary on both sides.
 
 The design opportunity is to generalize only the minimum useful abstraction:

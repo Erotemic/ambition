@@ -299,27 +299,43 @@ fn cast_ray(
         ambition_combat_port::Spot::World(at) => ae::Vec2::from(at),
         ambition_combat_port::Spot::Body(offset) => body? + ae::Vec2::from(offset),
     };
-    let dir = ae::Vec2::from(ray.toward).normalize_or_zero();
-    if dir == ae::Vec2::ZERO {
-        return None;
-    }
-    let reach = ray.reach.max(0.0);
+    let toward = ae::Vec2::from(ray.toward);
+    if !origin.is_finite() || !toward.is_finite() || !ray.reach.is_finite()
+        || !ray.width.is_finite() || ray.reach <= 0.0 || ray.width <= 0.0 { return None; }
+    let dir = toward.as_dvec2().normalize_or_zero().as_vec2();
+    if dir == ae::Vec2::ZERO { return None; }
+    let reach = ray.reach;
     let length = match walls {
         Some(walls) => {
-            let (pairs, hops, convention) = match passages {
-                Some(p) => (
-                    p.pairs_in(room),
-                    u32::from(p.budget_for(Some(owner), room).max_hops),
-                    p.convention(),
-                ),
-                None => (Vec::new(), 0, Default::default()),
+            let (links, budget, convention) = match passages {
+                Some(p) => (p.links_in(room), p.budget_for(Some(owner), room).into(), p.convention()),
+                None => (&[][..], ae::frame::thread::PieceBudget::SINGLE_HOP.into(), Default::default()),
             };
-            ae::cast::trace_through_apertures(walls, &pairs, origin, dir, reach, false, hops, convention).distance
+            match ae::cast::trace_through_apertures(
+                walls, links, ae::cast::PortalRay { origin, direction: dir, reach }, false, budget, convention,
+            ) {
+                Ok(trace) => trace.distance,
+                Err(refusal) => {
+                    trace!(?owner, ?refusal, "ray refused before publication");
+                    return None;
+                }
+            }
         }
         None => reach,
     };
-    let strike = crate::strike::RayStrike { dir, length, width: ray.width.max(1.0), look: Arc::from(ray.look.as_str()) };
-    Some((origin, strike.clone(), strike.shape()))
+    if length <= 0.0 { return None; }
+    let strike = crate::strike::RayStrike { dir, length, width: ray.width, look: Arc::from(ray.look.as_str()) };
+    let shape = strike.shape();
+    if let Some(passages) = passages {
+        let volume = shape.place_at(origin, 1.0, ae::Vec2::Y);
+        if let Err(refusal) = passages.pieces(
+            &volume, ambition_platformer2d_shared_tangle::portal_passages::PartSource::World { owner: Some(owner) }, origin, room,
+        ) {
+            trace!(?owner, ?refusal, "ray material refused before publication");
+            return None;
+        }
+    }
+    Some((origin, strike, shape))
 }
 
 /// See the port cards on `HeldDamageBoxPort` and `HeldRayPort`: release what
@@ -366,7 +382,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
         let Some((origin, ray, shape)) =
             cast_ray(&s.value, body, walls.as_deref(), passages.as_deref(), s.scope, room.map(|r| r.0))
         else {
-            warn!("extension entry {} asked for a ray from {:?} that has no start or no direction; refused", s.entry, s.scope);
+            trace!("extension entry {} ray from {:?} refused before publication", s.entry, s.scope);
             continue;
         };
         asked.push(AskedHeld {

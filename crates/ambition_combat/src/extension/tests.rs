@@ -489,3 +489,68 @@ fn the_attachment_observation_gives_each_point_from_the_position_of_the_body() {
     assert_eq!(points.get("hand"), None);
     assert_eq!(body_attachments_of(&world, bare), None, "a body with no rig gave points");
 }
+
+#[test]
+fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
+    use ae::frame::thread::{PieceBudget, VolumePiece};
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    use ambition_platformer2d_shared_tangle::portal_passages::{PartSource, PortalPassages};
+    let owner=Entity::from_raw_u32(1).unwrap();
+    let mut passages=PortalPassages::new(MapConvention::Reflection);
+    passages.add_pair(None,(
+        PortalAperture { frame:PortalFrame::fixed(ae::Vec2::new(10.0,0.0),-ae::Vec2::X),half_length:20.0 },
+        PortalAperture { frame:PortalFrame::fixed(ae::Vec2::new(100.0,0.0),ae::Vec2::X),half_length:10.0 },
+    ));
+    let world=ae::World::new("held scaled ray",ae::Vec2::splat(1000.0),ae::Vec2::ZERO,
+        vec![ae::Block::solid("target",ae::Vec2::new(105.0,-10.0),ae::Vec2::new(10.0,20.0))]);
+    for (origin,direction,expected_length,near,far) in [
+        (0.0,1.0,20.0,104.0,106.0),
+        (104.0,-1.0,40.0,-60.0,-63.0),
+    ] {
+        let request=HeldRay {
+            slot:0,generation:0,from:ambition_combat_port::Spot::World([origin,0.0]),
+            toward:[direction,0.0],reach:40.0,width:4.0,damage:1,knockback:1.0,
+            launch_dir:None,lifetime_s:0.5,look:"laser".into(),
+        };
+        let (origin,strike,shape)=cast_ray(&request,None,Some(&world),Some(&passages),owner,None).unwrap();
+        assert_eq!(strike.length,expected_length);
+        let volume=shape.place_at(origin,1.0,ae::Vec2::Y);
+        let parts=passages.pieces(&volume,PartSource::World { owner:Some(owner) },origin,None).unwrap();
+        let meets=|x| {
+            let sample=VolumePiece::whole(ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::new(x,0.0),ae::Vec2::splat(0.1))));
+            parts.iter().any(|part|part.meets(&sample))
+        };
+        assert!(meets(near),"the admitted ray must reach its far chart: {parts:?}");
+        assert!(!meets(far),"the ray must stop at its scaled reach or wall");
+        passages.set_body_budget(owner,PieceBudget { max_hops:0,..PieceBudget::COMPOSED });
+        assert!(cast_ray(&request,None,Some(&world),Some(&passages),owner,None).is_none(),
+            "a refused ray cannot publish an uncut strike");
+        passages.set_body_budget(owner,PieceBudget { max_pieces:0,..PieceBudget::COMPOSED });
+        assert!(cast_ray(&request,None,Some(&world),Some(&passages),owner,None).is_none(),
+            "ray material must be admitted before its strike is published");
+        passages.set_body_budget(owner,PieceBudget::COMPOSED);
+    }
+}
+
+
+#[test]
+fn a_subunit_ray_does_not_extend_through_its_first_wall() {
+    let owner=Entity::from_raw_u32(1).unwrap();
+    let world=ae::World::new("short ray",ae::Vec2::splat(100.0),ae::Vec2::ZERO,
+        vec![ae::Block::solid("wall",ae::Vec2::new(0.25,-1.0),ae::Vec2::new(1.0,2.0))]);
+    let mut request=HeldRay {
+        slot:0,generation:0,from:ambition_combat_port::Spot::World([0.0,0.0]),
+        toward:[f32::MAX,0.0],reach:40.0,width:0.1,damage:1,knockback:1.0,
+        launch_dir:None,lifetime_s:0.5,look:"laser".into(),
+    };
+    let (origin,strike,shape)=cast_ray(&request,None,Some(&world),None,owner,None).unwrap();
+    assert_eq!(strike.dir,ae::Vec2::X);
+    assert_eq!(strike.length,0.25);
+    let bounds=shape.place_at(origin,1.0,ae::Vec2::Y).bounds();
+    assert_eq!(bounds.max.x,0.25);
+    assert_eq!(bounds.max.y-bounds.min.y,0.1);
+    request.reach=0.0;
+    assert!(cast_ray(&request,None,Some(&world),None,owner,None).is_none());
+    request.reach=f32::NAN;
+    assert!(cast_ray(&request,None,None,None,owner,None).is_none());
+}

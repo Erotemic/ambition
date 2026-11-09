@@ -15,6 +15,7 @@
 //! Its material only composites the colours its triangles carry: added
 //! (light) or blended. No shader draws a shape.
 
+use ambition_platformer2d_shared_tangle::portal_passages::PartSource;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::NoFrustumCulling,
@@ -101,13 +102,13 @@ pub enum Composite {
 ///
 /// `tris` are in the world, unfolded. `root` is where the geometry comes
 /// from (a ray's start, a body's middle): a pair cuts it only from the
-/// pair's front, as seen from there. `carrier` is the body it is carried
-/// with, if any: the pair that body straddles cuts it first.
+/// pair's front, as seen from there. `source` selects the material chart,
+/// active transit and traversal policy.
 #[derive(Component, Clone, Debug, Default)]
 pub struct FoldedMesh {
     pub tris: Tris,
     pub root: Vec2,
-    pub carrier: Option<Entity>,
+    pub source: PartSource,
     pub z: f32,
     pub composite: Composite,
 }
@@ -364,8 +365,8 @@ fn write_folded_meshes(
         };
         let room = rooms.of(entity);
         let tris = match (passages.as_deref(), mesh.tris.bounds()) {
-            (Some(passages), Some(bounds)) if passages.cuts_in(room, mesh.carrier) => {
-                let Ok(pieces) = passages.pieces(&ae::CombatVolume::aabb(bounds), mesh.carrier, mesh.root, room) else { continue; };
+            (Some(passages), Some(bounds)) if passages.cuts_in(room, mesh.source.carrier()) => {
+                let Ok(pieces) = passages.pieces(&ae::CombatVolume::aabb(bounds), mesh.source, mesh.root, room) else { continue; };
                 let Ok(tris) = fold(&mesh.tris, &pieces) else { continue; };
                 tris
             }

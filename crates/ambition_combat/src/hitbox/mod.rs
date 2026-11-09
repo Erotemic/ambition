@@ -3,6 +3,7 @@
 //! `HitboxHits` deduplicates victims across a multi-tick active window. `HitboxAnchor::FollowOwner`
 //! resolves world geometry from the owner's current position each tick.
 
+use ambition_platformer2d_shared_tangle::portal_passages::PartSource;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::{Commands, Entity, Has, Message, MessageWriter, Query, Res, With};
 
@@ -348,7 +349,7 @@ pub fn hit_reaches_victim_through(
         Some(published) if published.published() => published.volumes.clone(),
         _ => vec![ambition_platformer2d_core::CombatVolume::aabb(victim_aabb.aabb())],
     };
-    let cut = parts.iter().map(|part| passages.pieces(part, Some(victim), victim_aabb.center, room))
+    let cut = parts.iter().map(|part| passages.pieces(part, PartSource::Body(victim), victim_aabb.center, room))
         .collect::<Result<Vec<_>, _>>();
     let Ok(cut) = cut else { return false; };
     cut.into_iter().flatten().any(|piece| {
@@ -820,8 +821,8 @@ pub fn strike_pieces(
     let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
     let volume = hitbox.world_volume(owner_pos);
     match passages {
-        Some(p) if carrier.is_some() => p.pieces_reaching(&volume, carrier, owner_pos, room),
-        Some(p) => p.pieces(&volume, carrier, spatial_source_of(hitbox, owner_pos), room),
+        Some(p) if carrier.is_some() => p.pieces_reaching(&volume, PartSource::Body(hitbox.owner), owner_pos, room),
+        Some(p) => p.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room),
         None => Ok(vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)]),
     }
 }
@@ -839,7 +840,7 @@ pub fn hurt_pieces_of(
     match passages {
         Some(passages) => {
             let mut pieces = Vec::new();
-            for part in &parts { pieces.extend(passages.pieces(part, Some(body), center, room)?); }
+            for part in &parts { pieces.extend(passages.pieces(part, PartSource::Body(body), center, room)?); }
             Ok(pieces)
         },
         None => Ok(parts.into_iter().map(ambition_platformer2d_core::frame::thread::VolumePiece::whole).collect()),
@@ -1191,7 +1192,7 @@ pub fn apply_hitbox_damage(
                                 .map(|guard| {
                                     let volume = ae::CombatVolume::aabb(guard.volume);
                                     let cut = match threaded {
-                                        Some(passages) => passages.pieces(&volume, Some(victim.entity), victim.aabb.center, victim_room),
+                                        Some(passages) => passages.pieces(&volume, PartSource::Body(victim.entity), victim.aabb.center, victim_room),
                                         None => Ok(vec![VolumePiece::whole(volume)]),
                                     };
                                     cut.map(|pieces| (*guard, pieces))

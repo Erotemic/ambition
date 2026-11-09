@@ -17,6 +17,30 @@ use crate::lifecycle::LiveRoomInstance;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PortalPieceBudget(pub PieceBudget);
 
+/// The material chart and the owner of its traversal policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PartSource {
+    /// Use the body's material map, active transit and policy.
+    Body(Entity),
+    /// Use world material. The optional owner supplies only the policy.
+    World { owner: Option<Entity> },
+}
+
+impl Default for PartSource {
+    fn default() -> Self { Self::World { owner: None } }
+}
+
+impl PartSource {
+    /// The body whose material map and active transit apply.
+    pub fn carrier(self) -> Option<Entity> {
+        match self { Self::Body(body) => Some(body), Self::World { .. } => None }
+    }
+
+    fn owner(self) -> Option<Entity> {
+        match self { Self::Body(body) => Some(body), Self::World { owner } => owner }
+    }
+}
+
 /// A drawable that reaches out from a point that is not its own centre: a
 /// swing drawn in front of the body that swings it. The point is in engine
 /// world coordinates. A portal pair carries the drawable when it reaches past
@@ -157,11 +181,6 @@ impl PortalPassages {
         self.room(room).map_or(&[], |r| &r.links)
     }
 
-    /// The pairs of `room`, each once, from the end that orders first.
-    pub fn pairs_in(&self, room: Option<LiveRoomInstance>) -> Vec<(PortalAperture, PortalAperture)> {
-        self.links_in(room).iter().step_by(2).map(|link| (link.enter, link.exit)).collect()
-    }
-
     /// The link of the pair `body` straddles: in at the end whose front its
     /// centre is on.
     pub fn straddled_by(&self, body: Entity) -> Option<PortalLink> {
@@ -177,20 +196,18 @@ impl PortalPassages {
         !self.links_in(room).is_empty() || carrier.is_some_and(|carrier| self.straddled_by(carrier).is_some())
     }
 
-    /// Where `volume`, which comes from `root`, is in `room`: cut first by the
-    /// pair its `owner` straddles (a volume the owner carries with it), and by
-    /// every opening of the room it reaches through from that opening's
-    /// front, as far as the owner's policy, else the room's, lets it; or
-    /// whole. A refused candidate returns its reason without partial geometry.
-    /// The movement owner must retain the last admitted pose.
+    /// Cut `volume` from `root` in `room`. A body source uses its material
+    /// map and active transit. A world source uses world material. Both use
+    /// their owner's policy, or the room policy when no owner is set.
+    /// A refusal returns no partial geometry.
     pub fn pieces(
         &self,
         volume: &CombatVolume,
-        owner: Option<Entity>,
+        source: PartSource,
         root: Vec2,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
-        self.pieces_from(volume, owner, root, false, room)
+        self.pieces_from(volume, source, root, false, room)
     }
 
     /// [`Self::pieces`] for a volume that reaches from `root` (a strike from
@@ -199,38 +216,39 @@ impl PortalPassages {
     pub fn pieces_reaching(
         &self,
         volume: &CombatVolume,
-        owner: Option<Entity>,
+        source: PartSource,
         root: Vec2,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
-        self.pieces_from(volume, owner, root, true, room)
+        self.pieces_from(volume, source, root, true, room)
     }
 
     fn pieces_from(
         &self,
         volume: &CombatVolume,
-        owner: Option<Entity>,
+        source: PartSource,
         root: Vec2,
         reaching: bool,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
         let cut_by = if reaching { partition_reaching } else { partition };
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
-        let root_map = owner.and_then(|owner| self.materials.get(&owner)).copied()
+        let carrier = source.carrier();
+        let root_map = carrier.and_then(|owner| self.materials.get(&owner)).copied()
             .unwrap_or(Ok(Sim2::IDENTITY)).map_err(numeric)?;
         let canonical = ambition_platformer2d_core::frame::thread::map_volume(volume, &root_map.inverse().map_err(numeric)?)
             .map_err(numeric)?;
-        let source = MaterialPrimitive { domain: &canonical, to_world: root_map };
-        let budget = self.budget_for(owner, room);
-        let straddled = owner.and_then(|owner| self.straddled_by(owner));
+        let material = MaterialPrimitive { domain: &canonical, to_world: root_map };
+        let budget = self.budget_for(source.owner(), room);
+        let straddled = carrier.and_then(|owner| self.straddled_by(owner));
         let links = self.links_in(room);
         let cut = match straddled {
             Some(link) if !links.contains(&link) => {
                 let mut with: Vec<PortalLink> = links.to_vec();
                 with.push(link);
-                cut_by(source, root, &with, Some(link.key), budget, self.convention)
+                cut_by(material, root, &with, Some(link.key), budget, self.convention)
             }
-            _ => cut_by(source, root, links, straddled.map(|l| l.key), budget, self.convention),
+            _ => cut_by(material, root, links, straddled.map(|l| l.key), budget, self.convention),
         };
         cut
     }
@@ -264,7 +282,7 @@ mod tests {
         // Across the floor opening: a carrier that straddles it is cut.
         let volume = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(12.0)));
         for carrier in [None, Some(other), Some(traveller)] {
-            let pieces = passages.pieces(&volume, carrier, Vec2::new(0.0, -1.0), Some(here)).unwrap();
+            let pieces = passages.pieces(&volume, match carrier { Some(body) => PartSource::Body(body), None => PartSource::World { owner: None } }, Vec2::new(0.0, -1.0), Some(here)).unwrap();
             let whole = pieces == vec![VolumePiece::whole(volume.clone())];
             assert_eq!(!passages.cuts_in(Some(here), carrier), whole, "{carrier:?}: the predicate and the pieces disagree");
         }
@@ -284,13 +302,13 @@ mod material_tests {
         let world = ambition_platformer2d_core::frame::thread::map_volume(&canonical, &root).unwrap();
         let mut passages = PortalPassages::default();
         passages.set_body_material(body, Ok(root));
-        let pieces = passages.pieces(&world, Some(body), Vec2::new(100.0, 200.0), None).unwrap();
+        let pieces = passages.pieces(&world, PartSource::Body(body), Vec2::new(100.0, 200.0), None).unwrap();
         assert_eq!(pieces.len(), 1);
         assert_eq!(pieces[0].source(), &canonical);
         assert!(pieces[0].transform().reflected());
         assert_eq!(pieces[0].world_volume(), &world);
         assert_eq!(pieces[0].carry(Vec2::new(103.0, 205.0)).unwrap(), Vec2::new(103.0, 205.0));
-        let independent = passages.pieces(&world, None, Vec2::new(100.0, 200.0), None).unwrap();
+        let independent = passages.pieces(&world, PartSource::World { owner: None }, Vec2::new(100.0, 200.0), None).unwrap();
         assert_eq!(independent[0].source(), &world);
         assert!(!independent[0].transform().reflected());
     }

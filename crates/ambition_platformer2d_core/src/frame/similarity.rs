@@ -102,7 +102,7 @@ impl Sim2 {
         Self::from_wide_translation(scale, orthogonal, translation)
     }
 
-    pub(super) fn scale_wide(self) -> f64 { self.scale }
+    pub(crate) fn scale_wide(self) -> f64 { self.scale }
 
     pub(super) fn inverse_direction_wide(self, direction: DVec2) -> DVec2 {
         self.orthogonal.transpose() * direction
@@ -136,15 +136,15 @@ impl Sim2 {
         self.orthogonal.determinant() < 0.0
     }
 
-    pub(super) fn point_wide(self, point: DVec2) -> DVec2 {
+    pub(crate) fn point_wide(self, point: DVec2) -> DVec2 {
         self.orthogonal * point * self.scale + self.translation
     }
 
-    pub(super) fn direction_wide(self, direction: DVec2) -> DVec2 {
+    pub(crate) fn direction_wide(self, direction: DVec2) -> DVec2 {
         self.orthogonal * direction
     }
 
-    pub(super) fn point_from_wide(self, point: DVec2) -> Result<Vec2, NumericFault> {
+    pub(crate) fn point_from_wide(self, point: DVec2) -> Result<Vec2, NumericFault> {
         if !point.is_finite() { return Err(NumericFault::NonFinite); }
         narrow_vec(self.point_wide(point))
     }

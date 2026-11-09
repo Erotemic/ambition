@@ -24,6 +24,7 @@
 
 pub mod strands;
 
+use ambition_platformer2d_shared_tangle::portal_passages::PartSource;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 
@@ -134,7 +135,7 @@ enum Source {
 enum Shape {
     /// From one end to the other. `band`: a ray's width, which a jagged look
     /// keeps within, so the drawn line is where the ray hurts.
-    Line { from: LightningEnd, to: LightningEnd, band: Option<f32> },
+    Line { from: LightningEnd, to: LightningEnd, band: Option<f32>, source: PartSource },
     Aura { owner: Entity, center: ae::Vec2, half: ae::Vec2 },
 }
 
@@ -231,7 +232,13 @@ fn receive_decorations(
     let mut started: Vec<LightningKey> = Vec::new();
     for message in messages.read() {
         let (key, shape, look, hold) = match message.vfx {
-            VfxMessage::Lightning { key, from, to, look, hold } => (key, Shape::Line { from, to, band: None }, look, hold),
+            VfxMessage::Lightning { key, from, to, look, hold } => (key, Shape::Line {
+                from, to, band: None,
+                source: match from {
+                    LightningEnd::Body { owner, .. } => PartSource::Body(owner),
+                    LightningEnd::World(_) => PartSource::World { owner: None },
+                },
+            }, look, hold),
             VfxMessage::LightningAura { key, owner, center, half, look, hold } => {
                 (key, Shape::Aura { owner, center, half }, look, hold)
             }
@@ -279,6 +286,7 @@ fn follow_ray_strikes(
             from: LightningEnd::World(ray.origin),
             to: LightningEnd::World(ray.origin + ray.dir * ray.length),
             band: Some(ray.width),
+            source: PartSource::World { owner: Some(strike.owner) },
         };
         if let Some(mut visual) = live.iter_mut().find(|v| v.source == Source::Ray(strike.strike)) {
             visual.renew(shape, look, RAY_HOLD_S);
@@ -305,12 +313,11 @@ fn resolve(end: LightningEnd, owners: &Query<&PresentedPose>, seen: &mut Option<
     }
 }
 
-/// The body a line is carried with: the owner of its start, or of its aura.
-fn carrier_of(shape: &Shape) -> Option<Entity> {
+/// A line retains its material chart and traversal policy.
+fn source_of(shape: &Shape) -> PartSource {
     match *shape {
-        Shape::Line { from: LightningEnd::Body { owner, .. }, .. } => Some(owner),
-        Shape::Line { .. } => None,
-        Shape::Aura { owner, .. } => Some(owner),
+        Shape::Line { source, .. } => source,
+        Shape::Aura { owner, .. } => PartSource::Body(owner),
     }
 }
 
@@ -437,7 +444,7 @@ fn lay_out_lines(
                 }
             }
         }
-        *mesh = FoldedMesh { tris, root: origin, carrier: carrier_of(&v.shape), z: Z, composite: Composite::Add };
+        *mesh = FoldedMesh { tris, root: origin, source: source_of(&v.shape), z: Z, composite: Composite::Add };
     }
 }
 

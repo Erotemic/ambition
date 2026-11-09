@@ -3217,7 +3217,7 @@ fn a_strike_into_a_portal_hurts_at_its_partner() {
 #[test]
 fn a_body_half_through_a_portal_is_hit_at_its_far_end() {
     let mut passages = floor_to_ceiling();
-    let (floor, ceiling) = passages.pairs_in(None)[0];
+    let (floor, ceiling) = { let link = passages.links_in(None)[0]; (link.enter, link.exit) };
     let mut app = portal_strike_app(None);
     let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -100.0));
     // Sunk 15 into the floor's opening: 15 of it is under the ceiling.
@@ -3298,7 +3298,7 @@ fn a_ranked_sibling_is_placed_by_its_own_anchor() {
         (carried, carried, ae::Vec2::new(500.0, -170.0), 1),
     ] {
         let mut passages = floor_to_ceiling();
-        let (floor, ceiling) = passages.pairs_in(None)[0];
+        let (floor, ceiling) = { let link = passages.links_in(None)[0]; (link.enter, link.exit) };
         let mut app = portal_strike_app(None);
         // Its bottom 15 under the floor's opening. An enemy's move: a
         // player's volume placed in the world hurts no body.
@@ -3323,7 +3323,7 @@ fn a_ranked_sibling_is_placed_by_its_own_anchor() {
 #[test]
 fn a_refused_body_partition_is_not_hit_at_its_far_end() {
     let mut passages = floor_to_ceiling();
-    let (floor, ceiling) = passages.pairs_in(None)[0];
+    let (floor, ceiling) = { let link = passages.links_in(None)[0]; (link.enter, link.exit) };
     let mut app = portal_strike_app(None);
     let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -100.0));
     let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
@@ -3464,4 +3464,27 @@ fn profile_strike_resolution_with_guards() {
     }
     schedule_times.sort_by(f64::total_cmp);
     eprintln!("strike resolution: {:.2} us a tick (median of 5 runs of 2000): {:?}", schedule_times[2], schedule_times);
+}
+
+#[test]
+fn a_world_strike_uses_its_authors_portal_budget_without_using_its_body_chart() {
+    use ae::frame::thread::PieceBudget;
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    let ap=|x,y,ny| PortalAperture {
+        frame:PortalFrame::fixed(ae::Vec2::new(x,y),ae::Vec2::new(0.0,ny)),half_length:40.0,
+    };
+    for (budget,hits) in [(PieceBudget::SINGLE_HOP,0),(PieceBudget::COMPOSED,1)] {
+        let mut passages=ambition_platformer2d_shared_tangle::portal_passages::PortalPassages::new(MapConvention::Reflection);
+        passages.add_pair(None,(ap(0.0,0.0,-1.0),ap(500.0,-200.0,1.0)));
+        passages.add_pair(None,(ap(500.0,-170.0,-1.0),ap(900.0,-200.0,1.0)));
+        passages.set_budget(None,PieceBudget::SINGLE_HOP);
+        let mut app=portal_strike_app(None);
+        let owner=hazard_victim(&mut app,ActorFaction::Player,ae::Vec2::new(-300.0,-300.0));
+        let far=hazard_victim(&mut app,ActorFaction::Enemy,ae::Vec2::new(900.0,-170.0));
+        passages.set_body_budget(owner,budget);
+        app.insert_resource(passages);
+        strike(&mut app,owner,HitboxAnchor::World { center:ae::Vec2::new(0.0,-60.0) },ae::Vec2::new(10.0,160.0));
+        app.update();
+        assert_eq!(struck(&app,far),hits,"{budget:?}");
+    }
 }

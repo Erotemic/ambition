@@ -6,7 +6,6 @@
 //! depends on `SurfaceChain` resolution internals; portal-aware casting uses the
 //! shared aperture vocabulary in [`crate::frame`].
 
-use crate::frame::{self, MapConvention, PortalAperture};
 use crate::geometry::Aabb;
 use crate::world::{Block, BlockKind, SweepHit, World};
 use crate::Vec2;
@@ -130,36 +129,12 @@ pub fn raycast_surfaces<W: SolidWorldQuery + ?Sized>(
     max_dist: f32,
     include_one_way: bool,
 ) -> Option<SurfaceHit> {
-    let dir = dir.normalize_or_zero();
-    if dir == Vec2::ZERO {
-        return None;
-    }
-    let mut best = raycast_solids_far(world, origin, dir, max_dist, include_one_way)
-        .map(|(distance, point, normal)| SurfaceHit { distance, point, normal, segment: None });
-    world.for_each_line(&mut |a, b| {
-        let t = b - a;
-        let len = t.length();
-        if len <= 1.0e-4 {
-            return;
-        }
-        let normal = Vec2::new(t.y, -t.x) / len;
-        let facing = dir.dot(normal);
-        if facing >= 0.0 {
-            return;
-        }
-        // origin + dir * s on the line: (origin + dir*s - a) . normal = 0.
-        let s = (a - origin).dot(normal) / facing;
-        let reach = best.map_or(max_dist, |hit| hit.distance);
-        if s < 0.0 || s >= reach {
-            return;
-        }
-        let point = origin + dir * s;
-        let along = (point - a).dot(t) / (len * len);
-        if (0.0..=1.0).contains(&along) {
-            best = Some(SurfaceHit { distance: s, point, normal, segment: Some((a, b)) });
-        }
-    });
-    best
+    let hit = raycast_surfaces_wide(world, origin.as_dvec2(), dir.as_dvec2().normalize_or_zero(), f64::from(max_dist), include_one_way, true)?;
+    Some(SurfaceHit {
+        distance: hit.distance as f32,
+        point: (origin.as_dvec2()+dir.as_dvec2().normalize_or_zero()*hit.distance).as_vec2(),
+        normal: hit.normal, segment: hit.segment,
+    })
 }
 
 /// Nearest solid surface hit by a ray from `origin` along `dir`.
@@ -187,167 +162,86 @@ pub fn raycast_solids_far<W: SolidWorldQuery + ?Sized>(
     max_dist: f32,
     include_one_way: bool,
 ) -> Option<(f32, Vec2, Vec2)> {
-    let dir = dir.normalize_or_zero();
-    if dir == Vec2::ZERO {
-        return None;
-    }
-    let mut best_t = max_dist;
-    let mut best_normal = Vec2::ZERO;
-    world.for_each_solid_aabb(include_one_way, &mut |aabb| {
-        if let Some((t, n)) = ray_aabb(origin, dir, aabb) {
-            if t < best_t {
-                best_t = t;
-                best_normal = n;
-            }
-        }
-    });
-    if best_normal == Vec2::ZERO {
-        None
-    } else {
-        Some((best_t, origin + dir * best_t, best_normal))
-    }
+    let dir = dir.as_dvec2().normalize_or_zero();
+    let hit = raycast_surfaces_wide(world, origin.as_dvec2(), dir, f64::from(max_dist), include_one_way, false)?;
+    Some((hit.distance as f32, (origin.as_dvec2()+dir*hit.distance).as_vec2(), hit.normal))
 }
 
-/// Cast from `origin` along `dir`; if the ray crosses an aperture's PLANE within its opening,
-/// entering from the front (`dir · normal < 0`), before any solid hit, it re-anchors at the mapped
-/// point on the exit and continues along the mapped direction. Bounded by `max_depth` so two facing
-/// apertures can't loop forever; ONE `max_dist` budget decrements across hops.
-///
-/// Pinned semantics (§3.5): the aperture is a SEGMENT on its plane — the
-/// crossing point must lie within `half_length` along the tangent; a ray
-/// crossing the plane outside the opening ignores the aperture and hits
-/// whatever is behind. The returned `(hit, normal)` is in the FINAL chart.
-///
-/// This is pure aperture GEOMETRY: pairs come from the caller
-/// (`ambition_portal2d` supplies them from its `PlacedPortal`s and keeps the
-/// gameplay — channels, tuning, the game-wide convention flag).
-pub fn ray_through_apertures<W: SolidWorldQuery + ?Sized>(
-    world: &W,
-    pairs: &[(PortalAperture, PortalAperture)],
-    origin: Vec2,
-    dir: Vec2,
-    max_dist: f32,
-    include_one_way: bool,
-    max_depth: u32,
-    convention: MapConvention,
-) -> Option<(Vec2, Vec2)> {
-    trace_through_apertures(world, pairs, origin, dir, max_dist, include_one_way, max_depth, convention).hit
-}
-
-/// What [`trace_through_apertures`] found: the solid it stopped at (in the
-/// final chart, with its normal), and how far it went to get there, counted
-/// along the ray as if each pair it went through were not there (its length
-/// UNFOLDED). With no solid in reach, `hit` is `None` and `distance` is the
-/// whole reach; a ray that cannot go on (no direction, out of hops) has gone
-/// as far as it got.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ApertureTrace {
-    pub hit: Option<(Vec2, Vec2)>,
-    pub distance: f32,
-}
-
-/// [`ray_through_apertures`], and how far the ray went: the length of a line
-/// cast from `origin` that stops at the first solid, wherever the pairs take
-/// it. A line attack is that long, and the portal pairs cut it where it goes
-/// through them.
-pub fn trace_through_apertures<W: SolidWorldQuery + ?Sized>(
-    world: &W,
-    pairs: &[(PortalAperture, PortalAperture)],
-    origin: Vec2,
-    dir: Vec2,
-    max_dist: f32,
-    include_one_way: bool,
-    max_depth: u32,
-    convention: MapConvention,
-) -> ApertureTrace {
-    let mut origin = origin;
-    let mut dir = dir.normalize_or_zero();
-    if dir == Vec2::ZERO {
-        return ApertureTrace { hit: None, distance: 0.0 };
-    }
-    let mut budget = max_dist;
-    let gone = |budget: f32| (max_dist - budget).max(0.0);
-    for _ in 0..=max_depth {
-        let solid = raycast_solids(world, origin, dir, budget, include_one_way);
-        let solid_t = solid
-            .map(|(hit, _)| (hit - origin).length())
-            .unwrap_or(f32::INFINITY);
-        // Nearest aperture plane the ray ENTERS (front side, within the
-        // opening) before that solid.
-        let mut nearest: Option<(f32, &PortalAperture, &PortalAperture)> = None;
-        for (enter, exit) in pairs {
-            let denom = dir.dot(enter.frame.normal);
-            // Only enter through the front of the face (moving into it).
-            if denom >= 0.0 {
-                continue;
-            }
-            // TIE-BREAK: an aperture flush on a host face crosses at exactly
-            // the solid's t — the aperture wins the tie (`>` not `>=`), else
-            // every wall-mounted portal would be occluded by its own host.
-            let t = (enter.frame.origin - origin).dot(enter.frame.normal) / denom;
-            if t < 0.0 || t > budget || t > solid_t {
-                continue;
-            }
-            let at = origin + dir * t;
-            if (at - enter.frame.origin).dot(enter.frame.tangent()).abs() > enter.half_length {
-                continue;
-            }
-            if nearest.map_or(true, |(bt, _, _)| t < bt) {
-                nearest = Some((t, enter, exit));
-            }
-        }
-        match nearest {
-            Some((t, enter, exit)) => {
-                let entry = origin + dir * t;
-                // Emerge just out of the exit face, redirected through the pair.
-                origin = frame::map_point(&enter.frame, &exit.frame, convention, entry)
-                    + exit.frame.normal;
-                dir =
-                    frame::map_vec_between(dir, enter.frame.normal, exit.frame.normal, convention)
-                        .normalize_or_zero();
-                budget -= t;
-                if budget <= 0.0 || dir == Vec2::ZERO {
-                    return ApertureTrace { hit: None, distance: gone(budget) };
-                }
-            }
-            None => {
-                let distance = match solid {
-                    Some((hit, _)) => gone(budget) + (hit - origin).length(),
-                    None => max_dist,
-                };
-                return ApertureTrace { hit: solid, distance };
-            }
-        }
-    }
-    ApertureTrace { hit: None, distance: gone(budget) }
-}
+mod aperture;
+pub use aperture::{trace_through_apertures, ApertureTrace, PortalRay, RayBudget};
 
 /// Ray-vs-AABB slab query. Returns `(t_near, face_normal)` for a forward hit
 /// (`t >= 0`).
 pub fn ray_aabb(origin: Vec2, dir: Vec2, aabb: Aabb) -> Option<(f32, Vec2)> {
-    // 1/0 -> +/-inf is the intended slab-method behavior for axis-parallel rays.
-    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
-    let tx1 = (aabb.min.x - origin.x) * inv.x;
-    let tx2 = (aabb.max.x - origin.x) * inv.x;
-    let ty1 = (aabb.min.y - origin.y) * inv.y;
-    let ty2 = (aabb.max.y - origin.y) * inv.y;
-    let tminx = tx1.min(tx2);
-    let tmaxx = tx1.max(tx2);
-    let tminy = ty1.min(ty2);
-    let tmaxy = ty1.max(ty2);
-    let t_near = tminx.max(tminy);
-    let t_far = tmaxx.min(tmaxy);
-    if t_near > t_far || t_far < 0.0 {
+    ray_aabb_wide(origin.as_dvec2(), dir.as_dvec2(), aabb).map(|(t, n)| (t as f32, n))
+}
+
+fn ray_aabb_wide(origin: bevy_math::DVec2, dir: bevy_math::DVec2, aabb: Aabb) -> Option<(f64, Vec2)> {
+    if !origin.is_finite() || !dir.is_finite() || dir == bevy_math::DVec2::ZERO
+        || !aabb.min.is_finite() || !aabb.max.is_finite() { return None; }
+    let mut near = f64::NEG_INFINITY;
+    let mut far = f64::INFINITY;
+    let mut normal = Vec2::ZERO;
+    for axis in 0..2 {
+        let (lo, hi) = (f64::from(aabb.min[axis]), f64::from(aabb.max[axis]));
+        if dir[axis] == 0.0 {
+            if origin[axis] <= lo || origin[axis] >= hi { return None; }
+            continue;
+        }
+        let (a, b) = ((lo-origin[axis])/dir[axis], (hi-origin[axis])/dir[axis]);
+        if a.min(b) > near {
+            near = a.min(b);
+            normal = Vec2::ZERO;
+            normal[axis] = -dir[axis].signum() as f32;
+        }
+        far = far.min(a.max(b));
+        if near > far { return None; }
+    }
+    // A ray on a face can leave or move along that face without a new impact.
+    if far <= 0.0 || far <= near.max(0.0) { return None; }
+    Some((near.max(0.0), normal))
+}
+
+struct WideSurfaceHit {
+    distance: f64,
+    normal: Vec2,
+    segment: Option<(Vec2, Vec2)>,
+}
+
+fn raycast_surfaces_wide<W: SolidWorldQuery + ?Sized>(
+    world: &W, origin: bevy_math::DVec2, dir: bevy_math::DVec2, reach: f64,
+    include_one_way: bool, include_lines: bool,
+) -> Option<WideSurfaceHit> {
+    if !origin.is_finite() || !dir.is_finite() || dir == bevy_math::DVec2::ZERO || !reach.is_finite() || reach < 0.0 {
         return None;
     }
-    // The axis that produced t_near is the face we hit; its normal opposes
-    // the ray's travel on that axis.
-    let normal = if tminx > tminy {
-        Vec2::new(-dir.x.signum(), 0.0)
-    } else {
-        Vec2::new(0.0, -dir.y.signum())
+    let mut best: Option<WideSurfaceHit> = None;
+    let mut take = |hit: WideSurfaceHit| {
+        if hit.distance < 0.0 || hit.distance > reach { return; }
+        if best.as_ref().is_none_or(|other| hit.distance.total_cmp(&other.distance)
+            .then(hit.normal.x.total_cmp(&other.normal.x)).then(hit.normal.y.total_cmp(&other.normal.y)).is_lt()) {
+            best = Some(hit);
+        }
     };
-    Some((t_near.max(0.0), normal))
+    world.for_each_solid_aabb(include_one_way, &mut |bounds| {
+        if let Some((distance, normal)) = ray_aabb_wide(origin, dir, bounds) {
+            take(WideSurfaceHit { distance, normal, segment: None });
+        }
+    });
+    if include_lines {
+        world.for_each_line(&mut |a, b| {
+            let edge = b.as_dvec2()-a.as_dvec2();
+            let normal = bevy_math::DVec2::new(edge.y, -edge.x).normalize_or_zero();
+            let facing = dir.dot(normal);
+            if facing >= 0.0 || normal == bevy_math::DVec2::ZERO { return; }
+            let distance = (a.as_dvec2()-origin).dot(normal)/facing;
+            let along = (origin+dir*distance-a.as_dvec2()).dot(edge)/edge.length_squared();
+            if (0.0..=1.0).contains(&along) {
+                take(WideSurfaceHit { distance, normal: normal.as_vec2(), segment: Some((a,b)) });
+            }
+        });
+    }
+    best
 }
 
 #[cfg(test)]
@@ -387,121 +281,6 @@ mod tests {
         assert!(!Aabb::new(end, half).strict_intersects(spike));
         // ...but the path tunneled through it.
         assert!(aabb_path_contacts(end, half, delta, spike));
-    }
-
-    /// The trace's length is unfolded: up to the pair, then on from the exit
-    /// to the first solid there.
-    #[test]
-    fn a_trace_is_as_long_as_the_line_it_casts_through_a_pair() {
-        use crate::frame::PortalFrame;
-        use crate::world::{Block, BlockKind};
-        let solid = |name: &str, center: Vec2, half: Vec2| Block {
-            id: crate::geo_id::GeoId::anon(),
-            name: name.into(),
-            aabb: Aabb::new(center, half),
-            kind: BlockKind::Solid,
-            velocity: Vec2::ZERO,
-            art_color: None,
-        };
-        let mut world = World::new("test", Vec2::new(2000.0, 2000.0), Vec2::ZERO, vec![]);
-        world.blocks.push(solid("wall", Vec2::new(210.0, 0.0), Vec2::new(10.0, 200.0)));
-        // Under the exit (a floor portal facing up), a floor 150 below it.
-        world.blocks.push(solid("floor", Vec2::new(500.0, 160.0), Vec2::new(200.0, 10.0)));
-        let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::new(200.0, 0.0), Vec2::new(-1.0, 0.0)), half_length: 46.0 };
-        let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 300.0), Vec2::new(0.0, -1.0)), half_length: 46.0 };
-        let trace = |pairs: &[(PortalAperture, PortalAperture)]| {
-            trace_through_apertures(&world, pairs, Vec2::ZERO, Vec2::X, 1000.0, false, 4, MapConvention::Reflection)
-        };
-        let bare = trace(&[]);
-        assert!((bare.distance - 200.0).abs() < 0.5, "into the wall: {bare:?}");
-        let through = trace(&[(enter, exit)]);
-        // 200 to the pair, then up from the exit to the floor's underside at
-        // y 170: 130 more, less the unit the ray steps out of the exit.
-        assert!(through.hit.is_some(), "{through:?}");
-        assert!((through.distance - 330.0).abs() < 1.5, "{through:?}");
-        let open = trace_through_apertures(&world, &[], Vec2::new(0.0, 500.0), Vec2::X, 1000.0, false, 4, MapConvention::Reflection);
-        assert_eq!(open, ApertureTrace { hit: None, distance: 1000.0 }, "nothing in reach: all of it");
-    }
-
-    #[test]
-    fn ray_through_apertures_continues_through_a_pair() {
-        use crate::frame::PortalFrame;
-        use crate::world::{Block, BlockKind};
-        // A solid wall at x=200; a wall aperture on its face redirects the ray
-        // to a floor aperture at (500, 300), so the ray continues DOWNWARD-free
-        // space and reports no solid hit within budget.
-        let mut world = World::new("test", Vec2::new(2000.0, 2000.0), Vec2::ZERO, vec![]);
-        world.blocks.push(Block {
-            id: crate::geo_id::GeoId::anon(),
-            name: "wall".into(),
-            aabb: Aabb::new(Vec2::new(210.0, 0.0), Vec2::new(10.0, 200.0)),
-            kind: BlockKind::Solid,
-            velocity: Vec2::ZERO,
-            art_color: None,
-        });
-        let enter = PortalAperture {
-            frame: PortalFrame::fixed(Vec2::new(200.0, 0.0), Vec2::new(-1.0, 0.0)),
-            half_length: 46.0,
-        };
-        let exit = PortalAperture {
-            frame: PortalFrame::fixed(Vec2::new(500.0, 300.0), Vec2::new(0.0, -1.0)),
-            half_length: 46.0,
-        };
-        let pairs = [(enter, exit)];
-        // Straight at the wall through the aperture: without the aperture the
-        // ray hits the solid; with it, it emerges from the floor and flies on.
-        let without = ray_through_apertures(
-            &world,
-            &[],
-            Vec2::new(0.0, 0.0),
-            Vec2::X,
-            1000.0,
-            false,
-            4,
-            MapConvention::Reflection,
-        );
-        assert!(without.is_some(), "the bare ray must hit the wall");
-        let with = ray_through_apertures(
-            &world,
-            &pairs,
-            Vec2::new(0.0, 0.0),
-            Vec2::X,
-            1000.0,
-            false,
-            4,
-            MapConvention::Reflection,
-        );
-        assert!(
-            with.is_none(),
-            "through the aperture the ray reaches open space, got {with:?}"
-        );
-        // Crossing the PLANE outside the opening ignores the aperture: the ray
-        // behaves exactly as if no aperture existed (hits the wall).
-        let bare = ray_through_apertures(
-            &world,
-            &[],
-            Vec2::new(0.0, 120.0),
-            Vec2::X,
-            1000.0,
-            false,
-            4,
-            MapConvention::Reflection,
-        );
-        let outside = ray_through_apertures(
-            &world,
-            &pairs,
-            Vec2::new(0.0, 120.0),
-            Vec2::X,
-            1000.0,
-            false,
-            4,
-            MapConvention::Reflection,
-        );
-        assert!(bare.is_some());
-        assert_eq!(
-            outside, bare,
-            "outside the opening the aperture must not divert the ray"
-        );
     }
 
     #[test]

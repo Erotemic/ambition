@@ -167,7 +167,12 @@ fn a_hosted_exit_carries_material_into_the_lab_target_during_the_tick() {
     far_side_contact(ContactMotion::Exit);
 }
 
-enum ContactMotion { Fixed, Wall, Exit }
+#[test]
+fn a_spinning_plank_hits_the_far_material_between_matching_endpoint_poses() {
+    far_side_contact(ContactMotion::TurningWall);
+}
+
+enum ContactMotion { Fixed, Wall, Exit, TurningWall }
 
 #[test]
 fn the_authored_moving_exit_hits_its_target_before_the_shots_root_transfers() {
@@ -258,7 +263,7 @@ fn far_side_contact(motion:ContactMotion) {
     use ambition_platformer2d::portal::{link_hash, PlacedPortal, PortalBodyTransited, PortalHost, PortalLink};
     use ambition_platformer2d::projectiles::{ProjectileOwner, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
     use ambition_platformer2d::vfx::{VfxInRoom, VfxMessage};
-    use ambition_platformer2d::world::{collision::MovingPlatformSet, platforms::MovingPlatformState};
+    use ambition_platformer2d::world::{collision::MovingPlatformSet, platforms::{MovingPlatformState, Plank, PlatformTurn}};
 
     let mut sim = fixed_60hz_room_sim("portal_lab");
     sim.step(base());
@@ -306,7 +311,15 @@ fn far_side_contact(motion:ContactMotion) {
         if !matches!(motion,ContactMotion::Fixed) && !moved_target && sim.world().get::<BodyKinematics>(shot)
             .is_some_and(|body|(body.pos-enter.pos).dot(enter.normal)<=10.01) {
             let world=sim.world_mut();
-            if matches!(motion,ContactMotion::Wall) {
+            if matches!(motion,ContactMotion::TurningWall) {
+                world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks
+                    .retain(|block| block.name!="K far-side target");
+                let mut platform=MovingPlatformState::from_sweep("k_spinning_target", "K spinning target",
+                    exit.pos+exit.normal*6.0-tangent*10.0, Vec2::new(40.0,12.0), 0.0, 0.0);
+                platform.plank=Some(Plank {turn:PlatformTurn::Spin {deg_per_s:21600.0},..Default::default()});
+                ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(world)
+                    .unwrap().0.push(platform);
+            } else if matches!(motion,ContactMotion::Wall) {
                 let mut room=world.query::<&mut RoomGeometry>().single_mut(world).unwrap();
                 let target=room.0.blocks.to_mut().iter_mut().find(|block|block.name=="K far-side target").unwrap();
                 target.aabb=Aabb::new(exit.pos+exit.normal*6.0+tangent*20.0,Vec2::splat(4.0));
@@ -337,6 +350,7 @@ fn far_side_contact(motion:ContactMotion) {
                         ContactMotion::Wall=>(2.0..=2.2).contains(&offset.dot(exit.normal)) && (offset.dot(tangent)+5.0).abs()<0.01,
                         ContactMotion::Fixed=>(offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01,
                         ContactMotion::Exit=>(offset.dot(exit.normal)-10.0).abs() < 0.05 && offset.dot(tangent).abs()<=5.01,
+                        ContactMotion::TurningWall=>(-0.01..=5.01).contains(&offset.dot(exit.normal)) && offset.dot(tangent).abs()<=5.01,
                     }
                 }
                 _ => false,

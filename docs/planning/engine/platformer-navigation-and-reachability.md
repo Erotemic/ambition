@@ -330,7 +330,7 @@ The walked route (2026-10-10):
 crossings, and the playthrough walks the same road by keys in the shipped App
 (`common::walk`, both drivers). In each room it builds the graph for the player's own body over
 the room as the body collides with it (the authored blocks and each standing
-gate solid, `world_with_gate_solids_and_carves`), with the other overlap exits
+gate solid), with the other overlap exits
 avoided, and it gives the player the stick and jump that
 `follow_leg` says. A door takes Interact, and the crossing is the shipped room
 transition. No step puts the body anywhere. Before the exits were avoided,

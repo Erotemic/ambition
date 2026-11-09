@@ -24,6 +24,195 @@ fn a_new_cell_owns_contact_at_a_topology_boundary() {
 }
 
 #[test]
+fn a_rotating_line_hits_material_between_equal_endpoint_poses() {
+    use crate::{SurfaceChain,World};
+    for turn in [std::f32::consts::TAU, std::f32::consts::TAU*2.0, -std::f32::consts::TAU] {
+        let mut chain=SurfaceChain::open("spinning line",vec![Vec2::new(-10.0,0.0),Vec2::new(10.0,0.0)]);
+        chain.turn=turn;
+        chain.pivot=Vec2::ZERO;
+        let world=World::new("curved contact",Vec2::splat(100.0),Vec2::ZERO,vec![]).with_chains(vec![chain]);
+        let shape=CombatVolume::circle(Vec2::new(0.0,8.0),1.0);
+        let hit=world.first_material_sweep(MaterialCast { material:MaterialPrimitive::world(&shape),
+            root:Vec2::new(0.0,8.0),delta:Vec2::ZERO,time:0.0..1.0 },None,|_,_,_|Ok(true)).unwrap().unwrap();
+        let expected=(1.0_f64/8.0).acos()/f64::from(turn).abs();
+        assert!((hit.contact.toi-expected).abs()<1.0e-6,"{turn}: {hit:?}, expected {expected}");
+        assert!(hit.contact.world_point.distance(Vec2::new(0.0,8.0))<1.001);
+        assert!((hit.contact.world_point.length()-63.0_f32.sqrt()).abs()<0.001);
+        assert_eq!(hit.collider.source(),crate::collision_semantics::ContactSource::Chain { chain:0,segment:0 });
+    }
+}
+
+#[test]
+fn a_rotating_point_keeps_a_circles_empty_bounding_corner_empty() {
+    let shape=CombatVolume::circle(Vec2::ZERO,1.0);
+    let cells=MaterialCast { material:MaterialPrimitive::world(&shape),root:Vec2::ZERO,
+        delta:Vec2::ZERO,time:0.0..1.0 }.cells(None).unwrap();
+    let point=[Vec2::splat(0.9)];
+    assert!(cells.against_rigid(&cells.parts()[0],&point,Vec2::ZERO,
+        std::f32::consts::TAU,Vec2::ZERO).unwrap().is_none());
+}
+
+#[test]
+fn a_curved_contact_uses_the_casts_world_time_interval() {
+    let shape=CombatVolume::circle(Vec2::new(0.0,8.0),1.0);
+    let obstacle=[Vec2::new(-10.0,0.0),Vec2::new(10.0,0.0)];
+    let request=|time| MaterialCast { material:MaterialPrimitive::world(&shape),root:Vec2::new(0.0,8.0),
+        delta:Vec2::ZERO,time }.cells(None).unwrap();
+    let early=request(0.0..0.1);
+    assert!(early.against_rigid(&early.parts()[0],&obstacle,Vec2::ZERO,
+        std::f32::consts::TAU,Vec2::ZERO).unwrap().is_none());
+    let middle=request(0.1..0.3);
+    let hit=middle.against_rigid(&middle.parts()[0],&obstacle,Vec2::ZERO,
+        std::f32::consts::TAU,Vec2::ZERO).unwrap().unwrap();
+    let expected=(1.0_f64/8.0).acos()/f64::from(std::f32::consts::TAU);
+    assert!((hit.world_time-expected).abs()<1.0e-6,"{hit:?}");
+    assert!((hit.toi-(expected-0.1)/0.2).abs()<1.0e-6);
+}
+
+#[test]
+fn a_curved_collider_hits_the_far_part_with_its_physical_witness() {
+    use crate::{SurfaceChain,World};
+    let links=through();
+    let shape=CombatVolume::circle(Vec2::ZERO,5.0);
+    let mut line=SurfaceChain::open("far spinning line",vec![Vec2::new(91.0,-7.0),Vec2::new(111.0,-7.0)]);
+    line.turn=std::f32::consts::TAU;
+    line.pivot=Vec2::new(101.0,-3.0);
+    let world=World::new("curved far contact",Vec2::splat(1000.0),Vec2::ZERO,vec![]).with_chains(vec![line]);
+    let request=MaterialCast { material:MaterialPrimitive {domain:&shape,
+        to_world:Sim2::new(1.0,Mat2::IDENTITY,Vec2::new(-2.0,0.0)).unwrap()},
+        root:Vec2::new(-2.0,0.0),delta:Vec2::ZERO,time:0.0..1.0 };
+    let admission=MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection};
+    let hit=world.first_material_sweep(request,Some(admission),|_,_,_|Ok(true)).unwrap().unwrap();
+    assert_eq!(hit.contact.path,[0]);
+    assert!(hit.contact.toi>0.0 && hit.contact.toi<0.5,"{hit:?}");
+    assert!(hit.contact.world_point.x>=100.0 && hit.contact.world_point.x<=103.001,"{hit:?}");
+    assert!(hit.contact.map.point(hit.contact.point).unwrap().distance(hit.contact.world_point)<0.0001);
+    assert!(hit.contact.point.distance(Vec2::new(-2.0,0.0))<=5.001);
+}
+
+#[test]
+fn a_common_boost_scale_and_parity_preserve_curved_contact() {
+    let body=CombatVolume::circle(Vec2::new(0.0,8.0),1.0);
+    let local=[Vec2::new(-10.0,0.0),Vec2::new(10.0,0.0)];
+    let expected=(1.0_f64/8.0).acos()/f64::from(std::f32::consts::TAU);
+    for scale in [0.5,1.0,2.0] { for parity in [-1.0,1.0] {
+        let map=Sim2::new(scale,Mat2::from_cols(Vec2::X,Vec2::Y*parity),Vec2::new(80.0,-50.0)).unwrap();
+        let boost=Vec2::new(17.0,-9.0);
+        let obstacle=local.map(|p| map.point(p).unwrap()+boost);
+        let cells=MaterialCast {material:MaterialPrimitive {domain:&body,to_world:map},
+            root:map.point(Vec2::new(0.0,8.0)).unwrap(),delta:boost,time:0.0..1.0}.cells(None).unwrap();
+        let hit=cells.against_rigid(&cells.parts()[0],&obstacle,boost,
+            std::f32::consts::TAU*parity,map.point(Vec2::ZERO).unwrap()+boost).unwrap().unwrap();
+        assert!((hit.toi-expected).abs()<1.0e-6,"scale={scale}, parity={parity}: {hit:?}");
+        assert!((hit.point.distance(map.point(Vec2::new(0.0,8.0)).unwrap()+boost*hit.toi as f32)-scale).abs()<0.001);
+    }}
+}
+
+#[test]
+fn an_initial_curved_overlap_can_leave_before_the_line_returns() {
+    let body=CombatVolume::circle(Vec2::new(0.0,8.0),1.0);
+    let cells=MaterialCast {material:MaterialPrimitive::world(&body),root:Vec2::new(0.0,8.0),
+        delta:Vec2::ZERO,time:0.0..1.0}.cells(None).unwrap();
+    let turn=std::f32::consts::PI;
+    let angle=std::f32::consts::FRAC_PI_2+0.05;
+    let direction=Mat2::from_angle(angle)*Vec2::X;
+    let line=[-direction*10.0,direction*10.0];
+    let hit=cells.against_rigid(&cells.parts()[0],&line,Vec2::ZERO,turn,Vec2::ZERO).unwrap().unwrap();
+    assert!(hit.toi>0.9,"the initial overlap is separating; {hit:?}");
+}
+
+#[test]
+fn a_rotating_polygons_contact_keeps_its_original_edge_and_time() {
+    use crate::{SurfaceChain,World};
+    let mut chain=SurfaceChain::open("spinning rectangle",box_at(Vec2::ZERO,Vec2::new(10.0,0.5)));
+    chain.closed=true;
+    chain.kind=crate::world::SurfaceKind::Solid;
+    chain.turn=std::f32::consts::TAU;
+    chain.pivot=Vec2::ZERO;
+    let shape=CombatVolume::aabb(Aabb::new(Vec2::new(0.0,8.0),Vec2::ONE));
+    let world=World::new("rotating polygon",Vec2::splat(100.0),Vec2::ZERO,vec![]).with_chains(vec![chain]);
+    let hit=world.first_material_sweep(MaterialCast {material:MaterialPrimitive::world(&shape),
+        root:Vec2::new(0.0,8.0),delta:Vec2::ZERO,time:0.0..1.0},None,|_,_,_|Ok(true)).unwrap().unwrap();
+    assert!(hit.contact.toi>0.2 && hit.contact.toi<0.25,"{hit:?}");
+    // The body meets the rectangle's positive-y face.
+    assert_eq!(hit.collider.source(),crate::collision_semantics::ContactSource::Chain {chain:0,segment:2});
+    assert!(hit.contact.point.distance(hit.contact.world_point)<0.0001);
+}
+
+#[test]
+fn angular_surface_velocity_uses_the_pivot_at_contact_time() {
+    let mut chain=crate::SurfaceChain::open("moving pivot",vec![Vec2::ZERO,Vec2::X]);
+    chain.velocity=Vec2::new(10.0,4.0);
+    chain.pivot=Vec2::new(5.0,3.0);
+    chain.turn=2.0;
+    let collider=crate::world::MaterialCollider::Chain {chain:&chain,index:0,segment:0};
+    let velocity=collider.velocity_at(Vec2::new(0.5,2.0),0.5,0.25).unwrap();
+    assert_eq!(velocity,Vec2::new(12.0,20.0));
+}
+
+#[test]
+fn a_rotating_solid_that_only_touches_the_cell_is_not_a_wall() {
+    let body=CombatVolume::circle(Vec2::ZERO,5.0);
+    let mut cells=MaterialCast {material:MaterialPrimitive::world(&body),root:Vec2::ZERO,
+        delta:Vec2::ZERO,time:0.0..1.0}.cells(None).unwrap();
+    cells.parts[0].planes.push(translation::MovingPlane {plane:MaterialPlane {inward:DVec2::X,offset:0.0},rate:0.0});
+    let diamond=[Vec2::new(0.0,0.0),Vec2::new(-1.0,1.0),Vec2::new(-2.0,0.0),Vec2::new(-1.0,-1.0)];
+    assert!(cells.against_rigid(&cells.parts()[0],&diamond,Vec2::ZERO,
+        std::f32::consts::TAU,Vec2::new(-1.0,0.0)).unwrap().is_none());
+}
+
+#[test]
+fn many_recorded_windings_do_not_become_one_time_sample() {
+    let body=CombatVolume::circle(Vec2::new(0.0,8.0),1.0);
+    let line=[Vec2::new(-10.0,0.0),Vec2::new(10.0,0.0)];
+    let cells=MaterialCast {material:MaterialPrimitive::world(&body),root:Vec2::new(0.0,8.0),
+        delta:Vec2::ZERO,time:0.0..1.0}.cells(None).unwrap();
+    let turn=std::f32::consts::TAU*16_777_216.0;
+    let hit=cells.against_rigid(&cells.parts()[0],&line,Vec2::ZERO,turn,Vec2::ZERO).unwrap().unwrap();
+    let initial=-f64::from(turn);
+    let phase=initial.sin().atan2(initial.cos()).rem_euclid(std::f64::consts::PI);
+    let entry=(1.0_f64/8.0).acos();
+    let advance=if phase<=entry {entry-phase} else if phase<=std::f64::consts::PI-entry {0.0}
+        else {std::f64::consts::PI+entry-phase};
+    assert!((hit.toi-advance/f64::from(turn)).abs()<1.0e-13,"{hit:?}, phase={phase}");
+    assert!(hit.toi<1.0e-7,"the first winding must supply the hit");
+}
+
+#[test]
+fn rejecting_a_curved_contact_keeps_the_next_approach_in_the_same_tick() {
+    use crate::{SurfaceChain,World};
+    for offset in [Vec2::ZERO,Vec2::new(10_000.0,-20_000.0)] {
+    let mut line=SurfaceChain::open("one-way turn",vec![offset+Vec2::new(-10.0,0.0),offset+Vec2::new(10.0,0.0)]);
+    line.turn=std::f32::consts::TAU;
+    line.pivot=offset;
+    let world=World::new("two approaches",Vec2::splat(100.0),Vec2::ZERO,vec![]).with_chains(vec![line]);
+    let body=CombatVolume::circle(Vec2::new(0.0,8.0),1.0);
+    let mut contacts=Vec::new();
+    let hit=world.first_material_sweep(MaterialCast {material:MaterialPrimitive {domain:&body,
+        to_world:Sim2::new(1.0,Mat2::IDENTITY,offset).unwrap()},
+        root:offset+Vec2::new(0.0,8.0),delta:Vec2::ZERO,time:0.0..1.0},None,|_,_,hit| {
+            contacts.push(hit.toi);
+            Ok(contacts.len()>1)
+        }).unwrap().unwrap();
+    assert_eq!(contacts.len(),2,"one event for each separate overlap component");
+    assert!(contacts[0]<0.25 && contacts[1]>0.7,"{contacts:?}");
+    assert!(hit.contact.toi>0.7);
+    }
+}
+
+#[test]
+fn an_instant_of_angular_history_keeps_static_touch_and_overlap_semantics() {
+    let line=[Vec2::new(-10.0,0.0),Vec2::new(10.0,0.0)];
+    for (height,overlaps) in [(1.0,false),(0.5,true)] {
+        let body=CombatVolume::circle(Vec2::new(0.0,height),1.0);
+        let cells=MaterialCast {material:MaterialPrimitive::world(&body),root:Vec2::new(0.0,height),
+            delta:Vec2::ZERO,time:1.0..1.0}.cells(None).unwrap();
+        let hit=cells.against_rigid(&cells.parts()[0],&line,Vec2::ZERO,std::f32::consts::TAU,Vec2::ZERO).unwrap();
+        assert_eq!(hit.is_some(),overlaps);
+    }
+}
+
+#[test]
 fn a_cells_map_travel_sets_the_physical_contact_pose() {
     let shape = CombatVolume::circle(Vec2::ZERO, 1.0);
     let mut cells = MaterialCast {

@@ -60,7 +60,7 @@ fn surface_velocity(
     admission: Option<MotionAdmission<'_>>,
 ) -> Result<Vec2, Refusal> {
     let velocity = collider
-        .velocity_at(contact.world_point, dt)
+        .velocity_at(contact.world_point, dt, contact.world_time)
         .map_err(|reason| at_contact(contact, reason))?;
     match admission {
         Some(admission) => admission.uncarry_velocity(&contact.path, contact.world_point, velocity, contact.world_time),
@@ -125,9 +125,8 @@ pub fn resolve_world_collision<'w>(
             }
             MaterialCollider::Chain { chain, segment, .. } => {
                 if chain.kind == ae::world::SurfaceKind::Ground {
-                    let (a, b) = chain.segment(segment);
-                    let edge = b - a;
-                    let normal = Vec2::new(edge.y, -edge.x).normalize_or_zero();
+                    let normal = chain.normal_at_time(segment,hit.world_time)
+                        .map_err(|reason| at_contact(hit,reason))?;
                     let owner_normal = hit
                         .map
                         .inverse()

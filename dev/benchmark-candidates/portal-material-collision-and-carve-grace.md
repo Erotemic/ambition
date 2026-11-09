@@ -66,3 +66,10 @@ rounding a bound inwards can remove a valid collision candidate.
 At a topology event, the cells that begin there own contact. A cell that ends
 must not turn an opening's first touch into a wall hit. Keep contact at the
 end of the complete cast observable.
+
+A periodic collider can approach the same body more than once in one tick.
+Reject only the current continuous overlap component. Search later approaches
+against the same collider. One-way normals, edge identity and surface velocity
+must use the physical contact time. Read the moving pivot at that time too.
+Use the pose and interval evaluation errors when tracking a rejected component;
+otherwise a change of world origin can spend all work on its rounded boundary.

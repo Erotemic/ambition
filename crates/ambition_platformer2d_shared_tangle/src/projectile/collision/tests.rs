@@ -2,6 +2,25 @@
 
 use super::*;
 
+#[test]
+fn a_rotating_one_way_line_keeps_the_front_contact_after_the_back_contact() {
+    for turn in [std::f32::consts::TAU,1.0e20_f32] {
+    let direction=(bevy::math::DMat2::from_angle(f64::from(turn))*Vec2::X.as_dvec2()).as_vec2();
+    let mut line=ae::SurfaceChain::open("one-way turn",vec![-direction*10.0,direction*10.0]);
+    line.turn=turn;
+    line.pivot=Vec2::ZERO;
+    let world=ae::World::new("two approaches",Vec2::splat(100.0),Vec2::ZERO,vec![]).with_chains(vec![line]);
+    let mut shot=straight_projectile(Vec2::new(0.0,8.0));
+    shot.kin.canonical_size=Vec2::splat(2.0);
+    shot.kin.vel=Vec2::ZERO;
+    let response=resolve_world_collision(shot.kin,shot.kin,shot.game,&world,Vec2::Y,1.0,0.0..1.0,None).unwrap();
+    let hit=response.contact.unwrap();
+    let advance=hit.contact.toi*f64::from(turn);
+    assert!(advance>4.0 && advance<5.0,"{hit:?}, advance={advance}");
+    assert!(matches!(response.outcome,WorldHitOutcome::Expired {..}));
+    }
+}
+
 fn resolve_motion(
     kin: &mut BodyKinematics, game: &mut ProjectileGameplay, world: &ae::World,
     policy: WorldHitPolicy, gravity: ae::Vec2,

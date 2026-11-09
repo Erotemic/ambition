@@ -13,10 +13,9 @@
 //! rebuild side that PRODUCES the overlay (querying breakables, pogo volumes,
 //! and gates) stays actor-side; only the CONSUMPTION side is here.
 //!
-//! `world_with_sandbox_solids` adds moving-platform + ECS-overlay solids;
-//! `world_with_gate_solids_and_carves` is the projectile view. A portal's hole
-//! is open only for the bodies that opened it, so it is cut only in the walls
-//! a body meets ([`ComposedRooms::solids_for`], [`RoomCollision::solids_for`]).
+//! `world_with_sandbox_solids` adds moving platforms and ECS solids. Material
+//! casts read this physical world. Actor sweeps still use per-body portal
+//! holes and imported geometry through [`RoomCollision::solids_for`].
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::geometry::subtract_aabb;
@@ -643,10 +642,9 @@ impl<'a> RoomCollision<'a> {
             .unwrap_or_default()
     }
 
-    /// The full collision world: authored room + moving platforms + ECS solids,
-    /// with portal apertures carved. This is what actor sweeps and traversal
-    /// raycasts (grapple / blink / dive / body-mode clearance / dropped items)
-    /// read so they collide with everything solid this frame.
+    /// The physical collision world: authored room, moving platforms and ECS
+    /// solids. Material queries use it directly. Readers that need a body's
+    /// portal holes and imported geometry use [`Self::solids_for`].
     ///
     /// Borrows the base geometry on the no-dynamics fast path so the common
     /// case never clones.
@@ -870,13 +868,8 @@ fn extend_in_canonical_order(blocks: &mut ae::layered::Layered<ae::Block>, contr
     blocks.add_all(added);
 }
 
-/// The room world with only portal apertures carved out. Projectiles do not use
-/// moving-platform or ECS-overlay solids, but must be able to enter portal
-/// openings.
-///
-/// Returns `Cow::Borrowed(world)` when there are no active carves — the common
-/// case (no body in a portal opening, or no portals at all) — so the per-frame
-/// projectile steps don't clone the whole block list every frame for nothing.
+/// Cut the box openings used by the actor collision oracle.
+/// TODO(compat-remove): remove after that oracle uses material casts.
 pub fn world_with_portal_carves<'w>(
     world: &'w ae::World,
     portal_carves: &[ae::Aabb],
@@ -887,65 +880,6 @@ pub fn world_with_portal_carves<'w>(
     let mut carved = world.clone();
     carve_portal_apertures(&mut carved.blocks, portal_carves);
     Cow::Owned(carved)
-}
-
-/// The room world with gate solids (lock walls) added and ONLY the portal
-/// apertures carved — moving-platform and ECS-breakable solids omitted. This is
-/// the projectile collision world: projectiles pass through moving platforms but
-/// must collide with gate solids exactly as they did when lock walls lived in
-/// the authored base. Borrows (no clone) when there are neither gate solids nor
-/// active carves — the common case.
-pub fn world_with_gate_solids_and_carves<'w>(
-    world: &'w ae::World,
-    gate_solids: &[ae::Block],
-    portal_carves: &[ae::Aabb],
-    removed_block_names: &[String],
-) -> Cow<'w, ae::World> {
-    world_with_contributed_solids_and_carves(
-        world,
-        gate_solids,
-        &[],
-        portal_carves,
-        removed_block_names,
-    )
-}
-
-/// The same composition, plus the surfaces CONTRIBUTED BY LIVE OBJECTS
-/// (`FeatureEcsWorldOverlay::blocks` — a solid crate, a one-way ledge an object
-/// publishes).
-///
-/// This is a separate slice from `gate_solids` because the facts differ. A
-/// gate solid is geometry a gate opens and closes. A contributed surface
-/// belongs to a thing that can be damaged and can stop existing, so only it
-/// needs the rule "the wall that stopped this shot is the target".
-///
-/// Each contributed block carries its owning occurrence in `GeoId`, which
-/// makes that rule possible. See the projectile contact protocol.
-pub fn world_with_contributed_solids_and_carves<'w>(
-    world: &'w ae::World,
-    gate_solids: &[ae::Block],
-    contributed_solids: &[ae::Block],
-    portal_carves: &[ae::Aabb],
-    removed_block_names: &[String],
-) -> Cow<'w, ae::World> {
-    if gate_solids.is_empty()
-        && contributed_solids.is_empty()
-        && portal_carves.is_empty()
-        && removed_block_names.is_empty()
-    {
-        return Cow::Borrowed(world);
-    }
-    let mut composed = world.clone();
-    // Subtract authored blocks a gate has opened (the gnu_ton floor-gate) so a
-    // shot passes through it exactly as the player does, then add gate solids +
-    // carve.
-    remove_named_blocks(&mut composed.blocks, removed_block_names);
-    extend_in_canonical_order(&mut composed.blocks, gate_solids);
-    extend_in_canonical_order(&mut composed.blocks, contributed_solids);
-    if !portal_carves.is_empty() {
-        carve_portal_apertures(&mut composed.blocks, portal_carves);
-    }
-    Cow::Owned(composed)
 }
 
 /// Apply a content gate's authored-geometry SUBTRACTIONS to a composited world:
@@ -965,15 +899,6 @@ fn apply_overlay_subtractions(world: &mut ae::World, overlay: &FeatureEcsWorldOv
                 .iter()
                 .any(|c| r.aabb.strict_intersects(*c))
         });
-    }
-}
-
-/// Drop authored blocks named in `removed_block_names` from a block list (the
-/// projectile-view half of [`apply_overlay_subtractions`]; projectiles don't read
-/// climbable regions). No-op when the list is empty.
-fn remove_named_blocks(blocks: &mut ae::layered::Layered<ae::Block>, removed_block_names: &[String]) {
-    if !removed_block_names.is_empty() {
-        blocks.hide_where(|b| removed_block_names.iter().any(|n| n == &b.name));
     }
 }
 
@@ -1290,30 +1215,6 @@ mod collision_world_tests {
         });
         // A gate solid is a dynamic contribution → owned composite of base + wall.
         assert_eq!(run(&mut app), Some((true, 2)));
-    }
-
-    #[test]
-    fn gate_solids_compose_into_the_projectile_collision_view() {
-        // Projectiles read base + gate solids + carves (NOT moving platforms /
-        // breakables). A lock wall must stop a shot exactly as it did when it
-        // lived in the authored base.
-        let room = room_one_block();
-        let gates = vec![gate_wall()];
-        let view = world_with_gate_solids_and_carves(&room.0, &gates, &[], &[]);
-        assert!(
-            matches!(view, Cow::Owned(_)),
-            "gate solids force an owned projectile view"
-        );
-        assert_eq!(view.blocks.len(), 2, "base floor + the gate wall");
-        assert!(view
-            .blocks
-            .iter()
-            .any(|b| b.name == "lockwall:test_encounter"));
-
-        // No gate solids and no carves borrows the base (no per-frame clone).
-        let none: Vec<ae::Block> = Vec::new();
-        let borrowed = world_with_gate_solids_and_carves(&room.0, &none, &[], &[]);
-        assert!(matches!(borrowed, Cow::Borrowed(_)));
     }
 
     /// The block names each reader composes: the sole room, #0 and #1.
@@ -1762,12 +1663,6 @@ mod contributed_block_order_tests {
         };
         assert_eq!(sandbox(&forward, &[]), sandbox(&backward, &[]), "contributed blocks");
         assert_eq!(sandbox(&[], &forward), sandbox(&[], &backward), "gate solids");
-
-        let projectile = |gates: &[ae::Block], contributed: &[ae::Block]| {
-            names(&world_with_contributed_solids_and_carves(&room, gates, contributed, &[], &[]))
-        };
-        assert_eq!(projectile(&forward, &[]), projectile(&backward, &[]), "gate solids");
-        assert_eq!(projectile(&[], &forward), projectile(&[], &backward), "contributed blocks");
 
         // The authored room keeps its own order, ahead of what is contributed.
         assert_eq!(

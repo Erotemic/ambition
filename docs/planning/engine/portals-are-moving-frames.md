@@ -43,6 +43,11 @@ The app test `a_moving_portal_is_carved_where_it_is` drives the live room.
 
 Translating apertures and obstacles use the same time interval. The temporal
 constructor retains material that exists only between the endpoint poses.
-Angular construction remains open. A query that can reach angular geometry
-returns `CurvedMotion` until that constructor is complete. Actor contact,
+Rotating collider queries follow the recorded curve over that interval and
+retain its full windings. Contact response reads the normal and moving pivot
+at contact time. A rejected one-way contact does not hide a later approach
+in the same tick. Projectiles read moving platforms from the shared physical
+room composition.
+Rotating aperture construction remains open. A query that can reach a rotating
+aperture returns `CurvedMotion` until that constructor is complete. Actor contact,
 physical righting and capture work stay open in the active plan.

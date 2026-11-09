@@ -12,6 +12,7 @@ mod translation;
 mod cell;
 mod temporal;
 mod affine;
+mod curved;
 pub use cell::MaterialCell;
 
 /// A primitive's translation in its owner's world chart.
@@ -149,7 +150,45 @@ impl MaterialCastCells<'_> {
         let Some(contact) = contact else {
             return Ok(None);
         };
-        let time = part.time.start + duration * contact.time;
+        self.contact(part, CastHit { time: part.time.start + duration * contact.time, ..contact })
+    }
+
+    /// Follow the collider's published rigid motion, including full turns.
+    pub fn against_rigid(
+        &self, part: &MaterialCell, obstacle: &[Vec2], displacement: Vec2,
+        turn: f32, pivot: Vec2,
+    ) -> Result<Option<MaterialCastHit>, Refusal> {
+        self.against_rigid_where(part,obstacle,displacement,turn,pivot,|_| true)
+    }
+
+    /// Reject a contact component and continue along the recorded curve.
+    pub(crate) fn against_rigid_where(
+        &self, part: &MaterialCell, obstacle: &[Vec2], displacement: Vec2,
+        turn: f32, pivot: Vec2, mut accepts:impl FnMut(&MaterialCastHit)->bool,
+    ) -> Result<Option<MaterialCastHit>, Refusal> {
+        if !turn.is_finite() || !pivot.is_finite() {
+            return Err(numeric_at(part, NumericFault::NonFinite));
+        }
+        if turn == 0.0 {
+            return Ok(self.against(part, obstacle, displacement)?.filter(|hit| accepts(hit)));
+        }
+        let mut selected=None;
+        let mut failed=None;
+        let _ = curved::cast(self.material.domain, part, obstacle, displacement,
+            turn, pivot, self.time.clone(), |contact| match self.contact(part,contact) {
+                Ok(Some(hit)) if accepts(&hit)=>{ selected=Some(hit); true },
+                Ok(_)=>false,
+                Err(reason)=>{ failed=Some(reason); true },
+            }).map_err(|reason| {
+                let mut path = part.path.clone();
+                let link = path.pop();
+                Refusal { path, link, reason }
+            })?;
+        match failed {Some(reason)=>Err(reason),None=>Ok(selected)}
+    }
+
+    fn contact(&self, part: &MaterialCell, contact: CastHit) -> Result<Option<MaterialCastHit>, Refusal> {
+        let time = contact.time;
         // Cells that start at a topology event own its contacts.
         if part.time.end < 1.0 && time >= part.time.end - f64::EPSILON * 64.0 { return Ok(None); }
         let root = self.material.to_world.shifted(self.delta * time)

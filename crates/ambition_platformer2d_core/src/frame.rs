@@ -277,6 +277,7 @@ pub use similarity::{NumericFault, Sim2};
 pub(crate) use similarity::{scale_bound, scale_quantity};
 mod motion;
 pub use motion::ApertureStep;
+pub(crate) use motion::rotation_ending_at;
 mod material;
 pub use material::BodyMaterial;
 

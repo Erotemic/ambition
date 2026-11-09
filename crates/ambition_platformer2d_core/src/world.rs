@@ -847,6 +847,19 @@ impl SurfaceChain {
         Vec2::new(t.y, -t.x)
     }
 
+    /// The oriented surface normal at one time in the published tick.
+    pub fn normal_at_time(&self, segment:usize, time:f64) -> Result<Vec2,crate::frame::NumericFault> {
+        use crate::frame::{NumericFault,Sim2};
+        if !time.is_finite() || !self.turn.is_finite() { return Err(NumericFault::NonFinite); }
+        if !(0.0..=1.0).contains(&time) || segment>=self.segment_count() { return Err(NumericFault::InvalidFrame); }
+        let (a,b)=self.segment(segment);
+        if !a.is_finite() || !b.is_finite() { return Err(NumericFault::NonFinite); }
+        let edge=b.as_dvec2()-a.as_dvec2();
+        if edge==bevy_math::DVec2::ZERO { return Err(NumericFault::InvalidFrame); }
+        let normal=bevy_math::DVec2::new(edge.y,-edge.x).normalize();
+        Sim2::IDENTITY.vector_from_wide(crate::frame::rotation_ending_at(f64::from(self.turn),time)*normal)
+    }
+
     pub fn total_length(&self) -> f32 {
         (0..self.segment_count())
             .map(|i| self.segment_length(i))
@@ -1084,9 +1097,11 @@ impl crate::layered::Spatial for SurfaceChain {
             return Aabb { min: bounds.min.min(bounds.min-self.velocity), max: bounds.max.max(bounds.max-self.velocity) };
         }
         let radius = self.points.iter().map(|p| p.as_dvec2().distance(self.pivot.as_dvec2())).fold(0.0_f64, f64::max);
-        let radius = Vec2::splat(radius as f32);
-        Aabb { min: self.pivot.min(self.pivot-self.velocity)-radius,
-            max: self.pivot.max(self.pivot-self.velocity)+radius }
+        let radius = Vec2::splat((radius as f32).next_up());
+        let min = self.pivot.min(self.pivot-self.velocity)-radius;
+        let max = self.pivot.max(self.pivot-self.velocity)+radius;
+        Aabb { min: Vec2::new(min.x.next_down(),min.y.next_down()),
+            max: Vec2::new(max.x.next_up(),max.y.next_up()) }
     }
 }
 
@@ -1224,19 +1239,21 @@ impl MaterialCollider<'_> {
     }
 
     /// Surface speed at the physical contact point, in world units per second.
-    pub fn velocity_at(self, point: Vec2, dt: f32) -> Result<Vec2, crate::frame::NumericFault> {
+    pub fn velocity_at(self, point: Vec2, dt: f32, time: f64) -> Result<Vec2, crate::frame::NumericFault> {
         use crate::frame::{NumericFault, Sim2};
         let displacement = self.displacement();
         let turn = match self { Self::Chain { chain, .. } => chain.turn, _ => 0.0 };
-        if !point.is_finite() || !displacement.is_finite() || !turn.is_finite() || !dt.is_finite() {
+        if !point.is_finite() || !displacement.is_finite() || !turn.is_finite() || !dt.is_finite() || !time.is_finite() {
             return Err(NumericFault::NonFinite);
         }
+        if !(0.0..=1.0).contains(&time) { return Err(NumericFault::InvalidFrame); }
         if displacement == Vec2::ZERO && turn == 0.0 { return Ok(Vec2::ZERO); }
         if dt <= 0.0 { return Err(NumericFault::InvalidFrame); }
         let mut velocity = displacement.as_dvec2() / f64::from(dt);
         if let Self::Chain { chain, .. } = self {
             if !chain.pivot.is_finite() { return Err(NumericFault::NonFinite); }
-            let r = point.as_dvec2()-chain.pivot.as_dvec2();
+            let pivot = chain.pivot.as_dvec2()-displacement.as_dvec2()*(1.0-time);
+            let r = point.as_dvec2()-pivot;
             velocity += bevy_math::DVec2::new(-r.y,r.x) * (f64::from(turn)/f64::from(dt));
         }
         Sim2::IDENTITY.vector_from_wide(velocity)
@@ -1682,9 +1699,9 @@ impl World {
         let mut refused: Option<(MaterialWorldHit<'w>, crate::frame::thread::Refusal)> = None;
         let mut consider = |hit: MaterialWorldHit<'w>, part: &crate::frame::material_cast::MaterialCell| {
             match accepts(hit.collider, part, &hit.contact) {
-                Ok(true) => if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); },
-                Ok(false) => {},
-                Err(reason) => if refused.as_ref().is_none_or(|(first,_)| hit.precedes(first)) { refused=Some((hit,reason)); },
+                Ok(true) => { if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); } true },
+                Ok(false) => false,
+                Err(reason) => { if refused.as_ref().is_none_or(|(first,_)| hit.precedes(first)) { refused=Some((hit,reason)); } true },
             }
         };
         for part in cells.parts() {
@@ -1704,13 +1721,11 @@ impl World {
                     return Err(crate::frame::thread::Refusal { path: part.path.clone(), link: None,
                         reason: crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::NonFinite) });
                 }
-                if chain.turn != 0.0 {
-                    return Err(crate::frame::thread::Refusal { path: part.path.clone(), link: None,
-                        reason: crate::frame::thread::RefusalReason::CurvedMotion });
-                }
                 if chain.closed && chain.kind == SurfaceKind::Solid && chain.points.len() >= 3 {
-                    if let Some(contact) = cells.against(part,&chain.points,chain.velocity)? {
-                        let point = contact.world_point.as_dvec2()+chain.velocity.as_dvec2()*(1.0-contact.world_time);
+                    let _ = cells.against_rigid_where(part,&chain.points,chain.velocity,chain.turn,chain.pivot,|contact| {
+                        let pivot = chain.pivot.as_dvec2()-chain.velocity.as_dvec2()*(1.0-contact.world_time);
+                        let point = chain.pivot.as_dvec2()+crate::frame::rotation_ending_at(f64::from(chain.turn),contact.world_time).transpose()
+                            *(contact.world_point.as_dvec2()-pivot);
                         let distance = |segment| {
                             let (a,b) = chain.segment(segment);
                             let a = a.as_dvec2(); let edge = b.as_dvec2()-a;
@@ -1720,17 +1735,22 @@ impl World {
                         };
                         let segment = (0..chain.segment_count()).min_by(|a,b| distance(*a).total_cmp(&distance(*b)).then(a.cmp(b)))
                             .expect("a solid polygon has edges");
-                        consider(MaterialWorldHit { collider: MaterialCollider::Chain { chain,index,segment },contact },part);
-                    }
+                        consider(MaterialWorldHit { collider: MaterialCollider::Chain { chain,index,segment },contact:contact.clone() },part)
+                    })?;
                     continue;
                 }
                 for segment in 0..chain.segment_count() {
                     let collider = MaterialCollider::Chain { chain,index,segment };
                     let (a,b)=chain.segment(segment);
-                    for line in material_line_segments(a,b,part,&cells,admission)? {
-                        if let Some(contact)=cells.against(part,&line,chain.velocity)? {
-                            consider(MaterialWorldHit { collider,contact },part);
-                        }
+                    let segments = if chain.turn == 0.0 {
+                        material_line_segments(a,b,part,&cells,admission)?
+                    } else {
+                        vec![[a,b]]
+                    };
+                    for line in segments {
+                        let _ = cells.against_rigid_where(part,&line,chain.velocity,chain.turn,chain.pivot,|contact| {
+                            consider(MaterialWorldHit { collider,contact:contact.clone() },part)
+                        })?;
                     }
                 }
             }

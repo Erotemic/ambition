@@ -638,12 +638,17 @@ loading work. No complete PSIM acceptance slice is closed.
   and counts simultaneous cells rather than disjoint time windows. Contact
   uses the recorded world time for the inverse moving-frame velocity law.
   Translating lines use their swept bounds and published displacement.
-  Angular construction, sliding line openings and physical righting remain
-  open. Each directed link retains the start pose and the host's
+  Rotating colliders use bounds over their recorded curves. The query keeps
+  full windings and the actual primitive. A rejected contact component does
+  not hide a later approach in the same tick. Surface velocity, one-way
+  normals and edge identity use the physical contact time. A live app test
+  uses a spinning platform that hits far material between matching endpoint
+  poses. Rotating aperture construction, sliding line openings and physical
+  righting remain open. Each directed link retains the start pose and the host's
   published displacement and turn. Sampling follows the host arc and keeps
   full windings. Both directions share that recorded motion. The constructor
   proves when curved entries cannot be reached. A query that can reach
-  angular geometry returns `CurvedMotion` until the curved constructor is
+  a rotating aperture returns `CurvedMotion` until the curved constructor is
   complete. This temporary capability refusal is separate from numerical
   faults and policy limits. Remove it with the curved constructor.
   A host wrap closes the
@@ -659,6 +664,9 @@ loading work. No complete PSIM acceptance slice is closed.
   their finite opening intervals. The old carve box removed obstacles up to
   16 pixels in front of an exit. A live portal-lab test now stops a shot on
   an obstacle two pixels outside the exit, before its root transits.
+  Projectiles now use the shared physical room composition and its cache.
+  This includes live moving platforms and contributed lines. The separate
+  projectile composition that omitted these surfaces is removed.
 - The block-only endpoint scan, overlap snap, one-pixel bounce lift and
   projectile crossing nudge are removed. The same material query orders and
   resolves each world contact. Body and feature hit queries still need to
@@ -679,13 +687,12 @@ loading work. No complete PSIM acceptance slice is closed.
   limit is removed. Folded meshes clip in the source chart.
 
 `cargo check -p ambition_app --tests` passes on the temporal contact change.
-Focused library tests pass: 793 core, 350 shared-state, 46 projectile and 29 projectile-combat
-tests. One core measurement remains ignored. The assembled app passes all
-30 tests selected by `portal`; the content library passes 38 portal adapter
-tests. The runtime library passes 59 projectile
-tests. The new far-contact test failed while the carve box was still in use.
-The temporal change also passes 71 Smash host tests. Six Smash tests remain
-ignored. The prior contact change passed 35 workspace policy tests. The preceding ray work passed combat,
+Focused library tests pass: 805 core, 351 shared-state, 169 world, 46 projectile
+and 29 projectile-combat tests. Two library measurements remain ignored.
+The assembled app passes all 15 tests selected by `projectile`. The runtime
+library passes 59 projectile tests. The curved collider change also passes
+71 Smash host tests and 35 workspace policy tests. Six Smash tests remain
+ignored. The preceding ray work passed combat,
 portal and renderer libraries and the assembled eye-laser and portal cases.
 These results do not close replay, visual or performance acceptance.
 

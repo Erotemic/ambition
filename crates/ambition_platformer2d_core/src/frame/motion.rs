@@ -3,6 +3,12 @@
 use super::{MapConvention, NumericFault, PortalAperture, PortalFrame, Sim2};
 use crate::Vec2;
 
+/// Rotation from the published end pose at one tick time.
+pub(crate) fn rotation_ending_at(turn:f64,time:f64) -> bevy_math::DMat2 {
+    if time==1.0 { bevy_math::DMat2::IDENTITY }
+    else { bevy_math::DMat2::from_angle(turn*time)*bevy_math::DMat2::from_angle(-turn) }
+}
+
 /// The start pose and the host's published travel during one tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ApertureStep {

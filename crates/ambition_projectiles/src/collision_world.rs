@@ -1,30 +1,17 @@
 //! The room geometry and aperture snapshot used by projectile contacts.
 
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::ecs::system::SystemParam;
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomInstanceRoot};
-use bevy::prelude::{Entity, Query, With};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms};
+use bevy::prelude::Entity;
 #[cfg(feature = "portal")]
-use bevy::prelude::Res;
+use bevy::prelude::{Res, Query};
 
 /// Room geometry stays in its physical chart. The material query scopes each
 /// contact through the aperture snapshot.
 #[derive(SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
-    /// Every live room's identity, geometry and collision overlay, each
-    /// tuple off ONE root.
-    rooms: Query<
-        'w,
-        's,
-        (
-            Option<&'static LiveRoomInstance>,
-            &'static RoomGeometry,
-            &'static FeatureEcsWorldOverlay,
-        ),
-        With<RoomInstanceRoot>,
-    >,
+    collision: ambition_platformer2d_world::collision::CollisionWorld<'w, 's>,
     /// Which live room a shot and each thing it may reach are in (OW1 cut
     /// 4). Here and not a top-level parameter, for the reason the portals
     /// are.
@@ -45,23 +32,7 @@ impl ProjectileCollisionWorld<'_, '_> {
     /// The room's authored and contributed solids. Material cells define portal
     /// openings during the query. The room geometry is not carved.
     pub fn solids_in(&self, room: Option<LiveRoomInstance>) -> Option<std::borrow::Cow<'_, ae::World>> {
-        let mut matching = self
-            .rooms
-            .iter()
-            .filter(|(live, ..)| room.is_none() || live.copied() == room);
-        let (_, geometry, overlay) = matching.next()?;
-        if matching.next().is_some() {
-            return None;
-        }
-        Some(
-            ambition_platformer2d_world::collision::world_with_contributed_solids_and_carves(
-                &geometry.0,
-                &overlay.gate_solids,
-                &overlay.blocks,
-                &[],
-                &overlay.removed_block_names,
-            ),
-        )
+        self.collision.room(room.map(InRoomInstance).as_ref())?.solids()
     }
 
     /// The aperture snapshot and policy for this shot's motion.

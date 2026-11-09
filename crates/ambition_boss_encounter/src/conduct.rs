@@ -155,6 +155,9 @@ pub fn queue_boss_conducts(
                 size: [kin.size().x, kin.size().y],
                 awake: encounter.encounter_phase() != BossEncounterPhase::Dormant,
                 predecessor,
+                reach: geometry.map(|geometry| {
+                    crate::hall::measure_reach(&geometry.0, kin.pos, kin.size() * 0.5, ambition_boss_special_port::REACH_CAP)
+                }),
             },
         );
     }

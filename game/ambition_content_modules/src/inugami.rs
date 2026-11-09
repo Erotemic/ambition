@@ -393,7 +393,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the head.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 5);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 6);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -501,6 +501,12 @@ record! {
     60 run_last_feet: Option<[f32; 2]>,
     61 run_pace: f32,
     62 run_forward: [f32; 2],
+    /// The nearest it has come to you along your scent, and how long since:
+    /// a chase that stops closing is stuck.
+    63 chase_best: f32,
+    64 chase_stall: f32,
+    /// Seconds left of going through what holds it, as the spirit it is.
+    65 ghost: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -635,6 +641,53 @@ fn flash_after(t: f32, peak: f32) -> f32 {
     }
 }
 const FLASH_S: f32 = 0.8;
+
+/// How near a solid it lets itself come (px).
+const STEER_MARGIN: f32 = 6.0;
+/// How long a chase may go without closing on you before it is stuck (s).
+const STALL_S: f32 = 1.0;
+/// How long it goes through what holds it when it is (s).
+const GHOST_S: f32 = 1.2;
+/// A chase this near you is not stuck for not closing: it keeps its gap.
+const STALL_NEAR: f32 = RUN_GAP * 1.5;
+
+/// Where a body at `at` that wants to be at `want`, on its way to `goal`,
+/// goes when it can move `reach` (`[left, right, up, down]`) before it meets
+/// a solid: as far as the solid lets it, and round it with what is left, over
+/// or under a wall toward the goal's height and along a floor or ceiling
+/// toward the goal's side, else the more open way. A body in a solid already
+/// (it reaches nothing any way) goes on out of it as it wanted.
+fn steer(at: Vec2, want: Vec2, goal: Vec2, reach: Option<[f32; 4]>) -> Vec2 {
+    let Some([left, right, up, down]) = reach else {
+        return want;
+    };
+    if left.max(right).max(up).max(down) <= 0.0 {
+        return want;
+    }
+    let room = |r: f32| (r - STEER_MARGIN).max(0.0);
+    let (left, right, up, down) = (room(left), room(right), room(up), room(down));
+    let step = want - at;
+    let mut out = Vec2::new(step.x.clamp(-left, right), step.y.clamp(-up, down));
+    let blocked = step - out;
+    // Which way round: toward the goal on the free axis, if that way is
+    // open, else the more open way.
+    let way = |to_goal: f32, minus: f32, plus: f32| {
+        let toward = if to_goal.abs() > 8.0 { to_goal.signum() } else if plus > minus { 1.0 } else { -1.0 };
+        let open = |dir: f32| if dir < 0.0 { minus } else { plus };
+        if open(toward) > 0.0 { toward } else { -toward }
+    };
+    if blocked.x.abs() > 0.5 {
+        // A wall: over it, or under.
+        let dir = way(goal.y - at.y, up, down);
+        out.y = (out.y + dir * blocked.x.abs()).clamp(-up, down);
+    }
+    if blocked.y.abs() > 0.5 {
+        // A floor or a ceiling: along it.
+        let dir = way(goal.x - at.x, left, right);
+        out.x = (out.x + dir * blocked.y.abs()).clamp(-left, right);
+    }
+    at + out
+}
 
 fn ease(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
@@ -925,6 +978,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             within(p.y, top, hall.floor - half.y - 8.0),
         )
     };
+    // The whole room's air, which a spirit on the scent flies (see
+    // `through_floor` below): bounded by the room, not the floor under it.
+    let room_bottom = inu.room.map_or(hall.floor, |room| room[1]);
+    let fly = |p: Vec2| {
+        Vec2::new(
+            within(p.x, hall.left + half.x + 8.0, hall.right - half.x - 8.0),
+            within(p.y, top, room_bottom - half.y - 8.0),
+        )
+    };
     let face = |x: f32| if target.x < x { -1.0 } else { 1.0 };
     // The arena's wall on its way out, as it is measured under it now (the
     // gate stands in it until the second phase): the one farther from where
@@ -1180,12 +1242,47 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             last_feet: &mut c.run_last_feet,
             pace: &mut c.run_pace,
             forward: &mut c.run_forward,
-        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt, clamp)
+        }.advance(at, Vec2::new(target.x, feet), RUN_CLEAR + half.y, dt, fly)
     });
     if let Some(step) = &pursuit {
         if step.forward.x.abs() > 0.2 {
             c.run_dir = step.forward.x.signum();
         }
+    }
+    // ── Stuck: a chase that stops closing on you goes through what holds it ──
+    // Whatever holds it (a wall, a ceiling, a floor between it and your
+    // scent), a chase that has not come nearer you for `STALL_S` while you
+    // are not at its heels is stuck, and the spirit goes through: for
+    // `GHOST_S`, and on until it is out of the stone (Jon, 2026-11-09).
+    let inside_stone = inu.reach.is_some_and(|reach| reach.iter().all(|&r| r <= 0.0));
+    c.ghost = match c.ghost.map(|t| t - dt) {
+        Some(t) if t > 0.0 || inside_stone => Some(t.max(0.0)),
+        _ => None,
+    };
+    match &pursuit {
+        Some(step) if c.lunge.is_none() && c.ghost.is_none() => {
+            if step.distance + 8.0 < c.chase_best || c.chase_best <= 0.0 {
+                c.chase_best = step.distance;
+                c.chase_stall = 0.0;
+            } else if step.distance > STALL_NEAR {
+                c.chase_stall += dt;
+            }
+            if c.chase_stall > STALL_S {
+                c.ghost = Some(GHOST_S);
+                c.chase_stall = 0.0;
+                c.chase_best = 0.0;
+                burst(inv, at, 18, 260.0, WARD_FIRE, "spark")?;
+            }
+        }
+        Some(_) => {}
+        None => {
+            c.chase_best = 0.0;
+            c.chase_stall = 0.0;
+        }
+    }
+    let ghostly = c.ghost.is_some();
+    if ghostly && c.ticks % 3 == 0 {
+        burst(inv, at, 3, 120.0, WARD_FIRE, "spark")?;
     }
 
     // ── The run: it hunts you to the final hall ──
@@ -1372,10 +1469,14 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let goal = clamp(goal);
         let step = goal - at;
         let stride = speed * dt;
-        if step.length() > stride { at + step.normalize() * stride } else { goal }
+        let next = if step.length() > stride { at + step.normalize() * stride } else { goal };
+        // Round what is in its way, as on the scent.
+        steer(at, next, goal, inu.reach)
     };
     // A position the run's lunge sets over its hunt.
     let mut return_pos: Option<Vec2> = None;
+    // It is on your scent this tick: hunting, not lunging.
+    let mut on_the_scent = false;
     let pos = match part {
         Some(Part { mv: Move::Bite, striking: true, t, dur }) => from + (to - from) * ease_out(t / dur),
         Some(Part { mv: Move::Dive, striking: false, t, dur }) => from + (to - from) * ease(t / (dur * DIVE_RISE_U)),
@@ -1447,14 +1548,28 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             if c.lunge.is_some() && c.ticks % 2 == 0 {
                 burst(inv, at, 5, 180.0, WARD_FIRE, "spark")?;
             }
-            clamp(return_pos.take().unwrap_or(hunt.position))
+            on_the_scent = return_pos.is_none();
+            match return_pos.take() {
+                Some(lunge) => clamp(lunge),
+                // On the scent it keeps out of the stone, round what is in
+                // its way; stuck, it goes through.
+                None if ghostly => fly(hunt.position),
+                None => steer(at, fly(hunt.position), hunt.goal, inu.reach),
+            }
         }
         None => {
             side = face(at.x);
             hover(side)
         }
     };
-    let pos = clamp(pos).min(Vec2::new(f32::MAX, ground));
+    // It keeps over the floor under its middle, except on the scent where the
+    // runner went down under that floor (a shaft beside a ledge, a passage
+    // under a slab): a spirit follows the scent through the stone. Held over
+    // the floor under it, it hung on the slab over the runner and never came
+    // down (Jon, 2026-11-09: "Inugami still gets very stuck"). A lunge keeps
+    // over the floor: it is a dart at your back, not a dive.
+    let through_floor = on_the_scent && (ghostly || pursuit.as_ref().is_some_and(|step| step.goal.y > ground));
+    let pos = if through_floor { fly(pos) } else { clamp(pos).min(Vec2::new(f32::MAX, ground)) };
     // A new floor height or a lunge must use the same flight limit as pursuit.
     let pos = if pursuit.is_some() { at.move_towards(pos, chase::MAX_SPEED * dt) } else { pos };
 
@@ -1729,6 +1844,34 @@ fn drawn_row(c: &Conductor, part: Option<Part>) -> (&'static str, f32, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Round a wall, a ceiling and a floor, and out of the stone it is in.
+    #[test]
+    fn it_steers_round_what_is_in_its_way() {
+        let at = Vec2::ZERO;
+        let open = Some([512.0; 4]);
+        assert_eq!(steer(at, Vec2::new(10.0, 0.0), Vec2::new(500.0, 0.0), open), Vec2::new(10.0, 0.0), "nothing in the way");
+
+        // A wall 8 to the right (2 past its margin): it goes up over it, the
+        // goal being level; down when its goal is below.
+        let wall = Some([512.0, 8.0, 512.0, 512.0]);
+        let over = steer(at, Vec2::new(10.0, 0.0), Vec2::new(500.0, 0.0), wall);
+        assert_eq!(over.x, 2.0);
+        assert!(over.y < -7.0, "over the wall: {over}");
+        let under = steer(at, Vec2::new(10.0, 0.0), Vec2::new(500.0, 300.0), wall);
+        assert!(under.y > 7.0, "under, toward the goal: {under}");
+        // ...and down when the way up is shut too.
+        let corner = steer(at, Vec2::new(10.0, 0.0), Vec2::new(500.0, -300.0), Some([512.0, 8.0, 0.0, 512.0]));
+        assert!(corner.y > 7.0 && corner.x <= 2.0, "out of the corner the open way: {corner}");
+
+        // A ceiling over it: along it toward the goal's side.
+        let ceiling = steer(at, Vec2::new(0.0, -10.0), Vec2::new(-400.0, -500.0), Some([512.0, 512.0, 4.0, 512.0]));
+        assert!(ceiling.x < -9.0 && ceiling.y == 0.0, "along the ceiling: {ceiling}");
+
+        // In the stone already it goes on out as it wanted.
+        assert_eq!(steer(at, Vec2::new(10.0, 3.0), Vec2::new(500.0, 0.0), Some([0.0; 4])), Vec2::new(10.0, 3.0));
+        assert_eq!(steer(at, Vec2::new(10.0, 3.0), Vec2::new(500.0, 0.0), None), Vec2::new(10.0, 3.0));
+    }
 
     fn overlaps((a, ah): (Vec2, Vec2), (b, bh): (Vec2, Vec2)) -> bool {
         ((a - b).abs() - (ah + bh)).cmple(Vec2::ZERO).all()

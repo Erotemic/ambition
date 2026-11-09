@@ -18,6 +18,9 @@ pub(super) struct Trail<'a> {
 
 pub(super) struct Step {
     pub position: Vec2,
+    /// Where it is going: the next point of the scent, over the runner's
+    /// feet as they were there.
+    pub goal: Vec2,
     pub distance: f32,
     pub forward: Vec2,
 }
@@ -55,6 +58,7 @@ impl Trail<'_> {
         let speed = (*self.pace + (distance - RUN_GAP) * GAP_RATE).clamp(MIN_SPEED, MAX_SPEED);
         Step {
             position: at.move_towards(goal, speed * dt),
+            goal,
             distance,
             forward: Vec2::from(*self.forward),
         }

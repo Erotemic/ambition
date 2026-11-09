@@ -200,3 +200,39 @@ fn the_kernel_guide_has_the_two_attacks_its_provoked_mind_looks_for() {
     assert!(melee, "the guide has no melee slot: its provoked mind never swings");
     assert!(ranged, "the guide has no ranged slot: its provoked mind never shoots");
 }
+
+/// A provoked person can hit back.
+///
+/// The Smash mind a provocation installs swings only with a melee slot, and
+/// the `peaceful` action set the Hall's townsfolk wore had none: Jon provoked
+/// Neil onGras Turfson and he did nothing (2026-11-09). A person wears
+/// `bare_hands` now, a swing their own peaceful mind never throws.
+#[test]
+fn every_person_in_the_hall_has_fists_to_be_provoked_with() {
+    use ambition_platformer2d::characters::brain::ActionSet;
+    // The preset as the catalog stores it: named in its provider's space.
+    const BARE_HANDS: &str = "ambition::bare_hands";
+
+    let mut sim = fixed_60hz_room_sim("hall_of_characters");
+    sim.step_n(base(), 90);
+    let world = sim.world_mut();
+    let kits: Vec<(String, bool)> = {
+        let mut q = world.query::<(&WornCharacter, &ActionSet)>();
+        q.iter(world).map(|(worn, actions)| (worn.0.to_string(), actions.melee.is_some())).collect()
+    };
+    let catalog = world.resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
+    let people: Vec<&(String, bool)> = kits
+        .iter()
+        .filter(|(id, _)| catalog.get(id).is_some_and(|row| row.default_action_set == BARE_HANDS))
+        .collect();
+    assert!(
+        catalog.get("npc_neil_ongras_turfson").is_some_and(|row| row.default_action_set == BARE_HANDS),
+        "Neil onGras Turfson does not wear `bare_hands`: {:?}",
+        catalog.get("npc_neil_ongras_turfson").map(|row| &row.default_action_set)
+    );
+    // The Hall realizes its cast as it can, so it is the people it has
+    // realized that are read: enough of them that the check reads something.
+    assert!(people.len() >= 20, "only {} people in the Hall wear `bare_hands`; the test reads nothing", people.len());
+    let unarmed: Vec<&String> = people.iter().filter(|(_, melee)| !melee).map(|(id, _)| id).collect();
+    assert!(unarmed.is_empty(), "people with no swing to be provoked with: {unarmed:?}");
+}

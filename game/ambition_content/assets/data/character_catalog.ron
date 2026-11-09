@@ -954,6 +954,15 @@
             ranged: None,
             special: None,
         ),
+        // A person who means no harm and can still defend themself: a
+        // telegraphed swing of the fists, which their peaceful brain never
+        // throws. It is what a provoked or hostile person fights with (Jon,
+        // 2026-11-09: "NPCs should generally be able to attack when they
+        // become aggressive or hostile").
+        "bare_hands": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.30, active_s: 0.08, recover_s: 0.36, damage: 1, reach_px: 30.0)),
+        ),
         "peaceful_float": (
             move_style: Float,
             melee: None,
@@ -1378,7 +1387,7 @@
             standing_height: Some(58.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "beaver", "mathematician", "foreman", "peaceful"],
             fallback_dialogue: [
                 "One more course. Then I stop. Probably.",
@@ -1400,7 +1409,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "dog", "naturalist", "scientist", "peaceful"],
             fallback_dialogue: [
                 "Everything here is descended from something that nearly did not make it.",
@@ -1422,7 +1431,7 @@
             standing_height: Some(67.7),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "boar", "physicist", "scientist", "peaceful"],
             fallback_dialogue: [
                 "The opposite of a small truth is a falsehood. The opposite of a great truth is another great truth.",
@@ -1449,7 +1458,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "astronomer", "scientist", "peaceful"],
             fallback_dialogue: [
                 "The edges turn as fast as the middle. Something is out there holding on.",
@@ -1739,7 +1748,7 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "faction_leader"],
         barks: (
             on_hit: ["Soldier, explain yourself.", "That is insubordination.", "Court-martial posture engaged."],
@@ -1847,7 +1856,7 @@
             standing_height: Some(46.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "faction_leader"],
         barks: (
             on_hit: ["Oi! That's my good arm.", "Fretjaw bites back!", "Cantina rules: no free hits!"],
@@ -1868,7 +1877,7 @@
             standing_height: Some(53.3),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub"],
         barks: (
             on_hit: ["Off-key! You made me go off-key!", "That's not how you request a song."],
@@ -1886,7 +1895,7 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "faction_leader"],
         barks: (
             on_hit: ["Easy on the hull, starling.", "That's not standard docking procedure.", "Pulse shields to angry!"],
@@ -1905,7 +1914,7 @@
             standing_height: Some(70.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "faction_leader"],
         barks: (
             on_hit: ["Bro. Optics.", "My brand is literally disruption.", "I'm posting about this."],
@@ -2808,7 +2817,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "guide"],
             // SCAFFOLD exemplar. on_hit/provoked migrated from features::npcs.
             barks: (
@@ -2868,7 +2877,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "guide"],
         barks: (
             on_hit: ["Hands off the vault staff.", "I count every scratch.", "That debt has interest."],
@@ -2888,7 +2897,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "guide"],
         barks: (
             on_hit: ["No refunds for violence.", "You break it, you buy it.", "That's coming out of your wallet."],
@@ -2914,7 +2923,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             // Its strikes draw its own sheet (`alice_strike_fx`), not the stand-in wedge.
             attack_vfx: Some("alice_strike_fx"),
             // THE BODY: the hall walk, and the humanoid four. A person with a
@@ -2939,7 +2948,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             // Its strikes draw its own sheet (`bob_strike_fx`), not the stand-in wedge.
             attack_vfx: Some("bob_strike_fx"),
             // THE BODY: the hall walk, and the humanoid four. A person with a
@@ -2964,7 +2973,7 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["intro", "story"],
         barks: (
             on_hit: ["I made you. Don't make me regret it.", "There are boundaries, you know.", "Creator privileges suspended."],
@@ -3074,7 +3083,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["intro", "story"],
         barks: (
             on_hit: ["That's a new data point!", "Interesting choice!", "I've been hit by better!"],
@@ -3272,7 +3281,7 @@
             standing_height: Some(72.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["This is most irregular.", "I shall have you court-martialed.", "Consider this a diplomatic incident."],
@@ -3291,7 +3300,7 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Ow!", "Dude.", "That's not okay."],
@@ -3334,7 +3343,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Really?", "Was that necessary?", "I was having a nice day."],
@@ -3422,7 +3431,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Galwah does not appreciate this.", "Bold move.", "You'll regret that, friend."],
@@ -3443,7 +3452,7 @@
             standing_height: Some(71.6),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["This changes nothing!", "I've bled for worse causes!", "Courage costs!"],
@@ -3480,7 +3489,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["That hurts!", "Do you mind?", "Uncalled for!"],
@@ -3636,7 +3645,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Excuse me!", "I beg your pardon!", "That was rude!"],
@@ -3655,7 +3664,7 @@
             standing_height: Some(67.7),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Watch where you're swinging!", "Personal space!", "That's one."],
@@ -3785,7 +3794,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["That was unnecessary.", "I'm filing a report.", "Not great."],
@@ -3804,7 +3813,7 @@
             standing_height: Some(61.9),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["OW!", "WHY?!", "Rude!"],
@@ -3853,7 +3862,7 @@
             body_kind: Standard,
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "static"],
             barks: (
                 hall: ["I have no position on whether I am still president.", "My approval rating is excellent inside this frame.", "The plaque is too small to audit."],
@@ -3990,7 +3999,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["I didn't foresee this.", "The vision was unclear.", "Recalibrating."],
@@ -4025,7 +4034,7 @@
             standing_height: Some(70.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Hey, watch it!", "Trent doesn't appreciate this.", "Last warning."],
@@ -4067,7 +4076,7 @@
             standing_height: Some(60.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Trudy did NOT invite this.", "Absolutely not.", "Excuse me!"],
@@ -4086,7 +4095,7 @@
             standing_height: Some(71.6),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Victor does not concede this point.", "Objection.", "Overruled — by ME."],
@@ -4191,7 +4200,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["Oof.", "Not expecting that.", "There will be consequences."],
@@ -4208,7 +4217,7 @@
             body_kind: Standard,
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["hub", "peaceful"],
         barks: (
             on_hit: ["THE SIGNS WARNED OF THIS!", "As predicted by the seventh moon!", "Contact! Brief! Noted!"],
@@ -4290,7 +4299,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["mathematician", "problem_runner", "collaborative", "peaceful"],
         barks: (
             idle: ["I reduced the impossible problem to six merely rude ones.", "Someone else may already know the lemma I am missing."],
@@ -4307,7 +4316,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["mathematician", "peaceful"],
         barks: (
             idle: ["A hint should become clearer each time, not merely longer.", "The representation is elegant. The missing ladder is unfortunate."],
@@ -4324,7 +4333,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["mathematician", "variant", "armored"],
         barks: (
             idle: ["Please attack conventionally. The armor dislikes surprises.", "The shell is strongest from directions the game permits."],
@@ -4343,7 +4352,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["mathematician", "peaceful", "axiomatic", "infinite_hotel"],
         barks: (
             idle: ["An occupied hotel is a numbering problem waiting to behave.", "A tidy axiom should survive inspection and keep its hat on."],
@@ -4360,7 +4369,7 @@
             standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["mathematician", "peaceful"],
         barks: (
             idle: ["Algebra does not care whose name is on the envelope.", "I taught myself by the candlelight they kept trying to take away."],
@@ -4502,7 +4511,7 @@
             body_kind: Standard,
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["player"],
         barks: (
             hall: ["I reviewed the engine until I developed knees.", "This comment remains unresolved.", "Purpose is not a caller."],
@@ -4581,7 +4590,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "scientist", "science_communicator", "cosmic_druid", "golden_record_keeper", "peaceful"],
             fallback_dialogue: [
                 "The record is not a time capsule. It is an introduction.",
@@ -4608,7 +4617,7 @@
             standing_height: Some(58.8),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "bird", "scientist", "science_communicator", "memeticist", "summoner", "peaceful"],
             fallback_dialogue: [
                 "That criticism lacked peer review!",
@@ -4641,7 +4650,7 @@
             standing_height: Some(49.1),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "beast", "mathematician", "measure_theorist", "heavyweight", "zone_controller", "peaceful"],
         barks: (
             on_hit: ["A non-negligible impact!", "That had positive measure."],
@@ -4659,7 +4668,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "mathematician", "astronomer", "philosopher", "scholar_guardian", "mystery", "peaceful"],
         barks: (
             on_hit: ["Add that to the surviving testimony.", "An inelegant correction."],
@@ -5447,7 +5456,7 @@
             standing_height: Some(72.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "scientist", "cosmic_naturalist", "touch_grass", "peaceful"],
         barks: (
             idle: ["Well, actually, that trajectory is wrong.", "The universe owes you no coyote time."],
@@ -5464,7 +5473,7 @@
             standing_height: Some(67.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "barber", "paradox", "logic", "peaceful"],
         barks: (
             idle: ["Do not ask about my face.", "The appointment book contains itself. This is the problem."],
@@ -5481,7 +5490,7 @@
             standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "mathematician", "geometer", "boundary_walker", "peaceful"],
         barks: (
             idle: ["A shortest path is a question about which surface you are standing on.", "Give me floor space and a very large sheet of paper."],
@@ -5498,7 +5507,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "warlord", "nomad_parody", "paired_character"],
         barks: (
             idle: ["Yes. Next question.", "The horizon is a to-do list."],
@@ -5515,7 +5524,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["story", "warlord", "nomad_parody", "paired_character"],
         barks: (
             idle: ["I have a horde. I also have reservations.", "Let me check the map again."],
@@ -9598,7 +9607,7 @@
             standing_height: Some(75.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["philosophy", "construct", "peaceful"],
             barks: (
                 idle: ["*rivets settle*", "*a long, even breath of steam*"],
@@ -9615,7 +9624,7 @@
             standing_height: Some(71.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["philosophy", "construct", "peaceful"],
             barks: (
                 idle: ["*rustle*", "*a straw drifts loose*"],
@@ -9637,7 +9646,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["Lot forty-one: one goat. Calm. Origin unknown.", "Sign here, here, and where the salt ate the paper."],
@@ -9654,7 +9663,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["*a long, careful breath*", "The ground is still. The ground is still."],
@@ -9671,7 +9680,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["Rope! Tar! Ginger for the gate-sick!", "Biscuits that outlive the voyage, guaranteed."],
@@ -9688,7 +9697,7 @@
             standing_height: Some(67.4),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["*knots a net with no hurry*", "Fish don't come through a ring. They come through patience."],
@@ -9705,7 +9714,7 @@
             standing_height: Some(72.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["Moorings by the hour, and the hour is long.", "Mind the gap. The harbour will."],
@@ -9722,7 +9731,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["What will it be?", "*wipes the same mug again*"],
@@ -9739,7 +9748,7 @@
             standing_height: Some(64.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["Mind the sail.", "Any face you like, on a skull."],
@@ -9756,7 +9765,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["Nothing to declare.", "*stamps something*"],
@@ -9773,7 +9782,7 @@
             standing_height: Some(67.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["Keep it burning.", "One hundred and twelve steps."],
@@ -9790,7 +9799,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "pirate_port", "peaceful"],
             barks: (
                 idle: ["Authentic salvage. Certified by me, just now.", "The tide brings it in. I bring it to you. Small fee."],
@@ -9807,7 +9816,7 @@
             standing_height: Some(58.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["*the slow sound of a broom*", "Leaves do not stop falling because a gate opened."],
@@ -9824,7 +9833,7 @@
             standing_height: Some(66.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["*sits very still on the bench*", "The scrolls arrive fine. I arrive green."],
@@ -9841,7 +9850,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["Tea for the tired, tea for the gate-sick.", "Sit. The roofs will still be there."],
@@ -9858,7 +9867,7 @@
             standing_height: Some(65.4),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["Push-up four hundred and one!", "One day I will pass the rank exam. Probably on a Tuesday."],
@@ -9913,7 +9922,7 @@
             standing_height: Some(64.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["Bow to the pass.", "Fifteen to the clan. Nought to the visitors."],
@@ -9930,7 +9939,7 @@
             standing_height: Some(60.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["The kettle's on.", "Forty-one villages, and every one has a dog."],
@@ -9947,7 +9956,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "ninja_village", "peaceful"],
             barks: (
                 idle: ["Mind the smoke. It goes where you go.", "Three days and three nights, and you don't open the door."],
@@ -9966,7 +9975,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["station", "customs", "peaceful"],
             barks: (
                 idle: ["Declare it or leave it.", "The ring moves anything. That is the problem."],
@@ -9982,7 +9991,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["station", "pilot", "peaceful"],
             barks: (
                 idle: ["Shift change. Then we burn.", "The Remainder is slow. So is the moon."],
@@ -9998,7 +10007,7 @@
             standing_height: Some(72.0),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["station", "dockhand", "peaceful"],
             barks: (
                 idle: ["Lift with the legs.", "Backlog's backlogged."],
@@ -10014,7 +10023,7 @@
             standing_height: Some(67.4),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["station", "engineer", "peaceful"],
             barks: (
                 idle: ["Don't touch anything that hums.", "The plant is fine. The plant is always fine."],
@@ -10030,7 +10039,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["station", "cook", "peaceful"],
             barks: (
                 idle: ["Soup's on.", "Crackers by the door, if the ring got you."],
@@ -10046,7 +10055,7 @@
             standing_height: Some(60.4),
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["station", "retired", "peaceful"],
             barks: (
                 idle: ["Forty years, and it still looks new.", "The first link held three seconds."],
@@ -10068,7 +10077,7 @@
             standing_height: Some(72.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["science", "inventor", "peaceful"],
             barks: (
                 idle: ["...twenty-six, twenty-seven. Good. Twenty-seven.", "Eighteen napkins. Then I can eat."],
@@ -10087,7 +10096,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["science", "pigeon", "peaceful"],
             barks: (
                 idle: ["*coo* ...pardon me.", "He counted the stairs again. Three times."],
@@ -10104,7 +10113,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["station", "townsfolk", "peaceful"],
             barks: (
                 idle: ["Shirts! Globes! Genuine orbit air!", "You look like a first time up. Everyone does."],
@@ -10300,7 +10309,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "peaceful"],
             barks: (
                 idle: ["Car up at the hour. Car down at the half. Gravity permitting.", "Mind the gap. It is thirty-six thousand kilometres."],
@@ -10317,7 +10326,7 @@
             standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "peaceful"],
             barks: (
                 idle: ["Day four. The data is beautiful. I am not.", "If the run fails I am moving to Math Town."],
@@ -10334,7 +10343,7 @@
             standing_height: Some(71.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "peaceful"],
             barks: (
                 idle: ["Who touched the centrifuge.", "Duct tape is a structural material if you believe in it."],
@@ -10351,7 +10360,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "pigeon", "peaceful"],
             barks: (
                 idle: ["Shoo. Not you. Them.", "Forty years on this quad. Never once fed the birds."],
@@ -10368,7 +10377,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "professor", "peaceful"],
             barks: (
                 idle: ["Reviewer two again. I know it is him.", "'Minor revisions.' Minor!"],
@@ -10385,7 +10394,7 @@
             standing_height: Some(63.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "peaceful"],
             barks: (
                 idle: ["Physics owes me eleven coffees. Chemistry pays in cash.", "Soup today. It is always soup when the elevator is late."],
@@ -10402,7 +10411,7 @@
             standing_height: Some(63.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "peaceful"],
             barks: (
                 idle: ["Helmet's optional. Curiosity isn't.", "Do not lick the pipe."],
@@ -10419,7 +10428,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "eureka", "peaceful"],
             barks: (
                 idle: ["Mind the antenna.", "Breathe wrong and you're a semitone flat."],
@@ -10455,7 +10464,7 @@
             standing_height: Some(68.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["Last month's and the month before's.", "*counts rabbits, gives up*"],
@@ -10472,7 +10481,7 @@
             standing_height: Some(68.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["Third iteration of the hedge. The fourth is longer.", "Mind the branches. They have branches."],
@@ -10489,7 +10498,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "science", "peaceful"],
             barks: (
                 idle: ["Mind the apples. They fall up.", "Long pole, lot of patience."],
@@ -10506,7 +10515,7 @@
             standing_height: Some(62.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "magical", "peaceful"],
             barks: (
                 idle: ["Crescents! Fresh crescents!", "Full moon is Sundays only."],
@@ -10523,7 +10532,7 @@
             standing_height: Some(67.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "magical", "peaceful"],
             barks: (
                 idle: ["You are doing a wonderful job. (the lamp brightens)", "Stars are shy."],
@@ -10540,7 +10549,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["One move at a time.", "Never a larger on a smaller."],
@@ -10558,7 +10567,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["I have a marvellous proof. Have you a margin?", "Three inches. I need four."],
@@ -10576,7 +10585,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["Not a circle. Never a circle.", "Equal areas in equal times."],
@@ -10593,7 +10602,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["Mind your head. Or your feet.", "One side. No waiting."],
@@ -10610,7 +10619,7 @@
             standing_height: Some(68.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["Halfway!", "Half of what's left. Every day."],
@@ -10627,7 +10636,7 @@
             standing_height: Some(70.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "math_town", "peaceful"],
             barks: (
                 idle: ["Three doors! One car!", "Switch! Always switch!"],
@@ -10646,7 +10655,7 @@
             standing_height: Some(63.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["The Baron wants his eggs evil. I do them scrambled and scowl at them.", "Gruel again. Morale is a soup you cannot thicken."],
@@ -10663,7 +10672,7 @@
             standing_height: Some(67.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Strongly worded, it was.", "*sorts the suggestions*"],
@@ -10680,7 +10689,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Curfew is always. I clock in anyway.", "Sign the book. Everybody signs the book. The ghosts sign it twice."],
@@ -10697,7 +10706,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Helmets with eyeholes. It is not a lot to ask.", "Local Six-Six-Six of the Henchpersons' Guild is in session. That means the kettle is on."],
@@ -10716,7 +10725,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Stew's on. Lantern's lit. Castle can mind its own business.", "Wipe your feet. The moor follows people in."],
@@ -10733,7 +10742,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Eleven seconds a sweep. Count with me.", "Never trust a light that looks for you."],
@@ -10750,7 +10759,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["HEAR YE, HEAR YE!", "Tuesday is compulsory."],
@@ -10767,7 +10776,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Mind the flour.", "Gone by noon."],
@@ -10784,7 +10793,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["You're not an inspector. Good.", "One sheet, both sides, every night."],
@@ -10801,7 +10810,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Don't touch the button.", "Mark Forty-Seven: almost."],
@@ -10818,7 +10827,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Feed the cabbages from the side.", "Don't pull the mandrakes."],
@@ -10835,7 +10844,7 @@
             standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "castle_godwin", "peaceful"],
             barks: (
                 idle: ["Four thousand one hundred and seventeen. Don't let me forget.", "Now serving three. Still."],
@@ -10872,7 +10881,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "primeval", "peaceful"],
             barks: (
                 idle: ["Wrong layer.", "*taps the rock with a hammer*"],
@@ -10910,7 +10919,7 @@
             standing_height: Some(86.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 idle: ["Look slowly.", "Every door is a frame. Some are open."],
@@ -10927,7 +10936,7 @@
             standing_height: Some(72.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 idle: ["Happy little cliffs.", "We do not make mistakes here. We make doodle imps."],
@@ -10944,7 +10953,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 idle: ["Coo. Turn your head. No, both ways.", "One eye. Now the other eye."],
@@ -10961,7 +10970,7 @@
             standing_height: Some(61.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 idle: ["I paint what I know.", "That one moved. Do not look at it."],
@@ -10980,7 +10989,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "stacks", "peaceful"],
             barks: (
                 idle: ["Nevermore.", "Quoth the crow: nevermore.", "Once upon a midnight dreary... no. Nevermore."],
@@ -10997,7 +11006,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "stacks", "peaceful"],
             barks: (
                 idle: ["I suspect you.", "Where were you at half past nine?", "That fish is lying."],
@@ -11014,7 +11023,7 @@
             standing_height: Some(76.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "stacks", "peaceful"],
             barks: (
                 idle: ["Every story ends. You may choose how.", "Ink is cheap. Endings are not."],
@@ -11031,7 +11040,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 idle: ["[He walks against a wind that is not there.]", "[He offers you a flower. There is no flower. He looks hurt that you did not take it.]"],
@@ -11048,7 +11057,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 idle: ["What light through yonder spotlight's lens doth break?", "A stage! A stage! My kingdom for a stage!"],
@@ -11068,7 +11077,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "music", "peaceful"],
             barks: (
                 on_hit: ["I FELT THAT. I DID NOT HEAR IT, BUT I FELT IT.", "FORTISSIMO!"],
@@ -11086,7 +11095,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "music", "peaceful"],
             barks: (
                 on_hit: ["An interruption! Now the whole batch must run again.", "That note was not in the subject."],
@@ -11104,7 +11113,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 on_hit: ["Ow! Write that down. Backwards.", "My notebook!"],
@@ -11123,7 +11132,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "peaceful"],
             barks: (
                 on_hit: ["Careful! That tile was already broken. Properly.", "Not the model!"],
@@ -11146,7 +11155,7 @@
             standing_height: Some(72.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "film", "peaceful"],
             barks: (
                 idle: ["Again. Bigger.", "That's a wrap on part one. Part two starts after lunch."],
@@ -11163,7 +11172,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "film", "peaceful"],
             barks: (
                 idle: ["Places, everyone. Machines too.", "Call time was six. It is six. Good."],
@@ -11180,7 +11189,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "film", "peaceful"],
             barks: (
                 idle: ["One: do no harm. Two: obey. Three: keep yourself. Four: I am still working on four.", "I wrote three books this morning. Short ones."],
@@ -11197,7 +11206,7 @@
             standing_height: Some(71.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "film", "peaceful"],
             barks: (
                 idle: ["Filed under: the future. In triplicate.", "Any sufficiently advanced paperwork is indistinguishable from magic."],
@@ -11214,7 +11223,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "art", "film", "peaceful"],
             barks: (
                 idle: ["Once more.", "Take one hundred and twelve. Beautiful. Again."],
@@ -11291,7 +11300,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "crescent", "peaceful"],
             barks: (
                 idle: ["Walk east. It gets later.", "Please do not skip to the end. Everybody skips to the end.", "Footnote. Footnote. Oh, that one is good."],
@@ -11308,7 +11317,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "crescent", "peaceful"],
             barks: (
                 idle: ["An eye for an eye. A receipt for a receipt.", "Law two hundred and six: whoever reads this far gets a sticker."],
@@ -11325,7 +11334,7 @@
             standing_height: Some(75.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "crescent", "peaceful"],
             barks: (
                 idle: ["I wrestled a lion. Then I wore it. It did not help.", "*a deep and very manly sigh*", "Everybody dies. Even me. ESPECIALLY me, apparently."],
@@ -11342,7 +11351,7 @@
             standing_height: Some(62.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "crescent", "peaceful"],
             barks: (
                 idle: ["Name? Barley owed? Sign here. Press hard: it is clay.", "Writing was invented to count barley. Poetry came later. Much later. Too late, if you ask me."],
@@ -11359,7 +11368,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "nile", "peaceful"],
             barks: (
                 idle: ["The beard is false. The crown is real. All four of them.", "Mind the hats. The one on top is load-bearing."],
@@ -11376,7 +11385,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "nile", "peaceful"],
             barks: (
                 idle: ["Have you met me? Here. A smaller me.", "Look on my works, ye mighty. Or on this one. It is portable."],
@@ -11393,7 +11402,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "classical", "peaceful"],
             barks: (
                 on_hit: ["Why would you do that? No, truly: why?"],
@@ -11411,7 +11420,7 @@
             standing_height: Some(68.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "classical", "peaceful"],
             barks: (
                 on_hit: ["I shall write that down. Unflatteringly."],
@@ -11429,7 +11438,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "classical", "peaceful"],
             barks: (
                 on_hit: ["Et tu? No, wait. I do not know you."],
@@ -11447,7 +11456,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "silk", "peaceful"],
             barks: (
                 on_hit: ["Ow! That goes in the book. Nobody will believe it."],
@@ -11465,7 +11474,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "silk", "peaceful"],
             barks: (
                 on_hit: ["Hm? Was that a lesson? What did it teach?"],
@@ -11483,7 +11492,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Ow! Do you know who my grandfather is? He CAN.", "That will cost you. In paper. I will print it now."],
@@ -11503,7 +11512,7 @@
             standing_height: Some(70.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Ow! Here, take some gold. Please. Take it.", "You hit me? I will build you a mosque anyway."],
@@ -11522,7 +11531,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Ow! That goes in the book. Chapter four hundred.", "I was robbed by pirates near India. You are not as good at it."],
@@ -11541,7 +11550,7 @@
             standing_height: Some(73.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Ow! I have two hundred and fifty ships, you know.", "Hey! Watch the hat. The wings are official."],
@@ -11560,7 +11569,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Lag! That was lag!", "That was not my input!"],
@@ -11579,7 +11588,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["How dare you! I am the Admiral of the Ocean Sea!", "Ow. That felt very... not like India."],
@@ -11598,7 +11607,7 @@
             standing_height: Some(70.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Steady! You will spill the sauerkraut.", "Belay that!"],
@@ -11617,7 +11626,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Ow! The market will correct for that.", "A blow! An externality!"],
@@ -11636,7 +11645,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["Disruptive! Detention!", "Zero out of ten for that."],
@@ -11655,7 +11664,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "peaceful"],
             barks: (
                 on_hit: ["We wrote letters first! Nobody answered!", "Hit a weaver, would you? Typical."],
@@ -11678,7 +11687,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "cradle", "peaceful"],
             barks: (
                 idle: ["Mind where you step. Someone stepped here 3.7 million years ago and we are still measuring it.", "Brush, brush, brush. Never a spade.", "Has anyone seen my water? It was in this bucket."],
@@ -11696,7 +11705,7 @@
             standing_height: Some(42.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "cradle", "peaceful"],
             barks: (
                 idle: ["*she looks at the stone in her hand, then at you, then at the stone*", "*she stands up very straight, to show you she can*", "Hm?"],
@@ -11713,7 +11722,7 @@
             standing_height: Some(62.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "southern_coast", "peaceful"],
             barks: (
                 idle: ["Look at it properly. No, properly.", "Each bead is one shell, with one hole, made by hand. Count them later.", "The sea is good to us here. Fish, shells, and time to think."],
@@ -11730,7 +11739,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "green_sahara", "peaceful"],
             barks: (
                 idle: ["That one is Spotted Moon. That one is Spotted Moon Also. We ran out of names.", "Grass to the horizon, lakes in the hollows. Remember this.", "*he counts the herd, and frowns, and counts again*"],
@@ -11747,7 +11756,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "aksum_kush", "peaceful"],
             barks: (
                 idle: ["Can it be done? Yes. Next question.", "Kush had more pyramids than Egypt. Count them. I did.", "*she tests the bow string, and nods*"],
@@ -11764,7 +11773,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "levant", "peaceful"],
             barks: (
                 idle: ["Hello! Mind the fire. Mind the brow. Mind everything, really.", "*he plays three notes on the bone flute, very pleased with all three*", "We buried our dead with flowers. Write that down instead of the club thing."],
@@ -11781,7 +11790,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "uruk", "peaceful"],
             barks: (
                 idle: ["Sign your work. Every time.", "A hymn to the moon, a hymn to the temple, a hymn to the other temple. It is a busy job.", "*she corrects a wedge on the tablet with her thumb*"],
@@ -11803,7 +11812,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "ice_age", "peaceful"],
             barks: (
                 idle: ["Hold still. No, not you. The horse.", "Red from the earth, black from the fire. That is all the colours there are.", "*she blows ochre round her hand*"],
@@ -11820,7 +11829,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "first_farmers", "peaceful"],
             barks: (
                 idle: ["Lovely day! Bit chilly.", "Copper axe! Very modern. Very shiny.", "*he checks his grass cape for holes*"],
@@ -11837,7 +11846,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "megalith", "peaceful"],
             barks: (
                 idle: ["I built Stonehenge. Mostly. In spirit.", "Mistletoe. Golden sickle. Very druid. Totally a druid.", "Do not look at the dates. Look at my beard."],
@@ -11854,7 +11863,7 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "celtic", "peaceful"],
             barks: (
                 idle: ["Ask me about my chariot.", "Vroom. That is a chariot noise. I invented it.", "*she flicks her hair, which is most of her*"],
@@ -11871,7 +11880,7 @@
             standing_height: Some(71.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "viking", "peaceful"],
             barks: (
                 idle: ["Vinland! Grapes! Well, berries. Grape-ish.", "Got there first. Came home. Told almost nobody.", "*he turns the map the right way up*"],
@@ -11888,7 +11897,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "south_asia", "peaceful"],
             barks: (
                 idle: ["Beach. Shellfish. Next beach.", "Mind the tide. It does not mind you.", "*she taps a rock with her stick, and a limpet comes off*"],
@@ -11905,7 +11914,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "south_asia", "peaceful"],
             barks: (
                 idle: ["Open wide!", "This will not hurt a bit. Well. A bit.", "*bzzzzzt* goes the bow-drill"],
@@ -11922,7 +11931,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "south_asia", "peaceful"],
             barks: (
                 idle: ["I am a priest. Or a king. Or both. Probably.", "*he squints, as if to read the signs over the gate*", "Lovely drains, though. Have you seen our drains?"],
@@ -11939,7 +11948,7 @@
             standing_height: Some(65.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "east_asia", "peaceful"],
             barks: (
                 idle: ["Have you seen my finger? Here it is.", "*he polishes the finger bone with his sleeve*", "Do not touch the finger."],
@@ -11956,7 +11965,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "east_asia", "peaceful"],
             barks: (
                 idle: ["Tea? Mind the cocoons.", "*she pulls a long shining thread out of her cup*", "Feed the worms the mulberry leaves. Only the mulberry."],
@@ -11973,7 +11982,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "east_asia", "peaceful"],
             barks: (
                 idle: ["The shell says we march at dawn.", "*she tests the edge of her axe with a thumb*", "The diviners crack the bones. I crack the enemy."],
@@ -11990,7 +11999,7 @@
             standing_height: Some(68.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "beringia", "peaceful"],
             barks: (
                 idle: ["Clovis. First. Next question.", "That site is older? Then the site is WRONG.", "Fluted points, young person. Nobody fluted before Clovis."],
@@ -12007,7 +12016,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "first_maize", "peaceful"],
             barks: (
                 idle: ["This little one is my grandmother's grandmother's corn.", "Keep the biggest seeds. Plant them. Wait. Repeat for a few thousand years.", "Maize, beans and squash: three sisters in one field."],
@@ -12024,7 +12033,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "sahul", "peaceful"],
             barks: (
                 idle: ["Bamboo floats. Bamboo bends. Bamboo is the answer.", "Check the lashings. Then check them again.", "The smoke of fires on the far shore: somebody is there, or something burns."],
@@ -12041,7 +12050,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "highlands", "peaceful"],
             barks: (
                 idle: ["Dig the drain, build the mound, plant the taro.", "Bananas: we grew them first. You may thank us.", "The swamp gives if you ask it right."],
@@ -12063,7 +12072,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "olmec_heartland", "peaceful"],
             barks: (
                 idle: ["Peck, peck, peck. Stone on harder stone. The face is in there somewhere.", "We brought this basalt down from the Tuxtla mountains with no wheels and no oxen. Rafts, rollers, ropes and a great many cousins.", "*she blows the dust off a cheek and looks at it for a long time*"],
@@ -12080,7 +12089,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "maya_city", "peaceful"],
             barks: (
                 idle: ["A dot is one, a bar is five, a shell is zero. Count with me.", "This shell means nothing. I mean that as a compliment.", "*he checks Venus, then the book, then Venus again*"],
@@ -12097,7 +12106,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "maya_city", "peaceful"],
             barks: (
                 idle: ["Lady Six Sky. Of Naranjo. And of everywhere near it.", "A taller headdress means more authority. That is simply astronomy.", "*she straightens a posture that was already perfectly straight*"],
@@ -12114,7 +12123,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "taino_islands", "peaceful"],
             barks: (
                 idle: ["Welcome to the batey. Mind the ball; the game is serious here.", "Cassava bread keeps for months. Bake it on the buren, keep it dry, and nobody goes hungry when the storms come.", "*she counts the canoes on the beach, and knows each family by its canoe*"],
@@ -12131,7 +12140,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "taino_islands", "peaceful"],
             barks: (
                 idle: ["Burn a little, chip a little, burn a little more. A canoe is one tree and a great deal of patience.", "This one seats forty. The cacica's seats a hundred, and it does not leak.", "*he runs his thumb along the edge of the stone axe, and nods*"],
@@ -12152,7 +12161,7 @@
             standing_height: Some(62.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "lapita_voyagers", "peaceful"],
             barks: (
                 idle: ["Press the comb in, lift it clean. Again. Again.", "The white in the marks is lime, from burnt coral. It makes the pattern sing.", "Mind the pots. All of the pots."],
@@ -12169,7 +12178,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "wayfinders", "peaceful"],
             barks: (
                 idle: ["*he looks up, finds his star, and nods*", "Feel that? A swell from the south, under the one from the east.", "No compass. No chart. Just everything else."],
@@ -12186,7 +12195,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "rapa_nui", "peaceful"],
             barks: (
                 idle: ["Tuff is soft. Basalt is hard. That is the whole trick, and also the rest of my life.", "*tap, tap, tap with the toki*", "It is not only a head. It has a body. Half of it is in the ground."],
@@ -12203,7 +12212,7 @@
             standing_height: Some(72.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "rapa_nui", "peaceful"],
             barks: (
                 idle: ["Hey! I'm right!", "Balsa floats. Therefore, Peru. Next question.", "*he polishes the little raft with his sleeve*"],
@@ -12224,7 +12233,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "benin_city", "peaceful"],
             barks: (
                 idle: ["Wax, clay, fire, brass. In that order. Never any other order.", "This one is a horn player. Listen closely and you can almost hear him.", "*he squints into the furnace, and judges the heat by its colour*"],
@@ -12241,7 +12250,7 @@
             standing_height: Some(63.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "benin_city", "peaceful"],
             barks: (
                 idle: ["The court of Benin keeps its history in brass and in memory. Remember that when the strangers come.", "*she lifts the eben, and the court falls quiet*", "Coral beads are for the Oba and those he honours. These are mine."],
@@ -12258,7 +12267,7 @@
             standing_height: Some(69.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "benin_city", "peaceful"],
             barks: (
                 on_hit: ["I say! That is assault. Unlike 1897, which was an expedition.", "Ow! Mind the plaque!"],
@@ -12279,7 +12288,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "haitian_revolution", "peaceful"],
             barks: (
                 idle: ["*he dictates a letter, then another, then another*", "*he reads, one finger on the line, and looks up when you come near*", "The mountains are on our side. They always were."],
@@ -12296,7 +12305,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "haitian_revolution", "peaceful"],
             barks: (
                 idle: ["Blue, then red. Small stitches. It has to hold in a war.", "*she checks the seam once more, though it is perfect*", "Liberty or death."],
@@ -12313,7 +12322,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "haitian_revolution", "peaceful"],
             barks: (
                 idle: ["Sit. Eat. It is the first day.", "*he stirs the pot and tastes, and adds one more pepper*", "Squash, beef, cabbage, time."],
@@ -12333,7 +12342,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "door_of_no_return", "peaceful"],
             barks: (
                 idle: ["If there were no buyers, there would be no sellers.", "*he holds his book closed, one hand flat on the cover*", "I was thirteen."],
@@ -12350,7 +12359,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "door_of_no_return", "peaceful"],
             barks: (
                 idle: ["Please walk slowly here.", "*she waits at the door until you are ready*", "Every number on these papers was a person."],
@@ -12370,7 +12379,7 @@
             standing_height: Some(60.4),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "andean_highlands", "peaceful"],
             barks: (
                 idle: ["This one is for boiling. This one is for chuno. This one is for showing off.", "*she turns a potato in her hand, checks its eyes, and nods*", "Cold nights, hard sun. Good for chuno."],
@@ -12387,7 +12396,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "andean_highlands", "peaceful"],
             barks: (
                 on_hit: ["Ow! Is that how you treat a man of science?", "Mon dieu! Mind the flowers!"],
@@ -12405,7 +12414,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "caral", "peaceful"],
             barks: (
                 idle: ["*a few high notes, bright as the sun on the stones*", "Thirty-two flutes in one plaza. We were not a quiet city.", "Mind the steps."],
@@ -12422,7 +12431,7 @@
             standing_height: Some(59.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "caral", "peaceful"],
             barks: (
                 idle: ["Supe. Like soup. Mostly anchovy.", "*her fingers tie a knot without her looking*", "Cotton up, anchovies down. That is the whole economy."],
@@ -12442,7 +12451,7 @@
             standing_height: Some(58.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "sulawesi", "peaceful"],
             barks: (
                 idle: ["*she spits red ochre round her hand, and lifts it: the hand stays on the rock*", "A pig. Three people. You decide what happens next.", "Mind the wall. It is still drying. For about fifty thousand years."],
@@ -12459,7 +12468,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "austronesian_islands", "peaceful"],
             barks: (
                 idle: ["Mata. Eye. Say it. Good.", "*she turns the red pot in her hands, and hums a word list*", "Lima: five, and the hand. Count on it."],
@@ -12476,7 +12485,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "dong_son", "peaceful"],
             barks: (
                 idle: ["Sixty-five citadels. Count them if you doubt me.", "*she sets the sword point-down, and waits*", "Mê Linh is ours."],
@@ -12493,7 +12502,7 @@
             standing_height: Some(60.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "dong_son", "peaceful"],
             barks: (
                 idle: ["*the banner snaps in the wind*", "The stories say we rode elephants. The stories are right.", "My sister talks. I ride."],
@@ -12510,7 +12519,7 @@
             standing_height: Some(63.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "dong_son", "peaceful"],
             barks: (
                 idle: ["Wax, clay, fire, bronze. And a little luck.", "*he taps the drum: the frogs on its rim seem to jump*", "A star in the middle, for the sun. Always."],
@@ -12531,7 +12540,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "srivijaya", "peaceful"],
             barks: (
                 idle: ["Ship's name, cargo, port. And the toll.", "*the little scale tips, and he smiles*", "Everything stops here. Everything pays a little."],
@@ -12548,7 +12557,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "srivijaya", "peaceful"],
             barks: (
                 idle: ["*he copies a line, and checks it twice*", "A year or two here first, then India.", "Keep your ink dry."],
@@ -12565,7 +12574,7 @@
             standing_height: Some(62.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "borobudur", "peaceful"],
             barks: (
                 idle: ["*tap, tap, tap: a sail appears*", "Two thousand six hundred and seventy-two panels. I am counting.", "Walk every gallery before you go up."],
@@ -12582,7 +12591,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "angkor", "peaceful"],
             barks: (
                 idle: ["It is not a lake. It is a reservoir.", "*she sights along the rod, and frowns at the dike*", "Eight kilometres, give or take a canal."],
@@ -12599,7 +12608,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "angkor", "peaceful"],
             barks: (
                 idle: ["Tour group, this way! Keep up!", "*he holds the little flag higher*", "A guide never exaggerates. A guide enhances."],
@@ -12619,7 +12628,7 @@
             standing_height: Some(58.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "jomon", "peaceful"],
             barks: (
                 idle: ["The clay is easy. The fire is the hard part.", "*she pinches up one more crest of the rim*", "Beautiful, and it still makes soup."],
@@ -12636,7 +12645,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "jomon", "peaceful"],
             barks: (
                 idle: ["Chestnut? Roasted this morning.", "*he cracks a burr open with his heel*", "Is it farming? We were too busy eating."],
@@ -12653,7 +12662,7 @@
             standing_height: Some(60.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "taiwan", "peaceful"],
             barks: (
                 idle: ["Green as a river.", "*sand, water, the cord: back and forth*", "Patience is harder than jade."],
@@ -12670,7 +12679,7 @@
             standing_height: Some(63.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "taiwan", "peaceful"],
             barks: (
                 idle: ["Mind the dog. She minds you.", "*he tests a millet head between his teeth*", "Millet on the slope, rice in the wet."],
@@ -12687,7 +12696,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "silla", "peaceful"],
             barks: (
                 idle: ["Yes, the queen.", "*she closes her fan with a snap*", "A kingdom must know when to plant, and when to worry."],
@@ -12704,7 +12713,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "silla", "peaceful"],
             barks: (
                 idle: ["Quiet, please. The stars are speaking.", "*he squints along the bamboo tube*", "Clear skies."],
@@ -12724,7 +12733,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "song", "peaceful"],
             barks: (
                 idle: ["Searching, seeking. Cold, clear.", "*she taps her closed fan against the scroll*", "A good line costs a sleepless night."],
@@ -12741,7 +12750,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "song", "peaceful"],
             barks: (
                 idle: ["Fresh money! Do not lick it, the ink is wet.", "*he presses the plate, peels the sheet, admires it*", "Copper is heavy. Paper is the future."],
@@ -12758,7 +12767,7 @@
             standing_height: Some(60.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "heian", "peaceful"],
             barks: (
                 idle: ["*she writes a line, and crosses it out*", "Shining Genji is a character. Do not fall in love with him.", "I see more than I say."],
@@ -12775,7 +12784,7 @@
             standing_height: Some(59.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "heian", "peaceful"],
             barks: (
                 idle: ["In spring, the dawn.", "*she hides a smile behind her fan*", "That is going on a list."],
@@ -12792,7 +12801,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "joseon", "peaceful"],
             barks: (
                 idle: ["A king's work is to let his people speak.", "*he turns a page, and nods*", "Twenty-eight letters. Learn them by lunch."],
@@ -12809,7 +12818,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "joseon", "peaceful"],
             barks: (
                 idle: ["Measure twice.", "*he reads the water in the gauge, and writes it down*", "The same rain gauge in every province. Now we can compare."],
@@ -12829,7 +12838,7 @@
             standing_height: Some(62.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["Woven air.", "*the shuttle flies*", "Hold it to the light. You will see your hand through it."],
@@ -12846,7 +12855,7 @@
             standing_height: Some(58.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["Quiet. The thread is thinner than a hair.", "*she wets her fingers*", "Morning is best. The damp holds the thread."],
@@ -12863,7 +12872,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["Read, and then argue.", "*he dips the quill*", "A newspaper is a conversation with a whole city."],
@@ -12880,7 +12889,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["Jhansi is mine. I will not give it.", "*her hand rests on the hilt*", "Ride well, or do not ride."],
@@ -12897,7 +12906,7 @@
             standing_height: Some(69.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["Where the mind is without fear...", "*he hums a tune he has just written*", "Let me finish this song. I have written two thousand."],
@@ -12914,7 +12923,7 @@
             standing_height: Some(60.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["Educate the girls. Then see.", "*she adjusts the end of her sari*", "In my story, the men stay indoors."],
@@ -12931,7 +12940,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["We want Bengali as a state language!", "*he grips his placard*", "We are not afraid."],
@@ -12948,7 +12957,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bengal", "peaceful"],
             barks: (
                 idle: ["Listen: the radio.", "*he writes a line, then hides the notebook*", "Joy Bangla."],
@@ -12968,7 +12977,7 @@
             standing_height: Some(60.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "amazonia", "peaceful"],
             barks: (
                 idle: ["Red, black, white. Always in that order? No.", "*she paints a fine band*", "The flood is coming. The pots are ready."],
@@ -12985,7 +12994,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "amazonia", "peaceful"],
             barks: (
                 idle: ["Charcoal, pottery, fish bones: the recipe for soil.", "*he crumbles black earth between his fingers*", "This forest? We planted half of it."],
@@ -13002,7 +13011,7 @@
             standing_height: Some(69.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "palmares", "peaceful"],
             barks: (
                 idle: ["Palmares is free. Keep it free.", "*he looks out over the valley*", "We do not bargain with freedom."],
@@ -13019,7 +13028,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "palmares", "peaceful"],
             barks: (
                 idle: ["Plant, then defend what you planted.", "*she shifts the hoe on her shoulder*", "Ask me about capoeira. Or don't."],
@@ -13036,7 +13045,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "palmares", "peaceful"],
             barks: (
                 idle: ["Hot iron waits for nobody.", "*clang*", "A hoe today. Tomorrow, whatever Palmares needs."],
@@ -13053,7 +13062,7 @@
             standing_height: Some(69.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "rio", "peaceful"],
             barks: (
                 idle: ["Measure twice, build once.", "*he unrolls a plan of the docks*", "The law is signed. Now the land."],
@@ -13070,7 +13079,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "rio", "peaceful"],
             barks: (
                 idle: ["The law is a weapon. I aim it carefully.", "*he leafs through the papers*", "Next case."],
@@ -13087,7 +13096,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "rio", "peaceful"],
             barks: (
                 idle: ["The sea is free. So is everyone on it.", "*he coils the rope*", "No jangada in Fortaleza will carry them. Not one."],
@@ -13108,7 +13117,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "kamakura", "peaceful"],
             barks: (
                 idle: ["Another letter from the Great Khan? Put it with the others.", "*he studies a map of Kyushu*", "Build the wall higher."],
@@ -13125,7 +13134,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "kamakura", "peaceful"],
             barks: (
                 idle: ["I was first into the fight. Write that down.", "*he polishes his armour, again*", "Have you seen my scroll?"],
@@ -13142,7 +13151,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "edo", "peaceful"],
             barks: (
                 idle: ["Seventeen sounds. Not one more.", "*he looks at the pond for a long time*", "Every day is a journey, and the journey itself is home."],
@@ -13159,7 +13168,7 @@
             standing_height: Some(60.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "edo", "peaceful"],
             barks: (
                 idle: ["From the age of six I had a mania for drawing.", "*he draws without looking up*", "Not yet. Not good enough yet."],
@@ -13176,7 +13185,7 @@
             standing_height: Some(58.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "edo", "peaceful"],
             barks: (
                 idle: ["My father calls me 'Oi!' That is my name, and also how he calls me.", "*she grinds the ink*", "Light, and the shadow beside it."],
@@ -13193,7 +13202,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "meiji", "peaceful"],
             barks: (
                 idle: ["Learn, or be learned about.", "*he reads an English dictionary*", "Independence of the person, then of the country."],
@@ -13210,7 +13219,7 @@
             standing_height: Some(56.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "meiji", "peaceful"],
             barks: (
                 idle: ["Women can learn anything. Teach them.", "*she corrects an English essay*", "Again, please. More clearly."],
@@ -13227,7 +13236,7 @@
             standing_height: Some(60.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "meiji", "peaceful"],
             barks: (
                 idle: ["Wash your hands.", "*she checks a pulse*", "Rest, and come back in three days."],
@@ -13244,7 +13253,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "edo", "peaceful"],
             barks: (
                 idle: ["Tea, rice cakes, and a seat out of the sun.", "*she pours*", "Fifty-three stations to Kyoto. This is the first."],
@@ -13261,7 +13270,7 @@
             standing_height: Some(66.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "edo", "peaceful"],
             barks: (
                 idle: ["Bonito! First bonito of the year!", "*he sloshes a bucket of water over the fish*", "Fresh this morning. Very fresh. Mostly."],
@@ -13282,7 +13291,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "ishango", "peaceful"],
             barks: (
                 idle: ["The fish can hear you.", "*he checks the barbs on the harpoon*", "Mind the hippos. I mean it."],
@@ -13299,7 +13308,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "ishango", "peaceful"],
             barks: (
                 idle: ["Eleven. Thirteen. Seventeen. Nineteen.", "*scratch, scratch*", "Do not make me lose count."],
@@ -13316,7 +13325,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "kongo", "peaceful"],
             barks: (
                 idle: ["Softer than you thought?", "*the loom clacks*", "A cloth this size buys a goat. Two, if you like the pattern."],
@@ -13333,7 +13342,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "kongo", "peaceful"],
             barks: (
                 idle: ["Another letter to Lisbon.", "*he reads a page again, frowning*", "One king to another. As equals."],
@@ -13350,7 +13359,7 @@
             standing_height: Some(67.4),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "kongo", "peaceful"],
             barks: (
                 idle: ["Is this the road to Rome?", "*he checks his letters of credence*", "Four years on the road. Pirates, twice."],
@@ -13367,7 +13376,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "ndongo", "peaceful"],
             barks: (
                 idle: ["Stand up straight.", "*she tests the bowstring*", "Nobody gives me a mat."],
@@ -13384,7 +13393,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "ndongo", "peaceful"],
             barks: (
                 idle: ["Speak quietly.", "*she folds a tiny letter very small*", "The walls have ears. So do I."],
@@ -13401,7 +13410,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
             barks: (
                 idle: ["Write it down.", "*he writes, fast*", "The king promised schools. I found none."],
@@ -13418,7 +13427,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
             barks: (
                 idle: ["The basket must be full by the new moon.", "*he looks at the empty basket*", "Further every week. The near vines are dead."],
@@ -13435,7 +13444,7 @@
             standing_height: Some(72.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
             barks: (
                 idle: ["Mind the river.", "*he writes in a small notebook*", "Count them. Write it down. Send it."],
@@ -13452,7 +13461,7 @@
             standing_height: Some(63.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "congo_free_state", "peaceful"],
             barks: (
                 idle: ["Hold still.", "*click*", "People argue with letters. Not with photographs."],
@@ -13473,7 +13482,7 @@
             standing_height: Some(61.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "lake_mungo", "peaceful"],
             barks: (
                 idle: ["The lake is full this year.", "*she shakes out a net bag of mussels*", "Mind the fire. Mind the yabbies."],
@@ -13490,7 +13499,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "lake_mungo", "peaceful"],
             barks: (
                 idle: ["Mind where you step.", "*she checks the footprints after the rain*", "Walk softly. You are a guest here."],
@@ -13507,7 +13516,7 @@
             standing_height: Some(69.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "tonga_samoa", "peaceful"],
             barks: (
                 idle: ["Bow to the stone.", "*he looks along the lintel toward the sunrise*", "My canoes go where my word goes."],
@@ -13524,7 +13533,7 @@
             standing_height: Some(63.2),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "tonga_samoa", "peaceful"],
             barks: (
                 idle: ["Thud, thud, thud.", "*she beats the bark thinner*", "Do not ask what the ngatu says. It holds all the gossip."],
@@ -13541,7 +13550,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "tonga_samoa", "peaceful"],
             barks: (
                 idle: ["Sit. It will hurt.", "*tap, tap, tap*", "Do not cry out. Your family is watching."],
@@ -13558,7 +13567,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "aotearoa", "peaceful"],
             barks: (
                 idle: ["Shh. A moa.", "*he listens to the bush*", "Fewer every year."],
@@ -13575,7 +13584,7 @@
             standing_height: Some(62.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "aotearoa", "peaceful"],
             barks: (
                 idle: ["Grind, wet, grind, wet.", "*she holds the green blade up to the light*", "One more week."],
@@ -13592,7 +13601,7 @@
             standing_height: Some(67.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "waitangi", "peaceful"],
             barks: (
                 idle: ["I have not slept.", "*he crosses out a word, and writes it again*", "'Sovereignty' has no word in Māori."],
@@ -13609,7 +13618,7 @@
             standing_height: Some(62.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "waitangi", "peaceful"],
             barks: (
                 idle: ["Read the Māori text.", "*she reads the paper again, carefully*", "A chief is a chief."],
@@ -13626,7 +13635,7 @@
             standing_height: Some(67.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "waitangi", "peaceful"],
             barks: (
                 idle: ["Mind the flagstaff. It falls over a lot.", "*he weighs his axe in his hand*", "Four times."],
@@ -13643,7 +13652,7 @@
             standing_height: Some(62.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "sydney_cove", "peaceful"],
             barks: (
                 idle: ["Stay out of my way. I am fishing.", "*she re-ties a shell hook to a bark line*", "The fish are biting."],
@@ -13660,7 +13669,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "sydney_cove", "peaceful"],
             barks: (
                 idle: ["Good day to you.", "*he adjusts a coat that does not quite fit*", "I learned their manners. They did not learn mine."],
@@ -13677,7 +13686,7 @@
             standing_height: Some(69.0),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "sydney_cove", "peaceful"],
             barks: (
                 idle: ["I see you.", "*he watches the tree line*", "Remember whose land you walk on."],
@@ -13695,7 +13704,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "budj_bim", "peaceful"],
             barks: (
                 idle: ["The water is rising.", "*he settles the trap in the gap of the weir*", "Step on the stones, not in the channels."],
@@ -13712,7 +13721,7 @@
             standing_height: Some(62.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "budj_bim", "peaceful"],
             barks: (
                 idle: ["Over, under, over, under.", "*she pulls the sedge tight*", "Hold this end for me."],
@@ -13731,7 +13740,7 @@
             standing_height: Some(60.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "marianas", "peaceful"],
             barks: (
                 idle: ["Håfa adai.", "*she checks the capstone is level*", "Mind your head."],
@@ -13748,7 +13757,7 @@
             standing_height: Some(65.1),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "marianas", "peaceful"],
             barks: (
                 idle: ["Remember who was here first.", "*he looks out at the Spanish ship*", "Sit. Talk."],
@@ -13765,7 +13774,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "nan_madol", "peaceful"],
             barks: (
                 idle: ["Hup. Hup.", "*he shifts the column on his shoulder*", "Mind the canals."],
@@ -13782,7 +13791,7 @@
             standing_height: Some(66.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "nan_madol", "peaceful"],
             barks: (
                 idle: ["Kaselehlie.", "*he stands easy, spear upright*", "The Saudeleur are finished."],
@@ -13799,7 +13808,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "marshalls", "peaceful"],
             barks: (
                 idle: ["Close your eyes. Feel the swell.", "*he traces a curved stick with his finger*", "The east swell is strong today."],
@@ -13816,7 +13825,7 @@
             standing_height: Some(60.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "marshalls", "peaceful"],
             barks: (
                 idle: ["Iakwe.", "*strip, soften, plait*", "A mat for a sail, a mat for a wedding."],
@@ -13833,7 +13842,7 @@
             standing_height: Some(64.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "yap", "peaceful"],
             barks: (
                 idle: ["Do not lean on my money.", "*he offers you betel nut*", "Everyone knows whose stone it is."],
@@ -13850,7 +13859,7 @@
             standing_height: Some(65.5),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "yap", "peaceful"],
             barks: (
                 idle: ["*cough* Limestone dust.", "*he brushes off his arms*", "Half a year in Palau, carving."],
@@ -13867,7 +13876,7 @@
             standing_height: Some(63.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "nauru", "peaceful"],
             barks: (
                 idle: ["Dig, fill, carry. Again.", "*he leans on the shovel for a moment*", "Three years, then home."],
@@ -13884,7 +13893,7 @@
             standing_height: Some(65.9),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "nauru", "peaceful"],
             barks: (
                 idle: ["I have a court date.", "*he straightens a folder of papers*", "Nauruans decide for Nauru."],
@@ -13901,7 +13910,7 @@
             standing_height: Some(64.3),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bikini", "peaceful"],
             barks: (
                 idle: ["We are packing.", "*he turns his hat in his hands*", "Look after the island."],
@@ -13918,7 +13927,7 @@
             standing_height: Some(59.7),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "history", "bikini", "peaceful"],
             barks: (
                 idle: ["Everything rolls up small.", "*she ties a rolled mat*", "Remember the island's name for what it was."],
@@ -13935,7 +13944,7 @@
             standing_height: Some(64.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "primeval", "peaceful"],
             barks: (
                 idle: ["Shh!", "Far too many penguins."],
@@ -13952,7 +13961,7 @@
             standing_height: Some(66.6),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "primeval", "peaceful"],
             barks: (
                 idle: ["Any day now.", "That one? A satellite. Not ours, not yet."],
@@ -13969,7 +13978,7 @@
             standing_height: Some(65.8),
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "peaceful",
+            default_action_set: "bare_hands",
             tags: ["townsfolk", "primeval", "peaceful"],
             barks: (
                 idle: ["Careful. That femur is older than your language.", "Another fossil. Of something that just ran past the tent."],

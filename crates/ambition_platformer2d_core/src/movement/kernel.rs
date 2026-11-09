@@ -153,9 +153,10 @@ pub fn step_motion(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
-    let Some(portal) = ctx.portal.filter(|portal| !portal.links.is_empty()) else {
+    let portal = ctx.portal.filter(|portal| !portal.links.is_empty());
+    if portal.is_none() && clusters.kinematics.material == crate::frame::BodyMaterial::IDENTITY {
         return step_admitted_motion(model, clusters, ctx);
-    };
+    }
     let retained_down = SweepSample::down_or(clusters.sweep.as_deref(), ctx.frame.down());
     let mut candidate = crate::body_clusters::BodyClusterScratch::candidate(model, clusters);
     let mut sweep = SweepSample::at_rest(*clusters.kinematics, retained_down);
@@ -166,7 +167,19 @@ pub fn step_motion(
     };
     let from = crate::Aabb::new(sweep.prev, sweep.half);
     let to = candidate.kinematics.collision_box(Some(&sweep));
-    if let Err(refusal) = portal.admit(from, to) {
+    let root_map = candidate.kinematics.material_map(sweep.down);
+    let admitted = (|| {
+        let root_map = root_map.map_err(|fault| crate::frame::thread::Refusal {
+            path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
+        })?;
+        let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, candidate.kinematics.canonical_size * 0.5));
+        crate::frame::thread::map_volume(&domain, &root_map).map_err(|fault| crate::frame::thread::Refusal {
+            path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
+        })?;
+        if let Some(portal) = portal { portal.admit(from, to, root_map, candidate.kinematics.vel)?; }
+        Ok(())
+    })();
+    if let Err(refusal) = admitted {
         if let Some(sample) = clusters.sweep.as_deref_mut() {
             *sample = SweepSample::at_rest(*clusters.kinematics, retained_down);
         }
@@ -180,6 +193,44 @@ pub fn step_motion(
 }
 
 fn step_admitted_motion(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: MotionStepContext<'_>,
+) -> MotionStepResult {
+    let material = clusters.kinematics.material;
+    if material.scale() == 1.0 { return step_world_motion(model, clusters, ctx); }
+    enum Authored {
+        Axis(crate::AxisSweptParams),
+        Momentum(crate::MomentumParams),
+        Crawler(crate::CrawlerParams),
+    }
+    let prepare = |model: &mut MotionModel| -> Result<Authored, crate::frame::NumericFault> {
+        Ok(match model {
+            MotionModel::AxisSwept(axis) => { let canonical = axis.params; axis.params = canonical.for_material(material)?; Authored::Axis(canonical) }
+            MotionModel::SurfaceMomentum(body) => { let canonical = body.params; body.params = canonical.for_material(material)?; Authored::Momentum(canonical) }
+            MotionModel::AdhesiveCrawler(body) => { let canonical = body.params; body.params = canonical.for_material(material)?; Authored::Crawler(canonical) }
+        })
+    };
+    let authored = match prepare(model) {
+        Ok(authored) => authored,
+        Err(fault) => {
+            let events = FrameEvents { portal_refusal: Some(crate::frame::thread::Refusal {
+                path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
+            }), ..Default::default() };
+            return MotionStepResult::from_events(events, ctx.frame);
+        }
+    };
+    let result = step_world_motion(model, clusters, ctx);
+    match (authored, model) {
+        (Authored::Axis(params), MotionModel::AxisSwept(axis)) => axis.params = params,
+        (Authored::Momentum(params), MotionModel::SurfaceMomentum(body)) => body.params = params,
+        (Authored::Crawler(params), MotionModel::AdhesiveCrawler(body)) => body.params = params,
+        _ => unreachable!("a movement step keeps its selected policy"),
+    }
+    result
+}
+
+fn step_world_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,

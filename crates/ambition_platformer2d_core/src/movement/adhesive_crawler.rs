@@ -619,3 +619,14 @@ fn seated_on(surface: Aabb, pos: Vec2, normal: Vec2, body_thick: f32) -> Vec2 {
     let seated_axis = normal.abs();
     pos * (Vec2::ONE - seated_axis) + (face + normal * body_thick) * seated_axis
 }
+
+impl CrawlerParams {
+    /// Convert body quantities to world units. Time and ratios stay unchanged.
+    pub fn for_material(mut self, material: crate::frame::BodyMaterial) -> Result<Self, crate::frame::NumericFault> {
+        let scale = material.scale();
+        self.crawl_speed = crate::frame::scale_quantity(self.crawl_speed, scale)?;
+        self.max_fall_speed = crate::frame::scale_bound(self.max_fall_speed, scale)?;
+
+        Ok(self)
+    }
+}

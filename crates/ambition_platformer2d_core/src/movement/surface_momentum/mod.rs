@@ -2118,3 +2118,19 @@ pub(crate) fn apply_external_launch(world: &World, body: &mut SurfaceBody, launc
 
 #[cfg(test)]
 mod tests;
+
+impl MomentumParams {
+    /// Convert body quantities to world units. Time and ratios stay unchanged.
+    pub fn for_material(mut self, material: crate::frame::BodyMaterial) -> Result<Self, crate::frame::NumericFault> {
+        let scale = material.scale();
+        self.ground_accel = crate::frame::scale_quantity(self.ground_accel, scale)?;
+        self.brake = crate::frame::scale_quantity(self.brake, scale)?;
+        self.friction = crate::frame::scale_quantity(self.friction, scale)?;
+        self.top_speed = crate::frame::scale_quantity(self.top_speed, scale)?;
+        self.air_accel = crate::frame::scale_quantity(self.air_accel, scale)?;
+        self.jump_speed = crate::frame::scale_quantity(self.jump_speed, scale)?;
+        self.min_stick_speed = crate::frame::scale_quantity(self.min_stick_speed, scale)?;
+
+        Ok(self)
+    }
+}

@@ -211,9 +211,19 @@ impl Sim2 {
         point: Vec2,
         velocity: Vec2,
     ) -> Result<Vec2, NumericFault> {
-        let out_point = self.point(point)?;
-        let relative = self.vector(velocity - enter.velocity_at(point))?;
-        narrow_vec(relative.as_dvec2() + exit.velocity_at(out_point).as_dvec2())
+        if !point.is_finite() || !velocity.is_finite() { return Err(NumericFault::NonFinite); }
+        let point = point.as_dvec2();
+        let out_point = self.point_wide(point);
+        narrow_vec(out_point)?;
+        let surface_velocity = |frame: &super::PortalFrame, at: DVec2| -> Result<DVec2, NumericFault> {
+            if !frame.velocity.is_finite() || !frame.spin.is_finite() || !frame.pivot.is_finite() {
+                return Err(NumericFault::NonFinite);
+            }
+            let arm = at - frame.pivot.as_dvec2();
+            Ok(frame.velocity.as_dvec2() + f64::from(frame.spin) * DVec2::new(-arm.y, arm.x))
+        };
+        let relative = velocity.as_dvec2() - surface_velocity(enter, point)?;
+        narrow_vec(self.orthogonal * relative * self.scale + surface_velocity(exit, out_point)?)
     }
 }
 
@@ -247,6 +257,16 @@ fn narrow_vec(value: bevy_math::DVec2) -> Result<Vec2, NumericFault> {
     Ok(narrowed)
 }
 
+pub(crate) fn scale_quantity(value: f32, scale: f32) -> Result<f32, NumericFault> {
+    if !value.is_finite() { return Err(NumericFault::NonFinite); }
+    narrow_vec(DVec2::new(f64::from(value) * f64::from(scale), 0.0)).map(|value| value.x)
+}
+
+pub(crate) fn scale_bound(value: f32, scale: f32) -> Result<f32, NumericFault> {
+    if value == f32::INFINITY { return Ok(value); }
+    scale_quantity(value, scale)
+}
+
 fn narrow_positive(value: f64) -> Result<f32, NumericFault> {
     let narrowed = value as f32;
     if !value.is_finite() || !narrowed.is_finite() {
@@ -268,6 +288,12 @@ mod tests {
             frame: PortalFrame::fixed(at, normal),
             half_length,
         }
+    }
+
+    #[test]
+    fn moving_frame_velocity_keeps_finite_cancellation() {
+        let frame = PortalFrame { velocity: Vec2::new(f32::MAX, 0.0), ..PortalFrame::fixed(Vec2::ZERO, Vec2::Y) };
+        assert_eq!(Sim2::IDENTITY.velocity(&frame, &frame, Vec2::ZERO, Vec2::new(-f32::MAX, 0.0)).unwrap(), Vec2::new(-f32::MAX, 0.0));
     }
 
     #[test]

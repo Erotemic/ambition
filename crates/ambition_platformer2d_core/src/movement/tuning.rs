@@ -2190,3 +2190,101 @@ mod pending_mechanical_edits_tests {
         );
     }
 }
+
+impl AxisLocomotion {
+    /// Convert body quantities to world units. Time and ratios stay unchanged.
+    pub fn for_material(mut self, material: crate::frame::BodyMaterial) -> Result<Self, crate::frame::NumericFault> {
+        let scale = material.scale();
+        self.run_accel = crate::frame::scale_quantity(self.run_accel, scale)?;
+        self.air_accel = crate::frame::scale_quantity(self.air_accel, scale)?;
+        self.ground_friction = crate::frame::scale_quantity(self.ground_friction, scale)?;
+        self.air_friction = crate::frame::scale_quantity(self.air_friction, scale)?;
+        self.air_stop_assist = crate::frame::scale_quantity(self.air_stop_assist, scale)?;
+        self.carried_decay = crate::frame::scale_quantity(self.carried_decay, scale)?;
+        self.launch_decay = crate::frame::scale_quantity(self.launch_decay, scale)?;
+        self.max_run_speed = crate::frame::scale_quantity(self.max_run_speed, scale)?;
+        self.max_air_speed = crate::frame::scale_quantity(self.max_air_speed, scale)?;
+        self.initial_dash_speed = crate::frame::scale_quantity(self.initial_dash_speed, scale)?;
+        self.walk_speed = crate::frame::scale_quantity(self.walk_speed, scale)?;
+        self.teeter_margin = crate::frame::scale_quantity(self.teeter_margin, scale)?;
+        self.max_fall_speed = crate::frame::scale_bound(self.max_fall_speed, scale)?;
+        self.jump_speed = crate::frame::scale_quantity(self.jump_speed, scale)?;
+        self.double_jump_speed = crate::frame::scale_quantity(self.double_jump_speed, scale)?;
+        self.wall_jump_x = crate::frame::scale_quantity(self.wall_jump_x, scale)?;
+        self.wall_slide_speed = crate::frame::scale_quantity(self.wall_slide_speed, scale)?;
+        self.wall_climb_speed = crate::frame::scale_quantity(self.wall_climb_speed, scale)?;
+        self.fast_fall_accel = crate::frame::scale_quantity(self.fast_fall_accel, scale)?;
+        self.fast_fall_speed = crate::frame::scale_quantity(self.fast_fall_speed, scale)?;
+        self.glide_fall_speed = crate::frame::scale_quantity(self.glide_fall_speed, scale)?;
+        self.glide_air_accel = crate::frame::scale_quantity(self.glide_air_accel, scale)?;
+        if let AxisHorizontalLaw::Momentum(ref mut law) = self.horizontal_law {
+            law.ground_reverse_accel = crate::frame::scale_quantity(law.ground_reverse_accel, scale)?;
+            law.ground_coast_decel = crate::frame::scale_quantity(law.ground_coast_decel, scale)?;
+            law.air_reverse_accel = crate::frame::scale_quantity(law.air_reverse_accel, scale)?;
+            law.air_coast_decel = crate::frame::scale_quantity(law.air_coast_decel, scale)?;
+        }
+        if let AxisJumpLaw::PhasedGravity(ref mut law) = self.jump_law {
+            for threshold in &mut law.speed_thresholds {
+                if *threshold != f32::INFINITY { *threshold = crate::frame::scale_quantity(*threshold, scale)?; }
+            }
+            for offset in &mut law.launch_offsets { *offset = crate::frame::scale_quantity(*offset, scale)?; }
+            law.held_phase_min_upward_speed = crate::frame::scale_quantity(law.held_phase_min_upward_speed, scale)?;
+        }
+        if let Some(balance) = &mut self.balance {
+            balance.teeter_band = crate::frame::scale_quantity(balance.teeter_band, scale)?;
+            balance.tip_speed = crate::frame::scale_quantity(balance.tip_speed, scale)?;
+        }
+        Ok(self)
+    }
+}
+
+impl TraversalAbilityTuning {
+    /// Convert body quantities to world units. Time and ratios stay unchanged.
+    pub fn for_material(mut self, material: crate::frame::BodyMaterial) -> Result<Self, crate::frame::NumericFault> {
+        let scale = material.scale();
+        self.dash_speed = crate::frame::scale_quantity(self.dash_speed, scale)?;
+        self.blink_distance = crate::frame::scale_quantity(self.blink_distance, scale)?;
+        self.precision_blink_distance = crate::frame::scale_quantity(self.precision_blink_distance, scale)?;
+        self.precision_blink_aim_speed = crate::frame::scale_quantity(self.precision_blink_aim_speed, scale)?;
+        self.blink_max_downward_speed = crate::frame::scale_quantity(self.blink_max_downward_speed, scale)?;
+        self.precision_blink_max_downward_speed = crate::frame::scale_quantity(self.precision_blink_max_downward_speed, scale)?;
+        self.pogo_speed = crate::frame::scale_quantity(self.pogo_speed, scale)?;
+        self.slash_recoil = crate::frame::scale_quantity(self.slash_recoil, scale)?;
+        self.dodge_roll_speed = crate::frame::scale_quantity(self.dodge_roll_speed, scale)?;
+        self.untechable_launch_speed = crate::frame::scale_quantity(self.untechable_launch_speed, scale)?;
+        self.air_dodge_speed = crate::frame::scale_quantity(self.air_dodge_speed, scale)?;
+        self.tumble_speed = crate::frame::scale_quantity(self.tumble_speed, scale)?;
+        self.sdi_step = crate::frame::scale_quantity(self.sdi_step, scale)?;
+        self.asdi_step = crate::frame::scale_quantity(self.asdi_step, scale)?;
+        self.jab_lock_speed = crate::frame::scale_quantity(self.jab_lock_speed, scale)?;
+        self.shield.pushback_per_damage = crate::frame::scale_quantity(self.shield.pushback_per_damage, scale)?;
+        self.footstool.rise_speed = crate::frame::scale_quantity(self.footstool.rise_speed, scale)?;
+        self.footstool.press_speed = crate::frame::scale_quantity(self.footstool.press_speed, scale)?;
+        self.footstool.band = crate::frame::scale_quantity(self.footstool.band, scale)?;
+        self.ledge_momentum.x_cap = crate::frame::scale_quantity(self.ledge_momentum.x_cap, scale)?;
+        self.ledge_momentum.y_cap = crate::frame::scale_quantity(self.ledge_momentum.y_cap, scale)?;
+
+        Ok(self)
+    }
+}
+
+impl FlightTuning {
+    /// Convert body quantities to world units. Time and ratios stay unchanged.
+    pub fn for_material(mut self, material: crate::frame::BodyMaterial) -> Result<Self, crate::frame::NumericFault> {
+        let scale = material.scale();
+        self.accel = crate::frame::scale_quantity(self.accel, scale)?;
+        self.drag = crate::frame::scale_quantity(self.drag, scale)?;
+        self.terminal_speed = crate::frame::scale_bound(self.terminal_speed, scale)?;
+        self.hover_speed = crate::frame::scale_quantity(self.hover_speed, scale)?;
+        if let Some(speed) = &mut self.invariant_speed { *speed = crate::frame::scale_quantity(*speed, scale)?; }
+        Ok(self)
+    }
+}
+
+impl AxisSweptParams {
+    /// Derive the live policy parameters from canonical authored quantities.
+    pub fn for_material(self, material: crate::frame::BodyMaterial) -> Result<Self, crate::frame::NumericFault> {
+        Ok(Self { locomotion: self.locomotion.for_material(material)?,
+            abilities: self.abilities.for_material(material)?, flight: self.flight.for_material(material)? })
+    }
+}

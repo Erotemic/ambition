@@ -256,13 +256,16 @@ impl VolumePiece {
 
     /// Polygon regions are exact. A circle keeps its analytic contact test.
     pub fn source_region(&self) -> Option<Vec<Vec2>> {
+        self.source_region_wide().map(|region| region.into_iter().map(|point| point.as_vec2()).collect())
+    }
+
+    pub fn source_region_wide(&self) -> Option<Vec<DVec2>> {
         let outline = self.source.polygon().unwrap_or_else(|| box_outline(self.source.bounds()));
-        cut(outline, &self.source_bounds)
+        cut_wide(outline, &self.source_bounds)
     }
 
     pub fn region(&self) -> Option<Vec<Vec2>> {
-        let outline = self.source.polygon().unwrap_or_else(|| box_outline(self.source.bounds()));
-        cut_wide(outline, &self.source_bounds)?.into_iter().map(|p| self.to_piece.point_from_wide(p)).collect::<Result<Vec<_>, _>>().ok()
+        self.source_region_wide()?.into_iter().map(|p| self.to_piece.point_from_wide(p)).collect::<Result<Vec<_>, _>>().ok()
     }
 
     pub fn center(&self) -> Vec2 {
@@ -612,9 +615,28 @@ pub struct MotionAdmission<'a> {
 
 impl MotionAdmission<'_> {
     /// Validate both occupancy and the complete translated collision sweep.
-    pub fn admit(&self, from: crate::Aabb, to: crate::Aabb) -> Result<(), Refusal> {
-        let source = CombatVolume::aabb(to);
-        partition(crate::frame::thread::MaterialPrimitive::world(&source), from.center(), self.links, self.first, self.budget, self.convention)?;
+    pub fn admit(&self, from: crate::Aabb, to: crate::Aabb, root_map: Sim2, velocity: Vec2) -> Result<(), Refusal> {
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        let inverse = root_map.inverse().map_err(numeric)?;
+        let verify_motion = |parts: Vec<VolumePiece>| -> Result<(), Refusal> {
+            for part in parts.iter().filter(|part| part.is_carried()) {
+                for point in part.source_region_wide().into_iter().flatten() {
+                    let mut point = root_map.point_from_wide(point).map_err(numeric)?;
+                    let mut velocity = velocity;
+                    for (index, key) in part.path.iter().enumerate() {
+                        let link = self.links.iter().find(|link| link.key == *key)
+                            .expect("partition paths name links from this aperture snapshot");
+                        let refusal = |fault| Refusal { path: part.path[..index].to_vec(), link: Some(*key), reason: RefusalReason::Numeric(fault) };
+                        let map = link.map(self.convention).map_err(refusal)?;
+                        velocity = map.velocity(&link.enter.frame, &link.exit.frame, point, velocity).map_err(refusal)?;
+                        point = map.point(point).map_err(refusal)?;
+                    }
+                }
+            }
+            Ok(())
+        };
+        let canonical = map_volume(&CombatVolume::aabb(to), &inverse).map_err(numeric)?;
+        verify_motion(partition(MaterialPrimitive { domain: &canonical, to_world: root_map }, from.center(), self.links, self.first, self.budget, self.convention)?)?;
         let mut points = box_corners(from).into_iter().chain(box_corners(to)).collect::<Vec<_>>();
         if points.iter().any(|p| !p.is_finite()) {
             return Err(Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(NumericFault::NonFinite) });
@@ -639,7 +661,8 @@ impl MotionAdmission<'_> {
         let mut upper = chain(&points);
         lower.pop(); upper.pop(); lower.extend(upper);
         if lower.len() >= 3 {
-            partition(crate::frame::thread::MaterialPrimitive::world(&CombatVolume::convex(lower)), from.center(), self.links, self.first, self.budget, self.convention)?;
+            let canonical = map_volume(&CombatVolume::convex(lower), &inverse).map_err(numeric)?;
+            verify_motion(partition(MaterialPrimitive { domain: &canonical, to_world: root_map }, from.center(), self.links, self.first, self.budget, self.convention)?)?;
         }
         Ok(())
     }

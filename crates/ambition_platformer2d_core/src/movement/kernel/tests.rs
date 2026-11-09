@@ -1800,3 +1800,91 @@ fn a_portal_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
     assert!(result.events.reset.is_none());
     assert_eq!(body.sweep.as_deref().unwrap().delta(), Vec2::ZERO);
 }
+
+
+#[test]
+fn material_scale_changes_authored_control_units_and_keeps_gravity_in_world_units() {
+    for policy in [MotionModelSpec::AxisSwept(AxisSweptParams::default()),
+        MotionModelSpec::SurfaceMomentum(MomentumParams::default()),
+        MotionModelSpec::AdhesiveCrawler(CrawlerParams::default())] {
+        let sample = |scale: f32, gravity: f32, input: InputState| {
+            let world = empty_world();
+            let mut model = MotionModel::default();
+            model.apply_spec(policy);
+            let mut body = BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::sandbox_all());
+            body.kinematics.material = crate::frame::BodyMaterial::new(scale, bevy_math::Mat2::IDENTITY).unwrap();
+            let result = step(&mut model, &world, &mut body, MotionFrame::from_direction(Vec2::Y, gravity), input);
+            assert!(result.events.portal_refusal.is_none());
+            assert_eq!(model.spec(), policy);
+            body.kinematics.vel
+        };
+        let normal = sample(1.0, 0.0, crawl_forward());
+        let scaled = sample(3.0, 0.0, crawl_forward());
+        assert!((scaled - normal * 3.0).length() < 0.001, "{policy:?}: {normal:?} -> {scaled:?}");
+        let falling = sample(1.0, 900.0, InputState::default());
+        let scaled_falling = sample(3.0, 900.0, InputState::default());
+        assert!((falling - scaled_falling).length() < 0.001, "world gravity must stay in world units");
+    }
+}
+
+#[test]
+fn repeated_scaled_steps_keep_canonical_parameters_and_body_time() {
+    let world = empty_world();
+    let authored = AxisSweptParams::default();
+    let mut timers = Vec::new();
+    for scale in [1.0, 1.7, 4.0] {
+        let mut model = MotionModel::axis_swept(authored);
+        let MotionModel::AxisSwept(axis) = &mut model else { unreachable!() };
+        axis.state.dash_timer = 0.1;
+        let mut body = BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::sandbox_all());
+        body.kinematics.material = crate::frame::BodyMaterial::new(scale, bevy_math::Mat2::IDENTITY).unwrap();
+        for _ in 0..4 {
+            step(&mut model, &world, &mut body, MotionFrame::from_direction(Vec2::Y, 0.0), InputState::default());
+            assert_eq!(model.spec(), MotionModelSpec::AxisSwept(authored));
+        }
+        let MotionModel::AxisSwept(axis) = model else { unreachable!() };
+        timers.push(axis.state.dash_timer);
+    }
+    assert_eq!(timers, vec![timers[0]; 3]);
+    assert!(timers[0] > 0.0 && timers[0] < 0.1);
+}
+
+#[test]
+fn an_unrepresentable_controller_quantity_refuses_before_mutation() {
+    let world = empty_world();
+    let mut authored = AxisSweptParams::default();
+    authored.locomotion.run_accel = f32::MAX;
+    let mut model = MotionModel::axis_swept(authored);
+    let mut body = BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::sandbox_all());
+    body.kinematics.material = crate::frame::BodyMaterial::new(2.0, bevy_math::Mat2::IDENTITY).unwrap();
+    let before = body.kinematics;
+    let result = step(&mut model, &world, &mut body, MotionFrame::from_direction(Vec2::Y, 900.0), crawl_forward());
+    assert_eq!(body.kinematics, before);
+    assert_eq!(model.spec(), MotionModelSpec::AxisSwept(authored));
+    assert_eq!(result.events.portal_refusal.unwrap().reason,
+        crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::Overflow));
+}
+
+
+#[test]
+fn an_unrepresentable_part_velocity_refuses_before_body_commit() {
+    use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink, RefusalReason};
+    use crate::frame::{MapConvention, NumericFault, PortalAperture, PortalFrame};
+    let world = empty_world();
+    let links = PortalLink::both_ways(0, (
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 500.0), -Vec2::Y), half_length: 40.0 },
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(900.0, 500.0), Vec2::Y), half_length: 80.0 },
+    ));
+    let mut body = BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 499.0), AbilitySet::default());
+    body.kinematics.vel = Vec2::new(0.0, f32::MAX);
+    let before = body.kinematics;
+    let mut model = MotionModel::default();
+    let mut clusters = body.as_mut();
+    let result = step_motion(&mut model, &mut clusters, MotionStepContext {
+        world: &world, portal: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
+        input: InputState::default(), frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 0.0, dt: 0.0,
+        contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
+    });
+    assert_eq!(*clusters.kinematics, before);
+    assert_eq!(result.events.portal_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
+}

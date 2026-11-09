@@ -1069,6 +1069,9 @@ impl crate::layered::Spatial for Block {
     fn spatial_bounds(&self) -> Aabb {
         self.aabb
     }
+    fn swept_bounds(&self) -> Aabb {
+        Aabb { min:self.aabb.min.min(self.aabb.min-self.velocity),max:self.aabb.max.max(self.aabb.max-self.velocity) }
+    }
 }
 
 impl crate::layered::Spatial for SurfaceChain {
@@ -1676,18 +1679,18 @@ impl World {
         };
         for part in cells.parts() {
             let bounds = cells.bounds(part)?;
-            for block in self.blocks.near(bounds) {
+            for block in self.blocks.swept_near(bounds) {
                 let collider = MaterialCollider::Block(block);
                 let a = block.aabb;
                 let polygon = [a.min,Vec2::new(a.max.x,a.min.y),a.max,Vec2::new(a.min.x,a.max.y)];
-                if let Some(contact) = cells.against(part,&polygon)? {
+                if let Some(contact) = cells.against(part,&polygon,block.velocity)? {
                     let hit = MaterialWorldHit { collider,contact };
                     consider(hit,part);
                 }
             }
             for (index,chain) in self.chains.indexed_near(bounds) {
                 if chain.closed && chain.kind == SurfaceKind::Solid && chain.points.len() >= 3 {
-                    if let Some(contact) = cells.against(part,&chain.points)? {
+                    if let Some(contact) = cells.against(part,&chain.points,Vec2::ZERO)? {
                         let point = contact.world_point.as_dvec2();
                         let distance = |segment| {
                             let (a,b) = chain.segment(segment);
@@ -1706,7 +1709,7 @@ impl World {
                     let collider = MaterialCollider::Chain { chain,index,segment };
                     let (a,b)=chain.segment(segment);
                     for line in material_line_segments(a,b,part,&cells,admission)? {
-                        if let Some(contact)=cells.against(part,&line)? {
+                        if let Some(contact)=cells.against(part,&line,Vec2::ZERO)? {
                             consider(MaterialWorldHit { collider,contact },part);
                         }
                     }

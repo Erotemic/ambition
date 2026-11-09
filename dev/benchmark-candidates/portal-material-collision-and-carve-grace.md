@@ -33,3 +33,16 @@ an unhosted exit can put its back face inside that placement range. The
 loader then moves the exit onto the target. Keep the target's near face at
 the test distance and put its back face outside the placement range. Read
 the loaded portal poses when an authored contact test fails.
+
+For a moving obstacle, clipping its final shape and then translating the
+fragment is not a continuous query. Keep the spatial cell fixed. A clipped
+corner follows the intersection of its moving and fixed boundary lines;
+its path can differ from the obstacle's displacement. Test the interval in
+which each corner exists. A solid can first enter the cell as a line whose
+ends are outside the body. Include that event as well as face and corner
+contacts. Keep circles analytic.
+
+Use the attempted motion's world-time interval. A leg that stops on a
+portal entry must not include later motion by an obstacle. Read published
+obstacle bounds as end-of-tick geometry. Broad phase must include its
+complete displacement, even when neither endpoint meets the body.

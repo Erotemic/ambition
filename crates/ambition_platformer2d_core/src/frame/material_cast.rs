@@ -9,11 +9,15 @@ use super::thread::{
 use super::{NumericFault, Sim2};
 use crate::{Aabb, CombatVolume, Vec2};
 
+mod translation;
+
 /// A primitive's translation in its owner's world chart.
 pub struct MaterialCast<'a> {
     pub material: MaterialPrimitive<'a>,
     pub root: Vec2,
     pub delta: Vec2,
+    /// The attempted motion's interval within the world's current tick.
+    pub time: std::ops::Range<f64>,
 }
 
 /// One contact, with both the owner-chart and physical-world witnesses.
@@ -32,6 +36,7 @@ pub struct MaterialCastCells<'a> {
     material: MaterialPrimitive<'a>,
     delta: DVec2,
     parts: Vec<VolumePiece>,
+    time: std::ops::Range<f64>,
 }
 
 fn numeric(reason: NumericFault) -> Refusal {
@@ -57,6 +62,12 @@ impl<'a> MaterialCast<'a> {
         self,
         admission: Option<MotionAdmission<'_>>,
     ) -> Result<MaterialCastCells<'a>, Refusal> {
+        if !self.time.start.is_finite() || !self.time.end.is_finite() {
+            return Err(numeric(NumericFault::NonFinite));
+        }
+        if self.time.start<0.0 || self.time.end>1.0 || self.time.start>self.time.end {
+            return Err(numeric(NumericFault::InvalidFrame));
+        }
         super::thread::map_volume(self.material.domain, &self.material.to_world)
             .map_err(numeric)?;
         let inverse = self.material.to_world.inverse().map_err(numeric)?;
@@ -119,6 +130,7 @@ impl<'a> MaterialCast<'a> {
             material: self.material,
             delta: delta.as_dvec2(),
             parts,
+            time:self.time,
         })
     }
 }
@@ -146,11 +158,14 @@ impl MaterialCastCells<'_> {
         Ok(Aabb { min: lo, max: hi })
     }
 
-    /// A convex obstacle can be a polygon, a segment or a point.
+    /// The obstacle is at the end of the world tick. Its displacement covers
+    /// that tick. Its shape can be a convex polygon, a segment or a point.
+    /// The spatial cell stays fixed during the cast's time interval.
     pub fn against(
         &self,
         part: &VolumePiece,
         obstacle: &[Vec2],
+        displacement: Vec2,
     ) -> Result<Option<MaterialCastHit>, Refusal> {
         let inverse = part
             .transform()
@@ -166,26 +181,25 @@ impl MaterialCastCells<'_> {
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(|reason| numeric_at(part, reason))?;
-        for plane in part.source_bounds() {
-            region = clip(&region, *plane);
-            if region.is_empty() {
-                return Ok(None);
-            }
+        if !displacement.is_finite() {
+            return Err(numeric_at(part, NumericFault::NonFinite));
         }
-        region.dedup();
-        // A solid that only touches the cell boundary occupies no area in it.
-        if obstacle.len() >= 3 && !super::thread::has_area(&region) { return Ok(None); }
-        let contact = match self.material.domain {
-            CombatVolume::Circle { center, radius } => {
-                circle_cast(center.as_dvec2(), f64::from(*radius), self.delta, &region)
+        let full_motion=inverse.direction_wide(displacement.as_dvec2())*inverse.scale_wide();
+        for point in &mut region { *point-=full_motion*(1.0-self.time.end); }
+        let motion=full_motion*(self.time.end-self.time.start);
+        let contact = if motion != DVec2::ZERO {
+            for point in &mut region { *point -= motion; }
+            translation::cast(self.material.domain, self.delta, &region, motion, part.source_bounds())
+                .map_err(|fault|numeric_at(part,fault))?
+        } else {
+            for plane in part.source_bounds() {
+                region = clip(&region, *plane);
+                if region.is_empty() { return Ok(None); }
             }
-            source => {
-                let polygon = source
-                    .polygon()
-                    .expect("a non-circle primitive has a polygon");
-                let polygon = polygon.iter().map(|p| p.as_dvec2()).collect::<Vec<_>>();
-                polygon_cast(&polygon, self.delta, &region)
-            }
+            region.dedup();
+            // A solid that only touches the cell boundary occupies no area in it.
+            if obstacle.len() >= 3 && !super::thread::has_area(&region) { return Ok(None); }
+            primitive_cast(self.material.domain,self.delta,&region)
         };
         let Some(contact) = contact else {
             return Ok(None);
@@ -222,6 +236,13 @@ struct CastHit {
     time: f64,
     normal: DVec2,
     point: DVec2,
+}
+
+fn primitive_cast(body:&CombatVolume,delta:DVec2,obstacle:&[DVec2]) -> Option<CastHit> {
+    match body {
+        CombatVolume::Circle {center,radius}=>circle_cast(center.as_dvec2(),f64::from(*radius),delta,obstacle),
+        body=>polygon_cast(&body.polygon().unwrap().iter().map(|p|p.as_dvec2()).collect::<Vec<_>>(),delta,obstacle),
+    }
 }
 
 fn corners(bounds: Aabb) -> [Vec2; 4] {
@@ -317,6 +338,7 @@ fn polygon_cast(body: &[DVec2], delta: DVec2, obstacle: &[DVec2]) -> Option<Cast
         }
         enter = 0.0;
     }
+    if !penetrating && enter < 0.0 { return None; }
     let time = enter.max(0.0);
     if time > 1.0
         || exit < time
@@ -368,7 +390,7 @@ fn circle_cast(center: DVec2, radius: f64, delta: DVec2, obstacle: &[DVec2]) -> 
         return None;
     }
     let area: f64 = edges(obstacle).map(|(a, b)| a.perp_dot(b)).sum();
-    let inside = obstacle.len() >= 3
+    let inside = area != 0.0 && obstacle.len() >= 3
         && edges(obstacle).all(|(a, b)| (b - a).perp_dot(center - a) * area.signum() >= 0.0);
     let (a, b, closest) = edges(obstacle)
         .map(|(a, b)| (a, b, closest_on_segment(center, a, b)))

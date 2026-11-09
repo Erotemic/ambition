@@ -610,8 +610,13 @@ loading work. No complete PSIM acceptance slice is closed.
   physical obstacle in that domain. It casts the actual primitive, keeps
   circles analytic and returns the source collider and directed path.
   Projectiles use this query for world contacts. Actor kernels still use
-  their prior contact paths. Moving-obstacle casts and physical righting
-  remain open.
+  their prior contact paths. Translating blocks use their full swept bounds.
+  Their contact query keeps the cell fixed while the obstacle crosses it.
+  A cast carries its interval within the world tick; a projectile leg that
+  stops at an entry does not test later obstacle motion. A live app witness
+  hits a moving wall that misses the far part at both endpoint poses, before
+  the root transits. Rotating obstacles, moving line hosts and physical
+  righting remain open.
 - Projectile world contacts use the original collider and the selected part.
   The response uses its normal and physical contact point. Surface velocity
   returns through the inverse path with the moving-frame law. Flight and

@@ -68,8 +68,9 @@ fn surface_velocity(
     }
 }
 
-/// Cast a translated body against the room snapshot. Return the selected
-/// collider and a complete candidate response. A refusal changes no body state.
+/// Cast a translated body during `time`, an interval of the world tick.
+/// Blocks use their published displacement. Return the selected collider
+/// and a complete candidate response. A refusal changes no body state.
 #[allow(clippy::too_many_arguments)]
 pub fn resolve_world_collision<'w>(
     before: BodyKinematics,
@@ -78,6 +79,7 @@ pub fn resolve_world_collision<'w>(
     world: &'w ae::World,
     gravity_dir: Vec2,
     dt: f32,
+    time:std::ops::Range<f64>,
     admission: Option<MotionAdmission<'_>>,
 ) -> Result<ProjectileWorldCollision<'w>, Refusal> {
     if !before.vel.is_finite()
@@ -102,6 +104,7 @@ pub fn resolve_world_collision<'w>(
         .vector_from_wide(after.pos.as_dvec2() - before.pos.as_dvec2())
         .map_err(numeric)?;
     let cast = MaterialCast {
+        time,
         material: MaterialPrimitive {
             domain: &shape,
             to_world: before.material_map(Vec2::ZERO).map_err(numeric)?,

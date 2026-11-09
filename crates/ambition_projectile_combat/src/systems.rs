@@ -898,7 +898,7 @@ pub fn step_projectiles(
 
         // Transit owns the next chart. This leg stops on the entry plane.
         #[cfg(feature = "portal")]
-        let contact_end = match ambition_portal2d::first_portal_crossing_through(
+        let (contact_end,travel_end) = match ambition_portal2d::first_portal_crossing_through(
             leg_start,
             candidate.pos,
             candidate.size(),
@@ -908,12 +908,12 @@ pub fn step_projectiles(
             Some((t, _, _)) => {
                 let at = leg_start + (candidate.pos - leg_start) * t;
                 candidate.pos = at;
-                at
+                (at,f64::from(t))
             }
-            None => candidate.pos,
+            None => (candidate.pos,1.0),
         };
         #[cfg(not(feature = "portal"))]
-        let contact_end = candidate.pos;
+        let (contact_end,travel_end) = (candidate.pos,1.0);
 
         #[cfg(feature = "portal")]
         if let Err(refusal) = collision.admit_motion(proj_entity, shot_room, before, candidate, *acceleration) {
@@ -926,7 +926,7 @@ pub fn step_projectiles(
         }
 
         let world_response = match resolve_world_collision(
-            before, candidate, candidate_game, collision_world, gravity_dir, dt,
+            before, candidate, candidate_game, collision_world, gravity_dir, dt,0.0..travel_end,
             collision.motion_for(proj_entity, shot_room),
         ) {
             Ok(response) => response,

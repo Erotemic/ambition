@@ -168,7 +168,7 @@ impl<T: Clone> Layered<T> {
         }
         let base = Arc::make_mut(&mut self.base);
         // What is written may move: the index is made again when asked.
-        base.grid = OnceLock::new();
+        base.grids = [OnceLock::new(),OnceLock::new()];
         &mut base.items
     }
 
@@ -232,12 +232,12 @@ impl<T: Clone> Layered<T> {
 /// time something asks what is near a place.
 struct Base<T> {
     items: Vec<T>,
-    grid: OnceLock<Grid>,
+    grids: [OnceLock<Grid>;2],
 }
 
 impl<T> Base<T> {
     fn new(items: Vec<T>) -> Self {
-        Self { items, grid: OnceLock::new() }
+        Self { items, grids:[OnceLock::new(),OnceLock::new()] }
     }
 }
 
@@ -258,6 +258,7 @@ impl<T> std::ops::Deref for Base<T> {
 /// An entry that is somewhere: a block's box, a line's bounds.
 pub trait Spatial {
     fn spatial_bounds(&self) -> Aabb;
+    fn swept_bounds(&self) -> Aabb { self.spatial_bounds() }
 }
 
 /// Where the entries of a list are: each grid cell, the entries whose bounds
@@ -280,11 +281,11 @@ impl Grid {
         (lo.x as i32, lo.y as i32, hi.x as i32, hi.y as i32)
     }
 
-    fn build<T: Spatial>(items: &[T]) -> Self {
+    fn build<T: Spatial>(items: &[T], swept: bool) -> Self {
         let mut grid = Self { cell: GRID_CELL, cells: Default::default(), large: Vec::new() };
         for (i, item) in items.iter().enumerate() {
-            let (x0, y0, x1, y1) = grid.cells_of(item.spatial_bounds());
-            if i64::from(x1 - x0 + 1) * i64::from(y1 - y0 + 1) > GRID_LARGE_CELLS {
+            let (x0, y0, x1, y1) = grid.cells_of(if swept { item.swept_bounds() } else { item.spatial_bounds() });
+            if (i64::from(x1)-i64::from(x0)+1).saturating_mul(i64::from(y1)-i64::from(y0)+1) > GRID_LARGE_CELLS {
                 grid.large.push(i as u32);
                 continue;
             }
@@ -301,7 +302,7 @@ impl Grid {
     fn near(&self, region: Aabb) -> Vec<u32> {
         let (x0, y0, x1, y1) = self.cells_of(region);
         let mut found: Vec<u32> = self.large.clone();
-        if i64::from(x1 - x0 + 1) * i64::from(y1 - y0 + 1) > GRID_LARGE_CELLS * 16 {
+        if (i64::from(x1)-i64::from(x0)+1).saturating_mul(i64::from(y1)-i64::from(y0)+1) > GRID_LARGE_CELLS * 16 {
             // A region the size of the room: every entry.
             // AMBITION_REVIEW(determinism): the hash order does not get out;
             // `found` is sorted and made unique below.
@@ -323,10 +324,12 @@ impl Grid {
 
 impl<T: Spatial> Layered<T> {
     /// The base entries near `region`, not hidden, by base index.
-    fn base_near(&self, region: Aabb) -> Vec<u32> {
-        let grid = self.base.grid.get_or_init(|| Grid::build(&self.base.items));
+    fn base_near(&self, region: Aabb, swept: bool) -> Vec<u32> {
+        let cache = &self.base.grids[usize::from(swept)];
+        let grid = cache.get_or_init(|| Grid::build(&self.base.items,swept));
         let mut near = grid.near(region);
-        near.retain(|i| self.hidden.binary_search(i).is_err() && touches(self.base.items[*i as usize].spatial_bounds(), region));
+        near.retain(|i| self.hidden.binary_search(i).is_err() && touches(
+            if swept { self.base.items[*i as usize].swept_bounds() } else { self.base.items[*i as usize].spatial_bounds() },region));
         near
     }
 
@@ -334,14 +337,21 @@ impl<T: Spatial> Layered<T> {
     /// the shared base (made once for it) finds them, so it costs what is
     /// near, not what the list holds.
     pub fn near(&self, region: Aabb) -> Vec<&T> {
-        let mut near: Vec<&T> = self.base_near(region).into_iter().map(|i| &self.base.items[i as usize]).collect();
+        let mut near: Vec<&T> = self.base_near(region,false).into_iter().map(|i| &self.base.items[i as usize]).collect();
         near.extend(self.added.iter().filter(|value| touches(value.spatial_bounds(), region)));
+        near
+    }
+
+    /// Entries whose bounds meet the region during their published motion.
+    pub fn swept_near(&self, region: Aabb) -> Vec<&T> {
+        let mut near: Vec<&T> = self.base_near(region,true).into_iter().map(|i| &self.base.items[i as usize]).collect();
+        near.extend(self.added.iter().filter(|value| touches(value.swept_bounds(),region)));
         near
     }
 
     /// Keep the logical index used by contacts and surface routes.
     pub fn indexed_near(&self, region: Aabb) -> Vec<(usize,&T)> {
-        let mut near = self.base_near(region).into_iter().map(|i| {
+        let mut near = self.base_near(region,false).into_iter().map(|i| {
             let skipped = self.hidden.partition_point(|hidden| *hidden < i);
             (i as usize-skipped,&self.base.items[i as usize])
         }).collect::<Vec<_>>();
@@ -355,7 +365,7 @@ impl<T: Spatial> Layered<T> {
     /// Hide the entries near `region` that `hide` picks.
     pub fn hide_near(&mut self, region: Aabb, mut hide: impl FnMut(&T) -> bool) {
         let picked: Vec<u32> =
-            self.base_near(region).into_iter().filter(|i| hide(&self.base.items[*i as usize])).collect();
+            self.base_near(region,false).into_iter().filter(|i| hide(&self.base.items[*i as usize])).collect();
         if !picked.is_empty() {
             self.hidden.extend(picked);
             self.hidden.sort_unstable();

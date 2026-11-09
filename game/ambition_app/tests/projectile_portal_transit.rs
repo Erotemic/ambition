@@ -154,6 +154,16 @@ fn a_projectile_refuses_a_portal_cut_before_motion_and_resumes_when_admitted() {
 
 #[test]
 fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
+    far_side_contact(false);
+}
+
+#[test]
+fn a_projectile_meets_a_wall_that_crosses_its_far_part_between_endpoint_poses() {
+    far_side_contact(true);
+}
+
+fn far_side_contact(moving:bool) {
+    use ambition_platformer2d::engine_core::{Aabb,RoomGeometry};
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
     use ambition_platformer2d::portal::{link_hash, PlacedPortal, PortalBodyTransited, PortalLink};
     use ambition_platformer2d::projectiles::{ProjectileOwner, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
@@ -200,7 +210,17 @@ fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
     let mut impact = false;
     let mut expired = false;
     let mut history = Vec::new();
+    let mut moved_target=false;
     for _ in 0..12 {
+        if moving && !moved_target && sim.world().get::<BodyKinematics>(shot)
+            .is_some_and(|body|(body.pos-enter.pos).dot(enter.normal)<=10.01) {
+            let world=sim.world_mut();
+            let mut room=world.query::<&mut RoomGeometry>().single_mut(world).unwrap();
+            let target=room.0.blocks.to_mut().iter_mut().find(|block|block.name=="K far-side target").unwrap();
+            target.aabb=Aabb::new(exit.pos+exit.normal*6.0+tangent*20.0,Vec2::splat(4.0));
+            target.velocity=tangent*100.0;
+            moved_target=true;
+        }
         sim.step(base());
         history.push(sim.world().get::<BodyKinematics>(shot).copied());
         transited |= sim.world().resource::<Messages<PortalBodyTransited>>()
@@ -209,7 +229,11 @@ fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
             .iter_current_update_messages().any(|event| match event.vfx {
                 VfxMessage::Impact { pos, .. } => {
                     let offset = pos-exit.pos;
-                    (offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01
+                    if moving {
+                        (2.0..=2.2).contains(&offset.dot(exit.normal)) && (offset.dot(tangent)+5.0).abs()<0.01
+                    } else {
+                        (offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01
+                    }
                 }
                 _ => false,
             });

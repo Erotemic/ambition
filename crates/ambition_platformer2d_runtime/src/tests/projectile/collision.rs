@@ -2728,7 +2728,7 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
     let mut destination=body.kin;
     destination.pos+=destination.vel*DT;
     let selected=ambition_projectiles::resolve_world_collision(
-        body.kin,destination,body.game,&world,ae::Vec2::Y,DT,None,
+        body.kin,destination,body.game,&world,ae::Vec2::Y,DT,0.0..1.0,None,
     ).expect("the contact is representable");
     let Some(ae::world::MaterialCollider::Block(selected_block))=selected.contact.as_ref().map(|hit|hit.collider)
         else { panic!("the shot must reach a block"); };

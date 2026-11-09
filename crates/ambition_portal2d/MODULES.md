@@ -18,7 +18,7 @@
 | [`link`](src/link.rs) | Explicit portal linking by id, plus the min-aperture equalizer. |
 | [`messages`](src/messages.rs) | Portal intent and outcome messages. |
 | [`passages`](src/passages.rs) | Publish this tick's pairs and straddlers in core geometry ([`PortalPassages`]), for a domain that is not the portal's (combat) to tell where a volume is. |
-| [`pieces`](src/pieces.rs) | Pure portal-piece geometry — the Core invariant of the portal system. |
+| [`pieces`](src/pieces.rs) | Aperture geometry for portal placement, transit and host carving. |
 | [`placement`](src/placement.rs) | Portal-aware geometry and the surface-fit / aperture-crossing decision logic. |
 | [`plugin`](src/plugin.rs) | Portal plugin assembly: reusable simulation plus an optional portal-gun opener. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_portal2d`. |

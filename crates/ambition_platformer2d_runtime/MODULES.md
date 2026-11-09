@@ -27,7 +27,7 @@
 | [`mode_scope`](src/mode_scope.rs) | Scoped game-mode runtime for hosted demos/rulesets. |
 | [`module_save_road`](src/module_save_road.rs) | The session durable save road of the extension host ([`SaveRoad::SessionDurable`]): a module's session record whose schema says `SaveEligibility::Durable` is kept in the durable world save, and comes back when that save loads. |
 | [`player_schedule`](src/player_schedule.rs) | Engine-generic per-frame player lifecycle and its host extension slots. |
-| [`portal_body`](src/portal_body.rs) | What a portal transit means for the body it moved. |
+| [`portal_body`](src/portal_body.rs) | Runtime witnesses for atomic portal body transfer. |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
 | [`portal_seat`](src/portal_seat.rs) | What a portal transit means for the body a seat drives. |
 | [`posed_limbs`](src/posed_limbs.rs) | A limb its owner poses meets what is there (`docs/planning/engine/portals-a-body-in-two-places.md`, G6). |

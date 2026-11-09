@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`collision_world`](src/collision_world.rs) | The collision world a projectile flies through. |
+| [`collision_world`](src/collision_world.rs) | The room geometry and aperture snapshot used by projectile contacts. |
 | [`content_schema`](src/content_schema.rs) | The `projectile_visuals` schema: a game's named projectile looks, as data in its pack. |
 | [`diagnostics`](src/diagnostics.rs) | Developer-facing logging and HUD summaries for the projectile system. |
 | [`entity`](src/entity.rs) | Per-projectile ECS entity components (Stage 19 Phase 3c-ii). |

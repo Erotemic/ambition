@@ -187,14 +187,11 @@ ADJUDICATED: dict[str, str] = {
         "(read 2026-09-18, found by a review 2026-09-18)"
     ),
     # ── A LOG LATCH: decides only whether a line is printed ─────────────────
-    "publish_portal_passages": (
-        "A LOG LATCH. `rings_said` holds the portal rings each room last "
-        "reported, and its only reader is the `if` around one "
-        "`bevy::log::info!` (`ambition_portal2d/src/passages.rs:57`); it is "
-        "rewritten whole each run (`*rings_said = rings`). Nothing it holds "
-        "reaches `PortalPassages` or any rollback row: a replay prints the "
-        "line again or not, and computes the same passages either way "
-        "(read 2026-10-21)"
+    "publish_portal_apertures": (
+        "A LOG LATCH. `rings_said` stores the rings last logged in each room. "
+        "It gates only `bevy::log::info!` and is replaced each run. "
+        "It does not change `PortalPassages` or rollback state "
+        "(read 2026-11-09)"
     ),
     # ── SCRATCH: cleared or reset before use ────────────────────────────────
     "integrate_sim_bodies": (

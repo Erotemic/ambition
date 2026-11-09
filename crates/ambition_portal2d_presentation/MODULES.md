@@ -8,7 +8,7 @@
 |---|---|
 | [`camera_continuity`](src/camera_continuity.rs) | Optional portal camera continuity: presentation-only viewpoint mapping for the camera while a controlled body straddles a portal. |
 | [`carry`](src/carry.rs) | A portal pair carries what is drawn into its entry out of its exit: every kind of drawable, by one road (`docs/planning/engine/portals-a-body-in-two-places.md`, "One road for every drawable"). |
-| [`clip_material`](src/clip_material.rs) | The portal-clip material: a `Material2d` that draws one texture-accurate piece of a sprite mid-portal-transit, discarding every fragment behind a world-space clip half-plane. |
+| [`clip_material`](src/clip_material.rs) | Textured portal pieces with complete mesh clipping. |
 | [`compositing`](src/compositing.rs) | Where a drawable sits relative to one portal pane, for compositing. |
 | [`effects`](src/effects.rs) | Runtime selection between the compiled-in portal transit visual effects, for live A/B comparison and profiling (the view windows cost extra render passes; on constrained targets the host needs to measure that against the bare baseline, in the SAME session). |
 | [`far_side`](src/far_side.rs) | Draw a far-side body as the part of it the pane does not cover. |

@@ -16,6 +16,18 @@ impl From<MaterialPlane> for MovingPlane {
     }
 }
 
+impl MovingPlane {
+    pub(super) fn during(self, time: std::ops::Range<f64>) -> Self {
+        Self {
+            plane: MaterialPlane {
+                offset: self.plane.offset + self.rate * time.start,
+                ..self.plane
+            },
+            rate: self.rate * (time.end - time.start),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct Plane {
     inward: DVec2,

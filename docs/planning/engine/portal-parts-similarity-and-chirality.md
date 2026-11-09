@@ -561,6 +561,9 @@ uses this authored pair and target. The
 [station source](../../../tools/ambition_ldtk_tools/specs/portal_contact_lab.yaml)
 adds six entities and retains all existing stations. H through J remain
 pending the production scale and handedness switch.
+The same production test also attaches K's exit to a translating host. It
+checks the physical impact during that tick, before the root transfers. This
+host is part of the test; the authored K station keeps its fixed exit.
 
 Retain current clipping scratch reuse and presentation pools when they fit
 the new authority. After Jon's optimization work ends, record a fresh baseline
@@ -623,13 +626,20 @@ loading work. No complete PSIM acceptance slice is closed.
   hits a moving wall that misses the far part at both endpoint poses, before
   the root transits. Core witnesses check independent cell motion, a shared
   moving host boundary, exact circle corners, scale, parity and frame boosts.
-  Cell construction still partitions the current aperture snapshot.
-  Their motion, rotating obstacles, moving line hosts and physical righting
-  remain open. Each directed link now retains the start pose and the host's
+  The temporal constructor now consumes recorded translation. It tracks the
+  intervals in which material exists, splits at entry-rank and clamp changes,
+  and counts simultaneous cells rather than disjoint time windows. Contact
+  uses the recorded world time for the inverse moving-frame velocity law.
+  Translating lines use their swept bounds and published displacement.
+  Angular construction, sliding line openings and physical righting remain
+  open. Each directed link retains the start pose and the host's
   published displacement and turn. Sampling follows the host arc and keeps
-  full windings. Both directions share that recorded motion. The temporal
-  partition builder still needs to consume it over the whole operation and
-  admit every path that exists during the interval. A host wrap closes the
+  full windings. Both directions share that recorded motion. The constructor
+  proves when curved entries cannot be reached. A query that can reach
+  angular geometry returns `CurvedMotion` until the curved constructor is
+  complete. This temporary capability refusal is separate from numerical
+  faults and policy limits. Remove it with the curved constructor.
+  A host wrap closes the
   old plane; its aperture does not sweep between the two locations.
 - Projectile world contacts use the original collider and the selected part.
   The response uses its normal and physical contact point. Surface velocity
@@ -661,13 +671,13 @@ loading work. No complete PSIM acceptance slice is closed.
   Pooled textured meshes clip against every boundary; the six-plane shader
   limit is removed. Folded meshes clip in the source chart.
 
-`cargo check -p ambition_app` passes on the contact change. Focused library
-tests pass: 759 core, 350 shared-state, 46 projectile and 29 projectile-combat
+`cargo check -p ambition_app --tests` passes on the temporal contact change.
+Focused library tests pass: 793 core, 350 shared-state, 46 projectile and 29 projectile-combat
 tests. One core measurement remains ignored. The assembled app passes all
-11 tests selected by `projectile`; the runtime library passes 59 projectile
+13 tests selected by `projectile` and the moving-exit test; the runtime library passes 59 projectile
 tests. The new far-contact test failed while the carve box was still in use.
-The contact change also passes 71 Smash host tests and 35 workspace policy
-tests. Six Smash tests remain ignored. The preceding ray work passed combat,
+The temporal change also passes 71 Smash host tests. Six Smash tests remain
+ignored. The prior contact change passed 35 workspace policy tests. The preceding ray work passed combat,
 portal and renderer libraries and the assembled eye-laser and portal cases.
 These results do not close replay, visual or performance acceptance.
 

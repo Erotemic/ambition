@@ -41,6 +41,8 @@ They also check that box and spinning hosts close the old plane on a wrap,
 without a sweep across the room.
 The app test `a_moving_portal_is_carved_where_it_is` drives the live room.
 
-Collision cells still use the end snapshot. They must consume aperture and
-host motion over the same interval. Actor contact, physical righting and the
-remaining capture work stay open in the active plan.
+Translating apertures and obstacles use the same time interval. The temporal
+constructor retains material that exists only between the endpoint poses.
+Angular construction remains open. A query that can reach angular geometry
+returns `CurvedMotion` until that constructor is complete. Actor contact,
+physical righting and capture work stay open in the active plan.

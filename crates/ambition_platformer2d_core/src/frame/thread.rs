@@ -549,6 +549,8 @@ pub enum RefusalReason {
     PieceLimit,
     WorkLimit,
     ScaleLimit,
+    // TODO(compat-remove): remove when the curved temporal constructor is complete.
+    CurvedMotion,
     Numeric(NumericFault),
 }
 
@@ -655,12 +657,13 @@ pub struct MotionAdmission<'a> {
 
 impl MotionAdmission<'_> {
     /// Pull physical surface motion back through the contact path.
-    pub fn uncarry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2) -> Result<Vec2, Refusal> {
+    pub fn uncarry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2, time: f64) -> Result<Vec2, Refusal> {
         for index in (0..path.len()).rev() {
             let key = path[index];
             let refusal = |fault| Refusal { path: path[..index].to_vec(), link: Some(key), reason: RefusalReason::Numeric(fault) };
             let link = self.links.iter().find(|link| link.key == key)
                 .ok_or_else(|| refusal(NumericFault::InvalidFrame))?;
+            let link = link.snapshot_at(time).map_err(refusal)?;
             let inverse = link.map(self.convention).map_err(refusal)?.inverse().map_err(refusal)?;
             velocity = inverse.velocity(&link.exit.frame, &link.enter.frame, point, velocity).map_err(refusal)?;
             point = inverse.point(point).map_err(refusal)?;

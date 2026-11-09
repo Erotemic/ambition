@@ -8,6 +8,22 @@ fn box_at(center: Vec2, half: Vec2) -> Vec<Vec2> {
 }
 
 #[test]
+fn a_new_cell_owns_contact_at_a_topology_boundary() {
+    let body = CombatVolume::circle(Vec2::ZERO, 1.0);
+    let mut cells = MaterialCast { material: MaterialPrimitive::world(&body),
+        root: Vec2::ZERO, delta: Vec2::new(8.0, 0.0), time: 0.0..1.0 }.cells(None).unwrap();
+    let obstacle = box_at(Vec2::new(5.0, 0.0), Vec2::ONE);
+    cells.parts[0].time = 0.0..0.375;
+    assert!(cells.against(&cells.parts[0], &obstacle, Vec2::ZERO).unwrap().is_none());
+    cells.parts[0].time = 0.375..1.0;
+    let hit = cells.against(&cells.parts[0], &obstacle, Vec2::ZERO).unwrap().unwrap();
+    assert!((hit.toi - 0.375).abs() < 1.0e-12);
+    let end_contact = box_at(Vec2::new(10.0, 0.0), Vec2::ONE);
+    let hit = cells.against(&cells.parts[0], &end_contact, Vec2::ZERO).unwrap().unwrap();
+    assert_eq!(hit.toi, 1.0);
+}
+
+#[test]
 fn a_cells_map_travel_sets_the_physical_contact_pose() {
     let shape = CombatVolume::circle(Vec2::ZERO, 1.0);
     let mut cells = MaterialCast {
@@ -116,6 +132,19 @@ fn a_moving_block_hits_a_stationary_body_between_its_endpoint_poses() {
     assert!((hit.contact.toi-0.4).abs()<1.0e-12,"{hit:?}");
     assert_eq!(hit.contact.normal,Vec2::X);
     assert!((hit.contact.world_point.x+1.0).abs()<1.0e-6);
+}
+
+#[test]
+fn a_translating_line_hits_material_between_its_endpoint_poses() {
+    let body = CombatVolume::circle(Vec2::ZERO, 1.0);
+    let mut line = crate::SurfaceChain::open("moving line", vec![Vec2::new(10.0, -2.0), Vec2::new(10.0, 2.0)]);
+    line.velocity = Vec2::new(20.0, 0.0);
+    let world = crate::World::new("line sweep", Vec2::splat(100.0), Vec2::ZERO, vec![]).with_chains(vec![line]);
+    let hit = world.first_material_sweep(MaterialCast { material: MaterialPrimitive::world(&body),
+        root: Vec2::ZERO, delta: Vec2::ZERO, time: 0.0..1.0 }, None, |_,_,_|Ok(true)).unwrap().unwrap();
+    assert!((hit.contact.toi - 0.45).abs() < 1.0e-12, "{hit:?}");
+    assert_eq!(hit.contact.normal, Vec2::X);
+    assert!((hit.contact.world_point.x + 1.0).abs() < 0.00001);
 }
 
 #[test]
@@ -481,7 +510,7 @@ fn surface_velocity_returns_through_a_scaled_moving_path() {
     let link=links[0]; let map=link.map(admission.convention).unwrap();
     let physical_point=map.point(source_point).unwrap();
     let physical_velocity=map.velocity(&link.enter.frame,&link.exit.frame,source_point,source_velocity).unwrap();
-    let returned=admission.uncarry_velocity(&[link.key],physical_point,physical_velocity).unwrap();
+    let returned=admission.uncarry_velocity(&[link.key],physical_point,physical_velocity,1.0).unwrap();
     assert!(returned.distance(source_velocity)<0.001,"{returned:?}");
 }
 

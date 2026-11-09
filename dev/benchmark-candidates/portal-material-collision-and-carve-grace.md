@@ -62,3 +62,7 @@ in the cell maps and cut rates. Broad phase bounds must include the cell in
 source position and time. A cell can hold material between endpoint poses
 even when it holds none at either endpoint. Round those bounds outwards;
 rounding a bound inwards can remove a valid collision candidate.
+
+At a topology event, the cells that begin there own contact. A cell that ends
+must not turn an opening's first touch into a wall hit. Keep contact at the
+end of the complete cast observable.

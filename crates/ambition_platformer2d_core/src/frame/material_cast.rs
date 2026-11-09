@@ -3,13 +3,15 @@
 use bevy_math::DVec2;
 
 use super::thread::{
-    partition, MaterialPlane, MaterialPrimitive, MotionAdmission, Refusal, RefusalReason,
+    MaterialPlane, MaterialPrimitive, MotionAdmission, Refusal, RefusalReason,
 };
 use super::{NumericFault, Sim2};
 use crate::{Aabb, CombatVolume, Vec2};
 
 mod translation;
 mod cell;
+mod temporal;
+mod affine;
 pub use cell::MaterialCell;
 
 /// A primitive's translation in its owner's world chart.
@@ -25,6 +27,8 @@ pub struct MaterialCast<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MaterialCastHit {
     pub toi: f64,
+    /// Contact time within the world's current tick.
+    pub world_time: f64,
     pub normal: Vec2,
     pub point: Vec2,
     pub world_point: Vec2,
@@ -72,66 +76,26 @@ impl<'a> MaterialCast<'a> {
         }
         super::thread::map_volume(self.material.domain, &self.material.to_world)
             .map_err(numeric)?;
-        let inverse = self.material.to_world.inverse().map_err(numeric)?;
-        if !self.delta.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
-        let delta = inverse.direction_wide(self.delta.as_dvec2()) * inverse.scale_wide();
+        if !self.delta.is_finite() || !self.root.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
         let bounds = self.material.domain.bounds();
-        if !bounds.min.is_finite() || !bounds.max.is_finite() {
-            return Err(numeric(NumericFault::NonFinite));
-        }
-        let mut points = Vec::with_capacity(20);
-        for point in corners(bounds) {
-            points.push(point);
-            let end = point.as_dvec2() + delta;
-            points.extend(corners(enclosing_bounds(end, end).map_err(numeric)?));
-        }
-        points.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
-        points.dedup();
-        let half_hull = |points: &[Vec2]| {
-            let mut hull: Vec<Vec2> = Vec::new();
-            for point in points {
-                while hull.len() > 1 {
-                    let (a, b) = (hull[hull.len() - 2], hull[hull.len() - 1]);
-                    if (b.as_dvec2() - a.as_dvec2()).perp_dot(point.as_dvec2() - b.as_dvec2()) > 0.0
-                    {
-                        break;
-                    }
-                    hull.pop();
-                }
-                hull.push(*point);
-            }
-            hull
-        };
-        let mut hull = half_hull(&points);
-        points.reverse();
-        let mut upper = half_hull(&points);
-        hull.pop();
-        upper.pop();
-        hull.extend(upper);
-        if hull.len() < 3 {
-            return Err(numeric(NumericFault::InvalidScale));
-        }
-        let swept = CombatVolume::convex(hull);
-        let spatial = MaterialPrimitive {
-            domain: &swept,
-            to_world: self.material.to_world,
-        };
+        if (bounds.max-bounds.min).min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
         let parts = if let Some(admission) = admission {
-            partition(
-                spatial,
-                self.root,
-                admission.links,
-                admission.first,
-                admission.budget,
-                admission.convention,
-            )?
+            affine::build(&self, admission)?
         } else {
-            vec![super::thread::VolumePiece::from_material(spatial).map_err(numeric)?]
+            vec![MaterialCell { path: vec![], map: self.material.to_world,
+                travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..1.0 }]
         };
+        for cell in &parts {
+            for time in [cell.time.start, cell.time.end] {
+                super::thread::map_volume(self.material.domain, &cell.at(time)
+                    .map_err(|e| numeric_at(cell, e))?).map_err(|e| numeric_at(cell, e))?;
+            }
+            cell.bounds(bounds, DVec2::ZERO).map_err(|e| numeric_at(cell, e))?;
+        }
         Ok(MaterialCastCells {
             material: self.material,
             delta: self.delta.as_dvec2(),
-            parts: parts.into_iter().map(|part| MaterialCell::from_piece(part, delta)).collect(),
+            parts,
             time:self.time,
         })
     }
@@ -177,18 +141,23 @@ impl MaterialCastCells<'_> {
         for point in &mut region { *point-=full_motion*(1.0-self.time.start); }
         let motion=full_motion*(self.time.end-self.time.start)
             - inverse.direction_wide(part.travel) * inverse.scale_wide();
-        let contact = translation::cast(self.material.domain, DVec2::ZERO, &region, motion,
-            part.planes.iter().copied())
+        for point in &mut region { *point += motion * part.time.start; }
+        let duration = part.time.end - part.time.start;
+        let contact = translation::cast(self.material.domain, DVec2::ZERO, &region, motion * duration,
+            part.planes.iter().map(|p| p.during(part.time.clone())))
             .map_err(|fault| numeric_at(part, fault))?;
         let Some(contact) = contact else {
             return Ok(None);
         };
-        let root = self.material.to_world.shifted(self.delta * contact.time)
+        let time = part.time.start + duration * contact.time;
+        // Cells that start at a topology event own its contacts.
+        if part.time.end < 1.0 && time >= part.time.end - f64::EPSILON * 64.0 { return Ok(None); }
+        let root = self.material.to_world.shifted(self.delta * time)
             .map_err(|reason| numeric_at(part, reason))?;
         let point = root
             .point_from_wide(contact.point)
             .map_err(|reason| numeric_at(part, reason))?;
-        let pose = part.at(contact.time).map_err(|reason| numeric_at(part, reason))?;
+        let pose = part.at(time).map_err(|reason| numeric_at(part, reason))?;
         let world_point = pose
             .point_from_wide(contact.point)
             .map_err(|reason| numeric_at(part, reason))?;
@@ -198,7 +167,8 @@ impl MaterialCastCells<'_> {
             .direction(contact.normal.as_vec2())
             .normalize_or_zero();
         Ok(Some(MaterialCastHit {
-            toi: contact.time,
+            toi: time,
+            world_time: self.time.start + (self.time.end-self.time.start) * time,
             normal,
             point,
             world_point,

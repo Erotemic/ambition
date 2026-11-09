@@ -1078,6 +1078,16 @@ impl crate::layered::Spatial for SurfaceChain {
     fn spatial_bounds(&self) -> Aabb {
         crate::layered::bounds_of(&self.points)
     }
+    fn swept_bounds(&self) -> Aabb {
+        let bounds = crate::layered::bounds_of(&self.points);
+        if self.turn == 0.0 {
+            return Aabb { min: bounds.min.min(bounds.min-self.velocity), max: bounds.max.max(bounds.max-self.velocity) };
+        }
+        let radius = self.points.iter().map(|p| p.as_dvec2().distance(self.pivot.as_dvec2())).fold(0.0_f64, f64::max);
+        let radius = Vec2::splat(radius as f32);
+        Aabb { min: self.pivot.min(self.pivot-self.velocity)-radius,
+            max: self.pivot.max(self.pivot-self.velocity)+radius }
+    }
 }
 
 /// Complete generated room spec.
@@ -1688,10 +1698,19 @@ impl World {
                     consider(hit,part);
                 }
             }
-            for (index,chain) in self.chains.indexed_near(bounds) {
+            for (index,chain) in self.chains.indexed_swept_near(bounds) {
+                if !chain.velocity.is_finite() || !chain.turn.is_finite() || !chain.pivot.is_finite()
+                    || chain.points.iter().any(|p| !p.is_finite()) {
+                    return Err(crate::frame::thread::Refusal { path: part.path.clone(), link: None,
+                        reason: crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::NonFinite) });
+                }
+                if chain.turn != 0.0 {
+                    return Err(crate::frame::thread::Refusal { path: part.path.clone(), link: None,
+                        reason: crate::frame::thread::RefusalReason::CurvedMotion });
+                }
                 if chain.closed && chain.kind == SurfaceKind::Solid && chain.points.len() >= 3 {
-                    if let Some(contact) = cells.against(part,&chain.points,Vec2::ZERO)? {
-                        let point = contact.world_point.as_dvec2();
+                    if let Some(contact) = cells.against(part,&chain.points,chain.velocity)? {
+                        let point = contact.world_point.as_dvec2()+chain.velocity.as_dvec2()*(1.0-contact.world_time);
                         let distance = |segment| {
                             let (a,b) = chain.segment(segment);
                             let a = a.as_dvec2(); let edge = b.as_dvec2()-a;
@@ -1709,7 +1728,7 @@ impl World {
                     let collider = MaterialCollider::Chain { chain,index,segment };
                     let (a,b)=chain.segment(segment);
                     for line in material_line_segments(a,b,part,&cells,admission)? {
-                        if let Some(contact)=cells.against(part,&line,Vec2::ZERO)? {
+                        if let Some(contact)=cells.against(part,&line,chain.velocity)? {
                             consider(MaterialWorldHit { collider,contact },part);
                         }
                     }

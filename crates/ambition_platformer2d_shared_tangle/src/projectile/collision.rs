@@ -63,7 +63,7 @@ fn surface_velocity(
         .velocity_at(contact.world_point, dt)
         .map_err(|reason| at_contact(contact, reason))?;
     match admission {
-        Some(admission) => admission.uncarry_velocity(&contact.path, contact.world_point, velocity),
+        Some(admission) => admission.uncarry_velocity(&contact.path, contact.world_point, velocity, contact.world_time),
         None => Ok(velocity),
     }
 }

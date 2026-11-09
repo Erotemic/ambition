@@ -4,7 +4,6 @@ use bevy_math::{DVec2, DVec3};
 
 use super::translation::MovingPlane;
 use crate::Aabb;
-use crate::frame::thread::VolumePiece;
 use crate::frame::{NumericFault, Sim2};
 
 /// One source region and its map during a cast. Time runs from zero to one.
@@ -14,28 +13,10 @@ pub struct MaterialCell {
     pub(super) map: Sim2,
     pub(super) travel: DVec2,
     pub(super) planes: Vec<MovingPlane>,
+    pub(super) time: std::ops::Range<f64>,
 }
 
 impl MaterialCell {
-    pub(super) fn from_piece(piece: VolumePiece, delta: DVec2) -> Self {
-        let map = piece.transform();
-        // A fixed world cut moves opposite to the body in canonical coordinates.
-        Self {
-            map,
-            planes: piece
-                .source_bounds()
-                .iter()
-                .copied()
-                .map(|plane| MovingPlane {
-                    rate: -plane.inward.dot(delta),
-                    plane,
-                })
-                .collect(),
-            path: piece.path,
-            travel: map.direction_wide(delta) * map.scale_wide(),
-        }
-    }
-
     pub(super) fn at(&self, time: f64) -> Result<Sim2, NumericFault> {
         self.map.shifted(self.travel * time)
     }
@@ -48,8 +29,8 @@ impl MaterialCell {
                 .into_iter()
                 .flat_map(|p| {
                     [
-                        (p.as_dvec2()).extend(0.0),
-                        (p.as_dvec2() + delta).extend(1.0),
+                        (p.as_dvec2() + delta * self.time.start).extend(self.time.start),
+                        (p.as_dvec2() + delta * self.time.end).extend(self.time.end),
                     ]
                 })
                 .collect()
@@ -66,7 +47,7 @@ impl MaterialCell {
                     rate: inward.dot(delta),
                 });
             }
-            prism(&planes)?
+            prism(&planes, self.time.clone())?
         };
         let Some((lo, hi)) = vertices
             .into_iter()
@@ -87,12 +68,12 @@ impl MaterialCell {
 }
 
 /// Vertices of a bounded cell in `(source_x, source_y, time)`.
-fn prism(planes: &[MovingPlane]) -> Result<Vec<DVec3>, NumericFault> {
+fn prism(planes: &[MovingPlane], time: std::ops::Range<f64>) -> Result<Vec<DVec3>, NumericFault> {
     let mut constraints: Vec<_> = planes
         .iter()
         .map(|p| (p.plane.inward.extend(-p.rate), p.plane.offset))
         .collect();
-    constraints.extend([(DVec3::Z, 0.0), (-DVec3::Z, -1.0)]);
+    constraints.extend([(DVec3::Z, time.start), (-DVec3::Z, -time.end)]);
     if constraints
         .iter()
         .any(|(n, d)| !n.is_finite() || !d.is_finite())
@@ -140,6 +121,7 @@ mod tests {
     fn bounds_include_a_cell_that_exists_only_between_endpoint_poses() {
         let cell = MaterialCell {
             path: vec![],
+            time: 0.0..1.0,
             map: Sim2::IDENTITY,
             travel: DVec2::ZERO,
             planes: vec![
@@ -168,6 +150,7 @@ mod tests {
     fn a_cell_and_material_with_equal_motion_stay_apart() {
         let cell = MaterialCell {
             path: vec![],
+            time: 0.0..1.0,
             map: Sim2::IDENTITY,
             travel: DVec2::ZERO,
             planes: vec![MovingPlane {
@@ -197,6 +180,7 @@ mod tests {
                 .unwrap();
                 let cell = MaterialCell {
                     path: vec![],
+                    time: 0.0..1.0,
                     map,
                     travel: DVec2::new(41.0, -37.0),
                     planes: vec![],
@@ -237,6 +221,7 @@ mod tests {
             let delta = DVec2::new(number() * 12.0 - 6.0, number() * 12.0 - 6.0);
             let cell = MaterialCell {
                 path: vec![],
+                time: 0.0..1.0,
                 map,
                 travel: DVec2::new(number() * 60.0 - 30.0, number() * 60.0 - 30.0),
                 planes: (0..4)

@@ -46,3 +46,13 @@ Use the attempted motion's world-time interval. A leg that stops on a
 portal entry must not include later motion by an obstacle. Read published
 obstacle bounds as end-of-tick geometry. Broad phase must include its
 complete displacement, even when neither endpoint meets the body.
+
+An analytic face contact already supplies the time and the point on that
+face. Test the point against the other constraints. Solving the same face
+equation again can give a different rounded time and discard the contact.
+The oblique-circle witness sweeps a wide face through many orientations
+and checks its time, point and normal.
+
+A moving aperture needs cells over the same interval as its host. Pulling
+a host back to the tick's start while keeping the aperture at its end pose
+can expose a false strip of host geometry. Keep their motion in one query.

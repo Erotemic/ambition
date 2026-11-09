@@ -319,7 +319,7 @@ pub(super) fn cast(
             let center = center.as_dvec2();
             let radius = f64::from(*radius);
             // A face contact is on its line and inside every other half plane.
-            for plane in &constraints {
+            for (index, plane) in constraints.iter().enumerate() {
                 let length = plane.inward.length();
                 let outward = -plane.inward / length;
                 let speed = delta.dot(plane.inward) - plane.rate;
@@ -334,6 +334,7 @@ pub(super) fn cast(
                     origin: center - outward * radius,
                     delta,
                 };
+                // The face sets the contact time. Test the other planes.
                 if inside(
                     point,
                     &constraints,
@@ -342,7 +343,7 @@ pub(super) fn cast(
                         hi: time,
                         normal: DVec2::ZERO,
                     },
-                    None,
+                    Some((index, index)),
                 )?
                 .is_some()
                 {
@@ -455,6 +456,42 @@ pub(super) fn cast(
 mod tests {
     use super::*;
     use crate::{Aabb, Vec2};
+
+    #[test]
+    fn an_oblique_moving_face_keeps_its_analytic_circle_contact() {
+        let body = CombatVolume::Circle {
+            center: Vec2::ZERO,
+            radius: 1.0,
+        };
+        for index in 1..10000 {
+            let angle = f64::from(index) / 10000.0;
+            let side = DVec2::new(angle.cos(), angle.sin());
+            let tangent = DVec2::new(-side.y, side.x);
+            let obstacle = [
+                side * 3.0 - tangent * 100.0,
+                side * 5.0 - tangent * 100.0,
+                side * 5.0 + tangent * 100.0,
+                side * 3.0 + tangent * 100.0,
+            ];
+            let cell = [MaterialPlane {
+                inward: tangent,
+                offset: -1000.0,
+            }];
+            let hit = cast(&body, DVec2::ZERO, &obstacle, -side * 8.0, &cell).unwrap();
+            assert!(
+                hit.is_some(),
+                "the wide face must meet the circle at angle {angle}"
+            );
+            let hit = hit.unwrap();
+            assert!(
+                (hit.time - 0.25).abs() < 1.0e-12,
+                "angle={angle}, time={}",
+                hit.time
+            );
+            assert!(hit.point.distance(side) < 1.0e-12);
+            assert!(hit.normal.distance(-side) < 1.0e-12);
+        }
+    }
 
     #[test]
     fn an_initial_overlap_can_separate_while_the_clipped_region_changes() {

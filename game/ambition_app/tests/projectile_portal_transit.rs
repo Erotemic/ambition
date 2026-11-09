@@ -169,6 +169,89 @@ fn a_hosted_exit_carries_material_into_the_lab_target_during_the_tick() {
 
 enum ContactMotion { Fixed, Wall, Exit }
 
+#[test]
+fn the_authored_moving_exit_hits_its_target_before_the_shots_root_transfers() {
+    use ambition_platformer2d::engine_core::RoomGeometry;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    use ambition_platformer2d::portal::{link_hash, PlacedPortal, PortalBodyTransited, PortalHost, PortalLink};
+    use ambition_platformer2d::projectiles::{ProjectileOwner, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
+    use ambition_platformer2d::vfx::{VfxInRoom, VfxMessage};
+
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    sim.step(base());
+    let owner = {
+        let world = sim.world_mut();
+        world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap()
+    };
+    let (entry, exit_channel, target) = {
+        let world = sim.world_mut();
+        let mut pair = world.query::<(&PlacedPortal, &PortalLink)>().iter(world)
+            .filter(|(_, link)| link.0 == link_hash("portal_lab_l_motion"))
+            .map(|(portal, _)| portal.clone()).collect::<Vec<_>>();
+        assert_eq!(pair.len(), 2);
+        pair.sort_by(|a, b| a.pos.y.total_cmp(&b.pos.y));
+        let exit = pair.remove(0);
+        assert!(matches!(exit.host, PortalHost::Face { .. }), "L must use its authored moving host: {exit:?}");
+        let target = world.query::<&RoomGeometry>().single(world).unwrap().0.blocks.iter()
+            .find(|block| block.name == "L far-side target").unwrap().aabb;
+        (pair.remove(0), exit.channel, target)
+    };
+
+    // Fire while the exit approaches the target. The next tick creates the
+    // shot; the following tick carries its leading material into the target.
+    let mut ready = false;
+    for _ in 0..90 {
+        let exit = {
+            let world = sim.world_mut();
+            world.query::<&PlacedPortal>().iter(world).find(|p| p.channel == exit_channel).unwrap().clone()
+        };
+        let gap = target.min.x - exit.pos.x;
+        if (8.0..=12.0).contains(&gap) && exit.step.displacement.x > 0.0 {
+            ready = true;
+            break;
+        }
+        sim.step(base());
+    }
+    assert!(ready, "the authored host must sweep toward the target");
+    sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        origin: entry.pos + entry.normal * 6.0,
+        dir: -entry.normal,
+        speed: 1200.0,
+        damage: 1,
+        max_lifetime: 2.0,
+        half_extent: Vec2::splat(5.0),
+        gravity: 0.0,
+        visual_id: "authored_moving_exit_gauge".into(),
+        bounces: 0,
+        bounce_on_world_contact: false,
+        splash_half_extent: 0.0,
+        boomerang_return_s: None,
+    }, ProjectileStart::StepNextTick));
+    sim.step(base());
+    let shot = {
+        let world = sim.world_mut();
+        world.query::<(Entity, &ProjectileOwner, &ProjectileVisualId)>().iter(world)
+            .find(|(_, by, visual)| by.0 == owner && visual.0 == "authored_moving_exit_gauge")
+            .map(|(entity, _, _)| entity).unwrap()
+    };
+    let mut impact = false;
+    let mut transited = false;
+    for _ in 0..4 {
+        sim.step(base());
+        transited |= sim.world().resource::<Messages<PortalBodyTransited>>()
+            .iter_current_update_messages().any(|event| event.body == shot);
+        impact |= sim.world().resource::<Messages<VfxInRoom>>()
+            .iter_current_update_messages().any(|event| matches!(event.vfx,
+                VfxMessage::Impact { pos, .. } if (pos.x-target.min.x).abs()<0.01
+                    && (target.min.y..=target.max.y).contains(&pos.y)));
+        if sim.world().get::<BodyKinematics>(shot).is_none() { break; }
+    }
+    assert!(impact, "the shot must hit L's authored target");
+    assert!(!transited, "leading material must contact before the root transfers");
+    assert!(sim.world().get::<BodyKinematics>(shot).is_none(), "the contact expires the shot");
+}
+
 fn far_side_contact(motion:ContactMotion) {
     use ambition_platformer2d::engine_core::{Aabb,RoomGeometry};
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;

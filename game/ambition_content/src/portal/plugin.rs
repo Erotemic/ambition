@@ -58,20 +58,20 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             withhold_wall_verbs_during_transit.in_set(PortalSet::TransitGuards),
         );
 
-        // CC6 host attachment: attribute placed portals to the identified
-        // face they sit on, then re-derive each hosted aperture's frame from
-        // its host every frame (§5-P2 step 2). Runs at the FRONT of
-        // `PortalSet::Pose`, after the platforms advance and before the link
-        // chain, the carves and every body's integration, so all of them read
-        // this tick's host pose.
+        // Attach at the placement pose before the host moves. A fast host
+        // can leave the attribution probe's reach in one tick.
         app.add_systems(
             sim,
-            (
-                crate::portal::host_adapter::attach_portal_hosts,
-                crate::portal::host_adapter::refresh_hosted_portal_frames,
-            )
-                .chain()
-                // Both visit placed portals only.
+            crate::portal::host_adapter::attach_portal_hosts
+                .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PlacedPortal>)
+                .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
+                .before(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced),
+        );
+        // Publish the host's new pose before links, carves and body motion.
+        app.add_systems(
+            sim,
+            crate::portal::host_adapter::refresh_hosted_portal_frames
                 .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PlacedPortal>)
                 .in_set(PortalSet::Pose)
                 .before(ambition_portal2d::PortalLinkResolution),

@@ -564,6 +564,13 @@ pending the production scale and handedness switch.
 The same production test also attaches K's exit to a translating host. It
 checks the physical impact during that tick, before the root transfers. This
 host is part of the test; the authored K station keeps its fixed exit.
+Station L adds a wall entry, a translating exit host, a target and a gun-sword.
+Fire right from the lower face of the station D wall. The exit moves across
+the target, so shot timing changes contact. The production test uses only
+these authored objects and hits the target before root transfer. The
+[station source](../../../tools/ambition_ldtk_tools/specs/portal_motion_lab.yaml)
+adds seven entities and keeps the existing geometry. New portals attach to
+their host before it advances; the frame refresh follows host motion.
 
 Retain current clipping scratch reuse and presentation pools when they fit
 the new authority. After Jon's optimization work ends, record a fresh baseline
@@ -674,7 +681,8 @@ loading work. No complete PSIM acceptance slice is closed.
 `cargo check -p ambition_app --tests` passes on the temporal contact change.
 Focused library tests pass: 793 core, 350 shared-state, 46 projectile and 29 projectile-combat
 tests. One core measurement remains ignored. The assembled app passes all
-13 tests selected by `projectile` and the moving-exit test; the runtime library passes 59 projectile
+30 tests selected by `portal`; the content library passes 38 portal adapter
+tests. The runtime library passes 59 projectile
 tests. The new far-contact test failed while the carve box was still in use.
 The temporal change also passes 71 Smash host tests. Six Smash tests remain
 ignored. The prior contact change passed 35 workspace policy tests. The preceding ray work passed combat,

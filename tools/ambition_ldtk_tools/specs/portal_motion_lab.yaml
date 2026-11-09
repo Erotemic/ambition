@@ -1,0 +1,57 @@
+# Add this station with entity add. Keep the existing portal-lab geometry.
+level_id: portal_lab
+entities:
+- type: Portal
+  px: [1767, 810]
+  size: [18, 80]
+  fields:
+    id: motion_l_entry
+    name: L shot entry
+    link: portal_lab_l_motion
+    normal: left
+    color: green
+- type: MovingPlatform
+  px: [1480, 410]
+  size: [20, 100]
+  fields:
+    id: lab_l_exit_host
+    name: L translating host
+    sweep_dx: 120
+    speed: 240
+    line: false
+    one_way: false
+- type: Portal
+  px: [1491, 420]
+  size: [18, 80]
+  fields:
+    id: motion_l_exit
+    name: L moving exit
+    link: portal_lab_l_motion
+    normal: right
+    color: yellow
+- type: Solid
+  px: [1562, 444]
+  size: [16, 32]
+  fields:
+    name: L far-side target
+- type: GroundItem
+  px: [1630, 882]
+  size: [28, 14]
+  fields:
+    id: portal_lab_motion_gun_sword
+    name: gun sword
+    held_item: gun_sword
+- type: DebugLabel
+  px: [1330, 774]
+  size: [410, 36]
+  fields:
+    name: lab_sign_l_entry
+    text: 'L: fire right into the wall opening.'
+    category: Custom
+- type: DebugLabel
+  px: [1330, 340]
+  size: [440, 48]
+  fields:
+    name: lab_sign_l_exit
+    text: 'The moving exit carries the shot past the target. Time each shot.'
+    category: Custom

@@ -30,8 +30,9 @@ arrives in its gate court.
   second car (a body that comes up through a floor edge stands 69 px over
   it, `rooms::spawn::edge_arrival`), and it carries you out of the top.
 - `orbital_station_tether_terminus`: the station end, east of the docking
-  bay: you arrive standing on its floor. A door takes you back down to the
-  ground station; one to the docking bay.
+  bay: you arrive standing on its floor, and the bay is on through its west
+  end. The tether only goes up: the way home from the station is its gate
+  (Jon, 2026-11-09: the chute back to the surface goes).
 
 The elevator is the engine's lift (`MovingPlatform` with `lift_dy`): it waits
 for a rider, carries it, and goes back down to rest. Jump off on the climb and
@@ -46,7 +47,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from district_kit import (  # noqa: E402
-    WALL, WORLDS, add_entities, breakable_wall, door, edge, entity, ledge, make_rooms, pad, paint, resident, room, run, sign, solid,
+    WALL, WORLDS, breakable_wall, door, edge, entity, ledge, make_rooms, paint, resident, room, run, sign, solid,
     start,
 )
 
@@ -86,9 +87,11 @@ PLANT_WALKS = ((16, 1500, 400), (1540, 1700, 528), (900, 2240, 656), (1080, 1280
 #: names (its ring is `gate_interface.yaml`, written by
 #: `gate_network/make_gates.py`).
 ARRIVAL = "eureka_gate_arrival"
-#: The docking bay's door to the terminus (the bay is `orbital_station`'s
-#: room; its generator has the same door).
-BAY_DOOR = "bay_tether_door"
+#: The docking bay's side on to the terminus (the bay is `orbital_station`'s
+#: room; its generator has the same zone).
+BAY_EAST = "bay_east"
+#: How high the terminus's west end is open on to the bay.
+BAY_OPENING = 128
 
 BIOME = "eureka"
 HEIGHTS = "eureka_heights"
@@ -347,8 +350,7 @@ def elevator_station():
     Mockingbird's shark waits in the air): hop on and it is all that holds
     you, so it carries you. Level with the floor, it set off at the first
     touch of a foot still on the floor and rose through it. The operator is
-    by it. The down car from the terminus lets you off
-    on its platform here."""
+    by it."""
     rid = STATION
     _, (w, h) = ROOMS_AT[rid]
     floor = h - 64
@@ -364,8 +366,6 @@ def elevator_station():
         car("tether_car_ground", "the tether's car", sx, floor - CAR_HOP, -(floor - CAR_HOP + 60), CAR_SPEED),
         vertical_edge("station_to_climb", "up the tether", sx, 0, sw, CLIMB, "climb_from_station"),
         resident("npc_eureka_teodora", "eureka_teodora", 720, floor),
-        # Where the down car lets you off (one way: up is the ride).
-        pad("station_down_arrival", "the down car's platform", 360, floor),
         sign("station_sign", 760, 120, "EUREKA TETHER: GROUND STATION", 460),
         sign("station_sign_car", sx + sw // 2, floor - 200, "STAND ON THE CAR TO ASCEND", 320),
         sign("station_sign_altitude", sx + sw // 2, floor - 260, "Orbit: 35,786 km. Allow for the view.", 400),
@@ -407,20 +407,18 @@ def elevator_climb():
 
 def terminus():
     """The station end of the tether: you come up through the floor and stand
-    on it. A door to the docking bay, and the down car's door to the ground."""
+    on it. The docking bay is on through the west end."""
     rid = TERMINUS
     _, (w, h) = ROOMS_AT[rid]
     floor = h - EDGE_FEET
     e = [
         solid("floor", 0, floor, w, h - floor),
         solid("vault", 0, 0, w, 48),
-        solid("west_wall", 0, 48, WALL, floor - 48),
+        solid("west_wall", 0, 48, WALL, floor - 48 - BAY_OPENING),
         solid("east_wall", w - WALL, 48, WALL, floor - 48),
         vertical_edge("terminus_from_climb", "down the tether", SHAFT_X, h - 16, CAR_W, CLIMB, "climb_to_terminus"),
         start(rid, SHAFT_X + CAR_W // 2, floor),
-        door("terminus_down_door", "the down car to the ground station", 200, floor, STATION, "station_down_arrival",
-             bidirectional=False),
-        door("terminus_bay_door", "to the docking bay", w - 120, floor, BAY, BAY_DOOR),
+        edge("terminus_west", "to the docking bay", 0, floor, BAY, BAY_EAST, h=BAY_OPENING),
         sign("terminus_sign", w // 2, 120, "TETHER TERMINUS: the planet is 35,786 km down", 520),
         # The arrivals board and the souvenir kiosk (`orbital_terminus_props.py`).
         sign("terminus_sign_arrivals", 540, 300, "ARRIVALS: every car ON TIME. It is a ribbon.", 440),
@@ -439,8 +437,8 @@ def test_range():
     """Out of town: the Test Range, west of the gate court. Floor 704. A
     rocket on its pad with a gantry to climb (its walks y 624..384), a blast
     bunker whose roof is walked on (y 576), an observation tower (y 560, 416).
-    What the institute tests has got loose: searchlight crawlers, a shock
-    warden on the bunker, exploding mites; two crash-test dummies wait to be
+    What the institute tests has got loose: its own machines (dividing mites,
+    a steam automaton on the bunker, exploding mites); two crash-test dummies wait to be
     hit."""
     rid = RANGE
     _, (w, h) = ROOMS_AT[rid]
@@ -462,12 +460,12 @@ def test_range():
         sign("rocket_sign", 960, 110, "PROBABLY FINE III", 260),
         sign("bunker_sign", (bx0 + bx1) // 2, btop - 60, "BLAST BUNKER: knock first, then duck", 360),
         sign("tower_sign", 2380, 300, "OBSERVATION: the safe side of the glass", 360),
-        range_enemy(1, "npc_searchlight_crawler", 1240, floor, 48, 34),
-        range_enemy(2, "npc_searchlight_crawler", 2120, floor, 48, 34),
-        range_enemy(3, "npc_shock_warden", 1810, btop, 40, 64),
+        range_enemy(1, "npc_dividing_mite", 1240, floor, 32, 24, "dividing_mite"),
+        range_enemy(2, "npc_dividing_mite", 2120, floor, 32, 24, "dividing_mite"),
+        range_enemy(3, "steam_automaton", 1810, btop, 48, 80),
         range_enemy(4, "npc_exploding_mite", 480, floor, 38, 66, "exploding_mite"),
         range_enemy(5, "npc_exploding_mite", 1500, floor, 38, 66, "exploding_mite"),
-        # The range's officer, between the crawler and the dummies.
+        # The range's officer, between the mites and the dummies.
         resident("npc_eureka_pryce", "eureka_pryce", 2500, floor),
         range_enemy(6, "sandbag", 2580, floor, 34, 58, "sandbag_finite"),
         range_enemy(7, "sandbag", 2660, floor, 34, 58, "sandbag_finite"),
@@ -482,7 +480,7 @@ def collider():
     The ring's tunnel, its beam pipe and magnets, the staff's bicycles; the
     detector at the east end and its gallery (y 384, up a ladder; a chest
     there). Dr. Ilse Quark by the stair; what has got loose in the tunnel
-    (crawlers, a shock warden)."""
+    (dividing mites, a steam automaton)."""
     rid = COLLIDER
     _, (w, h) = ROOMS_AT[rid]
     floor, vault = 576, 48
@@ -500,9 +498,9 @@ def collider():
         resident("npc_eureka_quark", "eureka_quark", 300, floor),
         sign("collider_sign", 560, 200, "THE EUREKA COLLIDER: circumference 27 km. Staff bicycles only.", 520),
         sign("collider_sign_beam", 900, 330, "BEAM ON: do not lick the pipe", 300),
-        range_enemy(10, "npc_searchlight_crawler", 760, floor, 48, 34),
-        range_enemy(11, "npc_searchlight_crawler", 1080, floor, 48, 34),
-        range_enemy(12, "npc_shock_warden", 1360, floor, 40, 64),
+        range_enemy(10, "npc_dividing_mite", 760, floor, 32, 24, "dividing_mite"),
+        range_enemy(11, "npc_dividing_mite", 1080, floor, 32, 24, "dividing_mite"),
+        range_enemy(12, "steam_automaton", 1360, floor, 48, 80),
     ]
     return build(rid, e, "THE EUREKA COLLIDER")
 
@@ -537,9 +535,9 @@ def plant():
         sign("plant_sign", 1200, 90, "EUREKA STEAM PLANT: est. before anyone asked", 420),
         sign("plant_sign_gauge", 1860, 640, "GAUGE: FINE", 220),
         sign("plant_sign_door", 140, 760, "LAB 0", 160),
-        range_enemy(20, "npc_searchlight_crawler", 1100, g, 48, 34),
-        range_enemy(21, "npc_shock_warden", 1640, g, 40, 64),
-        range_enemy(22, "npc_searchlight_crawler", 600, 400, 48, 34),
+        range_enemy(20, "npc_dividing_mite", 1100, g, 32, 24, "dividing_mite"),
+        range_enemy(21, "steam_automaton", 1640, g, 48, 80),
+        range_enemy(22, "npc_dividing_mite", 600, 400, 32, 24, "dividing_mite"),
     ]
     return build(rid, e, "THE STEAM PLANT")
 
@@ -569,37 +567,9 @@ def first_lab():
 ROOMS = (patent_office, coil_lab, terminus, elevator_climb, elevator_station, quad, court, test_range, observatory, plant, first_lab,
          collider)
 
-#: The docking bay's door to the terminus, on its floor west of the cargo
-#: lift (the bay is the station generator's; it lists the same door).
-BAY_DOOR_YAML = f"""# The docking bay's door to the tether terminus. Written by {GENERATOR}.
-level_id: {BAY}
-entities:
-  - type: LoadingZone
-    px: [2300, 864]
-    size: [48, 96]
-    fields:
-      id: {BAY_DOOR}
-      name: to the tether terminus
-      activation: Door
-      target_room: {TERMINUS}
-      target_zone: terminus_bay_door
-      bidirectional: true
-"""
-
 #: The gate network's ring and terminal in the gate court, if it has written
 #: them: a regenerate of the rooms puts them back.
 GATE_INTERFACE = HERE / "gate_interface.yaml"
-
-
-def bay_has_door() -> bool:
-    """The docking bay has its door to the terminus already (the zone's id
-    is also the terminus door's target, so look in the bay's own entities)."""
-    import json
-
-    world = json.loads(WORLD_LDTK.read_text())
-    bay = next((level for level in world["levels"] if level["identifier"] == BAY), None)
-    zones = (e for layer in (bay or {}).get("layerInstances") or [] for e in layer["entityInstances"] if e["__identifier"] == "LoadingZone")
-    return any(f["__identifier"] == "id" and f["__value"] == BAY_DOOR for e in zones for f in e["fieldInstances"])
 
 
 def main(argv):
@@ -614,9 +584,6 @@ def main(argv):
         return 0
     if code := make_rooms(WORLD_LDTK, made):
         return code
-    if not bay_has_door():
-        if code := add_entities(BAY_DOOR_YAML, WORLD_LDTK, HERE / "bay_door.yaml"):
-            return code
     if GATE_INTERFACE.exists():
         code, _ = run("entity", "add", str(GATE_INTERFACE), "--ldtk", str(WORLD_LDTK), "--in-place")
         if code:

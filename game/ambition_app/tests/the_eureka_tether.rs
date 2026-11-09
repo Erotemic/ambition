@@ -7,7 +7,7 @@
 //! ground station, hops onto the car and does nothing: the car carries it
 //! up through the roof into the climb, the climb's car carries it out of the
 //! top, and it stands in the terminus on the station. Then it walks into the
-//! docking bay and back, and takes the down car home.
+//! docking bay and back. The tether only goes up.
 
 use ambition_platformer2d::engine_core as ae;
 
@@ -30,6 +30,11 @@ const CAR_TOP: ae::Vec2 = ae::Vec2::new(1024.0, 1304.0);
 
 /// Set the player down just over the waiting car's top.
 fn onto_the_car(app: &mut bevy::prelude::App) {
+    set_down(app, CAR_TOP);
+}
+
+/// Set the player down with its feet just over `feet`.
+fn set_down(app: &mut bevy::prelude::App, feet: ae::Vec2) {
     use ambition_platformer2d::platformer::markers::PrimaryPlayer;
     use bevy::prelude::With;
     let half = {
@@ -40,7 +45,7 @@ fn onto_the_car(app: &mut bevy::prelude::App) {
     let world = app.world_mut();
     let (mut cluster_item, mut motion_model) = query.iter_mut(world).next().expect("gameplay has a primary player");
     let mut clusters = cluster_item.as_clusters_mut();
-    ae::movement::transit_body(&mut motion_model, &mut clusters, ae::Vec2::new(CAR_TOP.x, CAR_TOP.y - half - 1.0), ae::movement::TransitVelocity::Zero);
+    ae::movement::transit_body(&mut motion_model, &mut clusters, ae::Vec2::new(feet.x, feet.y - half - 1.0), ae::movement::TransitVelocity::Zero);
 }
 
 #[test]
@@ -77,10 +82,10 @@ fn the_tether_carries_a_rider_from_the_ground_to_the_station() {
     }
     assert_eq!(live_room(&mut app), TERMINUS, "the rider fell back down the tether");
 
-    // The station, and the way home.
-    go(&mut app, BAY, Some("terminus_bay_door"));
-    go(&mut app, TERMINUS, Some("bay_tether_door"));
-    go(&mut app, STATION, Some("terminus_down_door"));
+    // The station, through the terminus's west side. The tether only goes
+    // up: the way home is the station's gate.
+    go(&mut app, BAY, Some("terminus_west"));
+    go(&mut app, TERMINUS, Some("bay_east"));
 }
 
 /// Out of town (Jon, 2026-10-30: "out of town zones with enemies"): the
@@ -120,6 +125,23 @@ fn the_coil_labs_prototype_turns_its_gravity_over_and_back() {
 #[test]
 fn the_range_officer_signs_it_off_as_probably_fine() {
     let mut app = a_session_in("eureka_test_range");
+    // The range's foes go first, and the robot is set down by the officer:
+    // this is his talk, and with a mite at the robot on the long walk to him
+    // he joins the fight with his fists (a resident who can fight rallies in
+    // a dangerous room) instead of standing at his post.
+    let foes: Vec<bevy::prelude::Entity> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::ActorDisposition)>();
+        q.iter(world)
+            .filter(|(_, disposition)| **disposition == ambition_platformer2d::combat::components::ActorDisposition::Hostile)
+            .map(|(foe, _)| foe)
+            .collect()
+    };
+    assert!(!foes.is_empty(), "the range has no foes to clear: the premise moved");
+    for foe in foes {
+        app.world_mut().entity_mut(foe).despawn();
+    }
+    set_down(&mut app, ae::Vec2::new(2380.0, 704.0));
     crate::the_pirate_port::talk(&mut app, "npc_eureka_pryce", "What is tested here?");
 }
 

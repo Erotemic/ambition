@@ -23,7 +23,6 @@
         ( type: "MovingPlatform", px: [960, 1304], size: [128, 22], fields: ( id: "tether_car_ground", name: "the tether's car", speed: 300.0, lift_dy: -1364.0, one_way: true, visual: "eureka_tether_car" ) ),
         ( type: "LoadingZone", px: [960, 0], size: [128, 16], fields: ( id: "station_to_climb", name: "up the tether", activation: "EdgeExit", target_room: "eureka_elevator_climb", target_zone: "climb_from_station", bidirectional: true ) ),
         ( type: "NpcSpawn", px: [704, 1280], size: [32, 64], fields: ( character_id: "npc_eureka_teodora", prompt: "Talk", dialogue_id: "eureka_teodora", brain_override: "stand_still" ) ),
-        ( type: "LoadingZone", px: [360, 1248], size: [48, 96], fields: ( id: "station_down_arrival", name: "the down car's platform", activation: "Door", target_room: "", target_zone: "", bidirectional: false ) ),
         ( type: "DebugLabel", px: [530, 120], size: [460, 24], fields: ( name: "station_sign", text: "EUREKA TETHER: GROUND STATION", category: "Custom" ) ),
         ( type: "DebugLabel", px: [864, 1144], size: [320, 24], fields: ( name: "station_sign_car", text: "STAND ON THE CAR TO ASCEND", category: "Custom" ) ),
         ( type: "DebugLabel", px: [824, 1084], size: [400, 24], fields: ( name: "station_sign_altitude", text: "Orbit: 35,786 km. Allow for the view.", category: "Custom" ) ),

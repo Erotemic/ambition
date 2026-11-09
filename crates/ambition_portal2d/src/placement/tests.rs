@@ -747,7 +747,7 @@ fn an_unrepresentable_transfer_is_a_typed_refusal() {
             root: ae::frame::RootCrossing { point: Vec2::ZERO, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
             exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
         }, Vec2::ZERO, Vec2::Y, Vec2::Y, &PortalTuning::default()),
-        TransitStep::Refused { reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::NonFinite), channel: PURPLE }));
+        TransitStep::Refused { reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::NonFinite), channel: Some(PURPLE) }));
 }
 
 

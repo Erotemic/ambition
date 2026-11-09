@@ -51,16 +51,28 @@ impl ProjectileCollisionWorld<'_, '_> {
         room: Option<LiveRoomInstance>,
         before: ae::BodyKinematics,
         after: ae::BodyKinematics,
+        time: std::ops::Range<f64>,
+        travel: ae::LinearTravel,
         acceleration: ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
     ) -> Result<(), ae::frame::thread::Refusal> {
         let Some(admission) = self.motion_for(shot, room) else {
             return Ok(());
         };
         if admission.links.is_empty() { return Ok(()); }
-        let map = after.material_map(ae::Vec2::ZERO).map_err(|reason| ae::frame::thread::Refusal {
+        let map = before.material_map(ae::Vec2::ZERO).map_err(|reason| ae::frame::thread::Refusal {
             path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
         })?;
-        admission.admit(before.aabb(), after.aabb(), map, after.vel, &[acceleration.0])
+        let (delta, until) = travel.line(before.pos, after.pos).map_err(|reason| ae::frame::thread::Refusal {
+            path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+        })?;
+        let domain = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));
+        let source = ae::frame::material_cast::MaterialCast::new(
+            ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
+            before.pos,
+            delta,
+            time,
+        ).prefix(until)?;
+        admission.admit(source, after.vel, &[acceleration.0])
     }
 
     /// The pair `shot` is on the back of, if any.

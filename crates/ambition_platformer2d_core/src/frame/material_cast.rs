@@ -14,6 +14,7 @@ mod temporal;
 mod affine;
 mod curved;
 mod arcs;
+mod payload;
 pub use cell::MaterialCell;
 
 /// A primitive's translation in its owner's world chart.
@@ -23,6 +24,7 @@ pub struct MaterialCast<'a> {
     pub delta: Vec2,
     /// The attempted motion's interval within the world's current tick.
     pub time: std::ops::Range<f64>,
+    pub(super) until: f64,
 }
 
 /// One contact, with both the owner-chart and physical-world witnesses.
@@ -67,6 +69,19 @@ fn numeric_at(part: &MaterialCell, reason: NumericFault) -> Refusal {
 }
 
 impl<'a> MaterialCast<'a> {
+    /// Record the original line and its world clock.
+    pub fn new(material: super::thread::MaterialPrimitive<'a>, root: Vec2, delta: Vec2, time: std::ops::Range<f64>) -> Self {
+        Self { material, root, delta, time, until: 1.0 }
+    }
+
+    /// Restrict the original parameter interval without changing the curve or clock.
+    pub fn prefix(mut self, until: f64) -> Result<Self, Refusal> {
+        if !until.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
+        if until < 0.0 || until > self.until { return Err(numeric(NumericFault::InvalidFrame)); }
+        self.until = until;
+        Ok(self)
+    }
+
     pub fn cells(
         self,
         admission: Option<MotionAdmission<'_>>,
@@ -95,7 +110,7 @@ impl<'a> MaterialCast<'a> {
             } else {affine::build(&self, admission)?}
         } else {
             vec![MaterialCell { path: vec![], curve:None,map: self.material.to_world,
-                travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..1.0 }]
+                travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..self.until }]
         };
         for cell in &parts {
             for time in [cell.time.start, cell.time.end] {

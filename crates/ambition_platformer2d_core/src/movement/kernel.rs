@@ -165,18 +165,26 @@ pub fn step_motion(
         body.sweep = Some(&mut sweep);
         step_admitted_motion(candidate_model, &mut body, ctx)
     };
-    let from = crate::Aabb::new(sweep.prev, sweep.half);
-    let to = candidate.kinematics.collision_box(Some(&sweep));
-    let root_map = candidate.kinematics.material_map(sweep.down);
+    let root_map = candidate.kinematics.material.at(sweep.prev, sweep.down);
     let admitted = (|| {
         let root_map = root_map.map_err(|fault| crate::frame::thread::Refusal {
             path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
         })?;
         let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, candidate.kinematics.canonical_size * 0.5));
-        crate::frame::thread::map_volume(&domain, &root_map).map_err(|fault| crate::frame::thread::Refusal {
-            path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
+        let (delta, until) = sweep.travel.line(sweep.prev, sweep.curr).map_err(|reason| crate::frame::thread::Refusal {
+            path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(reason),
         })?;
-        if let Some(portal) = portal { portal.admit(from, to, root_map, candidate.kinematics.vel, &[ctx.frame.carried_acceleration()])?; }
+        let source = crate::frame::material_cast::MaterialCast::new(
+            crate::frame::thread::MaterialPrimitive { domain: &domain, to_world: root_map },
+            sweep.prev,
+            delta,
+            sweep.time[0]..sweep.time[1],
+        ).prefix(until)?;
+        if let Some(portal) = portal {
+            portal.admit(source, candidate.kinematics.vel, &[ctx.frame.carried_acceleration()])?;
+        } else {
+            source.cells(None)?.admit_payloads(candidate.kinematics.vel, &[ctx.frame.carried_acceleration()])?;
+        }
         Ok(())
     })();
     if let Err(refusal) = admitted {

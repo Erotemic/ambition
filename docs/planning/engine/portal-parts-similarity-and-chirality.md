@@ -601,8 +601,18 @@ reached 542 passes and 15 skips before it was stopped after the existing
 consolidation-ledger failure. Doc anchors pass. The prior doc-link and citation
 failures remain. These results do not claim a green full-repository run.
 
-Slot 1, `portal-material-admission`, holds the next continuous-admission draft.
-It has not been compiled. No complete PSIM acceptance slice is closed.
+The continuous-admission packet now uses the native material cells and their
+recorded time intervals. Payload validation covers each occupied interval,
+including intermediate aperture turns. A closed cast prefix keeps the original
+line and world clock. Projectile world and damage contacts use that parameter.
+A returning shot also resolves a later wall after its feature hit.
+
+This packet passes 835 core tests, 138 portal tests, 19 shared projectile tests,
+60 runtime projectile tests and 13 assembled-app portal tests. One core test
+remains ignored. The assembled app check passes. Logs use the
+`target/portal-native-prefix-` prefix. Source refusal at the final transit
+consumer still needs an end-to-end witness. No complete PSIM acceptance slice
+is closed.
 
 
 Code checkpoint: `e3ebef90f` (2026-11-09). Lab map checkpoint: `16018b5` in

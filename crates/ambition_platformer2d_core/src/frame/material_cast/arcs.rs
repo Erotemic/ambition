@@ -34,6 +34,7 @@ pub(super) struct Scene {
     root: DVec2,
     delta: DVec2,
     time: Range<f64>,
+    until: f64,
     links: Vec<PortalLink>,
     first: Option<u32>,
     budget: PieceBudget,
@@ -126,6 +127,10 @@ pub(super) struct CurveCell {
 }
 
 impl Scene {
+    pub(super) fn admission(&self) -> MotionAdmission<'_> {
+        MotionAdmission { links: &self.links, first: self.first, budget: self.budget, convention: self.convention }
+    }
+
     pub fn new(cast: &MaterialCast<'_>, admission: MotionAdmission<'_>) -> Arc<Self> {
         Arc::new(Self {
             body: cast.material.domain.clone(),
@@ -133,6 +138,7 @@ impl Scene {
             root: cast.root.as_dvec2(),
             delta: cast.delta.as_dvec2(),
             time: cast.time.clone(),
+            until: cast.until,
             links: admission.links.to_vec(),
             first: admission.first,
             budget: admission.budget,
@@ -319,7 +325,7 @@ impl Scene {
             let origin = pose.enter.normal.dot(self.root - start);
             let rate = pose.enter.normal.dot(self.delta - pose.enter.shift);
             let a = origin + rate * (state.time - half).max(0.0);
-            let b = origin + rate * (state.time + half).min(1.0);
+            let b = origin + rate * (state.time + half).min(self.until);
             let low = a.min(b);
             let high = a.max(b);
             // The incoming side owns a reference that reaches the plane.
@@ -983,7 +989,7 @@ fn potential(cell: &CurveCell, time: &Range<f64>, work: &mut Work) -> Result<boo
         .map_err(|e| failure(cell, None, RefusalReason::Numeric(e)))
 }
 fn exists(cell: &CurveCell, work: &mut Work) -> Result<bool, Refusal> {
-    let mut stack = vec![0.0..1.0];
+    let mut stack = vec![0.0..cell.scene.until];
     while let Some(time) = stack.pop() {
         if !potential(cell, &time, work)? {
             continue;
@@ -1031,9 +1037,9 @@ fn excludes(
             };
             let (states, poses) = cell
                 .scene
-                .states(&cell.path, 0.5, 0.5)
+                .states(&cell.path, cell.scene.until * 0.5, cell.scene.until * 0.5)
                 .map_err(|e| failure(&cell, Some(index), RefusalReason::Numeric(e)))?;
-            if cell.scene.condition(condition, states[stage], &poses, 0.5) == Truth::No {
+            if cell.scene.condition(condition, states[stage], &poses, cell.scene.until * 0.5) == Truth::No {
                 next.push(cell);
                 continue;
             }
@@ -1044,7 +1050,7 @@ fn excludes(
                 kind: Kind::Through,
                 prior: None,
             });
-            if !potential(&probe, &(0.0..1.0), work)? || !exists(&probe, work)? {
+            if !potential(&probe, &(0.0..probe.scene.until), work)? || !exists(&probe, work)? {
                 next.push(cell);
                 continue;
             }
@@ -1059,7 +1065,7 @@ fn excludes(
                     kind: Kind::Stay(kind),
                     ..condition
                 });
-                if potential(&branch, &(0.0..1.0), work)? {
+                if potential(&branch, &(0.0..branch.scene.until), work)? {
                     next.push(branch);
                 }
             }
@@ -1103,7 +1109,7 @@ fn verify_budget(cells: &[CurveCell], work: &mut Work) -> Result<(), Refusal> {
         return Ok(());
     };
     let limit = usize::from(first.scene.budget.max_pieces);
-    let mut stack = vec![0.0..1.0];
+    let mut stack = vec![0.0..first.scene.until];
     while let Some(time) = stack.pop() {
         let mut possible = Vec::new();
         for cell in cells {
@@ -1195,17 +1201,17 @@ pub(super) fn build(
                 kind: Kind::Through,
                 prior: None,
             });
-            if !potential(&carried, &(0.0..1.0), &mut work)? {
+            if !potential(&carried, &(0.0..carried.scene.until), &mut work)? {
                 continue;
             }
             let policy = if cell.path.len() >= usize::from(admission.budget.max_hops) {
                 Some(RefusalReason::HopLimit)
             } else if !cell
-                .at(0.5)
+                .at(cell.scene.until * 0.5)
                 .map_err(|e| failure(&cell, Some(index), RefusalReason::Numeric(e)))?
                 .admits_scale_product(
                     cell.scene
-                        .pose(index, 0.5)
+                        .pose(index, cell.scene.until * 0.5)
                         .map_err(|e| failure(&cell, Some(index), RefusalReason::Numeric(e)))?
                         .map,
                     admission.budget.max_scale_exponent,
@@ -1244,7 +1250,7 @@ pub(super) fn build(
                 map,
                 travel: DVec2::ZERO,
                 planes: Vec::new(),
-                time: 0.0..1.0,
+                time: 0.0..curve.scene.until,
                 curve: Some(Arc::new(curve)),
             })
         })
@@ -1280,12 +1286,12 @@ mod tests {
         )
     }
     fn request(body: &CombatVolume) -> MaterialCast<'_> {
-        MaterialCast {
-            material: MaterialPrimitive::world(body),
-            root: body.center(),
-            delta: Vec2::ZERO,
-            time: 0.0..1.0,
-        }
+        MaterialCast::new(
+            MaterialPrimitive::world(body),
+            body.center(),
+            Vec2::ZERO,
+            0.0..1.0,
+        )
     }
     fn admission(links: &[PortalLink]) -> MotionAdmission<'_> {
         MotionAdmission {
@@ -1665,8 +1671,8 @@ mod tests {
                         vec![target],
                     );
                     let root = Vec2::new(-6.0 * scale, 0.0);
-                    let cast = MaterialCast {
-                        material: MaterialPrimitive {
+                    let cast = MaterialCast::new(
+                        MaterialPrimitive {
                             domain: &body,
                             to_world: Sim2::new(
                                 scale,
@@ -1676,9 +1682,9 @@ mod tests {
                             .unwrap(),
                         },
                         root,
-                        delta: boost * 0.25,
-                        time: 0.0..0.25,
-                    };
+                        boost * 0.25,
+                        0.0..0.25,
+                    );
                     let hit = world
                         .first_material_sweep(cast, Some(admission(&links)), |_, _, _| Ok(true))
                         .unwrap()

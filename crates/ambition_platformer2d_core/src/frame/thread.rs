@@ -669,67 +669,11 @@ impl MotionAdmission<'_> {
         Ok(velocity)
     }
 
-    /// Validate both occupancy and the complete translated collision sweep.
-    pub fn admit(&self, from: crate::Aabb, to: crate::Aabb, root_map: Sim2, velocity: Vec2, carried_vectors: &[Vec2]) -> Result<(), Refusal> {
-        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
-        let inverse = root_map.inverse().map_err(numeric)?;
-        let verify_motion = |parts: Vec<VolumePiece>| -> Result<(), Refusal> {
-            for part in parts.iter().filter(|part| part.is_carried()) {
-                for vector in carried_vectors {
-                    let mut vector = *vector;
-                    for (index, key) in part.path.iter().enumerate() {
-                        let link = self.links.iter().find(|link| link.key == *key)
-                            .expect("partition paths name links from this aperture snapshot");
-                        let refusal = |fault| Refusal { path: part.path[..index].to_vec(), link: Some(*key), reason: RefusalReason::Numeric(fault) };
-                        vector = link.map(self.convention).map_err(refusal)?.vector(vector).map_err(refusal)?;
-                    }
-                }
-                for point in part.source_region_wide().into_iter().flatten() {
-                    let mut point = root_map.point_from_wide(point).map_err(numeric)?;
-                    let mut velocity = velocity;
-                    for (index, key) in part.path.iter().enumerate() {
-                        let link = self.links.iter().find(|link| link.key == *key)
-                            .expect("partition paths name links from this aperture snapshot");
-                        let refusal = |fault| Refusal { path: part.path[..index].to_vec(), link: Some(*key), reason: RefusalReason::Numeric(fault) };
-                        let map = link.map(self.convention).map_err(refusal)?;
-                        velocity = map.velocity(&link.enter.frame, &link.exit.frame, point, velocity).map_err(refusal)?;
-                        point = map.point(point).map_err(refusal)?;
-                    }
-                }
-            }
-            Ok(())
-        };
-        let canonical = map_volume(&CombatVolume::aabb(to), &inverse).map_err(numeric)?;
-        verify_motion(partition(MaterialPrimitive { domain: &canonical, to_world: root_map }, from.center(), self.links, self.first, self.budget, self.convention)?)?;
-        let mut points = box_corners(from).into_iter().chain(box_corners(to)).collect::<Vec<_>>();
-        if points.iter().any(|p| !p.is_finite()) {
-            return Err(Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(NumericFault::NonFinite) });
-        }
-        points.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
-        points.dedup();
-        let chain = |vertices: &[Vec2]| {
-            let mut result: Vec<Vec2> = Vec::new();
-            for point in vertices {
-                while result.len() >= 2 {
-                    let a = result[result.len() - 2];
-                    let b = result[result.len() - 1];
-                    if (b - a).perp_dot(*point - b) > 0.0 { break; }
-                    result.pop();
-                }
-                result.push(*point);
-            }
-            result
-        };
-        let mut lower = chain(&points);
-        points.reverse();
-        let mut upper = chain(&points);
-        lower.pop(); upper.pop(); lower.extend(upper);
-        if lower.len() >= 3 {
-            let canonical = map_volume(&CombatVolume::convex(lower), &inverse).map_err(numeric)?;
-            verify_motion(partition(MaterialPrimitive { domain: &canonical, to_world: root_map }, from.center(), self.links, self.first, self.budget, self.convention)?)?;
-        }
-        Ok(())
+    /// Validate the same material trajectory that contact queries consume.
+    pub fn admit(&self, source: super::material_cast::MaterialCast<'_>, velocity: Vec2, carried_vectors: &[Vec2]) -> Result<(), Refusal> {
+        source.cells(Some(*self))?.admit_payloads(velocity, carried_vectors)
     }
+
 }
 
 /// The links that lead back to themselves: what goes in at one comes out

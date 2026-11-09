@@ -247,7 +247,7 @@ pub enum TransitStep {
     },
     /// Leave the current body unchanged when the map cannot be represented.
     Refused {
-        channel: PortalChannel,
+        channel: Option<PortalChannel>,
         reason: ae::frame::thread::RefusalReason,
     },
     /// The body fully cleared the plane — remove [`PortalTransit`].
@@ -372,7 +372,7 @@ fn transfer_step(
         crossing.entry_channel, crossing.exit_channel, enter, exit, tuning) {
         Ok(transfer) => transfer,
         Err(reason) => return TransitStep::Refused {
-            channel: crossing.entry_channel, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+            channel: Some(crossing.entry_channel), reason: ae::frame::thread::RefusalReason::Numeric(reason),
         },
     };
     transfer.crossing_time = crossing.root.world_time;
@@ -381,7 +381,7 @@ fn transfer_step(
     transfer.exit_pos = match transfer.map.point(center) {
         Ok(point) => point,
         Err(reason) => return TransitStep::Refused {
-            channel: crossing.entry_channel, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+            channel: Some(crossing.entry_channel), reason: ae::frame::thread::RefusalReason::Numeric(reason),
         },
     };
     let convention = tuning.convention.map_convention();
@@ -426,10 +426,12 @@ pub fn first_portal_crossing(
     backside: Option<crate::PortalBackside>,
 ) -> Result<Option<f64>, CrossingRefusal> {
     let domain = ae::CombatVolume::aabb(ae::Aabb::new(from, size * 0.5));
-    let cast = ae::frame::material_cast::MaterialCast {
-        material: ae::frame::thread::MaterialPrimitive::world(&domain),
-        root: from, delta: to - from, time: 0.0..1.0,
-    };
+    let cast = ae::frame::material_cast::MaterialCast::new(
+        ae::frame::thread::MaterialPrimitive::world(&domain),
+        from,
+        to - from,
+        0.0..1.0,
+    );
     first_portal_crossing_through(&cast, portals, backside, 1.0).map(|hit| hit.map(|hit| hit.root.toi))
 }
 
@@ -462,11 +464,17 @@ fn swept_crossing_step(
     portals: &[PlacedPortal], gravity_dir: Vec2, tuning: &PortalTuning,
 ) -> Option<TransitStep> {
     let domain = ae::CombatVolume::aabb(ae::Aabb::new(sweep.pos, size * 0.5));
-    let cast = ae::frame::material_cast::MaterialCast {
-        material: ae::frame::thread::MaterialPrimitive::world(&domain),
-        root: sweep.pos, delta: sweep.travel.delta(sweep.pos, center), time: sweep.time[0]..sweep.time[1],
+    let (delta, until) = match sweep.travel.line(sweep.pos, center) {
+        Ok(line) => line,
+        Err(reason) => return Some(TransitStep::Refused { channel: None, reason: ae::frame::thread::RefusalReason::Numeric(reason) }),
     };
-    match first_portal_crossing_through(&cast, portals, None, sweep.travel.until()) {
+    let cast = ae::frame::material_cast::MaterialCast::new(
+        ae::frame::thread::MaterialPrimitive::world(&domain),
+        sweep.pos,
+        delta,
+        sweep.time[0]..sweep.time[1],
+    ).prefix(until).expect("the motion record validates its original parameter");
+    match first_portal_crossing_through(&cast, portals, None, until) {
         Ok(Some(hit)) => {
             let frame = hit.root.aperture.frame;
             let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
@@ -475,7 +483,7 @@ fn swept_crossing_step(
             Some(transfer_step(hit, center, carried, gravity_dir, tuning))
         }
         Ok(None) => None,
-        Err(refusal) => Some(TransitStep::Refused { channel: refusal.channel, reason: refusal.reason }),
+        Err(refusal) => Some(TransitStep::Refused { channel: Some(refusal.channel), reason: refusal.reason }),
     }
 }
 

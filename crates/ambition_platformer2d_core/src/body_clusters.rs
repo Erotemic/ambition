@@ -231,11 +231,20 @@ pub enum LinearTravel {
 }
 
 impl LinearTravel {
-    pub fn delta(self, from: Vec2, to: Vec2) -> Vec2 {
-        match self { Self::Complete => to - from, Self::Prefix { delta, .. } => delta }
-    }
-    pub fn until(self) -> f64 {
-        match self { Self::Complete => 1.0, Self::Prefix { until, .. } => until }
+    /// Recover the original line and its closed end parameter.
+    pub fn line(self, from: Vec2, to: Vec2) -> Result<(Vec2, f64), crate::frame::NumericFault> {
+        use crate::frame::{NumericFault, Sim2};
+        if !from.is_finite() || !to.is_finite() { return Err(NumericFault::NonFinite); }
+        match self {
+            Self::Complete => Ok((Sim2::IDENTITY.vector_from_wide(to.as_dvec2() - from.as_dvec2())?, 1.0)),
+            Self::Prefix { delta, until } => {
+                if !delta.is_finite() || !until.is_finite() { return Err(NumericFault::NonFinite); }
+                if !(0.0..=1.0).contains(&until) { return Err(NumericFault::InvalidFrame); }
+                let endpoint = Sim2::IDENTITY.point_from_wide(from.as_dvec2() + delta.as_dvec2() * until)?;
+                if endpoint != to { return Err(NumericFault::InvalidFrame); }
+                Ok((delta, until))
+            }
+        }
     }
 }
 
@@ -326,12 +335,7 @@ impl SweepSample {
     /// the sample is still a true record of the step but not the path to here,
     /// and a reader must not splice it onto the live pose.
     pub fn ending_at(&self, live_pos: Vec2) -> Option<&Self> {
-        if let LinearTravel::Prefix { delta, until } = self.travel {
-            if !delta.is_finite() || !until.is_finite() || !(0.0..=1.0).contains(&until)
-                || (self.prev.as_dvec2() + delta.as_dvec2() * until).as_vec2() != self.curr {
-                return None;
-            }
-        }
+        self.travel.line(self.prev, self.curr).ok()?;
         ((self.curr - live_pos).length_squared() <= 1.0).then_some(self)
     }
 

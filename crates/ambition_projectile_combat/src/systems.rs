@@ -470,25 +470,9 @@ struct PlayerProjectileTickInfo {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ProjectileStepSet;
 
-/// The protocol's world-vs-target rule, as one testable comparison.
-///
-/// `true` when an independent blocking surface reaches this leg no later than a
-/// candidate hurt target — strictly earlier, OR at an exact tie, which the
-/// contact protocol awards to the wall so that a tie cannot grant damage
-/// through it.
-///
-/// ⛔⛔ **THIS WAS `wall < contact - f32::EPSILON`, WHICH IS BOTH POLICIES
-/// WRONG.** It handed the tie to the TARGET, the opposite of what the protocol
-/// says, and it did so with an epsilon comparator the same document forbids by
-/// name for having nontransitive pairwise ties. `f32::EPSILON` is ~1.19e-7, so
-/// it also swallowed genuinely earlier walls: a wall at `contact - 1e-9` really
-/// is first, and the old form called it second.
-///
-/// ⭐ Extracted from the closure it used to live in SO THAT IT CAN BE TESTED
-/// EXACTLY. Building a bit-exact float tie through the world sweep and the
-/// victim sweep — two different code paths — is not something a behavioural
-/// fixture can promise, and a tie test that never ties is a test of nothing.
-pub(crate) fn wall_reaches_first(wall: Option<f32>, contact_time: f32) -> bool {
+/// A blocking surface wins when it reaches the leg before or with a hurt target.
+/// Both times use the original source parameter.
+pub(crate) fn wall_reaches_first(wall: Option<f64>, contact_time: f64) -> bool {
     wall.is_some_and(|wall| wall.total_cmp(&contact_time).is_le())
 }
 
@@ -896,6 +880,8 @@ pub fn step_projectiles(
             continue;
         }
 
+        let attempted_delta = candidate.pos - leg_start;
+
         // A root event ends this leg. Keep the original line and its closed
         // prefix so transit does not reconstruct time from a projected endpoint.
         #[cfg(feature = "portal")]
@@ -911,14 +897,16 @@ pub fn step_projectiles(
                     continue;
                 }
             };
-            let cast = ae::frame::material_cast::MaterialCast {
-                material: ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
-                root: leg_start, delta: candidate.pos - leg_start, time: 0.0..1.0,
-            };
+            let cast = ae::frame::material_cast::MaterialCast::new(
+                ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
+                leg_start,
+                attempted_delta,
+                0.0..1.0,
+            );
             match ambition_portal2d::first_portal_crossing_through(&cast,
                 portals_by_room.in_room(shot_room), collision.backside_of(proj_entity), 1.0) {
                 Ok(Some(hit)) => (hit.root.point, hit.root.world_time,
-                    ae::LinearTravel::Prefix { delta: candidate.pos - leg_start, until: hit.root.toi }),
+                    ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.root.toi }),
                 Ok(None) => (candidate.pos, 1.0, ae::LinearTravel::Complete),
                 Err(refusal) => {
                     *game = candidate_game;
@@ -933,7 +921,7 @@ pub fn step_projectiles(
         let (contact_end,travel_end,travel) = (candidate.pos,1.0,ae::LinearTravel::Complete);
 
         #[cfg(feature = "portal")]
-        if let Err(refusal) = collision.admit_motion(proj_entity, shot_room, before, candidate, *acceleration) {
+        if let Err(refusal) = collision.admit_motion(proj_entity, shot_room, before, BodyKinematics { pos: contact_end, ..candidate }, 0.0..1.0, travel, *acceleration) {
             // Refused motion does not stop the projectile's lifetime.
             *game = candidate_game;
             commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
@@ -944,7 +932,7 @@ pub fn step_projectiles(
 
         candidate.pos = contact_end;
         let world_response = match resolve_world_collision(
-            before, candidate, candidate_game, collision_world, gravity_dir, dt,0.0..travel_end,
+            before, candidate, candidate_game, collision_world, gravity_dir, dt,0.0..1.0, travel,
             collision.motion_for(proj_entity, shot_room),
         ) {
             Ok(response) => response,
@@ -971,13 +959,13 @@ pub fn step_projectiles(
             down: ae::Vec2::ZERO,
         });
 
-        let travel_leg = contact_end-leg_start;
+        let travel_leg = attempted_delta;
         let blocked_at = world_response.contact.as_ref();
         // `true` when an independent blocker reaches this leg no later than the
         // candidate contact — strictly earlier, or at an exact tie, which the
         // protocol awards to the wall.
         let wall_reaches_first = move |contact_time: f32| {
-            wall_reaches_first(blocked_at.map(|hit| hit.contact.toi as f32), contact_time)
+            wall_reaches_first(blocked_at.map(|hit| hit.contact.toi), f64::from(contact_time))
         };
         // ⭐⭐ THE SAME QUESTION, ASKED ABOUT A TARGET THAT MAY OWN THE WALL.
         // Now that a live object's contributed surface is in this shot's world,
@@ -1075,7 +1063,7 @@ pub fn step_projectiles(
             // disagree with "whom it reached first"; a big body slightly further
             // out is touched before a small one dead ahead.
             let shot_half = kin.size() * 0.5;
-            let leg = contact_end - leg_start;
+            let leg = attempted_delta;
             // ⛔⛔ **THE FEATURE CANDIDATE IS RESOLVED HERE, BESIDE THE BODIES,
             // BECAUSE THEY ARE COMPETING FOR THE SAME CONTACT.** It used to be
             // computed after this whole block had `continue`d away on a body
@@ -1116,6 +1104,7 @@ pub fn step_projectiles(
             // solid was broken through it, and a boss behind one was damaged
             // through it. Same rule as the bodies below, same single sweep, same
             // strict comparison.
+            .filter(|contact| f64::from(contact.time) <= travel_end)
             .filter(|contact| !wall_blocks_reaching(contact.time, &contact.target_id))
             .min_by(super::feature_contact::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
@@ -1124,6 +1113,7 @@ pub fn step_projectiles(
                 .filter_map(|victim| {
                     victim
                         .reached_along(leg_start, shot_half, leg)
+                        .filter(|toi| f64::from(*toi) <= travel_end)
                         .map(|toi| (toi, victim))
                 })
                 .collect();
@@ -1478,28 +1468,9 @@ pub fn step_projectiles(
                         );
                     }
                     commands.entity(proj_entity).despawn();
+                    continue;
                 }
-                continue;
-            }
-
-            // Bodies were resolved directly above. This road sends a hit only
-            // when the sweep names a boss part or a breakable, so it cannot hit
-            // a body a second time and it never asks the applier to find a
-            // recipient in a volume.
-            // ⛔⛔ **SWEPT, LIKE THE BODY BRANCH, AND CARRYING THE SAME WITNESS.**
-            // This asked whether the shot's ENDPOINT box reached a boss or a
-            // breakable, so a bolt that crossed a crate between two samples
-            // touched nothing — and it then handed the applier that same endpoint
-            // box to re-test, which is the second half the body branch also had.
-            // One swept question, and the box the event carries is the box AT
-            // CONTACT.
-            // Resolved above, beside the bodies it competes with — see the
-            // comment there for why the two families cannot be resolved in
-            // separate passes.
-            // A hair inside, for the reason the body branch and the world sweep
-            // both state: `time_of_impact` leaves the box tangent and every
-            // downstream overlap test is `strict_intersects`.
-            if let Some(contact) = feature_contact.as_ref() {
+            } else if let Some(contact) = feature_contact.as_ref() {
                 let feature_contact_box = {
                     let at = leg_start + feature_leg * contact.time;
                     let inward = (contact.target_center - at).normalize_or_zero();
@@ -1594,17 +1565,17 @@ pub fn step_projectiles(
                 already_hit.hit.insert(contact.target);
                 if !game.returns(*acceleration) {
                     commands.entity(proj_entity).despawn();
+                    continue;
                 }
-                continue;
             }
         }
 
         *kin = world_response.body;
-        let travel = if matches!(world_response.outcome, WorldHitOutcome::Continue) { travel }
-            else { ae::LinearTravel::Complete };
-        let recorded_end = if matches!(world_response.outcome, WorldHitOutcome::Continue) { 1.0 } else { travel_end };
+        let recorded_travel = world_response.contact.as_ref().map_or(travel, |hit| {
+            ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.contact.toi }
+        });
         game.bounces_remaining = world_response.bounces_remaining;
-        commands.entity(proj_entity).insert(ae::SweepSample { travel, time: [0.0, recorded_end],
+        commands.entity(proj_entity).insert(ae::SweepSample { travel: recorded_travel, time: [0.0, 1.0],
             prev: leg_start, curr: kin.pos, vel: candidate.vel,
             half: kin.half_oriented(ae::Vec2::ZERO), down: ae::Vec2::ZERO,
         });
@@ -1796,50 +1767,26 @@ mod parry_tests {
 
 #[cfg(test)]
 mod wall_order_tests {
-/// ⛔⛔ **THE TIE WENT TO THE TARGET, AND THE COMMENT CLAIMED THAT WAS THE
-/// PROTOCOL.**
-///
-/// `projectile-contact-protocol.md` says an independent blocking surface at
-/// exactly the same impact time WINS over an unrelated hurt target, precisely
-/// so a tie cannot grant damage through a wall. The road implemented
-/// `wall < contact - f32::EPSILON` — the opposite policy, expressed with the
-/// epsilon comparator the same document forbids by name.
-///
-/// ⭐ ASSERTED ON THE COMPARISON ITSELF, not through a fixture. Two swept code
-/// paths (`body_sweep` for the wall, `reached_along` for the victim) producing
-/// bit-identical `f32` times is not something a behavioural test can promise,
-/// and a tie test that never actually ties proves nothing at all.
+/// An exact tie and adjacent clock values retain their strict order.
 #[test]
 fn an_independent_wall_wins_an_exact_tie_against_a_hurt_target() {
     use super::*;
 
-    // THE CASE THAT FLIPPED. Equal times: the wall takes it.
     assert!(
         wall_reaches_first(Some(0.5), 0.5),
         "a wall at exactly the target's contact time must win — a tie may not \
          grant damage through it"
     );
 
-    // ⭐ AND THE EPSILON SWALLOWED REAL WALLS TOO. `f32::EPSILON` is ~1.19e-7
-    // while the gap between adjacent floats at 0.5 is ~5.96e-8, so a wall a
-    // FULL REPRESENTABLE STEP earlier still failed `wall < contact - EPSILON`:
-    // the old form called a genuinely earlier wall second.
-    //
-    // ⚠ `next_down`/`next_up`, NOT `0.5 +/- 1e-9`. Written that way first, and
-    // both arms were vacuous: 1e-9 is far below the ulp here, so both constants
-    // round to exactly 0.5 and the "strictly later" control was silently
-    // asserting the tie case with the answer inverted.
     assert!(
-        wall_reaches_first(Some(0.5f32.next_down()), 0.5),
+        wall_reaches_first(Some(0.5f64.next_down()), 0.5),
         "a wall that genuinely reaches the leg first was ordered behind the \
          target by the epsilon slack"
     );
     assert!(wall_reaches_first(Some(0.1), 0.5), "a plainly earlier wall is first");
 
-    // ⭐ CONTROLS. A rule that answered `true` always would satisfy every
-    // assertion above while making every shot stop at nothing.
     assert!(
-        !wall_reaches_first(Some(0.5f32.next_up()), 0.5),
+        !wall_reaches_first(Some(0.5f64.next_up()), 0.5),
         "a wall reached AFTER the target must not block it"
     );
     assert!(!wall_reaches_first(Some(0.9), 0.5), "a plainly later wall is second");

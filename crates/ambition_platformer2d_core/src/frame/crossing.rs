@@ -46,6 +46,7 @@ impl MaterialCast<'_> {
             || !(0.0..=1.0).contains(&until) {
             return Err(numeric(NumericFault::InvalidFrame));
         }
+        let until = until.min(self.until);
         step.sample_wide(end, self.time.start).map_err(numeric)?;
         super::thread::map_volume(self.material.domain, &self.material.to_world).map_err(numeric)?;
         let normal = end.frame.normal.as_dvec2().normalize();
@@ -215,9 +216,14 @@ mod tests {
         (ApertureStep::ending_at(end.frame, Vec2::ZERO, turn), end)
     }
     fn cast<'a>(shape: &'a CombatVolume, from: Vec2, delta: Vec2) -> MaterialCast<'a> {
-        MaterialCast { material: MaterialPrimitive {
+        MaterialCast::new(
+            MaterialPrimitive {
             domain: shape, to_world: Sim2::new(1.0, bevy_math::Mat2::IDENTITY, from).unwrap(),
-        }, root: from, delta, time: 0.0..1.0 }
+        },
+            from,
+            delta,
+            0.0..1.0,
+        )
     }
 
     #[test]
@@ -316,7 +322,7 @@ mod tests {
         let restored = decode_state::<crate::SweepSample>(&encode_state(&sample)).unwrap();
         assert_eq!(encode_state(&restored), encode_state(&sample));
         assert!(restored.ending_at(hit.point).is_some());
-        assert_eq!(query.crossing(step, end, restored.travel.until()).unwrap().unwrap(), hit);
+        assert_eq!(query.crossing(step, end, restored.travel.line(restored.prev, restored.curr).unwrap().1).unwrap().unwrap(), hit);
         assert!(query.crossing(step, end, hit.toi * 0.5).unwrap().is_none());
         sample.curr.x += 0.25;
         assert!(sample.ending_at(sample.curr).is_none());

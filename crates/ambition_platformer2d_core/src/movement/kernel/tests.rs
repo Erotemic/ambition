@@ -1978,3 +1978,29 @@ fn a_surface_rider_that_jumps_reports_the_jump_once() {
     let fly = step(&mut model, &world, &mut scratch, frame, press);
     assert_eq!(jumps(&fly), 0, "a held press in the air is not a second jump");
 }
+
+#[test]
+fn a_still_body_refuses_a_portal_that_only_intersects_during_its_turn() {
+    use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink, RefusalReason};
+    use crate::frame::{ApertureStep, MapConvention, PortalAperture, PortalFrame};
+    let world = empty_world();
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 500.0), -Vec2::Y), half_length: 80.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(900.0, 200.0), Vec2::Y), half_length: 80.0 };
+    let mut link = PortalLink::new(entry, exit, 0);
+    link.enter_step = ApertureStep::ending_at(entry.frame, Vec2::ZERO, std::f32::consts::TAU);
+    let links = [link];
+    let mut body = BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 470.0), AbilitySet::default());
+    body.kinematics.canonical_size = Vec2::splat(40.0);
+    let before = body.kinematics;
+    let mut model = MotionModel::default();
+    let mut clusters = body.as_mut();
+    let result = step_motion(&mut model, &mut clusters, MotionStepContext {
+        world: &world, portal: Some(MotionAdmission { links: &links, first: None,
+            budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED }, convention: MapConvention::Reflection }),
+        input: InputState::default(), frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 0.0, dt: 0.0,
+        contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false,
+        recovery_commitment_outstanding: false,
+    });
+    assert_eq!(*clusters.kinematics, before);
+    assert_eq!(result.events.portal_refusal.unwrap().reason, RefusalReason::HopLimit);
+}

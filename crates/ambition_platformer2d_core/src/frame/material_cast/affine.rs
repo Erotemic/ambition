@@ -209,7 +209,7 @@ pub(super) fn build(
             map: cast.material.to_world,
             travel: cast.delta.as_dvec2(),
             planes: vec![],
-            time: 0.0..1.0,
+            time: 0.0..cast.until,
         },
         root: Reference {
             origin: cast.root.as_dvec2(),
@@ -496,12 +496,12 @@ mod tests {
         links: &[PortalLink],
         pieces: u16,
     ) -> Result<MaterialCastCells<'a>, Refusal> {
-        let request = MaterialCast {
-            material: MaterialPrimitive::world(body),
-            root: Vec2::new(-6.0, 0.0),
+        let request = MaterialCast::new(
+            MaterialPrimitive::world(body),
+            Vec2::new(-6.0, 0.0),
             delta,
-            time: 0.0..1.0,
-        };
+            0.0..1.0,
+        );
         request.cells(Some(MotionAdmission {
             links,
             first: None,
@@ -657,21 +657,21 @@ mod tests {
             budget: PieceBudget::COMPOSED,
             convention: MapConvention::Reflection,
         };
-        let request = MaterialCast {
-            material: MaterialPrimitive::world(&body),
-            root: Vec2::new(-6.0, 0.0),
-            delta: Vec2::new(3.0, 1.0),
-            time: 0.25..0.75,
-        };
-        let boosted = MaterialCast {
-            material: MaterialPrimitive {
+        let request = MaterialCast::new(
+            MaterialPrimitive::world(&body),
+            Vec2::new(-6.0, 0.0),
+            Vec2::new(3.0, 1.0),
+            0.25..0.75,
+        );
+        let boosted = MaterialCast::new(
+            MaterialPrimitive {
                 domain: &body,
                 to_world: Sim2::new(1.0, bevy_math::Mat2::IDENTITY, boost * 0.25).unwrap(),
             },
-            root: request.root + boost * 0.25,
-            delta: request.delta + boost * 0.5,
-            time: request.time.clone(),
-        };
+            request.root + boost * 0.25,
+            request.delta + boost * 0.5,
+            request.time.clone(),
+        );
         let base = request.cells(Some(admission(&links))).unwrap();
         let moved = boosted.cells(Some(admission(&moved))).unwrap();
         for time in [0.0, 0.125, 0.5, 0.875, 0.999] {

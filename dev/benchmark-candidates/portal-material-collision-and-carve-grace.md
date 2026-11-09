@@ -26,3 +26,10 @@ absence of root transit and the physical far-side impact. The core material
 cast tests check uncarved block hosts and finite line-host ends. The shared
 projectile tests check the relative velocity of a bounce through a scaled,
 moving pair.
+
+Station K now owns the real-app witness. The LDtk loader places a portal
+on a nearby face that has the same normal. A thin target two pixels beyond
+an unhosted exit can put its back face inside that placement range. The
+loader then moves the exit onto the target. Keep the target's near face at
+the test distance and put its back face outside the placement range. Read
+the loaded portal poses when an authored contact test fails.

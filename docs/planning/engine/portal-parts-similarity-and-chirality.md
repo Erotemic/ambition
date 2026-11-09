@@ -554,6 +554,14 @@ simultaneous/three-link arrangement. Its authoring preview adds 17 entities
 and changes no existing geometry or station. Apply it with the production
 switch; the current minimum-aperture rule cannot demonstrate its scale labels.
 
+Station K is now authored in the live lab. It has a gun-sword beside a wall
+opening and a target two pixels beyond the paired exit. A shot must hit the
+target before its centre crosses the entry. The production projectile test
+uses this authored pair and target. The
+[station source](../../../tools/ambition_ldtk_tools/specs/portal_contact_lab.yaml)
+adds six entities and retains all existing stations. H through J remain
+pending the production scale and handedness switch.
+
 Retain current clipping scratch reuse and presentation pools when they fit
 the new authority. After Jon's optimization work ends, record a fresh baseline
 on that source tree. Measure no-portal, equal-size, unequal-size, two-link,

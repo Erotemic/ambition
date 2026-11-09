@@ -154,9 +154,8 @@ fn a_projectile_refuses_a_portal_cut_before_motion_and_resumes_when_admitted() {
 
 #[test]
 fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
-    use ambition_platformer2d::engine_core::{Block, GeoId, PlacementId, RoomGeometry};
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-    use ambition_platformer2d::portal::PortalBodyTransited;
+    use ambition_platformer2d::portal::{link_hash, PlacedPortal, PortalBodyTransited, PortalLink};
     use ambition_platformer2d::projectiles::{ProjectileOwner, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
     use ambition_platformer2d::vfx::{VfxInRoom, VfxMessage};
 
@@ -166,16 +165,16 @@ fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
         let world = sim.world_mut();
         world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap()
     };
-    let (enter, exit) = crate::common::first_floor_authored_portal_pair(&mut sim);
-    let tangent = Vec2::new(-exit.normal.y, exit.normal.x);
-    let center = exit.pos + exit.normal * 2.5;
-    let half = tangent.abs() * 20.0 + exit.normal.abs() * 0.5;
-    let mut block = Block::solid("exit contact", center-half, half*2.0);
-    block.id = GeoId::placement(PlacementId::new("portal_lab_exit_contact"), 0);
-    {
+    let (enter, exit) = {
         let world = sim.world_mut();
-        world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks.push(block);
-    }
+        let mut pair: Vec<_> = world.query::<(&PlacedPortal, &PortalLink)>().iter(world)
+            .filter(|(_, link)| link.0 == link_hash("portal_lab_k_contact"))
+            .map(|(portal, _)| portal.clone()).collect();
+        assert_eq!(pair.len(), 2, "station K must load both linked endpoints");
+        pair.sort_by(|a, b| a.pos.x.total_cmp(&b.pos.x));
+        (pair.remove(0), pair.remove(0))
+    };
+    let tangent = Vec2::new(-exit.normal.y, exit.normal.x);
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
         origin: enter.pos + enter.normal * 40.0,
         dir: -enter.normal,
@@ -200,8 +199,10 @@ fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
     let mut transited = false;
     let mut impact = false;
     let mut expired = false;
+    let mut history = Vec::new();
     for _ in 0..12 {
         sim.step(base());
+        history.push(sim.world().get::<BodyKinematics>(shot).copied());
         transited |= sim.world().resource::<Messages<PortalBodyTransited>>()
             .iter_current_update_messages().any(|event| event.body == shot);
         impact |= sim.world().resource::<Messages<VfxInRoom>>()
@@ -217,7 +218,7 @@ fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
             break;
         }
     }
-    assert!(expired, "the far-side wall must stop the shot");
+    assert!(expired, "the far-side wall must stop the shot; enter={enter:?}, exit={exit:?}, poses={history:?}");
     assert!(!transited, "the material must meet the far wall before its root crosses");
     assert!(impact, "the impact must be at the physical far-side contact");
 }

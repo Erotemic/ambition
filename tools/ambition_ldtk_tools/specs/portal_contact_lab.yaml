@@ -1,0 +1,47 @@
+# Add this station with entity add. Keep the existing portal-lab geometry.
+level_id: portal_lab
+entities:
+- type: Portal
+  px: [671, 810]
+  size: [18, 80]
+  fields:
+    id: contact_k_entry
+    name: K shot entry
+    link: portal_lab_k_contact
+    normal: left
+    color: cyan
+- type: Portal
+  px: [991, 660]
+  size: [18, 80]
+  fields:
+    id: contact_k_exit
+    name: K shot exit
+    link: portal_lab_k_contact
+    normal: right
+    color: rose
+- type: Solid
+  px: [1002, 684]
+  size: [32, 32]
+  fields:
+    name: K far-side target
+- type: GroundItem
+  px: [500, 882]
+  size: [28, 14]
+  fields:
+    id: portal_lab_contact_gun_sword
+    name: gun sword
+    held_item: gun_sword
+- type: DebugLabel
+  px: [540, 752]
+  size: [440, 36]
+  fields:
+    name: lab_sign_k_entry
+    text: 'K: fire a shot right into this opening.'
+    category: Custom
+- type: DebugLabel
+  px: [750, 592]
+  size: [420, 48]
+  fields:
+    name: lab_sign_k_exit
+    text: 'The shot hits the far target before its centre crosses.'
+    category: Custom

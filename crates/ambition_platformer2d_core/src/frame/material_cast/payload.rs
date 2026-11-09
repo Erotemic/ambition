@@ -66,7 +66,7 @@ impl MaterialCastCells<'_> {
         };
         let admission = scene.admission();
         let mut work = 0usize;
-        for cell in self.parts.iter().filter(|cell| !cell.path.is_empty()) {
+        for cell in self.parts.iter().filter(|cell| !cell.path.is_empty() || self.source.rotation.is_some()) {
             let mut pending = vec![cell.time.clone()];
             while let Some(time) = pending.pop() {
                 work += 1;
@@ -122,16 +122,24 @@ impl MaterialCastCells<'_> {
         carried: &[Vec2],
     ) -> Result<Vec<(Affine, f64)>, NumericFault> {
         let body = self.material.domain;
-        let map = self.material.to_world;
+        let map = self.source.map_at(time)?;
         let basis = DMat2::from_cols(map.direction_wide(DVec2::X), map.direction_wide(DVec2::Y))
             * map.scale_wide();
         let mut point = Affine {
             linear: basis,
-            offset: map.translation() + self.delta * time,
+            offset: map.translation(),
         };
-        let mut point_change = self.delta.length() * half;
-        let mut speed = Affine::constant(velocity.as_dvec2());
-        let mut speed_change = 0.0;
+        let mut point_change = self.source.variation(body.bounds(), time, half);
+        let j = DMat2::from_cols(DVec2::Y, -DVec2::X);
+        let (mut speed, mut speed_change) = match self.source.rotation {
+            Some(rotation) => {
+                let pivot = rotation.pivot + self.source.delta * time;
+                let pivot_velocity = velocity.as_dvec2() - j * self.source.root_arm() * rotation.spin;
+                (point.shift(-pivot).scale(j * rotation.spin).shift(pivot_velocity),
+                    rotation.spin.abs() * (point_change + self.source.delta.length() * half))
+            }
+            None => (Affine::constant(velocity.as_dvec2()), 0.0),
+        };
         let mut vectors: Vec<_> = carried
             .iter()
             .map(|vector| (Affine::constant(vector.as_dvec2()), 0.0))
@@ -139,7 +147,6 @@ impl MaterialCastCells<'_> {
         let world_span = self.time.end - self.time.start;
         let world_time = self.time.start + world_span * time;
         let world_half = world_span * half;
-        let j = DMat2::from_cols(DVec2::Y, -DVec2::X);
         for key in &cell.path {
             let link = admission
                 .links

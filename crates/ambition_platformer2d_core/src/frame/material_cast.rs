@@ -15,16 +15,19 @@ mod affine;
 mod curved;
 mod arcs;
 mod payload;
+mod source;
+pub(super) use source::{SourceMotion, rotation_delta};
 pub use cell::MaterialCell;
 
-/// A primitive's translation in its owner's world chart.
+/// A primitive's recorded rigid motion in its owner's world chart.
 pub struct MaterialCast<'a> {
-    pub material: MaterialPrimitive<'a>,
-    pub root: Vec2,
-    pub delta: Vec2,
+    pub(super) material: MaterialPrimitive<'a>,
+    pub(super) root: Vec2,
+    pub(super) delta: Vec2,
     /// The attempted motion's interval within the world's current tick.
-    pub time: std::ops::Range<f64>,
+    pub(super) time: std::ops::Range<f64>,
     pub(super) until: f64,
+    pub(super) rotation: Option<source::Rotation>,
 }
 
 /// One contact, with both the owner-chart and physical-world witnesses.
@@ -43,8 +46,8 @@ pub struct MaterialCastHit {
 /// The actual primitive moves through cells with their own boundary and map motion.
 pub struct MaterialCastCells<'a> {
     material: MaterialPrimitive<'a>,
-    /// Displacement in the owner's world chart. The canonical primitive is fixed.
-    delta: DVec2,
+    /// The canonical primitive stays fixed while its source map follows this curve.
+    source: SourceMotion,
     parts: Vec<MaterialCell>,
     time: std::ops::Range<f64>,
     scene:Option<std::sync::Arc<arcs::Scene>>,
@@ -71,7 +74,26 @@ fn numeric_at(part: &MaterialCell, reason: NumericFault) -> Refusal {
 impl<'a> MaterialCast<'a> {
     /// Record the original line and its world clock.
     pub fn new(material: super::thread::MaterialPrimitive<'a>, root: Vec2, delta: Vec2, time: std::ops::Range<f64>) -> Self {
-        Self { material, root, delta, time, until: 1.0 }
+        Self { material, root, delta, time, until: 1.0, rotation: None }
+    }
+
+    /// Rotate the source about a translating pivot. Keep the full recorded turn.
+    /// Duration is in seconds for the original curve. A prefix keeps it.
+    /// Payload velocity is measured at the root at the start of the cast.
+    pub fn rotating_about(mut self, pivot: Vec2, turn: f64, duration: f64) -> Result<Self, Refusal> {
+        if !pivot.is_finite() || !turn.is_finite() || !duration.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
+        if duration < 0.0 || turn != 0.0 && (duration == 0.0 || self.time.start == self.time.end) {
+            return Err(numeric(NumericFault::InvalidFrame));
+        }
+        let spin = if turn == 0.0 { 0.0 } else { turn / duration };
+        if !spin.is_finite() { return Err(numeric(NumericFault::Overflow)); }
+        if turn != 0.0 && spin == 0.0 { return Err(numeric(NumericFault::Underflow)); }
+        self.rotation = Some(source::Rotation { pivot: pivot.as_dvec2(), turn, spin });
+        Ok(self)
+    }
+
+    pub(super) fn source(&self) -> SourceMotion {
+        SourceMotion { map: self.material.to_world, root: self.root.as_dvec2(), delta: self.delta.as_dvec2(), rotation: self.rotation }
     }
 
     /// Restrict the original parameter interval without changing the curve or clock.
@@ -97,8 +119,20 @@ impl<'a> MaterialCast<'a> {
         if !self.delta.is_finite() || !self.root.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
         let bounds = self.material.domain.bounds();
         if (bounds.max-bounds.min).min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
-        let scene=admission.filter(|a|!a.links.is_empty()).map(|admission|arcs::Scene::new(&self,admission));
-        let parts = if let Some(admission) = admission {
+        let policy = admission.unwrap_or(MotionAdmission { links: &[], first: None,
+            budget: super::thread::PieceBudget::COMPOSED, convention: super::MapConvention::Reflection });
+        let rotating = self.rotation.is_some_and(|rotation| rotation.turn != 0.0);
+        let scene = (!policy.links.is_empty() || self.rotation.is_some())
+            .then(|| arcs::Scene::new(&self, policy));
+        let source = self.source();
+        let parts = if rotating {
+            let scene = scene.as_ref().unwrap().clone();
+            if admission.is_some() { arcs::build(&self, policy, scene)? }
+            else {
+                vec![MaterialCell { path: vec![], map: self.material.to_world, travel: DVec2::ZERO,
+                    planes: vec![], time: 0.0..self.until, curve: Some(std::sync::Arc::new(arcs::CurveCell::whole(scene))) }]
+            }
+        } else if let Some(admission) = admission {
             if admission.links.iter().any(|link|link.enter_step.turn!=0.0 || link.exit_step.turn!=0.0) {
                 if self.time.start==self.time.end {
                     let links=admission.links.iter().map(|link| {
@@ -121,7 +155,7 @@ impl<'a> MaterialCast<'a> {
         }
         Ok(MaterialCastCells {
             material: self.material,
-            delta: self.delta.as_dvec2(),
+            source,
             parts,
             time:self.time,
             scene,
@@ -257,7 +291,7 @@ impl MaterialCastCells<'_> {
         // Cells that start at a topology event own its contacts.
         if part.time.start<part.time.end && part.time.end < 1.0
             && time >= part.time.end - f64::EPSILON * 64.0 { return Ok(None); }
-        let root = self.material.to_world.shifted(self.delta * time)
+        let root = self.source.map_at(time)
             .map_err(|reason| numeric_at(part, reason))?;
         let point = root
             .point_from_wide(contact.point)
@@ -266,9 +300,7 @@ impl MaterialCastCells<'_> {
         let world_point = pose
             .point_from_wide(contact.point)
             .map_err(|reason| numeric_at(part, reason))?;
-        let normal = self
-            .material
-            .to_world
+        let normal = root
             .direction(contact.normal.as_vec2())
             .normalize_or_zero();
         Ok(Some(MaterialCastHit {

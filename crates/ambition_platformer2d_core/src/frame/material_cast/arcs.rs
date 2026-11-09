@@ -30,9 +30,7 @@ struct Pose {
 #[derive(Debug)]
 pub(super) struct Scene {
     body: CombatVolume,
-    map: Sim2,
-    root: DVec2,
-    delta: DVec2,
+    source: super::SourceMotion,
     time: Range<f64>,
     until: f64,
     links: Vec<PortalLink>,
@@ -134,9 +132,7 @@ impl Scene {
     pub fn new(cast: &MaterialCast<'_>, admission: MotionAdmission<'_>) -> Arc<Self> {
         Arc::new(Self {
             body: cast.material.domain.clone(),
-            map: cast.material.to_world,
-            root: cast.root.as_dvec2(),
-            delta: cast.delta.as_dvec2(),
+            source: cast.source(),
             time: cast.time.clone(),
             until: cast.until,
             links: admission.links.to_vec(),
@@ -199,13 +195,13 @@ impl Scene {
         let mut states = vec![State {
             time,
             evaluations: 1,
-            map: self.map.shifted(self.delta * time)?,
-            velocity: self.delta,
-            spin: 0.0,
-            reference: self.root + self.delta * time,
-            reference_velocity: self.delta,
-            variation: self.delta.length() * half,
-            reference_variation: self.delta.length() * half,
+            map: self.source.map_at(time)?,
+            velocity: self.source.map_velocity(time),
+            spin: self.source.turn(),
+            reference: self.source.root_at(time),
+            reference_velocity: self.source.root_velocity(time),
+            variation: self.source.variation(bounds, time, half),
+            reference_variation: self.source.root_variation(time, half),
             on: None,
         }];
         for &index in path {
@@ -312,7 +308,7 @@ impl Scene {
         if stage == 0 && self.first == Some(self.links[index].key) {
             return Truth::Yes;
         }
-        if stage == 0
+        if stage == 0 && self.source.turn() == 0.0
             && (self.links[index].enter_step.turn == 0.0 || self.time.start == self.time.end)
         {
             let link = self.links[index];
@@ -322,8 +318,8 @@ impl Scene {
                 link.enter.frame.origin.as_dvec2()
                     - link.enter_step.displacement.as_dvec2() * (1.0 - self.time.start)
             };
-            let origin = pose.enter.normal.dot(self.root - start);
-            let rate = pose.enter.normal.dot(self.delta - pose.enter.shift);
+            let origin = pose.enter.normal.dot(self.source.root - start);
+            let rate = pose.enter.normal.dot(self.source.delta - pose.enter.shift);
             let a = origin + rate * (state.time - half).max(0.0);
             let b = origin + rate * (state.time + half).min(self.until);
             let low = a.min(b);
@@ -484,6 +480,10 @@ impl Scene {
 }
 
 impl CurveCell {
+    pub(super) fn whole(scene: Arc<Scene>) -> Self {
+        Self { scene, path: Vec::new(), clauses: Vec::new(), base: Vec::new(), holes: Vec::new() }
+    }
+
     pub fn from_affine(scene: Arc<Scene>, cell: &MaterialCell) -> Result<Self, NumericFault> {
         let path = cell
             .path
@@ -530,7 +530,7 @@ impl CurveCell {
         &self,
         time: &Range<f64>,
     ) -> Result<Option<Vec<super::translation::MovingPlane>>, NumericFault> {
-        if !self.clauses.is_empty()
+        if self.scene.source.turn() != 0.0 || !self.clauses.is_empty()
             || self
                 .scene
                 .links
@@ -906,7 +906,7 @@ impl CurveCell {
     fn area_potential(&self, interval: &Range<f64>) -> Result<bool, NumericFault> {
         let (middle, half) = crate::frame::interval_center(interval);
         let (states, poses) = self.scene.states(&self.path, middle, half)?;
-        let mut affine = self.holes.is_empty();
+        let mut affine = self.holes.is_empty() && self.scene.source.turn() == 0.0;
         let mut planes = self.base.clone();
         for &clause in &self.clauses {
             let state = states[clause.stage];
@@ -1153,13 +1153,7 @@ pub(super) fn build(
     admission: MotionAdmission<'_>,
     scene: Arc<Scene>,
 ) -> Result<Vec<MaterialCell>, Refusal> {
-    let first = CurveCell {
-        scene,
-        path: Vec::new(),
-        clauses: Vec::new(),
-        base: Vec::new(),
-        holes: Vec::new(),
-    };
+    let first = CurveCell::whole(scene);
     if admission.budget.max_pieces == 0 {
         return Err(failure(&first, None, RefusalReason::PieceLimit));
     }

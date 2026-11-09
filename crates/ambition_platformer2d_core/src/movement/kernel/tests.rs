@@ -1925,3 +1925,56 @@ fn carried_acceleration_is_admitted_before_the_source_body_moves() {
         }
     }
 }
+
+/// A surface rider's jump is reported like the axis model's: one `Jump` op
+/// on the tick it leaves, none while it rides or flies. Listeners (the jump
+/// sound, the dust, a game that balls its runner up) read the op, not a model.
+#[test]
+fn a_surface_rider_that_jumps_reports_the_jump_once() {
+    let chain = SurfaceChain::open(
+        "floor",
+        vec![Vec2::new(0.0, 600.0), Vec2::new(4_000.0, 600.0)],
+    );
+    let world = World::new("ride_and_jump", Vec2::splat(10_000.0), Vec2::splat(500.0), Vec::new())
+        .with_chains(vec![chain]);
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(600.0, 590.0), AbilitySet::default());
+    let mut model = MotionModel::surface_momentum(MomentumParams::default());
+    let MotionModel::SurfaceMomentum(motion) = &mut model else {
+        unreachable!();
+    };
+    motion.state = SurfaceMotion::Riding {
+        on: SurfaceRef::Chain(0),
+        s: 600.0,
+        v_t: 200.0,
+    };
+    let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 900.0)).unwrap();
+    let jumps = |r: &MotionStepResult| {
+        r.events
+            .operations
+            .iter()
+            .filter(|op| matches!(op, crate::MovementOp::Jump))
+            .count()
+    };
+
+    let ride = step(&mut model, &world, &mut scratch, frame, InputState::default());
+    assert_eq!(jumps(&ride), 0, "riding is not jumping");
+
+    let mut press = InputState::default();
+    press.set_movement(
+        crate::MovementAction::Jump,
+        crate::Edge { pressed: true, held: true, released: false },
+    );
+    let leave = step(&mut model, &world, &mut scratch, frame, press);
+    let MotionModel::SurfaceMomentum(motion) = &model else {
+        unreachable!();
+    };
+    assert!(
+        matches!(motion.state, SurfaceMotion::Airborne),
+        "the press must take him off the floor"
+    );
+    assert_eq!(jumps(&leave), 1, "the tick he leaves is the jump");
+
+    let fly = step(&mut model, &world, &mut scratch, frame, press);
+    assert_eq!(jumps(&fly), 0, "a held press in the air is not a second jump");
+}

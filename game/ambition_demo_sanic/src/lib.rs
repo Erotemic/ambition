@@ -457,9 +457,10 @@ pub fn install_sanic_content(app: &mut App) {
             )
             // The roll is the flag the ball physics reads, so a rewind across
             // a launch must take it away.
-            .rollback_component_clone::<ball_dash::Rolling>(
+            .rollback_component_clone_probed::<ball_dash::Rolling>(
                 "ambition_demo_sanic",
                 "content.sanic_rolling",
+                rollback_probes::rolling,
             )
             // A scattered ring rides its currency pickup, which
             // `CenteredAabb`/`PickupFeature` already anchor and snapshot, so only
@@ -656,6 +657,9 @@ impl Plugin for SanicRulesPlugin {
             begin_act_on_arrival,
             tick_sanic_act,
             ball_dash::tick_ball_dash,
+            // A jump this tick balls him up; the landing that ends it is a
+            // later tick, so `tick_rolling` after it cannot take it away.
+            ball_dash::ball_up_on_jump,
             ball_dash::tick_rolling,
             // Project the roll authority (`Rolling`) onto the anim fact after
             // both the launch (insert) and the stand-up (remove) have settled,
@@ -1530,6 +1534,10 @@ mod rollback_probes {
         (state.elapsed.to_bits() as u64)
             ^ phase.rotate_left(17)
             ^ ((state.next_milestone as u64) << 48)
+    }
+
+    pub(super) fn rolling(rolling: &crate::ball_dash::Rolling) -> u64 {
+        1 + rolling.ends as u64
     }
 
     pub(super) fn super_form_latch(latch: &SuperFormLatch) -> u64 {

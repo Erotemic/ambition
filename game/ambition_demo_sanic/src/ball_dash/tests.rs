@@ -178,7 +178,10 @@ fn body_app() -> (App, Entity) {
     // A default world time steps no time, so the charge does not decay.
     app.insert_resource(ambition_platformer2d::time::WorldTime::default());
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_systems(bevy::app::Update, (tick_ball_dash, tick_rolling).chain());
+    app.add_systems(
+        bevy::app::Update,
+        (tick_ball_dash, ball_up_on_jump, tick_rolling).chain(),
+    );
 
     let mut kin = ae::BodyKinematics::default();
     kin.canonical_size = ae::Vec2::new(24.0, 40.0);
@@ -566,4 +569,83 @@ fn a_body_restart_clears_the_charge_the_crouch_edge_and_the_ball_form() {
         standing,
         "standing up did not give back the height the roll borrowed"
     );
+}
+
+fn report_jump(app: &mut App, e: Entity) {
+    let mut output = ambition_platformer2d::actors::body::BodyFrameOutput::default();
+    output.events.operations.push(ae::MovementOp::Jump);
+    app.world_mut().entity_mut(e).insert(output);
+}
+
+fn set_surface_state(app: &mut App, e: Entity, state: SurfaceMotion) {
+    if let MotionModel::SurfaceMomentum(m) =
+        &mut *app.world_mut().get_mut::<MotionModel>(e).unwrap()
+    {
+        m.state = state;
+    }
+}
+
+/// A jump balls him up, as it always has in this genre, and he stays a ball
+/// until he lands: not when he slows at the apex.
+#[test]
+fn a_jump_balls_him_up_until_he_lands() {
+    let (mut app, e) = body_app();
+    report_jump(&mut app, e);
+    set_surface_state(&mut app, e, SurfaceMotion::Airborne);
+    app.update();
+    assert_eq!(
+        app.world().get::<Rolling>(e).map(|r| r.ends),
+        Some(RollEnd::Landing),
+        "the jump did not ball him up"
+    );
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(e).unwrap().size(),
+        spin_dash_tuning().ball_size()
+    );
+
+    // The apex: slow, still airborne, the jump op spent.
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_platformer2d::actors::body::BodyFrameOutput::default());
+    app.world_mut().get_mut::<ae::BodyKinematics>(e).unwrap().vel = ae::Vec2::ZERO;
+    app.update();
+    assert!(app.world().get::<Rolling>(e).is_some(), "he unrolled at the apex");
+
+    set_surface_state(
+        &mut app,
+        e,
+        SurfaceMotion::Riding { on: ae::SurfaceRef::Chain(0), s: 100.0, v_t: 300.0 },
+    );
+    app.update();
+    assert!(app.world().get::<Rolling>(e).is_none(), "the landing ends a jump's ball");
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(e).unwrap().size(),
+        ae::Vec2::new(24.0, 40.0)
+    );
+}
+
+/// A spin-dash roll that jumps lands as a ball too: the jump hands its end to
+/// the landing, so the slow apex cannot stand it up mid-air.
+#[test]
+fn a_rolling_jump_keeps_the_ball_until_the_landing() {
+    let (mut app, e) = body_app();
+    set_ball_dash_input(&mut app, e, true, true);
+    for _ in 0..3 {
+        app.update();
+    }
+    set_ball_dash_input(&mut app, e, false, false);
+    app.update();
+    assert_eq!(app.world().get::<Rolling>(e).map(|r| r.ends), Some(RollEnd::Slow));
+
+    report_jump(&mut app, e);
+    set_surface_state(&mut app, e, SurfaceMotion::Airborne);
+    app.update();
+    assert_eq!(app.world().get::<Rolling>(e).map(|r| r.ends), Some(RollEnd::Landing));
+
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_platformer2d::actors::body::BodyFrameOutput::default());
+    app.world_mut().get_mut::<ae::BodyKinematics>(e).unwrap().vel = ae::Vec2::new(2.0, 0.0);
+    app.update();
+    assert!(app.world().get::<Rolling>(e).is_some(), "a slow apex stood the roll up");
 }

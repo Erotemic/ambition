@@ -119,14 +119,66 @@ pub fn capture_ball_dash_input(
     }
 }
 
-/// The rolling flag.
+/// The rolling flag: the body is a ball.
 ///
 /// Standing up gives the body back its `BodyBaseSize`, the one record of how
 /// big it stands, so the flag keeps no copy of that size. A form change during
 /// a roll re-templates the record, and a copy would put back the old form's
 /// size.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct Rolling;
+pub struct Rolling {
+    /// What ends the roll.
+    pub ends: RollEnd,
+}
+
+/// What ends a roll ([`tick_rolling`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RollEnd {
+    /// The spin dash's roll: the ball stands up when it runs out of speed.
+    #[default]
+    Slow,
+    /// A jump's ball: it stands up when it lands. Speed does not end it, or a
+    /// jump straight up would stand up at its apex.
+    Landing,
+}
+
+/// A jump balls the body up, as in the classic games: the spin of the jump is
+/// the ball, and it lasts until the body lands. It reads this tick's jump from
+/// the movement step's events, so a jump by any input (a device, a replay, a
+/// brain) is the same jump.
+pub fn ball_up_on_jump(
+    mut commands: Commands,
+    mut bodies: Query<
+        (
+            Entity,
+            &ambition_platformer2d::actors::body::BodyFrameOutput,
+            &mut ae::BodyKinematics,
+            Option<&mut Rolling>,
+        ),
+        bevy::prelude::With<BallDash>,
+    >,
+) {
+    let tuning = spin_dash_tuning();
+    for (entity, output, mut kin, rolling) in &mut bodies {
+        let jumped = output
+            .events
+            .operations
+            .iter()
+            .any(|op| matches!(op, ae::MovementOp::Jump | ae::MovementOp::WallJump));
+        if !jumped {
+            continue;
+        }
+        // A roll that jumps lands as a ball too: its speed must not stand it
+        // up at the apex.
+        match rolling {
+            Some(mut rolling) => rolling.ends = RollEnd::Landing,
+            None => {
+                commands.entity(entity).insert(Rolling { ends: RollEnd::Landing });
+                kin.canonical_size = tuning.ball_size();
+            }
+        }
+    }
+}
 
 /// What one tick of the charge machine decided. Pure, so the feel is testable
 /// without a world: this is where the verb actually lives.
@@ -297,7 +349,7 @@ pub fn tick_ball_dash(
                     },
                 );
                 if rolling.is_none() {
-                    commands.entity(entity).insert(Rolling);
+                    commands.entity(entity).insert(Rolling::default());
                     kin.canonical_size = tuning.ball_size();
                 }
             }
@@ -305,9 +357,9 @@ pub fn tick_ball_dash(
     }
 }
 
-/// Stand back up when the roll runs out of speed. Separate from the launch so a
-/// body that gains speed some other way (a booster, a slope) keeps rolling, and
-/// so the exit reads off one quantity.
+/// Stand back up when the roll ends ([`RollEnd`]): a spin dash's roll when it
+/// runs out of speed, a jump's ball when it lands. Separate from the launch so
+/// a body that gains speed some other way (a booster, a slope) keeps rolling.
 pub fn tick_rolling(
     mut commands: Commands,
     mut bodies: Query<
@@ -316,12 +368,12 @@ pub fn tick_rolling(
             &ambition_platformer2d::actor::MotionModel,
             &mut ae::BodyKinematics,
             &ae::BodyBaseSize,
+            &Rolling,
         ),
-        With<Rolling>,
     >,
 ) {
     let tuning = spin_dash_tuning();
-    for (entity, motion, mut kin, base) in &mut bodies {
+    for (entity, motion, mut kin, base, rolling) in &mut bodies {
         let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = motion else {
             continue;
         };
@@ -332,7 +384,11 @@ pub fn tick_rolling(
             ae::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
             ae::SurfaceMotion::Airborne => kin.vel.length(),
         };
-        if speed < tuning.exit_speed {
+        let ends = match rolling.ends {
+            RollEnd::Slow => speed < tuning.exit_speed,
+            RollEnd::Landing => matches!(m.state, ae::SurfaceMotion::Riding { .. }),
+        };
+        if ends {
             kin.canonical_size = base.base_size;
             commands.entity(entity).remove::<Rolling>();
         }

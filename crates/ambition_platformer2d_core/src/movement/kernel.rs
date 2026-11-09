@@ -556,6 +556,8 @@ fn step_surface_momentum(
     };
     let mut contacts = Vec::new();
     let params = motion.effective_params();
+    let jump_pressed = ctx.input.jump_pressed();
+    let was_riding = body.riding();
     surface_momentum::step_surface_body(
         &mut body,
         ctx.world,
@@ -563,11 +565,16 @@ fn step_surface_momentum(
         ctx.frame,
         SurfaceInputs {
             local_axes: ctx.input.axes,
-            jump_pressed: ctx.input.jump_pressed(),
+            jump_pressed,
         },
         ctx.dt,
         Some(&mut contacts),
     );
+    // A rider that pressed jump and left the surface jumped: the riding step
+    // takes the jump before anything else can detach it. Derived from the
+    // transition so listeners (jump sound, dust, a ball-up) hear this model's
+    // jumps as they hear the axis model's.
+    let jumped = was_riding && jump_pressed && !body.riding();
 
     clusters.kinematics.pos = body.pos;
     // Rebound pads are a world gate, like hazards — not follower collision.
@@ -608,6 +615,9 @@ fn step_surface_momentum(
         contacts,
         ..FrameEvents::default()
     };
+    if jumped {
+        events.operations.push(super::MovementOp::Jump);
+    }
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, step_half, &mut events);
 
     MotionStepResult::from_events(events, ctx.frame)

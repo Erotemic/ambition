@@ -212,7 +212,7 @@ mod tests {
         app.world_mut().spawn((
             PrimaryPlayer,
             PlayerEntity,
-            crate::ball_dash::Rolling,
+            crate::ball_dash::Rolling::default(),
             kin(ae::Vec2::ZERO, ae::Vec2::new(600.0, 0.0)),
         ));
         app.update();

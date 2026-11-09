@@ -185,7 +185,7 @@ fn a_placed_item_is_its_spawners_entity_and_a_ground_item() {
     assert_eq!(module_entity.spawner, Some(SimId::player_slot(0)));
     assert_eq!(module_entity.half_extents, ae::Vec2::ZERO, "an item entity was made touchable as a module entity");
     let item = app.world().get::<ambition_held_items::GroundItem>(*entity).expect("the entity is an item");
-    assert_eq!((item.spec.id.as_str(), item.pos), ("polygon_bomb", ae::Vec2::new(40.0, 10.0)));
+    assert_eq!((item.spec.id.as_str(), app.world().get::<ae::BodyKinematics>(*entity).unwrap().pos), ("polygon_bomb", ae::Vec2::new(40.0, 10.0)));
 }
 
 /// What a body owns is its spawns only, with their age, where they are (an

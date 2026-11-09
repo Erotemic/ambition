@@ -76,7 +76,7 @@ fn custody(
 fn item_pos(sim: &Platformer2dSimHarness, item: Entity) -> (f32, f32) {
     let ground = sim
         .world()
-        .get::<ambition_platformer2d::held_items::GroundItem>(item)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(item)
         .expect("the item is still a ground item");
     (ground.pos.x, ground.pos.y)
 }

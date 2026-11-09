@@ -1011,7 +1011,7 @@ mod tests {
             .expect("the horizon world has a session root with a baseline")
     }
 
-    fn ground(spec_id: &str) -> GroundItem {
+    fn ground(spec_id: &str) -> impl Bundle {
         GroundItem::at_rest(
             ambition_characters::brain::HeldItemSpec {
                 id: spec_id.into(),

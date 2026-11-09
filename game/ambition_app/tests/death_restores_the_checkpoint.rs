@@ -51,7 +51,7 @@ fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<(Entit
 /// Panics rather than returning `None`: a room that stopped authoring one of
 /// these is a fixture measuring nothing, and that has to be loud.
 fn resting_place(sim: &mut Platformer2dSimHarness, authored: &SimId) -> (f32, f32) {
-    let mut query = sim.world_mut().query::<(&SimId, &Ground, &Custody)>();
+    let mut query = sim.world_mut().query::<(&SimId, &ambition_platformer2d::engine_core::BodyKinematics, &Custody)>();
     let found: Vec<(f32, f32)> = query
         .iter(sim.world())
         .filter(|(id, _, custody)| *id == authored && custody.in_world())

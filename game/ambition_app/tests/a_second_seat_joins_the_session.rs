@@ -504,7 +504,7 @@ fn a_seat_that_comes_back_into_another_room_brings_what_it_holds() {
     };
     let at = sim
         .world()
-        .get::<ambition_platformer2d::held_items::GroundItem>(item)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(item)
         .expect("the item lies on the ground")
         .pos;
     put_body_at(&mut sim, body, at);
@@ -574,7 +574,7 @@ fn a_conversation_holds_only_the_talker_with_two_players_in_one_room() {
     let at = {
         let world = sim.world_mut();
         world
-            .query::<(&SimId, &ambition_platformer2d::held_items::GroundItem)>()
+            .query::<(&SimId, &ambition_platformer2d::engine_core::BodyKinematics)>()
             .iter(world)
             .find(|(id, _)| **id == gun)
             .map(|(_, ground)| ground.pos)

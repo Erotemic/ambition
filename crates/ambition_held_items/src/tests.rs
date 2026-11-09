@@ -201,13 +201,7 @@ fn attack_while_holding(
     );
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
     with_moveset(&mut app, player, jab_and_air_jab(), on_ground);
-    app.world_mut().spawn(GroundItem {
-        spec,
-        pos: Vec2::new(100.0, 100.0),
-        vel: Vec2::ZERO,
-        half_extent: Vec2::splat(PICKUP_HALF),
-        step: None,
-    });
+    app.world_mut().spawn(GroundItem::released(spec, Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)));
 
     // Tick 1: the press is spent picking the weapon up (and is consumed, so it
     // cannot also fire it) — the same contract `pickup_consumes_the_attack_press`
@@ -303,13 +297,7 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
     app.add_systems(Update, (pickup_held_item_system, throw_held_item_system));
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
     // An axe on the ground, overlapping the player.
-    app.world_mut().spawn(GroundItem {
-        spec: axe_spec(),
-        pos: Vec2::new(100.0, 100.0),
-        vel: Vec2::ZERO,
-        half_extent: Vec2::splat(PICKUP_HALF),
-        step: None,
-    });
+    app.world_mut().spawn(GroundItem::released(axe_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)));
     // Player starts with no melee.
     assert!(app
         .world()
@@ -384,13 +372,7 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
         .action_set
         .melee = own_swing.clone();
     app.world_mut().get_mut::<ActionSet>(player).unwrap().melee = own_swing;
-    app.world_mut().spawn(GroundItem {
-        spec: gunsword_spec(),
-        pos: Vec2::new(100.0, 100.0),
-        vel: Vec2::ZERO,
-        half_extent: Vec2::splat(PICKUP_HALF),
-        step: None,
-    });
+    app.world_mut().spawn(GroundItem::released(gunsword_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)));
 
     // Attack picks up the gun-sword (commands flush after the tick, so the
     // fire system can't also fire on this same press).
@@ -423,13 +405,7 @@ fn pickup_consumes_the_attack_press() {
     let mut app = App::new();
     app.add_systems(Update, pickup_held_item_system);
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
-    app.world_mut().spawn(GroundItem {
-        spec: gunsword_spec(),
-        pos: Vec2::new(100.0, 100.0),
-        vel: Vec2::ZERO,
-        half_extent: Vec2::splat(PICKUP_HALF),
-        step: None,
-    });
+    app.world_mut().spawn(GroundItem::released(gunsword_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)));
     set_control(&mut app, player, true, false);
     app.update();
     assert!(
@@ -477,13 +453,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
     app.insert_resource(
         ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)),
     );
-    app.world_mut().spawn(GroundItem {
-        spec: axe_spec(),
-        pos: Vec2::new(100.0, 100.0),
-        vel: Vec2::ZERO,
-        half_extent: Vec2::splat(PICKUP_HALF),
-        step: None,
-    });
+    app.world_mut().spawn(GroundItem::released(axe_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)));
     // Drive an Attack on the body's own semantic control frame.
     app.world_mut()
         .get_mut::<ambition_characters::control::ActorControl>(body)
@@ -632,18 +602,12 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
     app.add_systems(Update, ground_item_physics);
     let item = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: axe_spec(),
-            pos: Vec2::new(200.0, 200.0),
-            vel: Vec2::new(120.0, -200.0), // forward + up
-            half_extent: Vec2::splat(PICKUP_HALF),
-            step: None,
-        })
+        .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::new(120.0, -200.0), Vec2::splat(PICKUP_HALF)))
         .id();
     for _ in 0..120 {
         app.update();
     }
-    let g = app.world().get::<GroundItem>(item).unwrap();
+    let g = app.world().get::<BodyKinematics>(item).unwrap();
     assert_eq!(
         g.vel,
         Vec2::ZERO,
@@ -663,13 +627,7 @@ fn javelin_is_thrown_on_plain_attack_use() {
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, (pickup_held_item_system, throw_held_item_system));
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
-    app.world_mut().spawn(GroundItem {
-        spec: javelin_spec(),
-        pos: Vec2::new(100.0, 100.0),
-        vel: Vec2::ZERO,
-        half_extent: Vec2::splat(PICKUP_HALF),
-        step: None,
-    });
+    app.world_mut().spawn(GroundItem::released(javelin_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)));
 
     // First Attack picks up the javelin (commands flush after the tick, so
     // the throw system can't also fire this frame).
@@ -723,13 +681,7 @@ fn a_thrown_item_is_the_same_object_that_was_picked_up() {
     let item = app
         .world_mut()
         .spawn((
-            GroundItem {
-                spec: axe_spec(),
-                pos: Vec2::new(100.0, 100.0),
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            },
+            GroundItem::released(axe_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)),
             authored.clone(),
         ))
         .id();
@@ -799,13 +751,7 @@ fn a_grab_press_while_holding_drops_the_item_where_the_body_stands() {
         let player = spawn_player(&mut app, STANDING);
         let item = app
             .world_mut()
-            .spawn(GroundItem {
-                spec: axe_spec(),
-                pos: STANDING,
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            })
+            .spawn(GroundItem::released(axe_spec(), STANDING, Vec2::ZERO, Vec2::splat(PICKUP_HALF)))
             .id();
 
         set_control(&mut app, player, true, false);
@@ -834,7 +780,7 @@ fn a_grab_press_while_holding_drops_the_item_where_the_body_stands() {
         );
         let ground = app
             .world()
-            .get::<GroundItem>(item)
+            .get::<BodyKinematics>(item)
             .expect("the released axe is the same entity")
             .clone();
         let spent = !app
@@ -958,13 +904,7 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
     let item = app
         .world_mut()
         .spawn((
-            GroundItem {
-                spec: axe_spec(),
-                pos: Vec2::new(100.0, 100.0),
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            },
+            GroundItem::released(axe_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)),
             authored.clone(),
         ))
         .id();
@@ -999,7 +939,7 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
         "and the world can see it: exactly one axe is lying there",
     );
     assert_eq!(
-        app.world().get::<GroundItem>(item).map(|g| g.pos),
+        app.world().get::<BodyKinematics>(item).map(|g| g.pos),
         Some(Vec2::new(100.0, 100.0)),
         "dropped where the body that released it was standing",
     );
@@ -1036,13 +976,7 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
 fn room_scoped_item(app: &mut App, pos: Vec2) -> Entity {
     app.world_mut()
         .spawn((
-            GroundItem {
-                spec: axe_spec(),
-                pos,
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(18.0),
-                step: None,
-            },
+            GroundItem::released(axe_spec(), pos, Vec2::ZERO, Vec2::splat(18.0)),
             ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity,
         ))
         .id()
@@ -1230,13 +1164,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
 
     let item = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: axe_spec(),
-            pos: Vec2::new(200.0, 300.0),
-            vel: Vec2::new(0.0, 0.0),
-            half_extent: Vec2::splat(PICKUP_HALF),
-            step: None,
-        })
+        .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 300.0), Vec2::new(0.0, 0.0), Vec2::splat(PICKUP_HALF)))
         .id();
     for _ in 0..120 {
         app.update();
@@ -1245,7 +1173,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
         app.world().get::<SettledItem>(item).is_some(),
         "the item never settled on the floor, so nothing below is about waking"
     );
-    let resting = app.world().get::<GroundItem>(item).unwrap().pos.y;
+    let resting = app.world().get::<BodyKinematics>(item).unwrap().pos.y;
 
     // ⚠ NO ARM HERE FOR "A SUPPORTED ITEM STAYS SETTLED", AND THAT IS MEASURED
     // RATHER THAN LAZY. Poisoning the support check to wake EVERY settled item
@@ -1268,7 +1196,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
         app.update();
     }
 
-    let fell = app.world().get::<GroundItem>(item).unwrap().pos.y - resting;
+    let fell = app.world().get::<BodyKinematics>(item).unwrap().pos.y - resting;
     assert!(
         fell > 10.0,
         "the item stayed put ({fell:.1}px) after its support went away — settling \
@@ -1320,7 +1248,7 @@ fn an_item_with_a_body_bounces_off_a_wall_and_the_floor_and_settles() {
         let mut last_vy = 0.0;
         for tick in 0..300 {
             app.update();
-            let ground = app.world().get::<GroundItem>(item).unwrap();
+            let ground = app.world().get::<BodyKinematics>(item).unwrap();
             if let Some(strike) = app.world().get::<ItemStruckSurface>(item) {
                 if ground.pos.y < 340.0 && flight.wall_strike.is_none() {
                     flight.wall_strike = Some(strike.impact_speed);
@@ -1384,7 +1312,7 @@ fn a_bouncing_item_passes_up_through_a_one_way_platform_and_lands_on_it() {
     for _ in 0..240 {
         app.update();
     }
-    let ground = app.world().get::<GroundItem>(item).unwrap();
+    let ground = app.world().get::<BodyKinematics>(item).unwrap();
     assert!(app.world().get::<SettledItem>(item).is_some(), "it settled");
     assert!(
         (ground.pos.y + PICKUP_HALF - 250.0).abs() < 12.0,
@@ -1430,13 +1358,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
         );
         let item = app
             .world_mut()
-            .spawn(GroundItem {
-                spec: axe_spec(),
-                pos: Vec2::new(200.0, 300.0),
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            })
+            .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 300.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)))
             .id();
         // Let it fall and settle first: an item still in flight is carried by
         // nothing, and this is about what settling means.
@@ -1447,11 +1369,11 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
             app.world().get::<SettledItem>(item).is_some(),
             "the item never settled, so this arm is not about riding at all"
         );
-        let settled_at = app.world().get::<GroundItem>(item).unwrap().pos.x;
+        let settled_at = app.world().get::<BodyKinematics>(item).unwrap().pos.x;
         for _ in 0..10 {
             app.update();
         }
-        app.world().get::<GroundItem>(item).unwrap().pos.x - settled_at
+        app.world().get::<BodyKinematics>(item).unwrap().pos.x - settled_at
     };
 
     assert_eq!(
@@ -1507,13 +1429,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
     let thrown = Vec2::new(900.0, 0.0);
     let item = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: axe_spec(),
-            pos: Vec2::new(280.0, 100.0),
-            vel: thrown,
-            half_extent: Vec2::splat(PICKUP_HALF),
-            step: None,
-        })
+        .spawn(GroundItem::released(axe_spec(), Vec2::new(280.0, 100.0), thrown, Vec2::splat(PICKUP_HALF)))
         .id();
 
     app.update();
@@ -1531,7 +1447,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
         thrown.x,
     );
     assert_eq!(
-        app.world().get::<GroundItem>(item).unwrap().vel,
+        app.world().get::<BodyKinematics>(item).unwrap().vel,
         Vec2::ZERO,
         "premise: the step must actually have zeroed the velocity, or the \
          assertion above is reading a live value rather than a published one",
@@ -1563,13 +1479,7 @@ fn a_brandished_move_weapon_does_not_orphan_the_item_in_custody() {
     let item = app
         .world_mut()
         .spawn((
-            GroundItem {
-                spec: axe_spec(),
-                pos: Vec2::ZERO,
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(18.0),
-                step: None,
-            },
+            GroundItem::released(axe_spec(), Vec2::ZERO, Vec2::ZERO, Vec2::splat(18.0)),
             ItemCustody::Held { holder: body },
         ))
         .id();
@@ -1667,13 +1577,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     body_at(&mut app, Vec2::new(300.0, 200.0));
     let flying = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: axe_spec(),
-            pos: Vec2::new(200.0, 200.0),
-            vel: Vec2::new(600.0, 0.0),
-            half_extent: Vec2::splat(PICKUP_HALF),
-            step: None,
-        })
+        .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::new(600.0, 0.0), Vec2::splat(PICKUP_HALF)))
         .id();
     // ⛔ CAUGHT ON THE TICK IT HAPPENS. The strike is republished every tick and
     // removed on the next, which is what makes it THIS tick's contact — a test
@@ -1707,14 +1611,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     body_at(&mut app, Vec2::new(200.0, 200.0));
     let thrown = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: axe_spec(),
-            // Inside the thrower, exactly where a throw starts.
-            pos: Vec2::new(200.0, 200.0),
-            vel: Vec2::new(600.0, 0.0),
-            half_extent: Vec2::splat(PICKUP_HALF),
-            step: None,
-        })
+        .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::new(600.0, 0.0), Vec2::splat(PICKUP_HALF)))
         .id();
     app.update();
     assert!(
@@ -1740,13 +1637,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     body_at(&mut app, Vec2::new(238.0, 200.0));
     let point_blank = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: axe_spec(),
-            pos: Vec2::new(200.0, 200.0),
-            vel: Vec2::new(600.0, 0.0),
-            half_extent: Vec2::splat(PICKUP_HALF),
-            step: None,
-        })
+        .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::new(600.0, 0.0), Vec2::splat(PICKUP_HALF)))
         .id();
     app.update();
     assert!(
@@ -1771,13 +1662,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     body_at(&mut app, Vec2::new(300.0 + PICKUP_HALF + 16.0 + 3.0, 200.0));
     let fast = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: axe_spec(),
-            pos: Vec2::new(200.0, 200.0),
-            vel: Vec2::new(6000.0, 0.0),
-            half_extent: Vec2::splat(PICKUP_HALF),
-            step: None,
-        })
+        .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::new(6000.0, 0.0), Vec2::splat(PICKUP_HALF)))
         .id();
     app.update();
     assert_eq!(
@@ -1834,13 +1719,7 @@ fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
         ));
         let item = app
             .world_mut()
-            .spawn(GroundItem {
-                spec: axe_spec(),
-                pos: Vec2::new(200.0, 200.0),
-                vel: Vec2::new(6000.0, 0.0),
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            })
+            .spawn(GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::new(6000.0, 0.0), Vec2::splat(PICKUP_HALF)))
             .id();
         app.update();
         (
@@ -2066,13 +1945,7 @@ fn each_item_put_down_is_placed_in_its_own_live_room() {
             }
             app.world_mut().spawn((
                 SimId::placement(*id),
-                GroundItem {
-                    spec: axe_spec(),
-                    pos: Vec2::new(100.0, 100.0),
-                    vel: Vec2::ZERO,
-                    half_extent: Vec2::new(8.0, 8.0),
-                    step: None,
-                },
+                GroundItem::released(axe_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::new(8.0, 8.0)),
                 ItemCustody::InWorld,
                 RoomScopedEntity,
                 InRoomInstance(*room),
@@ -2139,20 +2012,14 @@ fn an_item_falls_onto_the_floor_of_its_own_live_room() {
     let item = app
         .world_mut()
         .spawn((
-            GroundItem {
-                spec: axe_spec(),
-                pos: Vec2::new(200.0, 200.0),
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            },
+            GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)),
             InRoomInstance(live[1]),
         ))
         .id();
     for _ in 0..120 {
         app.update();
     }
-    let y = app.world().get::<GroundItem>(item).unwrap().pos.y;
+    let y = app.world().get::<BodyKinematics>(item).unwrap().pos.y;
     assert!(app.world().get::<SettledItem>(item).is_some(), "the item in #1 never settled: y={y}");
     assert!(y > 300.0 && y < 380.0, "the item in #1 did not land on #1's floor: y={y}");
 }
@@ -2174,13 +2041,7 @@ fn a_flying_item_strikes_only_a_body_of_its_own_live_room() {
         let flying = app
             .world_mut()
             .spawn((
-                GroundItem {
-                    spec: axe_spec(),
-                    pos: Vec2::new(200.0, 200.0),
-                    vel: Vec2::new(600.0, 0.0),
-                    half_extent: Vec2::splat(PICKUP_HALF),
-                    step: None,
-                },
+                GroundItem::released(axe_spec(), Vec2::new(200.0, 200.0), Vec2::new(600.0, 0.0), Vec2::splat(PICKUP_HALF)),
                 InRoomInstance(live[1]),
             ))
             .id();
@@ -2208,13 +2069,7 @@ fn a_settled_item_rides_the_platform_of_its_own_live_room() {
     let item = app
         .world_mut()
         .spawn((
-            GroundItem {
-                spec: axe_spec(),
-                pos: Vec2::new(200.0, 380.0 - PICKUP_HALF),
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            },
+            GroundItem::released(axe_spec(), Vec2::new(200.0, 380.0 - PICKUP_HALF), Vec2::ZERO, Vec2::splat(PICKUP_HALF)),
             SettledItem { impact_speed: 0.0 },
             InRoomInstance(live[1]),
         ))
@@ -2222,7 +2077,7 @@ fn a_settled_item_rides_the_platform_of_its_own_live_room() {
     for _ in 0..10 {
         app.update();
     }
-    let x = app.world().get::<GroundItem>(item).unwrap().pos.x;
+    let x = app.world().get::<BodyKinematics>(item).unwrap().pos.x;
     assert!(app.world().get::<SettledItem>(item).is_some(), "the item in #1 woke: it found no support");
     assert_eq!(x, 220.0, "the item in #1 did not ride its platform");
 }
@@ -2264,13 +2119,7 @@ fn picks_up_at(offset: Vec2, down: Option<Vec2>) -> bool {
             .entity_mut(player)
             .insert(ambition_platformer2d_core::SweepSample::at_rest(body, down));
     }
-    app.world_mut().spawn(GroundItem {
-        spec: axe_spec(),
-        pos: REACH_AT + offset,
-        vel: Vec2::ZERO,
-        half_extent: Vec2::splat(PICKUP_HALF),
-        step: None,
-    });
+    app.world_mut().spawn(GroundItem::released(axe_spec(), REACH_AT + offset, Vec2::ZERO, Vec2::splat(PICKUP_HALF)));
     set_control(&mut app, player, true, false);
     app.update();
     app.world().get::<HeldItem>(player).is_some()
@@ -2338,13 +2187,7 @@ fn a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder() {
         let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
         let javelin = app
             .world_mut()
-            .spawn(GroundItem {
-                spec: javelin_spec(),
-                pos: Vec2::new(100.0, 100.0),
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(PICKUP_HALF),
-                step: None,
-            })
+            .spawn(GroundItem::released(javelin_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::splat(PICKUP_HALF)))
             .id();
         set_control(&mut app, player, true, false);
         app.update();
@@ -2362,7 +2205,7 @@ fn a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder() {
         control(&mut app, true);
         app.update();
         assert!(app.world().get::<HeldItem>(player).is_none(), "premise: the press threw the javelin");
-        app.world().get::<GroundItem>(javelin).expect("the thrown javelin").vel
+        app.world().get::<BodyKinematics>(javelin).expect("the thrown javelin").vel
     }
     let held = 8;
     let forward = launch(ae::LocalAxes::ZERO, held, Vec2::ZERO);
@@ -2380,4 +2223,36 @@ fn a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder() {
 
     let running = launch(ae::LocalAxes::ZERO, held, Vec2::new(300.0, 0.0));
     assert_eq!(running, forward + Vec2::new(300.0 * THROW_MOMENTUM, 0.0), "a throw on the run keeps part of the run");
+}
+
+#[test]
+fn pickup_and_release_keep_the_items_material_and_replace_its_world_presence() {
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(Update, (pickup_held_item_system, throw_held_item_system, project_item_body_presence).chain());
+    let holder = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+    let item = app.world_mut().spawn(GroundItem::at_rest(axe_spec(), Vec2::new(100.0, 100.0), Vec2::splat(8.0))).id();
+    let material = ae::frame::BodyMaterial::new(2.0, bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap();
+    app.world_mut().get_mut::<BodyKinematics>(item).unwrap().material = material;
+    set_control(&mut app, holder, true, false);
+    app.update();
+    assert!(app.world().get::<ae::BodyInStorage>(item).is_some());
+    assert_eq!(app.world().get::<BodyKinematics>(item).unwrap().material, material);
+    app.world_mut().get_mut::<BodyKinematics>(holder).unwrap().pos.x = 250.0;
+    set_control(&mut app, holder, true, true);
+    app.update();
+    assert!(app.world().get::<ae::BodyInStorage>(item).is_none());
+    let released = app.world().get::<BodyKinematics>(item).unwrap();
+    assert_eq!(released.material, material);
+    assert_eq!(released.canonical_size, Vec2::splat(16.0));
+    assert!(released.pos.x > 200.0);
+    assert_eq!(app.world().get::<ae::SweepSample>(item).unwrap().time, [1.0, 1.0]);
+}
+
+#[test]
+fn an_item_impact_caps_large_finite_momentum_without_losing_its_direction() {
+    let mut body = BodyKinematics { vel: Vec2::splat(f32::MAX), ..Default::default() };
+    rebound_item(&mut body, 0.5, 100.0);
+    assert!(body.vel.is_finite() && body.vel.x < 0.0 && body.vel.y < 0.0);
+    assert!((body.vel.length() - 100.0).abs() < 1.0e-4);
 }

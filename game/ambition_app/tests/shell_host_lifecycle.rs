@@ -1310,7 +1310,6 @@ fn two_local_histories_name_every_simulated_entity_identically() {
 }
 
 type BodyAnimFacts = ambition_platformer2d::characters::actor::BodyAnimFacts;
-type GroundItem = ambition_platformer2d::item::GroundItem;
 
 /// Every animation-fact carrier, BITWISE, keyed by canonical identity.
 ///
@@ -1344,23 +1343,16 @@ fn animation_facts(app: &mut App) -> Vec<String> {
     rows
 }
 
-/// Every ground item's `pos`/`vel`/`half_extent`, bitwise, keyed the same way.
+/// The complete physical state of each ground item, keyed by stable identity.
 fn ground_item_values(app: &mut App) -> Vec<String> {
     let world = app.world_mut();
     let mut rows: Vec<String> = world
-        .query::<(&ambition_platformer2d::observation::SimId, &GroundItem)>()
+        .query_filtered::<(&ambition_platformer2d::observation::SimId, &ambition_platformer2d::engine_core::BodyKinematics), With<ambition_platformer2d::item::GroundItem>>()
         .iter(world)
-        .map(|(id, item)| {
-            format!(
-                "{}|{:08x},{:08x}|{:08x},{:08x}|{:08x},{:08x}",
-                id.as_str(),
-                item.pos.x.to_bits(),
-                item.pos.y.to_bits(),
-                item.vel.x.to_bits(),
-                item.vel.y.to_bits(),
-                item.half_extent.x.to_bits(),
-                item.half_extent.y.to_bits(),
-            )
+        .map(|(id, body)| {
+            let mut bytes = Vec::new();
+            ambition_platformer2d::engine_core::snapshot::SnapshotState::encode(body, &mut bytes);
+            format!("{}|{:02x?}", id.as_str(), bytes)
         })
         .collect();
     rows.sort();

@@ -296,7 +296,8 @@ fn ground_transit_app() -> App {
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.add_systems(Update, (ambition_held_items::ground_item_physics,
-        portal_transit_free_bodies::<ambition_held_items::GroundItem>).chain());
+        ambition_held_items::project_item_body_presence,
+        ambition_portal2d::portal_transit).chain());
     app
 }
 
@@ -328,7 +329,7 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
         ))
         .id();
     app.update();
-    let g = app.world().get::<GroundItem>(item).unwrap();
+    let g = app.world().get::<ae::BodyKinematics>(item).unwrap();
     assert!(
         g.pos.x > 250.0,
         "item should have come out of the orange (right) portal, pos={:?}",
@@ -374,7 +375,7 @@ fn a_thrown_item_comes_out_turned_as_the_pair_turns_it() {
         ))
         .id();
     app.update();
-    let g = app.world().get::<GroundItem>(item).unwrap();
+    let g = app.world().get::<ae::BodyKinematics>(item).unwrap();
     assert!(g.pos.x > 390.0, "the item came out of the wall portal, pos={:?}", g.pos);
     let roll = app.world().get::<ActorRoll>(item).expect("a ground item has a roll").angle;
     assert!(roll.cos().abs() < 1e-3, "turned a quarter, as the pair turns it: roll={roll}");

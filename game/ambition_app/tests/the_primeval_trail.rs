@@ -140,9 +140,9 @@ fn an_african_swallow_takes_a_coconut_and_lets_it_go_over_the_player() {
         sim.step(AgentAction::default());
         let at = player(&mut sim);
         let world = sim.world_mut();
-        let mut items = world.query::<(Entity, &GroundItem, &ItemCustody)>();
+        let mut items = world.query::<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody)>();
         let coconuts: Vec<(Entity, f32, ItemCustody)> =
-            items.iter(world).filter(|(_, item, _)| item.spec.id == COCONUT).map(|(e, item, custody)| (e, item.pos.y, *custody)).collect();
+            items.iter(world).filter(|(_, item, _, _)| item.spec.id == COCONUT).map(|(e, _, body, custody)| (e, body.pos.y, *custody)).collect();
         let mut worn = world.query::<&WornCharacter>();
         let mut held_now = Vec::new();
         for (coconut, y, custody) in coconuts {
@@ -217,7 +217,7 @@ fn european_swallows_carry_one_coconut_together_and_drop_it_over_the_player() {
         if let Some((item, leader, supporter, pickup_y)) = load {
             let custody = *world.get::<ItemCustody>(item).expect("the same coconut instance stays alive");
             if custody.in_world() {
-                let ground = world.get::<GroundItem>(item).unwrap();
+                let ground = world.get::<ae::BodyKinematics>(item).unwrap();
                 assert!(prey.y - ground.pos.y >= 75.0, "release is above the target: {ground:?}, prey={prey:?}");
                 assert!(world.get::<SupportedCarry>(leader).is_none());
                 assert!(world.get::<HeldItem>(supporter).is_none());
@@ -234,8 +234,8 @@ fn european_swallows_carry_one_coconut_together_and_drop_it_over_the_player() {
             let pair = pairs.iter(world).find(|(_, worn, _)| worn.id() == "european_swallow").map(|(e, _, link)| (e, link.supporter));
             if let Some((leader, supporter)) = pair {
                 assert_eq!(world.get::<WornCharacter>(supporter).unwrap().id(), "european_swallow");
-                let mut items = world.query::<(Entity, &GroundItem, &ItemCustody)>();
-                let (item, ground, _) = items.iter(world).find(|(_, ground, custody)| ground.spec.id == "coconut" && custody.held_by(leader)).unwrap();
+                let mut items = world.query::<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody)>();
+                let (item, _, ground, _) = items.iter(world).find(|(_, ground, _, custody)| ground.spec.id == "coconut" && custody.held_by(leader)).unwrap();
                 load = Some((item, leader, supporter, ground.pos.y));
             }
         }

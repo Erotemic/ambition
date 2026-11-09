@@ -2,11 +2,11 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** PAUSED AFTER A COMMITTED CHECKPOINT (2026-11-09).
+**Work state:** IMPLEMENTATION RESUMED ON MAIN (Jon, 2026-11-09).
 The slot 1 work was merged. Main is the active checkout. Jon asked for a safe
 commit point before the pause. The root-scan packet is committed as
-`e3ebef90f`; its affected checks pass. No build or test is running.
-Do not resume the broader implementation until Jon asks. Preserve the merged
+`e3ebef90f`; its affected checks pass.
+Jon asked to continue and finish the work. Preserve the merged
 slot 1 checkpoint, `portal-similarity-draft`. Feature acceptance remains open.
 See [Committed checkpoint](#committed-checkpoint) and [Draft status](#draft-status).
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
@@ -287,7 +287,7 @@ Check the affected owners again after the optimization work ends.
 | Partition | `crates/ambition_platformer2d_core/src/frame/thread.rs`: `VolumePiece` stores a mapped volume, world bounds, an `Iso2`, and a path. Keep canonical source regions as authority. Replace both the whole-piece fallback and the fallback that omits through-material. |
 | Domain queries | `crates/ambition_platformer2d_shared_tangle/src/portal_passages.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
 | Pair openings | `crates/ambition_portal2d/src/types.rs` and `crates/ambition_portal2d/src/link.rs`: `opening_half_length` takes the minimum through `partner_opening_half`. Remove that field and the equalizer when all consumers support the directed map. |
-| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries normals but no full map; `FreePortalBody::emerge` accepts only position and velocity. Extend the common result and both adapters together. |
+| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. Persistent root rebase remains open. |
 | World collision | `crates/ambition_platformer2d_shared_tangle/src/feature_overlay.rs` and `crates/ambition_platformer2d_world/src/collision.rs`: `PortalGlue` imports far-side geometry into the entry chart. Replace independent pair clipping with projections of canonical parts and the same validated maps. |
 | Body contact | `crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`: `snapshot_body_contact` publishes a whole owner box plus carried boxes, then maps foreign boxes back through one straddled link. Use clipped parts and map each constraint to its one owner. |
 | Transit consequences | `crates/ambition_platformer2d_runtime/src/portal_body.rs`: carried momentum and projectile acceleration reconstruct rigid maps from normals. Read the admitted transit map and velocity facts instead. |
@@ -585,7 +585,7 @@ reduce physical correctness or add a separate controller path.
 ### Committed checkpoint
 
 Code checkpoint: `e3ebef90f` (2026-11-09). Lab map checkpoint: `16018b5` in
-the map submodule. The broader portal goal remains paused and incomplete.
+the map submodule. The broader portal goal is resumed and incomplete.
 
 The root query follows recorded aperture turns and returns the crossing time
 and sampled poses. Transit and projectile contact limits use this query.
@@ -628,7 +628,7 @@ also reports the existing `scroll_lab_door` validation error. H–J remain draft
 authoring in `portal_similarity_lab.yaml`; they are not live scale, chirality
 or multi-link acceptance examples.
 
-On resume, continue persistent root material rebasing, remaining motion in the
+Continue persistent root material rebasing, remaining motion in the
 same tick, complete source admission and canonical consumer integration.
 Unequal apertures, GNU-ton acceptance and numerical-fault presentation remain
 open. Union-feature, full library, replay, rendering and performance acceptance
@@ -641,6 +641,11 @@ ideas file.
 
 The tested foundation is merged into main with the Android profiling and asset
 loading work. No complete PSIM acceptance slice is closed.
+
+- Loose items use `BodyKinematics` and `SweepSample`. `GroundItem` owns item
+  metadata. Custody derives `BodyInStorage` before spatial reads. One portal
+  path handles carves, snag, eviction and transit. The separate free-body
+  trait and its systems are removed. Pickup and release retain material state.
 
 - `Sim2` keeps scale, orthogonal composition and translation in double
   precision. It validates projected coordinates, feature resolution and moving
@@ -661,12 +666,12 @@ loading work. No complete PSIM acceptance slice is closed.
   travelled paths. Both controller adapters use the same admission input.
 - The common transit result includes the validated similarity, both apertures,
   stable directed channels and actual entry, mapped and assisted exit velocities.
-  Both body storage adapters validate carried acceleration before changing body
+  The common body path validates carried acceleration before changing body
   state. The same transfer commits carried run. The separate runtime adapters
   that reconstructed rigid maps from normals are removed.
 - Carried acceleration is a shared body capability. Projectile construction,
   stepping, snapshots and restoration use that value. World gravity and force
-  zones keep their own contributions. The rollback schema is 427.
+  zones keep their own contributions. The rollback schema is 429.
 - Source admission checks carried acceleration along each path. It does not
   map world gravity or world force fields. Projectile flight validates a
   candidate before it commits motion or contacts. Refusal clears stale travel
@@ -674,7 +679,7 @@ loading work. No complete PSIM acceptance slice is closed.
   its budget is restored.
 - An approaching body prepares both host openings for its own use. A fast
   crossing can skip the begin latch and still advance from the exit without
-  meeting that exit's uncut host. This applies to both body storage types.
+  meeting that exit's uncut host. This applies to actors and loose items.
 - The material cast query partitions a swept spatial domain and clips each
   physical obstacle in that domain. It casts the actual primitive, keeps
   circles analytic and returns the source collider and directed path.

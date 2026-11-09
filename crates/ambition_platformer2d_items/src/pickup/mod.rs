@@ -7,6 +7,7 @@ pub mod minted_horizon;
 pub use minted_horizon::{GrantSource, PickupGranted, RewardGrant, RewardGrantsSinceCheckpoint};
 
 use bevy::prelude::*;
+use ambition_platformer2d_core as ae;
 
 use ambition_characters::brain::HeldItemSpec;
 use ambition_combat::hand::RepertoireQuery;
@@ -149,6 +150,7 @@ pub fn restore_custody_to_checkpoint(
             ambition_platformer2d_world::rooms::RoomSet,
         >,
     >,
+    item_bodies: Query<&ae::BodyKinematics>,
     mut items: Query<(
         Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -218,11 +220,14 @@ pub fn restore_custody_to_checkpoint(
                     continue;
                 };
                 equip_held_spec(&mut commands, holder, &mut repertoire, spec);
-                if let Ok((_, _, mut ground, mut custody)) = items.get_mut(entity) {
+                if let Ok((_, _, _, mut custody)) = items.get_mut(entity) {
                     *custody = ItemCustody::Held { holder };
                     // A carried item is not in flight — the same zeroing the
                     // pickup does, and for the same fuse-arming reason.
-                    ground.vel = Vec2::ZERO;
+                    if let Ok(body) = item_bodies.get(entity) {
+                        let body = ae::BodyKinematics { vel: Vec2::ZERO, ..*body };
+                        commands.entity(entity).insert((body, ae::SweepSample { time: [1.0, 1.0], ..ae::SweepSample::at_rest(body, Vec2::ZERO) }));
+                    }
                 }
             }
             // ── acquired after the checkpoint; take it back ───────────────────

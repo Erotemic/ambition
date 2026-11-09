@@ -217,6 +217,11 @@ impl BodyKinematics {
     }
 }
 
+/// The body is retained by an owner and has no independent world presence.
+/// The custody owner derives this marker before spatial simulation reads it.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default)]
+pub struct BodyInStorage;
+
 /// A complete line or a closed prefix of its original parameterization.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum LinearTravel {

@@ -30,7 +30,6 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// authored object" an unambiguous phrase in this file.
 const ROOM: &str = "blink_run";
 
-type GroundItem = ambition_platformer2d::held_items::GroundItem;
 type ItemCustody = ambition_platformer2d::held_items::ItemCustody;
 type SettledItem = ambition_platformer2d::held_items::SettledItem;
 
@@ -38,7 +37,7 @@ type SettledItem = ambition_platformer2d::held_items::SettledItem;
 fn items_in_world(sim: &mut Platformer2dSimHarness) -> Vec<(Entity, (f32, f32))> {
     let mut query = sim
         .world_mut()
-        .query::<(Entity, &GroundItem, &ItemCustody)>();
+        .query::<(Entity, &ambition_platformer2d::engine_core::BodyKinematics, &ItemCustody)>();
     let mut found: Vec<(Entity, (f32, f32))> = query
         .iter(sim.world())
         .filter(|(_, _, custody)| custody.in_world())
@@ -48,9 +47,9 @@ fn items_in_world(sim: &mut Platformer2dSimHarness) -> Vec<(Entity, (f32, f32))>
     found
 }
 
-fn ground(sim: &Platformer2dSimHarness, item: Entity) -> &GroundItem {
+fn ground(sim: &Platformer2dSimHarness, item: Entity) -> &ambition_platformer2d::engine_core::BodyKinematics {
     sim.world()
-        .get::<GroundItem>(item)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(item)
         .expect("the object is still a ground item")
 }
 

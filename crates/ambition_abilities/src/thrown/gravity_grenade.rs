@@ -114,7 +114,7 @@ pub fn tick_gravity_grenade_fuses(
     mut commands: Commands,
     mut grenades: Query<(
         Entity,
-        &GroundItem,
+        &ae::BodyKinematics,
         &mut GravityGrenadeFuse,
         Option<&SessionScopedEntity>,
         // The grenade's identity and counter: its well is minted under it.
@@ -177,7 +177,7 @@ pub fn tick_gravity_grenade_fuses(
 mod tests {
     use super::*;
 
-    fn grenade_ground(vel: ae::Vec2) -> GroundItem {
+    fn grenade_ground(vel: ae::Vec2) -> impl Bundle {
         GroundItem::released(
             ambition_characters::brain::held_item_by_id(GRAVITY_GRENADE_ID).unwrap(),
             ae::Vec2::new(100.0, 100.0),

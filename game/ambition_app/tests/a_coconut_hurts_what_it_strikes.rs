@@ -46,7 +46,7 @@ fn a_coconut_that_falls_on_the_player_is_one_blow_and_bounces_off() {
     let mut went_up = false;
     for _ in 0..240 {
         sim.step(base());
-        went_up |= sim.world().get::<GroundItem>(nut).is_some_and(|item| item.vel.y < -20.0);
+        went_up |= sim.world().get::<ae::BodyKinematics>(nut).is_some_and(|item| item.vel.y < -20.0);
     }
     let (_, after) = player(&mut sim);
     assert_eq!(before - after, 2, "a coconut that falls on the player is one blow of 2; health went {before} -> {after}");
@@ -75,7 +75,7 @@ fn the_player_picks_a_coconut_up_and_throws_it() {
     sim.step(AgentAction { attack: true, ..base() });
     sim.step(base());
     assert!(!held(&sim), "an Attack press with a coconut in hand throws it");
-    let item = sim.world().get::<GroundItem>(nut).expect("the thrown coconut is in the world");
+    let item = sim.world().get::<ae::BodyKinematics>(nut).expect("the thrown coconut is in the world");
     assert!(item.vel.length() > 200.0, "a thrown coconut leaves the hand fast; it left at {:?}", item.vel);
     for _ in 0..120 {
         sim.step(base());
@@ -112,7 +112,7 @@ fn a_coconut_that_falls_on_a_sandbag_hurts_it() {
     let mut fastest = 0.0_f32;
     for _ in 0..180 {
         sim.step(base());
-        fastest = fastest.max(sim.world().get::<GroundItem>(nut).map_or(0.0, |item| item.vel.length()));
+        fastest = fastest.max(sim.world().get::<ae::BodyKinematics>(nut).map_or(0.0, |item| item.vel.length()));
     }
     let (_, after) = sandbag(&mut sim);
     assert!(fastest > 300.0, "premise: the coconut fell; its fastest was {fastest}");
@@ -137,9 +137,9 @@ fn a_coconut_that_crosses_the_player_in_one_tick_is_one_blow() {
     let start = ae::Vec2::new(kin.pos.x - body.x - half.x - 2.0, kin.pos.y);
     let step = 2.0 * (body.x + half.x) + 12.0;
     let nut = loose_coconut(&mut sim, start);
-    sim.world_mut().get_mut::<GroundItem>(nut).expect("the coconut").vel = ae::Vec2::new(step * 60.0, 0.0);
+    sim.world_mut().get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(nut).expect("the coconut").vel = ae::Vec2::new(step * 60.0, 0.0);
     sim.step(base());
-    let item = sim.world().get::<GroundItem>(nut).expect("the coconut is in the world").clone();
+    let item = sim.world().get::<ae::BodyKinematics>(nut).expect("the coconut is in the world").clone();
     assert!(
         item.pos.x - half.x > kin.pos.x + body.x,
         "premise: one tick later the coconut is past the body, at {:?} (body right edge {})",
@@ -185,7 +185,7 @@ fn the_player_throws_a_coconut_the_way_the_stick_points() {
             !matches!(sim.world().get::<ItemCustody>(nut), Some(ItemCustody::Held { .. })),
             "premise: an Attack press with a coconut in hand throws it"
         );
-        sim.world().get::<GroundItem>(nut).expect("the thrown coconut is in the world").vel
+        sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(nut).expect("the thrown coconut is in the world").vel
     }
     let ahead = thrown(0.0);
     let up = thrown(-1.0);

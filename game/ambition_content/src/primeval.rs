@@ -124,7 +124,7 @@ fn swallows_carry_coconuts(
         Has<DrivingParticipant>,
     )>,
     mut controls: Query<(&mut ActorControl, RepertoireQuery)>,
-    mut items: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
+    mut items: Query<(Entity, &GroundItem, &ae::BodyKinematics, &mut ItemCustody)>,
     at_rest: Query<(), With<SettledItem>>,
     ids: Query<&SimId>,
     hunted: Query<&ae::BodyKinematics>,
@@ -156,13 +156,13 @@ fn swallows_carry_coconuts(
     birds.sort_by(|a, b| a.id.cmp(&b.id));
     let nuts: Vec<_> = items
         .iter()
-        .filter_map(|(entity, ground, custody)| {
+        .filter_map(|(entity, ground, item_body, custody)| {
             (ground.spec.id == COCONUT && custody.in_world() && at_rest.contains(entity))
                 .then(|| {
                     ids.get(entity).ok().map(|id| Nut {
                         entity,
                         id: id.as_str().to_owned(),
-                        pos: ground.pos,
+                        pos: item_body.pos,
                     })
                 })
                 .flatten()
@@ -375,7 +375,7 @@ fn swallows_carry_coconuts(
             let Ok((_, mut repertoire)) = controls.get_mut(entity) else {
                 continue;
             };
-            let Ok((item, mut ground, mut custody)) = items.get_mut(nut.entity) else {
+            let Ok((item, ground, item_body, mut custody)) = items.get_mut(nut.entity) else {
                 continue;
             };
             if !custody.in_world() {
@@ -386,7 +386,8 @@ fn swallows_carry_coconuts(
                 entity,
                 &mut repertoire,
                 item,
-                &mut ground,
+                ground,
+                item_body,
                 &mut custody,
             );
             taken.insert(item);
@@ -540,7 +541,7 @@ mod tests {
         );
         assert!(app.world().get::<ItemCustody>(nut).unwrap().in_world());
         assert_eq!(
-            app.world().get::<GroundItem>(nut).unwrap().pos,
+            app.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(nut).unwrap().pos,
             ae::Vec2::new(100.0, 300.0)
         );
         assert!(app.world().get::<HeldItem>(bird).is_none());
@@ -614,18 +615,18 @@ mod tests {
                 .expect("the shared position query is valid")
                 .of(
                     world.get::<ItemCustody>(nut).unwrap(),
-                    world.get::<GroundItem>(nut).unwrap(),
+                    world.get::<ae::BodyKinematics>(nut).unwrap(),
                 );
             assert_eq!(actual, ae::Vec2::new(400.0, 238.0));
             assert_eq!(
-                world.get::<GroundItem>(nut).unwrap().pos,
+                world.get::<ambition_platformer2d::engine_core::BodyKinematics>(nut).unwrap().pos,
                 ae::Vec2::new(100.0, 300.0)
             );
         }
         app.update();
         assert!(app.world().get::<ItemCustody>(nut).unwrap().in_world());
         assert_eq!(
-            app.world().get::<GroundItem>(nut).unwrap().pos,
+            app.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(nut).unwrap().pos,
             ae::Vec2::new(400.0, 238.0)
         );
         assert!(app.world().get::<SupportedCarry>(first).is_none());

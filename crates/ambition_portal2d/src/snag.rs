@@ -28,7 +28,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 
 use crate::pieces::PortalAperture;
 use crate::rooms::PortalsByRoom;
-use crate::transit::{FreePortalBody, PortalBackside};
+use crate::transit::{PortalBackside};
 use crate::types::{find_portal, PlacedPortal};
 
 /// How a body that cuts `opening`'s plane past one of its ends moves back,
@@ -207,7 +207,7 @@ pub fn snag_straddlers(
         Option<&mut ae::SweepSample>,
         Option<&PortalBackside>,
         Option<&ae::PoseOwnedExternally>,
-    )>,
+    ), Without<ae::BodyInStorage>>,
     live: LiveRooms,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
@@ -247,42 +247,6 @@ pub fn snag_straddlers(
             );
             ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), push);
             kin.vel = stop_into(portal, kin.pos, kin.vel, against);
-        }
-    }
-}
-
-/// [`snag_straddlers`] for free bodies `B` (a thrown item).
-pub fn snag_free_straddlers<B: FreePortalBody>(
-    portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut B, Option<&B::Presence>, Option<&PortalBackside>)>,
-    live: LiveRooms,
-) {
-    let by_room = PortalsByRoom::collect(&portals, &live);
-    if by_room.is_empty() {
-        return;
-    }
-    for (entity, mut body, presence, backside) in &mut bodies {
-        let all = by_room.in_room(live.of(entity));
-        if all.is_empty() || !B::present(presence) {
-            continue;
-        }
-        let half = body.half_extent();
-        for portal in openings_near(all, body.pos(), half * 2.0) {
-            if backside.is_some_and(|back| back.of_pair(portal.channel)) {
-                continue;
-            }
-            let (pos, vel) = (body.pos(), body.vel());
-            // Its last step moves with it, so a second portal reads the step
-            // from where this one left it.
-            let came_from = body
-                .last_step()
-                .filter(|(_, to)| *to == pos)
-                .map(|(from, _)| ae::Aabb::new(from, half));
-            let Some((push, against)) = snag_push(ae::Aabb::new(pos, half), came_from, &portal.aperture()) else {
-                continue;
-            };
-            let at = pos + push;
-            body.emerge(at, stop_into(portal, at, vel, against));
         }
     }
 }

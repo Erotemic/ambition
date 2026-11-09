@@ -21,14 +21,6 @@ use ambition_platformer2d::item::{GroundItem, ItemCustody, ItemStruckBody};
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use bevy::prelude::*;
 
-use ambition_content_schemas::rules::ThrownImpact;
-
-/// The velocity an item leaves a body with: back the way it came, its row's
-/// `rebound` of its speed, and under its bar (`rebound_cap`).
-fn rebound(vel: ae::Vec2, impact: ThrownImpact) -> ae::Vec2 {
-    let speed = (vel.length() * impact.rebound).min(impact.min_speed * impact.rebound_cap);
-    -vel.normalize_or_zero() * speed
-}
 
 /// Each loose item that reached a body fast enough hurts it and bounces off.
 ///
@@ -43,11 +35,11 @@ fn rebound(vel: ae::Vec2, impact: ThrownImpact) -> ae::Vec2 {
 pub fn thrown_items_strike(
     tuning: Res<crate::tuning::AmbitionTuning>,
     mut hits: MessageWriter<HitEvent>,
-    mut items: Query<(Entity, &mut GroundItem, &ItemCustody, &ItemStruckBody)>,
+    mut items: Query<(Entity, &GroundItem, &mut ae::BodyKinematics, &ItemCustody, &ItemStruckBody)>,
     bodies: Query<&BodyHealth>,
     rooms: LiveRooms,
 ) {
-    for (entity, mut item, custody, struck) in &mut items {
+    for (entity, item, mut kin, custody, struck) in &mut items {
         if !custody.in_world() {
             continue;
         }
@@ -66,7 +58,7 @@ pub fn thrown_items_strike(
             struck_any = true;
             hits.write(HitEvent {
                 pieces: Vec::new(),
-                volume: ae::Aabb::new(item.pos, item.half_extent).into(),
+                volume: kin.aabb().into(),
                 damage: impact.damage,
                 source: HitSource::Hazard,
                 attacker: None,
@@ -82,7 +74,7 @@ pub fn thrown_items_strike(
             });
         }
         if struck_any {
-            item.vel = rebound(item.vel, impact);
+            ambition_held_items::rebound_item(&mut kin, impact.rebound, impact.min_speed * impact.rebound_cap);
         }
     }
 }
@@ -111,7 +103,9 @@ mod tests {
         // about 410; a long fall is as fast as you like.
         for (id, impact) in &crate::tuning::shipped().thrown_impacts {
             for speed in [impact.min_speed, 410.0, 900.0, 5000.0] {
-                let left = rebound(ae::Vec2::new(0.6 * speed, 0.8 * speed), *impact);
+                let mut body = ae::BodyKinematics { vel: ae::Vec2::new(0.6 * speed, 0.8 * speed), ..Default::default() };
+                ambition_held_items::rebound_item(&mut body, impact.rebound, impact.min_speed * impact.rebound_cap);
+                let left = body.vel;
                 assert!(left.length() < impact.min_speed, "`{id}` arrives at {speed} and leaves at {}: it strikes twice", left.length());
                 assert!(left.x < 0.0 && left.y < 0.0, "`{id}` goes back the way it came, not {left:?}");
                 // The row's numbers, not a rule of the code's own.
@@ -138,8 +132,7 @@ mod tests {
         beside.canonical_size = ae::Vec2::new(24.0, 48.0);
         let beside = world.spawn((beside, health())).id();
         let spec = ambition_characters::brain::held_item_by_id("coconut").expect("the coconut is a held item");
-        let mut item = GroundItem::at_rest(spec, at, ae::Vec2::new(9.0, 7.5));
-        item.vel = ae::Vec2::new(600.0, 0.0);
+        let item = GroundItem::released(spec, at, ae::Vec2::new(600.0, 0.0), ae::Vec2::new(9.0, 7.5));
         world.spawn((item, ItemCustody::InWorld, ItemStruckBody { impact_speed: 600.0, bodies: vec![crossed] }));
         world.run_system_once(thrown_items_strike).expect("the rule runs");
         let mut cursor = world.resource::<Messages<HitEvent>>().get_cursor();

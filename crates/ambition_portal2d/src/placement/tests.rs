@@ -356,7 +356,6 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
     let dt = 1.0 / 30.0;
     let gravity = 4000.0; // px/s², no fall cap — the loop accelerates forever
     let tuning = PortalTuning::default();
-    let depths = crate::types::PortalHostDepths::default();
 
     let mut pos = Vec2::new(100.0, ceiling_y + 40.0);
     let mut vel = Vec2::new(0.0, 200.0);

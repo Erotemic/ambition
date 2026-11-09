@@ -203,8 +203,8 @@ pub fn publish_portal_carves(
     portals: Query<(Entity, &PlacedPortal)>,
     // The record of a body's last step has its DOWN: the core has no frame
     // of a body, and it asks the box the body has.
-    bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>, Option<&PortalBackside>)>,
-    transits: Query<(Entity, &PortalTransit)>,
+    bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>, Option<&PortalBackside>), Without<ae::BodyInStorage>>,
+    transits: Query<(Entity, &PortalTransit), Without<ae::BodyInStorage>>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     tuning: Option<Res<PortalTuning>>,
@@ -325,45 +325,6 @@ pub(crate) fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Ve
     frontal || falling_through
 }
 
-/// The carves free bodies `B` open, added to the ones
-/// [`publish_portal_carves`] published this frame (it runs first): a thrown
-/// item opens a portal by the same rule a kernel body does, and keeps the
-/// portal it straddles open.
-pub fn publish_free_body_carves<B: FreePortalBody>(
-    portals: Query<(Entity, &PlacedPortal)>,
-    bodies: Query<(Entity, &B, Option<&PortalTransit>, Option<&B::Presence>, Option<&PortalBackside>)>,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    host_depths: Option<Res<PortalHostDepthsByRoom>>,
-    mut carves: ResMut<PortalCarves>,
-) {
-    let by_room = PortalsByRoom::collect(&portals, &live);
-    if by_room.is_empty() {
-        return;
-    }
-    let default_depths = PortalHostDepthsByRoom::default();
-    let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (entity, body, transit, presence, backside) in &bodies {
-        if !B::present(presence) {
-            continue;
-        }
-        let room = live.of(entity);
-        let all = by_room.in_room(room);
-        let aabb = ae::Aabb::new(body.pos(), body.half_extent());
-        // A body that straddles a pair is at both of its ends.
-        let straddling = transit.map(|t| t.straddling);
-        for p in all {
-            if backside.is_some_and(|back| back.of_pair(p.channel)) {
-                continue;
-            }
-            let opens = straddling.is_some_and(|c| c == p.channel || c.partner() == p.channel)
-                || body_opens(p, aabb, body.pos(), body.vel(), depths.in_room(room).depth(p.channel));
-            if !opens { continue; }
-            let Some(exit) = find_portal(all, p.channel.partner()) else { continue; };
-            carves.open_pair(room, p, &exit, entity);
-        }
-    }
-}
-
 /// Convert the movement-kernel sample into swept transit input. Valid only
 /// when the sample endpoint still equals the live `kin.pos`. If an earlier
 /// post-sim system teleported the body, the segment is not travel through an
@@ -434,6 +395,7 @@ pub fn portal_transit(
             Option<&ae::SweepSample>,
             Option<&PortalBackside>,
             Option<&ae::PoseOwnedExternally>,
+            Has<ae::BodyInStorage>,
         ),
     >,
     // `GravityCtx::dir_for(aabb)` owns "which way is down for this body":
@@ -452,7 +414,11 @@ pub fn portal_transit(
     let tick = tick.map_or(0, |tick| tick.get());
     let by_room = PortalsByRoom::collect(&portals, &live);
 
-    for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, mut roll, cooldown, record, backside, held) in &mut bodies {
+    for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, mut roll, cooldown, record, backside, held, stored) in &mut bodies {
+        if stored {
+            commands.entity(entity).remove::<(PortalTransit, PortalBackside, PortalTransitCooldown)>();
+            continue;
+        }
         if transit.is_none() && by_room.is_empty() {
             continue;
         }
@@ -651,168 +617,6 @@ pub struct PortalEmission {
     pub exit_normal: Vec2,
     /// Remaining protection time (s).
     pub timer: f32,
-}
-
-/// A free body that moves on its own (a thrown axe, a javelin, a dropped
-/// item): it straddles a portal and crosses it when its centre does, as every
-/// body does. Its owner implements this on the component that IS the body,
-/// so portal core moves the body itself and never names the owner's type or
-/// holds a copy of it.
-pub trait FreePortalBody: Component<Mutability = bevy::ecs::component::Mutable> {
-    /// World position of the body's centre.
-    fn pos(&self) -> Vec2;
-    /// Current velocity.
-    fn vel(&self) -> Vec2;
-    /// Half-extent of the body's box.
-    fn half_extent(&self) -> Vec2;
-    /// Put the body where the exit portal sends it, moving as it sends it.
-    fn emerge(&mut self, pos: Vec2, vel: Vec2);
-    /// The body's last step of its own motion, `(from, to)`: the segment a
-    /// fast body crosses a plane on between two samples. `None` once it was
-    /// put somewhere else (`to` is no longer [`pos`](Self::pos)) or did not
-    /// move.
-    fn last_step(&self) -> Option<(Vec2, Vec2)> {
-        None
-    }
-    /// The component that says whether the body is in the world.
-    type Presence: Component;
-    /// A body something else holds is not a free body: it opens no portal,
-    /// crosses none, and straddles none.
-    fn present(presence: Option<&Self::Presence>) -> bool;
-}
-
-/// Free bodies `B` travel through every placed portal pair by the one transit
-/// machine ([`transit_step_with_tuning`]) every body uses. A body that enters
-/// an opening straddles it ([`PortalTransit`]); the pair takes it when its
-/// centre crosses, to the image of its centre, keeping its velocity relative
-/// to the surfaces it crosses; and the pair it crossed is latched by a
-/// [`PortalTransitCooldown`]. Nothing teleports from the face of a portal.
-///
-/// A composition that has both portals and the body type registers
-/// `portal_transit_free_bodies::<B>` in [`crate::PortalSet::Transit`] and
-/// [`publish_free_body_carves::<B>`] in [`crate::PortalSet::Carves`].
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn portal_transit_free_bodies<B: FreePortalBody>(
-    mut commands: Commands,
-    portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(
-        Entity,
-        &mut B,
-        Option<&mut CarriedAcceleration>,
-        Option<&mut PortalTransit>,
-        Option<&mut ActorRoll>,
-        Option<&PortalTransitCooldown>,
-        Option<&B::Presence>,
-        Option<&PortalBackside>,
-    )>,
-    // A free body crosses only a pair of its own live room (OW1).
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
-    tuning: Res<crate::tuning::PortalTuning>,
-    mut entered: MessageWriter<super::messages::PortalBodyEntered>,
-    mut transited: MessageWriter<PortalBodyTransited>,
-    tick: Option<Res<ambition_time::SimTick>>,
-) {
-    let by_room = PortalsByRoom::collect(&portals, &live);
-    let tick = tick.map_or(0, |tick| tick.get());
-    for (entity, mut body, mut acceleration, mut transit, mut roll, cooldown, presence, backside) in &mut bodies {
-        if transit.is_none() && by_room.is_empty() {
-            continue;
-        }
-        let room = live.of(entity);
-        let all = by_room.in_room(room);
-        // A held body, or one with no portal in its room, straddles nothing:
-        // a straddle it had ends here, so it is released clear of any pair.
-        if !B::present(presence) || all.is_empty() {
-            if transit.is_some() {
-                commands.entity(entity).remove::<PortalTransit>();
-            }
-            continue;
-        }
-        let (pos, vel, half) = (body.pos(), body.vel(), body.half_extent());
-        let gravity_dir = gravity.dir_for(room, ae::Aabb::new(pos, half));
-        // Its last step, while it still ends where the body is: a fast throw
-        // that crossed a plane between two samples is taken through it.
-        let sweep = body
-            .last_step()
-            .filter(|(_, to)| *to == pos)
-            .map(|(from, _)| SweptSample { travel: Default::default(), time: [0.0, 1.0], pos: from, vel });
-        let backside = backside.copied();
-        let usable = usable_portals(all, backside);
-        let step = transit_step_with_tuning(
-            pos,
-            half * 2.0,
-            vel,
-            sweep,
-            transit.as_deref().copied(),
-            cooldown.map(|c| c.pair),
-            &usable,
-            gravity_dir,
-            &tuning,
-        );
-        // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`).
-        bevy::log::debug!(
-            target: "ambition_portal::transit_trace",
-            "tick={tick} free body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",
-            pos.x,
-            pos.y,
-            vel.x,
-            vel.y
-        );
-        let mapped_acceleration = match step {
-            TransitStep::Transfer { transfer, .. } => {
-                let mapped_acceleration = acceleration.as_deref()
-                    .map(|acceleration| transfer.map.vector(acceleration.0)).transpose();
-                let Ok(mapped_acceleration) = mapped_acceleration else { continue; };
-                mapped_acceleration
-            }
-            TransitStep::Refused { .. } => continue,
-            _ => None,
-        };
-        let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
-        update_backside(&mut commands, entity, backside, crossing, all, ae::Aabb::new(pos, half));
-        match step {
-            TransitStep::Idle | TransitStep::Continue | TransitStep::Refused { .. } => {}
-            TransitStep::Begin { channel, portal_pos } => {
-                commands.entity(entity).insert(PortalTransit { straddling: channel, crossed: false });
-                entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
-            }
-            TransitStep::Transfer {
-                transfer,
-                roll_delta,
-                facing_flip,
-                input_warp,
-            } => {
-                if let Some((acceleration, mapped)) = acceleration.as_deref_mut().zip(mapped_acceleration) {
-                    acceleration.0 = mapped;
-                }
-                body.emerge(transfer.exit_pos, transfer.exit_vel);
-                // Turned as the pair turns it, as a kernel body is: its image
-                // on the far side is drawn turned, and the body must be the
-                // image it was drawn as, not snap upright.
-                if let Some(roll) = roll.as_deref_mut() {
-                    roll.angle += roll_delta;
-                }
-                commands.entity(entity).insert(PortalTransitCooldown {
-                    remaining: tuning.teleport_cooldown_s,
-                    pair: transfer.exit_channel,
-                });
-                // The body straddles the exit now, however it got here: a
-                // rescue or a swept crossing that skipped `Begin` is drawn cut
-                // at the exit as a straddle is, until it clears.
-                set_crossed(&mut commands, entity, transit.as_deref_mut(), transfer.exit_channel);
-                transited.write(PortalBodyTransited {
-                    body: entity,
-                    transfer,
-                    facing_flip,
-                    input_warp,
-                });
-            }
-            TransitStep::Clear => {
-                commands.entity(entity).remove::<PortalTransit>();
-            }
-        }
-    }
 }
 
 /// After a transfer the body straddles the exit, crossed: updated in place,

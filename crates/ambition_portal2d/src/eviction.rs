@@ -89,7 +89,7 @@ const EVICT_MARGIN: f32 = 1.0;
 pub fn evict_straddlers_on_portal_change(
     mut history: ResMut<PortalFrameHistory>,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>)>,
+    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>), Without<ae::BodyInStorage>>,
     live: LiveRooms,
 ) {
     // A hosted aperture moving with its face is the same portal, not a close:
@@ -105,33 +105,6 @@ pub fn evict_straddlers_on_portal_change(
         evict_for_plane(plane, room, &mut bodies, &live);
     }
     history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
-}
-
-/// The same eviction for free bodies `B` (a thrown item): a plane that closes
-/// under one pushes it clear as it pushes a kernel body. Runs before
-/// [`evict_straddlers_on_portal_change`], which then moves the history on.
-pub fn evict_free_straddlers_on_portal_change<B: crate::FreePortalBody>(
-    history: Res<PortalFrameHistory>,
-    portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut B, Option<&B::Presence>)>,
-    live: LiveRooms,
-) {
-    if history.0.is_empty() {
-        return;
-    }
-    let current = current_frames(&portals, &live);
-    for (room, plane) in closing_planes(&history, &current) {
-        for (entity, mut body, presence) in &mut bodies {
-            if live.of(entity) != room || !B::present(presence) {
-                continue;
-            }
-            let aabb = ae::Aabb::new(body.pos(), body.half_extent());
-            if let Some(push) = eviction_push(aabb, body.pos(), &plane) {
-                let (pos, vel) = (body.pos() + push, body.vel());
-                body.emerge(pos, vel);
-            }
-        }
-    }
 }
 
 type CurrentFrames = HashMap<(PortalRoom, PortalChannel), (PortalAperture, PortalFrame)>;
@@ -185,7 +158,7 @@ fn eviction_push(body: ae::Aabb, center: ae::Vec2, plane: &PortalAperture) -> Op
 fn evict_for_plane(
     plane: PortalAperture,
     room: PortalRoom,
-    bodies: &mut Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>)>,
+    bodies: &mut Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>), Without<ae::BodyInStorage>>,
     live: &LiveRooms,
 ) {
     for (entity, mut kin, mut sweep, held) in bodies.iter_mut() {

@@ -177,8 +177,7 @@ fn a_hand_fired_shot_transits_an_authored_portal_in_the_real_app() {
 
 /// A THROWN ITEM transits an AUTHORED portal in the REAL APP.
 ///
-/// Portal core moves the item's own body (`FreePortalBody for GroundItem`), and
-/// the content composition is what registers that for `GroundItem`. A fixture
+/// Portal core moves the item through its shared physical body. A fixture
 /// that adds the transit system itself cannot see a composition that forgot to.
 #[test]
 fn a_thrown_item_transits_an_authored_portal_in_the_real_app() {
@@ -218,7 +217,7 @@ fn a_thrown_item_transits_an_authored_portal_in_the_real_app() {
         sim.step_frame(ControlFrame::default());
         let pos = sim
             .world()
-            .get::<GroundItem>(item)
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(item)
             .expect("a thrown item is not despawned by a portal")
             .pos;
         closest_to_exit = closest_to_exit.min(exit_pos.distance(pos));

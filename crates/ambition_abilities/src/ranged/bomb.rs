@@ -133,7 +133,7 @@ pub fn tick_bomb_fuses(
     mut commands: Commands,
     mut bombs: Query<(
         Entity,
-        &GroundItem,
+        &ae::BodyKinematics,
         &ItemCustody,
         &mut BombFuse,
         Option<&ItemStruckSurface>,
@@ -217,7 +217,7 @@ pub fn tick_bomb_fuses(
 mod tests {
     use super::*;
 
-    fn bomb_ground(vel: ae::Vec2) -> GroundItem {
+    fn bomb_ground(vel: ae::Vec2) -> impl Bundle {
         GroundItem::released(
             ambition_characters::brain::held_item_by_id(BOMB_ID).unwrap(),
             ae::Vec2::new(100.0, 100.0),

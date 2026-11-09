@@ -3014,7 +3014,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     let target = {
         let world = sim.world_mut();
         let mut bodies = world
-            .query_filtered::<Entity, With<ambition_platformer2d::engine_core::BodyKinematics>>();
+            .query_filtered::<Entity, (With<ambition_platformer2d::engine_core::BodyKinematics>, With<ambition_platformer2d::actor::BodyHealth>)>();
         bodies
             .iter(world)
             .next()

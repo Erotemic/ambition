@@ -2652,7 +2652,8 @@ skip_paths = [
     # the edge, relative to the moving portal: the portal domain's collision
     # response, as its transit is.
     "ambition_portal2d/src/snag.rs",
-    "ambition_platformer2d_items/src/pickup/",
+    # Loose-item integration and accepted impact responses belong to this domain.
+    "ambition_held_items/src/lib.rs",
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",
     # ── velocity-only, each NAMED rather than blanket-skipped ──

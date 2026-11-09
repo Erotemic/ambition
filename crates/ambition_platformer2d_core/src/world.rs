@@ -1259,7 +1259,7 @@ impl MaterialWorldHit<'_> {
 
 /// Remove only the finite face intervals that lead to another spatial cell.
 fn material_line_segments(
-    a: Vec2, b: Vec2, part: &crate::frame::thread::VolumePiece,
+    a: Vec2, b: Vec2, part: &crate::frame::material_cast::MaterialCell,
     cells: &crate::frame::material_cast::MaterialCastCells<'_>,
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> Result<Vec<[Vec2;2]>, crate::frame::thread::Refusal> {
@@ -1664,13 +1664,13 @@ impl World {
         admission: Option<crate::frame::thread::MotionAdmission<'_>>,
         mut accepts: F,
     ) -> Result<Option<MaterialWorldHit<'w>>, crate::frame::thread::Refusal>
-    where F: FnMut(MaterialCollider<'w>, &crate::frame::thread::VolumePiece, &crate::frame::material_cast::MaterialCastHit)
+    where F: FnMut(MaterialCollider<'w>, &crate::frame::material_cast::MaterialCell, &crate::frame::material_cast::MaterialCastHit)
             -> Result<bool, crate::frame::thread::Refusal>,
     {
         let cells = cast.cells(admission)?;
         let mut best: Option<MaterialWorldHit<'w>> = None;
         let mut refused: Option<(MaterialWorldHit<'w>, crate::frame::thread::Refusal)> = None;
-        let mut consider = |hit: MaterialWorldHit<'w>, part: &crate::frame::thread::VolumePiece| {
+        let mut consider = |hit: MaterialWorldHit<'w>, part: &crate::frame::material_cast::MaterialCell| {
             match accepts(hit.collider, part, &hit.contact) {
                 Ok(true) => if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); },
                 Ok(false) => {},
@@ -1678,7 +1678,7 @@ impl World {
             }
         };
         for part in cells.parts() {
-            let bounds = cells.bounds(part)?;
+            let Some(bounds) = cells.bounds(part)? else { continue; };
             for block in self.blocks.swept_near(bounds) {
                 let collider = MaterialCollider::Block(block);
                 let a = block.aabb;

@@ -131,6 +131,10 @@ impl Sim2 {
         self.translation
     }
 
+    pub(crate) fn shifted(self, delta: DVec2) -> Result<Self, NumericFault> {
+        Self::from_wide_translation(self.scale, self.orthogonal, self.translation + delta)
+    }
+
     /// The determinant sign belongs to orientation, independently of scale.
     pub fn reflected(self) -> bool {
         self.orthogonal.determinant() < 0.0

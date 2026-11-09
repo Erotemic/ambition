@@ -4,12 +4,13 @@ use bevy_math::DVec2;
 
 use super::thread::{
     partition, MaterialPlane, MaterialPrimitive, MotionAdmission, Refusal, RefusalReason,
-    VolumePiece,
 };
 use super::{NumericFault, Sim2};
 use crate::{Aabb, CombatVolume, Vec2};
 
 mod translation;
+mod cell;
+pub use cell::MaterialCell;
 
 /// A primitive's translation in its owner's world chart.
 pub struct MaterialCast<'a> {
@@ -31,11 +32,12 @@ pub struct MaterialCastHit {
     pub map: Sim2,
 }
 
-/// The spatial cells stay fixed while the actual primitive moves through them.
+/// The actual primitive moves through cells with their own boundary and map motion.
 pub struct MaterialCastCells<'a> {
     material: MaterialPrimitive<'a>,
+    /// Displacement in the owner's world chart. The canonical primitive is fixed.
     delta: DVec2,
-    parts: Vec<VolumePiece>,
+    parts: Vec<MaterialCell>,
     time: std::ops::Range<f64>,
 }
 
@@ -47,7 +49,7 @@ fn numeric(reason: NumericFault) -> Refusal {
     }
 }
 
-fn numeric_at(part: &VolumePiece, reason: NumericFault) -> Refusal {
+fn numeric_at(part: &MaterialCell, reason: NumericFault) -> Refusal {
     let mut path = part.path.clone();
     let link = path.pop();
     Refusal {
@@ -71,17 +73,17 @@ impl<'a> MaterialCast<'a> {
         super::thread::map_volume(self.material.domain, &self.material.to_world)
             .map_err(numeric)?;
         let inverse = self.material.to_world.inverse().map_err(numeric)?;
-        let delta = inverse.vector(self.delta).map_err(numeric)?;
+        if !self.delta.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
+        let delta = inverse.direction_wide(self.delta.as_dvec2()) * inverse.scale_wide();
         let bounds = self.material.domain.bounds();
         if !bounds.min.is_finite() || !bounds.max.is_finite() {
             return Err(numeric(NumericFault::NonFinite));
         }
-        let mut points = corners(bounds)
-            .into_iter()
-            .flat_map(|p| [p, p + delta])
-            .collect::<Vec<_>>();
-        if points.iter().any(|p| !p.is_finite()) {
-            return Err(numeric(NumericFault::Overflow));
+        let mut points = Vec::with_capacity(20);
+        for point in corners(bounds) {
+            points.push(point);
+            let end = point.as_dvec2() + delta;
+            points.extend(corners(enclosing_bounds(end, end).map_err(numeric)?));
         }
         points.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
         points.dedup();
@@ -124,51 +126,38 @@ impl<'a> MaterialCast<'a> {
                 admission.convention,
             )?
         } else {
-            vec![VolumePiece::from_material(spatial).map_err(numeric)?]
+            vec![super::thread::VolumePiece::from_material(spatial).map_err(numeric)?]
         };
         Ok(MaterialCastCells {
             material: self.material,
-            delta: delta.as_dvec2(),
-            parts,
+            delta: self.delta.as_dvec2(),
+            parts: parts.into_iter().map(|part| MaterialCell::from_piece(part, delta)).collect(),
             time:self.time,
         })
     }
 }
 
 impl MaterialCastCells<'_> {
-    pub fn parts(&self) -> &[VolumePiece] {
+    pub fn parts(&self) -> &[MaterialCell] {
         &self.parts
     }
 
     /// Broad phase bounds in each part's physical chart.
-    pub fn bounds(&self, part: &VolumePiece) -> Result<Aabb, Refusal> {
-        let vertices = part
-            .source_region_wide()
-            .ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
-        let mut lo = Vec2::splat(f32::INFINITY);
-        let mut hi = Vec2::splat(f32::NEG_INFINITY);
-        for vertex in vertices {
-            let point = part
-                .transform()
-                .point_from_wide(vertex)
-                .map_err(|reason| numeric_at(part, reason))?;
-            lo = lo.min(point);
-            hi = hi.max(point);
-        }
-        Ok(Aabb { min: lo, max: hi })
+    pub fn bounds(&self, part: &MaterialCell) -> Result<Option<Aabb>, Refusal> {
+        part.bounds(self.material.domain.bounds(), DVec2::ZERO)
+            .map_err(|reason| numeric_at(part, reason))
     }
 
     /// The obstacle is at the end of the world tick. Its displacement covers
     /// that tick. Its shape can be a convex polygon, a segment or a point.
-    /// The spatial cell stays fixed during the cast's time interval.
     pub fn against(
         &self,
-        part: &VolumePiece,
+        part: &MaterialCell,
         obstacle: &[Vec2],
         displacement: Vec2,
     ) -> Result<Option<MaterialCastHit>, Refusal> {
         let inverse = part
-            .transform()
+            .map
             .inverse()
             .map_err(|reason| numeric_at(part, reason))?;
         let mut region = obstacle
@@ -185,32 +174,22 @@ impl MaterialCastCells<'_> {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
         let full_motion=inverse.direction_wide(displacement.as_dvec2())*inverse.scale_wide();
-        for point in &mut region { *point-=full_motion*(1.0-self.time.end); }
-        let motion=full_motion*(self.time.end-self.time.start);
-        let contact = if motion != DVec2::ZERO {
-            for point in &mut region { *point -= motion; }
-            translation::cast(self.material.domain, self.delta, &region, motion, part.source_bounds())
-                .map_err(|fault|numeric_at(part,fault))?
-        } else {
-            for plane in part.source_bounds() {
-                region = clip(&region, *plane);
-                if region.is_empty() { return Ok(None); }
-            }
-            region.dedup();
-            // A solid that only touches the cell boundary occupies no area in it.
-            if obstacle.len() >= 3 && !super::thread::has_area(&region) { return Ok(None); }
-            primitive_cast(self.material.domain,self.delta,&region)
-        };
+        for point in &mut region { *point-=full_motion*(1.0-self.time.start); }
+        let motion=full_motion*(self.time.end-self.time.start)
+            - inverse.direction_wide(part.travel) * inverse.scale_wide();
+        let contact = translation::cast(self.material.domain, DVec2::ZERO, &region, motion,
+            part.planes.iter().copied())
+            .map_err(|fault| numeric_at(part, fault))?;
         let Some(contact) = contact else {
             return Ok(None);
         };
-        let point = self
-            .material
-            .to_world
+        let root = self.material.to_world.shifted(self.delta * contact.time)
+            .map_err(|reason| numeric_at(part, reason))?;
+        let point = root
             .point_from_wide(contact.point)
             .map_err(|reason| numeric_at(part, reason))?;
-        let world_point = part
-            .transform()
+        let pose = part.at(contact.time).map_err(|reason| numeric_at(part, reason))?;
+        let world_point = pose
             .point_from_wide(contact.point)
             .map_err(|reason| numeric_at(part, reason))?;
         let normal = self
@@ -224,8 +203,8 @@ impl MaterialCastCells<'_> {
             point,
             world_point,
             path: part.path.clone(),
-            map: part
-                .path_transform()
+            map: root.inverse()
+                .and_then(|inverse| inverse.then(pose))
                 .map_err(|reason| numeric_at(part, reason))?,
         }))
     }
@@ -252,6 +231,20 @@ fn corners(bounds: Aabb) -> [Vec2; 4] {
         bounds.max,
         Vec2::new(bounds.min.x, bounds.max.y),
     ]
+}
+
+/// Round a broad phase envelope outwards, including subnormal coordinates.
+fn enclosing_bounds(lo: DVec2, hi: DVec2) -> Result<Aabb, NumericFault> {
+    if !lo.is_finite() || !hi.is_finite() { return Err(NumericFault::NonFinite); }
+    let mut min = lo.as_vec2();
+    let mut max = hi.as_vec2();
+    if !min.is_finite() || !max.is_finite() { return Err(NumericFault::Overflow); }
+    if f64::from(min.x) > lo.x { min.x = min.x.next_down(); }
+    if f64::from(min.y) > lo.y { min.y = min.y.next_down(); }
+    if f64::from(max.x) < hi.x { max.x = max.x.next_up(); }
+    if f64::from(max.y) < hi.y { max.y = max.y.next_up(); }
+    if !min.is_finite() || !max.is_finite() { return Err(NumericFault::Overflow); }
+    Ok(Aabb { min, max })
 }
 
 fn clip(polygon: &[DVec2], plane: MaterialPlane) -> Vec<DVec2> {

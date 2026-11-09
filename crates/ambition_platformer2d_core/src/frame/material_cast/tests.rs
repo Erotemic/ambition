@@ -7,6 +7,85 @@ fn box_at(center: Vec2, half: Vec2) -> Vec<Vec2> {
     corners(Aabb::new(center, half)).to_vec()
 }
 
+#[test]
+fn a_cells_map_travel_sets_the_physical_contact_pose() {
+    let shape = CombatVolume::circle(Vec2::ZERO, 1.0);
+    let mut cells = MaterialCast {
+        material: MaterialPrimitive::world(&shape), root: Vec2::ZERO,
+        delta: Vec2::ZERO, time: 0.0..1.0,
+    }.cells(None).unwrap();
+    cells.parts[0].travel = DVec2::new(20.0, 0.0);
+    let cell = &cells.parts()[0];
+    let bounds = cells.bounds(cell).unwrap().unwrap();
+    assert_eq!(bounds, Aabb { min: Vec2::splat(-1.0), max: Vec2::new(21.0, 1.0) });
+    let obstacle = box_at(Vec2::new(10.0, 0.0), Vec2::new(1.0, 2.0));
+    let hit = cells.against(cell, &obstacle, Vec2::ZERO).unwrap().unwrap();
+    assert!((hit.toi - 0.4).abs() < 1.0e-12);
+    assert_eq!(hit.normal, -Vec2::X);
+    assert!(hit.point.distance(Vec2::X) < 1.0e-6);
+    assert!(hit.world_point.distance(Vec2::new(9.0, 0.0)) < 1.0e-6);
+    assert!(hit.map.point(hit.point).unwrap().distance(hit.world_point) < 1.0e-6);
+}
+
+#[test]
+fn a_translating_cast_keeps_the_contact_in_canonical_material() {
+    let shape = CombatVolume::circle(Vec2::ZERO, 1.0);
+    for scale in [0.5, 1.0, 2.0, 1000.0] {
+        for parity in [-1.0, 1.0] {
+            let rotation = Mat2::from_angle(0.37);
+            let root = Sim2::new(scale, Mat2::from_cols(rotation.x_axis * parity,
+                rotation.y_axis), Vec2::new(50.0, -25.0)).unwrap();
+            let cast = MaterialCast {
+                material: MaterialPrimitive { domain: &shape, to_world: root },
+                root: root.point(Vec2::ZERO).unwrap(),
+                delta: root.vector(Vec2::new(8.0, 0.0)).unwrap(), time: 0.0..1.0,
+            }.cells(None).unwrap();
+            let obstacle = box_at(Vec2::new(4.0, 0.0), Vec2::new(1.0, 2.0)).into_iter()
+                .map(|p| root.point(p).unwrap()).collect::<Vec<_>>();
+            let cell = &cast.parts()[0];
+            let hit = cast.against(cell, &obstacle, Vec2::ZERO).unwrap().unwrap();
+            let source = cell.at(hit.toi).unwrap().inverse().unwrap().point(hit.world_point).unwrap();
+            assert!(source.distance(Vec2::X) < 0.0001, "{scale}, {parity}: {source}");
+            assert!((hit.toi - 0.25).abs() < 0.0001);
+            assert!(hit.map.point(hit.point).unwrap().distance(hit.world_point) < 0.0001);
+        }
+    }
+}
+
+#[test]
+fn a_cast_keeps_the_motion_of_its_cell_boundaries() {
+    let shape = CombatVolume::circle(Vec2::ZERO, 2.0);
+    let mut cells = MaterialCast {
+        material: MaterialPrimitive::world(&shape), root: Vec2::ZERO,
+        delta: Vec2::ZERO, time: 0.0..1.0,
+    }.cells(None).unwrap();
+    cells.parts[0].planes.push(translation::MovingPlane {
+        plane: MaterialPlane { inward: DVec2::X, offset: 3.0 }, rate: -6.0,
+    });
+    let cell = &cells.parts()[0];
+    let obstacle = box_at(Vec2::ZERO, Vec2::new(1.0, 2.0));
+    let hit = cells.against(cell, &obstacle, Vec2::ZERO).unwrap().unwrap();
+    assert!((hit.toi - 1.0 / 3.0).abs() < 1.0e-12);
+    assert!(cells.bounds(cell).unwrap().unwrap().max.x >= hit.world_point.x);
+}
+
+#[test]
+fn a_moving_cell_keeps_its_host_boundary_without_a_false_strip() {
+    for shape in [CombatVolume::aabb(Aabb::new(Vec2::new(-6.0, 0.0), Vec2::new(10.0, 4.0))),
+        CombatVolume::circle(Vec2::new(-6.0, 0.0), 10.0)] {
+        let mut cells = MaterialCast {
+            material: MaterialPrimitive::world(&shape), root: Vec2::new(-6.0, 0.0),
+            delta: Vec2::new(20.0, 0.0), time: 0.0..1.0,
+        }.cells(None).unwrap();
+        cells.parts[0].planes.push(translation::MovingPlane {
+            plane: MaterialPlane { inward: -DVec2::X, offset: 0.0 }, rate: 0.0,
+        });
+        let host = box_at(Vec2::new(25.0, 0.0), Vec2::new(5.0, 20.0));
+        assert!(cells.against(&cells.parts[0], &host, Vec2::new(20.0, 0.0))
+            .unwrap().is_none());
+    }
+}
+
 fn through() -> [PortalLink; 2] {
     PortalLink::both_ways(
         0,

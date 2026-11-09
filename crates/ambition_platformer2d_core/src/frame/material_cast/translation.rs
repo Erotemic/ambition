@@ -1,7 +1,20 @@
-//! Contact with a translating obstacle inside a fixed spatial cell.
+//! Contact with an obstacle and cell whose boundary lines translate.
 
 use super::{CastHit, CombatVolume, DVec2, MaterialPlane, clip, edges};
 use crate::frame::NumericFault;
+
+/// `plane.inward.dot(point) >= plane.offset + rate * time`.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct MovingPlane {
+    pub plane: MaterialPlane,
+    pub rate: f64,
+}
+
+impl From<MaterialPlane> for MovingPlane {
+    fn from(plane: MaterialPlane) -> Self {
+        Self { plane, rate: 0.0 }
+    }
+}
 
 #[derive(Clone, Copy)]
 struct Plane {
@@ -188,9 +201,9 @@ pub(super) fn cast(
     delta: DVec2,
     obstacle: &[DVec2],
     motion: DVec2,
-    cell: &[MaterialPlane],
+    cell: impl ExactSizeIterator<Item = MovingPlane>,
 ) -> Result<Option<CastHit>, NumericFault> {
-    if cell.is_empty() {
+    if cell.len() == 0 {
         return Ok(
             super::primitive_cast(body, delta - motion, obstacle).map(|mut hit| {
                 hit.point += motion * hit.time;
@@ -199,10 +212,10 @@ pub(super) fn cast(
         );
     }
     let mut constraints = planes(obstacle, motion);
-    constraints.extend(cell.iter().map(|plane| Plane {
-        inward: plane.inward,
-        offset: plane.offset,
-        rate: 0.0,
+    constraints.extend(cell.map(|plane| Plane {
+        inward: plane.plane.inward,
+        offset: plane.plane.offset,
+        rate: plane.rate,
         cell: true,
     }));
     let mut vertices = Vec::new();
@@ -458,6 +471,49 @@ mod tests {
     use crate::{Aabb, Vec2};
 
     #[test]
+    fn a_moving_cell_can_expose_a_stationary_obstacle_to_the_body() {
+        let obstacle = [
+            DVec2::new(-1.0, -2.0),
+            DVec2::new(1.0, -2.0),
+            DVec2::new(1.0, 2.0),
+            DVec2::new(-1.0, 2.0),
+        ];
+        let cell = [MovingPlane {
+            plane: MaterialPlane {
+                inward: DVec2::X,
+                offset: 3.0,
+            },
+            rate: -6.0,
+        }];
+        for body in [
+            CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(2.0, 1.0))),
+            CombatVolume::Circle {
+                center: Vec2::ZERO,
+                radius: 2.0,
+            },
+        ] {
+            let hit = cast(&body, DVec2::ZERO, &obstacle, DVec2::ZERO, cell.into_iter())
+                .unwrap()
+                .unwrap();
+            assert!((hit.time - 1.0 / 3.0).abs() < 1.0e-12);
+            assert_eq!(hit.normal, DVec2::X);
+            assert!((hit.point.x - 1.0).abs() < 1.0e-12);
+            for boost in [DVec2::new(20.0, -30.0), DVec2::new(-7.0, 11.0)] {
+                let boosted = cell.map(|p| MovingPlane {
+                    rate: p.rate + p.plane.inward.dot(boost),
+                    ..p
+                });
+                let moved = cast(&body, boost, &obstacle, boost, boosted.into_iter())
+                    .unwrap()
+                    .unwrap();
+                assert!((moved.time - hit.time).abs() < 1.0e-12);
+                assert_eq!(moved.normal, hit.normal);
+                assert!(moved.point.distance(hit.point + boost * hit.time) < 1.0e-12);
+            }
+        }
+    }
+
+    #[test]
     fn an_oblique_moving_face_keeps_its_analytic_circle_contact() {
         let body = CombatVolume::Circle {
             center: Vec2::ZERO,
@@ -477,7 +533,14 @@ mod tests {
                 inward: tangent,
                 offset: -1000.0,
             }];
-            let hit = cast(&body, DVec2::ZERO, &obstacle, -side * 8.0, &cell).unwrap();
+            let hit = cast(
+                &body,
+                DVec2::ZERO,
+                &obstacle,
+                -side * 8.0,
+                cell.iter().copied().map(Into::into),
+            )
+            .unwrap();
             assert!(
                 hit.is_some(),
                 "the wide face must meet the circle at angle {angle}"
@@ -518,7 +581,7 @@ mod tests {
                     DVec2::ZERO,
                     &obstacle,
                     DVec2::new(-10.0, -10.0),
-                    &cell
+                    cell.iter().copied().map(Into::into)
                 )
                 .unwrap()
                 .is_none()
@@ -527,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    fn translated_contacts_agree_with_rectangle_and_circle_intersections_in_a_cell() {
+    fn moving_cells_agree_with_rectangle_and_circle_intersections() {
         let mut state = 1729_u64;
         let mut number = || {
             state = state
@@ -545,12 +608,21 @@ mod tests {
                 offset: -3.0,
             },
         ];
-        for _ in 0..1000 {
+        for index in 0..2000 {
             let center = Vec2::new((number() * 8.0 - 4.0) as f32, (number() * 8.0 - 4.0) as f32);
             let half = Vec2::new((number() + 0.5) as f32, (number() + 0.5) as f32);
             let delta = DVec2::new(number() * 10.0 - 5.0, number() * 10.0 - 5.0);
             let start = DVec2::new(number() * 16.0 - 8.0, number() * 16.0 - 8.0);
             let motion = DVec2::new(number() * 16.0 - 8.0, number() * 16.0 - 8.0);
+            let cell_motion = if index % 2 == 0 {
+                DVec2::ZERO
+            } else {
+                DVec2::new(number() * 16.0 - 8.0, number() * 16.0 - 8.0)
+            };
+            let cell = cell.map(|plane| MovingPlane {
+                rate: plane.inward.dot(cell_motion),
+                plane,
+            });
             let obstacle = [
                 start - DVec2::ONE,
                 start + DVec2::new(1.0, -1.0),
@@ -565,7 +637,8 @@ mod tests {
                 },
             ] {
                 let overlaps = |time: f64, slop: f64| {
-                    let min = (start + motion * time - DVec2::ONE).max(DVec2::new(0.0, -3.0));
+                    let min = (start + motion * time - DVec2::ONE)
+                        .max(DVec2::new(0.0, -3.0) + cell_motion * time);
                     let max = start + motion * time + DVec2::ONE;
                     if min.x >= max.x || min.y >= max.y {
                         return false;
@@ -586,7 +659,7 @@ mod tests {
                 if overlaps(0.0, 1.0e-8) {
                     continue;
                 }
-                let hit = cast(&body, delta, &obstacle, motion, &cell).unwrap();
+                let hit = cast(&body, delta, &obstacle, motion, cell.into_iter()).unwrap();
                 let sampled = (1..=200)
                     .map(|step| f64::from(step) / 200.0)
                     .find(|time| overlaps(*time, -1.0e-6));

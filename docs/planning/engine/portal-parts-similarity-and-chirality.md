@@ -613,16 +613,23 @@ loading work. No complete PSIM acceptance slice is closed.
   circles analytic and returns the source collider and directed path.
   Projectiles use this query for world contacts. Actor kernels still use
   their prior contact paths. Translating blocks use their full swept bounds.
-  Their contact query keeps the cell fixed while the obstacle crosses it.
+  The contact query keeps the primitive fixed in canonical coordinates.
+  Motion changes the cell maps and cut offsets. One analytic solver handles
+  fixed and translating boundaries. Broad phase bounds clip the source box
+  in source position and time, so an intermediate cell is not missed when
+  both endpoint poses are empty. Contact still uses the actual primitive.
   A cast carries its interval within the world tick; a projectile leg that
   stops at an entry does not test later obstacle motion. A live app witness
   hits a moving wall that misses the far part at both endpoint poses, before
-  the root transits. Aperture cells still use the current frame snapshot.
+  the root transits. Core witnesses check independent cell motion, a shared
+  moving host boundary, exact circle corners, scale, parity and frame boosts.
+  Cell construction still partitions the current aperture snapshot.
   Their motion, rotating obstacles, moving line hosts and physical righting
   remain open. Each directed link now retains the start pose and the host's
   published displacement and turn. Sampling follows the host arc and keeps
-  full windings. Both directions share that recorded motion. Collision cells
-  still need to consume it over the whole operation. A host wrap closes the
+  full windings. Both directions share that recorded motion. The temporal
+  partition builder still needs to consume it over the whole operation and
+  admit every path that exists during the interval. A host wrap closes the
   old plane; its aperture does not sweep between the two locations.
 - Projectile world contacts use the original collider and the selected part.
   The response uses its normal and physical contact point. Surface velocity

@@ -56,3 +56,9 @@ and checks its time, point and normal.
 A moving aperture needs cells over the same interval as its host. Pulling
 a host back to the tick's start while keeping the aperture at its end pose
 can expose a false strip of host geometry. Keep their motion in one query.
+
+Keep the primitive fixed in its canonical chart during a cast. Motion belongs
+in the cell maps and cut rates. Broad phase bounds must include the cell in
+source position and time. A cell can hold material between endpoint poses
+even when it holds none at either endpoint. Round those bounds outwards;
+rounding a bound inwards can remove a valid collision candidate.

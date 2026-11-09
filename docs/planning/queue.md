@@ -910,9 +910,10 @@ need correct scaling, reflection and physically consistent clipping.
 
 **Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
 
-**Next action:** complete implementation and testing in assigned worktree
-slot 1 (Jon, 2026-11-08). All VM CPUs are available. Keep main integration
-pending while Jon profiles Android from main. Follow the owner's
+**Next action:** continue implementation and testing on main (Jon, 2026-11-08).
+Jon released main and requested the tested slot 1 work to be merged. All VM
+CPUs are available. Finish live root transit, exact contact projections and
+source admission for every mover. Follow the owner's
 [implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
 and [draft status](engine/portal-parts-similarity-and-chirality.md#draft-status).
 PSIM-1A and PSIM-1B: prove canonical-material partition invariants,

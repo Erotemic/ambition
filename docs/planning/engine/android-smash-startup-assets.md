@@ -4,6 +4,8 @@
 
 **Scope:** Android Smash startup, image decode, materialization, and memory use. The established lifecycle contract is in [asset preparation and residency](asset-preparation-and-residency.md). This document is a standalone investigation and implementation plan. Do not merge it into a shared task queue while other agents update that queue.
 
+Use the [profiling handoff](android-smash-startup-handoff-2026-11-08.md) for the capture evidence and next steps.
+
 ## Evidence and target
 
 The 2026-11-08 four-CPU Android autoplay capture (`android-all-smash_4p-auto-20261108T221326Z`) reported:

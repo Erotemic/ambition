@@ -2,10 +2,10 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** IMPLEMENTATION AND TESTING IN WORKTREE SLOT 1
-(Jon, 2026-11-08). Use branch `portal-similarity-draft` and its own bound target.
-All 12 VM CPUs are available. Keep implementation and tests in this worktree
-while Jon uses main for Android profiling. Main integration remains pending. See
+**Work state:** IMPLEMENTATION AND TESTING ON MAIN (Jon, 2026-11-08).
+Jon released main and asked for the tested slot 1 work to be merged. Continue
+on main with all VM CPUs available. Preserve `portal-similarity-draft` in slot 1
+as the merged checkpoint. Feature acceptance remains open. See
 [Implementation plan](#implementation-plan) and [Draft status](#draft-status).
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -552,40 +552,42 @@ reduce physical correctness or add a separate controller path.
 
 ### Draft status
 
-The branch contains PSIM-1A code and an initial PSIM-1B body admission path.
-No PSIM slice has passed its acceptance checks.
+The tested foundation is merged into main with the Android profiling and asset
+loading work. No complete PSIM acceptance slice is closed.
 
-- `Sim2` validates scale, orientation, composition, inverse, coordinates,
-  feature resolution, and moving-surface velocity. Numerical failure is typed.
-- `VolumePiece` keeps canonical source material and cut planes. Its world
-  volume and planes are private projections of that source and its map.
-- Partition failure returns no partial geometry. Combat, contact queries,
-  observations, folded meshes, and capture copies use the new result.
-- The body kernel checks a private movement candidate and its recorded sweep
-  before commit. Rejection retains body state and clears stale travelled paths.
-  Both controller adapters receive the same admission input.
-- Aperture publication precedes body integration. The later passage publication
-  refreshes occupancy without replacing that tick's aperture inputs.
+- `Sim2` keeps scale, orthogonal composition and translation in double
+  precision. It validates projected coordinates, feature resolution and moving
+  surface velocity. Numerical failure is typed.
+- Parts retain canonical primitives and double-precision cut covectors. World
+  volumes and planes are private projections. Root parity is part of the full
+  transform. The rebase operation preserves world geometry.
+- Part count, path length and cumulative scale have explicit limits. A limit
+  refuses the operation and returns no partial geometry. The default scale
+  range is `1/4096..=4096`; a body or room can set its exponent limit.
+- Body dimensions remain canonical. Snapshots retain material scale and axes.
+  Each movement policy derives world units for its step and then restores the
+  authored parameters. World gravity and body time do not change with scale.
+- The body kernel validates a private candidate, its sweep and mapped part
+  velocities before commit. Rejection retains body state and clears stale
+  travelled paths. Both controller adapters use the same admission input.
+- Apertures publish before integration. Body material maps refresh after
+  transit. Combat and presentation consume fallible partitions.
+- `BodyPieces` is removed. The held gun uses the shared attachment carry path.
+  Pooled textured meshes clip against every boundary; the six-plane shader
+  limit is removed. Folded meshes clip in the source chart.
 
-The initial foundation now passes all 724 core library tests and the
-assembled `ambition_app` check. The translated rotating-pair regression
-requires composed translation to remain in double precision until projection.
-Other PSIM acceptance remains open. The allocation measurement
-still exists; sharing source primitives and copying movement candidates change
-its inputs, so record a new result after compilation is permitted.
+On the tree reconciled with main, `cargo check -p ambition_app` passes.
+Library tests pass: 739 core tests, 349 shared tests, 134 portal tests and
+126 presentation tests. One core measurement remains ignored. This does not
+close the assembled runtime, replay, visual or performance acceptance checks.
 
-The lowest-confidence part is movement admission. Check retained support facts,
-curved paths, control-phase displacement, topology changes after the aperture
-snapshot, and the cost of candidate copies.
-Finish refusal at projectile/free-body sweeps, externally owned poses, and
-moving aperture hosts. A body-kernel hook alone does not close PSIM-1B.
+Finish source admission for projectile and free-body sweeps, externally owned
+poses and moving aperture hosts. Check retained support facts, curved paths,
+control-phase displacement, topology changes after the aperture snapshot and
+candidate-copy cost. The body-kernel gate alone does not close PSIM-1B.
 
-Persistent root scale/parity and transit rebasing, the full-map transit event,
-common exact collision/contact projections, removal of `BodyPieces`, arbitrary
-visual clipping, and the unequal-aperture switch remain in packets 3 through 5.
-GNU-ton acceptance and numerical-fault presentation remain in packets 6 and 7.
-The minimum-opening policy remains in production until the coordinated switch.
-
-When main is ready, merge main into the draft branch or apply the draft commits
-on main as Jon directs. Use the prepared main target for the compile pass.
-Review shared schema changes semantically before selecting any version number.
+Live root transit and righting, the full-map transit result, common exact
+collision/contact projections and the unequal-aperture switch remain open.
+GNU-ton acceptance and numerical-fault presentation remain open. Keep the
+minimum-opening policy in production until the coordinated switch. Measure
+allocation and frame cost on the completed production paths.

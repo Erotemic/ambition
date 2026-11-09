@@ -2,11 +2,13 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** IMPLEMENTATION AND TESTING ON MAIN (Jon, 2026-11-08).
-Jon released main and asked for the tested slot 1 work to be merged. Continue
-on main with all VM CPUs available. Preserve `portal-similarity-draft` in slot 1
-as the merged checkpoint. Feature acceptance remains open. See
-[Implementation plan](#implementation-plan) and [Draft status](#draft-status).
+**Work state:** PAUSED AFTER A COMMITTED CHECKPOINT (2026-11-09).
+The slot 1 work was merged. Main is the active checkout. Jon asked for a safe
+commit point before the pause. The root-scan packet is committed as
+`e3ebef90f`; its affected checks pass. No build or test is running.
+Do not resume the broader implementation until Jon asks. Preserve the merged
+slot 1 checkpoint, `portal-similarity-draft`. Feature acceptance remains open.
+See [Committed checkpoint](#committed-checkpoint) and [Draft status](#draft-status).
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
 [portals are moving frames](portals-are-moving-frames.md), and
@@ -580,6 +582,61 @@ cut work, capture pixels, allocations, CPU frame cost, and GPU capture cost.
 Use target-device results for GPU conclusions. Performance changes must not
 reduce physical correctness or add a separate controller path.
 
+### Committed checkpoint
+
+Code checkpoint: `e3ebef90f` (2026-11-09). Lab map checkpoint: `16018b5` in
+the map submodule. The broader portal goal remains paused and incomplete.
+
+The root query follows recorded aperture turns and returns the crossing time
+and sampled poses. Transit and projectile contact limits use this query.
+An overlap without a recorded path cannot transfer a root. A shortened
+projectile leg keeps the original line and its closed end parameter, so
+projection of its endpoint does not change its crossing time. Rollback schema
+428 and its baselines include these motion fields.
+
+The fit, carve and snag rules now use the authored opening width. The former
+two-pixel allowance could open a hole for a body that the root query could not
+transfer. It is removed. The real-app oversized-body regression passes and
+checks support against the actual host face.
+
+Verified for this packet:
+
+- Core library: 827 passed, one ignored. Portal library: 138 passed.
+- Runtime projectile tests: 59 passed. Assembled projectile selection:
+  19 passed, including the full-turn G spinner and the oversized-body case.
+- Content portal selection: 64 passed. Schema-baseline selection: four passed.
+  The codec-shape check passes for 30 files.
+- Workspace policy: 35 passed. Smash: 71 passed, six ignored.
+- Assembled app check and core/portal doctest gates passed.
+
+The earlier full rollback selection passed 82 tests with six ignored and three
+failures. Its schema-header failure is fixed and the four schema tests pass.
+The two existing resource-classification failures remain:
+`SmashAutoplayDriver` and `SpriteSheetWatchPolicy`. The broad rollback selection
+was not repeated after the focused fix. A broader content run also found the
+unpublished `history_afonso_letter` sheet. These results do not claim a green
+full-repository run.
+
+Final affected-check results are in `target/portal-checkpoint-gates.json`,
+with portal and Smash logs under the same prefix. Earlier core and policy
+results are in the `target/portal-prefix-*.log` files.
+
+K and L are live lab examples. The F/G label updates are committed; their
+semantic diff changes two text fields and no geometry. Both labels are visible
+in the reviewed `/tmp/portal-lab-moving-entries-wide.png` capture. The map tool
+also reports the existing `scroll_lab_door` validation error. H–J remain draft
+authoring in `portal_similarity_lab.yaml`; they are not live scale, chirality
+or multi-link acceptance examples.
+
+On resume, continue persistent root material rebasing, remaining motion in the
+same tick, complete source admission and canonical consumer integration.
+Unequal apertures, GNU-ton acceptance and numerical-fault presentation remain
+open. Union-feature, full library, replay, rendering and performance acceptance
+remain open. Do not switch the minimum-opening policy or mark
+PORTAL-SIMILARITY complete from this checkpoint. Preserve the unrelated dirty
+submodules, science.ldtk, profiling measurements and the untracked related-work
+ideas file.
+
 ### Draft status
 
 The tested foundation is merged into main with the Android profiling and asset
@@ -653,8 +710,17 @@ loading work. No complete PSIM acceptance slice is closed.
   Line openings now follow the same recorded pose. Their finite ends remain
   solid. The separate end-pose line subtraction is removed. A sliding opening
   test checks box and analytic circle contact times. Contact-only source
-  strata do not consume material piece slots. Physical righting, angular root
-  transit and complete motion-source admission remain open.
+  strata do not consume material piece slots. Root queries now follow the
+  recorded aperture turn and return both endpoint poses at the crossing time.
+  Transit and projectile contact limits use this scan. An overlap without a
+  recorded path cannot transfer a root. A shortened projectile leg retains
+  the original line, its closed end parameter and its world-tick interval.
+  Transit uses that record instead of a line through the projected endpoint.
+  Motion samples use rollback schema 428. Physical righting,
+  persistent root material rebasing, motion after a crossing and complete
+  motion-source admission remain open. The generic transit adapter still
+  supplies a collision-box envelope; the projectile scan supplies canonical
+  material. The root scan does not close angular transit acceptance.
   A host wrap closes the
   old plane; its aperture does not sweep between the two locations.
 - Projectile world contacts use the original collider and the selected part.
@@ -715,8 +781,12 @@ Check retained support facts, curved paths, control-phase displacement,
 topology changes after the aperture snapshot and candidate-copy cost.
 The existing gates do not close PSIM-1B.
 
-Live root transit and righting, common exact collision/contact projections
-and the unequal-aperture switch remain open.
+Complete root transit and righting, common exact collision/contact projections
+and the unequal-aperture switch remain open. The root scan has tests for full
+windings, finite circle and polygon openings, common boosts and world-time
+subintervals. A large world origin cannot widen an opening. The live station G
+regression uses its authored spinner and pair with a full turn in one tick.
+Station F and G labels identify moving entry and stationary-body pickup.
 GNU-ton acceptance and numerical-fault presentation remain open. Keep the
 minimum-opening policy in production until the coordinated switch. Measure
 allocation and frame cost on the completed production paths.

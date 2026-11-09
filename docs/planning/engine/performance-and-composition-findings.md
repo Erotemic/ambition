@@ -38,12 +38,15 @@ acceptance and conditional follow-ups (not a new active optimization campaign):
 3. **Measure and decide material/gizmo costs** on a target device before a
    Bevy fork, removal of debug gizmos, or consolidation of Ambition's room-look
    materials. There is no standing generic optimization campaign.
-4. **Repair multiroom moving-platform presentation**: the 2026-10-24 witness
-   `the_visual_follows_its_set_while_a_second_room_is_live` was ignored because
-   `sync_moving_platform_visuals` used `Single<…, With<RoomInstanceRoot>>`.
-   With two live room roots, the pass was skipped. Each platform visual must
-   resolve its own room. Revalidate the witness against current code, fix if
-   still reproducible, and remove `#[ignore]` when accepted.
+4. ✅ **Multiroom moving-platform presentation (DONE 2026-11-09).** Split screen
+   drew one player's moving platforms in the other player's view.
+   `sync_moving_platform_visuals` read its room through `Single`, which Bevy
+   skips with two live rooms, and spawned its visuals without a room stamp, so
+   every camera drew them. Now each live room's set is reconciled against its
+   own geometry, and each visual is stamped with its room
+   (`MovingPlatformVisual.room`), so `isolate_live_rooms` bands it. Guards:
+   `the_visual_follows_its_set_while_a_second_room_is_live` (no longer
+   ignored) and `each_live_room_draws_its_own_platforms_stamped_with_that_room`.
 
 ### F49 — The run's end, desktop A/B: main-world wall halved, the hub frame halved (2026-10-24)
 

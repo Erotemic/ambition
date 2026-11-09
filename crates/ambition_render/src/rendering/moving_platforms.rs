@@ -16,7 +16,7 @@
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, RoomVisual, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, LiveRoomInstance, RoomInstanceRoot, RoomVisual, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
@@ -157,13 +157,16 @@ fn sheet_flipped(look: &PlatformLook, platform: &MovingPlatformState, air_x: f32
 }
 
 /// The picture of one moving platform, tied to its index in the authoritative
-/// [`MovingPlatformSet`].
+/// [`MovingPlatformSet`] of its live room.
 ///
-/// The index is the identity: the set is a positional roster rebuilt by room
-/// construction, so a platform has no id of its own. A room change replaces
-/// the whole roster and all its visuals.
+/// The room and the index are the identity: each set is a positional roster
+/// rebuilt by room construction, so a platform has no id of its own. A room
+/// change replaces the whole roster and all its visuals.
 #[derive(Component)]
 pub struct MovingPlatformVisual {
+    /// The live room whose set holds the platform. The visual is stamped with
+    /// it too, so only a view that frames that room draws it.
+    pub room: LiveRoomInstance,
     pub index: usize,
     /// The sheet it is drawn as, when it is one: a slot whose platform now
     /// wants another look is drawn again.
@@ -172,34 +175,37 @@ pub struct MovingPlatformVisual {
     pub front: bool,
 }
 
-/// Reconcile the moving-platform visuals against the authoritative set.
-///
-/// Spawns what is missing, retires what the set no longer has, and moves and
-/// resizes the rest. Idempotent: it compares populations instead of reacting
-/// to events, so it needs no change detection and cannot double-spawn during
-/// a rollback resimulation.
 /// Run condition of [`sync_moving_platform_visuals`]: a live room has a
 /// moving platform to draw, or a platform visual exists to move or retire.
 pub fn platforms_or_their_visuals(
-    rooms: Query<Option<&MovingPlatformSet>, With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
+    rooms: Query<Option<&MovingPlatformSet>, With<RoomInstanceRoot>>,
     visuals: Query<(), With<MovingPlatformVisual>>,
 ) -> bool {
     !visuals.is_empty() || rooms.iter().any(|set| set.is_some_and(|set| !set.0.is_empty()))
 }
 
+/// Reconcile the moving-platform visuals against the authoritative set of
+/// each live room.
+///
+/// Spawns what is missing, retires what a set no longer has (or what a room
+/// that is no longer live had), and moves and resizes the rest. Idempotent:
+/// it compares populations instead of reacting to events, so it needs no
+/// change detection and cannot double-spawn during a rollback resimulation.
 pub fn sync_moving_platform_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    // The live room's geometry and its platforms, off one root.
-    room: Single<
+    // Each live room's geometry and its platforms, off its own root: a
+    // platform is placed by the geometry of the room that holds it.
+    rooms: Query<
         (
+            &LiveRoomInstance,
             &ae::RoomGeometry,
             Option<&MovingPlatformSet>,
             Option<&ambition_platformer2d_world::rooms::LiveRoomDefinition>,
         ),
-        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+        With<RoomInstanceRoot>,
     >,
-    // The room's authored sky: a sheet faces the way it flies through it.
+    // Each room's authored sky: a sheet faces the way it flies through it.
     room_specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut existing: Query<(
         Entity,
@@ -213,12 +219,17 @@ pub fn sync_moving_platform_visuals(
     assets: Option<Res<GameAssets>>,
     time: Option<Res<Time>>,
 ) {
-    let (world, platform_set, definition) = *room;
-    let air_x = definition
-        .zip(room_specs.as_ref())
-        .and_then(|(definition, specs)| specs.rooms().spec(*definition).metadata.visual_profile.sky_scroll_px_s)
-        .map_or(0.0, |px_s| px_s as f32);
-    let platforms = platform_set.map_or(&[][..], |set| &set.0[..]);
+    // Per live room: its geometry, its platforms and its sky speed.
+    let live: Vec<(LiveRoomInstance, &ae::World, &[MovingPlatformState], f32)> = rooms
+        .iter()
+        .map(|(room, world, platform_set, definition)| {
+            let air_x = definition
+                .zip(room_specs.as_ref())
+                .and_then(|(definition, specs)| specs.rooms().spec(*definition).metadata.visual_profile.sky_scroll_px_s)
+                .map_or(0.0, |px_s| px_s as f32);
+            (*room, &world.0, platform_set.map_or(&[][..], |set| &set.0[..]), air_x)
+        })
+        .collect();
     let dt = time.map_or(0.0, |time| time.delta_secs());
     // The sheet a platform is drawn as, when its look is registered and its
     // art has loaded; otherwise it is drawn plain until they are.
@@ -226,10 +237,14 @@ pub fn sync_moving_platform_visuals(
     let sheet_of = |platform| sheet_look(platform, looks, assets);
     // Retire first, so a vanished index is not mistaken for a survivor when a
     // shorter roster reuses its slot.
-    // For each platform: its picture, and the front layer of its sheet.
-    let mut drawn = vec![[false; 2]; platforms.len()];
+    // For each room and platform: its picture, and the front layer of its sheet.
+    let mut drawn: Vec<Vec<[bool; 2]>> = live.iter().map(|(_, _, platforms, _)| vec![[false; 2]; platforms.len()]).collect();
     for (entity, visual, mut transform, mut sprite, animator, anchor) in &mut existing {
-        let Some(platform) = platforms.get(visual.index).filter(|platform| !is_hidden(platform)) else {
+        let found = live.iter().position(|(room, ..)| *room == visual.room).and_then(|slot| {
+            let (_, world, platforms, air_x) = live[slot];
+            platforms.get(visual.index).filter(|platform| !is_hidden(platform)).map(|platform| (slot, world, platform, air_x))
+        });
+        let Some((slot, world, platform, air_x)) = found else {
             commands.entity(entity).despawn();
             continue;
         };
@@ -246,10 +261,10 @@ pub fn sync_moving_platform_visuals(
             commands.entity(entity).despawn();
             continue;
         }
-        drawn[visual.index][usize::from(visual.front)] = true;
+        drawn[slot][visual.index][usize::from(visual.front)] = true;
         match (sheet.zip(layer), animator) {
             (Some(((_, look, _), (row, z))), Some(mut animator)) => {
-                transform.translation = world_to_bevy(&world.0, sheet_point(platform), z);
+                transform.translation = world_to_bevy(world, sheet_point(platform), z);
                 // A loop: no move plays a platform's row, so nothing ends it.
                 animator.request_loop([row], ambition_sprite_sheet::character::CharacterAnim::Walk);
                 // `&mut` through the `Mut` marks the components already.
@@ -263,7 +278,7 @@ pub fn sync_moving_platform_visuals(
                 );
             }
             _ => {
-                transform.translation = world_to_bevy(&world.0, platform.pos, BACK_LAYER_Z);
+                transform.translation = world_to_bevy(world, platform.pos, BACK_LAYER_Z);
                 // A plank turns; world +y is down and Bevy's is up, so the
                 // turn is mirrored.
                 transform.rotation = Quat::from_rotation_z(-platform.angle());
@@ -279,60 +294,64 @@ pub fn sync_moving_platform_visuals(
     else {
         return;
     };
-    for (index, platform) in platforms.iter().enumerate() {
-        if is_hidden(platform) {
-            continue;
-        }
-        if let Some((kind, look, asset)) = sheet_of(platform) {
-            for front in [false, true] {
-                let Some((_, z)) = look_layer(look, front).filter(|_| !drawn[index][usize::from(front)]) else {
-                    continue;
-                };
-                let (render_size, anchor) = sheet_geometry(look, platform);
-                let (mut sprite, anchor, animator) =
-                    ambition_sprite_sheet::character::build_character_presentation_with_render_size(
-                        asset,
-                        render_size,
-                        anchor,
-                    );
-                sprite.flip_x = sheet_flipped(look, platform, air_x);
-                let layer = if front { " front" } else { "" };
-                commands.spawn_session_scoped(
-                    session_scope,
-                    (
-                        sprite,
-                        anchor,
-                        animator,
-                        Transform::from_translation(world_to_bevy(&world.0, sheet_point(platform), z)),
-                        Name::new(format!("Moving platform {index}: {} ({kind}{layer})", platform.name)),
-                        MovingPlatformVisual { index, sheet: Some(kind.to_string()), front },
-                        RoomVisual,
-                    ),
-                );
+    for (slot, &(room, world, platforms, air_x)) in live.iter().enumerate() {
+        // Stamped with its room: the room's retirement and render band take it.
+        let session_scope = session_scope.in_room(Some(room));
+        for (index, platform) in platforms.iter().enumerate() {
+            if is_hidden(platform) {
+                continue;
             }
-            continue;
-        }
-        if drawn[index][0] {
-            continue;
-        }
-        commands.spawn_session_scoped(
-            session_scope,
-            (
-                Sprite::from_color(
-                    Color::srgba(0.35, 0.74, 1.0, 0.92),
-                    Vec2::new(platform.size.x, platform.size.y),
+            if let Some((kind, look, asset)) = sheet_of(platform) {
+                for front in [false, true] {
+                    let Some((_, z)) = look_layer(look, front).filter(|_| !drawn[slot][index][usize::from(front)]) else {
+                        continue;
+                    };
+                    let (render_size, anchor) = sheet_geometry(look, platform);
+                    let (mut sprite, anchor, animator) =
+                        ambition_sprite_sheet::character::build_character_presentation_with_render_size(
+                            asset,
+                            render_size,
+                            anchor,
+                        );
+                    sprite.flip_x = sheet_flipped(look, platform, air_x);
+                    let layer = if front { " front" } else { "" };
+                    commands.spawn_session_scoped(
+                        session_scope,
+                        (
+                            sprite,
+                            anchor,
+                            animator,
+                            Transform::from_translation(world_to_bevy(world, sheet_point(platform), z)),
+                            Name::new(format!("Moving platform {index}: {} ({kind}{layer})", platform.name)),
+                            MovingPlatformVisual { room, index, sheet: Some(kind.to_string()), front },
+                            RoomVisual,
+                        ),
+                    );
+                }
+                continue;
+            }
+            if drawn[slot][index][0] {
+                continue;
+            }
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    Sprite::from_color(
+                        Color::srgba(0.35, 0.74, 1.0, 0.92),
+                        Vec2::new(platform.size.x, platform.size.y),
+                    ),
+                    Transform::from_translation(world_to_bevy(
+                        world,
+                        platform.pos,
+                        BACK_LAYER_Z,
+                    ))
+                    .with_rotation(Quat::from_rotation_z(-platform.angle())),
+                    Name::new(format!("Moving platform {index}: {}", platform.name)),
+                    MovingPlatformVisual { room, index, sheet: None, front: false },
+                    RoomVisual,
                 ),
-                Transform::from_translation(world_to_bevy(
-                    &world.0,
-                    platform.pos,
-                    BACK_LAYER_Z,
-                ))
-                .with_rotation(Quat::from_rotation_z(-platform.angle())),
-                Name::new(format!("Moving platform {index}: {}", platform.name)),
-                MovingPlatformVisual { index, sheet: None, front: false },
-                RoomVisual,
-            ),
-        );
+            );
+        }
     }
 }
 
@@ -406,7 +425,6 @@ mod tests {
     /// A platform's visual follows its set while a second room is live (a
     /// door's neighbour, a gate link), as every other drawable does.
     #[test]
-    #[ignore = "F48: the pass reads its room through `Single`, which Bevy skips with two live rooms; the fix places each visual by its own room"]
     fn the_visual_follows_its_set_while_a_second_room_is_live() {
         let mut app = app_with_platforms(vec![platform("a", 100.0)]);
         app.update();
@@ -425,6 +443,43 @@ mod tests {
             (after.x - before.x).abs() > 100.0,
             "with two live rooms the visual must still follow its set ({before:?} -> {after:?})"
         );
+    }
+
+    /// Split screen: each live room draws its own platforms, stamped with
+    /// that room, so a view that frames the other room does not draw them
+    /// (`isolate_live_rooms` bands by the stamp). Unstamped, a platform of
+    /// one player's room was drawn in the other player's view.
+    #[test]
+    fn each_live_room_draws_its_own_platforms_stamped_with_that_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance};
+        let mut app = app_with_platforms(vec![platform("first", 100.0)]);
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let root = spawn_live_room(
+            app.world_mut(),
+            second,
+            ae::RoomGeometry(ae::World::new("second", ae::Vec2::new(1280.0, 720.0), ae::Vec2::ZERO, Vec::new())),
+        );
+        app.world_mut().entity_mut(root).insert(MovingPlatformSet(vec![platform("second a", 300.0), platform("second b", 700.0)]));
+        app.update();
+
+        let mut q = app.world_mut().query::<(&MovingPlatformVisual, &Name, Option<&InRoomInstance>)>();
+        let mut rows: Vec<(LiveRoomInstance, usize, String, Option<LiveRoomInstance>)> = q
+            .iter(app.world())
+            .map(|(visual, name, stamp)| (visual.room, visual.index, name.to_string(), stamp.map(|stamp| stamp.0)))
+            .collect();
+        rows.sort_by_key(|(room, index, ..)| (*room, *index));
+        let first = LiveRoomInstance::ACTIVATION;
+        assert_eq!(
+            rows.iter().map(|(room, index, _, stamp)| (*room, *index, *stamp)).collect::<Vec<_>>(),
+            vec![(first, 0, Some(first)), (second, 0, Some(second)), (second, 1, Some(second))],
+            "each platform is drawn once, keyed and stamped by its own room: {rows:?}"
+        );
+        assert!(rows[1].2.contains("second a") && rows[2].2.contains("second b"), "a visual is of its own room's platform: {rows:?}");
+
+        // The second room is no longer live: its visuals go with it.
+        app.world_mut().entity_mut(root).despawn();
+        app.update();
+        assert_eq!(visuals(&mut app).len(), 1, "a room that is not live keeps no platform visual");
     }
 
     /// It follows the authoritative set instead of remembering.

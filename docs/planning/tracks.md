@@ -195,12 +195,6 @@ These were explicit unfinished items inside dated owner diaries. This section
 is a **reservoir**, not a second execution queue; verify each against current
 source before promotion.
 
-- ▢ **Multiroom moving-platform visuals.** A 2026-10-24 ignored witness
-  `the_visual_follows_its_set_while_a_second_room_is_live` reported that
-  `sync_moving_platform_visuals` used `Single<RoomInstanceRoot>` and stopped
-  when two room roots were live. Promote if reproducible: resolve each
-  platform's room, unignore the test, and verify two live rooms. Owner:
-  [`engine/performance-and-composition-findings.md`](engine/performance-and-composition-findings.md#f48--after-the-content-gates-what-is-left-is-bevys-and-jons-2026-10-24).
 - ▢ **Parts-only artifact distribution.** P5c is still open: exclude baked
   `_spritesheet.png` for parts-only characters from shipped products while
   retaining it as an offline oracle. P6c target-GPU cost/parity evidence is

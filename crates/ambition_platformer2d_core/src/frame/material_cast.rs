@@ -13,6 +13,7 @@ mod cell;
 mod temporal;
 mod affine;
 mod curved;
+mod arcs;
 pub use cell::MaterialCell;
 
 /// A primitive's translation in its owner's world chart.
@@ -44,6 +45,7 @@ pub struct MaterialCastCells<'a> {
     delta: DVec2,
     parts: Vec<MaterialCell>,
     time: std::ops::Range<f64>,
+    scene:Option<std::sync::Arc<arcs::Scene>>,
 }
 
 fn numeric(reason: NumericFault) -> Refusal {
@@ -80,10 +82,19 @@ impl<'a> MaterialCast<'a> {
         if !self.delta.is_finite() || !self.root.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
         let bounds = self.material.domain.bounds();
         if (bounds.max-bounds.min).min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
+        let scene=admission.filter(|a|!a.links.is_empty()).map(|admission|arcs::Scene::new(&self,admission));
         let parts = if let Some(admission) = admission {
-            affine::build(&self, admission)?
+            if admission.links.iter().any(|link|link.enter_step.turn!=0.0 || link.exit_step.turn!=0.0) {
+                if self.time.start==self.time.end {
+                    let links=admission.links.iter().map(|link| {
+                        let pose=link.snapshot_at(self.time.start).map_err(numeric)?;
+                        Ok(super::thread::PortalLink {depth:pose.depth,..super::thread::PortalLink::new(pose.enter,pose.exit,pose.key)})
+                    }).collect::<Result<Vec<_>,Refusal>>()?;
+                    affine::build(&self,MotionAdmission {links:&links,..admission})?
+                } else {arcs::build(&self,admission,scene.as_ref().unwrap().clone())?}
+            } else {affine::build(&self, admission)?}
         } else {
-            vec![MaterialCell { path: vec![], map: self.material.to_world,
+            vec![MaterialCell { path: vec![], curve:None,map: self.material.to_world,
                 travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..1.0 }]
         };
         for cell in &parts {
@@ -98,6 +109,7 @@ impl<'a> MaterialCast<'a> {
             delta: self.delta.as_dvec2(),
             parts,
             time:self.time,
+            scene,
         })
     }
 }
@@ -121,6 +133,11 @@ impl MaterialCastCells<'_> {
         obstacle: &[Vec2],
         displacement: Vec2,
     ) -> Result<Option<MaterialCastHit>, Refusal> {
+        self.against_rigid_where(part,obstacle,displacement,0.0,Vec2::ZERO,|_|true)
+    }
+
+    fn against_translation(&self,part:&MaterialCell,obstacle:&[Vec2],displacement:Vec2)
+        ->Result<Option<MaterialCastHit>,Refusal> {
         let inverse = part
             .map
             .inverse()
@@ -175,14 +192,39 @@ impl MaterialCastCells<'_> {
         if !turn.is_finite() || !pivot.is_finite() {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
-        if turn == 0.0 {
-            return Ok(self.against(part, obstacle, displacement)?.filter(|hit| accepts(hit)));
+        if turn==0.0 && part.curve.is_none() && (obstacle.len()>2 || self.scene.is_none()) {
+            return Ok(self.against_translation(part,obstacle,displacement)?.filter(|hit|accepts(hit)));
         }
-        let mut selected=None;
+        let scopes:std::borrow::Cow<'_,[MaterialCell]>=if obstacle.len()<=2 {
+            if let Some(scene)=&self.scene {
+                let program=match &part.curve {
+                    Some(curve)=>(**curve).clone(),
+                    None=>arcs::CurveCell::from_affine(scene.clone(),part).map_err(|e|numeric_at(part,e))?,
+                };
+                let admitted=if part.curve.is_none() {
+                    Some(self.parts.iter().filter(|other|other.path.len()>part.path.len()
+                        && other.path.starts_with(&part.path)
+                        && (other.time.start.max(part.time.start)<other.time.end.min(part.time.end)
+                            || other.time.start==other.time.end && other.time.start>=part.time.start && other.time.end<=part.time.end))
+                        .map(|other|other.path[part.path.len()]).collect::<Vec<_>>())
+                } else {None};
+                std::borrow::Cow::Owned(program.line_parts(part,obstacle,displacement,turn,pivot,admitted.as_deref())?)
+            } else {std::borrow::Cow::Borrowed(std::slice::from_ref(part))}
+        } else {std::borrow::Cow::Borrowed(std::slice::from_ref(part))};
+        let mut selected:Option<MaterialCastHit>=None;
         let mut failed=None;
-        let _ = curved::cast(self.material.domain, part, obstacle, displacement,
-            turn, pivot, self.time.clone(), |contact| match self.contact(part,contact) {
-                Ok(Some(hit)) if accepts(&hit)=>{ selected=Some(hit); true },
+        for scope in scopes.iter() {
+            if turn==0.0 && scope.curve.is_none() {
+                if let Some(hit)=self.against_translation(scope,obstacle,displacement)?.filter(|hit|accepts(hit)) {
+                    if selected.as_ref().is_none_or(|old|hit.toi<old.toi){selected=Some(hit);}
+                }
+                continue;
+            }
+            let _ = curved::cast(self.material.domain, scope, obstacle, displacement,
+            turn, pivot, self.time.clone(), |contact| match self.contact(scope,contact) {
+                Ok(Some(hit)) if accepts(&hit)=>{
+                    if selected.as_ref().is_none_or(|old|hit.toi<old.toi){selected=Some(hit);} true
+                },
                 Ok(_)=>false,
                 Err(reason)=>{ failed=Some(reason); true },
             }).map_err(|reason| {
@@ -190,6 +232,8 @@ impl MaterialCastCells<'_> {
                 let link = path.pop();
                 Refusal { path, link, reason }
             })?;
+            if failed.is_some(){break;}
+        }
         match failed {Some(reason)=>Err(reason),None=>Ok(selected)}
     }
 

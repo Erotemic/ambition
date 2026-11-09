@@ -643,14 +643,18 @@ loading work. No complete PSIM acceptance slice is closed.
   not hide a later approach in the same tick. Surface velocity, one-way
   normals and edge identity use the physical contact time. A live app test
   uses a spinning platform that hits far material between matching endpoint
-  poses. Rotating aperture construction, sliding line openings and physical
-  righting remain open. Each directed link retains the start pose and the host's
-  published displacement and turn. Sampling follows the host arc and keeps
-  full windings. Both directions share that recorded motion. The constructor
-  proves when curved entries cannot be reached. A query that can reach
-  a rotating aperture returns `CurvedMotion` until the curved constructor is
-  complete. This temporary capability refusal is separate from numerical
-  faults and policy limits. Remove it with the curved constructor.
+  poses. Rotating apertures now use convex source cells with curved maps,
+  moving cuts and conditional link order. Interval bounds exclude empty
+  regions; contacts use the actual primitive and sampled cuts. Both directions
+  use the same host curve, including full windings. The temporary
+  refusal for curved motion is removed. Tests cover two simultaneous curved paths
+  and a third link under both orientation conventions. A live app test attaches
+  K's exit to a spinning plank and hits a target outside both endpoint poses.
+  Line openings now follow the same recorded pose. Their finite ends remain
+  solid. The separate end-pose line subtraction is removed. A sliding opening
+  test checks box and analytic circle contact times. Contact-only source
+  strata do not consume material piece slots. Physical righting, angular root
+  transit and complete motion-source admission remain open.
   A host wrap closes the
   old plane; its aperture does not sweep between the two locations.
 - Projectile world contacts use the original collider and the selected part.
@@ -691,11 +695,12 @@ loading work. No complete PSIM acceptance slice is closed.
   limit is removed. Folded meshes clip in the source chart.
 
 `cargo check -p ambition_app --tests` passes on the temporal contact change.
-Focused library tests pass: 809 core, 351 shared-state, 169 world, 46 projectile
-and 29 projectile-combat tests. Two library measurements remain ignored.
-The assembled app passes the 15 tests selected by `projectile` and the added
-station K test for first boundary contact at tick end. The runtime
-library passes 59 projectile tests. The curved collider change also passes
+Focused library tests pass: 819 core, 351 shared-state, 169 world, 140 portal,
+46 projectile and 29 projectile-combat tests. Two library measurements remain
+ignored. The content library passes 64 portal tests. The assembled app passes
+all 17 tests selected by `projectile`. This includes station K's first boundary
+contact at tick end and the spinning-exit case. The runtime
+library passes 59 projectile tests. The curved aperture change also passes
 71 Smash host tests and 35 workspace policy tests. Six Smash tests remain
 ignored. The preceding ray work passed combat,
 portal and renderer libraries and the assembled eye-laser and portal cases.

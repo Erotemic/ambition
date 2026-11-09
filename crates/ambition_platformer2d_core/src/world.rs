@@ -1284,47 +1284,6 @@ impl MaterialWorldHit<'_> {
     }
 }
 
-/// Remove only the finite face intervals that lead to another spatial cell.
-fn material_line_segments(
-    a: Vec2, b: Vec2, part: &crate::frame::material_cast::MaterialCell,
-    cells: &crate::frame::material_cast::MaterialCastCells<'_>,
-    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
-) -> Result<Vec<[Vec2;2]>, crate::frame::thread::Refusal> {
-    use crate::frame::{NumericFault, Sim2};
-    use crate::frame::thread::{Refusal,RefusalReason};
-    let mut intervals=vec![(0.0_f64,1.0_f64)];
-    let edge=b.as_dvec2()-a.as_dvec2();
-    if let Some(admission)=admission {
-        for link in admission.links {
-            let has_exit=cells.parts().iter().any(|other| other.path.len()>part.path.len()
-                && other.path.starts_with(&part.path) && other.path[part.path.len()]==link.key);
-            if !has_exit { continue; }
-            let n=link.enter.frame.normal.as_dvec2();
-            let offset=a.as_dvec2()-link.enter.frame.origin.as_dvec2();
-            if edge.dot(n)!=0.0 || offset.dot(n)!=0.0 { continue; }
-            let tangent=bevy_math::DVec2::new(-n.y,n.x);
-            let span=edge.dot(tangent);
-            if span==0.0 { continue; }
-            let along=offset.dot(tangent);
-            let lo=(-f64::from(link.enter.half_length)-along)/span;
-            let hi=(f64::from(link.enter.half_length)-along)/span;
-            let (lo,hi)=(lo.min(hi).max(0.0),lo.max(hi).min(1.0));
-            if hi<=lo { continue; }
-            intervals=intervals.into_iter().flat_map(|(start,end)| {
-                let mut kept=Vec::new();
-                if start<lo { kept.push((start,end.min(lo))); }
-                if end>hi { kept.push((start.max(hi),end)); }
-                kept
-            }).collect();
-        }
-    }
-    let reason=|reason:NumericFault| Refusal { path:part.path.clone(),link:None,reason:RefusalReason::Numeric(reason) };
-    intervals.into_iter().map(|(lo,hi)| Ok([
-        Sim2::IDENTITY.point_from_wide(a.as_dvec2()+edge*lo).map_err(reason)?,
-        Sim2::IDENTITY.point_from_wide(a.as_dvec2()+edge*hi).map_err(reason)?,
-    ])).collect()
-}
-
 /// A resolved host-face anchor: where an identified face IS this frame.
 /// The world-frame triple a host-attached aperture re-derives from
 /// (docs/concepts/movement-collision.md).
@@ -1742,16 +1701,9 @@ impl World {
                 for segment in 0..chain.segment_count() {
                     let collider = MaterialCollider::Chain { chain,index,segment };
                     let (a,b)=chain.segment(segment);
-                    let segments = if chain.turn == 0.0 {
-                        material_line_segments(a,b,part,&cells,admission)?
-                    } else {
-                        vec![[a,b]]
-                    };
-                    for line in segments {
-                        let _ = cells.against_rigid_where(part,&line,chain.velocity,chain.turn,chain.pivot,|contact| {
-                            consider(MaterialWorldHit { collider,contact:contact.clone() },part)
-                        })?;
-                    }
+                    let _ = cells.against_rigid_where(part,&[a,b],chain.velocity,chain.turn,chain.pivot,|contact| {
+                        consider(MaterialWorldHit { collider,contact:contact.clone() },part)
+                    })?;
                 }
             }
         }

@@ -6,7 +6,7 @@ use bevy_math::DMat2;
 
 use super::{CastHit, CombatVolume, DVec2, MaterialCell, MaterialPlane, NumericFault};
 use crate::frame::thread::RefusalReason;
-use crate::{frame::Sim2, Vec2};
+use crate::{Vec2, frame::Sim2};
 
 const MAX_INTERVALS: usize = 16_384;
 
@@ -41,61 +41,62 @@ impl Rigid<'_> {
         self.inverse.direction_wide(v) * self.inverse.scale_wide()
     }
 
-    fn rounding(&self, time: f64, source_extent: f64) -> f64 {
+    fn rounding(&self, time: f64, source_extent: f64) -> Result<f64, NumericFault> {
         let (pivot, _) = self.pose(time);
         let radius = self
             .end
             .iter()
             .map(|p| (p.as_dvec2() - self.pivot).length())
             .fold(0.0_f64, f64::max);
-        scalar_round(
-            (pivot.length() + radius) * self.inverse.scale_wide()
-                + self.inverse.translation().length()
-                + self.source_vector(self.cell.travel).length() * time.abs()
+        let inverse = self.cell.at(time)?.inverse()?;
+        Ok(scalar_round(
+            (pivot.length() + radius) * inverse.scale_wide()
+                + inverse.translation().length()
                 + source_extent,
-        )
+        ) * (self.cell.path.len() + 1) as f64)
     }
 
-    fn contact_rounding(&self, body: &CombatVolume, time: f64) -> f64 {
+    fn contact_rounding(&self, body: &CombatVolume, time: f64) -> Result<f64, NumericFault> {
         let domain = domain_polygon(body);
+        let cuts = self.cell.planes_at(time)?.unwrap_or_default();
         let extent = domain.iter().map(|p| p.length()).fold(0.0_f64, f64::max)
-            + self
-                .cell
-                .planes
+            + cuts
                 .iter()
-                .map(|p| p.plane.offset.abs() + p.rate.abs())
+                .map(|p| p.plane.offset.abs() + p.offset_rate.abs() + p.normal_rate.length())
                 .fold(0.0_f64, f64::max);
-        let evaluations =
-            1 + rigid_planes(self.end, self.pivot).len() + self.cell.planes.len() + domain.len();
-        self.rounding(time, extent) * evaluations as f64
+        let evaluations = 1 + rigid_planes(self.end, self.pivot).len() + cuts.len() + domain.len();
+        Ok(self.rounding(time, extent)? * evaluations as f64)
     }
 
-    fn point(&self, local: DVec2, time: f64) -> Vertex {
+    fn point(&self, local: DVec2, time: f64) -> Result<Vertex, NumericFault> {
         let (pivot, rotation) = self.pose(time);
         let arm = rotation * local;
-        Vertex {
-            point: self.inverse.point_wide(pivot + arm)
-                - self.source_vector(self.cell.travel) * time,
-            velocity: self.source_vector(
-                (self.shift + perpendicular(arm) * self.turn) * self.span() - self.cell.travel,
-            ),
-        }
+        let inverse = self.cell.at(time)?.inverse()?;
+        let point = inverse.point_wide(pivot + arm);
+        let velocity = (self.shift + perpendicular(arm) * self.turn) * self.span()
+            - self.cell.velocity(point, time)?;
+        Ok(Vertex {
+            point,
+            velocity: inverse.direction_wide(velocity) * inverse.scale_wide(),
+        })
     }
 
-    fn region(&self, time: f64) -> Vec<Vertex> {
+    fn region(&self, time: f64) -> Result<Vec<Vertex>, NumericFault> {
         let mut points = self
             .end
             .iter()
             .map(|p| self.point(p.as_dvec2() - self.pivot, time))
-            .collect::<Vec<_>>();
-        for cut in &self.cell.planes {
-            let offset = cut.plane.offset + cut.rate * time;
-            points = clip_vertices(&points, cut.plane.inward, offset, cut.rate);
+            .collect::<Result<Vec<_>, _>>()?;
+        let Some(cuts) = self.cell.planes_at(time)? else {
+            return Ok(Vec::new());
+        };
+        for cut in cuts {
+            points = clip_vertices(&points, cut);
             if points.is_empty() {
                 break;
             }
         }
-        points
+        Ok(points)
     }
 
     /// Bounds the rotation of each face normal and the relative translation.
@@ -106,13 +107,25 @@ impl Rigid<'_> {
         interval: &Range<f64>,
         uncertainty: f64,
     ) -> Result<Option<Vec<DVec2>>, NumericFault> {
-        let middle = interval.start + (interval.end - interval.start) * 0.5;
-        let half = (interval.end - interval.start) * 0.5;
+        let (middle, half) = crate::frame::interval_center(interval);
         let (pivot, rotation) = self.pose(middle);
         let map = self.cell.at(middle)?;
         let domain = domain_polygon(body);
-        // A solid needs area on this side of every material cut.
         if self.end.len() >= 3 {
+            if let Some(curve) = &self.cell.curve {
+                if curve.excludes_rigid(
+                    self.end,
+                    self.shift.as_vec2(),
+                    self.turn as f32,
+                    self.pivot.as_vec2(),
+                    interval,
+                )? {
+                    return Ok(None);
+                }
+            }
+        }
+        // A solid needs area on this side of every material cut.
+        if self.end.len() >= 3 && self.cell.curve.is_none() {
             for cut in &self.cell.planes {
                 if self.end.iter().all(|p| {
                     let (upper, rounding) =
@@ -127,11 +140,20 @@ impl Rigid<'_> {
             .iter()
             .map(|p| map.point_wide(*p).distance(pivot))
             .fold(0.0_f64, f64::max);
-        let angle = (self.turn.abs() * self.span() * half).min(2.0);
+        let angle = crate::frame::rotation_bound(
+            self.turn,
+            self.time.start + self.span() * middle,
+            self.span() * half,
+        );
         let relative = self.cell.travel - self.shift * self.span();
         let extent = domain.iter().map(|p| p.length()).fold(0.0_f64, f64::max);
-        let error = (reach * angle + relative.length() * half) / map.scale_wide()
-            + self.rounding(middle, extent)
+        let travel = if self.cell.curve.is_some() {
+            self.cell.variation(middle, half)? + self.shift.length() * self.span() * half
+        } else {
+            relative.length() * half
+        };
+        let error = (reach * angle + travel) / map.scale_wide()
+            + self.rounding(middle, extent)?
             + uncertainty;
         if !error.is_finite() {
             return Err(NumericFault::Overflow);
@@ -153,14 +175,16 @@ impl Rigid<'_> {
                 return Ok(None);
             }
         }
-        for cut in &self.cell.planes {
-            let offset = cut.plane.offset + cut.rate * middle - cut.rate.abs() * half;
-            let rounding = round_bound(cut.plane.inward, offset, &region);
+        let Some(cuts) = self.cell.relaxed_planes(interval)? else {
+            return Ok(None);
+        };
+        for cut in cuts {
+            let rounding = round_bound(cut.inward, cut.offset, &region);
             region = super::clip(
                 &region,
                 MaterialPlane {
-                    offset: offset - rounding - uncertainty * cut.plane.inward.length(),
-                    ..cut.plane
+                    offset: cut.offset - rounding - uncertainty * cut.inward.length(),
+                    ..cut
                 },
             );
             if region.is_empty() {
@@ -205,8 +229,7 @@ impl Rigid<'_> {
     /// Follow one material point of the collider. If it stays inside both
     /// the body and cell, the initial overlap has not ended in this interval.
     fn overlap_persists(&self, body: &CombatVolume, point: DVec2, interval: &Range<f64>) -> bool {
-        let middle = interval.start + (interval.end - interval.start) * 0.5;
-        let half = (interval.end - interval.start) * 0.5;
+        let (middle, half) = crate::frame::interval_center(interval);
         let (pivot, rotation) = self.pose(middle);
         let map = match self.cell.at(middle) {
             Ok(map) => map,
@@ -214,21 +237,40 @@ impl Rigid<'_> {
         };
         let arm = map.point_wide(point) - pivot;
         let local = rotation.transpose() * arm;
-        let at = self.point(local, middle).point;
-        let radius = (self.turn.abs() * self.span() * half).min(2.0) * arm.length();
-        let travel = (self.shift * self.span() - self.cell.travel).length() * half;
+        let at = match self.point(local, middle) {
+            Ok(point) => point.point,
+            Err(_) => return false,
+        };
+        let radius = crate::frame::rotation_bound(
+            self.turn,
+            self.time.start + self.span() * middle,
+            self.span() * half,
+        ) * arm.length();
+        let travel = if self.cell.curve.is_some() {
+            match self.cell.variation(middle, half) {
+                Ok(v) => v + self.shift.length() * self.span() * half,
+                Err(_) => return false,
+            }
+        } else {
+            (self.shift * self.span() - self.cell.travel).length() * half
+        };
         let reach = (radius + travel) / map.scale_wide();
         // A rejected component includes both the pose and interval error.
-        let rounding = self.contact_rounding(body, middle) * 2.0;
+        let rounding = match self.contact_rounding(body, middle) {
+            Ok(r) => r * 2.0,
+            Err(_) => return false,
+        };
         if !reach.is_finite() {
             return false;
         }
-        if !self.cell.planes.iter().all(|p| {
-            at.dot(p.plane.inward) - p.plane.offset - p.rate * middle
-                + rounding * p.plane.inward.length()
-                > p.plane.inward.length() * reach
-                    + p.rate.abs() * half
-                    + scalar_round(at.abs().dot(p.plane.inward.abs()) + p.plane.offset.abs())
+        let cuts = match self.cell.inner_planes(interval) {
+            Ok(Some(cuts)) => cuts,
+            _ => return false,
+        };
+        if !cuts.iter().all(|p| {
+            at.dot(p.inward) - p.offset + rounding * p.inward.length()
+                > p.inward.length() * reach
+                    + scalar_round(at.abs().dot(p.inward.abs()) + p.offset.abs())
         }) {
             return false;
         }
@@ -308,7 +350,7 @@ fn round_bound(inward: DVec2, offset: f64, points: &[DVec2]) -> f64 {
     )
 }
 
-fn domain_polygon(body: &CombatVolume) -> Vec<DVec2> {
+pub(super) fn domain_polygon(body: &CombatVolume) -> Vec<DVec2> {
     match body {
         CombatVolume::Circle { center, radius } => {
             let center = center.as_dvec2();
@@ -329,7 +371,7 @@ fn domain_polygon(body: &CombatVolume) -> Vec<DVec2> {
     }
 }
 
-fn polygon_planes(points: &[DVec2]) -> Vec<MaterialPlane> {
+pub(super) fn polygon_planes(points: &[DVec2]) -> Vec<MaterialPlane> {
     let area = super::edges(points)
         .map(|(a, b)| a.perp_dot(b))
         .sum::<f64>();
@@ -379,7 +421,9 @@ fn rigid_planes(points: &[Vec2], pivot: DVec2) -> Vec<(DVec2, f64)> {
     }
 }
 
-fn clip_vertices(points: &[Vertex], inward: DVec2, offset: f64, rate: f64) -> Vec<Vertex> {
+fn clip_vertices(points: &[Vertex], cut: super::translation::PlaneMotion) -> Vec<Vertex> {
+    let inward = cut.plane.inward;
+    let offset = cut.plane.offset;
     let mut result = Vec::new();
     for i in 0..points.len() {
         let a = points[i];
@@ -401,8 +445,11 @@ fn clip_vertices(points: &[Vertex], inward: DVec2, offset: f64, rate: f64) -> Ve
             let edge = b.point - a.point;
             let relative = b.velocity - a.velocity;
             let along = da / (da - db);
-            let speed =
-                (rate - inward.dot(a.velocity) - along * inward.dot(relative)) / inward.dot(edge);
+            let speed = (cut.offset_rate
+                - inward.dot(a.velocity)
+                - along * inward.dot(relative)
+                - cut.normal_rate.dot(a.point + edge * along))
+                / inward.dot(edge);
             result.push(Vertex {
                 point: a.point + edge * along,
                 velocity: a.velocity + relative * along + edge * speed,
@@ -413,7 +460,7 @@ fn clip_vertices(points: &[Vertex], inward: DVec2, offset: f64, rate: f64) -> Ve
 }
 
 /// A point in the closed intersection, including an isolated tangent.
-fn intersection(body: &CombatVolume, region: &[DVec2]) -> Option<DVec2> {
+pub(super) fn intersection(body: &CombatVolume, region: &[DVec2]) -> Option<DVec2> {
     if region.is_empty() {
         return None;
     }
@@ -609,15 +656,16 @@ pub(super) fn cast(
         cell,
         inverse: cell.map.inverse().map_err(numeric)?,
     };
-    if rigid.span() == 0.0 {
+    if rigid.span() == 0.0 && cell.curve.is_none() {
         let points = obstacle
             .iter()
             .map(|p| {
                 rigid
                     .point(p.as_dvec2() - rigid.pivot, cell.time.start)
-                    .point
+                    .map(|point| point.point)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(numeric)?;
         let duration = cell.time.end - cell.time.start;
         let motion = rigid.source_vector(-cell.travel) * duration;
         let contact = super::translation::cast(
@@ -635,7 +683,7 @@ pub(super) fn cast(
             })
             .filter(|hit| accepts(*hit)));
     }
-    let initial = rigid.region(cell.time.start);
+    let initial = rigid.region(cell.time.start).map_err(numeric)?;
     let initial_witness = witness(body, &initial);
     let mut escaping = initial_witness
         .as_ref()
@@ -651,7 +699,7 @@ pub(super) fn cast(
         }
         let middle = interval.start + (interval.end - interval.start) * 0.5;
         let uncertainty = if escaping {
-            rigid.contact_rounding(body, middle)
+            rigid.contact_rounding(body, middle).map_err(numeric)?
         } else {
             0.0
         };
@@ -663,7 +711,7 @@ pub(super) fn cast(
             escaping = false;
             continue;
         }
-        let region = rigid.region(middle);
+        let region = rigid.region(middle).map_err(numeric)?;
         if region
             .iter()
             .any(|p| !p.point.is_finite() || !p.velocity.is_finite())
@@ -686,9 +734,9 @@ pub(super) fn cast(
             if escaping {
                 continue;
             }
-            let rounding = rigid.contact_rounding(body, middle);
+            let rounding = rigid.contact_rounding(body, middle).map_err(numeric)?;
             for time in [interval.start, middle, interval.end] {
-                if let Some(hit) = witness(body, &rigid.region(time)) {
+                if let Some(hit) = witness(body, &rigid.region(time).map_err(numeric)?) {
                     if hit.gap <= rounding {
                         let contact = CastHit {
                             time,

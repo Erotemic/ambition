@@ -36,7 +36,7 @@ impl Sim2 {
         Self::from_wide_translation(f64::from(scale), orthogonal_wide(orthogonal)?, translation.as_dvec2())
     }
 
-    fn from_wide_translation(scale: f64, orthogonal: DMat2, translation: bevy_math::DVec2) -> Result<Self, NumericFault> {
+    pub(super) fn from_wide_translation(scale: f64, orthogonal: DMat2, translation: bevy_math::DVec2) -> Result<Self, NumericFault> {
         if !scale.is_finite() || !orthogonal.is_finite() || !translation.is_finite() {
             return Err(NumericFault::NonFinite);
         }

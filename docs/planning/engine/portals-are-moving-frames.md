@@ -48,6 +48,12 @@ retain its full windings. Contact response reads the normal and moving pivot
 at contact time. A rejected one-way contact does not hide a later approach
 in the same tick. Projectiles read moving platforms from the shared physical
 room composition.
-Rotating aperture construction remains open. A query that can reach a rotating
-aperture returns `CurvedMotion` until that constructor is complete. Actor contact,
-physical righting and capture work stay open in the active plan.
+Rotating apertures use convex source cells with curved maps and moving cuts.
+The constructor checks actual occupancy before each cut and retains conditional
+link order. Two simultaneous paths and a third link tile canonical material
+under both orientation conventions. A real app test uses a spinning exit to
+hit a target outside both endpoint poses. Finite line openings follow the same
+recorded pose, including a sliding opening on a fixed line. The temporary
+refusal for curved motion and the subtraction of final line poses are removed.
+Actor contact, angular root transit, complete motion-source admission, physical
+righting and capture work stay open in the active plan.

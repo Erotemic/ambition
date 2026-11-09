@@ -81,3 +81,21 @@ against the same collider. One-way normals, edge identity and surface velocity
 must use the physical contact time. Read the moving pivot at that time too.
 Use the pose and interval evaluation errors when tracking a rejected component;
 otherwise a change of world origin can spend all work on its rounded boundary.
+
+Curved partitions need bounds for both material and the carried reference.
+Prove that a column can contain material before splitting its complement.
+Independent bounds for link order can otherwise retain empty branches at a
+rank change. Material carried through a link is in front of its exit plane.
+An entry with the same normal curve cannot cut that material from a front
+reference. Use this geometric fact before interval subdivision.
+
+Line openings must use the admitted partition. For an affine cell, derive
+active opening intervals from its child cells. A second rank test at the
+contact instant can disagree with the interval that already owns that contact.
+For a turning or sliding opening, keep the cut motion through the query.
+Clipping the final line once gives the wrong finite endpoint path.
+
+At adjacent times, a midpoint can round to an interval end. Use the larger
+distance to the two ends. Include angular argument rounding in curve bounds.
+A large winding can amplify that error even within one representable time
+step. An endpoint's actual material must remain inside the interval bound.

@@ -10,6 +10,14 @@ pub(super) struct MovingPlane {
     pub rate: f64,
 }
 
+/// A cut and its derivative at one cast time.
+#[derive(Clone,Copy,Debug)]
+pub(super) struct PlaneMotion {
+    pub plane: MaterialPlane,
+    pub normal_rate: DVec2,
+    pub offset_rate: f64,
+}
+
 impl From<MaterialPlane> for MovingPlane {
     fn from(plane: MaterialPlane) -> Self {
         Self { plane, rate: 0.0 }
@@ -17,6 +25,12 @@ impl From<MaterialPlane> for MovingPlane {
 }
 
 impl MovingPlane {
+    pub(super) fn envelope(self,time:&std::ops::Range<f64>,inner:bool)->MaterialPlane {
+        let (middle,radius)=crate::frame::interval_center(time);
+        let value=self.plane.offset+self.rate*middle;
+        let error=self.rate.abs()*radius+(self.plane.offset.abs()+(self.rate*middle).abs())*f64::EPSILON*16.0;
+        MaterialPlane {offset:value+if inner {error} else {-error},..self.plane}
+    }
     pub(super) fn during(self, time: std::ops::Range<f64>) -> Self {
         Self {
             plane: MaterialPlane {

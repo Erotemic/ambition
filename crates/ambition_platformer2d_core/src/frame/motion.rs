@@ -4,9 +4,59 @@ use super::{MapConvention, NumericFault, PortalAperture, PortalFrame, Sim2};
 use crate::Vec2;
 
 /// Rotation from the published end pose at one tick time.
-pub(crate) fn rotation_ending_at(turn:f64,time:f64) -> bevy_math::DMat2 {
-    if time==1.0 { bevy_math::DMat2::IDENTITY }
-    else { bevy_math::DMat2::from_angle(turn*time)*bevy_math::DMat2::from_angle(-turn) }
+pub(crate) fn rotation_ending_at(turn: f64, time: f64) -> bevy_math::DMat2 {
+    if time == 1.0 {
+        bevy_math::DMat2::IDENTITY
+    } else {
+        bevy_math::DMat2::from_angle(turn * time) * bevy_math::DMat2::from_angle(-turn)
+    }
+}
+
+/// Include both ends when the midpoint rounds onto an interval end.
+pub(crate) fn interval_center(time: &std::ops::Range<f64>) -> (f64, f64) {
+    let middle = time.start + (time.end - time.start) * 0.5;
+    (middle, (middle - time.start).max(time.end - middle))
+}
+
+/// Bound the normal change, including angular argument rounding.
+pub(crate) fn rotation_bound(turn: f64, time: f64, radius: f64) -> f64 {
+    if radius == 0.0 || turn == 0.0 {
+        return 0.0;
+    }
+    let travel = turn.abs() * radius;
+    (travel + (turn.abs() * time.abs() + travel) * f64::EPSILON * 8.0).min(2.0)
+}
+
+/// A host pose before projection to storage coordinates.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct WideAperture {
+    pub origin: bevy_math::DVec2,
+    pub normal: bevy_math::DVec2,
+    pub pivot: bevy_math::DVec2,
+    pub shift: bevy_math::DVec2,
+    pub turn: f64,
+    pub half: f64,
+    pub phase_error: f64,
+}
+
+impl WideAperture {
+    pub fn tangent(self) -> bevy_math::DVec2 {
+        bevy_math::DVec2::new(-self.normal.y, self.normal.x)
+    }
+    pub fn origin_velocity(self) -> bevy_math::DVec2 {
+        let arm = self.origin - self.pivot;
+        self.shift + bevy_math::DVec2::new(-arm.y, arm.x) * self.turn
+    }
+    pub fn variation(self, half: f64) -> f64 {
+        self.shift.length() * half + (self.origin - self.pivot).length() * self.angle_bound(half)
+    }
+    pub fn angle_bound(self, half: f64) -> f64 {
+        if half == 0.0 || self.turn == 0.0 {
+            return 0.0;
+        }
+        let travel = self.turn.abs() * half;
+        (travel + self.phase_error + travel * f64::EPSILON * 8.0).min(2.0)
+    }
 }
 
 /// The start pose and the host's published travel during one tick.
@@ -19,6 +69,24 @@ pub struct ApertureStep {
 }
 
 impl ApertureStep {
+    pub(super) fn sample_wide(
+        self,
+        end: PortalAperture,
+        time: f64,
+    ) -> Result<WideAperture, NumericFault> {
+        self.validate(end, time)?;
+        let rotation = rotation_ending_at(f64::from(self.turn), time);
+        let pivot = end.frame.pivot.as_dvec2() - self.displacement.as_dvec2() * (1.0 - time);
+        Ok(WideAperture {
+            origin: pivot + rotation * (end.frame.origin.as_dvec2() - end.frame.pivot.as_dvec2()),
+            normal: rotation * end.frame.normal.as_dvec2().normalize(),
+            pivot,
+            shift: self.displacement.as_dvec2(),
+            turn: f64::from(self.turn),
+            half: f64::from(end.half_length),
+            phase_error: f64::from(self.turn).abs() * time.abs() * f64::EPSILON * 8.0,
+        })
+    }
     pub fn fixed(origin: Vec2, normal: Vec2) -> Self {
         Self {
             origin,
@@ -31,10 +99,12 @@ impl ApertureStep {
     /// Recover the start pose from the host's end pose and published travel.
     /// A host wrap changes its location, but is not part of that travel.
     pub fn ending_at(end: PortalFrame, displacement: Vec2, turn: f32) -> Self {
-        let rotation = bevy_math::Mat2::from_angle(-turn);
+        let rotation = bevy_math::DMat2::from_angle(-f64::from(turn));
         Self {
-            origin: end.pivot - displacement + rotation * (end.origin - end.pivot),
-            normal: rotation * end.normal,
+            origin: (end.pivot.as_dvec2() - displacement.as_dvec2()
+                + rotation * (end.origin.as_dvec2() - end.pivot.as_dvec2()))
+            .as_vec2(),
+            normal: (rotation * end.normal.as_dvec2().normalize_or_zero()).as_vec2(),
             displacement,
             turn,
         }
@@ -43,6 +113,21 @@ impl ApertureStep {
     /// Sample the host's translation and rotation. A full turn retains its
     /// winding even when the start and end normals are the same.
     pub fn sample(self, end: PortalAperture, time: f64) -> Result<PortalAperture, NumericFault> {
+        let pose = self.sample_wide(end, time)?;
+        if time == 1.0 {
+            return Ok(end);
+        }
+        Ok(PortalAperture {
+            frame: PortalFrame {
+                origin: Sim2::IDENTITY.point_from_wide(pose.origin)?,
+                normal: Sim2::IDENTITY.vector_from_wide(pose.normal)?,
+                pivot: Sim2::IDENTITY.point_from_wide(pose.pivot)?,
+                ..end.frame
+            },
+            half_length: end.half_length,
+        })
+    }
+    fn validate(self, end: PortalAperture, time: f64) -> Result<(), NumericFault> {
         use bevy_math::DMat2;
         if !time.is_finite()
             || !self.origin.is_finite()
@@ -60,11 +145,6 @@ impl ApertureStep {
             return Err(NumericFault::InvalidFrame);
         }
         let pivot = end.frame.pivot.as_dvec2() - self.displacement.as_dvec2();
-        let rotation = DMat2::from_angle(f64::from(self.turn) * time);
-        let origin = pivot
-            + self.displacement.as_dvec2() * time
-            + rotation * (self.origin.as_dvec2() - pivot);
-        let normal = rotation * self.normal.as_dvec2();
         let expected = pivot
             + self.displacement.as_dvec2()
             + DMat2::from_angle(f64::from(self.turn)) * (self.origin.as_dvec2() - pivot);
@@ -81,19 +161,7 @@ impl ApertureStep {
         {
             return Err(NumericFault::Precision);
         }
-        if time == 1.0 {
-            return Ok(end);
-        }
-        Ok(PortalAperture {
-            frame: PortalFrame {
-                origin: Sim2::IDENTITY.point_from_wide(origin)?,
-                normal: Sim2::IDENTITY.vector_from_wide(normal)?,
-                pivot: Sim2::IDENTITY
-                    .point_from_wide(pivot + self.displacement.as_dvec2() * time)?,
-                ..end.frame
-            },
-            half_length: end.half_length,
-        })
+        Ok(())
     }
 }
 
@@ -138,7 +206,14 @@ mod tests {
         );
         assert_eq!(middle.frame.pivot, Vec2::new(2.5, 1.5));
         assert_eq!(middle.frame.velocity, end.frame.velocity);
-        assert_eq!(step.sample(end, 0.0).unwrap().frame.origin, step.origin);
+        assert!(
+            step.sample(end, 0.0)
+                .unwrap()
+                .frame
+                .origin
+                .distance(step.origin)
+                < 1.0e-5
+        );
         assert_eq!(step.sample(end, 1.0).unwrap(), end);
     }
 

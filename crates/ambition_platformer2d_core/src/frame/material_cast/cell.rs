@@ -1,4 +1,4 @@
-//! A material cell with translating boundary lines and a translating map.
+//! A canonical source cell and its recorded motion.
 
 use bevy_math::{DVec2, DVec3};
 
@@ -14,16 +14,82 @@ pub struct MaterialCell {
     pub(super) travel: DVec2,
     pub(super) planes: Vec<MovingPlane>,
     pub(super) time: std::ops::Range<f64>,
+    pub(super) curve: Option<std::sync::Arc<super::arcs::CurveCell>>,
 }
 
 impl MaterialCell {
     pub(super) fn at(&self, time: f64) -> Result<Sim2, NumericFault> {
-        self.map.shifted(self.travel * time)
+        match &self.curve {
+            Some(curve) => curve.at(time),
+            None => self.map.shifted(self.travel * time),
+        }
+    }
+
+    pub(super) fn velocity(&self, point: DVec2, time: f64) -> Result<DVec2, NumericFault> {
+        match &self.curve {
+            Some(curve) => curve.velocity(point, time),
+            None => Ok(self.travel),
+        }
+    }
+    pub(super) fn variation(&self, time: f64, half: f64) -> Result<f64, NumericFault> {
+        match &self.curve {
+            Some(curve) => curve.variation(time, half),
+            None => Ok(self.travel.length() * half),
+        }
+    }
+    pub(super) fn planes_at(
+        &self,
+        time: f64,
+    ) -> Result<Option<Vec<super::translation::PlaneMotion>>, NumericFault> {
+        match &self.curve {
+            Some(curve) => curve.planes_at(time),
+            None => Ok(Some(
+                self.planes
+                    .iter()
+                    .map(|p| super::translation::PlaneMotion {
+                        plane: super::MaterialPlane {
+                            offset: p.plane.offset + p.rate * time,
+                            ..p.plane
+                        },
+                        normal_rate: DVec2::ZERO,
+                        offset_rate: p.rate,
+                    })
+                    .collect(),
+            )),
+        }
+    }
+    pub(super) fn relaxed_planes(
+        &self,
+        time: &std::ops::Range<f64>,
+    ) -> Result<Option<Vec<super::MaterialPlane>>, NumericFault> {
+        match &self.curve {
+            Some(curve) => curve.relaxed(time),
+            None => Ok(Some(
+                self.planes
+                    .iter()
+                    .map(|p| p.envelope(time, false))
+                    .collect(),
+            )),
+        }
+    }
+    pub(super) fn inner_planes(
+        &self,
+        time: &std::ops::Range<f64>,
+    ) -> Result<Option<Vec<super::MaterialPlane>>, NumericFault> {
+        match &self.curve {
+            Some(curve) => curve.inner(time),
+            None => Ok(Some(
+                self.planes.iter().map(|p| p.envelope(time, true)).collect(),
+            )),
+        }
     }
 
     /// Bounds of the source box and cell at all times. The box is only a
     /// broad phase envelope; contact uses the original primitive.
     pub(super) fn bounds(&self, body: Aabb, delta: DVec2) -> Result<Option<Aabb>, NumericFault> {
+        if let Some(curve) = &self.curve {
+            return curve.bounds(&self.time);
+        }
         let vertices = if self.planes.is_empty() {
             super::corners(body)
                 .into_iter()
@@ -121,6 +187,7 @@ mod tests {
     fn bounds_include_a_cell_that_exists_only_between_endpoint_poses() {
         let cell = MaterialCell {
             path: vec![],
+            curve: None,
             time: 0.0..1.0,
             map: Sim2::IDENTITY,
             travel: DVec2::ZERO,
@@ -150,6 +217,7 @@ mod tests {
     fn a_cell_and_material_with_equal_motion_stay_apart() {
         let cell = MaterialCell {
             path: vec![],
+            curve: None,
             time: 0.0..1.0,
             map: Sim2::IDENTITY,
             travel: DVec2::ZERO,
@@ -180,6 +248,7 @@ mod tests {
                 .unwrap();
                 let cell = MaterialCell {
                     path: vec![],
+                    curve: None,
                     time: 0.0..1.0,
                     map,
                     travel: DVec2::new(41.0, -37.0),
@@ -221,6 +290,7 @@ mod tests {
             let delta = DVec2::new(number() * 12.0 - 6.0, number() * 12.0 - 6.0);
             let cell = MaterialCell {
                 path: vec![],
+                curve: None,
                 time: 0.0..1.0,
                 map,
                 travel: DVec2::new(number() * 60.0 - 30.0, number() * 60.0 - 30.0),

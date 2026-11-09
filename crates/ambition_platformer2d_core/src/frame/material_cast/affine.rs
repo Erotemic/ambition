@@ -4,7 +4,7 @@ use std::{collections::VecDeque, ops::Range};
 
 use super::translation::MovingPlane;
 use super::{DVec2, MaterialCast, MaterialCell, NumericFault, Refusal, RefusalReason, Sim2};
-use crate::frame::thread::{MaterialPlane, MotionAdmission, PortalLink};
+use crate::frame::thread::{MaterialPlane, MotionAdmission};
 
 #[derive(Clone, Copy)]
 struct Scalar {
@@ -32,21 +32,6 @@ struct Reference {
     along: Option<(DVec2, Scalar)>,
 }
 impl Reference {
-    fn at(self, time: f64) -> DVec2 {
-        let mut point = self.origin + self.travel * time;
-        if let Some((tangent, along)) = self.along {
-            point += tangent * along.at(time);
-        }
-        point
-    }
-
-    fn speed(self) -> f64 {
-        (self.travel
-            + self
-                .along
-                .map_or(DVec2::ZERO, |(tangent, along)| tangent * along.travel))
-        .length()
-    }
     fn projection(self, origin: DVec2, travel: DVec2, axis: DVec2) -> Scalar {
         let mut result = Scalar {
             origin: (self.origin - origin).dot(axis),
@@ -61,91 +46,6 @@ impl Reference {
     }
 }
 
-fn curve_possible(
-    cast: &MaterialCast<'_>,
-    cell: &MaterialCell,
-    root: Reference,
-    link: &PortalLink,
-    forced: Option<u32>,
-) -> Result<bool, NumericFault> {
-    let Some(bounds) = cell.bounds(cast.material.domain.bounds(), DVec2::ZERO)? else {
-        return Ok(false);
-    };
-    let local_middle = cell.time.start + (cell.time.end - cell.time.start) * 0.5;
-    let world_span = cast.time.end - cast.time.start;
-    let time = cast.time.start + world_span * local_middle;
-    let half = world_span * (cell.time.end - cell.time.start) * 0.5;
-    let frame = link.enter_step.sample(link.enter, time)?.frame;
-    let origin = frame.origin.as_dvec2();
-    let normal = frame.normal.as_dvec2().normalize();
-    let tangent = DVec2::new(-normal.y, normal.x);
-    let angle = (f64::from(link.enter_step.turn).abs() * half).min(2.0);
-    let normal_error = (angle + f64::from(f32::EPSILON) * 16.0).min(2.0);
-    let previous_pivot =
-        link.enter.frame.pivot.as_dvec2() - link.enter_step.displacement.as_dvec2();
-    let radius = link.enter_step.origin.as_dvec2().distance(previous_pivot);
-    let rounding = (previous_pivot.length()
-        + link.enter_step.displacement.as_dvec2().length()
-        + radius
-        + origin.length())
-        * f64::from(f32::EPSILON)
-        * 32.0;
-    let origin_error =
-        link.enter_step.displacement.as_dvec2().length() * half + radius * angle + rounding;
-    if Some(link.key) != forced {
-        let mut reach = 0.0_f64;
-        for time in [cell.time.start, cell.time.end] {
-            let reference = root.at(time);
-            let map = cell.at(time)?;
-            for corner in super::corners(cast.material.domain.bounds()) {
-                let point = map.point_wide(corner.as_dvec2());
-                let error = (point.length() + reference.length()) * f64::EPSILON * 64.0;
-                reach = reach.max(point.distance(reference) + error);
-            }
-        }
-        // An eligible reference is in front. Material behind the finite
-        // opening is at most `reach` deep and one half-length to either side.
-        let closest = origin.clamp(bounds.min.as_dvec2(), bounds.max.as_dvec2());
-        if origin.distance(closest) > origin_error + reach.hypot(f64::from(link.enter.half_length))
-        {
-            return Ok(false);
-        }
-    }
-    let point = root.at(local_middle);
-    let root_error = root.speed() * (cell.time.end - cell.time.start) * 0.5;
-    let front_error =
-        root_error + origin_error + normal_error * (point.distance(origin) + root_error);
-    if Some(link.key) != forced && normal.dot(point - origin) + front_error <= 0.0 {
-        return Ok(false);
-    }
-    let center = (bounds.min.as_dvec2() + bounds.max.as_dvec2()) * 0.5;
-    let extent = (bounds.max.as_dvec2() - bounds.min.as_dvec2()) * 0.5;
-    let error = origin_error + normal_error * ((center - origin).length() + extent.length());
-    let mut planes = cell.planes.clone();
-    for (inward, offset) in [
-        (-normal, -normal.dot(origin) - error),
-        (
-            tangent,
-            tangent.dot(origin) - f64::from(link.enter.half_length) - error,
-        ),
-        (
-            -tangent,
-            -tangent.dot(origin) - f64::from(link.enter.half_length) - error,
-        ),
-    ] {
-        planes.push(MovingPlane {
-            plane: MaterialPlane {
-                inward: cell.map.inverse_direction_wide(inward),
-                offset: (offset - inward.dot(cell.map.translation())) / cell.map.scale_wide(),
-            },
-            rate: -inward.dot(cell.travel) / cell.map.scale_wide(),
-        });
-    }
-    if !error.is_finite() || !front_error.is_finite() {
-        return Err(NumericFault::Overflow);
-    }
-    Ok(super::temporal::occupied(cast.material.domain, &planes, cell.time.clone())?.is_some())
-}
 
 struct Link {
     key: u32,
@@ -254,7 +154,7 @@ fn simultaneous<'a>(
     Ok(most as usize)
 }
 
-/// The translating constructor also proves whether a curved entry can be reached.
+/// Exact material cells for translating aperture frames.
 pub(super) fn build(
     cast: &MaterialCast<'_>,
     admission: MotionAdmission<'_>,
@@ -271,7 +171,6 @@ pub(super) fn build(
         return Err(initial(RefusalReason::ScaleLimit));
     }
     let mut links = Vec::new();
-    let mut curves = Vec::new();
     for link in admission.links {
         let numeric = |reason| failure(&[], Some(link.key), RefusalReason::Numeric(reason));
         link.enter_step.sample(link.enter, 0.0).map_err(numeric)?;
@@ -279,10 +178,6 @@ pub(super) fn build(
         let end = link.map(admission.convention).map_err(numeric)?;
         if link.depth.is_some_and(|d| !d.is_finite() || d < 0.0) {
             return Err(numeric(NumericFault::InvalidFrame));
-        }
-        if link.enter_step.turn != 0.0 || link.exit_step.turn != 0.0 {
-            curves.push(link);
-            continue;
         }
         let enter_shift = link.enter_step.displacement.as_dvec2();
         let exit_shift = link.exit_step.displacement.as_dvec2();
@@ -310,6 +205,7 @@ pub(super) fn build(
     let first = Work {
         cell: MaterialCell {
             path: vec![],
+            curve:None,
             map: cast.material.to_world,
             travel: cast.delta.as_dvec2(),
             planes: vec![],
@@ -340,13 +236,6 @@ pub(super) fn build(
         steps += 1;
         if steps > limit {
             return Err(fail(None, RefusalReason::WorkLimit));
-        }
-        for link in &curves {
-            if curve_possible(cast, &cell, root, link, forced)
-                .map_err(|e| fail(Some(link.key), RefusalReason::Numeric(e)))?
-            {
-                return Err(fail(Some(link.key), RefusalReason::CurvedMotion));
-            }
         }
         let ranks = links
             .iter()

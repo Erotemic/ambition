@@ -549,8 +549,6 @@ pub enum RefusalReason {
     PieceLimit,
     WorkLimit,
     ScaleLimit,
-    // TODO(compat-remove): remove when the curved temporal constructor is complete.
-    CurvedMotion,
     Numeric(NumericFault),
 }
 

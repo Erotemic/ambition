@@ -121,6 +121,34 @@ impl StopClock {
 /// head turned as this row turns it (`BodyPoseView::head_up`).
 pub const LOOK_UP_CLIP: &str = "idle_look_up";
 
+/// What a held look reads off a body's pose this frame.
+#[derive(Clone, Copy, Debug)]
+struct Stillness {
+    anim: CharacterAnim,
+    free: bool,
+    look_up: f32,
+    crouch: f32,
+    crawl: f32,
+}
+
+/// The body's held gaze after `dt` (see `BodyPoseView::gaze_secs`): it runs
+/// while the body stands with its head all the way up, or crouches all the
+/// way down and still, and stops the moment it does anything else.
+fn next_gaze_secs(before: f32, now: Stillness, dt: f32) -> f32 {
+    let up = now.look_up >= 1.0 && now.anim == CharacterAnim::Idle;
+    let down = now.free
+        && now.anim == CharacterAnim::Crouch
+        && now.crouch >= 1.0
+        && now.crawl == 0.0;
+    if up {
+        before.min(0.0) - dt
+    } else if down {
+        before.max(0.0) + dt
+    } else {
+        0.0
+    }
+}
+
 /// The poses a body looks up in: standing (the `idle_look_up` row), walking
 /// and running (its head only, over the walk: Jon, 2026-10-22, "if you press
 /// up while moving it tilts the robots head up").
@@ -265,6 +293,11 @@ pub struct BodyPoseView {
     /// `idle_look_up` row turns it, over the row the body moves in. `0` for a
     /// body that stands, whose whole body is drawn in that row.
     pub head_up: f32,
+    /// How long this body has held a still look: negative while it stands
+    /// with its head fully up, positive while it crouches still, `0` when it
+    /// does neither. The camera follows a look held past a beat
+    /// (`camera_snapshot::camera_look`).
+    pub gaze_secs: f32,
     /// How far down into its crouch this body is, 0 to 1: it rises over
     /// [`CROUCH_SECS`] while the body crouches, and falls as fast when the
     /// body stands up. A body that stands still or crouches still between 0
@@ -499,6 +532,7 @@ impl Default for BodyPoseView {
             turn_secs: f32::INFINITY,
             look_up: 0.0,
             head_up: 0.0,
+            gaze_secs: 0.0,
             crouch: 0.0,
             crawl: 0.0,
             stop: StopClock::default(),
@@ -864,6 +898,12 @@ pub fn rebuild_body_pose_views(
         } else {
             0.0
         };
+        // A still look, up or down, held: the camera pans after a beat.
+        let gaze_secs = next_gaze_secs(
+            pose.as_deref().map_or(0.0, |before| before.gaze_secs),
+            Stillness { anim, free, look_up, crouch, crawl },
+            dt,
+        );
         // The stop: the body stood after it walked or ran.
         let stop = pose
             .as_deref()
@@ -917,6 +957,7 @@ pub fn rebuild_body_pose_views(
             look_up,
             // Not through a turn: the turn's row goes round through the front.
             head_up: if free && !turning && strides(anim) { look_up } else { 0.0 },
+            gaze_secs,
             crouch,
             crawl,
             stop,
@@ -1892,4 +1933,38 @@ pub fn squash_and_stretch(land_timer_s: f32, hard: bool, jump_squatting: bool) -
     let press = if hard { SQUASH_HARD } else { SQUASH_SOFT } * landing * landing;
     let press = if jump_squatting { press.max(JUMP_SQUAT_PRESS) } else { press };
     ambition_platformer2d_core::Vec2::new(1.0 + press * SQUASH_WIDEN, 1.0 - press)
+}
+
+#[cfg(test)]
+mod gaze_tests {
+    use super::*;
+
+    fn still(anim: CharacterAnim, look_up: f32, crouch: f32) -> Stillness {
+        Stillness { anim, free: true, look_up, crouch, crawl: 0.0 }
+    }
+
+    /// Standing with the head up counts up (negative), a still crouch counts
+    /// down, and turning from one to the other starts the other count afresh.
+    #[test]
+    fn a_held_look_counts_and_anything_else_stops_it() {
+        let dt = 0.1;
+        let up = still(CharacterAnim::Idle, 1.0, 0.0);
+        let g = next_gaze_secs(next_gaze_secs(0.0, up, dt), up, dt);
+        assert!((g + 0.2).abs() < 1e-6, "two frames up: {g}");
+
+        // The head still on its way up is a glance, not a look.
+        assert_eq!(next_gaze_secs(g, still(CharacterAnim::Idle, 0.5, 0.0), dt), 0.0);
+        // Walking with the head up does not pan.
+        assert_eq!(next_gaze_secs(g, still(CharacterAnim::Walk, 1.0, 0.0), dt), 0.0);
+
+        let down = still(CharacterAnim::Crouch, 0.0, 1.0);
+        assert!((next_gaze_secs(g, down, dt) - dt).abs() < 1e-6, "down starts afresh");
+        // Still going down into the crouch, crawling, or in a move: no look.
+        assert_eq!(next_gaze_secs(0.5, still(CharacterAnim::Crouch, 0.0, 0.5), dt), 0.0);
+        assert_eq!(
+            next_gaze_secs(0.5, Stillness { crawl: 0.3, ..down }, dt),
+            0.0
+        );
+        assert_eq!(next_gaze_secs(0.5, Stillness { free: false, ..down }, dt), 0.0);
+    }
 }

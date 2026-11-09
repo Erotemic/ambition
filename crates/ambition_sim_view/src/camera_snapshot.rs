@@ -205,6 +205,25 @@ pub struct CameraFocus2d {
     /// this into the protected bounds as look-ahead; every other policy stage
     /// ignores it.
     pub velocity_world: ae::Vec2,
+    /// The subject's held look, -1 (up) to 1 (down): see [`camera_look`].
+    /// The view leans by [`LOOK_SHARE_OF_VIEW`] of its height at full look.
+    pub look: f32,
+}
+
+/// How long a still look is held before the camera follows it.
+pub const LOOK_DELAY_SECS: f32 = 0.8;
+/// How long the camera's look takes to reach full once it starts.
+pub const LOOK_RAMP_SECS: f32 = 0.5;
+/// How far a full look leans the view, as a share of its height.
+pub const LOOK_SHARE_OF_VIEW: f32 = 0.3;
+
+/// The camera's look from a body's held gaze (`BodyPoseView::gaze_secs`):
+/// nothing for [`LOOK_DELAY_SECS`], so a glance or a crouch to dodge does not
+/// move the view, then up to full over [`LOOK_RAMP_SECS`]. Signed as the gaze
+/// is, up negative.
+pub fn camera_look(gaze_secs: f32) -> f32 {
+    let held = ((gaze_secs.abs() - LOOK_DELAY_SECS) / LOOK_RAMP_SECS).clamp(0.0, 1.0);
+    gaze_secs.signum() * smoothstep(held)
 }
 
 impl CameraFocus2d {
@@ -496,6 +515,16 @@ pub fn resolve_follow_camera_snapshot(
                 rotation_radians,
             )
         }
+    };
+
+    // A held look leans the view along the subject's down, after the soft
+    // framing so its deadzone cannot swallow the lean; the ease below pans
+    // it, and the clamp keeps it in the room.
+    let desired_target_world = if input.overview_camera || input.focus.look == 0.0 {
+        desired_target_world
+    } else {
+        let down = input.subject_down.unwrap_or(ae::Vec2::Y);
+        desired_target_world + down * (input.focus.look * LOOK_SHARE_OF_VIEW * visible_view.y)
     };
 
     // The target is adopted, not eased, on the first resolve of a room.
@@ -1483,10 +1512,12 @@ pub fn resolve_camera_observation(
         // cannot disagree about whose view this is — and read as an
         // already-resolved fact, never by asking gravity anything.
         bevy::prelude::Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        // The followed body's held look (`BodyPoseView::gaze_secs`).
+        bevy::prelude::Query<&crate::pose_view::BodyPoseView>,
     ),
 ) {
     let cast_framing_tuning = cast_framing.as_deref().copied().unwrap_or_default();
-    let (body_kinematics, presented, subject_frames) = followed_body;
+    let (body_kinematics, presented, subject_frames, poses) = followed_body;
     let (mut live_cast, mut live_members, mut cast_last_seen, mut settling) = cast_framing_state;
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
@@ -1742,6 +1773,7 @@ pub fn resolve_camera_observation(
         base_size: player_base_size.base_size,
         facing: player_body.facing,
         velocity_world: player_body.vel,
+        look: poses.get(followed).map_or(0.0, |pose| camera_look(pose.gaze_secs)),
     };
     let blink = CameraBlinkInput {
         blink_in_timer: blink_cam.blink_in_timer,
@@ -1772,6 +1804,7 @@ pub fn resolve_camera_observation(
                 base_size: kin.size(),
                 facing: kin.facing,
                 velocity_world: kin.vel,
+                look: poses.get(subject).map_or(0.0, |pose| camera_look(pose.gaze_secs)),
             },
             subject_frames.get(subject).ok().map(|frame| frame.down()),
             center,
@@ -2215,6 +2248,7 @@ mod m2_forward_scroll_tests {
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
+                    look: 0.0,
                 },
                 base_view: ae::Vec2::new(480.0, 270.0),
                 viewport_px: ae::Vec2::new(480.0, 270.0),
@@ -2335,6 +2369,7 @@ mod zone_change_tests {
                     base_size: BODY,
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
+                    look: 0.0,
                 },
                 base_view: ae::Vec2::new(480.0, 270.0),
                 viewport_px: ae::Vec2::new(480.0, 270.0),
@@ -2751,6 +2786,7 @@ mod soft_framing_tests {
                     base_size: BODY,
                     facing: if vel.x < 0.0 { -1.0 } else { 1.0 },
                     velocity_world: vel,
+                    look: 0.0,
                 },
                 base_view: VIEW,
                 viewport_px: VIEW,
@@ -3265,6 +3301,7 @@ mod observer_roll_continuity_tests {
                     base_size: ae::Vec2::new(24.0, 40.0),
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
+                    look: 0.0,
                 },
                 base_view: ae::Vec2::new(800.0, 450.0),
                 viewport_px: ae::Vec2::new(1600.0, 900.0),
@@ -3434,6 +3471,7 @@ mod rolled_safe_area_tests {
             base_size: ae::Vec2::new(20.0, 20.0),
             facing: 1.0,
             velocity_world: ae::Vec2::ZERO,
+            look: 0.0,
         };
         apply_soft_subject_framing(
             ae::Vec2::ZERO,
@@ -3500,6 +3538,7 @@ mod rolled_safe_area_tests {
             base_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
             velocity_world: ae::Vec2::new(120.0, -30.0),
+            look: 0.0,
         };
         let framing = CameraScreenFraming {
             active: true,
@@ -3968,7 +4007,7 @@ mod zone_blend_tests {
                 CameraSnapshotResolveInput {
                     world: &world,
                     camera_zones: &zones,
-                    focus: CameraFocus2d { center_world: at, tick_center_world: at, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0) },
+                    focus: CameraFocus2d { center_world: at, tick_center_world: at, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0), look: 0.0 },
                     base_view: default_base_view(),
                     viewport_px: ae::Vec2::new(1280.0, 720.0),
                     aspect_policy: CameraAspectPolicy::FixedHeight,
@@ -4005,5 +4044,71 @@ mod zone_blend_tests {
         // The body steps 5 a tick; at the old hand-over the camera held still
         // for a tick and then went on at 14.
         assert!(jerk < 1.5, "the camera's step changed by {jerk} in one tick");
+    }
+}
+
+#[cfg(test)]
+mod held_look_tests {
+    use super::*;
+
+    fn centre_y(look: f32, subject_down: Option<ae::Vec2>) -> f32 {
+        let world = ae::World::new("look", ae::Vec2::new(4000.0, 4000.0), ae::Vec2::ZERO, Vec::new());
+        let at = ae::Vec2::new(2000.0, 2000.0);
+        resolve_follow_camera_snapshot(
+            CameraSnapshotResolveInput {
+                world: &world,
+                camera_zones: &[],
+                focus: CameraFocus2d {
+                    center_world: at,
+                    tick_center_world: at,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    base_size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                    velocity_world: ae::Vec2::ZERO,
+                    look,
+                },
+                base_view: ae::Vec2::new(480.0, 270.0),
+                viewport_px: ae::Vec2::new(480.0, 270.0),
+                aspect_policy: CameraAspectPolicy::FixedHeight,
+                framing: CameraFramingPreset::default(),
+                overview_scale: 1.0,
+                encounter_scale: 1.0,
+                overview_camera: false,
+                snap_camera: true,
+                blink: None,
+                dt: 1.0 / 60.0,
+                mode: CameraSnapshotResolveMode::Instant,
+                extra_clamp_center_world: None,
+                chart_transit: None,
+                must_frame_world: None,
+                view_box: None,
+                ease_tuning: CameraEaseTuning::default(),
+                screen_framing: None,
+                reference_frame: Default::default(),
+                subject_down,
+            },
+            None,
+        )
+        .center_world
+        .y
+    }
+
+    /// A glance does nothing; a held look leans the view by its share of the
+    /// view's height, up for up and down for down, and no further.
+    #[test]
+    fn a_look_held_past_the_beat_leans_the_view_that_way() {
+        assert_eq!(camera_look(-0.3), 0.0, "a glance must not move the view");
+        assert_eq!(camera_look(0.3), 0.0);
+        assert_eq!(camera_look(-(LOOK_DELAY_SECS + LOOK_RAMP_SECS)), -1.0);
+        assert_eq!(camera_look(LOOK_DELAY_SECS + 10.0), 1.0);
+        let half = camera_look(LOOK_DELAY_SECS + LOOK_RAMP_SECS * 0.5);
+        assert!(half > 0.0 && half < 1.0, "the look ramps in, got {half}");
+
+        let level = centre_y(0.0, None);
+        let lean = LOOK_SHARE_OF_VIEW * 270.0;
+        assert!((centre_y(-1.0, None) - (level - lean)).abs() < 0.5, "up is world -y");
+        assert!((centre_y(1.0, None) - (level + lean)).abs() < 0.5, "down is world +y");
+        // Under flipped gravity his down is world -y, so his look down is too.
+        assert!((centre_y(1.0, Some(-ae::Vec2::Y)) - (level - lean)).abs() < 0.5);
     }
 }

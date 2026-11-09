@@ -2875,6 +2875,7 @@ fn apply_capture_snapshot(
                     base_size: ae::Vec2::new(30.0, 48.0),
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
+                    look: 0.0,
                 },
                 base_view,
                 viewport_px: ae::Vec2::new(config.size.x as f32, config.size.y as f32),

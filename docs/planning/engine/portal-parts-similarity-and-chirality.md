@@ -4,8 +4,8 @@
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** IMPLEMENTATION RESUMED ON MAIN (Jon, 2026-11-09).
 The slot 1 work was merged. Main is the active checkout. Jon asked for a safe
-commit point before the pause. The root-scan packet is committed as
-`e3ebef90f`; its affected checks pass.
+commit point before the pause. The shared item-body packet is committed as
+`821ce15c3`. The prior root-scan packet is `e3ebef90f`. Their affected checks pass.
 Jon asked to continue and finish the work. Preserve the merged
 slot 1 checkpoint, `portal-similarity-draft`. Feature acceptance remains open.
 See [Committed checkpoint](#committed-checkpoint) and [Draft status](#draft-status).
@@ -583,6 +583,27 @@ Use target-device results for GPU conclusions. Performance changes must not
 reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
+
+Latest code checkpoint: `821ce15c3` (2026-11-09). Loose items now use the shared
+body and sweep state. Custody removes stored bodies from spatial queries. The
+separate free-body portal path is removed. Item impact response belongs to the
+item motion owner. Rollback schema 429 records the new storage contract.
+
+The item suite passes 47 tests. The portal, ability and content selections pass
+138, 57 and 69 tests. Smash passes 71 tests with six ignored. The assembled app
+check passes. The app batch passes 109 tests; its target-fixture and schema
+failures pass in a seven-test follow-up. The five coconut tests and the two-host
+physical-state check pass. The 34 passing policy tests and repaired engine
+policy check cover all 35 policy tests.
+
+The two prior resource-classification failures remain. Repository tooling
+reached 542 passes and 15 skips before it was stopped after the existing
+consolidation-ledger failure. Doc anchors pass. The prior doc-link and citation
+failures remain. These results do not claim a green full-repository run.
+
+Slot 1, `portal-material-admission`, holds the next continuous-admission draft.
+It has not been compiled. No complete PSIM acceptance slice is closed.
+
 
 Code checkpoint: `e3ebef90f` (2026-11-09). Lab map checkpoint: `16018b5` in
 the map submodule. The broader portal goal is resumed and incomplete.

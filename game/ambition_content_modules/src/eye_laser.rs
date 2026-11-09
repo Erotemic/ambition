@@ -2,7 +2,9 @@
 //! straight laser leaves its whole visor along its facing, as far as the first
 //! wall. It costs
 //! mana for each tick it burns, and it hits a body it touches again on a fixed
-//! beat. While it burns, the body is drawn in its `eye_laser` row (its `shoot`
+//! beat. A laser that runs dry while held stays off until the slot is
+//! released: otherwise the refill pays one tick of every two, and each paid
+//! tick lights the laser again (its sound, its row, a new ray). While it burns, the body is drawn in its `eye_laser` row (its `shoot`
 //! row on a sheet without one).
 //!
 //! The technique is the Projectile slot of a body that wears the `eye_laser`
@@ -50,7 +52,7 @@ const RAY_SLOT: u32 = 0;
 
 record! {
     /// What the laser keeps between ticks.
-    pub struct Burn = SchemaKey::new(crate::PROVIDER, "eye_laser.burn", 1);
+    pub struct Burn = SchemaKey::new(crate::PROVIDER, "eye_laser.burn", 2);
     /// The laser burns.
     1 burning: bool,
     /// A new generation is a new ray, and a new ray hits a body again.
@@ -59,6 +61,9 @@ record! {
     3 since_hit: f32,
     /// Seconds since the laser began to burn: the drawn row's clock.
     4 burnt: f32,
+    /// The slot was held when the laser could not pay: it lights again only
+    /// after the slot is released.
+    5 dry: bool,
 }
 
 pub fn module() -> ModuleDescriptor {
@@ -107,9 +112,13 @@ pub fn burn_tick_of(s: &mut Burn, used: &TechniqueUse, dt: f32) -> BurnTick {
     let cost = MANA_PER_S * dt;
     let wants = user.pressed || used.held;
     let mut out = BurnTick::default();
-    if !wants || !user.can_pay_mana(cost) {
+    if !wants {
+        s.dry = false;
+    }
+    if !wants || s.dry || !user.can_pay_mana(cost) {
+        s.dry = wants;
         if s.burning {
-            *s = Burn { generation: s.generation, ..Burn::default() };
+            *s = Burn { generation: s.generation, dry: s.dry, ..Burn::default() };
             out.row = Some(DrawnRow::body_as_engine());
         }
         return out;
@@ -245,5 +254,34 @@ mod tests {
         let dry = burn_tick_of(&mut s, &used(false, true, 1.0, 0.0), DT);
         assert!(dry.ray.is_none(), "no mana, no laser");
         assert_eq!(dry.row, Some(DrawnRow::body_as_engine()));
+    }
+
+    /// Held past an empty bar, the laser stays off: the mana that refills
+    /// (14 a second against a cost of 30) paid one tick of every two, and each
+    /// paid tick lit the laser again, with its sound and its row (about 28
+    /// zaps a second). Released and pressed again, it lights once more.
+    #[test]
+    fn held_past_an_empty_bar_it_stays_off_until_the_slot_is_released() {
+        const REFILL_PER_S: f32 = 14.0;
+        let mut s = Burn::default();
+        let mut mana = 100.0f32;
+        let (mut ignitions, mut burning_ticks, mut stops) = (0, 0, 0);
+        let mut was_burning = false;
+        for tick in 0..900 {
+            let tick = burn_tick_of(&mut s, &used(tick == 0, true, 1.0, mana), DT);
+            ignitions += usize::from(tick.ignited);
+            mana -= tick.cost.unwrap_or(0.0);
+            mana = (mana + REFILL_PER_S * DT).min(100.0);
+            let burning = tick.ray.is_some();
+            burning_ticks += usize::from(burning);
+            stops += usize::from(was_burning && !burning);
+            was_burning = burning;
+        }
+        assert_eq!((ignitions, stops), (1, 1), "one hold, one burn: it lit {ignitions} times and stopped {stops} times");
+        assert!(burning_ticks > 300, "it burns the bar out first ({burning_ticks} ticks)");
+        assert!(mana > 50.0, "and the bar refills while it is off: {mana}");
+
+        assert!(burn_tick_of(&mut s, &used(false, false, 1.0, mana), DT).ray.is_none(), "released");
+        assert!(burn_tick_of(&mut s, &used(true, true, 1.0, mana), DT).ignited, "pressed again, it lights");
     }
 }

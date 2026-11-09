@@ -164,6 +164,19 @@ tests (bounce, one-way landing, strike rules).
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.
 7. A laser sound of its own (it uses `boss.wolfenstein.zap` now).
+8. **A crouched laser row** (`eye_laser_crouch`). A crouched body draws a
+   pinned row's `_crouch` variant, or its own crouch when the sheet has none
+   (`ClipRequest::with_pin`), so a crouched robot lasers in its plain crouch
+   today. Author the variant in `player_robot_v3_crouch.py` (the crouch
+   squashes the head, which `_place_visor_glow` refuses), and place the beam
+   from it.
+
+Done (2026-11-09): held past an empty bar, the laser lit again on every tick
+the refill could pay, about 28 zaps a second, and its row flickered. It now
+stays off until the slot is released (`Burn.dry`; guard
+`held_past_an_empty_bar_it_stays_off_until_the_slot_is_released`). A pinned
+standing row is no longer drawn on a crouched box
+(`a_crouched_body_draws_a_pin_crouched_or_not_at_all`).
 
 ## Remaining item cleanup
 

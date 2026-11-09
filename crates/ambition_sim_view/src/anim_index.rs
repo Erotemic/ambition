@@ -166,10 +166,32 @@ pub enum ClipTime {
     Seconds { elapsed: f32, looping: bool },
 }
 
+/// The suffix of a row's crouched variant: `eye_laser` is drawn as
+/// `eye_laser_crouch` by a crouched body.
+pub const CROUCH_VARIANT_SUFFIX: &str = "_crouch";
+
 impl ClipRequest {
     /// Put a content pin ahead of the body's request and retain its clock.
-    pub fn with_pin(base: Option<Self>, pin: Option<&ambition_sprite_sheet::character::PinnedRow>) -> Option<Self> {
+    ///
+    /// A `crouched` body is drawn crouched: each pinned row gives way to its
+    /// crouched variant ([`CROUCH_VARIANT_SUFFIX`]), and a sheet with none
+    /// draws the body's own request (its crouch). A pinned standing row would
+    /// be drawn feet-first on the crouched box, at full height. The variants
+    /// run on the sheet's clock: the pin's clock would also run the body's own
+    /// crouch row, and loop a crouch that holds its last frame.
+    pub fn with_pin(
+        base: Option<Self>,
+        pin: Option<&ambition_sprite_sheet::character::PinnedRow>,
+        crouched: bool,
+    ) -> Option<Self> {
         let Some(pin) = pin.filter(|pin| pin.is_pinned()) else { return base; };
+        if crouched {
+            let variants: Vec<String> = pin.rows.iter().map(|row| format!("{row}{CROUCH_VARIANT_SUFFIX}")).collect();
+            return match base {
+                Some(base) => Some(variants.iter().rev().fold(base, |chain, row| chain.ahead_of(row))),
+                None => Self::from_chain(&variants.iter().map(String::as_str).collect::<Vec<_>>()),
+            };
+        }
         let mut request = match base {
             Some(base) => pin.rows.iter().rev().fold(base, |chain, row| chain.ahead_of(row)),
             None => Self::from_chain(&pin.rows.iter().map(String::as_str).collect::<Vec<_>>())?,
@@ -480,7 +502,7 @@ pub fn rebuild_actor_anim_index(
                         None => chain,
                     })
                     .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
-                    , a.pinned),
+                    , a.pinned, crate::pose_view::crouched(anim)),
             },
         );
     }
@@ -663,4 +685,33 @@ pub fn rebuild_boss_frame_index(
         );
     }
     index.end_rebuild();
+}
+
+#[cfg(test)]
+mod pin_tests {
+    use super::*;
+    use ambition_sprite_sheet::character::PinnedRow;
+
+    fn rows(request: &ClipRequest) -> Vec<&str> {
+        std::iter::once(request.clip.as_str()).chain(request.fallbacks.iter().map(String::as_str)).collect()
+    }
+
+    /// Crouched while the eye laser burns: the laser pins `eye_laser`/`shoot`,
+    /// and a standing row was drawn feet-first on the crouched box. A crouched
+    /// body asks for the crouched variants and then its own crouch, on the
+    /// sheet's clock; a standing body asks for the pin on the pin's clock.
+    #[test]
+    fn a_crouched_body_draws_a_pin_crouched_or_not_at_all() {
+        let mut pin = PinnedRow::default();
+        pin.pin(&["eye_laser", "shoot"], 0.4, true);
+        let crouch = ClipRequest::only("crouch");
+
+        let crouched = ClipRequest::with_pin(Some(crouch.clone()), Some(&pin), true).expect("a request");
+        assert_eq!(rows(&crouched), ["eye_laser_crouch", "shoot_crouch", "crouch"]);
+        assert_eq!(crouched.time, None, "the crouch would loop on the pin's clock");
+
+        let standing = ClipRequest::with_pin(Some(crouch), Some(&pin), false).expect("a request");
+        assert_eq!(rows(&standing), ["eye_laser", "shoot", "crouch"]);
+        assert_eq!(standing.time, Some(ClipTime::Seconds { elapsed: 0.4, looping: true }));
+    }
 }

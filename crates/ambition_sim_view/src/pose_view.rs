@@ -35,7 +35,7 @@ pub const CROUCH_SECS: f32 = 0.12;
 const CROUCH_CLIP: &str = "crouch_start";
 
 /// The poses of a body in its crouch.
-fn crouched(anim: CharacterAnim) -> bool {
+pub(crate) fn crouched(anim: CharacterAnim) -> bool {
     matches!(anim, CharacterAnim::Crouch | CharacterAnim::CrouchWalk | CharacterAnim::Crawl)
 }
 
@@ -1009,7 +1009,7 @@ pub fn rebuild_body_pose_views(
                     Some(_) => chain.ahead_of(crate::SMASH_CHARGE_CLIP),
                     None => chain,
                 })
-                .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP))), pinned),
+                .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP))), pinned, crouched(anim)),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(

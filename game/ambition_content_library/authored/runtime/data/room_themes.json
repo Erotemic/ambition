@@ -1302,6 +1302,108 @@
       "twinkle_rate": 0.5,
       "front": 0.3
     },
+    "history_marianas": {
+      "count": 12,
+      "velocity": [
+        6.0,
+        -1.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.6,
+        1.4
+      ],
+      "alpha": 0.4,
+      "twinkle": 0.4,
+      "twinkle_rate": 1.0,
+      "front": 0.3
+    },
+    "history_nan_madol": {
+      "count": 14,
+      "velocity": [
+        1.0,
+        -2.0
+      ],
+      "wander": 14.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.8,
+        1.6
+      ],
+      "alpha": 0.35,
+      "twinkle": 0.2,
+      "twinkle_rate": 1.0,
+      "front": 0.3
+    },
+    "history_marshalls": {
+      "count": 14,
+      "velocity": [
+        8.0,
+        -1.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.6,
+        1.4
+      ],
+      "alpha": 0.4,
+      "twinkle": 0.5,
+      "twinkle_rate": 1.0,
+      "front": 0.3
+    },
+    "history_yap": {
+      "count": 10,
+      "velocity": [
+        3.0,
+        2.0
+      ],
+      "wander": 12.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.8,
+        1.6
+      ],
+      "alpha": 0.35,
+      "twinkle": 0.2,
+      "twinkle_rate": 1.0,
+      "front": 0.3
+    },
+    "history_nauru": {
+      "count": 14,
+      "velocity": [
+        6.0,
+        1.0
+      ],
+      "wander": 10.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.8,
+        2.0
+      ],
+      "alpha": 0.4,
+      "twinkle": 0.0,
+      "twinkle_rate": 1.0,
+      "front": 0.3
+    },
+    "history_bikini": {
+      "count": 8,
+      "velocity": [
+        2.0,
+        0.5
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.4,
+      "size": [
+        0.6,
+        1.2
+      ],
+      "alpha": 0.25,
+      "twinkle": 0.0,
+      "twinkle_rate": 1.0,
+      "front": 0.3
+    },
     "history_lapita": {
       "count": 10,
       "velocity": [

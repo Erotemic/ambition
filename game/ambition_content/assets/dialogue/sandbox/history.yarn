@@ -1879,3 +1879,137 @@ Basket Weaver: Over, under, over, under. Hold this end for me.
 -> Goodbye.
     Basket Weaver: Come back in the eel season. Bring an appetite.
 ===
+title: history_latte_builder
+---
+Latte Builder: Mind your head. This house stands on stone legs, and so will my grandchildren's.
+-> What are the stones?
+    Latte Builder: Latte: a pillar, the haligi, and a cap on top, the tasa, shaped like half a coconut. We set them in two rows and build the house on top. Rats cannot climb the caps, and the sea wind blows underneath.
+-> How did you get here?
+    Latte Builder: Our ancestors sailed from the islands to the west, more than three thousand years ago, across open sea further than anyone had gone before. Then they kept sailing. We still do. Look at the sakman: the fastest canoe your sailors will ever see.
+-> Goodbye.
+    Latte Builder: Håfa adai. Come up to the house.
+===
+title: history_hurao
+---
+Hurao: You came with the priests and the soldiers? No? Good. Sit.
+-> Who are you?
+    Hurao: Hurao, a chief of Guåhan. In 1671 the Spanish had been on our island three years. They brought sickness, and their soldiers did as they liked. I told our people what I believed: that we had lived happily before they came, and we could live without them.
+-> What happened?
+    Hurao: We fought. They had guns and ships; we had slings and our own land. The wars went on for more than twenty years. Then the sickness came with them, and most of us died. The Spanish moved the survivors into towns, away from the latte.
+-> And now?
+    Hurao: The CHamoru are still here. Our language is still spoken. Guåhan has had three flags over it since. Ask whose island it is.
+-> Goodbye.
+    Hurao: Go. And remember who was here first.
+===
+title: history_basalt_hauler
+---
+Basalt Hauler: Hup. Hup. Put your shoulder under the other end, will you?
+-> What is that?
+    Basalt Hauler: A column of basalt, from quarries elsewhere on Pohnpei; nobody now knows exactly where. The rock cools into six-sided columns, as if someone cut them. We lay them crosswise, one course one way and the next the other, and fill the middle with coral.
+-> How did you get them here?
+    Basalt Hauler: Rafts, ropes, and many people. And the Saudeleur, who ruled us and liked to be obeyed. The stories say two brothers flew the stones here by magic. I wish they would fly this one.
+-> Goodbye.
+    Basalt Hauler: Mind the canals. The tide is coming in.
+===
+title: history_isokelekel
+---
+Isokelekel: Stand easy. The Saudeleur are finished.
+-> Who are you?
+    Isokelekel: Isokelekel. The stories say I came from Kosrae with my men, because the Saudeleur had grown cruel and greedy. They took every first catch and every first fruit for themselves. After a hard fight, their rule ended, here in Nan Madol.
+-> What did you do then?
+    Isokelekel: I became the first Nahnmwarki. The island was divided among chiefs, with titles that pass down. They still do: Pohnpei has its Nahnmwarki today, and the feasts with sakau go on.
+-> And the city?
+    Isokelekel: In time people left it. The jungle and the mangroves grew over the walls. It is still the place of the old ones. Walk carefully, and be respectful.
+-> Goodbye.
+    Isokelekel: Kaselehlie. Go well.
+===
+title: history_ri_meto
+---
+Ri-meto: Close your eyes. Feel the canoe. Do you feel the swell under you?
+-> What is this chart?
+    Ri-meto: Sticks for the swells and shells for the islands. A swell from the east hits an island and bends around it, and on the other side it meets itself. Where the swells cross, the canoe rocks in a special way. That tells you an island is near, even when you cannot see it.
+-> Do you take the chart to sea?
+    Ri-meto: Never. You learn it on land, from your teacher, and then you leave it at home. At sea you read the water with your body. I lie down in the canoe to feel it better.
+-> Who learns?
+    Ri-meto: Only a few, from one family to the next. It was nearly lost. Today people are learning it again, from the old navigators who still knew.
+-> Goodbye.
+    Ri-meto: Go well. The swell from the east is strong today.
+===
+title: history_pandanus_weaver
+---
+Pandanus Weaver: Strip, soften, plait. A mat for sleeping, a mat for a sail, a mat for a wedding.
+-> A sail of mats?
+    Pandanus Weaver: Of course. Pandanus leaves, plaited fine and sewn together. The canoes of the Marshalls carry the mats of the women. A navigator is nothing without a good sail.
+-> What is life on an atoll like?
+    Pandanus Weaver: A ring of sand and palms around a lagoon, two metres above the sea. Coconuts, breadfruit, pandanus, fish, and each other. We know every family on every atoll, and whose land is whose. Land is everything here, because there is so little of it.
+-> Goodbye.
+    Pandanus Weaver: Iakwe. Come back for the wedding.
+===
+title: history_rai_owner
+---
+Rai Owner: You are standing in front of my money. Do not lean on it.
+-> That stone is money?
+    Rai Owner: Rai. That one is mine, and it has stood there since my grandfather's time. When I buy something big, the stone does not move. Everyone just knows that now it belongs to someone else. The whole island keeps the account.
+-> How much is it worth?
+    Rai Owner: It depends on its story. Who carved it in Palau, how many men died bringing it home, how bad the storm was. A small stone with a terrible voyage is worth more than a big one that came easily.
+-> And the one at the bottom of the sea?
+    Rai Owner: A family's stone sank on the way home, long ago. Everyone agreed it was still theirs, so it still is. Nobody alive has seen it. It is still spent sometimes.
+-> Goodbye.
+    Rai Owner: Go well. Do not tell the Germans. Last year they fined my village by painting marks on our stones.
+===
+title: history_palau_quarrier
+---
+Palau Quarrier: Cough. Sorry. Limestone dust. I have been in Palau for half a year, carving.
+-> Why Palau?
+    Palau Quarrier: Yap has no stone like this. Palau does, and its chiefs let us quarry it if we work for them too. We carve with shell adzes, months for one big stone. Then we take it home: 400 km of open sea, on a raft behind a canoe.
+-> And the iron tools?
+    Palau Quarrier: An Irish-American, O'Keefe, came in 1871 with a ship and iron tools, and brought stones by the dozen for copra. People took them. But a stone with no hardship in it is worth less. Everyone could see it.
+-> Goodbye.
+    Palau Quarrier: Go well. If you see a stone floating, it is not mine.
+===
+title: history_phosphate_digger
+---
+Phosphate Digger: Dig between the pinnacles, fill the basket, carry it to the line. Again.
+-> Who are you?
+    Phosphate Digger: A labourer from Guangdong, on a contract for three years. The British Phosphate Commissioners bring us from China and from the islands. We live in the camps; the pay goes home.
+-> What is phosphate?
+    Phosphate Digger: Old bird droppings, turned to rock over a long, long time. Farmers in Australia and New Zealand spread it on their fields. Their sheep grow fat on this island.
+-> What is left?
+    Phosphate Digger: These pinnacles. Coral, with nothing between it. Nothing grows up here now. The Nauruans watched their island go away by ship, a little more every day.
+-> Goodbye.
+    Phosphate Digger: Mind your step. There is a long way down between the stones.
+===
+title: history_hammer_deroburt
+---
+Hammer DeRoburt: Good day. Excuse the files: I am taking a government to court.
+-> Who are you?
+    Hammer DeRoburt: Hammer DeRoburt, head chief of Nauru. In 1943 the Japanese sent me with 1,200 of our people to Chuuk. Hundreds died there. When the survivors came home in 1946, I decided that Nauruans would decide what happened to Nauru.
+-> What did you do?
+    Hammer DeRoburt: I bargained with Australia, Britain and New Zealand for twenty years. On 31 January 1968 Nauru became independent, the smallest republic in the world. In 1970 we bought the phosphate company. For a while we were among the richest people on Earth, per head.
+-> And the land?
+    Hammer DeRoburt: The land they took before 1968 was gone. So in 1989 we took Australia to the International Court of Justice. They settled in 1993. Money does not grow coral back.
+-> Goodbye.
+    Hammer DeRoburt: Good day. I have a court date.
+===
+title: history_juda
+---
+Juda: Please, sit. We are packing. There is not much time.
+-> Who are you?
+    Juda: Juda Kessibuki, the leader of the people of Bikini. A commodore of the American navy came after church and asked us to leave our island for a while, so they could test a bomb that would end all wars. He said it was for the good of mankind.
+-> What did you say?
+    Juda: We talked for a long time. Then I said that we would go. What else could we say to a nation that had just won a war? We are 167 people. They had ships, and nearly a hundred warships coming to anchor in our lagoon, as targets.
+-> Will you come back?
+    Juda: They told us it would be for a short time. Ask your history books how long it has been.
+-> Goodbye.
+    Juda: Go well. Look after the island, if you can.
+===
+title: history_bikini_elder
+---
+Bikini Elder: My mother's mat, my grandmother's mat. Everything rolls up small, if you have to leave.
+-> Where are you going?
+    Bikini Elder: To Rongerik, they say. It is smaller than Bikini, and its lagoon has few fish. They say we will be fine. They have not been there.
+-> What happened there?
+    Bikini Elder: We nearly starved. In 1948 they moved us again, to Kili, an island with no lagoon at all, where we could not fish in our way. Our children grew up far from Bikini. In 1968 they said Bikini was safe; some went back. In 1978 they found it was not, and moved us again.
+-> Goodbye.
+    Bikini Elder: Remember our island's name for what it was. Not for a swimsuit.
+===

@@ -1,7 +1,7 @@
 //! The History dimension: its gate is DYNASTIC.
 //!
-//! Seventy-eight rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
-//! a grid of seventy outdoor rooms, where east is later and each floor is
+//! Eighty-four rooms (`game/ambition_map_assets/ambition_content/generators/history/`):
+//! a grid of seventy-six outdoor rooms, where east is later and each floor is
 //! a region of the world, and eight buildings by doors. The gate is in the
 //! Cradle, in Africa, at the bottom left. This asks the game what the
 //! generator takes as given: that the rooms of a floor join in order, that the
@@ -165,7 +165,15 @@ const WAYS: &[(&str, &str)] = &[
     // Maize goes south to the Andes.
     ("history_first_maize", "history_andean_highlands"),
     // The Austronesians sail from Taiwan into the Pacific.
-    ("history_taiwan", "history_lapita_voyagers"),
+    // Micronesia: Taiwan's way down to the Lapita goes through the Marianas;
+    // the row goes east from there.
+    ("history_taiwan", "history_marianas"),
+    ("history_marianas", "history_lapita_voyagers"),
+    ("history_marianas", "history_nan_madol"),
+    ("history_nan_madol", "history_marshalls"),
+    ("history_marshalls", "history_yap"),
+    ("history_yap", "history_nauru"),
+    ("history_nauru", "history_bikini"),
     ("history_silk_road", "history_silla"),
     // East Asia's coasts, the row under East Asia. The mammoth steppe's foot
     // is the peninsula to Hokkaido.
@@ -227,7 +235,7 @@ fn the_rooms_of_the_history_grid_join_where_history_did() {
     assert_eq!(rooms.neighboring_room_indices_of(cradle).len(), 1, "the Cradle joins only the southern coast");
     // The ways name all the rooms, and the gate reaches every one.
     let named: BTreeSet<&str> = WAYS.iter().flat_map(|&(a, b)| [a, b]).collect();
-    assert_eq!(named.len(), 78, "the ways name every room of the dimension: {named:?}");
+    assert_eq!(named.len(), 84, "the ways name every room of the dimension: {named:?}");
     let mut reached = BTreeSet::from(["history_cradle"]);
     while let Some(&(a, b)) = WAYS.iter().find(|&&(a, b)| reached.contains(a) != reached.contains(b)) {
         reached.extend([a, b]);
@@ -454,6 +462,22 @@ const CAST: &[(&str, &[(&str, usize)])] = &[
     ("history_sahul", &[("npc_history_raft_builder", 1), ("diprotodon", 1), ("megalania", 1)]),
     ("history_new_guinea_highlands", &[("npc_history_kuk_gardener", 1), ("cassowary_history", 3)]),
     ("history_lapita_voyagers", &[("npc_history_lapita_potter", 1), ("coconut_crab", 2), ("coral_crab", 1)]),
+    // Micronesia.
+    (
+        "history_marianas",
+        &[("npc_history_latte_builder", 1), ("npc_history_hurao", 1), ("fanihi", 1), ("coconut_crab", 1)],
+    ),
+    ("history_nan_madol", &[("npc_history_basalt_hauler", 1), ("npc_history_isokelekel", 1), ("coral_crab", 2)]),
+    (
+        "history_marshalls",
+        &[("npc_history_ri_meto", 1), ("npc_history_pandanus_weaver", 1), ("frigatebird", 1), ("coconut_crab", 1)],
+    ),
+    ("history_yap", &[("npc_history_rai_owner", 1), ("npc_history_palau_quarrier", 1), ("coconut_crab", 1)]),
+    (
+        "history_nauru",
+        &[("npc_history_phosphate_digger", 1), ("npc_history_hammer_deroburt", 1), ("frigatebird", 1)],
+    ),
+    ("history_bikini", &[("npc_history_juda", 1), ("npc_history_bikini_elder", 1)]),
     ("history_wayfinders", &[("npc_history_wayfinder", 1), ("frigatebird", 3), ("coconut_crab", 1)]),
     ("history_rapa_nui", &[("npc_history_moai_carver", 1), ("npc_history_thor_hey_im_right_dahl", 1), ("pacific_rat", 3)]),
     (

@@ -414,6 +414,21 @@
     "history_eel_weir": (),
     "history_stone_house": (),
     "history_smoking_tree": (),
+    // Micronesia (wave L2a, `targets/props/history_micronesia_props.py`): the
+    // Marianas, Nan Madol, the Marshalls, Yap, Nauru and Bikini.
+    "history_latte_house": (),
+    "history_lusong": (),
+    "history_sakman": (),
+    "history_stick_chart": (),
+    "history_basalt_wall": (),
+    "history_sakau_stone": (),
+    "history_rai_big": (),
+    "history_rai_small": (),
+    "history_faluw": (),
+    "history_phosphate_cantilever": (),
+    "history_pinnacles": (),
+    "history_target_ship": (),
+    "history_empty_house": (),
     // The Story Stacks of the Art dimension (`targets/props/art_stacks_props.py`).
     // The doors of the Library of Endings are two covers of a book: the happy
     // ending in gold with a sun, the sad ending in deep blue with a moon and

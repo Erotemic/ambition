@@ -75,6 +75,7 @@
     "history_meiji_train": (row: "idle", frame_px: (512.0, 224.0), span_px: (20.0, 488.0), top_px: 148.0),
     "history_congo_steamer": (row: "idle", frame_px: (512.0, 320.0), span_px: (118.0, 476.0), top_px: 236.0),
     "history_nawi": (row: "idle", frame_px: (384.0, 160.0), span_px: (60.0, 324.0), top_px: 112.0),
+    "history_sakman": (row: "idle", frame_px: (448.0, 352.0), span_px: (52.0, 396.0), top_px: 276.0),
     // The walking moai: the top of its red pukao is the platform
     // (`WALKING_*`). Its `idle` row rocks the moai from side to side on its
     // ropes; the pukao stays level.

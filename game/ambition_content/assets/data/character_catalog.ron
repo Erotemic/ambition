@@ -733,6 +733,11 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.5, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 120.0)),
         ),
+        // The fanihi opens its wings (its windup row) and swoops.
+        "fanihi_swoop": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.25, recover_s: 0.6, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 170.0)),
+        ),
         "sea_raider_cut": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 140.0)),
@@ -8357,6 +8362,33 @@
             hall: ["For centuries Europe said 'a black swan' meant a thing that cannot exist. Then a Dutch ship reached Western Australia in 1697.", "Now a 'black swan' is the thing nobody saw coming. I was here the whole time."],
         ),
         ),
+        // The fanihi, the Mariana fruit bat: a big fruit bat with a golden mantle.
+        "fanihi": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Fanihi",
+            manifest: "sprites/fanihi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(28.0),
+            composition: None,
+            default_action_set: "fanihi_swoop",
+            locomotion: Some((run_speed: 170.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 520.0,
+                attack_range: 150.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.45, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "history", "marianas", "bat"],
+        barks: (
+            on_hit: ["*an angry chitter*", "*it wraps its wings round itself*"],
+            provoked: ["*it unfolds wings as wide as your arms*"],
+            idle: ["*it hangs and chews a fig*", "*leathery wingbeats*"],
+            hall: ["I eat fruit and spread the seeds of the forest. Without me, fewer trees.", "Hunting and the brown tree snake nearly ended my kind on Guam. Leave me in my tree."],
+        ),
+        ),
         // The cave lion: the maneless lion of the Ice Age that the painters of
         // the caves drew. It crouches with its hips wiggling (its windup row),
         // pounces a long way with its claws out, and lands.
@@ -13685,6 +13717,212 @@
             barks: (
                 idle: ["Over, under, over, under.", "*she pulls the sedge tight*", "Hold this end for me."],
                 hall: ["An eel trap has a neck the eel swims into and not out of. A good one lasts many seasons.", "The lake was drained for farms. In 2010 our people brought the water back. In 2019 the world listed it as heritage."],
+            ),
+        ),
+        // Micronesia (wave L2a). Hurao, Isokelekel (of Pohnpei's histories),
+        // Hammer DeRoburt and Juda Kessibuki are real; the others are original.
+        "npc_history_latte_builder": (
+            display_name: "Latte Builder",
+            // An original CHamoru woman of Guåhan, about 1000 CE, who builds houses on latte stones.
+            manifest: "sprites/history_latte_builder_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 157 cm.
+            standing_height: Some(60.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "marianas", "peaceful"],
+            barks: (
+                idle: ["Håfa adai.", "*she checks the capstone is level*", "Mind your head."],
+                hall: ["Latte: a pillar and a cap shaped like half a coconut. We build the house on top, off the ground, in the sea wind.", "Our ancestors sailed here more than three thousand years ago, further over open sea than anyone had gone."],
+            ),
+        ),
+        "npc_history_hurao": (
+            display_name: "Hurao",
+            // Hurao, a CHamoru chief of Guåhan who in 1671 called on his people to drive out the Spanish.
+            manifest: "sprites/history_hurao_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "marianas", "peaceful"],
+            barks: (
+                idle: ["Remember who was here first.", "*he looks out at the Spanish ship*", "Sit. Talk."],
+                hall: ["We lived well before they came, and we could live without them. So we fought, for more than twenty years.", "War and sickness killed most of us. But the CHamoru are still here, and so is our language."],
+            ),
+        ),
+        "npc_history_basalt_hauler": (
+            display_name: "Basalt Hauler",
+            // An original Pohnpeian man, about 1200, who hauls basalt columns to Nan Madol.
+            manifest: "sprites/history_basalt_hauler_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "nan_madol", "peaceful"],
+            barks: (
+                idle: ["Hup. Hup.", "*he shifts the column on his shoulder*", "Mind the canals."],
+                hall: ["The rock cools into six-sided columns. We lay them crosswise, like a log cabin, and fill the middle with coral.", "The stories say two brothers flew the stones here by magic. I wish they would fly this one."],
+            ),
+        ),
+        "npc_history_isokelekel": (
+            display_name: "Isokelekel",
+            // Isokelekel, the hero of Pohnpei's histories who ended the Saudeleur rule and became the first Nahnmwarki.
+            manifest: "sprites/history_isokelekel_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "nan_madol", "peaceful"],
+            barks: (
+                idle: ["Kaselehlie.", "*he stands easy, spear upright*", "The Saudeleur are finished."],
+                hall: ["The Saudeleur took every first catch and first fruit for themselves. Their rule ended here, in Nan Madol.", "I became the first Nahnmwarki. Pohnpei still has its Nahnmwarki today."],
+            ),
+        ),
+        "npc_history_ri_meto": (
+            display_name: "Ri-meto",
+            // An original Marshallese navigator (ri-meto), with a stick chart of the swells.
+            manifest: "sprites/history_ri_meto_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "marshalls", "peaceful"],
+            barks: (
+                idle: ["Close your eyes. Feel the swell.", "*he traces a curved stick with his finger*", "The east swell is strong today."],
+                hall: ["Sticks for the swells, shells for the islands. Where the bent swells cross, the canoe rocks in its own way: an island is near.", "You learn the chart on land, and leave it at home. At sea you read the water with your body."],
+            ),
+        ),
+        "npc_history_pandanus_weaver": (
+            display_name: "Pandanus Weaver",
+            // An original Marshallese woman who plaits pandanus mats, for sleeping and for sails.
+            manifest: "sprites/history_pandanus_weaver_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 156 cm.
+            standing_height: Some(60.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "marshalls", "peaceful"],
+            barks: (
+                idle: ["Iakwe.", "*strip, soften, plait*", "A mat for a sail, a mat for a wedding."],
+                hall: ["The canoes of the Marshalls carry the mats of the women. A navigator is nothing without a good sail.", "A ring of sand around a lagoon, two metres above the sea. Land is everything here, because there is so little of it."],
+            ),
+        ),
+        "npc_history_rai_owner": (
+            display_name: "Rai Owner",
+            // An original Yapese man, about 1900, the owner of a large rai (stone money).
+            manifest: "sprites/history_rai_owner_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 167 cm.
+            standing_height: Some(64.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "yap", "peaceful"],
+            barks: (
+                idle: ["Do not lean on my money.", "*he offers you betel nut*", "Everyone knows whose stone it is."],
+                hall: ["When I buy something big, the stone does not move. The whole island just knows it belongs to someone else now.", "A small stone with a terrible voyage is worth more than a big one that came easily."],
+            ),
+        ),
+        "npc_history_palau_quarrier": (
+            display_name: "Palau Quarrier",
+            // An original Yapese man, white with limestone dust from the quarries of Palau, with a shell adze.
+            manifest: "sprites/history_palau_quarrier_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 169 cm.
+            standing_height: Some(65.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "yap", "peaceful"],
+            barks: (
+                idle: ["*cough* Limestone dust.", "*he brushes off his arms*", "Half a year in Palau, carving."],
+                hall: ["Months with shell adzes for one big stone, then 400 km of open sea on a raft behind a canoe.", "O'Keefe brought stones cut with iron tools on his ship. A stone with no hardship in it is worth less."],
+            ),
+        ),
+        "npc_history_phosphate_digger": (
+            display_name: "Phosphate Digger",
+            // An original Chinese contract labourer on Nauru in the 1930s, with a shovel.
+            manifest: "sprites/history_phosphate_digger_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 165 cm.
+            standing_height: Some(63.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "nauru", "peaceful"],
+            barks: (
+                idle: ["Dig, fill, carry. Again.", "*he leans on the shovel for a moment*", "Three years, then home."],
+                hall: ["Phosphate is old bird droppings, turned to rock. Farmers in Australia and New Zealand spread it on their fields.", "Between the pinnacles there is nothing left. The Nauruans watched their island go away by ship."],
+            ),
+        ),
+        "npc_history_hammer_deroburt": (
+            display_name: "Hammer DeRoburt",
+            // Hammer DeRoburt (1922-1992), head chief of Nauru, who led it to independence in 1968.
+            manifest: "sprites/history_hammer_deroburt_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "nauru", "peaceful"],
+            barks: (
+                idle: ["I have a court date.", "*he straightens a folder of papers*", "Nauruans decide for Nauru."],
+                hall: ["In 1943 Japan sent 1,200 of us to Chuuk. Hundreds died. When we came home, I decided Nauru would be ours.", "Independence in 1968, the phosphate company in 1970, and in 1989 the International Court. Money does not grow coral back."],
+            ),
+        ),
+        "npc_history_juda": (
+            display_name: "Juda Kessibuki",
+            // Juda Kessibuki, the leader of the people of Bikini in 1946.
+            manifest: "sprites/history_juda_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bikini", "peaceful"],
+            barks: (
+                idle: ["We are packing.", "*he turns his hat in his hands*", "Look after the island."],
+                hall: ["A commodore asked us to leave for a while, so they could test a bomb for the good of mankind. We are 167 people. I said we would go.", "They told us it would be for a short time."],
+            ),
+        ),
+        "npc_history_bikini_elder": (
+            display_name: "Bikini Elder",
+            // An original woman of Bikini in 1946, packing to leave.
+            manifest: "sprites/history_bikini_elder_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 154 cm.
+            standing_height: Some(59.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "history", "bikini", "peaceful"],
+            barks: (
+                idle: ["Everything rolls up small.", "*she ties a rolled mat*", "Remember the island's name for what it was."],
+                hall: ["They sent us to Rongerik, and we nearly starved. Then Kili, with no lagoon. Then home in 1968, and away again in 1978.", "Our children grew up far from Bikini."],
             ),
         ),
         "npc_primeval_twitchell": (

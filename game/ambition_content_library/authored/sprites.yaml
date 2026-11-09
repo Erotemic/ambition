@@ -496,6 +496,7 @@ collections:
   - haast_eagle
   - kooyang
   - black_swan
+  - fanihi
   - history_victoria_lily
   - history_jangada
   - history_marajoara_pots
@@ -539,6 +540,19 @@ collections:
   - history_eel_weir
   - history_stone_house
   - history_smoking_tree
+  - history_latte_house
+  - history_lusong
+  - history_sakman
+  - history_stick_chart
+  - history_basalt_wall
+  - history_sakau_stone
+  - history_rai_big
+  - history_rai_small
+  - history_faluw
+  - history_phosphate_cantilever
+  - history_pinnacles
+  - history_target_ship
+  - history_empty_house
   - eigenghost
   - decomposing_specter
   - spectral_perturbation
@@ -939,6 +953,18 @@ collections:
   - history_pemulwuy
   - history_kooyang_farmer
   - history_basket_weaver
+  - history_latte_builder
+  - history_hurao
+  - history_basalt_hauler
+  - history_isokelekel
+  - history_ri_meto
+  - history_pandanus_weaver
+  - history_rai_owner
+  - history_palau_quarrier
+  - history_phosphate_digger
+  - history_hammer_deroburt
+  - history_juda
+  - history_bikini_elder
   - station_dobbs
   - station_pippin
   - magical_celeste

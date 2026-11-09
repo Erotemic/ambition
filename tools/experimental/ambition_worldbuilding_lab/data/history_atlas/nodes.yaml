@@ -610,9 +610,14 @@ nodes:
   - {id: tonga_samoa, title: "The Tuʻi Tonga and Samoa", region: polynesia, years: [950, 1865], status: built, room: history_tonga_samoa, shape: hub,
      countries: [TON, WSM, FJI, COK, TUV, ASM], peoples: [pasifika], topics: [pacific_navigation, monumental_building, everyday_life, performance_oral_history],
      note: "a sea empire of chiefly marriages; Tonga was never a colony (a British protectorate only)"}
-  - {id: nan_madol_yap, title: "Nan Madol and the stone money of Yap", region: micronesia, years: [1180, 1628], status: planned,
-     countries: [FSM, PLW, GUM, MHL, KIR], peoples: [chamorro], topics: [monumental_building, money, pacific_navigation]}
-  - {id: marshall_stick_charts, title: "The stick charts", region: micronesia, years: [1500, 1900], status: candidate,
+  - {id: marianas, title: "The Marianas and the latte", region: micronesia, years: [-1500, 1700], status: built, room: history_marianas,
+     countries: [GUM, MNP], peoples: [chamorro], topics: [peopling_of_pacific, seafaring, monumental_building, everyday_life, colonialism, indigenous_resistance],
+     note: "the CHamoru sailed from island Southeast Asia about 1500 BCE; the Spanish-Chamorro wars, 1668-1695"}
+  - {id: nan_madol, title: "Nan Madol", region: micronesia, years: [1180, 1628], status: built, room: history_nan_madol,
+     countries: [FSM], topics: [monumental_building], note: "the Saudeleur's city of basalt on the reef; Isokelekel"}
+  - {id: yap_stone_money, title: "The stone money of Yap", region: micronesia, years: [1500, 1900], status: built, room: history_yap,
+     countries: [FSM, PLW], topics: [money, pacific_navigation], note: "rai quarried in Palau; a stone's worth is its story"}
+  - {id: marshall_stick_charts, title: "The stick charts", region: micronesia, years: [1500, 1900], status: built, room: history_marshalls,
      countries: [MHL, KIR, NRU], topics: [pacific_navigation]}
   - {id: aotearoa_arrival, title: "Aotearoa", region: aotearoa, years: [1250, 1769], status: built, room: history_aotearoa, shape: tall,
      countries: [NZL], peoples: [maori], topics: [peopling_of_pacific, pacific_navigation, climate_and_collapse], note: "the moa; the pā on its hill"}
@@ -628,9 +633,9 @@ nodes:
      countries: [VUT, SLB, FJI, AUS, PNG, KIR], peoples: [pasifika], topics: [indentured_labour, slavery_and_resistance]}
   - {id: samoa_mau, title: "The Mau", region: polynesia, years: [1908, 1962], status: candidate,
      countries: [WSM, NZL], peoples: [pasifika], topics: [nonviolence, decolonization]}
-  - {id: nauru_phosphate, title: "Nauru and the phosphate", region: micronesia, years: [1906, 1999], status: planned,
+  - {id: nauru_phosphate, title: "Nauru and the phosphate", region: micronesia, years: [1906, 1999], status: built, room: history_nauru,
      countries: [NRU, AUS, NZL, GBR], topics: [colonialism, climate_and_collapse]}
-  - {id: bikini_moruroa, title: "Bikini and Moruroa", region: micronesia, years: [1946, 1996], status: planned, mode: sober,
+  - {id: bikini_moruroa, title: "Bikini and Moruroa", region: micronesia, years: [1946, 1996], status: built, room: history_bikini, mode: sober,
      countries: [MHL, PYF, KIR, USA, FRA, GBR, AUS], topics: [nuclear_age, colonialism], peoples: [marshallese]}
   - {id: kanaky, title: "Kanaky and New Caledonia", region: melanesia, years: [1853, 2021], status: candidate, mode: archive,
      countries: [NCL, FRA], topics: [decolonization, indigenous_resistance]}
@@ -843,8 +848,8 @@ nodes:
   # =========================================================================
   # REPRESENTATIVE SUPERSET ADDITIONS (2026-11-05)
   # These are editorial atlas subjects, not additional required game rooms.
-  # Only chamorro_latte_village is planned, for direct Marianas coverage;
-  # the rest are candidates for future selection.
+  # All are candidates for future selection. (The CHamoru latte village
+  # planned here for direct Marianas coverage is the built `marianas` node.)
   # Discovery source: WhenAtlas entities CSV, CC BY 4.0,
   # https://whenatlas.com/dataset (record references noted below).
   # Crosswalk, datasets and license: docs/related-work/history-atlas-sources-and-provenance.md
@@ -948,9 +953,6 @@ nodes:
   - {id: eastern_agricultural_complex, title: "The Eastern Woodlands seed gardens", region: north_america_east, years: [-3000, -800], status: candidate,
      countries: [USA], peoples: [native_americans], topics: [farming_origins, indigenous_agriculture, everyday_life],
      note: "Eastern North American domestication of native seed crops predates maize-based farming; no claim of a single ancestral nation."}
-  - {id: chamorro_latte_village, title: "A CHamoru latte village in the Marianas", region: micronesia, years: [1000, 1690], status: planned,
-     countries: [GUM, MNP], peoples: [chamorro], topics: [monumental_building, pacific_navigation, seafaring, everyday_life],
-     note: "Latte architecture and everyday island life in Guam and the Northern Marianas; not a proxy for Pohnpei or Yap."}
   - {id: ohlone_bay_communities, title: "Villages around San Francisco Bay before the missions", region: california, years: [1200, 1769], status: candidate,
      countries: [USA], peoples: [native_americans], topics: [forager_foodways, money, everyday_life],
      note: "Diverse Ohlone-speaking communities with local identities, trade and foodways; avoid one generic California tribe."}

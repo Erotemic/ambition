@@ -368,6 +368,18 @@ npc_history_bennelong
 npc_history_pemulwuy
 npc_history_kooyang_farmer
 npc_history_basket_weaver
+npc_history_latte_builder
+npc_history_hurao
+npc_history_basalt_hauler
+npc_history_isokelekel
+npc_history_ri_meto
+npc_history_pandanus_weaver
+npc_history_rai_owner
+npc_history_palau_quarrier
+npc_history_phosphate_digger
+npc_history_hammer_deroburt
+npc_history_juda
+npc_history_bikini_elder
 
 [Guests from history and the studio]
 npc_genghis_can
@@ -558,6 +570,7 @@ moa
 haast_eagle
 kooyang
 black_swan
+fanihi
 
 [Mary-O's world]
 mary_o

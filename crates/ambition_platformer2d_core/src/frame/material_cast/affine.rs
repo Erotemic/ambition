@@ -188,6 +188,8 @@ struct Work {
     cell: MaterialCell,
     root: Reference,
     forced: Option<u32>,
+    /// A stay region retains the boundary of the column already cut from it.
+    cut: Vec<u32>,
 }
 
 fn failure(path: &[u32], link: Option<u32>, reason: RefusalReason) -> Refusal {
@@ -218,14 +220,20 @@ fn windows(mut cuts: Vec<f64>, time: Range<f64>) -> Vec<Range<f64>> {
     cuts.windows(2).map(|p| p[0]..p[1]).collect()
 }
 
-fn simultaneous<'a>(cells: impl Iterator<Item = &'a MaterialCell>) -> usize {
+fn simultaneous<'a>(
+    body: &crate::CombatVolume,
+    cells: impl Iterator<Item = &'a MaterialCell>,
+) -> Result<usize, NumericFault> {
     let mut events = Vec::new();
     let mut points = Vec::new();
     for cell in cells {
-        if cell.time.start == cell.time.end {
-            points.push(cell.time.start);
+        let Some(time) = super::temporal::occupied(body, &cell.planes, cell.time.clone())? else {
+            continue;
+        };
+        if time.start == time.end {
+            points.push(time.start);
         } else {
-            events.extend([(cell.time.start, 1_i32), (cell.time.end, -1_i32)]);
+            events.extend([(time.start, 1_i32), (time.end, -1_i32)]);
         }
     }
     events.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
@@ -243,7 +251,7 @@ fn simultaneous<'a>(cells: impl Iterator<Item = &'a MaterialCell>) -> usize {
         most = most.max(n);
         previous = Some(point);
     }
-    most as usize
+    Ok(most as usize)
 }
 
 /// The translating constructor also proves whether a curved entry can be reached.
@@ -313,6 +321,7 @@ pub(super) fn build(
             along: None,
         },
         forced: admission.first,
+        cut: Vec::new(),
     };
     let mut queue = VecDeque::from([first]);
     let mut out = Vec::new();
@@ -321,7 +330,12 @@ pub(super) fn build(
         .saturating_mul(usize::from(admission.budget.max_pieces))
         .saturating_mul(links.len().max(1));
     while let Some(work) = queue.pop_front() {
-        let Work { cell, root, forced } = work;
+        let Work {
+            cell,
+            root,
+            forced,
+            cut,
+        } = work;
         let fail = |link, reason| failure(&cell.path, link, reason);
         steps += 1;
         if steps > limit {
@@ -341,6 +355,9 @@ pub(super) fn build(
         let mut possible = Vec::new();
         let mut cuts = Vec::new();
         for (i, link) in links.iter().enumerate() {
+            if cut.contains(&link.key) {
+                continue;
+            }
             if Some(link.key) != forced
                 && ranks[i].at(cell.time.start).max(ranks[i].at(cell.time.end)) <= 0.0
             {
@@ -354,7 +371,7 @@ pub(super) fn build(
             let mut through = cell.planes.clone();
             through.extend_from_slice(&planes);
             if let Some(time) =
-                super::temporal::occupied(cast.material.domain, &through, cell.time.clone())
+                super::temporal::closure(cast.material.domain, &through, cell.time.clone())
                     .map_err(|e| fail(Some(link.key), RefusalReason::Numeric(e)))?
             {
                 if time.start - cell.time.start > f64::EPSILON * 64.0 {
@@ -391,6 +408,7 @@ pub(super) fn build(
                 },
                 root,
                 forced,
+                cut: cut.clone(),
             }));
             continue;
         }
@@ -421,7 +439,7 @@ pub(super) fn build(
             let mut through = cell.planes.clone();
             through.extend_from_slice(&planes);
             if let Some(mut time) =
-                super::temporal::occupied(cast.material.domain, &through, cell.time.clone())
+                super::temporal::closure(cast.material.domain, &through, cell.time.clone())
                     .map_err(|e| fail(Some(links[i].key), RefusalReason::Numeric(e)))?
             {
                 let error = f64::EPSILON * 64.0;
@@ -440,7 +458,7 @@ pub(super) fn build(
             continue;
         };
         let link = &links[i];
-        if active != cell.time {
+        if active != cell.time && active.start < active.end {
             let spans = windows(vec![active.start, active.end], cell.time.clone());
             queue.extend(spans.into_iter().map(|time| Work {
                 cell: MaterialCell {
@@ -449,6 +467,7 @@ pub(super) fn build(
                 },
                 root,
                 forced,
+                cut: cut.clone(),
             }));
             continue;
         }
@@ -471,11 +490,13 @@ pub(super) fn build(
             candidates.push(vec![planes[1], planes[2], flip(planes[3])]);
         }
         let mut children = Vec::new();
+        let mut stay_cut = cut;
+        stay_cut.push(link.key);
         for more in candidates {
             let mut stay = cell.clone();
             stay.planes.extend(more);
             if let Some(time) =
-                super::temporal::occupied(cast.material.domain, &stay.planes, stay.time.clone())
+                super::temporal::closure(cast.material.domain, &stay.planes, stay.time.clone())
                     .map_err(numeric)?
             {
                 stay.time = time;
@@ -483,10 +504,12 @@ pub(super) fn build(
                     cell: stay,
                     root,
                     forced: None,
+                    cut: stay_cut.clone(),
                 });
             }
         }
         let mut carried = cell.clone();
+        carried.time = active;
         carried.planes.extend(planes);
         carried.path.push(link.key);
         carried.map = cell.map.then(link.map).map_err(numeric)?;
@@ -527,13 +550,17 @@ pub(super) fn build(
                     along: Some((link.exit_tangent, value)),
                 },
                 forced: None,
+                cut: Vec::new(),
             });
         }
         if simultaneous(
+            cast.material.domain,
             out.iter()
                 .chain(queue.iter().map(|w| &w.cell))
                 .chain(children.iter().map(|w| &w.cell)),
-        ) > usize::from(admission.budget.max_pieces)
+        )
+        .map_err(numeric)?
+            > usize::from(admission.budget.max_pieces)
         {
             return Err(fail(Some(link.key), RefusalReason::PieceLimit));
         }
@@ -665,7 +692,7 @@ mod tests {
                 cells.parts().len() > 4,
                 "time windows do not consume simultaneous piece slots"
             );
-            assert_eq!(simultaneous(cells.parts().iter()), 4);
+            assert_eq!(simultaneous(&body, cells.parts().iter()).unwrap(), 4);
             let far = cells
                 .parts()
                 .iter()

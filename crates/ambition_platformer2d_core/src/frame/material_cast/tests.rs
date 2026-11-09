@@ -21,6 +21,9 @@ fn a_new_cell_owns_contact_at_a_topology_boundary() {
     let end_contact = box_at(Vec2::new(10.0, 0.0), Vec2::ONE);
     let hit = cells.against(&cells.parts[0], &end_contact, Vec2::ZERO).unwrap().unwrap();
     assert_eq!(hit.toi, 1.0);
+    cells.parts[0].time=0.375..0.375;
+    let hit=cells.against(&cells.parts[0],&obstacle,Vec2::ZERO).unwrap().unwrap();
+    assert_eq!(hit.toi,0.375,"a contact stratum owns its instant");
 }
 
 #[test]
@@ -723,6 +726,111 @@ fn portal_hosts_do_not_need_a_box_carve_and_a_near_exit_obstacle_remains_solid()
     assert_eq!(hit.contact.path,vec![0]);
     assert!((hit.contact.toi-0.7).abs()<0.001,"{hit:?}");
     assert_eq!(hit.contact.world_point.x,102.0);
+}
+
+#[test]
+fn the_opening_owns_the_first_boundary_touch_at_the_complete_cast_end() {
+    use crate::{Block,World};
+    let links=through();
+    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let world=World::new("endpoint opening",Vec2::splat(1000.0),Vec2::ZERO,vec![
+        Block::solid("entry",Vec2::new(0.0,-100.0),Vec2::new(10.0,200.0)),
+        Block::solid("exit",Vec2::new(90.0,-100.0),Vec2::new(10.0,200.0)),
+    ]);
+    for shape in [
+        CombatVolume::aabb(Aabb::new(Vec2::ZERO,Vec2::splat(10.0))),
+        CombatVolume::circle(Vec2::ZERO,10.0),
+    ] {
+        let request=|y| MaterialCast { time:0.0..1.0,
+            material:MaterialPrimitive { domain:&shape,to_world:Sim2::new(1.0,Mat2::IDENTITY,Vec2::new(-20.0,y)).unwrap() },
+            root:Vec2::new(-20.0,y),delta:Vec2::new(10.0,0.0),
+        };
+        let open=world.first_material_sweep(request(0.0),Some(admission),|_,_,_|Ok(true)).unwrap();
+        assert!(open.is_none(),"shape={shape:?}, hit={open:?}, cells={:?}",request(0.0).cells(Some(admission)).unwrap().parts());
+        let hit=world.first_material_sweep(request(40.0),Some(admission),|_,_,_|Ok(true)).unwrap().unwrap();
+        assert_eq!(hit.contact.toi,1.0,"{hit:?}");
+        assert!(hit.contact.path.is_empty(),"the finite opening end stays solid: {hit:?}");
+    }
+}
+
+#[test]
+fn a_boundary_part_can_hit_a_far_obstacle_at_the_complete_cast_end() {
+    use crate::{Block,World};
+    let links=through();
+    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let world=World::new("far endpoint",Vec2::splat(1000.0),Vec2::ZERO,vec![
+        Block::solid("target",Vec2::new(100.0,-100.0),Vec2::new(10.0,200.0)),
+    ]);
+    for shape in [
+        CombatVolume::aabb(Aabb::new(Vec2::ZERO,Vec2::splat(10.0))),
+        CombatVolume::circle(Vec2::ZERO,10.0),
+    ] {
+        let hit=world.first_material_sweep(MaterialCast { time:0.0..1.0,
+            material:MaterialPrimitive { domain:&shape,to_world:Sim2::new(1.0,Mat2::IDENTITY,Vec2::new(-20.0,0.0)).unwrap() },
+            root:Vec2::new(-20.0,0.0),delta:Vec2::new(10.0,0.0),
+        },Some(admission),|_,_,_|Ok(true)).unwrap().unwrap();
+        assert_eq!(hit.contact.toi,1.0,"{hit:?}");
+        assert_eq!(hit.contact.path,[0]);
+        assert_eq!(hit.contact.world_point.x,100.0);
+    }
+}
+
+#[test]
+fn a_line_opening_keeps_its_endpoint_when_only_a_boundary_stratum_arrives() {
+    use crate::{SurfaceChain,World};
+    let links=through();
+    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let world=World::new("line endpoint",Vec2::splat(1000.0),Vec2::ZERO,vec![])
+        .with_chains(vec![SurfaceChain::open("entry",vec![Vec2::new(0.0,100.0),Vec2::new(0.0,-100.0)])]);
+    for shape in [
+        CombatVolume::aabb(Aabb::new(Vec2::ZERO,Vec2::splat(10.0))),
+        CombatVolume::circle(Vec2::ZERO,10.0),
+    ] {
+        let request=|y| MaterialCast { time:0.0..1.0,
+            material:MaterialPrimitive { domain:&shape,to_world:Sim2::new(1.0,Mat2::IDENTITY,Vec2::new(-20.0,y)).unwrap() },
+            root:Vec2::new(-20.0,y),delta:Vec2::new(10.0,0.0),
+        };
+        assert!(world.first_material_sweep(request(0.0),Some(admission),|_,_,_|Ok(true)).unwrap().is_none());
+        let hit=world.first_material_sweep(request(40.0),Some(admission),|_,_,_|Ok(true)).unwrap().unwrap();
+        assert_eq!(hit.contact.toi,1.0,"{hit:?}");
+        assert!(hit.contact.path.is_empty());
+    }
+}
+
+#[test]
+fn contact_strata_do_not_consume_material_piece_slots_under_scale_parity_and_boost() {
+    use crate::{Block,World};
+    for scale in [0.5,1.0,2.0] {
+        for parity in [-1.0,1.0] {
+            for boost in [Vec2::ZERO,Vec2::new(16.0,-8.0)] {
+                let mut links=through();
+                for link in &mut links {
+                    for (aperture,step) in [(&mut link.enter,&mut link.enter_step),(&mut link.exit,&mut link.exit_step)] {
+                        aperture.frame.origin+=boost;
+                        aperture.frame.pivot+=boost;
+                        step.displacement=boost;
+                    }
+                }
+                let mut host=Block::solid("entry",boost+Vec2::new(0.0,-100.0),Vec2::new(10.0,200.0));
+                host.velocity=boost;
+                let world=World::new("boosted endpoint",Vec2::splat(1000.0),Vec2::ZERO,vec![host]);
+                for shape in [
+                    CombatVolume::aabb(Aabb::new(Vec2::ZERO,Vec2::splat(10.0))),
+                    CombatVolume::circle(Vec2::ZERO,10.0),
+                ] {
+                    let root=Vec2::new(-20.0*scale,0.0);
+                    let request=|distance| MaterialCast { time:0.0..1.0,
+                        material:MaterialPrimitive { domain:&shape,to_world:Sim2::new(scale,Mat2::from_cols(Vec2::X*parity,Vec2::Y),root).unwrap() },
+                        root,delta:Vec2::new(distance,0.0)+boost,
+                    };
+                    let admission=MotionAdmission { links:&links,first:None,
+                        budget:PieceBudget {max_pieces:1,..PieceBudget::COMPOSED},convention:MapConvention::Reflection };
+                    assert!(world.first_material_sweep(request(10.0*scale),Some(admission),|_,_,_|Ok(true)).unwrap().is_none());
+                    assert!(matches!(request(11.0*scale).cells(Some(admission)),Err(Refusal {reason:RefusalReason::PieceLimit,..})));
+                }
+            }
+        }
+    }
 }
 
 #[test]

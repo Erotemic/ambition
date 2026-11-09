@@ -215,6 +215,26 @@ pub(super) fn cast(
     motion: DVec2,
     cell: impl ExactSizeIterator<Item = MovingPlane>,
 ) -> Result<Option<CastHit>, NumericFault> {
+    cast_region(body,delta,obstacle,motion,cell,true)
+}
+
+/// The template bounds a closed feasible region, not a physical solid.
+pub(super) fn cast_closure(
+    body: &CombatVolume,
+    obstacle: &[DVec2],
+    cell: impl ExactSizeIterator<Item = MovingPlane>,
+) -> Result<Option<CastHit>, NumericFault> {
+    cast_region(body,DVec2::ZERO,obstacle,DVec2::ZERO,cell,false)
+}
+
+fn cast_region(
+    body: &CombatVolume,
+    delta: DVec2,
+    obstacle: &[DVec2],
+    motion: DVec2,
+    cell: impl ExactSizeIterator<Item = MovingPlane>,
+    solid: bool,
+) -> Result<Option<CastHit>, NumericFault> {
     if cell.len() == 0 {
         return Ok(
             super::primitive_cast(body, delta - motion, obstacle).map(|mut hit| {
@@ -252,7 +272,7 @@ pub(super) fn cast(
     };
     let initial = region_at(0.0);
     let occupied = |time: f64| {
-        if obstacle.len() < 3 || crate::frame::thread::has_area(&region_at(time)) {
+        if !solid || obstacle.len() < 3 || crate::frame::thread::has_area(&region_at(time)) {
             return true;
         }
         let next = vertices
@@ -263,7 +283,7 @@ pub(super) fn cast(
             .unwrap_or(1.0);
         next > time && crate::frame::thread::has_area(&region_at(time + (next - time) * 0.5))
     };
-    let mut best = if obstacle.len() >= 3 && !crate::frame::thread::has_area(&initial) {
+    let mut best = if solid && obstacle.len() >= 3 && !crate::frame::thread::has_area(&initial) {
         None
     } else {
         super::primitive_cast(body, DVec2::ZERO, &initial)

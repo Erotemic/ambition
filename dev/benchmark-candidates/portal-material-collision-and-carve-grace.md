@@ -67,6 +67,14 @@ At a topology event, the cells that begin there own contact. A cell that ends
 must not turn an opening's first touch into a wall hit. Keep contact at the
 end of the complete cast observable.
 
+An opening can first meet a primitive at the complete cast end, before any
+material area crosses. Retain that closed contact stratum. Cut the source
+host at the same boundary, and retain contacts with finite opening ends and
+far obstacles. A contact stratum uses the incoming motion derivative; a
+static pose query loses this contact. Count material interiors for the piece
+budget. Do not count a boundary twice or revisit a column already cut from a
+stay region.
+
 A periodic collider can approach the same body more than once in one tick.
 Reject only the current continuous overlap component. Search later approaches
 against the same collider. One-way normals, edge identity and surface velocity

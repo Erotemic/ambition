@@ -667,6 +667,10 @@ loading work. No complete PSIM acceptance slice is closed.
   Projectiles now use the shared physical room composition and its cache.
   This includes live moving platforms and contributed lines. The separate
   projectile composition that omitted these surfaces is removed.
+  Closed contact strata also retain the first touch at the complete cast end,
+  before any area crosses. The opening excludes its host, while finite ends
+  and far obstacles keep their contacts. These boundaries do not consume
+  material piece slots.
 - The block-only endpoint scan, overlap snap, one-pixel bounce lift and
   projectile crossing nudge are removed. The same material query orders and
   resolves each world contact. Body and feature hit queries still need to
@@ -687,9 +691,10 @@ loading work. No complete PSIM acceptance slice is closed.
   limit is removed. Folded meshes clip in the source chart.
 
 `cargo check -p ambition_app --tests` passes on the temporal contact change.
-Focused library tests pass: 805 core, 351 shared-state, 169 world, 46 projectile
+Focused library tests pass: 809 core, 351 shared-state, 169 world, 46 projectile
 and 29 projectile-combat tests. Two library measurements remain ignored.
-The assembled app passes all 15 tests selected by `projectile`. The runtime
+The assembled app passes the 15 tests selected by `projectile` and the added
+station K test for first boundary contact at tick end. The runtime
 library passes 59 projectile tests. The curved collider change also passes
 71 Smash host tests and 35 workspace policy tests. Six Smash tests remain
 ignored. The preceding ray work passed combat,

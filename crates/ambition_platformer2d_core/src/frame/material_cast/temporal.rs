@@ -5,7 +5,7 @@ use std::ops::Range;
 use super::translation::{self, MovingPlane};
 use super::{CombatVolume, DVec2, NumericFault};
 
-fn holds(body: &CombatVolume, planes: &[MovingPlane], time: f64) -> bool {
+fn holds(body: &CombatVolume, planes: &[MovingPlane], time: f64, interior: bool) -> bool {
     let mut region = body
         .polygon()
         .unwrap_or_else(|| super::corners(body.bounds()).to_vec())
@@ -24,11 +24,29 @@ fn holds(body: &CombatVolume, planes: &[MovingPlane], time: f64) -> bool {
             return false;
         }
     }
-    if !crate::frame::thread::has_area(&region) {
+    if interior && !crate::frame::thread::has_area(&region) {
         return false;
     }
-    !matches!(body, CombatVolume::Circle { .. })
-        || super::primitive_cast(body, DVec2::ZERO, &region).is_some()
+    match body {
+        CombatVolume::Circle { center, radius } => {
+            let center = center.as_dvec2();
+            if planes
+                .iter()
+                .all(|p| center.dot(p.plane.inward) >= p.plane.offset + p.rate * time)
+            {
+                return true;
+            }
+            let distance = super::edges(&region)
+                .map(|(a, b)| center.distance(super::closest_on_segment(center, a, b)))
+                .fold(f64::INFINITY, f64::min);
+            if interior {
+                distance < f64::from(*radius)
+            } else {
+                distance <= f64::from(*radius)
+            }
+        }
+        _ => !region.is_empty(),
+    }
 }
 
 /// The intersection is convex in source position and time. Its projection on
@@ -38,8 +56,26 @@ pub(super) fn occupied(
     planes: &[MovingPlane],
     time: Range<f64>,
 ) -> Result<Option<Range<f64>>, NumericFault> {
-    let first = holds(body, planes, time.start);
-    let last = holds(body, planes, time.end);
+    window(body, planes, time, true)
+}
+
+/// Boundary strata can carry contact even when they contain no material area.
+pub(super) fn closure(
+    body: &CombatVolume,
+    planes: &[MovingPlane],
+    time: Range<f64>,
+) -> Result<Option<Range<f64>>, NumericFault> {
+    window(body, planes, time, false)
+}
+
+fn window(
+    body: &CombatVolume,
+    planes: &[MovingPlane],
+    time: Range<f64>,
+    interior: bool,
+) -> Result<Option<Range<f64>>, NumericFault> {
+    let first = holds(body, planes, time.start, interior);
+    let last = holds(body, planes, time.end, interior);
     if time.start == time.end {
         return Ok(first.then_some(time));
     }
@@ -51,11 +87,9 @@ pub(super) fn occupied(
     let lo = if first {
         time.start
     } else {
-        let Some(hit) = translation::cast(
+        let Some(hit) = translation::cast_closure(
             body,
-            DVec2::ZERO,
             &template,
-            DVec2::ZERO,
             planes.iter().map(|p| p.during(time.clone())),
         )?
         else {
@@ -66,11 +100,9 @@ pub(super) fn occupied(
     let hi = if last {
         time.end
     } else {
-        let Some(hit) = translation::cast(
+        let Some(hit) = translation::cast_closure(
             body,
-            DVec2::ZERO,
             &template,
-            DVec2::ZERO,
             planes.iter().map(|p| MovingPlane {
                 plane: super::MaterialPlane {
                     offset: p.plane.offset + p.rate * time.end,
@@ -84,7 +116,10 @@ pub(super) fn occupied(
         };
         time.end - span * hit.time
     };
-    Ok((lo < hi && holds(body, planes, lo + (hi - lo) * 0.5)).then_some(lo..hi))
+    Ok(
+        ((lo < hi || !interior && lo == hi) && holds(body, planes, lo + (hi - lo) * 0.5, interior))
+            .then_some(lo..hi),
+    )
 }
 
 #[cfg(test)]
@@ -141,6 +176,30 @@ mod tests {
             occupied(&body, &[plane(DVec2::X, 1.0)], 0.0..1.0)
                 .unwrap()
                 .is_none()
+        );
+        assert!(
+            closure(
+                &body,
+                &[plane(DVec2::X, 0.8), plane(DVec2::Y, 0.8)],
+                0.0..1.0
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert_eq!(
+            closure(&body, &[plane(DVec2::X, 1.0)], 0.0..1.0).unwrap(),
+            Some(0.0..1.0)
+        );
+        let arriving = MovingPlane {
+            plane: MaterialPlane {
+                inward: DVec2::X,
+                offset: 2.0,
+            },
+            rate: -1.0,
+        };
+        assert_eq!(
+            closure(&body, &[arriving], 0.0..1.0).unwrap(),
+            Some(1.0..1.0)
         );
     }
 }

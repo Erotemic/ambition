@@ -172,7 +172,12 @@ fn a_spinning_plank_hits_the_far_material_between_matching_endpoint_poses() {
     far_side_contact(ContactMotion::TurningWall);
 }
 
-enum ContactMotion { Fixed, Wall, Exit, TurningWall }
+#[test]
+fn a_projectile_keeps_the_opening_when_its_tip_first_arrives_at_tick_end() {
+    far_side_contact(ContactMotion::Endpoint);
+}
+
+enum ContactMotion { Fixed, Wall, Exit, TurningWall, Endpoint }
 
 #[test]
 fn the_authored_moving_exit_hits_its_target_before_the_shots_root_transfers() {
@@ -282,7 +287,7 @@ fn far_side_contact(motion:ContactMotion) {
     };
     let tangent = Vec2::new(-exit.normal.y, exit.normal.x);
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
-        origin: enter.pos + enter.normal * 40.0,
+        origin: enter.pos + enter.normal * if matches!(motion,ContactMotion::Endpoint) {45.0} else {40.0},
         dir: -enter.normal,
         speed: 600.0,
         damage: 1,
@@ -308,7 +313,7 @@ fn far_side_contact(motion:ContactMotion) {
     let mut history = Vec::new();
     let mut moved_target=false;
     for _ in 0..12 {
-        if !matches!(motion,ContactMotion::Fixed) && !moved_target && sim.world().get::<BodyKinematics>(shot)
+        if matches!(motion,ContactMotion::Wall|ContactMotion::Exit|ContactMotion::TurningWall) && !moved_target && sim.world().get::<BodyKinematics>(shot)
             .is_some_and(|body|(body.pos-enter.pos).dot(enter.normal)<=10.01) {
             let world=sim.world_mut();
             if matches!(motion,ContactMotion::TurningWall) {
@@ -348,7 +353,7 @@ fn far_side_contact(motion:ContactMotion) {
                     let offset = pos-exit.pos;
                     match motion {
                         ContactMotion::Wall=>(2.0..=2.2).contains(&offset.dot(exit.normal)) && (offset.dot(tangent)+5.0).abs()<0.01,
-                        ContactMotion::Fixed=>(offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01,
+                        ContactMotion::Fixed|ContactMotion::Endpoint=>(offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01,
                         ContactMotion::Exit=>(offset.dot(exit.normal)-10.0).abs() < 0.05 && offset.dot(tangent).abs()<=5.01,
                         ContactMotion::TurningWall=>(-0.01..=5.01).contains(&offset.dot(exit.normal)) && offset.dot(tangent).abs()<=5.01,
                     }
@@ -359,6 +364,10 @@ fn far_side_contact(motion:ContactMotion) {
             expired = true;
             break;
         }
+    }
+    if matches!(motion,ContactMotion::Endpoint) {
+        assert!(history.iter().flatten().any(|body| ((body.pos-enter.pos).dot(enter.normal)-5.0).abs()<0.01),
+            "the leading tip must reach the opening at tick end without a false wall hit: {history:?}");
     }
     assert!(expired, "the far-side wall must stop the shot; enter={enter:?}, exit={exit:?}, poses={history:?}");
     assert!(!transited, "the material must meet the far wall before its root crosses");

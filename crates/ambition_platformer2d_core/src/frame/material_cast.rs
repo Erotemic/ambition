@@ -142,15 +142,21 @@ impl MaterialCastCells<'_> {
         for point in &mut region { *point-=full_motion*(1.0-self.time.start); }
         let motion=full_motion*(self.time.end-self.time.start)
             - inverse.direction_wide(part.travel) * inverse.scale_wide();
-        for point in &mut region { *point += motion * part.time.start; }
-        let duration = part.time.end - part.time.start;
+        // A boundary stratum retains the incoming derivative at its instant.
+        let interval=if part.time.start==part.time.end && part.time.start>0.0 {
+            0.0..part.time.end
+        } else { part.time.clone() };
+        for point in &mut region { *point += motion * interval.start; }
+        let duration = interval.end - interval.start;
         let contact = translation::cast(self.material.domain, DVec2::ZERO, &region, motion * duration,
-            part.planes.iter().map(|p| p.during(part.time.clone())))
+            part.planes.iter().map(|p| p.during(interval.clone())))
             .map_err(|fault| numeric_at(part, fault))?;
         let Some(contact) = contact else {
             return Ok(None);
         };
-        self.contact(part, CastHit { time: part.time.start + duration * contact.time, ..contact })
+        let time=interval.start+duration*contact.time;
+        if time<part.time.start {return Ok(None);}
+        self.contact(part, CastHit { time, ..contact })
     }
 
     /// Follow the collider's published rigid motion, including full turns.
@@ -190,7 +196,8 @@ impl MaterialCastCells<'_> {
     fn contact(&self, part: &MaterialCell, contact: CastHit) -> Result<Option<MaterialCastHit>, Refusal> {
         let time = contact.time;
         // Cells that start at a topology event own its contacts.
-        if part.time.end < 1.0 && time >= part.time.end - f64::EPSILON * 64.0 { return Ok(None); }
+        if part.time.start<part.time.end && part.time.end < 1.0
+            && time >= part.time.end - f64::EPSILON * 64.0 { return Ok(None); }
         let root = self.material.to_world.shifted(self.delta * time)
             .map_err(|reason| numeric_at(part, reason))?;
         let point = root

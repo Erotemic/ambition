@@ -217,7 +217,7 @@ fn a_body_standing_on_the_ferry_is_carried_by_it() {
             .iter(app.world())
             .next()
             .expect("a primary player")
-            .size;
+            .size();
         size.y * 0.5
     };
     place_player(

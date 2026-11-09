@@ -840,7 +840,7 @@ fn every_kind_of_his_flock_comes_for_you() {
             // Out in the open, mid-hall, away from him.
             let r = rex(&mut sim);
             let x = if r.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 400.0 } else { hall.right - 400.0 };
-            place_player(&mut sim, ae::Vec2::new(x, hall.floor - pk.size.y * 0.5 - 1.0));
+            place_player(&mut sim, ae::Vec2::new(x, hall.floor - pk.size().y * 0.5 - 1.0));
             sim.step(AgentAction::default());
             let p = player(&mut sim).0.pos;
             for id in pair {
@@ -979,7 +979,7 @@ fn his_raptors_run_you_down() {
         let (pk, _) = player(&mut sim);
         let r = rex(&mut sim);
         let x = if r.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 400.0 } else { hall.right - 400.0 };
-        place_player(&mut sim, ae::Vec2::new(x, hall.floor - pk.size.y * 0.5 - 1.0));
+        place_player(&mut sim, ae::Vec2::new(x, hall.floor - pk.size().y * 0.5 - 1.0));
         sim.step(AgentAction::default());
         let p = player(&mut sim).0.pos;
         for raptor in kin(&mut sim, "npc_raptor_stalker") {

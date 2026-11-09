@@ -443,7 +443,7 @@ fn facing_decides_the_launch_direction() {
 #[test]
 fn rolling_narrows_the_body_and_standing_up_restores_it() {
     let (mut app, e) = body_app();
-    let standing = app.world().get::<ae::BodyKinematics>(e).unwrap().size;
+    let standing = app.world().get::<ae::BodyKinematics>(e).unwrap().size();
     assert_eq!(standing, ae::Vec2::new(24.0, 40.0));
 
     set_ball_dash_input(&mut app, e, true, true);
@@ -453,7 +453,7 @@ fn rolling_narrows_the_body_and_standing_up_restores_it() {
     set_ball_dash_input(&mut app, e, false, false);
     app.update();
 
-    let ball = app.world().get::<ae::BodyKinematics>(e).unwrap().size;
+    let ball = app.world().get::<ae::BodyKinematics>(e).unwrap().size();
     assert_eq!(ball, spin_dash_tuning().ball_size());
     let re_templated = ae::Vec2::new(30.0, 44.0);
     app.world_mut()
@@ -474,7 +474,7 @@ fn rolling_narrows_the_body_and_standing_up_restores_it() {
     app.update();
     assert!(app.world().get::<Rolling>(e).is_none());
     assert_eq!(
-        app.world().get::<ae::BodyKinematics>(e).unwrap().size,
+        app.world().get::<ae::BodyKinematics>(e).unwrap().size(),
         re_templated,
         "he stood up at a size saved before the record changed"
     );
@@ -562,7 +562,7 @@ fn a_body_restart_clears_the_charge_the_crouch_edge_and_the_ball_form() {
         "he started the next round still balled up"
     );
     assert_eq!(
-        app.world().get::<ae::BodyKinematics>(e).unwrap().size,
+        app.world().get::<ae::BodyKinematics>(e).unwrap().size(),
         standing,
         "standing up did not give back the height the roll borrowed"
     );

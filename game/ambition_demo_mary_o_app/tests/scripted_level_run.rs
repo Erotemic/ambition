@@ -54,7 +54,7 @@ fn player_size(app: &mut App) -> Vec2 {
         .iter(app.world())
         .next()
         .expect("gameplay has a primary player")
-        .size
+        .size()
 }
 
 fn player_pos(app: &mut App) -> Vec2 {

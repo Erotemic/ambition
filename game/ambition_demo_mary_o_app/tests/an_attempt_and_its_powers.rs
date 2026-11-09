@@ -79,7 +79,7 @@ fn her_crouch_survives_leaving_the_ground() {
     for _ in 0..20 {
         step(&mut app, down.clone());
     }
-    let crouched = body(&mut app).size;
+    let crouched = body(&mut app).size();
     let standing_height = crouched.y * 2.0;
     // ANTI-VACUITY: she must actually be crouched, and crouching must actually
     // change her height, or "still crouched in the air" proves nothing.
@@ -110,7 +110,7 @@ fn her_crouch_survives_leaving_the_ground() {
 
     for tick in 0..8 {
         step(&mut app, down.clone());
-        let size = body(&mut app).size;
+        let size = body(&mut app).size();
         assert_eq!(
             mode(&mut app),
             Some(ae::player_state::BodyMode::Crouching),

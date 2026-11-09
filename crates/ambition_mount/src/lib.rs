@@ -2531,7 +2531,7 @@ mod footprint_tests {
         app.update();
         assert!(app.world().get::<Mounted>(rider).is_none());
         assert!(app.world().get::<ae::PoseOwnedExternally>(rider).is_none());
-        assert_eq!(app.world().get::<ae::BodyKinematics>(rider).unwrap().size, RIDER);
+        assert_eq!(app.world().get::<ae::BodyKinematics>(rider).unwrap().size(), RIDER);
         assert_eq!(app.world().get::<CenteredAabb>(rider).unwrap().half_size, TURNED_HALF);
         let deaths: Vec<_> = app.world_mut().resource_mut::<bevy::ecs::message::Messages<MountDied>>().drain().collect();
         assert_eq!(deaths.len(), 1);

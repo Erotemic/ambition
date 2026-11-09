@@ -135,7 +135,7 @@ mod tests {
         let crossed = world.spawn((ae::BodyKinematics::default(), health())).id();
         let mut beside = ae::BodyKinematics::default();
         beside.pos = at;
-        beside.size = ae::Vec2::new(24.0, 48.0);
+        beside.canonical_size = ae::Vec2::new(24.0, 48.0);
         let beside = world.spawn((beside, health())).id();
         let spec = ambition_characters::brain::held_item_by_id("coconut").expect("the coconut is a held item");
         let mut item = GroundItem::at_rest(spec, at, ae::Vec2::new(9.0, 7.5));

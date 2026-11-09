@@ -57,7 +57,7 @@ fn still_walking_after_a_stomp(app: &mut App, snake: Entity, stomper: Entity) ->
     let mary_o = her(app);
     for _ in 0..20 {
         let snake_box = app.world().get::<ae::BodyKinematics>(snake).expect("the snake").aabb();
-        let size = app.world().get::<ae::BodyKinematics>(stomper).unwrap().size;
+        let size = app.world().get::<ae::BodyKinematics>(stomper).unwrap().size();
         let on_head = Vec2::new(snake_box.center().x, snake_box.min.y + 1.0 - size.y * 0.5);
         if stomper != mary_o {
             let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(mary_o).unwrap();

@@ -79,6 +79,7 @@ fn dash_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_dash: boo
             // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
+            None,
         );
     }
     em.kin.pos.x - start_x
@@ -145,6 +146,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
+            None,
         );
         let expected = -gravity;
         assert!(
@@ -201,6 +203,7 @@ fn walk_run_staggered(sprite_content: &ambition_sprite_sheet::SpriteContent, mut
             // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
+            None,
         );
     }
     em.kin.pos.x - start_x
@@ -301,6 +304,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         // In play — a body waiting out a death window does not move at all.
         false,
         ae::BodyContactField::NONE,
+        None,
     );
     let ambition_platformer2d_core::movement::MotionModel::AxisSwept(axis) = &model else {
         panic!("test body is not axis-swept");
@@ -359,6 +363,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
+            None,
         );
     }
     assert!(
@@ -448,6 +453,7 @@ fn fly_toggle_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_fly
             // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
+            None,
         );
     }
     (em.flight.fly_enabled, start_y - em.kin.pos.y)

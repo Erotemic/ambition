@@ -103,8 +103,8 @@ fn print_snapshot(app: &mut App, label: &str) {
                     name.map(|n| n.as_str().to_string()),
                     kin.pos.x,
                     kin.pos.y,
-                    kin.size.x,
-                    kin.size.y,
+                    kin.size().x,
+                    kin.size().y,
                     presented.map_or("<none>".to_string(), |p| format!(
                         "({:.2}, {:.2})",
                         p.presented().x,
@@ -143,8 +143,8 @@ fn print_snapshot(app: &mut App, label: &str) {
              presented = {}\n  shield (active, parrying) = {shield:?}",
             kin.pos.x,
             kin.pos.y,
-            kin.size.x,
-            kin.size.y,
+            kin.size().x,
+            kin.size().y,
             presented.map_or("<no PresentedPose>".to_string(), |p| format!(
                 "({:.3}, {:.3})",
                 p.x, p.y

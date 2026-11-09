@@ -366,7 +366,7 @@ fn fire_the_side_b(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteC
                  drawn hand {:?} from the centre; alive {} ticks, travelled {:.0}; the other fighter (percent, place, \
                  from this body {:?}) {:?} -> {:?}",
                 found.2 - body.pos,
-                body.size,
+                body.size(),
                 body.facing,
                 feet_before - found.2.y,
                 found.3,

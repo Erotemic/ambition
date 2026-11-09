@@ -244,7 +244,7 @@ fn the_palette_lift_carries_a_rider_up_to_the_cliffs() {
     go_to(&mut app, UNDER_THE_LIFT, "the floor under the palette lift");
     let half = {
         let mut query = app.world_mut().query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
-        query.iter(app.world()).next().expect("gameplay has a primary player").size.y * 0.5
+        query.iter(app.world()).next().expect("gameplay has a primary player").size().y * 0.5
     };
     {
         let mut query = app

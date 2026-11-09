@@ -926,7 +926,7 @@ fn rendered_pad_combat(enabled: bool) {
             let victim = bodies[1 - source_seat];
             for (seat, body) in bodies.into_iter().enumerate() {
                 app.world_mut().entity_mut(body).insert(BodyHealth::new(Health::new(100)));
-                let half_height = app.world().get::<BodyKinematics>(body).unwrap().size.y * 0.5;
+                let half_height = app.world().get::<BodyKinematics>(body).unwrap().size().y * 0.5;
                 let separation = if projectile { 120.0 } else { 40.0 };
                 put_body_at(&mut app, body, Vec2::new(220.0 + seat as f32 * separation, 352.0 - half_height));
                 app.world_mut().get_mut::<BodyKinematics>(body).unwrap().facing = if seat == 0 { 1.0 } else { -1.0 };
@@ -1297,12 +1297,12 @@ fn place_loading_combat_pair(app: &mut App, fighter: Entity) -> Entity {
     let victim = world.query::<(Entity, &InRoomInstance, Option<&DrivingParticipant>, &BodyKinematics,
         &WornCharacter, &BodyHealth)>().iter(world)
         .filter(|(_, stamp, driver, body, _, health)| **stamp == room && driver.is_none()
-            && body.size.x <= 32.0 && health.alive())
+            && body.size().x <= 32.0 && health.alive())
         .min_by_key(|(entity, ..)| entity.to_bits()).map(|(entity, ..)| entity)
         .expect("the free participant's room has a living actor for combat");
     // An active fight permits health damage to a protected town actor.
     world.entity_mut(victim).insert(ambition_platformer2d::combat::components::ActiveCombatant);
-    let halves = [fighter, victim].map(|body| world.get::<BodyKinematics>(body).unwrap().size * 0.5);
+    let halves = [fighter, victim].map(|body| world.get::<BodyKinematics>(body).unwrap().size() * 0.5);
     let room = ambition_platformer2d::world::rooms::live_room_spec_of(world, fighter).unwrap();
     let floor = room.world.blocks.iter().filter(|block|
         ambition_platformer2d::engine_core::collision_semantics::is_full_collision_surface(block.kind)
@@ -1347,8 +1347,8 @@ fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
     let victim = {
         let world = app.world_mut();
         let fighter_pos = world.get::<BodyKinematics>(fighter).unwrap().pos;
-        let target_half = world.get::<BodyKinematics>(victim).unwrap().size * 0.5;
-        let feet = fighter_pos.y + world.get::<BodyKinematics>(fighter).unwrap().size.y * 0.5;
+        let target_half = world.get::<BodyKinematics>(victim).unwrap().size() * 0.5;
+        let feet = fighter_pos.y + world.get::<BodyKinematics>(fighter).unwrap().size().y * 0.5;
         crate::the_note_travels_from_alice_to_bob::put_body_at(&mut app, victim,
             ambition_platformer2d::engine_core::Vec2::new(fighter_pos.x + 40.0, feet - target_half.y));
         victim

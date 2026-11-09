@@ -167,7 +167,7 @@ pub(crate) fn commit_a_hub_checkpoint(sim: &mut Platformer2dSimHarness) {
     let height = sim.world()
         .get::<ambition_platformer2d::engine_core::BodyKinematics>(subject)
         .expect("the primary body has kinematics")
-        .size.y;
+        .size().y;
     sim.teleport_player((1200.0, 976.0 - height * 0.5));
     sim.step_n(base(), 2);
     commit_a_checkpoint(sim);

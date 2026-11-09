@@ -321,8 +321,8 @@ fn a_walker_hurts_mary_o_without_turning_away() {
     let enemy = q.iter(app.world()).filter(|(_, worn, _)| worn.id() == "ai_slop")
         .min_by(|a, b| a.2.pos.x.total_cmp(&b.2.pos.x)).unwrap().0;
     retain_contact_walkers(&mut app, &[enemy]);
-    let player_size = app.world().get::<BodyKinematics>(player).unwrap().size;
-    let enemy_size = app.world().get::<BodyKinematics>(enemy).unwrap().size;
+    let player_size = app.world().get::<BodyKinematics>(player).unwrap().size();
+    let enemy_size = app.world().get::<BodyKinematics>(enemy).unwrap().size();
     for (entity, x, facing) in [(player, 350.0, 1.0), (enemy, 350.0 + (player_size.x + enemy_size.x) * 0.5, -1.0)] {
         let mut kin = app.world_mut().get_mut::<BodyKinematics>(entity).unwrap();
         kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 416.0 - kin.size().y * 0.5);
@@ -420,7 +420,7 @@ fn a_dead_walker_does_not_block_or_turn_a_live_walker() {
     let (live, dead) = (slops[0], slops[1]);
     retain_contact_walkers(&mut app, &[live, dead]);
     place_contact_body(&mut app, live, 350.0, 1.0);
-    let gap = (app.world().get::<BodyKinematics>(live).unwrap().size.x + app.world().get::<BodyKinematics>(dead).unwrap().size.x) * 0.5 + 8.0;
+    let gap = (app.world().get::<BodyKinematics>(live).unwrap().size().x + app.world().get::<BodyKinematics>(dead).unwrap().size().x) * 0.5 + 8.0;
     place_contact_body(&mut app, dead, 350.0 + gap, -1.0);
     let far_edge = app.world().get::<BodyKinematics>(dead).unwrap().aabb().max.x;
     app.world_mut().get_mut::<BodyHealth>(dead).unwrap().damage(i32::MAX);

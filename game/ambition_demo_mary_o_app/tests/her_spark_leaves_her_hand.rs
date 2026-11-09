@@ -208,10 +208,10 @@ fn her_spark_is_born_at_her_throwing_hand() {
         // cannot pass on `Muzzle::BodyOrigin`.
         let no_muzzle = throw.body.pos + Vec2::new(0.0, -8.0);
         assert!(
-            (hand_world.x - throw.body.pos.x) * facing > throw.body.size.x * 0.5,
+            (hand_world.x - throw.body.pos.x) * facing > throw.body.size().x * 0.5,
             "premise: her throwing hand reaches past her box (hand {hand_world:?}, body {:?} of {:?})",
             throw.body.pos,
-            throw.body.size
+            throw.body.size()
         );
         assert!((hand_world - no_muzzle).length() > 8.0, "premise: the hand is not the body origin");
         let rear = throw.born - Vec2::new(facing * throw.half.x, 0.0);
@@ -221,7 +221,7 @@ fn her_spark_is_born_at_her_throwing_hand() {
              {hand_world:?} ({:?} apart; the body origin muzzle is {no_muzzle:?}). In her rig the hand is \
              {hand:?} from her feet and she is {:?}",
             rear - hand_world,
-            throw.body.size
+            throw.body.size()
         );
     }
 }
@@ -390,7 +390,7 @@ fn a_spark_thrown_against_a_wall_does_not_pass_the_wall() {
     }
     let kin = app.world().get::<BodyKinematics>(body).expect("a live body").clone();
     assert!(
-        kin.facing < 0.0 && kin.pos.x - kin.size.x * 0.5 <= 0.05,
+        kin.facing < 0.0 && kin.pos.x - kin.size().x * 0.5 <= 0.05,
         "control: she faces the wall she touches"
     );
 

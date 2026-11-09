@@ -2449,7 +2449,7 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
         .next()
         .expect("the fighter must be seated at all");
     assert_eq!(
-        (kin.size.x, kin.size.y),
+        (kin.size().x, kin.size().y),
         (80.0, 120.0),
         "the seated fighter got the placeholder box instead of the one its \
          definition authored — a provider can author an explicit body and receive \

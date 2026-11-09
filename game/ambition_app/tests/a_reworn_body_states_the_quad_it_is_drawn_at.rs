@@ -103,7 +103,7 @@ fn a_player_that_changes_form_takes_the_size_of_that_form() {
             .render_size;
         assert!(close(stated, drawn), "`{character}`: the body states the quad {stated:?} and is drawn at {drawn:?}");
         let standing = world.get::<BodyBaseSize>(player).expect("a standing box").base_size;
-        let live = world.get::<BodyKinematics>(player).expect("kinematics").size;
+        let live = world.get::<BodyKinematics>(player).expect("kinematics").size();
         if posed {
             assert!(close(standing, robot_box), "back to the robot: its box is {standing:?}, the robot's is {robot_box:?}");
             assert_eq!(

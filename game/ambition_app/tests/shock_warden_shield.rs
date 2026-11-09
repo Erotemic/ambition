@@ -136,7 +136,7 @@ fn a_strike_down_from_over_his_shield_gets_through() {
     let hp_before = w.hp;
     // Above his head, higher than his shield, falling onto him: a down-air.
     let (p, ..) = player(&mut sim);
-    let above = ae::Vec2::new(w.kin.pos.x, shield.min.y - p.size.y * 0.5 - 18.0);
+    let above = ae::Vec2::new(w.kin.pos.x, shield.min.y - p.size().y * 0.5 - 18.0);
     place_player(&mut sim, above);
     for frame in 0..40 {
         let attack = frame % 8 == 0;

@@ -230,7 +230,7 @@ const SEAT: ae::Vec2 = ae::Vec2::new(256.0, -232.05);
 fn saddle(s: &Scene) -> ae::Vec2 {
     // He stands on the seat: his centre half his height above it.
     s.giant.pos + ae::Vec2::new(s.seat.x * ae::mirror_side(s.giant.facing, s.giant_unmirrored), s.seat.y)
-        - ae::Vec2::new(0.0, s.scholar.size.y * 0.5)
+        - ae::Vec2::new(0.0, s.scholar.size().y * 0.5)
 }
 
 /// The move his PATTERN has live (telegraph or strike), by key — what the
@@ -343,15 +343,15 @@ fn the_gnu_stands_on_the_floor_and_carries_a_person_sized_scholar() {
     let s = scene(&mut sim);
     assert!(on_floor(&s.giant, s.floor), "the gnu's feet are on the floor {}: {:?}", s.floor, s.giant);
     assert!(
-        s.giant.size.x > 400.0 && s.giant.size.y > 380.0,
+        s.giant.size().x > 400.0 && s.giant.size().y > 380.0,
         "the gnu is its drawn size, not a 220 box: {:?}",
-        s.giant.size
+        s.giant.size()
     );
     assert!(
         // His v2 sheet draws him 60x110: a person on a 440-wide giant.
-        (50.0..80.0).contains(&s.scholar.size.x) && (90.0..125.0).contains(&s.scholar.size.y),
+        (50.0..80.0).contains(&s.scholar.size().x) && (90.0..125.0).contains(&s.scholar.size().y),
         "the scholar is a person, not a speck: {:?}",
-        s.scholar.size
+        s.scholar.size()
     );
     assert!(
         (s.scholar.pos - saddle(&s)).length() < 1.0,
@@ -363,14 +363,14 @@ fn the_gnu_stands_on_the_floor_and_carries_a_person_sized_scholar() {
     // on, not in the air above it (he stood 11.7 wu up, on the art's shoulder
     // point, and read as floating in front of the neck).
     let right = shoulders(&s)[1];
-    let soles = s.scholar.pos.y + s.scholar.size.y * 0.5;
+    let soles = s.scholar.pos.y + s.scholar.size().y * 0.5;
     assert!(
         (soles - right.min.y).abs() < 1.0 && (right.min.x..right.max.x).contains(&s.scholar.pos.x),
         "his soles at y {soles} stand on the gnu's right shoulder ({right:?})"
     );
     assert_eq!(s.fists.len(), 2);
     for (fist, ..) in &s.fists {
-        assert!(fist.size.x > 100.0, "a fist is a giant's fist: {:?}", fist.size);
+        assert!(fist.size().x > 100.0, "a fist is a giant's fist: {:?}", fist.size());
     }
 }
 
@@ -599,7 +599,7 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
             match shoulder {
                 Some(line) => assert_eq!(bond, line, "fist {id:?}'s trail runs from the line at its shoulder"),
                 None => assert!(
-                    off.x.abs() < s.giant.size.x * 0.5 && off.y.abs() < s.giant.size.y * 0.5,
+                    off.x.abs() < s.giant.size().x * 0.5 && off.y.abs() < s.giant.size().y * 0.5,
                     "fist {id:?}'s bond {bond:?} is off the gnu's body at {:?}",
                     s.giant.pos
                 ),
@@ -615,7 +615,7 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
     // Stand beside the stuck fist, facing it, and hit it — twice, while it is
     // still stuck.
     untouchable_player(&mut sim);
-    place_player(&mut sim, ae::Vec2::new(stuck.pos.x + stuck.size.x * 0.5 + 18.0, 1200.0));
+    place_player(&mut sim, ae::Vec2::new(stuck.pos.x + stuck.size().x * 0.5 + 18.0, 1200.0));
     // A body turns once it has landed: lean toward the fist until it does.
     for _ in 0..30 {
         sim.step(AgentAction { move_x: -1.0, ..Default::default() });
@@ -703,7 +703,7 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     step_until(&mut sim, 1500, "the gnu to buck", |sim| pattern_move(sim).as_deref() == Some("buck"));
     let (kin, _) = player(&mut sim);
     assert!(
-        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
+        ((kin.pos.y + kin.size().y * 0.5) - back.min.y).abs() < 2.0,
         "the premise: still standing on the gnu's back when it bucks"
     );
     touchable_player(&mut sim);
@@ -832,7 +832,7 @@ fn a_body_walks_up_the_giants_hump_and_jumps_to_his_shoulders() {
         "hump: the shoulders are {:.1} over the end of the hump ({:.1} over its crest); the body is {:.1} tall",
         start_feet - back.min.y,
         crest - back.min.y,
-        kin.size.y
+        kin.size().y
     );
 
     // Two jumps, straight up and on toward the shoulders.
@@ -869,7 +869,7 @@ fn a_body_walks_up_the_giants_hump_and_jumps_to_his_shoulders() {
         back.min.y
     );
     assert!(
-        on_a_shoulder(&now, &kin, 2.0) && kin.pos.x + kin.size.x * 0.5 > near.min.x && kin.pos.x - kin.size.x * 0.5 < near.max.x,
+        on_a_shoulder(&now, &kin, 2.0) && kin.pos.x + kin.size().x * 0.5 > near.min.x && kin.pos.x - kin.size().x * 0.5 < near.max.x,
         "two jumps from the end of the hump did not put the body on the near shoulder {near:?}: it is at {:?}, feet at {feet}",
         kin.pos
     );
@@ -887,16 +887,16 @@ fn a_body_over_the_giants_neck_falls_and_on_a_shoulder_stands() {
     let [left, right] = shoulders(&s)[..] else { panic!("the giant has two shoulders: {:?}", shoulders(&s)) };
     let gap = (left.max.x, right.min.x);
     let (kin, _) = player(&mut sim);
-    assert!(gap.1 - gap.0 > kin.size.x + 20.0, "the premise: the gap over the neck {gap:?} is wider than a body");
+    assert!(gap.1 - gap.0 > kin.size().x + 20.0, "the premise: the gap over the neck {gap:?} is wider than a body");
     place_player(&mut sim, ae::Vec2::new((gap.0 + gap.1) * 0.5, back.min.y - kin.size().y * 0.5 - 2.0));
     for _ in 0..30 {
         sim.step(AgentAction::default());
     }
     let (kin, _) = player(&mut sim);
     assert!(
-        kin.pos.y + kin.size.y * 0.5 > back.min.y + 40.0,
+        kin.pos.y + kin.size().y * 0.5 > back.min.y + 40.0,
         "a body over the neck did not fall: feet at {}, the shoulders' top at {}",
-        kin.pos.y + kin.size.y * 0.5,
+        kin.pos.y + kin.size().y * 0.5,
         back.min.y
     );
     for side in 0..2 {
@@ -1145,7 +1145,7 @@ fn the_scholar_hops_the_neck_to_the_other_shoulder() {
         sim.step(AgentAction::default());
         let s = scene(&mut sim);
         let [left, right] = shoulders(&s)[..] else { panic!("the giant has two shoulders") };
-        let feet = s.scholar.pos.y + s.scholar.size.y * 0.5;
+        let feet = s.scholar.pos.y + s.scholar.size().y * 0.5;
         let top = left.min.y.min(right.min.y);
         let up = feet < top - 4.0;
         if up {
@@ -1190,7 +1190,7 @@ fn hit_him_from_the_gnus_back_and_it_bucks_you_off() {
     assert!(strike_him_from(&mut sim, stand, 1.0), "the premise: a blow from his shoulders lands");
     let (kin, _) = player(&mut sim);
     assert!(
-        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
+        ((kin.pos.y + kin.size().y * 0.5) - back.min.y).abs() < 2.0,
         "the premise: the blow was struck standing on the gnu's back"
     );
     touchable_player(&mut sim);
@@ -1454,8 +1454,8 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
     assert_eq!(planes, (ae::DepthPlane::PLAYABLE, ae::DepthPlane::BEHIND), "(scholar, gnu) as drawn");
     let (player_kin, _) = player(&mut sim);
     let stand = |x: f32| ae::Vec2::new(x, s.floor - player_kin.size().y * 0.5 - 1.0);
-    let half = s.giant.size.x * 0.5;
-    assert!(half > 150.0, "the premise is a giant: its body is {} wide", s.giant.size.x);
+    let half = s.giant.size().x * 0.5;
+    assert!(half > 150.0, "the premise is a giant: its body is {} wide", s.giant.size().x);
     // What a turn could move, relative to the gnu: the side it is drawn toward,
     // its back, and the saddle while he sits in it.
     let drawn = |s: &Scene| {
@@ -1485,7 +1485,7 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
             assert_eq!(fist_drawn_sides(&mut sim), [-1.0, 1.0], "frame {frame} with the player at {x}");
             if s.performing.is_none() {
                 // His soles, from the gnu's centre.
-                let seat = s.scholar.pos + ae::Vec2::new(0.0, s.scholar.size.y * 0.5) - s.giant.pos;
+                let seat = s.scholar.pos + ae::Vec2::new(0.0, s.scholar.size().y * 0.5) - s.giant.pos;
                 assert!((seat - s.seat).length() < 1.0, "frame {frame}: he stands at {seat:?}, the seat is {:?}", s.seat);
                 assert!((s.seat - SEAT).length() < 4.0, "frame {frame}: the seat {:?} is on the shoulder at rest {SEAT:?}", s.seat);
             }
@@ -1601,7 +1601,7 @@ fn entering_the_arena_the_fists_are_on_the_giants_arms() {
                 "frame {frame}: a fist jumped {before:?} -> {after:?}"
             );
             assert!(
-                (*after - giant.pos).length() < giant.size.x,
+                (*after - giant.pos).length() < giant.size().x,
                 "frame {frame}: a fist at {after:?} is out of reach of the giant at {:?}",
                 giant.pos
             );
@@ -1884,7 +1884,7 @@ fn beaten_he_falls_the_giant_holds_him_and_he_wakes_on_its_shoulder() {
         sim.step(AgentAction::default());
     }
     let s = scene(&mut sim);
-    let saddle = s.giant.pos + ae::Vec2::new(256.0, -232.05 - s.scholar.size.y * 0.5);
+    let saddle = s.giant.pos + ae::Vec2::new(256.0, -232.05 - s.scholar.size().y * 0.5);
     assert!(s.scholar.pos.distance(saddle) < 40.0, "he is back on its shoulder: {:?}, its saddle {saddle:?}", s.scholar.pos);
 }
 
@@ -2403,7 +2403,7 @@ fn the_giant_walks_to_a_player_far_from_it_between_blows() {
         moved = moved.max(start.giant.pos.x - s.giant.pos.x);
         if walked && moved > 120.0 {
             // Its rider goes with it: he is on its shoulder.
-            let saddle = s.giant.pos + ae::Vec2::new(256.0, -232.05 - s.scholar.size.y * 0.5);
+            let saddle = s.giant.pos + ae::Vec2::new(256.0, -232.05 - s.scholar.size().y * 0.5);
             assert!(s.scholar.pos.distance(saddle) < 40.0, "he rides it: {:?} {saddle:?} (the giant at {:?}, frame {frame})", s.scholar.pos, s.giant.pos);
             return;
         }
@@ -2491,8 +2491,8 @@ fn the_well_pulls_the_hall_through_its_portals_into_space() {
     // under the floor, and never all of it), and the scholar stayed on his
     // giant.
     for (k, (tick, giant, scholar, me)) in trail.iter().enumerate() {
-        assert!(giant.pos.y - giant.size.y * 0.5 < floor, "tick {tick}: the giant fell out of the hall:\n{}", shown());
-        assert!(me.pos.y - me.size.y * 0.5 < floor, "tick {tick}: the player fell out of the hall:\n{}", shown());
+        assert!(giant.pos.y - giant.size().y * 0.5 < floor, "tick {tick}: the giant fell out of the hall:\n{}", shown());
+        assert!(me.pos.y - me.size().y * 0.5 < floor, "tick {tick}: the player fell out of the hall:\n{}", shown());
         // The rider is put on his mount after the mount moves: on the tick
         // the giant goes through, he follows it on the next.
         let giant_went_through = k > 0 && trail[k - 1].1.pos.y - giant.pos.y > 700.0;

@@ -1094,7 +1094,7 @@ mod tests {
             "the sheet answers the placement box, so this fixture cannot tell them apart"
         );
         assert_eq!(
-            (seed.kin.size, seed.render_size),
+            (seed.kin.size(), seed.render_size),
             (from_the_sheet.collision, Some(from_the_sheet.render_size)),
             "the body was not built from the sheet its prepared character wears"
         );

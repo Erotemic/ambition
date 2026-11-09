@@ -860,7 +860,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     app.world_mut()
         .get_mut::<ambition_platformer2d_core::BodyKinematics>(body)
         .expect("the fixture body has kinematics")
-        .size = standing.collision;
+        .canonical_size = standing.collision;
 
     // And it is RETRACTED on a change of identity, like every other grant this
     // system makes — otherwise a body that becomes a plain character keeps
@@ -890,7 +890,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     assert_eq!(
         world
             .get::<ambition_platformer2d_core::BodyKinematics>(body)
-            .map(|kin| kin.size),
+            .map(|kin| kin.size()),
         Some(own_box),
         "the live collider kept the previous character's pose, and no pose pass \
          runs for it any more",

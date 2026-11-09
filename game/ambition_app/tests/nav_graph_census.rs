@@ -26,7 +26,7 @@ fn the_dog(sim: &mut ambition_app::Platformer2dSimHarness) -> ae::BodyClusterScr
         .expect("the basement stages the dog");
     let model = world.get::<ae::MotionModel>(dog).expect("the dog has a movement law").clone();
     let abilities = world.get::<ae::BodyAbilities>(dog).expect("the dog has abilities").abilities;
-    let size = world.get::<ae::BodyKinematics>(dog).expect("the dog has a body").size;
+    let size = world.get::<ae::BodyKinematics>(dog).expect("the dog has a body").size();
     let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
     body.model = model;
     body.kinematics.canonical_size = size;
@@ -77,7 +77,7 @@ fn nav_graph_census_of_the_shipped_rooms() {
     for (name, body) in &bodies {
         eprintln!(
             "CENSUS body={name} size={:?} model={:?}",
-            body.kinematics.size,
+            body.kinematics.size(),
             body.model.spec()
         );
     }

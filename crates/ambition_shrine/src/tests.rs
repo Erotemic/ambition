@@ -535,7 +535,7 @@ fn a_body_in_sideways_gravity_rests_at_the_shrine_its_own_box_touches() {
                 control,
                 body,
                 ambition_platformer2d_core::SweepSample::at_rest(body, Vec2::new(1.0, 0.0)),
-                BodyBaseSize { base_size: body.size },
+                BodyBaseSize { base_size: body.size() },
                 BodyHealth::new(ambition_characters::actor::Health {
                     current: 1,
                     max: 5,

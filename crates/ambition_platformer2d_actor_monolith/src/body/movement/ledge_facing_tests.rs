@@ -67,6 +67,7 @@ fn a_body_that_grabs_a_ledge_turns_to_face_it() {
             false,
             false,
             ae::BodyContactField::NONE,
+            None,
         );
         held |= model.holds_a_ledge();
         if held {

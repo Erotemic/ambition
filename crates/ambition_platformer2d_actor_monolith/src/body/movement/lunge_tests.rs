@@ -87,6 +87,7 @@ fn windup_travel(sprite_content: &ambition_sprite_sheet::SpriteContent, melee: M
             false,
             false,
             ae::BodyContactField::NONE,
+            None,
         );
     }
     em.kin.pos.x - start_x

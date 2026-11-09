@@ -477,7 +477,7 @@ fn walking_out_of_gap_run_door_stays_clear_of_stagger_steps_platform() {
         let geometry = &rooms.iter(world).find(|(room, _)| **room == stamp.0).unwrap().1.0;
         assert!(!geometry.blocks.iter().any(|block|
             ae::collision_semantics::is_full_collision_surface(block.kind) && body.aabb().strict_intersects(block.aabb)),
-            "arrival tick {tick} embedded the body at {:?} with size {:?}", body.pos, body.size);
+            "arrival tick {tick} embedded the body at {:?} with size {:?}", body.pos, body.size());
     }
     let before = bodies.single(sim.world()).unwrap().0.pos;
     sim.step(AgentAction { jump: true, jump_held: true, ..base() });

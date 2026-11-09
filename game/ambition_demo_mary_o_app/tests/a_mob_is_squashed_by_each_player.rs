@@ -60,7 +60,7 @@ fn still_there_after_a_stomp(app: &mut App, mob: Entity, stomper: Entity) -> boo
         let Some(mob_box) = app.world().get::<ae::BodyKinematics>(mob).map(|kin| kin.aabb()) else {
             return false;
         };
-        let size = app.world().get::<ae::BodyKinematics>(stomper).unwrap().size;
+        let size = app.world().get::<ae::BodyKinematics>(stomper).unwrap().size();
         let on_head = Vec2::new(mob_box.center().x, mob_box.min.y + 1.0 - size.y * 0.5);
         if stomper != mary_o {
             let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(mary_o).unwrap();
@@ -118,7 +118,7 @@ fn the_squash_bounces_her_at_the_speed_her_pack_states() {
         if let Some(mut health) = app.world_mut().get_mut::<BodyHealth>(mary_o) {
             health.health.invulnerable.set(Invulnerability::SCRIPTED, true);
         }
-        let size = app.world().get::<ae::BodyKinematics>(mary_o).unwrap().size;
+        let size = app.world().get::<ae::BodyKinematics>(mary_o).unwrap().size();
         let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(mary_o).unwrap();
         kin.pos = Vec2::new(mob_box.center().x, mob_box.min.y + 1.0 - size.y * 0.5);
         kin.vel = Vec2::ZERO;

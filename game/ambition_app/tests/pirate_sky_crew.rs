@@ -210,10 +210,10 @@ fn every_rider_stands_in_its_sharks_saddle() {
     assert_eq!(riders.len(), 4, "the premise: four riders mounted");
     for (rider, mount) in riders {
         let shark = &mounts[&mount];
-        let soles = rider.pos.y + rider.size.y * 0.5;
-        let box_top = shark.pos.y - shark.size.y * 0.5;
+        let soles = rider.pos.y + rider.size().y * 0.5;
+        let box_top = shark.pos.y - shark.size().y * 0.5;
         assert!(
-            soles - box_top > shark.size.y * 0.25 && soles < shark.pos.y,
+            soles - box_top > shark.size().y * 0.25 && soles < shark.pos.y,
             "a rider stands in the saddle on the shark's back (soles {soles:.1}), not on its box top \
              ({box_top:.1}, fins included) nor inside its body (centre {:.1})",
             shark.pos.y

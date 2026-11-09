@@ -84,8 +84,8 @@ fn a_body_stands_on_the_halls_giant_where_its_art_has_the_trim() {
         place_player(&mut sim, spot);
         sim.step_n(base(), 20);
         let body = player(&mut sim);
-        let feet = body.pos.y + body.size.y * 0.5;
-        let (left, right) = (body.pos.x - body.size.x * 0.5, body.pos.x + body.size.x * 0.5);
+        let feet = body.pos.y + body.size().y * 0.5;
+        let (left, right) = (body.pos.x - body.size().x * 0.5, body.pos.x + body.size().x * 0.5);
         let lines = standing_lines(&mut sim);
         assert!(
             lines.iter().any(|line| top_under(line, left, right).is_some_and(|top| (feet - top).abs() < 2.0)),

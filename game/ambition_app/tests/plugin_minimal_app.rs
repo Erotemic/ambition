@@ -158,9 +158,9 @@ fn player_entity_carries_canonical_sim_components() {
         "player should start with no reaction timers running"
     );
     assert!(
-        kinematics.size.x > 0.0 && kinematics.size.y > 0.0,
+        kinematics.size().x > 0.0 && kinematics.size().y > 0.0,
         "BodyKinematics size should be non-degenerate, got {:?}",
-        kinematics.size
+        kinematics.size()
     );
 }
 

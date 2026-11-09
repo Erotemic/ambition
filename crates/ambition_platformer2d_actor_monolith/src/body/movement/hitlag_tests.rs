@@ -91,6 +91,7 @@ fn walk_distance_with_hitstop(sprite_content: &ambition_sprite_sheet::SpriteCont
             // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
+            None,
         );
     }
     em.kin.pos.x - start_x

@@ -88,7 +88,7 @@ fn my_entity(sim: &mut Platformer2dSimHarness) -> Entity {
 fn fly_one(sim: &mut Platformer2dSimHarness) -> Flight {
     let body = me(sim);
     let owner = my_entity(sim);
-    let floor_y = body.pos.y + body.size.y * 0.5;
+    let floor_y = body.pos.y + body.size().y * 0.5;
     tap(sim);
     let mut path = Vec::new();
     let mut half = Vec2::ZERO;
@@ -97,7 +97,7 @@ fn fly_one(sim: &mut Platformer2dSimHarness) -> Flight {
         let mut shots = world.query_filtered::<(&BodyKinematics, &ambition_platformer2d::projectiles::ProjectileOwner), With<ProjectileGameplay>>();
         match shots.iter(world).find(|(_, by)| by.0 == owner).map(|(kin, _)| kin) {
             Some(shot) => {
-                half = shot.size * 0.5;
+                half = shot.size() * 0.5;
                 path.push((shot.pos, shot.vel));
             }
             None if !path.is_empty() => break,
@@ -247,7 +247,7 @@ fn probe_the_hand_the_charge_and_the_birth_in_sheet_pixels() {
     // From the body's centre (world) to feet-relative sheet pixels (+x the way
     // it faces).
     let to_px = |offset: Vec2| {
-        let from_feet = offset - Vec2::new(0.0, body.size.y * 0.5);
+        let from_feet = offset - Vec2::new(0.0, body.size().y * 0.5);
         Vec2::new(from_feet.x * facing, from_feet.y) / sheet.world_per_pixel
     };
     let rows = ["aim", "shoot"].map(|row| {

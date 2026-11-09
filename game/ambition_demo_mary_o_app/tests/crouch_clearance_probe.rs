@@ -73,16 +73,16 @@ fn a_ceiling_she_cannot_stand_under_keeps_her_crouched() {
     }
 
     let crouched = body(&mut app);
-    let standing_height = crouched.size.y * 2.0;
+    let standing_height = crouched.size().y * 2.0;
     assert!(
-        standing_height > crouched.size.y + 1.0,
+        standing_height > crouched.size().y + 1.0,
         "fixture: crouching must change her height, or a ceiling cannot \
          distinguish standing from crouching"
     );
 
     // A ceiling that clears her crouch and refuses her stand.
-    let gap = crouched.size.y + 8.0;
-    let feet = crouched.pos.y + crouched.size.y * 0.5;
+    let gap = crouched.size().y + 8.0;
+    let feet = crouched.pos.y + crouched.size().y * 0.5;
     {
         let world = app.world_mut();
         let mut q = world.query::<&mut ae::RoomGeometry>();
@@ -107,10 +107,10 @@ fn a_ceiling_she_cannot_stand_under_keeps_her_crouched() {
         let now = body(&mut app);
         seen.push(now.pos.y);
         assert!(
-            now.size.y <= crouched.size.y + 0.01,
+            now.size().y <= crouched.size().y + 0.01,
             "tick {tick}: she stood up to {:.1} under a {gap:.1}-unit ceiling — a \
              blocked stand must be refused, not performed and then collided out of",
-            now.size.y
+            now.size().y
         );
     }
 

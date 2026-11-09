@@ -517,7 +517,7 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
         ambition_abilities::body_conditions::fits_for,
     );
     let mut standing_body = BodyKinematics::default();
-    standing_body.size.y = 64.0;
+    standing_body.canonical_size.y = 64.0;
     let body = app
         .world_mut()
         .spawn((
@@ -544,7 +544,7 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
         .entity_mut(body)
         .get_mut::<BodyKinematics>()
         .expect("the body was just spawned with one")
-        .size
+        .canonical_size
         .y = 30.0;
     app.update();
     assert_eq!(

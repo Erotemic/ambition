@@ -303,14 +303,14 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
         &[],
     );
     assert_eq!(
-        seed.kin.size, from_the_sheet.collision,
+        seed.kin.size(), from_the_sheet.collision,
         "the peaceful seed was built at a box the pose pass will resize"
     );
     assert_eq!(seed.render_size, Some(from_the_sheet.render), "the quad is the sheet's too");
     assert_eq!(seed.posed, Some(from_the_sheet));
 
     // The control: the same placement naming no character keeps its own box.
-    assert_eq!(seed_for(&sprite_content, None, None).kin.size, ae::Vec2::new(32.0, 48.0));
+    assert_eq!(seed_for(&sprite_content, None, None).kin.size(), ae::Vec2::new(32.0, 48.0));
 }
 
 /// A PREPARED CHARACTER WITHOUT A BLUEPRINT KEEPS THE ABILITIES IT AUTHORED.

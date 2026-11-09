@@ -1464,7 +1464,7 @@ fn a_world_reload_moves_the_body_that_stays_out_of_the_new_solids() {
             .world()
             .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
             .expect("Alice has a body")
-            .size
+            .size()
             * 0.5;
         // ⛔ THE PREMISE: before the reload Alice is clear, in the room this
         // arm changes.
@@ -1591,7 +1591,7 @@ fn a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids() {
             .world()
             .get::<ambition_platformer2d::engine_core::BodyKinematics>(seat)
             .expect("the body of seat 1 has kinematics")
-            .size
+            .size()
             * 0.5;
         let before = place_of(&app, seat);
         assert_eq!(

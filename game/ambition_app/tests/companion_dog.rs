@@ -900,7 +900,7 @@ fn interact_talks_to_the_dog_from_a_step_away() {
         .world()
         .get::<ambition_platformer2d::combat::components::CenteredAabb>(dog)
         .expect("the dog has a footprint");
-    let width = sim.world().get::<BodyKinematics>(player).expect("a live player").size.x;
+    let width = sim.world().get::<BodyKinematics>(player).expect("a live player").size().x;
     let reach = ambition_platformer2d::interaction::TALK_REACH;
     sim.teleport_player((
         footprint.center.x + footprint.half_size.x + width * 0.5 + reach * 0.5,

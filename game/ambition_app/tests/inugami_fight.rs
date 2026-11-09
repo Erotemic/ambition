@@ -103,7 +103,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     assert!(!plates(&mut sim).iter().any(|label| label == NAME), "its plate shows before its title: {:?}", plates(&mut sim));
     step_until(&mut sim, 60 * 14, "it to rise and fight", |sim| head(sim).view.is_some_and(|v| v.woke));
     let h = head(&mut sim);
-    assert!(h.kin.pos.y + h.kin.size.y * 0.5 < floor - 20.0, "it does not float over the floor: {h:?}");
+    assert!(h.kin.pos.y + h.kin.size().y * 0.5 < floor - 20.0, "it does not float over the floor: {h:?}");
 
     step_until(&mut sim, 60 * 10, "its first move", |sim| head(sim).view.is_some_and(|v| v.performing.is_some()));
     assert!(plates(&mut sim).iter().any(|label| label == NAME), "it fights with no plate: {:?}", plates(&mut sim));
@@ -211,7 +211,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
     assert!(back > 0.95, "time did not come back up to speed after its finish: {back}");
     let h = head(&mut sim);
     assert!(!h.alive, "{h:?}");
-    assert!(h.kin.pos.y + h.kin.size.y * 0.5 > FINAL_HALL_FLOOR - 30.0, "his head did not drop to the hall's floor: {h:?}");
+    assert!(h.kin.pos.y + h.kin.size().y * 0.5 > FINAL_HALL_FLOOR - 30.0, "his head did not drop to the hall's floor: {h:?}");
     assert!(!sealed(&mut sim), "her talismans stayed on his head after the spirit left it");
 }
 

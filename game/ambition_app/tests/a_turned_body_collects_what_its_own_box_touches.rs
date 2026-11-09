@@ -105,7 +105,7 @@ fn the_player_in_sideways_gravity_collects_the_heart_her_own_box_touches() {
     sim.step(base());
     let (kin, _) = body(&mut sim);
     let level = kin.size() * 0.5;
-    assert!((level.x - level.y).abs() > 4.0, "premise: the player is not square: {:?}", kin.size);
+    assert!((level.x - level.y).abs() > 4.0, "premise: the player is not square: {:?}", kin.size());
     // Half way between the reach of the short side and the reach of the long
     // side: one box touches the pickup and the other does not.
     let between = (level.x + level.y) * 0.5;

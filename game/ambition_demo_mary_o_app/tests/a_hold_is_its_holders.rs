@@ -62,7 +62,7 @@ fn pin(app: &mut App, body: Entity, at: Vec2) {
 /// cycle lets a plant that is out go down; the second is counted.
 fn ticks_out(app: &mut App, plant: Entity, on_the_pipe: Option<Entity>) -> usize {
     let at = app.world().get::<ae::BodyKinematics>(plant).unwrap().pos;
-    let size = app.world().get::<ae::BodyKinematics>(plant).unwrap().size;
+    let size = app.world().get::<ae::BodyKinematics>(plant).unwrap().size();
     // On the pipe: over the plant, its feet above the mouth.
     let on_pipe = Vec2::new(at.x, at.y - size.y - 48.0);
     let mary_o = her(app);
@@ -185,7 +185,7 @@ fn a_pipe_ride_leaves_a_recoil_and_another_holders_hold() {
     let tubes = ambition_demo_mary_o::tubes_for_room(ambition_demo_mary_o::LEVEL_1_1_ROOM_ID);
     let down = tubes.iter().find(|tube| tube.entrance.mouth == MaryOPipeMouth::Up).expect("1-1 has a tube down");
     let mary_o = her(&mut app);
-    let size = app.world().get::<ae::BodyKinematics>(mary_o).unwrap().size;
+    let size = app.world().get::<ae::BodyKinematics>(mary_o).unwrap().size();
     let band = down.entrance.mouth_band();
     {
         let world = app.world_mut();

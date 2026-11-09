@@ -46,7 +46,7 @@ fn the_protagonist_in_ambition_morphs_and_unmorphs_in_place() {
         }
     }
     let ball = morphed.expect("a grounded double-tap DOWN never curled the protagonist into the ball");
-    assert!(ball.size.y < standing.size.y, "the ball is not smaller than the standing body");
+    assert!(ball.size().y < standing.size().y, "the ball is not smaller than the standing body");
     assert!(
         (feet(&ball) - feet(&standing)).abs() < 0.5,
         "entering the ball moved the feet from {:.2} to {:.2}",
@@ -58,7 +58,7 @@ fn the_protagonist_in_ambition_morphs_and_unmorphs_in_place() {
     sim.step_n(base(), 3);
     let (mode, stood) = primary(&mut sim);
     assert_eq!(mode, ae::BodyMode::Standing, "Up in open space did not stand the body back up");
-    assert!((stood.size.y - standing.size.y).abs() < 0.01, "standing up did not restore the body");
+    assert!((stood.size().y - standing.size().y).abs() < 0.01, "standing up did not restore the body");
     assert!(
         (feet(&stood) - feet(&standing)).abs() < 0.5,
         "leaving the ball moved the feet from {:.2} to {:.2}",

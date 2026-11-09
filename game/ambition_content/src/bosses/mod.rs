@@ -591,8 +591,8 @@ mod sheet_body_tests {
             ),
         )
         .expect("the sheet's body has parts");
-        assert_eq!(boss.kin.size, drawn.half_size() * 2.0);
-        assert_eq!(boss.as_ref().combat_size(), boss.kin.size);
+        assert_eq!(boss.kin.size(), drawn.half_size() * 2.0);
+        assert_eq!(boss.as_ref().combat_size(), boss.kin.size());
     }
 
     /// Every authored boss takes its body from the sheet it wears.

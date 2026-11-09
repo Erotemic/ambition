@@ -308,7 +308,7 @@ fn every_reaction_pose_is_drawn_by_human_and_cpu_seats() {
             app.update();
         }
         interrupt_for_hit(&mut app, human);
-        let height = app.world().get::<BodyKinematics>(human).unwrap().size.y;
+        let height = app.world().get::<BodyKinematics>(human).unwrap().size().y;
         let mut combat = app.world_mut().get_mut::<BodyCombat>(human).unwrap();
         combat.hit_flash = 0.2;
         combat.struck_height = fraction * height;
@@ -391,7 +391,7 @@ fn every_reaction_pose_is_drawn_by_human_and_cpu_seats() {
         }
     }
     interrupt_for_hit(&mut app, cpu);
-    let height = app.world().get::<BodyKinematics>(cpu).unwrap().size.y;
+    let height = app.world().get::<BodyKinematics>(cpu).unwrap().size().y;
     let mut combat = app.world_mut().get_mut::<BodyCombat>(cpu).unwrap();
     combat.hit_flash = 0.2;
     combat.struck_height = -0.4 * height;

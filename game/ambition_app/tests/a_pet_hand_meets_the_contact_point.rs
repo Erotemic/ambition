@@ -154,7 +154,7 @@ pub(crate) fn drawn_at(sprite_content: &ambition_platformer2d::sprite_sheet::Spr
 /// A feet-relative art point of a body, in the world: the art is mirrored
 /// about the feet for a body that faces left.
 pub(crate) fn art_point_in_world(body: &BodyKinematics, pixels: Vec2, world_per_pixel: f32) -> Vec2 {
-    let feet = body.pos + Vec2::new(0.0, body.size.y * 0.5);
+    let feet = body.pos + Vec2::new(0.0, body.size().y * 0.5);
     feet + Vec2::new(body.facing.signum() * pixels.x, pixels.y) * world_per_pixel
 }
 
@@ -242,7 +242,7 @@ fn the_petting_hand_is_on_the_place_the_dog_is_petted() {
     let miss = (contact.drawn_hand - contact.point).length();
     // The mark the two boxes gave: the dog's front, plus the petter's half
     // width, plus the gap of 6.
-    let box_mark = dog.size.x * 0.5 + player.size.x * 0.5 + 6.0;
+    let box_mark = dog.size().x * 0.5 + player.size().x * 0.5 + 6.0;
     let stands = (player.pos.x - dog.pos.x).abs();
     eprintln!(
         "pet: the petter stands {stands:.1} from the dog (the box mark was {box_mark:.1}); \

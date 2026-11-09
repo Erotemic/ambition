@@ -155,7 +155,7 @@ fn a_body_that_crouches_into_the_opening_fits_it() {
         .entity_mut(body)
         .get_mut::<BodyKinematics>()
         .expect("it was spawned with one")
-        .size
+        .canonical_size
         .y = 30.0;
 
     assert_eq!(fits_in(app.world(), 32.0), ConditionOutcome::Satisfied);

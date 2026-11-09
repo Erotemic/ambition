@@ -308,7 +308,7 @@ fn player_body(sim: &mut Platformer2dSimHarness) -> Option<(ae::Vec2, ae::Vec2, 
         With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >();
     let world = sim.world();
-    q.iter(world).next().map(|k| (k.pos, k.vel, k.size * 0.5))
+    q.iter(world).next().map(|k| (k.pos, k.vel, k.size() * 0.5))
 }
 
 /// Which one-way (if any) the body is STANDING ON this frame: its feet are within

@@ -226,7 +226,7 @@ fn the_players_overlay(world: &mut World, player: Entity) -> ambition_platformer
 fn the_players_body(world: &World, player: Entity) -> ae::BodyClusterScratch {
     let model = world.get::<ae::MotionModel>(player).expect("a movement law").clone();
     let abilities = world.get::<ae::BodyAbilities>(player).expect("abilities").abilities;
-    let size = world.get::<ae::BodyKinematics>(player).expect("a body").size;
+    let size = world.get::<ae::BodyKinematics>(player).expect("a body").size();
     let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
     body.model = model;
     body.kinematics.canonical_size = size;

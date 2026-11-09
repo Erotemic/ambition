@@ -91,13 +91,13 @@ fn a_shot_is_born_with_its_rear_edge_at_the_hand_that_fires_it() {
         drawn_at(&sprite_content, &tap.sheet.target, &["shoot", "idle"], "near_hand", |_| 0),
         tap.sheet.world_per_pixel,
     );
-    let feet_y = tap.body.pos.y + tap.body.size.y * 0.5;
+    let feet_y = tap.body.pos.y + tap.body.size().y * 0.5;
     // A shot born touching the floor dies, so a shot whose hand is too near
     // the feet is born just clear of them.
     let expected = Vec2::new(hand.x + facing * tap.half.x, hand.y.min(feet_y - tap.half.y - 1.0));
     // The place the two boxes gave: off the front of the body's box, a fifth
     // of its height above its centre.
-    let box_muzzle = tap.body.pos + Vec2::new(facing * (tap.body.size.x * 0.5 + 4.0), -0.2 * tap.body.size.y);
+    let box_muzzle = tap.body.pos + Vec2::new(facing * (tap.body.size().x * 0.5 + 4.0), -0.2 * tap.body.size().y);
     eprintln!(
         "shot: born {:?} (from the centre {:?}), half {:?}; drawn hand {:?}; expected {expected:?}; \
          the box muzzle was {box_muzzle:?}",
@@ -202,7 +202,7 @@ fn art_that_reaches_with_its_far_hand_fires_from_that_hand() {
             drawn_at(&sprite_content, &sheet.target, &["shoot", "idle"], track, |_| 0),
             sheet.world_per_pixel,
         );
-        let feet_y = body.pos.y + body.size.y * 0.5;
+        let feet_y = body.pos.y + body.size().y * 0.5;
         Vec2::new(hand.x + facing * half.x, hand.y.min(feet_y - half.y - 1.0))
     };
     let (far, near) = (at_hand("back_hand"), at_hand("front_hand"));
@@ -217,7 +217,7 @@ fn art_that_reaches_with_its_far_hand_fires_from_that_hand() {
          {near:?} from the near hand)",
     );
     assert!(
-        (born.x - body.pos.x) * facing > body.size.x * 0.5,
+        (born.x - body.pos.x) * facing > body.size().x * 0.5,
         "the shot is born at {born:?}, which is not in front of the body at {:?}",
         body.pos,
     );

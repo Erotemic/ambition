@@ -130,7 +130,7 @@ fn she_goes_up_out_of_1_1_and_takes_a_pipe_to_a_level() {
 
     // She stands on the pipe to 1-3 and presses down.
     let pipe = pipes.iter().find(|pipe| pipe.room == "mary_o_1_3").unwrap();
-    let half = body(&mut app).size.y * 0.5;
+    let half = body(&mut app).size().y * 0.5;
     let top = Vec2::new(
         (pipe.mouth.aabb.min.x + pipe.mouth.aabb.max.x) * 0.5,
         pipe.mouth.aabb.min.y - half,

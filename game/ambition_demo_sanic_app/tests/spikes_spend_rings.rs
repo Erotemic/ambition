@@ -122,7 +122,7 @@ fn hold_right(app: &mut App) {
 fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> Outcome {
     let mut app = boot();
     let body = player(&mut app).expect("a playable body");
-    let size = app.world().get::<ae::BodyKinematics>(body).unwrap().size;
+    let size = app.world().get::<ae::BodyKinematics>(body).unwrap().size();
     if let Some(mut wallet) = app.world_mut().get_mut::<BodyWallet>(body) {
         wallet.balance = rings;
     }

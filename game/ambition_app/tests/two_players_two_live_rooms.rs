@@ -2007,7 +2007,7 @@ fn a_blink_stops_at_a_wall_of_its_own_live_room() {
         .world()
         .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
         .expect("Alice's body")
-        .size
+        .size()
         * 0.5;
     // A block of #1 to stand beside: solid, taller than Alice, with 40 px of
     // clear room on its left for her to stand in.
@@ -3824,7 +3824,7 @@ fn native_roster_arrival(relative: bool) {
     assert_eq!(arrived, vec![(0, identities[0].clone(), before_next), (1, identities[1].clone(), before_next)]);
     if relative {
         let boxes: Vec<_> = world.query::<(&DrivingParticipant, &ambition_platformer2d::engine_core::BodyKinematics)>()
-            .iter(world).map(|(_, body)| ambition_platformer2d::engine_core::Aabb::new(body.pos, body.size * 0.5)).collect();
+            .iter(world).map(|(_, body)| ambition_platformer2d::engine_core::Aabb::new(body.pos, body.size() * 0.5)).collect();
         assert_eq!(boxes.len(), 2);
         assert!(!boxes[0].strict_intersects(boxes[1]));
         assert!((boxes[0].center() - boxes[1].center()).length() < 200.0);
@@ -3933,12 +3933,12 @@ fn a_relative_arrival_uses_the_reference_position_and_body_size_at_commit() {
     let before = where_they_are(&mut sim);
     let world = sim.world_mut();
     let old_bob = world.get::<ae::BodyKinematics>(bob).unwrap().pos;
-    let size = world.get::<ae::BodyKinematics>(bob).unwrap().size;
+    let size = world.get::<ae::BodyKinematics>(bob).unwrap().size();
     let moved = ambition_platformer2d::world::rooms::validated_spawn(
         &plan.spec().world, old_bob + ae::Vec2::new(300.0, -100.0), size);
     world.get_mut::<ae::BodyKinematics>(bob).unwrap().pos = moved;
-    let grown = world.get::<ae::BodyKinematics>(alice).unwrap().size * 2.0;
-    world.get_mut::<ae::BodyKinematics>(alice).unwrap().size = grown;
+    let grown = world.get::<ae::BodyKinematics>(alice).unwrap().size() * 2.0;
+    world.get_mut::<ae::BodyKinematics>(alice).unwrap().canonical_size = grown;
     world.get_mut::<ae::BodyBaseSize>(alice).unwrap().base_size = grown;
     let staged = stage_room_transfer(world, &plan, &intent).expect("the live reference has clear space");
     assert_eq!(staged.members.len(), 1);

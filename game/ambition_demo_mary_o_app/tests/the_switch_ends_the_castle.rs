@@ -136,7 +136,7 @@ fn the_switch_drops_the_boss_and_the_robot_thanks_her_before_the_level_goes() {
     let her_half = {
         let world = app.world_mut();
         let mut bodies = world.query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
-        bodies.iter(world).next().expect("her body").size.y * 0.5
+        bodies.iter(world).next().expect("her body").size().y * 0.5
     };
     let over = ae::Vec2::new((switch.min.x + switch.max.x) * 0.5, switch.min.y - her_half);
     place(&mut app, over - ae::Vec2::new(0.0, 40.0));

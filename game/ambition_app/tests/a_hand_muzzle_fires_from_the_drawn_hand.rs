@@ -139,14 +139,14 @@ fn a_hostile_raiders_shot_is_born_at_the_hand_its_art_draws() {
     let target = sim.world().get::<BodyKinematics>(player.0).expect("a live body").clone();
     // The premise of the flight measurement: the two stand on one floor.
     assert!(
-        ((body.pos.y + body.size.y * 0.5) - (target.pos.y + target.size.y * 0.5)).abs() < 1.0,
+        ((body.pos.y + body.size().y * 0.5) - (target.pos.y + target.size().y * 0.5)).abs() < 1.0,
         "the raider at {:?} and the player at {:?} do not stand level",
         body.pos,
         target.pos,
     );
     let (row, frame, hand) = drawn_hand_this_tick(sim.world(), raider, &body, SHEET, world_per_pixel, "front_hand");
-    let feet_y = body.pos.y + body.size.y * 0.5;
-    let fixed_hand = ambition_platformer2d::mount::rider_hand_world_pos(body.pos, body.facing, body.size.y);
+    let feet_y = body.pos.y + body.size().y * 0.5;
+    let fixed_hand = ambition_platformer2d::mount::rider_hand_world_pos(body.pos, body.facing, body.size().y);
     // The gun-sword the presentation draws over the hand, on this tick.
     let props: Vec<Vec2> = sim
         .world()
@@ -187,7 +187,7 @@ fn a_hostile_raiders_shot_is_born_at_the_hand_its_art_draws() {
          {half:?}, flying {direction:?}; row `{row}` frame {frame}; the drawn hand {:?} and the fixed hand {:?} \
          from the centre; alive {} ticks, travelled {:.0}, ended {:?} from the player; player health {:?} -> {:?}",
         born - body.pos,
-        body.size,
+        body.size(),
         body.facing,
         feet_y - born.y,
         hand - body.pos,
@@ -285,14 +285,14 @@ fn the_players_held_gun_sword_fires_from_the_hand_its_art_draws() {
     let body = sim.world().get::<BodyKinematics>(player).expect("a live body").clone();
     let (row, frame, hand) =
         drawn_hand_this_tick(sim.world(), player, &body, &sheet.target, sheet.world_per_pixel, "near_hand");
-    let feet_y = body.pos.y + body.size.y * 0.5;
-    let fixed_hand = ambition_platformer2d::mount::rider_hand_world_pos(body.pos, body.facing, body.size.y);
+    let feet_y = body.pos.y + body.size().y * 0.5;
+    let fixed_hand = ambition_platformer2d::mount::rider_hand_world_pos(body.pos, body.facing, body.size().y);
     eprintln!(
         "player gun-sword shot: born {:?} from the body centre (body size {:?}, facing {}), {:.1} above the feet \
          line, half {half:?}, flying {direction:?}; row `{row}` frame {frame}; the drawn hand {:?} and the fixed \
          hand {:?} from the centre",
         born - body.pos,
-        body.size,
+        body.size(),
         body.facing,
         feet_y - born.y,
         hand - body.pos,

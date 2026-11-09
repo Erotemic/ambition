@@ -225,7 +225,7 @@ fn view_of(app: &mut App, attacker: Entity, victim: Entity) -> WorldView {
             pos: a.pos,
             vel: a.vel,
             facing,
-            half_extent: a.size * 0.5,
+            half_extent: a.size() * 0.5,
             gravity_down: ae::Vec2::new(0.0, 1.0),
             on_ground: true,
             alive: true,
@@ -243,7 +243,7 @@ fn view_of(app: &mut App, attacker: Entity, victim: Entity) -> WorldView {
             pos: v.pos,
             vel: v.vel,
             facing: -facing,
-            half_extent: v.size * 0.5,
+            half_extent: v.size() * 0.5,
             faction: ActorFaction::Enemy,
             hostile_to_self: true,
             alive: true,
@@ -358,8 +358,8 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
     }
 
     // ── the four gaps: touching, comfortably in reach, out, far out ──
-    let a_half = kin(&mut app, attacker).size.x * 0.5;
-    let v_half = kin(&mut app, victim).size.x * 0.5;
+    let a_half = kin(&mut app, attacker).size().x * 0.5;
+    let v_half = kin(&mut app, victim).size().x * 0.5;
     let touch = a_half + v_half + 4.0;
     let effective = frames.reach + v_half;
     let gaps = [

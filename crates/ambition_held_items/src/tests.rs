@@ -2239,7 +2239,7 @@ fn a_held_thing_is_in_the_answered_hand_else_at_the_fixed_hand() {
     let answered = Vec2::new(96.0, 216.0);
     assert_eq!(hand_or_fixed(Some(answered), &kin, Vec2::Y), answered);
     let fixed = hand_or_fixed(None, &kin, Vec2::Y);
-    assert_eq!(fixed, ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size.y));
+    assert_eq!(fixed, ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size().y));
     assert_ne!(fixed, kin.pos);
 }
 

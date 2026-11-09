@@ -43,7 +43,7 @@ fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: 
         CharacterBrain::Passive,
         &[],
     );
-    assert_eq!(seed.kin.size, BODY, "premise: the body is not square");
+    assert_eq!(seed.kin.size(), BODY, "premise: the body is not square");
     seed.kin.vel = ae::Vec2::ZERO;
     seed.surface.gravity_scale = 1.0;
     seed.body = ActorBody::from_abilities(ae::AbilitySet::classic_actor(), false, seed.kin.size());
@@ -69,6 +69,7 @@ fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: 
         false,
         false,
         ae::BodyContactField::NONE,
+        None,
     );
     let attack = super::ContactAttack::from_body(em.kin, em.surface, &em.config.tuning).expect("premise: the body has a contact attack");
     let mut footprint = ae::CenteredAabb::from_center_size(em.kin.pos, em.kin.size());

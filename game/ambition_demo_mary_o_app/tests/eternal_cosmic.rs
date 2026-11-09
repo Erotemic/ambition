@@ -174,7 +174,7 @@ fn in_the_form_each_press_of_jump_in_the_air_is_a_jump() {
     for _ in 0..600 {
         let now = kin(&app, body);
         highest = highest.min(now.pos.y);
-        at_the_top = now.pos.y - now.size.y * 0.5 < 48.0;
+        at_the_top = now.pos.y - now.size().y * 0.5 < 48.0;
         if presses == 10 || at_the_top {
             break;
         }

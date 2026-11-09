@@ -172,7 +172,7 @@ fn hylberts_lift_only_goes_up() {
         use bevy::prelude::With;
         let half = {
             let mut query = app.world_mut().query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
-            query.iter(app.world()).next().expect("a primary player").size.y * 0.5
+            query.iter(app.world()).next().expect("a primary player").size().y * 0.5
         };
         let mut query = app.world_mut().query_filtered::<(ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel), With<PrimaryPlayer>>();
         let world = app.world_mut();

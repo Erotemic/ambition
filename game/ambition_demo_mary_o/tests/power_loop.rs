@@ -908,7 +908,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
             .entity(snake)
             .get::<ae::BodyKinematics>()
             .expect("the spawned snake carries a body");
-        let head = body.pos.y - body.size.y * 0.5;
+        let head = body.pos.y - body.size().y * 0.5;
         const PLAYER_HEIGHT: f32 = 48.0;
         app.world_mut().spawn((
             PrimaryPlayer,

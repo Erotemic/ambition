@@ -44,7 +44,7 @@ fn geometry_row(
 ) -> String {
     format!(
         "kin={} aabb={} render={} offset={} posed={}",
-        kin.map_or("-".into(), |k| format!("{:.1}x{:.1}", k.size.x, k.size.y)),
+        kin.map_or("-".into(), |k| format!("{:.1}x{:.1}", k.size().x, k.size().y)),
         aabb.map_or("-".into(), |a| format!(
             "{:.1}x{:.1}",
             a.half_size.x * 2.0,

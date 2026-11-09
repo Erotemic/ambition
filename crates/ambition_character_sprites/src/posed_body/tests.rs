@@ -150,11 +150,11 @@ fn the_resize_holds_the_feet() {
         .get::<ae::BodyKinematics>(entity)
         .copied()
         .expect("kinematics");
-    assert_eq!(kin.size, boxed.collision, "the box follows the pinned pose");
+    assert_eq!(kin.size(), boxed.collision, "the box follows the pinned pose");
     assert!(
-        (kin.pos.y + kin.size.y * 0.5 - ground_y).abs() < 1e-3,
+        (kin.pos.y + kin.size().y * 0.5 - ground_y).abs() < 1e-3,
         "the +gravity face must not move: feet at {}, ground at {ground_y}",
-        kin.pos.y + kin.size.y * 0.5
+        kin.pos.y + kin.size().y * 0.5
     );
     assert!(
         kin.pos.x.abs() < 1e-3,
@@ -211,7 +211,7 @@ fn a_stance_survives_the_per_tick_resync() {
         .expect("kinematics");
     let crouched = ae::BodyMode::Crouching.shape(standing.collision).size;
     assert_eq!(
-        kin.size, crouched,
+        kin.size(), crouched,
         "a crouching body was resynced back to its standing box ({:?}) — the \
          stance is applied once, on the mode change, and nothing re-asserts it",
         standing.collision,
@@ -423,10 +423,10 @@ fn the_resize_holds_the_face_of_the_bodys_own_gravity() {
         .get::<ae::BodyKinematics>(entity)
         .copied()
         .expect("kinematics");
-    assert_eq!(kin.size, boxed.collision, "the box follows the pinned pose");
+    assert_eq!(kin.size(), boxed.collision, "the box follows the pinned pose");
     assert!(
-        (kin.pos.y - kin.size.y * 0.5 - ceiling_y).abs() < 1e-3,
+        (kin.pos.y - kin.size().y * 0.5 - ceiling_y).abs() < 1e-3,
         "a body standing on a ceiling must keep its top planted: top at {}, ceiling at {ceiling_y}",
-        kin.pos.y - kin.size.y * 0.5
+        kin.pos.y - kin.size().y * 0.5
     );
 }

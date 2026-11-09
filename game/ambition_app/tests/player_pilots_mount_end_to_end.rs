@@ -177,7 +177,7 @@ fn a_player_pilots_a_mount_end_to_end() {
     let world = sim.world_mut();
     let seat = world.get::<ambition_platformer2d::mount::Mountable>(mount).expect("the shark is mountable").seat;
     let facing = world.get::<BodyKinematics>(mount).expect("the mount has a body").facing;
-    let rider_height = world.get::<BodyKinematics>(rider).expect("the rider has a body").size.y;
+    let rider_height = world.get::<BodyKinematics>(rider).expect("the rider has a body").size().y;
     let saddled = mount_after
         + ambition_platformer2d::mount::saddle_world_offset(
             seat - ae::Vec2::new(0.0, rider_height * 0.5),
@@ -401,7 +401,7 @@ mod constrained_motion {
         {
             let seat = ae::Vec2::new(
                 0.0,
-                -sim.world().get::<BodyKinematics>(mount).unwrap().size.y * 0.5,
+                -sim.world().get::<BodyKinematics>(mount).unwrap().size().y * 0.5,
             );
             sim.world_mut()
                 .entity_mut(mount)

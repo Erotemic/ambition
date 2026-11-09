@@ -412,7 +412,7 @@ fn a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door() {
     for tick in 0..PATIENCE {
         roaming.step(base());
         let body = *roaming.world().get::<ae::BodyKinematics>(dog).expect("the dog");
-        let (half, near) = (body.size * 0.5, body.pos);
+        let (half, near) = (body.size() * 0.5, body.pos);
         let overlaps = near.x + half.x > door.min.x
             && near.x - half.x < door.max.x
             && near.y + half.y > door.min.y

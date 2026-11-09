@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::{AabbExt, BodyKinematics, SweepSample};
+use ambition_platformer2d_core::{self as ae, AabbExt, BodyKinematics, SweepSample};
 
 use crate::color::{PortalChannel, PortalGunColor};
 use crate::placement::{transit_step_with_tuning, TransitStep};
@@ -478,4 +478,44 @@ fn a_dog_whose_centre_is_over_a_floor_portal_opens_it_and_goes_through() {
         &PortalTuning::default(),
     );
     assert!(matches!(step, TransitStep::Begin { .. }), "the dog in line did not begin its transit: {step:?}");
+}
+
+#[test]
+fn a_carried_vector_is_mapped_atomically_for_both_body_storage_types() {
+    use ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration;
+    for refused in [false, true] {
+        let mut app = transit_app();
+        let [enter, exit] = wall_pair(&mut app);
+        app.world_mut().get_mut::<PlacedPortal>(exit).unwrap().normal = Vec2::ONE.normalize();
+        let kin = BodyKinematics {
+            pos: Vec2::new(19.0, 200.0), vel: -Vec2::X * 400.0,
+            canonical_size: Vec2::splat(8.0), ..Default::default()
+        };
+        let force = if refused { Vec2::splat(f32::MAX) } else { Vec2::new(-100.0, 20.0) };
+        let kernel = app.world_mut().spawn((kin, CarriedAcceleration(force))).id();
+        let free = app.world_mut().spawn((
+            Probe { pos: kin.pos, vel: kin.vel, step: None }, CarriedAcceleration(force),
+        )).id();
+        let map = ae::frame::Sim2::through(
+            &app.world().get::<PlacedPortal>(enter).unwrap().aperture(),
+            &app.world().get::<PlacedPortal>(exit).unwrap().aperture(),
+            app.world().resource::<PortalTuning>().convention.map_convention()).unwrap();
+        app.update();
+        for entity in [kernel, free] {
+            let pos = if entity == kernel { app.world().get::<BodyKinematics>(entity).unwrap().pos }
+                else { app.world().get::<Probe>(entity).unwrap().pos };
+            let actual = app.world().get::<CarriedAcceleration>(entity).unwrap().0;
+            if refused {
+                assert_eq!(pos, kin.pos, "a refused payload moved its body");
+                assert_eq!(actual, force);
+                assert!(app.world().get::<crate::PortalTransitCooldown>(entity).is_none());
+            } else {
+                assert!((pos - map.point(kin.pos).unwrap()).length() < 1.0e-4);
+                assert_eq!(actual, map.vector(force).unwrap());
+                assert_ne!(actual, force);
+            }
+        }
+        let events = app.world_mut().resource_mut::<Messages<crate::PortalBodyTransited>>().drain().collect::<Vec<_>>();
+        assert_eq!(events.len(), if refused { 0 } else { 2 });
+    }
 }

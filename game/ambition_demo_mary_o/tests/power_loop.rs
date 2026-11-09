@@ -775,6 +775,7 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     app.world_mut().spawn((
         body.kin,
         body.game,
+        body.acceleration,
         ProjectileOwner(firer),
         seq,
         LiveProjectile,

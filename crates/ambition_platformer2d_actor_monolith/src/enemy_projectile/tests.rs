@@ -910,6 +910,7 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
     app.world_mut().spawn((
         projectile.body.kin,
         projectile.body.game,
+        projectile.body.acceleration,
         seq,
         ProjectileOwner(firer),
         ambition_projectiles::LiveProjectile,

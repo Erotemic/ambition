@@ -51,6 +51,7 @@ pub(crate) fn spawn_test_projectile_fired_by(
     let mut shot = app.world_mut().spawn((
         projectile.body.kin,
         projectile.body.game,
+        projectile.body.acceleration,
         seq,
         ProjectileOwner(owner),
         ambition_projectiles::LiveProjectile,
@@ -75,6 +76,7 @@ pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn
     app.world_mut().spawn((
         projectile.body.kin,
         projectile.body.game,
+        projectile.body.acceleration,
         seq,
         ambition_projectiles::LiveProjectile,
         Name::new("Ownerless projectile (test)"),
@@ -96,17 +98,18 @@ pub(crate) fn live_projectile_bodies(
     let Some(mut q) = world.try_query_filtered::<(
         &ambition_platformer2d_core::BodyKinematics,
         &ProjectileGameplay,
+        &ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
         &ProjectileSeq,
     ), With<ambition_projectiles::LiveProjectile>>() else {
         return Vec::new();
     };
     let mut rows: Vec<(ProjectileSeq, ambition_projectiles::InFlightProjectile)> = q
         .iter(world)
-        .map(|(kin, game, seq)| {
+        .map(|(kin, game, acceleration, seq)| {
             (
                 *seq,
                 ambition_projectiles::InFlightProjectile {
-                    body: ambition_projectiles::ProjectileBody::from_parts(*kin, *game),
+                    body: ambition_projectiles::ProjectileBody::from_parts(*kin, *game, *acceleration),
                 },
             )
         })

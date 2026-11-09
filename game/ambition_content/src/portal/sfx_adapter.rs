@@ -54,7 +54,7 @@ pub fn play_portal_sfx(
     for ev in transited.read() {
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_EXIT,
-            emitter: (ev.exit_pos).into(),
+            emitter: (ev.transfer.exit.frame.origin).into(),
         });
     }
 }

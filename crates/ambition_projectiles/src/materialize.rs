@@ -95,6 +95,7 @@ fn materialize_matching(
         let mut entity = commands.spawn((
             body.kin,
             body.game,
+            body.acceleration,
             seq.next(),
             LiveProjectile,
             RoomScopedEntity,

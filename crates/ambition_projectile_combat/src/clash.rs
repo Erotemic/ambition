@@ -452,6 +452,7 @@ mod tests {
             .spawn((
                 projectile.body.kin,
                 projectile.body.game,
+                projectile.body.acceleration,
                 seq,
                 ambition_projectiles::ProjectileOwner(owner),
                 ambition_projectiles::LiveProjectile,

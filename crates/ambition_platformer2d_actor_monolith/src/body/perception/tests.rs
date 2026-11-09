@@ -711,7 +711,6 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         damage: dmg,
         bounces_remaining: 0,
         world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
-        accel: ae::Vec2::ZERO,
         hits_cleared_on_leg: 0,
         splash_half_extent: 0.0,
         rebound: Default::default(),

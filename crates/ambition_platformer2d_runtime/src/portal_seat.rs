@@ -93,12 +93,12 @@ pub fn guard_the_driven_body_after_portal_transit(
         // the trail chunks instead of drawing a fake line across the room.
         trail_breaks.write(TrailContinuityBreak {
             body: ev.body,
-            resume_at: ev.exit_pos,
+            resume_at: ev.transfer.exit_pos,
         });
         // Protect the emergence so the floored exit velocity carries the body
         // out before held input can fight it.
         commands.entity(ev.body).insert(PortalEmission {
-            exit_normal: ev.exit_normal,
+            exit_normal: ev.transfer.exit.frame.normal,
             timer: tuning.emission_time_s,
         });
         // Warp held input only when the active portal map keeps ordinary
@@ -107,8 +107,8 @@ pub fn guard_the_driven_body_after_portal_transit(
         // use as ordinary movement.
         if ev.input_warp && held.length() > tuning.input_held_epsilon {
             commands.entity(ev.body).insert(PortalInputWarp {
-                n_in: ev.enter_normal,
-                n_out: ev.exit_normal,
+                n_in: ev.transfer.enter.frame.normal,
+                n_out: ev.transfer.exit.frame.normal,
                 anchor: held,
             });
         }

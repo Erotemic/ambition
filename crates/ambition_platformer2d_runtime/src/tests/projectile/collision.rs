@@ -1243,6 +1243,7 @@ fn spawn_owned_shot(app: &mut App, owner: Entity, origin: ae::Vec2) -> Entity {
         .spawn((
             body.kin,
             body.game,
+            body.acceleration,
             ambition_projectiles::ProjectileOwner(owner),
             seq,
             ambition_projectiles::LiveProjectile,
@@ -1451,7 +1452,7 @@ fn a_returning_shot_survives_the_crate_it_breaks_and_an_ordinary_one_does_not() 
             if returning {
                 // `returns()` IS a non-zero return acceleration — the boomerang's
                 // own definition, not a separate flag to keep in sync.
-                body.game.accel = ae::Vec2::new(-6000.0, 0.0);
+                body.acceleration.0 = ae::Vec2::new(-6000.0, 0.0);
             }
             crate::projectile_tests::spawn_player_projectile(&mut app, body);
         }
@@ -2683,7 +2684,7 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
     // make the two contact times differ in the last bits and hand the tie to
     // whichever axis rounded lower — a fixture whose subject was float noise.
     body.game.gravity = 0.0;
-    body.game.accel = ae::Vec2::ZERO;
+    body.acceleration.0 = ae::Vec2::ZERO;
     assert!(
         body.game.bounces_remaining > 0,
         "the shot must have a bounce budget: with none, `shot_policy_admits` \

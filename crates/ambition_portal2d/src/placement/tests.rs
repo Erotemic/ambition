@@ -56,7 +56,9 @@ fn a_moving_portal_scoops_a_stationary_body() {
         &PortalTuning::default(),
     );
     match step {
-        TransitStep::Transfer { pos, vel, .. } => {
+        TransitStep::Transfer { transfer, .. } => {
+                let pos = transfer.exit_pos;
+                let vel = transfer.exit_vel;
             // Emerges at the exit's image of the crossing, moving out of the
             // exit face with the aperture-relative approach speed.
             assert!((pos.x - 500.0).abs() < 60.0, "exit x, got {pos:?}");
@@ -100,7 +102,8 @@ fn a_turning_portal_scoops_a_still_body_and_gives_it_its_surface_speed() {
         &PortalTuning::default(),
     );
     match step {
-        TransitStep::Transfer { vel, .. } => {
+        TransitStep::Transfer { transfer, .. } => {
+                let vel = transfer.exit_vel;
             let surface = enter.frame().velocity_at(center).length();
             assert!(vel.dot(Vec2::new(0.0, -1.0)) > 0.0, "out of the exit face: {vel:?}");
             assert!(
@@ -178,7 +181,7 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
         Vec2::new(0.0, 1.0),
         &tuning,
     ) {
-        TransitStep::Transfer { vel, .. } => vel,
+        TransitStep::Transfer { transfer, .. } => transfer.exit_vel,
         other => panic!("expected Transfer, got {other:?}"),
     };
     let exit_normal = Vec2::new(0.0, -1.0);
@@ -203,7 +206,7 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
         Vec2::new(0.0, 1.0),
         &tuning,
     ) {
-        TransitStep::Transfer { vel, .. } => vel,
+        TransitStep::Transfer { transfer, .. } => transfer.exit_vel,
         other => panic!("expected Transfer, got {other:?}"),
     };
     let rest_frame_out = (vel_out - exit.vel).dot(exit_normal);
@@ -235,7 +238,8 @@ fn rescue_transfers_a_deep_crossing_inside_the_carve_even_on_cooldown() {
         Vec2::new(0.0, 1.0),
     );
     match step {
-        TransitStep::Transfer { pos, .. } => {
+        TransitStep::Transfer { transfer, .. } => {
+                let pos = transfer.exit_pos;
             assert!(
                 pos.y < 300.0,
                 "the transfer emerges in FRONT of the exit plane, got {pos:?}"
@@ -428,12 +432,10 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
                     crossed: false,
                 });
             }
-            TransitStep::Transfer {
-                pos: p,
-                vel: v,
-                exit_channel,
-                ..
-            } => {
+            TransitStep::Transfer { transfer, .. } => {
+                let p = transfer.exit_pos;
+                let v = transfer.exit_vel;
+                let exit_channel = transfer.exit_channel;
                 pos = p;
                 vel = v;
                 transfers += 1;
@@ -446,6 +448,7 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
             }
             TransitStep::Clear => transit = None,
             TransitStep::Idle | TransitStep::Continue => {}
+            TransitStep::Refused { reason, .. } => panic!("unexpected transit refusal: {reason:?}"),
         }
 
         // No-embed invariant: the body may be past the floor plane only in
@@ -540,7 +543,8 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
         &PortalTuning::default(),
     );
     match step {
-        TransitStep::Transfer { vel, .. } => {
+        TransitStep::Transfer { transfer, .. } => {
+                let vel = transfer.exit_vel;
             assert!(
                 vel.y > 10000.0,
                 "the exit must emit the ENTRY momentum, not the zeroed \
@@ -715,9 +719,10 @@ fn a_body_goes_through_a_portal_on_a_slope() {
             break;
         }
     }
-    let TransitStep::Transfer { pos, vel: out, exit_channel, .. } = step else {
+    let TransitStep::Transfer { transfer, .. } = step else {
         panic!("the centre crossed the slanted plane and the body transferred: {step:?}");
     };
+    let (pos, out, exit_channel) = (transfer.exit_pos, transfer.exit_vel, transfer.exit_channel);
     assert_eq!(exit_channel, YELLOW);
     assert!((pos - exit.pos).length() < 40.0, "it comes out at the exit ({pos:?})");
     assert!(out.dot(exit.normal) > 0.0, "out of the exit, along its normal ({out:?})");
@@ -744,4 +749,49 @@ fn a_portal_that_turns_keeps_its_opening() {
         assert!((p.aperture().half_length - along).abs() < 1.0e-3, "{degrees}: {}", p.aperture().half_length);
         assert!((p.opening_half_thickness() - thick).abs() < 1.0e-3, "{degrees}: {}", p.opening_half_thickness());
     }
+}
+
+#[test]
+fn unequal_aperture_transfer_keeps_actual_velocity_samples_and_inverse_map() {
+    let enter = PlacedPortal::fixed(PURPLE, Vec2::new(100.0, 100.0), -Vec2::Y, 40.0);
+    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 200.0), Vec2::X, 20.0);
+    let position = Vec2::new(108.0, 104.0);
+    let velocity = Vec2::new(30.0, 1000.0);
+    for convention in [crate::PortalConvention::Rotation, crate::PortalConvention::Reflection] {
+        let tuning = PortalTuning { convention, min_exit_speed: 0.0, ..Default::default() };
+        let forward = PortalTransfer::new(position, velocity, &enter, &exit, &tuning).unwrap();
+        assert_eq!(forward.map.scale(), 0.5);
+        assert_eq!(forward.entry_pos, position);
+        assert_eq!(forward.entry_vel, velocity);
+        assert_eq!(forward.exit_vel, forward.mapped_vel);
+        assert!((forward.exit_vel.length() - velocity.length() * 0.5).abs() < 1.0e-3);
+        let inverse = ae::frame::Sim2::through(&exit.aperture(), &enter.aperture(), tuning.convention.map_convention()).unwrap();
+        assert!((inverse.point(forward.exit_pos).unwrap() - position).length() < 1.0e-4);
+        assert!((inverse.vector(forward.mapped_vel).unwrap() - velocity).length() < 1.0e-4);
+        assert_eq!(forward.entry_channel, PURPLE);
+        assert_eq!(forward.exit_channel, YELLOW);
+    }
+}
+
+#[test]
+fn exit_assistance_does_not_rewrite_the_measured_entry_velocity() {
+    let enter = floor(PURPLE, Vec2::ZERO);
+    let mut exit = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 100.0), Vec2::X, crate::PORTAL_OPENING_HALF);
+    exit.vel = Vec2::new(80.0, 0.0);
+    let velocity = Vec2::new(0.0, 5.0);
+    let tuning = PortalTuning::default();
+    let transfer = PortalTransfer::new(Vec2::ZERO, velocity, &enter, &exit, &tuning).unwrap();
+    assert_eq!(transfer.entry_vel, velocity);
+    assert_eq!(transfer.mapped_vel, Vec2::new(85.0, 0.0));
+    assert_eq!(transfer.exit_vel, Vec2::new(80.0 + tuning.min_exit_speed, 0.0));
+    assert_eq!(transfer.carried_run(Vec2::X, 0.0).unwrap(), transfer.exit_vel.x);
+}
+
+#[test]
+fn an_unrepresentable_transfer_is_a_typed_refusal() {
+    let enter = floor(PURPLE, Vec2::ZERO);
+    let mut exit = floor(YELLOW, Vec2::new(500.0, 100.0));
+    exit.half_length = f32::NAN;
+    assert!(matches!(transfer_step(Vec2::ZERO, Vec2::Y, enter, exit, Vec2::Y, &PortalTuning::default()),
+        TransitStep::Refused { reason: ae::frame::NumericFault::NonFinite, channel: PURPLE }));
 }

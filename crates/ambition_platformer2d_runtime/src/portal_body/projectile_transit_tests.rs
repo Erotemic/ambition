@@ -24,7 +24,6 @@ fn straight_projectile() -> ProjectileGameplay {
         damage: 1,
         bounces_remaining: 0,
         world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
-        accel: ambition_platformer2d_core::Vec2::ZERO,
         hits_cleared_on_leg: 0,
         splash_half_extent: 0.0,
         rebound: Default::default(),
@@ -207,10 +206,8 @@ fn a_carried_acceleration_is_rotated_by_the_same_map_as_the_velocity() {
                 canonical_size: Vec2::new(8.0, 8.0),
                 facing: -1.0,
             },
-            ProjectileGameplay {
-                accel: entry_accel,
-                ..straight_projectile()
-            },
+            straight_projectile(),
+            ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration(entry_accel),
         ))
         .id();
 
@@ -218,7 +215,7 @@ fn a_carried_acceleration_is_rotated_by_the_same_map_as_the_velocity() {
     app.update();
 
     let kin = app.world().get::<BodyKinematics>(proj).unwrap();
-    let shot = app.world().get::<ProjectileGameplay>(proj).unwrap();
+    let shot = app.world().get::<ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration>(proj).unwrap();
     assert!(
         kin.pos.x > 300.0,
         "premise: the projectile must actually have transited, pos={:?}",
@@ -231,17 +228,17 @@ fn a_carried_acceleration_is_rotated_by_the_same_map_as_the_velocity() {
     // `x`'s sign where it was, so "mapped the same way" and "not mapped" agree.
     // A carried vector that survives a rotating transit UNCHANGED is the defect.
     assert_ne!(
-        shot.accel, entry_accel,
+        shot.0, entry_accel,
         "the velocity came out mapped ({entry_vel:?} -> {:?}) and the carried \
          acceleration came out untouched — the shot is flying the new way and \
          being pulled the old way",
         kin.vel,
     );
     assert!(
-        (shot.accel.length() - entry_accel.length()).abs() < 1.0,
+        (shot.0.length() - entry_accel.length()).abs() < 1.0,
         "the map is a rotation and must preserve the acceleration's magnitude: \
          {} -> {}",
         entry_accel.length(),
-        shot.accel.length(),
+        shot.0.length(),
     );
 }

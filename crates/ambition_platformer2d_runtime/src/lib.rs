@@ -121,10 +121,6 @@ pub use mode_scope::{
 };
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
-pub use portal_body::{
-    apply_portal_carried_momentum, rotate_projectile_acceleration_after_portal_transit,
-};
-#[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_seat::{

@@ -776,29 +776,17 @@ mod host_adapter {
             };
 
             for ev in crossings.iter().filter(|ev| ev.body == followed) {
-                let Ok(body) = body_kinematics.get(ev.body) else {
-                    continue;
-                };
-                let Ok(transit) = body_transits.get(ev.body) else {
-                    continue;
-                };
-                let exit_channel = transit.straddling;
-                let enter_channel = exit_channel.partner();
-                let Some(exit_portal) = ambition_portal2d::find_portal(&portal_list, exit_channel) else {
-                    continue;
-                };
-                let Some(enter_portal) = ambition_portal2d::find_portal(&portal_list, enter_channel) else {
-                    continue;
-                };
-                let enter_frame = enter_portal.frame();
-                let exit_frame = exit_portal.frame();
+                let exit_channel = ev.transfer.exit_channel;
+                let enter_channel = ev.transfer.entry_channel;
+                let enter_frame = ev.transfer.enter.frame;
+                let exit_frame = ev.transfer.exit.frame;
 
                 // The exact-continuity correction is only meaningful when the
                 // ENTRY aperture was on/near the previous visible view.
                 // Repeated portal crossings intentionally chain from that
                 // rendered view: body and camera are both mapped from the same
                 // pre-transfer frame.
-                let enter_portal_screen_before = enter_portal.pos - previous_host_camera_world;
+                let enter_portal_screen_before = enter_frame.origin - previous_host_camera_world;
                 let entry_visible = enter_portal_screen_before.x.abs() <= config.max_entry_screen_offset.x
                     && enter_portal_screen_before.y.abs() <= config.max_entry_screen_offset.y;
                 if !entry_visible {
@@ -809,11 +797,11 @@ mod host_adapter {
                             view,
                             ev.body,
                             enter_channel,
-                            enter_portal.pos.x,
-                            enter_portal.pos.y,
+                            enter_frame.origin.x,
+                            enter_frame.origin.y,
                             exit_channel,
-                            exit_portal.pos.x,
-                            exit_portal.pos.y,
+                            exit_frame.origin.x,
+                            exit_frame.origin.y,
                             enter_portal_screen_before.x,
                             enter_portal_screen_before.y,
                             config.max_entry_screen_offset.x,
@@ -840,12 +828,9 @@ mod host_adapter {
                     continue;
                 }
 
-                let desired_camera_world = ambition_portal2d::pieces::map_point(
-                    previous_host_camera_world,
-                    &enter_frame,
-                    &exit_frame,
-                    convention,
-                );
+                let Ok(desired_camera_world) = ev.transfer.map.point(previous_host_camera_world) else {
+                    continue;
+                };
                 let correction = desired_camera_world - host_camera_world;
 
                 // No pair is a special case: a door through a thin wall cuts
@@ -856,17 +841,16 @@ mod host_adapter {
                 // whole picture would jump by the wall's thickness when the
                 // charts change over.
                 let raw_roll = ambition_portal2d_presentation::camera_roll_for_portal_transit(
-                    ev.enter_normal,
-                    ev.exit_normal,
+                    ev.transfer.enter.frame.normal,
+                    ev.transfer.exit.frame.normal,
                     gravity_dir,
                     convention,
                 );
                 let roll = if raw_roll.abs() <= config.roll_epsilon_radians { 0.0 } else { raw_roll };
 
                 // Debug the exact screen-space invariant.
-                let body_after = body.pos;
-                let body_before =
-                    ambition_portal2d::pieces::map_point(body_after, &exit_frame, &enter_frame, convention);
+                let body_after = ev.transfer.exit_pos;
+                let body_before = ev.transfer.entry_pos;
                 let screen_before = body_before - previous_host_camera_world;
                 let screen_after = body_after - desired_camera_world;
                 let screen_error = screen_after - screen_before;
@@ -876,8 +860,8 @@ mod host_adapter {
                 // pairs, this is the user-visible seam invariant: the exit
                 // aperture should occupy the same screen-space offset as the
                 // entry aperture did.
-                let exit_portal_screen_after = exit_portal.pos - desired_camera_world;
-                let exit_portal_screen_host = exit_portal.pos - host_camera_world;
+                let exit_portal_screen_after = exit_frame.origin - desired_camera_world;
+                let exit_portal_screen_host = exit_frame.origin - host_camera_world;
                 let portal_screen_error = exit_portal_screen_after - enter_portal_screen_before;
                 let previous_state_target = state.target_camera_world;
                 let active_weight_before = state.active_weight();
@@ -976,13 +960,13 @@ mod host_adapter {
                         view,
                         ev.body,
                         enter_channel,
-                        enter_portal.pos.x,
-                        enter_portal.pos.y,
+                        enter_frame.origin.x,
+                        enter_frame.origin.y,
                         exit_channel,
-                        exit_portal.pos.x,
-                        exit_portal.pos.y,
-                        ev.enter_normal,
-                        ev.exit_normal,
+                        exit_frame.origin.x,
+                        exit_frame.origin.y,
+                        ev.transfer.enter.frame.normal,
+                        ev.transfer.exit.frame.normal,
                         roll.to_degrees(),
                         body_before.x,
                         body_before.y,
@@ -1813,11 +1797,14 @@ mod tests {
         for body in [a, b] {
             app.world_mut().write_message(PortalBodyTransited {
                 body,
-                enter_normal: Vec2::X,
-                exit_normal: -Vec2::X,
+                transfer: ambition_portal2d::PortalTransfer::new(
+                    Vec2::new(95.0, 500.0), -Vec2::X * 400.0,
+                    &PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0),
+                    &PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0),
+                    &ambition_portal2d::PortalTuning::default(),
+                ).unwrap(),
                 facing_flip: false,
                 input_warp: false,
-                exit_pos: Vec2::new(1495.0, 500.0),
             });
         }
         app.update();

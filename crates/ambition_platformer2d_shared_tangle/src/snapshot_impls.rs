@@ -174,9 +174,6 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
         put_i32(out, self.damage);
         put_u8(out, self.bounces_remaining);
         self.world_hit.encode(out);
-        // A boomerang's whole trajectory is this vector; a peer that decoded a
-        // shot without it would fly the outbound leg forever.
-        put_vec2(out, self.accel);
         // Which leg the victim ledger belongs to. Without it a rewind across the
         // turnaround either re-arms the outbound leg's victims a second time or
         // never arms the return leg's at all.
@@ -197,7 +194,6 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
             damage: r.i32()?,
             bounces_remaining: r.u8()?,
             world_hit: crate::projectile::WorldHitPolicy::decode(r)?,
-            accel: r.vec2()?,
             hits_cleared_on_leg: r.u8()?,
             splash_half_extent: r.f32()?,
             rebound: crate::projectile::Rebound {
@@ -336,5 +332,13 @@ impl SnapshotState for crate::safe_position::RoomTransitionCooldown {
             cooldown.hold(seat, r.f32()?);
         }
         Some(cooldown)
+    }
+}
+
+impl SnapshotState for crate::frame_env::CarriedAcceleration {
+    fn encode(&self, out: &mut Vec<u8>) { put_vec2(out, self.0); }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let acceleration = r.vec2()?;
+        acceleration.is_finite().then_some(Self(acceleration))
     }
 }

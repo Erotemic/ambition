@@ -180,17 +180,18 @@ pub fn live_projectile_bodies(
     let Some(mut q) = world.try_query_filtered::<(
         &ambition_platformer2d_core::BodyKinematics,
         &ProjectileGameplay,
+        &ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
         &ProjectileSeq,
     ), With<ambition_projectiles::LiveProjectile>>() else {
         return Vec::new();
     };
     let mut rows: Vec<(ProjectileSeq, ambition_projectiles::InFlightProjectile)> = q
         .iter(world)
-        .map(|(kin, game, seq)| {
+        .map(|(kin, game, acceleration, seq)| {
             (
                 *seq,
                 ambition_projectiles::InFlightProjectile {
-                    body: ambition_projectiles::ProjectileBody::from_parts(*kin, *game),
+                    body: ambition_projectiles::ProjectileBody::from_parts(*kin, *game, *acceleration),
                 },
             )
         })

@@ -306,6 +306,9 @@ where
     // Checkpoint-baseline values and their message cursors are declared beside the lifecycle
     // horizon that owns them.
     crate::lifecycle::horizon::register_checkpoint_rollback_state(registrar);
+    registrar.rollback_component_canonical::<crate::frame_env::CarriedAcceleration>(
+        OWNER, "body.carried_acceleration",
+    );
     registrar.rollback_component_canonical::<crate::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

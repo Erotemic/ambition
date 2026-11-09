@@ -490,9 +490,9 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
         Vec2::new(0.0, 1.0),
     );
     match step {
-        TransitStep::Transfer {
-            exit_channel, pos, ..
-        } => {
+        TransitStep::Transfer { transfer, .. } => {
+                let exit_channel = transfer.exit_channel;
+                let pos = transfer.exit_pos;
             assert_eq!(exit_channel, YELLOW, "purple links to yellow");
             assert!(pos.x > 600.0, "emerges at the yellow portal, got {pos:?}");
         }
@@ -1330,12 +1330,10 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
                     crossed: false,
                 });
             }
-            TransitStep::Transfer {
-                pos,
-                vel,
-                exit_channel,
-                ..
-            } => {
+            TransitStep::Transfer { transfer, .. } => {
+                let pos = transfer.exit_pos;
+                let vel = transfer.exit_vel;
+                let exit_channel = transfer.exit_channel;
                 crossing_speeds.push(scratch.kinematics.vel.length());
                 scratch.kinematics.pos = pos;
                 scratch.kinematics.vel = vel;
@@ -1347,6 +1345,7 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
             }
             TransitStep::Clear => transit = None,
             TransitStep::Idle | TransitStep::Continue => {}
+            TransitStep::Refused { reason, .. } => panic!("unexpected transit refusal: {reason:?}"),
         }
         assert!(
             scratch.kinematics.vel.x.abs() < 1e-3,
@@ -1438,12 +1437,10 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
                     crossed: false,
                 });
             }
-            TransitStep::Transfer {
-                pos,
-                vel,
-                exit_channel,
-                ..
-            } => {
+            TransitStep::Transfer { transfer, .. } => {
+                let pos = transfer.exit_pos;
+                let vel = transfer.exit_vel;
+                let exit_channel = transfer.exit_channel;
                 if transferred {
                     break; // falling back in — the round trip is complete
                 }
@@ -1457,6 +1454,7 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
             }
             TransitStep::Clear => transit = None,
             TransitStep::Idle | TransitStep::Continue => {}
+            TransitStep::Refused { reason, .. } => panic!("unexpected transit refusal: {reason:?}"),
         }
         if transferred {
             apex_y = apex_y.min(scratch.kinematics.pos.y);

@@ -680,6 +680,7 @@ pub fn step_projectiles(
             Entity,
             &mut BodyKinematics,
             &mut ProjectileGameplay,
+            &ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
             Option<&ProjectileOwner>,
             // `None` is reserved for a genuinely ownerless/environmental volley.
             Option<&AttackAllegiance>,
@@ -783,7 +784,7 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq, _, _, _, _, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, _, seq, _, _, _, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
@@ -792,6 +793,7 @@ pub fn step_projectiles(
             _,
             mut kin,
             mut game,
+            acceleration,
             owner,
             stamped_allegiance,
             _,
@@ -894,7 +896,7 @@ pub fn step_projectiles(
         // one-way stops it — damaged straight through one. Two answers to "is
         // something in the way", disagreeing on shape and on policy.
         let shot_world_hit = game.world_hit;
-        if !game.tick(&mut kin, dt, gravity_dir) {
+        if !game.tick(&mut kin, *acceleration, dt, gravity_dir) {
             if let Some(burst) = expiry_burst {
                 outcome_fx.write(said_by(burst.request(shot_room, kin.pos), bolt_source.as_ref(),
                 ));
@@ -1060,7 +1062,7 @@ pub fn step_projectiles(
             // `ProjectileHits` is authoritative rollback state because a
             // resimulated frame that lost it re-hits everybody the shot had
             // already passed through.
-            let leg = game.leg(kin.vel);
+            let leg = game.leg(kin.vel, *acceleration);
             if leg != game.hits_cleared_on_leg {
                 already_hit.hit.clear();
                 game.hits_cleared_on_leg = leg;
@@ -1512,7 +1514,7 @@ pub fn step_projectiles(
                 // is spent on contact, which is what a bolt IS; the ponytail is
                 // thrown and caught, and a throw that ends in the first body it
                 // touches is not the move Jon asked for.
-                if !game.returns() {
+                if !game.returns(*acceleration) {
                     if game.splash_half_extent > 0.0 {
                         emit_landing_splash(
                             proj_entity,
@@ -1634,7 +1636,7 @@ pub fn step_projectiles(
                 // and this branch used to despawn UNCONDITIONALLY.** A boomerang
                 // that clipped a crate simply never came back; the same throw
                 // into a body survived, because the ordinary branch asks
-                // `game.returns()`. One projectile, two lifetimes, decided by
+                // `game.returns(*acceleration)`. One projectile, two lifetimes, decided by
                 // what it happened to touch. The protocol calls this an
                 // intentional correction rather than a preserved behaviour.
                 //
@@ -1643,7 +1645,7 @@ pub fn step_projectiles(
                 // as many ticks as it takes to pass through, so it must remember
                 // WHOM on this leg — exactly the ledger the body branch keeps.
                 already_hit.hit.insert(contact.target);
-                if !game.returns() {
+                if !game.returns(*acceleration) {
                     commands.entity(proj_entity).despawn();
                 }
                 continue;

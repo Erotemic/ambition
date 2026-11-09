@@ -50,6 +50,7 @@ pub fn resolve_body_motion_frames(
         (
             Entity,
             &ambition_platformer2d_core::BodyKinematics,
+            Option<&ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration>,
             &mut ResolvedMotionFrame,
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -58,6 +59,7 @@ pub fn resolve_body_motion_frames(
         (
             Entity,
             &ambition_platformer2d_core::BodyKinematics,
+            Option<&ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration>,
             &ActorConfig,
             Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
             &ActorSurfaceState,
@@ -91,10 +93,10 @@ pub fn resolve_body_motion_frames(
     // this measurement, dated, with the mechanism — not a green test that could
     // never go red.
     let player_response = tuning.gravity;
-    for (entity, kin, mut resolved) in &mut players {
-        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response));
+    for (entity, kin, carried, mut resolved) in &mut players {
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response, carried.copied().unwrap_or_default()));
     }
-    for (entity, kin, config, authored, surface, health, posed, captive, mut resolved) in &mut actors {
+    for (entity, kin, carried, config, authored, surface, health, posed, captive, mut resolved) in &mut actors {
         let response = if posed || captive {
             0.0
         } else {
@@ -106,7 +108,7 @@ pub fn resolve_body_motion_frames(
             authored.map_or(config.tuning.movement.gravity, |a| a.0.gravity)
                 * gravity_scale_of(surface, health.is_none_or(|health| health.alive()))
         };
-        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response));
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response, carried.copied().unwrap_or_default()));
     }
 }
 

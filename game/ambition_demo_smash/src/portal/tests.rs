@@ -146,11 +146,14 @@ fn an_expired_pair_closes_at_both_ends() {
 fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
     app.world_mut().write_message(ambition_platformer2d::portal::PortalBodyTransited {
         body,
-        enter_normal: ae::Vec2::new(0.0, -1.0),
-        exit_normal: ae::Vec2::new(0.0, 1.0),
+        transfer: ambition_platformer2d::portal::PortalTransfer::new(
+            ae::Vec2::ZERO, ae::Vec2::ZERO,
+            &ambition_platformer2d::portal::PlacedPortal::fixed(ambition_platformer2d::portal::PortalChannel::Gun(ambition_platformer2d::portal::PortalGunColor::BLUE), ae::Vec2::ZERO, -ae::Vec2::Y, 40.0),
+            &ambition_platformer2d::portal::PlacedPortal::fixed(ambition_platformer2d::portal::PortalChannel::Gun(ambition_platformer2d::portal::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0),
+            &ambition_platformer2d::portal::PortalTuning::default(),
+        ).unwrap(),
         facing_flip: false,
         input_warp: false,
-        exit_pos: at,
     });
     app.update();
 }

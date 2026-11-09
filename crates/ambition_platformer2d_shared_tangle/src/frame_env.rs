@@ -64,6 +64,11 @@ impl ResolvedMotionFrame {
     }
 }
 
+/// Acceleration carried with a body's material, in its current world chart.
+/// Portal transfer maps this vector. World gravity and force zones stay separate.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct CarriedAcceleration(pub Vec2);
+
 /// An authored region contributing world-space acceleration WITHOUT defining
 /// orientation — wind, conveyor updrafts, tractor fields. A body overlapping the
 /// region accumulates `accel` on top of its gravity contribution; its reference
@@ -169,6 +174,7 @@ impl FrameEnv<'_, '_> {
         body: ambition_platformer2d_core::Aabb,
         room: Option<crate::lifecycle::LiveRoomInstance>,
         gravity_response: f32,
+        carried: CarriedAcceleration,
     ) -> MotionFrame {
         let dir = self.gravity.dir_for(room, body);
         let gravity_acceleration = dir * gravity_response.max(0.0);
@@ -180,7 +186,7 @@ impl FrameEnv<'_, '_> {
         MotionFrame::with_accelerations(
             AccelerationFrame::new(dir),
             gravity_acceleration,
-            external_acceleration,
+            external_acceleration + carried.0,
         )
     }
 }
@@ -208,13 +214,31 @@ mod tests {
         let mut state: bevy::ecs::system::SystemState<FrameEnv> =
             bevy::ecs::system::SystemState::new(app.world_mut());
         let env = state.get(app.world()).expect("frame env params");
-        env.resolve(body, None, response)
+        env.resolve(body, None, response, CarriedAcceleration::default())
     }
 
     /// OW1: two live rooms, and a gravity zone and a force zone stamped into
     /// the first. A body of the first room in their region is turned and
     /// pushed; a body of the second room at the same place stands under the
     /// ambient with no push.
+    #[test]
+    fn carried_acceleration_has_one_snapshot_value_and_does_not_turn_the_frame() {
+        use ambition_platformer2d_core::snapshot::{encode_state, decode_state};
+        let carried = CarriedAcceleration(Vec2::new(-140.0, 65.0));
+        assert_eq!(decode_state::<CarriedAcceleration>(&encode_state(&carried)), Some(carried));
+        let mut app = env_app();
+        app.update();
+        let mut state: bevy::ecs::system::SystemState<FrameEnv> =
+            bevy::ecs::system::SystemState::new(app.world_mut());
+        let env = state.get(app.world()).unwrap();
+        let frame = env.resolve(Aabb::new(Vec2::ZERO, Vec2::splat(8.0)), None, 900.0, carried);
+        assert_eq!(frame.down(), Vec2::Y);
+        assert_eq!(frame.gravity_acceleration(), Vec2::Y * 900.0);
+        assert_eq!(frame.external_acceleration(), carried.0);
+        let invalid = encode_state(&CarriedAcceleration(Vec2::splat(f32::INFINITY)));
+        assert!(decode_state::<CarriedAcceleration>(&invalid).is_none());
+    }
+
     #[test]
     fn a_zone_acts_only_on_the_bodies_of_its_own_live_room() {
         use crate::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
@@ -239,7 +263,7 @@ mod tests {
             let mut state: bevy::ecs::system::SystemState<FrameEnv> =
                 bevy::ecs::system::SystemState::new(app.world_mut());
             let env = state.get(app.world()).expect("frame env params");
-            let frame = env.resolve(body, room, 900.0);
+            let frame = env.resolve(body, room, 900.0, CarriedAcceleration::default());
             (frame.down(), frame.external_acceleration())
         };
         assert_eq!(

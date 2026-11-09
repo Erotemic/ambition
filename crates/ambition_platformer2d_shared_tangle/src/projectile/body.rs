@@ -1,5 +1,4 @@
-//! Projectile state split into shared kinematics ([`BodyKinematics`]) and
-//! projectile gameplay state ([`ProjectileGameplay`]).
+//! Projectile state uses shared body motion, carried acceleration and gameplay data.
 //!
 //! Projectiles use the same body component as players/enemies/bosses, which
 //! lets generic systems such as portal transit operate on projectile entities.
@@ -10,6 +9,7 @@ use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::Vec2;
 
 use super::spec::ProjectileSpec;
+use crate::frame_env::CarriedAcceleration;
 use ambition_platformer2d_core::{Aabb, AabbExt};
 
 /// Ownership is deliberately absent here. Before ECS materialization the body is
@@ -26,6 +26,7 @@ pub struct InFlightProjectile {
 /// query [`BodyKinematics`] exclude `ProjectileGameplay` so projectile bodies
 /// are never swept into actor behavior such as auto-righting or AI.
 #[derive(Clone, Copy, Debug, PartialEq, bevy::prelude::Component)]
+#[require(CarriedAcceleration)]
 pub struct ProjectileGameplay {
     pub age: f32,
     pub max_lifetime: f32,
@@ -35,22 +36,6 @@ pub struct ProjectileGameplay {
     /// How this shot resolves against world geometry — authored on the spec
     /// (a property of the ability, firer-agnostic), NOT derived from `faction`.
     pub world_hit: super::WorldHitPolicy,
-    /// A constant WORLD acceleration this shot carries, on top of gravity.
-    ///
-    /// ⭐ THE BOOMERANG IS THIS AND NOTHING ELSE: an acceleration pointed back
-    /// along the launch axis makes a shot slow, stop, and come home the way it
-    /// went out — and it needs no reference to the thrower, which is what keeps
-    /// it inside `tick`'s pure signature. A tail thrown from a fighter who then
-    /// walks away still returns to where it was thrown from, which is what a
-    /// boomerang does.
-    ///
-    /// ⛔ NOT A SUBSTITUTE FOR `gravity`, which is a magnitude along the world's
-    /// own down and stays the one authority on falling. This is a vector the
-    /// SHOT carries; the two add.
-    ///
-    /// `ZERO` for every shot that has not authored one, which is all of them but
-    /// the ponytail.
-    pub accel: Vec2,
     /// WHICH LEG THIS SHOT'S VICTIM LEDGER WAS LAST CLEARED FOR.
     ///
     /// ⭐⭐ A RETURNING SHOT IS TWO CHANCES, AND THE GENRE SAYS SO. A boomerang
@@ -173,38 +158,19 @@ impl ProjectileGameplay {
             bounces_remaining: spec.bounces,
             // World-hit policy is the spec's (the ability's), firer-agnostic.
             world_hit: spec.world_hit,
-            // ⭐ RESOLVED AT SPAWN, from the launch velocity the spec already
-            // knows. A boomerang authors "come back after N seconds"; turning
-            // that into an acceleration needs the speed and the direction, and
-            // this is the one place both exist.
-            accel: spec.boomerang_return_s.map_or(Vec2::ZERO, |out_s| {
-                if out_s <= 0.0 {
-                    Vec2::ZERO
-                } else {
-                    -spec.initial_velocity() / out_s
-                }
-            }),
             hits_cleared_on_leg: 0,
             splash_half_extent: spec.splash_half_extent,
             rebound: Rebound::default(),
         }
     }
 
-    /// WHICH LEG THIS SHOT IS FLYING, from the motion it is already carrying.
-    ///
-    /// ⭐ THE SIGN OF `vel · accel` IS THE WHOLE ANSWER. A returning shot's
-    /// acceleration points back along its launch axis, so on the way OUT the two
-    /// oppose (`< 0`) and on the way HOME they agree (`> 0`); the turnaround is
-    /// the instant it crosses zero. A shot with no `accel` never leaves leg `0`,
-    /// which is every shot but the ponytail.
-    pub fn leg(&self, vel: Vec2) -> u8 {
-        u8::from(self.accel != Vec2::ZERO && vel.dot(self.accel) > 0.0)
+    /// A returning shot has one victim ledger for each flight leg.
+    pub fn leg(&self, vel: Vec2, acceleration: CarriedAcceleration) -> u8 {
+        u8::from(vel.as_dvec2().dot(acceleration.0.as_dvec2()) > 0.0)
     }
 
-    /// Does this shot COME BACK? A shot that turns around outlives the body it
-    /// hits; every other shot is spent on contact.
-    pub fn returns(&self) -> bool {
-        self.accel != Vec2::ZERO
+    pub fn returns(&self, acceleration: CarriedAcceleration) -> bool {
+        acceleration.0 != Vec2::ZERO
     }
 
     pub fn is_expired(&self) -> bool {
@@ -220,13 +186,13 @@ impl ProjectileGameplay {
     /// bearing projectiles (fireballs, bombs, apple-rain) accelerate toward that
     /// direction instead of assuming world +Y. Normal gravity remains byte-
     /// identical because `gravity_dir == (0, 1)`.
-    pub fn tick(&mut self, body: &mut BodyKinematics, dt: f32, gravity_dir: Vec2) -> bool {
+    pub fn tick(&mut self, body: &mut BodyKinematics, acceleration: CarriedAcceleration, dt: f32, gravity_dir: Vec2) -> bool {
         self.age += dt;
         if self.age >= self.max_lifetime {
             return false;
         }
         let down = projectile_down(gravity_dir);
-        body.vel += (down * self.gravity + self.accel) * dt;
+        body.vel += (down * self.gravity + acceleration.0) * dt;
         body.pos += body.vel * dt;
         true
     }
@@ -346,6 +312,7 @@ pub struct ProjectileBody {
     pub kin: BodyKinematics,
     /// Projectile gameplay state (lifetime / gravity / damage / bounce budget).
     pub game: ProjectileGameplay,
+    pub acceleration: CarriedAcceleration,
 }
 
 impl ProjectileBody {
@@ -365,12 +332,15 @@ impl ProjectileBody {
                 facing: 1.0,
             },
             game: ProjectileGameplay::from_spec(spec),
+            acceleration: CarriedAcceleration(spec.boomerang_return_s.map_or(Vec2::ZERO, |out_s| {
+                if out_s > 0.0 { -spec.initial_velocity() / out_s } else { Vec2::ZERO }
+            })),
         }
     }
 
-    /// Build a [`ProjectileBody`] from already-split halves.
-    pub fn from_parts(kin: BodyKinematics, game: ProjectileGameplay) -> Self {
-        Self { kin, game }
+    /// Build one projectile value from its ECS components.
+    pub fn from_parts(kin: BodyKinematics, game: ProjectileGameplay, acceleration: CarriedAcceleration) -> Self {
+        Self { kin, game, acceleration }
     }
 
     pub fn aabb(&self) -> Aabb {
@@ -379,9 +349,9 @@ impl ProjectileBody {
 
     /// Step the projectile forward by `dt`. Returns `true` if the
     /// projectile is still alive after the tick. Delegates to
-    /// [`ProjectileGameplay::tick`] on the split halves.
+    /// [`ProjectileGameplay::tick`] with its carried acceleration.
     pub fn tick(&mut self, dt: f32, gravity_dir: Vec2) -> bool {
-        self.game.tick(&mut self.kin, dt, gravity_dir)
+        self.game.tick(&mut self.kin, self.acceleration, dt, gravity_dir)
     }
 
     pub fn is_expired(&self) -> bool {
@@ -450,6 +420,7 @@ mod tests {
                 canonical_size: Vec2::new(8.0, 8.0),
                 facing: 1.0,
             },
+            acceleration: CarriedAcceleration::default(),
             game: ProjectileGameplay {
                 age: 0.0,
                 max_lifetime: 1.0,
@@ -457,7 +428,6 @@ mod tests {
                 damage: 2,
                 bounces_remaining: bounces,
                 world_hit: crate::projectile::WorldHitPolicy::Bouncing,
-                accel: Vec2::ZERO,
                 hits_cleared_on_leg: 0,
                 splash_half_extent: 0.0,
                 rebound: Rebound::default(),

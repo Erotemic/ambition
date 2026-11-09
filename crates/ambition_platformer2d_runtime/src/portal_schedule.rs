@@ -37,18 +37,6 @@ impl Plugin for PortalSchedulePlugin {
                 .in_set(PortalSet::Transited),
         );
         app.add_systems(sim, crate::portal_seat::warp_portal_input.in_set(PortalSet::InputWarp));
-        // The consequences of a transit for what the body carries: its carried
-        // run and a shot's carried world acceleration turn with its velocity.
-        app.add_systems(
-            sim,
-            (
-                crate::portal_body::apply_portal_carried_momentum,
-                crate::portal_body::rotate_projectile_acceleration_after_portal_transit,
-            )
-                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
-                .in_set(PortalSet::Transited),
-        );
-
         // Pose: the hosts have moved this tick (the platforms advance first),
         // and no body has integrated against them yet. Each hosted aperture
         // takes its host's pose here, and the carves are cut from that pose,

@@ -14,38 +14,29 @@ const EXIT_NORMAL: Vec2 = Vec2::new(1.0, 0.0);
 const SPEED: f32 = 500.0;
 
 fn carried_run_after_fling(body_down: Vec2) -> f32 {
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor, PortalTuning};
     let mut app = App::new();
+    app.init_resource::<PortalTuning>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<PortalBodyTransited>();
-    app.insert_resource(ambition_portal2d::PortalTuning::default());
-    // The primary body's gravity is the default (down). The body under test
-    // must not be measured against it.
-    app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
-    app.add_systems(Update, super::apply_portal_carried_momentum);
-
+    app.add_systems(Update, ambition_portal2d::portal_transit);
+    for (channel, at, normal) in [
+        (PortalChannel::Gun(PortalGunColor::BLUE), Vec2::ZERO, ENTER_NORMAL),
+        (PortalChannel::Gun(PortalGunColor::ORANGE), Vec2::new(100.0, 100.0), EXIT_NORMAL),
+    ] {
+        app.world_mut().spawn(PlacedPortal::fixed(channel, at, normal, 40.0));
+    }
     let mut frame = ResolvedMotionFrame::default();
     frame.publish_resolved_frame(MotionFrame::from_direction(body_down, 1000.0));
-    let body = app
-        .world_mut()
-        .spawn((
-            BodyKinematics { material: Default::default(),
-                pos: Vec2::new(100.0, 100.0),
-                vel: EXIT_NORMAL * SPEED,
-                canonical_size: Vec2::new(16.0, 32.0),
-                facing: 1.0,
-            },
-            frame,
-            BodyFlightState::default(),
-        ))
-        .id();
-    app.world_mut().write_message(PortalBodyTransited {
-        body,
-        enter_normal: ENTER_NORMAL,
-        exit_normal: EXIT_NORMAL,
-        facing_flip: false,
-        input_warp: false,
-        exit_pos: Vec2::new(100.0, 100.0),
-    });
+    let body = app.world_mut().spawn((
+        BodyKinematics {
+            pos: Vec2::Y, vel: -ENTER_NORMAL * SPEED,
+            canonical_size: Vec2::new(16.0, 32.0), ..Default::default()
+        },
+        frame, BodyFlightState::default(),
+    )).id();
     app.update();
+    assert!(app.world().get::<BodyKinematics>(body).unwrap().pos.x > 100.0);
     app.world().get::<BodyFlightState>(body).unwrap().carried_run
 }
 

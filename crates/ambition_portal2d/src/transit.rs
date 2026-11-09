@@ -10,6 +10,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
+use ambition_platformer2d_shared_tangle::frame_env::{CarriedAcceleration, ResolvedMotionFrame};
 
 use super::color::PortalChannel;
 use super::placement::{transit_step_with_tuning, SweptSample, TransitStep, TRANSIT_BEGIN_MARGIN};
@@ -383,18 +384,13 @@ fn portal_sweep_sample(
 pub struct PortalBodyTransited {
     /// The body that just transferred to a portal exit.
     pub body: Entity,
-    /// Outward normal of the ENTRY portal.
-    pub enter_normal: Vec2,
-    /// Outward normal of the EXIT portal (the emergence direction).
-    pub exit_normal: Vec2,
+    pub transfer: super::placement::PortalTransfer,
     /// True when this convention's orientation policy applies a separate
     /// horizontal facing mirror.
     pub facing_flip: bool,
     /// True when held horizontal movement maps to the opposite horizontal
     /// direction under the active portal convention.
     pub input_warp: bool,
-    /// World position the body snapped to (the exit-side centroid).
-    pub exit_pos: Vec2,
 }
 
 /// The generic transit algorithm: drive every body through a portal aperture
@@ -424,6 +420,9 @@ pub fn portal_transit(
         (
             Entity,
             &mut BodyKinematics,
+            Option<&mut CarriedAcceleration>,
+            Option<&mut ae::BodyFlightState>,
+            Option<&ResolvedMotionFrame>,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
@@ -451,7 +450,7 @@ pub fn portal_transit(
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
 
-    for (entity, mut kin, mut transit, mut roll, cooldown, record, backside, held) in &mut bodies {
+    for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, mut roll, cooldown, record, backside, held) in &mut bodies {
         if transit.is_none() && by_room.is_empty() {
             continue;
         }
@@ -525,10 +524,26 @@ pub fn portal_transit(
             kin.vel.x,
             kin.vel.y
         );
+        let (mapped_acceleration, carried_run) = match step {
+            TransitStep::Transfer { transfer, .. } => {
+                let payload = (|| {
+                    let acceleration = acceleration.as_deref()
+                        .map(|acceleration| transfer.map.vector(acceleration.0)).transpose()?;
+                    let carried_run = flight.as_deref().zip(frame).map(|(flight, frame)| {
+                        transfer.carried_run(frame.basis().side, flight.carried_run)
+                    }).transpose()?;
+                    Ok::<_, ae::frame::NumericFault>((acceleration, carried_run))
+                })();
+                let Ok((mapped_acceleration, carried_run)) = payload else { continue; };
+                (mapped_acceleration, carried_run)
+            }
+            TransitStep::Refused { .. } => continue,
+            _ => (None, None),
+        };
         let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
         update_backside(&mut commands, entity, backside, crossing, all, kin.collision_box(record));
         match step {
-            TransitStep::Idle | TransitStep::Continue => {}
+            TransitStep::Idle | TransitStep::Continue | TransitStep::Refused { .. } => {}
             TransitStep::Begin {
                 channel,
                 portal_pos,
@@ -541,46 +556,45 @@ pub fn portal_transit(
                 entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
             }
             TransitStep::Transfer {
-                pos,
-                vel,
+                transfer,
                 roll_delta,
                 facing_flip,
                 input_warp,
-                enter_normal,
-                exit_normal,
-                exit_channel,
-                exit_pos,
             } => {
-                kin.pos = pos;
+                if let Some((acceleration, mapped)) = acceleration.as_deref_mut().zip(mapped_acceleration) {
+                    acceleration.0 = mapped;
+                }
+                if let Some((flight, carried_run)) = flight.as_deref_mut().zip(carried_run) {
+                    flight.carried_run = carried_run;
+                }
+                kin.pos = transfer.exit_pos;
                 // Class-B transit authority (`docs/concepts/movement-collision.md`),
                 // recorded when the position is written. The CC3 oracle uses it
                 // to tell an aperture warp from a clip through solid geometry.
                 if let Some(log) = class_b.as_mut() {
                     log.record(entity, ClassBRemap::PortalTransit);
                 }
-                kin.vel = vel;
+                kin.vel = transfer.exit_vel;
                 if let Some(roll) = roll.as_deref_mut() {
                     roll.angle += roll_delta;
                 }
                 // Latch the cooldown for this pair to stop ping-pong.
                 commands.entity(entity).insert(PortalTransitCooldown {
                     remaining: tuning.teleport_cooldown_s,
-                    pair: exit_channel,
+                    pair: transfer.exit_channel,
                 });
                 // The body straddles the exit now, however it got here: a
                 // rescue or a swept crossing that skipped `Begin` is drawn cut
                 // at the exit as a straddle is, until it clears.
-                set_crossed(&mut commands, entity, transit.as_deref_mut(), exit_channel);
+                set_crossed(&mut commands, entity, transit.as_deref_mut(), transfer.exit_channel);
                 // Ambition adapters read this event for the exit cue (at
                 // `exit_pos`), the trace message, and the player input bits
                 // (`PortalEmission`, `PortalInputWarp`).
                 transited.write(PortalBodyTransited {
                     body: entity,
-                    enter_normal,
-                    exit_normal,
+                    transfer,
                     facing_flip,
                     input_warp,
-                    exit_pos,
                 });
                 bevy::log::info!(target: "ambition_platformer2d::portal", "transferred through the portal pair");
             }
@@ -683,6 +697,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
     mut bodies: Query<(
         Entity,
         &mut B,
+        Option<&mut CarriedAcceleration>,
         Option<&mut PortalTransit>,
         Option<&mut ActorRoll>,
         Option<&PortalTransitCooldown>,
@@ -702,7 +717,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
     let tick = tick.map_or(0, |tick| tick.get());
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (entity, mut body, mut transit, mut roll, cooldown, presence, backside) in &mut bodies {
+    for (entity, mut body, mut acceleration, mut transit, mut roll, cooldown, presence, backside) in &mut bodies {
         if transit.is_none() && by_room.is_empty() {
             continue;
         }
@@ -747,26 +762,34 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
             vel.x,
             vel.y
         );
+        let mapped_acceleration = match step {
+            TransitStep::Transfer { transfer, .. } => {
+                let mapped_acceleration = acceleration.as_deref()
+                    .map(|acceleration| transfer.map.vector(acceleration.0)).transpose();
+                let Ok(mapped_acceleration) = mapped_acceleration else { continue; };
+                mapped_acceleration
+            }
+            TransitStep::Refused { .. } => continue,
+            _ => None,
+        };
         let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
         update_backside(&mut commands, entity, backside, crossing, all, ae::Aabb::new(pos, half));
         match step {
-            TransitStep::Idle | TransitStep::Continue => {}
+            TransitStep::Idle | TransitStep::Continue | TransitStep::Refused { .. } => {}
             TransitStep::Begin { channel, portal_pos } => {
                 commands.entity(entity).insert(PortalTransit { straddling: channel, crossed: false });
                 entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
             }
             TransitStep::Transfer {
-                pos,
-                vel,
+                transfer,
                 roll_delta,
                 facing_flip,
                 input_warp,
-                enter_normal,
-                exit_normal,
-                exit_channel,
-                exit_pos,
             } => {
-                body.emerge(pos, vel);
+                if let Some((acceleration, mapped)) = acceleration.as_deref_mut().zip(mapped_acceleration) {
+                    acceleration.0 = mapped;
+                }
+                body.emerge(transfer.exit_pos, transfer.exit_vel);
                 // Turned as the pair turns it, as a kernel body is: its image
                 // on the far side is drawn turned, and the body must be the
                 // image it was drawn as, not snap upright.
@@ -775,19 +798,17 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
                 }
                 commands.entity(entity).insert(PortalTransitCooldown {
                     remaining: tuning.teleport_cooldown_s,
-                    pair: exit_channel,
+                    pair: transfer.exit_channel,
                 });
                 // The body straddles the exit now, however it got here: a
                 // rescue or a swept crossing that skipped `Begin` is drawn cut
                 // at the exit as a straddle is, until it clears.
-                set_crossed(&mut commands, entity, transit.as_deref_mut(), exit_channel);
+                set_crossed(&mut commands, entity, transit.as_deref_mut(), transfer.exit_channel);
                 transited.write(PortalBodyTransited {
                     body: entity,
-                    enter_normal,
-                    exit_normal,
+                    transfer,
                     facing_flip,
                     input_warp,
-                    exit_pos,
                 });
             }
             TransitStep::Clear => {

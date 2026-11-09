@@ -214,15 +214,16 @@ pub(super) fn projectile_bodies(
         .try_query::<(
             &ambition_platformer2d_core::BodyKinematics,
             &ProjectileGameplay,
+        &ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
             &ProjectileSeq,
         )>()
         .unwrap();
     let mut rows: Vec<(ProjectileSeq, ambition_projectiles::ProjectileBody)> = q
         .iter(world)
-        .map(|(kin, game, seq)| {
+        .map(|(kin, game, acceleration, seq)| {
             (
                 *seq,
-                ambition_projectiles::ProjectileBody::from_parts(*kin, *game),
+                ambition_projectiles::ProjectileBody::from_parts(*kin, *game, *acceleration),
             )
         })
         .collect();
@@ -268,6 +269,7 @@ pub(super) fn spawn_player_projectile(
     app.world_mut().spawn((
         body.kin,
         body.game,
+        body.acceleration,
         ambition_projectiles::ProjectileOwner(owner),
         seq,
         ambition_projectiles::LiveProjectile,

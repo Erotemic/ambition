@@ -232,7 +232,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
     };
     // Where bodies came out this tick: a transit names its exit point, which
     // is the exit end's centroid, and not the end.
-    let exits: Vec<ae::Vec2> = transits.read().map(|transit| transit.exit_pos).collect();
+    let exits: Vec<ae::Vec2> = transits.read().map(|transit| transit.transfer.exit.frame.origin).collect();
     for (owner, mut held) in &mut holders {
         for record in held.0.iter_mut().filter(|r| r.phase == L::PHASE && r.closes_on_use && !r.spent) {
             let used = record.ends.iter().any(|end| {

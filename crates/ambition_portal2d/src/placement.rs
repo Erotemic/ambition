@@ -253,27 +253,17 @@ pub enum TransitStep {
         channel: PortalChannel,
         portal_pos: Vec2,
     },
-    /// The centroid crossed: move the body to `pos`, set velocity `vel`, add
-    /// `roll_delta` to its roll, latch the cooldown, switch the straddled
-    /// portal to `exit_channel`, mark crossed, and play the exit sfx.
-    /// `warp_rot` is the `(cos, sin)` portal map; the input layer warps held
-    /// movement by it so held input keeps carrying the body out.
+    /// Commit the checked root crossing and its input policy.
     Transfer {
-        pos: Vec2,
-        vel: Vec2,
+        transfer: PortalTransfer,
         roll_delta: f32,
-        /// Mirror the body's horizontal facing (the wall↔wall "face out" rule).
         facing_flip: bool,
-        /// Whether the held-input warp maps horizontal movement to the opposite
-        /// horizontal direction for this transfer.
         input_warp: bool,
-        /// Entry + exit portal normals — the held-input warp maps through them.
-        enter_normal: Vec2,
-        /// Outward normal of the exit portal. Emission protection uses it so
-        /// held input cannot cancel the emergence.
-        exit_normal: Vec2,
-        exit_channel: PortalChannel,
-        exit_pos: Vec2,
+    },
+    /// Leave the current body unchanged when the map cannot be represented.
+    Refused {
+        channel: PortalChannel,
+        reason: ae::frame::NumericFault,
     },
     /// The body fully cleared the plane — remove [`PortalTransit`].
     Clear,
@@ -281,15 +271,81 @@ pub enum TransitStep {
     Continue,
 }
 
-/// Build the [`TransitStep::Transfer`] for a body crossing `enter` → `exit`.
-/// The centroid crossing and the rescue both use it.
-///
-/// The exit position is the portal map of the centroid ([`pp::map_point`]).
-/// Depth past the entry plane becomes the same depth in front of the exit
-/// plane, and the along-surface offset is kept. The map is its own inverse
-/// with enter and exit swapped. There is no push-out: the transfer fires on
-/// the crossing frame, so the depth is small, and a large depth still maps
-/// to the front of the exit.
+/// The admitted geometric map and velocity samples for one root crossing.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PortalTransfer {
+    pub map: ae::frame::Sim2,
+    pub enter: ae::frame::PortalAperture,
+    pub exit: ae::frame::PortalAperture,
+    pub entry_channel: PortalChannel,
+    pub exit_channel: PortalChannel,
+    pub entry_pos: Vec2,
+    pub entry_vel: Vec2,
+    /// Velocity after the surface-relative map, before exit-speed assistance.
+    pub mapped_vel: Vec2,
+    pub exit_pos: Vec2,
+    pub exit_vel: Vec2,
+}
+
+impl PortalTransfer {
+    /// Keep controller motion separate from motion supplied by the world.
+    pub fn carried_run(self, side: Vec2, previous: f32) -> Result<f32, ae::frame::NumericFault> {
+        use ae::frame::NumericFault;
+        if !side.is_finite() || !previous.is_finite() {
+            return Err(NumericFault::NonFinite);
+        }
+        let side = side.as_dvec2();
+        let controller = self.entry_vel.as_dvec2().dot(side) - f64::from(previous);
+        let mapped_side = self.map.orthogonal().as_dmat2() * side * f64::from(self.map.scale());
+        let carried = self.exit_vel.as_dvec2().dot(side) - controller * mapped_side.dot(side);
+        let narrowed = carried as f32;
+        if !narrowed.is_finite() { return Err(NumericFault::Overflow); }
+        if carried != 0.0 && narrowed == 0.0 { return Err(NumericFault::Underflow); }
+        Ok(narrowed)
+    }
+
+    pub fn new(
+        center: Vec2,
+        velocity: Vec2,
+        enter: &PlacedPortal,
+        exit: &PlacedPortal,
+        tuning: &PortalTuning,
+    ) -> Result<Self, ae::frame::NumericFault> {
+        use ae::frame::{NumericFault, Sim2};
+        let entry = enter.aperture();
+        let leaving = exit.aperture();
+        let map = Sim2::through(&entry, &leaving, tuning.convention.map_convention())?;
+        let exit_pos = map.point(center)?;
+        let mapped_vel = map.velocity(&entry.frame, &leaving.frame, center, velocity)?;
+        if !tuning.min_exit_speed.is_finite() {
+            return Err(NumericFault::NonFinite);
+        }
+        let frame = leaving.frame;
+        let arm = exit_pos.as_dvec2() - frame.pivot.as_dvec2();
+        let surface = frame.velocity.as_dvec2()
+            + f64::from(frame.spin) * bevy::math::DVec2::new(-arm.y, arm.x);
+        let normal = frame.normal.as_dvec2().normalize();
+        let relative_speed = (mapped_vel.as_dvec2() - surface).dot(normal);
+        let assisted = mapped_vel.as_dvec2()
+            + normal * (f64::from(tuning.min_exit_speed) - relative_speed).max(0.0);
+        let exit_vel = assisted.as_vec2();
+        if !exit_vel.is_finite() {
+            return Err(NumericFault::Overflow);
+        }
+        if (assisted.x != 0.0 && exit_vel.x == 0.0)
+            || (assisted.y != 0.0 && exit_vel.y == 0.0)
+        {
+            return Err(NumericFault::Underflow);
+        }
+        Ok(Self {
+            map, enter: entry, exit: leaving,
+            entry_channel: enter.channel, exit_channel: exit.channel,
+            entry_pos: center, entry_vel: velocity, mapped_vel, exit_pos, exit_vel,
+        })
+    }
+}
+
+/// Both centroid crossing and swept rescue use the same checked transfer.
 fn transfer_step(
     center: Vec2,
     vel: Vec2,
@@ -298,50 +354,22 @@ fn transfer_step(
     gravity_dir: Vec2,
     tuning: &PortalTuning,
 ) -> TransitStep {
+    let transfer = match PortalTransfer::new(center, vel, &enter, &exit, tuning) {
+        Ok(transfer) => transfer,
+        Err(reason) => return TransitStep::Refused { channel: enter.channel, reason },
+    };
     let convention = tuning.convention.map_convention();
-    let ef = enter.frame();
-    let xf = exit.frame();
-    let exit_pos = pp::map_point(center, &ef, &xf, convention);
-    // The body keeps its velocity relative to the surface it crosses: its
-    // velocity relative to the entry's surface at `center`, mapped, plus the
-    // exit's surface velocity where it comes out. A portal that moves or
-    // turns gives what crosses it its motion there; static portals have none.
-    let mut vel_out = ae::frame::map_velocity(&ef, &xf, convention, center, vel);
-    // Floor the exit speed along the exit normal so a slow walk-in still
-    // emerges. The floor applies in the exit surface's rest frame.
-    let exit_surface = xf.velocity_at(exit_pos);
-    let rel_out = vel_out - exit_surface;
-    if rel_out.dot(exit.normal) < tuning.min_exit_speed {
-        let tangential = rel_out - rel_out.dot(exit.normal) * exit.normal;
-        vel_out = tangential + exit.normal * tuning.min_exit_speed + exit_surface;
-    }
     TransitStep::Transfer {
-        pos: exit_pos,
-        vel: vel_out,
-        // The body takes the on-screen turn (a tumble for floor/ceiling, none
-        // for wall↔wall). `update_actor_roll` then eases it back upright. The
-        // convention comes from `PortalTuning::convention`, not a global.
+        transfer,
         roll_delta: somersault_roll_for_convention(
-            convention,
-            enter.normal,
-            exit.normal,
-            gravity_dir,
+            convention, enter.normal, exit.normal, gravity_dir,
         ),
         facing_flip: portal_facing_flips_for_convention(
-            convention,
-            enter.normal,
-            exit.normal,
-            gravity_dir,
+            convention, enter.normal, exit.normal, gravity_dir,
         ),
         input_warp: portal_input_warp_flips_horizontal_for_convention(
-            convention,
-            enter.normal,
-            exit.normal,
+            convention, enter.normal, exit.normal,
         ),
-        enter_normal: enter.normal,
-        exit_normal: exit.normal,
-        exit_channel: exit.channel,
-        exit_pos: exit.pos,
     }
 }
 

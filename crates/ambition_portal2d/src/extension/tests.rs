@@ -491,11 +491,14 @@ fn open_ends(app: &mut App) -> Vec<(ae::Vec2, f32)> {
 fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
     app.world_mut().write_message(crate::PortalBodyTransited {
         body,
-        enter_normal: ae::Vec2::new(0.0, -1.0),
-        exit_normal: ae::Vec2::new(0.0, 1.0),
+        transfer: crate::PortalTransfer::new(
+            ae::Vec2::ZERO, ae::Vec2::ZERO,
+            &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::BLUE), ae::Vec2::ZERO, -ae::Vec2::Y, 40.0),
+            &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0),
+            &crate::PortalTuning::default(),
+        ).unwrap(),
         facing_flip: false,
         input_warp: false,
-        exit_pos: at,
     });
 }
 

@@ -542,6 +542,13 @@ counts. Inspect near/far occlusion and window recursion separately from the
 unobscured gauge. Test reflections with asymmetric landmarks and an equipped
 accessory, including two views with different camera orientation.
 
+The portal lab must include playable examples of these mechanics (Jon,
+2026-11-08). Keep its existing stations and add labeled examples for unequal
+apertures, persistent scale, asymmetric handedness, two reflections, two
+simultaneous paths and a chained third path. Include bounded refusal examples.
+Use targeted LDtk tool edits. The original creation spec does not include all
+current stations. Use these examples for the render and seam-lab witnesses.
+
 Retain current clipping scratch reuse and presentation pools when they fit
 the new authority. After Jon's optimization work ends, record a fresh baseline
 on that source tree. Measure no-portal, equal-size, unequal-size, two-link,
@@ -570,6 +577,14 @@ loading work. No complete PSIM acceptance slice is closed.
 - The body kernel validates a private candidate, its sweep and mapped part
   velocities before commit. Rejection retains body state and clears stale
   travelled paths. Both controller adapters use the same admission input.
+- The common transit result includes the validated similarity, both apertures,
+  stable directed channels and actual entry, mapped and assisted exit velocities.
+  Both body storage adapters validate carried acceleration before changing body
+  state. The same transfer commits carried run. The separate runtime adapters
+  that reconstructed rigid maps from normals are removed.
+- Carried acceleration is a shared body capability. Projectile construction,
+  stepping, snapshots and restoration use that value. World gravity and force
+  zones keep their own contributions. The rollback schema is 426.
 - Apertures publish before integration. Body material maps refresh after
   transit. Combat and presentation consume fallible partitions.
 - `BodyPieces` is removed. The held gun uses the shared attachment carry path.
@@ -578,7 +593,10 @@ loading work. No complete PSIM acceptance slice is closed.
 
 On the tree reconciled with main, `cargo check -p ambition_app` passes.
 Library tests pass: 739 core tests, 349 shared tests, 134 portal tests and
-126 presentation tests. One core measurement remains ignored. This does not
+126 presentation tests. One core measurement remains ignored. The transfer
+change also passes 138 portal, 350 shared-state, 46 projectile and six runtime
+transfer tests. All 25 assembled-app tests selected by `portal` pass. Omitting
+carried-vector mapping makes its atomic-transfer witness fail. This does not
 close the assembled runtime, replay, visual or performance acceptance checks.
 
 Finish source admission for projectile and free-body sweeps, externally owned
@@ -586,8 +604,8 @@ poses and moving aperture hosts. Check retained support facts, curved paths,
 control-phase displacement, topology changes after the aperture snapshot and
 candidate-copy cost. The body-kernel gate alone does not close PSIM-1B.
 
-Live root transit and righting, the full-map transit result, common exact
-collision/contact projections and the unequal-aperture switch remain open.
+Live root transit and righting, common exact collision/contact projections
+and the unequal-aperture switch remain open.
 GNU-ton acceptance and numerical-fault presentation remain open. Keep the
 minimum-opening policy in production until the coordinated switch. Measure
 allocation and frame cost on the completed production paths.

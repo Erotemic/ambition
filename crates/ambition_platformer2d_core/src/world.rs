@@ -1191,6 +1191,49 @@ pub struct SweepHit<'a> {
     pub normal1: Vec2,
 }
 
+/// The source collider remains in its authored world chart.
+#[derive(Clone, Copy, Debug)]
+pub enum MaterialCollider<'a> {
+    Block(&'a Block),
+    Chain { chain: &'a SurfaceChain, index: usize, segment: usize },
+}
+
+impl MaterialCollider<'_> {
+    pub fn source(self) -> crate::collision_semantics::ContactSource {
+        match self {
+            Self::Block(block) => crate::collision_semantics::ContactSource::Block { kind: block.kind, id: block.id.clone() },
+            Self::Chain { index, segment, .. } => crate::collision_semantics::ContactSource::Chain { chain: index as u32, segment: segment as u32 },
+        }
+    }
+
+    pub fn displacement(self) -> Vec2 {
+        match self { Self::Block(block) => block.velocity, Self::Chain { chain, .. } => chain.velocity }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MaterialWorldHit<'a> {
+    pub collider: MaterialCollider<'a>,
+    pub contact: crate::frame::material_cast::MaterialCastHit,
+}
+
+impl MaterialWorldHit<'_> {
+    fn precedes(&self, other: &Self) -> bool {
+        let identity = match (self.collider, other.collider) {
+            (MaterialCollider::Block(a),MaterialCollider::Block(b)) => a.id.cmp(&b.id)
+                .then_with(|| a.aabb.min.x.total_cmp(&b.aabb.min.x))
+                .then_with(|| a.aabb.min.y.total_cmp(&b.aabb.min.y))
+                .then_with(|| a.aabb.max.x.total_cmp(&b.aabb.max.x))
+                .then_with(|| a.aabb.max.y.total_cmp(&b.aabb.max.y)),
+            (MaterialCollider::Block(_),MaterialCollider::Chain { .. }) => std::cmp::Ordering::Less,
+            (MaterialCollider::Chain { .. },MaterialCollider::Block(_)) => std::cmp::Ordering::Greater,
+            (MaterialCollider::Chain { chain:a,segment:i,.. },MaterialCollider::Chain { chain:b,segment:j,.. }) => a.name.cmp(&b.name).then(i.cmp(&j)),
+        };
+        self.contact.toi.total_cmp(&other.contact.toi).then(identity)
+            .then_with(|| self.contact.path.cmp(&other.contact.path)).is_lt()
+    }
+}
+
 /// A resolved host-face anchor: where an identified face IS this frame.
 /// The world-frame triple a host-attached aperture re-derives from
 /// (docs/concepts/movement-collision.md).
@@ -1548,6 +1591,44 @@ impl World {
             }
         }
         best
+    }
+
+    /// Cast the actual material through its spatial cells against room geometry.
+    pub fn first_material_sweep<F>(
+        &self,
+        cast: crate::frame::material_cast::MaterialCast<'_>,
+        admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+        mut accepts: F,
+    ) -> Result<Option<MaterialWorldHit<'_>>, crate::frame::thread::Refusal>
+    where F: FnMut(MaterialCollider<'_>, &crate::frame::thread::VolumePiece) -> bool,
+    {
+        let cells = cast.cells(admission)?;
+        let mut best: Option<MaterialWorldHit<'_>> = None;
+        for part in cells.parts() {
+            let bounds = cells.bounds(part)?;
+            for block in self.blocks.near(bounds) {
+                let collider = MaterialCollider::Block(block);
+                if !accepts(collider,part) { continue; }
+                let a = block.aabb;
+                let polygon = [a.min,Vec2::new(a.max.x,a.min.y),a.max,Vec2::new(a.min.x,a.max.y)];
+                if let Some(contact) = cells.against(part,&polygon)? {
+                    let hit = MaterialWorldHit { collider,contact };
+                    if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); }
+                }
+            }
+            for (index,chain) in self.chains.indexed_near(bounds) {
+                for segment in 0..chain.segment_count() {
+                    let collider = MaterialCollider::Chain { chain,index,segment };
+                    if !accepts(collider,part) { continue; }
+                    let (a,b)=chain.segment(segment);
+                    if let Some(contact)=cells.against(part,&[a,b])? {
+                        let hit=MaterialWorldHit { collider,contact };
+                        if best.as_ref().is_none_or(|best| hit.precedes(best)) { best=Some(hit); }
+                    }
+                }
+            }
+        }
+        Ok(best)
     }
 
     /// CC2 §3.3 (the sweep law, authoring half): water + climbable regions are

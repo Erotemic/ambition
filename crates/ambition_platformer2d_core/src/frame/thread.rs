@@ -368,9 +368,9 @@ pub fn carry_volume(volume: &CombatVolume, enter: &PortalFrame, exit: &PortalFra
 /// A box about `center` whose own x axis is `x_axis`: one along a world axis
 /// stays an axis-aligned box (a floor, wall or ceiling pair maps it exactly).
 fn boxed(center: Vec2, half: Vec2, x_axis: Vec2) -> CombatVolume {
-    if x_axis.y.abs() < 1e-6 {
+    if x_axis.y == 0.0 {
         CombatVolume::aabb(crate::Aabb::new(center, half))
-    } else if x_axis.x.abs() < 1e-6 {
+    } else if x_axis.x == 0.0 {
         CombatVolume::aabb(crate::Aabb::new(center, Vec2::new(half.y, half.x)))
     } else {
         CombatVolume::obb(center, half, x_axis.y.atan2(x_axis.x))

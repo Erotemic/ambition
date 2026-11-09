@@ -282,3 +282,6 @@ pub mod thread;
 
 #[cfg(test)]
 mod tests;
+
+/// Exact continuous contact through canonical spatial cells.
+pub mod material_cast;

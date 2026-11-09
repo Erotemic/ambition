@@ -339,6 +339,19 @@ impl<T: Spatial> Layered<T> {
         near
     }
 
+    /// Keep the logical index used by contacts and surface routes.
+    pub fn indexed_near(&self, region: Aabb) -> Vec<(usize,&T)> {
+        let mut near = self.base_near(region).into_iter().map(|i| {
+            let skipped = self.hidden.partition_point(|hidden| *hidden < i);
+            (i as usize-skipped,&self.base.items[i as usize])
+        }).collect::<Vec<_>>();
+        let base_len = self.base.items.len()-self.hidden.len();
+        near.extend(self.added.iter().enumerate()
+            .filter(|(_,value)| touches(value.spatial_bounds(),region))
+            .map(|(i,value)| (base_len+i,value)));
+        near
+    }
+
     /// Hide the entries near `region` that `hide` picks.
     pub fn hide_near(&mut self, region: Aabb, mut hide: impl FnMut(&T) -> bool) {
         let picked: Vec<u32> =

@@ -673,3 +673,11 @@ fn clipped_circles_have_no_world_size_contact_halo() {
         }
     }
 }
+
+#[test]
+fn a_small_rotation_does_not_erase_the_end_of_a_long_primitive() {
+    let source=CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO,Vec2::new(1.0e8,1.0)));
+    let map=Sim2::new(1.0,bevy_math::Mat2::from_angle(5.0e-7),Vec2::ZERO).unwrap();
+    let mapped=map_volume(&source,&map).unwrap();
+    assert!(mapped.bounds().max.y>50.0,"{mapped:?}");
+}

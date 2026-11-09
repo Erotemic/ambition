@@ -584,11 +584,27 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
+Recorded source-rotation checkpoint: `b7e11ad40`. One native source curve
+controls part maps, interval bounds, root paths, contact normals and payload
+velocity. It keeps full turns about a translating pivot and derives angular
+velocity from the original duration. A closed prefix retains the original
+curve and world clock. A later winding can fit after the first pose fails.
+Small turns about distant pivots retain their radial displacement. A cast
+without a gameplay policy does not acquire a portal scale cap.
+
+All 849 core tests and 139 portal tests pass. One core measurement remains
+ignored. The assembled app check passes. Fourteen new tests cover source
+rotation, orbiting circles, moving-frame velocity composition, numerical
+refusal, contact covariance and closed prefixes. Logs use the
+`target/portal-source-rotation-final-` prefix. These tests exercise the query;
+physical righting and the remaining pose producers do not yet emit these
+curves. No PSIM acceptance slice is closed by this packet.
+
 Source refusal checkpoint: `46058c220`. A rejected operation records only the
 retained pose at tick end. The real-app G test covers refusal and later transfer
 when its budget is restored.
 
-The native transit packet replaces its box envelope with the canonical body
+Native transit checkpoint: `0aeb65a81`. The packet replaces its box envelope with the canonical body
 and material map. The opening fit uses physical material axes. A long turned
 body can pass when its material fits even if its envelope is too wide. The
 witness covers two scales and both parities. All 139 portal tests, 64 content

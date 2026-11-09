@@ -226,7 +226,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Party travel rules and exact exit agreements belong to session rollback state.
 // Body material scale and orientation are persistent state.
 // Portal steps retain the start pose and the host's displacement and turn.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 427;
+// Root motion samples retain their interval within the world tick.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 428;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

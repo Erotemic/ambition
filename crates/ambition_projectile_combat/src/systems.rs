@@ -896,24 +896,41 @@ pub fn step_projectiles(
             continue;
         }
 
-        // Transit owns the next chart. This leg stops on the entry plane.
+        // A root event ends this leg. Keep the original line and its closed
+        // prefix so transit does not reconstruct time from a projected endpoint.
         #[cfg(feature = "portal")]
-        let (contact_end,travel_end) = match ambition_portal2d::first_portal_crossing_through(
-            leg_start,
-            candidate.pos,
-            candidate.size(),
-            portals_by_room.in_room(shot_room),
-            collision.backside_of(proj_entity),
-        ) {
-            Some((t, _, _)) => {
-                let at = leg_start + (candidate.pos - leg_start) * t;
-                candidate.pos = at;
-                (at,f64::from(t))
+        let (contact_end, travel_end, travel) = {
+            let domain = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));
+            let map = match before.material_map(ae::Vec2::ZERO) {
+                Ok(map) => map,
+                Err(reason) => {
+                    *game = candidate_game;
+                    commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+                    bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?reason,
+                        "projectile root map refused before commit");
+                    continue;
+                }
+            };
+            let cast = ae::frame::material_cast::MaterialCast {
+                material: ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
+                root: leg_start, delta: candidate.pos - leg_start, time: 0.0..1.0,
+            };
+            match ambition_portal2d::first_portal_crossing_through(&cast,
+                portals_by_room.in_room(shot_room), collision.backside_of(proj_entity), 1.0) {
+                Ok(Some(hit)) => (hit.root.point, hit.root.world_time,
+                    ae::LinearTravel::Prefix { delta: candidate.pos - leg_start, until: hit.root.toi }),
+                Ok(None) => (candidate.pos, 1.0, ae::LinearTravel::Complete),
+                Err(refusal) => {
+                    *game = candidate_game;
+                    commands.entity(proj_entity).insert(ae::SweepSample::at_rest(before, ae::Vec2::ZERO));
+                    bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
+                        "projectile root crossing refused before commit");
+                    continue;
+                }
             }
-            None => (candidate.pos,1.0),
         };
         #[cfg(not(feature = "portal"))]
-        let (contact_end,travel_end) = (candidate.pos,1.0);
+        let (contact_end,travel_end,travel) = (candidate.pos,1.0,ae::LinearTravel::Complete);
 
         #[cfg(feature = "portal")]
         if let Err(refusal) = collision.admit_motion(proj_entity, shot_room, before, candidate, *acceleration) {
@@ -925,6 +942,7 @@ pub fn step_projectiles(
             continue;
         }
 
+        candidate.pos = contact_end;
         let world_response = match resolve_world_collision(
             before, candidate, candidate_game, collision_world, gravity_dir, dt,0.0..travel_end,
             collision.motion_for(proj_entity, shot_room),
@@ -945,7 +963,7 @@ pub fn step_projectiles(
         // straddles the opening and the pair takes it when its centre
         // crosses. Its leg is its sweep, so a fast shot that crossed a plane
         // this tick is taken through it, not stopped on the wall behind.
-        commands.entity(proj_entity).insert(ae::SweepSample {
+        commands.entity(proj_entity).insert(ae::SweepSample { travel, time: [0.0, 1.0],
             prev: leg_start,
             curr: kin.pos,
             vel: kin.vel,
@@ -1582,8 +1600,11 @@ pub fn step_projectiles(
         }
 
         *kin = world_response.body;
+        let travel = if matches!(world_response.outcome, WorldHitOutcome::Continue) { travel }
+            else { ae::LinearTravel::Complete };
+        let recorded_end = if matches!(world_response.outcome, WorldHitOutcome::Continue) { 1.0 } else { travel_end };
         game.bounces_remaining = world_response.bounces_remaining;
-        commands.entity(proj_entity).insert(ae::SweepSample {
+        commands.entity(proj_entity).insert(ae::SweepSample { travel, time: [0.0, recorded_end],
             prev: leg_start, curr: kin.pos, vel: candidate.vel,
             half: kin.half_oriented(ae::Vec2::ZERO), down: ae::Vec2::ZERO,
         });

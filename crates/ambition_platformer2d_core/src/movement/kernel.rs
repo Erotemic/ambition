@@ -663,7 +663,7 @@ pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec
     let curr = clusters.kinematics.pos;
     let step_half = clusters.kinematics.half_oriented(body_down);
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        *sweep = SweepSample {
+        *sweep = SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: entry.0,
             curr,
             vel: entry.1,

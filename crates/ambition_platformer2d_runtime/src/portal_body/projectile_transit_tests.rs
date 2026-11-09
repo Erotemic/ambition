@@ -89,6 +89,11 @@ fn projectile_fired_into_portal_a_emerges_from_portal_b_with_rotated_velocity() 
         ))
         .id();
 
+    let kin = *app.world().get::<BodyKinematics>(proj).unwrap();
+    app.world_mut().entity_mut(proj).insert(ambition_platformer2d_core::SweepSample {
+        prev: kin.pos + Vec2::X * 4.0, vel: kin.vel,
+        ..ambition_platformer2d_core::SweepSample::at_rest(kin, Vec2::ZERO)
+    });
     // Frame 1 begins (leading edge in the opening); frame 2 transfers (the
     // centroid is already on the plane) — same two-frame aperture cadence the
     // actor transit test relies on.
@@ -211,6 +216,11 @@ fn a_carried_acceleration_is_rotated_by_the_same_map_as_the_velocity() {
         ))
         .id();
 
+    let kin = *app.world().get::<BodyKinematics>(proj).unwrap();
+    app.world_mut().entity_mut(proj).insert(ambition_platformer2d_core::SweepSample {
+        prev: kin.pos + Vec2::X * 4.0, vel: kin.vel,
+        ..ambition_platformer2d_core::SweepSample::at_rest(kin, Vec2::ZERO)
+    });
     app.update();
     app.update();
 

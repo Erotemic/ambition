@@ -27,9 +27,7 @@ fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
     };
 
     // A free-flying projectile-shaped body straddling the entry portal, moving
-    // INTO its face (against the outward normal) at 400 px/s — well above
-    // MIN_EXIT_SPEED so the rotation is pure. No projectile-step integration is
-    // needed because it already sits in the opening.
+    // INTO its face at 400 px/s. Its recorded step reaches the entry plane.
     let proj = sim
         .world_mut()
         .spawn((
@@ -38,6 +36,11 @@ fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
                 vel: -entry_normal * 400.0,
                 canonical_size: Vec2::new(8.0, 8.0),
                 facing: 1.0,
+            },
+            ambition_platformer2d::engine_core::SweepSample { travel: Default::default(),
+                prev: entry_pos + entry_normal * 4.0, curr: entry_pos,
+                vel: -entry_normal * 400.0, half: Vec2::splat(4.0), down: Vec2::ZERO,
+                time: [0.0, 1.0],
             },
             Name::new("test projectile body"),
         ))
@@ -392,4 +395,75 @@ fn far_side_contact(motion:ContactMotion) {
     assert!(expired, "the far-side wall must stop the shot; enter={enter:?}, exit={exit:?}, poses={history:?}");
     assert!(!transited, "the material must meet the far wall before its root crosses");
     assert!(impact, "the impact must be at the physical far-side contact");
+}
+
+
+#[test]
+fn the_lab_g_spinner_takes_a_still_root_during_a_full_turn() {
+    use ambition_platformer2d::engine_core::SweepSample;
+    use ambition_platformer2d::portal::{link_hash, PlacedPortal, PortalBodyTransited, PortalLink};
+    use ambition_platformer2d::world::{collision::MovingPlatformSet, platforms::PlatformTurn};
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    let enter = {
+        let world = sim.world_mut();
+        world.query::<(&PlacedPortal, &PortalLink)>().iter(world)
+            .filter(|(_, link)| link.0 == link_hash("lab_g"))
+            .map(|(portal, _)| portal.clone()).max_by(|a, b| a.pos.x.total_cmp(&b.pos.x)).unwrap()
+    };
+    let root = enter.pos + Vec2::new(-enter.normal.y, enter.normal.x) * 30.0 + enter.normal * 4.0;
+    let body = BodyKinematics { pos: root, vel: Vec2::ZERO, canonical_size: Vec2::splat(4.0), ..Default::default() };
+    let entity = sim.world_mut().spawn((body, SweepSample::at_rest(body, Vec2::ZERO))).id();
+    let mut host = ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(sim.world_mut())
+        .expect("the lab has moving hosts");
+    let plank = host.0.iter_mut().find(|host| host.name == "G spinning plank").unwrap()
+        .plank.as_mut().unwrap();
+    plank.turned_s = plank.angle.to_degrees() / 21600.0;
+    plank.turn = PlatformTurn::Spin { deg_per_s: 21600.0 };
+    drop(host);
+    sim.step(base());
+    let event = sim.world_mut().resource_mut::<Messages<PortalBodyTransited>>().drain()
+        .find(|event| event.body == entity).expect("the recorded full turn crosses the still root");
+    assert!(event.transfer.crossing_time > 0.0 && event.transfer.crossing_time < 1.0);
+    assert_eq!(event.transfer.crossing_point, root);
+    let frame = event.transfer.enter.frame;
+    assert!((root - frame.origin).dot(frame.normal).abs() < 1.0e-4);
+    assert!(frame.normal.distance(enter.normal) > 0.5);
+    assert!(sim.world().get::<BodyKinematics>(entity).unwrap().pos.distance(root) > 100.0);
+}
+
+
+#[test]
+fn a_body_wider_than_the_opening_stays_on_the_host() {
+    use ambition_platformer2d::engine_core::{frame::BodyMaterial, SweepSample};
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    for _ in 0..4 { sim.step(base()); }
+    let (enter, _) = crate::common::first_floor_authored_portal_pair(&mut sim);
+    let body = {
+        let world = sim.world_mut();
+        world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap()
+    };
+    let host_y = {
+        let world = sim.world_mut();
+        let room = world.query::<&ambition_platformer2d::engine_core::RoomGeometry>().single(world).unwrap();
+        room.0.blocks.iter().filter(|block| block.aabb.min.x <= enter.pos.x && enter.pos.x < block.aabb.max.x)
+            .min_by(|a, b| (a.aabb.min.y - enter.pos.y).abs().total_cmp(&(b.aabb.min.y - enter.pos.y).abs()))
+            .expect("the floor portal has a host").aabb.min.y
+    };
+    let width = enter.aperture().half_length * 2.0 + 1.0;
+    let mut kin = sim.world_mut().get_mut::<BodyKinematics>(body).unwrap();
+    kin.material = BodyMaterial::new(width / kin.canonical_size.x, bevy::math::Mat2::IDENTITY).unwrap();
+    kin.pos = enter.pos + enter.normal * (kin.size().y * 0.5 + 60.0);
+    kin.vel = -enter.normal * 600.0;
+    let record = SweepSample::at_rest(*kin, Vec2::Y);
+    drop(kin);
+    sim.world_mut().entity_mut(body).insert(record);
+    for _ in 0..24 {
+        sim.step(base());
+        let kin = sim.world().get::<BodyKinematics>(body).unwrap();
+        assert!(kin.size().x > enter.aperture().half_length * 2.0, "the body must remain wider than the opening");
+        assert!(kin.pos.y + kin.size().y * 0.5 <= host_y + 0.01,
+            "the host must hold the complete body: host_y={host_y}, body={kin:?}");
+    }
 }

@@ -1,0 +1,15 @@
+# Apply with entity set-field. Keep the existing station geometry.
+level_id: portal_lab
+edits:
+- target:
+    identifier: DebugLabel
+    match:
+      name: lab_sign_f
+  fields:
+    text: 'F: cross a moving opening.'
+- target:
+    identifier: DebugLabel
+    match:
+      name: lab_sign_g
+  fields:
+    text: 'G: a spin can take a still body.'

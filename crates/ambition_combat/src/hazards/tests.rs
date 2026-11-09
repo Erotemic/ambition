@@ -153,7 +153,7 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
         // The path opened at x = -40, crossed the hazard at x = 100 and ENDED
         // clear at x = 160. The kernel's record is the whole of what is known
         // about it; the reader rebuilds nothing.
-        ae::SweepSample {
+        ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: start,
             curr: end,
             vel: ae::Vec2::new(2000.0, 0.0),

@@ -3,7 +3,7 @@
 //! that a body, a carve, an eviction and a link group see only their own room.
 
 use super::*;
-use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::{self as ae, BodyKinematics};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanceRoot};
 
 use crate::color::{PortalChannel, PortalChannelColor, PortalGunColor};
@@ -66,8 +66,10 @@ fn a_body_crosses_only_a_pair_of_its_own_live_room() {
     for channel in [BLUE, ORANGE] {
         app.world_mut().spawn((wall(channel), InRoomInstance(live[1])));
     }
-    let own = app.world_mut().spawn((into_blue(), InRoomInstance(live[1]))).id();
-    let other = app.world_mut().spawn((into_blue(), InRoomInstance(live[0]))).id();
+    let kin = into_blue();
+    let sweep = ae::SweepSample { prev: kin.pos + Vec2::X * 5.0, vel: kin.vel, ..ae::SweepSample::at_rest(kin, Vec2::Y) };
+    let own = app.world_mut().spawn((kin, sweep, InRoomInstance(live[1]))).id();
+    let other = app.world_mut().spawn((kin, sweep, InRoomInstance(live[0]))).id();
     // Frame 1 begins (the leading edge is in the opening), frame 2 transfers.
     app.update();
     app.update();

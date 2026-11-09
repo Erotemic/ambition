@@ -96,6 +96,7 @@ fn a_held_free_body_neither_crosses_nor_straddles() {
     // Control: the same body in the world crosses.
     app.world_mut().entity_mut(body).remove::<Held>();
     app.world_mut().entity_mut(body).insert(PortalTransit { straddling: BLUE, crossed: false });
+    app.world_mut().get_mut::<Probe>(body).unwrap().step = Some((at + Vec2::X * 12.0, at));
     app.update();
     assert!(app.world().get::<Probe>(body).unwrap().pos.x > 300.0, "control: the body did not cross");
 }
@@ -109,7 +110,7 @@ fn a_crossing_that_skipped_begin_leaves_the_body_straddling_the_exit() {
     wall_pair(&mut app);
     // Kernel: its step began 30 px in front of blue and ends 6 px behind it.
     let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(14.0, 200.0), vel: Vec2::new(-1800.0, 0.0), canonical_size: Vec2::splat(16.0), facing: 1.0 };
-    let record = SweepSample { prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::new(0.0, 1.0) };
+    let record = SweepSample { travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::new(0.0, 1.0) };
     let kernel = app.world_mut().spawn((kin, record)).id();
     let free = app
         .world_mut()
@@ -242,33 +243,7 @@ fn planes_closing_together_push_a_body_the_same_whatever_their_order() {
     assert_eq!(ends[0], ends[1], "the push depends on the order the planes were held in");
 }
 
-/// A body under a portal on a line (a plank with open air below it) moving
-/// away from the portal on top is not taken through it. With a 60 px host
-/// behind the plane, the same body is in the hole and is taken: the
-/// measured depth is what decides.
-#[test]
-fn a_body_under_a_portal_on_a_bare_line_is_not_taken() {
-    let floor = PlacedPortal::fixed(BLUE, Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0), HALF);
-    let exit = PlacedPortal::fixed(ORANGE, Vec2::new(400.0, 100.0), Vec2::new(0.0, -1.0), HALF);
-    let portals = [floor, exit];
-    let step = |depth: f32| {
-        transit_step_with_tuning(
-            // Under the plank, its top 4 px below the plane, falling away.
-            Vec2::new(100.0, 324.0),
-            Vec2::splat(40.0),
-            Vec2::new(0.0, 200.0),
-            None,
-            None,
-            None,
-            &portals,
-            Vec2::new(0.0, 1.0),
-            &PortalHostDepths(vec![(BLUE, depth), (ORANGE, depth)]),
-            &PortalTuning::default(),
-        )
-    };
-    assert!(matches!(step(60.0), TransitStep::Transfer { .. }), "control: a deep host's hole takes the body");
-    assert!(matches!(step(0.0), TransitStep::Idle), "a body under a bare line was taken: {:?}", step(0.0));
-}
+
 
 /// Where a leg enters a paired opening, as a fraction of it; not at all
 /// beside the opening or through an unpaired portal.
@@ -278,10 +253,10 @@ fn a_leg_ends_where_its_centre_enters_a_paired_opening() {
     let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF);
     let size = Vec2::splat(16.0);
     let t = crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue.clone(), orange.clone()], None);
-    assert!(t.is_some_and(|t| (t - 0.5).abs() < 1e-4), "{t:?}");
+    assert!(t.unwrap().is_some_and(|t| (t - 0.5).abs() < 1e-4), "{t:?}");
     let beside = Vec2::new(0.0, 200.0 + HALF + 30.0);
-    assert_eq!(crate::first_portal_crossing(beside + Vec2::new(40.0, 0.0), beside, size, &[blue.clone(), orange], None), None);
-    assert_eq!(crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue], None), None);
+    assert_eq!(crate::first_portal_crossing(beside + Vec2::new(40.0, 0.0), beside, size, &[blue.clone(), orange], None).unwrap(), None);
+    assert_eq!(crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue], None).unwrap(), None);
 }
 
 #[test]
@@ -352,16 +327,16 @@ fn a_posed_body_is_in_the_pair_it_reaches_into_and_is_not_moved() {
     app.world_mut().entity_mut(body).insert(PortalTransit { straddling: BLUE, crossed: false });
     app.world_mut().get_mut::<BodyKinematics>(body).unwrap().pos = Vec2::new(15.0, 200.0);
     app.world_mut().get_mut::<BodyKinematics>(body).unwrap().vel = Vec2::new(-300.0, 0.0);
+    let kin = *app.world().get::<BodyKinematics>(body).unwrap();
+    app.world_mut().entity_mut(body).insert(SweepSample {
+        prev: Vec2::new(60.0, 200.0), vel: kin.vel, ..SweepSample::at_rest(kin, Vec2::Y)
+    });
     app.update();
     assert!(app.world().get::<BodyKinematics>(body).unwrap().pos.x > 300.0, "control: the body was not taken");
 }
 
-/// A shot's contacts stop where the transit takes it, and nowhere else (review
-/// of 15d0cf99c, finding B): one crossing ([`crate::placement::swept_crossing`])
-/// decides both. A shot whose centre crosses inside the opening but whose box
-/// still cuts the plane past an end is not taken, so its leg is not cut short
-/// (it would skip the wall beside the opening and stay in its room); the same
-/// leg through the middle is cut where the transit takes it.
+/// Projectile contact limits and root transit select the same crossing.
+/// A body that extends past an opening end keeps its original room leg.
 #[test]
 fn a_shots_leg_ends_only_where_the_transit_takes_it() {
     use crate::placement::SweptSample;
@@ -376,12 +351,11 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
                 to,
                 size,
                 vel,
-                Some(SweptSample { pos: from, vel }),
+                Some(SweptSample { travel: Default::default(), time: [0.0, 1.0], pos: from, vel }),
                 None,
                 None,
                 &portals,
                 Vec2::new(0.0, 1.0),
-                &PortalHostDepths::default(),
                 &PortalTuning::default(),
             ),
             TransitStep::Transfer { .. }
@@ -390,7 +364,7 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
     for (y, through) in [(200.0, true), (200.0 + HALF - 2.0, false)] {
         let (from, to) = (Vec2::new(40.0, y), Vec2::new(0.0, y));
         let leg = crate::first_portal_crossing(from, to, size, &portals, None);
-        assert_eq!(leg.is_some(), through, "the leg at y {y} ends at the plane: {leg:?}");
+        assert_eq!(leg.unwrap().is_some(), through, "the leg at y {y} ends at the plane: {leg:?}");
         assert_eq!(taken(from, to), through, "the transit takes the shot at y {y}");
     }
 }
@@ -462,54 +436,16 @@ fn passage_publication_keeps_the_recorded_motion_in_both_directions() {
 }
 
 
-/// A dog (93 px wide) at a floor portal whose opening is 92: its centre over
-/// the opening opens the hole, though its box is partly past the end (it is
-/// pushed off that end by its balance). In line with the opening it fits,
-/// the hole is wide enough for it, the snag does not hold it, and its transit
-/// begins.
+/// A body wider than the opening retains its host support.
 #[test]
-fn a_dog_whose_centre_is_over_a_floor_portal_opens_it_and_goes_through() {
-    let p = PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), Vec2::new(0.0, -1.0), HALF);
-    let exit = PlacedPortal::fixed(ORANGE, Vec2::new(900.0, 100.0), Vec2::new(0.0, -1.0), HALF);
+fn a_body_wider_than_the_opening_does_not_open_the_host() {
+    let p = PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), -Vec2::Y, HALF);
     let half = Vec2::new(46.5, 30.0);
-    let standing = |x: f32| ambition_platformer2d_core::Aabb::new(Vec2::new(x, 300.0 - half.y + 0.5), half);
-    let down = Vec2::new(0.0, 30.0);
-
-    let off_centre = standing(530.0);
-    assert!(
-        crate::transit::body_opens(&p, off_centre, off_centre.center(), down, 60.0),
-        "a dog with its centre over the opening did not open it"
-    );
-    let past = standing(500.0 + HALF + 4.0);
-    assert!(
-        !crate::transit::body_opens(&p, past, past.center(), down, 60.0),
-        "a dog with its centre past the opening's end opened it"
-    );
-
-    let in_line = standing(500.0);
-    let ap = p.aperture();
-    assert!(crate::portal_fits(half * 2.0, &p), "a dog 1 px wider than the opening does not fit it");
-    let hole = crate::pieces::carve_face_with_depth(&ap, 60.0).bounds();
-    assert!(
-        hole.min.x <= in_line.min.x && in_line.max.x <= hole.max.x,
-        "the hole {hole:?} leaves a lip under the dog {in_line:?}"
-    );
-    let sunk = ambition_platformer2d_core::Aabb::new(in_line.center() + Vec2::new(0.0, 12.0), half);
-    assert!(crate::snag::fits_through(sunk, &ap), "the dog in line is snagged on the opening's ends");
-    assert_eq!(crate::snag::snag_push(sunk, Some(in_line), &ap), None, "the snag holds the dog in line");
-    let step = transit_step_with_tuning(
-        in_line.center(),
-        half * 2.0,
-        down,
-        None,
-        None,
-        None,
-        &[p.clone(), exit],
-        Vec2::new(0.0, 1.0),
-        &PortalHostDepths(vec![(BLUE, 60.0), (ORANGE, 60.0)]),
-        &PortalTuning::default(),
-    );
-    assert!(matches!(step, TransitStep::Begin { .. }), "the dog in line did not begin its transit: {step:?}");
+    let body = ae::Aabb::new(Vec2::new(500.0, 270.5), half);
+    assert!(!crate::transit::body_opens(&p, body, body.center(), Vec2::Y * 30.0, 60.0));
+    assert!(!crate::portal_fits(half * 2.0, &p));
+    let hole = crate::pieces::carve_face_with_depth(&p.aperture(), 60.0).bounds();
+    assert_eq!(hole.max.x - hole.min.x, HALF * 2.0);
 }
 
 #[test]
@@ -518,15 +454,19 @@ fn a_carried_vector_is_mapped_atomically_for_both_body_storage_types() {
     for refused in [false, true] {
         let mut app = transit_app();
         let [enter, exit] = wall_pair(&mut app);
-        app.world_mut().get_mut::<PlacedPortal>(exit).unwrap().normal = Vec2::ONE.normalize();
+        let mut portal = app.world_mut().get_mut::<PlacedPortal>(exit).unwrap();
+        let pos = portal.pos;
+        portal.place_at(pos, Vec2::ONE.normalize());
+        drop(portal);
         let kin = BodyKinematics {
             pos: Vec2::new(19.0, 200.0), vel: -Vec2::X * 400.0,
             canonical_size: Vec2::splat(8.0), ..Default::default()
         };
         let force = if refused { Vec2::splat(f32::MAX) } else { Vec2::new(-100.0, 20.0) };
-        let kernel = app.world_mut().spawn((kin, CarriedAcceleration(force))).id();
+        let record = SweepSample { prev: kin.pos + Vec2::X * 10.0, vel: kin.vel, ..SweepSample::at_rest(kin, Vec2::Y) };
+        let kernel = app.world_mut().spawn((kin, record, CarriedAcceleration(force))).id();
         let free = app.world_mut().spawn((
-            Probe { pos: kin.pos, vel: kin.vel, step: None }, CarriedAcceleration(force),
+            Probe { pos: kin.pos, vel: kin.vel, step: Some((record.prev, kin.pos)) }, CarriedAcceleration(force),
         )).id();
         let map = ae::frame::Sim2::through(
             &app.world().get::<PlacedPortal>(enter).unwrap().aperture(),

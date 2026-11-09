@@ -374,6 +374,8 @@ fn portal_sweep_sample(
 ) -> Option<SweptSample> {
     let sweep = sweep?.ending_at(kin.pos)?;
     Some(SweptSample {
+        time: sweep.time,
+        travel: sweep.travel,
         pos: sweep.prev,
         vel: sweep.vel,
     })
@@ -440,7 +442,6 @@ pub fn portal_transit(
     // One param also keeps this system under Bevy's 16-param limit.
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     tuning: Res<PortalTuning>,
-    host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
     // Optional: a minimal test app may not have it. Diagnostic only.
@@ -450,8 +451,6 @@ pub fn portal_transit(
 ) {
     let tick = tick.map_or(0, |tick| tick.get());
     let by_room = PortalsByRoom::collect(&portals, &live);
-    let default_depths = PortalHostDepthsByRoom::default();
-    let depths = host_depths.as_deref().unwrap_or(&default_depths);
 
     for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, mut roll, cooldown, record, backside, held) in &mut bodies {
         if transit.is_none() && by_room.is_empty() {
@@ -514,7 +513,6 @@ pub fn portal_transit(
             cooldown_pair,
             &usable,
             gravity_dir,
-            depths.in_room(room),
             &tuning,
         );
         // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`,
@@ -711,15 +709,12 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     tuning: Res<crate::tuning::PortalTuning>,
-    host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     let tick = tick.map_or(0, |tick| tick.get());
-    let default_depths = PortalHostDepthsByRoom::default();
-    let depths = host_depths.as_deref().unwrap_or(&default_depths);
     for (entity, mut body, mut acceleration, mut transit, mut roll, cooldown, presence, backside) in &mut bodies {
         if transit.is_none() && by_room.is_empty() {
             continue;
@@ -741,7 +736,7 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
         let sweep = body
             .last_step()
             .filter(|(_, to)| *to == pos)
-            .map(|(from, _)| SweptSample { pos: from, vel });
+            .map(|(from, _)| SweptSample { travel: Default::default(), time: [0.0, 1.0], pos: from, vel });
         let backside = backside.copied();
         let usable = usable_portals(all, backside);
         let step = transit_step_with_tuning(
@@ -753,7 +748,6 @@ pub fn portal_transit_free_bodies<B: FreePortalBody>(
             cooldown.map(|c| c.pair),
             &usable,
             gravity_dir,
-            depths.in_room(room),
             &tuning,
         );
         // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`).
@@ -870,7 +864,7 @@ mod tests {
             canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
-        let sweep = ae::SweepSample {
+        let sweep = ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 12.0),
             curr: kin.pos,
             vel: Vec2::new(0.0, 240.0),
@@ -891,7 +885,7 @@ mod tests {
             canonical_size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         };
-        let sweep = ae::SweepSample {
+        let sweep = ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 12.0),
             curr: Vec2::new(10.0, 20.0),
             vel: Vec2::new(0.0, 240.0),

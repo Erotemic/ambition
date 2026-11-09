@@ -176,7 +176,7 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
         // it transits) turned to the DOWN of its last step. The next step
         // turns the body in the frame it arrives in.
         let down = sweep.down;
-        *sweep = SweepSample {
+        *sweep = SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: pos,
             curr: pos,
             vel: clusters.kinematics.vel,
@@ -436,7 +436,7 @@ mod tests {
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
         // The scratch body carries no sweep sample unless a test asks for one,
         // and a test that did not ask would pass over an absent fact.
-        let mut sample = SweepSample {
+        let mut sample = SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: incoming,
@@ -515,7 +515,7 @@ mod tests {
             BodyClusterScratch::new_with_abilities(Vec2::new(10.0, 10.0), AbilitySet::default());
         scratch.kinematics.vel = Vec2::new(-500.0, 220.0);
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
-        let mut sample = SweepSample {
+        let mut sample = SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: Vec2::new(-500.0, 220.0),
@@ -629,7 +629,7 @@ mod tests {
         let mut scratch =
             BodyClusterScratch::new_with_abilities(Vec2::new(50.0, 50.0), AbilitySet::default());
         scratch.ground.on_ground = true;
-        let mut sample = SweepSample {
+        let mut sample = SweepSample { travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(40.0, 50.0),
             curr: Vec2::new(50.0, 50.0),
             vel: Vec2::ZERO,

@@ -75,7 +75,8 @@ fn x_after_the_blue(size: Vec2, down: Vec2, opening: f32) -> f32 {
         canonical_size: size,
         facing: -1.0,
     };
-    let entity = app.world_mut().spawn((body, record(body, down))).id();
+    let sweep = SweepSample { prev: body.pos + Vec2::X * 5.0, ..record(body, down) };
+    let entity = app.world_mut().spawn((body, sweep)).id();
     // Frame 1 begins (the leading edge is in the opening), frame 2 transfers.
     app.update();
     app.update();
@@ -170,7 +171,8 @@ fn after_the_floor_closes(size: Vec2, down: Vec2) -> Vec2 {
         canonical_size: size,
         facing: 1.0,
     };
-    let entity = app.world_mut().spawn((body, record(body, down))).id();
+    let sweep = SweepSample { prev: body.pos + Vec2::X * 5.0, ..record(body, down) };
+    let entity = app.world_mut().spawn((body, sweep)).id();
     app.update();
     app.world_mut().entity_mut(closing).despawn();
     app.update();

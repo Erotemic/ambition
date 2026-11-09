@@ -194,7 +194,7 @@ fn leaving_a_walk_exit_does_not_renew_the_vote_from_its_departure_sweep() {
     let (mut app, bodies) = fixture(PartyTravelMode::AllMembers, LoadingZoneActivation::Walk);
     at(&mut app, bodies[0], 100.0); app.update();
     at(&mut app, bodies[0], 200.0);
-    app.world_mut().entity_mut(bodies[0]).insert(ae::SweepSample {
+    app.world_mut().entity_mut(bodies[0]).insert(ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
         prev: ae::Vec2::new(100.0, 100.0), curr: ae::Vec2::new(200.0, 100.0),
         vel: ae::Vec2::X * 100.0, half: ae::Vec2::new(14.0, 23.0), down: ae::Vec2::Y,
     });

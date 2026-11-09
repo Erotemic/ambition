@@ -3,7 +3,9 @@
 use std::ops::Range;
 
 use super::translation::{self, MovingPlane};
-use super::{CombatVolume, DVec2, NumericFault};
+use super::{CombatVolume, NumericFault};
+#[cfg(test)]
+use super::DVec2;
 
 fn holds(body: &CombatVolume, planes: &[MovingPlane], time: f64, interior: bool) -> bool {
     let mut region = body

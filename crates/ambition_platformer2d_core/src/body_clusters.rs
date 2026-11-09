@@ -217,6 +217,23 @@ impl BodyKinematics {
     }
 }
 
+/// A complete line or a closed prefix of its original parameterization.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum LinearTravel {
+    #[default]
+    Complete,
+    Prefix { delta: Vec2, until: f64 },
+}
+
+impl LinearTravel {
+    pub fn delta(self, from: Vec2, to: Vec2) -> Vec2 {
+        match self { Self::Complete => to - from, Self::Prefix { delta, .. } => delta }
+    }
+    pub fn until(self) -> f64 {
+        match self { Self::Complete => 1.0, Self::Prefix { until, .. } => until }
+    }
+}
+
 /// Canonical per-tick integration segment, captured entirely inside the
 /// simulation kernel from phase entry (`prev`) to phase exit (`curr`). Teleports
 /// outside the simulation phase therefore never become swept motion.
@@ -229,8 +246,11 @@ impl BodyKinematics {
 /// Readers are the other half, and they no longer substitute: a body with no
 /// sample travelled nothing this tick, which degrades to the overlap test it
 /// always was. A missing path is not a straight line.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
 pub struct SweepSample {
+    /// The world-tick interval of the original line. `travel` can end earlier.
+    pub time: [f64; 2],
+    pub travel: LinearTravel,
     /// Position at simulation-phase entry (the TRUE segment start).
     pub prev: Vec2,
     /// Where the travelled path ends. The kernel writes it at phase exit and
@@ -251,11 +271,20 @@ pub struct SweepSample {
     pub down: Vec2,
 }
 
+impl Default for SweepSample {
+    fn default() -> Self {
+        Self { travel: LinearTravel::Complete, time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,
+            vel: Vec2::ZERO, half: Vec2::ZERO, down: Vec2::ZERO }
+    }
+}
+
 impl SweepSample {
     /// The record of a step that moved nothing: `body` at rest where it is,
     /// with its box turned to `down`.
     pub fn at_rest(body: BodyKinematics, down: Vec2) -> Self {
         Self {
+            time: [0.0, 1.0],
+            travel: LinearTravel::Complete,
             prev: body.pos,
             curr: body.pos,
             vel: Vec2::ZERO,
@@ -292,6 +321,12 @@ impl SweepSample {
     /// the sample is still a true record of the step but not the path to here,
     /// and a reader must not splice it onto the live pose.
     pub fn ending_at(&self, live_pos: Vec2) -> Option<&Self> {
+        if let LinearTravel::Prefix { delta, until } = self.travel {
+            if !delta.is_finite() || !until.is_finite() || !(0.0..=1.0).contains(&until)
+                || (self.prev.as_dvec2() + delta.as_dvec2() * until).as_vec2() != self.curr {
+                return None;
+            }
+        }
         ((self.curr - live_pos).length_squared() <= 1.0).then_some(self)
     }
 

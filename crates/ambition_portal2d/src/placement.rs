@@ -128,15 +128,12 @@ pub fn portal_input_warp_flips_horizontal_for_convention(
     mapped.x < -0.5 && mapped.y.abs() < 0.5
 }
 
-/// Does an actor of `size` fit through `portal`? The actor's box measured
-/// along the face against the opening: a wall portal checks the actor's
-/// height, a floor or ceiling portal its width, and a portal on a slope the
-/// box's reach along the slope. A body may be [`crate::snag::SQUEEZE`]
-/// wider than the opening at each end.
+/// Measure the body's width along the authored opening.
 pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
-    let along = portal.aperture().frame.tangent();
-    let cross = size.x * along.x.abs() + size.y * along.y.abs();
-    cross <= (portal.aperture().half_length + crate::snag::SQUEEZE) * 2.0 + 1.0e-3
+    let normal = portal.normal.as_dvec2().normalize();
+    let along = bevy::math::DVec2::new(-normal.y, normal.x);
+    let cross = f64::from(size.x) * along.x.abs() + f64::from(size.y) * along.y.abs();
+    cross <= f64::from(portal.aperture().half_length) * 2.0
 }
 
 /// Margin (px) added to a portal's thin face so a body resting on the surface
@@ -251,7 +248,7 @@ pub enum TransitStep {
     /// Leave the current body unchanged when the map cannot be represented.
     Refused {
         channel: PortalChannel,
-        reason: ae::frame::NumericFault,
+        reason: ae::frame::thread::RefusalReason,
     },
     /// The body fully cleared the plane — remove [`PortalTransit`].
     Clear,
@@ -267,6 +264,8 @@ pub struct PortalTransfer {
     pub exit: ae::frame::PortalAperture,
     pub entry_channel: PortalChannel,
     pub exit_channel: PortalChannel,
+    pub crossing_time: f64,
+    pub crossing_point: Vec2,
     pub entry_pos: Vec2,
     pub entry_vel: Vec2,
     /// Velocity after the surface-relative map, before exit-speed assistance.
@@ -299,9 +298,15 @@ impl PortalTransfer {
         exit: &PlacedPortal,
         tuning: &PortalTuning,
     ) -> Result<Self, ae::frame::NumericFault> {
+        Self::from_apertures(center, velocity, enter.channel, exit.channel,
+            enter.aperture(), exit.aperture(), tuning)
+    }
+
+    fn from_apertures(
+        center: Vec2, velocity: Vec2, entry_channel: PortalChannel, exit_channel: PortalChannel,
+        entry: ae::frame::PortalAperture, leaving: ae::frame::PortalAperture, tuning: &PortalTuning,
+    ) -> Result<Self, ae::frame::NumericFault> {
         use ae::frame::{NumericFault, Sim2};
-        let entry = enter.aperture();
-        let leaving = exit.aperture();
         let map = Sim2::through(&entry, &leaving, tuning.convention.map_convention())?;
         let exit_pos = map.point(center)?;
         let mapped_vel = map.velocity(&entry.frame, &leaving.frame, center, velocity)?;
@@ -327,62 +332,72 @@ impl PortalTransfer {
         }
         Ok(Self {
             map, enter: entry, exit: leaving,
-            entry_channel: enter.channel, exit_channel: exit.channel,
+            entry_channel, exit_channel,
+            crossing_time: 1.0, crossing_point: center,
             entry_pos: center, entry_vel: velocity, mapped_vel, exit_pos, exit_vel,
         })
     }
 }
 
-/// Both centroid crossing and swept rescue use the same checked transfer.
+/// The movement kernel's recorded segment and its world-tick interval.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SweptSample {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub time: [f64; 2],
+    pub travel: ae::LinearTravel,
+}
+
+/// The first admitted root crossing and the sampled partner pose.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PortalCrossing {
+    pub root: ae::frame::RootCrossing,
+    pub exit: ae::frame::PortalAperture,
+    pub entry_channel: PortalChannel,
+    pub exit_channel: PortalChannel,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CrossingRefusal {
+    pub channel: PortalChannel,
+    pub reason: ae::frame::thread::RefusalReason,
+}
+
 fn transfer_step(
-    center: Vec2,
-    vel: Vec2,
-    enter: PlacedPortal,
-    exit: PlacedPortal,
-    gravity_dir: Vec2,
-    tuning: &PortalTuning,
+    crossing: PortalCrossing, center: Vec2, vel: Vec2, gravity_dir: Vec2, tuning: &PortalTuning,
 ) -> TransitStep {
-    let transfer = match PortalTransfer::new(center, vel, &enter, &exit, tuning) {
+    let enter = crossing.root.aperture;
+    let exit = crossing.exit;
+    let mut transfer = match PortalTransfer::from_apertures(crossing.root.point, vel,
+        crossing.entry_channel, crossing.exit_channel, enter, exit, tuning) {
         Ok(transfer) => transfer,
-        Err(reason) => return TransitStep::Refused { channel: enter.channel, reason },
+        Err(reason) => return TransitStep::Refused {
+            channel: crossing.entry_channel, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+        },
+    };
+    transfer.crossing_time = crossing.root.world_time;
+    transfer.crossing_point = crossing.root.point;
+    transfer.entry_pos = center;
+    transfer.exit_pos = match transfer.map.point(center) {
+        Ok(point) => point,
+        Err(reason) => return TransitStep::Refused {
+            channel: crossing.entry_channel, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+        },
     };
     let convention = tuning.convention.map_convention();
     TransitStep::Transfer {
         transfer,
-        roll_delta: somersault_roll_for_convention(
-            convention, enter.normal, exit.normal, gravity_dir,
-        ),
-        facing_flip: portal_facing_flips_for_convention(
-            convention, enter.normal, exit.normal, gravity_dir,
-        ),
-        input_warp: portal_input_warp_flips_horizontal_for_convention(
-            convention, enter.normal, exit.normal,
-        ),
+        roll_delta: somersault_roll_for_convention(convention, enter.frame.normal, exit.frame.normal, gravity_dir),
+        facing_flip: portal_facing_flips_for_convention(convention, enter.frame.normal, exit.frame.normal, gravity_dir),
+        input_warp: portal_input_warp_flips_horizontal_for_convention(convention, enter.frame.normal, exit.frame.normal),
     }
 }
-
-/// The movement-kernel sample for swept (CCD) transit: where the sim step
-/// started and the body velocity then.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SweptSample {
-    /// Authoritative body center at the previous transit step.
-    pub pos: Vec2,
-    /// Body velocity at the previous transit step (gates the sweep to
-    /// segments that look like one frame of ballistic motion).
-    pub vel: Vec2,
-}
-
-/// The largest sim step (s) one swept segment may represent. Matches the
-/// 1/30 s sim-step clamp (also used for [`APPROACH_CARVE_REACH`]). A prev→now
-/// displacement longer than `|prev_vel| * MAX_SWEPT_STEP_S` (plus slack) is a
-/// respawn, reset, or teleport, and must not cross a portal plane.
-const MAX_SWEPT_STEP_S: f32 = 1.0 / 30.0;
 
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown_pair`
 /// is the body's post-jump latch, scoped to the pair it just crossed
 /// ([`super::types::PortalTransitCooldown`]); `gravity_dir` selects whether a
-/// transit tumbles or just turns around. Discrete form: no swept sample,
-/// default depths and tuning.
+/// transit tumbles or just turns around. This form updates overlap state.
+/// It has no recorded travel and cannot transfer a root.
 pub fn transit_step(
     center: Vec2,
     size: Vec2,
@@ -401,142 +416,71 @@ pub fn transit_step(
         cooldown_pair,
         portals,
         gravity_dir,
-        &super::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     )
 }
 
-/// Where along `from -> to` a centre crosses `enter`'s plane front to behind
-/// through its opening, as a fraction of the segment: the crossing every
-/// swept transfer is made of.
-fn plane_crossing(from: Vec2, to: Vec2, enter: &PlacedPortal) -> Option<f32> {
-    if (to - from).length_squared() <= 1e-6 {
-        return None;
-    }
-    let ap = enter.aperture();
-    let f0 = pp::front_distance(from, &ap.frame);
-    let f1 = pp::front_distance(to, &ap.frame);
-    if f0 <= 0.0 || f1 > 0.0 {
-        return None;
-    }
-    let t = f0 / (f0 - f1);
-    let at = from + (to - from) * t;
-    let offset = (at - ap.frame.origin).dot(ap.frame.tangent()).abs();
-    (offset <= ap.half_length + TRANSIT_BEGIN_MARGIN).then_some(t)
-}
-
-/// Does a body of `size` that moved `from -> to` cross `enter` and get taken
-/// by it, and where along the step (a fraction)? THE swept crossing: the
-/// transit takes a body by it ([`swept_crossing_step`]), and a shot's
-/// contacts stop where it says ([`first_portal_crossing`]), so the two can
-/// not disagree. The step's start is carried with the aperture as it moved
-/// and turned this tick (a moving portal's scoop); the centre crosses the
-/// plane front to behind through the opening; and the body fits through the
-/// opening whole where its centre crosses (`crate::snag`: a body that cuts
-/// the plane past an end is snagged, not taken). Asked where the step ends,
-/// a fast body is wholly past the plane there and fits trivially, though its
-/// box went through the host beside the opening.
-pub(crate) fn swept_crossing(from: Vec2, to: Vec2, size: Vec2, enter: &PlacedPortal, portals: &[PlacedPortal]) -> Option<f32> {
-    find_portal(portals, enter.channel.partner())?;
-    if !portal_fits(size, enter) {
-        return None;
-    }
-    let rel_from = enter.frame().from_local(enter.prev_frame().to_local(from));
-    let t = plane_crossing(rel_from, to, enter)?;
-    let at = rel_from + (to - rel_from) * t;
-    crate::snag::fits_through(ae::Aabb::new(at, size * 0.5), &enter.aperture()).then_some(t)
-}
-
-/// The first point of `from -> to` where a body's centre enters a paired
-/// portal that takes it ([`swept_crossing`]): the fraction of the segment
-/// still in the room it left. Past it the body is the pair's to carry, so
-/// whatever it would touch on the far side of the plane, in the room it
-/// left, it does not touch. A body on the back of a pair (`backside`) is not
-/// taken by it.
+/// The first crossing of an axis-aligned body over a complete world tick.
 pub fn first_portal_crossing(
-    from: Vec2,
-    to: Vec2,
-    size: Vec2,
-    portals: &[PlacedPortal],
+    from: Vec2, to: Vec2, size: Vec2, portals: &[PlacedPortal],
     backside: Option<crate::PortalBackside>,
-) -> Option<f32> {
-    first_portal_crossing_through(from, to, size, portals, backside).map(|(t, ..)| t)
+) -> Result<Option<f64>, CrossingRefusal> {
+    let domain = ae::CombatVolume::aabb(ae::Aabb::new(from, size * 0.5));
+    let cast = ae::frame::material_cast::MaterialCast {
+        material: ae::frame::thread::MaterialPrimitive::world(&domain),
+        root: from, delta: to - from, time: 0.0..1.0,
+    };
+    first_portal_crossing_through(&cast, portals, backside, 1.0).map(|hit| hit.map(|hit| hit.root.toi))
 }
 
-/// [`first_portal_crossing`], and the pair that takes the body there: its
-/// entry, then its exit.
+/// Follow the recorded host motion and return the pair at the crossing time.
+/// A refusal prevents the source operation from committing its candidate.
 pub fn first_portal_crossing_through(
-    from: Vec2,
-    to: Vec2,
-    size: Vec2,
-    portals: &[PlacedPortal],
-    backside: Option<crate::PortalBackside>,
-) -> Option<(f32, ae::frame::PortalAperture, ae::frame::PortalAperture)> {
+    cast: &ae::frame::material_cast::MaterialCast<'_>, portals: &[PlacedPortal],
+    backside: Option<crate::PortalBackside>, until: f64,
+) -> Result<Option<PortalCrossing>, CrossingRefusal> {
     let usable = crate::transit::usable_portals(portals, backside);
-    usable
-        .iter()
-        .filter_map(|enter| {
-            let t = swept_crossing(from, to, size, enter, &usable)?;
-            let exit = find_portal(usable.iter(), enter.channel.partner())?;
-            Some((t, enter.aperture(), exit.aperture()))
-        })
-        .min_by(|a, b| a.0.total_cmp(&b.0))
+    let mut ordered = usable.iter().collect::<Vec<_>>();
+    ordered.sort_by(|a, b| crate::stable_portal_order(a, b));
+    let mut first: Option<PortalCrossing> = None;
+    for enter in ordered {
+        let Some(exit) = find_portal(usable.iter(), enter.channel.partner()) else { continue; };
+        let refusal = |reason| CrossingRefusal { channel: enter.channel, reason };
+        let Some(root) = cast.crossing(enter.step, enter.aperture(), until).map_err(refusal)? else { continue; };
+        if first.is_some_and(|hit| hit.root.toi <= root.toi) { continue; }
+        let exit_pose = exit.step.sample(exit.aperture(), root.world_time)
+            .map_err(|reason| refusal(ae::frame::thread::RefusalReason::Numeric(reason)))?;
+        first = Some(PortalCrossing {
+            root, exit: exit_pose, entry_channel: enter.channel, exit_channel: exit.channel,
+        });
+    }
+    Ok(first)
 }
 
-/// The swept (CCD) crossing scan used by two arms of
-/// [`transit_step_with_tuning`]. If the prev→now segment crossed a paired
-/// portal's plane front→behind through its opening, build its Transfer.
-#[allow(clippy::too_many_arguments)]
 fn swept_crossing_step(
-    sweep: Option<SweptSample>,
-    center: Vec2,
-    size: Vec2,
-    vel: Vec2,
-    portals: &[PlacedPortal],
-    gravity_dir: Vec2,
-    tuning: &PortalTuning,
+    sweep: SweptSample, center: Vec2, size: Vec2, vel: Vec2,
+    portals: &[PlacedPortal], gravity_dir: Vec2, tuning: &PortalTuning,
 ) -> Option<TransitStep> {
-    let prev = sweep?;
-    let seg = center - prev.pos;
-    let seg_len = seg.length();
-    // Reject teleports (see `MAX_SWEPT_STEP_S`). Check the body segment only:
-    // a moving aperture over a still body is not a teleport.
-    let max_step = prev.vel.length() * MAX_SWEPT_STEP_S * 1.5 + TRANSIT_BEGIN_MARGIN;
-    if seg_len > max_step {
-        return None;
-    }
-    for enter in portals {
-        let Some(exit) = find_portal(portals, enter.channel.partner()) else {
-            continue;
-        };
-        // Relative sweep, in the aperture's own frame (a moving or turning
-        // aperture over a still body gives a nonzero segment and transits
-        // it: the "scoop"), whole or not at all: [`swept_crossing`].
-        if swept_crossing(prev.pos, center, size, enter, portals).is_some() {
-            // Carry the velocity that caused the crossing: the live `vel` if
-            // it still points into the portal, else the previous sample (the
-            // integrator may have stopped the body at the carve bottom).
-            let carried = if enter.relative_velocity(center, vel).dot(enter.normal) < 0.0 {
+    let domain = ae::CombatVolume::aabb(ae::Aabb::new(sweep.pos, size * 0.5));
+    let cast = ae::frame::material_cast::MaterialCast {
+        material: ae::frame::thread::MaterialPrimitive::world(&domain),
+        root: sweep.pos, delta: sweep.travel.delta(sweep.pos, center), time: sweep.time[0]..sweep.time[1],
+    };
+    match first_portal_crossing_through(&cast, portals, None, sweep.travel.until()) {
+        Ok(Some(hit)) => {
+            let frame = hit.root.aperture.frame;
+            let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
                 vel
-            } else {
-                prev.vel
-            };
-            return Some(transfer_step(
-                center,
-                carried,
-                enter.clone(),
-                exit,
-                gravity_dir,
-                tuning,
-            ));
+            } else { sweep.vel };
+            Some(transfer_step(hit, center, carried, gravity_dir, tuning))
         }
+        Ok(None) => None,
+        Err(refusal) => Some(TransitStep::Refused { channel: refusal.channel, reason: refusal.reason }),
     }
-    None
 }
 
-/// Compute the transit step with editable portal tuning and host-measured
-/// wall depths ([`PortalHostDepths`](super::types::PortalHostDepths)), so a
-/// thin wall's rescue volume does not reach the room behind it.
+/// Compute transit from recorded travel. An overlap can begin or clear a
+/// straddle, but only a directed root crossing can transfer the body.
 #[allow(clippy::too_many_arguments)]
 pub fn transit_step_with_tuning(
     center: Vec2,
@@ -547,7 +491,6 @@ pub fn transit_step_with_tuning(
     cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],
     gravity_dir: Vec2,
-    host_depths: &super::types::PortalHostDepths,
     tuning: &PortalTuning,
 ) -> TransitStep {
     let body = ae::Aabb::new(center, size * 0.5);
@@ -555,57 +498,13 @@ pub fn transit_step_with_tuning(
     let pair_for = |c: PortalChannel| -> Option<(PlacedPortal, PlacedPortal)> {
         Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
     };
+    if let Some(sweep) = sweep {
+        if let Some(step) = swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning) {
+            return step;
+        }
+    }
     match transit {
         None => {
-            // Rescue (runs even on cooldown). The carve opens on overlap, but
-            // Begin is blocked by the cooldown after a jump. Without this, a
-            // quick floor↔floor bounce sinks into the open hole and grounds
-            // there.
-            //
-            // Gate: the body intersects the carve hole with its centroid past
-            // the plane. The only way into the hole is through the aperture, so
-            // this is safe at any depth and at any dt (a fast fall can skip a
-            // frame where the plane cuts the body). The body must also move
-            // into the portal (`vel · normal < 0`), so a body that just emerged
-            // is not grabbed again.
-            for enter in portals {
-                if find_portal(portals, enter.channel.partner()).is_none() {
-                    continue;
-                }
-                if !portal_fits(size, enter) {
-                    continue;
-                }
-                let ap = enter.aperture();
-                // Bounded by the measured host depth, so a body behind a thin
-                // wall is not grabbed.
-                let hole = pp::carve_face_with_depth(&ap, host_depths.depth(enter.channel));
-                // In line with the opening: only a body that came through it
-                // is in its hole whole (one beside it went through the host,
-                // and is not taken; one past the plane fits trivially).
-                if pp::front_distance(center, &ap.frame) <= 0.0
-                    && hole.strict_intersects(body)
-                    && enter.relative_velocity(center, vel).dot(enter.normal) < 0.0
-                    && crate::snag::in_line_with(body, &ap)
-                {
-                    let exit = find_portal(portals, enter.channel.partner())
-                        .expect("partner checked above");
-                    return transfer_step(center, vel, enter.clone(), exit, gravity_dir, tuning);
-                }
-            }
-            // Swept trigger: if the prev→now segment crossed the entry plane
-            // front→behind within the aperture, transfer at any depth.
-            // `map_point` keeps depth and momentum.
-            //
-            // Guards:
-            // * Direction comes from the segment, not the live `vel`, which
-            //   the integrator may have zeroed at the carve bottom.
-            // * The segment must be one frame of ballistic motion (see
-            //   `MAX_SWEPT_STEP_S`), not a respawn or teleport.
-            if let Some(step) =
-                swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning)
-            {
-                return step;
-            }
             // Begin into the first portal (across all pairs) the body enters.
             // The cooldown blocks only the pair just crossed.
             for enter in portals {
@@ -645,32 +544,9 @@ pub fn transit_step_with_tuning(
         }
         Some(t) => {
             // The straddled portal or its partner was removed → end transit.
-            let Some((enter, exit)) = pair_for(t.straddling) else {
+            let Some((enter, _exit)) = pair_for(t.straddling) else {
                 return TransitStep::Clear;
             };
-            let ef = enter.frame();
-            // The centroid crossing the plane triggers the transfer. Gameplay
-            // sees no discontinuity because queries use the portal pieces.
-            // Whole, or not at all (`crate::snag`): a body that cuts the plane
-            // past an end stays straddling until it fits.
-            if !t.crossed
-                && pp::front_distance(center, &ef) <= 0.0
-                && crate::snag::fits_through(body, &enter.aperture())
-            {
-                return transfer_step(center, vel, enter, exit, gravity_dir, tuning);
-            }
-            // Swept re-crossing while the post-transfer latch clears. On a fast
-            // portal loop, the body can cross the next aperture in under one
-            // frame, while `crossed` is still set. Without this, the frame is
-            // spent on Clear and the body embeds. The `!crossed` case needs no
-            // sweep: the centroid test above works at any depth.
-            if t.crossed {
-                if let Some(step) =
-                    swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning)
-                {
-                    return step;
-                }
-            }
             // Stay engaged so the carve stays open while the body sinks and
             // crosses. The cooldown latch (set on transfer) stops re-entry.
             let still_engaged = if t.crossed {

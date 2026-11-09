@@ -313,13 +313,34 @@ snapshot_pod!(crate::body_clusters::BodyLedgeState {
     release_cooldown: f32,
 });
 
-snapshot_pod!(crate::body_clusters::SweepSample {
-    prev: vec2,
-    curr: vec2,
-    vel: vec2,
-    half: vec2,
-    down: vec2,
-});
+impl SnapshotState for crate::body_clusters::SweepSample {
+    fn encode(&self, out: &mut Vec<u8>) {
+        for time in self.time { crate::snapshot::put_u64(out, time.to_bits()); }
+        match self.travel {
+            crate::LinearTravel::Complete => out.push(0),
+            crate::LinearTravel::Prefix { delta, until } => {
+                out.push(1); put_vec2(out, delta); crate::snapshot::put_u64(out, until.to_bits());
+            }
+        }
+        for v in [self.prev, self.curr, self.vel, self.half, self.down] { put_vec2(out, v); }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let time = [f64::from_bits(r.u64()?), f64::from_bits(r.u64()?)];
+        if !time[0].is_finite() || !time[1].is_finite()
+            || time[0] < 0.0 || time[1] > 1.0 || time[0] > time[1] { return None; }
+        let travel = match r.u8()? {
+            0 => crate::LinearTravel::Complete,
+            1 => {
+                let delta = r.vec2()?;
+                let until = f64::from_bits(r.u64()?);
+                if !delta.is_finite() || !until.is_finite() || !(0.0..=1.0).contains(&until) { return None; }
+                crate::LinearTravel::Prefix { delta, until }
+            }
+            _ => return None,
+        };
+        Some(Self { time, travel, prev: r.vec2()?, curr: r.vec2()?, vel: r.vec2()?, half: r.vec2()?, down: r.vec2()? })
+    }
+}
 
 snapshot_pod!(crate::geometry::CenteredAabb {
     center: vec2,

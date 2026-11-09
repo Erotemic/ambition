@@ -51,10 +51,10 @@ fn a_body_half_past_an_end_is_held_on_the_host() {
 }
 
 /// Straddling the opening and drifting sideways in it, it meets the end of
-/// the opening (and its squeeze) and goes back along the face.
+/// the opening and goes back along the face.
 #[test]
 fn a_body_drifting_past_an_end_inside_the_opening_is_held_at_its_side() {
-    let x = 22.0 + super::SQUEEZE;
+    let x = 22.0;
     let (push, _) = snag_push(at(x, 300.0), Some(at(x - 4.0, 300.0)), &floor().aperture()).expect("held");
     assert!(push.y.abs() < 1e-3 && (push.x + 2.0).abs() < 1e-3, "back toward the middle by 2: {push:?}");
 }
@@ -145,7 +145,7 @@ fn a_kernel_body_half_past_an_end_is_held() {
     app.world_mut().spawn(floor());
     app.world_mut().spawn(exit());
     let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), canonical_size: BODY * 2.0, facing: 1.0 };
-    let record = SweepSample { prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
+    let record = SweepSample { travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
     let body = app.world_mut().spawn((kin, record)).id();
     app.update();
     let kin = app.world().get::<BodyKinematics>(body).unwrap();
@@ -165,8 +165,8 @@ fn a_body_walking_past_an_end_in_a_slope_opening_meets_its_side() {
     assert!(up_the_slope.x > 0.0, "premise: the tangent runs up the slope to the right");
     // 27.5 along (and the squeeze) and 10 deep: a step of 4.5 px right took
     // where it cuts the slope past the end.
-    let end = 46.0 + super::SQUEEZE;
-    let centre = up_the_slope * (27.5 + super::SQUEEZE) - normal * 10.0;
+    let end = 46.0;
+    let centre = up_the_slope * 27.5 - normal * 10.0;
     let half = Vec2::new(12.0, 20.0);
     let body = ae::Aabb::new(centre, half);
     let came_from = ae::Aabb::new(centre - Vec2::new(4.5, 0.0), half);
@@ -192,12 +192,11 @@ fn a_body_that_cuts_the_plane_past_an_end_is_not_taken() {
             Vec2::new(x, 302.0),
             BODY * 2.0,
             Vec2::new(0.0, 100.0),
-            None,
+            Some(crate::SweptSample { travel: Default::default(), pos: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0] }),
             straddling,
             None,
             &portals,
             Vec2::new(0.0, 1.0),
-            &crate::types::PortalHostDepths::default(),
             &crate::PortalTuning::default(),
         )
     };

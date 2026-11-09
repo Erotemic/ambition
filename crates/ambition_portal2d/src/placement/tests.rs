@@ -1,6 +1,14 @@
 use super::*;
 use crate::color::{PortalChannel, PortalChannelColor};
 
+fn transfer_step(center: Vec2, vel: Vec2, enter: PlacedPortal, exit: PlacedPortal,
+    down: Vec2, tuning: &PortalTuning) -> TransitStep {
+    super::transfer_step(PortalCrossing {
+        root: ae::frame::RootCrossing { point: center, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
+        exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
+    }, center, vel, down, tuning)
+}
+
 fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
     PlacedPortal::fixed(
         channel,
@@ -43,7 +51,7 @@ fn a_moving_portal_scoops_a_stationary_body() {
         center,
         Vec2::new(24.0, 40.0),
         Vec2::ZERO,
-        Some(SweptSample {
+        Some(SweptSample { travel: Default::default(), time: [0.0, 1.0],
             pos: center,
             vel: Vec2::ZERO,
         }), // no body motion
@@ -51,7 +59,6 @@ fn a_moving_portal_scoops_a_stationary_body() {
         None,
         &portals,
         Vec2::new(0.0, 1.0),
-        &super::super::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     );
     match step {
@@ -83,6 +90,7 @@ fn a_turning_portal_scoops_a_still_body_and_gives_it_its_surface_speed() {
     let (sin, cos) = turn.sin_cos();
     enter.turn_to(Vec2::new(sin, -cos));
     enter.spin = turn / dt;
+    enter.step.turn = turn;
     enter.pivot = enter.pos;
     let exit = floor(YELLOW, Vec2::new(500.0, 600.0));
     let portals = [enter.clone(), exit];
@@ -92,12 +100,11 @@ fn a_turning_portal_scoops_a_still_body_and_gives_it_its_surface_speed() {
         center,
         Vec2::new(8.0, 8.0),
         Vec2::ZERO,
-        Some(SweptSample { pos: center, vel: Vec2::ZERO }),
+        Some(SweptSample { travel: Default::default(), time: [0.0, 1.0], pos: center, vel: Vec2::ZERO }),
         None,
         None,
         &portals,
         Vec2::new(0.0, 1.0),
-        &super::super::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     );
     match step {
@@ -133,7 +140,7 @@ fn a_body_co_moving_with_the_aperture_never_swept_transfers() {
         center,
         Vec2::new(24.0, 40.0),
         Vec2::new(0.0, 720.0),
-        Some(SweptSample {
+        Some(SweptSample { travel: Default::default(), time: [0.0, 1.0],
             pos: center - delta,
             vel: Vec2::new(0.0, 720.0),
         }),
@@ -141,7 +148,6 @@ fn a_body_co_moving_with_the_aperture_never_swept_transfers() {
         None,
         &portals,
         Vec2::new(0.0, 1.0),
-        &super::super::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     );
     assert!(
@@ -220,21 +226,22 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
 /// frames and end fully below the entry plane inside the open carve, with
 /// Begin blocked by the cooldown. The rescue must still transfer it.
 #[test]
-fn rescue_transfers_a_deep_crossing_inside_the_carve_even_on_cooldown() {
+fn a_recorded_deep_crossing_transfers_even_on_cooldown() {
     let portals = [
         floor(PURPLE, Vec2::new(100.0, 300.0)),
         floor(YELLOW, Vec2::new(500.0, 300.0)),
     ];
     // Body (24x40) entirely below the plane (top edge y=315 > 300) but
     // within the carve volume, still falling in, mid ping-pong cooldown.
-    let step = transit_step(
+    let step = transit_step_with_tuning(
         Vec2::new(100.0, 335.0),
         Vec2::new(24.0, 40.0),
         Vec2::new(0.0, 1600.0),
+        Some(SweptSample { travel: Default::default(), pos: Vec2::new(100.0, 275.0), vel: Vec2::new(0.0, 1600.0), time: [0.0, 1.0] }),
         None,
         Some(PURPLE), // cooldown latched — Begin blocked, only the rescue can act
         &portals,
-        Vec2::new(0.0, 1.0),
+        Vec2::new(0.0, 1.0), &PortalTuning::default(),
     );
     match step {
         TransitStep::Transfer { transfer, .. } => {
@@ -252,36 +259,7 @@ fn wall_portal(channel: PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal 
     PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF)
 }
 
-/// Thin-wall guard: with the host wall measured at 24 px, the rescue volume
-/// ends at the wall's far face. A body in the room behind the wall is not
-/// teleported; a deep crossing inside the material still transfers.
-#[test]
-fn rescue_is_bounded_by_the_measured_host_depth() {
-    use crate::types::PortalHostDepths;
-    // Left face of a 24px wall spanning x ∈ [500, 524].
-    let a = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
-    let b = wall_portal(YELLOW, Vec2::new(100.0, 450.0), Vec2::new(-1.0, 0.0));
-    let portals = [a, b];
-    let depths = PortalHostDepths(vec![(PURPLE, 24.0), (YELLOW, 24.0)]);
-    // A body behind the wall (40 px past A's plane, inside the unclipped
-    // 60 px hole) moving deeper must stay Idle.
-    let step = transit_step_with_tuning(
-        Vec2::new(540.0, 450.0),
-        Vec2::new(24.0, 40.0),
-        Vec2::new(80.0, 0.0), // moving +x = away from A's face = vel·n < 0
-        None,
-        None,
-        None,
-        &portals,
-        Vec2::new(0.0, 1.0),
-        &depths,
-        &PortalTuning::default(),
-    );
-    assert!(
-        matches!(step, TransitStep::Idle),
-        "a body in the open room behind a thin wall must never be rescued, got {step:?}"
-    );
-}
+
 
 /// A body against the back of a thin host wall must not Begin transit. The
 /// capture box reaches through thin material, so Begin checks the front side.
@@ -350,28 +328,7 @@ fn cooldown_is_pair_scoped() {
     );
 }
 
-/// The carve volume bounds the rescue: a body genuinely below the surface
-/// (past the carve depth) is never teleported.
-#[test]
-fn rescue_never_grabs_a_body_past_the_carve_depth() {
-    let portals = [
-        floor(PURPLE, Vec2::new(100.0, 300.0)),
-        floor(YELLOW, Vec2::new(500.0, 300.0)),
-    ];
-    let step = transit_step(
-        Vec2::new(100.0, 420.0), // top edge y=400, past the 60px carve
-        Vec2::new(24.0, 40.0),
-        Vec2::new(0.0, 400.0),
-        None,
-        Some(PURPLE),
-        &portals,
-        Vec2::new(0.0, 1.0),
-    );
-    assert!(
-        matches!(step, TransitStep::Idle),
-        "a body below the carve volume must not be rescued, got {step:?}"
-    );
-}
+
 
 fn ceiling(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
     PlacedPortal::fixed(
@@ -403,7 +360,7 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
 
     let mut pos = Vec2::new(100.0, ceiling_y + 40.0);
     let mut vel = Vec2::new(0.0, 200.0);
-    let mut prev = SweptSample { pos, vel };
+    let mut prev = SweptSample { travel: Default::default(), pos, vel, time: [0.0, 1.0] };
     let mut transit: Option<PortalTransit> = None;
     let mut cooldown: Option<(PortalChannel, f32)> = None;
     let mut transfers = 0u32;
@@ -421,7 +378,6 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
             cooldown.map(|(c, _)| c),
             &portals,
             Vec2::new(0.0, 1.0),
-            &depths,
             &tuning,
         );
         match step {
@@ -462,7 +418,7 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
 
         // As in the live system: record post-step pos/vel, then integrate one
         // ballistic frame.
-        prev = SweptSample { pos, vel };
+        prev = SweptSample { travel: Default::default(), pos, vel, time: [0.0, 1.0] };
         vel.y += gravity * dt;
         pos.y += vel.y * dt;
         peak_step = peak_step.max(vel.y * dt);
@@ -486,7 +442,7 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
 /// of travel (a respawn, reset, or teleport) is not travel through an
 /// aperture, even if the line crosses the portal plane inside the opening.
 #[test]
-fn swept_tier_ignores_teleport_sized_segments() {
+fn a_discontinuity_without_a_segment_does_not_cross() {
     let portals = [
         floor(PURPLE, Vec2::new(100.0, 300.0)),
         floor(YELLOW, Vec2::new(500.0, 300.0)),
@@ -497,15 +453,11 @@ fn swept_tier_ignores_teleport_sized_segments() {
         Vec2::new(100.0, 700.0),
         Vec2::new(24.0, 40.0),
         Vec2::ZERO,
-        Some(SweptSample {
-            pos: Vec2::new(100.0, -100.0),
-            vel: Vec2::new(0.0, 100.0),
-        }),
+        None,
         None,
         None,
         &portals,
         Vec2::new(0.0, 1.0),
-        &crate::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     );
     assert!(
@@ -530,7 +482,7 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
         Vec2::new(100.0, 410.0),
         Vec2::new(24.0, 40.0),
         Vec2::ZERO,
-        Some(SweptSample {
+        Some(SweptSample { travel: Default::default(), time: [0.0, 1.0],
             pos: Vec2::new(100.0, 210.0),
             vel: Vec2::new(0.0, 15000.0),
         }),
@@ -538,7 +490,6 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
         Some(PURPLE), // even mid ping-pong cooldown
         &portals,
         Vec2::new(0.0, 1.0),
-        &crate::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     );
     match step {
@@ -712,8 +663,10 @@ fn a_body_goes_through_a_portal_on_a_slope() {
     let transit = Some(crate::transit::PortalTransit { straddling: PURPLE, crossed: false });
     let mut step = TransitStep::Continue;
     for _ in 0..30 {
+        let previous = center;
         center += vel / 60.0;
-        step = transit_step(center, size, vel, transit, None, &portals, down);
+        step = transit_step_with_tuning(center, size, vel,
+            Some(SweptSample { travel: Default::default(), pos: previous, vel, time: [0.0, 1.0] }), transit, None, &portals, down, &PortalTuning::default());
         if matches!(step, TransitStep::Transfer { .. }) {
             break;
         }
@@ -791,6 +744,31 @@ fn an_unrepresentable_transfer_is_a_typed_refusal() {
     let enter = floor(PURPLE, Vec2::ZERO);
     let mut exit = floor(YELLOW, Vec2::new(500.0, 100.0));
     exit.half_length = f32::NAN;
-    assert!(matches!(transfer_step(Vec2::ZERO, Vec2::Y, enter, exit, Vec2::Y, &PortalTuning::default()),
-        TransitStep::Refused { reason: ae::frame::NumericFault::NonFinite, channel: PURPLE }));
+    assert!(matches!(super::transfer_step(PortalCrossing {
+            root: ae::frame::RootCrossing { point: Vec2::ZERO, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
+            exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
+        }, Vec2::ZERO, Vec2::Y, Vec2::Y, &PortalTuning::default()),
+        TransitStep::Refused { reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::NonFinite), channel: PURPLE }));
+}
+
+
+#[test]
+fn a_full_turn_takes_a_still_root_at_the_crossing_pose() {
+    let mut enter = floor(PURPLE, Vec2::new(100.0, 300.0));
+    enter.step = ae::frame::ApertureStep::ending_at(enter.frame(), Vec2::ZERO, std::f32::consts::TAU);
+    enter.spin = std::f32::consts::TAU * 60.0;
+    let exit = floor(YELLOW, Vec2::new(500.0, 300.0));
+    let root = enter.pos + Vec2::new(20.0, -4.0);
+    let portals = [enter.clone(), exit.clone()];
+    let step = transit_step_with_tuning(root, Vec2::splat(4.0), Vec2::ZERO,
+        Some(SweptSample { travel: Default::default(), pos: root, vel: Vec2::ZERO, time: [0.0, 1.0] }),
+        None, None, &portals, Vec2::Y, &PortalTuning::default());
+    let TransitStep::Transfer { transfer, .. } = step else { panic!("{step:?}"); };
+    assert!(transfer.crossing_time > 0.0 && transfer.crossing_time < 1.0);
+    assert_eq!(transfer.crossing_point, root);
+    assert!((root - transfer.enter.frame.origin).dot(transfer.enter.frame.normal).abs() < 1.0e-5);
+    assert!(transfer.enter.frame.normal.distance(enter.normal) > 0.5);
+    let expected = transfer.map.velocity(&transfer.enter.frame, &transfer.exit.frame, root, Vec2::ZERO).unwrap();
+    assert!(transfer.mapped_vel.distance(expected) < 1.0e-4);
+    assert!((transfer.exit_pos - exit.pos).dot(exit.normal).abs() < 1.0e-4);
 }

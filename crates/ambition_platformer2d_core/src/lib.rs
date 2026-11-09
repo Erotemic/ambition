@@ -74,7 +74,7 @@ pub use body_clusters::{
     BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifeStats, BodyRestartLatch,
     BodyLineAnchor, DepthPlane, Unmirrored, mirror_side,
     BodyModeState, BodyRestarted, BodyShieldState, BodyWallState,
-    RecoveryRefresh, ResetFacing, SweepSample, DEFAULT_RECOVERY_CHARGES,
+    RecoveryRefresh, ResetFacing, LinearTravel, SweepSample, DEFAULT_RECOVERY_CHARGES,
 };
 pub use rollback_registration::register_rollback_state;
 // TODO(compat-remove): migrate geometry/frame callers to `ambition_geometry`, then remove

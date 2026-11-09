@@ -257,13 +257,13 @@ the crossing frame.
   16 px). The frame-clock smoothing (`PresentedPose`) guesses a teleport only past ~50 px,
   so it took the hop for a step and extrapolated it. The host now declares each portal
   transit (`DeclaredPoseWarps`); a declared body keeps its pace along its new velocity.
-- **A hole is open only for the bodies that opened it** (Jon 2026-10-16), so a body standing
-  on the lintel keeps its floor while another passes. `PortalCarves` holes carry `open_for`;
-  the overlay's `portal_holes` (`PortalHolePass`) are cut only in the walls a body meets
-  (`ComposedRooms::solids_for`, `RoomCollision::solids_for`, `as_met_by`), as gate passes
-  are; a shot meets the holes it opened (`ProjectileCollisionWorld::holes_for`), an item
-  its own (`SolidsByRoom::met_by`). Readers that name no body (raycasts, the brain, nav)
-  see the host whole.
+- **Host openings are body-scoped.** Actor and item carve views use
+  `PortalHolePass` and the reader's body identity. Readers without that
+  identity see the host whole. Projectiles use `World::first_material_sweep`
+  with their own `MotionAdmission` and the uncarved room (c69a7c1bd). The
+  material cells define the opening. The guard
+  `a_projectile_hits_far_side_geometry_before_its_root_transits` stops a shot
+  on a real obstacle two pixels outside the exit before its root transits.
 - **Two ends that face each other** show a picture in a picture; one level of recursion leaves
   a strip at the far edge that the next frame shows as a window.
 

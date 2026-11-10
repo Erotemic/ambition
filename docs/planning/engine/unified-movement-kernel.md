@@ -118,6 +118,48 @@ cannot make it shy; two pose sources do not erase one another; an active
 pipe/boss limb restores its lease across rollback; the movement kernel
 still sees exactly one final authority and emits no artificial landing.
 
+### Grounded attack momentum (GROUNDED-ATTACK-MOMENTUM, Q169)
+
+**Measured 2026-11-10, the robot (axis law) in the shipped Ambition game.**
+Probe: `game/ambition_app/tests/grounded_attack_momentum.rs`,
+`probe_what_a_grounded_attack_does_to_a_running_body` (ignored). The robot
+runs right in `central_hub_complex` for 45 frames (270 px/s, on the ground).
+It then presses attack on one frame (`blade_rise`, which plays for 29
+frames), with the stick as each row says, and is followed for 90 frames.
+
+| Case | Speed at the press | Travel during the move | Travel in 90 frames | Speed after the press, every 6 frames |
+|---|---|---|---|---|
+| No attack, hands off (the brake) | 270 | – | 0.9 px | 57, 0, 0, … |
+| Attack, hands off | 270 | 0.9 px | 0.9 px | 57, 0, 0, … |
+| Attack, stick forward | 270 | 130.5 px | 405 px | 270 throughout |
+| Attack, stick back | 270 | −98.2 px | −373 px | 183, −162, −270, … |
+| No attack, stick forward (the run goes on) | 270 | – | 405 px | 270 throughout |
+
+- **The move takes the stick.** With the stick held, the body walks through
+  the swing at full run speed, forward or back. That is the authored intent
+  (`player_robot.ron`: "a swing does not root it", the knight of Hollow
+  Knight, Jon 2026-10-12).
+- **It keeps no speed of its own.** Hands off, an attack brakes exactly as
+  standing still does: 270 to 0 in under a pixel. The move adds no
+  displacement.
+- **Ledge carry follows from the two above.** Hands off, the body stops at
+  once, so a grounded attack cannot carry it off a ledge. With the stick held,
+  it walks off a ledge as a run would. The probe's "left the ground" flag also
+  fires in the no-attack run, so the hall's floor sets it, not the move; a
+  controlled-ledge witness is still owed.
+
+**Recommendation for the robot:** no change. The measured behaviour is the
+authored one, and the axis law's instant brake already rules out a slide.
+
+**Not yet measured:**
+- the Smash fighters' traction law (a dash attack and a dash cancel);
+- Sanic's surface-momentum law (the 2026-10-13 coast of 351 px from
+  530 px/s comes from a brain test, not from a move played in the game);
+- a controlled ledge.
+
+These need the Smash and Sanic hosts. Compare them with Smash Ultimate's
+traction and Hollow Knight's Dash Slash before changing either.
+
 ## Re-measuring these gates
 
 The `.ldtk` worlds are versioned in the `game/ambition_map_assets` submodule, so

@@ -777,7 +777,15 @@ the moveset (`MoveFrameData::roots_steering`). Ruling: Q169 (filed as Q166,
 law then brakes at its hands-off rate. The axis laws stop in about 3 px from
 270 px/s; Sanic's surface-momentum law coasts 351 px from 530 px/s.
 
-**Next action:** measure, for representative laws and moves: whether the move
+**Measured 2026-11-10, the robot:** a grounded attack takes the stick (it
+walks through the swing at run speed) and keeps no speed of its own (hands off,
+it brakes as standing does, in under a pixel). That is the authored Hollow
+Knight model; no change is recommended
+([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)).
+
+**Next action:** the same for the Smash traction law and Sanic's
+surface-momentum law, and a controlled ledge. Originally: measure, for
+representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry
 its user off a ledge. Compare with Smash Ultimate (traction, dash cancels) and

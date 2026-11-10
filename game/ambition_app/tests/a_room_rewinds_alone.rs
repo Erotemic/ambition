@@ -20,7 +20,7 @@ use ambition_platformer2d::platformer::projectile::ProjectileGameplay;
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
 use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::rollback::RoomSnapshotRows;
-use ambition_platformer2d::time::{ClockState, DayClock, SimTick, WorldTime};
+use ambition_platformer2d::time::{ClockState, DayClock, GameplayElapsed, SimTick, WorldTime};
 use bevy::ecs::entity_disabling::Disabled;
 use bevy::prelude::{Entity, World};
 
@@ -47,7 +47,7 @@ fn bobs_walk(_frame: i32) -> ControlFrame {
 }
 
 /// Every entity in `room`, and the room's own root.
-fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
+pub(crate) fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
     let mut entities: Vec<Entity> = world
         .query::<(Entity, &InRoomInstance)>()
         .iter(world)
@@ -59,23 +59,30 @@ fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
     entities
 }
 
+/// The shared clock: the tick, the frame's time, the day, the scale, and the
+/// session's elapsed seconds (`GameplayElapsed`, on the session root, which a
+/// brain's timers read).
 #[derive(Clone, Copy, Debug)]
-struct Clock(SimTick, WorldTime, DayClock, ClockState);
+pub(crate) struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed);
 
-fn clock(world: &World) -> Clock {
+pub(crate) fn clock(world: &World) -> Clock {
     Clock(
         *world.resource::<SimTick>(),
         *world.resource::<WorldTime>(),
         *world.resource::<DayClock>(),
         *world.resource::<ClockState>(),
+        *ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(world)
+            .expect("the session root carries the clock"),
     )
 }
 
-fn set_clock(world: &mut World, clock: Clock) {
+pub(crate) fn set_clock(world: &mut World, clock: Clock) {
     world.insert_resource(clock.0);
     world.insert_resource(clock.1);
     world.insert_resource(clock.2);
     world.insert_resource(clock.3);
+    *ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<GameplayElapsed>(world)
+        .expect("the session root carries the clock") = clock.4;
 }
 
 fn differences(label: &str, expected: &BTreeMap<SimId, [f32; 5]>, got: &BTreeMap<SimId, [f32; 5]>) -> Vec<String> {

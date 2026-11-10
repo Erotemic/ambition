@@ -70,7 +70,8 @@ pub use session::{
     simulation_authorized,
 };
 pub use session_messages::{
-    SessionMessageChannels, clear_message_at_session_activation, keep_message_across_session_activation,
+    SessionMessageChannels, clear_channels_for_a_rewind, clear_message_at_session_activation,
+    keep_message_across_session_activation,
 };
 
 mod session_time;

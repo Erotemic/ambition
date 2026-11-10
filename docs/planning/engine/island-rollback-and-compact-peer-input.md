@@ -233,6 +233,40 @@ not before it: today only tests restore a room. Its first customers are the
 grant record and the save's pickup flags; the census of world stores written
 from rooms comes with it.
 
+### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
+
+Probe `probe_what_room_rollback_costs_a_hosted_world`
+(`game/ambition_app/tests/room_rollback_host.rs`, ignored). The NA-2 scenes,
+with a third topology: the host predicts the guest's input (his last arrived
+one), saves the guest's room every frame through `RoomSnapshotRows`, and when
+the real input for frame g arrives three frames late and differs, restores the
+room to g (with the shared clock and the rollback-cleared message channels)
+and replays it to now. An oracle run with the guest's input on time gives the
+right ending.
+
+| Scene | Host, late input applied (NA-2) | Host with room rollback | GGRS, each peer (NA-2) | Rollbacks / replayed frames | Ends as the oracle |
+|---|---|---|---|---|---|
+| `switch_lab`, inputs never change | 8.4 ms | 9.4 ms | 32.6–34.7 ms | 1 / 3 | yes |
+| `switch_lab`, Alice fights, Bob turns | 8.9 ms | 14.5 ms | 37.7–48.0 ms | 43 / 129 | yes (2 bodies) |
+| `central_hub_complex` with its NPCs | 9.9 ms | 16.3 ms | 45.2–47.6 ms | 43 / 129 | yes (18 bodies) |
+
+Milliseconds of host update per simulated frame, debug build, one run each, so
+compare ratios. A room save costs 1.3 ms (`switch_lab`) to 2.3 ms (the hub)
+a frame and a restore 2.0–3.0 ms; the rest is the replayed updates. **Keeping
+a room correct by rollback costs the host about 1.1–1.6 times a host that does
+not, and about a third of what each GGRS peer pays**, and only the room whose
+guest was mispredicted pays it.
+
+One divergence was found and fixed in the probe: the dog in the hub ended
+8 px off, because its rest ends at a time read from `GameplayElapsed` (on the
+session root), which the first probe did not rewind. The session's elapsed
+time is part of the shared clock a room rewind restores, beside `SimTick`,
+`WorldTime`, `DayClock` and `ClockState`.
+
+What this does not show: a guest's own prediction and correction (NA-3); two
+rooms with a rewind in one (the witness above shows the other is untouched,
+but not its cost); world writes in the window (ISL-2d); bytes.
+
 ### Next (ISL-2c and ISL-1b)
 
 1. **ISL-2c — the witness under load.** A hit on an NPC, an NPC life that

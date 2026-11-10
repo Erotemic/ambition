@@ -77,7 +77,9 @@ or updating their source. Check with
 
 **Measured 2026-11-10 (ISL-2d):** a coin taken in a rewound window pays the wallet once (it is on the body and rewinds) but is recorded twice in the world's grant record; the chosen design (world records stamped with room and tick, retracted on a room rewind) is built with the room rollback host ([result](engine/island-rollback-and-compact-peer-input.md#isl-2d-measured-2026-11-10-a-world-write-in-a-rewound-window)).
 
-**Next action:** the room rollback host: when and how a room rewinds in a hosted world (late guest input), with the world-write retraction; ISL-2c, a hit on an NPC in the window; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
+**Measured 2026-11-10 (ISL-2e):** a hosted world that predicts its guest and rewinds only his room on a late input ends where an on-time run ends, at 9.4–16.3 ms of host update a frame (the late-applying host: 8.4–9.9; each GGRS peer: 33–48) ([result](engine/island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
+
+**Next action:** make the room rollback host production code (the probe's loop as a host-side system: per-room input history, prediction, a rewind on a late input, the shared clock and message channels, the world-write retraction of ISL-2d); ISL-2c, a hit on an NPC in the window; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 

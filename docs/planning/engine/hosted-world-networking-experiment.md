@@ -106,7 +106,18 @@ over 600 ms).
   link; sending only the bodies that changed is 95. Scoped to a guest alone in
   a quiet room it is 25–27. Input synchronization is flat in the size of the
   world, and replication grows with what the guest can see, so the byte
-  comparison turns on delta encoding and interest, not on the topology alone.## Next
+  comparison turns on delta encoding and interest, not on the topology alone.
+
+### Room rollback on the host (2026-11-10)
+
+The hybrid direction (rollback within a room, hosted authority around it) adds
+a third topology to these scenes: the host predicts the guest and rewinds only
+his room when a late input says otherwise. It ends where an on-time run ends in
+every scene, at 9.4–16.3 ms of host update a frame against 8.4–9.9 ms for
+the late-applying host and 33–48 ms for each GGRS peer
+([result](island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
+
+## Next
 
 1. **NA-2b — a guest App.** Apply the host's room-scoped snapshot to a guest
    App that runs no simulation of its own (interpolated remote bodies only),

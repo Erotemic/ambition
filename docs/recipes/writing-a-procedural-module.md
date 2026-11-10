@@ -5,20 +5,13 @@ last_verified: 2026-10-01
 
 # Writing a procedural module (no engine build)
 
-A procedural module is a gameplay algorithm with its own state: a boss
-technique, or a wielded item's use (the shockwave, beam, volley and meteor). It is written against `ambition_extension_sdk` and the pure
-values of the ports it uses, and nothing else. Edit it, rebuild only the
-module crate as a `.wasm` file, and the running game picks it up.
+A procedural module defines a stateful gameplay algorithm such as a boss
+technique or wielded item's behavior. It depends on `ambition_extension_sdk`
+and pure port values. Rebuild the module `.wasm` file to try an edit without
+relinking the running game.
 
-Typical cost of a one-constant edit, warm build:
-
-| road | edit → playable |
-|---|---|
-| a technique in `game/ambition_content` (engine build) | 7.05 s to relink the app, then a restart |
-| the same technique as a module | 0.34 s to rebuild the `.wasm`, hot-reloaded into the running game |
-
-Design and status: `docs/planning/engine/fast-iteration-implementation.md` (I4,
-and the loaded road after it).
+This is the fast-iteration path for behavior implemented through existing
+ports. Adding a new port or changing its host adapter is engine development.
 
 ## The loop
 
@@ -36,16 +29,16 @@ Or leave a watcher running instead of the second build:
 scripts/regen/build_extension_modules.sh --watch  # rebuilds on every save; a failed build keeps the last good one
 ```
 
-With the watcher, save to rebuilt `.wasm` is about half a second (build plus the
-watcher's half-second poll). The game's reload poll adds up to 20 frames.
+The watcher rebuilds on changes; the runtime polls for updated modules.
+Actual latency depends on the module, toolchain and machine.
 
 The log says `AMBITION_EXTENSION_MODULES: … provides [...]` at start and
 `… changed; reload proposed` / `extension modules reloaded` on a reload.
 
 - A loaded module **explicitly replaces** the linked module of the same key;
   admission records it (`AdmittedExtensions::replaced`).
-- A file that does not load or admit is **reported and the running code
-  stays**. A file named at start that does not load stops the run.
+- A failed reload leaves the running code intact. An explicitly requested
+  module that cannot load at startup stops the run.
 - A reload that changes a state schema's **fields** carries every live record
   over by field tag (`StateSchema::migrate`): a renamed or moved field keeps its
   value, a field whose kind changed starts from its initial value. A reload that
@@ -54,8 +47,8 @@ The log says `AMBITION_EXTENSION_MODULES: … provides [...]` at start and
 - A reloaded file replaces **every module it gave**, as one set: a module the
   new build no longer exports leaves. Files changed before one publication are
   one reload. A schema no module declares any more takes its records with it.
-- A reload is a mechanical edit (`Q120`): a local rollback timeline is rebased
-  for it; a timeline this process did not start refuses it.
+- A reload is a mechanical edit: the owning local rollback timeline may be
+  rebased; a timeline the process does not own can refuse the change.
 
 ## Writing one
 
@@ -193,10 +186,18 @@ from its initial value.
 
 ## Validation
 
+Build the module and exercise the affected technique in the running game.
+Use `extension_inspect` when you need to confirm loaded versus linked code,
+port requests or live record state.
+
+For a regression involving module admission or execution, relevant focused
+checks include:
+
 ```bash
-cargo test -p ambition_content --lib -- module_parity_tests   # each migrated technique vs its old native system, linked and WASM
+cargo test -p ambition_content --lib -- module_parity_tests
 cargo test -p ambition_app --test app_it -- a_boss_special_runs_on_the_extension_host
 ```
 
-A NEW technique has no native reference: give it its own behaviour test on
-the module road (a headless fight test, such as `trex_fight.rs`).
+Those suites are examples, not a default requirement for every technique edit.
+For a new technique, prefer a playable encounter or focused headless fight
+scenario over duplicating every step in unit tests.

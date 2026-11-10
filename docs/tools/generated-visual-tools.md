@@ -4,11 +4,10 @@
 The [sprite publication guide](sprite-publication.md) describes the accepted
 bundle store, source snapshots, exact membership, and publication queries.
 
-How the runtime's generated **visual** assets (character/entity spritesheets,
-backgrounds, parallax layers) are produced and published. The short version:
-**edit a source config, run the matching `regen_*.sh`, commit the authored changes** —
-never hand-edit a published `.png`/`.ron` and never fork a one-off render
-script (see [Avoid one-off forks](#avoid-one-off-forks)).
+Generated character art, terrain and backgrounds are produced from authored
+sources, then selected for runtime use through the library's publication and
+generated-content contracts. Edit source definitions and invoke the existing
+producer; never treat generated images or metadata as authored source.
 
 > Audio (music/SFX) lives in the same `scripts/regen/assets.sh` pipeline but is
 > documented separately — see
@@ -17,29 +16,30 @@ script (see [Avoid one-off forks](#avoid-one-off-forks)).
 
 ## The publish pipeline (start here)
 
-`scripts/regen/assets.sh` at the repo root is the orchestrator. It runs each category
-in order and profiles per-category timing to `target/regen_assets/latest.jsonl`
-(gitignored), aborting on the first failure:
+`scripts/regen/assets.sh` orchestrates the categories declared by the selected
+content library and records per-category timing under `target/regen_assets/`.
+Use a scoped category or target for routine iteration:
 
 ```bash
-./scripts/regen/assets.sh                 # backgrounds, sprites, variants, music, sfx
+./scripts/regen/assets.sh                 # all declared producers; can be expensive
 ./scripts/regen/assets.sh sprites         # just one (or several) categories, in order
 ./scripts/regen/backgrounds.sh --help     # per-category options live on each script
 ./scripts/regen/sprites.sh --help
 ./scripts/regen/quality_variants.sh --help
 ```
 
-Each category script defaults to the producing tool's own `.venv`, created by
-`run_developer_setup.sh`. Tool-specific `AMBITION_*_PYTHON` variables (and the
-legacy `$PYTHON` override where a script uses one tool) can replace it. Sprite outputs go into the accepted bundle store. Other categories use the
-actor crate's `assets/` root. Current recipes can reuse accepted outputs.
-`--force` rebuilds selected products.
+Category scripts use the producing tool's environment from
+`run_developer_setup.sh`, with documented `AMBITION_*_PYTHON` overrides. The
+library's `library.json` declares its generated runtime and publication roots;
+visual and audio outputs do not belong in an actor crate's authored asset tree.
+Current products can be reused; `--force` rebuilds selected products.
 
 ## Sprite renderer — `tools/ambition_sprite2d_renderer/`
 
-Registered targets define products. The `runtime` collection in
-`ambition_sprite2d_renderer/data/publication.yaml` selects runtime targets.
-Targets can use Python, config generators, rigs, SVG parts, or scene graphs.
+Registered targets define products. The selected library's
+`game/ambition_content_library/authored/sprites.yaml` names its runtime sprite
+targets; the renderer contains the producing definitions and generators.
+Targets can use Python, rigs, SVG parts, config generators or scene graphs.
 
 ```bash
 ./scripts/regen/sprites.sh --plan --json
@@ -64,7 +64,7 @@ The Hall of Characters is the visual review surface for the roster.
 
 ## Background and parallax renderers
 
-- `tools/ambition_background_renderer/`: the placeholder background profiles.
+- `tools/ambition_background_renderer/`: background profile generator.
 - `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/backgrounds/`:
   the parallax scenes, one for each biome. They are art, so they are in the
   authoring submodule. `scenes.py` has the table and says what a view shows of
@@ -77,13 +77,12 @@ The Hall of Characters is the visual review surface for the roster.
   (motes and ground shadows). Published to `assets/room_dressing/`. A look
   without the game: `python -m ambition_sprite2d_renderer.terrain preview OUT.png lab cave`.
 
-`./scripts/regen/backgrounds.sh` runs both: placeholder profile backgrounds go
-under `game/ambition_content_library/generated/runtime/backgrounds/<profile>/`,
-and the parallax layers go under
-`game/ambition_content_library/generated/runtime/backgrounds/parallax_layers/`. These
-deliberately live under `assets/backgrounds/`, **not** `assets/sprites/` —
-`scripts/regen/sprites.sh` neither creates nor publishes them. Then
-`./scripts/regen/quality_variants.sh --backgrounds-only` makes the smaller tiers.
+`./scripts/regen/backgrounds.sh` publishes generated profile backgrounds,
+parallax layers, sky parts and room dressing into the selected library's
+runtime paths (`generated/runtime/full/backgrounds/` and
+`generated/runtime/full/room_dressing/` in the default library).
+`./scripts/regen/sprites.sh` does not produce those assets. The quality-variant
+producer supplies smaller tiers where applicable.
 
 To look at a scene without the game:
 
@@ -107,10 +106,10 @@ experiments, procedural-fit experiments, component-extraction prototypes).
 Promote a tool out of `experimental/` and document its workflow here before
 using it as a runtime asset source.
 
-## Avoid one-off forks
+## Extending a generator
 
-The whole point of the registry + `regen_*.sh` scripts is that **a fresh clone
-can reproduce every committed asset**. To keep that true:
+Keep new assets reproducible from tracked source definitions and the shared
+producer pipeline:
 
 - New character/entity art → register a target through the authoring family
   that best fits the asset, then run `scripts/regen/sprites.sh`. Use a YAML config only

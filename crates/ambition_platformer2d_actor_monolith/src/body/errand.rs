@@ -389,3 +389,125 @@ pub fn settle_errands(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_held_items::{GroundItem, ItemCustody};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_world::rooms::{
+        LiveRoomSpecs, LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec,
+    };
+    use bevy::ecs::system::RunSystemOnce;
+    use bevy::prelude::World;
+
+    const BLINK: &str = "ground_blink";
+
+    fn room(id: &str, doors: &[&str]) -> RoomSpec {
+        let mut spec = RoomSpec::new(id, ae::World::new(id, ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, Vec::new()));
+        spec.loading_zones = doors
+            .iter()
+            .map(|door| LoadingZone {
+                id: door.to_string(),
+                name: door.to_string(),
+                activation: LoadingZoneActivation::Door,
+                aabb: ae::Aabb::new(ae::Vec2::new(600.0, 400.0), ae::Vec2::new(16.0, 32.0)),
+            })
+            .collect();
+        spec
+    }
+
+    /// A live room of `id`'s definition, the next instance after `after`.
+    fn another_live_room(world: &mut World, id: &str, after: LiveRoomInstance) -> LiveRoomInstance {
+        let definition = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)
+            .expect("a room set")
+            .definition_by_id(id)
+            .expect("the room is in the set");
+        let live = after.next();
+        world.spawn((RoomInstanceRoot, live, definition));
+        live
+    }
+
+    /// The Blink, lying in the live room `room`.
+    fn the_blink_in(world: &mut World, room: LiveRoomInstance) {
+        world.spawn((
+            SimId::placement(BLINK),
+            GroundItem::at_rest(
+                ambition_characters::brain::HeldItemSpec {
+                    id: "blink".into(),
+                    melee: None,
+                    ranged: None,
+                    use_behavior: Default::default(),
+                },
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(8.0, 8.0),
+            ),
+            ItemCustody::InWorld,
+            InRoomInstance(room),
+        ));
+    }
+
+    /// The first crossing of an errand for the Blink, for a body in `body_room`.
+    fn crossing(world: &mut World, body_room: LiveRoomInstance) -> Result<ErrandCrossing, ErrandRefusal> {
+        let errand = Errand::fetch(SimId::placement(BLINK));
+        world
+            .run_system_once(
+                move |specs: LiveRoomSpecs, items: Query<(Entity, &SimId, &GroundItem, &ItemCustody)>| {
+                    errand_crossing(&errand, body_room, false, &specs, None, items.iter())
+                },
+            )
+            .expect("the crossing is asked")
+    }
+
+    /// An item in another live instance of the body's own room is there, and no
+    /// door leads to it: the errand has no route, and the item is not gone.
+    #[test]
+    fn an_item_in_another_instance_of_the_bodys_room_has_no_route_and_is_not_gone() {
+        let mut world = World::new();
+        ambition_platformer2d_world::rooms::insert_room_set(
+            &mut world,
+            RoomSet::from_parts_or_panic("hub", vec![room("hub", &[])], Vec::new()),
+        );
+        let hub = LiveRoomInstance::ACTIVATION;
+        let second = another_live_room(&mut world, "hub", hub);
+        the_blink_in(&mut world, second);
+        assert_eq!(
+            crossing(&mut world, hub),
+            Err(ErrandRefusal::NoRoute),
+            "the Blink lies in the hub's second instance"
+        );
+    }
+
+    /// ⭐ THE BODY GOES INTO THE LIVE ROOM ITS ITEM LIES IN. The cellar is live
+    /// twice, and the Blink lies in the second: the door leads into that one,
+    /// not into the first of its kind. A route that chose the least instance of
+    /// the definition went into a room the Blink was not in.
+    #[test]
+    fn the_crossing_goes_into_the_live_room_the_item_lies_in() {
+        let mut world = World::new();
+        ambition_platformer2d_world::rooms::insert_room_set(
+            &mut world,
+            RoomSet::from_parts_or_panic(
+                "hub",
+                vec![room("hub", &["door"]), room("cellar", &["door"])],
+                vec![RoomLink {
+                    from_room: "hub".into(),
+                    from_zone: "door".into(),
+                    to_room: "cellar".into(),
+                    to_zone: "door".into(),
+                    bidirectional: true,
+                }],
+            ),
+        );
+        let hub = LiveRoomInstance::ACTIVATION;
+        let first = another_live_room(&mut world, "cellar", hub);
+        let second = another_live_room(&mut world, "cellar", first);
+        the_blink_in(&mut world, second);
+        let crossing = crossing(&mut world, hub).expect("a door leads to the Blink's room");
+        assert_eq!(
+            (crossing.zone_id.as_str(), crossing.into),
+            ("door", CrossInto::Live(second)),
+            "the room the crossing goes into (the first cellar is {first:?})"
+        );
+    }
+}

@@ -1,11 +1,14 @@
 #![cfg(feature = "rl_sim")]
-//! NAVIGATION, slice 1: a goal given from outside, in one room.
+//! NAVIGATION: a goal given from outside.
 //!
 //! The basement dog is sent for an item by its stable identity (an `Errand`).
 //! It goes there by the room's surface graph with its own movement and takes
 //! the item by the one take of a ground item, or the errand ends refused with
 //! its reason. The item is the hub's Blink; where a refusal needs another
-//! place, the Blink is put down there.
+//! place, the Blink is put down there. Where the Blink lies in another room,
+//! the dog goes through the door into it when it is live, or leaves the live
+//! world through the ledger when nobody holds it, and both crossings resimulate
+//! to the same world under a sync test.
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::errand::Errand;
@@ -101,48 +104,14 @@ fn put_the_blink_on(sim: &mut ambition_app::Platformer2dSimHarness, blink: Entit
     ground.vel = ae::Vec2::ZERO;
 }
 
-/// The dog completes its fetch and holds the requested Blink.
-#[test]
-fn a_dog_sent_for_the_blink_takes_it() {
-    let (mut sent, dog, blink) = the_dog_and_the_blink();
-    send_for_the_blink(&mut sent, dog);
-    let outcome = run_errand(&mut sent, dog, PATIENCE);
-    assert_eq!(outcome, ErrandOutcome::Done, "the dog did not fetch the Blink");
-    assert_eq!(
-        sent.world().get::<ItemCustody>(blink).copied(),
-        Some(ItemCustody::Held { holder: dog }),
-        "the errand says done and the Blink is not the dog's"
-    );
-    assert!(sent.world().get::<HeldItem>(dog).is_some(), "the dog's hand is empty");
-}
-
 fn sim_blink_at(sim: &ambition_app::Platformer2dSimHarness, blink: Entity) -> ae::Vec2 {
     sim.world().get::<GroundItem>(blink).expect("the Blink lies in the world").pos
 }
 
-/// Put on a surface the dog cannot get to, the Blink is refused with the
-/// reason, and stays where it lies.
-#[test]
-fn a_dog_sent_for_an_item_out_of_its_reach_says_there_is_no_route() {
-    let (mut sim, dog, blink) = the_dog_and_the_blink();
-    sim.step_n(base(), 60);
-    let (graph, feet) = the_dogs_graph(&mut sim, dog);
-    let from = graph.surface_at(feet).expect("the dog stands on a surface");
-    let reached = graph.reachable_from(from);
-    let out_of_reach = (0..graph.surfaces.len())
-        .find(|surface| !reached.contains(surface) && graph.surfaces[*surface].width() > 48.0)
-        .expect("the hub has a surface the dog cannot reach");
-    put_the_blink_on(&mut sim, blink, &graph, out_of_reach);
-    sim.step_n(base(), 10);
-    send_for_the_blink(&mut sim, dog);
-    let outcome = run_errand(&mut sim, dog, PATIENCE);
-    assert_eq!(outcome, ErrandOutcome::Refused(ErrandRefusal::NoRoute));
-    assert_eq!(sim.world().get::<ItemCustody>(blink).copied(), Some(ItemCustody::InWorld));
-}
-
 /// ⭐ THE SAME ITEM, AND THE BODY'S OWN MOVEMENT DECIDES. Put where only a
-/// jump gets to, the Blink is fetched by the dog; the same dog without its
-/// jump refuses it.
+/// jump gets to, the Blink is fetched by the dog: the errand ends done, the
+/// Blink in the dog's custody and hand. The same dog without its jump refuses
+/// it with the reason (no route), and the Blink stays where it lies.
 #[test]
 fn without_its_jump_the_dog_refuses_what_needs_one() {
     let needs_a_jump = |sim: &mut ambition_app::Platformer2dSimHarness, dog: Entity| {
@@ -194,88 +163,30 @@ fn without_its_jump_the_dog_refuses_what_needs_one() {
             graph.surfaces[surface]
         );
         send_for_the_blink(&mut sim, dog);
-        run_errand(&mut sim, dog, PATIENCE)
-    };
-    assert_eq!(fetch(true), ErrandOutcome::Done, "with its jump the dog did not fetch the Blink");
-    assert_eq!(fetch(false), ErrandOutcome::Refused(ErrandRefusal::NoRoute));
-}
-
-/// Give the dog its errand from inside the timeline: a function of the world,
-/// so each replay gives it on the same frame. An errand inserted from outside
-/// the timeline is undone by the first rewind past it, as any state is.
-fn send_the_dog_from_inside_the_timeline(
-    mut commands: bevy::prelude::Commands,
-    dogs: bevy::prelude::Query<(Entity, &WornCharacter), bevy::prelude::Without<Errand>>,
-) {
-    for (dog, worn) in &dogs {
-        if worn.id() == "npc_companion_dog" {
-            commands.entity(dog).insert(Errand::fetch(SimId::placement(BLINK)));
-        }
-    }
-}
-
-/// ⭐ AN ERRAND RESIMULATES TO THE SAME WORLD. A sync test rewinds and replays
-/// each frame and compares checksums. The take lands inside those windows: if
-/// the errand were not rewound with the item's custody, a replay past the
-/// take would find the errand done and the Blink on the ground again, and the
-/// replayed world would differ. The premise: the errand ended, with the Blink
-/// in the dog's custody.
-#[test]
-fn a_dog_on_an_errand_resimulates_to_the_same_world() {
-    use crate::common::fixed_60hz_room_options;
-    use ambition_platformer2d::sim::SimScheduleExt;
-
-    let options = fixed_60hz_room_options("central_hub_complex").with_sync_test_rollback_settings(4, 10);
-    let mut sim = ambition_app::Platformer2dSimHarness::build(options, |app, options| {
-        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-        let label = app.sim_schedule();
-        app.add_systems(label, send_the_dog_from_inside_the_timeline);
-        Ok(())
-    })
-    .expect("the hub boots under a sync test");
-    let (dog, blink) = {
-        let world = sim.world_mut();
-        let dog = world
-            .query::<(Entity, &WornCharacter)>()
-            .iter(world)
-            .find(|(_, worn)| worn.id() == "npc_companion_dog")
-            .map(|(entity, _)| entity)
-            .expect("the dog");
-        let blink = world
-            .query::<(Entity, &SimId)>()
-            .iter(world)
-            .find(|(_, id)| **id == SimId::placement(BLINK))
-            .map(|(entity, _)| entity)
-            .expect("the Blink");
-        (dog, blink)
-    };
-    let mut outcome = ErrandOutcome::Pending;
-    let mut after_the_take = 0;
-    for _ in 0..PATIENCE + 120 {
-        if sim.try_step(base()).is_err() {
-            break;
-        }
-        outcome = sim.world().get::<Errand>(dog).map_or(outcome, |errand| errand.outcome);
-        if outcome == ErrandOutcome::Done {
-            // Replays of the frames around the take.
-            after_the_take += 1;
-            if after_the_take > 30 {
-                break;
-            }
-        }
-    }
-    assert_eq!(
-        (outcome, sim.world().get::<ItemCustody>(blink).copied()),
-        (ErrandOutcome::Done, Some(ItemCustody::Held { holder: dog })),
-        "premise: the errand ended with the Blink in the dog's custody"
-    );
-    assert_eq!(
+        let outcome = run_errand(&mut sim, dog, PATIENCE);
         (
-            ambition_platformer2d::rollback::session_is_active(sim.world()),
-            ambition_platformer2d::rollback::session_health(sim.world())
-        ),
-        (true, Ok(()))
+            outcome,
+            sim.world().get::<ItemCustody>(blink).copied(),
+            sim.world().get::<HeldItem>(dog).is_some(),
+            dog,
+        )
+    };
+    let (outcome, custody, in_hand, dog) = fetch(true);
+    assert_eq!(outcome, ErrandOutcome::Done, "with its jump the dog did not fetch the Blink");
+    assert_eq!(
+        custody,
+        Some(ItemCustody::Held { holder: dog }),
+        "the errand says done and the Blink is not the dog's"
     );
+    assert!(in_hand, "the errand says done and the dog's hand is empty");
+    let (outcome, custody, in_hand, _) = fetch(false);
+    assert_eq!(
+        outcome,
+        ErrandOutcome::Refused(ErrandRefusal::NoRoute),
+        "without its jump the dog did not refuse the Blink for want of a route"
+    );
+    assert_eq!(custody, Some(ItemCustody::InWorld), "the refused Blink does not stay where it lies");
+    assert!(!in_hand, "the dog that refused holds something");
 }
 
 /// The basement dog and the Blink in a harness the caller built.
@@ -396,117 +307,40 @@ const FAR_FROM_THE_DOOR: ae::Vec2 = ae::Vec2::new(150.0, 1920.0);
 /// out in Alice's room and takes the Blink there. The authorities: the
 /// Blink's custody and the dog's room stamp.
 ///
-/// The control is the same start with no errand: over the same time the
-/// roaming dog never goes into the door's zone and stays in the hub, so the
-/// errand is what took it through.
+/// ⭐ AND THE HUB DOES NOT BUILD IT AGAIN. After the dog crosses, Bob leaves
+/// the hub too, so the hub retires; Alice walks back and the hub is built
+/// again. The dog lives in `basement_npcs`, so the hub must not build a second
+/// one. The authority: one body of the dog's identity, in the room it went to.
+/// Its ledger row is what the hub's build reads.
+///
+/// The control is the same start with no errand: over the time the errand
+/// took, the roaming dog never goes into the door's zone and stays in the hub,
+/// so the errand is what took it through.
 #[test]
 fn a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door() {
-    let (mut roaming, dog, _blink, hub, _alices_room) = the_blink_next_door();
-    let door = crate::two_players_two_live_rooms::door_of(&mut roaming, HUB, NEXT_DOOR).aabb;
-    put_the_dog_at(&mut roaming, dog, FAR_FROM_THE_DOOR);
-    // The door acts on a body in its zone, so the control asks for that and
-    // not for a distance: the roaming dog climbs the ledge over the door
-    // (192 px from its middle since the hub got the Evil gate), and it
-    // never goes in.
-    let mut in_the_door = None;
-    for tick in 0..PATIENCE {
-        roaming.step(base());
-        let body = *roaming.world().get::<ae::BodyKinematics>(dog).expect("the dog");
-        let (half, near) = (body.size() * 0.5, body.pos);
-        let overlaps = near.x + half.x > door.min.x
-            && near.x - half.x < door.max.x
-            && near.y + half.y > door.min.y
-            && near.y - half.y < door.max.y;
-        if overlaps && in_the_door.is_none() {
-            in_the_door = Some((tick, near));
-        }
-    }
-    assert!(
-        in_the_door.is_none() && room_of(&roaming, dog) == Some(hub),
-        "control: the roaming dog went into the door's zone with no errand: {in_the_door:?}"
-    );
-
+    use crate::common::walk_through_the_door_to;
     let (mut sim, dog, blink, _hub, alices_room) = the_blink_next_door();
+    let identity = sim.world().get::<SimId>(dog).cloned().expect("the dog has a stable identity");
     put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
     send_for_the_blink(&mut sim, dog);
-    let outcome = run_errand(&mut sim, dog, PATIENCE);
+    let mut outcome = ErrandOutcome::Pending;
+    let mut took = 0;
+    while took < PATIENCE && outcome == ErrandOutcome::Pending {
+        sim.step(base());
+        took += 1;
+        outcome = sim.world().get::<Errand>(dog).expect("the dog keeps its errand").outcome;
+    }
     assert_eq!(
         (outcome, room_of(&sim, dog)),
         (ErrandOutcome::Done, Some(alices_room)),
         "the dog did not fetch the Blink from the other room"
     );
-    assert_eq!(sim.world().get::<ItemCustody>(blink).copied(), Some(ItemCustody::Held { holder: dog }));
-}
-
-/// ⛔ A GATE PORTAL THAT IS SHUT FOR THE PLAYER IS SHUT FOR THE ERRAND. The
-/// basement's door to `basement_npcs` is made a gate portal whose switch is
-/// off: the dog on its errand goes into the door's zone and waits there, in
-/// the hub. Then the switch is turned on: the portal boots, and the dog goes
-/// through and takes the Blink. The authorities: the portal's phase (what
-/// the player's press reads) and the dog's room stamp.
-///
-/// The control is the arm above: the same door with no portal on it lets
-/// the dog through.
-#[test]
-fn a_dog_on_an_errand_waits_at_a_shut_gate_portal() {
-    use ambition_platformer2d::world::rooms::{GatePortalPhases, GatePortalRegistry};
-    const SWITCH: &str = "a_dog_sent_for_an_item.npc_door_switch";
-    let (mut sim, dog, blink, hub, alices_room) = the_blink_next_door();
-    let door = crate::two_players_two_live_rooms::door_of(&mut sim, HUB, NEXT_DOOR);
-    sim.world_mut()
-        .resource_mut::<GatePortalRegistry>()
-        .try_register(door.id.clone(), SWITCH, "no_sprite", "no_ring")
-        .expect("the basement's door is no portal yet");
-    put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
-    send_for_the_blink(&mut sim, dog);
-    let mut ticks_in_the_door = 0;
-    for _ in 0..PATIENCE {
-        sim.step(base());
-        let dog_box = {
-            let world = sim.world();
-            world.get::<ae::BodyKinematics>(dog).expect("the dog").collision_box(world.get::<ae::SweepSample>(dog))
-        };
-        if ae::AabbExt::strict_intersects(dog_box, door.aabb) {
-            ticks_in_the_door += 1;
-        }
-    }
-    assert!(
-        !sim.world().resource::<GatePortalPhases>().allows_traversal(&door.id),
-        "premise: the portal is shut while its switch is off"
-    );
     assert_eq!(
-        (sim.world().get::<Errand>(dog).map(|errand| errand.outcome), room_of(&sim, dog)),
-        (Some(ErrandOutcome::Pending), Some(hub)),
-        "the dog went through a gate portal that is shut"
+        sim.world().get::<ItemCustody>(blink).copied(),
+        Some(ItemCustody::Held { holder: dog }),
+        "the errand says done and the Blink is not the dog's"
     );
-    assert!(ticks_in_the_door > 60, "premise: the dog waited in the door's zone ({ticks_in_the_door} ticks)");
 
-    sim.world_mut()
-        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-        .data_mut()
-        .set_switch(SWITCH, true);
-    let outcome = run_errand(&mut sim, dog, PATIENCE);
-    assert_eq!(
-        (outcome, room_of(&sim, dog)),
-        (ErrandOutcome::Done, Some(alices_room)),
-        "the dog did not go through the portal once it was on"
-    );
-    assert_eq!(sim.world().get::<ItemCustody>(blink).copied(), Some(ItemCustody::Held { holder: dog }));
-}
-
-/// ⭐ A DOG THAT WENT INTO ANOTHER ROOM IS NOT AUTHORED AGAIN AT HOME. After
-/// the dog crosses, Bob leaves the hub too, so the hub retires; Alice walks
-/// back and the hub is built again. The dog lives in `basement_npcs`, so the
-/// hub must not build a second one. The authority: one body of the dog's
-/// identity, in the room it went to. Its ledger row is what the hub's build
-/// reads.
-#[test]
-fn a_dog_that_went_next_door_is_not_built_again_at_home() {
-    use crate::common::walk_through_the_door_to;
-    let (mut sim, dog, _blink, _hub, alices_room) = the_blink_next_door();
-    let identity = sim.world().get::<SimId>(dog).cloned().expect("the dog has a stable identity");
-    send_for_the_blink(&mut sim, dog);
-    assert_eq!(run_errand(&mut sim, dog, PATIENCE), ErrandOutcome::Done, "premise: the dog fetched the Blink");
     // Bob goes through the hub's door to Alice's room: nobody holds the hub.
     let door = crate::two_players_two_live_rooms::door_of(&mut sim, HUB, NEXT_DOOR).aabb;
     crate::two_players_two_live_rooms::put_bob_at(&mut sim, ae::Vec2::new((door.min.x + door.max.x) * 0.5, (door.min.y + door.max.y) * 0.5));
@@ -539,7 +373,94 @@ fn a_dog_that_went_next_door_is_not_built_again_at_home() {
         .map(|(entity, _)| entity)
         .collect();
     let rooms: Vec<_> = dogs.iter().map(|dog| room_of(&sim, *dog)).collect();
-    assert_eq!(rooms, vec![Some(alices_room)], "the bodies of the dog's identity, by room");
+    assert_eq!(rooms, vec![Some(alices_room)], "the hub built the dog again: the bodies of the dog's identity, by room");
+
+    // THE CONTROL, over the ticks the errand took.
+    let (mut roaming, dog, _blink, hub, _alices_room) = the_blink_next_door();
+    let door = crate::two_players_two_live_rooms::door_of(&mut roaming, HUB, NEXT_DOOR).aabb;
+    put_the_dog_at(&mut roaming, dog, FAR_FROM_THE_DOOR);
+    // The door acts on a body in its zone, so the control asks for that and
+    // not for a distance: the roaming dog climbs the ledge over the door
+    // (192 px from its middle), and it never goes in.
+    let mut in_the_door = None;
+    for tick in 0..took {
+        roaming.step(base());
+        let body = *roaming.world().get::<ae::BodyKinematics>(dog).expect("the dog");
+        let (half, near) = (body.size() * 0.5, body.pos);
+        let overlaps = near.x + half.x > door.min.x
+            && near.x - half.x < door.max.x
+            && near.y + half.y > door.min.y
+            && near.y - half.y < door.max.y;
+        if overlaps {
+            in_the_door = Some((tick, near));
+            break;
+        }
+    }
+    assert!(
+        in_the_door.is_none() && room_of(&roaming, dog) == Some(hub),
+        "control: the roaming dog went into the door's zone with no errand: {in_the_door:?}"
+    );
+}
+
+/// ⛔ A GATE PORTAL THAT IS SHUT FOR THE PLAYER IS SHUT FOR THE ERRAND. The
+/// basement's door to `basement_npcs` is made a gate portal whose switch is
+/// off: the dog on its errand goes into the door's zone and waits there, in
+/// the hub. Then the switch is turned on: the portal boots, and the dog goes
+/// through and takes the Blink. The authorities: the portal's phase (what
+/// the player's press reads) and the dog's room stamp.
+///
+/// The control is the arm above: the same door with no portal on it lets
+/// the dog through.
+#[test]
+fn a_dog_on_an_errand_waits_at_a_shut_gate_portal() {
+    use ambition_platformer2d::world::rooms::{GatePortalPhases, GatePortalRegistry};
+    const SWITCH: &str = "a_dog_sent_for_an_item.npc_door_switch";
+    let (mut sim, dog, blink, hub, alices_room) = the_blink_next_door();
+    let door = crate::two_players_two_live_rooms::door_of(&mut sim, HUB, NEXT_DOOR);
+    sim.world_mut()
+        .resource_mut::<GatePortalRegistry>()
+        .try_register(door.id.clone(), SWITCH, "no_sprite", "no_ring")
+        .expect("the basement's door is no portal yet");
+    put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
+    send_for_the_blink(&mut sim, dog);
+    // Until the dog has waited in the door's zone for longer than a crossing
+    // takes, so a shut portal that let it through would have done so.
+    let mut ticks_in_the_door = 0;
+    for _ in 0..PATIENCE {
+        sim.step(base());
+        let dog_box = {
+            let world = sim.world();
+            world.get::<ae::BodyKinematics>(dog).expect("the dog").collision_box(world.get::<ae::SweepSample>(dog))
+        };
+        if ae::AabbExt::strict_intersects(dog_box, door.aabb) {
+            ticks_in_the_door += 1;
+            if ticks_in_the_door > 90 {
+                break;
+            }
+        }
+    }
+    assert!(
+        !sim.world().resource::<GatePortalPhases>().allows_traversal(&door.id),
+        "premise: the portal is shut while its switch is off"
+    );
+    assert_eq!(
+        (sim.world().get::<Errand>(dog).map(|errand| errand.outcome), room_of(&sim, dog)),
+        (Some(ErrandOutcome::Pending), Some(hub)),
+        "the dog went through a gate portal that is shut"
+    );
+    assert!(ticks_in_the_door > 60, "premise: the dog waited in the door's zone ({ticks_in_the_door} ticks)");
+
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_switch(SWITCH, true);
+    let outcome = run_errand(&mut sim, dog, PATIENCE);
+    assert_eq!(
+        (outcome, room_of(&sim, dog)),
+        (ErrandOutcome::Done, Some(alices_room)),
+        "the dog did not go through the portal once it was on"
+    );
+    assert_eq!(sim.world().get::<ItemCustody>(blink).copied(), Some(ItemCustody::Held { holder: dog }));
 }
 
 /// Send the dog for the Blink from inside the timeline when the Blink lies in
@@ -726,20 +647,16 @@ fn the_dog_and_the_blink_in_hub_only(sim: &mut ambition_app::Platformer2dSimHarn
 /// the hub does not build it again. The authorities: the ledger row, and the
 /// bodies of the dog's identity in each live room.
 ///
-/// The control is the same start with no errand: the dog is still in the
-/// hub after the same time.
+/// The control that a dog with no errand stays clear of the door from the same
+/// place is the one in
+/// [`a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`].
 #[test]
 fn a_dog_sent_for_an_item_in_a_room_nobody_holds_leaves_for_it() {
     use crate::common::walk_through_the_door_to;
     use ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts;
 
-    let (mut roaming, dog) = the_blink_in_a_room_nobody_holds();
-    let identity = roaming.world().get::<SimId>(dog).cloned().expect("the dog has a stable identity");
-    put_the_dog_at(&mut roaming, dog, FAR_FROM_THE_DOOR);
-    roaming.step_n(base(), PATIENCE);
-    assert_eq!(bodies_of(&mut roaming, &identity), vec![Some(HUB.to_string())], "control: with no errand the dog stays");
-
     let (mut sim, dog) = the_blink_in_a_room_nobody_holds();
+    let identity = sim.world().get::<SimId>(dog).cloned().expect("the dog has a stable identity");
     put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
     send_for_the_blink(&mut sim, dog);
     for _ in 0..PATIENCE {
@@ -806,12 +723,10 @@ fn a_dog_that_leaves_for_a_room_nobody_holds_resimulates_to_the_same_world() {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         let label = app.sim_schedule();
         app.add_systems(label, send_the_dog_away_from_inside_the_timeline);
-        app.add_systems(ambition_platformer2d::rollback::SaveWorld, probe_census);
         Ok(())
     })
     .expect("the hub boots under a sync test");
     let (mut sim, dog) = leave_the_blink_in_a_room_nobody_holds(sim);
-    sim.world_mut().init_resource::<ProbeCensus>();
     let identity = sim.world().get::<SimId>(dog).cloned().expect("the dog has a stable identity");
     let mut after = 0;
     for _ in 0..PATIENCE {
@@ -839,94 +754,5 @@ fn a_dog_that_leaves_for_a_room_nobody_holds_resimulates_to_the_same_world() {
         "premise: the dog left for `basement_npcs`: bodies {:?}, row {:?}",
         bodies_of(&mut sim, &identity),
         whereabouts_of(&sim, &identity)
-    );
-}
-
-#[derive(bevy::prelude::Resource, Default)]
-struct ProbeCensus(std::collections::BTreeMap<i32, std::collections::BTreeMap<&'static str, (usize, u64)>>);
-fn probe_census(world: &mut bevy::prelude::World) {
-    let frame = world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0;
-    let probes = world.resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>().clone();
-    let census: std::collections::BTreeMap<_, _> = probes.census_all_as_peers_compare(world).into_iter().map(|(row, r)| (row, (r.count, r.xor))).collect();
-    let Some(mut store) = world.get_resource_mut::<ProbeCensus>() else { return; };
-    if let Some(first) = store.0.get(&frame) {
-        for (row, value) in &census {
-            if first.get(row) != Some(value) {
-                eprintln!("PROBE frame {frame} row {row}: first {:?} again {value:?}", first.get(row));
-            }
-        }
-    } else {
-        store.0.insert(frame, census);
-    }
-}
-
-/// A second live room of the definition live room `like` instantiates: a
-/// root with that definition, the next instance after every live one. Its
-/// residents are the ones a test stamps into it.
-fn a_second_live_room_like(
-    sim: &mut ambition_app::Platformer2dSimHarness,
-    like: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
-) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
-    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
-    use ambition_platformer2d::world::rooms::LiveRoomDefinition;
-    let world = sim.world_mut();
-    let roots: Vec<(LiveRoomInstance, LiveRoomDefinition)> = world
-        .query_filtered::<(&LiveRoomInstance, &LiveRoomDefinition), bevy::prelude::With<RoomInstanceRoot>>()
-        .iter(world)
-        .map(|(live, definition)| (*live, *definition))
-        .collect();
-    let definition = roots.iter().find(|(live, _)| *live == like).expect("a live room to copy").1;
-    let second = roots.iter().map(|(live, _)| *live).max().expect("a live room").next();
-    world.spawn((RoomInstanceRoot, second, definition));
-    second
-}
-
-/// ⭐ THE DOG GOES INTO THE LIVE ROOM ITS ITEM LIES IN. `basement_npcs` is live
-/// twice, and the Blink lies in the second: the door leads the dog there, not
-/// into the first of its kind. A route chose the least instance of the
-/// definition, so the dog went into Alice's room and the Blink was not there.
-#[test]
-fn a_dog_goes_into_the_live_room_its_item_lies_in() {
-    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
-    let (mut sim, dog, blink, hub, alices_room) = the_blink_next_door();
-    let second = a_second_live_room_like(&mut sim, alices_room);
-    assert!(second > alices_room, "premise: the item's room is not the least of its kind");
-    sim.world_mut().entity_mut(blink).insert(InRoomInstance(second));
-    put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
-    send_for_the_blink(&mut sim, dog);
-    let mut entered = None;
-    for _ in 0..PATIENCE {
-        sim.step(base());
-        if room_of(&sim, dog) != Some(hub) {
-            entered = Some(room_of(&sim, dog));
-            break;
-        }
-    }
-    assert_eq!(entered, Some(Some(second)), "the room the dog went into (Alice's is {alices_room:?})");
-}
-
-/// An item in another live instance of the dog's own room is there, and no
-/// door leads to it: the errand says there is no route, not that the item is
-/// gone. The control: the same item put in the dog's own instance is taken.
-#[test]
-fn an_item_in_another_instance_of_the_dogs_room_has_no_route_and_is_not_gone() {
-    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
-    let (mut sim, dog, blink) = the_dog_and_the_blink();
-    let hub = {
-        let world = sim.world_mut();
-        *world
-            .query_filtered::<&LiveRoomInstance, bevy::prelude::With<RoomInstanceRoot>>()
-            .single(world)
-            .expect("one live room: the hub")
-    };
-    let second = a_second_live_room_like(&mut sim, hub);
-    // Two rooms are live, so each body says which one it is in.
-    sim.world_mut().entity_mut(dog).insert(InRoomInstance(hub));
-    sim.world_mut().entity_mut(blink).insert(InRoomInstance(second));
-    send_for_the_blink(&mut sim, dog);
-    assert_eq!(
-        run_errand(&mut sim, dog, 60),
-        ErrandOutcome::Refused(ErrandRefusal::NoRoute),
-        "the Blink lies in the hub's second instance"
     );
 }

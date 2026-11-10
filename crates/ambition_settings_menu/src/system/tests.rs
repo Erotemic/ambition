@@ -106,6 +106,38 @@ fn quit_to_home_is_an_always_present_action_entry_above_quit() {
     );
 }
 
+/// A joined seat's menu offers it a way to leave, and the primary's menu a way
+/// to remove each joined seat, just above Quit to Title; a bare build offers
+/// neither.
+#[test]
+fn departure_rows_are_attached_per_seat_above_quit_to_title() {
+    let bare = SystemMenuModel::build(
+        &UserSettings::default(),
+        &RadioSnapshot::default(),
+        &DevSnapshot::default(),
+    );
+    assert!(
+        !bare.entries.iter().any(|e| matches!(e.id, SystemMenuEntryId::LeaveSeat(_))),
+        "control: no seat has joined, so no departure row"
+    );
+    let unchanged = bare.clone().with_seat_departure(None, &[]);
+    assert_eq!(unchanged.entries.len(), bare.entries.len(), "nothing to end adds no row");
+
+    let primary = bare.clone().with_seat_departure(None, &[1, 2]);
+    let pos = |model: &SystemMenuModel, id| model.entries.iter().position(|e| e.id == id).unwrap();
+    let quit = pos(&primary, SystemMenuEntryId::QuitToHome);
+    assert_eq!(pos(&primary, SystemMenuEntryId::LeaveSeat(1)), quit - 2);
+    assert_eq!(pos(&primary, SystemMenuEntryId::LeaveSeat(2)), quit - 1);
+    let remove = primary.entry(SystemMenuEntryId::LeaveSeat(1)).unwrap();
+    assert_eq!(remove.label, "Remove Player 2");
+    assert_eq!(remove.target, SystemMenuTarget::Action(SystemMenuAction::LeaveSeat(1)));
+
+    let seat = bare.with_seat_departure(Some(1), &[]);
+    let leave = seat.entry(SystemMenuEntryId::LeaveSeat(1)).unwrap();
+    assert_eq!(leave.label, "Leave Game");
+    assert_eq!(leave.target, SystemMenuTarget::Action(SystemMenuAction::LeaveSeat(1)));
+}
+
 #[test]
 fn video_screen_is_the_curated_subset() {
     let model = SystemMenuModel::build(

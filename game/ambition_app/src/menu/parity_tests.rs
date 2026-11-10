@@ -46,6 +46,7 @@ const ALL_SYSTEM_MENU_ENTRY_IDS: &[SystemMenuEntryId] = &[
     SystemMenuEntryId::Developer,
     SystemMenuEntryId::ResetNewGame,
     SystemMenuEntryId::Rebind,
+    SystemMenuEntryId::LeaveSeat(1),
 ];
 
 #[allow(dead_code)]
@@ -62,7 +63,8 @@ fn assert_all_system_menu_entry_ids_listed(id: SystemMenuEntryId) {
         | SystemMenuEntryId::Quit
         | SystemMenuEntryId::Developer
         | SystemMenuEntryId::ResetNewGame
-        | SystemMenuEntryId::Rebind => {}
+        | SystemMenuEntryId::Rebind
+        | SystemMenuEntryId::LeaveSeat(_) => {}
     }
 }
 
@@ -135,6 +137,13 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
                 !surfaced.contains(id),
                 "Rebind is attached by `with_rebind`, never built — a bare \
                  `build` surfacing it means the capability gate was lost"
+            ),
+            // DOCUMENTED EXCLUSION: a seat's departure is ATTACHED for the
+            // seats a session has joined (`with_seat_departure`); `build`
+            // knows of no seat.
+            SystemMenuEntryId::LeaveSeat(_) => assert!(
+                !surfaced.contains(id),
+                "a departure row is attached per seat, never built"
             ),
             _ => assert!(
                 surfaced.contains(id),
@@ -405,6 +414,9 @@ mod dispatch_parity {
         app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemStowRequested>>();
         crate::menu::effects::the_simulation_applies_hand_requests(&mut app);
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<ambition_platformer2d::session::reset::NewGameRequested>>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::session::leave::ParticipantLeaveRequested,
+    >>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
         // Both picking paths publish the same menu action message.

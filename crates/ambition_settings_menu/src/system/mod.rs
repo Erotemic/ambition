@@ -262,6 +262,11 @@ pub enum SystemMenuEntryId {
     /// `curated_options`: a build with no input stack has nothing to list and
     /// should show no row rather than an empty one.
     Rebind,
+    /// End this local seat's play: the seat leaves, or the primary player
+    /// removes it. The seat it names is the one that leaves. It appears only
+    /// where a composition attaches it ([`SystemMenuModel::with_seat_departure`]),
+    /// because only a game with joined local seats has one to remove.
+    LeaveSeat(u8),
 }
 
 impl SystemMenuEntryId {
@@ -272,6 +277,7 @@ impl SystemMenuEntryId {
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Rebind => "Rebind Controls",
+            Self::LeaveSeat(_) => "Leave",
             Self::Gameplay => "Gameplay",
             Self::Language => "Language",
             Self::ResetAllSettings => "Reset All Settings",
@@ -289,6 +295,7 @@ impl SystemMenuEntryId {
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Touch overlay, burst input, and stick deadzone.",
             Self::Rebind => "Put an action on a different key or button.",
+            Self::LeaveSeat(_) => "This player stops playing; the others play on.",
             Self::Gameplay => "Debug and quest HUD overlays.",
             Self::Language => "Interface language (English only for now).",
             Self::ResetAllSettings => "Restore every setting and developer tool to its default.",
@@ -339,6 +346,10 @@ pub enum SystemMenuAction {
     /// Quit the application to the desktop (writes `AppExit::Success`), then
     /// close the menu. Mirrors the pause menu's Top-page `Quit`.
     Quit,
+    /// The named local seat leaves the session (the app writes the leave as a
+    /// stamped simulation intent and releases the seat's controller), then
+    /// close the menu.
+    LeaveSeat(u8),
 }
 
 /// What a top-level [`SystemMenuEntry`] does when selected.
@@ -576,6 +587,40 @@ impl SystemMenuModel {
         {
             Some(index) => self.entries.insert(index + 1, entry),
             None => self.entries.push(entry),
+        }
+        self
+    }
+
+    /// Attach the departure rows a seat's menu offers: `Leave Game` when the
+    /// menu's own seat may leave, and `Remove Player N` for each other seat
+    /// this menu may remove (seat `n` is shown as Player `n + 1`). Placed just
+    /// above Quit to Title, beside the other ways out.
+    pub fn with_seat_departure(mut self, own: Option<u8>, others: &[u8]) -> Self {
+        let rows = own
+            .map(|seat| (seat, "Leave Game".to_string(), "Stop playing; the others play on.".to_string()))
+            .into_iter()
+            .chain(others.iter().map(|&seat| {
+                (
+                    seat,
+                    format!("Remove Player {}", u16::from(seat) + 1),
+                    format!("Player {} stops playing; the others play on.", u16::from(seat) + 1),
+                )
+            }));
+        let at = self
+            .entries
+            .iter()
+            .position(|e| e.id == SystemMenuEntryId::QuitToHome)
+            .unwrap_or(self.entries.len());
+        for (offset, (seat, label, description)) in rows.enumerate() {
+            self.entries.insert(
+                at + offset,
+                SystemMenuEntry {
+                    id: SystemMenuEntryId::LeaveSeat(seat),
+                    label,
+                    description,
+                    target: SystemMenuTarget::Action(SystemMenuAction::LeaveSeat(seat)),
+                },
+            );
         }
         self
     }

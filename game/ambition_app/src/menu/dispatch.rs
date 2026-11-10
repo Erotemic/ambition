@@ -138,6 +138,14 @@ pub(crate) fn dispatch_menu_action(
             play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: quit to title");
         }
+        MenuPageAction::SystemAction(SystemMenuAction::LeaveSeat(seat)) => {
+            // Immediate: the seat leaves on the next simulation tick. Fold the
+            // menu shut, which unpauses, so that tick runs.
+            system.request_leave(seat);
+            *close_menu = true;
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
+            info!("cube system action: seat {seat} leaves");
+        }
         MenuPageAction::SystemAction(SystemMenuAction::Quit) => {
             // Immediate: request application exit and fold the menu shut.
             commands.write_message(bevy::app::AppExit::Success);

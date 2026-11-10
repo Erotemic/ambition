@@ -22,6 +22,8 @@ pub(crate) mod lifecycle;
 #[cfg(feature = "input")]
 mod bindings;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+mod departure;
+#[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod system_cache;
 
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]

@@ -79,6 +79,9 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::session::reset::NewGameRequested,
     >>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::session::leave::ParticipantLeaveRequested,
+    >>();
     // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is
     // announced to nobody. Registered in each harness because every one of
@@ -805,6 +808,72 @@ fn quit_action_writes_app_exit_and_closes() {
     );
 }
 
+/// LOCAL-PLAY-MODES Leave: with seat 1 joined on a claimed pad, the primary's
+/// System menu offers "Remove Player 2" and no leave of its own. Choosing it
+/// writes one stamped leave for seat 1 (the simulation retires the seat on
+/// that tick), frees the pad to join again, and closes the menu so the
+/// simulation runs.
+#[test]
+fn remove_player_writes_a_stamped_leave_and_frees_the_pad() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::input::seating::{LocalDeviceOrder, PadIdentity};
+    use ambition_platformer2d::input::{LocalSeatClaims, ParticipantId};
+    use ambition_platformer2d::platformer::host_intents::HostIntentLedger;
+    use ambition_platformer2d::session::initial_body::{InitialBodyPolicy, StartingCharacter};
+    use ambition_platformer2d::session::leave::ParticipantLeaveRequested;
+    use ambition_platformer2d::session::participants::SessionParticipants;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    let (mut app, _player) = click_app();
+    let root = app
+        .world_mut()
+        .query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>()
+        .single(app.world())
+        .expect("the fixture's session root");
+    let mut members = SessionParticipants::default();
+    members.admit(PlayerSlot(0));
+    members.admit(PlayerSlot(1));
+    app.world_mut()
+        .entity_mut(root)
+        .insert((members, InitialBodyPolicy::SpawnCharacter(StartingCharacter::new(""))));
+    let pad = app.world_mut().spawn_empty().id();
+    let mut order = LocalDeviceOrder::default();
+    order.track(&[(pad, PadIdentity::new(None, None, None))]);
+    let mut claims = LocalSeatClaims::default();
+    claims.claim(ParticipantId(1), order.mark(pad).expect("the pad is connected"));
+    app.insert_resource(claims);
+    crate::menu::test_support::active_pages_mut(app.world_mut()).active = Some(MenuPage::System);
+
+    let offered = app
+        .world_mut()
+        .run_system_once(
+            |departures: crate::menu::departure::MenuDepartures,
+             menus: Query<Entity, With<ambition_platformer2d::inventory_ui::InventoryMenu>>| {
+                departures.state(menus.single().expect("one menu"))
+            },
+        )
+        .expect("the departure rows are read");
+    assert_eq!(offered, (None, vec![1]), "the primary's menu removes seat 1 and does not leave itself");
+
+    click_control(&mut app, MenuPageAction::SystemAction(SystemMenuAction::LeaveSeat(1)));
+
+    let leaves: Vec<ParticipantLeaveRequested> = app
+        .world()
+        .resource::<HostIntentLedger<ParticipantLeaveRequested>>()
+        .payloads()
+        .copied()
+        .collect();
+    assert_eq!(leaves, vec![ParticipantLeaveRequested { participant: PlayerSlot(1) }]);
+    assert!(
+        !app.world().resource::<LocalSeatClaims>().is_claimed(ParticipantId(1)),
+        "seat 1's pad is free to join again"
+    );
+    assert!(
+        !crate::menu::test_support::inventory_state(app.world()).visible,
+        "the menu closes, so the simulation runs the leave"
+    );
+}
+
 #[test]
 fn system_edge_left_moves_inward_to_the_row_list() {
     let mut app = system_nav_app(MenuFocus::EdgeLeft);
@@ -913,6 +982,9 @@ fn real_input_cube_app(
     crate::menu::effects::the_simulation_applies_hand_requests(&mut app);
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::session::reset::NewGameRequested,
+    >>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::session::leave::ParticipantLeaveRequested,
     >>();
     // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is

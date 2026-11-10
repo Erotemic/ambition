@@ -31,6 +31,8 @@ pub(crate) struct CachedSystemMenu {
         ambition_platformer2d::input::ActionBindings,
         ambition_platformer2d::input::ActiveDevice,
     )>,
+    /// The seats the cached model offers to end.
+    departures: Option<crate::menu::departure::Departures>,
     /// The drill-down the cached rows were built for.
     open_entry: Option<SystemMenuEntryId>,
     /// How many times the System model was actually built. An instrument for the
@@ -92,7 +94,9 @@ pub(crate) fn cache_system_menu(
                 .map(|(bindings, device)| (bindings, *device));
         #[cfg(not(feature = "input"))]
         let bindings_changed = false;
+        let departures = snapshot.departures.state(menu);
         let stale = cache.model.is_none()
+            || cache.departures.as_ref() != Some(&departures)
             || cache.settings.as_ref() != Some(&*settings)
             || cache.radio != radio
             || cache.dev != dev
@@ -103,6 +107,7 @@ pub(crate) fn cache_system_menu(
             let model = crate::menu::model::system_menu_model_with_pending_quality(
                 &settings, &radio, &dev, quality,
             );
+            let model = model.with_seat_departure(departures.0, &departures.1);
             #[cfg(feature = "input")]
             let model = snapshot.bindings.attach(model, menu);
             #[cfg(not(feature = "input"))]
@@ -111,6 +116,7 @@ pub(crate) fn cache_system_menu(
             cache.model = Some(model);
             cache.settings = Some(settings.clone());
             cache.open_entry = system_nav.open_entry;
+            cache.departures = Some(departures);
             cache.model_builds += 1;
             #[cfg(feature = "input")]
             {

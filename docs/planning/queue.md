@@ -853,6 +853,17 @@ What remains is not one hot spot:
 - the first update: 0.9 s;
 - the settle: 1.6 s.
 
+**Red without the boot change (2026-11-10, this VM; each also fails at the
+commit before it):**
+- `boot_budget::no_system_is_registered_twice_in_one_schedule`: two copies of
+  `ambition_held_items::project_item_body_presence` in `GgrsSchedule`, a
+  composition defect.
+- `an_edit_reaches_the_shipped_game::a_reload_that_moves_a_tracks_file_plays_the_new_file`
+  and `developer_edits_under_rollback::god_blink_in_ambition_does_not_grant_blink_to_maryo`:
+  no rendered music on this VM; the Mary-O route never activates a body.
+- `ambition_platformer2d` lib, two tests in `game_assets::sheets::tests`: no
+  published art on this VM.
+
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn
 owner cases (14) passed after repairs; **those focused passes do not clear the

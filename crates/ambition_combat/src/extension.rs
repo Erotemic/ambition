@@ -559,7 +559,7 @@ fn lower_riding_hitboxes(
         // its hitbox hurts.
         let Ok((authored, kin, driver)) = factions.get(s.scope) else {
             warn!(
-                "extension entry {} asked for a riding hitbox for {:?}, which has no faction; refused",
+                "extension entry {} asked for a riding hitbox for {:?}, which has no faction or body material; refused",
                 s.entry, s.scope
             );
             continue;

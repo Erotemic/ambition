@@ -150,35 +150,13 @@ fn two_voices_spawn_two_different_strike_sounds() {
     );
 }
 
-/// The cut is body-local: both its reach and its shape rotate with the
-/// fighter's frame.
-///
-/// Other fixtures use `ResolvedMotionFrame::default()`, where body and world
-/// axes agree. The authored path (`place_body_local_volume`) rotates offset and
-/// extents through `AccelerationFrame::to_world` / `to_world_half`; so must
-/// this one. Three victims, each refuting a different wrong answer:
-///
-/// | victim | reached when |
-/// |---|---|
-/// | `in_front` | the offset is rotated |
-/// | `beside` | it is not (the unrotated bug) |
-/// | `past_the_tip` | the extents are rotated too, so the blade is long |
-///
-/// The frame is 90°, so `to_world_half` is exact (30×16 becomes 16×30).
+/// The answering cut follows physical orientation while gravity stays down.
 #[test]
-fn the_cut_lands_body_local_when_the_frame_is_rotated() {
+fn the_cut_follows_physical_material_while_gravity_stays_down() {
     let mut app = app();
     let defender = fighter(&mut app, 0, ae::Vec2::new(100.0, 100.0), 1.0);
-    // Normal gravity is down=(0,1); y grows toward the feet. Turning down to
-    // +x turns her side axis (`to_world`'s x) to -y.
-    {
-        let rotated = ae::MotionFrame::from_direction(ae::Vec2::new(1.0, 0.0), 0.0);
-        let mut defender_mut = app.world_mut().entity_mut(defender);
-        let mut frame = defender_mut
-            .get_mut::<ambition_platformer2d::world::ResolvedMotionFrame>()
-            .expect("the fixture gives every fighter a frame");
-        frame.publish_resolved_frame(rotated);
-    }
+    app.world_mut().get_mut::<ae::BodyKinematics>(defender).unwrap().material =
+        ae::frame::BodyMaterial::default().turned(-std::f64::consts::FRAC_PI_2).unwrap();
     // Body-forward of her: reach 46 along world -y. Cut spans y 24..84, x 84..116.
     let in_front = fighter(&mut app, 1, ae::Vec2::new(100.0, 54.0), -1.0);
     // World +x, where an unrotated offset would put the cut.
@@ -314,19 +292,14 @@ fn the_cut_follows_the_fighter_rather_than_the_spot_they_parried_on() {
         damage_to(&body_hits(&mut app), attacker).is_empty(),
         "the cut reached 100px further than its authored reach",
     );
-    // Move the answering fighter; the live cut comes along.
-    //
-    // Move both: `apply_hitbox_damage` resolves `FollowOwner` against the
-    // owner's published `CenteredAabb`, and uses `BodyKinematics` only for
-    // bare test bodies.
+    // Move the accepted body pose. The coarse proxy is not a pose authority.
     {
         let world = app.world_mut();
         world
             .get_mut::<ae::BodyKinematics>(defender)
             .unwrap()
             .pos = ae::Vec2::new(200.0, 50.0);
-        *world.get_mut::<ae::CenteredAabb>(defender).unwrap() =
-            ae::CenteredAabb::new(ae::Vec2::new(200.0, 50.0), ae::Vec2::new(14.0, 20.0));
+
     }
     app.update();
     assert_eq!(

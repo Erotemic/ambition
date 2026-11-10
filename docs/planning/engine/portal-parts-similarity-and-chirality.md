@@ -585,14 +585,26 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
+Canonical block contact and static-cell repair: `f634f1870`. Block contact
+positions now keep canonical material outside the face. Exact translating
+constraints prevent an empty static cell from spending the work budget when a
+distant pair turns. Both walking/camera regressions now pass with their original
+assertions. Core has 860 passes and one ignored; shared has 358 passes. All 37
+app portal tests pass. Smash has 71 passes and six ignored; policy has 35 passes.
+The assembled app check passes. Standalone Mary-O has 140 integration passes
+and three ignored, including the repaired spark/wall case. The
+[review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md)
+records commands and limits. This closes the reported regression gates; P07
+full acceptance and all full PSIM slices remain open.
+
+
 Initial-overlap contact repair: `b2e8f750a`. A projectile born in a wall now
 reports contact before it can leave. Native casts have an explicit overlap
 policy; body escape queries still permit separation. Core has 858 passes and
 one ignored; shared has 357 passes plus the added scaled-part witness. The
 real Mary-O spark/wall test and all 14 app projectile transit tests pass. The
-assembled app check passes. The two walking failures still expose disagreement
-between rounded contact placement and exact canonical aperture fitting. Their
-assertions remain. P07 and full PSIM acceptance remain open.
+assembled app check passes. The later repair in `f634f1870` closes the two
+reported walking regressions. P07 and full PSIM acceptance remain open.
 
 
 Capability and publication review repair: `9e626f08b`. The body domain samples

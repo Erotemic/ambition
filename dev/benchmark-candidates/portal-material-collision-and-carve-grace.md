@@ -99,3 +99,15 @@ At adjacent times, a midpoint can round to an interval end. Use the larger
 distance to the two ends. Include angular argument rounding in curve bounds.
 A large winding can amplify that error even within one representable time
 step. An endpoint's actual material must remain inside the interval bound.
+
+
+A rounded contact box can hide penetration by canonical material. Use the
+canonical projected extent to place a block contact. Round the accepted
+coordinate toward free space and commit that coordinate directly. Do not
+loosen aperture fitting to accept a body that contact placement put in a wall.
+
+Classify a cell from its source, path and active constraints. A distant turning
+link does not make a static cell curved. Use exact translating constraints
+when they apply. A constant rounding bound can keep an empty cell possible
+through every time subdivision. More subdivision or a larger work budget
+does not prove that cell empty. Retain closed boundary strata for contact.

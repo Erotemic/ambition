@@ -1,7 +1,7 @@
 # Portal capability and motion-admission boundary review — 2026-11-09
 
-Status: **P01–P06 and P08–P10 implemented; P07 acceptance remains open**.
-Code is committed in `4afbf6100` and `9e626f08b`. See the
+Status: **P01–P06 and P08–P10 implemented; P07 reported regressions fixed; full PSIM acceptance remains open**.
+Code is committed in `4afbf6100`, `9e626f08b`, `b2e8f750a` and `f634f1870`. See the
 [capability and publication receipt](#capability-and-publication-packet) for tests,
 measurements and failures. This review does not modify the shared task queue.
 
@@ -314,7 +314,7 @@ No second cache or incremental invalidation protocol was added.
 | P04 | Resolved | Missing body material returns `MissingMaterial`. Explicit world sources retain their identity transform. |
 | P05 | Resolved | The two epochs have one body owner. The publication measurement below records their cost. Full rebuilds remain; no cache optimization is claimed. |
 | P06 | Resolved | Runtime selects `PortalSimulationPlugin`. Ambition selects the gun separately. Construction consumes the same generation-bound schema catalog used for content identity. Missing gun schemas refuse authored guns. Repeat plan IDs agree. |
-| P07 | Deferred | The two camera/walking failures remain release gates in the existing portal plan. The spark/wall case is fixed in `b2e8f750a`. The relevant-source baseline and latest results are below. No PSIM slice is closed. |
+| P07 | Deferred | The two walking cases pass in `f634f1870`; the spark/wall case passes in `b2e8f750a`. Full PSIM acceptance remains open in the existing portal plan. Baseline and latest results are below. No PSIM slice is closed. |
 | P08 | Resolved | Each loading zone authors `Default` or `SceneArt`. The generic renderer owns this policy. Duplicate IDs in different rooms do not share visibility. Secret discovery and gate animation retain their owners. |
 | P09 | Resolved | Mary-O selects its actual facade features. Standalone normal, test, visible, desktop and web trees have no portal crate. Isolated compilation and tests are recorded below. |
 | P10 | Resolved | `PortalRooms` reads the existing per-game rules at the world owner. Publishers clear disabled-room links and occupancy. Physics, shots, held pairs and camera lists use room identity. Tests cover capability changes, equal coordinates in two rooms and a body transferred into a Mary-O room. |
@@ -374,14 +374,14 @@ the same authored lab and the source paths recorded in
 case and fails the same two walking/camera cases. It is a source comparison;
 it is not a claim that the entire old commit was validated in a clean checkout.
 
-The latest headless app run also fails:
+Before the contact repair, the headless app run failed:
 
 - `portal_translation_camera_continuity::c141_to_c140_preserves_screen_position_and_continues_right`:
   the screen-space continuity assertion fails.
 - `portal_translation_camera_continuity::thin_wall_walk_keeps_apparent_player_position_smooth`:
   the walk does not cross the pair.
 
-The assertions were retained. Their owner remains
+Both cases now pass in `f634f1870`, with the original assertions. Their owner remains
 [the portal plan](../../docs/planning/engine/portal-parts-similarity-and-chirality.md).
 Root rebasing, remaining motion, moving-host admission, righting, native actor
 contacts, unequal apertures and full PSIM acceptance remain open there. This
@@ -545,7 +545,7 @@ Validation:
 Logs use `target/portal-goal-`. This lane does not prove a full standalone
 Mary-O run, workspace acceptance, rendered output or complete PSIM acceptance.
 
-The camera selection still has one pass and two failures. Its trace shows no
+At this packet, the camera selection had one pass and two failures. Its trace shows no
 motion refusal or reset. The wall-walk case passes its intended entry without
 transfer and later crosses the spinning shelf pair. The thin-wall case does
 not transfer. Both place the feet at an aperture end. The canonical half-height
@@ -555,3 +555,41 @@ Evidence is in `target/portal-goal-camera-probe.log` and
 `target/portal-goal-walking-fit-numeric.json`. Temporary trace code was removed;
 the original assertions remain. P07 and the native actor contact work remain
 open in the existing portal plan.
+
+
+### Canonical block contact and static-cell packet
+
+Code commit: `f634f1870`. Block contact placement now uses the canonical
+projected extent and rounds the accepted position toward free space. Repair
+commits the accepted coordinate directly. This fixes the disagreement between
+rounded contact boxes and exact aperture fits.
+
+The corrected position exposed a static empty cell whose relaxed bounds
+remained possible until `WorkLimit`. A cell now uses exact translating
+constraints when its source, path, active clauses and holes have no turn. A
+distant turning pair does not change that classification. Closed contact
+strata and the existing work budget remain. The reduced core witness fails
+before this repair and passes after it. No camera or lab assertion was changed.
+
+Latest validation on the committed code:
+
+| Command | Result |
+|---|---|
+| `cargo test -j12 -p ambition_platformer2d_core -p ambition_platformer2d_shared_tangle --lib --no-fail-fast` | Core 860 passes, one ignored; shared 358 passes. |
+| `cargo test -j12 -p ambition_app --test app_it -- portal` | 37 passes. Both walking/camera cases, floor bounce, moving geometry and room isolation pass. |
+| `cargo test -j12 -p ambition_demo_smash_app` | 71 passes, six ignored. |
+| `cargo test -j12 -p ambition_workspace_policy` | 35 passes. |
+| `cargo check -j12 -p ambition_app` | Pass. |
+| `cargo test -j12 -p ambition_demo_mary_o_app --features visible --test mary_o_it` | 140 passes, three ignored. The spark/wall case passes in the full target. |
+
+The relevant-source baseline had one camera pass and two failures. The latest
+portal selection passes all three camera cases with their original assertions.
+The earlier standalone Mary-O target had 139 passes, one spark/wall failure and
+three ignored tests. Its latest target has 140 passes and three ignored tests.
+
+Status records are `target/portal-goal-contact-final-gates.json` and
+`target/portal-goal-contact-mary-o-final.json`; their logs use the same prefixes.
+This lane does not prove full workspace libraries, Android execution, GPU
+captures or complete PSIM acceptance. Root rebasing, native actor contacts,
+unequal production apertures, rendering and the remaining lab acceptance still
+belong to the existing portal plan. P07 remains open for that full acceptance.

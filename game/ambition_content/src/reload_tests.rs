@@ -4401,6 +4401,77 @@ fn the_pinned_prefix_ends_at_the_current_step() {
     );
 }
 
+/// Rule 1: the recorded step must exist. `first_steps` cut to one step is
+/// admitted for a player on step 0 and refused for one on step 1, where the
+/// next session would otherwise clamp them to a step they did not reach.
+#[test]
+fn a_book_with_no_place_for_the_recorded_step_is_refused() {
+    let one_step = pack_with_quest_text_replaced(
+        r#"            (
+                description: "Clear the goblin encounter.",
+                condition: EncounterCleared("goblin_encounter"),
+            ),
+            (
+                description: "Defeat the clockwork warden.",
+                condition: BossDefeated("clockwork_warden"),
+            ),
+"#,
+        "",
+    );
+    crate::reload::candidate_quest_book(&world_with_first_steps_in_progress_at(0), &one_step)
+        .expect("a one-step book was refused for a player on step 0");
+    let why = crate::reload::candidate_quest_book(&world_with_first_steps_in_progress_at(1), &one_step)
+        .expect_err("⛔ a book with no step 1 was admitted for a player on step 1");
+    assert!(why.contains("first_steps"), "the refusal does not name the quest: {why}");
+}
+
+/// Stage `pack` as the generation in flight.
+fn pending_generation_of(world: &mut bevy::ecs::world::World, pack: ambition_content_pack::PreparedContentPack) {
+    world.insert_resource(PendingGeneration {
+        load_id: None,
+        route: "ambition_gameplay".to_string(),
+        request: ambition_platformer2d::game_shell::ShellRequestId::new("activation-refusal"),
+        pack: std::sync::Arc::new(pack),
+        admitted_cast: None,
+        bosses: None,
+        audio: None,
+        adaptive_cues: None,
+    });
+}
+
+/// The activation gate asks the request-time questions again with the world as
+/// it is then, and the refusal says which precondition moved: the save (quest
+/// progress) or the library (a cutscene id another provider took).
+#[test]
+fn the_activation_refusal_names_the_precondition_that_moved() {
+    let mut world = world_with_first_steps_in_progress_at(0);
+    pending_generation_of(
+        &mut world,
+        pack_with_quest_text_replaced(
+            r#"EncounterCleared("goblin_encounter")"#,
+            r#"FlagSet("test_switch_toggled")"#,
+        ),
+    );
+    assert_eq!(activation_refusal(&world), None, "a future step's edit was refused for a player on step 0");
+    world
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_quest("first_steps", ambition_persistence::save_data::PersistedQuestState::InProgress, 1);
+    let reason = activation_refusal(&world).expect("the player reached the edited step and nothing refused");
+    assert!(
+        matches!(reason, ActivationRefusal::QuestProgressIncompatible(ref why) if why.contains("first_steps")),
+        "the quest race was reported as {reason:?}"
+    );
+
+    let mut world = world_where_a_foreign_provider_holds_the_lab_cutscene();
+    pending_generation_of(&mut world, pack_with_a_reworded_lab_banner());
+    let reason = activation_refusal(&world).expect("a foreign row holds the id the candidate edits and nothing refused");
+    assert!(
+        matches!(reason, ActivationRefusal::CutsceneOwnershipChanged(ref why) if why.contains("cutscene_lab_intro")),
+        "the cutscene-ownership race was reported as {reason:?}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // The rules of Ambition's own rooms (`room_rules`): a feel number that was a
 // Rust constant in the app, so an edit to it was a relink and a restart.

@@ -97,8 +97,8 @@ enum Road {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Refusal {
     /// Before the room is built. Two holders of one identity make a world the
-    /// opening baseline cannot describe, as in
-    /// `a_refused_world_reload_leaves_the_running_game_untouched`. MEASURED
+    /// opening baseline cannot describe, as in the first refusal of
+    /// `a_world_reload_of_one_live_room_is_refused_whole_or_applied_whole`. MEASURED
     /// 2026-10-05: one more holder of an identity that is live in the room
     /// gives the same early refusal, for each of five identities.
     BeforeTheRoomIsBuilt,

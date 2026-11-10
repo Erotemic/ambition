@@ -96,6 +96,52 @@ def test_each_kind_reports_what_exists_what_is_missing_and_where_it_is_used(tmp_
     assert all(not row["notices"] for row in result["kinds"].values())
 
 
+def publish(library: Path, members: dict[str, bytes], roots: list[str]) -> None:
+    """An accepted publication holding `members`, owning `roots`."""
+    import hashlib
+    store = library / "generated/art_publication"
+    key = "b" * 64
+    value = {"schema": "ambition.art_publication.v1", "bundles": {"producer:fixture": key}, "roots": roots,
+             "files": {logical: {"path": f"bundles/{key}/{logical}", "sha256": hashlib.sha256(data).hexdigest(),
+                                 "role": "runtime", "tier": "full"} for logical, data in members.items()}}
+    value["generation"] = hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    for logical, data in members.items():
+        (store / "bundles" / key / logical).parent.mkdir(parents=True, exist_ok=True)
+        (store / "bundles" / key / logical).write_bytes(data)
+    (store / "published.json").write_text(json.dumps(value))
+
+
+def test_published_only_media_resolve_and_a_shadowed_workspace_copy_says_so(tmp_path):
+    """The inspector reads the selected file set the game reads: a track, a
+    bank and a font that exist only in the accepted publication are present,
+    and a loose copy under a root the publication owns is shown as a
+    workspace product the game does not select."""
+    pack = game(tmp_path)
+    library = tmp_path / "game/ambition_content_library"
+    runtime = library / "generated/runtime"
+    bank = (runtime / "audio/sfx.bank").read_bytes()
+    publish(library, {
+        "audio/music_registry.ron": (runtime / "audio/music_registry.ron").read_bytes(),
+        "audio/music/generated/theme/full.ogg": b"OggS published theme",
+        "audio/sfx.bank": bank,
+        "fonts/Mono.ttf": b"published font",
+    }, roots=["audio", "fonts"])
+    for loose in ("audio/music_registry.ron", "audio/music/generated/theme/full.ogg", "audio/sfx.bank", "fonts/Mono.ttf"):
+        (runtime / loose).unlink()
+    (runtime / "fonts/Stray.ttf").write_bytes(b"a loose copy")
+    out = tmp_path / "out"
+    result = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)
+    items = result["items"]
+    assert items["music:theme"]["state"] == "present"
+    assert (out / items["music:theme"]["media"]["href"]).read_bytes() == b"OggS published theme"
+    assert items["sfx:ui.click"]["state"] == "present"
+    assert items["font:Mono.ttf"]["state"] == "present"
+    assert (out / items["font:Mono.ttf"]["media"]["href"]).read_bytes() == b"published font"
+    stray = items["font:Stray.ttf"]
+    assert stray["details"]["selected"] is False and any("does not select" in reason for reason in stray["reasons"])
+    assert all(not row["notices"] for row in result["kinds"].values())
+
+
 def test_a_failing_kind_is_a_notice_and_the_others_still_index(tmp_path):
     pack = game(tmp_path)
     (tmp_path / "game/ambition_content_library/generated/runtime/audio/sfx.bank").write_bytes(b"not a bank")

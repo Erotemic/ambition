@@ -26,7 +26,9 @@ def resolve(manifest: Path, logical: str) -> Path | None:
     candidates = []
     managed = False
     if publication:
-        selected = publication.selected()
+        # Resolving a file is not a freshness check: a stale recorded identity
+        # still selects its members, as in the runtime.
+        selected = publication.selected(verify_identity=False)
         managed = logical in selected["files"] or any(logical == prefix or logical.startswith(prefix + "/")
                       for prefix in set(MANAGED_ROOTS) | set(selected.get("roots", [])))
         if item := selected["files"].get(logical):

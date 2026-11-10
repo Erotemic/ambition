@@ -1,0 +1,24 @@
+{
+ "bundles": {
+  "target:hero": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+ },
+ "files": {
+  "audio/theme.cue": {
+   "path": "bundles/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/audio/theme.cue",
+   "role": "runtime",
+   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+   "tier": "full"
+  },
+  "sprites/hero.ron": {
+   "path": "bundles/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/sprites/hero.ron",
+   "role": "runtime",
+   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+   "tier": "full"
+  }
+ },
+ "generation": "ec8e44907e95424126bf0bac97fce2d85641004b452d2baa8160ed6665e7d13e",
+ "roots": [
+  "audio"
+ ],
+ "schema": "ambition.art_publication.v1"
+}

@@ -370,6 +370,10 @@ def collect_source_files(repo: Path, profile: str, *, pack_root: Path | None = N
     from lib.content_libraries import read_libraries
     try:
         for library in read_libraries(inputs.libraries if inputs else []).values():
+            # Stricter than the runtime, which runs without a store's products:
+            # a package of a library whose store published nothing has none to ship.
+            if problem := library.requires_publication():
+                raise AssetContractError(problem)
             for logical, path in library.files().items():
                 if not matches_any(logical, excludes):
                     add(f"__libraries/{library.id}/{logical}", path, source_relative_path(repo, library.path.parent))

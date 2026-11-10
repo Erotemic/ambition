@@ -190,9 +190,10 @@ def music(ctx: dict) -> list[dict]:
         except (OSError, ValueError):
             pass
     denied = ctx["denied"] = set(policy.get("DENY_IDS", []))
-    registry = root / config["registry"] if config.get("registry") else None
+    registry = _locate(ctx, config["registry"]) if config.get("registry") else None
     tracks = {}
-    if registry and registry.is_file():
+    ctx["registry_present"] = bool(registry and registry.is_file())
+    if ctx["registry_present"]:
         for tid, display, path in _TRACK.findall(registry.read_text()):
             tracks[tid] = (display.replace('\\"', '"'), path or _TRACK_PATH.format(id=tid))
     else:
@@ -207,19 +208,21 @@ def music(ctx: dict) -> list[dict]:
         parts = logical.split("/")
         folder = parts[3] if len(parts) > 4 and parts[:3] == ["audio", "music", "generated"] else tid
         seen_dirs.add(folder)
-        items.append(_track(ctx, tid, display, root / logical, folder, scores, tool, registered=True))
+        items.append(_track(ctx, tid, display, logical, folder, scores, tool, registered=True))
     if scores.is_dir():
         for score in sorted(scores.glob("*.music.yaml")):
             folder = score.name.removesuffix(".music.yaml")
             if folder in seen_dirs:
                 continue
-            items.append(_track(ctx, folder, folder.replace("_", " ").title(), root / _TRACK_PATH.format(id=folder), folder, scores, tool, registered=False))
+            items.append(_track(ctx, folder, folder.replace("_", " ").title(), _TRACK_PATH.format(id=folder), folder, scores, tool, registered=False))
     return items
 
 
-def _track(ctx, tid, display, audio: Path, folder, scores: Path, tool: Path, *, registered: bool) -> dict:
+def _track(ctx, tid, display, logical: str, folder, scores: Path, tool: Path, *, registered: bool) -> dict:
     repo, out = ctx["repo"], ctx["out"]
     item = _item("music", tid, display=display)
+    audio = _locate(ctx, logical)
+    _note_unselected(ctx, item, logical, audio)
     score = scores / f"{folder}.music.yaml"
     item["added_at"] = ctx["added_dates"].get(score.relative_to(tool).as_posix())
     if score.is_file():
@@ -255,6 +258,11 @@ def _track(ctx, tid, display, audio: Path, folder, scores: Path, tool: Path, *, 
     elif ctx.get("denied") and tid in ctx["denied"]:
         item["state"] = "excluded"
         item["reasons"].append("The music policy excludes this score (DENY_IDS), so the registry leaves it out.")
+    elif not ctx.get("registry_present"):
+        item["state"] = "missing"
+        item["reasons"].append("The game has no music registry, so it cannot name this track"
+                               + (": its audio is selected, the registry is not." if audio.is_file() else "."))
+        item["fix"] = ctx["fix"]
     else:
         # The registry is regenerated from the active scores at each music publish.
         item["state"] = "missing"
@@ -295,6 +303,24 @@ def _review_targets(ctx, cue: str, audio: Path) -> list[dict]:
     return sorted(targets.values(), key=lambda t: "what the game plays" not in t["roles"])
 
 
+# --- locating selected files --------------------------------------------------
+
+def _locate(ctx, logical: str) -> Path:
+    """The file the game reads for `logical`: its member of the selected file
+    set (a published product or a loose library file), or else its workspace
+    copy under the generated root, which the game does not read."""
+    row = ctx["selected"].get(logical)
+    return row.path if row else ctx["root"] / logical
+
+
+def _note_unselected(ctx, item: dict, logical: str, path: Path) -> None:
+    """A workspace copy the selection shadows is shown, and says so."""
+    if logical not in ctx["selected"] and path.is_file():
+        item["details"]["selected"] = False
+        item["reasons"].append(f"A workspace copy ({logical}) that the game does not select: "
+                               "the accepted publication owns this root.")
+
+
 # --- sound effects ------------------------------------------------------------
 
 _HEADER = struct.Struct("<8sIIQQQ")
@@ -329,7 +355,7 @@ def _sfx_source(path: Path) -> dict:
 def sfx(ctx: dict) -> list[dict]:
     repo, out, config, root = ctx["repo"], ctx["out"], ctx["config"], ctx["root"]
     tool = repo / "tools" / config["tool"]
-    bank = next((root / r for r in config.get("roots", []) if r.endswith(".bank")), None)
+    bank = next((_locate(ctx, r) for r in config.get("roots", []) if r.endswith(".bank")), None)
     entries = {}
     if bank and bank.is_file():
         rows = read_bank(bank)
@@ -384,18 +410,30 @@ def _extract(bank: Path, rows: list[dict], into: Path) -> None:
 def fonts(ctx: dict) -> list[dict]:
     repo, out, config, root = ctx["repo"], ctx["out"], ctx["config"], ctx["root"]
     policy = json.loads((ctx["library_dir"] / config["policy"]).read_text()) if config.get("policy") else []
-    files = {p.name: p for r in config.get("roots", []) for p in (root / r).rglob("*") if p.suffix.lower() in (".ttf", ".otf", ".woff", ".woff2")}
+    faces = (".ttf", ".otf", ".woff", ".woff2")
+    roots = config.get("roots", [])
+    under = lambda logical: any(logical.startswith(r + "/") for r in roots)  # noqa: E731
+    # name -> (logical, path, selected)
+    files = {Path(logical).name: (logical, row.path, True) for logical, row in ctx["selected"].items()
+             if under(logical) and Path(logical).suffix.lower() in faces}
+    for r in roots:
+        for p in (root / r).rglob("*") if (root / r).is_dir() else ():
+            logical = p.relative_to(root).as_posix()
+            if p.suffix.lower() in faces and logical not in ctx["selected"]:
+                files.setdefault(p.name, (logical, p, False))
     items, named = [], set()
     for family in policy if isinstance(policy, list) else []:
         for _archive_name, name in family.get("extracts", []):
             named.add(name)
-            path = files.get(name)
+            logical, path, selected = files.get(name, (None, None, False))
             item = _item("font", name, display=name.rsplit(".", 1)[0], tags=[family.get("license_name") or "unknown license"],
                          details={"family": family.get("name"), "license": family.get("license_name"), "homepage": family.get("homepage"), "url": family.get("url")})
             item["sources"].append(_rel(repo, ctx["library_dir"] / config["policy"]))
             if path:
                 item["state"] = "present"
-                item["aliases"] = [path.relative_to(root).as_posix()]
+                item["aliases"] = [logical]
+                if not selected:
+                    _note_unselected(ctx, item, logical, path)
                 item["files"].append(_file(repo, out, path))
                 item["media"] = {"type": "font", "href": os.path.relpath(path, out)}
             else:
@@ -403,10 +441,12 @@ def fonts(ctx: dict) -> list[dict]:
                 item["reasons"].append("The font policy names this file; it is not downloaded.")
                 item["fix"] = ctx["fix"]
             items.append(item)
-    for name, path in sorted(files.items()):
+    for name, (logical, path, selected) in sorted(files.items()):
         if name not in named:
             item = _item("font", name, display=name.rsplit(".", 1)[0], state="unregistered")
             item["reasons"].append("A font file that the font policy does not name.")
+            if not selected:
+                _note_unselected(ctx, item, logical, path)
             item["files"].append(_file(repo, out, path))
             item["media"] = {"type": "font", "href": os.path.relpath(path, out)}
             items.append(item)
@@ -587,6 +627,23 @@ def family_status(repo: Path) -> dict:
     return report
 
 
+def selected_files(repo: Path) -> tuple[dict, str | None]:
+    """The selected game library's selected file set (`lib.content_libraries`,
+    the same set the runtime reads), and a notice when it cannot be read: the
+    items are then located by their workspace copies alone."""
+    # The reader is this checkout's, whichever repository is indexed.
+    scripts = str(Path(__file__).resolve().parents[3] / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    from lib.content_libraries import read_libraries
+    try:
+        library = next(iter(read_libraries([library_path(repo)]).values()))
+        notes = library.advisories()
+        return library.selected_files(), (" ".join(notes) or None)
+    except (OSError, ValueError, KeyError) as error:
+        return {}, f"The selected files do not read ({error}); items are located by their workspace copies."
+
+
 def collect(repo: Path, out: Path, hashes, *, pack: Path, families: dict | None = None, log=print) -> dict:
     """The non-sprite items of the selected game. Never raises for a kind: its notice says why it is absent."""
     try:
@@ -595,6 +652,7 @@ def collect(repo: Path, out: Path, hashes, *, pack: Path, families: dict | None 
         return {"kinds": {}, "items": {}, "kinds_notice": f"The library manifest does not read: {error}"}
     lib_dir = library_path(repo).parent
     root = asset_root(repo)
+    selected, selection_notice = selected_files(repo)
     sidecars = SidecarCache(out / "kind_cache.json")
     uses: dict[str, list] = defaultdict(list)
     make = (families or {}).get("make")
@@ -603,8 +661,9 @@ def collect(repo: Path, out: Path, hashes, *, pack: Path, families: dict | None 
     jobs = [(family, *PROVIDERS[family]) for family in lib.get("producers", {}) if family in PROVIDERS]
     jobs.append(("worlds", "world", worlds))
     for family, kind, provider in jobs:
-        notices: list[str] = []
+        notices: list[str] = [selection_notice] if selection_notice else []
         ctx = {"repo": repo, "out": out, "config": lib.get("producers", {}).get(family, {}), "library_dir": lib_dir, "root": root,
+               "selected": selected,
                "pack": pack, "hashes": hashes, "sidecars": sidecars, "uses": uses, "notices": notices, "fix": fix_for(repo, family, make)}
         try:
             found = provider(ctx)

@@ -1,0 +1,20 @@
+{
+ "files": {
+  "audio/theme.cue": {
+   "generation": "ec8e44907e95424126bf0bac97fce2d85641004b452d2baa8160ed6665e7d13e",
+   "origin": "published"
+  },
+  "data/notes.txt": {
+   "generation": null,
+   "origin": "loose"
+  },
+  "music/score.cue": {
+   "generation": null,
+   "origin": "loose"
+  },
+  "sprites/hero.ron": {
+   "generation": "ec8e44907e95424126bf0bac97fce2d85641004b452d2baa8160ed6665e7d13e",
+   "origin": "published"
+  }
+ }
+}

@@ -109,6 +109,25 @@ fixtures to check the same semantics; do not create a cross-language runtime
 service. Report loose, old, and unselected products as a *separate* workspace
 view. An absent publication should not force native runtime validation.
 
+**Done 2026-11-10 (the contract and its readers).** The contract is six
+shared cases under `crates/ambition_asset_manager/tests/data/selected_files/`:
+a library, and the members it selects with origin (`published` or `loose`)
+and generation, or the word its error must contain. The runtime reader
+(`tests/selected_files_contract.rs`) and the packaging reader
+(`scripts/tests/test_selected_files_contract.py`) both read them. The cases:
+a publication owns the sprite roots and the roots it names; a store that has
+published nothing is an empty selection; a library without a store manages
+nothing; a stale recorded identity still selects; an authored file colliding
+with a product, and a member path outside the store, refuse. Rust already
+agreed with all six. Python disagreed on two, and now agrees:
+`Library.selected_files()` treats an empty store as an empty selection and a
+stale identity as an advisory (`Library.advisories()`, through
+`Store.selected(verify_identity=False)`). The stricter requirement is stated
+where it belongs: `package_asset_guard.collect_source_files` refuses a
+library whose store published nothing (`Library.requires_publication()`).
+`art_publication.resolve` resolves through a stale identity too. Section E's
+inspector part is done the same day.
+
 ### B. Publication works, but checks the past on every change
 
 `Store.accept()` computes a digest of each source, copies it into a new bundle,
@@ -199,7 +218,21 @@ At runtime, music handles load through Bevy on first use
 (`crates/ambition_audio/src/bank_asset.rs:329-375`).
 
 **Design action:** do not start a new audio asset subsystem. Fix inspector
-resolution and release closure for the existing one. Measure bank update
+resolution and release closure for the existing one.
+
+**Inspector resolution done 2026-11-10.** `asset_index/kinds.py` reads the
+library's selected file set once (`selected_files`) and locates the music
+registry, each track, the SFX bank and each font through it. A loose copy
+under a root the publication owns is still listed, with
+`details.selected = false` and a reason saying the game does not select it;
+sprites already worked this way (published roots, and loose roots labelled
+`unmanaged`). Measured on this checkout, where every product is published and
+nothing is loose: before, all 19 published history cues had no audio located;
+after, all 19 do. They stay `missing` here for a true reason, now stated: the
+selection has no `audio/music_registry.ron`, so the game cannot name them.
+Witness: `test_published_only_media_resolve_and_a_shadowed_workspace_copy_says_so`
+(a poison that ignored the selection reddened it). Release closure and bank
+update amplification are not measured yet. Measure bank update
 amplification before deciding whether the SFX bank needs smaller units.
 Include fonts, backgrounds, sprite metadata, LDtk worlds, and game-owned
 content in each release closure even when their files come from different

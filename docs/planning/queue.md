@@ -199,11 +199,19 @@ publications and stale generation identities.
 provider library installation.
 Design: [asset library review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools).
 
-**Next action:** define the read-only selected-file contract in the existing
-Rust and Python readers. Separate selected membership from workspace inventory.
-Use it for published-only sprites, music, SFX and fonts. Keep local staleness
-advisory; preserve path-safety and unreadable-file errors. State any stricter
-package requirement at the packaging boundary.
+**Done 2026-11-10:** the selected-file contract is six shared cases that the
+Rust runtime reader and the Python packaging reader both pass (Python now
+treats an empty store as an empty selection and a stale identity as an
+advisory; the packager states its stricter "has no publication" refusal at
+its own boundary). The inspector locates music, the registry, the SFX bank
+and fonts through the selected set and lists shadowed loose copies as
+unselected workspace products; on this checkout 19 of 19 published cues now
+have their audio located, where none did
+([review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools)).
+
+**Next action:** the old-publication clause of the acceptance at the runtime
+(a selection written by an older tool starts the native game without a
+rebuild) has a case at the reader, not a launch witness.
 
 **Host registration landed in `fb1621179`:** providers import identities and retain the
 host's selected source. Explicit conflicting selections still refuse. Guard:

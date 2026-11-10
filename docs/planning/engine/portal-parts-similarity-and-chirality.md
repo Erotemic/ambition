@@ -1028,3 +1028,33 @@ all 38 app portal tests and Smash pass. Logs use `target/portal-launch-`; Smash
 results are in `.agent/portal-launch-smash-artifacts.jsonl`. These checks do not
 prove visual capture or two simultaneous damaging limbs. Full PSIM acceptance
 remains open.
+
+
+### Offscreen 80/40 image witness
+
+`3e443d731` adds `--portal-convention rotation|reflection` to `capture_scene`.
+The choice applies before simulation starts. Frame snapshots now include body
+material and canonical facing, plus presented facing and sprite flip.
+
+The tool builds and all seven existing tool tests pass. Real offscreen runs
+produce 80 frames each for Rotation and Reflection at station H. Their body
+snapshots retain canonical size and give positive and negative parity,
+respectively. The controlled Reflection run keeps canonical facing +1, clears
+the exit at half scale, and visibly puts the robot's antenna and face on the
+opposite sides. No renderer change was needed.
+
+The captures use the low quality profile, a fixed view, and windows off. The
+images and frame snapshots are under `target/portal-visual-h/`. The comparison
+is `heading-comparison.png`. Normalized material coverage, GNU-ton multi-path
+capture, other quality tiers, and device/performance acceptance remain open.
+
+Reproduce the controlled Reflection film after building `capture_scene`:
+
+```bash
+AMBITION_QUALITY_PROFILE=low target/debug/capture_scene portal_lab 2176,850 \
+  target/portal-visual-h/reflection-heading/f.png 1280x720 \
+  --player-at 1860,875@60 --player-holds right@60 \
+  --player-holds left@72 --player-holds none@82 \
+  --warmup 55 --frames 80 --stride 1 --tick-per-frame --camera-zoom debug \
+  --portal-effect off --portal-convention reflection --art-snapshot
+```

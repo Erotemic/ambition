@@ -916,3 +916,21 @@ run. Two runs give the same body, health and hit-ledger trace. Combat libraries
 tests and Smash pass. Logs use `target/portal-launch-`; Smash results are in
 `.agent/portal-launch-smash-artifacts.jsonl`. Simultaneous damaging limbs, visual
 capture and the remaining lab examples are still open. P07 remains open.
+
+
+### Offscreen 80/40 image witness
+
+`3e443d731` lets `capture_scene` select the physical portal convention at
+startup. Frame snapshots include material and canonical/presented facing.
+The tool builds and its seven tests pass. Real offscreen runs produce 80
+frames each in Rotation and Reflection. Canonical size stays fixed. Parity
+is positive in Rotation and negative in Reflection. A controlled Reflection
+run keeps canonical facing +1 and shows the robot's antenna and face on the
+opposite sides after it clears the exit at half scale.
+
+The captures use the low quality profile, a fixed view, and windows off.
+They are under `target/portal-visual-h/`. `heading-comparison.png` shows the
+controlled crossing.
+No renderer change was needed. Normalized coverage, GNU-ton multi-path capture,
+other quality tiers and device/performance acceptance remain open. P07 remains
+open.

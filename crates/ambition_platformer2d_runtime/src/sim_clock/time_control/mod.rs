@@ -30,7 +30,14 @@ pub fn emit_primary_observer_time_intent(
     // The match hold is independent of the local observer.
     impact: Option<Res<ambition_combat::impact_hitstop::ImpactHitstop>>,
     tick: Option<Res<ambition_time::SimTick>>,
-    live_rooms: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
+    // A room hidden for another room's replay (`Disabled`) is still live.
+    live_rooms: Query<
+        (),
+        (
+            With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+            bevy::ecs::query::Allow<bevy::ecs::entity_disabling::Disabled>,
+        ),
+    >,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
     let one_room = live_rooms.iter().count() <= 1;

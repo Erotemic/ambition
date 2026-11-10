@@ -934,3 +934,19 @@ controlled crossing.
 No renderer change was needed. Normalized coverage, GNU-ton multi-path capture,
 other quality tiers and device/performance acceptance remain open. P07 remains
 open.
+
+
+### Requested vertical slice checkpoint — 2026-11-10
+
+The requested 80/40 slice is complete on main. The final run passes all 32
+app tests selected by `portal_` and all four rollback-schema tests. This
+includes partial far-side collision with near-side support, persistent scale
+and reflection, reverse crossing, real snapshot loads, bit-for-bit replay,
+and the shipped renderer's physical transform. Logs use
+`target/portal-slice-final-`. The offscreen image witness above shows the
+asymmetric body after it clears the exit.
+
+`6ae7a653a` also proves that two GNU-ton fists damage separate bodies in one
+tick through independent scaled paths. All three GNU-ton fist tests pass.
+That result does not close multi-path visual or lab acceptance. I–J remain
+deferred. Full P07 acceptance remains open.

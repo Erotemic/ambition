@@ -2,7 +2,7 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** THE PLAYABLE 80/40 SLICE IS COMMITTED (`fddf6084a`).
+**Work state:** THE REQUESTED PLAYABLE 80/40 SLICE IS COMPLETE (`fddf6084a`).
 The final NPC save merge is `55d5a4292`; the combined snapshot schema is v441.
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
@@ -35,8 +35,9 @@ models, guard geometry, attachments, the bounded numeric law and fault effects,
 I–J lab stations, and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
-`99d51bc9f`. Simultaneous-path capture, two active limb strikes and the remaining
-lab stations remain open.
+`99d51bc9f`. Two active fists hit separate bodies in the same tick through
+independent scaled paths in `6ae7a653a`. Simultaneous-path capture and the
+remaining lab stations remain open.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -1058,3 +1059,20 @@ AMBITION_QUALITY_PROFILE=low target/debug/capture_scene portal_lab 2176,850 \
   --warmup 55 --frames 80 --stride 1 --tick-per-frame --camera-zoom debug \
   --portal-effect off --portal-convention reflection --art-snapshot
 ```
+
+
+### Requested vertical slice checkpoint — 2026-11-10
+
+Station H completes the requested 80/40 slice. The final main-tree run passes
+all 32 app tests selected by `portal_`, including both slice witnesses, and
+all four rollback-schema tests. The commands are:
+
+```bash
+cargo test -p ambition_app --test app_it -- portal_ --test-threads=6
+cargo test -p ambition_app --test app_it -- rollback_schema_baseline --test-threads=6
+```
+
+The logs are `target/portal-slice-final-app.log` and
+`target/portal-slice-final-schema.log`. The offscreen image receipt above
+records the visible asymmetric body at half scale with reflected landmarks.
+I–J remain deferred. The full-plan acceptance listed above remains open.

@@ -584,7 +584,15 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
-External pose admission checkpoint: this commit. Boss and limb pins,
+Closed-end contact checkpoint: this commit. A shortened native cast retains
+first contact at its closed end. Interior topology boundaries keep their
+existing contact ownership. The new witness fails before the fix and passes
+for four prefix lengths and two world-time intervals after it. All 856 core
+tests pass; one measurement remains ignored. The assembled app check passes.
+Logs use `target/portal-closed-end-`. This query fix does not close native
+actor collision or the two existing walking/camera failures below.
+
+External pose admission checkpoint: `9f2a8fa1a`. Boss and limb pins,
 mount seats, captive poses, pet stops, rescue poses and scripted end scenes
 use the same atomic admission path. A refusal retains the body's physical
 state and prior accepted motion record. An instant pin keeps its recorded
@@ -606,8 +614,10 @@ mounts and actors pass 246, 826, 204, 15 and 588 tests. Three combat tests and
 one Mary O test remain ignored. The broader app `portal` selection passes 34
 tests and fails two: `c141_to_c140_preserves_screen_position_and_continues_right`
 and `thin_wall_walk_keeps_apparent_player_position_smooth`. The first reports
-a discontinuity; the second reports no crossing. Their baseline comparison
-is pending. Do not report the broader selection as green. Logs use
+a discontinuity; the second reports no crossing. Both failures reproduce with identical assertions against the Rust sources
+of `f7ad6e564`. The baseline run passes one case and fails these same two.
+Do not report the broader selection as green. Baseline evidence is in
+`target/portal-camera-baseline-status.json` and its log. Other logs use
 `target/portal-pose-final-` and `target/portal-pose-clients-`.
 These checks cover external linear pins. They do not close moving-host
 admission, physical righting, native actor contacts or any full PSIM slice.

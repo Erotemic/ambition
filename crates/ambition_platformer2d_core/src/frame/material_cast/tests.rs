@@ -991,3 +991,22 @@ fn a_closed_prefix_does_not_admit_the_portals_later_turn() {
     assert_eq!(source().cells(Some(admission)).err().unwrap().reason, RefusalReason::HopLimit);
     assert!(source().prefix(0.05).unwrap().cells(Some(admission)).is_ok());
 }
+
+
+#[test]
+fn a_closed_prefix_retains_first_touch_at_its_end() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::ONE));
+    for until in [0.25, 0.5, 0.75, 1.0] {
+        for time in [0.0..1.0, 0.2..0.6] {
+            let end = 10.0 * until as f32;
+            let target = Aabb::new(Vec2::new(end + 2.0, 0.0), Vec2::ONE);
+            let cells = MaterialCast::new(MaterialPrimitive::world(&body), Vec2::ZERO, Vec2::X * 10.0, time.clone())
+                .prefix(until).unwrap().cells(None).unwrap();
+            let hit = cells.against(&cells.parts()[0], &super::corners(target), Vec2::ZERO).unwrap()
+                .expect("the closed end owns its first touch");
+            assert_eq!(hit.toi, until);
+            assert!((hit.world_time - (time.start + (time.end-time.start)*until)).abs() < 1.0e-12);
+            assert_eq!(hit.world_point.x, end + 1.0);
+        }
+    }
+}

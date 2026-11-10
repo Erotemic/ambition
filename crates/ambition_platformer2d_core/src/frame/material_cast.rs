@@ -48,6 +48,7 @@ pub struct MaterialCastCells<'a> {
     material: MaterialPrimitive<'a>,
     /// The canonical primitive stays fixed while its source map follows this curve.
     source: SourceMotion,
+    until: f64,
     parts: Vec<MaterialCell>,
     time: std::ops::Range<f64>,
     scene:Option<std::sync::Arc<arcs::Scene>>,
@@ -156,6 +157,7 @@ impl<'a> MaterialCast<'a> {
         Ok(MaterialCastCells {
             material: self.material,
             source,
+            until: self.until,
             parts,
             time:self.time,
             scene,
@@ -289,7 +291,7 @@ impl MaterialCastCells<'_> {
     fn contact(&self, part: &MaterialCell, contact: CastHit) -> Result<Option<MaterialCastHit>, Refusal> {
         let time = contact.time;
         // Cells that start at a topology event own its contacts.
-        if part.time.start<part.time.end && part.time.end < 1.0
+        if part.time.start<part.time.end && part.time.end < self.until
             && time >= part.time.end - f64::EPSILON * 64.0 { return Ok(None); }
         let root = self.source.map_at(time)
             .map_err(|reason| numeric_at(part, reason))?;

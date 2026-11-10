@@ -874,9 +874,21 @@ rendered music. On the sampled VM, Smash and Sanic first rooms could not
 start because their music tracks were not rendered; classify missing assets
 separately from code failures. Keep failure evidence in the lane ledger.
 
-**Other precise follow-ups:** reconcile the inconsistent compile-ratchet
-baseline (`ambition_geometry`, actor monolith, core) by deliberate measurement,
-not `--update` bookkeeping; capture an assertion if the historical
+**Compile ratchet reconciled (2026-11-10):** the baseline frozen at
+`4ed566a24ad1` disagreed with its own crate table for `ambition_geometry`, the
+monolith and the core. The gate had been red on a gating finding: the critical
+path had grown from 16 crates to 24. The measured path is `ambition_geometry →
+core → time → shared_tangle → world → portal2d → projectiles → combat →
+held_items → abilities → shrine → construction → items → breakables →
+projectile_combat → actor_monolith → session → sim_view → runtime →
+rollback_ggrs → platformer2d → fighter_specials → content → app`. The links
+it gained are AP14 carves stacked in series under the monolith. The baseline
+is re-frozen with that reason at `7c6ca7f71e`, and the gate passes. If build
+wall-clock matters, that series is where to cut. Thirty-nine new crates have
+no measured compile time; they are priced at the median rate, a placeholder,
+until `scripts/measure/compile_collect.py` measures them.
+
+**Other precise follow-ups:** capture an assertion if the historical
 `composes_through_the_sdk` in-company failure recurs. These are not grounds
 for retries or enlarging fixed-frame waits. Optional broader cleanup belongs
 in the owner plan, not as a second chronological task list here.

@@ -164,7 +164,12 @@ tests (bounce, one-way landing, strike rules).
 6. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.
-7. A laser sound of its own (it uses `boss.wolfenstein.zap` now).
+7. **A laser sound of its own.** The recipe is authored and rendered
+   (`ability.eye_laser.ignite`, sfx renderer `7cd29ce`: a rising charge, then a
+   buzzing beam hum). The laser still plays `boss.wolfenstein.zap`
+   (`eye_laser::SFX_IGNITE`) until a publishing machine republishes the SFX
+   bank (`scripts/regen/sfx.sh`). Switching the id first would leave the laser
+   silent on every machine with the old bank.
 8. **A crouched laser row** (`eye_laser_crouch`). A crouched body draws a
    pinned row's `_crouch` variant, or its own crouch when the sheet has none
    (`ClipRequest::with_pin`), so a crouched robot lasers in its plain crouch

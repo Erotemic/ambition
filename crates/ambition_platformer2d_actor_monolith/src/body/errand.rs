@@ -413,6 +413,7 @@ mod tests {
                 name: door.to_string(),
                 activation: LoadingZoneActivation::Door,
                 aabb: ae::Aabb::new(ae::Vec2::new(600.0, 400.0), ae::Vec2::new(16.0, 32.0)),
+                presentation: Default::default(),
             })
             .collect();
         spec
@@ -453,7 +454,7 @@ mod tests {
         let errand = Errand::fetch(SimId::placement(BLINK));
         world
             .run_system_once(
-                move |specs: LiveRoomSpecs, items: Query<(Entity, &SimId, &GroundItem, &ItemCustody)>| {
+                move |specs: LiveRoomSpecs, items: Query<(Entity, &SimId, &ItemCustody), bevy::prelude::With<GroundItem>>| {
                     errand_crossing(&errand, body_room, false, &specs, None, items.iter())
                 },
             )

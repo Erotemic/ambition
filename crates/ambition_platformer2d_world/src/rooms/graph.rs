@@ -1089,6 +1089,7 @@ mod zone_way_tests {
                     name: zone.to_string(),
                     activation: LoadingZoneActivation::Door,
                     aabb: ae::Aabb::new(ae::Vec2::new(40.0, 40.0), ae::Vec2::new(16.0, 32.0)),
+                    presentation: Default::default(),
                 });
             }
             room

@@ -33,7 +33,9 @@ Full PSIM acceptance remains open: general remaining-time continuation,
 moving-target and carried-source projectile/hurt contact, other movement
 models, guard geometry, attachments, the bounded numeric law and fault effects,
 I–J lab stations, and device/GPU and performance gates. Two simultaneous limbs
-and a chained third portal follow the completed vertical slice.
+and a chained third portal now have native contact and GNU-ton occupancy
+guards in `2c4bd3822`. Simultaneous-path visual and damage acceptance remain
+open.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -991,3 +993,18 @@ Station F and G labels identify moving entry and stationary-body pickup.
 GNU-ton acceptance and numerical-fault presentation remain open. Keep the
 minimum-opening policy in production until the coordinated switch. Measure
 allocation and frame cost on the completed production paths.
+
+
+### Fast posed limbs and multiple paths
+
+`2c4bd3822` removes the distance shortcut that skipped solid contact for fast
+conductor poses. The shared native cast stops two attached limbs at independent
+0.5x and 2x exits in one tick. It also stops a fast limb at a solid after three
+pairs. The real phase-two GNU-ton witness keeps two fist entities and their
+owner while both occupy separate pairs and one reaches a third cut.
+
+Runtime libraries (252), the assembled app, the new GNU-ton witness, the
+existing far-side punch and rewind witnesses, and Smash pass. Logs use
+`target/portal-limbs-`. This packet does not prove simultaneous-path capture,
+chained hit/knockback, chained replay, or the remaining lab stations. Full
+PSIM-3 and P07 acceptance remain open.

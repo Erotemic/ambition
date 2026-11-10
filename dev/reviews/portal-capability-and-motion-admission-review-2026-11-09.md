@@ -888,3 +888,15 @@ checkout. Sanic reaches righting `WorkLimit` in a scene with no portals; the
 long soak was stopped and the remaining compiled libraries were run. The HTN
 crate added upstream enters the minimal consumer's closure. No footprint
 baseline waiver was added. These results do not close full P07 acceptance.
+
+
+### Fast posed limbs and multiple paths
+
+`2c4bd3822` removes the fast-pose distance bypass from native limb contact.
+Two attached limbs stop at separate scaled exits in one tick. A fast limb stops
+at a solid after three portal pairs. The real phase-two GNU-ton test retains
+two fist entities and their owner across separate pairs and a third cut.
+Runtime libraries (252), the assembled app, the new GNU-ton witness, the
+existing far-side punch and rewind witnesses, and Smash pass. Logs use
+`target/portal-limbs-`. Simultaneous-path capture, chained hit/knockback and
+chained replay are not proved by this packet. P07 remains open.

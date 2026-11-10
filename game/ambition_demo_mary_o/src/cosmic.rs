@@ -244,6 +244,7 @@ pub fn come_back_from_the_form(
 /// A level with a sky zone has a higher sky: she goes up out of the view as
 /// far as the zone (`crate::sky_top`), and the zone takes her.
 pub fn the_sky_has_a_top(
+    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
     rooms: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
     mut bodies: Query<
         (Entity, &mut ae::BodyKinematics, Option<&mut ae::SweepSample>, &ae::BodyGroundState),
@@ -262,7 +263,8 @@ pub fn the_sky_has_a_top(
         // The sweep moves with her, so the next step does not see a jump.
         let at = ae::Vec2::new(kin.pos.x, top + half);
         let vel = ae::Vec2::new(kin.vel.x, kin.vel.y.max(0.0));
-        ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), at, vel);
+        let desired = ae::BodyKinematics { pos: at, vel, ..*kin };
+        if poses.constrain(entity, &mut kin, sweep.as_deref_mut(), desired).is_err() { continue; }
     }
 }
 

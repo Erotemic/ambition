@@ -9,13 +9,13 @@ fn thin_wall_pair() -> (PlacedPortal, PlacedPortal) {
         Vec2::new(500.0, 300.0),
         Vec2::new(-1.0, 0.0),
         46.0,
-    );
+    ).unwrap();
     let right = PlacedPortal::fixed(
         PortalChannel::Authored(PortalChannelColor::Yellow),
         Vec2::new(532.0, 300.0),
         Vec2::new(1.0, 0.0),
         46.0,
-    );
+    ).unwrap();
     (left, right)
 }
 
@@ -132,13 +132,13 @@ fn same_plane_pair_still_orders_by_proximity() {
         Vec2::new(254.0, 880.0),
         up,
         46.0,
-    );
+    ).unwrap();
     let b = PlacedPortal::fixed(
         PortalChannel::Authored(PortalChannelColor::Yellow),
         Vec2::new(554.0, 880.0),
         up,
         46.0,
-    );
+    ).unwrap();
     let eye = Vec2::new(300.0, 840.0);
     assert!(
         pane_dominance(&a, &b, eye).abs() < 1e-4,

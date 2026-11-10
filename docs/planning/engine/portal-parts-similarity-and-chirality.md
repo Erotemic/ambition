@@ -584,6 +584,34 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
+External pose admission checkpoint: this commit. Boss and limb pins,
+mount seats, captive poses, pet stops, rescue poses and scripted end scenes
+use the same atomic admission path. A refusal retains the body's physical
+state and prior accepted motion record. An instant pin keeps its recorded
+time; a new body is placed at tick end. The query uses each body's policy
+and carried acceleration. Part geometry does not gain separate controller
+velocity state.
+
+Portal placement now accepts a finite nonzero direction and normalizes it
+before publication. Invalid position, direction or size returns a typed
+fault. An invalid held-pair edit retains both live ends. This fixes rounded
+authored directions that caused native pose admission to reject GNU-ton's
+portal geometry.
+
+The core and shared libraries pass 855 and 354 tests. One core measurement
+remains ignored. The portal library passes 142 tests. All 39 GNU-ton fight
+tests pass, including rewind identity. The assembled app check passes.
+The constructor client test targets compile. Boss encounters, combat, Mary O,
+mounts and actors pass 246, 826, 204, 15 and 588 tests. Three combat tests and
+one Mary O test remain ignored. The broader app `portal` selection passes 34
+tests and fails two: `c141_to_c140_preserves_screen_position_and_continues_right`
+and `thin_wall_walk_keeps_apparent_player_position_smooth`. The first reports
+a discontinuity; the second reports no crossing. Their baseline comparison
+is pending. Do not report the broader selection as green. Logs use
+`target/portal-pose-final-` and `target/portal-pose-clients-`.
+These checks cover external linear pins. They do not close moving-host
+admission, physical righting, native actor contacts or any full PSIM slice.
+
 Recorded source-rotation checkpoint: `b7e11ad40`. One native source curve
 controls part maps, interval bounds, root paths, contact normals and payload
 velocity. It keeps full turns about a translating pivot and derives angular
@@ -837,8 +865,9 @@ ignored. The preceding ray work passed combat,
 portal and renderer libraries and the assembled eye-laser and portal cases.
 These results do not close replay, visual or performance acceptance.
 
-Finish source admission for free-body sweeps, externally owned poses and
-moving aperture hosts. Finish projectile body and feature contact queries,
+External linear pose pins use the shared source admission. Finish source
+admission for the remaining free-body sweeps, physical pose turns and moving
+aperture hosts. Finish projectile body and feature contact queries,
 and the remaining attack updates.
 Body-attached ray origins still need the common material pose pass. Ray wall
 clipping still uses its centre line; finite-width contact remains open.

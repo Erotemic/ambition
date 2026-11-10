@@ -592,6 +592,7 @@ mod tests {
 /// sequence simply overrules them. Blanking the control frame is what stops a
 /// player mashing jump from fighting the slide.
 pub fn run_flag_sequence(
+    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
     time: Res<ambition_platformer2d::time::WorldTime>,
     // The pole of the room the controlled body is in.
     rooms: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
@@ -631,7 +632,7 @@ pub fn run_flag_sequence(
     else {
         return;
     };
-    drive_her(&drive, &mut kin, sweep.as_deref_mut(), modes.get_mut(entity).ok());
+    drive_her(&poses, entity, &drive, &mut kin, sweep.as_deref_mut(), modes.get_mut(entity).ok());
 }
 
 /// The sequence owns the body from the goal to the tally. The engine's
@@ -663,12 +664,15 @@ pub(crate) fn hold_her_while_the_sequence_runs(
 /// not a clip: the picker turns `Climbing` into the climb clip, as it does
 /// on a ladder.
 pub(crate) fn drive_her(
+    poses: &ambition_platformer2d::platformer::portal_passages::PoseAdmission,
+    entity: Entity,
     drive: &FlagDrive,
     kin: &mut ae::BodyKinematics,
     sweep: Option<&mut ae::SweepSample>,
     mode: Option<Mut<ae::BodyModeState>>,
 ) {
-    ae::movement::constrain_body_pose(kin, sweep, drive.pos, drive.vel);
+    let desired = ae::BodyKinematics { pos: drive.pos, vel: drive.vel, ..*kin };
+    if poses.constrain(entity, kin, sweep, desired).is_err() { return; }
     // She looks the way she walks.
     if drive.vel.x.abs() > f32::EPSILON {
         kin.facing = drive.vel.x.signum();

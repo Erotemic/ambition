@@ -17,11 +17,11 @@ const HALF: f32 = 30.0;
 const BODY: Vec2 = Vec2::new(10.0, 20.0);
 
 fn floor() -> PlacedPortal {
-    PlacedPortal::fixed(BLUE, FLOOR, Vec2::new(0.0, -1.0), HALF)
+    PlacedPortal::fixed(BLUE, FLOOR, Vec2::new(0.0, -1.0), HALF).unwrap()
 }
 
 fn exit() -> PlacedPortal {
-    PlacedPortal::fixed(ORANGE, Vec2::new(600.0, 300.0), Vec2::new(0.0, -1.0), HALF)
+    PlacedPortal::fixed(ORANGE, Vec2::new(600.0, 300.0), Vec2::new(0.0, -1.0), HALF).unwrap()
 }
 
 fn at(x: f32, y: f32) -> ae::Aabb {
@@ -139,7 +139,7 @@ fn a_kernel_body_half_past_an_end_is_held() {
 #[test]
 fn a_body_walking_past_an_end_in_a_slope_opening_meets_its_side() {
     let normal = Vec2::new(-0.5, -0.866).normalize();
-    let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, normal, 46.0).aperture();
+    let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, normal, 46.0).unwrap().aperture();
     let up_the_slope = ap.frame.tangent();
     assert!(up_the_slope.x > 0.0, "premise: the tangent runs up the slope to the right");
     // 27.5 along (and the squeeze) and 10 deep: a step of 4.5 px right took

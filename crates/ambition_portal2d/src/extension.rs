@@ -294,6 +294,13 @@ fn lower_held_portal_pairs<L: LowersIn>(
     let mut new: Vec<(Entity, Vec<HeldPortalPairRecord>)> = Vec::new();
     for s in &submitted {
         let pair = &s.value;
+        let prepared = match as_portals(&pair.ends) {
+            Ok(prepared) => prepared,
+            Err(fault) => {
+                warn!("extension entry {} asked for an invalid portal pair: {fault:?}; refused", s.entry);
+                continue;
+            }
+        };
         let held = holders
             .get(s.scope)
             .ok()
@@ -303,7 +310,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
                 continue;
             }
             let room = live.of(s.scope);
-            if fizzles(&open, &pair.ends, &record.ends, room) {
+            if fizzles(&open, &prepared, &record.ends, room) {
                 for end in record.ends {
                     if let Ok(mut e) = commands.get_entity(end) {
                         e.try_despawn();
@@ -321,8 +328,8 @@ fn lower_held_portal_pairs<L: LowersIn>(
                     let normal = ae::Vec2::from(asked.normal);
                     // A place or turn that is asked is a jump, not a host's
                     // motion: the tick starts there, so eviction sees it.
-                    if portal.pos != at || portal.normal != normal {
-                        portal.place_at(at, normal);
+                    if portal.pos != at || portal.normal != prepared[index].normal {
+                        portal.place_at(at, normal).expect("the complete pair passed placement validation");
                     }
                     if portal.half_length != asked.half_length {
                         portal.half_length = asked.half_length;
@@ -357,7 +364,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
             continue;
         };
         let module = module_of(&s.entry);
-        if fizzles(&open, &pair.ends, &[], Some(room)) {
+        if fizzles(&open, &prepared, &[], Some(room)) {
             let record = HeldPortalPairRecord {
                 module: Arc::from(module),
                 slot: pair.slot,
@@ -374,24 +381,11 @@ fn lower_held_portal_pairs<L: LowersIn>(
         }
         let link = held_pair_link(owner_id, module, pair.slot);
         let ends = [0usize, 1].map(|index| {
-            let end = &pair.ends[index];
-            let normal = ae::Vec2::from(end.normal);
             commands
                 .spawn_room_in_session(
                     scope,
                     (
-                        {
-                            let mut portal = PlacedPortal::fixed(
-                                crate::UNRESOLVED_LINK_CHANNEL,
-                                ae::Vec2::from(end.at),
-                                normal,
-                                end.half_length,
-                            );
-                            if let Some(half_thickness) = end.half_thickness {
-                                portal.half_thickness = half_thickness;
-                            }
-                            portal
-                        },
+                        prepared[index].clone(),
                         link,
                         PortalLook(PortalChannel::Authored(PortalChannelColor::Indexed(pair.looks[index]))),
                         HeldPortalOf(s.scope),
@@ -402,7 +396,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
                 .insert(InRoomInstance(room))
                 .id()
         });
-        for (entity, end) in ends.iter().zip(as_portals(&pair.ends)) {
+        for (entity, end) in ends.iter().zip(prepared) {
             open.push((*entity, Some(room), end));
         }
         let record = HeldPortalPairRecord {
@@ -435,27 +429,30 @@ fn lower_held_portal_pairs<L: LowersIn>(
 }
 
 /// The two ends a module asks for, as the portals they would be.
-fn as_portals(ends: &[PortalEnd; 2]) -> [PlacedPortal; 2] {
-    ends.map(|end| {
-        let mut portal =
-            PlacedPortal::fixed(crate::UNRESOLVED_LINK_CHANNEL, ae::Vec2::from(end.at), ae::Vec2::from(end.normal), end.half_length);
+fn as_portals(ends: &[PortalEnd; 2]) -> Result<[PlacedPortal; 2], ae::frame::NumericFault> {
+    let prepare = |end: &PortalEnd| {
+        let mut portal = PlacedPortal::fixed(
+            crate::UNRESOLVED_LINK_CHANNEL, ae::Vec2::from(end.at), ae::Vec2::from(end.normal), end.half_length,
+        )?;
         if let Some(half_thickness) = end.half_thickness {
+            if !half_thickness.is_finite() { return Err(ae::frame::NumericFault::NonFinite); }
+            if half_thickness <= 0.0 { return Err(ae::frame::NumericFault::InvalidScale); }
             portal.half_thickness = half_thickness;
         }
-        portal
-    })
+        Ok(portal)
+    };
+    Ok([prepare(&ends[0])?, prepare(&ends[1])?])
 }
 
-/// Would the pair `ends` fizzle: do its ends overlap each other, or a portal
+/// Would the pair `asked` fizzle: do its ends overlap each other, or a portal
 /// open in its `room` that is not one of its own (`own`)? A portal in no
 /// room is in every room.
 fn fizzles(
     open: &[(Entity, Option<LiveRoomInstance>, PlacedPortal)],
-    ends: &[PortalEnd; 2],
+    asked: &[PlacedPortal; 2],
     own: &[Entity],
     room: Option<LiveRoomInstance>,
 ) -> bool {
-    let asked = as_portals(ends);
     asked[0].opening_overlaps(&asked[1])
         || open.iter().any(|(entity, in_room, portal)| {
             !own.contains(entity)

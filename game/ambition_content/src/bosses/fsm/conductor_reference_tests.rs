@@ -411,7 +411,8 @@ pub fn conduct_fsm(
             }
             let rest = Vec2::new(at.x, hall.floor - STRANDED_ABOVE_FLOOR);
             let pos = glide(at, rest, 120.0, dt);
-            ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, (pos - at) / dt);
+            let desired = ae::BodyKinematics { pos, vel: (pos - at) / dt, ..*kin };
+            ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), desired, None, &[]).unwrap();
             aabb.center = pos;
             continue;
         }
@@ -507,7 +508,8 @@ pub fn conduct_fsm(
         // locomotion alone, so it is set to agree with this answer.
         let conducts = !driven || conductor.scripts_pose(part);
         if conducts {
-            ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, (pos - at) / dt);
+            let desired = ae::BodyKinematics { pos, vel: (pos - at) / dt, ..*kin };
+            ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), desired, None, &[]).unwrap();
             aabb.center = pos;
         } else {
             conductor.side = if kin.facing < 0.0 { -1.0 } else { 1.0 };

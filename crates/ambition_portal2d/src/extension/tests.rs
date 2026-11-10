@@ -50,7 +50,9 @@ fn ask(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if x == 0 {
         return Ok(());
     }
-    let (x, normals, half_length, looks) = if x >= TURNED {
+    let (x, normals, half_length, looks) = if x == 9999 {
+        (x, [[1.0, 0.0], [0.0, 0.0]], 40.0, [26, 27])
+    } else if x >= TURNED {
         (x - TURNED, [[1.0, 0.0], [-1.0, 0.0]], 40.0, [26, 27])
     } else {
         (x, [[0.0, -1.0], [0.0, 1.0]], 65.0, [24, 25])
@@ -493,8 +495,8 @@ fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
         body,
         transfer: crate::PortalTransfer::new(
             ae::Vec2::ZERO, ae::Vec2::ZERO,
-            &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::BLUE), ae::Vec2::ZERO, -ae::Vec2::Y, 40.0),
-            &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0),
+            &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::BLUE), ae::Vec2::ZERO, -ae::Vec2::Y, 40.0).unwrap(),
+            &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0).unwrap(),
             &crate::PortalTuning::default(),
         ).unwrap(),
         facing_flip: false,
@@ -651,7 +653,7 @@ fn a_pair_asked_across_an_open_portal_fizzles() {
     // Its near line is at (x, 500), its far line at (x + 50, 200): a portal
     // already open across the far line's place is overlapped by it.
     app.world_mut().spawn((
-        PlacedPortal::fixed(crate::UNRESOLVED_LINK_CHANNEL, ae::Vec2::new(150.0, 200.0), ae::Vec2::new(1.0, 0.0), 40.0),
+        PlacedPortal::fixed(crate::UNRESOLVED_LINK_CHANNEL, ae::Vec2::new(150.0, 200.0), ae::Vec2::new(1.0, 0.0), 40.0).unwrap(),
         room,
     ));
     app.world_mut().spawn((Asks(100), SimId::placement("a"), room));
@@ -659,4 +661,21 @@ fn a_pair_asked_across_an_open_portal_fizzles() {
         app.world_mut().run_schedule(Sim);
     }
     assert_eq!(portals(&mut app).len(), 0, "a pair one of whose ends crosses an open portal fizzles");
+}
+
+#[test]
+fn an_invalid_second_end_preserves_both_live_ends() {
+    let mut app = finished_app();
+    app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+    let owner = app.world_mut().spawn((Asks(100), SimId::placement("a"), InRoomInstance(LiveRoomInstance::ACTIVATION))).id();
+    for _ in 0..2 { app.world_mut().run_schedule(Sim); }
+    let before = portals(&mut app);
+    assert_eq!(before.len(), 2);
+    app.world_mut().get_mut::<Asks>(owner).unwrap().0 = 9999;
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(portals(&mut app), before);
+    assert!(!app.world().get::<HeldPortalPairs>(owner).unwrap().0[0].spent);
+    app.world_mut().get_mut::<Asks>(owner).unwrap().0 = 200;
+    app.world_mut().run_schedule(Sim);
+    assert!(portals(&mut app).iter().any(|(_, _, at, _, _)| *at == near_of(200.0)));
 }

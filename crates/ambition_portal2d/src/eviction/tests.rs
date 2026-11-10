@@ -7,7 +7,7 @@ fn floor_portal(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
         pos,
         Vec2::new(0.0, -1.0),
         crate::PORTAL_OPENING_HALF,
-    )
+    ).unwrap()
 }
 
 fn app() -> App {

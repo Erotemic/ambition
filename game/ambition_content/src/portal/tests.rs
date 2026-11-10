@@ -213,13 +213,13 @@ fn raycast_sees_through_a_portal_pair_and_recurses() {
             Vec2::new(200.0, 380.0),
             Vec2::new(0.0, -1.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ),
+        ).unwrap(),
         PlacedPortal::fixed(
             ORANGE,
             Vec2::new(380.0, 200.0),
             Vec2::new(-1.0, 0.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ),
+        ).unwrap(),
     ];
     // Without portals, casting down hits nothing.
     assert!(raycast_solids(
@@ -311,13 +311,13 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
         Vec2::new(20.0, 200.0),
         Vec2::new(1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(380.0, 200.0),
         Vec2::new(-1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     // A thrown item flying into the blue portal.
     let item = app
         .world_mut()
@@ -358,13 +358,13 @@ fn a_thrown_item_comes_out_turned_as_the_pair_turns_it() {
         Vec2::new(100.0, 300.0),
         Vec2::new(0.0, -1.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(400.0, 200.0),
         Vec2::new(1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     let item = app
         .world_mut()
         .spawn(GroundItem::released(
@@ -388,7 +388,7 @@ fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
         Vec2::ZERO,
         Vec2::new(1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    );
+    ).unwrap();
     // The opening is the SAME size in every orientation (2*46=92). A wall
     // portal gates on HEIGHT: a short actor fits, a 200-tall boss does not.
     assert!(portal_fits(Vec2::new(24.0, 40.0), &wall));
@@ -400,7 +400,7 @@ fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
         Vec2::ZERO,
         Vec2::new(0.0, -1.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    );
+    ).unwrap();
     assert!(portal_fits(Vec2::new(40.0, 200.0), &floor));
     assert!(!portal_fits(Vec2::new(100.0, 20.0), &floor));
 }
@@ -418,13 +418,13 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
         Vec2::new(20.0, 200.0),
         Vec2::new(1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(380.0, 200.0),
         Vec2::new(-1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     let small = app
         .world_mut()
         .spawn((
@@ -475,7 +475,7 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
 fn n_pairs_transit_routes_to_the_matching_partner() {
     let he = ambition_portal2d::PORTAL_OPENING_HALF;
     let floor = |channel, x: f32| {
-        PlacedPortal::fixed(channel, Vec2::new(x, 300.0), Vec2::new(0.0, -1.0), he)
+        PlacedPortal::fixed(channel, Vec2::new(x, 300.0), Vec2::new(0.0, -1.0), he).unwrap()
     };
     // Two INDEPENDENT floor pairs placed at once.
     let portals = vec![
@@ -720,13 +720,13 @@ fn actors_get_an_aerial_roll_through_portals() {
         Vec2::new(200.0, 380.0),
         Vec2::new(0.0, -1.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(380.0, 200.0),
         Vec2::new(-1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     let actor = app
         .world_mut()
         .spawn((
@@ -771,13 +771,13 @@ fn portal_pair_teleports_player_carrying_momentum() {
         Vec2::new(22.0, 200.0),
         Vec2::new(1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(378.0, 200.0),
         Vec2::new(-1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     let player = spawn_player(&mut app, Vec2::new(22.0, 200.0), 1.0);
     app.world_mut()
         .get_mut::<BodyKinematics>(player)
@@ -832,13 +832,13 @@ fn a_gunless_player_transits_an_authored_pair() {
         Vec2::new(200.0, 300.0),
         Vec2::new(0.0, -1.0),
         he,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         YELLOW,
         Vec2::new(600.0, 300.0),
         Vec2::new(0.0, -1.0),
         he,
-    ));
+    ).unwrap());
     let player = app
         .world_mut()
         .spawn((
@@ -896,13 +896,13 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         Vec2::new(200.0, 300.0),
         Vec2::new(0.0, -1.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(600.0, 300.0),
         Vec2::new(0.0, -1.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     // Player straddling the blue floor: feet (max.y=305) below the plane,
     // centroid (285) still above it.
     let player = spawn_player(&mut app, Vec2::new(200.0, 285.0), 1.0);
@@ -973,7 +973,7 @@ fn portal_carve_is_transient_and_pair_gated() {
             Vec2::new(200.0, 300.0),
             Vec2::new(0.0, -1.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ))
+        ).unwrap())
         .id();
     app.update();
     assert!(
@@ -990,7 +990,7 @@ fn portal_carve_is_transient_and_pair_gated() {
         Vec2::new(600.0, 300.0),
         Vec2::new(0.0, -1.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.update();
     assert!(
         app.world()
@@ -1070,7 +1070,7 @@ fn a_shot_replaces_the_portal_of_its_channel_in_its_own_room_only() {
     let kept = app
         .world_mut()
         .spawn((
-            PlacedPortal::fixed(BLUE, Vec2::new(382.0, 200.0), Vec2::new(-1.0, 0.0), ambition_portal2d::PORTAL_OPENING_HALF),
+            PlacedPortal::fixed(BLUE, Vec2::new(382.0, 200.0), Vec2::new(-1.0, 0.0), ambition_portal2d::PORTAL_OPENING_HALF).unwrap(),
             InRoomInstance(live[0]),
         ))
         .id();
@@ -1301,13 +1301,13 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
             Vec2::new(254.0, floor_y),
             up,
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ),
+        ).unwrap(),
         PlacedPortal::fixed(
             YELLOW,
             Vec2::new(554.0, floor_y),
             up,
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ),
+        ).unwrap(),
     ];
 
     let mut scratch = BodyClusterScratch::new_with_abilities(
@@ -1423,13 +1423,13 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
             Vec2::new(254.0, floor_y),
             up,
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ),
+        ).unwrap(),
         PlacedPortal::fixed(
             YELLOW,
             Vec2::new(554.0, floor_y),
             up,
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ),
+        ).unwrap(),
     ];
 
     let mut scratch = BodyClusterScratch::new_with_abilities(
@@ -1602,7 +1602,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
             Vec2::new(plat_x, plat_top - 2.0),
             Vec2::new(0.0, -1.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ))
+        ).unwrap())
         .id();
     let unhosted = app
         .world_mut()
@@ -1611,7 +1611,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
             Vec2::new(22.0, 200.0),
             Vec2::new(1.0, 0.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ))
+        ).unwrap())
         .id();
 
     app.update(); // attach + first refresh
@@ -1693,7 +1693,7 @@ fn a_portal_on_a_spinning_plank_turns_with_it_and_carries_its_spin() {
             Vec2::new(440.0, 500.0),
             Vec2::new(0.0, -1.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ))
+        ).unwrap())
         .id();
     app.update();
     let p = app.world().get::<PlacedPortal>(portal).unwrap().clone();
@@ -1758,7 +1758,7 @@ fn a_wrapping_host_closes_its_old_plane_without_sweeping_the_wrap() {
         ).chain());
         let portal = app.world_mut().spawn(PlacedPortal::fixed(
             PURPLE, start, Vec2::NEG_Y, ambition_portal2d::PORTAL_OPENING_HALF,
-        )).id();
+        ).unwrap()).id();
         let body_start = start - Vec2::Y * 2.0;
         let body = app.world_mut().spawn(BodyKinematics {
             pos: body_start, canonical_size: Vec2::new(24.0, 40.0),
@@ -1821,7 +1821,7 @@ fn a_portal_finds_its_host_face_in_its_own_live_room() {
                 Vec2::new(x, top - 2.0),
                 Vec2::new(0.0, -1.0),
                 ambition_portal2d::PORTAL_OPENING_HALF,
-            ),
+            ).unwrap(),
             InRoomInstance(room),
         )
     };
@@ -1866,7 +1866,7 @@ fn a_portal_the_adapter_has_decided_is_not_scanned_again() {
             Vec2::new(x, top - 2.0),
             Vec2::new(0.0, -1.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        )
+        ).unwrap()
     };
     let decided = app
         .world_mut()
@@ -1993,7 +1993,7 @@ fn host_and_depth(
         Update,
         (attach_portal_hosts, refresh_hosted_portal_frames, sync_portal_host_depths).chain(),
     );
-    let portal = app.world_mut().spawn(PlacedPortal::fixed(PURPLE, at, Vec2::new(0.0, -1.0), 30.0)).id();
+    let portal = app.world_mut().spawn(PlacedPortal::fixed(PURPLE, at, Vec2::new(0.0, -1.0), 30.0).unwrap()).id();
     app.update();
     let host = app.world().get::<PlacedPortal>(portal).expect("the portal stays on its host").host.clone();
     let depth = app.world().resource::<PortalHostDepthsByRoom>().0.iter().map(|(_, d)| d.depth(PURPLE)).find(|d| d.is_finite());
@@ -2031,7 +2031,7 @@ fn a_shot_that_would_overlap_another_portal_fizzles() {
         let mut app = app_with_the_shot_adapter();
         let blue = app
             .world_mut()
-            .spawn(PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), ambition_portal2d::PORTAL_OPENING_HALF))
+            .spawn(PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), ambition_portal2d::PORTAL_OPENING_HALF).unwrap())
             .id();
         app.world_mut().spawn(PortalShot { channel: ORANGE, pos: Vec2::new(45.0, y), vel: Vec2::new(-1900.0, 0.0), traveled: 0.0 });
         app.update();

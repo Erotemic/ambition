@@ -50,7 +50,7 @@ fn wall(channel: PortalChannel, opening: f32) -> PlacedPortal {
         Vec2::new(x, 200.0),
         normal,
         opening * 0.5,
-    )
+    ).unwrap()
 }
 
 /// The opening of the standard portal.
@@ -163,7 +163,7 @@ fn after_the_floor_closes(size: Vec2, down: Vec2) -> Vec2 {
     let normal = Vec2::new(0.0, -1.0);
     let closing = app
         .world_mut()
-        .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), normal, crate::PORTAL_OPENING_HALF))
+        .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), normal, crate::PORTAL_OPENING_HALF).unwrap())
         .id();
     let body = BodyKinematics { material: Default::default(),
         pos: Vec2::new(500.0, 285.0),

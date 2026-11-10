@@ -30,6 +30,7 @@ const FERRY_ID_PREFIX: &str = "fall_rescue";
 /// rises under it with the rest of the room's platforms.
 #[allow(clippy::type_complexity)]
 pub(crate) fn rescue_falling_bodies(
+    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
     mut rooms: Query<
         (Entity, &mut MovingPlatformSet, &ae::RoomGeometry),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
@@ -100,10 +101,11 @@ pub(crate) fn rescue_falling_bodies(
             .with_visual(carrier.clone())
             // Bodies land on the platform from above.
             .one_way();
-            platforms.0.push(ferry);
             // Caught: the fall stops on the carrier's back.
             let (pos, vel) = (kin.pos, ae::Vec2::new(kin.vel.x * 0.5, 0.0));
-            ae::movement::constrain_body_pose(&mut kin, sweep.map(|sweep| sweep.into_inner()), pos, vel);
+            let desired = ae::BodyKinematics { pos, vel, ..*kin };
+            if poses.constrain(body, &mut kin, sweep.map(|sweep| sweep.into_inner()), desired).is_err() { continue; }
+            platforms.0.push(ferry);
         }
     }
 }

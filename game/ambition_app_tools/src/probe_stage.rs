@@ -206,14 +206,16 @@ pub fn pin_grounded_at_rest(app: &mut App, body: Entity, pos: Vec2) {
     let Some(mut kin) = app.world_mut().get_mut::<BodyKinematics>(body) else {
         return;
     };
+    let desired = BodyKinematics { pos, vel: Vec2::ZERO, ..*kin };
     ambition_platformer2d::engine_core::movement::constrain_body_pose(
         &mut kin,
         // A fixture placement is not travel, so the sample ends here and
         // readers fall back to the live pose.
         None,
-        pos,
-        Vec2::ZERO,
-    );
+        desired,
+        None,
+        &[],
+    ).expect("the fixture pose must be valid");
 }
 
 pub fn playing_move(app: &App, body: Entity) -> Option<String> {

@@ -59,7 +59,7 @@ fn same_wall_pair_app(who: Body) -> (App, Entity) {
             Vec2::new(20.0, y),
             Vec2::new(1.0, 0.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ));
+        ).unwrap());
     }
     let mut body = app.world_mut().spawn(BodyKinematics { material: Default::default(),
         pos: Vec2::new(20.0, 200.0),

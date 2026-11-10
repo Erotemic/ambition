@@ -751,8 +751,10 @@ pub fn steer_mount_from_rider(
 /// composite and a mount in a separate composite; never the same
 /// entity playing both roles in one frame.)
 pub fn sync_riders_to_mounts(
+    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
     mut riders: Query<
         (
+            Entity,
             &RidingOn,
             &mut CenteredAabb,
             Option<&MountedSize>,
@@ -792,6 +794,7 @@ pub fn sync_riders_to_mounts(
     >,
 ) {
     for (
+        rider,
         riding,
         mut rider_aabb,
         mounted_size,
@@ -810,9 +813,8 @@ pub fn sync_riders_to_mounts(
         // Sky-rider size: keep the authored rider footprint stable while the
         // mount is alive. The same footprint remains after dismount; larger
         // cove pirates are separate authored actor spawns.
-        if let Some(size) = mounted_size {
-            rider_kin.canonical_size = size.0;
-        }
+        let mut desired = *rider_kin;
+        if let Some(size) = mounted_size { desired.canonical_size = size.0; }
         // Snap pose to the mount. Vel zeroed so update_ecs_actors'
         // integrator can't drift the rider off the mount on the
         // next frame.
@@ -822,7 +824,7 @@ pub fn sync_riders_to_mounts(
         let frame = mount_frame.basis();
         // The rider stands on the seat: its centre is half ITS height above it,
         // in the mount's frame.
-        let rider_centre = mountable.seat - ae::Vec2::new(0.0, rider_kin.size().y * 0.5);
+        let rider_centre = mountable.seat - ae::Vec2::new(0.0, desired.size().y * 0.5);
         let rider_local = saddle_world_offset(
             rider_centre,
             ae::mirror_side(mount_kin.facing, mount_unmirrored),
@@ -830,13 +832,10 @@ pub fn sync_riders_to_mounts(
         );
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted.
-        ae::movement::constrain_body_pose(
-            &mut rider_kin,
-            rider_sweep.as_deref_mut(),
-            mount_kin.pos + rider_local,
-            ae::Vec2::ZERO,
-        );
-        rider_kin.facing = mount_kin.facing;
+        desired.pos = mount_kin.pos + rider_local;
+        desired.vel = ae::Vec2::ZERO;
+        desired.facing = mount_kin.facing;
+        if poses.constrain(rider, &mut rider_kin, rider_sweep.as_deref_mut(), desired).is_err() { continue; }
         // ⛔ `invalidate()` for the same reason a captive gets it: the saddle pin
         // is a discrete pose write every tick, so clearing the flag without the
         // BASELINE leaves the kernel believing the rider was airborne — and a

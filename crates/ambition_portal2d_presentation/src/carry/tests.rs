@@ -40,8 +40,8 @@ fn test_app() -> App {
 
 fn add_pair(app: &mut App, channel: PortalChannel, entry: f32, exit: f32) {
     for portal in [
-        PlacedPortal::fixed(channel, Vec2::new(entry, 300.0), Vec2::NEG_X, 100.0),
-        PlacedPortal::fixed(channel.partner(), Vec2::new(exit, 300.0), Vec2::X, 100.0),
+        PlacedPortal::fixed(channel, Vec2::new(entry, 300.0), Vec2::NEG_X, 100.0).unwrap(),
+        PlacedPortal::fixed(channel.partner(), Vec2::new(exit, 300.0), Vec2::X, 100.0).unwrap(),
     ] {
         app.world_mut().spawn(portal);
     }
@@ -283,8 +283,8 @@ fn a_body_stays_visible_on_the_first_frame_of_an_authored_or_new_gun_pair() {
 fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
     let mut app = test_app();
     let entry = authored_entry();
-    let a = app.world_mut().spawn(PlacedPortal::fixed(entry, Vec2::new(2200.0, 876.0), Vec2::X, 100.0)).id();
-    let b = app.world_mut().spawn(PlacedPortal::fixed(entry.partner(), Vec2::new(2550.0, 680.0), Vec2::X, 100.0)).id();
+    let a = app.world_mut().spawn(PlacedPortal::fixed(entry, Vec2::new(2200.0, 876.0), Vec2::X, 100.0).unwrap()).id();
+    let b = app.world_mut().spawn(PlacedPortal::fixed(entry.partner(), Vec2::new(2550.0, 680.0), Vec2::X, 100.0).unwrap()).id();
     let visual = spawn_body(&mut app, PieceBudget::COMPOSED, 300.0, entry);
     app.world_mut().entity_mut(visual).insert(Aabb {
         center: Vec3::ZERO.into(),

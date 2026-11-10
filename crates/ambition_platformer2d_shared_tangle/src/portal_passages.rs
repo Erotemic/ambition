@@ -319,3 +319,35 @@ mod material_tests {
         assert!(!independent[0].transform().reflected());
     }
 }
+
+
+/// Admission context for a body whose pose an external owner controls.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PoseAdmission<'w, 's> {
+    passages: Option<bevy::prelude::Res<'w, PortalPassages>>,
+    live: crate::lifecycle::LiveRooms<'w, 's>,
+    acceleration: bevy::prelude::Query<'w, 's, &'static crate::frame_env::CarriedAcceleration>,
+}
+
+impl PoseAdmission<'_, '_> {
+    pub fn constrain(
+        &self,
+        body: Entity,
+        kinematics: &mut ambition_platformer2d_core::BodyKinematics,
+        sweep: Option<&mut ambition_platformer2d_core::SweepSample>,
+        desired: ambition_platformer2d_core::BodyKinematics,
+    ) -> Result<(), Refusal> {
+        let carried = self.acceleration.get(body).ok()
+            .map_or(&[][..], |acceleration| std::slice::from_ref(&acceleration.0));
+        let result = ambition_platformer2d_core::movement::constrain_body_pose(kinematics, sweep, desired,
+            self.passages.as_deref().and_then(|passages| passages.motion_for(body, self.live.of(body))), carried);
+        if let Err(refusal) = &result {
+            tracing::trace!(target: "ambition_platformer2d::pose_admission", ?body,
+                from = ?kinematics.pos, to = ?desired.pos, ?refusal, "pose motion refused");
+        }
+        result
+    }
+}
+
+#[cfg(test)]
+mod pose_tests;

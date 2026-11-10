@@ -106,7 +106,13 @@ pub fn portal_projectile_step(
             continue;
         }
         opened.push((winner.room, winner.channel));
-        let opening = PlacedPortal::fixed(winner.channel, winner.pos, winner.normal, ambition_portal2d::PORTAL_OPENING_HALF);
+        let Ok(opening) = PlacedPortal::fixed(winner.channel, winner.pos, winner.normal, ambition_portal2d::PORTAL_OPENING_HALF) else {
+            sfx.write(ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_INVALID,
+                emitter: winner.hit.into(),
+            });
+            continue;
+        };
         let overlapped = portals
             .iter()
             .filter(|(entity, portal)| portal.channel != winner.channel && world.room_of(*entity) == winner.room)

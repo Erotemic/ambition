@@ -302,7 +302,7 @@ mod tests {
             Vec2::new(500.0, 300.0),
             Vec2::new(-1.0, 0.0),
             46.0,
-        )
+        ).unwrap()
     }
 
     fn test_app() -> App {

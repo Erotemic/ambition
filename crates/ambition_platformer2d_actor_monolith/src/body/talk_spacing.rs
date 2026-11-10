@@ -70,6 +70,7 @@ pub struct TalkSpacing {
 /// the bodies), so a rewind needs no message to start the step again.
 #[allow(clippy::too_many_arguments)]
 pub fn space_the_talkers(
+    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
     mut commands: Commands,
     // `Option`: no conversation authority (`Capability::Dialogue` omitted) means
     // nobody is talking; the step only forgets records it already holds.
@@ -123,7 +124,7 @@ pub fn space_the_talkers(
         // The step is over: the initiator stops and faces back across.
         spacing.walking = 0.0;
         commands.entity(initiator).remove::<CommandedMove>();
-        super::pet::stop_where_it_stands(&mut initiator_kin, frame.down);
+        if super::pet::stop_where_it_stands(&poses, initiator, &mut initiator_kin, frame.down).is_err() { return; }
         initiator_kin.facing = -spacing.side;
         other_kin.facing = spacing.side;
         return;
@@ -172,7 +173,7 @@ pub fn space_the_talkers(
     initiator_kin.facing = -side;
     let walking = if step.is_some() {
         // The other body waits where it is, as a petted body does.
-        super::pet::stop_where_it_stands(&mut other_kin, frame.down);
+        if super::pet::stop_where_it_stands(&poses, other, &mut other_kin, frame.down).is_err() { return; }
         commands.entity(initiator).insert(CommandedMove {
             target: place(mark),
             speed: TALK_WALK_SPEED,

@@ -50,7 +50,7 @@ mod reset_tests {
             Vec2::new(0.0, 0.0),
             normal,
             crate::PORTAL_OPENING_HALF,
-        )
+        ).unwrap()
     }
 
     #[test]

@@ -15,7 +15,7 @@ fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
         pos,
         Vec2::new(0.0, -1.0),
         crate::PORTAL_OPENING_HALF,
-    )
+    ).unwrap()
 }
 
 const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
@@ -244,7 +244,7 @@ fn a_recorded_deep_crossing_transfers_even_on_cooldown() {
 }
 
 fn wall_portal(channel: PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal {
-    PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF)
+    PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF).unwrap()
 }
 
 
@@ -316,7 +316,7 @@ fn ceiling(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
         pos,
         Vec2::new(0.0, 1.0),
         crate::PORTAL_OPENING_HALF,
-    )
+    ).unwrap()
 }
 
 /// Swept (CCD) transit on a floor→ceiling pair that forms an accelerating
@@ -591,7 +591,7 @@ fn a_transit_takes_its_convention_from_tuning() {
 fn on_a_slope(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
     let a = 30.0_f32.to_radians();
     let normal = Vec2::new(a.sin(), -a.cos());
-    PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF)
+    PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF).unwrap()
 }
 
 /// The opening of a slanted portal is as long as a level one's, and the
@@ -618,7 +618,7 @@ fn a_slanted_portal_opens_as_wide_as_a_level_one_and_captures_on_its_face() {
 #[test]
 fn a_body_goes_through_a_portal_on_a_slope() {
     let enter = on_a_slope(PURPLE, Vec2::new(500.0, 500.0));
-    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(900.0, 300.0), Vec2::new(-1.0, 0.0), crate::PORTAL_OPENING_HALF);
+    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(900.0, 300.0), Vec2::new(-1.0, 0.0), crate::PORTAL_OPENING_HALF).unwrap();
     let portals = vec![enter.clone(), exit.clone()];
     let size = Vec2::new(28.0, 46.0);
     let down = Vec2::new(0.0, 1.0);
@@ -675,8 +675,8 @@ fn a_portal_that_turns_keeps_its_opening() {
 
 #[test]
 fn unequal_aperture_transfer_keeps_actual_velocity_samples_and_inverse_map() {
-    let enter = PlacedPortal::fixed(PURPLE, Vec2::new(100.0, 100.0), -Vec2::Y, 40.0);
-    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 200.0), Vec2::X, 20.0);
+    let enter = PlacedPortal::fixed(PURPLE, Vec2::new(100.0, 100.0), -Vec2::Y, 40.0).unwrap();
+    let exit = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 200.0), Vec2::X, 20.0).unwrap();
     let position = Vec2::new(108.0, 104.0);
     let velocity = Vec2::new(30.0, 1000.0);
     for convention in [crate::PortalConvention::Rotation, crate::PortalConvention::Reflection] {
@@ -698,7 +698,7 @@ fn unequal_aperture_transfer_keeps_actual_velocity_samples_and_inverse_map() {
 #[test]
 fn exit_assistance_does_not_rewrite_the_measured_entry_velocity() {
     let enter = floor(PURPLE, Vec2::ZERO);
-    let mut exit = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 100.0), Vec2::X, crate::PORTAL_OPENING_HALF);
+    let mut exit = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 100.0), Vec2::X, crate::PORTAL_OPENING_HALF).unwrap();
     exit.vel = Vec2::new(80.0, 0.0);
     let velocity = Vec2::new(0.0, 5.0);
     let tuning = PortalTuning::default();
@@ -748,8 +748,8 @@ fn a_full_turn_takes_a_still_root_at_the_crossing_pose() {
 fn a_turned_material_box_fits_its_opening_even_when_its_envelope_does_not() {
     let turn = bevy::math::Mat2::from_angle(std::f32::consts::FRAC_PI_4);
     let normal = turn * Vec2::Y;
-    let portals = [PlacedPortal::fixed(PURPLE, Vec2::ZERO, normal, 10.0),
-        PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 100.0), Vec2::NEG_Y, 10.0)];
+    let portals = [PlacedPortal::fixed(PURPLE, Vec2::ZERO, normal, 10.0).unwrap(),
+        PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 100.0), Vec2::NEG_Y, 10.0).unwrap()];
     for scale in [0.5, 2.0] {
         for reflected in [false, true] {
             let axes = if reflected { turn * bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y) } else { turn };

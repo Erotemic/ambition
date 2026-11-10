@@ -143,7 +143,7 @@ fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle
         ),
     ] {
         app.world_mut().spawn((
-            PlacedPortal::fixed(channel, pos, normal, 40.0),
+            PlacedPortal::fixed(channel, pos, normal, 40.0).unwrap(),
             InRoomInstance(second),
         ));
     }
@@ -187,7 +187,7 @@ fn a_body_behind_a_portal_is_hit(portals: bool) -> bool {
             (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0),
             ),
         ] {
-            app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
+            app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0).unwrap());
         }
     }
     // One leg of 24 px, 590 to 614: its centre crosses the plane at 600, and
@@ -237,7 +237,7 @@ fn a_fast_shot_through_a_portal_reaches_a_body_just_past_the_exit() {
         (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0),
         ),
     ] {
-        app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
+        app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0).unwrap());
     }
     // 8 wide, 40 in front of the orange: inside a step of 96.
     let target = spawn_boss(&mut app, "past", ae::Vec2::new(1240.0, 800.0), ae::Vec2::new(4.0, 23.0),

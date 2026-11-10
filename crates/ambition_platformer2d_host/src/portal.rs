@@ -1324,7 +1324,7 @@ mod tests {
             app.add_systems(Update, publish_threaded_host_pictures);
             // Two floor openings, their fronts up.
             for (channel, x) in [(purple, 0.0), (teal, 300.0)] {
-                app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(x, 300.0), Vec2::new(0.0, -1.0), 40.0));
+                app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(x, 300.0), Vec2::new(0.0, -1.0), 40.0).unwrap());
             }
             let host = app.world_mut().spawn((ambition_combat::FeatureId("giant".into()), body(Vec2::new(150.0, 200.0)))).id();
             // 30 into the purple opening, and 5 into the teal one.
@@ -1430,9 +1430,9 @@ mod tests {
         // A floor pair, so a body standing on the blue portal straddles its plane.
         let floor = Vec2::new(0.0, -1.0);
         app.world_mut()
-            .spawn(PlacedPortal::fixed(blue, Vec2::new(200.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF));
+            .spawn(PlacedPortal::fixed(blue, Vec2::new(200.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF).unwrap());
         app.world_mut()
-            .spawn(PlacedPortal::fixed(orange, Vec2::new(300.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF));
+            .spawn(PlacedPortal::fixed(orange, Vec2::new(300.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF).unwrap());
         // Its feet are below the plane (y 275..315, plane 300).
         let player = app
             .world_mut()
@@ -1771,8 +1771,8 @@ mod tests {
             PortalChannel::Authored(PortalChannelColor::Yellow),
         );
         // A wall pair: in at x = 100 facing +x, out at x = 1500 facing -x.
-        app.world_mut().spawn(PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0));
-        app.world_mut().spawn(PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0));
+        app.world_mut().spawn(PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0).unwrap());
+        app.world_mut().spawn(PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0).unwrap());
         let crossed = |app: &mut App, y: f32| {
             app.world_mut()
                 .spawn((body(Vec2::new(1495.0, y)), PortalTransit { straddling: yellow, crossed: true }))
@@ -1799,8 +1799,8 @@ mod tests {
                 body,
                 transfer: ambition_portal2d::PortalTransfer::new(
                     Vec2::new(95.0, 500.0), -Vec2::X * 400.0,
-                    &PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0),
-                    &PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0),
+                    &PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0).unwrap(),
+                    &PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0).unwrap(),
                     &ambition_portal2d::PortalTuning::default(),
                 ).unwrap(),
                 facing_flip: false,

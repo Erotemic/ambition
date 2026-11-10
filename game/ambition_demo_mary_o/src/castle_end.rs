@@ -374,6 +374,7 @@ fn beat_of_her_room(
 /// falls with its plank.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn run_castle_ending(
+    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
     time: Res<ambition_platformer2d::time::WorldTime>,
     subject: Option<Res<ControlledSubject>>,
     rooms: Option<LiveRoomSpecs>,
@@ -465,7 +466,7 @@ pub fn run_castle_ending(
     let Some(drive) = drive else {
         return;
     };
-    crate::flag::drive_her(&drive, &mut kin, sweep.as_deref_mut(), mode);
+    crate::flag::drive_her(&poses, her, &drive, &mut kin, sweep.as_deref_mut(), mode);
     let looks = sequence.castle_beat().and_then(|(beat, _)| beat.she_looks());
     if let Some(side) = looks.filter(|side| drive.vel.x == 0.0 && kin.facing != *side) {
         kin.facing = side;
@@ -523,6 +524,7 @@ pub fn charges_go_off_on_the_bridge(
 /// held it up.
 #[allow(clippy::type_complexity)]
 pub fn the_lava_takes_the_boss(
+    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
     sequences: Query<&FlagSequence>,
     subject: Option<Res<ControlledSubject>>,
     rooms: Option<LiveRoomSpecs>,
@@ -562,7 +564,9 @@ pub fn the_lava_takes_the_boss(
                 // In the lava: down at a fixed speed, and no way to the side.
                 // The lava holds the speed; the step moves the body.
                 let at = kin.pos;
-                ae::movement::constrain_body_pose(&mut kin, None, at, ae::Vec2::new(0.0, crate::rules::mary_o_rules().castle_end.sink_speed));
+                let desired = ae::BodyKinematics { pos: at,
+                    vel: ae::Vec2::new(0.0, crate::rules::mary_o_rules().castle_end.sink_speed), ..*kin };
+                if poses.constrain(entity, &mut kin, None, desired).is_err() { continue; }
                 if tick.as_ref().is_some_and(|tick| tick.get() % crate::rules::mary_o_rules().castle_end.splash_ticks == 0) {
                     vfx.for_room(room).write(crate::rules::mary_o_rules().effects.lava_splash.at(ae::Vec2::new(kin.pos.x, pool.min.y)));
                 }

@@ -235,7 +235,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 431 -> 432: body material keeps wide room axes; motion records include source turns.
 // Physical material replaces separate roll and support-orientation state.
 // 432 -> 433: a menu's stow of a hand is a stamped request (`ItemStowRequested`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 433;
+// 433 -> 434: a seat's leave is a stamped request (`ParticipantLeaveRequested`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 434;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

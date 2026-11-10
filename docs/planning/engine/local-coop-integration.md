@@ -219,9 +219,11 @@ sprite, join-position, dialogue, blink, fixed-split, friendly-fire, local
 menu/UI and debug-view slices should not be reselected from their old
 implementation sequence. Preserve the following obligations:
 
-1. **Explicit local leave/rejoin:** stamped body retirement, device claim,
-   equipped/held item conservation, view/HUD cleanup and clean re-admission
-   (`LOCAL-PLAY-MODES`).
+1. **Explicit local leave/rejoin:** built 2026-11-10 (`LOCAL-PLAY-MODES`
+   slice 3): the menu's leave is a stamped intent; the simulation ends the
+   membership, retires the body and puts what it holds down where it stood;
+   the pad claim is released; the seat joins again. A remote peer's leave is
+   not built.
 2. **Peer admission and travel verification:** confirm both peers agree on
    content identity, input event order, room-commit application frame,
    rollback and failure/invalidated preparation. Ordinary crossings already
@@ -307,7 +309,7 @@ The current product rules are in
 | Always-split view mode | `VideoSettings::local_view_layout` selects `Adaptive` or `AlwaysSplit` through the shared settings menu. The existing view and camera owners apply it. | **Built 2026-11-01** (`751ad0b34`). Controller and GPU tests cover live switching, retained session/body identity, separate rectangles and drawn panes. |
 | Player 2 stays in blink state | Every `PlayerBlinkCameraState` advances on wall time. Every preview reads committed seat controls through the driven body. | **Fixed in `0754ed273`**; the two-seat simulation test covers press, hold, release and completed cooldown. A separate paused-clock test covers presentation decay. |
 | Player strikes do not hurt the other player | `FriendlyFire::default().enabled` is false. Both driven bodies resolve to `ActorFaction::Player`; `damage_lands_between` allows same-faction damage only when friendly fire is enabled (unless another relation overrides). | **Confirmed default rule explains allied damage rejection**. Prove Ambition's actual resolved room rule and all attack families. The explicit `friendly_fire: false` in `game/ambition_app/assets/data/room_rules.ron` is a **Versus** stage declaration, not the general Ambition room default. |
-| Only one player can use the pause/menu | Ambition menu identity, viewport scene, inputs and pause claims now belong to menu entities, with two-pad controls tested on both Grid and Cube. | **Local multi-menu support built.** Peer-stamped held-item actions and leave/rejoin remain separate tasks. |
+| Only one player can use the pause/menu | Ambition menu identity, viewport scene, inputs and pause claims now belong to menu entities, with two-pad controls tested on both Grid and Cube. | **Local multi-menu support built.** Held-item equips and stows, and a local seat's leave, are stamped intents (2026-11-10). |
 | Either player's door flashes black over both panes | Transition covers and loading foregrounds now use `ParticipantSurface`. Loading input claims name the affected participant. | **Fixed in `e36b067fd` and `c89f0b828`**. Both crossing orders and separate-room GPU witnesses pass. Ordinary peer crossings no longer hold/rebase the whole timeline (2026-11-04); broader peer verification and checkpoint/rebuild barriers are separate. |
 | F1 gizmos show the wrong room or offset | Both presenters use `RetainedDrawings` with native room/view ownership. Body queries are read-only. Strikes use their emission room; the primary inspector is labelled and clipped to P1. | **Fixed in `0e0099f0e`**. Shared-room and separate-room GPU guards cover grids, labels, portal diagnostics and private camera frames. Unit guards cover handle reuse, credit retirement and room retirement. |
 | Adaptive split/merge feels inconsistent | `AdaptiveSplit` keeps `split_beyond`, `merge_within`, `merge_after`, and a local `DistanceSplit` latch. | **No source defect established**. The maintainer deferred threshold and animation polish. Preserve the current policy and test topology only. |
@@ -628,8 +630,9 @@ remain in Git history. Preserve the local menu's per-seat input policy and
 the session's explicit pause aggregation; do not restore singleton gesture,
 body, UI-state, viewport or camera ownership.
 
-**Remaining menu work:** `LOCAL-PLAY-MODES` owns stamped leave/rejoin and item
-conservation. Held-item/equipment mutations that still enter via host Update
-must become peer-agreed typed intents where needed. Test the completed
+**Remaining menu work:** the local leave and the menu's hand equips and stows
+are stamped intents (2026-11-10). Other held-item or equipment mutations that
+still enter in host `Update` must become peer-agreed typed intents where
+needed. Test the completed
 menu surfaces under rollback, independent peer input and rendered two-pane
 presentation; do not infer peer correctness from isolated local UI tests.

@@ -1007,19 +1007,31 @@ pub fn return_released_items(
         let pos = support.and_then(|support| holders.get(support.supporter).ok())
             .map_or(kin.pos, |(partner, ..)| SupportedCarry::anchor(kin, partner, Vec2::Y));
         commands.entity(holder).remove::<SupportedCarry>();
-        // A released object is at rest, not mid-throw.
-        let body = BodyKinematics { pos, vel: Vec2::ZERO, ..*body };
-        commands.entity(entity).insert((body, ae::SweepSample::at_tick_end(body, Vec2::ZERO)));
-        *custody = ItemCustody::InWorld;
-        // ⭐ AND THIS IS NOT A `Release` AT ALL — it is a stow, from the menu or
-        // a brandish swap. It stamps no `ReleasedAs`, so a bomb that leaves a
-        // hand this way does not arm. That used to be true only because the
-        // velocity happened to be zero here.
-        commands.entity(entity).remove::<ReleasedAs>();
-        // Released from a hand at whatever height that body is at: this object
-        // is back under gravity until it lands on something.
-        commands.entity(entity).remove::<SettledItem>();
+        put_down(&mut commands, entity, body, &mut custody, pos);
     }
+}
+
+/// Put an object a body holds down at `pos`, at rest: the hand let go of it
+/// without throwing it (a stow, a swap, or the body leaving the session).
+///
+/// The same entity and `SimId` go back to the world, so nothing is minted and
+/// nothing is lost.
+pub fn put_down(
+    commands: &mut Commands,
+    item: Entity,
+    body: &BodyKinematics,
+    custody: &mut ItemCustody,
+    pos: Vec2,
+) {
+    let body = BodyKinematics { pos, vel: Vec2::ZERO, ..*body };
+    commands.entity(item).insert((body, ae::SweepSample::at_tick_end(body, Vec2::ZERO)));
+    *custody = ItemCustody::InWorld;
+    // Not a `Release`: it stamps no `ReleasedAs`, so a bomb that leaves a
+    // hand this way does not arm.
+    commands.entity(item).remove::<ReleasedAs>();
+    // Let go at whatever height that body is at: the object is back under
+    // gravity until it lands on something.
+    commands.entity(item).remove::<SettledItem>();
 }
 
 /// Derive room residency from item custody.

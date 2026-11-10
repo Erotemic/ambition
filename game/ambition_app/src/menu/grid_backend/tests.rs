@@ -66,6 +66,9 @@ fn grid_app() -> App {
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::session::reset::NewGameRequested,
     >>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::session::leave::ParticipantLeaveRequested,
+    >>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     app.add_message::<ambition_platformer2d::game_shell::PauseRequested>();

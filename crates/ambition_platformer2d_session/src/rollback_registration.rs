@@ -31,6 +31,10 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         "actor.zone_passage",
         crate::rooms::passage::ZonePassage::checksum,
     );
+    registrar.clear_message_on_rollback::<crate::leave::ParticipantLeaveRequested>(
+        OWNER,
+        "message.participant_leave_requested",
+    );
     registrar.clear_message_on_rollback::<crate::reset::NewGameRequested>(
         OWNER,
         "message.new_game_requested",

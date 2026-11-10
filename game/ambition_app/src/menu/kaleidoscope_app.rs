@@ -632,6 +632,16 @@ pub(crate) struct KaleidoscopeScroll {
 pub(crate) struct SystemMenuParams<'w, 's> {
     #[cfg(feature = "input")]
     pub(super) bindings: crate::menu::bindings::MenuBindings<'w, 's>,
+    pub(super) departures: crate::menu::departure::MenuDepartures<'w, 's>,
+    // A seat's leave is a host intent: the simulation retires it on the
+    // stamped tick.
+    leave: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
+        'w,
+        's,
+        ambition_platformer2d::session::leave::ParticipantLeaveRequested,
+    >,
+    #[cfg(feature = "input")]
+    seat_claims: Option<ResMut<'w, ambition_platformer2d::input::LocalSeatClaims>>,
     abilities: Option<ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>>,
     dev_tools: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
@@ -816,6 +826,18 @@ impl SystemMenuParams<'_, '_> {
             .write(ambition_platformer2d::session::reset::NewGameRequested);
     }
 
+    /// Seat `seat` leaves: the simulation retires it on the stamped tick, and
+    /// its controller is released now, so the pad is free to join again.
+    pub(crate) fn request_leave(&mut self, seat: u8) {
+        self.leave.write(ambition_platformer2d::session::leave::ParticipantLeaveRequested {
+            participant: ambition_platformer2d::characters::control::PlayerSlot(seat),
+        });
+        #[cfg(feature = "input")]
+        if let Some(claims) = self.seat_claims.as_deref_mut() {
+            claims.release(ambition_platformer2d::input::ParticipantId(seat));
+        }
+    }
+
     /// Reset every persisted settings/dev resource back to defaults — the same
     /// reset the pause menu's `SettingsItem::ResetAllSettings` performs: restore
     /// `UserSettings` + `DeveloperTools` to defaults, then re-derive the editable
@@ -883,6 +905,7 @@ impl SystemMenuParams<'_, '_> {
             &self.dev_snapshot(),
             quality,
         );
+        let model = self.departures.attach(model, menu);
         #[cfg(feature = "input")]
         {
             return self.bindings.attach(model, menu);
@@ -901,6 +924,7 @@ impl SystemMenuParams<'_, '_> {
 pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
     #[cfg(feature = "input")]
     pub(super) bindings: crate::menu::bindings::MenuBindings<'w, 's>,
+    pub(super) departures: crate::menu::departure::MenuDepartures<'w, 's>,
     abilities: Option<Res<'w, ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>>,
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     dev_state: Res<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
@@ -940,6 +964,7 @@ impl SystemMenuSnapshotParams<'_, '_> {
             &self.dev_snapshot(),
             quality,
         );
+        let model = self.departures.attach(model, menu);
         #[cfg(feature = "input")]
         {
             return self.bindings.attach(model, menu);
@@ -1923,6 +1948,9 @@ pub(crate) fn focus_for_action(
                     SystemMenuEntryId::QuitToHome
                 }
                 MenuPageAction::SystemAction(SystemMenuAction::Quit) => SystemMenuEntryId::Quit,
+                MenuPageAction::SystemAction(SystemMenuAction::LeaveSeat(seat)) => {
+                    SystemMenuEntryId::LeaveSeat(seat)
+                }
                 _ => return MenuFocus::System(0),
             };
             system_row(SystemRow::Entry(entry))

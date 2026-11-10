@@ -13,7 +13,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
 
 1. **Network architecture (maintainer priority, updated 2026-11-06):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. Keep [GGRS island-history partitioning](tracks.md#conditional-ggrs-island-rollback) deferred until that experiment chooses a backend; `activeArea` physical continuity, loading-zone custody and local live portals remain relevant either way, and are covered by the authority experiment and existing multiplayer owners.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
-   then LOCAL-PLAY-MODES menu leave (LOADOUT-AUTHORITY done 2026-11-10). Honor the
+   then LOCAL-PLAY-MODES presentation (LOADOUT-AUTHORITY and the menu leave
+   done 2026-11-10). Honor the
    2026-10-19 ruling order for CHARACTER-FORM, COOP-RECOVERY,
    PARTNER-RECOVERY and DIALOGUE-CHECKPOINT; do not re-implement
    already completed morph-ball visibility, joining, party travel, baseline
@@ -437,19 +438,28 @@ now joins at a clear nearby position in the primary body's live room.
 The search has a fixed limit and declines a blocked join. See the guards in
 [local-coop integration](engine/local-coop-integration.md).
 
-**Next action, in slices:**
+**Built 2026-11-10 (slice 3, Leave):** each seat's System menu offers
+"Leave Game" to a joined local seat and "Remove Player N" to the primary seat
+for each joined local seat (`SystemMenuModel::with_seat_departure`, attached
+by `menu::departure::MenuDepartures`; only in a session that joins home
+bodies). Choosing it writes `ParticipantLeaveRequested` through
+`HostIntentWriter`, releases the seat's pad claim and closes the menu. The
+simulation (`session::leave::retire_leaving_participants`, before the join on
+the stamped tick) ends the membership, despawns the seat's player bodies, and
+puts what each holds down where it stood (`ambition_held_items::put_down`; the
+bag is session-wide). The primary seat cannot leave this way; Quit to Title is
+its way out. Its menu, view and HUD row go with the membership and the body;
+no room is reset; Start joins again. Witnesses: `a_seat_leaves_the_session.rs`
+(the object lies once where the seat stood, also next door where its view
+closes; the primary's leave is refused; a second join; the leave and rejoin
+under a two-seat sync test),
+`lunex_kaleidoscope_app_tests::remove_player_writes_a_stamped_leave_and_frees_the_pad`,
+`system::tests::departure_rows_are_attached_per_seat_above_quit_to_title`.
+The menu already answered to the seat that opened it (`SeatMenuFrames`, one
+menu per member). Open: a remote peer's leave (this is local seats only).
 
-3. **Leave:** pause-menu actions "remove Player 2" (Player 1) and "leave"
-   (Player 2). Leaving releases the claim, retires the body by an explicit
-   lifetime policy, drops or returns what it holds with no duplicate and no
-   loss, closes its view and HUD, and resets no room. A later join works.
-   Measured 2026-10-19: Player 2 cannot open a menu. Ambition's grid menu
-   reads `MenuControlFrame`, which only the primary seat fills, against the
-   2026-08-06 ruling "any seat may pause, and the seat that paused drives the
-   menu". The leave slice makes the menu answer to the seat that opened it.
-   Lifetime policy chosen: the body retires, and what it holds or carries is
-   put down where it stood (the bag is session-wide, `OwnedItems`), through
-   `HostIntentWriter` so the leave is a stamped simulation tick.
+**Next action:**
+
 4. **Presentation:** the join opens the two-player presentation; the adaptive
    merge stays (Q162). Nice to have: a portal that Player 2 drops out of,
    presentation only.

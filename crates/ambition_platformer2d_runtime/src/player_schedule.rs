@@ -397,6 +397,18 @@ impl Plugin for PlayerSchedulePlugin {
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(crate::sandbox_reset::RoomReplayAdmission),
         );
+        // A menu's leave retires a participant through the host-intent ledger,
+        // before a Start on the same tick could join it again.
+        app.add_plugins(ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<
+            ambition_platformer2d_session::leave::ParticipantLeaveRequested,
+        >::default());
+        app.add_systems(
+            sim,
+            ambition_platformer2d_session::leave::retire_leaving_participants
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
+                .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device)
+                .before(ambition_platformer2d_session::join::seat_a_joining_participant),
+        );
         // Start admits an unjoined participant before character projection.
         app.add_systems(
             sim,

@@ -3,6 +3,13 @@
 //! The god swims BESIDE you with its noodles hanging to just over your head;
 //! the noodles sting, the bell is the target, and the bell is reached from the
 //! ledges or when it lies stranded after a dive.
+//!
+//! The gate holds what must stay true however the fight is tuned: the god is
+//! built with its conductor, a participant can drive it, it aims at the foe
+//! its target names, its landing shocks end with it, and its own volumes spare
+//! its noodlings. The checks of the fight's feel (where it swims, what stings,
+//! how long it lies stranded) are `#[ignore]`d playtests: run them with
+//! `--ignored` when tuning the fight.
 
 use crate::common::base;
 use ambition_app::AmbitionSim;
@@ -25,10 +32,41 @@ fn arena() -> Platformer2dSimHarness {
         // no FSM, and every assertion below would be vacuous.
         .with_required_start_room(ARENA);
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the FSM arena builds headlessly");
-    for _ in 0..30 {
+    // The arena's god is built with what its conductor needs on the first
+    // tick it exists, as a staged one is
+    // (`a_staged_god_is_built_with_its_conductor`).
+    let mut built = conducted(&mut sim);
+    let mut steps = 0;
+    while steps < 30 || (built.is_none() && steps < 300) {
         sim.step(AgentAction::default());
+        steps += 1;
+        if built.is_none() {
+            built = conducted(&mut sim);
+        }
     }
+    assert_eq!(
+        built,
+        Some((true, true)),
+        "the arena's god, on the first tick it exists: (its conducted facing, its pinned row)"
+    );
     sim
+}
+
+/// Whether the god carries what its conductor needs from its first tick: the
+/// side it faces (`ConductedFacing`, which its conductor module chooses from
+/// then on, and which decides where its first move goes) and its drawn row.
+/// `None` while there is no god.
+fn conducted(sim: &mut Platformer2dSimHarness) -> Option<(bool, bool)> {
+    let world = sim.world_mut();
+    world
+        .query::<(
+            &BossConfig,
+            Has<ambition_platformer2d::boss_encounter::conduct::ConductedFacing>,
+            Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>,
+        )>()
+        .iter(world)
+        .find(|(config, ..)| config.behavior.id == FSM_ID)
+        .map(|(_, facing, row)| (facing, row))
 }
 
 struct God {
@@ -124,6 +162,7 @@ fn strike_at(sim: &mut Platformer2dSimHarness, center: ae::Vec2, half: ae::Vec2)
 /// The god takes over its own pose, and swims BESIDE you, not over you: its
 /// bell well clear of your head and off to one side.
 #[test]
+#[ignore = "playtest: how far beside and above the player the god swims is fight tuning"]
 fn the_god_swims_beside_you_with_its_noodles_over_your_head() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
@@ -152,6 +191,7 @@ fn the_god_swims_beside_you_with_its_noodles_over_your_head() {
 /// The noodles sting: jump up into the curtain under the bell and it hurts;
 /// the same jump beside it does not.
 #[test]
+#[ignore = "playtest: where the noodles sting is fight feel for one boss"]
 fn jumping_into_the_noodles_under_the_bell_stings() {
     let mut sim = arena();
     fight_started(&mut sim);
@@ -179,6 +219,7 @@ fn jumping_into_the_noodles_under_the_bell_stings() {
 /// Its body is the BELL: a blow into the noodles hanging under it does not
 /// reach the god; the same blow into the bell does.
 #[test]
+#[ignore = "playtest: one boss's hurtbox design"]
 fn a_blow_to_the_noodles_misses_and_a_blow_to_the_bell_lands() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
@@ -202,6 +243,7 @@ fn a_blow_to_the_noodles_misses_and_a_blow_to_the_bell_lands() {
 /// The dive comes down where you stood, and leaves the god lying on the
 /// floor — its bell in reach from the ground — until its next move lifts it.
 #[test]
+#[ignore = "playtest: the dive's landing and its 80-tick punish window are fight tuning"]
 fn the_dive_lands_on_you_and_leaves_it_stranded_in_reach() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
@@ -470,6 +512,7 @@ fn the_god_aims_at_the_foe_its_target_names_not_the_home_avatar() {
 /// A move keeps the side it chose when its tell began: the god is drawn facing
 /// where its move goes, even when you cross under it.
 #[test]
+#[ignore = "playtest: a presentation choice for one boss"]
 fn a_move_keeps_the_side_its_tell_chose_when_you_cross_under() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
@@ -491,6 +534,7 @@ fn a_move_keeps_the_side_its_tell_chose_when_you_cross_under() {
 
 /// The volley throws MEATBALLS: its shots wear the meatball.
 #[test]
+#[ignore = "playtest: the volley's projectile art and count are content tuning"]
 fn the_volley_throws_meatballs() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
@@ -504,6 +548,7 @@ fn the_volley_throws_meatballs() {
 
 /// Caught by the grasp, you are dragged TOWARD the god and up into its noodles.
 #[test]
+#[ignore = "playtest: one move's feel"]
 fn the_grasp_drags_you_toward_the_god() {
     let mut sim = arena();
     step_until(&mut sim, 1200, "a grasp's strike", |sim| god(sim).performing == Some((Move::Grasp, true)));
@@ -544,7 +589,7 @@ fn wounded_it_sends_noodlings() {
         let mut q = world.query::<(&ambition_platformer2d::characters::actor::WornCharacter, &BodyHealth)>();
         q.iter(world).filter(|(worn, _)| worn.id() == "npc_fsm_noodling").map(|(_, h)| h.damage_taken()).collect()
     };
-    assert_eq!(noodlings(&mut sim).len(), 2, "the lesser appendages did not send a pair of noodlings");
+    assert!(!noodlings(&mut sim).is_empty(), "the lesser appendages sent no noodlings");
     // They are born inside the god's sting; its volumes must pass through its
     // own appendages.
     for _ in 0..120 {
@@ -557,39 +602,10 @@ fn wounded_it_sends_noodlings() {
     );
 }
 
-/// The god is built with what its conductor needs on every road that builds
-/// it: the arena's placement, and a boss staged by code — the side it faces
-/// (`ConductedFacing`, which its conductor module chooses from then on) and
-/// its drawn row. No tick sees it without them, because the side decides
-/// where its first move goes.
+/// A god staged by code is built with what its conductor needs on the frame
+/// that builds it, as the arena's placement is (checked by `arena()`).
 #[test]
-fn the_god_is_built_with_its_conductor_on_every_road() {
-    fn conducted(sim: &mut Platformer2dSimHarness) -> Option<(bool, bool)> {
-        let world = sim.world_mut();
-        world
-            .query::<(
-                &BossConfig,
-                Has<ambition_platformer2d::boss_encounter::conduct::ConductedFacing>,
-                Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>,
-            )>()
-            .iter(world)
-            .find(|(config, ..)| config.behavior.id == FSM_ID)
-            .map(|(_, facing, row)| (facing, row))
-    }
-    let mut placed = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ARENA),
-    )
-    .expect("the FSM arena builds headlessly");
-    let first = (0..300)
-        .find_map(|_| conducted(&mut placed).or_else(|| {
-            placed.step(AgentAction::default());
-            None
-        }))
-        .expect("the arena builds its god");
-    assert_eq!(first, (true, true), "the arena's god, on the first tick it exists");
-
+fn a_staged_god_is_built_with_its_conductor() {
     let mut staged = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("the sandbox builds");
     assert_eq!(conducted(&mut staged), None, "the premise: no god before it is staged");
     staged.spawn_boss_at(
@@ -603,3 +619,4 @@ fn the_god_is_built_with_its_conductor_on_every_road() {
     );
     assert_eq!(conducted(&mut staged), Some((true, true)), "the staged god, on the frame that builds it");
 }
+

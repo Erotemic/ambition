@@ -53,25 +53,6 @@ fn after_a_replay(sim: &mut Platformer2dSimHarness, placement: &str) -> (bool, O
     )
 }
 
-/// A `BossSpawn` placement (mockingbird) defeated after the last checkpoint
-/// is undefeated by a replay: its record is `Untouched`, and the rebuilt boss
-/// is alive and not in its Death phase.
-#[test]
-fn a_boss_spawn_defeat_after_the_checkpoint_is_retracted_by_a_replay() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "after_the_checkpoint");
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-    force_kill_boss(&mut sim, "after_the_checkpoint");
-    until_cleared(&mut sim, "after_the_checkpoint");
-    assert_eq!(
-        after_a_replay(&mut sim, "after_the_checkpoint"),
-        (false, Some(true), false),
-        "(cleared, alive, in Death) after a replay: the defeat since the checkpoint was not retracted"
-    );
-}
-
 /// A conducted boss (the flying spaghetti monster, an extension module's
 /// boss) defeated after the last checkpoint is undefeated by a replay, on the
 /// same generic road.
@@ -95,30 +76,6 @@ fn a_conducted_boss_defeat_after_the_checkpoint_is_retracted_by_a_replay() {
         after_a_replay(&mut sim, &god),
         (false, Some(true), false),
         "(cleared, alive, in Death) after a replay: the conducted boss's defeat was not retracted"
-    );
-}
-
-/// The control: a defeat recorded before the last checkpoint survives a
-/// replay of its own room. The checkpoint promises it.
-#[test]
-fn a_defeat_before_the_checkpoint_survives_a_replay() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "before_the_checkpoint");
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-    force_kill_boss(&mut sim, "before_the_checkpoint");
-    until_cleared(&mut sim, "before_the_checkpoint");
-    sim.world_mut()
-        .write_message(ambition_platformer2d::platformer::lifecycle::CheckpointCommitted);
-    for _ in 0..5 {
-        sim.step(AgentAction::default());
-    }
-    let (cleared, alive, _) = after_a_replay(&mut sim, "before_the_checkpoint");
-    assert_eq!(
-        (cleared, alive),
-        (true, Some(false)),
-        "(cleared, alive) after a replay: a defeat the checkpoint holds was retracted"
     );
 }
 
@@ -149,38 +106,208 @@ fn mints_of(world: &mut World, boss: &str) -> (usize, usize) {
     (live, rows)
 }
 
-/// The reward goes with the defeat (Q51): the signature gauntlet the
-/// retracted defeat dropped, and its ledger row, are gone after the replay. A
-/// minted item lying in a room has a `Placed` row, so without the retraction
-/// the rebuild puts it back.
+/// The admiral's conversation sets this flag and queues it, as
+/// `effect_bus::write_flag` does: the hand-in that completes `pirate_treasure`
+/// once the mockingbird is defeated, and pays three health cells.
+fn hand_in_the_treasure(sim: &mut Platformer2dSimHarness) {
+    sim.world_mut()
+        .resource_mut::<ambition_content::quest::QuestRegistry>()
+        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet(
+            "npc_pirate_admiral_talked".into(),
+        ));
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+}
+
+/// The save's flag that the admiral's payout was granted.
+fn treasure_paid(sim: &Platformer2dSimHarness) -> bool {
+    sim.world()
+        .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data()
+        .flag("pirate_treasure_reward_granted")
+}
+
+/// A `BossSpawn` placement (mockingbird) defeated after the last checkpoint is
+/// undefeated by a replay, and everything its defeat minted goes with it
+/// (Q51), each on its own road:
+///
+/// * the record is `Untouched`, and the rebuilt boss is alive and not in its
+///   Death phase;
+/// * the signature gauntlet it dropped, and its ledger row (a minted item lying
+///   in a room has a `Placed` row, so without the retraction the rebuild puts
+///   it back);
+/// * the bounty it paid: the player held 7 coins before the fight and holds
+///   7 again;
+/// * the reward chest the player opened (a content pack's 30-coin chest): the
+///   coins, the chest and the save's looted flag;
+/// * the `pirate_treasure` step the defeat advanced, and the admiral's hand-in
+///   and payout that could only follow it, in the registry and in the save.
 #[test]
-fn a_replay_takes_back_the_gauntlet_the_retracted_defeat_dropped() {
+fn a_replay_takes_back_a_defeat_since_the_checkpoint_and_everything_it_minted() {
+    use ambition_platformer2d::items::Item;
+    const BOSS: &str = "retracted";
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "gauntlet_giver");
+    {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyWallet, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single_mut(world)
+            .expect("the player has a wallet")
+            .balance = 7;
+    }
+    sim.rebase_rollback_history().expect("the rollback history rebases over the wallet");
+    let cells = |sim: &mut Platformer2dSimHarness| i64::from(owns(sim.world_mut(), Item::HealthCell));
+    let cells_before = cells(&mut sim);
+    assert_eq!(quest(sim.world_mut(), "pirate_treasure"), started_at_boot(), "precondition: the quest waits on the mockingbird");
+
+    spawn_mockingbird(&mut sim, BOSS);
     let boss = {
         let world = sim.world_mut();
-        let mut q = world.query::<(&BossConfig, &ambition_platformer2d::platformer::sim_id::SimId,
-        )>();
+        let mut q = world.query::<(&BossConfig, &ambition_platformer2d::platformer::sim_id::SimId)>();
         q.iter(world)
-            .find(|(config, _)| config.id == "gauntlet_giver")
+            .find(|(config, _)| config.id == BOSS)
             .map(|(_, sim_id)| sim_id.as_str().to_string())
             .expect("the boss has a simulation identity")
     };
-    kill_boss_with_a_real_hit(&mut sim, "gauntlet_giver", 600);
-    until_cleared(&mut sim, "gauntlet_giver");
-    for _ in 0..30 {
+    kill_boss_with_a_real_hit(&mut sim, BOSS, 600);
+    until_cleared(&mut sim, BOSS);
+
+    // The bounty collected, the gauntlet minted, and the chest down.
+    for _ in 0..240 {
+        let (live, rows) = mints_of(sim.world_mut(), &boss);
+        if balance(sim.world_mut()) > 7 && live > 0 && rows > 0 && reward_chest(sim.world_mut(), BOSS).is_some() {
+            break;
+        }
         sim.step(AgentAction::default());
     }
+    assert_eq!(balance(sim.world_mut()), 7 + 50, "precondition: the defeat's 50-coin bounty was collected");
     let (live, rows) = mints_of(sim.world_mut(), &boss);
     assert!(
         live > 0 && rows > 0,
         "precondition: the defeat minted a reward with a ledger row (live {live}, rows {rows})"
     );
+
+    // The pack's reward, in place of mockingbird's `Custom` relic.
+    {
+        let world = sim.world_mut();
+        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::world_items::containers::ChestFeature,
+        )>();
+        let (_, mut chest) = chests
+            .iter_mut(world)
+            .find(|(chest, _)| chest.encounter_id == BOSS)
+            .expect("precondition: the defeat dropped its reward chest");
+        chest.chest.reward = Some(ambition_platformer2d::entity_catalog::PickupKind::Currency { amount: 30 });
+    }
+    let looted = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(&ambition_platformer2d::encounter::encounter_reward_looted_flag(BOSS))
+    };
+    for _ in 0..60 {
+        let Some((opened, at)) = reward_chest(sim.world_mut(), BOSS) else {
+            break;
+        };
+        if opened {
+            break;
+        }
+        sim.teleport_player((at.x, at.y));
+        sim.step(AgentAction { interact: true, interact_held: true, ..AgentAction::default() });
+        sim.step(AgentAction::default());
+    }
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        (balance(sim.world_mut()), reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&sim)),
+        (7 + 50 + 30, Some(true), true),
+        "precondition: (balance, chest opened, looted flag) once the chest is opened"
+    );
+
+    hand_in_the_treasure(&mut sim);
+    assert_eq!(
+        (quest(sim.world_mut(), "pirate_treasure").0, cells(&mut sim) - cells_before, treasure_paid(&sim)),
+        (("Completed".to_string(), 1), 3, true),
+        "precondition: (pirate_treasure, health cells gained, reward flag) after the hand-in"
+    );
+
     replay(&mut sim);
+    assert_eq!(
+        (
+            boss_cleared(&sim, BOSS),
+            boss_alive(sim.world_mut(), BOSS),
+            boss_phase(sim.world_mut(), BOSS) == Some(BossEncounterPhase::Death),
+        ),
+        (false, Some(true), false),
+        "(cleared, alive, in Death) after a replay: the defeat since the checkpoint was not retracted"
+    );
     assert_eq!(
         mints_of(sim.world_mut(), &boss),
         (0, 0),
-        "(live mints, ledger rows) of the retracted boss after the replay"
+        "(live mints, ledger rows) of the retracted boss after the replay: the gauntlet stayed"
+    );
+    assert_eq!(balance(sim.world_mut()), 7, "the bounty and the chest's coins go back with the defeat; the 7 from before stay");
+    assert_eq!(
+        (reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&sim)),
+        (None, false),
+        "(chest opened, looted flag) after the replay: the opened chest stayed"
+    );
+    let at = |step: u8| (("InProgress".to_string(), step), ("InProgress".to_string(), step));
+    assert_eq!(
+        quest(sim.world_mut(), "pirate_treasure"),
+        at(0),
+        "pirate_treasure (registry, save) after the replay: the steps that followed the defeat stayed"
+    );
+    assert_eq!(
+        (cells(&mut sim) - cells_before, treasure_paid(&sim)),
+        (0, false),
+        "(health cells gained, reward flag) after the replay: the admiral's payout stayed"
+    );
+}
+
+/// The control: a defeat recorded before the last checkpoint survives a
+/// replay of its own room, with the quest steps and the payout that followed
+/// it. The checkpoint promises it.
+#[test]
+fn a_defeat_before_the_checkpoint_survives_a_replay_with_its_quest_and_payout() {
+    use ambition_platformer2d::items::Item;
+    const BOSS: &str = "banked";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let cells_before = owns(sim.world_mut(), Item::HealthCell);
+    spawn_mockingbird(&mut sim, BOSS);
+    for _ in 0..15 {
+        sim.step(AgentAction::default());
+    }
+    force_kill_boss(&mut sim, BOSS);
+    until_cleared(&mut sim, BOSS);
+    hand_in_the_treasure(&mut sim);
+    let stands = |sim: &mut Platformer2dSimHarness| {
+        (
+            boss_cleared(sim, BOSS),
+            boss_alive(sim.world_mut(), BOSS),
+            quest(sim.world_mut(), "pirate_treasure"),
+            owns(sim.world_mut(), Item::HealthCell) - cells_before,
+            treasure_paid(sim),
+        )
+    };
+    let paid = stands(&mut sim);
+    assert_eq!(
+        (paid.0, paid.1, paid.2 .0.clone(), paid.3, paid.4),
+        (true, Some(false), ("Completed".to_string(), 1), 3, true),
+        "precondition: (cleared, alive, pirate_treasure, health cells gained, reward flag) after the hand-in"
+    );
+    sim.world_mut()
+        .write_message(ambition_platformer2d::platformer::lifecycle::CheckpointCommitted);
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    replay(&mut sim);
+    assert_eq!(
+        stands(&mut sim),
+        paid,
+        "(cleared, alive, pirate_treasure in the registry and the save, health cells gained, reward flag) \
+         after a replay: a defeat the checkpoint holds, or what followed it, was retracted"
     );
 }
 
@@ -223,40 +350,6 @@ fn balance(world: &mut World) -> i32 {
         .single(world)
         .expect("the player has a wallet")
         .balance
-}
-
-/// The coins go with the defeat (Q51). The player holds 7 coins from before
-/// the fight; the boss's bounty, collected, adds to them; a replay that
-/// retracts the defeat takes the bounty back and leaves the 7.
-#[test]
-fn a_replay_takes_back_the_bounty_the_retracted_defeat_paid() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "bounty_payer");
-    {
-        let world = sim.world_mut();
-        world
-            .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyWallet, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
-            .single_mut(world)
-            .expect("the player has a wallet")
-            .balance = 7;
-    }
-    sim.rebase_rollback_history().expect("the rollback history rebases over the wallet");
-    kill_boss_with_a_real_hit(&mut sim, "bounty_payer", 600);
-    until_cleared(&mut sim, "bounty_payer");
-    let mut paid = balance(sim.world_mut());
-    for _ in 0..240 {
-        if paid > 7 {
-            break;
-        }
-        sim.step(AgentAction::default());
-        paid = balance(sim.world_mut());
-    }
-    replay(&mut sim);
-    assert_eq!(
-        (paid, balance(sim.world_mut())),
-        (7 + 50, 7),
-        "(balance with the bounty collected, balance after the replay)"
-    );
 }
 
 /// How many of `item` the bag holds.
@@ -334,78 +427,11 @@ use ambition_platformer2d::combat::components::{BossRewardChest, CenteredAabb, }
         .map(|(_, aabb, opened)| (opened.is_some(), aabb.center))
 }
 
-/// The opened reward chest goes with the defeat (Q51). A content pack's boss
-/// chest that grants 30 coins is opened by the player; a replay that retracts
-/// the defeat takes the coins back, the chest goes, and the save no longer
-/// says it was looted. Killed directly, so the boss drops no bounty.
-#[test]
-fn a_replay_takes_back_the_reward_chest_the_retracted_defeat_dropped() {
-    const BOSS: &str = "chest_giver";
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, BOSS);
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-    force_kill_boss(&mut sim, BOSS);
-    until_cleared(&mut sim, BOSS);
-    for _ in 0..120 {
-        sim.step(AgentAction::default());
-    }
-    // The pack's reward, in place of mockingbird's `Custom` relic.
-    {
-        let world = sim.world_mut();
-        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::world_items::containers::ChestFeature,
-        )>();
-        let (_, mut chest) = chests
-            .iter_mut(world)
-            .find(|(chest, _)| chest.encounter_id == BOSS)
-            .expect("precondition: the defeat dropped its reward chest");
-        chest.chest.reward = Some(ambition_platformer2d::entity_catalog::PickupKind::Currency { amount: 30 });
-    }
-    let looted = |sim: &mut Platformer2dSimHarness| {
-        sim.world()
-            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-            .data()
-            .flag(&ambition_platformer2d::encounter::encounter_reward_looted_flag(BOSS))
-    };
-    let before = balance(sim.world_mut());
-    for _ in 0..60 {
-        let Some((opened, at)) = reward_chest(sim.world_mut(), BOSS) else {
-            break;
-        };
-        if opened {
-            break;
-        }
-        sim.teleport_player((at.x, at.y));
-        sim.step(AgentAction { interact: true, interact_held: true, ..AgentAction::default() });
-        sim.step(AgentAction::default());
-    }
-    for _ in 0..5 {
-        sim.step(AgentAction::default());
-    }
-    let opened = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim),
-    );
-    replay(&mut sim);
-    let after = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim),
-    );
-    assert_eq!(
-        (opened, after),
-        ((30, Some(true), true), (0, None, false)),
-        "((coins, chest opened, looted flag) when opened, the same after the replay)"
-    );
-}
-
-/// Cut-rope's boss, defeated before the checkpoint; then the pending slot is
-/// taken by another lifecycle operation, and while it is, the player chooses
-/// "try again" when `try_again` is set. Later a plain replay of the room.
-/// Returns (cleared after the refused request, cleared after the plain replay).
-fn cut_rope_after_a_refused_request(try_again: bool) -> (bool, bool) {
-    cut_rope_after_a_request(true, try_again)
-}
-
-/// [`cut_rope_after_a_refused_request`], with the pending slot taken only when
-/// `slot_taken` is set.
-fn cut_rope_after_a_request(slot_taken: bool, try_again: bool) -> (bool, bool) {
+/// Cut-rope's boss, defeated before the checkpoint; then, if `slot_taken`, the
+/// pending slot is taken by another lifecycle operation, and while it is, the
+/// player chooses "try again". Later a plain replay of the room. Returns
+/// (cleared after the try-again, cleared after the plain replay).
+fn cut_rope_after_a_try_again(slot_taken: bool) -> (bool, bool) {
     use ambition_platformer2d::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomReconstitutionIntent,
     };
@@ -436,9 +462,7 @@ fn cut_rope_after_a_request(slot_taken: bool, try_again: bool) -> (bool, bool) {
                 }),
         );
     }
-    if try_again {
-        sim.world_mut().write_message(ambition_content::bosses::CutRopeRoomReplayRequested);
-    }
+    sim.world_mut().write_message(ambition_content::bosses::CutRopeRoomReplayRequested);
     sim.step(AgentAction::default());
     for _ in 0..30 {
         sim.step(AgentAction::default());
@@ -452,16 +476,17 @@ fn cut_rope_after_a_request(slot_taken: bool, try_again: bool) -> (bool, bool) {
 /// defeated before the checkpoint, so only the re-fight road can put it back.
 /// The player chooses "try again" while another lifecycle operation owns the
 /// pending slot, so the replay is refused; later a plain replay of the room is
-/// admitted. The plain replay is not a re-fight: the defeat stays, as it does
-/// in the control, where nobody chose "try again". When the re-fight was a
-/// latch the refused request left set, the plain replay took it.
+/// admitted. The plain replay is not a re-fight: the defeat stays, as a defeat
+/// the checkpoint holds does through any plain replay
+/// (`a_defeat_before_the_checkpoint_survives_a_replay_with_its_quest_and_payout`).
+/// When the re-fight was a latch the refused request left set, the plain
+/// replay took it.
 #[test]
 fn a_refused_try_again_does_not_make_a_later_replay_a_refight() {
     assert_eq!(
-        (cut_rope_after_a_refused_request(false), cut_rope_after_a_refused_request(true)),
-        ((true, true), (true, true)),
-        "((cleared after the refused request, cleared after a later plain replay) with no \
-         try-again, the same with a refused try-again)"
+        cut_rope_after_a_try_again(true),
+        (true, true),
+        "(cleared after the refused try-again, cleared after a later plain replay)"
     );
 }
 
@@ -471,7 +496,7 @@ fn a_refused_try_again_does_not_make_a_later_replay_a_refight() {
 #[test]
 fn an_admitted_try_again_re_fights_a_defeat_from_before_the_checkpoint() {
     assert_eq!(
-        cut_rope_after_a_request(false, true),
+        cut_rope_after_a_try_again(false),
         (false, false),
         "(cleared after the admitted try-again, cleared after a later plain replay)"
     );
@@ -496,65 +521,6 @@ fn quest(world: &mut World, id: &str) -> ((String, u8), (String, u8)) {
 /// and the save has no row for it until it first advances.
 fn started_at_boot() -> ((String, u8), (String, u8)) {
     (("InProgress".to_string(), 0), ("NotStarted".to_string(), 0))
-}
-
-/// The mockingbird's defeat advances `pirate_treasure` past its first step.
-/// Returns where the quest stands (before the fight, after the defeat, after
-/// a replay); `checkpoint` commits a checkpoint between the defeat and the
-/// replay.
-fn pirate_treasure_across_a_replay(checkpoint: bool) -> Vec<((String, u8), (String, u8))> {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    let mut stands = vec![quest(sim.world_mut(), "pirate_treasure")];
-    spawn_mockingbird(&mut sim, "quest_giver");
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-    force_kill_boss(&mut sim, "quest_giver");
-    until_cleared(&mut sim, "quest_giver");
-    for _ in 0..5 {
-        sim.step(AgentAction::default());
-    }
-    stands.push(quest(sim.world_mut(), "pirate_treasure"));
-    if checkpoint {
-        sim.world_mut()
-            .write_message(ambition_platformer2d::platformer::lifecycle::CheckpointCommitted);
-        for _ in 0..5 {
-            sim.step(AgentAction::default());
-        }
-    }
-    replay(&mut sim);
-    stands.push(quest(sim.world_mut(), "pirate_treasure"));
-    stands
-}
-
-/// The quest step goes with the defeat: a replay that retracts the
-/// mockingbird's defeat puts `pirate_treasure` back on "hunt the
-/// mockingbird", in the registry and in the save.
-#[test]
-fn a_replay_takes_back_the_quest_step_the_retracted_defeat_advanced() {
-    let at = |step: u8| {
-        (("InProgress".to_string(), step), ("InProgress".to_string(), step),
-        )
-    };
-    assert_eq!(
-        pirate_treasure_across_a_replay(false),
-        vec![started_at_boot(), at(1), at(0)],
-        "pirate_treasure (registry, save) before the fight, after the defeat, after the replay"
-    );
-}
-
-/// The control: a defeat the checkpoint holds keeps the step it advanced.
-#[test]
-fn a_quest_step_from_a_defeat_before_the_checkpoint_survives_a_replay() {
-    let at = |step: u8| {
-        (("InProgress".to_string(), step), ("InProgress".to_string(), step),
-        )
-    };
-    assert_eq!(
-        pirate_treasure_across_a_replay(true),
-        vec![started_at_boot(), at(1), at(1)],
-        "pirate_treasure (registry, save) before the fight, after the defeat, after the replay"
-    );
 }
 
 /// Spawn a clockwork warden at the player, defeat it, and pick up the
@@ -603,9 +569,9 @@ fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placem
 /// What a warden defeated in the hub leaves after a death: (boss cleared,
 /// markrecall owned, intro_first_system_boss in the registry, the wallet's
 /// change since before the fight). `banked` commits the checkpoint after the
-/// defeat instead of before it; `elsewhere` walks into the neighbour room
+/// defeat instead of before it. The player walks into the neighbour room
 /// before dying.
-fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, (String, u8), i32) {
+fn a_warden_defeat_across_a_death_in_another_room(banked: bool) -> (bool, u32, (String, u8), i32) {
     use crate::common::walk_through_the_door_to;
     use crate::death_restores_the_checkpoint::{
         NEIGHBOUR, ROOM, commit_a_hub_checkpoint, die,
@@ -621,9 +587,7 @@ fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, 
     if banked {
         commit_a_hub_checkpoint(&mut sim);
     }
-    if elsewhere {
-        walk_through_the_door_to(&mut sim, NEIGHBOUR);
-    }
+    walk_through_the_door_to(&mut sim, NEIGHBOUR);
     die(&mut sim);
     (
         boss_cleared(&sim, "warden"),
@@ -635,16 +599,15 @@ fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, 
 }
 
 /// A death goes back to the checkpoint everywhere, so it retracts a boss
-/// defeat since the checkpoint wherever the player dies. It took the ability
-/// out of the bag before, and left the boss dead and the quest complete, in
-/// the other room.
+/// defeat since the checkpoint wherever the player dies, also in a room other
+/// than the boss's: the record, the ability in the bag, the quest and the
+/// bounty.
 #[test]
 fn a_death_in_another_room_retracts_a_defeat_since_the_checkpoint() {
-    let undefeated = (false, 0, ("InProgress".to_string(), 0), 0);
     assert_eq!(
-        (a_warden_defeat_across_a_death(false, false), a_warden_defeat_across_a_death(false, true)),
-        (undefeated.clone(), undefeated),
-        "(cleared, markrecall, quest, wallet change) after a death in the boss's room, then in another room"
+        a_warden_defeat_across_a_death_in_another_room(false),
+        (false, 0, ("InProgress".to_string(), 0), 0),
+        "(cleared, markrecall, quest, wallet change) after a death in another room"
     );
 }
 
@@ -653,7 +616,7 @@ fn a_death_in_another_room_retracts_a_defeat_since_the_checkpoint() {
 #[test]
 fn a_defeat_before_the_checkpoint_survives_a_death_in_another_room() {
     assert_eq!(
-        a_warden_defeat_across_a_death(true, true),
+        a_warden_defeat_across_a_death_in_another_room(true),
         (true, 1, ("Completed".to_string(), 0), 50),
         "(cleared, markrecall, quest, wallet change) after a death in another room: \
          the warden's 50-coin bounty stays with it"
@@ -751,78 +714,6 @@ fn a_death_keeps_an_ability_taken_after_the_checkpoint_from_a_banked_defeat() {
     );
 }
 
-/// The mockingbird's defeat, then the hand-in to the admiral, which completes
-/// `pirate_treasure` and pays out. Returns (pirate_treasure in the registry,
-/// health cells gained, reward flag) after the hand-in and after a replay;
-/// `banked` commits a checkpoint between the hand-in and the replay.
-fn a_handed_in_treasure_across_a_replay(banked: bool) -> Vec<((String, u8), i64, bool)> {
-    use ambition_platformer2d::items::Item;
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
-    let cells = |sim: &mut Platformer2dSimHarness| i64::from(owns(sim.world_mut(), Item::HealthCell));
-    let before = cells(&mut sim);
-    let stands = |sim: &mut Platformer2dSimHarness| {
-        let flag = sim
-            .world()
-            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-            .data()
-            .flag("pirate_treasure_reward_granted");
-        (quest(sim.world_mut(), "pirate_treasure").0, cells(sim) - before, flag,
-        )
-    };
-    spawn_mockingbird(&mut sim, "hoard_thief");
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-    force_kill_boss(&mut sim, "hoard_thief");
-    until_cleared(&mut sim, "hoard_thief");
-    // The admiral's conversation sets this flag and queues it, as
-    // `effect_bus::write_flag` does.
-    sim.world_mut()
-        .resource_mut::<ambition_content::quest::QuestRegistry>()
-        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet(
-            "npc_pirate_admiral_talked".into(),
-        ),
-        );
-    for _ in 0..5 {
-        sim.step(AgentAction::default());
-    }
-    let mut seen = vec![stands(&mut sim)];
-    if banked {
-        sim.world_mut()
-            .write_message(ambition_platformer2d::platformer::lifecycle::CheckpointCommitted);
-        for _ in 0..5 {
-            sim.step(AgentAction::default());
-        }
-    }
-    replay(&mut sim);
-    seen.push(stands(&mut sim));
-    seen
-}
-
-/// A quest that moved on after the retracted defeat goes back with it: the
-/// hand-in could only follow the hunt, so the replay puts `pirate_treasure`
-/// back on its first step, and the admiral's payout goes with it.
-#[test]
-fn a_replay_takes_back_the_quest_steps_and_payout_that_followed_the_defeat() {
-    assert_eq!(
-        a_handed_in_treasure_across_a_replay(false),
-        vec![(("Completed".to_string(), 1), 3, true), (("InProgress".to_string(), 0), 0, false)],
-        "(pirate_treasure, health cells gained, reward flag) after the hand-in, then after the replay"
-    );
-}
-
-/// The control: a hand-in the checkpoint holds survives a replay, with its
-/// payout.
-#[test]
-fn a_payout_before_the_checkpoint_survives_a_replay() {
-    let paid = (("Completed".to_string(), 1), 3, true);
-    assert_eq!(
-        a_handed_in_treasure_across_a_replay(true),
-        vec![paid.clone(), paid],
-        "(pirate_treasure, health cells gained, reward flag) after the hand-in, then after the replay"
-    );
-}
-
 /// Spawn mockingbird `id` where Bob stands, in Bob's live room `room`. A boss
 /// spawned at Alice's hub position and moved into Bob's room stands at hub
 /// coordinates there, outside its geometry, and its chest falls out of the
@@ -896,34 +787,28 @@ struct BobsBoss {
     live_rooms: usize,
 }
 
-/// Post-checkpoint boss defeats in Alice's live room and in Bob's, and then,
-/// if `die`, Alice's death in hers.
-///
-/// Alice banks a checkpoint; then a boss in her room and a boss in Bob's room
-/// (`switch_lab`) are defeated, and only then does Alice die. Bob stays in his
-/// room the whole time. With `together`, they share one room.
-///
-/// Bob is found by his identity, not by his seat: in this fixture he is a
-/// placement of `switch_lab`, so a rebuild of that room builds him again
-/// (Q153: a seat's body needs a home a rebuild does not replace).
-fn bobs_boss_after_alices_death(die: bool, together: bool) -> BobsBoss {
-    bobs_boss_after(if die { Ending::Death } else { Ending::Nothing }, together)
-}
-
 /// What ends the run in [`bobs_boss_after`].
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Ending {
-    Nothing,
     /// Alice dies in her room.
     Death,
     /// An explicit whole-session restart.
     NewGame,
 }
 
-/// [`bobs_boss_after_alices_death`], ended by `ending`.
-fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
+/// Post-checkpoint boss defeats in Alice's live room and in Bob's, and then
+/// `ending`. Returns what stands just before the ending (the control) and
+/// after it.
+///
+/// Alice banks a checkpoint; then a boss in her room and a boss in Bob's room
+/// (`switch_lab`) are defeated, and only then does the run end. Bob stays in
+/// his room the whole time. With `together`, they share one room.
+///
+/// Bob is found by his identity, not by his seat: in this fixture he is a
+/// placement of `switch_lab`, so a rebuild of that room builds him again
+/// (Q153: a seat's body needs a home a rebuild does not replace).
+fn bobs_boss_after(ending: Ending, together: bool) -> (BobsBoss, BobsBoss) {
     use crate::death_restores_the_checkpoint::commit_a_checkpoint;
-    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
     const BOSS: &str = "bobs_boss";
     const ALICES_BOSS: &str = "alices_boss";
     let (mut sim, first) = if together {
@@ -964,8 +849,8 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
     for _ in 0..200 {
         sim.step(crate::common::base());
     }
+    let before = bobs_boss_standing(&mut sim, first);
     match ending {
-        Ending::Nothing => {}
         Ending::Death => crate::death_restores_the_checkpoint::die(&mut sim),
         Ending::NewGame => {
             sim.world_mut()
@@ -975,6 +860,18 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
             }
         }
     }
+    (before, bobs_boss_standing(&mut sim, first))
+}
+
+/// What [`bobs_boss_after`]'s bosses leave standing now; `first` is Bob's
+/// live room when the checkpoint was banked.
+fn bobs_boss_standing(
+    sim: &mut Platformer2dSimHarness,
+    first: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+) -> BobsBoss {
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    const BOSS: &str = "bobs_boss";
+    const ALICES_BOSS: &str = "alices_boss";
     let world = sim.world_mut();
     let chests = world
         .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::combat::components::BossRewardChest>>()
@@ -1002,8 +899,8 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
         .iter(world)
         .any(|(config, health)| config.id == BOSS && !health.alive());
     BobsBoss {
-        alices_cleared: boss_cleared(&sim, ALICES_BOSS),
-        cleared: boss_cleared(&sim, BOSS),
+        alices_cleared: boss_cleared(sim, ALICES_BOSS),
+        cleared: boss_cleared(sim, BOSS),
         dead_body,
         chests,
         bob_in_his_first_room: bobs_room == Some(first),
@@ -1018,12 +915,13 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
 /// live room: its save row, the dead boss, its chest and Bob's room stay.
 ///
 /// Both defeats come after the checkpoint, so the one run shows that the
-/// restore still retracts, and where. The control is the same run without the
-/// death.
+/// restore still retracts, and where. The control is the same run just
+/// before the death.
 #[test]
 fn a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room() {
+    let (before, after) = bobs_boss_after(Ending::Death, false);
     assert_eq!(
-        bobs_boss_after_alices_death(false, false),
+        before,
         BobsBoss {
             alices_cleared: true,
             cleared: true,
@@ -1037,7 +935,7 @@ fn a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room() {
         "control: before any death both defeats stand, with a chest each"
     );
     assert_eq!(
-        bobs_boss_after_alices_death(true, false),
+        after,
         BobsBoss {
             alices_cleared: false,
             cleared: true,
@@ -1052,10 +950,11 @@ fn a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room() {
     );
 }
 
-/// (Bob's boss cleared, his room live) after Bob defeats his boss in
+/// (Bob's boss cleared, live rooms) after Bob defeats his boss in
 /// `switch_lab` after the checkpoint and walks to the hub, so `switch_lab`
-/// retires; then, if `die`, Alice dies in the hub.
-fn bobs_boss_won_and_left(die: bool) -> (bool, usize) {
+/// retires; then Alice dies in the hub. The state before the death is
+/// asserted on the way: the control.
+fn bobs_boss_won_and_left_then_alice_dies() -> (bool, usize) {
     use crate::death_restores_the_checkpoint::commit_a_checkpoint;
     use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
     const BOSS: &str = "bobs_boss";
@@ -1086,11 +985,9 @@ fn bobs_boss_won_and_left(die: bool) -> (bool, usize) {
     assert_eq!(
         (live(&mut sim), boss_cleared(&sim, BOSS)),
         (vec![hub], true),
-        "precondition: Bob won, and his room retired behind him"
+        "control: before any death Bob won, and his room retired behind him"
     );
-    if die {
-        crate::death_restores_the_checkpoint::die(&mut sim);
-    }
+    crate::death_restores_the_checkpoint::die(&mut sim);
     (boss_cleared(&sim, BOSS), live(&mut sim).len())
 }
 
@@ -1098,14 +995,13 @@ fn bobs_boss_won_and_left(die: bool) -> (bool, usize) {
 /// checkpoint, in a room he has since left, stays when Alice dies. A defeat
 /// is credited to the participants in its room when it falls
 /// (`BossDefeatSinceCheckpoint::present`). Before, only live rooms were
-/// spared, so Alice's death took back Bob's win. The control is the run
-/// without the death; `a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`
+/// spared, so Alice's death took back Bob's win. The control is the same run
+/// just before the death; `a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`
 /// is the control that Alice's own defeat still goes back.
 #[test]
 fn a_death_keeps_the_defeat_another_player_won_in_a_room_he_left() {
-    assert_eq!(bobs_boss_won_and_left(false), (true, 1), "control: no death");
     assert_eq!(
-        bobs_boss_won_and_left(true),
+        bobs_boss_won_and_left_then_alice_dies(),
         (true, 1),
         "(Bob's boss cleared, live rooms) after Alice's death in the hub"
     );
@@ -1116,8 +1012,9 @@ fn a_death_keeps_the_defeat_another_player_won_in_a_room_he_left() {
 /// defeats, and the save and the room agree.
 #[test]
 fn a_death_in_a_shared_room_takes_back_the_defeat_in_the_room_both_stand_in() {
+    let (before, after) = bobs_boss_after(Ending::Death, true);
     assert_eq!(
-        bobs_boss_after_alices_death(false, true),
+        before,
         BobsBoss {
             alices_cleared: true,
             cleared: true,
@@ -1131,7 +1028,7 @@ fn a_death_in_a_shared_room_takes_back_the_defeat_in_the_room_both_stand_in() {
         "control: before any death both defeats stand in the save and in the shared room"
     );
     assert_eq!(
-        bobs_boss_after_alices_death(true, true),
+        after,
         BobsBoss {
             alices_cleared: false,
             cleared: false,
@@ -1277,7 +1174,7 @@ fn a_death_keeps_the_item_taken_from_the_other_players_boss() {
 /// is a placement of his room, so he goes with it.
 #[test]
 fn a_new_game_leaves_no_live_room_holding_what_it_took_back() {
-    let after = bobs_boss_after(Ending::NewGame, false);
+    let (_, after) = bobs_boss_after(Ending::NewGame, false);
     assert_eq!(
         (after.cleared, after.dead_body, after.chests, after.bob_in_his_first_room, after.orphans, after.live_rooms),
         (false, false, 0, false, 0, 1),

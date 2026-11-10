@@ -1,15 +1,19 @@
-//! The clockwork warden's overfit volley runs as a procedural module on the extension
-//! host (fast-iteration I4), in the assembled game, from a real brain press.
+//! Procedural modules run on the extension host (fast-iteration I4) in the
+//! assembled game, from real presses, with nothing injected.
 //!
-//! The road under test, with nothing injected: the boss pattern presses
-//! `Special("overfit_volley")` → the boss domain's trigger adapter → the host runs
-//! `ambition_content_modules::overfit_volley` → the projectile domain's request
-//! adapter → `ProjectileSpawnRequest` → five bolts in flight.
+//! The clockwork warden's overfit volley: the boss pattern presses
+//! `Special("overfit_volley")` → the boss domain's trigger adapter → the host
+//! runs `ambition_content_modules::overfit_volley` → the projectile domain's
+//! request adapter → `ProjectileSpawnRequest` → five bolts in flight. It runs
+//! from the linked build, from the module crate rebuilt as wasm, across a
+//! reload of that file, and under a GGRS sync-test session, where a rollback
+//! resimulates the strike: if the module's strike latch were not rollback
+//! state, the replay would fire a different number of shots and the checksum
+//! would disagree. The saddle point's held arm is the same check for a
+//! module's held entity.
 //!
-//! The second arm runs the same fight under a GGRS sync-test session. A
-//! rollback resimulates the strike; if the module's strike latch were not
-//! rollback state, the replay would fire a different number of shots and the
-//! checksum would disagree.
+//! The wielded items (shockwave, blink, dive, grapple, mark and recall,
+//! sentry, vortex) each run from an Attack press under a sync-test session.
 
 #![cfg(feature = "rl_sim")]
 
@@ -28,12 +32,19 @@ const FAN: usize = 5;
 /// The volley's bolt speed (`overfit_volley::SHOT_SPEED`), which tells its
 /// bolts from every other projectile the warden owns.
 const FAN_SPEED: f32 = 360.0;
-/// Long enough for the warden's phase-1 cycle to reach its volley twice.
-/// Measured: 900 ticks reach it once.
+/// At most this long for the warden's phase-1 cycle to reach its volley
+/// twice. Measured: 900 ticks reach it once.
 const TWO_STRIKES: usize = 1800;
-/// Long enough to reach it once under the slower sync-test harness.
+/// At most this long to reach it once.
 const ONE_STRIKE: usize = 900;
+/// Ticks watched after the last strike a fight waits for: a strike whose latch
+/// failed fires again within them, and a sync-test session (check distance 4)
+/// has rewound and replayed the strike's ticks by then.
+const AFTER_THE_STRIKE: usize = 60;
 
+/// A clockwork warden beside the player, already in phase 1: its volley is in
+/// phase 1's cycle, and the intro would only delay it. Set before any tick, so
+/// a sync-test session's snapshots all include it.
 fn spawn_volley_warden(sim: &mut Platformer2dSimHarness) -> Entity {
     let (px, py) = {
         let world = sim.world_mut();
@@ -50,12 +61,22 @@ fn spawn_volley_warden(sim: &mut Platformer2dSimHarness) -> Entity {
             script_id: "clockwork_warden".to_string(),
         },
     );
-    let world = sim.world_mut();
-    let mut q = world.query::<(Entity, &FeatureId)>();
-    q.iter(world)
-        .find(|(_, f)| f.as_str() == BOSS)
-        .map(|(e, _)| e)
-        .expect("the spawned boss is present")
+    let boss = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &FeatureId)>();
+        q.iter(world)
+            .find(|(_, f)| f.as_str() == BOSS)
+            .map(|(e, _)| e)
+            .expect("the spawned boss is present")
+    };
+    let mut status = sim
+        .world_mut()
+        .get_mut::<ambition_platformer2d::boss_encounter::BossEncounter>(boss)
+        .expect("the boss has an encounter");
+    let phase = status.encounter.as_mut().expect("the encounter has a phase state");
+    phase.phase = ambition_platformer2d::characters::brain::BossEncounterPhase::Phase1;
+    phase.phase_elapsed = 0.0;
+    boss
 }
 
 /// How many shots the boss owns that fly at the volley's speed. A count,
@@ -68,16 +89,18 @@ fn fan_shots(world: &mut World, boss: Entity) -> usize {
 }
 
 /// The size of each burst of volley SPAWN REQUESTS the boss made, in tick
-/// order. Exact without a rollback session: a request is counted once, when
-/// it is made, whatever happens to the shot after. (Under a sync-test session
-/// a resimulated tick makes its requests again, so that arm counts live shots
-/// instead: [`fight`].)
-fn fight_requests(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<usize> {
+/// order, until `strikes` bursts and [`AFTER_THE_STRIKE`] ticks more, or at
+/// most `ticks`. Exact without a rollback session: a request is counted once,
+/// when it is made, whatever happens to the shot after. (Under a sync-test
+/// session a resimulated tick makes its requests again, so that arm counts
+/// live shots instead: [`fight`].)
+fn fight_requests(sim: &mut Platformer2dSimHarness, strikes: usize, ticks: usize) -> Vec<usize> {
     use ambition_platformer2d::projectiles::spawn_request::ProjectileSpawnRequest;
     use bevy::ecs::message::Messages;
     let boss = spawn_volley_warden(sim);
     let mut cursor = sim.world().resource::<Messages<ProjectileSpawnRequest>>().get_cursor();
     let mut bursts = Vec::new();
+    let mut since_the_last = 0;
     for _ in 0..ticks {
         sim.step(AgentAction::default());
         let messages = sim.world().resource::<Messages<ProjectileSpawnRequest>>();
@@ -87,24 +110,43 @@ fn fight_requests(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<usize> 
             .count();
         if fan > 0 {
             bursts.push(fan);
+            since_the_last = 0;
+        } else if bursts.len() >= strikes {
+            since_the_last += 1;
+            if since_the_last >= AFTER_THE_STRIKE {
+                break;
+            }
         }
     }
     bursts
 }
 
-/// The size of each rise in the boss's volley shot count, in tick order.
+/// The size of each rise in the boss's volley shot count, in tick order, until
+/// `strikes` rises and [`AFTER_THE_STRIKE`] ticks more, or at most `ticks`.
 /// A fan lives 2 s and the boss's cycle reaches it every ~7 s, so two fans
 /// never overlap.
-fn fight(sim: &mut Platformer2dSimHarness, ticks: usize, mut each_tick: impl FnMut(&Platformer2dSimHarness)) -> Vec<usize> {
+fn fight(
+    sim: &mut Platformer2dSimHarness,
+    strikes: usize,
+    ticks: usize,
+    mut each_tick: impl FnMut(&Platformer2dSimHarness),
+) -> Vec<usize> {
     let boss = spawn_volley_warden(sim);
     let mut seen = fan_shots(sim.world_mut(), boss);
     let mut bursts = Vec::new();
+    let mut since_the_last = 0;
     for _ in 0..ticks {
         sim.step(AgentAction::default());
         each_tick(sim);
         let now = fan_shots(sim.world_mut(), boss);
         if now > seen {
             bursts.push(now - seen);
+            since_the_last = 0;
+        } else if bursts.len() >= strikes {
+            since_the_last += 1;
+            if since_the_last >= AFTER_THE_STRIKE {
+                break;
+            }
         }
         seen = now;
     }
@@ -115,7 +157,7 @@ fn fight(sim: &mut Platformer2dSimHarness, ticks: usize, mut each_tick: impl FnM
 fn the_warden_fires_one_volley_per_strike_through_the_extension_host() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
-    let bursts = fight_requests(&mut sim, TWO_STRIKES);
+    let bursts = fight_requests(&mut sim, 2, TWO_STRIKES);
     assert!(
         bursts.len() >= 2,
         "the boss reached its volley {} times in {TWO_STRIKES} ticks; the arm needs two \
@@ -137,7 +179,7 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
     )
     .expect("the GGRS sync-test harness builds");
     let mut first_error: Option<String> = None;
-    let bursts = fight(&mut sim, ONE_STRIKE, |sim| {
+    let bursts = fight(&mut sim, 1, ONE_STRIKE, |sim| {
         if first_error.is_none() {
             first_error = ambition_platformer2d::rollback::session_health(sim.world()).err();
         }
@@ -157,10 +199,25 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
 /// ⭐ THE NO-RELINK ROAD, IN THE ASSEMBLED GAME. The module crate is built for
 /// `wasm32-unknown-unknown` (only the module and its port values compile), the
 /// same game binary loads it, and the volley fires from the file: the
-/// admitted entry is the loaded one, and the fight still fires one fan of
-/// seven per strike.
+/// admitted entry is the loaded one, and the fight still fires one fan per
+/// strike.
+///
+/// ⭐ D6: THE PREPARED CONTENT IDENTITY NAMES THE MODULE CODE. A session that
+/// runs the loaded `.wasm` build is a different generation from one that runs
+/// the linked build, so a peer or a saved timeline cannot take one for the
+/// other.
 #[test]
 fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
+    let mut linked = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let (linked_modules, linked_fingerprint) = modules_section(&mut linked);
+    assert!(
+        linked_modules.contains("module\tambition::overfit_volley\tnative ambition_content_modules "),
+        "the linked overfit volley is in the linked session's generation:\n{linked_modules}"
+    );
+    assert!(!linked_modules.contains("loaded"), "the linked session's generation names no loaded code:\n{linked_modules}");
+    drop(linked);
+
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
         .expect("the module crate builds for wasm32-unknown-unknown");
@@ -170,6 +227,15 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
             .with_extension_module_files(vec![wasm]),
     )
     .expect("the sandbox builds with the loaded module");
+    let (loaded_modules, loaded_fingerprint) = modules_section(&mut sim);
+    assert!(
+        loaded_modules.contains("module\tambition::overfit_volley\tloaded ambition-ext-1 "),
+        "the loaded overfit volley, with its byte digest, is in the generation:\n{loaded_modules}"
+    );
+    assert_ne!(
+        linked_fingerprint, loaded_fingerprint,
+        "the linked and the loaded sessions share one prepared identity"
+    );
     let admitted = sim
         .world()
         .resource::<ambition_platformer2d::extension::AdmittedExtensions>()
@@ -208,17 +274,20 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
     );
     let modules: std::collections::BTreeSet<_> = provided.iter().map(|e| e.module.to_string()).collect();
     assert_eq!(admitted.replaced.len(), modules.len(), "{:?}", admitted.replaced);
-    let bursts = fight_requests(&mut sim, TWO_STRIKES);
-    assert!(bursts.len() >= 2, "{bursts:?}");
-    assert!(bursts.iter().all(|&n| n == FAN), "{bursts:?}");
+    let bursts = fight_requests(&mut sim, 2, TWO_STRIKES);
+    assert!(bursts.len() >= 2, "the loaded volley struck fewer than twice: {bursts:?}");
+    assert!(bursts.iter().all(|&n| n == FAN), "each strike of the loaded volley fires exactly one fan of {FAN}: {bursts:?}");
 }
 
 /// ⭐ HOT RELOAD, IN THE ASSEMBLED GAME. A module file that changes while the
 /// game runs is PROPOSED and the rollback timeline's owner decides. With no
-/// timeline it is published and the fight goes on with the new code. Under a
-/// sync-test session the HARNESS started, the host may not rebase a timeline
-/// it does not own, so the reload is REFUSED: it stays pending, the old code
-/// keeps running, and the session stays healthy (`Q120`'s model 1).
+/// timeline it is published once, and the same bytes stay the same
+/// generation. Under a sync-test session the HARNESS started, the host may not
+/// rebase a timeline it does not own, so the reload is REFUSED: it stays
+/// staged, and the session stays healthy (`Q120`'s model 1). What code runs
+/// after a publication, and that a staged candidate leaves the old code
+/// running, are the host's own (`ambition_extension_host`'s
+/// `a_reloaded_module_takes_over_at_publication_and_keeps_its_records`).
 #[test]
 fn a_module_file_that_changes_while_the_game_runs_is_reloaded() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -276,19 +345,6 @@ fn a_module_file_that_changes_while_the_game_runs_is_reloaded() {
             // D6: the same bytes are the same generation; the identity holds.
             assert_eq!(modules_section(&mut sim), before, "a reload of the same code is no new generation");
         }
-        if rollback {
-            // Live shots, because a resimulated tick repeats its requests. ⚠ A
-            // shot that dies on the tick it spawns (a fan fired into a wall)
-            // is never seen alive, so a later burst can read short; the first
-            // one, fired in open air, must be whole.
-            let bursts = fight(&mut sim, ONE_STRIKE, |_| {});
-            assert_eq!(bursts.first(), Some(&FAN), "{bursts:?}");
-            assert!(bursts.iter().all(|&n| n <= FAN), "{bursts:?}");
-            assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
-        } else {
-            let bursts = fight_requests(&mut sim, TWO_STRIKES);
-            assert!(!bursts.is_empty() && bursts.iter().all(|&n| n == FAN), "{bursts:?}");
-        }
         let _ = std::fs::remove_file(&watched);
     }
 }
@@ -307,38 +363,6 @@ fn modules_section(sim: &mut Platformer2dSimHarness) -> (String, String) {
         String::from_utf8(section.canonical_bytes().to_vec()).unwrap(),
         content.fingerprint().to_string(),
     )
-}
-
-/// ⭐ D6: THE PREPARED CONTENT IDENTITY NAMES THE MODULE CODE. A session that
-/// runs a loaded `.wasm` build is a different generation from one that runs
-/// the linked build, so a peer or a saved timeline cannot take one for the
-/// other.
-#[test]
-fn the_prepared_content_identity_names_the_module_code_the_session_runs() {
-    let mut linked = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    let (linked_modules, linked_fingerprint) = modules_section(&mut linked);
-    assert!(
-        linked_modules.contains("module\tambition::overfit_volley\tnative ambition_content_modules "),
-        "the linked overfit volley is in the generation:\n{linked_modules}"
-    );
-    assert!(!linked_modules.contains("loaded"), "{linked_modules}");
-
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
-        .expect("the module crate builds for wasm32-unknown-unknown");
-    let mut loaded = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_extension_module_files(vec![wasm]),
-    )
-    .expect("the sandbox builds with the loaded module");
-    let (loaded_modules, loaded_fingerprint) = modules_section(&mut loaded);
-    assert!(
-        loaded_modules.contains("module\tambition::overfit_volley\tloaded ambition-ext-1 "),
-        "the loaded overfit volley, with its byte digest, is in the generation:\n{loaded_modules}"
-    );
-    assert_ne!(linked_fingerprint, loaded_fingerprint);
 }
 
 /// The saddle point's arms the boss owns this tick: world damage boxes of the
@@ -414,6 +438,9 @@ fn a_rollback_replays_the_saddle_points_held_arm() {
     }
     let mut first_error: Option<String> = None;
     let (mut horizontal_ticks, mut vertical_ticks, mut most_arms) = (0, 0, 0);
+    // Once the arm has stood both ways, two more turns (1.2 s each): each
+    // turn re-creates the box, and a sync-test session replays every one.
+    let mut after_both_ways = 0;
     for _ in 0..1500 {
         sim.step(AgentAction::default());
         if first_error.is_none() {
@@ -423,14 +450,33 @@ fn a_rollback_replays_the_saddle_points_held_arm() {
         horizontal_ticks += usize::from(h > 0);
         vertical_ticks += usize::from(v > 0);
         most_arms = most_arms.max(h + v);
+        if horizontal_ticks > 0 && vertical_ticks > 0 {
+            after_both_ways += 1;
+            if after_both_ways >= 150 {
+                break;
+            }
+        }
     }
     assert!(
         horizontal_ticks > 0 && vertical_ticks > 0,
-        "the premise: the warden's saddle point turned its arm in 1500 ticks \
+        "the premise: the warden's saddle point turned its arm within 1500 ticks \
          ({horizontal_ticks} horizontal, {vertical_ticks} vertical)"
     );
     assert_eq!(most_arms, 1, "the replays never doubled the arm");
     assert_eq!(first_error, None, "the sync-test session stayed healthy");
+}
+
+/// The sandbox under a GGRS sync-test session, where every tick is rewound and
+/// resimulated: a wielded item's use is checked there, because a use that only
+/// runs right once (a replayed tick that pays or moves twice) is the defect a
+/// plain run cannot show, and the plain run's facts are the same.
+fn sync_test_sandbox() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the sandbox builds under a GGRS sync-test session")
 }
 
 /// The primary player, holding `item`.
@@ -455,221 +501,190 @@ fn mana_of(sim: &Platformer2dSimHarness, body: Entity) -> Option<f32> {
 /// ⭐ A WIELDED ITEM'S USE RUNS ON THE EXTENSION HOST, in the assembled game:
 /// Attack while holding the shockwave gauntlet → the held-item domain's
 /// trigger adapter → the `shockwave` module → the mana and damage-box request
-/// adapters → 25 mana paid and the slam's box in the world. The second arm runs
-/// it under a GGRS sync-test session, where every use is rewound and replayed.
+/// adapters → 25 mana paid and the slam's box in the world. Under a GGRS
+/// sync-test session, where every use is rewound and replayed.
 #[test]
 fn a_wielded_shockwave_runs_on_the_extension_host() {
     use ambition_platformer2d::combat::strike::Hitbox;
-    for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
-        if rollback {
-            options = options.with_sync_test_rollback_settings(4, 10);
-        }
-        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
-        let player = arm_the_player(&mut sim, "shockwave");
-        for _ in 0..5 {
-            sim.step(AgentAction::default());
-        }
-        let before = mana_of(&sim, player).expect("the home body holds mana");
-        let slam_boxes = |sim: &mut Platformer2dSimHarness| {
-            let world = sim.world_mut();
-            let mut q = world.query::<&Hitbox>();
-            q.iter(world)
-                .filter(|h| h.owner == player && (h.half_extent.x - 120.0).abs() < 0.5)
-                .count()
-        };
-        let mut seen = 0;
-        for frame in 0..4 {
-            sim.step(AgentAction {
-                attack: frame == 0,
-                ..AgentAction::default()
-            });
-            seen = seen.max(slam_boxes(&mut sim));
-        }
-        let after = mana_of(&sim, player).expect("the home body holds mana");
-        assert_eq!(seen, 1, "rollback={rollback}: one slam box from one press");
-        assert!(
-            (before - after - 25.0).abs() < 1.0,
-            "rollback={rollback}: the slam paid its 25 mana ({before} -> {after}, regen aside)"
-        );
-        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let mut sim = sync_test_sandbox();
+    let player = arm_the_player(&mut sim, "shockwave");
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
     }
+    let before = mana_of(&sim, player).expect("the home body holds mana");
+    let slam_boxes = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query::<&Hitbox>();
+        q.iter(world)
+            .filter(|h| h.owner == player && (h.half_extent.x - 120.0).abs() < 0.5)
+            .count()
+    };
+    let mut seen = 0;
+    for frame in 0..4 {
+        sim.step(AgentAction {
+            attack: frame == 0,
+            ..AgentAction::default()
+        });
+        seen = seen.max(slam_boxes(&mut sim));
+    }
+    let after = mana_of(&sim, player).expect("the home body holds mana");
+    assert_eq!(seen, 1, "one slam box from one press");
+    assert!(
+        (before - after - 25.0).abs() < 1.0,
+        "the slam paid its 25 mana ({before} -> {after}, regen aside)"
+    );
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
 }
 
 /// ⭐ A WIELDED TRANSIT RUNS ON THE EXTENSION HOST, in the assembled game:
 /// Attack while holding the blink → the `blink` module → the transit, the
 /// movement cooldown and the strike adapters → the body is moved along its
 /// facing, at most 150 px, and the cooldown runs. A second press while the
-/// cooldown runs does not move it. The second arm runs it under a GGRS
-/// sync-test session: a replayed tick that moved the body twice would carry
-/// it past 150 px, or desync the checksum.
+/// cooldown runs does not move it. Under a GGRS sync-test session: a
+/// replayed tick that moved the body twice would carry it past 150 px, or
+/// desync the checksum.
 #[test]
 fn a_wielded_blink_runs_on_the_extension_host() {
     use ambition_platformer2d::abilities::ability_cooldown::AbilityCooldown;
     use ambition_platformer2d::engine_core::BodyKinematics;
-    for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
-        if rollback {
-            options = options.with_sync_test_rollback_settings(4, 10);
-        }
-        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
-        let player = arm_the_player(&mut sim, "blink");
-        for _ in 0..30 {
+    let mut sim = sync_test_sandbox();
+    let player = arm_the_player(&mut sim, "blink");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
+    let press = |sim: &mut Platformer2dSimHarness| {
+        sim.step(AgentAction { attack: true, ..AgentAction::default() });
+        for _ in 0..3 {
             sim.step(AgentAction::default());
         }
-        let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
-        let press = |sim: &mut Platformer2dSimHarness| {
-            sim.step(AgentAction { attack: true, ..AgentAction::default() });
-            for _ in 0..3 {
-                sim.step(AgentAction::default());
-            }
-        };
-        let before = x(&sim);
-        press(&mut sim);
-        let blinked = (x(&sim) - before).abs();
-        assert!(
-            blinked > 1.0 && blinked <= 150.5,
-            "rollback={rollback}: one blink moved the body {blinked} px along its facing"
-        );
-        let cooldown = sim.world().get::<AbilityCooldown>(player).map(|c| c.remaining);
-        assert!(cooldown.is_some_and(|r| r > 0.0), "rollback={rollback}: the cooldown runs: {cooldown:?}");
-        let between = x(&sim);
-        press(&mut sim);
-        assert!(
-            (x(&sim) - between).abs() < 1.0,
-            "rollback={rollback}: a press while the cooldown runs moved the body"
-        );
-        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
-    }
+    };
+    let before = x(&sim);
+    press(&mut sim);
+    let blinked = (x(&sim) - before).abs();
+    assert!(
+        blinked > 1.0 && blinked <= 150.5,
+        "one blink moved the body {blinked} px along its facing"
+    );
+    let cooldown = sim.world().get::<AbilityCooldown>(player).map(|c| c.remaining);
+    assert!(cooldown.is_some_and(|r| r > 0.0), "the cooldown runs: {cooldown:?}");
+    let between = x(&sim);
+    press(&mut sim);
+    assert!(
+        (x(&sim) - between).abs() < 1.0,
+        "a press while the cooldown runs moved the body"
+    );
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
 }
 
 /// ⭐ THE DIVE RUNS ON THE EXTENSION HOST, in the assembled game: Attack
 /// while holding the dive gauntlet → the `dive` module → the mana, transit
 /// and strike adapters → 26 mana paid and the body moved along its facing,
-/// at most 140 px. The second arm runs it under a GGRS sync-test session: a
-/// replayed tick that moved the body twice would carry it past 140 px.
+/// at most 140 px. Under a GGRS sync-test session: a replayed tick that moved
+/// the body twice would carry it past 140 px.
 #[test]
 fn a_wielded_dive_runs_on_the_extension_host() {
     use ambition_platformer2d::engine_core::BodyKinematics;
-    for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
-        if rollback {
-            options = options.with_sync_test_rollback_settings(4, 10);
-        }
-        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
-        let player = arm_the_player(&mut sim, "dive");
-        for _ in 0..30 {
-            sim.step(AgentAction::default());
-        }
-        let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
-        let (before, mana_before) = (x(&sim), mana_of(&sim, player).expect("the home body holds mana"));
-        sim.step(AgentAction { attack: true, ..AgentAction::default() });
-        for _ in 0..3 {
-            sim.step(AgentAction::default());
-        }
-        let dived = (x(&sim) - before).abs();
-        assert!(dived > 1.0 && dived <= 140.5, "rollback={rollback}: one dive moved the body {dived} px");
-        let mana_after = mana_of(&sim, player).expect("the home body holds mana");
-        assert!(
-            (mana_before - mana_after - 26.0).abs() < 1.0,
-            "rollback={rollback}: the dive paid its 26 mana ({mana_before} -> {mana_after}, regen aside)"
-        );
-        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let mut sim = sync_test_sandbox();
+    let player = arm_the_player(&mut sim, "dive");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
     }
+    let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
+    let (before, mana_before) = (x(&sim), mana_of(&sim, player).expect("the home body holds mana"));
+    sim.step(AgentAction { attack: true, ..AgentAction::default() });
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    let dived = (x(&sim) - before).abs();
+    assert!(dived > 1.0 && dived <= 140.5, "one dive moved the body {dived} px");
+    let mana_after = mana_of(&sim, player).expect("the home body holds mana");
+    assert!(
+        (mana_before - mana_after - 26.0).abs() < 1.0,
+        "the dive paid its 26 mana ({mana_before} -> {mana_after}, regen aside)"
+    );
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
 }
 
 /// ⭐ THE GRAPPLE RUNS ON THE EXTENSION HOST, in the assembled game: Attack
 /// while the body holds the grapple → the `grapple` module reads where the
 /// line meets a wall (the aim-cast observation) → a line that meets none
 /// plays its sound; a line that meets the wall arms the movement cooldown and
-/// pulls the body toward the wall. The second arm runs it under a GGRS
-/// sync-test session.
+/// pulls the body toward the wall. Under a GGRS sync-test session.
 #[test]
 fn a_wielded_grapple_runs_on_the_extension_host() {
     use ambition_platformer2d::abilities::ability_cooldown::AbilityCooldown;
     use ambition_platformer2d::engine_core::BodyKinematics;
-    for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
-        if rollback {
-            options = options.with_sync_test_rollback_settings(4, 10);
-        }
-        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
-        let player = arm_the_player(&mut sim, "grapple");
-        // The hub stands the body on a one-way platform, which a line goes
-        // through, with no wall within the range. On the solid floor of the
-        // basement the left wall (x < 48) is 152 px away and the right wall
-        // 1656 px away. Moved before the first step, so no saved state is
-        // from before the move.
-        sim.world_mut().get_mut::<BodyKinematics>(player).expect("a body").pos = ambition_platformer2d::engine_core::Vec2::new(200.0, 1920.0);
-        for _ in 0..30 {
-            sim.step(AgentAction::default());
-        }
-        let cooldown = |sim: &Platformer2dSimHarness| sim.world().get::<AbilityCooldown>(player).map_or(0.0, |c| c.remaining);
-        let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
-        // The movement stick aims the line.
-        sim.step(AgentAction { attack: true, move_x: 1.0, ..AgentAction::default() });
-        assert_eq!(cooldown(&sim), 0.0, "rollback={rollback}: a line toward the far wall is a miss, and a miss costs nothing");
-        for _ in 0..3 {
-            sim.step(AgentAction::default());
-        }
-        let before = x(&sim);
-        sim.step(AgentAction { attack: true, move_x: -1.0, ..AgentAction::default() });
-        let left = cooldown(&sim);
-        assert!(left > 0.5, "rollback={rollback}: the line met the left wall and the pull armed the cooldown ({left} s left)");
-        // `wielded_use` runs after the body stepped: the press tick leaves
-        // the pull's velocity, and the next tick moves the body by it (about
-        // 10 px at 620 px/s; ground friction then stops a body with no input).
-        let vel = sim.world().get::<BodyKinematics>(player).expect("a body").vel;
-        assert!((vel.x + 620.0).abs() < 1.0, "rollback={rollback}: the press tick left the velocity {vel:?}, not the pull");
+    let mut sim = sync_test_sandbox();
+    let player = arm_the_player(&mut sim, "grapple");
+    // The hub stands the body on a one-way platform, which a line goes
+    // through, with no wall within the range. On the solid floor of the
+    // basement the left wall (x < 48) is 152 px away and the right wall
+    // 1656 px away. Moved before the first step, so no saved state is
+    // from before the move.
+    sim.world_mut().get_mut::<BodyKinematics>(player).expect("a body").pos = ambition_platformer2d::engine_core::Vec2::new(200.0, 1920.0);
+    for _ in 0..30 {
         sim.step(AgentAction::default());
-        let pulled = before - x(&sim);
-        assert!(pulled > 5.0, "rollback={rollback}: the pull moved the body {pulled} px toward the wall");
-        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
     }
+    let cooldown = |sim: &Platformer2dSimHarness| sim.world().get::<AbilityCooldown>(player).map_or(0.0, |c| c.remaining);
+    let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
+    // The movement stick aims the line.
+    sim.step(AgentAction { attack: true, move_x: 1.0, ..AgentAction::default() });
+    assert_eq!(cooldown(&sim), 0.0, "a line toward the far wall is a miss, and a miss costs nothing");
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    let before = x(&sim);
+    sim.step(AgentAction { attack: true, move_x: -1.0, ..AgentAction::default() });
+    let left = cooldown(&sim);
+    assert!(left > 0.5, "the line met the left wall and the pull armed the cooldown ({left} s left)");
+    // `wielded_use` runs after the body stepped: the press tick leaves
+    // the pull's velocity, and the next tick moves the body by it (about
+    // 10 px at 620 px/s; ground friction then stops a body with no input).
+    let vel = sim.world().get::<BodyKinematics>(player).expect("a body").vel;
+    assert!((vel.x + 620.0).abs() < 1.0, "the press tick left the velocity {vel:?}, not the pull");
+    sim.step(AgentAction::default());
+    let pulled = before - x(&sim);
+    assert!(pulled > 5.0, "the pull moved the body {pulled} px toward the wall");
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
 }
 
 /// ⭐ MARK AND RECALL RUN ON THE EXTENSION HOST, in the assembled game:
 /// Attack while holding the mark/recall item → the `mark` entry → the mark
 /// adapter puts the body's mark where it stands. The body walks away; Blink
 /// → the `recall` entry reads the mark → the transit adapter takes the body
-/// back to it. The second arm runs it under a GGRS sync-test session.
+/// back to it. Under a GGRS sync-test session.
 #[test]
 fn a_wielded_mark_and_recall_run_on_the_extension_host() {
     use ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark;
     use ambition_platformer2d::engine_core::BodyKinematics;
-    for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
-        if rollback {
-            options = options.with_sync_test_rollback_settings(4, 10);
-        }
-        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
-        let player = arm_the_player(&mut sim, "mark_recall");
-        for _ in 0..30 {
-            sim.step(AgentAction::default());
-        }
-        let pos = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos;
-        let marked_at = pos(&sim);
-        sim.step(AgentAction { attack: true, ..AgentAction::default() });
+    let mut sim = sync_test_sandbox();
+    let player = arm_the_player(&mut sim, "mark_recall");
+    for _ in 0..30 {
         sim.step(AgentAction::default());
-        let mark = sim.world().get::<PlayerMark>(player).and_then(|m| m.pos);
-        assert!(
-            mark.is_some_and(|at| at.distance(marked_at) < 1.0),
-            "rollback={rollback}: Attack put the mark where the body stood ({marked_at:?}): {mark:?}"
-        );
-        for _ in 0..30 {
-            sim.step(AgentAction::move_x(1.0));
-        }
-        let away = pos(&sim);
-        assert!(away.distance(marked_at) > 20.0, "rollback={rollback}: the premise: the body walked away: {away:?}");
-        sim.step(AgentAction { blink: true, ..AgentAction::default() });
-        let back = pos(&sim);
-        assert!(
-            back.distance(mark.unwrap()) < 1.0,
-            "rollback={rollback}: Blink took the body back to its mark ({:?}): {back:?}",
-            mark
-        );
-        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
     }
+    let pos = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos;
+    let marked_at = pos(&sim);
+    sim.step(AgentAction { attack: true, ..AgentAction::default() });
+    sim.step(AgentAction::default());
+    let mark = sim.world().get::<PlayerMark>(player).and_then(|m| m.pos);
+    assert!(
+        mark.is_some_and(|at| at.distance(marked_at) < 1.0),
+        "Attack put the mark where the body stood ({marked_at:?}): {mark:?}"
+    );
+    for _ in 0..30 {
+        sim.step(AgentAction::move_x(1.0));
+    }
+    let away = pos(&sim);
+    assert!(away.distance(marked_at) > 20.0, "the premise: the body walked away: {away:?}");
+    sim.step(AgentAction { blink: true, ..AgentAction::default() });
+    let back = pos(&sim);
+    assert!(
+        back.distance(mark.unwrap()) < 1.0,
+        "Blink took the body back to its mark ({:?}): {back:?}",
+        mark
+    );
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
 }
 
 /// ⭐ A MODULE-OWNED ENTITY, in the assembled game: Attack while holding the
@@ -677,118 +692,106 @@ fn a_wielded_mark_and_recall_run_on_the_extension_host() {
 /// turret spawned by the world (its identity minted from the player's, its
 /// side the player's) → each tick the `turret` entry keeps its cadence in a
 /// record on the turret → at the end of its 5 s lifetime the world removes
-/// it. The second arm runs it under a GGRS sync-test session, where the
-/// deploy and every turret tick are rewound and replayed.
+/// it. Under a GGRS sync-test session, where the deploy and every turret tick
+/// are rewound and replayed.
 #[test]
 fn a_wielded_sentry_deploys_a_module_entity_on_the_extension_host() {
     use ambition_platformer2d::abilities::module_entity::ModuleEntity;
     use ambition_platformer2d::actor::ActorFaction;
     use ambition_platformer2d::platformer::sim_id::SimId;
-    for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
-        if rollback {
-            options = options.with_sync_test_rollback_settings(4, 10);
-        }
-        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
-        let player = arm_the_player(&mut sim, "sentry");
-        for _ in 0..5 {
-            sim.step(AgentAction::default());
-        }
-        let before = mana_of(&sim, player).expect("the home body holds mana");
-        let player_id = sim.world().get::<SimId>(player).cloned().expect("the player has an identity");
-        let turrets = |sim: &mut Platformer2dSimHarness| {
-            let world = sim.world_mut();
-            let mut q = world.query::<(Entity, &ModuleEntity, &SimId, &ActorFaction)>();
-            q.iter(world)
-                .map(|(e, m, id, side)| (e, m.kind.clone(), id.clone(), *side))
-                .collect::<Vec<_>>()
-        };
-        let mut after = before;
-        for frame in 0..30 {
-            sim.step(AgentAction {
-                attack: frame == 0,
-                ..AgentAction::default()
-            });
-            // Read close to the press: the pool refills over time.
-            if frame == 3 {
-                after = mana_of(&sim, player).expect("the home body holds mana");
-            }
-        }
-        let deployed = turrets(&mut sim);
-        assert_eq!(deployed.len(), 1, "rollback={rollback}: one turret from one press: {deployed:?}");
-        let (turret, kind, id, side) = deployed[0].clone();
-        assert_eq!(kind, "sentry");
-        assert!(
-            id.as_str().starts_with(player_id.as_str()),
-            "rollback={rollback}: the turret's identity {id:?} is minted from the player's {player_id:?}"
-        );
-        assert_eq!(side, ActorFaction::Player, "rollback={rollback}");
-        assert!(
-            sim.world().get::<ambition_platformer2d::extension::BodyRecords>(turret).is_some(),
-            "rollback={rollback}: the turret's cadence is a record on the turret"
-        );
-        assert!(
-            (before - after - 28.0).abs() < 1.0,
-            "rollback={rollback}: the deploy paid its 28 mana ({before} -> {after}, regen aside)"
-        );
-        // 5 s at 60 Hz, from the press.
-        for _ in 0..280 {
-            sim.step(AgentAction::default());
-        }
-        assert!(turrets(&mut sim).is_empty(), "rollback={rollback}: the turret's lifetime ended");
-        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let mut sim = sync_test_sandbox();
+    let player = arm_the_player(&mut sim, "sentry");
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
     }
+    let before = mana_of(&sim, player).expect("the home body holds mana");
+    let player_id = sim.world().get::<SimId>(player).cloned().expect("the player has an identity");
+    let turrets = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &ModuleEntity, &SimId, &ActorFaction)>();
+        q.iter(world)
+            .map(|(e, m, id, side)| (e, m.kind.clone(), id.clone(), *side))
+            .collect::<Vec<_>>()
+    };
+    let mut after = before;
+    for frame in 0..30 {
+        sim.step(AgentAction {
+            attack: frame == 0,
+            ..AgentAction::default()
+        });
+        // Read close to the press: the pool refills over time.
+        if frame == 3 {
+            after = mana_of(&sim, player).expect("the home body holds mana");
+        }
+    }
+    let deployed = turrets(&mut sim);
+    assert_eq!(deployed.len(), 1, "one turret from one press: {deployed:?}");
+    let (turret, kind, id, side) = deployed[0].clone();
+    assert_eq!(kind, "sentry");
+    assert!(
+        id.as_str().starts_with(player_id.as_str()),
+        "the turret's identity {id:?} is minted from the player's {player_id:?}"
+    );
+    assert_eq!(side, ActorFaction::Player, "the turret is on the player's side");
+    assert!(
+        sim.world().get::<ambition_platformer2d::extension::BodyRecords>(turret).is_some(),
+        "the turret's cadence is a record on the turret"
+    );
+    assert!(
+        (before - after - 28.0).abs() < 1.0,
+        "the deploy paid its 28 mana ({before} -> {after}, regen aside)"
+    );
+    // 5 s at 60 Hz, from the press.
+    for _ in 0..280 {
+        sim.step(AgentAction::default());
+    }
+    assert!(turrets(&mut sim).is_empty(), "the turret's lifetime ended");
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
 }
 
 /// The vortex in the assembled game: Attack while holding the vortex
 /// gauntlet → the `vortex` module's `cast` → 22 mana paid and a well opened
 /// ahead of the player → the `well` entry pulls each tick and ENDS the well
-/// itself after 0.9 s (its world lifetime is only the backstop). The second
-/// arm runs it under a GGRS sync-test session.
+/// itself after 0.9 s (its world lifetime is only the backstop). Under a GGRS
+/// sync-test session.
 #[test]
 fn a_wielded_vortex_opens_and_ends_its_well_on_the_extension_host() {
     use ambition_platformer2d::abilities::module_entity::ModuleEntity;
-    for rollback in [false, true] {
-        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
-        if rollback {
-            options = options.with_sync_test_rollback_settings(4, 10);
-        }
-        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
-        let player = arm_the_player(&mut sim, "vortex");
-        for _ in 0..5 {
-            sim.step(AgentAction::default());
-        }
-        let before = mana_of(&sim, player).expect("the home body holds mana");
-        let wells = |sim: &mut Platformer2dSimHarness| {
-            let world = sim.world_mut();
-            let mut q = world.query::<&ModuleEntity>();
-            q.iter(world).filter(|e| e.kind == "vortex").count()
-        };
-        let mut after = before;
-        let mut open_frames = 0;
-        for frame in 0..90 {
-            sim.step(AgentAction {
-                attack: frame == 0,
-                ..AgentAction::default()
-            });
-            if frame == 3 {
-                after = mana_of(&sim, player).expect("the home body holds mana");
-            }
-            if wells(&mut sim) > 0 {
-                open_frames += 1;
-            }
-        }
-        assert!(
-            (before - after - 22.0).abs() < 1.0,
-            "rollback={rollback}: the cast paid its 22 mana ({before} -> {after}, regen aside)"
-        );
-        // 0.9 s at 60 Hz: the module ends the well, long before the world's
-        // backstop (1.9 s).
-        assert!(
-            (53..=56).contains(&open_frames),
-            "rollback={rollback}: the well was open for {open_frames} frames"
-        );
-        assert_eq!(wells(&mut sim), 0, "rollback={rollback}: the well ended");
-        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    let mut sim = sync_test_sandbox();
+    let player = arm_the_player(&mut sim, "vortex");
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
     }
+    let before = mana_of(&sim, player).expect("the home body holds mana");
+    let wells = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ModuleEntity>();
+        q.iter(world).filter(|e| e.kind == "vortex").count()
+    };
+    let mut after = before;
+    let mut open_frames = 0;
+    for frame in 0..90 {
+        sim.step(AgentAction {
+            attack: frame == 0,
+            ..AgentAction::default()
+        });
+        if frame == 3 {
+            after = mana_of(&sim, player).expect("the home body holds mana");
+        }
+        if wells(&mut sim) > 0 {
+            open_frames += 1;
+        }
+    }
+    assert!(
+        (before - after - 22.0).abs() < 1.0,
+        "the cast paid its 22 mana ({before} -> {after}, regen aside)"
+    );
+    // 0.9 s at 60 Hz: the module ends the well, long before the world's
+    // backstop (1.9 s).
+    assert!(
+        (53..=56).contains(&open_frames),
+        "the well was open for {open_frames} frames"
+    );
+    assert_eq!(wells(&mut sim), 0, "the well ended");
+    assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
 }

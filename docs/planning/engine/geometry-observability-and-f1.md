@@ -117,6 +117,39 @@ cover them with no domain-specific drawer.
 
 ### GOBS-1 — domain-contributed observation protocol
 
+**First slice landed (2026-11-10).** `crates/ambition_geometry_observation`
+(bevy_ecs and bevy_app only) holds the descriptor
+(`GeometryObservation`: key, roles, shape, active or inactive with the
+owner's reason), the registry (`add_geometry_observer`, a one-shot system
+per provider) and one entry point, `observe_all`, with a JSON form
+(`to_json`, `ambition.geometry_observation.v1`, room pixels, y down). A
+provider that needs a body answers `needs_subject` without one; a provider
+whose resources are not in the App answers `unavailable`, not an empty list.
+Installed providers:
+
+- `collision.authored`, `collision.composed`, `collision.for_subject`
+  (`ambition_platformer2d_world::geometry_observers`): `base()`, `solids()`
+  and `solids_for(subject)` of `CollisionWorld`. An authored block the
+  composed walls do not hold, and a wall a body does not meet (its open
+  gate), are inactive with that reason.
+- `combat.volumes` (`ambition_sim_view::combat_geometry_observer`): hurt and
+  hit volumes from `CombatGeometryView`; an intangible body is listed
+  inactive by its box; a portal-cut body is listed whole with role
+  `portal_cut` (its pieces are GOBS-3's).
+
+F1: the Developer toggle **Observed Geometry** (`show_observed_geometry`).
+`collect_observed_geometry` asks every provider about each shown room, with
+the player in it as the subject, only while the overlay, gizmos and that
+toggle are on; `draw_observed_layers` draws the answer (colour by first
+role; inactive faint and crossed). Witness:
+`game/ambition_app/tests/observed_geometry.rs` (a test's own provider is in
+the catalog, F1's feed and the headless answer, with equal geometry; the
+layer off asks nothing).
+
+**Still open in GOBS-1:** a headless `inspect geometry` command on the
+repository's agent-query entry point (step 3), per-provider selection in F1
+(GOBS-4 overlaps), and labels.
+
 1. Build a minimal neutral observation descriptor and query/filter schema (room, view, selected subject, category, time). Start by adapting `CombatGeometryView` and one real `CollisionWorld` query, proving that the interface works for both preexisting snapshots and parameterized queries.
 2. Register providers compositionally; derive a provider registry/read-only catalog from installed adapters rather than creating an authoritative ECS-wide geometry database.
 3. Provide headless `inspect geometry` capability using the repository's existing agent-query/tool-discovery entry point (inspect current CLI syntax first). Support namespaced role lists, source identity, selected-subject queries, provenance and refusal/absence diagnostics. Wire F1 to the same descriptors.

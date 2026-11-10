@@ -23,6 +23,7 @@ ambition_time = { path = "../ambition_time" }
 # depends on nothing but `engine_core` itself, so the edge stays downward.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 bevy_app = { version = "0.19.1", default-features = false }
+ambition_geometry_observation = { path = "../ambition_geometry_observation" }
 bevy_ecs = { version = "0.19.1", default-features = false }
 # The compute pool a navigation graph is built on, one surface to a task
 # (`NavGraph::build_avoiding`): the graph is the same as built on one thread.

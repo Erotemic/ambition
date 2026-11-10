@@ -39,6 +39,7 @@ pub enum DevToggleId {
     MicroGrid,
     CameraFrame,
     Navigation,
+    ObservedGeometry,
     // Camera.
     OverviewCamera,
     // Profiles (cycles).
@@ -74,7 +75,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `DeveloperRuntimeState` / `WorldSourceHotReload` (not `DeveloperTools`). Physical
     /// keyboard chords are owned by the central developer-hotkey registry.
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
         Self::MenuBackend,
@@ -92,6 +93,7 @@ impl DevToggleId {
         Self::MicroGrid,
         Self::CameraFrame,
         Self::Navigation,
+        Self::ObservedGeometry,
         Self::OverviewCamera,
         Self::DebugViewMode,
         Self::DebugArtMode,
@@ -119,6 +121,7 @@ impl DevToggleId {
             Self::MicroGrid => "Micro Grid",
             Self::CameraFrame => "Camera Frame",
             Self::Navigation => "Navigation Graph",
+            Self::ObservedGeometry => "Observed Geometry",
             Self::OverviewCamera => "Overview Camera",
             Self::DebugViewMode => "View Mode",
             Self::DebugArtMode => "Art Mode",
@@ -148,6 +151,9 @@ impl DevToggleId {
             Self::MicroGrid => "Draw an 8px subdivision grid over the tile grid.",
             Self::CameraFrame => "Draw the requested/actual camera frame rectangles.",
             Self::Navigation => "Draw where each navigating body can stand, and its hops and drops.",
+            Self::ObservedGeometry => {
+                "Draw what each geometry observer reports: the walls a body meets, what they replaced, combat volumes."
+            }
             Self::OverviewCamera => "Zoom out to inspect large or stitched areas.",
             Self::DebugViewMode => "Cycle the debug view preset.",
             Self::DebugArtMode => "Cycle the debug art preset.",

@@ -185,6 +185,15 @@ to stop a replayed write from landing twice.
 
 ### ISL-2c, started (2026-11-10): spawn and despawn across the snapshot
 
+**Restored again (review, 2026-11-10):** a snapshot keeps the ids it saved
+and, beside them, the entity that stands for each now. Every restore maps
+each saved id to its stand-in, so a snapshot restored twice (its stand-in
+alive) or three times (the stand-in gone too) still puts back references to
+live entities. It used to replace the saved id with the stand-in while the
+saved values kept the old id. Witness:
+`room_snapshot::tests::a_snapshot_restored_again_keeps_its_references_live`
+(poisoned: the old per-restore remap fails it).
+
 `RoomSnapshotRows::restore` now takes the room's entities at the restore:
 one spawned after the save is despawned, a saved one that is gone is spawned
 again, and the references the room's components hold to it are rewritten

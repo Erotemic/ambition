@@ -463,7 +463,32 @@ primeval, gate network and the rest) and its committed area specs are still
 in the main repo, about 2.5 MB with 238 commits of history. Their worlds have
 no record yet, so the guard is inert for them until their next apply.
 
-**Next action:** move each generator to `generators/<dimension>/` as History
+**Survey (2026-11-10):** `level ownership survey <spec>... --ldtk <world>`
+applies a generator's specs to a copy of its world and says, per room,
+whether the live room is still what they make (`reproduced`) or was changed
+after (`DIFFERS`). History's recorded generator reproduces its rooms (12 of
+12 sampled): the control. It replays `area create` only, not a generator's
+in-place steps after it (painting, `entity add`, `scenery_overlay.py`), so a
+DIFFERS may be those steps. Treat it as LDtk-owned: that keeps the room as it
+is, and costs the generator only a room it might have rebuilt.
+
+**Jungle done (2026-11-10):** all twelve `dinosaur.ldtk` rooms are LDtk-owned
+(`dinosaur.generated.json`). The six trail rooms and three of the six later
+ones DIFFER from their specs, as the primeval generator's own note said (the
+rooms were tuned in LDtk after it). Its scripts (`make_specs.py`,
+`side_exits.py`, `treetops.py`, `tar_pits.py`) were deleted; the last version
+is at `a910d3952e`.
+
+**First survey of the rest (bare specs):** art 12 of 15 reproduced; castle
+Godwin 3 of 6; castle kitchens 3 of 5; the breakable wall lab 0 of 2. The
+loose top-level specs and edits are one-offs, but some are still read:
+`hall_of_characters_area.ron` (`generate_hall_of_characters.py`),
+`symmetry_room_area.ron` (`gen_symmetry_room.py`) and
+`intro_raid_corridor_area.ron` (`test_spec_brains_resolve.py`).
+
+**Next action:** world by world, survey its generator, record the reproduced
+rooms as generated, adopt the rest, then move each generator to
+`generators/<dimension>/` as History
 did (its specs to the temp folder; `district_kit` stays in tools). Apply each
 once so its rooms are recorded. Hand-written one-off specs (`*_area.ron`,
 `*.yaml` edits) that already ran become LDtk-owned and are deleted.

@@ -1,5 +1,5 @@
 //! The Tar Pits: out past the end of the primeval trail, east of the canopy
-//! (`tools/ambition_ldtk_tools/specs/primeval/tar_pits.py`).
+//! (`dinosaur.ldtk`, LDtk-owned).
 //!
 //! Jon (2026-10-30): "out of town zones with enemies", joined by side exits.
 //! The player starts at the pits' west end, walks by keys west into the
@@ -75,7 +75,7 @@ fn the_fossil_beds_lie_under_the_ridge_road() {
     go(&mut app, "primeval_fossil_beds", Some("ridge_sinkhole"));
 }
 
-/// The treetops over the trail (`specs/primeval/treetops.py`): up the great
+/// The treetops over the trail (`primeval_treetops`): up the great
 /// tree's rope ladder out of the run, east along the canopy, and down
 /// through the gap in the leaves into the rookery; and back down the tree.
 #[test]

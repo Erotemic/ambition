@@ -9,7 +9,7 @@ Run it from `tools/ambition_ldtk_tools`.
 
 Some rooms' generators are older than their levels: the level was edited in
 the LDtk after (gate terminals, water, enemies tuned), so regenerating the
-room would undo that (2026-10-30: `specs/primeval/make_specs.py --apply`
+room would undo that (2026-10-30: the primeval generator's `--apply`
 moved and dropped enemies, a gate terminal and the water). Their scenery is
 ADDED instead: one `Prop` per piece of art, over the art's body box, and
 signs and residents, each added once (by its name).

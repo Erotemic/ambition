@@ -103,7 +103,7 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 
 - **Over:** the rangers' rope ladder up the great tree in the run, out of its top into the treetops (bridges, the abandoned canopy research station, a pterosaur's nest); a gap in the leaves at the east end drops into the rookery.
 - **Under:** the ridge road's sinkhole down to the fossil beds.
-- **Generator:** `specs/primeval/treetops.py` (the run and the rookery are edited in place).
+- **Truth:** `dinosaur.ldtk`; every room is LDtk-owned (`dinosaur.generated.json`). The primeval scripts that first wrote them (`make_specs.py`, `treetops.py`, `side_exits.py`, `tar_pits.py`) were older than their rooms and were deleted for LEVEL-TRUTH; the last version is at `a910d3952e`.
 - **Tests:** `game/ambition_app/tests/the_tar_pits.rs`.
 
 ## Eureka (the sixth)

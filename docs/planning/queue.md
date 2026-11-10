@@ -20,7 +20,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    already completed morph-ball visibility, joining, party travel, baseline
    split-view or peer room-commit mechanics.
 3. **Selected product/asset fixes (2026-11-01 triage):** ASSET-SELECTION,
-   SMASH-DEFECTS, ITEM-CONTENT, ASSET-PUBLISH and ASSET-PREVIEW in that order.
+   SMASH-DEFECTS (done 2026-11-10), ITEM-CONTENT, ASSET-PUBLISH and
+   ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
@@ -198,11 +199,19 @@ publications and stale generation identities.
 provider library installation.
 Design: [asset library review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools).
 
-**Next action:** define the read-only selected-file contract in the existing
-Rust and Python readers. Separate selected membership from workspace inventory.
-Use it for published-only sprites, music, SFX and fonts. Keep local staleness
-advisory; preserve path-safety and unreadable-file errors. State any stricter
-package requirement at the packaging boundary.
+**Done 2026-11-10:** the selected-file contract is six shared cases that the
+Rust runtime reader and the Python packaging reader both pass (Python now
+treats an empty store as an empty selection and a stale identity as an
+advisory; the packager states its stricter "has no publication" refusal at
+its own boundary). The inspector locates music, the registry, the SFX bank
+and fonts through the selected set and lists shadowed loose copies as
+unselected workspace products; on this checkout 19 of 19 published cues now
+have their audio located, where none did
+([review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools)).
+
+**Next action:** the old-publication clause of the acceptance at the runtime
+(a selection written by an older tool starts the native game without a
+rebuild) has a case at the reader, not a launch witness.
 
 **Host registration landed in `fb1621179`:** providers import identities and retain the
 host's selected source. Explicit conflicting selections still refuse. Guard:
@@ -217,28 +226,6 @@ publication can run without a rebuild or a deep audit. A native host with
 served-content support enabled admits its shared library once; standalone
 served games still run.
 
-### SMASH-DEFECTS — select-screen, respawn and result lifecycle
-
-**Failure:** source review found off-page portraits that retain their old
-rectangle, a default jump budget at respawn, a result clock without a pause
-check, stale mouse state at route entry, and invisible page controls.
-
-**Owner:** Smash select UI and route lifecycle, stock placement, and the shared
-body reset API. Evidence: [SD-01 through SD-07](demos/smash-defect-review-2026-10-31.md).
-
-**Fixed 2026-11-10:** SD-01 to SD-05, each with a headless test at its owner
-([review](demos/smash-defect-review-2026-10-31.md)).
-
-**Next action:** measure idle component change ticks and portrait demands for
-SD-06 and SD-07 before selecting a performance change. Keep the existing S0
-combat work separate.
-
-**Acceptance:** small-view mouse, touch and pad input reaches every visible
-page; off-page children are hidden. Real stock loss preserves each fighter's
-jump budget. Pause preserves the result delay. The first click after route
-re-entry uses its actual pointer position. Report idle demand/change counts
-and frame cost separately from correctness.
-
 ### ASSET-PUBLISH — selection does not audit old bundle payloads
 
 **Failure:** acceptance hashes the source and copied product; selection calls
@@ -247,10 +234,16 @@ and frame cost separately from correctness.
 **Owner:** renderer publication store and library producer scripts.
 Design: [asset library review, B](engine/asset-library-implementation-review.md#b-publication-works-but-checks-the-past-on-every-change).
 
-**Next action:** record a small and a many-bundle baseline of time, bytes read,
-hashes and stat calls. Accept new bytes in one copy/hash pass. Select from
-accepted manifests, check ownership conflicts, and keep the atomic swap.
-Move deep payload inspection to an explicit audit.
+**Done 2026-11-10 (measured):** accept is one copy-and-hash pass (a 2.1 MB
+unit: 6.3 MB read before, 2.1 MB after); publish selects from accepted
+manifests with ownership checks and the atomic swap, and checks only that a
+newly selected bundle has its members (onto 200 bundles: 1.1-1.2 s and 423
+MB read before, 59-67 ms and 1.1 MB after); deep payload inspection is the
+explicit `Store.audit()`
+([review, B](engine/asset-library-implementation-review.md#b-publication-works-but-checks-the-past-on-every-change)).
+
+**Next action:** none in this row. No release path calls `audit()` yet; the
+release asset contract is ASSET-PREVIEW's boundary.
 
 **Acceptance:** focused publication does not read or hash old payloads.
 Concurrent independent publications survive the merge; a failed producer
@@ -265,9 +258,16 @@ then audits the composed tree as if it were a release.
 **Owner:** `scripts/package/package_asset_guard.py` and web preview setup.
 Design: [asset library review, D](engine/asset-library-implementation-review.md#d-the-web-development-packager-does-release-level-work).
 
-**Next action:** measure the current preview operation. Add an explicit local
-composition policy that uses selected manifests and links without a deep
-payload audit. Keep the explicit strict release path.
+**Done 2026-11-10 (measured):** `compose --policy local` composes the
+selected file set without hashing, checks the tree by membership and reports
+missing inputs; `build_for_web.sh --served` uses it for a linked tree. An
+indexed alias lookup (the old per-declaration scan was 60 of 105 profiled
+seconds) speeds both policies: release 59 s to 38.6 s on this checkout, local
+22 s ([review, D](engine/asset-library-implementation-review.md#d-the-web-development-packager-does-release-level-work)).
+
+**Next action:** run the Android, Steam Deck and static web release
+packagers' final asset contracts on a machine with every generated family;
+this VM lacks four, so release composition refuses here before and after.
 
 **Acceptance:** local preview uses the same selected file set without hashing
 all media. Missing required files have a useful diagnostic. Android, Steam
@@ -1084,6 +1084,10 @@ the game draws the same at each tier.
 ## Receipts
 
 Closed rows retained only where an open row, a script or an inbound link still needs their identity.
+
+### SMASH-DEFECTS — select-screen, respawn and result lifecycle
+
+Done 2026-11-10: SD-01 to SD-05 (off-page portraits drawn, default air jumps at respawn, a result clock that ran while paused, a stale mouse at route entry, invisible page controls), each with a headless test at its owner that a poison of its fix reddens. SD-06 (47 select-screen components marked changed on every idle frame, now 0) and SD-07 (one portrait resolution per occupied card per frame, now 0; a failed load restarted every frame, 8 ms a card on a VM missing two portraits) measured before and after; the windowed UI-layout saving of SD-06 is unmeasured and not claimed. Owner: [Smash defect review](demos/smash-defect-review-2026-10-31.md).
 
 ### NET-INPUT-WIDTH — remove idle room consensus from every frame
 

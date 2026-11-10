@@ -109,6 +109,25 @@ fixtures to check the same semantics; do not create a cross-language runtime
 service. Report loose, old, and unselected products as a *separate* workspace
 view. An absent publication should not force native runtime validation.
 
+**Done 2026-11-10 (the contract and its readers).** The contract is six
+shared cases under `crates/ambition_asset_manager/tests/data/selected_files/`:
+a library, and the members it selects with origin (`published` or `loose`)
+and generation, or the word its error must contain. The runtime reader
+(`tests/selected_files_contract.rs`) and the packaging reader
+(`scripts/tests/test_selected_files_contract.py`) both read them. The cases:
+a publication owns the sprite roots and the roots it names; a store that has
+published nothing is an empty selection; a library without a store manages
+nothing; a stale recorded identity still selects; an authored file colliding
+with a product, and a member path outside the store, refuse. Rust already
+agreed with all six. Python disagreed on two, and now agrees:
+`Library.selected_files()` treats an empty store as an empty selection and a
+stale identity as an advisory (`Library.advisories()`, through
+`Store.selected(verify_identity=False)`). The stricter requirement is stated
+where it belongs: `package_asset_guard.collect_source_files` refuses a
+library whose store published nothing (`Library.requires_publication()`).
+`art_publication.resolve` resolves through a stale identity too. Section E's
+inspector part is done the same day.
+
 ### B. Publication works, but checks the past on every change
 
 `Store.accept()` computes a digest of each source, copies it into a new bundle,
@@ -133,6 +152,32 @@ ownership/conflict rules. Do not call deep `integrity()` on unchanged bundles.
 If a bundle is damaged, a requested file may fail; retain the previous usable
 selection or report the broken file. A high-stakes release runs a separate
 one-time audit before distribution.
+
+**Done 2026-11-10 (measured).** `Store.accept` copies each member once
+while hashing it (`copy_digest`), so the recorded digest is of the bytes the
+bundle holds; an existing bundle with the same key gets an existence check,
+not a re-read. `Store.publish` reads accepted manifests, checks ownership
+(`Two producers own`), checks only that a bundle it newly selects has its
+members, and keeps the lock, the merge of concurrent publications and the
+atomic write; its inert `hashes` parameter is gone. The deep check is the
+explicit `Store.audit()`. Measured with
+`scripts/measure/measure_publication_cost.py` (synthetic store, members of
+256 KiB, one new unit of 8 members; two runs each, the same both times):
+
+| step | before | after |
+|---|---|---|
+| accept one 2.1 MB unit | 6.29 MB read, 4.20 MB hashed, 59 stat calls, 15-17 ms | 2.10 MB read, 2.10 MB hashed, 19 stat calls, 9-10 ms |
+| publish onto 4 bundles (8.4 MB) | 10.5 MB read and hashed, 44 stat calls, 31-35 ms | 0.02 MB read, 12 stat calls, 3.3-3.8 ms |
+| publish onto 200 bundles (419 MB), no digest cache | 423 MB read and hashed, 1612 stat calls, 1123-1156 ms | 1.1 MB read (manifests), 12 stat calls, 59-67 ms |
+| the same, warm `Digests` cache | 1.8 MB read, 110-112 ms | (no cache taken) |
+| explicit `audit()`, 200 bundles | (inside every publish) | 423 MB read, 1096-1218 ms |
+
+Witnesses in the renderer's `tests/test_publication_store.py`: a focused
+publication reads no payload digest while an old member is damaged, and
+`audit` reports that member (a poison restoring the per-publish deep check
+reddened it); a newly selected bundle missing a member refuses and leaves the
+previous selection; accept records the digest of the bytes it copied. The
+existing concurrent-publication, failed-accept and stale-parent tests pass.
 
 **Scope caution:** the music publisher checks cue dependencies and renders
 per-cue units, while SFX currently produces an audio bank. It can refuse to
@@ -189,6 +234,34 @@ metadata for the file list. It can warn about missing inputs and continue when
 possible. Do not make link mode alone imply a release audit. Measure this
 path separately from native launch and static compilation.
 
+**Done 2026-11-10 (measured).** `compose --policy local` composes the same
+selected file set from metadata: no input is hashed, the composed tree is
+checked by membership (every selected file, nothing else), a declared input
+that is absent, or a library whose store published nothing, is reported and
+left out, and the contract records `"policy": "local"` with no digests, so
+`audit-tree` and `audit-zip` refuse it. `--policy release` stays the default
+and every package's. `build_for_web.sh --served` composes a linked tree
+under `local` and a `--copy-assets` tree under `release`.
+
+A profile of the old compose on this checkout (web profile, 14,827 files)
+found the largest cost was neither hash: `resolve_declarations` searched
+every file for each declaration's library alias (75 million `split` calls,
+60 of 105 profiled seconds). The aliases are now indexed once, for both
+policies. Wall time, two runs each, warm content compiler:
+
+| compose, web profile, link | before | after |
+|---|---|---|
+| release | 58.8, 59.3 s, then refuses (14 declared assets absent on this VM) | 38.5, 38.7 s, the same refusal |
+| local | (no such policy: the preview could not be composed here) | 21.3, 22.3 s, composed, the 14 reported |
+
+Witnesses: `scripts/tests/test_package_preview_policy.py` (local hashes
+nothing and composes the release file set, which a poison making it hash
+reddened; a missing declared input is a warning locally and a refusal in
+release; no audit accepts a local contract). The Android and Steam Deck
+packagers and a static web release pass no `--policy` and keep the release
+path; their final asset contracts were not run on this VM, which lacks four
+generated families.
+
 ### E. The audio publication is integrated; inspector resolution lags
 
 The library manifest declares `music`, `sfx`, `fonts`, `backgrounds`, `sprites`
@@ -199,7 +272,21 @@ At runtime, music handles load through Bevy on first use
 (`crates/ambition_audio/src/bank_asset.rs:329-375`).
 
 **Design action:** do not start a new audio asset subsystem. Fix inspector
-resolution and release closure for the existing one. Measure bank update
+resolution and release closure for the existing one.
+
+**Inspector resolution done 2026-11-10.** `asset_index/kinds.py` reads the
+library's selected file set once (`selected_files`) and locates the music
+registry, each track, the SFX bank and each font through it. A loose copy
+under a root the publication owns is still listed, with
+`details.selected = false` and a reason saying the game does not select it;
+sprites already worked this way (published roots, and loose roots labelled
+`unmanaged`). Measured on this checkout, where every product is published and
+nothing is loose: before, all 19 published history cues had no audio located;
+after, all 19 do. They stay `missing` here for a true reason, now stated: the
+selection has no `audio/music_registry.ron`, so the game cannot name them.
+Witness: `test_published_only_media_resolve_and_a_shadowed_workspace_copy_says_so`
+(a poison that ignored the selection reddened it). Release closure and bank
+update amplification are not measured yet. Measure bank update
 amplification before deciding whether the SFX bank needs smaller units.
 Include fonts, backgrounds, sprite metadata, LDtk worlds, and game-owned
 content in each release closure even when their files come from different

@@ -1,0 +1,10 @@
+{
+ "schema": "ambition.content_library.v1",
+ "id": "fixture",
+ "version": "1",
+ "asset_roots": {
+  "authored": "authored",
+  "generated": "made"
+ },
+ "publication": "store"
+}

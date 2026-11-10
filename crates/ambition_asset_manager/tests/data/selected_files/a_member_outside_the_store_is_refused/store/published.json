@@ -1,0 +1,16 @@
+{
+ "bundles": {
+  "target:hero": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+ },
+ "files": {
+  "sprites/hero.ron": {
+   "path": "../outside.ron",
+   "role": "runtime",
+   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+   "tier": "full"
+  }
+ },
+ "generation": "7e8306e3641f9fb0a4bef595e17d27a16783e601a02607717e24421482581093",
+ "roots": [],
+ "schema": "ambition.art_publication.v1"
+}

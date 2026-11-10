@@ -17,6 +17,20 @@ def relative(value: str) -> str:
 
 
 @dataclass(frozen=True)
+class SelectedFile:
+    """One member of a library's selected file set.
+
+    `origin` is `published` for a product of the accepted publication and
+    `loose` for a library file outside the roots that publication owns.
+    """
+    library: str
+    logical: str
+    path: Path
+    origin: str
+    generation: str | None
+
+
+@dataclass(frozen=True)
 class Library:
     path: Path
     manifest: dict
@@ -25,18 +39,51 @@ class Library:
     def id(self) -> str:
         return self.manifest["id"]
 
-    def files(self) -> dict[str, Path]:
-        selected = None
+    def publication_root(self) -> Path | None:
         store = self.manifest.get("publication")
-        if store:
-            root = self.path.parent / relative(store)
-            selected = Store(root).selected()
-            if selected["generation"] is None:
-                raise ValueError(f"Library {self.id!r} has no publication: {root}")
-        managed = set(MANAGED_ROOTS) | set(selected.get("roots", [])) if selected else set()
+        return self.path.parent / relative(store) if store else None
+
+    def selection(self) -> dict | None:
+        """The accepted publication, or `None` for a library without a store.
+
+        A store that has published nothing is an empty selection, not an error,
+        and a recorded identity that does not match is a freshness note (see
+        `advisories`), not a refusal. Unsafe member paths still refuse.
+        """
+        root = self.publication_root()
+        return Store(root).selected(verify_identity=False) if root else None
+
+    def advisories(self) -> list[str]:
+        """What is usable but not current: reported, never refused."""
+        root = self.publication_root()
+        if root is None:
+            return []
+        try:
+            Store(root).selected()
+        except ValueError as error:
+            return [f"Library {self.id!r}: {error}"]
+        return []
+
+    def requires_publication(self) -> str | None:
+        """Why a package of this library cannot be formed, if it cannot: it
+        declares a store that has published nothing. The runtime runs without
+        those products; a package has nothing to ship for them."""
+        selected = self.selection()
+        if selected is not None and selected["generation"] is None and not selected["files"]:
+            return f"Library {self.id!r} has no publication: {self.publication_root()}"
+        return None
+
+    def selected_files(self) -> dict[str, SelectedFile]:
+        """The selected file set: published products own their roots, and loose
+        copies under those roots have no authority. The runtime's
+        `ContentLibrary::files` reads the same set; the shared cases in
+        `crates/ambition_asset_manager/tests/data/selected_files` hold both to it."""
+        selected = self.selection()
+        managed = set(MANAGED_ROOTS) | set(selected.get("roots", [])) if selected is not None else set()
         def is_managed(logical: str) -> bool:
-            return bool(selected and logical in selected["files"]) or any(logical == prefix or logical.startswith(prefix + "/") for prefix in managed)
-        files: dict[str, Path] = {}
+            return bool(selected is not None and logical in selected["files"]) or any(
+                logical == prefix or logical.startswith(prefix + "/") for prefix in managed)
+        rows: dict[str, SelectedFile] = {}
         for role, declared in self.manifest["asset_roots"].items():
             root = self.path.parent / relative(declared)
             candidates = []
@@ -50,15 +97,20 @@ class Library:
                 logical = path.relative_to(root).as_posix()
                 if role != "authored" and is_managed(logical):
                     continue
-                if logical in files:
-                    raise ValueError(f"Library {self.id!r} declares {logical!r} twice: {files[logical]} and {path}")
-                files[logical] = path
-        if selected:
-            collision = set(files) & set(selected["files"])
+                if logical in rows:
+                    raise ValueError(f"Library {self.id!r} declares {logical!r} twice: {rows[logical].path} and {path}")
+                rows[logical] = SelectedFile(self.id, logical, path, "loose", None)
+        if selected is not None:
+            collision = set(rows) & set(selected["files"])
             if collision:
-                raise ValueError(f"Authored files collide with published products: {sorted(collision)}")
-            files.update({logical: self.path.parent / store / relative(row["path"]) for logical, row in selected["files"].items()})
-        return files
+                raise ValueError(f"An authored file collides with a published product: {sorted(collision)}")
+            store = self.publication_root()
+            for logical, row in selected["files"].items():
+                rows[logical] = SelectedFile(self.id, logical, store / relative(row["path"]), "published", selected["generation"])
+        return rows
+
+    def files(self) -> dict[str, Path]:
+        return {logical: row.path for logical, row in self.selected_files().items()}
 
 
 def read_libraries(paths: list[Path]) -> dict[str, Library]:

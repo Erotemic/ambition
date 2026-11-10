@@ -389,9 +389,10 @@ fi
 # about where assets live, and it names no crate at all.
 #
 # `--materialize link` because this is a DEVELOPMENT loop: the composed tree
-# is ~1.1 GB and would otherwise be duplicated on every wasm build. The contract
-# and its full hash audit run identically either way; only the bytes are shared.
-# A shipped package keeps the default `copy` — an APK cannot carry a link.
+# is ~1.1 GB and would otherwise be duplicated on every wasm build. A linked
+# preview is composed under `--policy local` (the selected files, by metadata,
+# with missing inputs reported); `--copy-assets` makes output that can leave
+# this host, so it keeps the release policy and its full hash audit.
 SERVED_ASSETS_DIR="$WEB_DIR/assets"
 if [[ "$SERVED_MODE" == true ]]; then
     PACK_ARGS=()
@@ -405,6 +406,7 @@ if [[ "$SERVED_MODE" == true ]]; then
         "${PACK_ARGS[@]}" \
         --profile web \
         --materialize "$ASSET_MODE" \
+        --policy "$([[ "$ASSET_MODE" == link ]] && echo local || echo release)" \
         --output "$SERVED_ASSETS_DIR" \
         --contract "$WEB_DIR/.assets_contract.json" \
         --hash-manifest "$WEB_DIR/.assets_sha256"; then

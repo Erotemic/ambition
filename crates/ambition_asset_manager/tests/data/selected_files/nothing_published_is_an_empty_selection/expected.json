@@ -1,0 +1,12 @@
+{
+ "files": {
+  "data/notes.txt": {
+   "generation": null,
+   "origin": "loose"
+  },
+  "music/score.cue": {
+   "generation": null,
+   "origin": "loose"
+  }
+ }
+}

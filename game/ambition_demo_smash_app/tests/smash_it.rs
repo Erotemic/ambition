@@ -24,3 +24,4 @@ mod each_pad_drives_its_own_seat;
 mod a_seat_is_drawn_in_its_skin;
 mod the_host_omits_only_what_the_game_does_not_use;
 mod the_brain_admits_by_the_geometry_that_hits;
+mod an_idle_select_screen_writes_nothing;

@@ -669,7 +669,8 @@ change both sides together.
 
 ### Physical root material packet
 
-Status: implemented; merged-tree validation pending. P07 remains open.
+Code: `02cabae98`. Upstream merges: `2fe6b743d` and `ef786ca79`.
+Validation repairs: `4980e0a1b`. P07 remains open.
 
 `BodyMaterial` stores wide physical axes and scale in the current room chart.
 The common portal transfer composes the full admitted map with that material.
@@ -681,8 +682,18 @@ source turn. Snapshot schema v432 includes these fields. Separate `ActorRoll`,
 Core tests pass: 869, one ignored. Shared, portal, runtime, host, view, renderer
 and held-item tests pass: 355, 142, 264, 36, 162, 522 and 47. View has two ignored
 tests; portal has one. Content portal tests pass: 60. App library tests pass:
-279, one ignored. All 37 app portal tests, the turned pickup test and the
-body-parts/gravity test pass. All 53 absence contracts hold.
+279, one ignored. These owner results are from the physical-material packet
+before the upstream merges.
+
+On the merged tree, all 36 app portal tests pass. The turned pickup,
+body-parts/gravity and room-rebuild selections pass. The broad replay selection
+has 83 passes, six ignored diagnostics and one failed volley fixture. That
+fixture passes after repair: the live-shot witness now uses the clear combat
+calibration lane, and explicit phase setup uses the harness rebase method.
+All 35 workspace policies pass. Smash has 71 passes and six ignored tests.
+The assembled app check and its default-feature warning check pass.
+Logs use `target/portal-root-final-`, `target/portal-root-policy-current.log`
+and `target/portal-root-boss-clear-lane-replay.log`.
 
 The character sprite suite has 62 passes and one failure:
 `attack_hitbox::tests::a_left_drawn_fighters_forward_swings_land_in_front_of_her`.
@@ -691,8 +702,19 @@ with the same `air_back` centre, `7.655999`. This packet does not change that
 geometry. Logs: `target/portal-root-character-baseline-probe.log` and
 `target/portal-root-owner-ambition_character_sprites.log`.
 
-The pre-merge broad replay run was stopped after 60 completed tests to integrate
-20 upstream commits first. It is not a completed replay result. Merged-tree
-replay, policy and Smash checks remain pending. No full PSIM slice is closed.
-Native body contacts, same-tick continuation, common combat/attachment maps,
-unequal apertures, H–J lab examples and full acceptance remain open.
+The multi-writer checker no longer lists the single-writer portal tuning
+resource. It still reports five generic UI census mismatches outside this
+change. No orientation file is kept for the retired extraction path check.
+All 53 absence contracts passed on the physical-material packet.
+
+After the last upstream merge, all six dog tests and 39 GNU-ton tests pass.
+One GNU-ton diagnostic is ignored. Standalone Mary-O passes all 140 active
+integration tests; three are ignored. All 53 absence contracts hold. The portal
+plan's 19 citations and all planning anchors resolve. The global doc-link check
+reports three links to `engine/radiant-npc-planning.md` outside this packet.
+Logs use `target/portal-root-extra-`.
+
+Full workspace libraries, feature unions, device/GPU tests and performance
+acceptance are not covered by this packet. No full PSIM slice is closed. Native body contacts, same-tick
+continuation, common combat/attachment maps, unequal apertures, H–J lab examples
+and full acceptance remain open.

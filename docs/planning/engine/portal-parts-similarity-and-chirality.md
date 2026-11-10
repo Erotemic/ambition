@@ -3,25 +3,23 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** REVIEW REPAIRS COMMITTED ON MAIN; FEATURE ACCEPTANCE OPEN
-(2026-11-10). The slot 1 work is merged. External pose admission and caller
-transactions are committed in `4afbf6100`. Capability selection, body publication,
-room isolation and authored zone presentation are committed in `9e626f08b`.
-The map merge is `790e3ee`. The spark/wall repair is `b2e8f750a`; canonical
-block contact and static-cell repairs are `f634f1870`. All 37 app portal tests
-and all 140 active standalone Mary-O integration tests pass. Departure material
-records and rollback schema v430 are committed in `1293c397f`. Full ray-band
-contacts and schema v431 are committed in `7263366ed`. This checkpoint adds
-persistent physical root material, full material transfer and admitted righting.
-The body snapshot uses schema v432. Core, portal, host, item, view and renderer
-checks pass. All 37 app portal tests pass. Merged-tree replay and policy checks
-are pending. The existing character `air_back` geometry test also fails in an
-older test executable with the same result.
+(2026-11-10). P01–P06 and P08–P10 are repaired. P07 remains open for full
+feature acceptance. Physical root material and admitted righting are committed
+in `02cabae98`, with snapshot schema v432. Validation repairs are `4980e0a1b`.
+Upstream work is merged through `ef786ca79`.
 
-P07 and all full PSIM acceptance slices remain open. Same-tick remaining motion,
-native body contacts, common combat/attachment maps, unequal apertures and the
-remaining lab examples still need work. See the
-[physical root receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#physical-root-material-packet).
+The merged app portal selection passes 36 tests. The core has 869 passes and
+one ignored test. Workspace policy has 35 passes; Smash has 71 passes and six
+ignored tests. The assembled app compiles without warnings. The broad replay
+selection had 83 passes and one failed fixture; that fixture passes after its
+repair. Six replay diagnostics remain ignored. Standalone Mary-O has 140 passes
+and three ignored tests. The merged dog and GNU-ton selections pass. See the
+[physical root receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#physical-root-material-packet)
+for the validation scope and known failures.
 
+No full PSIM acceptance slice is closed. Same-tick remaining motion, native body
+contacts, common combat/attachment maps, unequal apertures, remaining lab examples
+and the full platform/performance matrix still need work.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),

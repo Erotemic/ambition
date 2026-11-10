@@ -2,13 +2,17 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** IMPLEMENTATION RESUMED ON MAIN (Jon, 2026-11-09).
-The slot 1 work was merged. Main is the active checkout. Jon asked for a safe
-commit point before the pause. The native source-admission packet is committed as `9098b5d54`. The shared
-item-body packet is `821ce15c3`. Their affected checks pass.
-Jon asked to continue and finish the work. Preserve the merged
-slot 1 checkpoint, `portal-similarity-draft`. Feature acceptance remains open.
-See [Committed checkpoint](#committed-checkpoint) and [Draft status](#draft-status).
+**Work state:** REVIEW REPAIRS COMMITTED ON MAIN; FEATURE ACCEPTANCE OPEN
+(2026-11-10). The slot 1 work is merged. External pose admission and caller
+transactions are committed in `4afbf6100`. Capability selection, body publication,
+room isolation and authored zone presentation are committed in `9e626f08b`.
+The map merge is `790e3ee`. The spark/wall repair is `b2e8f750a`; canonical
+block contact and static-cell repairs are `f634f1870`. All 37 app portal tests
+and all 140 active standalone Mary-O integration tests pass. Departure material
+records and rollback schema v430 are committed in `1293c397f`. Full ray-band
+contacts and schema v431 are committed in `7263366ed`. P07 remains open
+for full feature acceptance. No PSIM acceptance slice is closed by these repairs. See the [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#capability-and-publication-packet).
+
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
 [portals are moving frames](portals-are-moving-frames.md), and
@@ -584,7 +588,62 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
-Motion-admission review, first packet: this commit. The body domain owns
+Full ray-band contacts: `7263366ed`. Rays query their complete cross-section
+through the native cells. Each leg ends at its root crossing, then rebases
+before the remaining reach continues. Point rays use the same path. Shrink,
+expand, parity and aperture-edge witnesses pass. Core has 865 passes; combat
+has 805; shared has 358; portal has 141. Five library tests remain ignored.
+The app portal selection has 37 passes; the eye-laser case passes. Schema has
+four passes, content portal has 64, policy has 35 and Smash has 71. Six Smash
+cases remain ignored. The assembled app check and all 53 absence contracts
+pass. Both baselines use v431. Full PSIM acceptance remains open.
+
+Departure material record: `1293c397f`. `SweepSample` retains the material at
+departure. Kernel admission, external pose admission and root crossing build
+the same cast from that record. A later root rebase cannot change its source.
+Snapshot and invalid-clock tests cover this contract. The portal-only record
+and adapter are removed. Both schema baselines use v430. The app portal
+selection has 37 passes; schema has four; policy has 35. Both resource-census
+tests pass after host-state classification. The assembled app check and all 53
+absence contracts pass. The [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#departure-material-record-packet)
+records the owner batch and exact limits. Production root rebasing, physical
+righting and full PSIM acceptance remain open.
+
+Canonical block contact and static-cell repair: `f634f1870`. Block contact
+positions now keep canonical material outside the face. Exact translating
+constraints prevent an empty static cell from spending the work budget when a
+distant pair turns. Both walking/camera regressions now pass with their original
+assertions. Core has 860 passes and one ignored; shared has 358 passes. All 37
+app portal tests pass. Smash has 71 passes and six ignored; policy has 35 passes.
+The assembled app check passes. Standalone Mary-O has 140 integration passes
+and three ignored, including the repaired spark/wall case. The
+[review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md)
+records commands and limits. This closes the reported regression gates; P07
+full acceptance and all full PSIM slices remain open.
+
+
+Initial-overlap contact repair: `b2e8f750a`. A projectile born in a wall now
+reports contact before it can leave. Native casts have an explicit overlap
+policy; body escape queries still permit separation. Core has 858 passes and
+one ignored; shared has 357 passes plus the added scaled-part witness. The
+real Mary-O spark/wall test and all 14 app projectile transit tests pass. The
+assembled app check passes. The later repair in `f634f1870` closes the two
+reported walking regressions. P07 and full PSIM acceptance remain open.
+
+
+Capability and publication review repair: `9e626f08b`. The body domain samples
+material at two distinct epochs. Portal publishers add room-scoped restrictions
+and clear disabled-room state. Runtime selects simulation separately from the
+gun; construction uses the generation's schema catalog. The generic renderer
+reads authored zone presentation. Mary-O's standalone native, test, desktop and
+web dependency trees exclude the portal crate; its wasm web check passes.
+The app check, four schema tests, 35 policy tests and 17 mixed-game tests pass.
+Portal has 143 passes; runtime has 264. The receipt records the publication cost
+and all remaining failed gates. Do not combine the two material epochs without
+preserving their distinct input states. P07 and full PSIM acceptance remain open.
+
+
+Motion-admission review, first packet: `4afbf6100`. The body domain owns
 external pose admission and prepared group poses. Sequence progress, relationship
 release and boss holds now follow the admission result. A missing body material
 map returns a typed refusal. The old portal-named pose API is removed.
@@ -893,7 +952,8 @@ admission for the remaining free-body sweeps, physical pose turns and moving
 aperture hosts. Finish projectile body and feature contact queries,
 and the remaining attack updates.
 Body-attached ray origins still need the common material pose pass. Ray wall
-clipping still uses its centre line; finite-width contact remains open.
+contact uses its full cross-section in `7263366ed`; point rays use that same
+native query. Each source leg ends at its root crossing before rebasing.
 Check retained support facts, curved paths, control-phase displacement,
 topology changes after the aperture snapshot and candidate-copy cost.
 The existing gates do not close PSIM-1B.

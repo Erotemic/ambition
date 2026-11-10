@@ -28,7 +28,7 @@ fn wall(x: f32) -> Block {
 }
 
 fn ray(reach: f32) -> PortalRay {
-    PortalRay {
+    PortalRay { width: 0.0,
         origin: Vec2::ZERO,
         direction: Vec2::X,
         reach,
@@ -36,6 +36,33 @@ fn ray(reach: f32) -> PortalRay {
 }
 fn budget() -> RayBudget {
     PieceBudget::COMPOSED.into()
+}
+
+#[test]
+fn a_ray_band_keeps_its_width_after_shrinking_and_expanding() {
+    for convention in [MapConvention::Reflection, MapConvention::Rotation] {
+        for (origin, direction, target, expected) in [
+            (Vec2::ZERO, Vec2::X, Block::solid("far edge", Vec2::new(105.0, 0.75), Vec2::new(2.0, 2.0)), 20.0),
+            (Vec2::new(104.0, 0.0), -Vec2::X, Block::solid("far edge", Vec2::new(-6.0, 3.0), Vec2::new(2.0, 2.0)), 11.0),
+        ] {
+            let world = world(vec![wall(10.0), wall(90.0), target]);
+            let beam = PortalRay { origin, direction, reach: 40.0, width: 4.0 };
+            let hit = trace_through_apertures(&world, &pair(), beam, false, budget(), convention).unwrap();
+            assert_eq!(hit.distance, expected, "{convention:?}: {hit:?}");
+            assert!(hit.hit.is_some());
+            let narrow = PortalRay { width: 0.25, ..beam };
+            assert_eq!(trace_through_apertures(&world, &pair(), narrow, false, budget(), convention).unwrap().distance, 40.0);
+        }
+    }
+}
+
+#[test]
+fn a_ray_band_cannot_hide_its_edges_in_an_aperture() {
+    let links = PortalLink::both_ways(0, (aperture(10.0, -Vec2::X, 0.5), aperture(100.0, Vec2::X, 0.5)));
+    let beam = PortalRay { width: 4.0, ..ray(40.0) };
+    let trace = trace_through_apertures(&world(vec![wall(10.0), wall(90.0)]), &links, beam, false, budget(), MapConvention::Reflection).unwrap();
+    assert_eq!(trace.distance, 10.0, "{trace:?}");
+    assert_eq!(trace.hit.unwrap().0.x, 10.0);
 }
 
 #[test]
@@ -72,7 +99,7 @@ fn a_ray_spends_initial_chart_reach_after_scaling_and_starts_on_the_exit_face() 
 #[test]
 fn the_reverse_link_expands_the_remaining_reach() {
     let world = world(vec![wall(-10.0), wall(10.0), wall(90.0)]);
-    let ray = PortalRay {
+    let ray = PortalRay { width: 0.0,
         origin: Vec2::new(110.0, 0.0),
         direction: -Vec2::X,
         reach: 30.0,
@@ -161,6 +188,7 @@ fn a_scale_cycle_refuses_at_the_limit_with_no_partial_ray() {
     let budget = RayBudget {
         max_hops: 100,
         max_scale_exponent: 2,
+        max_pieces: 32,
     };
     assert_eq!(
         trace_through_apertures(
@@ -186,6 +214,7 @@ fn tied_apertures_use_the_directed_link_key() {
     let mut b = a;
     b.key = 3;
     b.exit.frame.origin.x = 300.0;
+    b.exit_step = crate::frame::ApertureStep::fixed(b.exit.frame.origin, b.exit.frame.normal);
     for links in [[a, b], [b, a]] {
         let trace = trace_through_apertures(
             &world(vec![]),
@@ -237,7 +266,7 @@ fn invalid_maps_and_scale_policy_have_distinct_refusals() {
 
 #[test]
 fn an_aperture_does_not_take_a_ray_outside_its_opening() {
-    let ray = PortalRay {
+    let ray = PortalRay { width: 0.0,
         origin: Vec2::new(0.0, 21.0),
         ..ray(40.0)
     };
@@ -272,7 +301,7 @@ fn rotated_scaled_rays_stop_on_the_same_one_sided_surface() {
                         aperture.frame.normal = map.direction(aperture.frame.normal);
                         aperture.half_length = map.length(aperture.half_length).unwrap();
                     }
-                    link
+                    PortalLink::new(link.enter, link.exit, link.key)
                 });
                 let mut points = vec![
                     map.point(Vec2::new(105.0, 5.0)).unwrap(),
@@ -282,7 +311,7 @@ fn rotated_scaled_rays_stop_on_the_same_one_sided_surface() {
                     points.reverse();
                 }
                 let world = world(vec![]).with_chains(vec![SurfaceChain::open("target", points)]);
-                let ray = PortalRay {
+                let ray = PortalRay { width: 0.0,
                     origin: map.point(Vec2::ZERO).unwrap(),
                     direction: map.direction(Vec2::X),
                     reach: map.length(40.0).unwrap(),
@@ -332,7 +361,7 @@ fn an_angled_ray_does_not_round_back_into_its_exit_host() {
     );
     let wall = |x| Block::solid("host", Vec2::new(x, -20000.0), Vec2::new(10.0, 40000.0));
     let world = world(vec![wall(entry), wall(exit - 10.0), wall(exit + 5.0)]);
-    let ray = PortalRay {
+    let ray = PortalRay { width: 0.0,
         origin: Vec2::new(-3.5724475383758545, 0.0),
         direction: Vec2::new(0.13619284331798553, 0.19575506448745728),
         reach: 5000.0,

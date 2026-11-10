@@ -266,7 +266,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
             canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
-        ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
+        ae::SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: start,
             curr: end,
             vel,
@@ -424,7 +424,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     };
 
     // The kernel's record of the frame: it walked 40 px east and was stopped.
-    let travelled = ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
+    let travelled = ae::SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
         prev: stopped_at - ae::Vec2::new(40.0, 0.0),
         curr: stopped_at,
         vel: ae::Vec2::new(2400.0, 0.0),
@@ -998,7 +998,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
     let mut arrival: Option<(ae::SweepSample, ae::Vec2, ae::Vec2)> = None;
     for _ in 0..240 {
         let before = scratch.kinematics.pos;
-        let mut sample = ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = ae::SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: before,
             curr: before,
             vel: ae::Vec2::ZERO,

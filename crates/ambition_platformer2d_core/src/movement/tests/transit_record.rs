@@ -19,6 +19,55 @@ const DT: f32 = 1.0 / 60.0;
 const START: Vec2 = Vec2::new(1000.0, 1200.0);
 const ARRIVAL: Vec2 = Vec2::new(2000.0, 600.0);
 
+#[test]
+fn a_record_keeps_its_departure_material_after_a_root_rebase_and_restore() {
+    use crate::frame::BodyMaterial;
+    use crate::snapshot::{decode_state, encode_state};
+    let before = crate::BodyKinematics {
+        pos: Vec2::new(50.0, 200.0), vel: Vec2::X * 100.0,
+        canonical_size: Vec2::new(2.0, 4.0),
+        material: BodyMaterial::new(2.0, bevy_math::Mat2::from_cols(Vec2::X, -Vec2::Y)).unwrap(),
+        ..Default::default()
+    };
+    let mut record = SweepSample::at_rest(before, Vec2::Y);
+    record.curr += Vec2::X * 10.0;
+    record.vel = before.vel;
+    let after = crate::BodyKinematics {
+        pos: record.curr,
+        material: BodyMaterial::new(0.5, bevy_math::Mat2::from_angle(0.7)).unwrap(),
+        ..before
+    };
+    let bytes = encode_state(&record);
+    let restored = decode_state::<SweepSample>(&bytes).unwrap();
+    assert_eq!(encode_state(&restored), bytes);
+    assert_eq!(restored.material, before.material);
+    assert_ne!(restored.material, after.material);
+    let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, after.canonical_size * 0.5));
+    let world = crate::World::new("recorded source", Vec2::splat(1000.0), before.pos,
+        vec![crate::Block::solid("wall", Vec2::new(55.0, 180.0), Vec2::new(4.0, 40.0))]);
+    let contact = world.first_material_sweep(restored.material_cast(&domain).unwrap(), None,
+        |_, _, _| Ok(true)).unwrap().unwrap().contact;
+    assert!((contact.toi - 0.3).abs() < 1.0e-12, "{contact:?}");
+    assert_eq!(contact.world_point.x, 55.0);
+}
+
+#[test]
+fn a_record_refuses_an_invalid_departure_clock_or_frame() {
+    use crate::frame::{NumericFault, thread::RefusalReason};
+    let body = crate::BodyKinematics::default();
+    let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, body.canonical_size * 0.5));
+    let record = SweepSample::at_rest(body, Vec2::Y);
+    for (source, reason) in [
+        (SweepSample { down: Vec2::splat(f32::NAN), ..record }, NumericFault::NonFinite),
+        (SweepSample { vel: Vec2::splat(f32::INFINITY), ..record }, NumericFault::NonFinite),
+        (SweepSample { time: [0.0, f64::INFINITY], ..record }, NumericFault::NonFinite),
+        (SweepSample { time: [0.75, 0.25], ..record }, NumericFault::InvalidFrame),
+    ] {
+        let Err(refusal) = source.material_cast(&domain) else { panic!("invalid record was accepted: {source:?}"); };
+        assert_eq!(refusal.reason, RefusalReason::Numeric(reason));
+    }
+}
+
 /// The halves of the record after a step, after a transit, and after the
 /// next step at the arrival.
 struct Halves {

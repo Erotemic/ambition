@@ -8,6 +8,26 @@ fn box_at(center: Vec2, half: Vec2) -> Vec<Vec2> {
 }
 
 #[test]
+fn a_finite_cross_section_sweeps_its_full_width_without_padding() {
+    let section = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(0.0, 2.0)));
+    for angle in [0.0, 0.37, std::f32::consts::FRAC_PI_2] {
+        let axes = Mat2::from_angle(angle);
+        let origin = Vec2::new(20.0, 50.0);
+        let map = Sim2::new(1.0, axes, origin).unwrap();
+        let cells = MaterialCast::new(MaterialPrimitive { domain: &section, to_world: map },
+            origin, axes * Vec2::new(10.0, 0.0), 1.0..1.0)
+            .with_initial_overlap(InitialOverlap::Report).cells(None).unwrap();
+        let obstacle = box_at(Vec2::new(5.5, 2.0), Vec2::new(0.5, 0.5)).into_iter()
+            .map(|point| map.point(point).unwrap()).collect::<Vec<_>>();
+        let hit = cells.against(&cells.parts()[0], &obstacle, Vec2::ZERO).unwrap().unwrap();
+        assert!((hit.toi - 0.5).abs() < 1.0e-6, "{angle}: {hit:?}");
+        let clear = box_at(Vec2::new(5.5, 3.0), Vec2::new(0.5, 0.5)).into_iter()
+            .map(|point| map.point(point).unwrap()).collect::<Vec<_>>();
+        assert!(cells.against(&cells.parts()[0], &clear, Vec2::ZERO).unwrap().is_none());
+    }
+}
+
+#[test]
 fn a_new_cell_owns_contact_at_a_topology_boundary() {
     let body = CombatVolume::circle(Vec2::ZERO, 1.0);
     let mut cells = MaterialCast::new(
@@ -1008,5 +1028,42 @@ fn a_closed_prefix_retains_first_touch_at_its_end() {
             assert!((hit.world_time - (time.start + (time.end-time.start)*until)).abs() < 1.0e-12);
             assert_eq!(hit.world_point.x, end + 1.0);
         }
+    }
+}
+
+#[test]
+fn initial_overlap_policy_reports_material_but_not_a_separating_touch() {
+    for shape in [CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::ONE)), CombatVolume::circle(Vec2::ZERO, 1.0)] {
+        for scale in [0.5, 1.0, 2.0] {
+            for parity in [-1.0, 1.0] {
+                let map = Sim2::new(scale, Mat2::from_cols(Vec2::X, Vec2::Y * parity), Vec2::new(-30.0, 70.0)).unwrap();
+                for (left, penetrates) in [(0.5, true), (1.0, false)] {
+                    let obstacle = box_at(Vec2::new(left + 2.0, 0.0), Vec2::new(2.0, 4.0)).into_iter().map(|p| map.point(p).unwrap()).collect::<Vec<_>>();
+                    for policy in [InitialOverlap::AllowSeparation, InitialOverlap::Report] {
+                        let cells = MaterialCast::new(MaterialPrimitive { domain: &shape, to_world: map },
+                            map.point(Vec2::ZERO).unwrap(), map.vector(-Vec2::X * 4.0).unwrap(), 0.0..1.0)
+                            .with_initial_overlap(policy).cells(None).unwrap();
+                        let hit = cells.against(&cells.parts()[0], &obstacle, Vec2::ZERO).unwrap();
+                        assert_eq!(hit.is_some(), penetrates && policy == InitialOverlap::Report,
+                            "scale={scale}, parity={parity}, policy={policy:?}, left={left}: {hit:?}");
+                        if let Some(hit) = hit { assert_eq!(hit.toi, 0.0); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn initial_overlap_policy_applies_to_a_turning_obstacle() {
+    let shape = CombatVolume::circle(Vec2::ZERO, 1.0);
+    let obstacle = box_at(Vec2::new(2.5, 0.0), Vec2::new(2.0, 4.0));
+    for policy in [InitialOverlap::AllowSeparation, InitialOverlap::Report] {
+        let cells = MaterialCast::new(MaterialPrimitive::world(&shape), Vec2::ZERO,
+            -Vec2::X * 4.0, 0.0..1.0).with_initial_overlap(policy).cells(None).unwrap();
+        let hit = cells.against_rigid(&cells.parts()[0], &obstacle, Vec2::ZERO,
+            0.05, Vec2::new(2.5, 0.0)).unwrap();
+        assert_eq!(hit.is_some(), policy == InitialOverlap::Report, "{policy:?}: {hit:?}");
+        if let Some(hit) = hit { assert_eq!(hit.toi, 0.0); }
     }
 }

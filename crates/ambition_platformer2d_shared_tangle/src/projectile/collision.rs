@@ -1,6 +1,6 @@
 //! Projectile contacts use the common material cast and one response.
 
-use ae::frame::material_cast::{MaterialCast, MaterialCastHit};
+use ae::frame::material_cast::{InitialOverlap, MaterialCast, MaterialCastHit};
 use ae::frame::thread::{MaterialPrimitive, MotionAdmission, Refusal, RefusalReason};
 use ae::frame::{NumericFault, Sim2};
 use ae::world::{MaterialCollider, MaterialWorldHit};
@@ -110,7 +110,7 @@ pub fn resolve_world_collision<'w>(
         before.pos,
         delta,
         time,
-    ).prefix(until)?;
+    ).with_initial_overlap(InitialOverlap::Report).prefix(until)?;
     let down = super::body::projectile_down(gravity_dir);
     let contact = world.first_material_sweep(cast, admission, |collider, _, hit| {
         let one_way = match collider {

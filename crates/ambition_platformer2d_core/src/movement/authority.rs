@@ -177,6 +177,7 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
         // turns the body in the frame it arrives in.
         let down = sweep.down;
         *sweep = SweepSample { travel: Default::default(), time: [0.0, 1.0],
+            material: clusters.kinematics.material,
             prev: pos,
             curr: pos,
             vel: clusters.kinematics.vel,
@@ -248,7 +249,7 @@ pub fn prepare_body_pose(
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
     carried_vectors: &[Vec2],
 ) -> Result<PreparedBodyPose, crate::frame::thread::Refusal> {
-    use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}, NumericFault};
+    use crate::frame::{thread::{Refusal, RefusalReason}, NumericFault};
     let numeric = |reason| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(reason) };
     if desired.material != kinematics.material { return Err(numeric(NumericFault::InvalidFrame)); }
     if !desired.pos.is_finite() || !desired.vel.is_finite() || !desired.facing.is_finite() || !desired.canonical_size.is_finite() {
@@ -274,10 +275,7 @@ pub fn prepare_body_pose(
         None => SweepSample::at_tick_end(desired, Vec2::ZERO),
     };
     let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, desired.canonical_size * 0.5));
-    let map = desired.material.at(candidate.prev, candidate.down).map_err(numeric)?;
-    let (delta, until) = candidate.travel.line(candidate.prev, candidate.curr).map_err(numeric)?;
-    let cast = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world: map },
-        candidate.prev, delta, candidate.time[0]..candidate.time[1]).prefix(until)?;
+    let cast = candidate.material_cast(&domain)?;
     match admission {
         Some(admission) => admission.admit(cast, desired.vel, carried_vectors)?,
         None => cast.cells(None)?.admit_payloads(desired.vel, carried_vectors)?,
@@ -497,7 +495,7 @@ mod tests {
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
         // The scratch body carries no sweep sample unless a test asks for one,
         // and a test that did not ask would pass over an absent fact.
-        let mut sample = SweepSample { travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: incoming,
@@ -576,7 +574,7 @@ mod tests {
             BodyClusterScratch::new_with_abilities(Vec2::new(10.0, 10.0), AbilitySet::default());
         scratch.kinematics.vel = Vec2::new(-500.0, 220.0);
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
-        let mut sample = SweepSample { travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: Vec2::new(-500.0, 220.0),
@@ -690,7 +688,7 @@ mod tests {
         let mut scratch =
             BodyClusterScratch::new_with_abilities(Vec2::new(50.0, 50.0), AbilitySet::default());
         scratch.ground.on_ground = true;
-        let mut sample = SweepSample { travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(40.0, 50.0),
             curr: Vec2::new(50.0, 50.0),
             vel: Vec2::ZERO,

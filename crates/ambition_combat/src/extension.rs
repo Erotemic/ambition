@@ -312,7 +312,7 @@ fn cast_ray(
                 None => (&[][..], ae::frame::thread::PieceBudget::SINGLE_HOP.into(), Default::default()),
             };
             match ae::cast::trace_through_apertures(
-                walls, links, ae::cast::PortalRay { origin, direction: dir, reach }, false, budget, convention,
+                walls, links, ae::cast::PortalRay { origin, direction: dir, reach, width: ray.width }, false, budget, convention,
             ) {
                 Ok(trace) => trace.distance,
                 Err(refusal) => {

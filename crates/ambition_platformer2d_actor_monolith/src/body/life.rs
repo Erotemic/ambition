@@ -644,6 +644,14 @@ fn held_by(plan: &[Step], book: &LifeBook) -> BTreeMap<String, f32> {
 /// give, the bodies that catch up on one tick book it in the order they are
 /// looked at (by character id, the same on every peer), and a plan that would
 /// hold a thing longer than the hour has left plans again with it taken.
+/// The booking is never overrun: when no fact the body observes can tell the
+/// planner the thing is taken (no `Free` of it, or it is already false and
+/// the planner claims it anyway), the hour has no plan and nothing it would
+/// have done is applied.
+///
+/// The booking counts hours, not intervals: two quarter-hour uses fit in one
+/// hour, and which came first is not decided. It keeps the sum of uses within
+/// the time a thing has; it is not a timetable.
 fn plan_an_hour_away(
     domain: &dyn LifePlanner,
     life: &mut Life,
@@ -662,24 +670,24 @@ fn plan_an_hour_away(
             .iter()
             .find(|(thing, hours)| facts.booked(look.room, thing, at) + **hours > 1.0 + f32::EPSILON)
             .map(|(thing, _)| thing.clone());
-        let taken = over.and_then(|thing| {
-            let names: Vec<String> = look
-                .spec?
-                .observes
-                .iter()
-                .filter(|(name, observation)| {
-                    **observation == Observation::Free(thing.clone()) && life.facts.get(*name) != Some(&Value::Bool(false))
-                })
-                .map(|(name, _)| name.clone())
-                .collect();
-            (!names.is_empty()).then_some(names)
-        });
-        let Some(names) = taken else {
+        let Some(thing) = over else {
             for (thing, hours) in held {
                 *facts.booked.entry((look.room, thing, at)).or_default() += hours;
             }
             return Some(plan);
         };
+        let names: Vec<String> = look
+            .spec?
+            .observes
+            .iter()
+            .filter(|(name, observation)| {
+                **observation == Observation::Free(thing.clone()) && life.facts.get(*name) != Some(&Value::Bool(false))
+            })
+            .map(|(name, _)| name.clone())
+            .collect();
+        if names.is_empty() {
+            return None;
+        }
         for name in names {
             life.facts.insert(name, Value::Bool(false));
         }
@@ -1006,5 +1014,45 @@ mod tests {
         // Three quarters: the hour has a quarter left, which a second use
         // would overrun, so the second body plans again with the bench taken.
         assert_eq!(three_catch_up(0.75), ["claim", "read", "read"]);
+    }
+
+    /// A planner that claims the bench whatever it is told.
+    #[derive(Debug)]
+    struct Greedy;
+
+    impl LifePlanner for Greedy {
+        fn plan(&self, facts: &Facts) -> Result<Vec<Step>, Refusal> {
+            let mut told = facts.clone();
+            told.insert("bench_free".into(), Value::Bool(true));
+            Bench.plan(&told)
+        }
+
+        fn step_done(&self, _: &str, _: &mut Facts) {}
+    }
+
+    #[test]
+    fn a_plan_that_would_overrun_a_thing_is_never_booked() {
+        let book = LifeBook { holds: [("use".to_string(), 1.0)].into(), ..Default::default() };
+        let mut facts =
+            RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: BTreeMap::new() };
+        let observing = spec();
+        let blind = LifeSpec { observes: BTreeMap::new(), ..spec() };
+        fn plan(planner: &dyn LifePlanner, spec: &LifeSpec, book: &LifeBook, facts: &mut RoomFacts) -> Option<String> {
+            let look = Look {
+                body: Entity::PLACEHOLDER,
+                room: None,
+                here: ae::Vec2::ZERO,
+                speaks_at: ae::Vec2::ZERO,
+                visit: None,
+                spec: Some(spec),
+            };
+            plan_an_hour_away(planner, &mut Life::new(spec), book, facts, &look, 9).map(|plan| plan[0].task.clone())
+        }
+        assert_eq!(plan(&Bench, &observing, &book, &mut facts).as_deref(), Some("claim"), "premise: the first body has the hour");
+        // No `Free` of the bench to tell it: no plan, and the hour stays booked once.
+        assert_eq!(plan(&Greedy, &blind, &book, &mut facts), None);
+        // Told, and it claims anyway: no plan.
+        assert_eq!(plan(&Greedy, &observing, &book, &mut facts), None);
+        assert_eq!(facts.booked(None, "bench", 9), 1.0);
     }
 }

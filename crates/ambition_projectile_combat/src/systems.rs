@@ -6,9 +6,9 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
-use ambition_combat::allegiance::AttackAllegiance;
 use ambition_boss_encounter::BossConfig;
 use ambition_characters::actor::ActorFaction;
+use ambition_combat::allegiance::AttackAllegiance;
 use ambition_combat::components::{
     ActorAggression, CenteredAabb,
     FeatureId};
@@ -722,6 +722,7 @@ pub fn step_projectiles(
             &CenteredAabb,
             &ambition_characters::actor::BodyHealth,
             &ambition_combat::components::DamageableVolumes,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
         ),
         (With<FeatureSimEntity>, With<BossConfig>),
     >,

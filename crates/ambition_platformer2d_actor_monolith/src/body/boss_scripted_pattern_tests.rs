@@ -247,13 +247,18 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     // exactly one head AABB.
     let boss = gnu_ton_runtime(&sprite_content);
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
-    let rest_head = ambition_combat::body_geometry::damageable_volumes(
+    let rest_head = ambition_combat::body_geometry::canonical_damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
         ),
-    );
+    )
+    .into_iter()
+    .map(|domain| {
+        ae::frame::thread::map_volume(&domain, &boss.kin.material_map().unwrap()).unwrap()
+    })
+    .collect::<Vec<_>>();
     assert_eq!(
         rest_head.len(),
         1,
@@ -268,13 +273,18 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     );
 
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
-    let descent_head = ambition_combat::body_geometry::damageable_volumes(
+    let descent_head = ambition_combat::body_geometry::canonical_damageable_volumes(
         &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
         ),
-    );
+    )
+    .into_iter()
+    .map(|domain| {
+        ae::frame::thread::map_volume(&domain, &boss.kin.material_map().unwrap()).unwrap()
+    })
+    .collect::<Vec<_>>();
     assert_eq!(descent_head.len(), 1);
     let descent_y = descent_head[0].center().y;
     // Descended head sits BELOW the shoulder anchor (at player level).

@@ -62,69 +62,232 @@ impl PersistKey {
     }
 }
 
-/// Per-frame volumes that can currently receive attack damage.
-///
-/// Consumers must preserve three states: unpublished falls back to the body's
-/// coarse box; published non-empty uses the authored silhouette; published
-/// empty is intentionally intangible. The list may contain multiple shaped
-/// [`ae::CombatVolume`] parts because one hull cannot represent disjoint body
-/// regions.
+/// Published source regions with an explicit coordinate space.
+#[derive(Clone, Debug, PartialEq)]
+pub enum HurtSource {
+    World(Vec<ae::CombatVolume>),
+    Body(Vec<ae::CombatVolume>),
+}
+
+#[derive(Clone, Copy)]
+enum HurtSpace {
+    World,
+    Body,
+}
+
+/// Damageable source regions. Absence of publication permits a body fallback.
+/// An explicitly empty publication is intangible.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct DamageableVolumes {
-    pub volumes: Vec<ae::CombatVolume>,
-    published: bool,
+    source: Option<HurtSource>,
 }
 
 impl DamageableVolumes {
-    /// True once a publisher has spoken for this body this session.
-    ///
-    /// A consumer that needs geometry must fall back to the coarse box while this
-    /// is false, and must respect an empty list once it is true.
     pub fn published(&self) -> bool {
-        self.published
+        self.source.is_some()
     }
-
-    /// True when a publisher has explicitly made this body unhittable.
-    ///
-    /// Consumers must check this before any coarse-box fallback.
     pub fn intangible(&self) -> bool {
-        self.published && self.volumes.is_empty()
+        self.published() && self.is_empty()
+    }
+    pub fn source(&self) -> Option<&HurtSource> {
+        self.source.as_ref()
+    }
+    pub fn len(&self) -> usize {
+        self.domains().len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.domains().is_empty()
     }
 
-    /// Publish "intangible": this body can be hit nowhere.
+    fn domains(&self) -> &[ae::CombatVolume] {
+        match &self.source {
+            Some(HurtSource::World(domains) | HurtSource::Body(domains)) => domains,
+            None => &[],
+        }
+    }
+
+    fn space(&self) -> HurtSpace {
+        match self.source {
+            Some(HurtSource::Body(_)) => HurtSpace::Body,
+            _ => HurtSpace::World,
+        }
+    }
+
     pub fn clear(&mut self) {
-        self.volumes.clear();
-        self.published = true;
+        self.publish_world(Vec::new());
     }
 
-    pub fn set_single(&mut self, aabb: ae::Aabb) {
-        self.volumes.clear();
-        self.volumes.push(ae::CombatVolume::aabb(aabb));
-        self.published = true;
+    /// Publish fixed regions in room coordinates.
+    pub fn publish_world(&mut self, domains: Vec<ae::CombatVolume>) {
+        self.source = Some(HurtSource::World(domains));
     }
 
-    /// Publish an explicit list — an authored silhouette, or a boss's active parts.
-    pub fn publish(&mut self, volumes: Vec<ae::CombatVolume>) {
-        self.volumes = volumes;
-        self.published = true;
+    /// Publish regions in canonical body axes. Facing is already applied.
+    pub fn publish_body(&mut self, domains: Vec<ae::CombatVolume>) {
+        self.source = Some(HurtSource::Body(domains));
     }
 
-    /// An already-published single volume, for fixtures that need a body which is
-    /// hittable without running a publisher.
-    pub fn single(aabb: ae::Aabb) -> Self {
+    pub fn set_world_box(&mut self, bounds: ae::Aabb) {
+        self.publish_world(vec![ae::CombatVolume::aabb(bounds)]);
+    }
+
+    pub fn world_box(bounds: ae::Aabb) -> Self {
         let mut out = Self::default();
-        out.set_single(aabb);
+        out.set_world_box(bounds);
         out
     }
 
-    /// The published silhouette as coarse boxes.
-    ///
-    /// Pogo affordance readers and explicit world-surface contributors are box
-    /// consumers. Damage itself must keep reading the original combat volumes;
-    /// this named coarsening prevents a convenience projection from becoming the
-    /// authoritative hurtbox by accident.
-    pub fn bounds(&self) -> Vec<ae::Aabb> {
-        self.volumes.iter().map(ae::CombatVolume::bounds).collect()
+    pub fn body_box(canonical_half: ae::Vec2) -> Self {
+        let mut out = Self::default();
+        out.publish_body(vec![ae::CombatVolume::aabb(ae::Aabb::new(
+            ae::Vec2::ZERO,
+            canonical_half,
+        ))]);
+        out
+    }
+
+    fn material(
+        &self,
+        body: Option<&ae::BodyKinematics>,
+    ) -> Result<ae::frame::Sim2, ae::frame::thread::Refusal> {
+        use ae::frame::thread::{Refusal, RefusalReason};
+        match self.space() {
+            HurtSpace::World => Ok(ae::frame::Sim2::IDENTITY),
+            HurtSpace::Body => body
+                .ok_or(Refusal {
+                    path: Vec::new(),
+                    link: None,
+                    reason: RefusalReason::MissingMaterial,
+                })?
+                .material_map()
+                .map_err(|fault| Refusal {
+                    path: Vec::new(),
+                    link: None,
+                    reason: RefusalReason::Numeric(fault),
+                }),
+        }
+    }
+
+    /// Project source regions through the accepted physical material.
+    pub fn world_volumes(
+        &self,
+        body: Option<&ae::BodyKinematics>,
+    ) -> Result<Vec<ae::CombatVolume>, ae::frame::thread::Refusal> {
+        if self.domains().is_empty() {
+            return Ok(Vec::new());
+        }
+        let map = self.material(body)?;
+        self.domains()
+            .iter()
+            .map(|domain| {
+                ae::frame::thread::map_volume(domain, &map).map_err(|fault| {
+                    ae::frame::thread::Refusal {
+                        path: Vec::new(),
+                        link: None,
+                        reason: ae::frame::thread::RefusalReason::Numeric(fault),
+                    }
+                })
+            })
+            .collect()
+    }
+
+    /// Partition source material with the current room and body policy.
+    pub fn pieces(
+        &self,
+        owner: Entity,
+        body: Option<&ae::BodyKinematics>,
+        geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> ae::frame::thread::Partition {
+        use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason, VolumePiece};
+        use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
+        if self.domains().is_empty() {
+            return Ok(Vec::new());
+        }
+        let map = self.material(body)?;
+        let mut pieces = Vec::new();
+        for domain in self.domains() {
+            match (geometry, self.space()) {
+                (Some(geometry), HurtSpace::Body) => {
+                    pieces.extend(geometry.body_pieces(domain, owner, room)?)
+                }
+                (Some(geometry), HurtSpace::World) => pieces.extend(geometry.pieces(
+                    domain,
+                    PartSource::World { owner: Some(owner) },
+                    domain.center(),
+                    room,
+                )?),
+                (None, _) => pieces.push(
+                    VolumePiece::from_material(MaterialPrimitive {
+                        domain,
+                        to_world: map,
+                    })
+                    .map_err(|fault| Refusal {
+                        path: Vec::new(),
+                        link: None,
+                        reason: RefusalReason::Numeric(fault),
+                    })?,
+                ),
+            }
+        }
+        Ok(pieces)
+    }
+
+    /// Earliest contact of a moving box with the sampled source regions.
+    pub fn swept_box_hit(
+        &self,
+        body: Option<&ae::BodyKinematics>,
+        start: ae::Vec2,
+        half: ae::Vec2,
+        delta: ae::Vec2,
+    ) -> Result<Option<f32>, ae::frame::thread::Refusal> {
+        use ae::frame::material_cast::{InitialOverlap, MaterialCast};
+        use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason};
+        if self.domains().is_empty() {
+            return Ok(None);
+        }
+        let map = self.material(body)?;
+        let numeric = |fault| Refusal {
+            path: Vec::new(),
+            link: None,
+            reason: RefusalReason::Numeric(fault),
+        };
+        let root = map.point(ae::Vec2::ZERO).map_err(numeric)?;
+        let end = start + delta;
+        let obstacle = [
+            end - half,
+            end + ae::Vec2::new(half.x, -half.y),
+            end + half,
+            end + ae::Vec2::new(-half.x, half.y),
+        ];
+        let mut earliest: Option<f64> = None;
+        for domain in self.domains() {
+            let cast = MaterialCast::new(
+                MaterialPrimitive {
+                    domain,
+                    to_world: map,
+                },
+                root,
+                ae::Vec2::ZERO,
+                0.0..1.0,
+            )
+            .with_initial_overlap(InitialOverlap::Report);
+            let cells = cast.cells(None)?;
+            for part in cells.parts() {
+                if let Some(hit) = cells.against(part, &obstacle, delta)? {
+                    earliest = Some(earliest.map_or(hit.toi, |before| before.min(hit.toi)));
+                }
+            }
+        }
+        Ok(earliest.map(|time| time as f32))
+    }
+
+    /// Coarse bounds for affordance and presentation readers.
+    pub fn bounds(&self,
+        body: Option<&ae::BodyKinematics>,
+    ) -> Result<Vec<ae::Aabb>, ae::frame::thread::Refusal> {
+        self.world_volumes(body)
+            .map(|volumes| volumes.iter().map(ae::CombatVolume::bounds).collect())
     }
 }
 
@@ -181,3 +344,134 @@ pub struct PogoTargetVolumes {
 /// semantics (for example a stand-to-crumble or pogo-refresh platform).
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PogoTargetContributor;
+
+#[cfg(test)]
+mod hurt_material_tests {
+    use super::*;
+    use ae::frame::{BodyMaterial, thread::RefusalReason};
+
+    #[test]
+    fn native_sweeps_reach_shaped_material_between_endpoints() {
+        let shapes = [
+            ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(3.0, 5.0))),
+            ae::CombatVolume::Circle {
+                center: ae::Vec2::ZERO,
+                radius: 5.0,
+            },
+            ae::CombatVolume::convex(vec![
+                ae::Vec2::new(-5.0, -4.0),
+                ae::Vec2::new(6.0, 0.0),
+                ae::Vec2::new(-5.0, 4.0),
+            ]),
+        ];
+        for reflected in [false, true] {
+            let axes = bevy::math::Mat2::from_angle(0.41)
+                * bevy::math::Mat2::from_cols(
+                    if reflected {
+                        ae::Vec2::NEG_X
+                    } else {
+                        ae::Vec2::X
+                    },
+                    ae::Vec2::Y,
+                );
+            let body = ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 200.0),
+                material: BodyMaterial::new(2.0, axes).unwrap(),
+                ..Default::default()
+            };
+            let start = body.pos + axes * ae::Vec2::new(-40.0, 0.0);
+            let delta = axes * ae::Vec2::new(80.0, 0.0);
+            let half = ae::Vec2::splat(0.5);
+            for shape in &shapes {
+                let mut hurt = DamageableVolumes::default();
+                hurt.publish_body(vec![shape.clone()]);
+                let world = hurt.world_volumes(Some(&body)).unwrap();
+                assert!(!world[0].intersects_aabb(ae::Aabb::new(start, half)));
+                assert!(!world[0].intersects_aabb(ae::Aabb::new(start + delta, half)));
+                let time = hurt
+                    .swept_box_hit(Some(&body), start, half, delta)
+                    .unwrap()
+                    .expect("the path crosses the material");
+                assert!(time > 0.0 && time < 1.0);
+            }
+        }
+    }
+
+    #[test]
+    fn a_convex_regions_empty_corner_is_not_damageable() {
+        let mut hurt = DamageableVolumes::default();
+        hurt.publish_world(vec![ae::CombatVolume::convex(vec![
+            ae::Vec2::ZERO,
+            ae::Vec2::new(10.0, 0.0),
+            ae::Vec2::new(0.0, 10.0),
+        ])]);
+        assert!(
+            hurt.swept_box_hit(
+                None,
+                ae::Vec2::new(8.0, 8.0),
+                ae::Vec2::splat(0.25),
+                ae::Vec2::ZERO
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert!(
+            hurt.swept_box_hit(
+                None,
+                ae::Vec2::new(2.0, 2.0),
+                ae::Vec2::splat(0.25),
+                ae::Vec2::ZERO
+            )
+            .unwrap()
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn canonical_hurt_regions_keep_source_precision_and_require_material() {
+        let source = ae::CombatVolume::aabb(ae::Aabb::new(
+            ae::Vec2::new(1.0 / 3.0, 2.0 / 7.0),
+            ae::Vec2::new(3.7, 5.1),
+        ));
+        let mut hurt = DamageableVolumes::default();
+        hurt.publish_body(vec![source.clone()]);
+        assert!(matches!(
+            hurt.world_volumes(None).unwrap_err().reason,
+            RefusalReason::MissingMaterial
+        ));
+        let mut body = ae::BodyKinematics {
+            pos: ae::Vec2::splat(1_000_000.0),
+            material: BodyMaterial::new(1.3, bevy::math::Mat2::from_angle(0.37)).unwrap(),
+            ..Default::default()
+        };
+        for reflected in [false, true] {
+            if reflected {
+                body.material = body
+                    .material
+                    .carried(
+                        ae::frame::Sim2::new(
+                            0.5,
+                            bevy::math::Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y),
+                            ae::Vec2::ZERO,
+                        )
+                        .unwrap(),
+                    )
+                    .unwrap();
+            }
+            let pieces = hurt
+                .pieces(Entity::PLACEHOLDER, Some(&body), None, None)
+                .unwrap();
+            assert_eq!(pieces[0].source(), &source);
+            assert_eq!(
+                pieces[0].world_volume(),
+                &hurt.world_volumes(Some(&body)).unwrap()[0]
+            );
+        }
+        hurt.clear();
+        assert!(
+            hurt.pieces(Entity::PLACEHOLDER, None, None, None)
+                .unwrap()
+                .is_empty()
+        );
+    }
+}

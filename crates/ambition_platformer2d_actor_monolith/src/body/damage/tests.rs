@@ -3218,7 +3218,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
             FeatureSimEntity,
             FeatureId::new("gnu_ton"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
-            ambition_combat::components::DamageableVolumes::single(aabb),
+            ambition_combat::components::DamageableVolumes::world_box(aabb),
             ambition_characters::actor::BodyCombat::default(),
             boss.into_components(),
         )).id();

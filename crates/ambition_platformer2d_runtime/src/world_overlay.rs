@@ -279,7 +279,7 @@ mod breakable_geometry_agreement {
         let mut volumes = app.world_mut().query::<&DamageableVolumes>();
         let published: Vec<ae::Aabb> = volumes
             .iter(app.world())
-            .flat_map(|v| v.volumes.iter().map(|volume| volume.bounds()))
+            .flat_map(|v| v.bounds(None).unwrap().into_iter())
             .collect();
 
         // ⛔ ANTI-VACUITY, AND IT IS THE WHOLE TEST. "Both empty" satisfies any

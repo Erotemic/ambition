@@ -1257,7 +1257,7 @@ fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
         let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
         let pos = ae::Vec2::new(300.0, 100.0);
         let mut volumes = ambition_combat::components::DamageableVolumes::default();
-        volumes.set_single(volume);
+        volumes.set_world_box(volume);
         app.world_mut().spawn((
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("arena_fighter"),
@@ -1362,7 +1362,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
         .get::<ambition_combat::components::DamageableVolumes>(victim)
         .expect("the shipped publisher ran");
     assert!(
-        published.published() && published.volumes.is_empty(),
+        published.intangible(),
         "the premise: the publisher emptied this body's silhouette, which is a \
          DECISION (intangible), not an absence"
     );

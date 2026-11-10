@@ -11,11 +11,11 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
 use super::components::ActorAggression;
-use ambition_characters::actor::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
 use super::targeting::effective_faction;
 use super::util::midpoint;
 use crate::actor_faction_from_hit_side;
+use ambition_characters::actor::ActorFaction;
 use ambition_time::WorldTime;
 use ambition_vfx::vfx::VfxInRoom;
 
@@ -302,30 +302,26 @@ fn resolved_hitbox_knockback_magnitude(
     }
 }
 
-/// Does this strike reach the volumes the victim actually published?
-///
-/// The one victim-geometry rule, shared by every family. A body that
-/// publishes [`DamageableVolumes`](super::components::DamageableVolumes) is hit on
-/// exactly those volumes; a body that publishes none falls back to its coarse
-/// box.
-///
-/// Component absence falls back to the coarse body box. A present component with no volumes means
-/// intangible and must not fall back.
-/// [`strike_reaches_victim`] for a hit: by its pieces where a portal pair cut
-/// it ([`crate::events::HitEvent::meets`]).
+/// Test the event against published hurt material in the root chart.
+/// Without publication, use the physical body box. Use the coarse world box
+/// only when the body pose is absent. Empty publication is intangible.
 pub fn hit_reaches_victim(
     event: &crate::events::HitEvent,
     victim_damageable: Option<&super::components::DamageableVolumes>,
     victim_aabb: &super::components::CenteredAabb,
+    victim_pose: Option<&ae::BodyKinematics>,
 ) -> bool {
-    if event.pieces.is_empty() {
-        return strike_reaches_victim(&event.volume, victim_damageable, victim_aabb);
-    }
-    match victim_damageable {
-        Some(published) if published.intangible() => false,
-        Some(published) if published.published() => published.volumes.iter().any(|part| event.meets(part)),
-        _ => event.meets_aabb(victim_aabb.aabb()),
-    }
+    let Ok(hurt) = hurt_pieces_of(
+        Entity::PLACEHOLDER,
+        victim_pose,
+        victim_aabb,
+        victim_damageable,
+        None,
+        None,
+    ) else {
+        return false;
+    };
+    hurt.iter().any(|part| event.meets_piece(part))
 }
 
 /// [`hit_reaches_victim`] for a victim a portal pair may cut: a body half
@@ -337,115 +333,62 @@ pub fn hit_reaches_victim_through(
     event: &crate::events::HitEvent,
     victim_damageable: Option<&super::components::DamageableVolumes>,
     victim_aabb: &super::components::CenteredAabb,
+    victim_pose: Option<&ae::BodyKinematics>,
     victim: Entity,
     passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> bool {
     let Some(passages) = passages.filter(|p| p.cuts_in(room, Some(victim))) else {
-        return hit_reaches_victim(event, victim_damageable, victim_aabb);
+        return hit_reaches_victim(event, victim_damageable, victim_aabb, victim_pose);
     };
-    let parts = match victim_damageable {
-        Some(published) if published.intangible() => return false,
-        Some(published) if published.published() => published.volumes.clone(),
-        _ => vec![ambition_platformer2d_core::CombatVolume::aabb(victim_aabb.aabb())],
+    let Ok(cut) = hurt_pieces_of(
+        victim,
+        victim_pose,
+        victim_aabb,
+        victim_damageable,
+        Some(passages),
+        room,
+    ) else {
+        return false;
     };
-    let cut = parts.iter().map(|part| passages.pieces(part, PartSource::Body(victim), victim_aabb.center, room))
-        .collect::<Result<Vec<_>, _>>();
-    let Ok(cut) = cut else { return false; };
-    cut.into_iter().flatten().any(|piece| {
-        event.pieces.iter().any(|hit| hit.meets(&piece))
-            || (event.pieces.is_empty() && piece.meets(&ae::frame::thread::VolumePiece::whole(event.volume.clone())))
-    })
+    cut.iter().any(|part| event.meets_piece(part))
 }
 
 pub fn strike_reaches_victim(
     world_volume: &ambition_platformer2d_core::CombatVolume,
     victim_damageable: Option<&super::components::DamageableVolumes>,
     victim_aabb: &super::components::CenteredAabb,
+    victim_pose: Option<&ae::BodyKinematics>,
 ) -> bool {
-    match victim_damageable {
-        // Intangible: published, and published nothing. Spelled as its own arm
-        // because it is the one answer every damage family owes whatever its
-        // geometry — see [`DamageableVolumes::intangible`], which
-        // `step_projectiles` asks directly while it is still a coarse-box
-        // consumer.
-        Some(published) if published.intangible() => false,
-        // Shape against shape: a published part may be a hull (an arm, a wing),
-        // and testing the strike against its bounding box instead would let a
-        // blade land in the dead corner of a rectangle nobody authored. The
-        // box-vs-box fast path still applies whenever both sides are boxes —
-        // `CombatVolume::intersects` reaches Parry only for a genuinely shaped
-        // pair, after a bounds reject.
-        Some(published) if published.published() => published
-            .volumes
-            .iter()
-            .any(|part| world_volume.intersects(part)),
-        // No component, or one no publisher has spoken for yet: the coarse box is
-        // the best available answer, and it is what every consumer used before
-        // published silhouettes existed.
-        _ => world_volume.intersects_aabb(victim_aabb.aabb()),
-    }
+    let Ok(hurt) = hurt_pieces_of(
+        Entity::PLACEHOLDER,
+        victim_pose,
+        victim_aabb,
+        victim_damageable,
+        None,
+        None,
+    ) else {
+        return false;
+    };
+    let strike = ae::frame::thread::VolumePiece::whole(world_volume.clone());
+    hurt.iter()
+            .any(|part| part.meets(&strike))
 }
 
-/// The earliest normalized time in `[0, 1]` at which a projectile's box, swept
-/// from `start` by `delta`, reaches the geometry this body published.
-///
-/// ⛔⛔ **THE ENDPOINT TEST IS NOT A CONTACT TEST FOR A MOVING SHOT.**
-/// [`strike_reaches_victim`] asks whether a strike volume overlaps the victim
-/// NOW, which is the right question for a melee hitbox that exists for a window
-/// of frames and the wrong one for a projectile that crosses the whole victim
-/// between two samples. A fast shot's endpoint lands past a thin body, the
-/// overlap test says no, and the shot flies on: the target is never touched.
-///
-/// ⚠ **SWEPT FOR BOXES, ENDPOINT-ONLY FOR A SHAPED PART, AND THAT LIMIT IS
-/// DELIBERATE.** Every publisher in the tree emits `CombatVolume::Aabb` today,
-/// so the swept answer is exact for all of them. A rotated box, a circle or a
-/// convex hull has no swept primitive here, and answering from its BOUNDS would
-/// reintroduce exactly what `strike_reaches_victim` refuses — a blade landing in
-/// the dead corner of a rectangle nobody authored. Such a part falls back to the
-/// endpoint shape test, so it is never over-reported, only under-swept. That is
-/// the sampled-target model's stated edge, not full CCD.
-///
-/// ⚠ THE TARGET IS SAMPLED, NOT SWEPT. A victim moving across a stationary shot
-/// between samples is a separate acceptance case and is not covered here.
+/// Earliest normalized contact of a moving box with sampled hurt material.
+/// Native source casts keep boxes, circles and convex regions exact.
 pub fn swept_strike_reaches_victim(
     start: ambition_platformer2d_core::Vec2,
     half: ambition_platformer2d_core::Vec2,
     delta: ambition_platformer2d_core::Vec2,
     victim_damageable: Option<&super::components::DamageableVolumes>,
     victim_aabb: &super::components::CenteredAabb,
+    victim_pose: Option<&ae::BodyKinematics>,
 ) -> Option<f32> {
-    use ambition_platformer2d_core::{AabbExt, CombatVolume};
-
-    let start_box = ae::Aabb::new(start, half);
-    let end_box = ae::Aabb::new(start + delta, half);
-    let swept_against = |target: ae::Aabb| -> Option<f32> {
-        // PARITY with the discrete test for the already-overlapping case, then
-        // the path on top: a victim the old test already found answers `0.0`,
-        // and the only new answers are genuine tunnels.
-        if start_box.strict_intersects(target) {
-            return Some(0.0);
-        }
-        start_box
-            .sweep_hit(delta, target)
-            .map(|hit| hit.time_of_impact)
-    };
-    match victim_damageable {
-        Some(published) if published.intangible() => None,
-        Some(published) if published.published() => published
-            .volumes
-            .iter()
-            .filter_map(|part| match part {
-                CombatVolume::Aabb(target) => swept_against(*target),
-                // Shaped: no swept primitive, so this is the endpoint answer the
-                // caller had before, expressed as "reached at the end of the leg".
-                shaped => shaped
-                    .intersects(&CombatVolume::aabb(end_box))
-                    .then_some(1.0),
-            })
-            .min_by(f32::total_cmp),
-        _ => swept_against(victim_aabb.aabb()),
-    }
+    resolve_hurt_material(victim_damageable, victim_pose, victim_aabb)
+        .swept_box_hit(victim_pose, start, half, delta)
+        .ok()
+        .flatten()
 }
 
 /// Shared query contract for a body that may receive a strike.
@@ -466,6 +409,7 @@ pub struct StrikeVictim {
     /// The published silhouette, when this body publishes one. See
     /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
     pub volumes: Option<&'static super::components::DamageableVolumes>,
+    pub kinematics: Option<&'static ae::BodyKinematics>,
     pub health: Option<&'static ambition_characters::actor::BodyHealth>,
     /// The world's hands are off this body — see [`crate::death_rules::OutOfPlay`].
     ///
@@ -569,23 +513,20 @@ impl StrikeVictimItem<'_, '_> {
         passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> ambition_platformer2d_core::frame::thread::Partition {
-        use ambition_platformer2d_core::frame::thread::VolumePiece;
-        let parts: Vec<ambition_platformer2d_core::CombatVolume> = match self.volumes {
-            Some(published) if published.intangible() => return Ok(Vec::new()),
-            Some(published) if published.published() => published.volumes.clone(),
-            _ => vec![ambition_platformer2d_core::CombatVolume::aabb(self.aabb.aabb())],
-        };
-        match passages {
-            Some(passages) => hurt_pieces_of(self.entity, self.aabb.center, parts, Some(passages), room),
-            None => Ok(parts.into_iter().map(VolumePiece::whole).collect()),
-        }
+        hurt_pieces_of(
+            self.entity,
+            self.kinematics,
+            self.aabb,
+            self.volumes,
+            passages, room,
+        )
     }
 
     /// Does `world_volume` reach the geometry this body actually published?
     ///
     /// The single victim-geometry rule, applied to the victim that owns it.
     pub fn reached_by(&self, world_volume: &ambition_platformer2d_core::CombatVolume) -> bool {
-        strike_reaches_victim(world_volume, self.volumes, self.aabb)
+        strike_reaches_victim(world_volume, self.volumes, self.aabb, self.kinematics)
     }
 
     /// When along a projectile's travel this body is first reached, if at all.
@@ -599,7 +540,7 @@ impl StrikeVictimItem<'_, '_> {
         half: ambition_platformer2d_core::Vec2,
         delta: ambition_platformer2d_core::Vec2,
     ) -> Option<f32> {
-        swept_strike_reaches_victim(start, half, delta, self.volumes, self.aabb)
+        swept_strike_reaches_victim(start, half, delta, self.volumes, self.aabb, self.kinematics)
     }
 
     /// The "away" axis in the VICTIM's local frame (§B11).
@@ -828,24 +769,30 @@ pub fn strike_pieces(
     }
 }
 
-/// Where a body's hurt volumes `parts` are in live room `room`: their pieces,
-/// as the portal pairs cut them (a body half through a pair is hurt at both
-/// ends), or whole. The rule [`apply_hitbox_damage`] reaches a victim by.
-pub fn hurt_pieces_of(
-    body: Entity,
-    center: ae::Vec2,
-    parts: Vec<ae::CombatVolume>,
-    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
-    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-) -> ambition_platformer2d_core::frame::thread::Partition {
-    match passages {
-        Some(passages) => {
-            let mut pieces = Vec::new();
-            for part in &parts { pieces.extend(passages.pieces(part, PartSource::Body(body), center, room)?); }
-            Ok(pieces)
-        },
-        None => Ok(parts.into_iter().map(ambition_platformer2d_core::frame::thread::VolumePiece::whole).collect()),
+fn resolve_hurt_material<'a>(
+    published: Option<&'a super::components::DamageableVolumes>,
+    body: Option<&ae::BodyKinematics>,
+    coarse: &ae::CenteredAabb,
+) -> std::borrow::Cow<'a, super::components::DamageableVolumes> {
+    if let Some(published) = published.filter(|published| published.published()) {
+        return std::borrow::Cow::Borrowed(published);
     }
+    std::borrow::Cow::Owned(match body {
+        Some(body) => super::components::DamageableVolumes::body_box(body.canonical_size * 0.5),
+        None => super::components::DamageableVolumes::world_box(coarse.aabb()),
+    })
+}
+
+/// Resolve published hurt material and cut it with the current room policy.
+pub fn hurt_pieces_of(
+    owner: Entity,
+    body: Option<&ae::BodyKinematics>,
+    coarse: &ae::CenteredAabb,
+    published: Option<&super::components::DamageableVolumes>,
+    geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> ae::frame::thread::Partition {
+    resolve_hurt_material(published, body, coarse).pieces(owner, body, geometry, room)
 }
 
 pub fn apply_hitbox_damage(
@@ -1139,7 +1086,9 @@ pub fn apply_hitbox_damage(
                 });
                 match (strike_bounds, reach) {
                     (_, VictimReach::Nowhere) => continue,
-                    (Some(strike), VictimReach::Within(within)) if !boxes_touch(strike, within) => continue,
+                    (Some(strike), VictimReach::Within(within)) if !boxes_touch(strike, within) => {
+                        continue;
+                    }
                     _ => {}
                 }
                 // Cut by the victim's own room and transit, not the strike's:

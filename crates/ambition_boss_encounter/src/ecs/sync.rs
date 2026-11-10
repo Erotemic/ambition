@@ -59,16 +59,21 @@ pub fn boss_spawn_hurtboxes(sprite_content: &ambition_sprite_sheet::SpriteConten
     name: &str,
     aabb: ae::Aabb,
     brain: ambition_entity_catalog::placements::BossBrain,
-) -> Vec<ae::CombatVolume> {
+) -> Result<Vec<ae::CombatVolume>, ae::frame::NumericFault> {
     let boss = crate::BossClusterScratch::new(&sprite_content, boss_catalog, id, name, aabb, brain);
     let attack_state = ambition_characters::brain::BossAttackState::default();
-    crate::attack_geometry::damageable_volumes(
+    let canonical = crate::attack_geometry::canonical_damageable_volumes(
         &crate::attack_geometry::BossVolumeContext::from_ref(
             boss_catalog,
             boss.as_ref(),
             &attack_state,
         ),
-    )
+    );
+    let map = boss.kin.material_map()?;
+    canonical
+        .iter()
+        .map(|domain| ae::frame::thread::map_volume(domain, &map))
+        .collect()
 }
 
 pub(crate) fn boss_sprite_metrics_from_registry(

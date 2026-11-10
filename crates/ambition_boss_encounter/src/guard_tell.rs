@@ -11,8 +11,8 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::components::DamageableVolumes;
 use ambition_combat::CenteredAabb;
+use ambition_combat::components::DamageableVolumes;
 use ambition_vfx::vfx::FxRequest;
 
 use crate::{BossConfig, BossEncounter};
@@ -27,21 +27,25 @@ const GLINT_EVERY_TICKS: u64 = 45;
 /// Write a glint over the hull of each boss whose guard is up, once each beat.
 pub fn boss_guard_tell(
     tick: Res<ambition_time::SimTick>,
-    bosses: Query<(Entity, &BossConfig, &BossEncounter, &CenteredAabb, Option<&DamageableVolumes>)>,
+    bosses: Query<(Entity, &BossConfig, &BossEncounter, &CenteredAabb, Option<&ambition_platformer2d_core::BodyKinematics>,
+        Option<&DamageableVolumes>,
+    )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut fx: MessageWriter<FxRequest>,
 ) {
     if tick.get() % GLINT_EVERY_TICKS != 0 {
         return;
     }
-    for (entity, config, status, aabb, volumes) in &bosses {
+    for (entity, config, status, aabb, kin, volumes) in &bosses {
         if !(status.guarded || config.behavior.environmental_kill_only) {
             continue;
         }
         // Over what a blow would strike: its published parts, else its box.
         let hull = volumes
             .and_then(|volumes| {
-                volumes.volumes.iter().map(|part| part.bounds()).reduce(|a, b| ambition_platformer2d_core::Aabb {
+                volumes.world_volumes(kin)
+                    .ok()?
+                    .iter().map(|part| part.bounds()).reduce(|a, b| ambition_platformer2d_core::Aabb {
                     min: a.min.min(b.min),
                     max: a.max.max(b.max),
                 })

@@ -109,12 +109,13 @@ fn an_admitted_rig_is_mary_os_default_hurt_geometry() {
     for _ in 0..600 {
         app.update();
         let mut players = app.world_mut().query_filtered::<
-            (&ResolvedHurtboxes, &DamageableVolumes, &CenteredAabb),
-            With<PrimaryPlayer>,
-        >();
-        if let Ok((resolved, damageable, body)) = players.single(app.world()) {
+            (&ResolvedHurtboxes, &DamageableVolumes, &CenteredAabb,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+        ),
+            With<PrimaryPlayer>>();
+        if let Ok((resolved, damageable, body, kin)) = players.single(app.world()) {
             if resolved.source == HurtboxSelection::RigDefault && damageable.published() {
-                found = Some((damageable.volumes.clone(), body.aabb()));
+                found = Some((damageable.world_volumes(Some(kin)).unwrap(), body.aabb()));
                 break;
             }
         }
@@ -210,7 +211,8 @@ fn a_walking_mary_o_is_posed_from_her_walk_clip() {
     let mut gaits = Vec::new();
     for _ in 0..120 {
         step(&mut app, walk.clone());
-        let Some((clip, frame, gait, hand)) = read(&mut app) else { continue };
+        let Some((clip, frame, gait, hand)) = read(&mut app) else { continue;
+        };
         gaits.push(gait);
         if matches!(gait, Gait::Walking | Gait::Running) {
             assert_eq!(clip.as_deref(), Some("walk"), "moving with gait {gait:?} and posed from {clip:?}");

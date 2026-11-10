@@ -2336,7 +2336,7 @@ mod strike_rank {
         if let Some(published) = published {
             let mut bodies = app.world_mut().query_filtered::<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>();
             let body = bodies.single(app.world()).expect("one body");
-            app.world_mut().entity_mut(body).insert(crate::components::DamageableVolumes::single(published));
+            app.world_mut().entity_mut(body).insert(crate::components::DamageableVolumes::world_box(published));
         }
         app.update();
         app
@@ -2863,6 +2863,10 @@ fn an_open_parry_window_that_catches_nothing_stays_cold() {
         .get_mut::<ae::CenteredAabb>(victim)
         .unwrap()
         .center = ae::Vec2::new(600.0, 100.0);
+    app.world_mut()
+        .get_mut::<ae::BodyKinematics>(victim)
+        .unwrap()
+        .pos = ae::Vec2::new(600.0, 100.0);
     app.update();
     assert!(
         app.world()
@@ -3045,8 +3049,8 @@ fn a_blocked_strike_is_an_overlap_and_not_a_connection() {
 /// sites in two crates.
 #[test]
 fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
-    use ambition_entity_catalog::launch::{GrowthBaseCurve, LaunchConditions};
     use ambition_entity_catalog::LaunchEnvelope;
+    use ambition_entity_catalog::launch::{GrowthBaseCurve, LaunchConditions};
 
     /// The pulse's own authoring: the largest base on the roster that declines
     /// to state a growth.
@@ -3592,4 +3596,105 @@ fn a_scaled_reflected_strike_carries_its_launch_through_an_unequal_native_pair()
     let hit = hits.iter().find(|hit| hit.target == HitTarget::Body(far)).unwrap();
     let launch = hit.knockback.as_ref().unwrap().launch_dir.unwrap().world().normalize_or_zero();
     assert!((launch - ae::Vec2::new(0.6, -0.8)).length() < 0.00001, "launch {launch:?}");
+}
+
+/// Authored circles use physical placement and retain their empty bounding corners.
+#[test]
+fn physical_hurt_material_reaches_beyond_the_coarse_box_without_filling_corners() {
+    for reflected in [false, true] {
+        let axes = bevy::math::Mat2::from_angle(0.61)
+            * bevy::math::Mat2::from_cols(
+                if reflected {
+                    ae::Vec2::NEG_X
+                } else {
+                    ae::Vec2::X
+                },
+                ae::Vec2::Y,
+            );
+        let root = ae::Vec2::new(300.0, 400.0);
+        let local = ae::Vec2::new(30.0, -10.0);
+        let center = root + axes * local * 2.0;
+        for (at, hits) in [
+            (center, 1),
+            (root + local, 0),
+            (center + ae::Vec2::splat(6.5), 0),
+        ] {
+            let mut app = portal_strike_app(Some(Default::default()));
+            let victim = hazard_victim(&mut app, ActorFaction::Enemy, root);
+            app.world_mut()
+                .get_mut::<ae::BodyKinematics>(victim)
+                .unwrap()
+                .material = ae::frame::BodyMaterial::new(2.0, axes).unwrap();
+            let mut hurt = crate::components::DamageableVolumes::default();
+            hurt.publish_body(vec![ae::CombatVolume::Circle {
+                center: local,
+                radius: 4.0,
+            }]);
+            app.world_mut().entity_mut(victim).insert(hurt);
+            strike(
+                &mut app,
+                Entity::PLACEHOLDER,
+                HitboxAnchor::World { center: at },
+                ae::Vec2::splat(0.25),
+            );
+            app.update();
+            assert_eq!(
+                struck(&app, victim),
+                hits,
+                "reflection {reflected}, point {at:?}"
+            );
+        }
+    }
+}
+
+/// A scaled circular hurt region retains its source and its aperture clip.
+#[test]
+fn a_circular_hurt_region_is_hit_only_inside_its_native_far_side_cap() {
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    for (at, hits) in [
+        (ae::Vec2::new(500.0, -195.0), 1),
+        (ae::Vec2::new(515.0, -195.0), 0),
+        (ae::Vec2::new(500.0, -215.0), 0),
+    ] {
+        let mut geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(
+            MapConvention::Reflection,
+        );
+        geometry.add_pair(
+            None,
+            (
+                PortalAperture {
+                    frame: PortalFrame::fixed(ae::Vec2::ZERO, ae::Vec2::NEG_Y),
+                    half_length: 40.0,
+                },
+                PortalAperture {
+                    frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y),
+                    half_length: 80.0,
+                },
+            ),
+        );
+        let mut app = portal_strike_app(Some(geometry));
+        let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
+        app.world_mut()
+            .get_mut::<ae::BodyKinematics>(victim)
+            .unwrap()
+            .material = ae::frame::BodyMaterial::new(
+            0.5,
+            bevy::math::Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y),
+        )
+        .unwrap();
+        let mut hurt = crate::components::DamageableVolumes::default();
+        hurt.publish_body(vec![ae::CombatVolume::Circle {
+            center: ae::Vec2::ZERO,
+            radius: 20.0,
+        }]);
+        app.world_mut().entity_mut(victim).insert(hurt);
+        strike(
+            &mut app,
+            Entity::PLACEHOLDER,
+            HitboxAnchor::World { center: at },
+            ae::Vec2::splat(0.25),
+        );
+        app.update();
+        assert_eq!(struck(&app, victim), hits, "point {at:?}");
+    }
 }

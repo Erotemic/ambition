@@ -104,7 +104,8 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
         "GNU-ton",
         aabb,
         ambition_entity_catalog::placements::BossBrain::Dormant,
-    );
+    )
+    .unwrap();
     assert!(!hbs.is_empty(), "a boss should expose at least one hurtbox");
 }
 

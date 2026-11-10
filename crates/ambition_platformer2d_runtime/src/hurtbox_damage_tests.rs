@@ -16,17 +16,17 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::components::{CenteredAabb, DamageableVolumes};
 use ambition_characters::actor::ActorFaction;
+use ambition_combat::components::{CenteredAabb, DamageableVolumes};
 use ambition_combat::events::HitEvent;
-use ambition_combat::hitbox::{apply_hitbox_damage, HitSide, Hitbox, HitboxHits, HitboxLifetime};
+use ambition_combat::hitbox::{HitSide, Hitbox, HitboxHits, HitboxLifetime, apply_hitbox_damage};
 use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-use ambition_platformer2d_actor_monolith::body::refresh_body_damageable_volumes;
 use ambition_combat::hurtbox_resolution::{AuthoredHurtboxes, ResolvedHurtboxes};
 use ambition_entity_catalog::{HurtboxDoc, HurtboxVolume};
+use ambition_platformer2d_actor_monolith::body::refresh_body_damageable_volumes;
 
 /// The body's coarse box: 28 wide, 40 tall, centred on the origin.
 const COARSE_HALF: ae::Vec2 = ae::Vec2::new(14.0, 20.0);
@@ -190,15 +190,18 @@ fn a_player_shaped_body_is_hit_on_its_authored_hurtbox() {
         .world()
         .get::<DamageableVolumes>(player)
         .expect("the player publishes damageable volumes like every other body");
+    let published_world = published
+        .world_volumes(app.world().get::<ae::BodyKinematics>(player))
+        .unwrap();
     assert_eq!(
-        published.volumes.len(),
+        published_world.len(),
         1,
         "the player's authored silhouette is published, not skipped"
     );
     assert!(
-        published.volumes[0].bounds().half_size().x < COARSE_HALF.x,
+        published_world[0].bounds().half_size().x < COARSE_HALF.x,
         "the published volume is the AUTHORED torso ({:?}), not the coarse box",
-        published.volumes[0]
+        published_world[0]
     );
 
     // ── Overlapping the authored torso: HIT ──
@@ -297,8 +300,7 @@ fn an_authored_empty_window_is_invulnerable_not_a_fallback_to_the_box() {
         app.world()
             .get::<DamageableVolumes>(body)
             .expect("published")
-            .volumes
-            .is_empty(),
+            .intangible(),
         "and the published list is empty, which is a DECISION, not an absence"
     );
 }

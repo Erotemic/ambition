@@ -376,60 +376,37 @@ pub fn advance_body_pose_clocks(
 #[cfg(test)]
 mod tests;
 
-/// Place one entity-local hurtbox volume into the world.
-///
-/// `facing` mirrors the x offset the same way hit volumes are mirrored, so a
-/// character's authored right-facing silhouette is correct when it turns around
-/// without authoring a second timeline. A circle becomes its bounding square: this
-/// is the COARSE pass (§7.10) and the damageable-volume seam speaks AABBs; a true
-/// circle-vs-box test is a later refinement, not a correctness gap, because a
-/// slightly generous hurtbox errs toward being hittable rather than invulnerable.
-pub fn hurtbox_world_aabb(
-    volume: &HurtboxVolume,
-    body_center: ambition_platformer2d_core::Vec2,
-    facing: f32,
-) -> ambition_platformer2d_core::CenteredAabb {
-    let mirror = if facing < 0.0 { -1.0 } else { 1.0 };
-    let (offset, half_extents) = match volume.shape {
-        ambition_entity_catalog::VolumeShape::Rect {
-            offset,
-            half_extents,
-        } => (offset, half_extents),
-        ambition_entity_catalog::VolumeShape::Circle { offset, radius } => {
-            (offset, (radius, radius))
-        }
-    };
-    let center = ambition_platformer2d_core::Vec2::new(
-        body_center.x + offset.0 * mirror,
-        body_center.y + offset.1,
-    );
-    ambition_platformer2d_core::CenteredAabb::from_center_size(
-        center,
-        ambition_platformer2d_core::Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0),
-    )
-}
-
 impl ResolvedHurtboxes {
-    /// This body's damageable volumes in world space, or `None` when nothing was
-    /// authored — the caller then keeps its coarse body AABB.
-    ///
-    /// `Some(vec![])` is a real answer and means INVULNERABLE HERE, which is why
-    /// the unauthored case has to be a distinct variant rather than an empty list.
-    pub fn world_volumes(
+    /// Canonical damageable regions with pose facing applied once.
+    /// Absence permits the body's collision material as a fallback.
+    pub fn canonical_volumes(
         &self,
-        body_center: ambition_platformer2d_core::Vec2,
         facing: f32,
-    ) -> Option<Vec<ambition_platformer2d_core::CenteredAabb>> {
+    ) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
+        use ambition_platformer2d_core::{Aabb, CombatVolume, Vec2};
         if self.source == HurtboxSelection::Unauthored {
             return None;
         }
+        let face = if facing < 0.0 { -1.0 } else { 1.0 };
         Some(
             self.volumes
                 .iter()
-                // An intangible region is not damageable (S0.6). The
-                // damageable publisher is this method's one caller.
                 .filter(|volume| volume.defense.is_vulnerable())
-                .map(|volume| hurtbox_world_aabb(volume, body_center, facing))
+                .map(|volume| match volume.shape {
+        ambition_entity_catalog::VolumeShape::Rect {
+            offset,
+            half_extents,
+        } => CombatVolume::aabb(Aabb::new(
+                        Vec2::new(offset.0 * face, offset.1),
+                        Vec2::new(half_extents.0, half_extents.1),
+                    )),
+        ambition_entity_catalog::VolumeShape::Circle { offset, radius } => {
+                        CombatVolume::Circle {
+                            center: Vec2::new(offset.0 * face, offset.1),
+                            radius,
+                        }
+                    }
+                })
                 .collect(),
         )
     }

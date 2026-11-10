@@ -620,9 +620,26 @@ pub struct HitEvent {
 }
 
 impl HitEvent {
-    /// Does the hit reach `part`, where its volume is?
+    /// Test the hit against material in its current physical chart.
+    pub fn meets_piece(&self, part: &ae::frame::thread::VolumePiece) -> bool {
+        self.pieces.iter().any(|piece| piece.meets(part))
+            || (self.pieces.is_empty()
+                && part.meets(&ae::frame::thread::VolumePiece::whole(self.volume.clone())))
+    }
+
+    /// Test an explicit world-space region.
     pub fn meets(&self, part: &ae::CombatVolume) -> bool {
-        self.piece_meeting(part).is_some() || (self.pieces.is_empty() && self.volume.intersects(part))
+        self.meets_piece(&ae::frame::thread::VolumePiece::whole(part.clone()))
+    }
+
+    /// Place feedback between the material regions that meet.
+    pub fn impact_on_piece(&self, part: &ae::frame::thread::VolumePiece) -> ae::Vec2 {
+        let from = self
+            .pieces
+            .iter()
+            .find(|piece| piece.meets(part))
+            .map_or(self.volume.center(), |piece| piece.center());
+        (from + part.center()) * 0.5
     }
 
     /// Does the hit reach the box `part`?

@@ -270,6 +270,33 @@ and he plans to read notes (because `NoRoute("workbench")`, with
 `unreachable:workbench`); with the bench sign removed from the room he plans
 to read notes (because `NoPlace("workbench")`, with `absent:workbench`).
 
+## Slice 5, first part (2026-11-10): offscreen and re-entry
+
+A body in a room that is not live is not simulated. `LifeLedger` (rollback
+state, `actor.life_ledger`; cleared when a session activates) keeps each
+character's facts and the hour it last planned while its body lives. A body
+built again in a room that comes back takes its life from its row and
+catches up by schedule arithmetic:
+
+- each whole hour it missed is planned and the steps' effects applied, with
+  no walking; an hour planned offscreen sees every thing free (no one held
+  anything while no one watched);
+- the current hour is planned and its leading `go_to` steps are done at once;
+- the body is put at the last place its schedule sent it
+  (`put_returning_lives`), and the rest of the plan runs live.
+
+A catch-up plans at most a week of hours.
+
+Witness (`game/ambition_app/tests/a_scientist_away_is_where_the_schedule_says.rs`):
+the player leaves the lab at 9:30 (the lab is not live: nobody in it is
+simulated) and comes back at 19:30. Read against the schedule: Nikobolt
+(8-12-18) has gone home (he stands at the lab door, x 64 against the door's
+64), has eaten, and did an experiment in each working hour (7: 10, 11, 13-17);
+Coulomba (10-13-20) is at the bench (x 1072) at work, has eaten, and did 8
+(10-12, 14-18).
+
+Not yet: save and reload of the ledger (the second part of slice 5).
+
 ## Slice 6 (2026-11-10): an edited life in the running game
 
 The lives are pack content (`data/npc_lives.ron`), so a content reload

@@ -42,6 +42,14 @@
 //! Bodies are looked at in the order of their character ids, so which of two
 //! bodies takes a thing first is a fact of the cast, not of query order.
 //!
+//! **Offscreen.** A body in a room that is not live is not simulated. The
+//! [`LifeLedger`] keeps each character's facts and the hour it last planned
+//! while its body is live; a body built again (its room is live again) takes
+//! its life from there and catches up by schedule arithmetic: each whole hour
+//! it missed is planned and its steps' effects applied, with no walking, and
+//! the current hour's plan is planned and its leading `go_to` steps done at
+//! once. The body is put at the last place its schedule sent it.
+//!
 //! Rollback state: the plan, how far it is, the facts and the claim. The
 //! planner is not: it runs on the tick a plan is asked for, from the restored
 //! facts, so a replay plans the same steps.
@@ -54,7 +62,7 @@ use ambition_htn::{Budget, Domain, Facts, PlanFailure, Step};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
-use bevy::prelude::{Commands, Component, Entity, Query, Res, Resource, Without};
+use bevy::prelude::{Commands, Component, Entity, Query, Res, ResMut, Resource, Without};
 
 use super::visit::{Visit, VisitOutcome};
 
@@ -99,6 +107,23 @@ pub enum Observation {
     Present(String),
 }
 
+/// Each character's life as its body last lived it: what it knows, and the
+/// hour it last planned in. Session state, and rollback state.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct LifeLedger {
+    pub rows: BTreeMap<String, LedgerRow>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LedgerRow {
+    pub facts: Facts,
+    pub planned_in: Option<(u32, i64)>,
+}
+
+/// The most hours one catch-up plans: a week. A longer absence plans its last
+/// week; what the days before it would have set is not known.
+const CATCH_UP_HOURS: i64 = 24 * 7;
+
 /// What a body is doing with its life.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct Life {
@@ -120,6 +145,11 @@ pub struct Life {
     /// that cut the last plan short ("the bench was taken"). `None` for a
     /// plan of a new hour, or one made because something seen changed.
     pub because: Option<LifeStop>,
+    /// Taken from the ledger, and the hours away not yet caught up.
+    pub returning: bool,
+    /// Where the body is to be put, once (the last place its schedule sent it
+    /// while it was away).
+    pub put_at: Option<ae::Vec2>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -186,7 +216,19 @@ impl Life {
             revision: 0,
             stopped: None,
             because: None,
+            returning: false,
+            put_at: None,
         }
+    }
+
+    /// The life of a body built again, from its row in the ledger.
+    pub fn returning(spec: &LifeSpec, row: &LedgerRow) -> Self {
+        let mut life = Self::new(spec);
+        life.facts = row.facts.clone();
+        life.facts.extend(spec.authored.iter().map(|(name, value)| (name.clone(), value.clone())));
+        life.planned_in = row.planned_in;
+        life.returning = true;
+        life
     }
 
     /// The task under way, if any.
@@ -208,12 +250,51 @@ impl Life {
 pub fn attach_lives(
     mut commands: Commands,
     book: Res<LifeBook>,
+    ledger: Res<LifeLedger>,
     bodies: Query<(Entity, &WornCharacter), Without<Life>>,
 ) {
     for (body, worn) in &bodies {
         if let Some(spec) = book.lives.get(worn.id()) {
-            commands.entity(body).insert(Life::new(spec));
+            let life = ledger.rows.get(worn.id()).map_or_else(|| Life::new(spec), |row| Life::returning(spec, row));
+            commands.entity(body).insert(life);
         }
+    }
+}
+
+/// Keep each living body's facts and plan hour in the ledger.
+pub fn keep_life_ledger(mut ledger: ResMut<LifeLedger>, bodies: Query<(&Life, &WornCharacter)>) {
+    for (life, worn) in &bodies {
+        if life.returning {
+            continue;
+        }
+        let row = LedgerRow { facts: life.facts.clone(), planned_in: life.planned_in };
+        if ledger.rows.get(worn.id()) != Some(&row) {
+            ledger.rows.insert(worn.id().to_string(), row);
+        }
+    }
+}
+
+/// A new session's lives start from the book, not from the last session's.
+pub fn forget_life_ledger_on_activation(
+    mut activated: bevy::prelude::MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
+    mut ledger: ResMut<LifeLedger>,
+) {
+    if activated.read().count() > 0 && !ledger.rows.is_empty() {
+        ledger.rows.clear();
+    }
+}
+
+/// Put each body that came back at the last place its schedule sent it.
+pub fn put_returning_lives(
+    mut bodies: Query<(&mut Life, ae::BodyClusterQueryData, &mut ae::movement::MotionModel)>,
+) {
+    for (mut life, mut cluster, mut model) in &mut bodies {
+        let Some(place) = life.put_at.take() else { continue };
+        let mut clusters = cluster.as_clusters_mut();
+        // The place is a point over the floor; the body stands on it.
+        let half = clusters.kinematics.size().y * 0.5;
+        let center = ae::Vec2::new(place.x, place.y - half);
+        ae::movement::transit_body(&mut model, &mut clusters, center, ae::movement::TransitVelocity::Zero);
     }
 }
 
@@ -315,6 +396,11 @@ pub fn live_lives(
             visit,
             spec: book.lives.get(&character),
         };
+        if life.returning {
+            catch_up(&mut commands, &mut life, &book, &mut facts, &look, &specs, clock.day, hour);
+            life.returning = false;
+            life.planned_in = Some((clock.day, hour));
+        }
         // A conversation holds the body (`interrupt_talked_to_lives` stopped
         // its plan): it waits.
         if conversation.as_ref().and_then(|conversation| conversation.talker()) == Some(body) {
@@ -390,21 +476,73 @@ pub fn interrupt_talked_to_lives(
     stop(&mut life, LifeStop::Interrupted(CONVERSATION.into()));
 }
 
-fn replan(commands: &mut Commands, life: &mut Life, book: &LifeBook, facts: &mut RoomFacts, look: &Look, hour: i64) {
-    // What the last plan held and where it walked are not this plan's.
-    facts.release(look.body, look.room, life);
-    if look.visit.is_some() {
-        commands.entity(look.body).remove::<Visit>();
-    }
+/// Write what a plan at `hour` reads besides the body's own facts: the hour,
+/// the authored facts, and what the body observes. An hour planned `offscreen`
+/// sees every thing free: no one held anything while no one was watching.
+fn facts_to_plan_by(life: &mut Life, facts: &RoomFacts, look: &Look, hour: i64, offscreen: bool) {
     life.facts.insert("hour".into(), Value::Int(hour));
     if let Some(spec) = look.spec {
         for (name, value) in &spec.authored {
             life.facts.insert(name.clone(), value.clone());
         }
         for (name, observation) in &spec.observes {
-            life.facts.insert(name.clone(), facts.observe(look.body, look.room, observation));
+            let seen = match observation {
+                Observation::Free(_) if offscreen => Value::Bool(true),
+                observation => facts.observe(look.body, look.room, observation),
+            };
+            life.facts.insert(name.clone(), seen);
         }
     }
+}
+
+/// A body built again catches up the hours it was away: each whole hour it
+/// missed is planned and its steps' effects applied (no walking: claims and
+/// holds are of no one while no one watches); the current hour is planned and
+/// its leading walks done at once; and the body is to be put at the last
+/// place the schedule sent it.
+#[allow(clippy::too_many_arguments)]
+fn catch_up(
+    commands: &mut Commands,
+    life: &mut Life,
+    book: &LifeBook,
+    facts: &mut RoomFacts,
+    look: &Look,
+    specs: &LiveRoomSpecs,
+    day: u32,
+    hour: i64,
+) {
+    let Some(domain) = book.domains.get(&life.domain).cloned() else { return };
+    let (from_day, from_hour) = life.planned_in.unwrap_or((day, hour));
+    let missed = ((i64::from(day) - i64::from(from_day)) * 24 + (hour - from_hour) - 1).clamp(0, CATCH_UP_HOURS);
+    let mut last_place = None;
+    for back in (1..=missed).rev() {
+        facts_to_plan_by(life, facts, look, (hour - back).rem_euclid(24), true);
+        let Ok(plan) = domain.plan(&life.facts, Budget::default()) else { continue };
+        for step in &plan.steps {
+            if step.action.verb == GO_TO {
+                last_place = step.action.target.clone();
+            }
+            domain.apply_step(&step.task, &mut life.facts);
+        }
+    }
+    life.because = None;
+    replan(commands, life, book, facts, look, hour);
+    while let Some(step) = life.steps.first().filter(|step| step.action.verb == GO_TO) {
+        last_place = step.action.target.clone();
+        finish_step(life, book);
+    }
+    life.put_at = last_place
+        .and_then(|name| specs.spec_of(look.body).and_then(|room| place_named(room, &name, look.here)))
+        .filter(|place| *place != look.here);
+}
+
+fn replan(commands: &mut Commands, life: &mut Life, book: &LifeBook, facts: &mut RoomFacts, look: &Look, hour: i64) {
+    // What the last plan held and where it walked are not this plan's.
+    facts.release(look.body, look.room, life);
+    if look.visit.is_some() {
+        commands.entity(look.body).remove::<Visit>();
+    }
+    facts_to_plan_by(life, facts, look, hour, false);
     life.revision = life.revision.wrapping_add(1);
     let Some(domain) = book.domains.get(&life.domain) else {
         stop(life, LifeStop::NoDomain(life.domain.clone()));

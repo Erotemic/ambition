@@ -345,11 +345,19 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // A life plans and carries its plan out after its visit is settled,
         // so a step that arrived this tick is done this tick.
         app.init_resource::<crate::body::life::LifeBook>();
+        app.init_resource::<crate::body::life::LifeLedger>();
+        app.add_systems(
+            Update,
+            crate::body::life::forget_life_ledger_on_activation
+                .run_if(on_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>),
+        );
         app.add_systems(
             sim,
             (
                 crate::body::life::attach_lives.run_if(|book: Res<crate::body::life::LifeBook>| !book.lives.is_empty()),
                 crate::body::life::live_lives.run_if(any_with_component::<crate::body::life::Life>),
+                crate::body::life::put_returning_lives.run_if(any_with_component::<crate::body::life::Life>),
+                crate::body::life::keep_life_ledger.run_if(any_with_component::<crate::body::life::Life>),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)

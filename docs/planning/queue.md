@@ -77,7 +77,9 @@ or updating their source. Check with
 
 **Done 2026-11-10 (slice 6):** an edit to `data/npc_lives.ron`, published by a content reload, changes Nikobolt's next plan in the running shipped game with no Rust build; hours are `authored` facts read from the book at each plan ([result](engine/radiant-npc-planning.md#slice-6-2026-11-10-an-edited-life-in-the-running-game)).
 
-**Next action:** slice 5, offscreen and re-entry: a scientist in a room that is not live stands where the schedule says when the room is built again, with the facts the tasks would have set, and the same after save and reload. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
+**Done 2026-11-10 (slice 5, first part):** offscreen and re-entry: a `LifeLedger` keeps each character's facts and plan hour; a body built again catches up the hours it missed by schedule arithmetic and is put where the schedule sent it. Away from 9:30 to 19:30, Nikobolt is at the door gone home with 7 experiments and Coulomba at the bench with 8, both fed ([result](engine/radiant-npc-planning.md#slice-5-first-part-2026-11-10-offscreen-and-re-entry)).
+
+**Next action:** slice 5, second part: the ledger in the save, so the same holds after save and reload. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 

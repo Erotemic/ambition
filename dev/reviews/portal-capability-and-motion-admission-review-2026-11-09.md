@@ -760,6 +760,18 @@ tests and the boss-card integration test pass again. The app warning check
 passes under default features. The riposte fixture sets a physical
 pose while gravity stays down. Its three damage assertions remain.
 
+The main behavior checks are:
+
+```sh
+cargo test -j6 -p ambition_combat --lib
+cargo test -j6 -p ambition_demo_smash_app
+cargo test -j6 -p ambition_app --test app_it -- portal --test-threads=6
+```
+
+The other commands and verdicts are in `target/portal-strike-gates.json`,
+`target/portal-strike-merged-gates.json` and
+`target/portal-strike-item-merge-gates.json`.
+
 Logs use `target/portal-strike-`. Full workspace, feature-union, device/GPU and
 performance acceptance remain open. So do native body contacts, same-tick
 continuation, hurt/guard geometry, attachments, production unequal apertures

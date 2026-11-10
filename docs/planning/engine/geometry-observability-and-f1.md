@@ -70,6 +70,51 @@ Use a deterministic, versioned headless representation (e.g. compact JSON with s
 
 **Done when:** a checked-in producer-to-observer matrix explicitly distinguishes covered, missing, conditional and out-of-scope domains, and one executable lab demonstrates a missing or misleading gizmo before the fix. Do not claim source-code coverage implies user-visible coverage.
 
+### GOBS-0 result (2026-11-10): census and the first lab
+
+**Lab:** `game/ambition_app/tests/f1_blocks_against_collision.rs`,
+`probe_f1_blocks_against_the_walls_a_body_meets` (ignored; prints). In
+`basement_breakables` it compares what F1's blocks layer draws
+(`RoomGeometry`, through `draw_world_blocks`) with what a body's sweep meets
+(`CollisionWorld::room(..).solids()`). The blocks layer draws 8 solids; a body
+meets 18. The 10 missing ones are five breakable solids (`ecs-breakable …`,
+Barrier or OneWay) and five world pogo orbs (`ecs-pogo-target …`). The blocks
+layer outlines nothing that is not there.
+
+**A gameplay defect the lab found:** a platform a body stands on to crumble
+also lends the world a pogo orb (`PogoTargetContributor`'s fallback). Broken,
+its solid went and its orb stayed, so a body could pogo off the air where it
+had been. Fixed in `rebuild_feature_ecs_world_overlay`; witness
+`a_broken_platform_leaves_no_pogo_orb_behind`.
+
+**Producer → observer matrix.** Read from the code on 2026-11-10. "Lab" means
+measured by the probe above; the other rows are read, not measured.
+
+| Producer (what gameplay queries) | Where the truth is | F1 layer (toggle) | Status |
+|---|---|---|---|
+| Authored room blocks | `RoomGeometry` → `CollisionWorld` base | world blocks (`show_world_blocks`) | Covered (lab) |
+| Moving platforms | `MovingPlatformSet`, composed in `solids()` | moving platforms (`show_moving_platform`) | Covered, on its own toggle, not in the blocks layer |
+| Breakable solids (`ecs-breakable`) | feature overlay `blocks`, composed in `solids()` | feature boxes (`show_feature_hitboxes`), labelled "breakable" | **Misleading:** the feature layer outlines every breakable, broken or whole, and does not show whether it is a Barrier or OneWay; the blocks layer omits them (lab) |
+| World pogo orbs (`ecs-pogo-target`, fallback) | feature overlay `blocks` (`PogoOrb`) | none found | **Missing** (lab) |
+| Gate and lock walls, and the bodies a gate passes | overlay `gate_solids`, `gate_passes` → `solids_for(subject)` | none; the body probes read `solids_for(entity)` but nothing draws the wall or its pass list | **Missing** (read) |
+| Body barriers | overlay `body_barriers` → `barriers_for(subject)` | none found | **Missing** (read) |
+| Portal holes and glue, per body | overlay `portal_holes`, `portal_glues` → `solids_for(subject)` | portal panes (`draw_portals`, feature toggle) | **Conditional:** the pane is drawn; the hole a body has open is not |
+| Removed authored blocks | overlay `removed_block_names` | blocks layer draws the base | **Unmeasured:** no removal in the lab room; the blocks layer would outline a removed block |
+| Water regions, climbable carves | overlay `water_regions`, `climbable_carves` | water draws as art (`rendering/world.rs`); no F1 layer found | **Missing** (read) |
+| Surface chains | `World` chains | blocks layer (`draw_surface_chains`) | Covered (read) |
+| Hurt and hit volumes, strikes | `CombatGeometryView` | combat view (`draw_combat_geometry_view`) | Covered (read; the owner's own read model) |
+| Projectiles | projectile bodies | `draw_projectile_debug` | Covered (read) |
+| Interaction reach | `InteractReach`, interactable proximity | none | **Missing** (read), as the evidence table above says |
+| Loading zones, LDtk spine | room spec zones | `draw_loading_zones` (`show_loading_zones`) | Covered (read) |
+| Camera frame | camera snapshot | `draw_camera_frame` (`show_camera_frame`) | Covered (read) |
+| Navigation graph and links | navigation graph | `navigation_overlay` (`show_navigation`) | Covered in its own overlay (read) |
+
+**What GOBS-1 should start from:** the two misleading rows (breakables and
+removed blocks) and the per-subject rows (gates, barriers, portal holes) are
+all differences between `RoomCollision::base()`, `solids()` and
+`solids_for(subject)`. An observation provider over those three views would
+cover them with no domain-specific drawer.
+
 ### GOBS-1 — domain-contributed observation protocol
 
 1. Build a minimal neutral observation descriptor and query/filter schema (room, view, selected subject, category, time). Start by adapting `CombatGeometryView` and one real `CollisionWorld` query, proving that the interface works for both preexisting snapshots and parameterized queries.

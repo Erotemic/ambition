@@ -584,7 +584,7 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
-Closed-end contact checkpoint: this commit. A shortened native cast retains
+Closed-end contact checkpoint: `627255e43`. A shortened native cast retains
 first contact at its closed end. Interior topology boundaries keep their
 existing contact ownership. The new witness fails before the fix and passes
 for four prefix lengths and two world-time intervals after it. All 856 core

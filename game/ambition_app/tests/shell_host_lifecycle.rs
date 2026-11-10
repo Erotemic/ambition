@@ -3253,9 +3253,10 @@ fn each_experience_begins_with_its_own_bag() {
 
     /// The items of Ambition's starter set: every real unlock (Jon,
     /// 2026-10-30). Three health cells, two mana cells, five bombs, the five
-    /// abilities with a row and the six other held items. No key item (the
-    /// battery is one): those are given by quests.
-    const STARTER: u32 = 21;
+    /// abilities with a row and the five other held items (the Javelin left
+    /// the game on 2026-11-10). No key item (the battery is one): those are
+    /// given by quests.
+    const STARTER: u32 = 20;
 
     fn items_in_the_bag(app: &App) -> u32 {
         let owned = app.world().resource::<OwnedItems>();

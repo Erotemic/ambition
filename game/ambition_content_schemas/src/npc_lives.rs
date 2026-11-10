@@ -30,6 +30,13 @@ pub struct LifeRow {
     /// the character plans, never kept as its own.
     #[serde(default)]
     pub authored: BTreeMap<String, Value>,
+    /// Facts the character keeps that every day starts from again (`ate`:
+    /// false): each takes this value on the first plan of a new day.
+    #[serde(default)]
+    pub daily: BTreeMap<String, Value>,
+    /// What the character says for each `say` topic of its domain.
+    #[serde(default)]
+    pub lines: BTreeMap<String, String>,
     #[serde(default)]
     pub observes: BTreeMap<String, Observation>,
 }
@@ -67,13 +74,46 @@ fn problems(lives: &NpcLives) -> Vec<String> {
         if !lives.domains.contains_key(&life.domain) {
             problems.push(format!("`lives.{character}` plans with `{}`, which no domain is", life.domain));
         }
-        for (kind, names) in [("observes", life.observes.keys().collect::<Vec<_>>()), ("authors", life.authored.keys().collect())] {
+        for (kind, names) in [
+            ("observes", life.observes.keys().collect::<Vec<_>>()),
+            ("authors", life.authored.keys().collect()),
+            ("starts each day with", life.daily.keys().collect()),
+        ] {
             if let Some(name) = names.iter().find(|name| life.facts.contains_key(**name)) {
                 problems.push(format!("`lives.{character}` both keeps and {kind} `{name}`; the {kind} value replaces the kept one"));
             }
         }
         if let Some(name) = life.observes.keys().find(|name| life.authored.contains_key(*name)) {
             problems.push(format!("`lives.{character}` both authors and observes `{name}`"));
+        }
+        if let Some(name) = life.daily.keys().find(|name| life.authored.contains_key(*name) || life.observes.contains_key(*name)) {
+            problems.push(format!("`lives.{character}` starts each day with `{name}`, which it also authors or observes"));
+        }
+    }
+    // The verbs the engine's executor carries out itself (`body::life`);
+    // any other verb a domain uses must be a declared hold, or a step with it
+    // would stop every plan it is in.
+    const ENGINE_VERBS: [&str; 4] = ["go_to", "claim", "release", "say"];
+    for (name, domain) in &lives.domains {
+        for (task, primitive) in &domain.primitive {
+            let verb = primitive.action.verb.as_str();
+            if !ENGINE_VERBS.contains(&verb) && !lives.holds.contains_key(verb) {
+                problems.push(format!(
+                    "`domains.{name}.primitive.{task}` uses the verb `{verb}`, which the executor does not carry out; \
+                     declare it in `holds` (a timed task) or use one of {ENGINE_VERBS:?}"
+                ));
+            }
+        }
+    }
+    for (character, life) in &lives.lives {
+        let Some(domain) = lives.domains.get(&life.domain) else { continue };
+        for (task, primitive) in &domain.primitive {
+            if primitive.action.verb == "say" {
+                let topic = primitive.action.target.clone().unwrap_or_default();
+                if !life.lines.contains_key(&topic) {
+                    problems.push(format!("`lives.{character}` has no line for `{topic}`, which `{task}` says"));
+                }
+            }
         }
     }
     for (verb, hours) in &lives.holds {
@@ -99,4 +139,36 @@ pub fn npc_lives_schema() -> SchemaRegistration {
 /// The lives `pack` states, if it states any.
 pub fn lowered_npc_lives(pack: &PreparedContentPack) -> Option<&NpcLives> {
     lowered_rules::<NpcLives>(pack, NPC_LIVES_SCHEMA)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lives(verb: &str, lines: &str) -> NpcLives {
+        ron::from_str(&format!(
+            r#"(
+                domains: {{ "d": (root: "day", compound: {{ "day": [(name: "talk", subtasks: ["talk"])] }},
+                    primitive: {{ "talk": (action: (verb: "{verb}", target: Some("topic"))) }}) }},
+                lives: {{ "someone": (domain: "d", lines: {{ {lines} }}) }},
+                holds: {{ "use": 0.25 }},
+            )"#
+        ))
+        .expect("the test lives parse")
+    }
+
+    /// A verb the executor does not carry out, and no hold declares, is
+    /// refused: a step with it would never be done.
+    #[test]
+    fn a_verb_nothing_carries_out_is_refused() {
+        assert!(problems(&lives("dance", "")).iter().any(|problem| problem.contains("the verb `dance`")));
+        assert!(problems(&lives("use", "")).is_empty(), "a declared hold is carried out");
+    }
+
+    /// A `say` with no authored line for its topic is refused.
+    #[test]
+    fn a_line_nobody_wrote_is_refused() {
+        assert!(problems(&lives("say", "")).iter().any(|problem| problem.contains("no line for `topic`")));
+        assert!(problems(&lives("say", r#""topic": "hello""#)).is_empty());
+    }
 }

@@ -7,13 +7,15 @@
 //! one plans again from what it sees (the bench taken: read notes instead),
 //! and takes the bench when it is free. Witnesses: never two holders or two
 //! users of the bench at once, both do an experiment within the hour, and the
-//! claim survives the rewinds of a sync test.
+//! claim survives the rewinds of a sync test. With work done and the partner
+//! in, each talks shop: the line its life authors is said over its head.
 
 use crate::common::{base, fixed_60hz_room_options, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::life::{Doing, Life, LifeStop, Value};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::time::{DayClock, DayCycle};
-use bevy::prelude::Entity;
+use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
+use bevy::prelude::{Entity, Messages};
 
 const LAB: &str = "eureka_coil_lab";
 const SCIENTISTS: [&str; 2] = ["npc_science_coulomba", "npc_science_nikobolt"];
@@ -81,9 +83,16 @@ fn two_scientists_take_turns_at_one_bench() {
     let mut held = [0usize; 2];
     let mut turned_away = None;
     let mut done = [None; 2];
+    let mut heard = Vec::new();
     while hour(&sim) < BY_HOUR {
         sim.step(base());
         ticks += 1;
+        if let Some(mut messages) = sim.world_mut().get_resource_mut::<Messages<VfxInRoom>>() {
+            heard.extend(messages.drain().filter_map(|message| match message.vfx {
+                VfxMessage::SpeechBubble { text, .. } => Some(text),
+                _ => None,
+            }));
+        }
         let (holders, users) = on_the_bench(&sim, bodies);
         assert!(holders <= 1, "{holders} bodies hold the bench at {:.3} h", hour(&sim));
         assert!(users <= 1, "{users} bodies work at the bench at {:.3} h", hour(&sim));
@@ -113,6 +122,15 @@ fn two_scientists_take_turns_at_one_bench() {
             held[index],
             sim.world().get::<Life>(bodies[index])
         );
+    }
+    // Review 2026-11-10: `say` was a hold that did nothing. Each one's own
+    // line (`npc_lives.ron`) is heard, and their talk is a fact.
+    for line in ["Coulomba! The coil held at forty amps this morning.", "Forty? Then it will hold fifty. After lunch, Nikobolt."] {
+        assert!(heard.iter().any(|said| said == line), "nobody said {line:?}; heard {heard:?}");
+    }
+    for (index, body) in bodies.into_iter().enumerate() {
+        let talked = sim.world().get::<Life>(body).and_then(|life| life.facts.get("talked").cloned());
+        assert_eq!(talked, Some(Value::Bool(true)), "{} did not talk", SCIENTISTS[index]);
     }
 }
 

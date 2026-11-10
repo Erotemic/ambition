@@ -13,8 +13,13 @@
 //!   thing another body holds is a lost claim: the body lets go of what it
 //!   held and plans again at once, from what it now sees.
 //! - `release <thing>` lets go of it.
-//! - any other verb holds the body at its task for the hours the book says
-//!   (`holds`), or is done the tick it starts.
+//! - `say <topic>` speaks the line the life authors for the topic (a speech
+//!   bubble over the body). A topic with no line stops the plan.
+//! - a verb the book declares in `holds` (`use`, `rest`) holds the body at
+//!   its task for that many hours (0: done the tick it starts). It is a
+//!   timed task, not an interaction with a world object.
+//! - any other verb stops the plan (`LifeStop::Unsupported`): it is never
+//!   counted as done. Content validation refuses such a domain first.
 //!
 //! **When it plans.** On each new hour of the day; at once after a lost
 //! claim; and when its plan is spent and something it observes has changed
@@ -75,6 +80,11 @@ pub const GO_TO: &str = "go_to";
 pub const CLAIM: &str = "claim";
 /// The verb that lets a claimed thing go.
 pub const RELEASE: &str = "release";
+/// The verb that speaks a line the life authors.
+pub const SAY: &str = "say";
+/// The verbs the executor carries out itself; any other must be a declared
+/// hold.
+pub const ENGINE_VERBS: [&str; 4] = [GO_TO, CLAIM, RELEASE, SAY];
 
 /// Every authored life, published by the game from its content outside the
 /// tick. Lives are keyed by the character id of the body that lives them.
@@ -94,6 +104,11 @@ pub struct LifeSpec {
     /// The facts the author owns (its hours): written into the body's facts
     /// each time it plans, from the book as it is then.
     pub authored: Facts,
+    /// The body's own facts that each day starts from again: on the first
+    /// plan of a new day each takes this value (`ate` is false at breakfast).
+    pub daily: Facts,
+    /// What the body says for each `say` topic.
+    pub lines: BTreeMap<String, String>,
     /// Facts read from the world when the body plans, by fact name.
     pub observes: BTreeMap<String, Observation>,
 }
@@ -179,6 +194,10 @@ pub enum LifeStop {
     Taken(String),
     /// Something outside the plan stopped it (a conversation).
     Interrupted(String),
+    /// A step's verb is not one the executor carries out or the book holds.
+    Unsupported(String),
+    /// A `say` topic the life authors no line for.
+    NothingToSay(String),
 }
 
 impl LifeStop {
@@ -208,7 +227,13 @@ impl Life {
     pub fn new(spec: &LifeSpec) -> Self {
         Self {
             domain: spec.domain.clone(),
-            facts: spec.facts.iter().chain(&spec.authored).map(|(name, value)| (name.clone(), value.clone())).collect(),
+            facts: spec
+                .facts
+                .iter()
+                .chain(&spec.daily)
+                .chain(&spec.authored)
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect(),
             planned_in: None,
             steps: Vec::new(),
             doing: Doing::Idle,
@@ -326,6 +351,8 @@ pub fn place_named(room: &RoomSpec, name: &str, here: ae::Vec2) -> Option<ae::Ve
 struct RoomFacts {
     claims: BTreeMap<(Option<LiveRoomInstance>, String), Entity>,
     present: BTreeSet<(Option<LiveRoomInstance>, String)>,
+    /// Lines spoken this tick: the room, where the bubble goes, the line.
+    said: Vec<(Option<LiveRoomInstance>, ae::Vec2, String)>,
 }
 
 impl RoomFacts {
@@ -353,6 +380,8 @@ struct Look<'a> {
     body: Entity,
     room: Option<LiveRoomInstance>,
     here: ae::Vec2,
+    /// Where a speech bubble over the body goes.
+    speaks_at: ae::Vec2,
     visit: Option<&'a Visit>,
     spec: Option<&'a LifeSpec>,
 }
@@ -369,6 +398,7 @@ pub fn live_lives(
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     characters: Query<(Entity, &WornCharacter)>,
     mut bodies: Query<(Entity, &mut Life, &WornCharacter, &ae::BodyKinematics, Option<&Visit>)>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
 ) {
     // No day, no hours to live by.
     let Some(cycle) = cycle else { return };
@@ -383,6 +413,7 @@ pub fn live_lives(
             .filter_map(|(body, life, ..)| life.claim.clone().map(|thing| ((rooms.of(body), thing), body)))
             .collect(),
         present: characters.iter().map(|(body, worn)| (rooms.of(body), worn.id().to_string())).collect(),
+        said: Vec::new(),
     };
     let mut order: Vec<(String, Entity)> =
         bodies.iter().map(|(body, _, worn, ..)| (worn.id().to_string(), body)).collect();
@@ -393,6 +424,7 @@ pub fn live_lives(
             body,
             room: rooms.of(body),
             here: kinematics.pos,
+            speaks_at: kinematics.pos + ae::Vec2::new(0.0, -kinematics.size().y * 0.72 - 16.0),
             visit,
             spec: book.lives.get(&character),
         };
@@ -427,6 +459,9 @@ pub fn live_lives(
             if new_hour {
                 // What failed last hour may not fail now.
                 life.facts.retain(|name, _| !name.starts_with(UNREACHABLE) && !name.starts_with(ABSENT));
+                if life.planned_in.is_some_and(|(day, _)| day != clock.day) {
+                    begin_day(&mut life, look.spec);
+                }
             }
             life.because = None;
             replan(&mut commands, &mut life, &book, &mut facts, &look, hour);
@@ -444,6 +479,10 @@ pub fn live_lives(
             replan(&mut commands, &mut life, &book, &mut facts, &look, hour);
             let _ = carry_out(&mut commands, &mut life, &book, &cycle, now, &specs, &mut facts, &look);
         }
+    }
+    // What was said: a speech bubble over the speaker, in its room.
+    for (room, at, line) in facts.said {
+        vfx.write_in(room, ambition_vfx::vfx::VfxMessage::SpeechBubble { pos: at, text: line });
     }
 }
 
@@ -495,6 +534,15 @@ fn facts_to_plan_by(life: &mut Life, facts: &RoomFacts, look: &Look, hour: i64, 
     }
 }
 
+/// A new day: each fact the body starts every day from takes its value again.
+fn begin_day(life: &mut Life, spec: Option<&LifeSpec>) {
+    if let Some(spec) = spec {
+        for (name, value) in &spec.daily {
+            life.facts.insert(name.clone(), value.clone());
+        }
+    }
+}
+
 /// A body built again catches up the hours it was away: each whole hour it
 /// missed is planned and its steps' effects applied (no walking: claims and
 /// holds are of no one while no one watches); the current hour is planned and
@@ -515,7 +563,15 @@ fn catch_up(
     let (from_day, from_hour) = life.planned_in.unwrap_or((day, hour));
     let missed = ((i64::from(day) - i64::from(from_day)) * 24 + (hour - from_hour) - 1).clamp(0, CATCH_UP_HOURS);
     let mut last_place = None;
+    // The day of the hour last planned; each midnight crossed begins a day.
+    let mut planned_day = i64::from(from_day);
+    let now = i64::from(day) * 24 + hour;
     for back in (1..=missed).rev() {
+        let this_day = (now - back).div_euclid(24);
+        if this_day != planned_day {
+            begin_day(life, look.spec);
+            planned_day = this_day;
+        }
         facts_to_plan_by(life, facts, look, (hour - back).rem_euclid(24), true);
         let Ok(plan) = domain.plan(&life.facts, Budget::default()) else { continue };
         for step in &plan.steps {
@@ -524,6 +580,9 @@ fn catch_up(
             }
             domain.apply_step(&step.task, &mut life.facts);
         }
+    }
+    if i64::from(day) != planned_day {
+        begin_day(life, look.spec);
     }
     life.because = None;
     replan(commands, life, book, facts, look, hour);
@@ -638,11 +697,25 @@ fn carry_out(
                 }
                 finish_step(life, book);
             }
+            Doing::Starting if step.action.verb == SAY => {
+                let Some(line) = look.spec.and_then(|spec| spec.lines.get(&target)) else {
+                    stop(life, LifeStop::NothingToSay(target));
+                    return Carried::Waits;
+                };
+                facts.said.push((look.room, look.speaks_at, line.clone()));
+                if hold(life, book, cycle, now, SAY) {
+                    return Carried::Waits;
+                }
+                finish_step(life, book);
+            }
             Doing::Starting => {
-                let hours = book.holds.get(&step.action.verb).copied().unwrap_or(0.0);
-                if hours > 0.0 {
-                    let until = now + f64::from(hours) / 24.0 * f64::from(cycle.day_length_s);
-                    life.doing = Doing::Holding { until };
+                if !book.holds.contains_key(&step.action.verb) {
+                    let verb = step.action.verb.clone();
+                    stop(life, LifeStop::Unsupported(verb));
+                    return Carried::Waits;
+                }
+                let verb = step.action.verb.clone();
+                if hold(life, book, cycle, now, &verb) {
                     return Carried::Waits;
                 }
                 finish_step(life, book);
@@ -675,6 +748,17 @@ fn carry_out(
         }
     }
     Carried::Waits
+}
+
+/// Hold the body at its task for the hours the book gives `verb`. False when
+/// the hold is none (the step is done now).
+fn hold(life: &mut Life, book: &LifeBook, cycle: &ambition_time::DayCycle, now: f64, verb: &str) -> bool {
+    let hours = book.holds.get(verb).copied().unwrap_or(0.0);
+    if hours <= 0.0 {
+        return false;
+    }
+    life.doing = Doing::Holding { until: now + f64::from(hours) / 24.0 * f64::from(cycle.day_length_s) };
+    true
 }
 
 /// The ledger as the save keeps it: each row's facts as RON text.

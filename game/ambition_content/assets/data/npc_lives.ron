@@ -91,9 +91,15 @@
             },
             facts: {
                 "at": Sym("lab"),
+                "experiments": Int(0),
+            },
+            // Each day starts unfed and with nothing said yet.
+            daily: {
                 "ate": Bool(false),
                 "talked": Bool(false),
-                "experiments": Int(0),
+            },
+            lines: {
+                "eureka_talk": "Coulomba! The coil held at forty amps this morning.",
             },
             observes: {
                 "bench_free": Free("workbench"),
@@ -110,9 +116,15 @@
             },
             facts: {
                 "at": Sym("lab"),
+                "experiments": Int(0),
+            },
+            // Each day starts unfed and with nothing said yet.
+            daily: {
                 "ate": Bool(false),
                 "talked": Bool(false),
-                "experiments": Int(0),
+            },
+            lines: {
+                "eureka_talk": "Forty? Then it will hold fifty. After lunch, Nikobolt.",
             },
             observes: {
                 "bench_free": Free("workbench"),
@@ -120,9 +132,13 @@
             },
         ),
     },
-    // A use (an experiment, a meal) takes a quarter of an hour of the day. A
-    // verb not named here is done the tick it starts.
+    // The timed tasks: a use (an experiment, a meal) takes a quarter of an
+    // hour of the day, a rest an hour, a line a few minutes. The executor
+    // carries out `go_to`, `claim`, `release` and `say` itself; any other verb
+    // must be named here.
     holds: {
         "use": 0.25,
+        "rest": 1.0,
+        "say": 0.05,
     },
 )

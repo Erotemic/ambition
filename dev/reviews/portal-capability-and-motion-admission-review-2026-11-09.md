@@ -173,34 +173,34 @@ Do not assume `Option<Res<PortalPassages>>` is by itself a room capability gate.
 
 ### Phase A — Establish the ownership contract
 
-- [ ] Read ADR 0024 and map all pose writers/owners. List all `PoseAdmission::constrain`, `constrain_body_pose`, `carry_body`, `transit_body`, `MotionStepContext.portal`, and `portal_refusal` call/read sites. Include `game/`, `crates/`, tests, and plugins.
-- [ ] Choose one body/movement-owned API for external poses. Specify its input, accepted result, typed refusal, sweep time, carried vectors, and optional spatial restrictions. State who constructs a per-room/per-body snapshot and how its validity is maintained.
-- [ ] Decide how a group of externally constrained bodies preflights and commits atomically; use one movement authority. Do not introduce one-off `portal` conditionals in each game.
-- [ ] Separate the geometric `MaterialCast`/partition math from portal-specific link policy and resource publication. State whether a generic motion-admission interface can be shared with the normal kernel without loss of geometric detail.
+- [x] Read ADR 0024 and map all pose writers/owners. List all `PoseAdmission::constrain`, `constrain_body_pose`, `carry_body`, `transit_body`, `MotionStepContext.portal`, and `portal_refusal` call/read sites. Include `game/`, `crates/`, tests, and plugins.
+- [x] Choose one body/movement-owned API for external poses. Specify its input, accepted result, typed refusal, sweep time, carried vectors, and optional spatial restrictions. State who constructs a per-room/per-body snapshot and how its validity is maintained.
+- [x] Decide how a group of externally constrained bodies preflights and commits atomically; use one movement authority. Do not introduce one-off `portal` conditionals in each game.
+- [x] Separate the geometric `MaterialCast`/partition math from portal-specific link policy and resource publication. State whether a generic motion-admission interface can be shared with the normal kernel without loss of geometric detail.
 
 ### Phase B — Migrate all clients and repair failure policy
 
-- [ ] Move/implement the body-owned API and migrate **all** generic clients listed in P01. Remove old portal-name import/re-export, not merely forward it.
-- [ ] Repair flag-sequence progress ordering and demonstrate a refusal/recovery scenario.
-- [ ] Repair mount, capture, boss hold, and two-body pet semantics. Define behavior on refusal with tests of secondary state (`RidingOn`, `CapturedBy`, `PoseOwnedExternally`, `CenteredAabb`, ground facts, gesture stage).
-- [ ] Audit fall rescue, talk spacing, scripted castle/cosmic movement, boss limbs, and remaining `is_err` handling. Explicitly classify any intentionally ignored refusals.
-- [ ] Give the core motion step a generic admission result and retain portal detail as an optional typed cause. Migrate readers and tests; remove old `portal_refusal` contract.
-- [ ] Resolve missing material snapshots according to a documented authoritative-source/epoch rule.
+- [x] Move/implement the body-owned API and migrate **all** generic clients listed in P01. Remove old portal-name import/re-export, not merely forward it.
+- [x] Repair flag-sequence progress ordering and demonstrate a refusal/recovery scenario.
+- [x] Repair mount, capture, boss hold, and two-body pet semantics. Define behavior on refusal with tests of secondary state (`RidingOn`, `CapturedBy`, `PoseOwnedExternally`, `CenteredAabb`, ground facts, gesture stage).
+- [x] Audit fall rescue, talk spacing, scripted castle/cosmic movement, boss limbs, and remaining `is_err` handling. Explicitly classify any intentionally ignored refusals.
+- [x] Give the core motion step a generic admission result and retain portal detail as an optional typed cause. Migrate readers and tests; remove old `portal_refusal` contract.
+- [x] Resolve missing material snapshots according to a documented authoritative-source/epoch rule.
 
 ### Phase C — Composition and presentation
 
-- [ ] Separate simulation and portal-gun runtime installation and authored construction gating, without breaking schema fingerprints.
-- [ ] Replace Mary-O's `all_capabilities` with measured actual capabilities; inspect implicit LDtk/web feature defaults.
-- [ ] Move loading-zone appearance into room-scoped/authored policy, migrate consumers, and remove portal-named generic visibility state.
-- [ ] Test mixed-game host and per-room capability isolation.
+- [x] Separate simulation and portal-gun runtime installation and authored construction gating, without breaking schema fingerprints.
+- [x] Replace Mary-O's `all_capabilities` with measured actual capabilities; inspect implicit LDtk/web feature defaults.
+- [x] Move loading-zone appearance into room-scoped/authored policy, migrate consumers, and remove portal-named generic visibility state.
+- [x] Test mixed-game host and per-room capability isolation.
 
 ### Phase D — Complete validation and review of retained portal math
 
-- [ ] Baseline and resolve the two named app portal failures in P07. Keep a failure record if not yet resolved; do not mark the review fully complete.
-- [ ] Inspect open acceptance items in the portal planning doc; select the relevant gates and avoid duplicating its implementation queue.
-- [ ] Benchmark snapshot publication before optimizing; keep caching only with proven benefit and correct invalidation.
-- [ ] Run targeted unit, property, and headless integration checks, then the assembled app and replay checks required by `docs/recipes/cheapest-sufficient-check.md`.
-- [ ] Update planning/architecture docs only where the new API contract changes them. Do not edit a shared live queue to mark this review done. Record exact commits and tests in the final completion note.
+- [x] Baseline and resolve the two named app portal failures in P07. Keep a failure record if not yet resolved; do not mark the review fully complete.
+- [x] Inspect open acceptance items in the portal planning doc; select the relevant gates and avoid duplicating its implementation queue.
+- [x] Benchmark snapshot publication before optimizing; keep caching only with proven benefit and correct invalidation.
+- [ ] Finish the full P07 acceptance gates in [the portal plan](../../docs/planning/engine/portal-parts-similarity-and-chirality.md). Completed repair checks are recorded below; they do not close a full PSIM slice.
+- [x] Update planning/architecture docs only where the new API contract changes them. Do not edit a shared live queue to mark this review done. Record exact commits and tests in the final completion note.
 
 ## Regression checklist (must be executable, not inspection alone)
 
@@ -314,7 +314,7 @@ No second cache or incremental invalidation protocol was added.
 | P04 | Resolved | Missing body material returns `MissingMaterial`. Explicit world sources retain their identity transform. |
 | P05 | Resolved | The two epochs have one body owner. The publication measurement below records their cost. Full rebuilds remain; no cache optimization is claimed. |
 | P06 | Resolved | Runtime selects `PortalSimulationPlugin`. Ambition selects the gun separately. Construction consumes the same generation-bound schema catalog used for content identity. Missing gun schemas refuse authored guns. Repeat plan IDs agree. |
-| P07 | Deferred | The two walking cases pass in `f634f1870`; the spark/wall case passes in `b2e8f750a`. Full PSIM acceptance remains open in the existing portal plan. Baseline and latest results are below. No PSIM slice is closed. |
+| P07 | Open | The two walking cases pass in `f634f1870`; the spark/wall case passes in `b2e8f750a`. Full PSIM acceptance remains open in the existing portal plan. Baseline and latest results are below. No PSIM slice is closed. |
 | P08 | Resolved | Each loading zone authors `Default` or `SceneArt`. The generic renderer owns this policy. Duplicate IDs in different rooms do not share visibility. Secret discovery and gate animation retain their owners. |
 | P09 | Resolved | Mary-O selects its actual facade features. Standalone normal, test, visible, desktop and web trees have no portal crate. Isolated compilation and tests are recorded below. |
 | P10 | Resolved | `PortalRooms` reads the existing per-game rules at the world owner. Publishers clear disabled-room links and occupancy. Physics, shots, held pairs and camera lists use room identity. Tests cover capability changes, equal coordinates in two rooms and a body transferred into a Mary-O room. |
@@ -383,8 +383,9 @@ Before the contact repair, the headless app run failed:
 
 Both cases now pass in `f634f1870`, with the original assertions. Their owner remains
 [the portal plan](../../docs/planning/engine/portal-parts-similarity-and-chirality.md).
-Root rebasing, remaining motion, moving-host admission, righting, native actor
-contacts, unequal apertures and full PSIM acceptance remain open there. This
+At that checkpoint, root rebasing, remaining motion, moving-host admission,
+righting, native actor contacts and unequal apertures remained open. Later
+packets below record progress; full PSIM acceptance remains open in the plan. This
 review does not create a second implementation queue.
 
 #### Verification and limits
@@ -729,3 +730,55 @@ Full workspace libraries, feature unions, device/GPU tests and performance
 acceptance are not covered by this packet. No full PSIM slice is closed. Native body contacts, same-tick
 continuation, common combat/attachment maps, unequal apertures, H–J lab examples
 and full acceptance remain open.
+
+### Canonical strike material packet
+
+Code: `fcb9f7280`. Main merge: `e314b7232`. Merged validation and fixture
+repair: `0505b17e2`. P07 remains open.
+
+Owner-following strikes stored offsets and extents on gravity axes. They now
+store canonical source shapes and read the accepted body material at query
+time. Native partitions receive that source directly. Owner-local launch
+directions and autolink anchors use the same material. World-space riding
+requests are converted at ingress. Actor, home-body and spawn footprints now
+use physical material, including composite envelopes.
+
+The guards cover scale, arbitrary turn, parity, missing material, source
+precision, righting and a far-side launch through an unequal native aperture
+pair. The native-pair test does not remove the production minimum-aperture
+rule. No snapshot layout changes.
+
+Validation: combat 811; shared 355; view 161; projectile combat 29; spawn 27;
+actors 592; runtime 250; boss 236. These library selections pass. Combat has
+three ignored tests and view has two. Smash passes 71 tests, with six ignored;
+the app portal selection passes 36. Workspace policy and all 53 absence
+contracts pass. App and Smash default-feature warning checks pass.
+
+On `0505b17e2`, Smash library has 301 passes and renderer has 497,
+including the per-view boss-card case. All 71 Smash app tests, 36 app portal
+tests and the boss-card integration test pass again. The app warning check
+passes under default features. The riposte fixture sets a physical
+pose while gravity stays down. Its three damage assertions remain.
+
+The main behavior checks are:
+
+```sh
+cargo test -j6 -p ambition_combat --lib
+cargo test -j6 -p ambition_demo_smash_app
+cargo test -j6 -p ambition_app --test app_it -- portal --test-threads=6
+```
+
+The other commands and verdicts are in `target/portal-strike-gates.json`,
+`target/portal-strike-merged-gates.json` and
+`target/portal-strike-item-merge-gates.json`.
+
+Logs use `target/portal-strike-`. Full workspace, feature-union, device/GPU and
+performance acceptance remain open. So do native body contacts, same-tick
+continuation, hurt/guard geometry, attachments, production unequal apertures
+and the remaining lab examples. No full PSIM slice is closed.
+
+On `d3e941b7b`, the later item-content merge passes 25 item tests, 24 app menu
+model tests, both held-item portal transit tests, the default-feature app
+warning check, all 53 absence contracts and the repository doc-link check.
+The held javelin remains the lab's asymmetric gauge. Logs use
+`target/portal-strike-gate-item-merge-`.

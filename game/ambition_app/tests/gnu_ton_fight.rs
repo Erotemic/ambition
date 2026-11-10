@@ -381,8 +381,11 @@ fn the_gnu_stands_on_the_floor_and_carries_a_person_sized_scholar() {
 /// two lines and its fists are bodies of their own. The encounter is put in
 /// phase 2; no blow is dealt, so the scholar's health is whole.
 fn arena_with_free_fists() -> Platformer2dSimHarness {
+    free_fists(arena())
+}
+
+fn free_fists(mut sim: Platformer2dSimHarness) -> Platformer2dSimHarness {
     use ambition_platformer2d::boss_encounter::{BossEncounter, BossEncounterPhase};
-    let mut sim = arena();
     {
         let world = sim.world_mut();
         let mut bosses = world.query::<(&BossConfig, &mut BossEncounter)>();
@@ -2634,16 +2637,19 @@ fn how_the_giant_moves_frame_by_frame() {
 }
 
 
-#[test]
-fn both_gnu_ton_fists_keep_their_owner_through_scaled_pairs_and_a_third_cut() {
+fn gnu_ton_multiple_path_scene() -> (Platformer2dSimHarness, Vec<(Entity, Limb, ae::BodyKinematics,
+    ambition_platformer2d::platformer::lifecycle::InRoomInstance)>) {
     use ambition_platformer2d::portal::{PlacedPortal, PortalChannel, PortalChannelColor, PortalHost,
-        PortalConvention, PortalTuning, EditablePortalTuning, PortalGeometry, PortalTransit};
-    use ambition_platformer2d::engine_core::frame::thread::MaterialPrimitive;
-    use ambition_platformer2d::platformer::body::geometry::BodyGeometry;
+        PortalConvention, PortalTuning, EditablePortalTuning, PortalGeometry};
     use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
-    let mut sim = arena_with_free_fists();
+    let options = Platformer2dSimHarnessOptions::default().with_required_start_room(ARENA)
+        .with_sync_test_rollback_settings(4, 10);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).unwrap();
+    for _ in 0..ARRIVED { sim.step(AgentAction::default()); }
+    let mut sim = free_fists(sim);
     untouchable_player(&mut sim);
     place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    sim.rebase_rollback_history().unwrap();
     step_until(&mut sim, 600, "two active fists clear of each other", |sim| {
         let world = sim.world_mut();
         let fists: Vec<_> = world.query::<(&Limb, &ae::BodyKinematics)>().iter(world)
@@ -2680,16 +2686,26 @@ fn both_gnu_ton_fists_keep_their_owner_through_scaled_pairs_and_a_third_cut() {
         let half = kin.half_extent().x * 1.5;
         let scale = if index == 0 { 0.5 } else { 2.0 };
         add(100 + index as u8 * 2, kin.pos + Vec2::Y * kin.half_extent().y * 0.5, -Vec2::Y, half, *room);
-        add(101 + index as u8 * 2, Vec2::new(100.0 + index as f32 * 500.0, 200.0), Vec2::Y, half * scale, *room);
+        add(101 + index as u8 * 2, Vec2::new(400.0 + index as f32 * 400.0, 200.0), Vec2::Y, half * scale, *room);
         if index == 0 {
-            add(104, Vec2::new(100.0, 201.0), -Vec2::Y, half * 0.5, *room);
-            add(105, Vec2::new(100.0, 400.0), Vec2::Y, half * 0.5, *room);
-            add(106, Vec2::new(100.0, 401.0), -Vec2::Y, half * 0.5, *room);
-            add(107, Vec2::new(100.0, 600.0), Vec2::Y, half * 0.5, *room);
+            add(104, Vec2::new(400.0, 201.0), -Vec2::Y, half * 0.5, *room);
+            add(105, Vec2::new(400.0, 400.0), Vec2::Y, half * 0.5, *room);
+            add(106, Vec2::new(400.0, 401.0), -Vec2::Y, half * 0.5, *room);
+            add(107, Vec2::new(400.0, 600.0), Vec2::Y, half * 0.5, *room);
         }
     }
     sim.rebase_rollback_history().unwrap();
     for _ in 0..3 { sim.step(AgentAction::default()); }
+    (sim, fists)
+}
+
+#[test]
+fn both_gnu_ton_fists_keep_their_owner_through_scaled_pairs_and_a_third_cut() {
+    use ambition_platformer2d::portal::{PortalTransit, PortalChannel, PortalChannelColor};
+    use ambition_platformer2d::engine_core::frame::thread::MaterialPrimitive;
+    use ambition_platformer2d::platformer::body::geometry::BodyGeometry;
+    let (mut sim, fists) = gnu_ton_multiple_path_scene();
+    let channel = |index| PortalChannel::Authored(PortalChannelColor::Indexed(index));
     for (index, (entity, original, _, room)) in fists.iter().enumerate() {
         let world = sim.world();
         assert_eq!(world.get::<Limb>(*entity).unwrap().of, original.of);
@@ -2706,4 +2722,58 @@ fn both_gnu_ton_fists_keep_their_owner_through_scaled_pairs_and_a_third_cut() {
     }
     let world = sim.world_mut();
     assert_eq!(world.query::<&Limb>().iter(world).filter(|limb| is_fist(limb)).count(), 2);
+}
+
+
+#[test]
+fn a_gnu_ton_fist_hits_once_after_three_cuts_and_replays_its_scaled_launch() {
+    use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor, HitboxHits,
+        HitboxKnockback, HitboxLaunch, HitboxLifetime, HitSide};
+    let run = || {
+        let (mut sim, fists) = gnu_ton_multiple_path_scene();
+        let owner = fists[0].0;
+        place_player(&mut sim, Vec2::new(400.0, 608.0));
+        touchable_player(&mut sim);
+        let before = player(&mut sim).1;
+        let victim = { let world = sim.world_mut(); world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap() };
+        let half = sim.world().get::<ae::BodyKinematics>(owner).unwrap().canonical_size * 0.5;
+        let hitbox = sim.world_mut().spawn((
+            Hitbox { owner, source: HitSide::Boss,
+                anchor: HitboxAnchor::FollowOwner { local_offset: Vec2::ZERO }, half_extent: half,
+                shape: None, facing: 1.0, damage: 7,
+                knockback: HitboxKnockback::LaunchSpeed { base: 200.0, growth: Some(0.0) },
+                launch_dir: Some(HitboxLaunch::OwnerLocal(Vec2::new(0.6, -0.8))),
+                reaction: None, guard: Default::default(), frame_down: Vec2::Y, strike_sfx: None },
+            HitboxLifetime { remaining_s: 1.0 }, HitboxHits::default(),
+        )).id();
+        sim.rebase_rollback_history().unwrap();
+        let mut cursor = bevy::ecs::message::MessageCursor::<ambition_platformer2d::combat::HitEvent>::default();
+        let mut launch_seen = false;
+        let mut moved_left_and_up = false;
+        let mut trace = Vec::new();
+        for _ in 0..20 {
+            sim.step(AgentAction::default());
+            sim.rollback_health().unwrap();
+            for hit in cursor.read(sim.world().resource::<Messages<ambition_platformer2d::combat::HitEvent>>()) {
+                if hit.attacker != Some(owner) || hit.damage != 7
+                    || hit.target != ambition_platformer2d::combat::HitTarget::Body(victim) { continue; }
+                let knockback = hit.knockback.as_ref().unwrap();
+                assert_eq!(knockback.magnitude, ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(100.0));
+                let direction = knockback.launch_dir.unwrap().world().normalize();
+                assert!(direction.distance(Vec2::new(-0.6, -0.8)) < 1e-5);
+                launch_seen = true;
+            }
+            let (body, health) = player(&mut sim);
+            moved_left_and_up |= health == before - 7 && body.vel.x < 0.0 && body.vel.y < 0.0;
+            let hit_count = sim.world().get::<HitboxHits>(hitbox).unwrap().hit.len();
+            trace.push((ae::snapshot::encode_state(&body), health, hit_count));
+        }
+        assert!(launch_seen, "the chained fist did not produce a scaled launch");
+        assert!(moved_left_and_up, "the damaged player did not move along the reflected launch");
+        assert_eq!(player(&mut sim).1, before - 7);
+        assert_eq!(sim.world().get::<HitboxHits>(hitbox).unwrap().hit.len(), 1);
+        assert!(sim.rollback_execution_stats().unwrap().load_runs > 0);
+        trace
+    };
+    assert_eq!(run(), run());
 }

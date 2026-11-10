@@ -741,18 +741,22 @@ pub fn strike_pieces(
     owner: Option<&ae::BodyKinematics>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> ambition_platformer2d_core::frame::thread::Partition {
-    let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
+    use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason, VolumePiece};
+    let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
+    if matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }) {
+        let pose = owner.ok_or(Refusal { path: vec![], link: None, reason: RefusalReason::MissingMaterial })?;
+        let domain = hitbox.source_volume();
+        let material = MaterialPrimitive { domain: &domain, to_world: pose.material_map().map_err(numeric)? };
+        return match passages {
+            Some(passages) => passages.body_pieces_reaching(material, hitbox.owner, room),
+            None => VolumePiece::from_material(material).map(|piece| vec![piece]).map_err(numeric),
+        };
+    }
     let volume = hitbox.world_volume(owner)?;
     let owner_pos = owner.map_or(volume.center(), |owner| owner.pos);
     match passages {
-        Some(p) if carrier.is_some() => {
-            use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason};
-            let pose = owner.ok_or(Refusal { path: vec![], link: None, reason: RefusalReason::MissingMaterial })?;
-            let map = pose.material_map().map_err(|fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) })?;
-            p.body_pieces_reaching(MaterialPrimitive { domain: &hitbox.source_volume(), to_world: map }, hitbox.owner, room)
-        },
-        Some(p) => p.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room),
-        None => Ok(vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)]),
+        Some(passages) => passages.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room),
+        None => Ok(vec![VolumePiece::whole(volume)]),
     }
 }
 
@@ -1179,7 +1183,9 @@ pub fn apply_hitbox_damage(
                 };
                 // The strike's own chart into the victim's own: through the pair
                 // the strike piece was carried by, back through the victim's.
-                let Ok(into_victim) = victim_piece.path_transform().and_then(|map| map.inverse()).and_then(|back| strike_piece.path_transform()?.then(back)) else { continue; };
+                let Ok(victim_root) = victim_piece.path_transform().and_then(|map| map.inverse()) else { continue; };
+                let Ok(into_victim) = strike_piece.path_transform().and_then(|map| map.then(victim_root)) else { continue; };
+                let Ok(material_into_victim) = strike_piece.transform().then(victim_root) else { continue; };
                 let Ok(from_victim) = into_victim.inverse() else { continue; };
                 let through = strike_piece.is_carried() || victim_piece.is_carried();
                 // Where they touch: in the chart they meet in.
@@ -1292,6 +1298,12 @@ pub fn apply_hitbox_damage(
                     // could not tell one from a weak one.
                     HitKnockbackMagnitude::LaunchSpeed(_) => magnitude,
                 };
+                // Launch speed uses the contacting material scale across a root rebase.
+                let magnitude = match magnitude {
+                    HitKnockbackMagnitude::FeelScale(value) => material_into_victim.length(value).map(HitKnockbackMagnitude::FeelScale),
+                    HitKnockbackMagnitude::LaunchSpeed(value) => material_into_victim.length(value).map(HitKnockbackMagnitude::LaunchSpeed),
+                };
+                let Ok(magnitude) = magnitude else { continue; };
                 let Ok(victim_in_source) = from_victim.point(victim_body.center()) else { continue; };
                 let Ok(launch_dir) = hitbox.launch_world(owner_kin.get(hitbox.owner).ok(), spatial_source, victim_in_source) else { continue; };
                 let launch_dir = launch_dir

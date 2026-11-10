@@ -299,7 +299,10 @@ pub(crate) fn draw_body_debug(
     // The overlay's maneuver reads via the same projection the sim publishes.
     let facts = ae::BodyMotionFacts::from_model(motion_model);
     // Use the accepted physical shape on the presentation clock.
-    let Ok(volume) = clusters.kinematics.canonical_box() else {
+    let Ok(volume) = clusters.kinematics.canonical_box().and_then(|source| {
+        let map = clusters.kinematics.material_map()?;
+        ae::frame::thread::map_volume(&source, &map)
+    }) else {
         return;
     };
     let volume = volume.translated(pos - clusters.kinematics.pos);

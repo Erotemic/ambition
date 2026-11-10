@@ -343,9 +343,29 @@ pub fn resolve_control_slots(
                     control.fly_toggle_pressed = false;
                 }
             }
-            // Movement + Interact slots have NO device verb in this frame. A
-            // technique placed there has no wired path yet → reject, never drop.
-            ControlSlot::Jump | ControlSlot::Burst | ControlSlot::Blink | ControlSlot::Interact => {
+            // A technique on Blink replaces the kernel's blink (Contextual and
+            // Precision Blink are content). It takes the whole edge, held and
+            // released too, because a blink aims while held and commits on
+            // release. Any other gate leaves the kernel's blink alone: the
+            // kernel's own `blink` capability decides it.
+            ControlSlot::Blink => {
+                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
+                    edges.set(
+                        id,
+                        Edge {
+                            pressed: control.blink_pressed,
+                            held: control.blink_held,
+                            released: control.blink_released,
+                        },
+                    );
+                    control.blink_pressed = false;
+                    control.blink_held = false;
+                    control.blink_released = false;
+                }
+            }
+            // A technique on Jump, Burst or Interact has no wired path yet:
+            // reject it, never drop it.
+            ControlSlot::Jump | ControlSlot::Burst | ControlSlot::Interact => {
                 if let Some(ActionGate::Technique(id)) = gate.as_ref() {
                     unroutable.push(UnroutableTechnique {
                         slot,
@@ -975,6 +995,31 @@ mod tests {
         assert!(!control.melee_released);
     }
 
+    /// A technique on Blink takes the whole blink edge, and the kernel sees no
+    /// blink. The control: the movement gate leaves the edge to the kernel.
+    #[test]
+    fn a_blink_technique_takes_the_blink_edge_from_the_kernel() {
+        let hot = || {
+            let mut control = ActorControlFrame::default();
+            control.blink_pressed = true;
+            control.blink_held = true;
+            control.blink_released = true;
+            control
+        };
+        let mut edges = ResolvedTechniqueEdges::default();
+        let mut control = hot();
+        let scheme = one_slot_scheme(ControlSlot::Blink, Some(ActionGate::Technique("t".into())));
+        assert!(resolve_control_slots(&scheme, &mut control, &mut edges, false).is_empty());
+        assert_eq!(edges.edge("t"), Edge { pressed: true, held: true, released: true });
+        let kernel = control.to_input_state();
+        assert!(!kernel.blink_pressed() && !kernel.blink_held() && !kernel.blink_released());
+
+        let mut control = hot();
+        let scheme = one_slot_scheme(ControlSlot::Blink, Some(ActionGate::Move("v".into())));
+        assert!(resolve_control_slots(&scheme, &mut control, &mut edges, false).is_empty());
+        assert!(control.to_input_state().blink_pressed(), "control: a non-technique gate kept the kernel's blink");
+    }
+
     /// A held item repurposes the Attack and Projectile verbs (throw / use) and
     /// shield+attack IS the throw gesture, so an ABSENT Attack / Projectile /
     /// Shield slot must NOT strip its verb while an item is held. Special has no
@@ -1011,18 +1056,12 @@ mod tests {
         );
     }
 
-    /// A technique declared on a slot with NO device verb in the combat frame (a
-    /// movement or Interact slot) is REJECTED — returned so the caller can
-    /// debug-assert — rather than silently swallowed. Those slots wait on the
-    /// Phase-3 kernel re-key.
+    /// A technique declared on Jump, Burst or Interact is REJECTED — returned
+    /// so the caller can debug-assert — rather than silently swallowed. (Blink
+    /// routes one: `a_blink_technique_takes_the_blink_edge_from_the_kernel`.)
     #[test]
     fn technique_on_a_non_combat_slot_is_rejected_not_dropped() {
-        for slot in [
-            ControlSlot::Jump,
-            ControlSlot::Burst,
-            ControlSlot::Blink,
-            ControlSlot::Interact,
-        ] {
+        for slot in [ControlSlot::Jump, ControlSlot::Burst, ControlSlot::Interact] {
             let scheme = one_slot_scheme(slot, Some(ActionGate::Technique("warp".into())));
             let mut control = ActorControlFrame::default();
             let mut edges = ResolvedTechniqueEdges::default();

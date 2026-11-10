@@ -69,7 +69,7 @@
         lead_seconds: 0.35,
     ),
     // The thrown items that hurt the body they strike, by held-item id, and
-    // bounce off it. An item with no row lands and hurts nobody (the javelin
+    // bounce off it. An item with no row lands and hurts nobody (the gun-sword
     // and the axe). A tilt throw ahead leaves the hand at about 480 px/s and a
     // smash throw at about 820; a fall of a body's height arrives at about
     // 370. `rebound` is the fraction of its speed an item keeps, reversed,

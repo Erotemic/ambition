@@ -2,7 +2,7 @@
 //!
 //! The player takes the Blink in the hub's basement (a held item: Attack
 //! becomes a blink), goes from the hub to Alice through the real exits of each
-//! room, takes her note, carries it to Bob, and hands it over. The player
+//! room, takes her battery for Bob, carries it to him, and hands it over. The player
 //! walks by keys (`common::walk`): to the Blink, and to and through each exit,
 //! with Interact at a door and confirm on a cutscene's beats. The room
 //! transition after that is the shipped one, and no step puts the body
@@ -12,7 +12,7 @@
 //! custody of the one Blink.
 //!
 //! A second participant joins on a second pad, stays at Alice while the
-//! player carries the note to Bob, and sees Alice's return lock open in its
+//! player carries the battery to Bob, and sees Alice's return lock open in its
 //! own live room. A death with the Blink in hand sends it back to where it
 //! lay.
 
@@ -21,7 +21,7 @@ use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{App, Entity, KeyCode};
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, room_of};
-use crate::the_note_travels_from_alice_to_bob::{
+use crate::alices_battery_reaches_bob::{
     the_player_enters, the_shipped_session, bag, flag, quest_step, talk_and_choose, NOTE_FLAG,
     SURVEY_FLAG,
 };
@@ -78,7 +78,7 @@ fn take(app: &mut App, id: &SimId) -> ae::Vec2 {
         panic!("the player did not walk to `{}`: {why}", id.as_str());
     }
     for _ in 0..40 {
-        crate::the_note_travels_from_alice_to_bob::tap(app, KeyCode::KeyX);
+        crate::alices_battery_reaches_bob::tap(app, KeyCode::KeyX);
         if the_player_holds(app, id) {
             return at;
         }
@@ -93,7 +93,7 @@ fn attack_travel(app: &mut App) -> f32 {
         app.update();
     }
     let before = app.world().get::<ae::BodyKinematics>(body).expect("a body").pos;
-    crate::the_note_travels_from_alice_to_bob::tap(app, KeyCode::KeyX);
+    crate::alices_battery_reaches_bob::tap(app, KeyCode::KeyX);
     for _ in 0..20 {
         app.update();
     }
@@ -149,7 +149,7 @@ fn gate_stands(app: &App, block: &str) -> bool {
     .any(|solid| solid.name.contains(block))
 }
 
-/// ⭐ ONE PLAYTHROUGH: from the hub to Alice through six real exits, the note to
+/// ⭐ ONE PLAYTHROUGH: from the hub to Alice through six real exits, the battery to
 /// Bob, the wall the survey opens is open when the player comes back, and a
 /// save taken in another room is written to its file, and a new App in this
 /// process reads that file with all of it: the bag, the flags, the quest step,
@@ -171,19 +171,19 @@ fn the_note_reaches_bob_and_opens_alices_return() {
     assert!(gate_stands(&app, RETURN_LOCK), "before the survey, Alice's return lock does not stand");
 
     assert!(the_player_holds(&mut app, &blink), "the Blink did not come along to Alice");
-    talk_and_choose(&mut app, "npc_alice", "Take the note.");
+    talk_and_choose(&mut app, "npc_alice", "What can I do?");
     assert_eq!(
-        (bag(&app, "sealednote"), flag(&app, NOTE_FLAG), quest_step(&app)),
+        (bag(&app, "sparebattery"), flag(&app, NOTE_FLAG), quest_step(&app)),
         (1, true, Some(step0 + 1)),
-        "(notes, note flag, quest step) after Alice's choice"
+        "(batteries, Alice's flag, quest step) after Alice's choice"
     );
 
     go_through(&mut app, "bob_relay");
-    talk_and_choose(&mut app, "npc_bob", "Hand him the sealed note.");
+    talk_and_choose(&mut app, "npc_bob", "Hand him the battery.");
     assert_eq!(
-        (bag(&app, "sealednote"), bag(&app, "fieldsurvey"), flag(&app, SURVEY_FLAG), quest_step(&app)),
+        (bag(&app, "sparebattery"), bag(&app, "fieldsurvey"), flag(&app, SURVEY_FLAG), quest_step(&app)),
         (0, 1, true, Some(step0 + 2)),
-        "(notes, surveys, survey flag, quest step) after Bob's choice"
+        "(batteries, surveys, survey flag, quest step) after Bob's choice"
     );
 
     go_through(&mut app, "alice_relay");
@@ -207,9 +207,9 @@ fn the_note_reaches_bob_and_opens_alices_return() {
     // With no checkpoint, a load starts in the hub.
     assert_eq!(live_room(&mut app), "central_hub_complex");
     assert_eq!(
-        (bag(&app, "sealednote"), bag(&app, "fieldsurvey"), flag(&app, NOTE_FLAG), flag(&app, SURVEY_FLAG), quest_step(&app)),
+        (bag(&app, "sparebattery"), bag(&app, "fieldsurvey"), flag(&app, NOTE_FLAG), flag(&app, SURVEY_FLAG), quest_step(&app)),
         (0, 1, true, true, Some(step0 + 2)),
-        "(notes, surveys, note flag, survey flag, quest step) after the load"
+        "(batteries, surveys, Alice's flag, survey flag, quest step) after the load"
     );
     for room in ROUTE_TO_ALICE {
         go_through(&mut app, room);
@@ -266,7 +266,7 @@ fn a_rendered_shipped_session() -> App {
 
 /// ⭐ PLAYABLE WHERE IT IS DRAWN. The same capability, route and hand-over in
 /// the composition with a render app, and the same facts: the Blink in the
-/// hand at Alice, the note to Bob, and Alice's return lock open. The render
+/// hand at Alice, the battery to Bob, and Alice's return lock open. The render
 /// app runs on its own thread after `cleanup` (pipelined rendering), so the
 /// test holds the wgpu device that the render app was given; a pixel of the
 /// lock is `capture_scene`'s question. The control is `NoWindow`, which has
@@ -285,9 +285,9 @@ fn the_playthrough_runs_in_the_composition_that_draws_it() {
         go_through(&mut app, room);
     }
     assert!(the_player_holds(&mut app, &blink), "the Blink did not come along to Alice");
-    talk_and_choose(&mut app, "npc_alice", "Take the note.");
+    talk_and_choose(&mut app, "npc_alice", "What can I do?");
     go_through(&mut app, "bob_relay");
-    talk_and_choose(&mut app, "npc_bob", "Hand him the sealed note.");
+    talk_and_choose(&mut app, "npc_bob", "Hand him the battery.");
     go_through(&mut app, "alice_relay");
     assert!(
         flag(&app, SURVEY_FLAG) && !gate_stands(&app, RETURN_LOCK),
@@ -370,18 +370,18 @@ fn gates_by_live_room(app: &mut App, block: &str) -> Vec<(String, bool)> {
 }
 
 /// ⭐ TWO PARTICIPANTS, APART: a second seat joins beside the player at Alice
-/// and stays there while the player carries the note to Bob in the next room.
+/// and stays there while the player carries the battery to Bob in the next room.
 /// The hand-over opens Alice's return lock in the second participant's live
 /// room, while the two rooms are live at once and neither body moves between
 /// them.
 #[test]
 fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
     // The setting on, so the session holds a seat for a second player.
-    let mut app = crate::the_note_travels_from_alice_to_bob::the_shipped_session_accepting_joins(true);
+    let mut app = crate::alices_battery_reaches_bob::the_shipped_session_accepting_joins(true);
     for room in ROUTE_TO_ALICE {
         go_through(&mut app, room);
     }
-    talk_and_choose(&mut app, "npc_alice", "Take the note.");
+    talk_and_choose(&mut app, "npc_alice", "What can I do?");
 
     let second = join_the_second_seat(&mut app);
     assert_eq!(room_of(&app, second).as_deref(), Some("alice_relay"), "the second seat joins in the player's room");
@@ -395,8 +395,8 @@ fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
         "(live room, return lock stands) with the two participants apart, before the hand-over"
     );
 
-    talk_and_choose(&mut app, "npc_bob", "Hand him the sealed note.");
-    assert_eq!(flag(&app, SURVEY_FLAG), true, "Bob took the note");
+    talk_and_choose(&mut app, "npc_bob", "Hand him the battery.");
+    assert_eq!(flag(&app, SURVEY_FLAG), true, "Bob took the battery");
     for _ in 0..10 {
         app.update();
     }
@@ -462,9 +462,9 @@ fn a_death_sends_the_blink_back_to_where_it_lay() {
     for room in &ROUTE_TO_ALICE[1..] {
         go_through(&mut app, room);
     }
-    talk_and_choose(&mut app, "npc_alice", "Take the note.");
+    talk_and_choose(&mut app, "npc_alice", "What can I do?");
     go_through(&mut app, "bob_relay");
-    talk_and_choose(&mut app, "npc_bob", "Hand him the sealed note.");
+    talk_and_choose(&mut app, "npc_bob", "Hand him the battery.");
     go_through(&mut app, "alice_relay");
     assert!(the_player_holds(&mut app, &blink), "control: the Blink is in hand when the player dies");
 

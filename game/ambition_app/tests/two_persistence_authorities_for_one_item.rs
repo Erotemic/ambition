@@ -26,9 +26,23 @@ const AUTHORED_REWARD: &str = "ground_gun_sword";
 const AUTHORED_REWARD_ITEM: Item = Item::GunSword;
 
 /// The item the first fixture saves a COUNT of and then turns into an INSTANCE.
-/// A javelin's authored `use_behavior` is `ThrowOnUse`, so a plain `Attack`
-/// throws it — the mint happens on the ordinary pressed action.
-const COUNTED_ITEM: Item = Item::Javelin;
+/// A held gauntlet equipped out of the bag's count table, so there is no
+/// object behind the hand until a throw makes one. Not the gun-sword: that is
+/// the authored reward above, and the two must be different items. Its throw
+/// is Shield+Attack ([`throw_what_the_hand_holds`]). (The Javelin, thrown by a
+/// plain Attack, was removed from the game on 2026-11-10.)
+const COUNTED_ITEM: Item = Item::Grapple;
+
+/// Shield+Attack: the throw that throws anything a hand holds.
+/// `AgentAction` hardcodes `shield_held: false`, so this goes through the
+/// control frame directly.
+fn throw_what_the_hand_holds(sim: &mut Platformer2dSimHarness) {
+    sim.step_frame(ambition_platformer2d::engine_core::ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..Default::default()
+    });
+}
 
 type Custody = ambition_platformer2d::held_items::ItemCustody;
 type Ground = ambition_platformer2d::held_items::GroundItem;
@@ -227,7 +241,7 @@ fn equip_the_counted_item(
 ) {
     let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
     let spec = ambition_platformer2d::held_items::held_spec_for_item(items.get(), COUNTED_ITEM)
-        .expect("the javelin is a wired weapon with a held spec");
+        .expect("the grapple is a wired weapon with a held spec");
     ambition_platformer2d::held_items::equip_held_spec(
         &mut commands,
         player,
@@ -312,10 +326,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
     let after_equip = catalog_count(&mut sim, COUNTED_ITEM);
 
     // ── THROW: the quantity becomes an instance ──────────────────────────────
-    sim.step(AgentAction {
-        attack: true,
-        ..base()
-    });
+    throw_what_the_hand_holds(&mut sim);
     sim.step_n(base(), 120);
     let minted: Vec<SimId> = dynamic_occurrences(&mut sim)
         .into_iter()
@@ -393,7 +404,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
          `stored.max(equipped)`); and the death reads 1 because \
          `OwnedItemsBaseline` put the stored row back when it retracted the \
          instance. ⛔ this array was [1,1,1,1,1] until 2026-08-19 and that was \
-         D132's surviving defect, not its design: one granted javelin could be \
+         D132's surviving defect, not its design: one granted grapple could be \
          thrown twice and manifest two objects."
     );
 
@@ -403,7 +414,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
         "⭐ ANSWER 3 — the save says 0 and the hand holds 1, AND THAT IS THE FORK \
          CLOSING rather than the two authorities disagreeing. ⛔ this read 1 and \
          1 until 2026-08-19, and the old note said why that was bad: they agreed \
-         'because the row was never spent… one javelin is being described \
+         'because the row was never spent… one grapple is being described \
          twice.' Now the quantity became the object and stopped being a \
          quantity, so the file describes it ONCE — as an object in a hand, \
          restored by custody — and the stored row is honestly empty. ⚠ the \
@@ -547,10 +558,7 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
         .run_system_once(equip_the_counted_item)
         .expect("the equip runs");
     sim.step_n(base(), 2);
-    sim.step(AgentAction {
-        attack: true,
-        ..base()
-    });
+    throw_what_the_hand_holds(&mut sim);
     sim.step_n(base(), 120);
     let minted: Vec<SimId> = dynamic_occurrences(&mut sim)
         .into_iter()
@@ -583,7 +591,7 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
     eprintln!("MEASURED  granted={granted} granted_saved={granted_saved}");
     assert_eq!(
         granted, 1,
-        "⛔ the javelin was GIVEN before the checkpoint. A reset that retracts \
+        "⛔ the grapple was GIVEN before the checkpoint. A reset that retracts \
          the entitlement along with the object has confused a quantity with an \
          occurrence and taken away something the checkpoint saw the player owning"
     );

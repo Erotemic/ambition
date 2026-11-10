@@ -38,7 +38,7 @@ pub enum ItemCategory {
     Ability,
     /// A stackable consumable (health/mana cell, …). Confirm = use one.
     Consumable,
-    /// A unique quest/key item (map fragment, sealed note, …). Owned flag only;
+    /// A unique quest/key item (the field survey, …). Owned flag only;
     /// not directly usable from the grid.
     KeyItem,
     /// A reserved slot kept to hold the grid's shape — a future item lands here.
@@ -68,7 +68,9 @@ pub enum Item {
     MarkRecall = 11,
     // Row 3 — held weapons and tools.
     PortalGun = 12,
-    Javelin = 13,
+    /// An empty slot of the grid: no item. The Javelin was here (removed
+    /// 2026-11-10 at the maintainer's request of 2026-10-30).
+    Empty3 = 13,
     GunSword = 14,
     PuppySlugGun = 15,
     Bomb = 16,
@@ -79,7 +81,9 @@ pub enum Item {
     HealthCell = 18,
     ManaCell = 19,
     SpareBattery = 20,
-    SealedNote = 21,
+    /// An empty slot of the grid: no item. The Sealed Note was here (removed
+    /// 2026-11-10; Alice now hands over a Spare Battery).
+    Empty4 = 21,
     FieldSurvey = 22,
     /// An empty slot of the grid: no item. The Map Fragment was here
     /// (removed 2026-10-30: nothing in the game gave it or used it).
@@ -330,7 +334,7 @@ impl Item {
         Item::Grapple,
         Item::MarkRecall,
         Item::PortalGun,
-        Item::Javelin,
+        Item::Empty3,
         Item::GunSword,
         Item::PuppySlugGun,
         Item::Bomb,
@@ -338,7 +342,7 @@ impl Item {
         Item::HealthCell,
         Item::ManaCell,
         Item::SpareBattery,
-        Item::SealedNote,
+        Item::Empty4,
         Item::FieldSurvey,
         Item::Empty2,
     ];
@@ -596,8 +600,8 @@ impl OwnedItems {
     /// one. A placeholder (`ItemCatalog::is_real` is false) stays locked.
     ///
     /// ⛔ A KEY ITEM IS NOT AN UNLOCK. It is a fact of a quest: the intro
-    /// quest gives the Sealed Note and takes it for the Field Survey, so a bag
-    /// that starts with them lets the player hand Bob a note Alice never gave.
+    /// quest gives Bob's Field Survey for what Alice sent, so a bag that starts
+    /// with it skips the errand.
     pub fn starter(catalog: &ItemCatalog) -> Self {
         let mut owned = Self::default();
         for item in Item::ALL {

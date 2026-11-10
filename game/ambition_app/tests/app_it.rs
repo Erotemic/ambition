@@ -152,7 +152,7 @@ mod death_restores_the_checkpoint;
 mod declared_art_resolves;
 mod the_admission_road_answers_for_the_shipped_ownership_mode;
 mod a_room_entry_cutscene_plays_on_first_entry_and_holds_input;
-mod the_note_travels_from_alice_to_bob;
+mod alices_battery_reaches_bob;
 mod a_conversation_waits_under_the_pause_menu;
 mod the_keyboard_moves_the_player_in_the_shipped_host;
 mod desync_canary;

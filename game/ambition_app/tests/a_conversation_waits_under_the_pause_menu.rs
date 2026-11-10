@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross};
-use crate::the_note_travels_from_alice_to_bob::{
+use crate::alices_battery_reaches_bob::{
     the_shipped_session, dialog_active, npc, put_body_at, tap,
 };
 

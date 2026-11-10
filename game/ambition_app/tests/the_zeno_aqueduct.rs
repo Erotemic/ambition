@@ -164,7 +164,7 @@ fn the_fibonacci_meadow_lies_east_of_the_woods() {
 /// under it is pulled; then up into the woods, and back down: a loop.
 #[test]
 fn the_roots_loop_the_mine_back_up_into_the_woods() {
-    use crate::the_note_travels_from_alice_to_bob::tap;
+    use crate::alices_battery_reaches_bob::tap;
     use ambition_platformer2d::engine_core as ae;
     use bevy::prelude::KeyCode;
 

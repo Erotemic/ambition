@@ -141,13 +141,13 @@
         dialog_id: "portalgun",
         icon: Some("sprites/props/portal_gun_blue.png"),
     ),
+    // An empty slot (the Javelin was here; removed 2026-11-10).
     (
-        display_name: "Javelin",
-        description: "A throwing spear. Using it throws it.",
-        category: Held,
-        held_item_id: Some("javelin"),
-        dialog_id: "javelin",
-        icon: Some("sprites/props/javelin.png"),
+        display_name: "Empty",
+        description: "",
+        category: Reserved,
+        held_item_id: None,
+        dialog_id: "empty3",
     ),
     (
         display_name: "Gun-Sword",
@@ -212,12 +212,13 @@
         dialog_id: "sparebattery",
         stack: 99,
     ),
+    // An empty slot (the Sealed Note was here; removed 2026-11-10).
     (
-        display_name: "Sealed Note",
-        description: "Alice\'s sealed note — carry it to Bob.",
-        category: KeyItem,
+        display_name: "Empty",
+        description: "",
+        category: Reserved,
         held_item_id: None,
-        dialog_id: "sealednote",
+        dialog_id: "empty4",
     ),
     (
         display_name: "Field Survey",

@@ -7,12 +7,16 @@ title: alice_intro_stub
     -> What now?
         <<jump alice_after_bob_survey__1>>
     -> ⟨leave⟩
-<<elseif condition("world.flag_set", "alice_route_note_carried")>>
-    Alice: Bob is up the low route. Give him the note, not me.
+<<elseif condition("world.flag_set", "alice_route_note_carried") and condition("inventory.holds", "sparebattery")>>
+    Alice: Bob is up the low route. Give him the battery, not me.
     -> ⟨leave⟩
+<<elseif condition("world.flag_set", "alice_route_note_carried")>>
+    Alice: You lost it? Take another. Bob is up the low route.
+    <<give_item "sparebattery" 1>>
+    -> ⟨pocket the battery⟩
 <<else>>
     Alice: Put the official map away. Patrols use the same one.
-    -> Take the note.
+    -> What can I do?
         <<jump alice_intro_stub__1>>
     -> Why are the patrols using your map?
         Alice: Someone asked us to mark the passages under the gate stack. Said it was for repairs.
@@ -25,10 +29,10 @@ title: alice_intro_stub__1
 ---
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
-Alice: Take this to Bob. Keep it folded until you're out of sight.
-<<give_item "sealednote" 1>>
+Alice: Bob's survey lamp died on the low route. Take him this battery, and keep it out of sight.
+<<give_item "sparebattery" 1>>
 <<command "world.set_flag" "alice_route_note_carried" true>>
--> ⟨pocket the note⟩
+-> ⟨pocket the battery⟩
 ===
 
 title: alice_after_bob_survey__1
@@ -44,16 +48,16 @@ Alice: Keep Bob's pencil marks. The printed routes are watched; his aren't.
 
 title: bob_intro_stub
 ---
-<<if condition("inventory.holds", "sealednote")>>
-    Bob: That's Alice's fold. Hand it here. ...You came through the low route? Huh. Good.
-    -> Hand him the sealed note.
-        <<sell_item "sealednote" 0>>
+<<if condition("world.flag_set", "alice_route_note_carried") and condition("inventory.holds", "sparebattery")>>
+    Bob: Alice sent a battery? Hand it here. ...You came through the low route? Huh. Good.
+    -> Hand him the battery.
+        <<sell_item "sparebattery" 0>>
         <<give_item "fieldsurvey" 1>>
         <<command "world.set_flag" "bob_field_survey_received" true>>
         <<jump bob_intro_stub__1>>
-    -> ⟨keep it folded⟩
+    -> ⟨keep it for now⟩
 <<else>>
-    Bob: Alice sent you? Then she gave you a folded note. Bring it here when you have it.
+    Bob: Alice sent you? Then she gave you a battery for my lamp. Bring it here when you have it.
     -> Why are you up here?
         <<jump bob_intro_stub__2>>
     -> ⟨leave him to it⟩

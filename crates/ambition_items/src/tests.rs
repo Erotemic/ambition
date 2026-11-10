@@ -49,7 +49,7 @@ fn item_meta_table_is_index_aligned() {
         (Item::Grapple, "Grapple Hook"),
         (Item::MarkRecall, "Mark / Recall"),
         (Item::PortalGun, "Portal Gun"),
-        (Item::Javelin, "Javelin"),
+        (Item::Empty3, "Empty"),
         (Item::GunSword, "Gun-Sword"),
         (Item::PuppySlugGun, "Puppy-Slug Gun"),
         (Item::Bomb, "Bomb"),
@@ -57,7 +57,7 @@ fn item_meta_table_is_index_aligned() {
         (Item::HealthCell, "Health Cell"),
         (Item::ManaCell, "Mana Cell"),
         (Item::SpareBattery, "Spare Battery"),
-        (Item::SealedNote, "Sealed Note"),
+        (Item::Empty4, "Empty"),
         (Item::FieldSurvey, "Field Survey"),
         (Item::Empty2, "Empty"),
     ];
@@ -81,12 +81,16 @@ fn held_item_ids_round_trip_for_every_wired_item() {
             );
         }
     }
-    // The wired set is exactly these six (everything else is None).
+    // The wired set is exactly these (everything else is None).
     let wired: Vec<Item> = Item::ALL
         .into_iter()
         .filter(|i| shipped().held_item_id(*i).is_some())
         .collect();
-    assert_eq!(wired.len(), 6, "wired held-items: {wired:?}");
+    assert_eq!(
+        wired,
+        [Item::Grapple, Item::MarkRecall, Item::GunSword, Item::PuppySlugGun, Item::Bomb],
+        "wired held-items"
+    );
 }
 
 #[test]
@@ -196,7 +200,7 @@ fn the_hand_projects_over_the_bag_without_writing_it() {
     let wielding = Inventory::new(&owned, Some(Item::GunSword));
     assert!(wielding.has(Item::GunSword));
     assert!(wielding.is_equipped(Item::GunSword));
-    assert!(!wielding.is_equipped(Item::Javelin));
+    assert!(!wielding.is_equipped(Item::Bomb));
     assert_eq!(wielding.count(Item::GunSword), 1);
     assert_eq!(
         owned.count(Item::GunSword),
@@ -299,20 +303,22 @@ fn the_starter_bag_unlocks_every_real_item() {
             assert_eq!(catalog.is_real(item), catalog.wears(item).is_some(), "{item:?}");
         }
     }
-    for item in [Item::EyeLaser, Item::PortalGun, Item::GunSword, Item::Javelin, Item::Grapple] {
+    for item in [Item::EyeLaser, Item::PortalGun, Item::GunSword, Item::Grapple] {
         assert!(owned.has(item), "{item:?} is unlocked");
     }
     for placeholder in [Item::Lightning, Item::AxeStance, Item::WhipStance, Item::DashTwo, Item::ContextualBlink] {
         assert!(!owned.has(placeholder), "{placeholder:?} is a placeholder");
     }
-    for quest_item in [Item::SealedNote, Item::FieldSurvey] {
+    for quest_item in [Item::FieldSurvey] {
         assert!(!owned.has(quest_item), "{quest_item:?} is given by the intro quest");
     }
     // The battery does nothing: it is a key item (a quest reward), not an
     // unlock.
     assert_eq!(catalog.category(Item::SpareBattery), Some(ItemCategory::KeyItem));
     assert!(!owned.has(Item::SpareBattery), "the battery is a quest reward");
-    assert!(!owned.has(Item::Empty1) && !owned.has(Item::Empty2));
+    for empty in [Item::Empty1, Item::Empty2, Item::Empty3, Item::Empty4] {
+        assert!(!owned.has(empty), "{empty:?} is no item");
+    }
 }
 
 /// A save that lacks an unlock (made before the item was added, or while it
@@ -326,14 +332,16 @@ fn a_load_keeps_the_unlocks_of_the_starting_bag() {
     let starting = OwnedItems::starter(catalog);
     let mut loaded = OwnedItems::default();
     loaded.grant(catalog, Item::HealthCell, 1);
-    let javelin = catalog.held_item_id(Item::Javelin).expect("the javelin is a held item");
-    loaded.keep_unlocks(catalog, &starting, |held| held == javelin);
+    let gun_sword = catalog.held_item_id(Item::GunSword).expect("the gun-sword is a held item");
+    loaded.grant(catalog, Item::SpareBattery, 1);
+    loaded.keep_unlocks(catalog, &starting, |held| held == gun_sword);
 
-    for item in [Item::EyeLaser, Item::Fireball, Item::GunSword, Item::PortalGun, Item::Grapple] {
+    for item in [Item::EyeLaser, Item::Fireball, Item::PortalGun, Item::Grapple] {
         assert!(loaded.has(item), "{item:?} is unlocked again");
     }
-    assert!(!loaded.has(Item::Javelin), "the save holds the javelin's object: no second one");
-    assert!(!loaded.has(Item::SealedNote), "a key item stays as the save says");
+    assert!(!loaded.has(Item::GunSword), "the save holds the gun-sword's object: no second one");
+    assert!(!loaded.has(Item::FieldSurvey), "a key item stays as the save says");
+    assert_eq!(loaded.count(Item::SpareBattery), 1, "a key item stays as the save says");
     assert_eq!(loaded.count(Item::Bomb), 0, "a stack stays as the save says");
     assert_eq!(loaded.count(Item::HealthCell), 1, "a stack stays as the save says");
     assert!(!loaded.has(Item::AxeStance), "a placeholder is not in the starting bag");

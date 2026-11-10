@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`autoplay`](src/autoplay.rs) | An unattended *real* Smash match for phone/desktop profiling. |
 | [`bolt`](src/bolt.rs) | The steered bolt, end to end in this game. |
 | [`bomb`](src/bomb.rs) | The bomb, end to end in this game. |
 | [`capture`](src/capture.rs) | Capture's authored-effect chain, exercised end to end. |
@@ -26,7 +27,7 @@
 | [`tether`](src/tether.rs) | The tether reel, end to end in this game. |
 | [`text`](src/text.rs) | The lines Smash shows, as data in its pack (`assets/data/smash_text.ron`): the match's cards, the select screen, the pause offer and the launcher row. |
 
-_19 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

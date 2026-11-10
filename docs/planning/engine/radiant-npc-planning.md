@@ -1,6 +1,7 @@
 # Radiant NPC planning — authored lives on a replaceable planner
 
-**State:** OPEN. Nothing of the planner is built. This page owns the plan for
+**State:** OPEN. Slice 1 is done (2026-11-10): the core is chosen and built
+(`crates/ambition_htn`); nothing drives a body with it yet. This page owns the plan for
 [RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning).
 **Related:** [agentic character runtime](agentic-character-runtime.md) (the
 layering: facts → observations → goals → policy → typed action),
@@ -36,7 +37,7 @@ dialogue, `eureka_nikobolt` and `eureka_coulomba`).
 | Facts a plan can test | `world_facts`, `WorldFactConditionsPlugin`, `WorldMemory`, `PerceptionMemory` | [world facts](world-facts-observations-and-memory.md) |
 | A typed action to carry out | `ActionRequest` in `ActorActionMessage` | [agentic runtime](agentic-character-runtime.md#current-state) |
 | A policy seam | **closed**: `CharacterBrainTemplate` is a nine-variant enum; a new policy is about ten edits in two crates and cannot come from a game crate | [agentic runtime](agentic-character-runtime.md#current-state) |
-| An HTN library | none in `Cargo.lock` (`bevy_htn`, `bevy_bae` not present) | — |
+| An HTN library | `crates/ambition_htn` since 2026-11-10 (slice 1, below); no third-party one | — |
 
 So a planner here sits **above** errands and navigation: it picks the next
 task, and a task becomes an errand-like goal on the body that the existing
@@ -116,6 +117,41 @@ Rules the boundary keeps:
    chooses, NPC plans run where the world is authoritative. Under GGRS the
    plan state is rollback state already (slice 2's sync test); under a hosted
    world the guest receives the NPC's body and current task, not the planner.
+
+## Slice 1 result (2026-11-10): a standalone core
+
+The two published candidates were read at their sources (`bevy_htn` 0.0.1,
+`bevy_bae` 0.1.0); neither builds against this tree's Bevy 0.19, so each is
+judged by its design. The third candidate was built and measured.
+
+| | `bevy_htn` 0.0.1 | `bevy_bae` 0.1.0 | `ambition_htn` (built) |
+|---|---|---|---|
+| Bevy | 0.15, whole `bevy` | 0.18 (`bevy_ecs`, `bevy_app`, `bevy_reflect`) | none (`serde`, `ron`) |
+| Domain as data, no compile | yes: a pest-parsed `.htn` text asset | no: Rust bundles; conditions and operators are systems | yes: RON, validated when read |
+| Planner input | a `Reflect` `Component` state | properties on entities, read from the `World` | a `Facts` snapshot (`BTreeMap`) |
+| Determinism | plan ids from `rand::rng()` | depends on entity and system order | a pure function; ordered maps, no RNG or clock |
+| Explanation | the plan's task ids | debug logging | each step's method chain, and every method set aside with the first condition that failed |
+| Execution | `bevy_behave` trees as operators | operator systems | none: a step is an `Action` (verb, target) the executor turns into a goal on a body |
+| Planning time | not measured (does not build here) | not measured (does not build here) | 4.86-4.88 us per plan, release, the benchmark domain over 24 hours x 2 scientists |
+
+**Choice: `ambition_htn`.** It is the only candidate that meets the
+boundary above as written: facts in, plan out, no `World`, no Bevy type, the
+same plan on every peer. `bevy_htn`'s text authoring is the idea worth
+keeping, and the RON domain keeps it in the format the rest of the content
+uses. The executor contract is unchanged.
+
+The benchmark domain is `crates/ambition_htn/tests/data/eureka_scientists_day.ron`:
+one domain, each scientist's hours as their own facts, so Nikobolt (8-12-18)
+and Coulomba (10-13-20) keep different days. Witnesses
+(`tests/scientists_day.rs`): each follows their own hours; a taken bench is a
+different plan whose explanation names the method set aside and its failed
+condition (control: a free bench); the same facts give the same plan; a domain
+naming an undeclared task is refused by name; a domain that recurses forever
+stops at its budget. Run the measurement with
+`cargo test -p ambition_htn --release -- --ignored --nocapture`.
+
+What slice 1 does not settle: where a game's domain file lives and how it is
+reloaded (slice 6), and the executor's verbs (slice 2).
 
 ## Acceptance
 

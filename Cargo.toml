@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/ambition_htn",
     "crates/ambition_sprite_fx",
     "crates/ambition_platformer2d",
     "crates/ambition_platformer2d_publication",

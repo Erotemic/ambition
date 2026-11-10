@@ -8,10 +8,10 @@
 |---|---|
 | [`codec`](src/codec.rs) | The GGRS bridge over the floor's snapshot vocabulary. |
 | [`first_run_witness`](src/first_run_witness.rs) | The first-run witness of a sync test. |
-| [`lifecycle_commit`](src/lifecycle_commit.rs) | Confirmed-frame lifecycle commit (Track B, Piece 2). |
+| [`lifecycle_commit`](src/lifecycle_commit.rs) | Peer input-driven crossings and confirmed lifecycle barriers. |
 | [`local_session`](src/local_session.rs) | Engine ownership of the local GGRS session. |
 | [`peer`](src/peer.rs) | A P2P session over any GGRS socket, and an in-memory socket pair. |
-| [`peer_input`](src/peer_input.rs) | What one peer sends to the other each frame: the controls of a seat, and what this peer says of its pending lifecycle operation. |
+| [`peer_input`](src/peer_input.rs) | Fixed-width peer inputs carry seat controls and a compact room-preparation token. |
 | [`probes`](src/probes.rs) | Per-component checksum localization across rollback save/load. |
 | [`registrar`](src/registrar.rs) | The GGRS side of the domain-owned registration seam. |
 | [`registration`](src/registration.rs) | GGRS-backed implementation of Ambition's typed rollback registration vocabulary. |

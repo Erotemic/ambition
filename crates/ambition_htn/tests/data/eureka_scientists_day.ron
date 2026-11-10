@@ -1,0 +1,55 @@
+// The benchmark domain of RADIANT-NPC-HTN slice 1: Nikobolt's and Coulomba's
+// day in the Eureka coil lab. One domain; each scientist's own hours are facts
+// (`arrive_hour`, `lunch_hour`, `leave_hour`), so the two keep different
+// schedules. Places and objects are names the executor resolves.
+(
+    root: "live_the_day",
+    compound: {
+        "live_the_day": [
+            (name: "before work: stay home", when: [Lt("hour", Fact("arrive_hour"))], subtasks: ["be_home", "rest"]),
+            (name: "after work: go home", when: [Ge("hour", Fact("leave_hour"))], subtasks: ["be_home", "rest"]),
+            (
+                name: "lunch",
+                when: [Ge("hour", Fact("lunch_hour")), Eq("ate", Is(Bool(false)))],
+                subtasks: ["go_to_canteen", "eat"],
+            ),
+            (name: "a working day", subtasks: ["be_at_lab", "work", "talk_if_due"]),
+        ],
+        "be_home": [
+            (name: "already home", when: [Eq("at", Is(Sym("home")))], subtasks: []),
+            (name: "walk home", subtasks: ["go_home"]),
+        ],
+        "be_at_lab": [
+            (name: "already in the lab", when: [Eq("at", Is(Sym("lab")))], subtasks: []),
+            (name: "walk to the lab", subtasks: ["go_to_lab"]),
+        ],
+        "work": [
+            (name: "use the bench", when: [Eq("bench_free", Is(Bool(true)))], subtasks: ["claim_bench", "experiment", "release_bench"]),
+            (name: "read notes while the bench is taken", subtasks: ["read_notes"]),
+        ],
+        "talk_if_due": [
+            (
+                name: "talk shop with the partner",
+                when: [Eq("talked", Is(Bool(false))), Eq("partner_here", Is(Bool(true)))],
+                subtasks: ["talk"],
+            ),
+            (name: "nothing to say yet", subtasks: []),
+        ],
+    },
+    primitive: {
+        "go_home": (effects: [Set("at", Sym("home"))], action: (verb: "go_to", target: Some("home"))),
+        "rest": (action: (verb: "rest")),
+        "go_to_lab": (effects: [Set("at", Sym("lab"))], action: (verb: "go_to", target: Some("eureka_coil_lab"))),
+        "go_to_canteen": (effects: [Set("at", Sym("canteen"))], action: (verb: "go_to", target: Some("canteen"))),
+        "eat": (effects: [Set("ate", Bool(true))], action: (verb: "use", target: Some("lunch"))),
+        "claim_bench": (
+            when: [Eq("bench_free", Is(Bool(true)))],
+            effects: [Set("bench_free", Bool(false))],
+            action: (verb: "claim", target: Some("workbench")),
+        ),
+        "experiment": (effects: [Add("experiments", 1)], action: (verb: "use", target: Some("workbench"))),
+        "release_bench": (effects: [Set("bench_free", Bool(true))], action: (verb: "release", target: Some("workbench"))),
+        "read_notes": (action: (verb: "use", target: Some("notes"))),
+        "talk": (effects: [Set("talked", Bool(true))], action: (verb: "say", target: Some("eureka_talk"))),
+    },
+)

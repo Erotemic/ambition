@@ -866,6 +866,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_htn"
+version = "0.1.0"
+dependencies = [
+ "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
 name = "ambition_input"
 version = "0.1.0"
 dependencies = [

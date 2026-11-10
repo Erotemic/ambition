@@ -65,7 +65,9 @@ or updating their source. Check with
 
 **Owner:** [Radiant NPC planner](engine/radiant-npc-planning.md), [agentic character runtime](engine/agentic-character-runtime.md).
 
-**Next action:** compare `bevy_htn` authoring and `bevy_bae` execution to a standalone HTN core with the same benchmark; choose an engine-independent typed planner boundary. Implement an exclusive workbench, goal/plan interruption, and offscreen persistence without bypassing world facts or typed actor actions.
+**Done 2026-11-10 (slice 1):** compared `bevy_htn` 0.0.1 (Bevy 0.15, text domains, reflected component state, random plan ids) and `bevy_bae` 0.1.0 (Bevy 0.18, Rust-bundle domains, `World` properties) with a standalone core, and chose the core: `crates/ambition_htn` (no Bevy; RON domain validated when read; facts in, an explained plan out; 4.9 us per plan on the scientists' benchmark day) ([result](engine/radiant-npc-planning.md#slice-1-result-2026-11-10-a-standalone-core)).
+
+**Next action:** slice 2, the executor: Nikobolt follows the benchmark day in the coil lab through the existing navigation brain. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 

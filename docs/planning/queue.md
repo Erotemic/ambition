@@ -258,9 +258,16 @@ then audits the composed tree as if it were a release.
 **Owner:** `scripts/package/package_asset_guard.py` and web preview setup.
 Design: [asset library review, D](engine/asset-library-implementation-review.md#d-the-web-development-packager-does-release-level-work).
 
-**Next action:** measure the current preview operation. Add an explicit local
-composition policy that uses selected manifests and links without a deep
-payload audit. Keep the explicit strict release path.
+**Done 2026-11-10 (measured):** `compose --policy local` composes the
+selected file set without hashing, checks the tree by membership and reports
+missing inputs; `build_for_web.sh --served` uses it for a linked tree. An
+indexed alias lookup (the old per-declaration scan was 60 of 105 profiled
+seconds) speeds both policies: release 59 s to 38.6 s on this checkout, local
+22 s ([review, D](engine/asset-library-implementation-review.md#d-the-web-development-packager-does-release-level-work)).
+
+**Next action:** run the Android, Steam Deck and static web release
+packagers' final asset contracts on a machine with every generated family;
+this VM lacks four, so release composition refuses here before and after.
 
 **Acceptance:** local preview uses the same selected file set without hashing
 all media. Missing required files have a useful diagnostic. Android, Steam

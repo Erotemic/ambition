@@ -28,12 +28,19 @@ package must contain, and what the APK/rsync audits then verify.
 ``compose --materialize link`` writes the identical tree as symlinks into the
 source roots. It exists for the served-web development loop, where the composed
 tree is 1.1 GB and is re-published on every build of a wasm artifact that took
-minutes to compile. The *contract* is unchanged — the audit still reads bytes
-through the links and still checks every hash — so a linked tree proves exactly
-what a copied one proves about content, and differs only in whether the bytes
-were duplicated. A shipped package must never use it: an APK or a Steam Deck
+minutes to compile. A shipped package must never use it: an APK or a Steam Deck
 rsync cannot carry a working link out of this checkout, which is why the
 no-symlinks rule stays ON for every other consumer.
+
+Policy
+------
+
+Materialization does not choose the audit. ``--policy release`` (the default,
+and every package's) hashes each selected input and audits the composed tree's
+bytes against those digests. ``--policy local`` composes the same selected
+file set from metadata: no input is hashed, the tree is checked by membership,
+a missing declared input is reported and left out, and the contract it writes
+records no digests, so ``audit-tree`` and ``audit-zip`` refuse it.
 """
 
 from __future__ import annotations
@@ -161,7 +168,8 @@ class SourceFile:
     path: str
     source: Path
     root_name: str
-    sha256: str
+    # None under the local policy, which does not hash its inputs.
+    sha256: str | None
     size: int
 
 
@@ -175,15 +183,24 @@ class PackInputs:
     libraries: list[Path] = dataclasses.field(default_factory=list)
 
 
+#: `release` hashes every selected input and audits the composed tree's bytes:
+#: what a package that leaves this checkout must prove. `local` composes the
+#: same selected file set from metadata, checks the tree by membership, and
+#: reports missing inputs instead of refusing: a development preview.
+POLICIES = ("release", "local")
+
+
 @dataclasses.dataclass
 class AssetContract:
     profile: str
     entries: dict[str, ContractEntry]
     source_roots: tuple[str, ...]
+    policy: str = "release"
 
     def as_json(self) -> dict[str, object]:
         return {
             "version": CONTRACT_VERSION,
+            "policy": self.policy,
             "profile": self.profile,
             "source_roots": list(self.source_roots),
             "entries": [self.entries[path].as_json() for path in sorted(self.entries)],
@@ -217,6 +234,7 @@ class AssetContract:
             profile=str(data.get("profile", "unknown")),
             entries=entries,
             source_roots=tuple(map(str, roots)),
+            policy=str(data.get("policy", "release")),
         )
 
 
@@ -352,7 +370,9 @@ def assert_no_case_collisions(paths: Iterable[str], *, label: str) -> None:
         raise AssetContractError("\n".join(lines))
 
 
-def collect_source_files(repo: Path, profile: str, *, pack_root: Path | None = None) -> dict[str, SourceFile]:
+def collect_source_files(
+    repo: Path, profile: str, *, pack_root: Path | None = None, policy: str = "release"
+) -> dict[str, SourceFile]:
     excludes = profile_excludes(profile)
     root = pack_root or repo / CONTENT_ASSET_ROOT
     by_path: dict[str, SourceFile] = {}
@@ -362,7 +382,9 @@ def collect_source_files(repo: Path, profile: str, *, pack_root: Path | None = N
             return
         if logical in by_path:
             raise AssetContractError(f"Two owners of {logical!r}: {by_path[logical].source} and {path}")
-        by_path[logical] = SourceFile(logical, path, owner, sha256_path(path), path.stat().st_size)
+        by_path[logical] = SourceFile(
+            logical, path, owner, sha256_path(path) if policy == "release" else None, path.stat().st_size
+        )
 
     for logical, path in iter_regular_files(root, excludes=excludes):
         add(logical, path, source_relative_path(repo, root))
@@ -373,7 +395,9 @@ def collect_source_files(repo: Path, profile: str, *, pack_root: Path | None = N
             # Stricter than the runtime, which runs without a store's products:
             # a package of a library whose store published nothing has none to ship.
             if problem := library.requires_publication():
-                raise AssetContractError(problem)
+                if policy == "release":
+                    raise AssetContractError(problem)
+                print(f"asset contract WARNING (local): {problem}; composing its other files", file=sys.stderr)
             for logical, path in library.files().items():
                 if not matches_any(logical, excludes):
                     add(f"__libraries/{library.id}/{logical}", path, source_relative_path(repo, library.path.parent))
@@ -385,6 +409,13 @@ def collect_source_files(repo: Path, profile: str, *, pack_root: Path | None = N
 
 def resolve_declarations(declarations: dict[str, set[str]], files: dict[str, SourceFile]) -> dict[str, set[str]]:
     resolved: dict[str, set[str]] = defaultdict(set)
+    # Each library file under the name a declaration uses, indexed once: a
+    # scan of every file per declaration was most of a compose's time.
+    library_aliases: dict[str, list[str]] = defaultdict(list)
+    for logical in files:
+        parts = logical.split("/", 2)
+        if len(parts) == 3 and parts[0] == "__libraries":
+            library_aliases[parts[2]].append(logical)
     for path, origins in declarations.items():
         # The compiler names pack sources relative to their own pack.
         if PACK_SOURCE_ORIGIN in origins:
@@ -392,7 +423,7 @@ def resolve_declarations(declarations: dict[str, set[str]], files: dict[str, Sou
             origins = origins - {PACK_SOURCE_ORIGIN}
             if not origins:
                 continue
-        aliases = [logical for logical in files if logical.startswith("__libraries/") and logical.split("/", 2)[2] == path]
+        aliases = library_aliases.get(path, [])
         owners = ([path] if path in files else []) + aliases
         if not path.startswith("__libraries/") and len(owners) > 1:
             raise AssetContractError(f"Ambiguous asset {path!r}; use a content:// reference: {owners}")
@@ -592,10 +623,17 @@ def report_absent_pack_assets(absent: Sequence[ContractEntry]) -> None:
 
 
 def build_contract(
-    repo: Path, profile: str, *, strict_pack_assets: bool = False, pack_root: Path | None = None
+    repo: Path,
+    profile: str,
+    *,
+    strict_pack_assets: bool = False,
+    pack_root: Path | None = None,
+    policy: str = "release",
 ) -> tuple[AssetContract, dict[str, SourceFile]]:
+    if policy not in POLICIES:
+        raise AssetContractError(f"unknown composition policy: {policy}")
     repo = repo.resolve()
-    source_files = collect_source_files(repo, profile, pack_root=pack_root)
+    source_files = collect_source_files(repo, profile, pack_root=pack_root, policy=policy)
     pack = read_pack_inputs(repo, source_files)
     source_root = pack_root.parent / "src" if pack_root is not None else None
     declarations = resolve_declarations(
@@ -614,7 +652,7 @@ def build_contract(
         entry = entries.setdefault(rel, ContractEntry(path=rel))
         entry.origins.update(origins)
 
-    missing_source = [entry for entry in entries.values() if entry.sha256 is None]
+    missing_source = [entry for entry in entries.values() if entry.path not in source_files]
     if not strict_pack_assets:
         # An asset only the pack asks for is the pack's to miss: the compiler
         # warns about it on a development checkout and so does this.
@@ -636,13 +674,20 @@ def build_contract(
             lines.append(f"  - {entry.path}")
             for origin in sorted(entry.origins):
                 lines.append(f"      declared by {origin}")
-        raise AssetContractError("\n".join(lines))
+        if policy == "release":
+            raise AssetContractError("\n".join(lines))
+        # A preview runs as the desktop game does: without what is not made.
+        print("asset contract WARNING (local): " + "\n".join(lines)
+              + "\nThe preview is composed without them; a release package refuses.", file=sys.stderr)
+        for entry in missing_source:
+            del entries[entry.path]
 
     assert_no_case_collisions(entries, label="asset contract")
     contract = AssetContract(
         profile=profile,
         entries=entries,
         source_roots=tuple(sorted({item.root_name for item in source_files.values()})),
+        policy=policy,
     )
     return contract, source_files
 
@@ -849,10 +894,14 @@ def artifact_links(paths: Sequence[Path]) -> None:
 
 def command_compose(args: argparse.Namespace) -> None:
     repo = args.repo.resolve()
+    if args.policy == "release" and args.hash_manifest is None:
+        raise AssetContractError("a release composition writes a hash manifest: pass --hash-manifest")
     contract, source_files = build_contract(
-        repo, args.profile, strict_pack_assets=args.strict_pack_assets, pack_root=args.pack_root
+        repo, args.profile, strict_pack_assets=args.strict_pack_assets, pack_root=args.pack_root, policy=args.policy
     )
     materialize_composed_tree(source_files, args.output, mode=args.materialize)
+    # Under the local policy the entries carry no digests, so this checks the
+    # tree by membership: every selected file there, nothing else.
     audit_tree(
         contract,
         args.output,
@@ -860,22 +909,39 @@ def command_compose(args: argparse.Namespace) -> None:
         allow_symlinks=args.materialize == "link",
     )
     write_json_atomic(args.contract, contract.as_json())
-    write_hash_manifest(args.hash_manifest, contract)
+    written = [args.output, args.contract]
+    if args.policy == "release":
+        write_hash_manifest(args.hash_manifest, contract)
+        written.append(args.hash_manifest)
+    elif args.hash_manifest is not None and args.hash_manifest.exists():
+        # A manifest from an earlier release composition no longer describes this tree.
+        args.hash_manifest.unlink()
     print(
-        f"asset contract OK: {len(contract.entries)} files, profile={args.profile}, "
+        f"asset contract OK: {len(contract.entries)} files, profile={args.profile}, policy={args.policy}, "
         f"materialize={args.materialize}, tree={args.output}"
     )
-    artifact_links([args.output, args.contract, args.hash_manifest])
+    artifact_links(written)
+
+
+def release_contract(path: Path) -> AssetContract:
+    """A contract a package can be held to: one with digests."""
+    contract = load_contract(path)
+    if contract.policy != "release":
+        raise AssetContractError(
+            f"{path} is a {contract.policy} composition's contract: it records no digests, "
+            "so it cannot verify a package. Compose with --policy release."
+        )
+    return contract
 
 
 def command_audit_tree(args: argparse.Namespace) -> None:
-    contract = load_contract(args.contract)
+    contract = release_contract(args.contract)
     audit_tree(contract, args.asset_root, reject_extras=args.reject_extras)
     print(f"asset tree matches contract: {args.asset_root} ({len(contract.entries)} files)")
 
 
 def command_audit_zip(args: argparse.Namespace) -> None:
-    contract = load_contract(args.contract)
+    contract = release_contract(args.contract)
     audit_zip(contract, args.archive, args.prefix)
     print(
         f"final package matches asset contract: {args.archive} "
@@ -893,7 +959,17 @@ def make_parser() -> argparse.ArgumentParser:
     compose.add_argument("--profile", choices=sorted(PROFILE_EXCLUDES), required=True)
     compose.add_argument("--output", type=Path, required=True)
     compose.add_argument("--contract", type=Path, required=True)
-    compose.add_argument("--hash-manifest", type=Path, required=True)
+    compose.add_argument("--hash-manifest", type=Path, help="where a release composition writes its digests")
+    compose.add_argument(
+        "--policy",
+        choices=POLICIES,
+        default="release",
+        help=(
+            "release: hash every selected input and audit the tree's bytes (default; every package). "
+            "local: compose the same selected files from metadata, check the tree by membership, and "
+            "report missing inputs instead of refusing (a development preview)."
+        ),
+    )
     compose.add_argument(
         "--materialize",
         choices=("copy", "link"),
@@ -901,7 +977,7 @@ def make_parser() -> argparse.ArgumentParser:
         help=(
             "copy: real bytes, what a shipped package must contain (default). "
             "link: symlinks into the source roots, for the served-web dev loop. "
-            "The contract and its hash audit are identical either way."
+            "Materialization does not choose the audit: --policy does."
         ),
     )
     compose.add_argument(

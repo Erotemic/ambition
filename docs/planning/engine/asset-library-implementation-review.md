@@ -234,6 +234,34 @@ metadata for the file list. It can warn about missing inputs and continue when
 possible. Do not make link mode alone imply a release audit. Measure this
 path separately from native launch and static compilation.
 
+**Done 2026-11-10 (measured).** `compose --policy local` composes the same
+selected file set from metadata: no input is hashed, the composed tree is
+checked by membership (every selected file, nothing else), a declared input
+that is absent, or a library whose store published nothing, is reported and
+left out, and the contract records `"policy": "local"` with no digests, so
+`audit-tree` and `audit-zip` refuse it. `--policy release` stays the default
+and every package's. `build_for_web.sh --served` composes a linked tree
+under `local` and a `--copy-assets` tree under `release`.
+
+A profile of the old compose on this checkout (web profile, 14,827 files)
+found the largest cost was neither hash: `resolve_declarations` searched
+every file for each declaration's library alias (75 million `split` calls,
+60 of 105 profiled seconds). The aliases are now indexed once, for both
+policies. Wall time, two runs each, warm content compiler:
+
+| compose, web profile, link | before | after |
+|---|---|---|
+| release | 58.8, 59.3 s, then refuses (14 declared assets absent on this VM) | 38.5, 38.7 s, the same refusal |
+| local | (no such policy: the preview could not be composed here) | 21.3, 22.3 s, composed, the 14 reported |
+
+Witnesses: `scripts/tests/test_package_preview_policy.py` (local hashes
+nothing and composes the release file set, which a poison making it hash
+reddened; a missing declared input is a warning locally and a refusal in
+release; no audit accepts a local contract). The Android and Steam Deck
+packagers and a static web release pass no `--policy` and keep the release
+path; their final asset contracts were not run on this VM, which lacks four
+generated families.
+
 ### E. The audio publication is integrated; inspector resolution lags
 
 The library manifest declares `music`, `sfx`, `fonts`, `backgrounds`, `sprites`

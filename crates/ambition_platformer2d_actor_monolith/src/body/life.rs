@@ -676,3 +676,81 @@ fn carry_out(
     }
     Carried::Waits
 }
+
+/// The ledger as the save keeps it: each row's facts as RON text.
+fn persisted_lives(ledger: &LifeLedger) -> Vec<ambition_persistence::save_data::PersistedLife> {
+    ledger
+        .rows
+        .iter()
+        .filter_map(|(character, row)| {
+            let facts = ron::to_string(&row.facts).ok()?;
+            Some(ambition_persistence::save_data::PersistedLife { character: character.clone(), facts, planned_in: row.planned_in })
+        })
+        .collect()
+}
+
+/// Mirror the ledger into the save when they differ, once the loaded save
+/// has been applied. (sim, the durable mirror; a composition with no save
+/// has nothing to mirror into)
+pub fn persist_lives_to_save(
+    restored: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>>,
+    ledger: Res<LifeLedger>,
+    save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
+) {
+    let (Some(restored), Some(mut save)) = (restored, save) else { return };
+    if !restored.0 {
+        return;
+    }
+    let lives = persisted_lives(&ledger);
+    if save.data().lives() == lives.as_slice() {
+        return;
+    }
+    // `data_mut` only past the guard: it marks the save changed.
+    save.data_mut().set_lives(lives);
+}
+
+/// Put the saved lives into the ledger on the tick the loaded save is
+/// applied, and give each life already attached its saved row: a body built
+/// before the restore would otherwise keep a fresh life and write it over the
+/// saved one. (sim, the durable restore)
+pub fn restore_lives_from_save(
+    restored: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>>,
+    ready: Query<(), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
+    save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
+    book: Res<LifeBook>,
+    mut ledger: ResMut<LifeLedger>,
+    mut lives: Query<(&mut Life, &WornCharacter)>,
+) {
+    let (Some(restored), Some(save)) = (restored, save) else { return };
+    if restored.0 || ready.single().is_err() || save.data().lives().is_empty() {
+        return;
+    }
+    let rows: BTreeMap<String, LedgerRow> = save
+        .data()
+        .lives()
+        .iter()
+        .filter_map(|saved| {
+            let facts: Facts = ron::from_str(&saved.facts).ok()?;
+            Some((saved.character.clone(), LedgerRow { facts, planned_in: saved.planned_in }))
+        })
+        .collect();
+    if ledger.rows == rows {
+        return;
+    }
+    for (mut life, worn) in &mut lives {
+        if let (Some(spec), Some(row)) = (book.lives.get(worn.id()), rows.get(worn.id())) {
+            *life = Life::returning(spec, row);
+        }
+    }
+    ledger.rows = rows;
+}
+
+/// A New Game starts every life from the book. (fresh-run reducer)
+pub fn start_lives_fresh(
+    fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
+    mut ledger: ResMut<LifeLedger>,
+) {
+    if fresh.is_some() && !ledger.rows.is_empty() {
+        ledger.rows.clear();
+    }
+}

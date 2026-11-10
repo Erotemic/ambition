@@ -242,7 +242,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 437 -> 438: a talked-to life stops its plan, and a failed step replans.
 // 438 -> 439: `actor.life_ledger` (each character's life as its body last
 // lived it) joins the rollback state, and a returning life catches up.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 439;
+// 439 -> 440: the save (hashed in the checksum) keeps the NPC lives (save v6).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 440;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

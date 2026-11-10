@@ -90,3 +90,51 @@ fn back_in_the_evening_each_scientist_is_where_the_schedule_says() {
     assert_eq!(coulomba.facts.get("ate"), Some(&Value::Bool(true)), "her lunch at one did not happen while she was away");
     assert!((at.x - WORKBENCH_X).abs() < 64.0, "at work, Coulomba stands at x {} and not at the bench", at.x);
 }
+
+fn experiments(life: &Life) -> i64 {
+    match life.facts.get("experiments") {
+        Some(Value::Int(count)) => *count,
+        _ => 0,
+    }
+}
+
+/// ⭐ A SAVED DAY COMES BACK AFTER A LOAD. Nikobolt's experiment at half past
+/// nine is in the save's lives; a session started from that save builds him
+/// with it (his life is the saved one, caught up to the new clock). The
+/// control: a session started without the save builds him with none.
+#[test]
+fn a_saved_life_comes_back_in_a_session_started_from_the_save() {
+    let mut sim = fixed_60hz_room_sim(LAB);
+    sim.step(base());
+    set_the_clock(&mut sim, 9.5);
+    let mut done = false;
+    for _ in 0..60 * 40 {
+        sim.step(base());
+        if experiments(&life_of(&mut sim, NIKOBOLT).0) >= 1 {
+            done = true;
+            break;
+        }
+    }
+    assert!(done, "premise: Nikobolt did an experiment at half past nine");
+    sim.step_n(base(), 5);
+    let save = sim.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().clone();
+    let saved = save.lives().iter().find(|life| life.character == NIKOBOLT).cloned();
+    assert!(
+        saved.as_ref().is_some_and(|life| life.facts.contains("\"experiments\":Int(1)")),
+        "the save does not keep Nikobolt's experiment: {saved:?}"
+    );
+
+    use ambition_app::rl_sim::AmbitionSim;
+    let mut loaded = ambition_app::Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options(LAB).with_save(save),
+    )
+    .expect("the lab boots from the save");
+    loaded.step_n(base(), 60);
+    let (life, _) = life_of(&mut loaded, NIKOBOLT);
+    assert_eq!(experiments(&life), 1, "the session started from the save built Nikobolt without his experiment: {life:?}");
+
+    let mut fresh = fixed_60hz_room_sim(LAB);
+    fresh.step_n(base(), 60);
+    let (life, _) = life_of(&mut fresh, NIKOBOLT);
+    assert_eq!(experiments(&life), 0, "control: a session without the save built Nikobolt with an experiment");
+}

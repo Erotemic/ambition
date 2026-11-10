@@ -44,3 +44,9 @@ policy cases pass. Six Smash probes are ignored. The policy run required the
 GOBS dependency declaration in `0a516ddc3`; the failed engine case then passes.
 Evidence uses `target/portal-review-7-*.log`. This is a focused lane. It does
 not prove the full workspace, device, GPU or performance requirements.
+
+After the NPC planning merges, the assembled app check and all 35 workspace
+policy cases pass on `1deda4d6c`. The minimal-game lockfile and footprint
+baseline now include the two upstream vocabulary packages. All 53 absence
+contracts pass. The NPC planning contract remains an unrequested dependency
+in that baseline. Evidence uses `target/portal-review-7-published-*.log`.

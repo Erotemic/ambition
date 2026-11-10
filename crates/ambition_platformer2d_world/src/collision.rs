@@ -328,6 +328,20 @@ pub struct ComposedRooms<'a> {
 }
 
 impl<'a> ComposedRooms<'a> {
+    /// Physical solids with this body's gate passes and barriers applied.
+    pub fn physical_for(
+        &mut self,
+        collision: &'a CollisionWorld<'_, '_>,
+        room: Option<&InRoomInstance>,
+        subject: bevy_ecs::entity::Entity,
+    ) -> Option<Cow<'_, ae::World>> {
+        let (open, barriers) = collision.room(room)
+            .map(|room| (room.gates_open_for(subject), room.barriers_for(subject)))
+            .unwrap_or_default();
+        let walls = self.solids(collision, room)?;
+        Some(as_met_by(walls, &open, &[], &[], &barriers))
+    }
+
     /// [`Self::solids`] as `subject` meets them: without the gate solids that
     /// are open for it ([`GatePass`], Q54), and with the portal holes open for
     /// it cut ([`PortalHolePass`]). With neither, which is every tick a body is

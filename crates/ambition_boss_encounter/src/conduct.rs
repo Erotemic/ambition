@@ -297,6 +297,8 @@ pub fn drain_limb_poses(
 pub fn pose_limbs(
     In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbPose>>>,
     poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     riders: Query<&ambition_mount::RidingOn>,
     rigs: Query<&ambition_characters::actor::LimbRig>,
     mut limbs: Query<(
@@ -308,6 +310,7 @@ pub fn pose_limbs(
     )>,
     mut commands: Commands,
 ) {
+    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
     for submitted in requests {
         let pose = submitted.value;
         let Some(limb) = ridden_limb(submitted.scope, &pose.slot, &riders, &rigs) else {
@@ -325,12 +328,14 @@ pub fn pose_limbs(
             Some(hold) => {
                 let desired = ae::BodyKinematics { pos: ae::Vec2::from(hold.position),
                     vel: ae::Vec2::from(hold.velocity), facing: hold.facing, ..*kin };
-                if poses.constrain(limb, &mut kin, sweep.as_deref_mut(), desired).is_err() { continue; }
+                let stamp = rooms.of(limb).map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+                let Some(world) = composed.physical_for(&collision, stamp.as_ref(), limb) else { continue; };
+                if poses.constrain_translation(&world, limb, &mut kin, sweep.as_deref_mut(), desired).is_err() { continue; }
                 if !held {
                     ae::claim_pose_hold(&mut commands, limb, ae::PoseHold::Conductor);
                 }
 
-                // A discrete pose change: the next step finds the ground again.
+                // The accepted pose has no retained ground contact.
                 ground.invalidate();
             }
             None => {
@@ -1078,6 +1083,10 @@ mod limb_pose_tests {
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn submit(world: &mut World, boss: Entity, pose: LimbPose) {
+        if world.query::<&ae::RoomGeometry>().iter(world).next().is_none() {
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(world,
+                ae::RoomGeometry(ae::World::new("pose room", ae::Vec2::splat(2000.0), ae::Vec2::ZERO, vec![])));
+        }
         let request = Submitted { scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value: pose };
         world.run_system_once_with(pose_limbs, vec![request]).unwrap();
     }
@@ -1123,20 +1132,19 @@ mod limb_pose_tests {
         let mut world = World::new();
         let before = ae::BodyKinematics { pos:ae::Vec2::new(-30.0,0.0),vel:ae::Vec2::X*3.0,
             canonical_size:ae::Vec2::splat(16.0),..Default::default() };
-        let sample = ae::SweepSample { prev:before.pos-ae::Vec2::X*5.0,curr:before.pos,
-            down:ae::Vec2::Y,..Default::default() };
+        let sample = ae::SweepSample::at_tick_end(before, ae::Vec2::Y);
         let ground = ae::BodyGroundState { on_ground:true,..Default::default() };
         let left = world.spawn((before,sample,ground,ae::CenteredAabb::new(before.pos,before.size()*0.5))).id();
         let right = world.spawn((before,sample,ground,ae::CenteredAabb::new(before.pos,before.size()*0.5))).id();
         let mount = world.spawn(LimbRig::from_pairs([(LimbSlot::HAND_LEFT,left),(LimbSlot::HAND_RIGHT,right)])).id();
         let boss = world.spawn(ambition_mount::RidingOn { mount }).id();
         let mut passages = BodyGeometry::default();
-        passages.add_pair(None,(
+        passages.add_pair(Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),(
             PortalAperture { frame:PortalFrame::fixed(ae::Vec2::ZERO,-ae::Vec2::X),half_length:80.0 },
             PortalAperture { frame:PortalFrame::fixed(ae::Vec2::new(500.0,0.0),ae::Vec2::X),half_length:80.0 }));
         passages.set_body_budget(left,PieceBudget { max_hops:0,..PieceBudget::COMPOSED });
         world.insert_resource(passages);
-        let hold = LimbHold { position:[-2.0,0.0],velocity:[100.0,0.0],facing:-1.0 };
+        let hold = LimbHold { position:[30.0,0.0],velocity:[100.0,0.0],facing:-1.0 };
         submit(&mut world,boss,LimbPose { slot:"hand_left".into(),hold:Some(hold.clone()) });
         submit(&mut world,boss,LimbPose { slot:"hand_right".into(),hold:Some(hold.clone()) });
         assert_eq!(*world.get::<ae::BodyKinematics>(left).unwrap(),before);
@@ -1145,14 +1153,14 @@ mod limb_pose_tests {
         assert_eq!(world.get::<ae::CenteredAabb>(left).unwrap().center,before.pos);
         assert!(world.get::<ae::PoseOwnedExternally>(left).is_none());
         let moved = world.get::<ae::BodyKinematics>(right).unwrap();
-        assert_eq!(moved.pos,ae::Vec2::new(-2.0,0.0));
+        assert_eq!(moved.pos,ae::Vec2::new(30.0,0.0));
         assert_eq!(moved.vel,ae::Vec2::X*100.0);
         assert_eq!(moved.facing,-1.0);
         assert_eq!(world.get::<ae::CenteredAabb>(right).unwrap().center,moved.pos);
         assert!(!world.get::<ae::BodyGroundState>(right).unwrap().contact_initialized);
         world.resource_mut::<BodyGeometry>().set_body_budget(left,PieceBudget::COMPOSED);
         submit(&mut world,boss,LimbPose { slot:"hand_left".into(),hold:Some(hold) });
-        assert_eq!(world.get::<ae::BodyKinematics>(left).unwrap().pos,ae::Vec2::new(-2.0,0.0));
+        assert_eq!(world.get::<ae::BodyKinematics>(left).unwrap().pos,ae::Vec2::new(30.0,0.0));
         let retained = *world.get::<ae::BodyKinematics>(left).unwrap();
         world.entity_mut(left).insert(ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration(ae::Vec2::splat(f32::NAN)));
         submit(&mut world,boss,LimbPose { slot:"hand_left".into(),hold:None });

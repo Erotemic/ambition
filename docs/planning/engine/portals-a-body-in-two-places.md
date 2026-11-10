@@ -108,8 +108,8 @@ open items after it (`029a03a02`, `ef0dfd7e4`, `4cd9bece5`, `22f25a85d`,
   not move it.
 - Stage 6: `PortalCarves::glues` → the overlay's `portal_glues` → `as_met_by` glues
   each pair a body is in (`glue_portal_pair`), CARVE_DEPTH deep, as the hole is.
-- Stage 7: the giant draws the whole arm; the fist is posed under the near line
-  (`arms::fist_depth`); the giant's visual is cut by the pair its fist is in
+- Stage 7: the giant draws the arm; each fist has its own body.
+  The giant's visual is cut by the pair its fist is in
   (`PortalHostReach`); the fist carries its damage box (`ambition.boss.limb_strike`).
 
 ## Audit of the review of `15d0cf99c` (2026-10-16)
@@ -392,15 +392,11 @@ As proposed, then as built where it differs.
   not refused: the budget bounds a ring, and refusing a player's portal shot
   is a game decision.
 
-- **G6** `posed_limbs::stop_posed_limbs_at_what_they_meet` (after
-  `boss_conduct` lowers): a held limb goes from where it was toward its pose
-  and stops at the first solid of the world it meets (its hole, and the far
-  side of its pair glued behind the near end). A pose into something it was
-  already in, or a move of more than four times its size in a tick (a
-  reposition), is left as posed. `ambition.boss.mount` v2 tells the owner
-  where each limb touches (`contact`, at the far end when through the pair);
-  GNU-ton's landing dust is there. The host does not recoil. Taken on the
-  design's recommendations below, without Jon's answers.
+- **G6** The conductor submits a limb pose. `BodyPoseAdmission::constrain_translation`
+  sweeps its canonical material against physical room solids. It admits the
+  accepted path before one commit. A refusal retains the body, sweep, and hold.
+  Near-side, scaled far-side, and chained contacts use the same solver.
+  `ambition.boss.mount` v2 reports contact to the owner. The host does not recoil.
 
 ### Policy (portal geometry modes)
 
@@ -504,7 +500,7 @@ Decisions taken (2026-10-17, on the design's recommendations; Jon may
 revisit any of them, and each is one place in the code):
 
 - A posed fist stops at what it meets (physics), and the owner is told,
-  rather than keeping its keys (`posed_limbs`).
+  through `BodyPoseAdmission::constrain_translation`.
 - A limb meets its own side too (a fist into the floor beside the giant):
   one rule for both sides.
 - No recoil into the host.

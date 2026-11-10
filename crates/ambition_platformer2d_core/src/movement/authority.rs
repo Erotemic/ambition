@@ -284,6 +284,95 @@ pub fn prepare_body_pose(
     Ok(PreparedBodyPose { body: desired, sweep: candidate })
 }
 
+/// Sweep an external translation against full solids before one pose commit.
+pub fn prepare_body_translation(
+    world: &crate::World,
+    kinematics: &crate::body_clusters::BodyKinematics,
+    sweep: Option<&SweepSample>,
+    desired: crate::body_clusters::BodyKinematics,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    carried_vectors: &[Vec2],
+) -> Result<PreparedBodyPose, crate::frame::thread::Refusal> {
+    use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
+    let numeric = |reason| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(reason) };
+    if desired.canonical_size != kinematics.canonical_size {
+        return Err(numeric(crate::frame::NumericFault::InvalidFrame));
+    }
+    let mut prepared = prepare_body_pose(kinematics, sweep, desired, admission, carried_vectors)?;
+    let delta = desired.pos - kinematics.pos;
+    let mut sample = SweepSample { curr: desired.pos, vel: desired.vel,
+        ..SweepSample::at_rest(*kinematics, sweep.map_or(Vec2::ZERO, |sample| sample.down)) };
+    let domain = desired.canonical_box().map_err(numeric)?;
+    let cast = MaterialCast::new(MaterialPrimitive {
+        domain: &domain, to_world: kinematics.material_map().map_err(numeric)?,
+    }, kinematics.pos, delta, 0.0..1.0);
+    let contact = world.first_material_sweep(cast, admission, |collider, _, _| {
+        Ok(match collider {
+            crate::world::MaterialCollider::Block(block) => crate::collision_semantics::is_full_collision_surface(block.kind),
+            crate::world::MaterialCollider::Chain { chain, .. } => chain.kind == crate::world::SurfaceKind::Solid,
+        })
+    })?;
+    if let Some(hit) = contact {
+        prepared.body.pos = (kinematics.pos.as_dvec2() + delta.as_dvec2() * hit.contact.toi).as_vec2();
+        sample.curr = prepared.body.pos;
+        sample.travel = crate::LinearTravel::Prefix { delta, until: hit.contact.toi };
+    }
+    let cast = sample.material_cast(&domain)?;
+    match admission {
+        Some(admission) => admission.admit(cast, desired.vel, carried_vectors)?,
+        None => cast.cells(None)?.admit_payloads(desired.vel, carried_vectors)?,
+    }
+    prepared.sweep = sample;
+    Ok(prepared)
+}
+
+#[cfg(test)]
+mod translation_tests {
+    use super::*;
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame, thread::{MotionAdmission, PieceBudget, PortalLink}};
+
+    fn aperture(x: f32, y: f32, normal: Vec2, half_length: f32) -> PortalAperture {
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(x, y), normal), half_length }
+    }
+
+    #[test]
+    fn a_prepared_translation_stops_on_near_scaled_and_chained_material() {
+        let entry = |half| aperture(100.0, 300.0, -Vec2::Y, half);
+        let exit = |x, y, half| aperture(x, y, Vec2::Y, half);
+        for (pairs, shelf, expected) in [
+            (vec![], None, 292.0),
+            (vec![(entry(40.0), exit(600.0, 100.0, 20.0))], Some((600.0, 140.0)), 372.0),
+            (vec![(entry(20.0), exit(900.0, 100.0, 40.0))], Some((900.0, 180.0)), 332.0),
+            (vec![(entry(40.0), exit(600.0, 100.0, 20.0)),
+                (aperture(600.0, 120.0, -Vec2::Y, 20.0), exit(1000.0, 100.0, 20.0)),
+                (aperture(1000.0, 120.0, -Vec2::Y, 20.0), exit(1400.0, 100.0, 40.0))],
+                Some((1400.0, 140.0)), 412.0),
+        ] {
+            let links: Vec<_> = pairs.iter().enumerate().flat_map(|(index, &(a, b))| [
+                PortalLink::new(a, b, index as u32 * 2), PortalLink::new(b, a, index as u32 * 2 + 1),
+            ]).collect();
+            let mut blocks = vec![crate::Block::solid("source floor", Vec2::new(0.0, 300.0), Vec2::new(400.0, 40.0))];
+            if let Some((x, y)) = shelf {
+                blocks.push(crate::Block::solid("far stop", Vec2::new(x - 60.0, y), Vec2::new(120.0, 10.0)));
+            }
+            let world = crate::World::new("translation", Vec2::splat(2000.0), Vec2::ZERO, blocks);
+            let mut body = crate::BodyKinematics { pos: Vec2::new(100.0, 270.0),
+                canonical_size: Vec2::splat(16.0), ..Default::default() };
+            let mut sample = SweepSample::at_tick_end(body, Vec2::Y);
+            let desired = crate::BodyKinematics { pos: body.pos + Vec2::Y * 200.0, ..body };
+            let admission = (!links.is_empty()).then_some(MotionAdmission {
+                links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection,
+            });
+            prepare_body_translation(&world, &body, Some(&sample), desired, admission, &[])
+                .unwrap().commit(&mut body, Some(&mut sample));
+            assert_eq!(body.pos, Vec2::new(100.0, expected));
+            assert_eq!(sample.curr, body.pos);
+            assert_eq!(sample.time, [0.0, 1.0]);
+            assert!(matches!(sample.travel, crate::LinearTravel::Prefix { until, .. } if until < 1.0));
+        }
+    }
+}
+
 /// THE FROZEN TICK — the fifth authority: what may change a body the kernel
 /// is about to step with `dt == 0`, where nothing integrates and nothing sweeps.
 ///

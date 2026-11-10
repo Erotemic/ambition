@@ -1,48 +1,58 @@
 ---
 status: current
-last_verified: 2026-09-27
+last_verified: 2026-11-10
 ---
 
-# Room music: what plays where, and how to change it
+# Room music: selecting and editing tracks
 
-Music is chosen in one place, `simple_track_candidates` in
-`crates/ambition_platformer2d_actor_monolith/src/music/intent.rs`. Each frame
-it builds a priority list, and the first track id that exists plays.
+Ambition's music intent is built by `compute_music_intent` in
+`crates/ambition_platformer2d_audio/src/music/intent.rs`. That system selects
+which live room is heard and publishes a provider-scoped `MusicIntent`.
+`ambition_audio` resolves the chosen track or adaptive cue and plays it. A
+second live room must not change the music of the room currently heard.
 
-| priority | source | where you author it |
-|---|---|---|
-| 1 | the room's **fight** track, only while a fight is on | LDtk level field `fight_music_track` |
-| 2 | the fight's own track: a boss by phase, or a wave | `music_intro` / `music_phase1` / `music_phase2` / `music_enrage` in `game/ambition_content/assets/data/boss_encounters/<boss>.ron` |
-| 3 | a track a conversation asked for | dialogue (`NarrativeMusicRequest`) |
-| 4 | the radio | the in-game radio |
-| 5 | the room's own track | LDtk level field `music_track` |
-| 6 | the provider's default track | `default_track` in the provider's music registry |
+## Simple-track priority
 
-Adaptive cues (the goblin fight) are a separate road: see
-[`goblin-encounter.md`](goblin-encounter.md) and
-[`generated-music-workflow.md`](generated-music-workflow.md).
+`simple_track_candidates` in the same module builds this ordered list:
 
-## Which to edit
+| Priority | Candidate | Where to edit |
+| --- | --- | --- |
+| 1 | Player-selected radio station | Radio selection |
+| 2 | Room's fight override, when an encounter requests music | LDtk level `fight_music_track` |
+| 3 | Encounter's own track | Encounter or boss phase music content |
+| 4 | Conversation's requested track | Dialogue music command |
+| 5 | Room or time-of-day track | LDtk level `music_track`; `audio/music_cues.ron` room-phase mappings |
+| 6 | Active provider's default | Its generated music registry |
 
-- **"The music in room X should be Y."** Set the room's `music_track`.
-- **"The boss fight in room X should play Y."** Set the room's
-  `fight_music_track`. It changes every fight in that room and leaves the same
-  boss's music alone in every other room.
-- **"Boss B should sound like Y wherever it is fought."** Edit the four
-  `music_*` fields in B's `boss_encounters/<boss>.ron`.
+The audio director uses the first available permitted track. A radio selection
+also suppresses adaptive cues. Adaptive encounter, boss, and room cues use
+`MusicIntent::adaptive` and are resolved separately; they are not additional
+rows in the simple-track list. A conversation request takes precedence over a
+room's adaptive cue. For exact current selection rules, inspect
+`compute_music_intent` and the `ambition_audio` director.
 
-Do not edit a boss's RON to change one room's fight: another room that hosts the
-same boss changes with it.
+## Which source to edit
 
-## Track ids
+- To change one room's normal track, edit its LDtk `music_track` field.
+- To override music while an encounter is active in that room, edit the room's
+  `fight_music_track`.
+- To change a boss's music across rooms, edit that boss's encounter fields in
+  `game/ambition_content/assets/data/boss_encounters/`.
+- To change room or encounter adaptive cues, edit the provider's
+  `audio/music_cues.ron`, then validate that pack.
+- To add or rename a track, edit the authored score/selection policy and run the
+  music publication tools. The music registry is generated; do not hand-edit it.
 
-A track id is a `MusicTrack.id` in
-`game/ambition_content/assets/audio/music_registry.ron` (the `id:` column). Use
-the id, not the display name.
+`game/ambition_content/assets/pack.ron` declares `audio/music_registry.ron`
+from the `ambition_shared` library. It is **not** an ordinary file under
+`game/ambition_content/assets/audio/`. The generator is
+`scripts/regen/regen_music_registry.py`; the active library manifest in
+`game/ambition_content_library/library.json` controls the generated location.
+Use a track's `id`, not its display name.
 
-## Setting a room field
+## Edit a level field
 
-Use the tool, not a hand edit of the `.ldtk` JSON:
+Use LDtk tooling instead of editing its JSON by hand. For example:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools.edit.level_set_field \
@@ -52,15 +62,13 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools.edit.level_s
     --in-place
 ```
 
-Run it from the repository root. It re-runs the LDtk repair and validation
-passes after the edit. The LDtk editor shows both fields under each level's
-fields as well.
-
-## Check it
+The LDtk map-assets submodule must be initialized before editing that world.
+The command changes authored world content. Confirm the semantic diff, and
+validate the pack or use the focused content check:
 
 ```bash
 cargo test -p ambition_content --lib embedded_content_graph_validates
 ```
 
-An unknown id in `music_track`, `fight_music_track` or a boss's `music_*` field
-fails this test with the level or boss and the field named.
+See [`ldtk-authoring.md`](ldtk-authoring.md) and
+[`generated-music-workflow.md`](generated-music-workflow.md).

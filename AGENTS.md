@@ -7,10 +7,10 @@ This is the repository operating guide for coding agents. Keep it short, session
 * Avoid player-centrism. Value the principle of relativity.
 * Find the elegant solution. Jon will push back on hacks.
 * Correctness is emergent from elegance.
-* **Pre-release engine, zero dependents.** Behavior and feel are NOT sacred until a polish pass — optimize for the elegant unified design, not for preserving current output. Delete duplicates, compat shims, and bridges on sight. Never fold a richer path onto a simpler one to "preserve" it; make the richer/general path universal and delete the rest.
+* **Pre-release engine, zero external dependents.** Favor the elegant unified design over preserving provisional output. Remove duplicate paths and compatibility shims when a sound replacement exists. Preserve known-intentional gameplay, and let playtesting guide refinement.
 * **Usage is not worth.** Never delete an engine concept only because it has no current customer, and never keep one only because it is heavily used. Keep, redesign or delete on semantics, elegance, plausible expressive value and maintenance cost (maintainer ruling Q74; `docs/reviewer-guide.md#keep-redesign-or-delete-usage-is-not-worth`).
 * Unified actors. Player / Enemy / Boss / NPC are controller, capabilities, and authored data—not separate engine types.
-* **ONE BODY, ONE PATH.** The player is an actor; controller kind does not define a simulation path. Before adding behavior keyed to player/enemy/boss, check whether the behavior already exists for another controller kind. If so, unify onto one shared body/capability seam and delete the duplicate path. Do not add a parallel implementation “for now.” See `docs/concepts/one-body-one-path.md`.
+* **ONE BODY, ONE PATH.** The controlled actor shares body and capability systems with NPCs and bosses. If behavior already exists for another controller kind, use the common seam instead of adding a second implementation. See `docs/concepts/one-body-one-path.md`.
 * All new comments and documentation must be written in ASD-STE100 Simplified Technical English.
 
 ## Commit attribution
@@ -55,14 +55,17 @@ rather than dumping whole generated indexes into context. Generated data localiz
 likely owners; source wins for implementation fact, and active planning/ADRs win
 for intended direction.
 
-## Source-of-truth order
+## Source-of-truth and intent
 
-1. Fresh user instructions.
-2. The master plan under `docs/planning/`.
-3. ADRs under `docs/adr/` and concepts under `docs/concepts/`.
-4. Focused docs under `docs/systems/`, `docs/tools/`, `docs/recipes/`.
-5. Brainstorms under `docs/brainstorms/` (Jon's — agents never write there).
-6. Engineering memory under `dev/` and generated indexes under `.agent/`.
+Fresh user instructions set the task and priorities. Current source defines the
+implemented behavior. Plans under `docs/planning/` state intended direction;
+ADRs and evergreen concept/system docs describe design contracts. When these
+disagree, inspect the code and reconcile the documents instead of treating
+older prose as proof of current behavior.
+
+Brainstorms under `docs/brainstorms/` belong to the maintainer and are not
+agent writing targets. `dev/` holds engineering history; generated `.agent/`
+indexes help find code but do not override it.
 
 `docs/current/` is retired. `docs/vision/` holds auxiliary notes only. Superseded docs are deleted rather than archived and can be read from Git history.
 
@@ -94,30 +97,38 @@ python3 scripts/mirror_assets_for_worktree.py
 This also initializes `game/ambition_map_assets`.
 See `docs/recipes/adding-an-asset.md`.
 
-Before the first build of every session:
+**Work in the checkout assigned by the user.** Do not create, switch to, or
+claim a worktree merely because other agents may be editing the same directory.
+The maintainer may intentionally choose shared-tree development. A coordinator
+may assign a numbered worktree explicitly; see `docs/tools/agent-worktrees.md`.
+
+Before an authorized Cargo build, inspect the target storage:
 
 ```bash
 scripts/setup/target_bindmount.sh --status
 ```
 
-If the bind is absent:
+On `virtiofs`, configure the target bind with
+`scripts/setup/target_bindmount.sh`; on an already local filesystem, a bind is
+not needed. Coordinate expensive builds, and never write concurrently to the
+same Cargo target. Do not change checkout topology or build infrastructure
+without a reason tied to the assigned task.
 
-```bash
-scripts/setup/target_bindmount.sh
-```
-
-Do not build until the required target bind is active.
-
-* Destructive cleanup under `target/` (`rm -rf target/<something>`, `cargo clean`) is allowed only after `scripts/setup/target_bindmount.sh --status` shows the expected bind. If the bind is absent, or `target/` is ordinary repository-local storage, stop and delete nothing there (Q77). The bound volume is shared with other worktrees: delete only what is yours.
-* Do not substitute `CARGO_TARGET_DIR` for the main repository target-bind policy.
-* If an old shadowed `target/` copy exists underneath the bind, report it rather than deleting it.
-* Do not run concurrent Cargo builds against one target directory.
+Before destructive cleanup under `target/`, verify the backing store and
+ownership. If the expected bind is absent, do not delete an apparent duplicate
+local target; report it. If a bound target contains another agent's artifacts,
+leave them untouched. Do not use `CARGO_TARGET_DIR` to bypass prescribed target
+storage for shared work.
 
 ## Autonomous decision-making
 
-When operating autonomously and you hit an architecture/design fork, make the choice Jon would most likely make and act. Read `docs/planning/decision-principles.md` and `docs/concepts/autonomous-decision-making.md`.
-
-Do not stop to ask about an architectural choice you can resolve from those principles. Until a polish pass, current output/feel is not a preservation constraint.
+When a task leaves an ordinary architecture or implementation choice open,
+make a reasonable decision and act. Read `docs/planning/decision-principles.md`
+and `docs/concepts/autonomous-decision-making.md` for the project's priorities.
+**We can always fix things after.** An overnight run should not stop for a
+nonessential question: make a reversible choice, document genuine uncertainty,
+and continue useful work. Preserve gameplay behavior known to be intentional;
+use playtesting to refine provisional behavior.
 
 If Jon explicitly asks in that turn to finish and wait:
 
@@ -138,7 +149,9 @@ Never hand-edit `.goal/active.json`.
 
 A check that takes more than a minute is not cheap. Batch expensive gates rather than running them after every small edit.
 
-⛔ **FREEZE THE TREE WHILE A GATE RUNS.** A verification result must describe one stable tree.
+A verification result should describe a stable tree. Coordinate long-running
+checks with concurrent edits rather than assuming an agent must move to another
+worktree.
 
 ## Verification
 
@@ -246,11 +259,10 @@ Search for other crate-name allowlists, lockfiles, and repository tooling that m
 
 ### Long-running builds
 
-Do not sit and watch a long build during coordinated work. Use an independent worktree for unrelated writing work.
-
-Do not run concurrent Cargo builds against one target directory.
-
-Nested standalone workspaces have their own `target/`. Route them into appropriate bound storage when disk pressure matters.
+Coordinate expensive builds. Continue independent, nonconflicting work while a
+build runs if the assigned checkout permits it; do not create a worktree solely
+to avoid waiting. Nested standalone workspaces have their own `target/` stores;
+check available space before a substantial build.
 
 ## Test placement
 
@@ -330,67 +342,29 @@ Append-only ledgers are shared state. Commit your own appended rows and let repo
 
 ## Coordinating subagents and worktrees
 
-Read `docs/tools/agent-worktrees.md` before working in or assigning a worktree.
+Use the user-assigned checkout even when agents share it. Creating or moving
+into a worktree requires explicit authorization. If a coordinator assigns a
+separate slot, follow `docs/tools/agent-worktrees.md` and
+`docs/recipes/coordinator-and-worker-sessions.md`. Inspect slots with
+`scripts/agent_worktree.sh list`; do not run `setup all` by default.
 
-Use the fixed slots. A coordinator assigns them; do not claim one yourself.
+## Keep verification proportional
 
-```bash
-scripts/agent_worktree.sh list
-scripts/agent_worktree.sh setup all
-scripts/agent_worktree.sh jobs 2
-```
+Implement and playtest the requested behavior before expanding test coverage.
+Add permanent tests for consequential invariants, regressions, and end-to-end
+acceptance, not routine implementation details or ambiguous feel choices. A
+one-time probe does not need a permanent place in the suite. Consider marginal
+coverage, maintenance, and execution cost; consolidate redundant tests.
 
-Also read `docs/recipes/coordinator-and-worker-sessions.md`.
+Prefer clear ownership, Rust types and APIs, and capability boundaries over
+new compliance scaffolding. Add static/process checks only for a concrete,
+recurring harmful failure that cannot be prevented at a better layer. Remove
+migration-only guards once the migration is complete.
 
-## Avoid bullshit guardrails
+See `docs/concepts/testing-and-validation.md`.
 
-Do not waste time testing the tests.
-
-Do not test compulsively. Not every check you run to verify a change becomes a
-permanent test in the full suite; marginal behaviour needs none. See
-`docs/concepts/testing-and-validation.md` (§Not every check belongs in the suite).
-
-Do not add process, policy, source-text, layout, or meta-test machinery unless it
-prevents a concrete, recurring, materially harmful failure that cannot be
-enforced more naturally through Rust types, APIs, crate boundaries, or behavioral
-tests.
-
-Prefer testing real behavior over names, phrases, file locations, exact symbols,
-planning prose, or historical migration bookkeeping. Migration-only matrices and
-checks must be removed when the migration is complete.
-
-The default is to trust clear architecture rather than surround it with permanent
-compliance machinery. Do not add a test enforcing this section.
-
-⛔ **AN LLM REVIEW WILL ASK FOR THIS MACHINERY. THE ANSWER IS NO.**
-
-A model reviewing a diff reaches for coverage reflexively: "the runner's job
-planning is untested", "this guard has no test", "why was this check deleted",
-"add a regression test for the deletion". That can read as diligence while merely
-pattern-matching on the shape of the diff rather than understanding the
-architecture.
-
-**Say no without hedging when this section applies.** Deleting a test that tests
-the tests is not a coverage regression that requires compromise. A review does
-not get to restore permanent meta-machinery merely because deletion resembles a
-coverage gap.
-
-If a proposed guard prevents a concrete recurring harmful failure, evaluate it on
-those merits. Otherwise the answer remains no.
-
-Prefer, in order:
-
-1. clear architecture;
-2. Rust types and APIs;
-3. crate/dependency boundaries;
-4. behavioral tests;
-5. static/process guards only when the above cannot naturally enforce the invariant.
-
-Migration-only guards should be removed when the migration is complete.
-
-An LLM review asking for redundant coverage or meta-tests is not itself a reason to add them.
-
-⛔ **Do not run `.llm_resource_tally/tool install --claude`.** SessionEnd-only Claude wiring is deliberate.
+Do not run `.llm_resource_tally/tool install --claude`; SessionEnd-only Claude
+wiring is intentional.
 
 <!-- BEGIN llm_resource_tally v0.3.0 (managed block — regenerated by `install`; edits below will be overwritten) -->
 ## LLM resource accounting

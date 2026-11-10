@@ -6,10 +6,10 @@ it.
 ## TL;DR
 
 ```bash
-# build the validator ONCE (~seconds; it links no game and no Bevy renderer)
+# build the validator once; it links no game and no Bevy renderer
 cargo build -p ambition_content_schemas --bin ambition_content_check
 
-# thereafter, every edit costs milliseconds
+# then run it again after each content edit
 ./target/debug/ambition_content_check game/ambition_content/assets \
     --asset-root game/ambition_content_library/generated/runtime
 ```
@@ -20,15 +20,15 @@ schemas can use the generic binary, `cargo run -p ambition_content_cli --bin
 ambition_content -- <pack-dir>`.
 
 ⚠ **pass that `--asset-root`.** Ambition's binary payloads live in the engine's
-asset tree, not beside `pack.ron`, so the pack-root-only default reports every
-sprite sheet and all 72 music tracks as missing. That is the asset check working
+asset tree, not beside `pack.ron`, so the pack-root-only default can report
+shared sprites and music tracks as missing. That is the asset check working
 — it is looking where you told it to — but it is not the invocation you want.
 
-Measured on the shipped pack (17 sources, 322 content identities — 140
-characters, 72 music tracks, 24 items, 24 enemy archetypes, 15 SFX cues, 9
-bosses, 9 boss encounters, 9 boss seeds, 17 presets — 342 assets, 298 resolved
-references): **~17 ms**, and it passes STRICT with zero missing assets. The rebuild it replaces is ~10 minutes. Exit status is 1 on refusal and
-0 on pass, so this is usable as a CI gate and not only as a report.
+The manifest changes as content grows. Do not use old source counts, content
+identity totals, or historical timings as a validator acceptance criterion.
+The command reports the current results. Runtime depends on the content and
+asset tree. Exit status is 1 on refusal and 0 on pass, so the validator can
+also serve as a CI gate.
 
 ## Add a character
 

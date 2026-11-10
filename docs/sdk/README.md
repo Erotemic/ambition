@@ -28,12 +28,15 @@ ratchet instead of expanding the public API by accident.
 
 ## Before any of that: your `Cargo.toml`
 
-Start with this dependency setup. Rollback consumers currently need the patch
-table below because Cargo patch tables do not cross workspace boundaries:
+This is an example dependency for a desktop game with LDtk and the basic
+visible/input shell. Select additional capabilities, such as audio or
+rollback, only as the game needs them. Rollback consumers need the patch table
+shown below because Cargo patch tables do not cross workspace boundaries.
+Omit that table when rollback is not selected:
 
 ```toml
 [dependencies]
-ambition_platformer2d = { path = "../path/to/ambition/crates/ambition_platformer2d" }
+ambition_platformer2d = { path = "../path/to/ambition/crates/ambition_platformer2d", default-features = false, features = ["ldtk", "visible", "input", "desktop_platform", "basic_shell_presentation"] }
 
 # Only if you `#[derive(Component)]` or `#[derive(Resource)]` yourself — the
 # derive macros resolve `::bevy_ecs` through YOUR manifest and a re-export does
@@ -45,7 +48,7 @@ bevy = "0.19"
 [profile.dev]
 debug = 0
 
-# ⚠ REQUIRED WHEN YOU SELECT ROLLBACK (the default `all_capabilities` does).
+# Required only for rollback consumers (the default `all_capabilities` selects it).
 # Ambition's GGRS backend needs `GgrsFrameTiming`, which was merged UPSTREAM as
 # gschup/bevy_ggrs#134 but landed AFTER the v0.22.0 release, so the crates.io
 # crate does not have it yet. Cargo patch tables do NOT cross a workspace
@@ -57,12 +60,12 @@ debug = 0
 bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }
 ```
 
-**And a `.cargo/config.toml`**, for the same reason the patch table is needed —
-it does not cross a workspace boundary either:
+**Optional Linux build-speed configuration** in `.cargo/config.toml`
+(requires the named linker tools):
 
 ```toml
-# The engine repo uses these; a slow default linker on a ~250-crate graph is the
-# difference between a 3-minute build and a 15-minute one.
+# Optional developer linker configuration for a Linux host with clang and mold.
+# This is a build-time optimization, not required for the engine API.
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
@@ -153,8 +156,13 @@ what was tested.
 
 ### Cargo features
 
-Default features work for both faces and are the right starting point. The
-facade exposes ~30 more; the ones a game reaches for first:
+The facade currently defaults to `all_capabilities`, which includes portal
+and rollback dependencies. A new game should normally select the capabilities
+it uses with `default-features = false` and explicit features. Use the broad
+default for compatibility or for a host that deliberately wants that closure.
+Some facade dependencies are still unconditional; feature selection does not
+yet produce a completely minimal engine. Check the current facade manifest when
+minimizing a game's closure. Useful features include:
 
 | Feature | For |
 |---|---|

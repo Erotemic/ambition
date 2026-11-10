@@ -80,8 +80,9 @@ System docs are intentionally fewer and shorter than the source. They explain a
 current cross-crate flow or authority boundary that cannot be discovered from a
 single module map. Exact symbol inventories belong in `.agent/`, not prose.
 
-Start with [`systems/index.md`](systems/index.md). If a system page reads like a
-migration ledger, future plan, or dated audit, DELETE it.
+Start with [`systems/index.md`](systems/index.md). System pages describe
+current behavior; move historical implementation diaries and future plans to
+an appropriate planning or review location.
 
 ## Procedures and tools
 
@@ -133,9 +134,7 @@ When exact paths are useful, verify them in the same patch and include a
 `last_verified` date. Delete completed migration narratives rather than keeping
 them in `systems/`.
 
-Run after documentation changes:
-
-```bash
-python scripts/checks/check_doc_links.py
-python scripts/generate_agent_index.py
-```
+After changing the documented API or workflow, compare the claims with the
+current implementation. Use `python scripts/checks/check_doc_links.py` for
+broken links, and regenerate `.agent/` navigation with
+`python scripts/generate_agent_index.py` when the index inputs change.

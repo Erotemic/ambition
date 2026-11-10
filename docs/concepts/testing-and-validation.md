@@ -13,8 +13,9 @@ implemented_by:
 
 # Testing and validation
 
-Validation should prove the invariant at the narrowest owning layer, then prove
-that the assembled provider/host still uses that path.
+Use the cheapest check that can reveal an important defect in the change.
+Use assembled-game or playable acceptance when integration or feel is the
+question; small implementation details often need no permanent test.
 
 ## Canonical front door
 
@@ -53,9 +54,9 @@ Unknown packages and empty selections are errors.
 5. **Visible/device acceptance** — only for visual feel, focus, layout, audio
    device behavior, packaging, or performance.
 
-When a change needs a check, do not skip levels 1–4 merely because the visible
-binary is hard to automate; improve the headless seam instead. Whether it needs
-a permanent test at all is the next section's question.
+This is a menu of verification tools, not a sequence every change must run.
+Choose the level that can falsify the meaningful claim. Gameplay and presentation
+changes may need a playable witness; a unit test cannot substitute for it.
 
 ## Validation states and cadence
 
@@ -87,9 +88,9 @@ list only says when to ask them:
 
 | Boundary | Run | Owner of the rule |
 | --- | --- | --- |
-| Each edit | The cheapest check that can fail for the change | [cheapest sufficient check](../recipes/cheapest-sufficient-check.md#the-matrix) |
-| Each push | The checks `python3 scripts/required_checks.py` names for the change, and `cargo check --workspace --all-targets` | `scripts/required_checks.py`; it reports and a push does not wait for it (Q166) |
-| Handoff or milestone | The default plan, `./run_tests.sh` | `scripts/run_tests.py`; its footer names what the plan does not cover |
+| During implementation | The cheapest relevant check, when the changed behavior warrants it | [cheapest sufficient check](../recipes/cheapest-sufficient-check.md#the-matrix) |
+| Push | Inspect `python3 scripts/required_checks.py` for relevant outstanding coverage; use targeted checks first | `scripts/required_checks.py` reports but does not block the push (Q166) |
+| Handoff or milestone | Focused acceptance plus the default plan when justified by integration scope or requested by the maintainer | `scripts/run_tests.py`; its footer names what the plan does not cover |
 | Release, or a change to features, an SDK surface or the web path | `./run_tests.sh --run-everything-you-probably-dont-need-this` | the same footer |
 
 At a push, `required_checks.py` requires the union feature job for a change to
@@ -125,10 +126,9 @@ marginal. A suite that takes hours hinders more than it helps.
   you to keep it. Keep a test in the default suite when it guards behaviour
   that matters and could plausibly break again; leave a one-off check in the
   commit message or the owner doc.
-- **Weigh the cost.** An `ambition_app` test boots the whole game; each one adds
-  seconds to every full run. Prefer the narrowest level that can fail (a unit
-  test in the owner crate) and one representative scenario over several
-  near-duplicates.
+- **Weigh the cost.** An `ambition_app` test can require expensive app setup.
+  Prefer one meaningful scenario over near-duplicates; keep a unit test only
+  when it establishes an important invariant more cheaply.
 - **Measurements and controls are not suite members.** A print-only measurement
   is an ignored `probe_*`. A control that proved a witness could fail once
   needs no permanent slot unless the witness's premise is fragile.
@@ -138,7 +138,8 @@ marginal. A suite that takes hours hinders more than it helps.
   ([cheapest sufficient check](../recipes/cheapest-sufficient-check.md#the-matrix));
   the full suite belongs at a milestone, not at every edit.
 
-⛔ **And ask of every green test whether it COULD have failed.**
+A passing check is useful only if it exercised the relevant code and could
+have failed for the defect at issue.
 [`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md) is the
 doctrine: a check that never executed, a check that executed and could not fail,
 a guard whose source-text anchor a formatter or a language rule can silently
@@ -177,9 +178,8 @@ Other `scripts/check_*.py` that a change often owes:
 | `feature_gated_tests.py` | to see what a green default run was silent about |
 | `check_disk_headroom.py` | already wired into the runner |
 
-⇒ Prefer `./run_tests.sh` over hand-picking from this list — the point of naming
-them here is that a reader who reaches for a focused check should know the list
-is longer than three, not that they should run them one at a time.
+Use the checks that bear on the change. Inspect `./run_tests.sh --list`
+when a full lane is justified; otherwise keep verification targeted.
 
 Formatting is useful but not a correctness oracle. A patch should not be blocked
 solely because formatting tooling is unavailable when behavior/invariants are

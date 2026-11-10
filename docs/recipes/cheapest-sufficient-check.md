@@ -1,20 +1,16 @@
 # The cheapest command that settles a change
 
-Pick the row for what you changed. Run it. Read what the row says it does not
-cover. Stop.
-
-`./run_tests.sh` looks like the safe default, and it keeps agents from running
-the focused test that matters. Knowing which narrow command is SUFFICIENT is the
-fix. The GitHub workflow runs only on manual dispatch, and the maintainer runs the
-exhaustive sweep periodically. Running it mid-edit duplicates that sweep and adds
-no safety.
+Choose the smallest check that can reveal a consequential defect in the
+change. The table lists useful commands and limits, not a mandatory sequence
+for every edit. The maintainer runs broad sweeps at selected milestones;
+repeating them after each edit displaces implementation and playtesting.
 
 ## The matrix
 
 | what you changed | run this | what it does NOT cover |
 |---|---|---|
-| a doc, a plan | per edit, the planning guards (`python3 scripts/checks/check_planning_citations.py --strict`, `python3 scripts/checks/check_planning_anchors_resolve.py`, `python3 scripts/checks/check_doc_links.py`); at a push, the repo tooling job, which runs them and reads `AGENTS.md` and the goal file | a crate: no crate compiles prose |
-| Rust inside ONE crate, no public API moved | `cargo test -p <crate>` | anything composing that crate; feature-gated tests |
+| documentation | read the changed claims against source; `python3 scripts/checks/check_doc_links.py` for edited links, planning citation checks when citations moved | a link check cannot decide whether prose is correct |
+| Rust inside one crate, no public API moved | `cargo check -p <crate>` or a focused test for the changed behavior | assembled-game behavior; feature-gated tests |
 | anything the app composes | `cargo check -p ambition_app` | behaviour. A per-crate `cargo check` can be green while the app build fails. |
 | anything a `#[cfg(feature = …)]` gates | `cargo test -p <crate> --features <f>` (or `cargo check -p <crate> --features <combo> --all-targets`) | that the app still builds; other feature combinations |
 | a crate SEAM: a trait, a re-export, a dependency edge, a registration | `cargo check -p ambition_app`, then `cargo test -p ambition_app --test app_it -- <module>` | a defect that exists only where two CONTENT crates meet |
@@ -27,7 +23,7 @@ no safety.
 | generated assets or a regen script | the regen script, then the guard it feeds | another session may regenerate the same tree |
 | Python tooling or a guard in `scripts/` | `python3 -m pytest scripts/tests/ -q` | everything Rust |
 | LDtk tooling | `tools/ambition_ldtk_tools/.venv/bin/python -m pytest tests -q` (from that directory) | anything that consumes what it emits |
-| a runner or workspace-wide change | `./run_tests.sh` | feature-gated tests, the consumer fixtures, the wasm link |
+| a runner or workspace-wide change | a focused runner or policy check, then `./run_tests.sh` when the integration scope warrants it | feature-gated tests, the consumer fixtures, the wasm link |
 | ONE job in a lane failed and you fixed it | `./run_tests.sh <lane> --only-job "<substring of the job name>"` | every sibling job in that lane |
 | features, the SDK surface, or the web path, before a release | `./run_tests.sh --run-everything-you-probably-dont-need-this` | `#[ignore]`d tests and acceptance cycles; add `--heavy` |
 
@@ -69,12 +65,10 @@ Notes:
   (`dev/ambition_dev_measurements/run_tests_cost.jsonl`).
 - **Do not run the exhaustive plan out of caution.** Run it when a row names your
   change.
-- **Do not skip `repo tooling (scripts/tests)`.** It runs
-  `test_every_contract_holds_against_the_live_tree` in
-  `scripts/tests/test_absence_contracts.py`, which is the only check that catches
-  a registration or a dependency edge in the wrong place.
-  `python3 scripts/checks/check_absence_contracts.py` exits 1 on a violation, with or
-  without `--check` (before 2026-10-04 the run without the flag exited 0).
+- **Check architecture boundaries when they change.** The focused
+  `python3 scripts/checks/check_absence_contracts.py --check` validates
+  dependency and registration absence contracts. The repository tooling job
+  includes this validation. Use it for architecture changes, not for every edit.
 
 ## Why each caveat is there
 
@@ -94,12 +88,12 @@ Notes:
   builds and tests clean. A hand-listed set of dependencies is a population;
   `git grep` finds it.
 
-## Sweeping failures: one big run, then targeted only
+## Sweeping failures
 
-Run the big suite once. Fix each failure and verify it with a targeted run
-(`cargo test -p <crate> --test <target> <filter>`). Do not re-run the full suite
-to confirm a fix the targeted run already confirmed. The next periodic sweep
-catches anything else.
+When a milestone or integration task calls for a broad run, run it once and
+record the failures. Fix and verify each relevant failure with a focused
+command. The next scheduled or requested sweep handles the remaining suite.
+Do not start a broad run merely because the task changed one small function.
 
 ## Interlace architecture and feature work
 
@@ -107,21 +101,19 @@ Alternate architecture tasks and feature tasks on purpose. A feature complaint i
 a report from the place where the whole stack is assembled, and it often exposes
 an engine defect that architecture work cannot see.
 
-## Write ahead in a worktree, build on the main tree
+## Coordinated builds and assigned worktrees
 
-Every job reads the live tree, so a running suite freezes editing. Write the next
-change in a second worktree while the main tree builds. See
-[`../tools/agent-worktrees.md`](../tools/agent-worktrees.md).
+Use the checkout assigned by the maintainer, including a shared checkout when
+that is deliberate. Do not create or switch to a worktree simply to avoid
+concurrent edits or while another agent builds. A coordinator can explicitly
+assign a numbered worktree when isolation is useful; see
+[`agent-worktrees.md`](../tools/agent-worktrees.md).
 
-- In an agent run, hand a subagent an independent task with
-  `isolation: "worktree"`. Give it files you are not editing, and say so in its
-  prompt. `cd` to the repository root first: a nested repository such as
-  `tools/ambition_sprite2d_renderer` gives the subagent the wrong tree.
-- Do NOT build in the worktree. A second `target/` is a full cold duplicate and
-  the volume is shared.
-- Mirror the assets first: `python3 scripts/mirror_assets_for_worktree.py`.
-  Generated art is gitignored. An assetless tree compiles an empty sheet table,
-  and unrelated tests fail.
+Coordinate expensive builds so verification observes a coherent version of
+the code. When a separate build is authorized, use isolated target storage.
+On a local filesystem a bind mount is optional; on `virtiofs`, use
+`scripts/setup/target_bindmount.sh`. Do not duplicate a cold Cargo build as a
+default safety measure.
 
 ## When a run is slow, get the distribution
 

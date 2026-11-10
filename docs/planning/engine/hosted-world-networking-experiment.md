@@ -117,13 +117,44 @@ every scene, at 9.4–16.3 ms of host update a frame against 8.4–9.9 ms for
 the late-applying host and 33–48 ms for each GGRS peer
 ([result](island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
 
+### NA-2b, first measurement (2026-11-10): a guest App that simulates nothing
+
+Fixture: `game/ambition_app/tests/a_guest_app_applies_the_host.rs`,
+`probe_what_a_guest_app_costs` (ignored; a measurement).
+
+The guest is a second App, booted to the same room with the same two seats,
+so its bodies carry the host's `SimId`s. Every simulation phase in it is gated
+off. Each frame it takes the host's body rows (position, velocity, facing)
+from three frames earlier, writes them onto its bodies by id, and updates.
+The host is NA-2's, which applies Bob's input three frames late. One run,
+240 frames:
+
+| Room | Host ms a frame | Guest ms a frame (worst) | Applying a snapshot | Ids on one side only | Bodies the guest moved itself |
+|---|---|---|---|---|---|
+| `switch_lab` (2 bodies) | 8.97 | 4.64 (326) | 0.080 ms | 0 | 0 |
+| `central_hub_complex` (18) | 9.76 | 4.50 (293) | 0.114 ms | 0 | 0 |
+
+- **A guest that simulates nothing still costs about half a host frame.** In
+  a headless debug build, an App with every simulation phase gated off spends
+  about 4.5 ms an update, in either room. That is the App and its shell, not
+  the bodies. It is not split yet.
+- **Applying bodies is cheap:** 0.08–0.11 ms for 2–18 bodies.
+- **The gate holds:** no body moved on the guest between snapshots, so the
+  guest draws only what the host sent.
+- **Bob sees his own input six frames late** (three to the host, three back)
+  before any interpolation buffer. That delay is what NA-3's prediction is
+  for.
+- **Not yet exercised:** nothing was spawned in either window (Alice's attacks
+  are melee), so spawn and despawn by `SimId` were never needed. A scene with
+  shots or a death is the next measurement, and it needs a replicated spawn
+  row per kind.
+
 ## Next
 
-1. **NA-2b — a guest App.** Apply the host's room-scoped snapshot to a guest
-   App that runs no simulation of its own (interpolated remote bodies only),
-   and measure its update cost and the visible delay of its own body. This
-   needs a replicated-state schema: the body rows, then the identified
-   entities, with spawn/despawn by `SimId`.
+1. **NA-2b — a guest App.** First measurement above: body rows only, no
+   spawns. Next: a scene that spawns and despawns (shots, a death), with a
+   replicated spawn row per kind by `SimId`; split the gated guest's 4.5 ms;
+   send only the guest's room.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

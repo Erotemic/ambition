@@ -30,7 +30,7 @@ pub fn stop_posed_limbs_at_what_they_meet(
         }
         let delta = step.curr - step.prev;
         let half = kin.size() * 0.5;
-        if delta.length() <= 1e-4 || delta.length() > 4.0 * kin.size().max_element().max(1.0) {
+        if delta == Vec2::ZERO {
             continue;
         }
         let Some(world) = composed.solids_for(&collision, room, limb) else {
@@ -144,4 +144,76 @@ mod tests {
         // floor's plane, its centre at 332.
         assert_eq!(pose_down(&mut app, limb, 12.0, 10), 332.0);
     }
+
+    fn aperture(x: f32, y: f32, normal: Vec2, half_length: f32) -> PortalAperture {
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(x, y), normal), half_length }
+    }
+
+    fn native_scene(pairs: &[(PortalAperture, PortalAperture)], shelves: Vec<ae::Block>, entries: &[usize]) -> (App, Entity, Vec<Entity>) {
+        use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(), ae::RoomGeometry(ae::World::new("limb contacts", Vec2::splat(2000.0), Vec2::ZERO, shelves)));
+        app.add_systems(Update, stop_posed_limbs_at_what_they_meet);
+        let host = app.world_mut().spawn_empty().id();
+        let mut geometry = BodyGeometry::new(MapConvention::Reflection)
+            .with_default_budget(ae::frame::thread::PieceBudget::COMPOSED);
+        for &pair in pairs { geometry.add_pair(None, pair); }
+        let mut limbs = Vec::new();
+        for (slot, pair) in [ambition_characters::actor::LimbSlot::HAND_LEFT,
+            ambition_characters::actor::LimbSlot::HAND_RIGHT].into_iter().zip(entries.iter().map(|&i| &pairs[i])) {
+            let at = pair.0.frame.origin - Vec2::Y * 30.0;
+            let kin = ae::BodyKinematics { pos: at, canonical_size: Vec2::splat(16.0), ..Default::default() };
+            let limb = app.world_mut().spawn((kin, ae::SweepSample::at_rest(kin, Vec2::Y),
+                ae::PoseOwnedExternally::only(ae::PoseHold::Conductor),
+                ambition_characters::actor::Limb { of: host, slot, home_offset: at })).id();
+            geometry.add_straddler(limb, pair.0, pair.1);
+            limbs.push(limb);
+        }
+        app.insert_resource(geometry);
+        (app, host, limbs)
+    }
+
+    #[test]
+    fn two_attached_limbs_meet_independent_scaled_exits_in_the_same_tick() {
+        let pairs = [
+            (aperture(100.0, 300.0, -Vec2::Y, 40.0), aperture(600.0, 100.0, Vec2::Y, 20.0)),
+            (aperture(300.0, 300.0, -Vec2::Y, 20.0), aperture(900.0, 100.0, Vec2::Y, 40.0)),
+        ];
+        let (mut app, host, limbs) = native_scene(&pairs, vec![
+            ae::Block::solid("small hand stop", Vec2::new(560.0, 140.0), Vec2::new(80.0, 10.0)),
+            ae::Block::solid("large hand stop", Vec2::new(840.0, 180.0), Vec2::new(120.0, 10.0)),
+        ], &[0, 1]);
+        for _ in 0..12 {
+            for &limb in &limbs {
+                let kin = *app.world().get::<ae::BodyKinematics>(limb).unwrap();
+                let desired = ae::BodyKinematics { pos: kin.pos + Vec2::Y * 12.0, ..kin };
+                app.world_mut().entity_mut(limb).insert((desired,
+                    ae::SweepSample { prev: kin.pos, curr: desired.pos, ..ae::SweepSample::at_rest(kin, Vec2::Y) }));
+            }
+            app.update();
+        }
+        for (&limb, expected) in limbs.iter().zip([372.0, 332.0]) {
+            assert_eq!(app.world().get::<ae::BodyKinematics>(limb).unwrap().pos.y, expected);
+            assert_eq!(app.world().get::<ambition_characters::actor::Limb>(limb).unwrap().of, host);
+        }
+        assert_eq!(app.world_mut().query::<&ambition_characters::actor::Limb>().iter(app.world()).count(), 2);
+    }
+
+    #[test]
+    fn a_fast_attached_limb_stops_at_the_solid_after_three_portal_pairs() {
+        let pairs = [
+            (aperture(100.0, 300.0, -Vec2::Y, 40.0), aperture(600.0, 100.0, Vec2::Y, 20.0)),
+            (aperture(600.0, 120.0, -Vec2::Y, 20.0), aperture(1000.0, 100.0, Vec2::Y, 20.0)),
+            (aperture(1000.0, 120.0, -Vec2::Y, 20.0), aperture(1400.0, 100.0, Vec2::Y, 40.0)),
+        ];
+        let (mut app, host, limbs) = native_scene(&pairs, vec![
+            ae::Block::solid("third exit stop", Vec2::new(1360.0, 140.0), Vec2::new(80.0, 10.0)),
+        ], &[0]);
+        let limb = limbs[0];
+        assert_eq!(pose_down(&mut app, limb, 200.0, 1), 412.0);
+        assert_eq!(app.world().get::<ambition_characters::actor::Limb>(limb).unwrap().of, host);
+        assert_eq!(app.world().get::<ae::SweepSample>(limb).unwrap().curr.y, 412.0);
+    }
+
 }

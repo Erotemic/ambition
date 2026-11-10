@@ -2632,3 +2632,78 @@ fn how_the_giant_moves_frame_by_frame() {
         println!("[gnu] f{at:4} {:<14} {:<26} {what}", f.performing.as_deref().unwrap_or("-"), f.row);
     }
 }
+
+
+#[test]
+fn both_gnu_ton_fists_keep_their_owner_through_scaled_pairs_and_a_third_cut() {
+    use ambition_platformer2d::portal::{PlacedPortal, PortalChannel, PortalChannelColor, PortalHost,
+        PortalConvention, PortalTuning, EditablePortalTuning, PortalGeometry, PortalTransit};
+    use ambition_platformer2d::engine_core::frame::thread::MaterialPrimitive;
+    use ambition_platformer2d::platformer::body::geometry::BodyGeometry;
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    let mut sim = arena_with_free_fists();
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    step_until(&mut sim, 600, "two active fists clear of each other", |sim| {
+        let world = sim.world_mut();
+        let fists: Vec<_> = world.query::<(&Limb, &ae::BodyKinematics)>().iter(world)
+            .filter(|(limb, _)| is_fist(limb)).map(|(_, kin)| *kin).collect();
+        fists.len() == 2 && (fists[0].pos.x - fists[1].pos.x).abs()
+            > (fists[0].half_extent().x + fists[1].half_extent().x) * 2.0
+    });
+    let fists: Vec<_> = {
+        let world = sim.world_mut();
+        let mut rows: Vec<_> = world.query::<(Entity, &Limb, &ae::BodyKinematics, &InRoomInstance)>()
+            .iter(world).filter(|(_, limb, ..)| is_fist(limb))
+            .map(|(entity, limb, kin, room)| (entity, limb.clone(), *kin, *room)).collect();
+        rows.sort_by_key(|(_, limb, ..)| limb.slot.as_str().to_owned());
+        rows
+    };
+    assert_eq!(fists.len(), 2);
+    assert_eq!(fists[0].1.of, fists[1].1.of);
+    let world = sim.world_mut();
+    {
+        let mut tuning = world.resource_mut::<PortalTuning>();
+        tuning.convention = PortalConvention::Reflection;
+        tuning.geometry = PortalGeometry::Composed { max_hops: 4, max_pieces: 64, max_scale_exponent: 32 };
+    }
+    let tuning = *world.resource::<PortalTuning>();
+    world.resource_mut::<EditablePortalTuning>().convention = tuning.convention;
+    world.resource_mut::<EditablePortalTuning>().geometry = tuning.geometry;
+    let channel = |index| PortalChannel::Authored(PortalChannelColor::Indexed(index));
+    let mut add = |index, at, normal, half, room| {
+        let mut portal = PlacedPortal::fixed(channel(index), at, normal, half).unwrap();
+        portal.host = PortalHost::Static;
+        world.spawn((portal, room));
+    };
+    for (index, (_, _, kin, room)) in fists.iter().enumerate() {
+        let half = kin.half_extent().x * 1.5;
+        let scale = if index == 0 { 0.5 } else { 2.0 };
+        add(100 + index as u8 * 2, kin.pos + Vec2::Y * kin.half_extent().y * 0.5, -Vec2::Y, half, *room);
+        add(101 + index as u8 * 2, Vec2::new(100.0 + index as f32 * 500.0, 200.0), Vec2::Y, half * scale, *room);
+        if index == 0 {
+            add(104, Vec2::new(100.0, 201.0), -Vec2::Y, half * 0.5, *room);
+            add(105, Vec2::new(100.0, 400.0), Vec2::Y, half * 0.5, *room);
+            add(106, Vec2::new(100.0, 401.0), -Vec2::Y, half * 0.5, *room);
+            add(107, Vec2::new(100.0, 600.0), Vec2::Y, half * 0.5, *room);
+        }
+    }
+    sim.rebase_rollback_history().unwrap();
+    for _ in 0..3 { sim.step(AgentAction::default()); }
+    for (index, (entity, original, _, room)) in fists.iter().enumerate() {
+        let world = sim.world();
+        assert_eq!(world.get::<Limb>(*entity).unwrap().of, original.of);
+        assert_eq!(world.get::<PortalTransit>(*entity).unwrap().straddling, channel(100 + index as u8 * 2), "initial fists: {fists:?}");
+        let kin = world.get::<ae::BodyKinematics>(*entity).unwrap();
+        let domain = kin.canonical_box().unwrap();
+        let pieces = world.resource::<BodyGeometry>().body_pieces(
+            MaterialPrimitive { domain: &domain, to_world: kin.material_map().unwrap() }, *entity, Some(room.0)).unwrap();
+        let expected_hops = if index == 0 { 3 } else { 1 };
+        let far = pieces.iter().find(|piece| piece.path.len() == expected_hops).expect("the fist reaches its final exit");
+        let map = far.path_transform().unwrap();
+        assert_eq!(map.scale(), if index == 0 { 0.5 } else { 2.0 });
+        assert!(map.reflected());
+    }
+    let world = sim.world_mut();
+    assert_eq!(world.query::<&Limb>().iter(world).filter(|limb| is_fist(limb)).count(), 2);
+}

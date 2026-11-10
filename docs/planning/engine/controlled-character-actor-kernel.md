@@ -71,24 +71,21 @@ road (`ambition_held_items`). There is no second projectile simulation.
 
 ## One box for a turned body
 
-A body that is not square has one collision box, turned to the DOWN of the
-body: `BodyKinematics::collision_box(last_step)`, which reads the DOWN from the
-body's record (`SweepSample`), because a crawler on a wall is not turned to its
-gravity. The published footprint (`CenteredAabb`) is a different fact: the
-envelope of a body that has one (a boss is drawn larger than the box that
-stops it). `BodyKinematics::aabb` and `size * 0.5` are the LEVEL box. The level box is right for a shot (a free body
-with no frame), for a reader of the centre only, for the gravity lookup that
-resolves the frame, and in a game with no turned gravity. For any other reader
-it is a second statement, equal to the rule in normal gravity and wrong where
-gravity turns.
+The accepted physical material owns body scale, turn and parity. Gravity is a
+separate input. `BodyKinematics::canonical_box` gives the source box before
+placement; `BodyKinematics::material_map` places that source in the room.
+`BodyKinematics::aabb` and `BodyKinematics::half_extent` give its physical
+axis-aligned bounds. They are not an unturned level box.
 
-Inside the kernel, each policy arm states the box its step moved
-(`BodyKinematics::half_oriented`; the crawler arm from
-`AdhesiveCrawlerMotion::body_down`), and gives that one value to the sweep
-record, the hazard gate, water, climbables, the ledge carry and the rebound
-pad (queue CRAWLER-HAZARD-FOOTPRINT, 2026-10-05/06; witnesses in
-`movement/tests/hazard_footprint.rs` and `step_box_world_reads.rs`).
-`ActorMut::aabb` asks the same rule (`body/movement/body_box_tests.rs`).
+The published footprint (`CenteredAabb`) can use a separate canonical body
+envelope. Physical footprint publication uses the same accepted material.
+`SweepSample` retains departure material and an admitted source turn. Do not
+reconstruct physical orientation from gravity. Legacy movement-policy contacts
+still use coarse boxes; their native-contact replacement remains open in the
+[portal plan](portal-parts-similarity-and-chirality.md).
+
+Code: physical material `02cabae98`; physical footprint publication
+`fcb9f7280`. The body-box and admitted-righting tests guard the shared pose.
 
 Built 2026-10-06 (queue LEVEL-BOX-READERS): the transit record
 (`reconcile_transit`, schema 315), the world and reach readers, the arrival of

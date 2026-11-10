@@ -116,7 +116,7 @@ impl UpdateTimes {
 }
 
 /// The bodies in `room` (all rooms with `None`), by peer-stable id.
-fn bodies(sim: &mut Platformer2dSimHarness, room: Option<LiveRoomInstance>) -> BTreeMap<SimId, [f32; 5]> {
+pub(crate) fn bodies(sim: &mut Platformer2dSimHarness, room: Option<LiveRoomInstance>) -> BTreeMap<SimId, [f32; 5]> {
     let world = sim.world_mut();
     world
         .query::<(&SimId, &BodyKinematics, Option<&InRoomInstance>)>()

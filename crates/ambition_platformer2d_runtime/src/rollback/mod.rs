@@ -13,6 +13,7 @@ use bevy::prelude::*;
 pub mod authority;
 pub mod registrar;
 pub mod registry;
+pub mod room_snapshot;
 
 pub use authority::{
     ActiveRollbackAuthority, RollbackConfirmationState, RollbackDiagnostic,

@@ -1,4 +1,5 @@
-//! SIMULATION-ISLANDS ISL-1: which rollback state belongs to one room.
+//! SIMULATION-ISLANDS ISL-1 and ISL-2a: which rollback state belongs to one
+//! room, and what saving one room costs.
 //!
 //! The question for keeping rollback inside a room while the world around it
 //! is hosted: how much of what the snapshot holds today has a room, and how
@@ -9,6 +10,10 @@
 //! are. The resources and message buffers have no entity; their owners are
 //! classified in the owner document, not here.
 //!
+//! Under the rollback session it also times one App-wide `SaveWorld` and, for
+//! each room, a save and restore of that room's entities alone through
+//! [`RoomSnapshotRows`] (ISL-2a).
+//!
 //! A measurement, not a contract: it prints and asserts only its premises.
 //! The owner is `docs/planning/engine/island-rollback-and-compact-peer-input.md`.
 
@@ -17,7 +22,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::ControlFrame;
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
-use ambition_platformer2d::rollback::{RollbackEntryKind, RollbackRegistry, SaveWorld};
+use ambition_platformer2d::rollback::{RollbackEntryKind, RollbackRegistry, RoomSnapshotRows, SaveWorld};
+use ambition_platformer2d::engine_core::BodyKinematics;
+use std::time::Instant;
 use bevy::ecs::component::ComponentId;
 use bevy::prelude::Entity;
 
@@ -194,5 +201,61 @@ fn census(options: ambition_app::Platformer2dSimHarnessOptions) {
         }
         let ms = start.elapsed().as_secs_f64() * 1e3 / f64::from(runs);
         println!("[census] one SaveWorld run: {ms:.2} ms over {systems} systems, for {rollback_marked} entities");
+        room_snapshots(&mut sim, [("hub (Alice)", alice), ("switch_lab (Bob)", bob)]);
     }
+}
+
+/// ISL-2a: what one room's save and restore cost through the registered rows,
+/// beside the App-wide `SaveWorld` above.
+fn room_snapshots(sim: &mut Platformer2dSimHarness, rooms: [(&str, LiveRoomInstance); 2]) {
+    let world = sim.world_mut();
+    let rows = world.remove_resource::<RoomSnapshotRows>().expect("a rollback host records room rows");
+    let rollback = world
+        .components()
+        .iter_registered()
+        .find(|info| {
+            let name = info.name().to_string();
+            name.starts_with("bevy_ggrs::") && name.ends_with("::Rollback")
+        })
+        .map(|info| info.id())
+        .expect("bevy_ggrs::Rollback is registered");
+    println!("[census] room rows recorded: {}", rows.len());
+    for (label, room) in rooms {
+        let entities: Vec<Entity> = world
+            .query::<(Entity, &InRoomInstance)>()
+            .iter(world)
+            .filter(|(entity, at)| at.0 == room && world.entity(*entity).contains_id(rollback))
+            .map(|(entity, _)| entity)
+            .collect();
+
+        // Premise: a restore puts a changed value back.
+        let snapshot = rows.save(world, &entities);
+        let body = entities
+            .iter()
+            .copied()
+            .find(|entity| world.get::<BodyKinematics>(*entity).is_some())
+            .expect("the room has a body");
+        let before = world.get::<BodyKinematics>(body).expect("a body").pos;
+        world.get_mut::<BodyKinematics>(body).expect("a body").pos.x += 100.0;
+        rows.restore(world, &snapshot);
+        assert_eq!(world.get::<BodyKinematics>(body).expect("a body").pos, before, "{label}: the restore did not put the body back");
+
+        let runs = 60;
+        let start = Instant::now();
+        let mut held = 0;
+        for _ in 0..runs {
+            held = rows.save(world, &entities).rows();
+        }
+        let save_ms = start.elapsed().as_secs_f64() * 1e3 / f64::from(runs);
+        let start = Instant::now();
+        for _ in 0..runs {
+            rows.restore(world, &snapshot);
+        }
+        let restore_ms = start.elapsed().as_secs_f64() * 1e3 / f64::from(runs);
+        println!(
+            "[census] room snapshot {label}: {} entities, {held} rows; save {save_ms:.3} ms, restore {restore_ms:.3} ms",
+            entities.len()
+        );
+    }
+    world.insert_resource(rows);
 }

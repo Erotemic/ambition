@@ -70,11 +70,11 @@ or updating their source. Check with
 
 ### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
 
-**Failure:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). The card is still drawn for the primary live room's boss only, so a second local view in another boss's room shows none.
+**State:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami), and each local view shows the card of the boss in its own room (2026-11-10; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). What remains is acceptance evidence: a rendered witness of the card over several fights.
 
 **Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
 
-**Next action:** give the card to a view, as the HUD is: each local view shows the card of the boss in its own room.
+**Next action:** a rendered (GPU capture) witness of the card for two non-Wolfenstein bosses, and one of two views in two boss rooms. No skip input exists; if one is added, it advances the phase state and the card follows.
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 

@@ -4,7 +4,9 @@
 //! mechanics publish their aperture restrictions into this same snapshot. A
 //! missing body map is an error; world material has an explicit identity map.
 
-use ambition_platformer2d_core::frame::thread::{partition, partition_reaching, MaterialPrimitive, Partition, PieceBudget, PortalLink, Refusal, RefusalReason};
+use ambition_platformer2d_core::frame::thread::{
+    MaterialPrimitive, Partition, PieceBudget, PortalLink, Refusal, RefusalReason, partition, partition_reaching,
+};
 use ambition_platformer2d_core::frame::{MapConvention, NumericFault, PortalAperture, Sim2};
 use ambition_platformer2d_core::{CombatVolume, Vec2};
 use bevy::prelude::{Component, Entity, Resource};
@@ -244,10 +246,34 @@ impl BodyGeometry {
         body: Entity,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
+        self.body_pieces_from(canonical, body, true, room)
+    }
+
+    /// Partition canonical body material without a reach wedge.
+    pub fn body_pieces(
+        &self,
+        canonical: &CombatVolume,
+        body: Entity,
+        room: Option<LiveRoomInstance>,
+    ) -> Partition {
+        self.body_pieces_from(canonical, body, false, room)
+    }
+
+    fn body_pieces_from(
+        &self,
+        canonical: &CombatVolume,
+        body: Entity,
+        reaching: bool,
+        room: Option<LiveRoomInstance>,
+    ) -> Partition {
         let map = self.body_material(body)?;
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
         let root = map.point(Vec2::ZERO).map_err(numeric)?;
-        self.cut_material(MaterialPrimitive { domain: canonical, to_world: map }, PartSource::Body(body), root, true, room)
+        self.cut_material(MaterialPrimitive { domain: canonical, to_world: map,
+            }, PartSource::Body(body), root,
+            reaching,
+            room,
+        )
     }
 
     fn body_material(&self, body: Entity) -> Result<Sim2, Refusal> {
@@ -304,9 +330,9 @@ impl BodyGeometry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_core::frame::thread::VolumePiece;
-    use ambition_platformer2d_core::frame::PortalFrame;
     use ambition_platformer2d_core::Aabb;
+    use ambition_platformer2d_core::frame::PortalFrame;
+    use ambition_platformer2d_core::frame::thread::VolumePiece;
 
     /// A volume is cut only by its own room's pairs and the pair its own
     /// carrier straddles: a body in transit elsewhere cuts nothing of it. And

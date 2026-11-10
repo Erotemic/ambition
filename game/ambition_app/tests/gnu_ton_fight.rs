@@ -5,15 +5,18 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_platformer2d::mount::BackLedge;
-use ambition_content::bosses::gnu_ton::{conductor_of, GNU_TON_ID};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
+use ambition_content::bosses::gnu_ton::{GNU_TON_ID, conductor_of};
 use ambition_platformer2d::boss_encounter::BossConfig;
+use ambition_platformer2d::characters::actor::{
+    BodyHealth, Invulnerability, Limb, LimbRig, LimbSlot,
+};
 use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState};
-use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, Limb, LimbRig, LimbSlot};
-use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::combat::components::FeatureId;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::mount::BackLedge;
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::sim_view::ActorAnimIndex;
 use bevy::prelude::*;
 
@@ -452,8 +455,8 @@ fn his_look_lines_are_the_lines_his_conductor_asks_for() {
 /// of the giant's shoulder, and goes to the side onto the giant's back.
 #[test]
 fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
-    use ambition_platformer2d::portal::extension::HeldPortalOf;
     use ambition_platformer2d::portal::PlacedPortal;
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
     /// An end of the pair his conductor holds: the near line faces up the
     /// screen (the fist goes down into it), the far line down.
     fn line(sim: &mut Platformer2dSimHarness, near: bool) -> Option<ae::Vec2> {
@@ -1627,7 +1630,7 @@ fn nothing_can_strike_the_gnu() {
             .query_filtered::<(Option<&ae::DepthPlane>, &ambition_platformer2d::combat::components::DamageableVolumes), (With<LimbRig>, Without<Limb>)>()
             .iter(world)
             .next()
-            .map(|(plane, volumes)| (plane.copied(), volumes.volumes.len()))
+            .map(|(plane, volumes)| (plane.copied(), volumes.len()))
             .expect("the giant is in the arena with a damageable record");
         assert_eq!(plane, Some(ae::DepthPlane::BEHIND), "frame {frame}: the gnu stands behind the fight");
         assert_eq!(volumes, 0, "frame {frame}: the gnu published {volumes} damageable volume(s)");
@@ -1637,7 +1640,7 @@ fn nothing_can_strike_the_gnu() {
     let reachable = world
         .query_filtered::<&ambition_platformer2d::combat::components::DamageableVolumes, With<Limb>>()
         .iter(world)
-        .filter(|volumes| !volumes.volumes.is_empty())
+        .filter(|volumes| !volumes.is_empty())
         .count();
     assert!(reachable > 0, "the fists stay reachable; only the gnu stepped back");
 }
@@ -2211,8 +2214,8 @@ fn blow_limb(sim: &mut Platformer2dSimHarness) -> Option<(ambition_content::boss
 /// The far end of the open pair of his blow: the end whose line is not fixed
 /// to the giant. Its middle and its normal.
 fn far_end(sim: &mut Platformer2dSimHarness) -> Option<(ae::Vec2, ae::Vec2)> {
-    use ambition_platformer2d::portal::extension::HeldPortalOf;
     use ambition_platformer2d::portal::PlacedPortal;
+    use ambition_platformer2d::portal::extension::HeldPortalOf;
     let giant = scene(sim).giant.pos;
     let world = sim.world_mut();
     let mut q = world.query_filtered::<&PlacedPortal, With<HeldPortalOf>>();

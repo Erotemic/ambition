@@ -147,24 +147,26 @@ pub fn projectile_reaches_boss(
             &CenteredAabb,
             &ambition_characters::actor::BodyHealth,
             &DamageableVolumes,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
         ),
         (With<FeatureSimEntity>, With<BossConfig>),
     >,
 ) -> Option<FeatureContact> {
     bosses
         .iter()
-        .filter(|(entity, _, _, health, damageable)| {
+        .filter(|(entity, _, _, health, damageable, _)| {
             may_touch(*entity)
                 && health.alive()
                 && damageable.published()
         })
-        .filter_map(|(entity, id, aabb, _, damageable)| {
+        .filter_map(|(entity, id, aabb, _, damageable, kin)| {
             ambition_combat::hitbox::swept_strike_reaches_victim(
                 start,
                 half,
                 delta,
                 Some(damageable),
                 aabb,
+                kin,
             )
             .map(|time| FeatureContact {
                 time,
@@ -222,19 +224,20 @@ mod tests {
         let coarse = CenteredAabb::new(BODY_CENTER, BODY_HALF);
 
         assert!(
-            strike_reaches_victim(&strike, None, &coarse),
+            strike_reaches_victim(&strike, None, &coarse, None),
             "no component: the coarse box is the only available answer"
         );
         assert!(
-            strike_reaches_victim(&strike, Some(&DamageableVolumes::default()), &coarse),
+            strike_reaches_victim(&strike, Some(&DamageableVolumes::default()), &coarse, None),
             "unpublished: no publisher has spoken for this body yet, so the coarse \
              box still answers — an empty list is not yet an authored `nowhere`"
         );
         assert!(
             !strike_reaches_victim(
                 &strike,
-                Some(&DamageableVolumes::single(published_head())),
-                &coarse
+                Some(&DamageableVolumes::world_box(published_head())),
+                &coarse,
+                None,
             ),
             "published a silhouette DISJOINT from the strike: a body that has \
              spoken answers from its parts, not from the envelope it happens to \
@@ -243,7 +246,7 @@ mod tests {
         let mut intangible = DamageableVolumes::default();
         intangible.clear();
         assert!(
-            !strike_reaches_victim(&strike, Some(&intangible), &coarse),
+            !strike_reaches_victim(&strike, Some(&intangible), &coarse, None),
             "published EMPTY: an authored invulnerable window offers no target at \
              all, and a road that says `hit` here despawns the bolt and fires the \
              hit trace for damage that never lands"
@@ -290,6 +293,7 @@ mod tests {
                         &CenteredAabb,
                         &ambition_characters::actor::BodyHealth,
                         &DamageableVolumes,
+                        Option<&ambition_platformer2d_core::BodyKinematics>,
                     ),
                     (With<FeatureSimEntity>, With<BossConfig>),
                 >| {
@@ -331,12 +335,12 @@ mod tests {
              all"
         );
         assert!(
-            !shot_reaches_boss(DamageableVolumes::single(published_head()), still),
+            !shot_reaches_boss(DamageableVolumes::world_box(published_head()), still),
             "published a silhouette DISJOINT from the shot: a boss answers from \
              its published parts, not from its coarse envelope"
         );
         assert!(
-            shot_reaches_boss(DamageableVolumes::single(strike_box()), still),
+            shot_reaches_boss(DamageableVolumes::world_box(strike_box()), still),
             "published a part the shot overlaps: the contact must still be found, \
              or the three rows above are satisfied by a road that refuses \
              everything"
@@ -347,11 +351,11 @@ mod tests {
         let far = Aabb::new(strike_box().center() + Vec2::new(40.0, 0.0), Vec2::splat(4.0),
         );
         assert!(
-            !shot_reaches_boss(DamageableVolumes::single(far), still),
+            !shot_reaches_boss(DamageableVolumes::world_box(far), still),
             "a stationary shot reached a part 40 px away"
         );
         assert!(
-            shot_reaches_boss(DamageableVolumes::single(far), Vec2::new(64.0, 0.0)),
+            shot_reaches_boss(DamageableVolumes::world_box(far), Vec2::new(64.0, 0.0)),
             "a shot whose leg crosses the part did not reach it, so this road is \
              still an endpoint test wearing a swept signature"
         );

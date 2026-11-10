@@ -1204,16 +1204,26 @@ fn sample(
     let victims: Vec<Victim> = vq
         .iter(world)
         .map(|(entity, seat, aabb, volumes, health, combat, kin, shield, facts, out_of_play)| {
-            let hurt = match volumes {
-                Some(v) if v.intangible() => Vec::new(),
-                Some(v) if v.published() => v.volumes.clone(),
-                _ => vec![ae::CombatVolume::aabb(aabb.aabb())],
-            };
-            Victim {
-                seat: seat.0,
-                entity,
-                hurt,
-                body_box: ae::CombatVolume::aabb(kin.aabb()),
+            let hurt = ambition_platformer2d::combat::hitbox::hurt_pieces_of(
+                        entity,
+                        Some(kin),
+                        aabb,
+                        volumes,
+                        None,
+                        None,
+                    )
+                    .map(|pieces| {
+                        pieces
+                            .into_iter()
+                            .map(|piece| piece.world_volume().clone())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                    Victim {
+                        seat: seat.0,
+                        entity,
+                        hurt,
+                        body_box: ae::CombatVolume::aabb(kin.aabb()),
                 dead: out_of_play || !health.alive(),
                 respawn: health.health.invulnerable.holds(
                     ambition_platformer2d::characters::actor::Invulnerability::RESPAWN,

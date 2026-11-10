@@ -19,7 +19,7 @@ pub fn refresh_breakable_damageable_volumes(
             continue;
         }
         if feature.breakable.trigger.allows_hit() || feature.breakable.pogo_refresh {
-            damageable.set_single(aabb.aabb());
+            damageable.set_world_box(aabb.aabb());
         } else {
             damageable.clear();
         }

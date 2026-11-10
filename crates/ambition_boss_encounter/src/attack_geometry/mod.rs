@@ -21,7 +21,7 @@ use super::behavior::BossBehaviorProfile;
 
 mod frame;
 // The universal half is in `ambition_combat::body_geometry`:
-// `CombatGeometry`, `AnimationSelection`, `SimpleActorGeometry`, the
+// `CombatGeometry`, `AnimationSelection`, the
 // hurtbox/collision derivation and the pixel-rect → world AABB math. This
 // module has the boss half: the context a boss feeds that math, its impl of
 // the trait, and the per-profile strike geometry.
@@ -100,7 +100,7 @@ impl<'a> BossVolumeContext<'a> {
             // derive from. `kin.size` is the collision envelope, so read the
             // render basis explicitly.
             size: boss.render_size(),
-            combat_size: boss.combat_size(),
+            combat_size: boss.kin.canonical_size,
             behavior: &boss.config.behavior,
             attack_state,
             sprite_metrics: boss.status.sprite_metrics.as_ref(),
@@ -120,9 +120,6 @@ impl<'a> BossVolumeContext<'a> {
 }
 
 impl CombatGeometry for BossVolumeContext<'_> {
-    fn body_pos(&self) -> ae::Vec2 {
-        self.pos
-    }
     fn body_size(&self) -> ae::Vec2 {
         self.size
     }
@@ -336,7 +333,5 @@ pub fn volumes_for_profile(
 #[cfg(test)]
 mod sprite_metadata_derivation_tests;
 
-#[cfg(test)]
-mod simple_geometry_tests;
 #[cfg(test)]
 mod strike_geometry_data_tests;

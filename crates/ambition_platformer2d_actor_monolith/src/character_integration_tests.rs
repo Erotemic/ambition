@@ -23,12 +23,10 @@ use ambition_characters::prepared::PreparedCharacterRegistry;
 // per step costs a set lookup after the first.
 use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_and_update};
 
-use bevy::prelude::*;
-use ambition_characters::load_demand::CharacterLoadDemand;
-use ambition_platformer2d_assets::materialization::*;
 use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_characters::load_demand::CharacterLoadDemand;
 use ambition_combat::hurtbox_resolution::{
-    resolve_hurtboxes, HurtboxSelection, POSE_HITSTUN, POSE_IDLE,
+    HurtboxSelection, POSE_HITSTUN, POSE_IDLE, resolve_hurtboxes,
 };
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveGates,
@@ -37,8 +35,10 @@ use ambition_entity_catalog::{
 use ambition_match::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster, StagesCharacters,
 };
+use ambition_platformer2d_assets::materialization::*;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::Vec2;
+use bevy::prelude::*;
 use std::collections::BTreeMap;
 
 /// The cue a move announces itself with. Per-move, so the assertion can tell
@@ -293,7 +293,7 @@ use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::control::ActorControl;
 use ambition_combat::hitbox::apply_hitbox_damage;
 use ambition_combat::moveset::{
-    advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, MovePlayback,
+    MovePlayback, advance_move_playback, resolve_attack_gestures, trigger_moveset_moves,
 };
 
 const TICK: f32 = 1.0 / 60.0;
@@ -737,15 +737,20 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
              proves nothing: a strike that reaches neither geometry misses for the \
              uninteresting reason (strike {strike:?})"
         );
+        let published_world = published
+            .world_volumes(
+                app.world()
+                    .get::<ambition_platformer2d_core::BodyKinematics>(sanic),
+            )
+            .unwrap();
         assert!(
-            !published
-                .volumes
+            !published_world
                 .iter()
                 .any(|volume| strike.strict_intersects(volume.bounds())),
             "the strike must NOT overlap Sanic's published silhouette \
              ({:?}) — otherwise a hit would be correct and the assertion below is \
              testing the opposite of what it says (strike {strike:?})",
-            published.volumes
+            published_world
         );
         checked = true;
     }

@@ -6,8 +6,9 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_content::bosses::mockingbird::{conductor_of, MOCKINGBIRD_ID};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
+use ambition_content::bosses::mockingbird::{MOCKINGBIRD_ID, conductor_of};
 use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
 use ambition_platformer2d::combat::components::DamageableVolumes;
@@ -54,7 +55,9 @@ fn bird(sim: &mut Platformer2dSimHarness) -> Bird {
         .find(|(_, config, ..)| config.behavior.id == MOCKINGBIRD_ID)
         .map(|(entity, _, health, status, volumes)| {
             let hurt = volumes.and_then(|v| {
-                v.volumes.iter().map(|part| part.bounds()).reduce(|a, b| ae::Aabb {
+                v.world_volumes(world.get::<ae::BodyKinematics>(entity))
+                    .ok()?
+                    .iter().map(|part| part.bounds()).reduce(|a, b| ae::Aabb {
                     min: a.min.min(b.min),
                     max: a.max.max(b.max),
                 })

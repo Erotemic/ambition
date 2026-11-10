@@ -298,23 +298,17 @@ pub(crate) fn draw_body_debug(
     let wall_normal_x = clusters.wall.wall_normal_x;
     // The overlay's maneuver reads via the same projection the sim publishes.
     let facts = ae::BodyMotionFacts::from_model(motion_model);
-    // The player's body box through the SAME shared combat-geometry path the
-    // damage resolution, enemies, and bosses use (`collision_aabb`), so the
-    // overlay provably draws the gameplay hurtbox by construction rather than a
-    // parallel computation that could drift. Identity under vertical gravity.
-    let body = ambition_platformer2d::combat::body_geometry::collision_aabb(
-        &ambition_platformer2d::combat::body_geometry::SimpleActorGeometry {
-            // The presented centre, with the size/facing/frame the sim published:
-            // the shared-geometry guarantee above is about the SHAPE, and moving
-            // the centre onto the render clock leaves that untouched.
-            pos,
-            size: clusters.kinematics.size(),
-            facing: clusters.kinematics.facing,
-            frame_down: gravity_dir,
-        },
-    );
+    // Use the accepted physical shape on the presentation clock.
+    let Ok(volume) = clusters.kinematics.canonical_box().and_then(|source| {
+        let map = clusters.kinematics.material_map()?;
+        ae::frame::thread::map_volume(&source, &map)
+    }) else {
+        return;
+    };
+    let volume = volume.translated(pos - clusters.kinematics.pos);
+    let body = volume.bounds();
     if developer_tools.show_player_hitbox {
-        draw_aabb_styled(gizmos, world, body, cyan(), developer_tools);
+        draw_hitbox_volume(gizmos, world, &volume, cyan(), developer_tools);
         label_box(labels, body, "body", cyan(), LabelSpot::TopLeft);
     }
 

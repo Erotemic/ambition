@@ -239,7 +239,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
         animation_frame: None,
         facing: 1.0,
     };
-    let volumes = damageable_volumes(&ctx);
+    let volumes = canonical_damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
     let half = volumes[0].bounds().half_size();
     // side_sweep hurtbox: 127 wide / 128 frame × 256 render = 254 wide, half
@@ -335,7 +335,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
         facing: 1.0,
     };
 
-    let volumes = damageable_volumes(&ctx);
+    let volumes = canonical_damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
     assert!(
         (volumes[0].center().y - -15.0).abs() < 1e-3,
@@ -423,7 +423,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
         facing: 1.0,
     };
 
-    let volumes = damageable_volumes(&ctx);
+    let volumes = canonical_damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
     assert!(
         (volumes[0].center().y - -35.0).abs() < 1e-3,
@@ -505,7 +505,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
         animation_frame: None,
         facing: 1.0,
     };
-    let v0 = damageable_volumes(&ctx0);
+    let v0 = canonical_damageable_volumes(&ctx0);
     assert_eq!(v0.len(), 1);
     assert!(
         (v0[0].center().y - -35.0).abs() < 1e-3,
@@ -524,7 +524,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
         animation_frame: Some(&idle_frame),
         ..ctx0
     };
-    let v1 = damageable_volumes(&ctx1);
+    let v1 = canonical_damageable_volumes(&ctx1);
     assert_eq!(v1.len(), 1);
     assert!(
         (v1[0].center().y - 25.0).abs() < 1e-3,
@@ -637,7 +637,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
         facing: 1.0,
     };
 
-    let hurt = damageable_volumes(&ctx);
+    let hurt = canonical_damageable_volumes(&ctx);
     assert_eq!(hurt.len(), 1);
     assert!(
         (hurt[0].center().y - 30.0).abs() < 1e-3,
@@ -718,8 +718,8 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         animation_frame: None,
         facing: 1.0,
     };
-    let legacy = damageable_volumes(&legacy_ctx)[0].clone();
-    let render = damageable_volumes(&render_ctx)[0].clone();
+    let legacy = canonical_damageable_volumes(&legacy_ctx)[0].clone();
+    let render = canonical_damageable_volumes(&render_ctx)[0].clone();
 
     // ctx.size = (128, 160) → scale (1, 1.25) → body half (53, 51.875).
     // sprite_render_size = (256, 256) → scale (2, 2) → body half (106, 83).
@@ -837,7 +837,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
         animation_frame: None,
         facing: 1.0,
     };
-    let damageable = damageable_volumes(&ctx);
+    let damageable = canonical_damageable_volumes(&ctx);
     // A tiny attack fully inside the boss volume — "I'm in the middle and swing".
     let attack = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
     assert!(
@@ -878,7 +878,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
         facing: 1.0,
     };
     assert!(
-        !damageable_volumes(&ctx_fallback)
+        !canonical_damageable_volumes(&ctx_fallback)
             .iter()
             .any(|p| attack.strict_intersects(p.bounds())),
         "BUG: the bare combat_size box undershoots the visible sprite, so a hit on \
@@ -912,7 +912,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
         facing: 1.0,
     };
     assert!(
-        damageable_volumes(&ctx_authored)
+        canonical_damageable_volumes(&ctx_authored)
             .iter()
             .any(|p| attack.strict_intersects(p.bounds())),
         "with an authored body hurtbox covering the visible sprite, the same hit lands",
@@ -1037,7 +1037,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
         facing: 1.0,
     };
 
-    let volumes = damageable_volumes(&ctx);
+    let volumes = canonical_damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
     assert!(
         (volumes[0].center().y - -35.0).abs() < 1e-3,
@@ -1239,7 +1239,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
         facing: 1.0,
     };
 
-    let volumes = damageable_volumes(&ctx);
+    let volumes = canonical_damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1, "the rest pose authors one hurtbox");
     assert!(
         (volumes[0].center().y - 25.0).abs() < 1e-3,
@@ -1368,7 +1368,7 @@ fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
         facing: 1.0,
     };
 
-    let volumes = damageable_volumes(&ctx);
+    let volumes = canonical_damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
     assert!(
         (volumes[0].center().y - -35.0).abs() < 1e-3,

@@ -54,32 +54,29 @@ pub fn refresh_body_damageable_volumes(
             damageable.clear();
             continue;
         }
-        match authored_world_volumes(hurtboxes, kin, unmirrored) {
-            Some(volumes) => damageable.publish(volumes),
-            None => damageable.set_single(aabb.aabb()),
+        match authored_body_volumes(hurtboxes, kin, unmirrored) {
+            Some(volumes) => damageable.publish_body(volumes),
+            None => match kin {
+                Some(kin) => *damageable = DamageableVolumes::body_box(kin.canonical_size * 0.5),
+                None => damageable.set_world_box(aabb.aabb()),
+            },
         }
     }
 }
 
 /// A body's authored hurtbox silhouette in world space.
 ///
-/// `None` means no authored hurtboxes and permits coarse fallback.
-/// `Some(vec![])` is an explicit intangible window and must remain empty. Timeline
-/// hurtboxes are authored as rectangles, so this path publishes AABB volumes.
-fn authored_world_volumes(
+/// `None` permits the physical body-box fallback.
+/// `Some(vec![])` is an explicit intangible window and must remain empty.
+/// Keep the authored shape in canonical body coordinates.
+fn authored_body_volumes(
     hurtboxes: Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
     kin: Option<&ambition_platformer2d_core::BodyKinematics>,
     unmirrored: bool,
 ) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
     let (resolved, kin) = hurtboxes.zip(kin)?;
     let side = ambition_platformer2d_core::mirror_side(kin.facing, unmirrored);
-    let volumes = resolved.world_volumes(kin.aabb().center(), side)?;
-    Some(
-        volumes
-            .into_iter()
-            .map(|v| ambition_platformer2d_core::CombatVolume::aabb(v.aabb()))
-            .collect(),
-    )
+    resolved.canonical_volumes(side)
 }
 
 /// Publish boss damageable volumes from authored hurtboxes or active boss parts,
@@ -138,8 +135,8 @@ pub fn refresh_boss_damageable_volumes(
             damageable.clear();
             continue;
         }
-        if let Some(volumes) = authored_world_volumes(hurtboxes, kin, feature.unmirrored) {
-            damageable.publish(volumes);
+        if let Some(volumes) = authored_body_volumes(hurtboxes, kin, feature.unmirrored) {
+            damageable.publish_body(volumes);
             continue;
         }
         let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
@@ -148,7 +145,7 @@ pub fn refresh_boss_damageable_volumes(
             attack_state,
         )
         .with_animation_frame(animation_frame);
-        damageable.publish(ambition_combat::body_geometry::damageable_volumes(&ctx));
+        damageable.publish_body(ambition_combat::body_geometry::canonical_damageable_volumes(&ctx));
     }
 }
 
@@ -158,16 +155,19 @@ pub fn refresh_boss_damageable_volumes(
 /// current `PogoTargetVolumes` for a feature family without fighting this
 /// generic derivation pass.
 pub fn derive_pogo_target_volumes(
-    mut targets: Query<(&DamageableVolumes, &PogoPolicy, &mut PogoTargetVolumes)>,
+    mut targets: Query<(&DamageableVolumes,
+        Option<&ae::BodyKinematics>,
+        &PogoPolicy, &mut PogoTargetVolumes,
+    )>,
 ) {
-    for (damageable, policy, mut pogo) in &mut targets {
+    for (damageable, kin, policy, mut pogo) in &mut targets {
         match *policy {
             PogoPolicy::FromDamageable => {
                 // Coarsened ON PURPOSE for pogo affordance geometry. Damage keeps
                 // the original `CombatVolume`s; this projection is for proximity
                 // and for features that explicitly opt into world-surface boxes.
                 pogo.volumes.clear();
-                pogo.volumes.extend(damageable.bounds());
+                pogo.volumes.extend(damageable.bounds(kin).into_iter().flatten());
             }
             PogoPolicy::Custom => {}
             PogoPolicy::Disabled => pogo.volumes.clear(),
@@ -185,7 +185,7 @@ mod tests {
         let mut app = App::new();
         let aabb = ae::Aabb::new(ae::Vec2::new(4.0, 5.0), ae::Vec2::new(2.0, 3.0));
         app.world_mut().spawn((
-            DamageableVolumes::single(aabb),
+            DamageableVolumes::world_box(aabb),
             PogoPolicy::FromDamageable,
             PogoTargetVolumes::default(),
         ));
@@ -202,7 +202,7 @@ mod tests {
         let mut app = App::new();
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0));
         app.world_mut().spawn((
-            DamageableVolumes::single(aabb),
+            DamageableVolumes::world_box(aabb),
             PogoPolicy::Disabled,
             PogoTargetVolumes {
                 volumes: vec![aabb],

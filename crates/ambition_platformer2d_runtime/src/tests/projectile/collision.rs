@@ -1207,7 +1207,7 @@ fn spawn_boss(app: &mut App, id: &str, center: ae::Vec2, half: ae::Vec2) -> Enti
             ambition_combat::components::FeatureId::new(id),
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
             ambition_combat::components::CenteredAabb::new(center, half),
-            ambition_combat::components::DamageableVolumes::single(ae::Aabb::new(center, half)),
+            ambition_combat::components::DamageableVolumes::world_box(ae::Aabb::new(center, half)),
             ambition_boss_encounter::BossConfig {
                 id: id.into(),
                 name: id.into(),

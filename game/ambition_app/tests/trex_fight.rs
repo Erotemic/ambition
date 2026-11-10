@@ -5,9 +5,10 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_content::bosses::trex::{conductor_of, Move, TrexView, TREX_ID};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 use ambition_content::bosses::trex::conductor_module as module;
+use ambition_content::bosses::trex::{Move, TREX_ID, TrexView, conductor_of};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
 use ambition_platformer2d::engine_core as ae;
@@ -396,7 +397,7 @@ fn he_is_hit_through_his_parts_not_a_box() {
         )>()
         .iter(world)
         .find(|(config, ..)| config.behavior.id == TREX_ID)
-        .map(|(_, kin, side, volumes)| (kin.pos, side.0, volumes.volumes.clone()))
+        .map(|(_, kin, side, volumes)| (kin.pos, side.0, volumes.world_volumes(Some(kin)).unwrap()))
         .expect("the T-rex");
     assert!(volumes.len() >= 10, "he is hit through {} volumes, not his parts", volumes.len());
     // A sheet pixel of his idle art, as a world point (his position is the
@@ -432,7 +433,8 @@ fn his_parts_follow_the_row_he_is_drawn_with() {
             .find(|(config, ..)| config.behavior.id == TREX_ID)
             .and_then(|(_, kin, volumes)| {
                 volumes
-                    .volumes
+                    .world_volumes(Some(kin))
+                    .ok()?
                     .iter()
                     .map(|v| v.bounds())
                     .max_by(|a, b| {

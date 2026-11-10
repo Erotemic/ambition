@@ -95,6 +95,8 @@ pub(crate) fn boss_damage_allowed(
 
 #[derive(SystemParam)]
 pub struct FeatureHitWriters<'w, 's> {
+    pub geometry:
+        Option<Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     pub set_flag: MessageWriter<'w, SetFlagRequested>,
     pub actor_stimuli: MessageWriter<'w, ActorStimulus>,
     pub sfx: SfxWriter<'w>,

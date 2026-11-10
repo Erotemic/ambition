@@ -782,3 +782,77 @@ model tests, both held-item portal transit tests, the default-feature app
 warning check, all 53 absence contracts and the repository doc-link check.
 The held javelin remains the lab's asymmetric gauge. Logs use
 `target/portal-strike-gate-item-merge-`.
+
+### Canonical hurt material packet
+
+Code: `a46d6847f`. Debug body-map repair: `13e3e9bfb`.
+Later upstream merge: `bb7d831dd`. P07 remains open.
+
+Body hurt regions stored world-space geometry before this packet. They now
+store canonical source regions and read the accepted physical body material.
+Fixed world regions have a separate explicit source. Empty publication remains
+intangible; absent publication permits a physical body-box fallback. Missing
+body material returns a typed refusal.
+
+Circle and convex regions keep their shapes. Native partitions receive the
+canonical source directly. Boss damage reads the same pieces, including the
+clipped far-side regions. Projectile sweeps use native casts against sampled
+hurt material. They no longer test only the endpoint for shaped targets.
+Observation, debug, preview and standalone game consumers use the new source
+contract. The duplicate gravity-derived collision-box helper is removed.
+
+The regression tests cover arbitrary turn, scale, parity, source precision,
+missing material, motion between endpoints and exact portal clipping.
+`native_sweeps_reach_shaped_material_between_endpoints` covers the sweep.
+`physical_hurt_material_reaches_beyond_the_coarse_box_without_filling_corners`
+and `a_circular_hurt_region_is_hit_only_inside_its_native_far_side_cap` cover
+the integrated victim query. The
+parry fixture now moves both its physical body and coarse box; its hit and
+parry assertions remain.
+
+P07 remains open. The sampled-target projectile query is still in the root
+chart. Moving-target contact, portal contact continuation, guard and attachment
+maps, native body contacts, production unequal apertures, H–J lab examples and
+the full acceptance matrix remain in the portal plan. No full PSIM slice is
+closed.
+
+Validation: combat 816; actors 592; runtime 250; boss 234; view 162; projectile
+combat 29; shared 355; breakables three. These library selections pass. Combat
+has three ignored tests; view has two. The two removed boss tests used the
+removed gravity-derived helper. The new material tests cover its physical
+source contract.
+
+App portal has 36 passes, GNU-ton 39, T-rex 27 and Mockingbird four. GNU-ton
+and Mockingbird each have one ignored diagnostic. Standalone visible Mary-O
+has 140 passes and three ignored tests. Smash has 71 passes and six ignored
+tests; its doctest target has no tests. All 35 workspace policies and 53 absence
+contracts pass. Snapshot schema remains v434. App and Smash default-feature
+all-target warning checks pass. The room-geometry preview tool compiles.
+
+Reproduce the main behavior checks with:
+
+```sh
+cargo test -j6 -p ambition_combat --lib
+cargo test -j6 -p ambition_app --test app_it -- portal --test-threads=6
+cargo test -j6 -p ambition_demo_mary_o_app --features visible --test mary_o_it -- --test-threads=6
+cargo test -j6 -p ambition_demo_smash_app -- --test-threads=6
+```
+
+Commands and verdicts are in `target/portal-hurt-gates.json`,
+`target/portal-hurt-owner-tests.json` and `target/portal-hurt-combat-tests.log`.
+The final combat run replaces the earlier failed fixture result in the owner
+record. The first app link ran out of target space before testing; the retry
+passes after removal of this run's completed test binaries and incremental
+caches. Logs use `target/portal-hurt-`. Full workspace libraries, feature unions,
+device/GPU and performance acceptance are not covered.
+
+After `bb7d831dd`, both new select-screen tests pass. The merged app compiles
+without warnings under its default features. After `13e3e9bfb`, that warning
+check passes again. The overlay now maps its canonical box before it applies
+the presentation offset. Logs use `target/portal-hurt-merged-` and
+`target/portal-hurt-final-app-warnings.log`.
+
+The portal plan's focused strict citation check, planning anchors and repository
+doc links pass. A global citation scan reports standing findings in other
+plans. The obsolete body-box API description in the actor-kernel plan is
+corrected here; this packet does not claim a clean global citation scan.

@@ -212,17 +212,30 @@ pub struct CombatGeometryView {
 fn effective_hurtboxes(
     collision: ae::Aabb,
     damageable: Option<&DamageableVolumes>,
+    body: Option<&ae::BodyKinematics>,
 ) -> (Vec<ae::CombatVolume>, HurtboxSource) {
-    match damageable {
-        Some(published) if published.intangible() => (Vec::new(), HurtboxSource::Intangible),
-        Some(published) if published.published() => {
-            (published.volumes.clone(), HurtboxSource::Published)
-        }
-        _ => (
-            vec![ae::CombatVolume::aabb(collision)],
-            HurtboxSource::BodyFallback,
-        ),
-    }
+    let source = match damageable {
+        Some(published) if published.intangible() => HurtboxSource::Intangible,
+        Some(published) if published.published() => HurtboxSource::Published,
+        _ => HurtboxSource::BodyFallback,
+    };
+    let coarse = ae::CenteredAabb::from_aabb(collision);
+    let volumes = ambition_combat::hitbox::hurt_pieces_of(
+        bevy::prelude::Entity::PLACEHOLDER,
+        body,
+        &coarse,
+        damageable,
+        None,
+        None,
+    )
+    .map(|pieces| {
+        pieces
+            .into_iter()
+            .map(|piece| piece.world_volume().clone())
+            .collect()
+    })
+    .unwrap_or_default();
+    (volumes, source)
 }
 
 /// Rebuild the combat-geometry observation from current simulation truth.
@@ -272,9 +285,13 @@ pub fn rebuild_combat_geometry_view(
 
     for (body, aabb, damageable, combat, health, kin, ground, wall, playback, motion) in &bodies {
         let collision = aabb.aabb();
-        let (hurtboxes, hurtbox_source) = effective_hurtboxes(collision, damageable);
+        let (hurtboxes, hurtbox_source) = effective_hurtboxes(collision, damageable, kin);
         let hurt_pieces = passages.and_then(|passages| {
-            cut(ambition_combat::hitbox::hurt_pieces_of(body, aabb.center, hurtboxes.clone(), Some(passages), rooms.of(body)))
+            cut(ambition_combat::hitbox::hurt_pieces_of(body,
+                kin,
+                aabb,
+                damageable, Some(passages), rooms.of(body),
+            ))
         });
         view.bodies.push(CombatBodyGeometryView {
             body,
@@ -369,7 +386,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
             .world_mut()
             .spawn((
                 body_box(CenteredAabb::from_aabb(collision)),
-                DamageableVolumes::single(authored_hurt),
+                DamageableVolumes::world_box(authored_hurt),
                 ambition_characters::actor::BodyCombat::default(),
             ))
             .id();
@@ -448,7 +465,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
     fn combat_geometry_preserves_intangible_and_fallback_states() {
         let collision = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(10.0, 12.0));
         assert_eq!(
-            effective_hurtboxes(collision, None),
+            effective_hurtboxes(collision, None, None),
             (
                 vec![ae::CombatVolume::aabb(collision)],
                 HurtboxSource::BodyFallback
@@ -456,7 +473,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         );
         let unpublished = DamageableVolumes::default();
         assert_eq!(
-            effective_hurtboxes(collision, Some(&unpublished)),
+            effective_hurtboxes(collision, Some(&unpublished), None),
             (
                 vec![ae::CombatVolume::aabb(collision)],
                 HurtboxSource::BodyFallback
@@ -465,7 +482,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         let mut intangible = DamageableVolumes::default();
         intangible.clear();
         assert_eq!(
-            effective_hurtboxes(collision, Some(&intangible)),
+            effective_hurtboxes(collision, Some(&intangible), None),
             (Vec::new(), HurtboxSource::Intangible)
         );
     }

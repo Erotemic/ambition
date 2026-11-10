@@ -6,22 +6,28 @@
 (2026-11-10). P01–P06 and P08–P10 are repaired. P07 remains open.
 Physical root material and admitted righting are in `02cabae98`. Canonical
 strike material and physical footprint publication are in `fcb9f7280`.
-The riposte fixture repair is in `0505b17e2`. The later item-content merge is
-checked on `d3e941b7b`. Snapshot schema remains v434.
+Canonical hurt material is in `a46d6847f`. The select-screen and asset-publication
+merge is `bb7d831dd`; the debug body-map repair is `13e3e9bfb`.
+Snapshot schema remains v434.
 
 Owner-following strikes now keep canonical source shapes and use the accepted
 body material. Native partitions retain that source without a world-space
 round trip. Actor, home-body and spawn footprints use the same physical pose.
+Body hurt regions now also keep canonical shapes. Circles and convex regions
+stay exact through partition and sampled-target sweep queries. Fixed world
+regions have an explicit source. Boss damage reads the same native hurt pieces.
 Scale, turn, parity, source precision and admitted-righting tests pass.
 
-The merged app portal selection passes 36 tests. Smash passes 71 app tests and
-301 library tests. Renderer has 497 passes, including the per-view boss-card
-case. The assembled app compiles without warnings under its default features.
-See the [canonical strike receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#canonical-strike-material-packet)
+On the hurt-material packet, the app portal selection passes 36 tests. GNU-ton
+passes 39, T-rex passes 27 and the Mockingbird projectile selection passes four.
+Standalone visible Mary-O passes 140; Smash passes 71. The app and Smash compile
+without warnings under their default features.
+See the [canonical hurt receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#canonical-hurt-material-packet)
 for the commands, scope and earlier validation receipts.
 
 No full PSIM acceptance slice is closed. Same-tick remaining motion, native body
-contacts, hurt/guard geometry, attachments, production unequal apertures, the
+contacts, moving-target and portal projectile/hurt contact, guard geometry,
+attachments, production unequal apertures, the
 bounded numeric law and its fault effects, H–J lab examples, and the full
 workspace, feature-union, device/GPU and performance gates still need work.
 

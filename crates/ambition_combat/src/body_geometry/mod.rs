@@ -39,37 +39,15 @@ pub struct AnimationSelection {
     pub live_frame_index: Option<usize>,
 }
 
-/// Actor-neutral surface the shared combat-geometry math reads to derive an
-/// actor's collision box and damageable hurtbox. Player, NPC, Enemy, and Boss
-/// each implement it; the boss is just the richest impl (its `hurtbox_selection`
-/// folds in the attack-profile → animation-row mapping). Engine-first: another
-/// platformer's actor type unifies onto the same volume math by implementing
-/// this trait.
+/// Canonical dimensions and authored pose data for hurt-region selection.
+/// Physical placement belongs to the accepted body material.
 pub trait CombatGeometry {
-    fn body_pos(&self) -> ae::Vec2;
-    /// LDtk spawn size — the fallback world scale when no sprite render size
-    /// was captured, and the size of the legacy single-AABB hurtbox.
     fn body_size(&self) -> ae::Vec2;
     fn facing(&self) -> f32;
-    /// Collision envelope; defaults to the body size.
     fn combat_size(&self) -> ae::Vec2 {
         self.body_size()
     }
-    /// World offset from `body_pos` to the collision-box center (off-center
-    /// bodies). Mirrored with facing by the implementor. Defaults to zero.
-    fn combat_offset(&self) -> ae::Vec2 {
-        ae::Vec2::ZERO
-    }
-    /// The actor's reference-frame "down": gravity at its position, or a clung
-    /// surface normal for a wall-walker. The body/hurt box orients to this so a
-    /// sideways-gravity body's footprint lies along the wall — the relativity
-    /// principle. Defaults to screen-down `(0, 1)`; the box is identity under
-    /// vertical gravity, so upright play is byte-for-byte unchanged.
-    fn frame_down(&self) -> ae::Vec2 {
-        ae::Vec2::new(0.0, 1.0)
-    }
     fn sprite_metrics(&self) -> Option<&ActorSpriteMetrics>;
-    /// The current pose for hurtbox sampling (rest/idle when not attacking).
     fn hurtbox_selection(&self) -> AnimationSelection;
 }
 
@@ -81,50 +59,6 @@ pub fn publish_body_footprint(
 ) {
     out.center = body.pos;
     out.half_size = body.material.half_extent(canonical_size * 0.5);
-}
-
-pub fn collision_aabb(g: &impl CombatGeometry) -> ae::Aabb {
-    let half = ae::AccelerationFrame::new(g.frame_down()).to_world_half(g.combat_size() * 0.5);
-    ae::Aabb::new(g.body_pos() + g.combat_offset(), half)
-}
-
-/// A minimal [`CombatGeometry`] for an actor whose hurtbox is just its
-/// frame-oriented collision box — no per-animation sprite metrics. This is the
-/// player and ordinary enemies today: build it from a body's pos / size /
-/// facing and its reference-frame down, and `damageable_volumes` /
-/// [`collision_aabb`] yield the same box they used before, now through the one
-/// shared path. (Sprite metrics — pose-accurate, multi-part hurtboxes — are a
-/// later opt-in: populate them and the same call lights up automatically.)
-pub struct SimpleActorGeometry {
-    pub pos: ae::Vec2,
-    pub size: ae::Vec2,
-    pub facing: f32,
-    pub frame_down: ae::Vec2,
-}
-
-impl CombatGeometry for SimpleActorGeometry {
-    fn body_pos(&self) -> ae::Vec2 {
-        self.pos
-    }
-    fn body_size(&self) -> ae::Vec2 {
-        self.size
-    }
-    fn facing(&self) -> f32 {
-        self.facing
-    }
-    fn frame_down(&self) -> ae::Vec2 {
-        self.frame_down
-    }
-    fn sprite_metrics(&self) -> Option<&ActorSpriteMetrics> {
-        None
-    }
-    fn hurtbox_selection(&self) -> AnimationSelection {
-        AnimationSelection {
-            keys: Vec::new(),
-            elapsed_s: 0.0,
-            live_frame_index: None,
-        }
-    }
 }
 
 /// Reflect each AABB's center across the vertical line `axis_x` when `facing`
@@ -147,14 +81,11 @@ pub fn mirror_x_if_flipped(
     volumes
 }
 
-pub fn damageable_volumes(g: &impl CombatGeometry) -> Vec<ae::CombatVolume> {
-    mirror_x_if_flipped(damageable_volumes_unmirrored(g), g.body_pos().x, g.facing())
+pub fn canonical_damageable_volumes(g: &impl CombatGeometry) -> Vec<ae::CombatVolume> {
+    mirror_x_if_flipped(damageable_volumes_unmirrored(g), 0.0, g.facing())
 }
 
-/// Body hurtbox volumes in the sprite's UNFLIPPED frame. `damageable_volumes`
-/// mirrors these to the actor's current facing. Actor-neutral: every input is
-/// read through the [`CombatGeometry`] trait, so player / enemy / boss share
-/// one hurtbox derivation.
+/// Select canonical regions before pose facing is applied.
 fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::CombatVolume> {
     // Priority:
     //   1. Per-animation hurtbox for the currently-playing animation
@@ -168,7 +99,7 @@ fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::CombatVolum
         // Scale pixel rects to the visible sprite size, not the smaller LDtk
         // spawn AABB. See `sprite_world_size` for the rationale.
         let world_size = sprite_world_size(metrics, g.body_size());
-        let pos = g.body_pos();
+        let pos = ae::Vec2::ZERO;
         // (1) Per-animation hurtbox for the actor's current pose. The actor
         // resolves which row(s) it is showing; the sampling is uniform.
         let sel = g.hurtbox_selection();
@@ -223,11 +154,10 @@ fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::CombatVolum
             ))];
         }
     }
-    // (4) Fallback: combat_size-driven single AABB, oriented to the actor's
-    // reference frame (identity under vertical gravity, so bosses — which keep
-    // the default screen-down frame — are unchanged).
-    let half = ae::AccelerationFrame::new(g.frame_down()).to_world_half(g.combat_size() * 0.5);
-    vec![ae::CombatVolume::aabb(ae::Aabb::new(g.body_pos(), half))]
+    vec![ae::CombatVolume::aabb(ae::Aabb::new(
+        ae::Vec2::ZERO,
+        g.combat_size() * 0.5,
+    ))]
 }
 
 /// Body-contact damage AABB at the boss's combat envelope — body contact is

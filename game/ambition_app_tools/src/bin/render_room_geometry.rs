@@ -9,13 +9,14 @@
 //!
 //! With no room ID, list the rooms in Ambition's world manifest.
 
-use ambition_platformer2d::{boss_encounter, engine_core as ae, ldtk_map, persistence, sim_view, world};
 use ae::AabbExt;
+use ambition_platformer2d::{boss_encounter, engine_core as ae, ldtk_map, persistence, sim_view, world,
+};
 use image::{Rgba, RgbaImage};
 use persistence::settings::video::{CameraAspectPolicy, CameraFramingPreset};
 use sim_view::camera_snapshot::{
-    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput,
-    CameraSnapshotResolveMode,
+    CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput, CameraSnapshotResolveMode,
+    resolve_follow_camera_snapshot,
 };
 
 /// Footprints of placement records of a given kind, read from the single
@@ -276,14 +277,19 @@ fn render_room_projected(
         // player must hit — derived from the boss's sprite metrics, so a
         // boss whose hurtbox is a small head inside a big body envelope
         // reads correctly.
-        for hb in boss_encounter::ecs::boss_spawn_hurtboxes(
+        let hurt = boss_encounter::ecs::boss_spawn_hurtboxes(
             sprite_content(),
             boss_catalog,
             &b.id,
             &b.name,
             b.aabb,
             b.payload.clone(),
-        ) {
+        )
+        .unwrap_or_else(|fault| {
+            eprintln!("boss {} hurt geometry refused: {fault:?}", b.id);
+            Vec::new()
+        });
+        for hb in hurt {
             overlay_aabb(&mut img, proj, hb.bounds(), Rgba([60, 240, 255, 255]));
         }
     }
@@ -526,7 +532,7 @@ fn run_anomaly_report(room_set: &world::rooms::RoomSet) {
 /// catalog and the rest-pose hurtboxes are derived from them.
 fn sprite_content() -> &'static ambition_platformer2d::sprite_sheet::SpriteContent {
     use ambition_platformer2d::asset_manager::content_library::{ContentLibraries, ContentLibrary};
-    use ambition_platformer2d::sprite_sheet::{baked_sheet_rons::SheetTexts, SpriteContent};
+    use ambition_platformer2d::sprite_sheet::{SpriteContent, baked_sheet_rons::SheetTexts};
     static CONTENT: std::sync::OnceLock<SpriteContent> = std::sync::OnceLock::new();
     CONTENT.get_or_init(|| {
         let mut libraries = ContentLibraries::default();

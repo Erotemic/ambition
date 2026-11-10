@@ -1379,6 +1379,76 @@ pub fn item_in_hand(
     held.and_then(|held| catalog.item_by_held_item_id(held.id()))
 }
 
+/// Put what a menu asked for in the participant's hand, or empty it. (sim)
+///
+/// The hand's own applier of [`ambition_items::ItemEquipRequested`] (for a
+/// weapon or the portal gun; an ability is worn by
+/// `ambition_platformer2d_items::narrative::apply_item_equips`) and of
+/// [`ambition_items::ItemStowRequested`]. Each request acts on the one body
+/// its participant drives, on the tick it is stamped for, so a rewind across
+/// it replays it and a seat changes only its own hand. Of one participant's
+/// requests on one tick, the last equip wins over a stow. An item that is not
+/// owned is refused with a log.
+pub fn apply_hand_requests(
+    mut commands: Commands,
+    mut equips: MessageReader<ambition_items::ItemEquipRequested>,
+    mut stows: MessageReader<ambition_items::ItemStowRequested>,
+    owned: Res<ambition_items::OwnedItems>,
+    items: ambition_items::ItemCatalogRead,
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    #[cfg(feature = "portal")] mut hands: Query<(RepertoireQuery, Option<&OwnedPortalGunPair>)>,
+    #[cfg(not(feature = "portal"))] mut hands: Query<RepertoireQuery>,
+) {
+    use std::collections::BTreeMap;
+    let catalog = items.get();
+    // What each participant's hand ends the tick holding: `None` empty.
+    let mut wanted: BTreeMap<ambition_characters::control::PlayerSlot, Option<ambition_items::Item>> = BTreeMap::new();
+    for stow in stows.read() {
+        wanted.insert(stow.participant, None);
+    }
+    for equip in equips.read() {
+        #[cfg(feature = "portal")]
+        let is_gun = equip.item == ambition_items::Item::PortalGun;
+        #[cfg(not(feature = "portal"))]
+        let is_gun = false;
+        if !is_gun && held_spec_for_item(catalog, equip.item).is_none() {
+            // An ability, or nothing a hand holds: not this applier's.
+            continue;
+        }
+        if !owned.has(equip.item) {
+            warn!("an equip of {:?} into a hand was asked for, and it is not owned", equip.item);
+            continue;
+        }
+        wanted.insert(equip.participant, Some(equip.item));
+    }
+    for (participant, item) in wanted {
+        let mut driving = drivers.iter().filter(|(_, driver)| driver.0 == participant);
+        let (Some((body, _)), None) = (driving.next(), driving.next()) else {
+            warn!("a hand request of {participant:?} was refused: it drives no one body");
+            continue;
+        };
+        #[cfg(feature = "portal")]
+        let Ok((mut repertoire, owned_pair)) = hands.get_mut(body) else { continue };
+        #[cfg(not(feature = "portal"))]
+        let Ok(mut repertoire) = hands.get_mut(body) else { continue };
+        // The hand holds one thing: empty it, then take the new one.
+        empty_hand(&mut commands, body, &mut repertoire);
+        match item {
+            #[cfg(feature = "portal")]
+            Some(ambition_items::Item::PortalGun) => {
+                // The pair this body owns; 0 only if it never held one.
+                equip_portal_gun(&mut commands, body, &mut repertoire, owned_pair.map_or(0, |owned| owned.0));
+            }
+            Some(item) => {
+                if let Some(spec) = held_spec_for_item(catalog, item) {
+                    equip_held_spec(&mut commands, body, &mut repertoire, spec);
+                }
+            }
+            None => {}
+        }
+    }
+}
+
 /// RELEASE custody of a held item — the twin of [`equip_held_spec`].
 ///
 /// Detach [`HeldItem`] and re-derive the repertoire for the emptied hand. The
@@ -2108,6 +2178,9 @@ pub fn fire_held_ranged_system(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod hand_request_tests;
 
 #[cfg(test)]
 mod schedule_tests;

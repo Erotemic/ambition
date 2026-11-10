@@ -60,6 +60,10 @@ fn grid_app() -> App {
         ambition_platformer2d::items::ItemEquipRequested,
     >>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::items::ItemStowRequested,
+    >>();
+    crate::menu::effects::the_simulation_applies_hand_requests(&mut app);
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::session::reset::NewGameRequested,
     >>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();

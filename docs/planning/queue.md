@@ -13,7 +13,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
 
 1. **Network architecture (maintainer priority, updated 2026-11-06):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. Keep [GGRS island-history partitioning](tracks.md#conditional-ggrs-island-rollback) deferred until that experiment chooses a backend; `activeArea` physical continuity, loading-zone custody and local live portals remain relevant either way, and are covered by the authority experiment and existing multiplayer owners.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
-   then LOADOUT-AUTHORITY and LOCAL-PLAY-MODES menu leave. Honor the
+   then LOCAL-PLAY-MODES menu leave (LOADOUT-AUTHORITY done 2026-11-10). Honor the
    2026-10-19 ruling order for CHARACTER-FORM, COOP-RECOVERY,
    PARTNER-RECOVERY and DIALOGUE-CHECKPOINT; do not re-implement
    already completed morph-ball visibility, joining, party travel, baseline
@@ -98,24 +98,6 @@ or updating their source. Check with
 **Next action:** capture frame-by-frame mount motion, row clocks, rendered part transforms, portal clipping, rider and fists. Identify root, animation or interpolation discontinuity; unify the responsible pose authority or shared render adapter rather than applying per-boss correction offsets.
 
 **Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
-
-### LOADOUT-AUTHORITY — equipment changes enter through simulation input
-
-**Failure:** abilities equip through `ItemEquipRequested`, but the menu still
-puts held items in the hand and stows them outside the simulation tick.
-
-**Owner:** menu effects, item input, held-item custody and body capabilities.
-Design: [ability loadout](game/ability-loadout.md#open-for-bombs).
-
-**Next action:** route held equips and stows through the existing stamped
-item-intent path. Attribute the request to its participant/body and apply it
-at the custody owner. Remove the host-side simulation writes; do not add a
-second equipment channel for each menu or item.
-
-**Acceptance:** Grid and Kaleidoscope use the same operation. Each participant
-changes only its own hand/loadout. Replay and checkpoint restore preserve
-custody, stock and re-arming without duplicated objects. A menu cannot equip
-an item before the corresponding simulation input is accepted.
 
 ### ITEM-CONTENT — remove retired items without letting fixtures retain them
 
@@ -1068,6 +1050,10 @@ Closed rows retained only where an open row, a script or an inbound link still n
 ### NET-INPUT-WIDTH — remove idle room consensus from every frame
 
 Done 2026-11-10: `PeerInput` is 80 bytes at wire identity 9 (was 168); the 96-byte verdict is an 8-byte token compared, never decoded, by each peer. All `two_peers` agreement cases pass. Measured link traffic fell only 0.5% in steady play and 4% across crossings, because GGRS already delta- and run-length-encodes inputs. Owner: [compact peer input](engine/island-rollback-and-compact-peer-input.md#result-2026-11-10).
+
+### LOADOUT-AUTHORITY — equipment changes enter through simulation input
+
+Done 2026-11-10: both menus turn an equip or a stow into a stamped host intent (`ItemEquipRequested`, and the new `ItemStowRequested`); the simulation applies an ability to the worn set (`apply_item_equips`) and a weapon or the portal gun to the hand (`ambition_held_items::apply_hand_requests`), on the body the requesting participant drives. The menu writes no body. Witnesses: `hand_request_tests` (own hand only, missing or ambiguous driver, portal pair kept), the menu parity tests through the real applier, and app_it `a_menu_equip_is_a_stamped_request` (equip and stow replay to one hand under the sync test). Schema 433. Owner: [ability loadout](game/ability-loadout.md#open-for-bombs).
 
 ### PARTY-TRAVEL-POLICIES — configurable group crossings and a leader view
 

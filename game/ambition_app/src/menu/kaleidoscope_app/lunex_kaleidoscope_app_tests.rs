@@ -73,6 +73,10 @@ fn base_kaleidoscope_test_app() -> App {
         ambition_platformer2d::items::ItemEquipRequested,
     >>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::items::ItemStowRequested,
+    >>();
+    crate::menu::effects::the_simulation_applies_hand_requests(&mut app);
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::session::reset::NewGameRequested,
     >>();
     // nav and the pointer-release observer PUBLISH the chosen action now,
@@ -903,6 +907,10 @@ fn real_input_cube_app(
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::items::ItemEquipRequested,
     >>();
+    app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
+        ambition_platformer2d::items::ItemStowRequested,
+    >>();
+    crate::menu::effects::the_simulation_applies_hand_requests(&mut app);
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::session::reset::NewGameRequested,
     >>();

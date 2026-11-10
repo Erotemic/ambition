@@ -75,8 +75,15 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ambition_platformer2d_items::narrative::apply_shop_transactions
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::shop::ShopTransactionRequested>),
                 ambition_platformer2d_items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
-                ambition_platformer2d_items::narrative::apply_item_equips
-                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>),
+                // An equip is worn (an ability) or held (a weapon, the gun).
+                (
+                    ambition_platformer2d_items::narrative::apply_item_equips
+                        .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>),
+                    ambition_held_items::apply_hand_requests.run_if(
+                        ambition_platformer2d_core::a_message_waits::<ambition_items::ItemEquipRequested>
+                            .or_else(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemStowRequested>),
+                    ),
+                ),
                 // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
                 // (FeatureCollection), chests (FeatureInteraction) and item
                 // uses (above). A heal written after its apply waits a tick,
@@ -205,8 +212,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.
             ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemUseRequested>::default(),
-            // A menu equips an ability through the same ledger.
+            // A menu equips an ability, a weapon or the portal gun, and stows
+            // what a hand holds, through the same ledger.
             ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemEquipRequested>::default(),
+            ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemStowRequested>::default(),
             // A gate terminal's dial, hangup and close, through the same ledger.
             ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_platformer2d_world::rooms::GateTerminalIntent>::default(),
         ));

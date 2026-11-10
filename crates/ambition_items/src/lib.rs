@@ -497,14 +497,24 @@ pub struct ItemGrantRequested {
     pub count: u32,
 }
 
-/// Simulation request to equip an owned ability on a participant's body.
+/// Simulation request to equip an owned item on a participant's body: an
+/// ability into its worn set (`ambition_platformer2d_items`), a weapon or the
+/// portal gun into its hand (`ambition_held_items`).
 ///
-/// A menu asks for this; the simulation changes the worn set on one stamped
-/// tick, so a rewind across the equip replays it.
+/// A menu asks for this; the simulation applies it on one stamped tick, so a
+/// rewind across the equip replays it.
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemEquipRequested {
     pub participant: ambition_characters::control::PlayerSlot,
     pub item: Item,
+}
+
+/// Simulation request to empty a participant's hand: put away the weapon or
+/// the portal gun it holds. The stow twin of [`ItemEquipRequested`], applied
+/// on one stamped tick by the hand's owner.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemStowRequested {
+    pub participant: ambition_characters::control::PlayerSlot,
 }
 
 /// Simulation-side request to use one of an owned consumable.

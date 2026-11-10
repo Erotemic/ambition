@@ -61,6 +61,12 @@ impl<M: Message + Clone> HostIntentLedger<M> {
         self.records.len()
     }
 
+    /// The waiting intents, oldest first: for a host that reports them and a
+    /// fixture that stands in for the simulation.
+    pub fn payloads(&self) -> impl Iterator<Item = &M> {
+        self.records.iter().map(|record| &record.payload)
+    }
+
     fn record(&mut self, scope: SessionScopeId, from_tick: u64, payload: M) {
         self.records.push(StampedHostIntent {
             scope,

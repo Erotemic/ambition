@@ -71,7 +71,9 @@ or updating their source. Check with
 
 **Done 2026-11-10 (ISL-2b, first witness):** in a hosted world the hub rewinds to a saved frame and replays Alice's inputs alone, with Bob's room hidden (`Disabled`): the hub ends exactly as the first run left it and Bob's room is untouched; the control without hiding moves Bob ([result](engine/island-rollback-and-compact-peer-input.md#isl-2b-first-witness-2026-11-10-a-room-rewinds-alone)). The window spawns nothing and exercises no coupling resource.
 
-**Next action:** ISL-2c, the same witness under load (an attack and a projectile across the snapshot, an NPC life writing the ledger, a connect), each with the mechanism it needs; ISL-1b, remove the five couplings one at a time, each with a witness that an event in one room leaves the other unchanged.
+**Done 2026-11-10 (ISL-1b, the freeze):** with several live rooms an impact hold or Player 1's hitlag no longer stops every room's clock; one live room keeps the freeze ([owner](engine/island-rollback-and-compact-peer-input.md#next-isl-2c-and-isl-1b)).
+
+**Next action:** ISL-2c, the same witness under load (an attack and a projectile across the snapshot, an NPC life writing the ledger, a connect), each with the mechanism it needs; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 

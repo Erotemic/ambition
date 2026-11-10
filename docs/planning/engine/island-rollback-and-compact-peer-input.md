@@ -205,7 +205,13 @@ so it is weak evidence about attacks.
    one suite witness each, not a matrix.
 2. **ISL-1b — remove the couplings.** One change per coupling resource, each
    with a witness that an event in one room leaves another room's state
-   unchanged: hitstop scoped to the room of the connect, projectile ids
+   unchanged. **Done 2026-11-10, the freeze:** with several live rooms neither
+   the impact hold nor Player 1's hitlag stops the shared clock
+   (`emit_primary_observer_time_intent`), as a conversation is not modal
+   there; one live room keeps the freeze. Witness:
+   `a_hit_in_one_room_does_not_freeze_the_other`. A freeze scoped to the
+   connect's room waits for a room clock (body motion reads the shared
+   `sim_dt`). Still open: projectile ids
    sequenced per room, a clock scale per room (Player 1's bullet-time slows
    Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
    about a hundred non-test sites), one conversation and one cutscene per participant or room. Then

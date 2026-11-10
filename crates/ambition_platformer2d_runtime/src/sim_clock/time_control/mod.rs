@@ -16,6 +16,13 @@ use ambition_time::{ClockDomain, ClockObserver, ClockState};
 /// Emit time requests for the primary local observer's driven body.
 /// Match impact holds use their own tick expiry and take precedence.
 /// The current observer policy requests the shared simulation clock.
+///
+/// A FREEZE IS FOR ONE ROOM'S FIGHT. The shared clock runs every live room,
+/// so with more than one live, a hit in one would stop the others: players in
+/// different rooms are independent (ruling 2026-10-19), as a conversation is
+/// not modal there either. So with several live rooms neither the impact hold
+/// nor Player 1's hitlag freezes the clock; the hit body's own hitlag pose
+/// still shows the hit. Bullet-time still scales the shared clock.
 pub fn emit_primary_observer_time_intent(
     drivers: Query<(Entity, &DrivingParticipant)>,
     bodies: Query<(&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat)>,
@@ -23,10 +30,12 @@ pub fn emit_primary_observer_time_intent(
     // The match hold is independent of the local observer.
     impact: Option<Res<ambition_combat::impact_hitstop::ImpactHitstop>>,
     tick: Option<Res<ambition_time::SimTick>>,
+    live_rooms: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
+    let one_room = live_rooms.iter().count() <= 1;
     // The match hold expires on SimTick, which advances during a freeze.
-    if let (Some(impact), Some(tick)) = (impact, tick) {
+    if let (true, Some(impact), Some(tick)) = (one_room, impact, tick) {
         if impact.is_freezing(*tick) {
             writer.write(ClockScaleRequest {
                 domain: ClockDomain::SimClock,
@@ -50,7 +59,7 @@ pub fn emit_primary_observer_time_intent(
         });
         return;
     };
-    let (scale, requester, reason) = if combat.hitstop_timer > 0.0 {
+    let (scale, requester, reason) = if one_room && combat.hitstop_timer > 0.0 {
         (0.0, ClockRequester::Engine, "hitstop")
     } else if facts.blink_aiming {
         (

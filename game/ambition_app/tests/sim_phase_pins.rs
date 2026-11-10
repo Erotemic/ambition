@@ -208,6 +208,11 @@ const WRITES_CONTROL_AFTER_THE_GATE: &[(&str, &str)] = &[
     // the second body does not apply to the copy.
     ("steer_mount_from_rider", "derives from the rider's gated frame"),
     ("fan_out_limb_intents", "derives from the boss's routed strikes"),
+    // Mary-O's gait reads the `run` technique edge, which the gate itself
+    // routes: the walk scales a throttle the gate passed, and the spark is
+    // the press the gate routed, raised as her ranged intent.
+    ("walk_by_default_run_while_held", "derives from the gate's routed run edge"),
+    ("fire_spark_on_run_press", "derives from the gate's routed run edge"),
 ];
 
 /// ⭐ A4: ONE ACCEPTED CONTROL FACT FEEDS ONE BODY EXECUTION ROAD.

@@ -24,13 +24,18 @@ Usage:
     python -m ambition_ldtk_tools level ownership status --ldtk <world>
     python -m ambition_ldtk_tools level ownership adopt <level>... --ldtk <world>
     python -m ambition_ldtk_tools level ownership release <level>... --ldtk <world>
-    python -m ambition_ldtk_tools level ownership survey <spec>... --ldtk <world>
+    python -m ambition_ldtk_tools level ownership survey <spec>... --ldtk <world> [--settle]
 
 `survey` answers, for a world no generator has recorded yet, which of its
 levels a generator still makes: it applies the specs, in order, to a copy of
 the world and compares each level it made with the live one. A level that
 matches can be recorded as generated; one that differs was edited after its
 generator ran, and recording it would discard that edit at the next apply.
+It replays `area create` alone, not what a generator does to its rooms after
+(painting ladders, adding entities), so it calls such a room changed:
+`python -m ambition_ldtk_tools.generator_survey` runs the whole generator.
+`--settle` acts on the answer: each reproduced level is recorded as
+generated, and each that differs is adopted (LDtk-owned).
 """
 
 from __future__ import annotations
@@ -168,8 +173,8 @@ def _create(spec: Path, world: Path, package_root: Path):
 
 def survey(ldtk: Path, specs: list[Path]) -> list[tuple[str, str]]:
     """Each level the `specs` make, and whether the live `ldtk` holds it as
-    they make it: `reproduced`, `DIFFERS`, or `absent` (not in the live
-    world). The live world is not written."""
+    they make it: `reproduced`, `DIFFERS`, `absent` (not in the live
+    world) or `REFUSED` (`area create` will not make it in this world now). The live world is not written."""
     import shutil
     import tempfile
 
@@ -180,7 +185,7 @@ def survey(ldtk: Path, specs: list[Path]) -> list[tuple[str, str]]:
     with tempfile.TemporaryDirectory() as scratch:
         copy = Path(scratch) / Path(ldtk).resolve().name
         shutil.copyfile(Path(ldtk).resolve(), copy)
-        made = []
+        made, refused = [], []
         for n, spec in enumerate(specs):
             text = Path(spec).read_text()
             level_id = str(ron_parse.load(text)["level_id"])
@@ -197,10 +202,13 @@ def survey(ldtk: Path, specs: list[Path]) -> list[tuple[str, str]]:
                 done = _create(local, copy, package_root)
                 out = done.stdout + done.stderr
             if done.returncode != 0 and "wrote new level" not in out and "replaced level" not in out:
-                raise SystemExit(f"{spec}: area create failed:\n{out}")
+                # The spec cannot be made in this world any more (a door it
+                # places collides with what the world holds now).
+                refused.append(level_id)
+                continue
             made.append(level_id)
         after = _levels(copy)
-    rows = []
+    rows = [(level_id, "REFUSED") for level_id in refused]
     for level_id in made:
         if level_id not in live:
             rows.append((level_id, "absent"))
@@ -216,6 +224,7 @@ def main(argv=None) -> int:
     parser.add_argument("action", choices=["status", "adopt", "release", "survey"])
     parser.add_argument("levels", nargs="*")
     parser.add_argument("--ldtk", type=Path, required=True)
+    parser.add_argument("--settle", action="store_true", help="survey: record what is reproduced, adopt what differs")
     args = parser.parse_args(argv)
     if args.action == "status":
         rows = status(args.ldtk)
@@ -232,6 +241,15 @@ def main(argv=None) -> int:
             print(f"{verdict:12} {level_id}")
         differs = [level_id for level_id, verdict in rows if verdict != "reproduced"]
         print(f"{len(rows)} level(s); {len(differs)} not as the specs make them")
+        if args.settle:
+            record(args.ldtk, [level_id for level_id, verdict in rows if verdict == "reproduced"])
+            data = load(args.ldtk)
+            data["ldtk_owned"] = [*data["ldtk_owned"], *(level_id for level_id, verdict in rows if verdict in ("DIFFERS", "REFUSED"))]
+            for level_id in data["ldtk_owned"]:
+                data["generated"].pop(level_id, None)
+            save(args.ldtk, data)
+            print(f"settled: recorded {len(rows) - len(differs)}, adopted {len(differs)} ({record_path(args.ldtk)})")
+            return 0
         return 1 if differs else 0
     if not args.levels:
         parser.error(f"{args.action} needs at least one level")

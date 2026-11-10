@@ -488,8 +488,21 @@ loose top-level specs and edits are one-offs, but some are still read:
 `symmetry_room_area.ron` (`gen_symmetry_room.py`) and
 `intro_raid_corridor_area.ron` (`test_spec_brains_resolve.py`).
 
-**Next action:** world by world, survey its generator, record the reproduced
-rooms as generated, adopt the rest, then move each generator to
+**Every room has an owner (2026-11-10):** `generator_survey <generator>`
+runs a whole generator (its `--apply`, with its committed specs and without
+the ownership records) on the live worlds, fingerprints every room before and
+after, and puts the worlds back from git; `--settle` records the rooms it
+left as they were and adopts the rest. Run over the 14 room-making
+generators: 103 rooms reproduced and are recorded as generated; every room
+that DIFFERS (edited after its generator), that no generator made (the
+sandbox's 80, intro, noodle) or whose generator cannot run (hall of biomes:
+the sandbox already fails validation at `scroll_lab_door`, a LoadingZone with
+no target) is LDtk-owned. `level ownership status` names an owner for every
+room of every world but two History rooms, HAND-EDITED by e7ad541's
+per-zone loading-zone presentation after History generated them (the guard
+refuses to overwrite them).
+
+**Next action:** move each generator to
 `generators/<dimension>/` as History
 did (its specs to the temp folder; `district_kit` stays in tools). Apply each
 once so its rooms are recorded. Hand-written one-off specs (`*_area.ron`,

@@ -92,6 +92,8 @@ pub enum SupportFact {
     Airborne,
     /// Resting on / riding a surface holding the body against its frame's pull.
     Supported(Contact),
+    /// A surface carries the body with its local orientation.
+    Riding(Contact),
     /// Adhesively attached (policy-owned cling); the normal is the attachment,
     /// deliberately independent of the frame's pull.
     Attached(Contact),
@@ -102,7 +104,7 @@ impl SupportFact {
     pub fn normal(&self) -> Option<Vec2> {
         match self {
             SupportFact::Airborne => None,
-            SupportFact::Supported(contact) | SupportFact::Attached(contact) => {
+            SupportFact::Supported(contact) | SupportFact::Riding(contact) | SupportFact::Attached(contact) => {
                 Some(contact.normal)
             }
         }
@@ -112,7 +114,7 @@ impl SupportFact {
     pub fn contact(&self) -> Option<&Contact> {
         match self {
             SupportFact::Airborne => None,
-            SupportFact::Supported(contact) | SupportFact::Attached(contact) => Some(contact),
+            SupportFact::Supported(contact) | SupportFact::Riding(contact) | SupportFact::Attached(contact) => Some(contact),
         }
     }
 
@@ -153,10 +155,6 @@ pub fn step_motion(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
-    let portal = ctx.admission.filter(|portal| !portal.links.is_empty());
-    if portal.is_none() && clusters.kinematics.material == crate::frame::BodyMaterial::IDENTITY {
-        return step_admitted_motion(model, clusters, ctx);
-    }
     let retained_down = SweepSample::down_or(clusters.sweep.as_deref(), ctx.frame.down());
     let mut candidate = crate::body_clusters::BodyClusterScratch::candidate(model, clusters);
     let mut sweep = SweepSample::at_rest(*clusters.kinematics, retained_down);
@@ -165,16 +163,16 @@ pub fn step_motion(
         body.sweep = Some(&mut sweep);
         step_admitted_motion(candidate_model, &mut body, ctx)
     };
-    let admitted = (|| {
-        let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, candidate.kinematics.canonical_size * 0.5));
-        let source = sweep.material_cast(&domain)?;
-        if let Some(portal) = portal {
-            portal.admit(source, candidate.kinematics.vel, &[ctx.frame.carried_acceleration()])?;
-        } else {
-            source.cells(None)?.admit_payloads(candidate.kinematics.vel, &[ctx.frame.carried_acceleration()])?;
-        }
-        Ok(())
-    })();
+    let target = match &result.support {
+        SupportFact::Riding(contact) | SupportFact::Attached(contact) => -contact.normal,
+        _ => ctx.frame.down(),
+    };
+    let max_step = if ctx.pose_owned_externally { 0.0 }
+        else if matches!(result.support, SupportFact::Riding(_) | SupportFact::Attached(_)) {
+            std::f64::consts::PI
+        } else { 8.0 * f64::from(ctx.dt.max(0.0)) };
+    let admitted = super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
+        target, max_step, f64::from(ctx.dt), ctx.world, ctx.admission, &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run]);
     if let Err(refusal) = admitted {
         if let Some(sample) = clusters.sweep.as_deref_mut() {
             *sample = SweepSample::at_tick_end(*clusters.kinematics, retained_down);
@@ -403,7 +401,7 @@ pub(super) fn establish_axis_ground_contact_baseline(
     clusters: &mut BodyClustersMut<'_>,
     frame: MotionFrame,
 ) -> GroundContactBaseline {
-    let body = clusters.kinematics.aabb_oriented(frame.down());
+    let body = clusters.kinematics.aabb();
     let sampled_grounded = supporting_block(world, body, frame.down(), false).is_some()
         || crate::walkable_lines::stood_on_line(world, body, frame.down()).is_some();
     establish_ground_contact_baseline_from_sample(clusters, sampled_grounded, frame)
@@ -581,7 +579,7 @@ fn step_surface_momentum(
     // The ride circle is the body's extent along the frame's DOWN, so the DOWN
     // of this body is the frame's. The pad and the hazard gate test that box.
     let body_down = ctx.frame.down();
-    let step_half = clusters.kinematics.half_oriented(body_down);
+    let step_half = clusters.kinematics.half_extent();
     if let Some(impulse) = touching_rebound_aabb(ctx.world, crate::Aabb::new(clusters.kinematics.pos, step_half)) {
         surface_momentum::apply_pad_impulse(ctx.world, &mut body, impulse, ctx.dt);
     }
@@ -616,7 +614,13 @@ fn step_surface_momentum(
     }
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, step_half, &mut events);
 
-    MotionStepResult::from_events(events, ctx.frame)
+    let mut result = MotionStepResult::from_events(events, ctx.frame);
+    if body.riding() {
+        if let SupportFact::Supported(contact) = result.support {
+            result.support = SupportFact::Riding(contact);
+        }
+    }
+    result
 }
 
 fn step_adhesive_crawler(
@@ -667,9 +671,9 @@ fn step_adhesive_crawler(
 /// are of one box. The record keeps the DOWN for a later transit.
 pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2, crate::frame::BodyMaterial), body_down: Vec2) -> Vec2 {
     let curr = clusters.kinematics.pos;
-    let step_half = clusters.kinematics.half_oriented(body_down);
+    let step_half = clusters.kinematics.half_extent();
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        *sweep = SweepSample { travel: Default::default(), time: [0.0, 1.0],
+        *sweep = SweepSample { turn: None, travel: Default::default(), time: [0.0, 1.0],
             material: entry.2,
             prev: entry.0,
             curr,

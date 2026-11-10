@@ -536,7 +536,6 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::CameraReferenceFrame,
             SettingsOptionId::MovementFrameMode,
             SettingsOptionId::AimFrameMode,
-            SettingsOptionId::PortalReverseFacing,
             SettingsOptionId::AcceptLocalJoins,
             SettingsOptionId::CoopFriendlyFire,
             SettingsOptionId::CoopPreset,

@@ -362,7 +362,9 @@ pub fn sync_visuals(
         let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
         transform.translation = world_to_bevy(&world.0, draw_pos, WORLD_Z_PLAYER);
         // Aerial roll (portal somersault / future gravity-room orientation).
-        transform.rotation = Quat::from_rotation_z(pose.roll_angle);
+        transform.rotation = Quat::from_rotation_z(pose.material.render_angle());
+        let scale = pose.material.scale();
+        transform.scale = Vec3::new(if pose.material.reflected() { -scale } else { scale }, scale, 1.0);
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Colored-rectangle fallback only — stretch to the collision-box
             // size and tint by flash. Textured sprites (atlas OR plain image)
@@ -565,7 +567,9 @@ pub fn sync_visuals(
         // the slug crawls along walls / ceilings with its body
         // visibly clinging to them. All other actors stay axis-
         // aligned (rotation_rad = 0).
-        placed.rotation = Quat::from_rotation_z(view.rotation_rad);
+        placed.rotation = Quat::from_rotation_z(view.material.render_angle());
+        let scale = view.material.scale();
+        placed.scale = Vec3::new(if view.material.reflected() { -scale } else { scale }, scale, 1.0);
         transform.set_if_neq(placed);
 
         // A look darkens as its breakable takes hits; its sheet is its picture.

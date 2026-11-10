@@ -179,7 +179,7 @@ pub enum AmbientGravityRequest {
 /// An authored region with its own gravity direction — the building block of a
 /// "gravity room". Gravity is resolved per body, by position: any actor whose
 /// center is inside the zone's `aabb` feels gravity along `dir` (and reorients via
-/// the shared `ActorRoll`); outside every zone it falls under [`BaseGravity`]. So
+/// the physical body material); outside every zone it falls under [`BaseGravity`]. So
 /// an NPC standing in a gravity column feels the column even when the player is
 /// elsewhere — see [`gravity_dir_at`].
 #[derive(Component, Clone, Copy, Debug)]
@@ -541,15 +541,9 @@ pub fn upright_angle_for_world_up(up: Vec2) -> f32 {
 /// Render-space z-rotation that stands a body upright under `gravity_dir`: it
 /// points the sprite's local +Y ("up") along world-up (`-gravity`). Default
 /// gravity → angle 0. (Lives here with the gravity state; consumed by the
-/// body-roll righting reflex and the portal orient-to-gravity roll.)
+/// gravity-relative effects.)
 pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
     upright_angle_for_world_up(-gravity_dir)
-}
-
-/// Horizontal `flip_x` for a sprite that may also be rotated by
-/// [`gravity_upright_angle`].
-pub fn gravity_aware_flip_x(facing: f32, _gravity_dir: Vec2) -> bool {
-    facing < 0.0
 }
 
 #[cfg(test)]
@@ -576,26 +570,6 @@ mod tests {
             .expect("the system runs");
         assert_eq!(dir, Vec2::new(0.0, 1.0), "the body was handed the player's gravity");
         assert_eq!(sign, 1.0);
-    }
-
-    #[test]
-    fn gravity_aware_flip_tracks_local_facing_under_every_gravity() {
-        let gravities = [
-            Vec2::new(0.0, 1.0),
-            Vec2::new(0.0, -1.0),
-            Vec2::new(1.0, 0.0),
-            Vec2::new(-1.0, 0.0),
-        ];
-        for gravity in gravities {
-            assert!(
-                gravity_aware_flip_x(-1.0, gravity),
-                "local-left facing flips under gravity {gravity:?}"
-            );
-            assert!(
-                !gravity_aware_flip_x(1.0, gravity),
-                "local-right facing does not flip under gravity {gravity:?}"
-            );
-        }
     }
 
     #[test]

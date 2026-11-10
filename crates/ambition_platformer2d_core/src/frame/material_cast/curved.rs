@@ -237,10 +237,25 @@ impl Rigid<'_> {
         };
         let arm = map.point_wide(point) - pivot;
         let local = rotation.transpose() * arm;
-        let at = match self.point(local, middle) {
-            Ok(point) => point.point,
+        let witness = match self.point(local, middle) {
+            Ok(point) => point,
             Err(_) => return false,
         };
+        let at = witness.point;
+        // A directional derivative keeps the overlap proof narrow near a tangent.
+        // A whole-point speed bound can require unbounded subdivision there.
+        let acceleration = self.cell.curve.as_ref().and_then(|curve| curve.unmapped_source())
+            .map(|source| {
+                let omega = source.turn();
+                let source_pivot = source.rotation.map_or(source.map.translation(), |r| r.pivot);
+                let linear = self.shift * self.span() - source.delta;
+                let offset = pivot - source_pivot - source.delta * middle;
+                let relative_spin = self.turn * self.span() - omega;
+                (omega * omega * (offset.length() + linear.length() * half)
+                    + 2.0 * omega.abs() * linear.length()
+                    + relative_spin * relative_spin * arm.length()) / map.scale_wide()
+                    * (1.0 + f64::EPSILON * 32.0)
+            });
         let radius = crate::frame::rotation_bound(
             self.turn,
             self.time.start + self.span() * middle,
@@ -280,8 +295,10 @@ impl Rigid<'_> {
             }
             _ => polygon_planes(&domain_polygon(body)).into_iter().all(|p| {
                 at.dot(p.inward) - p.offset + rounding * p.inward.length()
-                    > reach * p.inward.length()
-                        + scalar_round(at.abs().dot(p.inward.abs()) + p.offset.abs())
+                    > acceleration.map_or(reach * p.inward.length(), |acceleration| {
+                        p.inward.dot(witness.velocity).abs() * half
+                            + 0.5 * p.inward.length() * acceleration * half * half
+                    }) + scalar_round(at.abs().dot(p.inward.abs()) + p.offset.abs())
             }),
         }
     }

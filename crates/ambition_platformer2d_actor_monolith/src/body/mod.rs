@@ -487,18 +487,6 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 .before(apply_actor_contact_damage),
         );
 
-        // Same set, same schedule, same guarantee that every game gets it — but the registration
-        // lives with the system, so this crate does not depend on the crate that owns it.
-        //
-        // The body-orientation righting reflex: feet toward gravity — or, for a riding momentum
-        // body, feet onto the ridden surface via the `SurfaceUpright` fact the integration just
-        // published.
-        app.add_systems(
-            sim,
-            ambition_platformer2d_shared_tangle::orientation::update_actor_roll.in_set(
-                ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
-            ),
-        );
         // TARGETING owns feud settlement and target/disposition selection. The
         // short chain is intentional: selection must see the grudge state produced
         // by settlement in the same tick. Later actor phases depend on the set, not

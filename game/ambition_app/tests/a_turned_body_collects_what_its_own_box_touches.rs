@@ -5,8 +5,7 @@
 //! player's box is as wide as the player is tall. The readers outside the
 //! movement kernel (a pickup, a chest, an interact, a door) asked the LEVEL
 //! box, so the player collected a heart beside her and not a heart past her
-//! end. They ask `BodyKinematics::collision_box` now: the body's present
-//! position and size turned to the DOWN of its last step.
+//! end. Readers now use the current physical material envelope.
 //!
 //! Most of those readers were converted on the strength of that one function.
 //! This arm is the function witnessed in production, through one real reader
@@ -51,6 +50,8 @@ fn place_the_player(sim: &mut Platformer2dSimHarness, at: Vec2) {
     let mut kin = q.single_mut(world).expect("the player's body is in the world");
     kin.pos = at;
     kin.vel = Vec2::ZERO;
+    kin.material = ambition_platformer2d::engine_core::frame::BodyMaterial::IDENTITY
+        .turned(-std::f64::consts::FRAC_PI_2).unwrap();
 }
 
 fn overlaps(a: Aabb, b: Aabb) -> bool {

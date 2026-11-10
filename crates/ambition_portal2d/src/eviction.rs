@@ -169,7 +169,7 @@ fn evict_for_plane(
             continue;
         }
         // The box the body has: turned as its last step turned it.
-        let body = kin.collision_box(sweep.as_deref());
+        let body = kin.aabb();
         // Position authority (ADR 0024): the closing portal moves the body
         // clear of the plane.
         if let Some(push) = eviction_push(body, kin.pos, &plane) {

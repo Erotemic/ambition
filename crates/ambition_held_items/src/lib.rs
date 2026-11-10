@@ -152,7 +152,7 @@ impl Plugin for HeldItemSimulationPlugin {
                     .run_if(any_with_component::<GroundItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Physics),
-                right_ground_items
+                right_ground_items.after(ground_item_physics)
                     .run_if(any_with_component::<GroundItem>)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                     .in_set(HeldItemStep::Physics),
@@ -366,7 +366,7 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
 
 /// One persistent item occurrence. Shared body components own its motion.
 #[derive(Component, Clone, Debug)]
-#[require(ItemCustody, BodyKinematics, ae::SweepSample, ambition_platformer2d_shared_tangle::orientation::ActorRoll)]
+#[require(ItemCustody, BodyKinematics, ae::SweepSample)]
 #[non_exhaustive]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
@@ -590,7 +590,7 @@ pub fn carry_or_wake_settled_items(
         // A thin band just past the item's own footprint: what it would rest ON.
         let probe = ae::Aabb::new(
             item.pos + Vec2::new(0.0, 1.0),
-            item.half_oriented(Vec2::ZERO) + Vec2::new(0.0, 1.0),
+            item.half_extent() + Vec2::new(0.0, 1.0),
         );
         let support = world.blocks.iter().find(|block| {
             ae::collision_semantics::is_support_surface(block.kind)
@@ -610,24 +610,30 @@ pub fn carry_or_wake_settled_items(
     }
 }
 
-/// Integrate in-world ground items under gravity and settle them when they'd
-/// enter a solid / one-way surface. [`SettledItem`] items are skipped.
-/// Each ground item in the world that a portal pair turned rights itself, at
-/// the rate an actor does (`ease_roll`), resting or flying: the pair hands it
-/// over turned, and it does not snap upright. Upright is the screen's, as an
-/// item has always been drawn, under any gravity.
+/// Apply physical righting after item translation.
 pub fn right_ground_items(
     time: Res<ambition_time::WorldTime>,
-    mut grounds: Query<(&ItemCustody, &mut ambition_platformer2d_shared_tangle::orientation::ActorRoll), With<GroundItem>>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    live: LiveRooms,
+    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
+    mut grounds: Query<(Entity, &ItemCustody, &mut BodyKinematics, &mut ae::SweepSample), With<GroundItem>>,
 ) {
-    use ambition_platformer2d_shared_tangle::orientation::{ease_roll, ACTOR_ROLL_SPEED};
     let dt = time.sim_dt();
-    if dt <= 0.0 {
-        return;
-    }
-    for (custody, mut roll) in &mut grounds {
-        if custody.in_world() && roll.angle != 0.0 {
-            roll.angle = ease_roll(roll.angle, 0.0, ACTOR_ROLL_SPEED * dt);
+    if dt <= 0.0 { return; }
+    let solids = SolidsByRoom::build(&collision, grounds.iter().map(|(entity, ..)| live.of(entity)));
+    for (entity, custody, mut body, mut record) in &mut grounds {
+        if !custody.in_world() { continue; }
+        let room = live.of(entity);
+        let Some(world) = solids.raw(room) else { continue; };
+        let down = gravity.dir_at(room, body.pos);
+        let mut candidate = *body;
+        let mut path = *record;
+        let admission = geometry.as_deref().and_then(|geometry| geometry.motion_for(entity, room));
+        match ae::movement::admit_body_righting(&mut candidate, &mut path, down,
+            f64::from(dt) * 8.0, f64::from(dt), world, admission, &[]) {
+            Ok(_) => { *body = candidate; *record = path; }
+            Err(refusal) => { bevy::log::trace!(?entity, ?refusal, "item righting refused"); }
         }
     }
 }
@@ -699,7 +705,7 @@ pub fn ground_item_physics(
         // Free bodies resolve gravity by the body-overlap rule, not the center
         // point (ADR 0024) — a zone grabs an item the item TOUCHES.
         let local = ambition_platformer2d_shared_tangle::gravity::GravityField {
-            dir: gravity.dir_for(room, ae::Aabb::new(item.pos, item.half_oriented(Vec2::ZERO))),
+            dir: gravity.dir_for(room, ae::Aabb::new(item.pos, item.half_extent())),
         };
         ambition_platformer2d_shared_tangle::gravity::apply_world_forces(
             &mut item.vel,
@@ -718,9 +724,9 @@ pub fn ground_item_physics(
         // other item stops dead against it.
         let bounced = body
             .filter(|_| !outside_world)
-            .map(|body| bounce_step(&world, item.pos, item.vel, item.half_oriented(Vec2::ZERO), local.dir, dt, *body));
+            .map(|body| bounce_step(&world, item.pos, item.vel, item.half_extent(), local.dir, dt, *body));
         let blocked = bounced.is_none() && {
-            let next_aabb = ae::Aabb::new(next, item.half_oriented(Vec2::ZERO));
+            let next_aabb = ae::Aabb::new(next, item.half_extent());
             world.blocks.iter().any(|block| {
                 ae::collision_semantics::is_support_surface(block.kind)
                     && next_aabb.strict_intersects(block.aabb)
@@ -761,7 +767,7 @@ pub fn ground_item_physics(
                 .is_ok_and(|(_, aabb, _, _, _)| at.strict_intersects(aabb.aabb()))
         };
         let struck_bodies = || {
-            let here = ae::Aabb::new(item.pos, item.half_oriented(Vec2::ZERO));
+            let here = ae::Aabb::new(item.pos, item.half_extent());
             let mut struck: Vec<Entity> = bodies
                 .iter()
                 .filter(|(victim, _, health, out_of_play, plane)| {
@@ -771,7 +777,7 @@ pub fn ground_item_physics(
                 .filter(|(victim, aabb, _, _, _)| {
                     ambition_platformer2d_core::cast::aabb_path_contacts(
                         end,
-                        item.half_oriented(Vec2::ZERO),
+                        item.half_extent(),
                         travelled,
                         aabb.aabb(),
                     ) && !entered_now(here, *victim)
@@ -923,6 +929,10 @@ impl<'a> SolidsByRoom<'a> {
         Self(built)
     }
 
+    fn raw(&self, room: Option<LiveRoomInstance>) -> Option<&ae::World> {
+        self.0.iter().find(|(seen, _)| *seen == room).and_then(|(_, solids)| solids.as_deref())
+    }
+
     /// The solids of `room` as `item` meets them: with the portal holes it
     /// opened cut, as a body's are. `None` when it is no live room.
     fn met_by(
@@ -931,7 +941,7 @@ impl<'a> SolidsByRoom<'a> {
         room: Option<LiveRoomInstance>,
         item: Entity,
     ) -> Option<std::borrow::Cow<'_, ae::World>> {
-        let walls = self.0.iter().find(|(seen, _)| *seen == room).and_then(|(_, solids)| solids.as_deref())?;
+        let walls = self.raw(room)?;
         let (holes, glues) = collision
             .room(room.map(InRoomInstance).as_ref())
             .map(|room| (room.holes_open_for(item), room.glues_open_for(item)))
@@ -1512,7 +1522,7 @@ impl DrivenBodies<'_, '_> {
 pub fn pickup_held_item_system(
     mut commands: Commands,
     driven: DrivenBodies,
-    mut bodies: Query<(&mut ActorControl, &BodyKinematics, Option<&ae::SweepSample>, RepertoireQuery)>,
+    mut bodies: Query<(&mut ActorControl, &BodyKinematics, RepertoireQuery)>,
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     mut grounds: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
@@ -1520,7 +1530,7 @@ pub fn pickup_held_item_system(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for player in driven.entities() {
-        let Ok((mut control, kin, last_step, mut repertoire)) = bodies.get_mut(player) else {
+        let Ok((mut control, kin, mut repertoire)) = bodies.get_mut(player) else {
             continue;
         };
         // One item at a time: already holding a physical item, or the portal gun.
@@ -1536,7 +1546,7 @@ pub fn pickup_held_item_system(
             continue;
         }
         // The reach of the body is its collision box, as its last step turned it.
-        let player_aabb = kin.collision_box(last_step);
+        let player_aabb = kin.aabb();
         for (item, ground, item_body, mut custody) in &mut grounds {
             // Only an item that is IN THE WORLD, in the body's live room, can
             // be grabbed.

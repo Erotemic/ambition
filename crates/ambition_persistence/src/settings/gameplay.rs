@@ -126,12 +126,6 @@ pub struct GameplaySettings {
     /// false (see `app::input_systems`).
     #[serde(default)]
     pub pause_input_when_unfocused: bool,
-    /// Whether passing through a portal on a same-wall turn-around reverses the
-    /// controlled body's facing direction. Default OFF; mirrored into
-    /// `PortalTuning::reorient_facing` by the content portal adapter so it can be
-    /// toggled live from the gameplay settings page.
-    #[serde(default)]
-    pub portal_reverses_facing: bool,
     /// Whether a second local player may join (Q153). Default OFF: one player,
     /// and the keyboard and every pad drive that player. ON: a pad that presses
     /// Start claims a seat of its own, up to the number of seats the game
@@ -205,7 +199,6 @@ impl Default for GameplaySettings {
             quest_hud_visible: default_quest_hud_visible(),
             trace_auto_dump: true,
             pause_input_when_unfocused: false,
-            portal_reverses_facing: false,
             accept_local_joins: false,
             coop_friendly_fire: default_coop_friendly_fire(),
             party_travel: Default::default(),

@@ -114,7 +114,7 @@ pub fn probe_containment(
     let mut max_escape: f32 = 0.0;
     for _ in 0..probe.steps {
         let (model, mut clusters) = scratch.parts();
-        let result = step_motion(
+        step_motion(
             model,
             &mut clusters,
             MotionStepContext {
@@ -137,7 +137,7 @@ pub fn probe_containment(
         // The box the body occupies is oriented to its support, as its
         // footprint publishes it: a crawler lies ALONG the wall it clings to,
         // and its level box would reach half a length into the wall.
-        let body = scratch.kinematics.aabb_oriented(-result.surface_normal);
+        let body = scratch.kinematics.aabb();
         let escape = (bounds.min.x - body.min.x)
             .max(body.max.x - bounds.max.x)
             .max(bounds.min.y - body.min.y)

@@ -15,33 +15,6 @@ use ambition_portal2d::{
     BodyTeleported, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalTuning,
 };
 
-/// Turn around the body a seat drives when its transit states a facing flip.
-///
-/// The `portal_reverses_facing` setting reverses the CONTROLLED body's facing,
-/// and the controlled body is the one carrying [`DrivingParticipant`]:
-/// possession moves that component to the possessed body, while the home body
-/// keeps its player-population markers. So this asks the driver, not the
-/// population. It runs in `PortalSet::Transited`, after the core's transit.
-///
-/// [`DrivingParticipant`]: ambition_characters::control::DrivingParticipant
-pub fn turn_the_driven_body_around_after_portal_transit(
-    mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
-    tuning: Res<ambition_portal2d::PortalTuning>,
-    mut driven: Query<
-        &mut ambition_platformer2d_core::BodyKinematics,
-        With<ambition_characters::control::DrivingParticipant>,
-    >,
-) {
-    for event in transited.read() {
-        if !(event.facing_flip && tuning.reorient_facing) {
-            continue;
-        }
-        if let Ok(mut kin) = driven.get_mut(event.body) {
-            kin.facing = -kin.facing;
-        }
-    }
-}
-
 /// Mark the body a seat drives after its transit: the trace and trail
 /// notices, and the two input guards that [`warp_portal_input`] applies.
 ///

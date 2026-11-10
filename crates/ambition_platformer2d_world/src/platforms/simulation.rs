@@ -64,7 +64,7 @@ fn advance_moving_platforms(
                     depth.is_none_or(|depth| depth.is_playable())
                         && live.of(body) == room
                         && platform.is_supporting_body(
-                            kin.collision_box(sample),
+                            kin.aabb(),
                             ground.on_ground,
                             sample.map_or(ae::DEFAULT_GRAVITY_DIR, |sample| sample.down),
                         )

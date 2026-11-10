@@ -46,7 +46,7 @@ fn walk(dir: f32) -> InputState {
 }
 
 fn feet(scratch: &BodyClusterScratch) -> f32 {
-    scratch.kinematics.aabb_oriented(DOWN).feet_coord(DOWN)
+    scratch.kinematics.aabb().feet_coord(DOWN)
 }
 
 fn standing_body(x: f32) -> BodyClusterScratch {
@@ -287,7 +287,7 @@ fn a_body_rides_a_moving_ramp_and_walks_on_it_with_no_tick_in_the_air() {
     }
     assert!(scratch.ground.on_ground, "it settles on the ramp (feet {})", feet(&scratch));
     let line_at = |world: &World, scratch: &BodyClusterScratch| {
-        crate::walkable_lines::standing_on_line(world, scratch.kinematics.aabb_oriented(DOWN), DOWN)
+        crate::walkable_lines::standing_on_line(world, scratch.kinematics.aabb(), DOWN)
     };
     let start_x = scratch.kinematics.pos.x;
     // The ramp goes up and to the right, then back down and left; the body
@@ -408,7 +408,7 @@ fn a_body_meets_a_turned_solid_as_its_shape() {
     let mut scratch = standing_body(400.0);
     for tick in 0..240 {
         step_scratch(&world, &mut scratch, walk(1.0));
-        let body = scratch.kinematics.aabb_oriented(DOWN);
+        let body = scratch.kinematics.aabb();
         assert!(
             crate::solid_lines::push_out(body, &corners).is_none(),
             "in the solid on tick {tick} at {:?}",
@@ -418,9 +418,9 @@ fn a_body_meets_a_turned_solid_as_its_shape() {
     // The box around it begins at x = 545.4, and its face at the body's
     // height is further right: the body comes past where the box would have
     // stopped it, to the face.
-    let front = scratch.kinematics.aabb_oriented(DOWN).max.x;
+    let front = scratch.kinematics.aabb().max.x;
     assert!(front > 550.0 && front < 600.0, "not stopped at the turned face: {front}");
-    let body = scratch.kinematics.aabb_oriented(DOWN);
+    let body = scratch.kinematics.aabb();
     assert!(
         (body.min.y as i32..body.max.y as i32).any(|y| inside(Vec2::new(front + 3.0, y as f32))),
         "the face is not where it stopped: {body:?}"
@@ -431,6 +431,6 @@ fn a_body_meets_a_turned_solid_as_its_shape() {
         step_scratch(&world, &mut scratch, InputState::default());
     }
     assert!(scratch.ground.on_ground, "it does not stand on the top: {:?}", scratch.kinematics.pos);
-    assert!(crate::solid_lines::push_out(scratch.kinematics.aabb_oriented(DOWN), &corners).is_none());
+    assert!(crate::solid_lines::push_out(scratch.kinematics.aabb(), &corners).is_none());
     assert!(scratch.kinematics.pos.y < centre.y - 40.0, "{:?}", scratch.kinematics.pos);
 }

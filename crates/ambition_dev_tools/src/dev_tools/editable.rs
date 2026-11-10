@@ -716,8 +716,10 @@ pub fn project_developer_body_profile(
         if (base_size.base_size - desired).length_squared() > 0.01 {
             // Resize the body while preserving the planted-foot position.
             let new_size = desired;
-            base_size.base_size = new_size;
-            ambition_platformer2d_core::resize_feet_planted(&mut kinematics, new_size, Vec2::Y);
+            match ambition_platformer2d_core::resize_feet_planted(&mut kinematics, new_size, Vec2::Y) {
+                Ok(()) => base_size.base_size = new_size,
+                Err(fault) => bevy::log::warn!(?fault, "body profile resize refused"),
+            }
         }
     }
 }
@@ -734,7 +736,9 @@ pub fn apply_player_body_profile(
     profile: PlayerBodyProfile,
 ) {
     let new_size = profile.size();
-    ambition_platformer2d_core::resize_feet_planted(kinematics, new_size, Vec2::Y);
+    if let Err(fault) = ambition_platformer2d_core::resize_feet_planted(kinematics, new_size, Vec2::Y) {
+        bevy::log::warn!(?fault, "body profile resize refused");
+    }
 }
 
 /// Apply a movement profile to the reflected tuning resource and refresh live

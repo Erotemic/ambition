@@ -109,6 +109,10 @@ fn velocities_in(min: [f32; 2], max: [f32; 2]) -> [Vec2; 5] {
     ]
     .map(|(down, instance, external)| {
         let kin = BodyKinematics {
+            material: ambition_platformer2d_core::frame::BodyMaterial::new(1.0, {
+                let down = down.unwrap_or(Vec2::Y);
+                bevy::math::Mat2::from_cols(Vec2::new(down.y, -down.x), down)
+            }).unwrap(),
             pos: Vec2::ZERO,
             canonical_size: Vec2::new(4.0, 20.0),
             ..Default::default()
@@ -123,7 +127,7 @@ fn velocities_in(min: [f32; 2], max: [f32; 2]) -> [Vec2; 5] {
         if let Some(down) = down {
             body.insert(SweepSample {
                 down,
-                half: kin.half_oriented(down),
+                half: kin.half_extent(),
                 ..Default::default()
             });
         }
@@ -139,7 +143,7 @@ fn velocities_in(min: [f32; 2], max: [f32; 2]) -> [Vec2; 5] {
 }
 
 #[test]
-fn a_held_field_uses_the_collision_box_from_the_last_step() {
+fn a_held_field_uses_the_physical_material_envelope() {
     let horizontal = velocities_in([7.0, -1.0], [9.0, 1.0]);
     assert_eq!(
         horizontal.map(|velocity| velocity.x > 0.0),

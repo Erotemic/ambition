@@ -30,7 +30,6 @@ impl Plugin for PortalSchedulePlugin {
         app.add_systems(
             sim,
             (
-                crate::portal_seat::turn_the_driven_body_around_after_portal_transit,
                 crate::portal_seat::guard_the_driven_body_after_portal_transit
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
             )

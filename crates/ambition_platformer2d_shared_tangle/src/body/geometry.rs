@@ -349,7 +349,7 @@ mod material_tests {
 /// Sample body material before motion. Optional mechanics do not own this map.
 pub fn publish_body_geometry_before_motion(
     mut geometry: bevy::prelude::ResMut<BodyGeometry>,
-    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics)>,
 ) {
     sample_body_material(&mut geometry, &bodies);
 }
@@ -357,18 +357,17 @@ pub fn publish_body_geometry_before_motion(
 /// Refresh body material after chart transfers, before geometry consumers run.
 pub fn publish_body_geometry_after_motion(
     mut geometry: bevy::prelude::ResMut<BodyGeometry>,
-    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics)>,
 ) {
     sample_body_material(&mut geometry, &bodies);
 }
 
 fn sample_body_material(
     geometry: &mut BodyGeometry,
-    bodies: &bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+    bodies: &bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics)>,
 ) {
     geometry.clear_materials();
-    for (body, kin, sweep) in bodies {
-        geometry.set_body_material(body, kin.material_map(
-            ambition_platformer2d_core::SweepSample::down_or(sweep, Vec2::Y)));
+    for (body, kin) in bodies {
+        geometry.set_body_material(body, kin.material_map());
     }
 }

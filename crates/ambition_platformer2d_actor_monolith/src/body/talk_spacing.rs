@@ -146,7 +146,7 @@ pub fn space_the_talkers(
     };
     let level = initiator_kin.pos.dot(frame.down);
     let place = |mark: f32| frame.side * mark + frame.down * level;
-    let half = initiator_kin.half_oriented(frame.down);
+    let half = initiator_kin.half_extent();
     let grounded = grounds.get(initiator).is_ok_and(|ground| ground.on_ground);
     let solids = collision
         .room(rooms.get(initiator).ok())

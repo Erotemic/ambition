@@ -666,3 +666,33 @@ for full PSIM acceptance. Body-attached ray origins still need the common
 material pose read model; authored modules currently supply offsets that
 already include gravity orientation and physical size. That migration must
 change both sides together.
+
+### Physical root material packet
+
+Status: implemented; merged-tree validation pending. P07 remains open.
+
+`BodyMaterial` stores wide physical axes and scale in the current room chart.
+The common portal transfer composes the full admitted map with that material.
+Canonical facing and body dimensions remain separate. Actor and item righting
+use one native turn-admission function and record departure material plus the
+source turn. Snapshot schema v432 includes these fields. Separate `ActorRoll`,
+`SurfaceUpright` and the facing-reversal setting are removed.
+
+Core tests pass: 869, one ignored. Shared, portal, runtime, host, view, renderer
+and held-item tests pass: 355, 142, 264, 36, 162, 522 and 47. View has two ignored
+tests; portal has one. Content portal tests pass: 60. App library tests pass:
+279, one ignored. All 37 app portal tests, the turned pickup test and the
+body-parts/gravity test pass. All 53 absence contracts hold.
+
+The character sprite suite has 62 passes and one failure:
+`attack_hitbox::tests::a_left_drawn_fighters_forward_swings_land_in_front_of_her`.
+An older saved executable (`ambition_character_sprites-6e1d6f7c5dcb0405`) fails
+with the same `air_back` centre, `7.655999`. This packet does not change that
+geometry. Logs: `target/portal-root-character-baseline-probe.log` and
+`target/portal-root-owner-ambition_character_sprites.log`.
+
+The pre-merge broad replay run was stopped after 60 completed tests to integrate
+20 upstream commits first. It is not a completed replay result. Merged-tree
+replay, policy and Smash checks remain pending. No full PSIM slice is closed.
+Native body contacts, same-tick continuation, common combat/attachment maps,
+unequal apertures, H–J lab examples and full acceptance remain open.

@@ -111,18 +111,17 @@ fn the_art_forward_sign_is_the_whole_of_the_handedness() {
 /// `facing < 0` rule.
 #[test]
 fn a_left_drawn_sheet_mirrors_on_the_opposite_facing_from_a_right_drawn_one() {
-    let down = ae::Vec2::new(0.0, 1.0);
     let right_drawn = sheet(false, &[(0.0, 0.0)]);
     let left_drawn = sheet(true, &[(0.0, 0.0)]);
     for facing in [-1.0_f32, 1.0] {
         assert_ne!(
-            right_drawn.art_is_mirrored(facing, down),
-            left_drawn.art_is_mirrored(facing, down),
+            right_drawn.art_is_mirrored(facing),
+            left_drawn.art_is_mirrored(facing),
             "at facing {facing} two oppositely-drawn sheets cannot want the same mirror"
         );
     }
-    assert!(!right_drawn.art_is_mirrored(1.0, down));
-    assert!(left_drawn.art_is_mirrored(1.0, down));
+    assert!(!right_drawn.art_is_mirrored(1.0));
+    assert!(left_drawn.art_is_mirrored(1.0));
 }
 
 /// Per-frame geometry outranks the coarse per-animation box, and a frame index

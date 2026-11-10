@@ -215,7 +215,7 @@ mod tests {
             chest_opened: false,
             fighting: false,
             switch_on: false,
-            rotation_rad: 0.0,
+            material: Default::default(),
             alive: true,
             hit_flash_secs: 0.0,
             parry_flash_secs: 0.0,

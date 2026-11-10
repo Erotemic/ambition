@@ -499,7 +499,7 @@ fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
             &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0).unwrap(),
             &crate::PortalTuning::default(),
         ).unwrap(),
-        facing_flip: false,
+
         input_warp: false,
     });
 }

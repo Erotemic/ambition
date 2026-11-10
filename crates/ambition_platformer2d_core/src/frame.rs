@@ -279,7 +279,7 @@ mod motion;
 pub use motion::ApertureStep;
 mod crossing;
 pub use crossing::RootCrossing;
-pub(crate) use motion::{rotation_ending_at,interval_center,rotation_bound};
+pub(crate) use motion::{rotation_at,rotation_ending_at,interval_center,rotation_bound};
 mod material;
 pub use material::BodyMaterial;
 

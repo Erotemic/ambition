@@ -163,12 +163,12 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
                 else { return false; };
             if sim_ids.id_of(entity).as_ref() != Some(&vote.body)
                 || rooms.live().of(entity) != vote.body.room { return false; }
-            let Ok((kin, sweep, _, _, in_passage)) = bodies.get(entity) else { return false; };
+            let Ok((kin, _, _, _, in_passage)) = bodies.get(entity) else { return false; };
             if in_passage { return false; }
             let Some(definition) = rooms.definition_of(entity) else { return false; };
             let Some(zone) = rooms.rooms().spec(definition).loading_zones.iter()
                 .find(|zone| zone.id == vote.exit.zone) else { return false; };
-            if !kin.collision_box(sweep).strict_intersects(zone.aabb)
+            if !kin.aabb().strict_intersects(zone.aabb)
                 || !portals.lets_through(&phases, &zone.id) { return false; }
             route_zone(rooms.rooms(), definition, &zone.id, &network).is_some_and(|route|
                 route.target_zone == vote.exit.target_zone
@@ -206,7 +206,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
         // tested where it stands.
         let (path_end, delta) = sweep
             .and_then(|sample| sample.ending_at(kin.pos))
-            .map_or((kin.collision_box(sweep), ae::Vec2::ZERO), |path| {
+            .map_or((kin.aabb(), ae::Vec2::ZERO), |path| {
                 (path.end_aabb(), path.delta())
             });
         let voted_zone = party.as_ref().and_then(|(party, _)| party.vote(seat)).map(|vote| vote.exit.zone.as_str());
@@ -238,7 +238,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
                 .spec(definition)
                 .loading_zones
                 .iter()
-                .find(|zone| kin.collision_box(sweep).strict_intersects(zone.aabb))
+                .find(|zone| kin.aabb().strict_intersects(zone.aabb))
             {
                 let ordinary_unpressed = !wants_interact
                     && matches!(
@@ -336,7 +336,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
             if subject.room.is_none() { continue; }
             if party.as_ref().unwrap().0.rules().mode == PartyTravelMode::AllMembers {
                 use ae::AabbExt as _;
-                if !kin.collision_box(sweep).strict_intersects(zone.zone.aabb) { continue; }
+                if !kin.aabb().strict_intersects(zone.zone.aabb) { continue; }
             }
             let vote = PartyVote { body: subject.clone(), exit: PartyExit {
                 zone: zone.zone.id.clone(), target_room: target_spec.id.clone(), target_zone: zone.target_zone.clone(),

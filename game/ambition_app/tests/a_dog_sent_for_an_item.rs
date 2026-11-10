@@ -430,7 +430,7 @@ fn a_dog_on_an_errand_waits_at_a_shut_gate_portal() {
         sim.step(base());
         let dog_box = {
             let world = sim.world();
-            world.get::<ae::BodyKinematics>(dog).expect("the dog").collision_box(world.get::<ae::SweepSample>(dog))
+            world.get::<ae::BodyKinematics>(dog).expect("the dog").aabb()
         };
         if ae::AabbExt::strict_intersects(dog_box, door.aabb) {
             ticks_in_the_door += 1;

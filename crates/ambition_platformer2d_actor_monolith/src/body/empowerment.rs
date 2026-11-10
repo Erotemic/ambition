@@ -182,7 +182,7 @@ pub fn apply_contact_harm(
         (
             Entity,
             (Option<&Empowered>, Option<&WornCharacter>),
-            (&ae::BodyKinematics, Option<&ae::SweepSample>),
+            &ae::BodyKinematics,
             &ActorFaction,
             Option<&ambition_characters::control::DrivingParticipant>,
             Option<&ContactHarm>,
@@ -210,7 +210,7 @@ pub fn apply_contact_harm(
     // The rules of the striker's own live room, and the room it touches in.
     tuning: ambition_combat::rules::CombatTuningOf,
 ) {
-    for (striker, (grant, worn), (kin, last_step), striker_faction, striker_driver, harm, striker_team) in &empowered {
+    for (striker, (grant, worn), kin, striker_faction, striker_driver, harm, striker_team) in &empowered {
         if !empowerment_of(grant, worn, cast.get()).holds(Empowerment::HARMS_ON_CONTACT) {
             continue;
         }
@@ -220,7 +220,7 @@ pub fn apply_contact_harm(
         let friendly_fire = tuning.in_room(striker_room).map(|t| t.damage_policy()).unwrap_or_default();
         let harm = harm.copied().unwrap_or_default();
         // "Everything I touch" is literally this body's collision box.
-        let volume = kin.collision_box(last_step);
+        let volume = kin.aabb();
         for (
             victim,
             victim_aabb,

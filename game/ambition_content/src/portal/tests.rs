@@ -8,7 +8,6 @@ use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_core::{self as ae};
 use ambition_platformer2d_shared_tangle::gravity::{gravity_upright_angle, GravityField};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d_shared_tangle::orientation::{update_actor_roll, ActorRoll};
 use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 #[allow(unused_imports)]
@@ -349,8 +348,10 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
 #[test]
 fn a_thrown_item_comes_out_turned_as_the_pair_turns_it() {
     use ambition_held_items::GroundItem;
-    use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
     let mut app = ground_transit_app();
+    app.insert_resource(ambition_portal2d::PortalTuning {
+        convention: ambition_portal2d::PortalConvention::Reflection, ..Default::default()
+    });
     // A floor portal (facing up) and a wall portal (facing right): the pair
     // turns what falls in by a quarter.
     app.world_mut().spawn(PlacedPortal::fixed(
@@ -377,7 +378,8 @@ fn a_thrown_item_comes_out_turned_as_the_pair_turns_it() {
     app.update();
     let g = app.world().get::<ae::BodyKinematics>(item).unwrap();
     assert!(g.pos.x > 390.0, "the item came out of the wall portal, pos={:?}", g.pos);
-    let roll = app.world().get::<ActorRoll>(item).expect("a ground item has a roll").angle;
+    let roll = g.material.render_angle();
+    assert!(g.material.reflected());
     assert!(roll.cos().abs() < 1e-3, "turned a quarter, as the pair turns it: roll={roll}");
 }
 
@@ -487,16 +489,14 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
     // A body whose centroid has crossed the PURPLE plane transfers to YELLOW
     // (its partner) — never to the unrelated orange portal.
     let step = ambition_portal2d::transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(400.0, 305.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 50.0), ..Default::default() },
-        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(400.0, 295.0), vel: Vec2::Y * 50.0, time: [0.0, 1.0], curr: Vec2::new(400.0, 305.0), material: Default::default(), half: Vec2::ZERO }),
+        Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(400.0, 295.0), vel: Vec2::Y * 50.0, time: [0.0, 1.0], curr: Vec2::new(400.0, 305.0), material: Default::default(), half: Vec2::ZERO }),
         Some(PortalTransit {
             straddling: PURPLE,
             crossed: false,
         }),
         None,
         &portals,
-        Vec2::new(0.0, 1.0),
-        &ambition_portal2d::PortalTuning::default(),
-    );
+        &ambition_portal2d::PortalTuning::default(),);
     match step {
         TransitStep::Transfer { transfer, .. } => {
                 let exit_channel = transfer.exit_channel;
@@ -508,87 +508,9 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
     }
 }
 
-#[test]
-fn facing_flip_policy_is_convention_aware() {
-    let g = Vec2::new(0.0, 1.0); // gravity down
-    let up = Vec2::new(0.0, -1.0); // floor
-    let down = Vec2::new(0.0, 1.0); // ceiling
-    let left = Vec2::new(-1.0, 0.0); // right-wall normal
-    let right = Vec2::new(1.0, 0.0); // left-wall normal
 
-    // Reflection convention: same-wall is the only suppressed-roll mirror, so
-    // facing flips to keep the leading side leading out.
-    assert!(portal_facing_flips_for_convention(
-        MapConvention::Reflection,
-        left,
-        left,
-        g
-    ));
-    // Walls facing EACH OTHER (portal_bridge) go straight through.
-    assert!(!portal_facing_flips_for_convention(
-        MapConvention::Reflection,
-        right,
-        left,
-        g
-    ));
-    // Floor/ceiling pairs carry their visible turn in roll, not facing.
-    assert!(!portal_facing_flips_for_convention(
-        MapConvention::Reflection,
-        up,
-        up,
-        g
-    ));
-    assert!(!portal_facing_flips_for_convention(
-        MapConvention::Reflection,
-        down,
-        down,
-        g
-    ));
-    assert!(!portal_facing_flips_for_convention(
-        MapConvention::Reflection,
-        up,
-        left,
-        g
-    ));
 
-    // Rotation convention is a proper orientation map: no extra mirror is ever
-    // needed, including the same-wall 180-degree case.
-    assert!(!portal_facing_flips_for_convention(
-        MapConvention::Rotation,
-        left,
-        left,
-        g
-    ));
-}
 
-#[test]
-fn somersault_policy_is_convention_aware() {
-    use std::f32::consts::PI;
-    let g = Vec2::new(0.0, 1.0); // gravity down
-    let up = Vec2::new(0.0, -1.0); // floor normal
-    let down = Vec2::new(0.0, 1.0); // ceiling normal
-    let left = Vec2::new(-1.0, 0.0); // right-wall normal
-
-    // Reflection convention keeps the historical gravity-platformer
-    // accommodation: floor/ceiling tumble, wall↔wall stays upright.
-    assert!(
-        (somersault_roll_for_convention(MapConvention::Reflection, up, up, g).abs() - PI).abs()
-            < 1e-5
-    );
-    assert!(
-        (somersault_roll_for_convention(MapConvention::Reflection, down, down, g).abs() - PI).abs()
-            < 1e-5
-    );
-    assert!(somersault_roll_for_convention(MapConvention::Reflection, left, left, g).abs() < 1e-5);
-    // A floor→wall pair still tumbles 90° (it genuinely reorients).
-    assert!(somersault_roll_for_convention(MapConvention::Reflection, up, left, g).abs() > 1.0);
-
-    // Rotation convention is a proper map, so same-wall is now a true 180° roll.
-    assert!(
-        (somersault_roll_for_convention(MapConvention::Rotation, left, left, g).abs() - PI).abs()
-            < 1e-5
-    );
-}
 
 #[test]
 fn held_input_warp_gate_is_convention_aware() {
@@ -635,64 +557,9 @@ fn held_input_warp_gate_is_convention_aware() {
     ));
 }
 
-#[test]
-fn portal_transit_roll_is_general_and_matches_on_screen_turn() {
-    use std::f32::consts::{FRAC_PI_2, PI};
-    let up = Vec2::new(0.0, -1.0); // floor portal faces up (y-down world)
-    let down = Vec2::new(0.0, 1.0); // ceiling portal faces down
-    let left = Vec2::new(-1.0, 0.0); // right wall faces left
-    let right = Vec2::new(1.0, 0.0); // left wall faces right
 
-    // Floor↔floor flips 180° (you somersault).
-    assert!((portal_transit_roll(up, up).abs() - PI).abs() < 1e-5);
-    // A straight-through wall pair (enter into +x wall, exit -x wall) keeps
-    // orientation — no turn.
-    assert!(portal_transit_roll(right, left).abs() < 1e-5);
-    // Floor→right-wall: falling in, you exit moving LEFT, so the body turns
-    // -90° (render) — feet swing from down to left, leaving feet-first.
-    assert!((portal_transit_roll(up, left) - (-FRAC_PI_2)).abs() < 1e-5);
-    // The reverse pair turns the opposite way.
-    assert!((portal_transit_roll(left, up) - FRAC_PI_2).abs() < 1e-5);
-    // Ceiling↔ceiling also flips 180°.
-    assert!((portal_transit_roll(down, down).abs() - PI).abs() < 1e-5);
-}
 
-#[test]
-fn roll_eases_back_to_gravity_upright_in_air() {
-    let mut app = App::new();
-    app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
-    app.init_resource::<GravityField>();
-    app.add_systems(Update, update_actor_roll);
-    // Start rolled 180° (just exited a floor↔floor portal), airborne. The
-    // righting system reads each body's own position via BodyKinematics, so the
-    // test body carries one (the dual-arm query collapsed to a single
-    // With<BodyKinematics> in Stage 16 / S5).
-    let player = app
-        .world_mut()
-        .spawn((
-            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
-                pos: Vec2::ZERO,
-                vel: Vec2::ZERO,
-                canonical_size: Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-            ActorRoll {
-                angle: std::f32::consts::PI,
-            },
-        ))
-        .id();
-    // It rights itself toward gravity-upright (0) over time WITHOUT needing
-    // to be grounded (the orient-to-gravity reflex).
-    for _ in 0..120 {
-        app.update();
-    }
-    let angle = app.world().get::<ActorRoll>(player).unwrap().angle;
-    let from_upright = angle.min(std::f32::consts::TAU - angle); // distance to 0 mod 2π
-    assert!(
-        from_upright < 1e-2,
-        "should right itself to gravity-up, got {angle}"
-    );
-}
+
 
 #[test]
 fn gravity_upright_angle_tracks_the_gravity_direction() {
@@ -704,17 +571,17 @@ fn gravity_upright_angle_tracks_the_gravity_direction() {
 }
 
 #[test]
-fn actors_get_an_aerial_roll_through_portals() {
+fn actors_carry_their_physical_material_through_portals() {
     use ambition_platformer2d_core::body_clusters::BodyKinematics;
     let mut app = App::new();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.init_resource::<ambition_portal2d::PortalTuning>();
+    app.insert_resource(ambition_portal2d::PortalTuning {
+        convention: ambition_portal2d::PortalConvention::Reflection, ..Default::default()
+    });
     app.add_systems(Update, portal_transit);
-    // Floor portal (normal up) + right-wall portal (normal left): a
-    // floor→wall pair, so transit imparts a -90° roll. Player and non-player
-    // actors alike now tumble + reorient (the somersault is ported to the
-    // aperture model and applied on the centroid transfer).
+    // The pair reflects the physical material across a floor-to-wall crossing.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
         Vec2::new(200.0, 380.0),
@@ -736,24 +603,21 @@ fn actors_get_an_aerial_roll_through_portals() {
                 canonical_size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            ActorRoll::default(),
         ))
         .id();
     let kin = *app.world().get::<BodyKinematics>(actor).unwrap();
     app.world_mut().entity_mut(actor).insert(ae::SweepSample {
         prev: kin.pos - Vec2::Y * 4.0, vel: kin.vel, ..ae::SweepSample::at_rest(kin, Vec2::Y)
     });
-    // Frame 1 begins transit; frame 2 transfers (centroid on the plane) and
-    // imparts the somersault roll.
+    // The second update transfers the root and its physical material.
     app.update();
     app.update();
-    let roll = app.world().get::<ActorRoll>(actor).unwrap().angle;
-    let expected = portal_transit_roll(Vec2::new(0.0, -1.0), Vec2::new(-1.0, 0.0))
-        .rem_euclid(std::f32::consts::TAU);
-    assert!(
-        (roll.rem_euclid(std::f32::consts::TAU) - expected).abs() < 1e-4,
-        "a teleported actor should pick up the same aerial roll as the player; got {roll}, expected {expected}"
-    );
+    let material = app.world().get::<BodyKinematics>(actor).unwrap().material;
+    assert!(material.reflected());
+    let map = material.at(Vec2::ZERO).unwrap();
+    assert_eq!(map.vector(Vec2::X).unwrap(), -Vec2::Y);
+    assert_eq!(map.vector(Vec2::Y).unwrap(), -Vec2::X);
+
 }
 
 #[test]
@@ -764,6 +628,9 @@ fn portal_pair_teleports_player_carrying_momentum() {
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<ambition_portal2d::PortalTuning>();
+    app.insert_resource(ambition_portal2d::PortalTuning {
+        convention: ambition_portal2d::PortalConvention::Reflection, ..Default::default()
+    });
     app.add_systems(Update, portal_transit);
     // Blue on the left (facing right), orange on the right (facing left).
     app.world_mut().spawn(PlacedPortal::fixed(
@@ -783,15 +650,17 @@ fn portal_pair_teleports_player_carrying_momentum() {
         .get_mut::<BodyKinematics>(player)
         .unwrap()
         .vel = Vec2::new(-100.0, 0.0);
-    // Give the player a pre-set roll so we can prove the portal leaves the
-    // player's orientation alone (#47 — no upside-down flip).
-    app.world_mut()
-        .entity_mut(player)
-        .insert(ActorRoll { angle: 0.5 });
+    // An existing tilt must compose with the complete portal map.
+    app.world_mut().get_mut::<BodyKinematics>(player).unwrap().material =
+        ae::frame::BodyMaterial::IDENTITY.turned(-0.5).unwrap();
     let kin = *app.world().get::<BodyKinematics>(player).unwrap();
     app.world_mut().entity_mut(player).insert(ae::SweepSample {
         prev: kin.pos + Vec2::X * 4.0, vel: kin.vel, ..ae::SweepSample::at_rest(kin, Vec2::Y)
     });
+    let expected_material = kin.material.carried(ae::frame::Sim2::through(
+        &ae::frame::PortalAperture { frame: ae::frame::PortalFrame::fixed(Vec2::new(22.0, 200.0), Vec2::X), half_length: ambition_portal2d::PORTAL_OPENING_HALF },
+        &ae::frame::PortalAperture { frame: ae::frame::PortalFrame::fixed(Vec2::new(378.0, 200.0), -Vec2::X), half_length: ambition_portal2d::PORTAL_OPENING_HALF },
+        MapConvention::Reflection).unwrap()).unwrap();
     // Frame 1 begins transit (leading edge in the aperture); frame 2 sees the
     // centroid already across the plane and transfers the authoritative body.
     app.update();
@@ -807,11 +676,9 @@ fn portal_pair_teleports_player_carrying_momentum() {
         "exit should carry momentum (>= min exit speed), got {:?}",
         kin.vel
     );
-    let roll = app.world().get::<ActorRoll>(player).unwrap().angle;
-    assert!(
-        (roll - 0.5).abs() < 1e-5,
-        "player keeps its orientation through the portal (#47 — no flip), got {roll}"
-    );
+    assert_eq!(kin.material, expected_material);
+    assert_eq!(kin.facing, 1.0);
+
 }
 
 #[test]
@@ -1340,13 +1207,11 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
         }
         cooldown = cooldown.filter(|(_, t)| *t > 0.0);
         let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: scratch.kinematics.pos, canonical_size: size, vel: scratch.kinematics.vel, ..Default::default() },
-            Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
+            Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
             transit,
             cooldown.map(|(c, _)| c),
             &portals,
-            Vec2::new(0.0, 1.0),
-            &ambition_portal2d::PortalTuning::default(),
-        );
+            &ambition_portal2d::PortalTuning::default(),);
         match step {
             TransitStep::Begin { channel, .. } => {
                 transit = Some(PortalTransit {
@@ -1447,13 +1312,11 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
         let previous = scratch.kinematics;
         step_axis_scratch(&world, &mut scratch, InputState::default(), dt, tuning);
         let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: scratch.kinematics.pos, canonical_size: size, vel: scratch.kinematics.vel, ..Default::default() },
-            Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
+            Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
             transit,
             None,
             &portals,
-            Vec2::new(0.0, 1.0),
-            &ambition_portal2d::PortalTuning::default(),
-        );
+            &ambition_portal2d::PortalTuning::default(),);
         match step {
             TransitStep::Begin { channel, .. } => {
                 transit = Some(PortalTransit {

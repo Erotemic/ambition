@@ -160,12 +160,6 @@ mod enabled {
                             &mut tuning.suppress_wall_abilities,
                             "While an actor is in a portal aperture, disable wall movement abilities so carved aperture edges cannot catch them.",
                         );
-                        bool_row(
-                            ui,
-                            "reorient_facing",
-                            &mut tuning.reorient_facing,
-                            "Global gate for same-wall turn-around transits to re-orient the body's facing. It turns around only the body a seat drives (DrivingParticipant). \u{26d4} THIS ROW DOES NOT STICK: sync_portal_reorient_from_settings republishes it from Gameplay > Portal Reverse Facing whenever the two differ, so an edit here is reverted on the next pass. Change the setting instead.",
-                        );
                     });
                 if tuning.0 != shown.0 {
                     *world.resource_mut::<ambition_platformer2d::portal::EditablePortalTuning>() =

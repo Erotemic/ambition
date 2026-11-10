@@ -336,14 +336,18 @@ pub fn resize_feet_planted(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     new_size: Vec2,
     gravity_dir: Vec2,
-) {
-    let old_half = kinematics.half_oriented(gravity_dir);
+) -> Result<(), crate::frame::NumericFault> {
+    use crate::frame::{NumericFault, Sim2};
+    if !gravity_dir.is_finite() { return Err(NumericFault::NonFinite); }
+    let down = crate::AccelerationFrame::new(gravity_dir).down.as_dvec2();
+    let old_extent = kinematics.projected_half_extent(down)?;
     let mut candidate = *kinematics;
     candidate.canonical_size = new_size;
-    let new_half = candidate.half_oriented(gravity_dir);
-    let down = crate::AccelerationFrame::new(gravity_dir).down;
-    kinematics.pos += down * (old_half - new_half).dot(down.abs());
-    kinematics.canonical_size = new_size;
+    let new_extent = candidate.projected_half_extent(down)?;
+    candidate.pos = Sim2::IDENTITY.point_from_wide(kinematics.pos.as_dvec2() + down * (old_extent-new_extent))?;
+    crate::frame::thread::map_volume(&candidate.canonical_box()?, &candidate.material_map()?)?;
+    *kinematics = candidate;
+    Ok(())
 }
 
 /// Attempt to change `player.body_mode` to `new_mode`.
@@ -387,19 +391,12 @@ where
     if body_mode_state.body_mode == new_mode {
         return true;
     }
-    let frame = crate::AccelerationFrame::new(gravity_dir);
     let new_shape = new_mode.shape(base_size.base_size);
-
-    let old_world_half = kinematics.half_oriented(gravity_dir);
+    let old_world_half = kinematics.half_extent();
     let mut candidate = *kinematics;
-    candidate.canonical_size = new_shape.size;
-    let new_world_half = candidate.half_oriented(gravity_dir);
-    let gravity_axis = frame.down;
-    let old_feet_half =
-        old_world_half.x * gravity_axis.x.abs() + old_world_half.y * gravity_axis.y.abs();
-    let new_feet_half =
-        new_world_half.x * gravity_axis.x.abs() + new_world_half.y * gravity_axis.y.abs();
-    let new_center = kinematics.pos + gravity_axis * (old_feet_half - new_feet_half);
+    if resize_feet_planted(&mut candidate, new_shape.size, gravity_dir).is_err() { return false; }
+    let new_world_half = candidate.half_extent();
+    let new_center = candidate.pos;
 
     let old_aabb = crate::geometry::Aabb::new(kinematics.pos, old_world_half);
     let new_aabb = crate::geometry::Aabb::new(new_center, new_world_half);

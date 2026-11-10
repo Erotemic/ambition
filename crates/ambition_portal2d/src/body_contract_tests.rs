@@ -87,7 +87,7 @@ fn a_crossing_that_skipped_begin_leaves_the_body_straddling_the_exit() {
     wall_pair(&mut app);
     // Kernel: its step began 30 px in front of blue and ends 6 px behind it.
     let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(14.0, 200.0), vel: Vec2::new(-1800.0, 0.0), canonical_size: Vec2::splat(16.0), facing: 1.0 };
-    let record = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::new(0.0, 1.0) };
+    let record = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::new(0.0, 1.0) };
     let kernel = app.world_mut().spawn((kin, record)).id();
     let free = app
         .world_mut()
@@ -316,13 +316,11 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
     let taken = |from: Vec2, to: Vec2| {
         matches!(
             transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: to, canonical_size: size, vel: vel, ..Default::default() },
-                Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: from, vel, curr: to, material: Default::default(), half: Vec2::ZERO }),
+                Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: from, vel, curr: to, material: Default::default(), half: Vec2::ZERO }),
                 None,
                 None,
                 &portals,
-                Vec2::new(0.0, 1.0),
-                &PortalTuning::default(),
-            ),
+                &PortalTuning::default(),),
             TransitStep::Transfer { .. }
         )
     };
@@ -521,4 +519,41 @@ fn invalid_placement_preserves_the_live_pose_and_motion() {
         assert!(PlacedPortal::fixed(BLUE, Vec2::ZERO, Vec2::X, length).is_err());
     }
     assert_eq!(PlacedPortal::fixed(BLUE, Vec2::ZERO, Vec2::ZERO, HALF).unwrap_err(), NumericFault::InvalidFrame);
+}
+
+#[test]
+fn a_root_transfer_carries_scale_axes_and_parity_for_each_convention() {
+    for convention in [crate::PortalConvention::Reflection, crate::PortalConvention::Rotation] {
+        for reflected in [false, true] {
+            let mut app = App::new();
+            app.insert_resource(PortalTuning { convention, ..Default::default() });
+            app.add_message::<crate::PortalBodyEntered>();
+            app.add_message::<crate::PortalBodyTransited>();
+            app.add_systems(Update, crate::portal_transit);
+            let entry = PlacedPortal::fixed(BLUE, Vec2::new(200.0, 380.0), -Vec2::Y, HALF).unwrap();
+            let exit = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), -Vec2::X, HALF).unwrap();
+            let map = ae::frame::Sim2::through(&entry.aperture(), &exit.aperture(), convention.map_convention()).unwrap();
+            app.world_mut().spawn(entry.clone());
+            app.world_mut().spawn(exit);
+            let mut axes = Mat2::from_angle(0.37);
+            if reflected { axes.x_axis = -axes.x_axis; }
+            let before = BodyKinematics {
+                pos: entry.pos,
+                vel: Vec2::Y * 100.0,
+                canonical_size: Vec2::new(24.0, 40.0),
+                material: ae::frame::BodyMaterial::new(0.5, axes).unwrap(),
+                facing: -1.0,
+            };
+            let expected = before.material.carried(map).unwrap();
+            let record = SweepSample { prev: before.pos - Vec2::Y * 4.0, ..SweepSample::at_rest(before, Vec2::Y) };
+            let entity = app.world_mut().spawn((before, record)).id();
+            app.update();
+            app.update();
+            let after = app.world().get::<BodyKinematics>(entity).unwrap();
+            assert_eq!(after.pos, map.point(before.pos).unwrap());
+            assert_eq!(after.material, expected);
+            assert_eq!(after.canonical_size, before.canonical_size);
+            assert_eq!(after.facing, before.facing);
+        }
+    }
 }

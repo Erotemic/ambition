@@ -346,7 +346,13 @@ pub fn camera_roll_for_portal_transit(
     gravity_dir: Vec2,
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> f32 {
-    ambition_portal2d::somersault_roll_for_convention(convention, n_in, n_out, gravity_dir)
+    let down = gravity_dir.normalize_or_zero();
+    let walls = n_in.normalize_or_zero().dot(down).abs() < 0.5
+        && n_out.normalize_or_zero().dot(down).abs() < 0.5;
+    if convention == ambition_portal2d::pieces::MapConvention::Reflection && walls { return 0.0; }
+    let incoming = Vec2::new(-n_in.x, n_in.y);
+    let outgoing = Vec2::new(n_out.x, -n_out.y);
+    incoming.perp_dot(outgoing).atan2(incoming.dot(outgoing))
 }
 
 /// Host-applied marker for the camera/viewpoint that should receive the optional

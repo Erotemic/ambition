@@ -432,7 +432,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // published support normal: the rule of the published footprint
         // (`publish_body_footprint`). A crawler on a wall and a body in
         // sideways gravity lie ALONG their support.
-        self.kin.aabb_oriented(-self.surface.surface_normal)
+        self.kin.aabb()
     }
 
     // `rotation_rad()` WAS HERE and nothing ever asked for it
@@ -476,7 +476,7 @@ impl ContactAttack {
         if !tuning.body_contact_damage { return None; }
         let down = -surface.surface_normal.normalize_or(ae::Vec2::new(0.0, -1.0));
         Some(Self {
-            volume: kin.aabb_oriented(-surface.surface_normal),
+            volume: kin.aabb(),
             damage: tuning.damage_amount,
             strength: tuning.contact_strength.max(BODY_CONTACT_MIN_KNOCKBACK),
             source_pos: kin.pos,

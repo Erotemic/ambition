@@ -21,6 +21,11 @@
 use crate::world::World;
 use crate::MotionFrame;
 
+mod righting;
+#[cfg(test)]
+mod righting_tests;
+pub use righting::admit_body_righting;
+
 mod abilities;
 mod adhesive_crawler;
 mod authority;
@@ -426,7 +431,7 @@ fn carry_frozen_rider(world: &World, clusters: &mut crate::body_clusters::BodyCl
         return;
     }
     let g = frame.down();
-    let body = clusters.kinematics.aabb_oriented(g);
+    let body = clusters.kinematics.aabb();
     let delta = if let Some(line) = crate::walkable_lines::stood_on_line(world, body, g) {
         let chain = &world.chains[line.chain];
         let feet_point = body.center() + g * (body.feet_coord(g) - body.center().dot(g));
@@ -475,7 +480,7 @@ fn update_body_simulation_inner(
             grab.contact,
             // The box a solid stops is the body's box turned to the frame's
             // DOWN, as in every collision of the step.
-            clusters.kinematics.aabb_oriented(frame.down()),
+            clusters.kinematics.aabb(),
             clusters.kinematics.size(),
             frame.down(),
         ) {
@@ -508,7 +513,7 @@ fn update_body_simulation_inner(
     // The box that touches a region is the box the step moves: the body's
     // box turned to the frame's DOWN. The level box found water beside a body
     // in sideways gravity, and missed water under its own end.
-    let step_box = clusters.kinematics.aabb_oriented(frame.down());
+    let step_box = clusters.kinematics.aabb();
     clusters.env_contact.water = world.water_at(step_box);
     clusters.env_contact.climbable = world.climbable_at(step_box);
     if !clusters.abilities.abilities.ledge_grab {

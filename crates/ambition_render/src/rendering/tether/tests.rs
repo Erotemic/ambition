@@ -43,7 +43,7 @@ fn actor_view(grab_reach: Option<ambition_platformer2d_core::Vec2>) -> ambition_
         chest_opened: false,
         fighting: true,
         switch_on: false,
-        rotation_rad: 0.0,
+        material: Default::default(),
         alive: true,
         hit_flash_secs: 0.0,
         parry_flash_secs: 0.0,

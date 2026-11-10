@@ -23,7 +23,6 @@ use super::inventory_adapter::{drop_portal_gun_system, pickup_portal_gun_system}
 use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
-use super::reorient_setting::sync_portal_reorient_from_settings;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Installs the Ambition-specific portal input/inventory adapters.
@@ -182,26 +181,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::WeaponAndProjectiles),
         );
 
-        // Mirror the `portal_reverses_facing` gameplay setting into the global
-        // `PortalTuning::reorient_facing` knob each frame, before the transit core
-        // reads it, so the toggle takes effect live.
-        // ⛔⛤ **IT LEFT THE SIM SCHEDULE ON 2026-09-13.** It used to write
-        // `PortalTuning` directly, `.before(portal_transit)` — under the rollback
-        // host that is inside `GgrsSchedule`, so a replay of frame N observed
-        // whatever the settings menu holds NOW, and it overwrote whatever the
-        // admitted portal-editor publisher had just published. Two writers of one
-        // authority, resolved by whichever ran last.
-        //
-        // ⭐ It authors the MIRROR now and proposes, so the settings menu and the
-        // F-key panel author the same field in the same place and
-        // `publish_editable_portal_tuning` remains the only writer of the
-        // authority.
-        app.add_systems(
-            bevy::app::PreUpdate,
-            sync_portal_reorient_from_settings
-                .run_if(super::reorient_setting::the_setting_or_its_mirror_changed)
-                .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
-        );
+
 
 
     }

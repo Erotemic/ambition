@@ -64,7 +64,6 @@ pub(crate) fn apply_character_frame(
     barking: bool,
     dt: f32,
     facing: f32,
-    gravity_dir: ambition_platformer2d_core::Vec2,
     color: Color,
     stance: StanceSquash,
 ) -> FrameWrites {
@@ -90,15 +89,10 @@ pub(crate) fn apply_character_frame(
     }
     // A move whose row is the upper body only: the legs keep their own pose.
     animator.under_clip(clip.and_then(|request| request.legs));
-    // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
-    // sprite, so the flip inverts (#33). The flip is XORed with the sheet's
-    // authored facing (`authored_faces_left`), the same term `animate_bosses`
-    // uses. This makes left-drawn rigs such as the Patent Clerk face the way
-    // they move.
+    // The art mirror and physical material parity are separate transforms.
     let flip = ambition_sprite_sheet::art_is_mirrored(
         animator.spec.authored_faces_left(),
         facing,
-        gravity_dir,
     );
     // A sheet drawn from both sides answers the flip with its mirror rows, so
     // the texture is flipped only for a character that is left-right symmetric.
@@ -278,7 +272,6 @@ pub fn animate_player(
             false,
             dt,
             pose.facing,
-            pose.gravity_dir,
             Color::WHITE,
             StanceSquash {
                 ratio_y: pose.stance_ratio_y,
@@ -372,9 +365,6 @@ pub fn animate_characters(
             barking,
             dt,
             frame.facing,
-            // The body's own resolved down, so a wall-walking or ceiling
-            // actor flips correctly.
-            frame.gravity_dir,
             Color::WHITE,
             // Enemies and NPCs do not use the stance squash.
             StanceSquash::NONE,
@@ -434,7 +424,6 @@ pub fn animate_feature_sprites(
             false,
             dt,
             1.0,
-            ambition_platformer2d_core::Vec2::Y,
             Color::WHITE,
             // An animated feature doesn't crouch — full standing height.
             StanceSquash::NONE,
@@ -492,7 +481,6 @@ pub fn animate_props(
             false,
             dt,
             1.0,
-            ambition_platformer2d_core::Vec2::Y,
             tint.map_or(Color::WHITE, |tint| tint.0),
             // Props don't crouch — full standing height.
             StanceSquash::NONE,
@@ -504,7 +492,6 @@ pub fn animate_props(
 #[cfg(test)]
 mod tests {
     use super::{generic_feature_anim_owns, FeatureVisualKind};
-    use ambition_platformer2d_core::Vec2;
     use ambition_sprite_sheet::character::sheets::{available_sheet_keys, record_for_sheet_key};
 
     #[test]
@@ -520,7 +507,7 @@ mod tests {
     /// of `flip_x` alone would test the mechanism against itself.
     fn drawn_direction(authored_faces_left: bool, facing: f32) -> f32 {
         let art_points = if authored_faces_left { -1.0 } else { 1.0 };
-        let flip = ambition_sprite_sheet::art_is_mirrored(authored_faces_left, facing, Vec2::NEG_Y);
+        let flip = ambition_sprite_sheet::art_is_mirrored(authored_faces_left, facing);
         if flip {
             -art_points
         } else {

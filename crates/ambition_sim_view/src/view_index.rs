@@ -7,7 +7,6 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
 use crate::anim_index::ActorSpriteData;
-use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
@@ -21,7 +20,6 @@ use ambition_world_items::containers::Opened;
 use ambition_platformer2d_items::pickups::PickupFeature;
 use ambition_encounter::switches::SwitchFeature;
 use ambition_combat::hazard_runtime::HazardFeature;
-use ambition_platformer2d_core::ActorSurfaceState;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -99,12 +97,8 @@ pub struct FeatureView {
     /// "on" (encounter cleared / reset path armed). Renders green when
     /// true, red when false. Ignored for other kinds.
     pub switch_on: bool,
-    /// Z-axis rotation to apply to the rendered sprite, in radians
-    /// (Bevy frame; +π/2 is CCW). Non-zero for surface-walking
-    /// archetypes that crawl on walls/ceilings; everyone else
-    /// reports 0.0 and renders axis-aligned. Uses the engine → Bevy
-    /// rotation mapping shared by actor rendering.
-    pub rotation_rad: f32,
+    /// Physical material axes and scale in the current room chart.
+    pub material: ae::frame::BodyMaterial,
     /// Presentation (nameplates, debug bars) reads THIS, never the live clusters.
     pub alive: bool,
     /// Seconds remaining on the damage flash (actors + live bosses; `0.0`
@@ -291,17 +285,11 @@ pub fn rebuild_feature_view_index(
             Option<&ambition_characters::actor::BodyHealth>,
             // With the playback, it gives the swing (`melee_swing_of`).
             Option<&ambition_combat::moveset::ActorMoveset>,
-            Option<&ActorConfig>,
-            Option<&ActorSurfaceState>,
             // The two clusters the damage rule reads that this pass did not
             // already hold: the evade window and the guard.
             Option<&ae::BodyMotionFacts>,
             Option<&ambition_platformer2d_core::BodyShieldState>,
-            // Portal aerial-roll (same component the player uses) so actors
-            // somersault + self-right through portals just like the player.
-            Option<
-                &ambition_platformer2d_shared_tangle::orientation::ActorRoll,
-            >,
+            &ae::BodyKinematics,
             // Sheet-authored quad placement, for a body whose art does not sit
             // centred in its frame. Absent for every ordinary actor.
             Option<&ambition_combat::components::ActorSpriteOffset>,
@@ -353,10 +341,7 @@ pub fn rebuild_feature_view_index(
         Option<&ambition_characters::actor::BodyHealth>,
         Option<&DeathBeat>,
         Option<&BossPhase>,
-        // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
-        // use, so a boss rights itself under flipped / sideways gravity instead of
-        // staying screen-axis-aligned (it floats, but it should still flip).
-        Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
+
     )>,
     // Any body's kinematics: a limb's host, for where its bond meets it.
     hosts: Query<&ae::BodyKinematics, Without<ambition_characters::actor::Limb>>,
@@ -384,7 +369,7 @@ pub fn rebuild_feature_view_index(
                 chest_opened: false,
                 fighting: false,
                 switch_on: false,
-                rotation_rad: 0.0,
+                material: Default::default(),
                 alive: true,
                 hit_flash_secs: 0.0,
                 parry_flash_secs: 0.0,
@@ -418,7 +403,7 @@ pub fn rebuild_feature_view_index(
                 chest_opened: opened.is_some(),
                 fighting: false,
                 switch_on: false,
-                rotation_rad: 0.0,
+                material: Default::default(),
                 alive: true,
                 hit_flash_secs: 0.0,
                 parry_flash_secs: 0.0,
@@ -452,7 +437,7 @@ pub fn rebuild_feature_view_index(
                 chest_opened: false,
                 fighting: false,
                 switch_on: false,
-                rotation_rad: 0.0,
+                material: Default::default(),
                 alive: !breakable.broken(),
                 hit_flash_secs: 0.0,
                 parry_flash_secs: 0.0,
@@ -498,7 +483,7 @@ pub fn rebuild_feature_view_index(
                     }
                     _ => save.data().switch(&switch.activation.id),
                 },
-                rotation_rad: 0.0,
+                material: Default::default(),
                 alive: true,
                 hit_flash_secs: 0.0,
                 parry_flash_secs: 0.0,
@@ -520,18 +505,15 @@ pub fn rebuild_feature_view_index(
         combat,
         health,
         moveset,
-        config,
-        surface,
         motion,
         shield,
-        roll,
+        kinematics,
         sprite_offset,
         respawn_grace,
         body_mode,
         (playback, line_anchor, limb, bond_start, depth_plane, entity, out_of_the_world, death_beat),
     ) in &actors
     {
-        let roll_rad = roll.map_or(0.0, |r| r.angle);
         // ONE actor kind. "enemy vs NPC vs training-dummy" was never a render
         // *type* — it's the actor's STATE (fighting-or-not) plus its depiction
         // (sandbag/name fallback in the sprite-upgrade system). `fighting` is a
@@ -562,30 +544,7 @@ pub fn rebuild_feature_view_index(
             || (hostile
                 && ambition_combat::moveset::melee_swing_of(playback, moveset)
                     .is_some_and(|a| a.is_winding_up() || a.is_active()));
-        // Sprite rotation. A *surface-walker* (PuppySlug) orients to the surface it
-        // clings to (its `surface_normal` encodes floor/wall/ceiling + gravity
-        // flips). EVERY OTHER actor rights to gravity via `roll_rad` — the SAME
-        // path the player uses. The two must NOT be summed.
-        let is_surface_walker = config.is_some_and(|c| c.tuning.surface_walker);
-        let rotation_rad = if is_surface_walker {
-            match surface {
-                Some(s) => f32::atan2(-s.surface_normal.x, -s.surface_normal.y),
-                None => roll_rad,
-            }
-        } else {
-            roll_rad
-        };
-        // Render size is the RAW (un-oriented) body box. The sprite is oriented by
-        // `rotation_rad`, so it must NOT also receive the surface-oriented
-        // footprint (that double-counts the rotation and changes `view.size` when
-        // the slug climbs a wall). Only a surface-walker on a wall swaps.
-        let render_size = match surface {
-            Some(s) if is_surface_walker && s.surface_normal.x.abs() > s.surface_normal.y.abs() => {
-                let o = aabb.size();
-                ae::Vec2::new(o.y, o.x)
-            }
-            _ => aabb.size(),
-        };
+        let render_size = kinematics.canonical_size;
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -625,7 +584,7 @@ pub fn rebuild_feature_view_index(
                 chest_opened: false,
                 fighting: hostile,
                 switch_on: false,
-                rotation_rad,
+                material: kinematics.material,
                 // Liveness for presentation (nameplates, debug bars), from the AUTHORITY. An actor
                 // with no pool reads alive (it has nothing to die from).
                 alive: !health.is_some_and(|h| !h.alive()),
@@ -684,7 +643,7 @@ pub fn rebuild_feature_view_index(
                 chest_opened: false,
                 fighting: false,
                 switch_on: false,
-                rotation_rad: 0.0,
+                material: Default::default(),
                 alive: hazard.hazard.active(),
                 hit_flash_secs: 0.0,
                 parry_flash_secs: 0.0,
@@ -699,7 +658,7 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (entity, id, feature, attack_state, combat, health, death_anim, phase, roll) in &bosses {
+    for (entity, id, feature, attack_state, combat, health, death_anim, phase) in &bosses {
         let boss = feature.as_boss_ref();
         // pos / size still come from `BossRuntime` until the boss body migrates
         // to `CenteredAabb` (ecs-cleanup-plan #9).
@@ -733,7 +692,7 @@ pub fn rebuild_feature_view_index(
                 // A boss in its encounter is definitionally a combatant.
                 fighting: true,
                 switch_on: false,
-                rotation_rad: roll.map_or(0.0, |r| r.angle),
+                material: boss.kin.material,
                 alive: boss_alive && !phase.is_some_and(|p| p.is_defeated()),
                 // A boss corpse must not read as a lit silhouette — death
                 // rows are authored sprites (the old render-side rule).
@@ -1273,7 +1232,7 @@ mod view_index_tests {
             chest_opened: false,
             fighting: false,
             switch_on: false,
-            rotation_rad: 0.0,
+            material: Default::default(),
             alive: true,
             hit_flash_secs: 0.0,
             parry_flash_secs: 0.0,
@@ -1310,6 +1269,7 @@ mod view_index_tests {
                 FeatureId("seat_0".to_string()),
                 CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(30.0, 48.0)),
                 ActorDisposition::Hostile,
+                ae::BodyKinematics::default(),
                 shield,
             ));
             app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
@@ -1365,6 +1325,7 @@ mod view_index_tests {
                 FeatureId(id.to_string()),
                 CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(30.0, 48.0)),
                 ActorDisposition::Hostile,
+                ae::BodyKinematics::default(),
             )
         };
         let rooms_of = |two: bool| {

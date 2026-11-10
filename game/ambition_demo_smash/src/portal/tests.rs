@@ -152,7 +152,7 @@ fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
             &ambition_platformer2d::portal::PlacedPortal::fixed(ambition_platformer2d::portal::PortalChannel::Gun(ambition_platformer2d::portal::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0).unwrap(),
             &ambition_platformer2d::portal::PortalTuning::default(),
         ).unwrap(),
-        facing_flip: false,
+
         input_warp: false,
     });
     app.update();

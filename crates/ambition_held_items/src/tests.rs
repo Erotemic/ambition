@@ -2114,7 +2114,10 @@ fn picks_up_at(offset: Vec2, down: Option<Vec2>) -> bool {
     app.add_systems(Update, pickup_held_item_system);
     let player = spawn_player(&mut app, REACH_AT);
     if let Some(down) = down {
-        let body = *app.world().get::<BodyKinematics>(player).unwrap();
+        let mut body = *app.world().get::<BodyKinematics>(player).unwrap();
+        body.material = ae::frame::BodyMaterial::new(1.0,
+            Mat2::from_cols(Vec2::new(down.y, -down.x), down)).unwrap();
+        *app.world_mut().get_mut::<BodyKinematics>(player).unwrap() = body;
         app.world_mut()
             .entity_mut(player)
             .insert(ambition_platformer2d_core::SweepSample::at_rest(body, down));

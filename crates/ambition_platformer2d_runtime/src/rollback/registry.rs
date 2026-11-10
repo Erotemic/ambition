@@ -232,7 +232,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // Room capabilities scope body admission and portal geometry.
 // Canonical block contacts and initial-overlap policy change contact results.
 // 430 -> 431: rays query full cross-sections on each admitted chart leg.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 431;
+// 431 -> 432: body material keeps wide room axes; motion records include source turns.
+// Physical material replaces separate roll and support-orientation state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 432;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

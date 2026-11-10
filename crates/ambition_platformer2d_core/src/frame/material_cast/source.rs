@@ -22,6 +22,10 @@ pub(super) fn perp(point: DVec2) -> DVec2 { DVec2::new(-point.y, point.x) }
 
 /// Keep the displacement from a small turn about a distant pivot.
 pub(in crate::frame) fn rotation_delta(angle: f64, point: DVec2) -> DVec2 {
+    let quarter = angle / std::f64::consts::FRAC_PI_2;
+    if quarter.fract() == 0.0 && quarter * std::f64::consts::FRAC_PI_2 == angle {
+        return (crate::frame::rotation_at(angle) - DMat2::IDENTITY) * point;
+    }
     perp(point) * angle.sin() - point * (2.0 * (angle * 0.5).sin().powi(2))
 }
 
@@ -38,12 +42,12 @@ impl SourceMotion {
     }
 
     pub fn root_velocity(self, time: f64) -> DVec2 {
-        self.delta + perp(DMat2::from_angle(self.turn() * time) * self.root_arm()) * self.turn()
+        self.delta + perp(crate::frame::rotation_at(self.turn() * time) * self.root_arm()) * self.turn()
     }
 
     pub fn map_at(self, time: f64) -> Result<Sim2, NumericFault> {
         let Some(rotation) = self.rotation else { return self.map.shifted(self.delta * time); };
-        let turn = DMat2::from_angle(rotation.turn * time);
+        let turn = crate::frame::rotation_at(rotation.turn * time);
         let axes = DMat2::from_cols(turn * self.map.direction_wide(DVec2::X), turn * self.map.direction_wide(DVec2::Y));
         let origin = self.map.translation() + self.delta * time
             + rotation_delta(rotation.turn * time, self.map.translation() - rotation.pivot);
@@ -53,7 +57,7 @@ impl SourceMotion {
     /// Derivative of the map's origin in the original source parameter.
     pub fn map_velocity(self, time: f64) -> DVec2 {
         self.delta + self.rotation.map_or(DVec2::ZERO, |rotation| {
-            perp(DMat2::from_angle(rotation.turn * time) * (self.map.translation() - rotation.pivot)) * rotation.turn
+            perp(crate::frame::rotation_at(rotation.turn * time) * (self.map.translation() - rotation.pivot)) * rotation.turn
         })
     }
 

@@ -58,7 +58,7 @@ pub fn break_dialogue_on_hit_or_separation(
     // body's footprint. A body with no kinematics talks from its footprint.
     let talk_box = match a_body {
         Some((kin, step)) => ambition_interaction::talk_reach(
-            kin.collision_box(step),
+            kin.aabb(),
             step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down),
         ),
         None => ambition_interaction::talk_reach(a_aabb.aabb(), ambition_platformer2d_core::Vec2::ZERO),

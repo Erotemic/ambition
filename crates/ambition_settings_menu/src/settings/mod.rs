@@ -133,9 +133,6 @@ pub enum SettingsOptionId {
     /// Suppress gameplay + menu input while the OS window is unfocused (opt-in
     /// guard against background input bleed). Default OFF.
     PauseInputUnfocused,
-    /// Reverse facing when transiting a same-wall portal pair.
-    /// Default OFF; mirrored into `PortalTuning::reorient_facing`.
-    PortalReverseFacing,
     /// Whether a second local player may join (Q153). Default OFF.
     AcceptLocalJoins,
     /// Damage between controlled allies in the next Ambition session.
@@ -170,7 +167,7 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/checks/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 68] = [
+    pub const ALL: [Self; 67] = [
         Self::AcceptLocalJoins,
         Self::CoopFriendlyFire,
         Self::PartyTravel,
@@ -204,7 +201,6 @@ impl SettingsOptionId {
         Self::Mute,
         Self::PauseInputUnfocused,
         Self::PlayerDamage,
-        Self::PortalReverseFacing,
         Self::PortalWindows,
         Self::QuestHud,
         Self::ResetControlFiltering,

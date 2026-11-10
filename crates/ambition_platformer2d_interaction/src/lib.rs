@@ -31,7 +31,7 @@ impl InteractReach {
         frame: Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> Self {
-        let reach = kin.collision_box(step);
+        let reach = kin.aabb();
         Self {
             pos: kin.pos,
             facing: kin.facing,

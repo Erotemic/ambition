@@ -1283,7 +1283,6 @@ pub fn snapshot_body_contact(
         bevy::prelude::Entity,
         &ambition_platformer2d_core::BodyKinematics,
         &ae::BodyGroundState,
-        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         Option<&ambition_platformer2d_core::movement::BodyContact>,
         Option<&ambition_characters::actor::BodyHealth>,
     )>,
@@ -1297,13 +1296,13 @@ pub fn snapshot_body_contact(
     let mut boxes: Vec<(bevy::prelude::Entity, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Aabb, ae::Vec2,
     )> =
         Vec::new();
-    for (entity, kinematics, ground, frame, contact, health) in &bodies {
+    for (entity, kinematics, ground, contact, health) in &bodies {
         if !ground.on_ground || health.is_some_and(|health| !health.alive()) {
             continue;
         }
         let Some(contact) = contact.or_else(|| rules.of(entity)) else { continue; };
         let room = rooms.of(entity);
-        let contact_box = kinematics.aabb_oriented(frame.down());
+        let contact_box = kinematics.aabb();
         // its ENTRY velocity — this pass runs before any body resolves its
         // controller, which is the whole point of a common snapshot.
         snapshot.push(entity, room, contact_box, kinematics.vel, contact.resistance,
@@ -1507,9 +1506,6 @@ pub fn integrate_sim_bodies(
             // this; the shared sandbox protagonist does not and tracks the F3
             // dev tuning live (see the per-body resolve below).
             Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
-            // The ridden-surface presentation fact this integration publishes
-            // (the roll righting reflex tilts a rider's feet onto it).
-            Option<&mut ambition_platformer2d_shared_tangle::orientation::SurfaceUpright>,
             // Has this participant's attempt already ended (ADR 0033)? The
             // world's reset gate must not act on a body that has already lost —
             // see the guard inside `integrate_home_body`.
@@ -1627,7 +1623,6 @@ pub fn integrate_sim_bodies(
         mut motion_facts,
         playback,
         authored_tuning,
-        mut surface_upright,
         (out_of_play, pose_owned_externally),
     ) in &mut players
     {
@@ -1645,7 +1640,7 @@ pub fn integrate_sim_bodies(
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
-        let riding_up = crate::body::integration::integrate_home_body(
+        crate::body::integration::integrate_home_body(
             control.0,
             feature_world,
             &mut clusters,
@@ -1679,9 +1674,6 @@ pub fn integrate_sim_bodies(
         // this integration; the roll reflex and the anim picker consume them).
         motion_facts.skidding =
             crate::body::integration::surface_skidding(&motion_model, control.0.locomotion.x);
-        if let Some(surface) = surface_upright.as_mut() {
-            surface.up = riding_up;
-        }
     }
 }
 

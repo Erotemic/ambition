@@ -12,7 +12,7 @@
 use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_str, put_u64, put_u8, put_vec2, Reader, SnapshotState,
 };
-use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
+use ambition_platformer2d_core::{snapshot_unit_enum};
 
 impl SnapshotState for crate::lifecycle::RoomInstanceRoot {
     fn encode(&self, _out: &mut Vec<u8>) {}
@@ -77,7 +77,6 @@ impl SnapshotState for crate::lifecycle::SessionScopedEntity {
     }
 }
 
-snapshot_pod!(crate::orientation::ActorRoll { angle: f32 });
 
 impl SnapshotState for crate::sim_id::SimId {
     fn encode(&self, out: &mut Vec<u8>) {

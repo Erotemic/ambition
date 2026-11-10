@@ -154,6 +154,7 @@ fn drive(arm: Arm, spawn_local: Vec2, script: &[LocalInput]) -> Vec<LocalSample>
 
     let spawn = world_from_local(&f, spawn_local);
     let mut scratch = BodyClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all());
+    scratch.kinematics.material = crate::frame::BodyMaterial::new(1.0, bevy_math::Mat2::from_cols(f.side, f.down)).unwrap();
 
     script
         .iter()
@@ -358,6 +359,7 @@ fn c4_out_of_bounds_reset_is_gravity_relative() {
         // 201px past the world AABB along the fall direction: must flag reset.
         let out = CENTER + f.down * (WORLD_EXTENT * 0.5 + 201.0);
         let mut scratch = BodyClusterScratch::new_with_abilities(out, AbilitySet::sandbox_all());
+    scratch.kinematics.material = crate::frame::BodyMaterial::new(1.0, bevy_math::Mat2::from_cols(f.side, f.down)).unwrap();
         let events = update_player_simulation_with_tuning_scratch(
             &world,
             &mut scratch,
@@ -376,6 +378,7 @@ fn c4_out_of_bounds_reset_is_gravity_relative() {
         // 100px past is inside the grace margin: no reset.
         let near = CENTER + f.down * (WORLD_EXTENT * 0.5 + 100.0);
         let mut scratch = BodyClusterScratch::new_with_abilities(near, AbilitySet::sandbox_all());
+    scratch.kinematics.material = crate::frame::BodyMaterial::new(1.0, bevy_math::Mat2::from_cols(f.side, f.down)).unwrap();
         let events = update_player_simulation_with_tuning_scratch(
             &world,
             &mut scratch,
@@ -409,6 +412,7 @@ fn a_gravity_modifier_expires_on_the_movement_clock() {
     let f = AccelerationFrame::new(Vec2::Y);
     let world = rig_world(&f);
     let mut scratch = BodyClusterScratch::new_with_abilities(CENTER, AbilitySet::sandbox_all());
+    scratch.kinematics.material = crate::frame::BodyMaterial::new(1.0, bevy_math::Mat2::from_cols(f.side, f.down)).unwrap();
 
     {
         let (model, _) = scratch.parts();

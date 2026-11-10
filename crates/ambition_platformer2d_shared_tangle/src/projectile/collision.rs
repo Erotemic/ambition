@@ -105,7 +105,7 @@ pub fn resolve_world_collision<'w>(
     let cast = MaterialCast::new(
         MaterialPrimitive {
             domain: &shape,
-            to_world: before.material_map(Vec2::ZERO).map_err(numeric)?,
+            to_world: before.material_map().map_err(numeric)?,
         },
         before.pos,
         delta,

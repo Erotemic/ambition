@@ -192,7 +192,7 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_sideways_gravity()
     let gravity = Vec2::new(1.0, 0.0);
     let mut s = scratch_at(Vec2::new(100.0, 100.0));
     let original_size = s.kinematics.size();
-    let original_feet = s.kinematics.aabb_oriented(gravity).feet_coord(gravity);
+    let original_feet = s.kinematics.aabb().feet_coord(gravity);
 
     let ok = try_change_body_mode_clusters(
         &mut s.kinematics,
@@ -208,7 +208,7 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_under_sideways_gravity()
         s.kinematics.size().y < original_size.y,
         "local height should shrink"
     );
-    let new_feet = s.kinematics.aabb_oriented(gravity).feet_coord(gravity);
+    let new_feet = s.kinematics.aabb().feet_coord(gravity);
     assert!(
         (new_feet - original_feet).abs() < 1e-3,
         "side-edge feet must stay planted under sideways gravity (moved {})",
@@ -483,7 +483,7 @@ fn stance_changes_keep_material_scale_parity_and_planted_feet() {
                     let mut body = scratch_at(Vec2::splat(1000.0));
                     body.kinematics.material = crate::frame::BodyMaterial::new(scale, basis).unwrap();
                     let before = body.kinematics;
-                    let feet = before.pos + down * before.half_oriented(down).dot(down.abs());
+                    let feet = before.pos + down * before.half_extent().dot(down.abs());
                     for mode in [BodyMode::Crouching, BodyMode::Standing] {
                         assert!(try_change_body_mode_clusters(
                             &mut body.kinematics, &body.base_size, &mut body.body_mode,
@@ -491,7 +491,7 @@ fn stance_changes_keep_material_scale_parity_and_planted_feet() {
                         ));
                         assert_eq!(body.kinematics.material, before.material);
                         assert_eq!(body.kinematics.canonical_size, mode.shape(body.base_size.base_size).size);
-                        let now = body.kinematics.pos + down * body.kinematics.half_oriented(down).dot(down.abs());
+                        let now = body.kinematics.pos + down * body.kinematics.half_extent().dot(down.abs());
                         assert!((now - feet).length() < 0.001);
                     }
                     assert!((body.kinematics.pos - before.pos).length() < 0.001);

@@ -139,7 +139,7 @@ pub fn claim_footstools(
             if !ae::collision_semantics::moving_toward_feet(stomper.kin.vel, gravity_dir) {
                 continue;
             }
-            let stomper_box = stomper.kin.aabb_oriented(gravity_dir);
+            let stomper_box = stomper.kin.aabb();
             let stomper_room = rooms.of(stomper.entity);
             let friendly_fire = tuning
                 .in_room(stomper_room)
@@ -165,7 +165,7 @@ pub fn claim_footstools(
                 }
                 if !ae::collision_semantics::feet_on_head(
                     stomper_box,
-                    victim.kin.aabb_oriented(gravity_dir),
+                    victim.kin.aabb(),
                     gravity_dir,
                     rules.band,
                 ) {

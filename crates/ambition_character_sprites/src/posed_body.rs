@@ -271,11 +271,14 @@ pub fn sync_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spri
         // that the +gravity face stays planted; the direction has to be the
         // body's, not the default's.
         let gravity_dir = frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-        if kin.size() != posed_collision {
+        if kin.canonical_size != posed_collision {
             // Feet-anchored, through the engine's one feet-planted resize op: hold the +gravity
             // face and move the centre by half the change, so a withdraw/emerge never drives the
             // body through the ground it is standing on.
-            ae::resize_feet_planted(&mut kin, posed_collision, gravity_dir);
+            if let Err(fault) = ae::resize_feet_planted(&mut kin, posed_collision, gravity_dir) {
+                bevy::log::trace!(?fault, "sprite body resize refused");
+                continue;
+            }
         }
         if render_size.0 != geometry.render {
             render_size.0 = geometry.render;
@@ -295,13 +298,14 @@ pub fn sync_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spri
 pub fn place_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut bodies: Query<(
         &SpritePosedBody,
+        &ae::BodyKinematics,
         Option<&ActorAnimOverride>,
         &mut ActorSpriteOffset,
         Option<&ae::BodyModeState>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
-    for (posed, pinned, mut offset, body_mode, frame) in &mut bodies {
+    for (posed, kin, pinned, mut offset, body_mode, frame) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&sprite_content, &posed.target, anim, posed.world_per_pixel) else {
             continue;
@@ -317,8 +321,16 @@ pub fn place_sprite_posed_bodies(sprite_content: bevy::prelude::Res<ambition_spr
         // POSE's rectangle lands on the box", and that box is the one the SHEET
         // measured. `resize_feet_planted` slid the centre by half the stance
         // shrink along gravity, so the same term reverses it.
-        let stance_shift = gravity_dir * ((geometry.collision - stance_box(&geometry, body_mode)) * 0.5);
-        let sprite_offset = geometry.sprite_offset - stance_shift;
+        let full = ae::BodyKinematics { canonical_size: geometry.collision, ..*kin };
+        let compact = ae::BodyKinematics { canonical_size: stance_box(&geometry, body_mode), ..*kin };
+        let down = ae::AccelerationFrame::new(gravity_dir).down;
+        let placement = (|| {
+            let full_extent = full.projected_half_extent(down.as_dvec2())?;
+            let compact_extent = compact.projected_half_extent(down.as_dvec2())?;
+            let offset = kin.material.at(ae::Vec2::ZERO)?.vector(geometry.sprite_offset)?;
+            ae::frame::Sim2::IDENTITY.vector_from_wide(offset.as_dvec2() - down.as_dvec2() * (full_extent-compact_extent))
+        })();
+        let Ok(sprite_offset) = placement else { continue; };
         if offset.0 != sprite_offset {
             offset.0 = sprite_offset;
         }

@@ -301,7 +301,7 @@ pub fn apply_pet_requests(
             // The box the petter has, where it will stand.
             let body = ambition_platformer2d_core::Aabb::new(
                 place(mark_for(side)),
-                petter_kin.half_oriented(frame.down),
+                petter_kin.half_extent(),
             );
             solids.as_deref().is_none_or(|world| {
                 !world.body_overlaps_any(body, |block| {

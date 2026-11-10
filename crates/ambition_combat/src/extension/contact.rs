@@ -60,11 +60,9 @@ fn box_of(body: &ContactBody) -> ae::Aabb {
     ae::Aabb { min: centre - half, max: centre + half }
 }
 
-/// The body as the wire gives it: the box it collides with under its own
-/// DOWN (`collision_box`), not its level box. A body in turned gravity lies
-/// along its support, so its box is turned too.
-fn contact_body(kin: &ae::BodyKinematics, last_step: Option<&ae::SweepSample>) -> ContactBody {
-    let reach = kin.collision_box(last_step);
+/// The current physical envelope in the contact wire format.
+fn contact_body(kin: &ae::BodyKinematics) -> ContactBody {
+    let reach = kin.aabb();
     let (centre, size) = ((reach.min + reach.max) * 0.5, reach.max - reach.min);
     ContactBody { position: [centre.x, centre.y], size: [size.x, size.y], velocity: [kin.vel.x, kin.vel.y] }
 }
@@ -81,10 +79,10 @@ pub fn queue_body_contacts(
     mut invocations: ResMut<ExtensionInvocations>,
     mut table: ResMut<ContactTouchers>,
     bodies: Query<
-        (Entity, &ActorConfig, &ae::BodyKinematics, Option<&ae::SweepSample>, &BodyHealth, Option<&SimId>),
+        (Entity, &ActorConfig, &ae::BodyKinematics, &BodyHealth, Option<&SimId>),
         (Without<PlayerEntity>, Without<DrivingParticipant>),
     >,
-    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&SimId>), With<PlayerEntity>>,
+    players: Query<(Entity, &ae::BodyKinematics, Option<&SimId>), With<PlayerEntity>>,
 ) {
     table.0.clear();
     if time.sim_dt() <= 0.0 {
@@ -102,14 +100,14 @@ pub fn queue_body_contacts(
     }
     let mut everyone: Vec<_> = players
         .iter()
-        .map(|(player, kin, last_step, id)| (player, live.of(player), contact_body(kin, last_step), id))
+        .map(|(player, kin, id)| (player, live.of(player), contact_body(kin), id))
         .collect();
     everyone.sort_by(|a, b| (a.3.map(SimId::as_str), a.0).cmp(&(b.3.map(SimId::as_str), b.0)));
     let mut touched: Vec<_> = bodies
         .iter()
-        .filter_map(|(entity, config, kin, last_step, health, id)| match &config.brain {
+        .filter_map(|(entity, config, kin, health, id)| match &config.brain {
             CharacterBrain::Custom(key) if bound.contains(&key.as_str()) && health.alive() => {
-                Some((entity, key.clone(), kin.pos, contact_body(kin, last_step), id))
+                Some((entity, key.clone(), kin.pos, contact_body(kin), id))
             }
             _ => None,
         })

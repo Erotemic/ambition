@@ -790,14 +790,17 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
     let half = scratch.kinematics.size() * 0.5;
 
     let mut seen: std::collections::BTreeSet<(i32, i32)> = std::collections::BTreeSet::new();
-    for _ in 0..2000 {
-        step(
+    for tick in 0..2000 {
+        let result = step(
             &mut model,
             &world,
             &mut scratch,
             frame,
             crawl_forward(),
         );
+        if let Some(refusal) = result.events.motion_refusal {
+            panic!("tick {tick} pose {:?} material {:?} refusal {:?}", scratch.kinematics.pos, scratch.kinematics.material, refusal);
+        }
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();
         };
@@ -1209,7 +1212,7 @@ fn walk_a_pair(
             .iter()
             .map(|body| {
                 crate::movement::BodyContactBlocker::new(
-                    body.kinematics.aabb_oriented(down),
+                    body.kinematics.aabb(),
                     body.kinematics.vel,
                 )
             })
@@ -1246,20 +1249,20 @@ fn walk_a_pair(
             );
         }
         if tick >= SETTLE {
-            worst = worst.max(overlap_of(&bodies, down));
+            worst = worst.max(overlap_of(&bodies));
         }
     }
-    let settled = overlap_of(&bodies, down);
-    let gap_left = (-separation_of(&bodies, down)).max(0.0);
+    let settled = overlap_of(&bodies);
+    let gap_left = (-separation_of(&bodies)).max(0.0);
     (worst, settled, gap_left)
 }
 
-fn separation_of(bodies: &[BodyClusterScratch; 2], down: Vec2) -> f32 {
-    bodies[0].kinematics.aabb_oriented(down).max.x - bodies[1].kinematics.aabb_oriented(down).min.x
+fn separation_of(bodies: &[BodyClusterScratch; 2]) -> f32 {
+    bodies[0].kinematics.aabb().max.x - bodies[1].kinematics.aabb().min.x
 }
 
-fn overlap_of(bodies: &[BodyClusterScratch; 2], down: Vec2) -> f32 {
-    separation_of(bodies, down).max(0.0)
+fn overlap_of(bodies: &[BodyClusterScratch; 2]) -> f32 {
+    separation_of(bodies).max(0.0)
 }
 
 /// TWO BODIES STARTING FROM REST MAY NOT BOTH SPEND ONE GAP.
@@ -1780,7 +1783,7 @@ fn a_motion_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
     let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 465.0), AbilitySet::default());
     scratch.kinematics.vel = Vec2::new(0.0, 6000.0);
     let initial = scratch.kinematics;
-    let mut sweep = crate::SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: initial.pos - Vec2::Y * 20.0, curr: initial.pos,
+    let mut sweep = crate::SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: initial.pos - Vec2::Y * 20.0, curr: initial.pos,
         vel: initial.vel, half: initial.size() * 0.5, down: Vec2::Y };
     let mut model = MotionModel::axis_swept(AxisSweptParams::default());
     let frame = MotionFrame::from_direction(Vec2::Y, 0.0);

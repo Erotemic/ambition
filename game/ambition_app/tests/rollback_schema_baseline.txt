@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v431
+ggrs-rollback-schema-v432
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -62,7 +62,6 @@ actor.ranged_refire	component-canonical	RangedRefire	bevy_ggrs canonical codec s
 actor.recharacterize_request	component-clone	RecharacterizeBody	bevy_ggrs clone snapshot; not in the session checksum
 actor.render_size	component-clone	ActorRenderSize	bevy_ggrs clone snapshot; not in the session checksum
 actor.rig_feet_offset	component-clone	RigFeetOffset	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.roll	component-canonical	ActorRoll	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.ruleset_owns_death	component-canonical	RulesetOwnsDeath	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.spawn_baseline	component-clone	SpawnBaseline	bevy_ggrs clone snapshot; not in the session checksum
 actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; not in the session checksum
@@ -221,7 +220,6 @@ derived.room_combat_tuning	derived	RoomCombatTuning	refolded on each live room r
 derived.room_navigation	derived	RoomNavigation	a cache of surface graphs, each a pure function of a room's authored geometry and a body's tuning
 derived.sim_step_period	derived	SimStepPeriod	fixed period derived from the host tick rate at installation; immutable within a timeline
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
-derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 derived.tick_parries	derived	TickParries	written again in each tick's hit_reaction collect and read only by that tick's lowering
 derived.wallet_shield	derived	BodyWalletShield	re-derived from the worn character and the room's rules every tick, before any hit is resolved
 derived.weapon_readiness	derived	BodyWeaponReadiness	re-derived every tick from the fire-rate floor, the authored action and the shots in flight, before the prompt reads it

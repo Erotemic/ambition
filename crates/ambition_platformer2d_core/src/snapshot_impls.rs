@@ -324,6 +324,14 @@ impl SnapshotState for crate::body_clusters::SweepSample {
         }
         for v in [self.prev, self.curr, self.vel, self.half, self.down] { put_vec2(out, v); }
         self.material.encode(out);
+        match self.turn {
+            None => out.push(0),
+            Some(turn) => {
+                out.push(1);
+                crate::snapshot::put_u64(out, turn.radians.to_bits());
+                crate::snapshot::put_u64(out, turn.duration.to_bits());
+            }
+        }
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let time = [f64::from_bits(r.u64()?), f64::from_bits(r.u64()?)];
@@ -339,7 +347,19 @@ impl SnapshotState for crate::body_clusters::SweepSample {
             }
             _ => return None,
         };
-        Some(Self { time, travel, prev: r.vec2()?, curr: r.vec2()?, vel: r.vec2()?, half: r.vec2()?, down: r.vec2()?, material: crate::frame::BodyMaterial::decode(r)? })
+        let (prev, curr, vel, half, down) = (r.vec2()?, r.vec2()?, r.vec2()?, r.vec2()?, r.vec2()?);
+        let material = crate::frame::BodyMaterial::decode(r)?;
+        let turn = match r.u8()? {
+            0 => None,
+            1 => {
+                let radians = f64::from_bits(r.u64()?);
+                let duration = f64::from_bits(r.u64()?);
+                if !radians.is_finite() || !duration.is_finite() || duration <= 0.0 { return None; }
+                Some(crate::SourceTurn { radians, duration })
+            }
+            _ => return None,
+        };
+        Some(Self { time, travel, prev, curr, vel, half, down, material, turn })
     }
 }
 

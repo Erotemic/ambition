@@ -37,7 +37,7 @@ fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
                 canonical_size: Vec2::new(8.0, 8.0),
                 facing: 1.0,
             },
-            ambition_platformer2d::engine_core::SweepSample { material: Default::default(), travel: Default::default(),
+            ambition_platformer2d::engine_core::SweepSample { turn: None, material: Default::default(), travel: Default::default(),
                 prev: entry_pos + entry_normal * 4.0, curr: entry_pos,
                 vel: -entry_normal * 400.0, half: Vec2::splat(4.0), down: Vec2::ZERO,
                 time: [0.0, 1.0],

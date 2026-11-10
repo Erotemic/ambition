@@ -738,6 +738,9 @@ impl CurveCell {
         }
         Ok(false)
     }
+    pub(super) fn unmapped_source(&self) -> Option<super::SourceMotion> {
+        self.path.is_empty().then_some(self.scene.source)
+    }
     pub fn at(&self, time: f64) -> Result<Sim2, NumericFault> {
         Ok(self
             .scene

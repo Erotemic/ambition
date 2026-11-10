@@ -1,5 +1,5 @@
-use super::*;
 use ambition_sprite_sheet::character::sheets;
+use super::*;
 
 /// Ambition's shipped catalog, parsed straight from the content file.
 ///

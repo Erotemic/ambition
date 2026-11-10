@@ -680,7 +680,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
     let gravity_dir = crate::Vec2::new(0.0, 1.0);
     let prev_feet_coord = scratch
         .kinematics
-        .aabb_oriented(gravity_dir)
+        .aabb()
         .feet_coord(gravity_dir);
     super::super::collision::sweep_player_axis_clusters(
         &world,
@@ -837,7 +837,7 @@ fn sideways_gravity_blink_wall_is_ground_support() {
         );
     }
 
-    let body = scratch.kinematics.aabb_oriented(g);
+    let body = scratch.kinematics.aabb();
     assert!(
         scratch.ground.on_ground,
         "blink-wall side support must ground"
@@ -890,7 +890,7 @@ fn one_way_platform_works_under_sideways_gravity() {
         );
     }
     let resting_x = scratch.kinematics.pos.x;
-    let body = scratch.kinematics.aabb_oriented(g);
+    let body = scratch.kinematics.aabb();
     assert!(
         scratch.ground.on_ground,
         "sideways one-way must be standable"
@@ -1012,7 +1012,7 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
             BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         scratch.kinematics.pos = start;
         scratch.kinematics.vel = Vec2::ZERO;
-        let cap = scratch.kinematics.aabb_oriented(dir).half_size().length() + 1.0;
+        let cap = scratch.kinematics.aabb().half_size().length() + 1.0;
         update_player_with_tuning_scratch(
             &world,
             &mut scratch,
@@ -1164,7 +1164,7 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
             let gravity_dir = Vec2::new(0.0, 1.0);
             let prev_feet_coord = scratch
                 .kinematics
-                .aabb_oriented(gravity_dir)
+                .aabb()
                 .feet_coord(gravity_dir);
             super::super::collision::sweep_player_axis_clusters(
                 &world,
@@ -1276,7 +1276,7 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
             let gravity_dir = Vec2::new(0.0, 1.0);
             let prev_feet_coord = scratch
                 .kinematics
-                .aabb_oriented(gravity_dir)
+                .aabb()
                 .feet_coord(gravity_dir);
             super::super::collision::sweep_player_axis_clusters(
                 &world,

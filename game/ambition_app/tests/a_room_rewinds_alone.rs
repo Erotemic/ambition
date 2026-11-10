@@ -20,7 +20,7 @@ use ambition_platformer2d::platformer::projectile::ProjectileGameplay;
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
 use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::rollback::RoomSnapshotRows;
-use ambition_platformer2d::time::{ClockState, DayClock, SimTick, WorldTime};
+use ambition_platformer2d::time::{ClockState, DayClock, GameplayElapsed, SimTick, WorldTime};
 use bevy::ecs::entity_disabling::Disabled;
 use bevy::prelude::{Entity, World};
 
@@ -47,7 +47,7 @@ fn bobs_walk(_frame: i32) -> ControlFrame {
 }
 
 /// Every entity in `room`, and the room's own root.
-fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
+pub(crate) fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
     let mut entities: Vec<Entity> = world
         .query::<(Entity, &InRoomInstance)>()
         .iter(world)
@@ -59,23 +59,30 @@ fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> {
     entities
 }
 
+/// The shared clock: the tick, the frame's time, the day, the scale, and the
+/// session's elapsed seconds (`GameplayElapsed`, on the session root, which a
+/// brain's timers read).
 #[derive(Clone, Copy, Debug)]
-struct Clock(SimTick, WorldTime, DayClock, ClockState);
+pub(crate) struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed);
 
-fn clock(world: &World) -> Clock {
+pub(crate) fn clock(world: &World) -> Clock {
     Clock(
         *world.resource::<SimTick>(),
         *world.resource::<WorldTime>(),
         *world.resource::<DayClock>(),
         *world.resource::<ClockState>(),
+        *ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(world)
+            .expect("the session root carries the clock"),
     )
 }
 
-fn set_clock(world: &mut World, clock: Clock) {
+pub(crate) fn set_clock(world: &mut World, clock: Clock) {
     world.insert_resource(clock.0);
     world.insert_resource(clock.1);
     world.insert_resource(clock.2);
     world.insert_resource(clock.3);
+    *ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<GameplayElapsed>(world)
+        .expect("the session root carries the clock") = clock.4;
 }
 
 fn differences(label: &str, expected: &BTreeMap<SimId, [f32; 5]>, got: &BTreeMap<SimId, [f32; 5]>) -> Vec<String> {
@@ -158,12 +165,64 @@ fn census(world: &World, rows: &RoomSnapshotRows, entities: &[Entity]) -> Vec<St
     out
 }
 
+/// What Alice does in the window.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Window {
+    /// She walks: no entity is spawned or taken.
+    Walks,
+    /// She fires her shots ([`alice_fires`]).
+    Fires,
+    /// She fires them at an enemy standing in her way, which they hurt.
+    FiresAtAnEnemy,
+}
+
+/// An enemy that stands still, to Alice's right in the hub.
+const TARGET: &str = "isl2c_target";
+
+fn an_enemy_in_alices_way(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
+    let at = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice has a body")
+            .pos
+    };
+    sim.spawn_enemy_character_at(
+        TARGET,
+        "Target",
+        (at.x + 72.0, at.y),
+        (12.0, 16.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+        "npc_puppy_slug",
+    );
+    let world = sim.world_mut();
+    let target = world
+        .query::<(Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+        .iter(world)
+        .find(|(_, id)| id.0 == TARGET)
+        .expect("the enemy was spawned")
+        .0;
+    world.entity_mut(target).insert(InRoomInstance(hub));
+}
+
+/// Each body's health in `room`, by peer-stable id.
+fn healths_in(world: &mut World, room: LiveRoomInstance) -> BTreeMap<SimId, String> {
+    world
+        .query::<(&SimId, &ambition_platformer2d::characters::actor::BodyHealth, &InRoomInstance)>()
+        .iter(world)
+        .filter(|(_, _, at)| at.0 == room)
+        .map(|(id, health, _)| (id.clone(), format!("{health:?}")))
+        .collect()
+}
+
 /// Rewind the hub to N and replay it, hiding Bob's room for the replay when
-/// `hide_the_lab`, with Alice firing her shots in the window when `shots`.
-/// Returns what differs from the first run. Without shots, an entity spawned
-/// in or taken from the hub in the window fails the premise; with them, the
-/// replay has to build the same entities again.
-fn rewind_the_hub(hide_the_lab: bool, shots: bool) -> Vec<String> {
+/// `hide_the_lab`, with Alice doing `window` in it. Returns what differs from
+/// the first run. When she only walks, an entity spawned in or taken from the
+/// hub in the window fails the premise; when she fires, the replay has to
+/// build the same entities again.
+fn rewind_the_hub(hide_the_lab: bool, window: Window) -> Vec<String> {
+    let shots = window != Window::Walks;
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(ROOM)).expect("the room boots");
     bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     alice_on_the_hub_door(&mut sim);
@@ -175,6 +234,10 @@ fn rewind_the_hub(hide_the_lab: bool, shots: bool) -> Vec<String> {
     let (hub, lab) = where_they_are(&mut sim);
     let (hub, lab) = (hub.expect("Alice has a room"), lab.flatten().expect("Bob has a room"));
     assert_ne!(hub, lab, "premise: Alice and Bob are in two live rooms");
+    if window == Window::FiresAtAnEnemy {
+        an_enemy_in_alices_way(&mut sim, hub);
+    }
+    let health_at_n = healths_in(sim.world_mut(), hub);
 
     // Frame N: save the hub and the clock.
     let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
@@ -198,6 +261,10 @@ fn rewind_the_hub(hide_the_lab: bool, shots: bool) -> Vec<String> {
     let shots_at_end = shots_in(sim.world_mut(), hub);
     let hub_at_end = bodies(&mut sim, Some(hub));
     let lab_at_end = bodies(&mut sim, Some(lab));
+    let health_at_end = healths_in(sim.world_mut(), hub);
+    if window == Window::FiresAtAnEnemy {
+        assert_ne!(health_at_n, health_at_end, "premise: a shot hurt the enemy in the window");
+    }
     assert_ne!(hub_at_n, hub_at_end, "premise: the hub changed in the window");
     assert_ne!(lab_at_n, lab_at_end, "premise: Bob's room changed in the window");
     let hub_entities_at_end = of_room(sim.world_mut(), hub);
@@ -222,6 +289,7 @@ fn rewind_the_hub(hide_the_lab: bool, shots: bool) -> Vec<String> {
     println!("[rewind] the restore despawned {} and re-created {}", restored.despawned.len(), restored.recreated.len());
     set_clock(sim.world_mut(), at_n);
     assert_eq!(bodies(&mut sim, Some(hub)), hub_at_n, "premise: the restore put the hub back at N");
+    assert_eq!(healths_in(sim.world_mut(), hub), health_at_n, "premise: the restore put the hub's health back at N");
     for frame in 1..=WINDOW {
         if shots {
             alice_fires(&mut sim, frame);
@@ -254,7 +322,13 @@ fn rewind_the_hub(hide_the_lab: bool, shots: bool) -> Vec<String> {
         }
     }
     wrong.extend(differences("hub", &hub_at_end, &bodies(&mut sim, Some(hub))));
-    if shots {
+    let health_after = healths_in(sim.world_mut(), hub);
+    for (id, want) in &health_at_end {
+        if health_after.get(id) != Some(want) {
+            wrong.push(format!("health {id:?}: {want} after the first run, {:?} after the replay", health_after.get(id)));
+        }
+    }
+    if window == Window::Fires {
         assert_eq!(shots_at_end.len(), 1, "premise: one shot is in flight when the window closes: {shots_at_end:?}");
         assert!(!spawned_or_gone.is_empty(), "premise: the shots were spawned in the hub");
     }
@@ -274,7 +348,7 @@ fn rewind_the_hub(hide_the_lab: bool, shots: bool) -> Vec<String> {
 
 #[test]
 fn a_room_rewinds_and_replays_while_the_other_room_keeps_its_state() {
-    let wrong = rewind_the_hub(true, false);
+    let wrong = rewind_the_hub(true, Window::Walks);
     assert!(wrong.is_empty(), "the replayed hub or the hidden room differs: {} differences", wrong.len());
 }
 
@@ -284,7 +358,7 @@ fn a_room_rewinds_and_replays_while_the_other_room_keeps_its_state() {
 #[test]
 #[ignore = "control for the witness above; run with --ignored when the rewind changes"]
 fn without_hiding_the_other_room_the_replay_moves_it_too() {
-    let wrong = rewind_the_hub(false, false);
+    let wrong = rewind_the_hub(false, Window::Walks);
     assert!(wrong.iter().any(|line| line.starts_with("lab ")), "the replay left Bob's room as it was although it ran: {wrong:?}");
     assert!(!wrong.iter().any(|line| line.starts_with("hub ")), "the hub replayed differently: {wrong:?}");
 }
@@ -294,8 +368,16 @@ fn without_hiding_the_other_room_the_replay_moves_it_too() {
 /// them again: the hub ends with the same shot where it was.
 #[test]
 fn a_rewound_room_fires_its_shots_again() {
-    let wrong = rewind_the_hub(true, true);
+    let wrong = rewind_the_hub(true, Window::Fires);
     assert!(wrong.is_empty(), "the replay with shots differs: {wrong:?}");
+}
+
+/// ISL-2c: the shots hurt an enemy in the window. The restore gives it back
+/// its health, and the replay hurts it again by as much.
+#[test]
+fn a_rewound_room_hurts_its_enemy_again() {
+    let wrong = rewind_the_hub(true, Window::FiresAtAnEnemy);
+    assert!(wrong.is_empty(), "the replay with a hurt enemy differs: {wrong:?}");
 }
 
 /// ISL-2d probe: a world write made in the window. Alice takes the coin in
@@ -360,3 +442,4 @@ fn probe_a_coin_taken_in_a_rewound_window() {
     println!("[coin] save (debug length): {save_n} at N, {save_1} after the pickup, {save_2} after the replay");
     sim.world_mut().insert_resource(rows);
 }
+

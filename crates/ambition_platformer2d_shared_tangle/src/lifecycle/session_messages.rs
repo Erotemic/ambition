@@ -91,6 +91,19 @@ pub(super) fn clear_session_message_channels(
     });
 }
 
+/// Empty every channel a rewind clears (each declared channel, kept ones
+/// too: `bevy_ggrs` clears them all on a load). A room rewind outside
+/// `bevy_ggrs` calls this; it empties the channels for every room.
+pub fn clear_channels_for_a_rewind(world: &mut World) {
+    let Some(channels) = world.get_resource::<SessionMessageChannels>() else {
+        return;
+    };
+    let clears: Vec<fn(&mut World)> = channels.clear.iter().map(|(_, clear)| *clear).collect();
+    for clear in clears {
+        clear(world);
+    }
+}
+
 /// Install the clear on the activation edge.
 pub(super) fn install(app: &mut App) {
     app.init_resource::<SessionMessageChannels>().add_systems(

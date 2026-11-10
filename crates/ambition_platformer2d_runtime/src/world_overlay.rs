@@ -46,6 +46,7 @@ pub fn rebuild_feature_ecs_world_overlay(
             &CenteredAabb,
             Option<&PogoTargetVolumes>,
             Option<&InRoomInstance>,
+            Option<&BreakableFeature>,
         ),
         (With<FeatureSimEntity>, With<PogoTargetContributor>),
     >,
@@ -101,7 +102,11 @@ pub fn rebuild_feature_ecs_world_overlay(
     // centered envelope is the deliberate world-surface fallback. Ordinary
     // bodies intentionally lack the contributor and stay entity contacts, so
     // their identity is never flattened into anonymous blocks.
-    for (id, centered, pogo, room) in &pogo_targets {
+    for (id, centered, pogo, room, breakable) in &pogo_targets {
+        // A broken breakable is gone: its rebound goes with its solid.
+        if breakable.is_some_and(BreakableFeature::broken) {
+            continue;
+        }
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
         };

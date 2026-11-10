@@ -152,8 +152,21 @@ tests (bounce, one-way landing, strike rules).
    landmark places the fireball, and read it.
 3. **Contextual Blink** (Jon's notes): level 1 blinks behind an enemy that
    is near; level 2 from further; level 3 adds a double tap that slows time
-   to choose the enemy. It needs the Blink slot to route a technique:
-   `resolve_control_slots` refuses a technique on `Blink` today.
+   to choose the enemy. The Blink slot routes a technique (2026-11-10): a
+   technique on `Blink` takes the whole edge (pressed, held, released) and the
+   kernel then sees no blink (`a_blink_technique_takes_the_blink_edge_from_the_kernel`).
+   What remains is the technique and a way for it to move its body. The
+   foes observation (`FoesPort`) is offered in `technique_execution`, but the
+   transit (`TransitPort`) is installed only in `wielded_use`. Its lowering is
+   a body-path carry (`BodyPathSet::Carry`, in the player phase), so this
+   tick's contacts and crossings see the arrival. `technique_execution` runs
+   later, in the combat phase (`CombatSet::ContentSpecials`). A transit
+   lowered there would arrive after the crossing readers, including the
+   portal crossings. The proposed shape is a technique transit that becomes a
+   rollback-registered pending transit on the body, applied in the next
+   tick's carry: a one-tick delay, and crossings see the move like any other.
+   It touches the body-path and portal ordering, so build it with the portal
+   owner's review.
 4. **Precision Blink tiers** (Jon's notes): level 1 directional instant;
    level 2 adds a controlled blink; level 3 adds a time-slow control. Also:
    a quick press does "the intuitive thing", and two quick presses give the
@@ -164,7 +177,12 @@ tests (bounce, one-way landing, strike rules).
 6. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.
-7. A laser sound of its own (it uses `boss.wolfenstein.zap` now).
+7. **A laser sound of its own.** The recipe is authored and rendered
+   (`ability.eye_laser.ignite`, sfx renderer `7cd29ce`: a rising charge, then a
+   buzzing beam hum). The laser still plays `boss.wolfenstein.zap`
+   (`eye_laser::SFX_IGNITE`) until a publishing machine republishes the SFX
+   bank (`scripts/regen/sfx.sh`). Switching the id first would leave the laser
+   silent on every machine with the old bank.
 8. **A crouched laser row** (`eye_laser_crouch`). A crouched body draws a
    pinned row's `_crouch` variant, or its own crouch when the sheet has none
    (`ClipRequest::with_pin`), so a crouched robot lasers in its plain crouch

@@ -55,7 +55,7 @@ or updating their source. Check with
 
 **Owner:** [authority-model experiment](engine/hosted-world-networking-experiment.md) and [network topology](engine/network-topology-and-authority-research.md).
 
-**Next action:** NA-1 and a first NA-2 are measured (2026-11-10, [results](engine/hosted-world-networking-experiment.md#na-1-and-na-2-2026-11-10)): each GGRS peer spends about 4× the host's update per frame even without rollbacks, and room-scoped replication bytes depend on delta encoding. Half of that is `SaveWorld`: 1,196 systems, about 16 ms per run whatever the body count. The 2026-11-10 direction (hybrid; rollback kept per room while cheap) makes this the hosted half of [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world). Next: NA-2b a guest App that applies room-scoped snapshots; NA-3 guest prediction, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
+**Next action:** NA-1 and a first NA-2 are measured (2026-11-10, [results](engine/hosted-world-networking-experiment.md#na-1-and-na-2-2026-11-10)): each GGRS peer spends about 4× the host's update per frame even without rollbacks, and room-scoped replication bytes depend on delta encoding. Half of that is `SaveWorld`: 1,196 systems, about 16 ms per run whatever the body count. The 2026-11-10 direction (hybrid; rollback kept per room while cheap) makes this the hosted half of [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world). NA-2b's first measurement ([result](engine/hosted-world-networking-experiment.md#na-2b-first-measurement-2026-11-10-a-guest-app-that-simulates-nothing)): a guest App with every simulation phase gated off costs about 4.5 ms an update against the host's 9–10, and applying 2–18 body rows costs about 0.1 ms. Next: NA-2b with spawns and despawns by `SimId`; NA-3 guest prediction, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
 
 **Acceptance:** runnable headless comparison, byte and CPU measurements, stable guest input/reconciliation, region-scoped replication, persistent host-owned NPC facts, no service dependency, and an explicit per-game synchronization decision. Do not remove GGRS or rewrite working multiplayer merely from prose.
 
@@ -77,7 +77,9 @@ or updating their source. Check with
 
 **Measured 2026-11-10 (ISL-2d):** a coin taken in a rewound window pays the wallet once (it is on the body and rewinds) but is recorded twice in the world's grant record; the chosen design (world records stamped with room and tick, retracted on a room rewind) is built with the room rollback host ([result](engine/island-rollback-and-compact-peer-input.md#isl-2d-measured-2026-11-10-a-world-write-in-a-rewound-window)).
 
-**Next action:** the room rollback host: when and how a room rewinds in a hosted world (late guest input), with the world-write retraction; ISL-2c, a hit on an NPC in the window; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
+**Measured 2026-11-10 (ISL-2e):** a hosted world that predicts its guest and rewinds only his room on a late input ends where an on-time run ends, at 9.4–16.3 ms of host update a frame (the late-applying host: 8.4–9.9; each GGRS peer: 33–48) ([result](engine/island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
+
+**Next action:** make the room rollback host production code once the hosted world has a production input path (NA-2b's guest App and transport; until then the rewind has no caller but tests): per-room input history, prediction, a rewind on a late input, the shared clock and message channels, the world-write retraction of ISL-2d. Meanwhile: ISL-2c, an NPC life that writes the ledger in the window (the hit on an NPC is done: `a_rewound_room_hurts_its_enemy_again`); ISL-1b, the remaining couplings (bullet-time's shared scale, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 
@@ -115,7 +117,9 @@ or updating their source. Check with
 
 **Rendered 2026-11-10:** a GPU capture witness draws the card for two non-Wolfenstein bosses (the T-rex and the Clockwork Warden), counted in the name's own rectangle against a capture before the wake ([owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)).
 
-**Next action:** a rendered witness of two views in two boss rooms (covered at the node today). No skip input exists; if one is added, it advances the phase state and the card follows.
+**Rendered two views 2026-11-10:** each of two split views in two boss rooms draws its own boss's card in its own half ([owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). The same captures show the boss health bar, a title banner and a dialogue box spanning both views (recorded there; per-view HUD work).
+
+**Next action:** none on the card. No skip input exists; if one is added, it advances the phase state and the card follows.
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 
@@ -319,7 +323,7 @@ Deck and static web release packages still pass their final asset contracts.
 
 **Owner:** [geometry observability and F1](engine/geometry-observability-and-f1.md), under the [inspection/workbench program](engine/inspection-diagnostics-and-workbench.md).
 
-**Next action:** GOBS-0 enumerate producers and reproduce a missing/misleading outline; GOBS-1 install composable read-only geometry providers and a shared F1/headless view; GOBS-2 render effective per-body collision and contact decisions; GOBS-3 cover combat, interaction, triggers, navigation and portal pieces; GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
+**Next action:** GOBS-0 is done (2026-11-10, [census and lab](engine/geometry-observability-and-f1.md#gobs-0-result-2026-11-10-census-and-the-first-lab)): F1's blocks layer draws 8 of the 18 solids a body meets in `basement_breakables`, and the lab found a broken platform's lingering pogo orb (fixed). GOBS-1 install composable read-only geometry providers and a shared F1/headless view; GOBS-2 render effective per-body collision and contact decisions; GOBS-3 cover combat, interaction, triggers, navigation and portal pieces; GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
 
 **Acceptance:** a single representative two-room lab exposes actual collision/hit/hurt/interaction/portal/navigation geometry with source identity, state and why-not reasons; a new provider becomes discoverable in F1 and headless inspection without modifying a central game-specific draw switch; overlays are room- and view-correct, off by default, and do no per-frame diagnostic work when disabled. Tests distinguish absent, filtered, intangible and unsupported geometry. Do not confuse an authored block outline with a subject's effective collision world.
 
@@ -773,7 +777,15 @@ the moveset (`MoveFrameData::roots_steering`). Ruling: Q169 (filed as Q166,
 law then brakes at its hands-off rate. The axis laws stop in about 3 px from
 270 px/s; Sanic's surface-momentum law coasts 351 px from 530 px/s.
 
-**Next action:** measure, for representative laws and moves: whether the move
+**Measured 2026-11-10, the robot:** a grounded attack takes the stick (it
+walks through the swing at run speed) and keeps no speed of its own (hands off,
+it brakes as standing does, in under a pixel). That is the authored Hollow
+Knight model; no change is recommended
+([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)).
+
+**Next action:** the same for the Smash traction law and Sanic's
+surface-momentum law, and a controlled ledge. Originally: measure, for
+representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry
 its user off a ledge. Compare with Smash Ultimate (traction, dash cancels) and
@@ -833,6 +845,35 @@ Remove obsolete diagnostics only after checking their actual callers. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
 
+**Measured 2026-11-10 (boot cost):** in a sample of 152 `app_it` tests, the mean
+was 29 s and ten took 100 s or more. A harness boot costs about 11 s, and most
+tests boot at least once. Two pure parses ran again on every boot in one
+process:
+- the sprite sheet table (2.4 s), which now prepares against the process's last
+  table (`content::libraries`);
+- the LDtk world (about 0.75 s, twice per boot), whose parse is now kept per
+  path, size and file time (`LdtkProject::load_from_path`).
+
+Boots after the first now cost 7.0–7.7 s (`boot_budget::probe_what_one_boot_costs`).
+What remains is not one hot spot:
+- character preparation: 0.9 s over 212 characters;
+- sheet text reads: 0.75 s;
+- the asset catalog: 0.5 s;
+- Yarn: 0.4 s;
+- the first update: 0.9 s;
+- the settle: 1.6 s.
+
+**Red without the boot change (2026-11-10, this VM; each also fails at the
+commit before it):**
+- `boot_budget::no_system_is_registered_twice_in_one_schedule`: two copies of
+  `ambition_held_items::project_item_body_presence` in `GgrsSchedule`, a
+  composition defect.
+- `an_edit_reaches_the_shipped_game::a_reload_that_moves_a_tracks_file_plays_the_new_file`
+  and `developer_edits_under_rollback::god_blink_in_ambition_does_not_grant_blink_to_maryo`:
+  no rendered music on this VM; the Mary-O route never activates a body.
+- `ambition_platformer2d` lib, two tests in `game_assets::sheets::tests`: no
+  published art on this VM.
+
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn
 owner cases (14) passed after repairs; **those focused passes do not clear the
@@ -841,9 +882,21 @@ rendered music. On the sampled VM, Smash and Sanic first rooms could not
 start because their music tracks were not rendered; classify missing assets
 separately from code failures. Keep failure evidence in the lane ledger.
 
-**Other precise follow-ups:** reconcile the inconsistent compile-ratchet
-baseline (`ambition_geometry`, actor monolith, core) by deliberate measurement,
-not `--update` bookkeeping; capture an assertion if the historical
+**Compile ratchet reconciled (2026-11-10):** the baseline frozen at
+`4ed566a24ad1` disagreed with its own crate table for `ambition_geometry`, the
+monolith and the core. The gate had been red on a gating finding: the critical
+path had grown from 16 crates to 24. The measured path is `ambition_geometry →
+core → time → shared_tangle → world → portal2d → projectiles → combat →
+held_items → abilities → shrine → construction → items → breakables →
+projectile_combat → actor_monolith → session → sim_view → runtime →
+rollback_ggrs → platformer2d → fighter_specials → content → app`. The links
+it gained are AP14 carves stacked in series under the monolith. The baseline
+is re-frozen with that reason at `7c6ca7f71e`, and the gate passes. If build
+wall-clock matters, that series is where to cut. Thirty-nine new crates have
+no measured compile time; they are priced at the median rate, a placeholder,
+until `scripts/measure/compile_collect.py` measures them.
+
+**Other precise follow-ups:** capture an assertion if the historical
 `composes_through_the_sdk` in-company failure recurs. These are not grounds
 for retries or enlarging fixed-frame waits. Optional broader cleanup belongs
 in the owner plan, not as a second chronological task list here.

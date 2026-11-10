@@ -87,7 +87,7 @@ fn session(pads: usize, accept: bool) -> (App, Vec<Entity>) {
     session_in(rendered_app(), pads, accept)
 }
 
-fn session_in(mut app: App, pads: usize, accept: bool) -> (App, Vec<Entity>) {
+pub(crate) fn session_in(mut app: App, pads: usize, accept: bool) -> (App, Vec<Entity>) {
     settle(&mut app);
     accept_joins(&mut app, accept);
     let connected = (0..pads).map(|index| connect_named_pad(&mut app, &format!("pad {index}"))).collect();
@@ -101,7 +101,7 @@ fn session_in(mut app: App, pads: usize, accept: bool) -> (App, Vec<Entity>) {
     (app, connected)
 }
 
-fn the_primary(app: &mut App) -> Entity {
+pub(crate) fn the_primary(app: &mut App) -> Entity {
     let world = app.world_mut();
     world
         .query_filtered::<Entity, With<PrimaryPlayer>>()
@@ -109,7 +109,7 @@ fn the_primary(app: &mut App) -> Entity {
         .expect("one primary body")
 }
 
-fn seat_one_bodies(app: &mut App) -> Vec<Entity> {
+pub(crate) fn seat_one_bodies(app: &mut App) -> Vec<Entity> {
     let world = app.world_mut();
     world
         .query::<(Entity, &DrivingParticipant)>()
@@ -1090,7 +1090,7 @@ fn delayed_crossing(app: &mut App, slot: u8, target: &str) -> (u64, ambition_pla
     panic!("the accepted crossing opened no transaction");
 }
 
-fn split_session(mut host: App) -> (App, Vec<Entity>) {
+pub(crate) fn split_session(mut host: App) -> (App, Vec<Entity>) {
     use ambition_platformer2d::persistence::settings::{UserSettings, video::LocalViewLayout};
     host.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(Vec2::new(1280.0, 720.0)));
     let (mut app, pads) = session_in(host, 2, true);
@@ -1457,10 +1457,15 @@ fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
 }
 
 fn separate_participant(app: &mut App, first: u8) -> ([Entity; 2], [ambition_platformer2d::platformer::lifecycle::InRoomInstance; 2]) {
+    separate_participant_to(app, first, "switch_lab")
+}
+
+/// Send seat `first` alone to `target`, a second live room.
+pub(crate) fn separate_participant_to(app: &mut App, first: u8, target: &str) -> ([Entity; 2], [ambition_platformer2d::platformer::lifecycle::InRoomInstance; 2]) {
     use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
     use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
     use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
-    let (_, barrier) = delayed_crossing(app, first, "switch_lab");
+    let (_, barrier) = delayed_crossing(app, first, target);
     let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
         load_id: barrier.load_id, work_id: "fixture.delayed-room-art".into(), state: LoadWorkState::Complete,
     });

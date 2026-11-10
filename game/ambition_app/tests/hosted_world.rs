@@ -28,7 +28,7 @@ use crate::common::{door_to, doors_cross_at_once, fixed_60hz_room_options};
 use crate::two_players_two_live_rooms::{bob_beside_alice, where_they_are, ROOM};
 
 /// Updates a message waits on the link, as in `two_peers`.
-const LATENCY: i32 = 3;
+pub(crate) const LATENCY: i32 = 3;
 /// The width of one input on the guest-to-host link: a bincode `ControlFrame`
 /// (72 bytes) and a 4-byte sequence number.
 const INPUT_RECORD: u64 = 72 + 4;
@@ -39,7 +39,7 @@ const BODY_RECORD: u64 = 4 + 8 + 8 + 4;
 
 /// Bob's input: he turns at his own rhythm and jumps, so a GGRS peer
 /// mispredicts him and rolls back.
-fn bobs(frame: i32) -> ControlFrame {
+pub(crate) fn bobs(frame: i32) -> ControlFrame {
     let right = (frame / 13) % 2 == 0;
     ControlFrame {
         axis_x: if right { 1.0 } else { -1.0 },
@@ -50,7 +50,7 @@ fn bobs(frame: i32) -> ControlFrame {
 }
 
 /// Alice holds right and presses attack every ten frames from frame 20.
-fn alice_fights(frame: i32) -> ControlFrame {
+pub(crate) fn alice_fights(frame: i32) -> ControlFrame {
     ControlFrame { axis_x: 1.0, attack_pressed: frame >= 20 && frame % 10 == 0, ..Default::default() }
 }
 
@@ -80,7 +80,7 @@ struct Scene {
 /// Neither input changes after its first frame, so a GGRS peer's prediction
 /// is right and it rolls back (almost) never: the control that separates what
 /// GGRS pays every frame (a snapshot, a checksum) from what it pays to correct.
-fn holds_right(_frame: i32) -> ControlFrame {
+pub(crate) fn holds_right(_frame: i32) -> ControlFrame {
     ControlFrame { axis_x: 1.0, ..Default::default() }
 }
 
@@ -94,14 +94,14 @@ const SCENES: [Scene; 4] = [
 ];
 
 #[derive(Default)]
-struct UpdateTimes {
-    total: Duration,
-    worst: Duration,
-    count: u32,
+pub(crate) struct UpdateTimes {
+    pub(crate) total: Duration,
+    pub(crate) worst: Duration,
+    pub(crate) count: u32,
 }
 
 impl UpdateTimes {
-    fn time(&mut self, sim: &mut Platformer2dSimHarness) {
+    pub(crate) fn time(&mut self, sim: &mut Platformer2dSimHarness) {
         let start = Instant::now();
         sim.app_mut().update();
         let spent = start.elapsed();
@@ -110,7 +110,7 @@ impl UpdateTimes {
         self.count += 1;
     }
 
-    fn mean_ms(&self) -> f64 {
+    pub(crate) fn mean_ms(&self) -> f64 {
         self.total.as_secs_f64() * 1e3 / f64::from(self.count.max(1))
     }
 }

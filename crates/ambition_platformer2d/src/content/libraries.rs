@@ -32,6 +32,16 @@ pub fn import(
     register(world, root, paths, embedded, Registration::Import)
 }
 
+/// The sheet table this process last prepared from library files. A boot
+/// that holds no table yet prepares against it, so only what changed since is
+/// parsed again: `prepare_sheet_table` keeps a sheet or rig whose text is the
+/// same and a flipbook whose file time is the same. A test process boots
+/// hundreds of Apps from one library set, and a full parse costs seconds.
+fn last_prepared() -> std::sync::MutexGuard<'static, Option<SpriteContent>> {
+    static LAST: std::sync::Mutex<Option<SpriteContent>> = std::sync::Mutex::new(None);
+    LAST.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Registration {
     Select,
@@ -78,14 +88,14 @@ fn register(
         return Ok(());
     }
     let libraries = libraries.into_owned();
-    let mut content = world
-        .get_resource::<SpriteContent>()
-        .cloned()
-        .unwrap_or_default();
+    let held = world.get_resource::<SpriteContent>().cloned();
+    let previous = held.clone().or_else(|| last_prepared().clone());
+    let mut content = held.unwrap_or_default();
+    let previous = previous.as_ref().unwrap_or(&content);
     let snapshot = libraries.snapshot()?;
     let prepared = prepare_sheet_table(
-        &content,
-        SheetTexts::from_snapshot(&snapshot, Some(&content))?,
+        previous,
+        SheetTexts::from_snapshot(&snapshot, Some(previous))?,
     )
     .map_err(|error| format!("{error:?}"))?;
     let assets = world
@@ -94,6 +104,7 @@ fn register(
         .unwrap_or_default();
     assets.replace(snapshot);
     publish_prepared_sheet_table(&mut content, prepared);
+    *last_prepared() = Some(content.clone());
     world.insert_resource(assets);
     world.insert_resource(libraries);
     world.insert_resource(content);

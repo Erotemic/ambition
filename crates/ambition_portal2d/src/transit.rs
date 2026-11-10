@@ -13,7 +13,7 @@ use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
 use ambition_platformer2d_shared_tangle::frame_env::{CarriedAcceleration, ResolvedMotionFrame};
 
 use super::color::PortalChannel;
-use super::placement::{transit_step_with_tuning, SweptSample, TransitStep, TRANSIT_BEGIN_MARGIN};
+use super::placement::{transit_step_with_tuning, TransitStep, TRANSIT_BEGIN_MARGIN};
 use super::tuning::PortalTuning;
 use super::rooms::{PortalHostDepthsByRoom, PortalRoom, PortalsByRoom};
 use super::types::{find_portal, PlacedPortal, PortalTransitCooldown};
@@ -325,22 +325,6 @@ pub(crate) fn body_opens(p: &PlacedPortal, body: ae::Aabb, center: Vec2, vel: Ve
     frontal || falling_through
 }
 
-/// Convert the movement-kernel sample into swept transit input. Valid only
-/// when the sample endpoint still equals the live `kin.pos`. If an earlier
-/// post-sim system teleported the body, the segment is not travel through an
-/// aperture.
-fn portal_sweep_sample(
-    kin: &BodyKinematics,
-    sweep: Option<&ae::SweepSample>,
-) -> Option<SweptSample> {
-    let sweep = sweep?.ending_at(kin.pos)?;
-    Some(SweptSample { down: sweep.down,
-        time: sweep.time,
-        travel: sweep.travel,
-        pos: sweep.prev,
-        vel: sweep.vel,
-    })
-}
 
 /// Emitted on every Transfer by [`portal_transit`], with what input, trace,
 /// and audio adapters need. The host portal adapter reads it and, for the
@@ -464,7 +448,7 @@ pub fn portal_transit(
         // The swept segment comes from the movement kernel's `SweepSample`. It
         // is used only when its `curr` equals the live `kin.pos`, so teleports
         // outside the sim phase are not swept travel.
-        let sweep = portal_sweep_sample(&*kin, record);
+        let sweep = record.copied();
         let backside = backside.copied();
         let usable = usable_portals(all, backside);
         let step = transit_step_with_tuning(*kin,
@@ -647,50 +631,5 @@ pub fn tick_portal_cooldowns(
         if cooldown.remaining <= 0.0 {
             commands.entity(entity).remove::<PortalTransitCooldown>();
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn portal_sweep_sample_uses_kernel_segment_when_live_endpoint_matches() {
-        let kin = BodyKinematics { material: Default::default(),
-            pos: Vec2::new(10.0, 20.0),
-            vel: Vec2::new(0.0, 30.0),
-            canonical_size: Vec2::new(24.0, 40.0),
-            facing: 1.0,
-        };
-        let sweep = ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
-            prev: Vec2::new(10.0, 12.0),
-            curr: kin.pos,
-            vel: Vec2::new(0.0, 240.0),
-            half: kin.size() * 0.5,
-            down: Vec2::new(0.0, 1.0),
-        };
-
-        let sample = portal_sweep_sample(&kin, Some(&sweep)).expect("matching sample is valid");
-        assert_eq!(sample.pos, sweep.prev);
-        assert_eq!(sample.vel, sweep.vel);
-    }
-
-    #[test]
-    fn portal_sweep_sample_rejects_post_sim_teleport_gap() {
-        let kin = BodyKinematics { material: Default::default(),
-            pos: Vec2::new(1000.0, 1000.0),
-            vel: Vec2::ZERO,
-            canonical_size: Vec2::new(24.0, 40.0),
-            facing: 1.0,
-        };
-        let sweep = ae::SweepSample { travel: Default::default(), time: [0.0, 1.0],
-            prev: Vec2::new(10.0, 12.0),
-            curr: Vec2::new(10.0, 20.0),
-            vel: Vec2::new(0.0, 240.0),
-            half: Vec2::new(12.0, 20.0),
-            down: Vec2::new(0.0, 1.0),
-        };
-
-        assert_eq!(portal_sweep_sample(&kin, Some(&sweep)), None);
     }
 }

@@ -323,6 +323,7 @@ impl SnapshotState for crate::body_clusters::SweepSample {
             }
         }
         for v in [self.prev, self.curr, self.vel, self.half, self.down] { put_vec2(out, v); }
+        self.material.encode(out);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let time = [f64::from_bits(r.u64()?), f64::from_bits(r.u64()?)];
@@ -338,7 +339,7 @@ impl SnapshotState for crate::body_clusters::SweepSample {
             }
             _ => return None,
         };
-        Some(Self { time, travel, prev: r.vec2()?, curr: r.vec2()?, vel: r.vec2()?, half: r.vec2()?, down: r.vec2()? })
+        Some(Self { time, travel, prev: r.vec2()?, curr: r.vec2()?, vel: r.vec2()?, half: r.vec2()?, down: r.vec2()?, material: crate::frame::BodyMaterial::decode(r)? })
     }
 }
 

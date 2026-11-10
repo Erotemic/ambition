@@ -298,6 +298,7 @@ pub(crate) fn update_body_simulation_in_frame(
     // segment, never a stale one).
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
+    let entry_material = clusters.kinematics.material;
     let (mut events, reach) = update_body_simulation_inner(
         world,
         clusters,
@@ -311,7 +312,7 @@ pub(crate) fn update_body_simulation_in_frame(
     );
     // The box this arm sweeps is the body's box turned to the frame's DOWN
     // (`aabb_oriented(frame.down())` in every collision of the step).
-    let step_half = kernel::write_sweep_sample(clusters, (entry_pos, entry_vel), frame.down());
+    let step_half = kernel::write_sweep_sample(clusters, (entry_pos, entry_vel, entry_material), frame.down());
 
     // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
     //

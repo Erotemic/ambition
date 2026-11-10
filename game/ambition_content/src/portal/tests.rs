@@ -487,7 +487,7 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
     // A body whose centroid has crossed the PURPLE plane transfers to YELLOW
     // (its partner) — never to the unrelated orange portal.
     let step = ambition_portal2d::transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(400.0, 305.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 50.0), ..Default::default() },
-        Some(ambition_portal2d::SweptSample { down: Vec2::ZERO, travel: Default::default(), pos: Vec2::new(400.0, 295.0), vel: Vec2::Y * 50.0, time: [0.0, 1.0] }),
+        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(400.0, 295.0), vel: Vec2::Y * 50.0, time: [0.0, 1.0], curr: Vec2::new(400.0, 305.0), material: Default::default(), half: Vec2::ZERO }),
         Some(PortalTransit {
             straddling: PURPLE,
             crossed: false,
@@ -1278,7 +1278,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
 fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
     use ambition_platformer2d_core::body_clusters::BodyClusterScratch;
     use ambition_platformer2d_core::movement::{InputState, DEFAULT_TUNING};
-    use ambition_portal2d::{transit_step_with_tuning, SweptSample, TransitStep};
+    use ambition_portal2d::{transit_step_with_tuning, TransitStep};
 
     // A floor at y ∈ [880, 920] with the two apertures ALREADY carved (three
     // segments): this isolates the integrator + transfer math from carve
@@ -1340,7 +1340,7 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
         }
         cooldown = cooldown.filter(|(_, t)| *t > 0.0);
         let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: scratch.kinematics.pos, canonical_size: size, vel: scratch.kinematics.vel, ..Default::default() },
-            Some(SweptSample { down: Vec2::ZERO, travel: Default::default(), pos: previous.pos, vel: previous.vel, time: [0.0, 1.0] }),
+            Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
             transit,
             cooldown.map(|(c, _)| c),
             &portals,
@@ -1403,7 +1403,7 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
 fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) -> f32 {
     use ambition_platformer2d_core::body_clusters::BodyClusterScratch;
     use ambition_platformer2d_core::movement::InputState;
-    use ambition_portal2d::{transit_step_with_tuning, SweptSample, TransitStep};
+    use ambition_portal2d::{transit_step_with_tuning, TransitStep};
 
     let floor_y = 3000.0;
     let world = ae::World::new(
@@ -1447,7 +1447,7 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
         let previous = scratch.kinematics;
         step_axis_scratch(&world, &mut scratch, InputState::default(), dt, tuning);
         let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: scratch.kinematics.pos, canonical_size: size, vel: scratch.kinematics.vel, ..Default::default() },
-            Some(SweptSample { down: Vec2::ZERO, travel: Default::default(), pos: previous.pos, vel: previous.vel, time: [0.0, 1.0] }),
+            Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
             transit,
             None,
             &portals,

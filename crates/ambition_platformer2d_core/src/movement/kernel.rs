@@ -165,21 +165,9 @@ pub fn step_motion(
         body.sweep = Some(&mut sweep);
         step_admitted_motion(candidate_model, &mut body, ctx)
     };
-    let root_map = candidate.kinematics.material.at(sweep.prev, sweep.down);
     let admitted = (|| {
-        let root_map = root_map.map_err(|fault| crate::frame::thread::Refusal {
-            path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
-        })?;
         let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, candidate.kinematics.canonical_size * 0.5));
-        let (delta, until) = sweep.travel.line(sweep.prev, sweep.curr).map_err(|reason| crate::frame::thread::Refusal {
-            path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(reason),
-        })?;
-        let source = crate::frame::material_cast::MaterialCast::new(
-            crate::frame::thread::MaterialPrimitive { domain: &domain, to_world: root_map },
-            sweep.prev,
-            delta,
-            sweep.time[0]..sweep.time[1],
-        ).prefix(until)?;
+        let source = sweep.material_cast(&domain)?;
         if let Some(portal) = portal {
             portal.admit(source, candidate.kinematics.vel, &[ctx.frame.carried_acceleration()])?;
         } else {
@@ -552,7 +540,7 @@ fn step_surface_momentum(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
-    let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel);
+    let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel, clusters.kinematics.material);
     let mut body = SurfaceBody {
         pos: clusters.kinematics.pos,
         vel: clusters.kinematics.vel,
@@ -636,7 +624,7 @@ fn step_adhesive_crawler(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
-    let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel);
+    let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel, clusters.kinematics.material);
     let mut events = FrameEvents::default();
     // the edge is derived HERE, from the attachment either side of the step,
     // rather than pushed at the eight places inside `step_crawler` that detach or
@@ -677,11 +665,12 @@ fn step_adhesive_crawler(
 /// returns that box: the arm gives the same value to
 /// [`apply_world_hazard_gate`], so the record, the end test and the path test
 /// are of one box. The record keeps the DOWN for a later transit.
-pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2), body_down: Vec2) -> Vec2 {
+pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2, crate::frame::BodyMaterial), body_down: Vec2) -> Vec2 {
     let curr = clusters.kinematics.pos;
     let step_half = clusters.kinematics.half_oriented(body_down);
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         *sweep = SweepSample { travel: Default::default(), time: [0.0, 1.0],
+            material: entry.2,
             prev: entry.0,
             curr,
             vel: entry.1,

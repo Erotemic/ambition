@@ -276,6 +276,8 @@ pub struct SweepSample {
     /// The world-tick interval of the original line. `travel` can end earlier.
     pub time: [f64; 2],
     pub travel: LinearTravel,
+    /// Material at departure. A later root rebase must not change this path.
+    pub material: crate::frame::BodyMaterial,
     /// Position at simulation-phase entry (the TRUE segment start).
     pub prev: Vec2,
     /// Where the travelled path ends. The kernel writes it at phase exit and
@@ -298,7 +300,7 @@ pub struct SweepSample {
 
 impl Default for SweepSample {
     fn default() -> Self {
-        Self { travel: LinearTravel::Complete, time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,
+        Self { travel: LinearTravel::Complete, material: Default::default(), time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,
             vel: Vec2::ZERO, half: Vec2::ZERO, down: Vec2::ZERO }
     }
 }
@@ -310,6 +312,7 @@ impl SweepSample {
         Self {
             time: [0.0, 1.0],
             travel: LinearTravel::Complete,
+            material: body.material,
             prev: body.pos,
             curr: body.pos,
             vel: Vec2::ZERO,
@@ -321,6 +324,29 @@ impl SweepSample {
     /// Record the final pose without a prior travel interval.
     pub fn at_tick_end(body: BodyKinematics, down: Vec2) -> Self {
         Self { time: [1.0, 1.0], ..Self::at_rest(body, down) }
+    }
+
+    /// Build the recorded material path without reading a later body pose.
+    pub fn material_cast(self, domain: &crate::CombatVolume)
+        -> Result<crate::frame::material_cast::MaterialCast<'_>, crate::frame::thread::Refusal>
+    {
+        let numeric = |reason| crate::frame::thread::Refusal {
+            path: Vec::new(), link: None,
+            reason: crate::frame::thread::RefusalReason::Numeric(reason),
+        };
+        if !self.down.is_finite() || !self.vel.is_finite() || !self.half.is_finite()
+            || self.time.iter().any(|time| !time.is_finite()) {
+            return Err(numeric(crate::frame::NumericFault::NonFinite));
+        }
+        if self.time[0] < 0.0 || self.time[1] > 1.0 || self.time[0] > self.time[1] {
+            return Err(numeric(crate::frame::NumericFault::InvalidFrame));
+        }
+        let map = self.material.at(self.prev, self.down).map_err(numeric)?;
+        let (delta, until) = self.travel.line(self.prev, self.curr).map_err(numeric)?;
+        crate::frame::material_cast::MaterialCast::new(
+            crate::frame::thread::MaterialPrimitive { domain, to_world: map },
+            self.prev, delta, self.time[0]..self.time[1],
+        ).prefix(until)
     }
 
     /// The DOWN of a body, for a reader that has its frame and its record: the

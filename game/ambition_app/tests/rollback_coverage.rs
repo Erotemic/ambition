@@ -1042,6 +1042,10 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
+        "ambition_demo_smash::autoplay::SmashAutoplayDriver",
+        "host profiling controller: Update selects the roster, requests a shell route and checks the capture premise; replay uses the admitted session and committed inputs without this controller. Restoring its stage would repeat a host request",
+    ),
+    (
         "ambition_content::autoplay::Profiles",
         "authored routes for the local input generator, published outside simulation; replay consumes committed input and does not read these routes",
     ),
@@ -1103,6 +1107,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_platformer2d::content::sprite_reload::SpriteSheetWatch",
         "developer file watch over the published sprite tree: modification times on disk, the parsed sheet table that waits and the last refusal, read and written only in Update by `take_what_the_watch_found` and `publish_the_staged_sheets_between_sessions`, which run no simulation; it publishes a sheet generation only where no session is live and no route prepares one. Rewinding it would stage a table it already published",
+    ),
+    (
+        "ambition_platformer2d::content::sprite_reload::SpriteSheetWatchPolicy",
+        "host file-watch configuration, read only when SpriteSheetReloadPlugin is built; it selects native I/O systems and is never read by simulation. Sheet publication still waits for the session boundary",
     ),
     (
         "ambition_platformer2d::content::sprite_reload::SheetDerivedRestaters",

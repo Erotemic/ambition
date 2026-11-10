@@ -346,16 +346,6 @@ impl PortalTransfer {
     }
 }
 
-/// The movement kernel's recorded segment and its world-tick interval.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SweptSample {
-    pub pos: Vec2,
-    pub vel: Vec2,
-    pub time: [f64; 2],
-    pub travel: ae::LinearTravel,
-    pub down: Vec2,
-}
-
 /// The first admitted root crossing and the sampled partner pose.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PortalCrossing {
@@ -464,27 +454,17 @@ pub fn first_portal_crossing_through(
 }
 
 fn swept_crossing_step(
-    sweep: SweptSample, body: ae::BodyKinematics,
+    sweep: ae::SweepSample, body: ae::BodyKinematics,
     portals: &[PlacedPortal], gravity_dir: Vec2, tuning: &PortalTuning,
 ) -> Option<TransitStep> {
     let center = body.pos;
     let vel = body.vel;
     let domain = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, body.canonical_size * 0.5));
-    let map = match body.material.at(sweep.pos, sweep.down) {
-        Ok(map) => map,
-        Err(reason) => return Some(TransitStep::Refused { channel: None, reason: ae::frame::thread::RefusalReason::Numeric(reason) }),
+    let cast = match sweep.material_cast(&domain) {
+        Ok(cast) => cast,
+        Err(refusal) => return Some(TransitStep::Refused { channel: None, reason: refusal.reason }),
     };
-    let (delta, until) = match sweep.travel.line(sweep.pos, center) {
-        Ok(line) => line,
-        Err(reason) => return Some(TransitStep::Refused { channel: None, reason: ae::frame::thread::RefusalReason::Numeric(reason) }),
-    };
-    let cast = ae::frame::material_cast::MaterialCast::new(
-        ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
-        sweep.pos,
-        delta,
-        sweep.time[0]..sweep.time[1],
-    ).prefix(until).expect("the motion record validates its original parameter");
-    match first_portal_crossing_through(&cast, portals, None, until) {
+    match first_portal_crossing_through(&cast, portals, None, 1.0) {
         Ok(Some(hit)) => {
             let frame = hit.root.aperture.frame;
             let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
@@ -502,7 +482,7 @@ fn swept_crossing_step(
 #[allow(clippy::too_many_arguments)]
 pub fn transit_step_with_tuning(
     kinematics: ae::BodyKinematics,
-    sweep: Option<SweptSample>,
+    sweep: Option<ae::SweepSample>,
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],
@@ -511,6 +491,7 @@ pub fn transit_step_with_tuning(
 ) -> TransitStep {
     let center = kinematics.pos;
     let vel = kinematics.vel;
+    let sweep = sweep.filter(|sample| sample.ending_at(center).is_some());
     let down = sweep.map_or(Vec2::ZERO, |sweep| sweep.down);
     let body = kinematics.aabb_oriented(down);
     // Resolve `(straddled, its linked exit)` for a color — both must be placed.

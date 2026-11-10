@@ -228,7 +228,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // Portal steps retain the start pose and the host's displacement and turn.
 // Root motion samples retain their interval within the world tick.
 // 428 -> 429: item motion uses shared body state; custody derives world presence.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 429;
+// 429 -> 430: motion records encode their departure material.
+// Room capabilities scope body admission and portal geometry.
+// Canonical block contacts and initial-overlap policy change contact results.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 430;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

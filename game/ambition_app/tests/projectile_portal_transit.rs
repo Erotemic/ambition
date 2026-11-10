@@ -12,6 +12,60 @@ use ambition_platformer2d::engine_core::BodyKinematics;
 use bevy::prelude::*;
 
 #[test]
+fn a_projectile_retains_its_pose_when_a_recipients_partition_is_refused() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::characters::actor::ActorFaction;
+    use ambition_platformer2d::combat::components::DamageableVolumes;
+    use ambition_platformer2d::platformer::{body::geometry::MaterialBudget, lifecycle::InRoomInstance,
+        markers::PrimaryPlayerOnly};
+    use ambition_platformer2d::projectiles::{ProjectileGameplay, ProjectileSpawn, ProjectileSpawnRequest,
+        ProjectileStart, ProjectileVisualId};
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    let (owner, room) = {
+        let world = sim.world_mut();
+        let entity = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+        (entity, *world.get::<InRoomInstance>(entity).unwrap())
+    };
+    let center = Vec2::new(1000.0, 400.0);
+    let mut hurt = DamageableVolumes::default();
+    hurt.publish_body(vec![ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, Vec2::splat(10.0)))]);
+    let target = sim.world_mut().spawn((ActorFaction::Enemy, room,
+        ambition_platformer2d::observation::SimId::placement("recipient_refusal_target"),
+        ae::BodyKinematics { pos: center, canonical_size: Vec2::splat(20.0), ..Default::default() },
+        ae::CenteredAabb::new(center, Vec2::splat(10.0)), hurt,
+        MaterialBudget(ae::frame::thread::PieceBudget { max_pieces: 0,
+            ..ae::frame::thread::PieceBudget::SINGLE_HOP }))).id();
+    sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
+        origin: center - Vec2::X * 20.0, dir: Vec2::X, speed: 1200.0,
+        damage: 1, max_lifetime: 3.0, half_extent: Vec2::splat(2.0), gravity: 0.0,
+        visual_id: "recipient_refusal_gauge".into(), bounces: 0, bounce_on_world_contact: false,
+        splash_half_extent: 0.0, boomerang_return_s: None,
+    }, ProjectileStart::StepNextTick));
+    sim.step(base());
+    let shot = {
+        let world = sim.world_mut();
+        world.query::<(Entity, &ProjectileVisualId)>().iter(world)
+            .find(|(_, visual)| visual.0 == "recipient_refusal_gauge").unwrap().0
+    };
+    let before = *sim.world().get::<BodyKinematics>(shot).unwrap();
+    let age = sim.world().get::<ProjectileGameplay>(shot).unwrap().age;
+    let mut hits = bevy::ecs::message::MessageCursor::<ambition_platformer2d::combat::HitEvent>::default();
+    for _ in 0..3 {
+        sim.step(base());
+        assert_eq!(*sim.world().get::<BodyKinematics>(shot).unwrap(), before);
+        assert_eq!(sim.world().get::<ae::SweepSample>(shot).unwrap().delta(), Vec2::ZERO);
+        assert!(hits.read(sim.world().resource::<Messages<ambition_platformer2d::combat::HitEvent>>()).next().is_none());
+    }
+    assert!(sim.world().get::<ProjectileGameplay>(shot).unwrap().age > age);
+    sim.world_mut().entity_mut(target).remove::<MaterialBudget>();
+    sim.step(base());
+    assert!(hits.read(sim.world().resource::<Messages<ambition_platformer2d::combat::HitEvent>>())
+        .any(|hit| hit.target == ambition_platformer2d::combat::HitTarget::Body(target)),
+        "an admitted contact must resume: {:?}", sim.world().get::<BodyKinematics>(shot));
+}
+
+#[test]
 fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
     let mut sim = fixed_60hz_room_sim("portal_lab");
 

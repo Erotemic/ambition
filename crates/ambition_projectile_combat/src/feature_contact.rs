@@ -27,21 +27,26 @@ pub fn projectile_reaches_breakable(
         (Entity, &FeatureId, &CenteredAabb, &BreakableFeature),
         With<FeatureSimEntity>,
     >,
-) -> Option<FeatureContact> {
-    breakables
+) -> Result<Option<FeatureContact>, ambition_platformer2d_core::frame::thread::Refusal> {
+    let mut first: Option<FeatureContact> = None;
+    for (entity, id, aabb, _) in breakables
         .iter()
         .filter(|(entity, _, _, feature)| may_touch(*entity) && breakable_is_eligible(feature))
-        .filter_map(|(entity, id, aabb, _)| {
-            DamageableVolumes::world_box(aabb.aabb())
-                .swept_body_contact(entity, None, geometry, room, source, delta).ok().flatten()
-                .map(|hit| FeatureContact {
+    {
+        if let Some(hit) = DamageableVolumes::world_box(aabb.aabb())
+            .swept_body_contact(entity, None, geometry, room, source, delta)? {
+            let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
                 target: entity,
                 target_id: id.as_str().to_string(),
-            })
-        })
-        .min_by(FeatureContact::order_for_caller)
+            };
+            if first.as_ref().is_none_or(|old| contact.order_for_caller(old).is_lt()) {
+                first = Some(contact);
+            }
+        }
+    }
+    Ok(first)
 }
 
 /// A fixed recipient and its accepted physical contact.
@@ -95,24 +100,29 @@ pub fn projectile_reaches_boss(
         ),
         (With<FeatureSimEntity>, With<BossConfig>),
     >,
-) -> Option<FeatureContact> {
-    bosses
+) -> Result<Option<FeatureContact>, ambition_platformer2d_core::frame::thread::Refusal> {
+    let mut first: Option<FeatureContact> = None;
+    for (entity, id, aabb, _, damageable, kin) in bosses
         .iter()
         .filter(|(entity, _, _, health, damageable, _)| {
             may_touch(*entity)
                 && health.alive()
                 && damageable.published()
         })
-        .filter_map(|(entity, id, aabb, _, damageable, kin)| {
-            damageable.swept_body_contact(entity, kin, geometry, room, source, delta).ok().flatten()
-            .map(|hit| FeatureContact {
+    {
+        if let Some(hit) = damageable.swept_body_contact(entity, kin, geometry, room, source, delta)? {
+            let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
                 target: entity,
                 target_id: id.as_str().to_string(),
-            })
-        })
-        .min_by(FeatureContact::order_for_caller)
+            };
+            if first.as_ref().is_none_or(|old| contact.order_for_caller(old).is_lt()) {
+                first = Some(contact);
+            }
+        }
+    }
+    Ok(first)
 }
 #[cfg(test)]
 mod tests {
@@ -236,7 +246,7 @@ mod tests {
                 >| {
                     projectile_reaches_boss(&ambition_platformer2d_core::BodyKinematics {
                         pos: start, canonical_size: half * 2.0, ..Default::default()
-                    }, delta, None, None, |_| true, &bosses).is_some()
+                    }, delta, None, None, |_| true, &bosses).expect("valid boss geometry").is_some()
                 },
             )
             .expect("the boss contact ran")

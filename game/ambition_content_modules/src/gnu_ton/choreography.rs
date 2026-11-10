@@ -1604,6 +1604,9 @@ pub mod stride {
     pub const ARRIVED: f32 = 10.0;
     /// The seconds it stands after a walk before the next.
     pub const PAUSE: f32 = 1.2;
+    /// Slower than this (world units a second) it stands: its walk row is
+    /// drawn until it is this slow.
+    pub const STANDING: f32 = 6.0;
 
     /// Where it walks to (world x), from `giant_x` with half its width
     /// `half_w`, for a player at `player_x`, in a hall from `left` to

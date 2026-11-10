@@ -2506,3 +2506,126 @@ fn the_well_pulls_the_hall_through_its_portals_into_space() {
     let s = scene(&mut sim);
     assert!(on_floor(&s.giant, floor), "the giant is not down in space:\n{}", shown());
 }
+
+/// GNU-MOTION-PARTS, the first measurement: is the giant's motion smooth, and
+/// if not, which of its parts steps? Twenty seconds of the fight with a
+/// player who cannot be hurt, recording each frame the giant's body, the row
+/// it is drawn in and that row's clock, the scholar on its back and its two
+/// fists. Prints the frames where something jumps. Not a contract: the
+/// fight's pattern decides what happens in the window.
+#[test]
+#[ignore = "measurement: prints the giant's motion discontinuities; run with --ignored --nocapture"]
+fn how_the_giant_moves_frame_by_frame() {
+    struct Frame {
+        pos: ae::Vec2,
+        vel: ae::Vec2,
+        facing: f32,
+        row: String,
+        clock: f32,
+        rider: ae::Vec2,
+        fists: Vec<ae::Vec2>,
+        performing: Option<String>,
+    }
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let dt = 1.0 / 60.0;
+    let mut frames: Vec<Frame> = Vec::new();
+    // It walks to a mark when the player is under it or far from it
+    // (`choreography::stride::mark`): stand the player far, under, far on the
+    // other side and under again, five seconds each, so it walks and stops.
+    let floor = scene(&mut sim).floor;
+    for i in 0..60 * 20 {
+        if i % (60 * 5) == 0 {
+            let giant = scene(&mut sim).giant.pos.x;
+            let offset = [-700.0, 0.0, 700.0, 0.0][i / (60 * 5)];
+            place_player(&mut sim, ae::Vec2::new(giant + offset, floor - 30.0));
+        }
+        sim.step(AgentAction::default());
+        let s = scene(&mut sim);
+        let pin = giant_pin(&mut sim);
+        frames.push(Frame {
+            pos: s.giant.pos,
+            vel: s.giant.vel,
+            facing: s.giant.facing,
+            row: pin.as_ref().and_then(|(rows, _, _)| rows.first().cloned()).unwrap_or_else(|| "(unpinned)".into()),
+            clock: pin.map_or(-1.0, |(_, clock, _)| clock),
+            rider: s.scholar.pos - s.giant.pos,
+            fists: s.fists.iter().map(|(kin, ..)| kin.pos - s.giant.pos).collect(),
+            performing: s.performing.map(|(key, striking)| format!("{key}{}", if striking { "!" } else { "" })),
+        });
+    }
+    let mut events: Vec<(usize, String)> = Vec::new();
+    let mut walked = 0.0f32;
+    let mut walk_clock = 0.0f32;
+    for (i, pair) in frames.windows(2).enumerate() {
+        let (a, b) = (&pair[0], &pair[1]);
+        let at = i + 1;
+        let moved = b.pos - a.pos;
+        // The body moved by more than its velocity says (a teleport or a snap).
+        let expected = b.vel * dt;
+        if (moved - expected).length() > 2.0 {
+            events.push((at, format!("body moved {moved:?}, velocity says {expected:?}")));
+        }
+        if (b.vel.x - a.vel.x).abs() > 120.0 {
+            events.push((at, format!("velocity x {:.0} -> {:.0}", a.vel.x, b.vel.x)));
+        }
+        if b.facing != a.facing {
+            events.push((at, format!("turned {} -> {}", a.facing, b.facing)));
+        }
+        if b.row != a.row {
+            events.push((at, format!("row {} ({:.2}s) -> {} ({:.2}s)", a.row, a.clock, b.row, b.clock)));
+        } else if b.clock + 1e-4 < a.clock {
+            events.push((at, format!("row {} clock went back {:.3} -> {:.3}", b.row, a.clock, b.clock)));
+        } else if (b.clock - a.clock - dt).abs() > 1e-3 && b.clock >= 0.0 {
+            events.push((at, format!("row {} clock stepped {:.3}, not {dt:.3}", b.row, b.clock - a.clock)));
+        }
+        if (b.rider - a.rider).length() > 6.0 {
+            events.push((at, format!("rider moved {:?} on the giant", b.rider - a.rider)));
+        }
+        for (k, (fa, fb)) in a.fists.iter().zip(&b.fists).enumerate() {
+            if (*fb - *fa).length() > 40.0 {
+                events.push((at, format!("fist {k} moved {:?} on the giant", *fb - *fa)));
+            }
+        }
+        if b.row.contains("walk") && b.row == a.row && b.clock > a.clock {
+            walked += moved.x.abs();
+            walk_clock += b.clock - a.clock;
+        }
+    }
+    println!("[gnu] {} frames; {} events", frames.len(), events.len());
+    if walk_clock > 0.0 {
+        println!("[gnu] walking rows: {walked:.0} px over {walk_clock:.2} s of row clock = {:.0} px per row second", walked / walk_clock);
+    }
+    // Each walk: how far the body went against how far the row's clock says
+    // the hooves stepped, and its speed as it starts and after it ends.
+    let mut i = 0;
+    while i < frames.len() {
+        if !frames[i].row.contains("walk") {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < frames.len() && frames[i].row == frames[start].row {
+            i += 1;
+        }
+        let seg = &frames[start..i];
+        let dist = (seg[seg.len() - 1].pos.x - seg[0].pos.x).abs();
+        let clock = seg[seg.len() - 1].clock - seg[0].clock;
+        let speeds: Vec<String> = seg.iter().take(6).map(|f| format!("{:.0}", f.vel.x)).collect();
+        let after: Vec<String> = frames[i..frames.len().min(i + 6)].iter().map(|f| format!("{:.0}", f.vel.x)).collect();
+        println!(
+            "[gnu] walk f{start}..f{i} {}: {} frames, body {dist:.0} px, row clock {clock:.2} s ({:.0} px/s), speed at start [{}], after [{}]",
+            seg[0].row,
+            seg.len(),
+            if clock > 0.0 { dist / clock } else { 0.0 },
+            speeds.join(" "),
+            after.join(" ")
+        );
+    }
+    let rows: std::collections::BTreeSet<_> = frames.iter().map(|f| f.row.as_str()).collect();
+    println!("[gnu] rows drawn: {rows:?}");
+    for (at, what) in &events {
+        let f = &frames[*at];
+        println!("[gnu] f{at:4} {:<14} {:<26} {what}", f.performing.as_deref().unwrap_or("-"), f.row);
+    }
+}

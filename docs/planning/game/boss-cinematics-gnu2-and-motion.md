@@ -63,9 +63,50 @@ replay, reset and exit gating.
 
 ## The giant's motion (GNU-MOTION-PARTS)
 
-**Not started.** The giant looks like it moves unevenly. A hypothesis only:
-the conductor pins the mount's animation rows apart from its `MountWalk`
-motion, its rider and its fists. First measure, frame by frame, the mount's
-root position, each row clock, the rendered part transforms and the rider and
-fist poses, and find which one steps. Fix the pose authority or the shared
-render adapter that is at fault, not one boss's offsets.
+**Measured 2026-11-10** with `gnu_ton_fight::how_the_giant_moves_frame_by_frame`
+(ignored; a measurement): twenty seconds of phase 1 with the player stood far,
+under, far on the other side and under again, so the giant walks to its marks
+(`choreography::stride::mark` walks only for a player within 300 or beyond 640
+world units). Each frame records the giant's body, the row it is drawn in and
+that row's clock, the scholar on its back and its fists, and the test prints
+every jump.
+
+**What stepped, and what was fixed.**
+
+1. **The hooves slid.** The walk row's clock was the walk's elapsed time
+   (`walk_t`), but the body takes about 13 frames (0.21 s) to reach
+   `stride::SPEED`, and slides about 13 more to a stop after a walk. Its art
+   is drawn so a hoof on the floor stands still at `SPEED`, so the feet slid
+   by the difference: the walks covered 113–129 world units per second of row
+   clock against 135.4. Every walk in the run was short (36–120 frames; a blow
+   ends a walk), so most of each walk was speeding up or slowing down.
+   **Fixed:** the row's clock is `Conductor::stride`, the distance walked over
+   `SPEED`, from the start of the walk; the walk row stays drawn while the body
+   slides to a stop (`stride::STANDING`). Measured after: 135 per row second
+   on every walk.
+2. **Rest started mid-breath.** With its arms on, the giant's rest row was
+   drawn at the conductor's global clock (`clock % REST_ROW`), so after every
+   blow it came back to rest 0.08–0.78 s into the row instead of at the frame
+   the blow's recover row ends on. **Fixed:** `Conductor::rest_t` counts the
+   seconds at rest; measured after, each return to rest starts at 0.00 s.
+
+**Measured and not changed.**
+
+- **Windups play slower than real time** (their clock steps 0.010–0.014 a
+  frame): the conductor stretches the 0.72 s windup row over the move's
+  telegraph. Uniform, so smooth; it is the move's timing.
+- **Holds freeze** (clock step 0): authored holds.
+- **A blow cuts a walk.** The windup row starts while the body still slides
+  for about 13 frames. Holding the blow until the giant stands would change
+  the fight's timing; left as it is.
+- **The fist jumps 230–460 units relative to the giant** on the frames a
+  portal blow's strike starts and its recover ends: the fist going into and
+  coming back out of the portal pair. Portal transit belongs to the portals
+  work.
+- **Turning mid-walk** happens once in the run (it turns to face the player).
+
+**Not measured.** The rendered part transforms (the headless harness draws
+nothing), render-rate interpolation, phase 2 and 3 (arms in their lines, the
+space phase), and the rider's own rows. On the measuring machine the giant's sheet
+was not baked, so the shoulder and hump tests in `gnu_ton_fight` failed there
+for that reason, before this change and after it alike.

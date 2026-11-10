@@ -21,6 +21,7 @@ use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInsta
 use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::rollback::{
     loopback_transports, start_peer_session, stop_session, LinkTraffic, PeerSessionSettings, RollbackFrameCount,
+    SaveWorld,
 };
 
 use crate::common::{door_to, doors_cross_at_once, fixed_60hz_room_options};
@@ -214,6 +215,11 @@ struct PeerRun {
     frames: i32,
     rollbacks: u64,
     resimulated: u64,
+    /// Milliseconds one run of a peer's `SaveWorld` takes at the end: the
+    /// snapshot and checksum bevy_ggrs takes of every frame it simulates.
+    save_ms: f64,
+    /// Systems in `SaveWorld`: about one per registered rollback type.
+    save_systems: usize,
 }
 
 /// A GGRS peer with no census: the cost of the shipped path, not of the
@@ -265,7 +271,21 @@ fn peers(scene: &Scene) -> PeerRun {
         assert_eq!(bob.rollback_health(), Ok(()), "{}: Bob's session failed", scene.name);
     }
     let stats: Vec<_> = [&alice, &bob].iter().filter_map(|sim| sim.rollback_execution_stats()).collect();
+    // Run Alice's save on its own, after the session is done with her. It
+    // overwrites the snapshot of her current frame with an equal one.
+    let saves = 60;
+    let start = Instant::now();
+    for _ in 0..saves {
+        alice.world_mut().run_schedule(SaveWorld);
+    }
+    let save_ms = start.elapsed().as_secs_f64() * 1e3 / f64::from(saves);
+    let save_systems = alice
+        .app_mut()
+        .get_schedule_mut(SaveWorld)
+        .map_or(0, |schedule| schedule.systems_len());
     PeerRun {
+        save_ms,
+        save_systems,
         times,
         traffic: ends.map(|end| end.sent()),
         frames: confirmed(&alice).min(confirmed(&bob)),
@@ -331,8 +351,8 @@ fn what_a_hosted_world_costs_beside_ggrs() {
             );
         }
         println!(
-            "[ggrs]   {} rollbacks, {} resimulated frames over {} confirmed frames (both peers)",
-            pair.rollbacks, pair.resimulated, pair.frames
+            "[ggrs]   {} rollbacks, {} resimulated frames over {} confirmed frames (both peers); one SaveWorld run {:.2} ms over {} systems",
+            pair.rollbacks, pair.resimulated, pair.frames, pair.save_ms, pair.save_systems
         );
     }
 }

@@ -87,10 +87,16 @@ over 600 ms).
 - **GGRS pays most of its cost on every frame, not on rollback.** With no
   mispredictions (the control: one rollback in 240 frames) each GGRS peer
   still spent about 4 times the host's update per frame. Mispredictions add
-  roughly a further 15–40% in these scenes. What the per-frame cost is made of (the snapshot
-  bevy_ggrs saves each frame, the checksum at `desync_interval: 1`, the
-  session's own systems) is not split yet; that is the next GGRS measurement,
-  and it may be cheap to reduce whatever topology wins.
+  roughly a further 15–40% in these scenes.
+- **Half of that per-frame cost is the snapshot, and it is per registered
+  type, not per body.** One run of a peer's `SaveWorld` (run on its own after
+  the session, 60 times) takes 16–17 ms in every scene, with 2 bodies or 18:
+  the schedule holds **1,196 systems**, about one save and one checksum per
+  registered rollback type, at roughly 13 µs each in a debug build. bevy_ggrs
+  runs it on every frame it simulates, resimulated frames included. So the
+  GGRS cost to cut first is the number of registered types, or the work per
+  empty type, not the bytes of state. The remaining ~9 ms per frame (session
+  polling, loads, derived rebuilds) is not split.
 - **Each GGRS peer simulates every live room.** In the two-room scene both
   peers simulate the hub's eighteen bodies, although only Alice is there.
   The hosted guest simulates nothing in this fixture; with prediction (NA-3)

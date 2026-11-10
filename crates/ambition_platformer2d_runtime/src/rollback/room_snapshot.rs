@@ -60,8 +60,18 @@ pub struct RoomRestore {
 
 /// The saved state of some entities: the rows they carried, each with its
 /// values.
+///
+/// The values name entities by the ids they had at the save, and those ids
+/// never change here. A restore that has to re-create an entity records its
+/// stand-in in `live`, beside the saved id, and every restore maps the saved
+/// ids to their stand-ins again: the values it puts back are the saved ones,
+/// which still name the saved ids.
 pub struct RoomSnapshot {
-    entities: Vec<Entity>,
+    /// The entities as saved.
+    saved: Vec<Entity>,
+    /// The entity that stands for each saved one now (the saved one itself
+    /// until a restore re-creates it).
+    live: Vec<Entity>,
     slices: Vec<(usize, Slice)>,
 }
 
@@ -71,8 +81,9 @@ impl RoomSnapshot {
         self.slices.len()
     }
 
+    /// The entities that stand for the saved ones now.
     pub fn entities(&self) -> &[Entity] {
-        &self.entities
+        &self.live
     }
 }
 
@@ -113,7 +124,7 @@ impl RoomSnapshotRows {
             .into_iter()
             .map(|index| (index, (self.rows[index].save)(world, entities)))
             .collect();
-        RoomSnapshot { entities: entities.to_vec(), slices }
+        RoomSnapshot { saved: entities.to_vec(), live: entities.to_vec(), slices }
     }
 
     /// Put the room back as it was saved. `now` is the room's entities at
@@ -124,37 +135,45 @@ impl RoomSnapshotRows {
     /// is put back; a row the entities carry now but did not carry then is
     /// removed from them.
     ///
-    /// The snapshot is brought up to date with the re-created entities, so it
-    /// can be restored again.
+    /// The snapshot records the stand-ins, so it can be restored again: the
+    /// next restore reuses a stand-in that still lives, re-creates one that
+    /// does not, and maps every saved id to its stand-in each time.
     pub fn restore(&self, world: &mut World, snapshot: &mut RoomSnapshot, now: &[Entity]) -> RoomRestore {
         let mut report = RoomRestore::default();
-        for entity in now.iter().filter(|entity| !snapshot.entities.contains(entity)) {
+        for entity in now.iter().filter(|entity| !snapshot.live.contains(entity)) {
             if world.despawn(*entity) {
                 report.despawned.push(*entity);
             }
         }
-        let mut remap: EntityHashMap<Entity> = EntityHashMap::default();
-        for entity in snapshot.entities.iter_mut() {
-            if world.get_entity(*entity).is_err() {
+        for (saved, live) in snapshot.saved.iter().zip(snapshot.live.iter_mut()) {
+            if world.get_entity(*live).is_err() {
                 let again = world.spawn_empty().id();
-                report.recreated.push((*entity, again));
-                remap.insert(*entity, again);
-                *entity = again;
+                report.recreated.push((*saved, again));
+                *live = again;
             }
         }
+        // Saved id -> the entity standing for it, for every saved entity that
+        // has a stand-in: the values put back below name the saved ids.
+        let remap: EntityHashMap<Entity> = snapshot
+            .saved
+            .iter()
+            .zip(&snapshot.live)
+            .filter(|(saved, live)| saved != live)
+            .map(|(saved, live)| (*saved, *live))
+            .collect();
         let saved: BTreeSet<usize> = snapshot.slices.iter().map(|(index, _)| *index).collect();
         for (index, slice) in &snapshot.slices {
-            (self.rows[*index].restore)(world, &snapshot.entities, slice);
+            (self.rows[*index].restore)(world, &snapshot.live, slice);
         }
-        for index in self.carried_rows(world, &snapshot.entities) {
+        for index in self.carried_rows(world, &snapshot.live) {
             if !saved.contains(&index) {
                 // A slice with no values: every entity loses the row.
-                (self.rows[index].restore)(world, &snapshot.entities, &Slice(Box::new(())));
+                (self.rows[index].restore)(world, &snapshot.live, &Slice(Box::new(())));
             }
         }
         if !remap.is_empty() {
             for map in &self.maps {
-                (map.apply)(world, &snapshot.entities, &remap);
+                (map.apply)(world, &snapshot.live, &remap);
             }
         }
         report
@@ -322,6 +341,44 @@ mod tests {
         assert_eq!(world.get::<Charge>(again), Some(&Charge(4)), "the re-created entity lost its value");
         assert_eq!(world.get::<Points>(pointer), Some(&Points(again)), "the reference names the gone entity");
         assert_eq!(snapshot.entities(), &[again, pointer], "the snapshot does not name the stand-in");
+    }
+
+    /// Review 2026-11-10: the snapshot used to swap a re-created entity's id
+    /// for its stand-in while the saved values kept the old id, so a second
+    /// restore put back a reference to the dead entity (the stand-in still
+    /// lived, so nothing was mapped). Restored twice, and three times after
+    /// the stand-in is gone again, the reference names the live stand-in.
+    #[test]
+    fn a_snapshot_restored_again_keeps_its_references_live() {
+        let mut app = App::new();
+        record_clone_row::<Charge>(&mut app, "test.charge");
+        record_clone_row::<Points>(&mut app, "test.points");
+        record_map_row::<Points>(&mut app, "map.test.points");
+        let world = app.world_mut();
+        let target = world.spawn(Charge(4)).id();
+        let pointer = world.spawn(Points(target)).id();
+        let rows = world.remove_resource::<RoomSnapshotRows>().expect("the rows are recorded");
+        let mut snapshot = rows.save(world, &[target, pointer]);
+
+        world.despawn(target);
+        rows.restore(world, &mut snapshot, &[pointer]);
+        let first = snapshot.entities()[0];
+        assert_ne!(first, target);
+
+        // Played again: the pointer is changed and restored once more, while
+        // the stand-in lives.
+        world.get_mut::<Points>(pointer).unwrap().0 = pointer;
+        let report = rows.restore(world, &mut snapshot, &[first, pointer]);
+        assert!(report.recreated.is_empty(), "a living stand-in is reused: {report:?}");
+        assert_eq!(world.get::<Points>(pointer), Some(&Points(first)), "the second restore names the dead entity");
+
+        // The stand-in is gone too: the third restore maps from the saved id.
+        world.despawn(first);
+        let report = rows.restore(world, &mut snapshot, &[pointer]);
+        let [(saved, second)] = report.recreated[..] else { panic!("one entity re-created: {report:?}") };
+        assert_eq!(saved, target, "the report names the saved entity");
+        assert_eq!(world.get::<Points>(pointer), Some(&Points(second)), "the third restore names a dead entity");
+        assert_eq!(world.get::<Charge>(second), Some(&Charge(4)));
     }
 
     /// An entity that carried no row when saved, and carries one now, loses it.

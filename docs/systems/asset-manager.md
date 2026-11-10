@@ -56,16 +56,13 @@ Use `python3 scripts/content_status.py` to inspect missing and stale generated
 content. This query needs no build or renderer. Its default result is advisory;
 only `--require-complete` makes missing or stale content return a failure.
 
-## Edit protocol
+## Adding an asset family
 
-When adding a new asset family:
-
-1. Add stable IDs and manifest entries.
-2. Decide which platform profiles can load it.
-3. Decide required vs optional behavior.
-4. Add publish/install tooling if the asset is generated.
-5. Add focused validation for at least one local profile and one constrained profile when feasible.
-6. Update `docs/tools/` if a generator or packer owns the source artifact.
+Add stable catalog IDs and manifest entries, choose the relevant profiles and
+required/optional policy, and provide an explicit publish step for generated
+assets. Document generator commands under `docs/tools/` where appropriate.
+Check the actual affected profile; platform-specific loading changes deserve a
+focused constrained-platform check, not a broad test campaign.
 
 ## Current gaps
 
@@ -75,18 +72,15 @@ When adding a new asset family:
 - Web/audio/mobile behavior is platform-sensitive; validate the target feature set instead of assuming desktop behavior.
 - iOS is a modeled profile, not a tested shipping target.
 
-## Validation
+## Focused verification
 
-Use targeted checks first:
+The base asset manager is Bevy-free (`default = []`). Its image-stage code is
+behind the `bevy` feature. When changing that feature, a focused command is:
 
 ```bash
 cargo test -p ambition_asset_manager --features bevy
-cargo test -p ambition_platformer2d_actor_monolith --lib asset
 ```
 
-⛔ **`--features bevy` is required here.** The crate's `default = []` keeps it
-Bevy-free for headless and CLI tooling. `image_stages` and its tests (the image
-stage ledger and the reveal-readiness guard) exist only under `--features bevy`,
-so a bare `cargo test -p ambition_asset_manager` passes without running them.
-
-For platform changes, also run the relevant build recipe under `docs/recipes/`.
+For a source reader or packaging change, verify the affected platform/profile
+using the relevant build recipe. A passing no-feature crate test does not
+exercise Bevy image-stage behavior.

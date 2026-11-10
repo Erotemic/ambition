@@ -1,280 +1,113 @@
 ---
 status: current
-last_verified: 2026-10-10
 related_docs:
-  - docs/planning/game/art-and-ambiance.md
   - docs/systems/room-looks.md
   - docs/systems/camera-and-visual-profiles.md
   - docs/concepts/generated-assets-audio.md
 ---
 
-# Room scenery: parallax, terrain skins, motes
+# Room scenery: parallax, terrain skins and motes
 
-The scenery of a room is the art of its theme: the parallax scene behind the
-play, the skin on its collision blocks, a light foreground and the motes in its
-air. It is provider-owned visual content rendered from camera and room read
-models. It must not leak into simulation, collision, or room-loading authority.
+Room scenery is provider-owned presentation: parallax backdrops, collision-block
+skins, decorations, ambient motes and optional atmospheric effects. Headless
+simulation does not depend on these assets. Published images provide the art;
+shaders may composite or modulate it.
 
-All of it is published textures drawn as sprites. A room has its scenery with
-each shader off.
+## Select a theme
 
-## Where the art is
+Author the LDtk level field `parallax_theme`. The conversion stores it in
+`RoomMetadata::visual_profile.parallax_theme`, and
+`ParallaxTheme::named_by_room_metadata` reads **only that field**.
+`biome`, `visual_theme`, `music_track` and `visual_profile` do not silently
+select a scenery theme. `ParallaxTheme::from_room_metadata` uses `default` when
+none is specified; skin and mote setup can choose not to dress an unnamed room.
+This matters for games such as Mary-O that use their own room art.
 
-The art is authored in the art submodule and published by
-`./scripts/regen/backgrounds.sh` (outputs are not in git):
+Parallax assets are registered in the game's asset catalog. The theme key is
+a content key, so new themes require corresponding published imagery and
+catalog entries. `crates/ambition_sprite_sheet/src/game_assets/mod.rs` owns theme
+lookup and the available asset variants.
 
-| Art | Authored in `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/` | Published under `crates/ambition_platformer2d_actor_monolith/assets/` |
+## Author and publish art
+
+Art sources live under
+`tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/`:
+
+| Art | Source | Published asset family |
 | --- | --- | --- |
-| Parallax layers and the foreground | `backgrounds/` | `backgrounds/parallax_layers/<theme>_<layer>.png` |
-| Terrain skins, motes, decor and doors | `terrain/` | `room_dressing/<theme>_<part>.png` |
-| The Mockingbird's space (dark, stars, planet, moon, lane dash) | `backgrounds/sky_parts.py` | `backgrounds/sky_parts/<part>.png` |
+| Parallax and foreground layers | `backgrounds/` | `backgrounds/parallax_layers/` |
+| Terrain skins, decorations, fixtures and doors | `terrain/` | `room_dressing/` |
+| Boss sky/space elements | `backgrounds/sky_parts.py` | `backgrounds/sky_parts/` |
 
-`quality_variants.sh --backgrounds-only` makes the smaller tiers of the parallax
-layers. The room dressing and the sky parts have no tiers.
-
-The sky parts are posed by the fight that owns them
-(`ambition_content/src/presentation/mockingbird_sky.rs`): the dark and its
-stars come down from above the room as the fight climbs, the planet falls
-away, and the moon follows the conductor's record. `python -m
-ambition_sprite2d_renderer.backgrounds parts-preview OUT.png` draws a labelled
-sheet of each look of them, posed as the game poses them.
-
-## The theme of a room
-
-`ParallaxTheme::from_room_metadata` gives each room a theme: the
-`parallax_theme` field of its LDtk level, then its visual profile, then its
-biome, then `hub`. `named_by_room_metadata` gives `None` for a room that names
-no theme. The sky uses the first: a room must have a sky. The terrain skin and
-the motes use the second: a room of another game that names no theme keeps its
-own block art.
-
-The themes with a scene and a skin are `hub`, `lab`, `alarm` (the lab with
-its power out and its beacons on: the rooms of the raid), `undertown` (the
-brick drains and the pipes under the town), `basement`, `cave`,
-`cove`, `water`, `forest`, `skybridge`, `open_sky`, `boss` and `eclipse`.
-The dark sun is the mark of `eclipse` and of no other scene: `boss` has the
-shut gate of a vault with fire behind it. `hub_clean` is the sky of the two-state look and has a
-skin for a device that does not draw the look.
-
-The art of a theme is loaded by `ensure_parallax_layers_for_room` when a room
-of the theme is prepared, and it is retired by the residency rule of the app
-(`parallax_residency.rs`) when no live room and no neighbour has the theme.
+Run `scripts/regen/backgrounds.sh` to publish the normal scenery families.
+`scripts/regen/quality_variants.sh --backgrounds-only` produces lower-quality
+parallax layers. Published/generated binaries are not checked into Git. The
+boss-specific sky parts are positioned by their encounter presentation rather
+than the generic parallax controller.
 
 ## Parallax panels
 
-```text
-room metadata -> theme -> GameAssets.parallax_layers
-    -> present_live_room_parallax (one sprite for each layer)
-    -> sync_parallax_layers (size and offset, each frame, for each view)
-```
+`ambition_render::rendering::parallax` presents one world-view-sized panel per
+layer and updates its offset from the relevant camera's visible-world region.
+The panel moves within a finite overhang; it is not an endlessly tiled texture.
+`RUNTIME_PARALLAX_LAYERS` defines depth, motion factors and sizing. Keep those
+values consistent with the sprite-renderer's scene preview when changing the
+authoring composition.
 
-Each layer is one square panel, larger than the view, that shifts inside its
-overhang as the camera moves across the room. No tile repeats.
+The foreground is the final layer, in front of gameplay. Lower quality tiers
+can omit layers; the lowest tier selects a published flat backdrop instead of
+live parallax. `ensure_parallax_layers_for_room` requests the assets when
+needed, and the residency policy retires assets when rooms and their neighbors
+no longer use them. A room look may composite two authored sky themes; see
+[room looks](room-looks.md).
 
-- **A panel is sized against what its camera shows of the world**
-  (`visible_world`), not against the pixels of its viewport. The play camera
-  shows 640 by 360 units in a window of 1600 by 900. A panel sized in pixels
-  was drawn two and a half times as large as the view (fixed 2026-10-10).
-- `RUNTIME_PARALLAX_LAYERS` has the factor, the z and the panel scale of each
-  layer. `backgrounds/scenes.py` has the same numbers (`RUNTIME`) so that
-  `python -m ambition_sprite2d_renderer.backgrounds preview` draws what a view
-  shows without the game. Change the two together.
-- A 16:9 view shows only the middle band of a square panel. `scenes.py` says
-  which band for each layer, and the scenes are composed for it.
-- The **foreground** is the last layer and the one layer in front of the play
-  (`FOREGROUND_PARALLAX_Z`). It follows the height of the camera only a little
-  (`factor_y`), so its hanging things are at the top of each view and its
-  standing things at the bottom. A theme with no foreground publishes an empty
-  picture. A tier that draws fewer layers (`ParallaxBudget::max_layers`) drops
-  it first.
-- A tier with parallax off (Potato) draws the **flat backdrop**
-  (`ParallaxLayerAsset::Flat`, `<theme>_flat.png`): the layers behind the play
-  as a view at the middle of the room shows them, composed and made small (512
-  px) by the scene renderer (`scenes.flat`). It is one panel as large as the
-  view and fixed to it: no slide, no overhang. Such a tier loads only it, and
-  not the layers of the stack (`ParallaxLayerAsset::drawn_by`). A two-state
-  room shows the flat backdrop of the state the middle of the view is in
-  (`show_two_state_backdrop` in the room look).
+`room_mirrors_its_backdrop` may mirror a room's scene deterministically from
+its room name. It never mirrors themes with an alternate/corrupted state,
+whose compositing requires fixed panel alignment.
 
-## Terrain skins
+## Terrain and room fixtures
 
-`rendering/terrain_skin.rs`. `spawn_block` puts a `TerrainSurface` on the
-sprite of each solid block, one-way platform and blink wall of a room that
-names a theme. `skin_terrain_surfaces` then gives a solid block the fill of the
-skin and one child sprite for each open part of each edge: a cap on a top edge,
-an underside on a bottom edge, a shade on a left or right edge. An edge is open
-where no solid block and no blink wall is in contact with it. A one-way
-platform draws the platform of the skin.
+`ambition_render/src/rendering/terrain_skin.rs` derives decoration from
+**authored collision blocks** rather than from a separate gameplay mesh.
+A theme may provide fills, edges, one-way platforms, blink walls, hazards,
+ladders, water and themed doors. Without a published skin, the ordinary
+block/fixture artwork remains.
 
-- **The pattern is fixed to the room.** Each part is drawn in pieces that are
-  cut where the pattern repeats (`anchored_pieces`), and each piece shows the
-  part of the picture at its place in the room. So the pattern goes on with no
-  break from a block to the block next to it. A room whose ground is many
-  small blocks (each intro room is cells of 16) would show the same corner of
-  the picture on each one. A block that would need more than 400 pieces of
-  fill repeats the fill from its own corner.
-- **Decor.** A few things of the theme's decor picture (a barrel, a crystal, a
-  stone lantern) stand on each open top edge. Where they stand is a pure
-  function of the span (`decor_on_span`), so a room has the same decor each
-  time. `TerrainKeepOut` holds the footprint of each thing of the play in the
-  room (doors, placements, spawns, props, hazard blocks), and no decor stands
-  on one. `TerrainDecorDensity` (a reflected resource) has the mean distance
-  between two things; 0 puts none. A thing of the decor is scenery: nothing
-  reads it, and its art must not look like a thing a player can use.
-- **Light.** A thing of the decor that gives light (a lantern, a brazier, a
-  floor light, a crystal) has a pool of light round it:
-  `RoomDressingPart::DecorGlow`, a picture with the same squares as the decor
-  picture, drawn three times as large behind the thing. The art says which
-  things give light: the square of each other thing is empty. It is a
-  picture and not a light: it does not light an actor.
-- A theme with no skin on disk changes nothing: its blocks keep the tile of
-  their kind.
-- A room with a look of its own (a `palette`,
-  [`room-looks.md`](room-looks.md)) takes no skin: the look draws its blocks.
-  On a device that draws no screen shader (`ShaderBudget::draws_screen_shaders`)
-  the look is not drawn, and the room takes the skin of its theme (`hub_clean`
-  is marble). The choice is made when the room is presented.
-- **Doors.** A door of a room that names a theme takes the door of the theme
-  (`dress_themed_doors`, `RoomDressingPart::Door`). Each door has the shape of
-  the door of the entity sheet, so it keeps its size and its place.
-- **Blink walls.** A blink wall takes the field of its kind
-  (`RoomDressingPart::BlinkSoft`: light, part clear; `BlinkHard`: armour, not
-  clear) and a line of light on each open edge (`BlinkEdge`). The art is the
-  same in each biome: violet is the colour of a blink in each room, and a
-  player must know the wall at a look. A blink wall covers the edges of the
-  blocks it is in contact with, as a solid block does.
-- **Hazards.** A hazard block (the surface that sends a body back to its
-  start) takes a danger fill (`RoomDressingPart::HazardFill`, part clear) and
-  a row of spikes on each open edge (`HazardEdge`). The spikes point out of
-  the block: up on a strip on the floor, to the side on a strip on a wall.
-  They are inside the block, so the picture is not larger than what a body
-  can touch. The art is the same in each biome. A hazard covers no edge of a
-  block next to it. A hazard with `EntityArt` (lava, acid) keeps that art.
-- **Ladders and water.** A ladder and a body of water of a room that names a
-  theme take the art of the theme (`dress_themed_fixtures`,
-  `RoomDressingPart::Ladder`, `WaterClear`, `WaterMurky`, `WaterSurface`). The
-  art is laid in pieces fixed to the room, as the fill is, and the flat
-  placeholder goes when the picture is there. A theme with no such picture
-  keeps the placeholder. A ladder wider than its picture (16 units) is one
-  ladder: a rail at each side, and the middle of each rung made longer.
-- **Underwater backplates.** A theme can publish an optional opaque
-  `room_dressing/<theme>_water_backdrop.png`. The renderer fits the whole
-  picture to each authored water volume, behind gameplay but in front of the
-  parallax panels. The water surface and tint remain separate. The pirate
-  port publishes a harbor seabed scene for the water under its docks. It has
-  an opaque color fallback until the image is ready. Other themes with no
-  backplate retain their clear water. This is world-space presentation. It
-  uses the room's lifecycle and render layer in every camera view.
-- A painted LDtk tile layer draws over the skin (it is at `WORLD_Z_BLOCK + 0.5`).
-  The intro rooms had the fill of `tileset paint` there, one tile over the whole
-  collision, and it hid the skin: it was cleared 2026-10-10.
-- A block with an authored placeholder colour, a lock wall, and a block with
-  `EntityArt` keep their own art.
-- The sizes of the parts are constants of `terrain_skin.rs` and of
-  `terrain/skins.py`. Change the two together.
-- The trims are found one time. A block that is removed later takes its own
-  trims with it; the blocks next to it do not get the trim of the edge that is
-  now open.
-- LDtk can pick tiles with rules (an auto-layer). It is not used here: the
-  trims come from the collision blocks, so each room has them with no
-  authoring. A room can still have an authored tile layer over its blocks (the
-  intro rooms do).
+- Skins and trims are anchored in room coordinates so adjacent blocks share
+  continuous patterns. `anchored_pieces` owns the slicing rules.
+- `TerrainKeepOut` prevents decorative props from occupying authored doors,
+  spawns and other reserved locations. `TerrainDecorDensity` controls spacing;
+  zero disables decor.
+- Decorative glows are authored sprites, not simulation lights. Decorations
+  must not be mistaken for interactive world objects.
+- Optional water backplates sit behind gameplay and in front of parallax.
+  Water tint and surface presentation remain separate.
+- Authored LDtk tile paint and `EntityArt` can override the generated
+  dressing. The look's own skins take precedence when a room has a `palette`.
+- Surface trims are generated at presentation time. If a block is later
+  removed, the removed block's trims go with it; the remaining neighbors do
+  not automatically acquire newly exposed trim.
 
-## Motes
+## Motes, shadows and view limitations
 
-`rendering/ambient_motes.rs`. A theme with a `MoteStyle`
-(`AmbientMoteStyles`, a resource a game can change) and a mote picture gives
-each of its rooms that many small sprites. Each mote has a home in a field a
-little larger than the view. The field goes with the camera and wraps, so a
-mote is in the world and there are always the same number in view. Some motes
-are in front of the play and the others are behind the blocks.
+`rendering/ambient_motes.rs` uses theme-specific `MoteStyle` and a
+presentation clock. Motes are visual only. Their current field follows the
+first main camera, so it does not yet give each split view its own field.
+Lowest-quality parallax settings omit motes.
 
-- The motion is a pure function of the time of the presentation clock
-  (`mote_at`). Nothing in the simulation reads a mote.
-- A tier with parallax off has no motes.
-- The field goes with the first main camera: in a split view the motes of a
-  room are around that camera only.
+`rendering/ground_shadows.rs` implements optional ground sprites, gated by
+`GroundShadowRooms`. No shipped game currently enables them. They follow
+screen-down and static ground rather than arbitrary local gravity; do not
+assume them correct for rotated-world rooms.
 
-## Where to see each biome: the hall of biomes
+## Inspecting a theme
 
-The sandbox has a hall with a door for each biome (`hall_of_biomes`, from the
-door "to hall of biomes" in the hub). Each door has the name of its biome and
-goes to one small exhibit room, `biome_<key>`, that names the biome as its
-`parallax_theme`. A biome that is a room look (`docs/systems/room-looks.md`)
-names its `palette` also: `biome_clean_corrupted` is the two-state look of the
-hub, with a switch that goes round its three states, and `biome_blueprint` is
-the look of the basement of the tech bros. The themes `hub_clean` and
-`hub_corrupt` have no room of their own: they are the two skies of that look,
-and with no look they are a sky with the wrong ground. Each exhibit room is the same room: a floor, a block, a block
-in the air, two one-way platforms, a ladder, a pool, a soft and a hard blink
-wall and a strip of hazard. So the sky, the skin of the ground, the decor, the
-motes, the door, the ladder and the water of a biome are in view in one place,
-and two biomes can be compared part for part.
+The `hall_of_biomes` sandbox area contains comparable theme exhibits, authored
+by `tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py`. Change its
+`BIOMES` table when introducing a new exhibit. Inspect a targeted room through
+`capture_scene` or the running game; see
+[headless room verification](../recipes/headless-room-verification.md).
 
-The hall and its rooms are made, not drawn by hand:
-`tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py` writes one area
-spec for each and applies them. A new biome is one row in its `BIOMES` table
-(and its rows in the art tables above).
-
-## Ground shadows
-
-**Off in each game now.** Jon, 2026-10-10: a shadow under each body does not
-suit the style of the game, and a sprite has no drop shadow in it. The system
-stays for a game that wants one: a game asks with
-`GroundShadowRooms::allow_mode(<its room mode>)`, and no game asks. A room
-with no mode (a room of Ambition) can not have one.
-
-`rendering/ground_shadows.rs`. In a room of a game that asked, each actor and
-the player has one soft dark ellipse on the ground under it
-(`RoomDressingPart::Shadow`, a published picture in the colour of the theme:
-no shader). The shadow is smaller and fainter the higher the body is over the
-ground, and gone at `REACH` (150 units). It is behind each actor and in front
-of the terrain.
-
-- The ground is the nearest top of a solid block, a blink wall or a one-way
-  platform under the middle of the body (`ground_below`). The shadow is not
-  less than 30 units wide: the box of a body is narrower than its picture.
-- A shadow shows on a light floor (grass, sand, marble). On a dark floor (the
-  steel of the lab) it is hard to see: it is a dark picture, and it adds no
-  light. A body on a moving
-  platform or on another body has its shadow on the ground under that.
-- Down is down the screen. A room with another gravity has shadows that are
-  not under the feet.
-- A room that names no theme has none, and a tier with parallax off has none.
-- It reads the read models of the renderer only (`BodyPoseView`,
-  `FeatureViewIndex`, the presented poses). Nothing in the simulation reads a
-  shadow.
-
-## A backdrop can be mirrored
-
-`room_mirrors_its_backdrop(name, theme)` says if a room draws its panels
-mirrored left to right. It is a pure function of the room's name, so about
-half of the rooms that share a theme show the scene the other way round and
-two rooms next to each other are less alike. A scene with writing or a thing
-that has a hand (a clock) must not be mirrored: there is none now.
-A theme with a corrupted state (`hub_clean`) is never mirrored: the look of
-its room lays the corrupted layers over the clean ones in a shader that has
-the placement of the panel and not its mirror.
-
-## Invariants
-
-- Headless simulation does not create or require scenery entities or assets.
-- Room/session scope cleanup removes scenery on transition and reset.
-- Camera-relative offsets are derived; they are not persisted authority.
-- Asset transport differences (desktop/web/Android) do not create gameplay
-  forks.
-- Generated visual assets have a reproducible source and an explicit publish
-  step.
-
-## Validation
-
-```bash
-cargo test -p ambition_render --features portal_render -- parallax terrain_skin ambient_motes
-cargo test -p ambition_sprite_sheet
-(cd tools/ambition_sprite2d_renderer && python -m pytest tests/test_backgrounds.py tests/test_terrain.py)
-```
-
-A look is checked with `capture_scene <room> player out.png 1280x720` under
-`AMBITION_QUALITY_PROFILE=ultra`. A capture with no profile named is at `low`
-(two layers of the stack, at half resolution): see
-`docs/recipes/headless-room-verification.md`.
+Scene imagery, parallax transforms, terrain dressing and motes are distinct
+layers of presentation. A change to one should not require rebuilding its own
+shadow collision or alternative room simulation.

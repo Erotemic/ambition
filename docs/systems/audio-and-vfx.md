@@ -1,112 +1,83 @@
 ---
 status: current
-last_verified: 2026-11-01
 ---
 
 # Audio and VFX
 
-Audio and visual effects are provider-extensible presentation consumers of
-simulation facts. They may be absent in headless mode without changing outcomes.
+Audio and visual effects consume simulation facts. Their providers can be
+absent in headless mode without changing gameplay outcomes.
 
-## Audio ownership
+## Audio content and ownership
 
-- provider crates own named tracks, cues, SFX IDs/banks, voiceprints, and
-  encounter bindings;
-- `ambition_audio` owns content-free App-local catalogs, active provider
-  selection, loading, mixing, adaptive music, web unlock, and output;
-- `ambition_sfx` / `ambition_sfx_bank` own reusable cue/bank vocabulary where
-  applicable;
-- hosts provide device/backend and mix settings;
-- simulation emits semantic sound intent rather than loading/playing assets.
+- Providers author named music, SFX cues, voiceprints and encounter bindings.
+- `ambition_audio` owns App-local catalogs, selection, mixing, adaptive music,
+  web unlock and playback.
+- `ambition_sfx` owns shared emitter, spatial attenuation and message types.
+- The host supplies settings and a device/backend when available.
 
-Generated audio is rendered by author-time tools and explicitly published into
-provider assets. Runtime does not synthesize the whole shipped bank at startup.
+The audio content schemas are in `ambition_audio::content_schema`:
 
-A provider says its audio in content-pack data, and `ambition_audio` owns the
-three schemas: `music_registry` (tracks), `sfx_registry` (procedural cues) and
-`music_cue_catalog` (adaptive cues: sections, layers, states, and the
-encounters and rooms that bind to a cue). The compiler refuses a cue file whose
-states, layers or bindings name nothing, and it requires each section's audio
-file. Ambition's cues are in `game/ambition_content/assets/audio/music_cues.ron`.
+| Schema | Purpose |
+| --- | --- |
+| `music_registry` | Rendered tracks and their asset requirements |
+| `sfx_registry` | Procedural sound specifications |
+| `music_cue_catalog` | Adaptive sections/layers/states plus room and encounter bindings |
 
-Two bindings choose a cue state. An encounter binding follows the phases and
-waves of one fight. A room binding gives a room one state of a cue, in place of
-the room's `music_track`; rooms that bind the same cue share its playback, so a
-walk from room to room changes the state and does not start the cue again. States
-on one section change only the layer gains. A room binding can also name an entry
-state (a section that plays one time when the cue starts) and a fight state.
+Ambition's cue catalog is
+`game/ambition_content/assets/audio/music_cues.ron`. Content preparation
+validates references and required audio files. Generated audio is rendered and
+published during authoring, not regenerated when the game starts.
 
-A change of gains is continuous; a change of section is not (the new section
-starts from its top). So a level whose music must never be cut puts every state
-its rooms and its fight can ask for on ONE looped section, and gives each of its
-rooms a binding: a room with none plays its `music_track` from the top. The
-primeval trail is the example, and a test of `ambition_content` holds it to
-that. An entry section always plays to its end; the section after it starts on
-the frame nearest that end, at the state the game asks for then.
+## Adaptive music
 
-## Distance attenuation
+An encounter binding selects music by fight phase or wave. A room binding
+selects a state of a cue instead of starting its ordinary `music_track`. Rooms
+sharing a cue retain playback when moving between bound states.
 
-`SfxEmitter` states whether a cue is global or has a world-space source.
-`SfxShape` supports a point, circle or axis-aligned rectangle. The listener
-and source use simulation coordinates, in world units. Render coordinates
-must pass through the room's coordinate adapter before emission.
+States on the same section change layer gains without restarting the track.
+Switching sections starts the new section from its beginning. For a continuous
+song spanning rooms or combat states, keep those states on the same looped
+section and bind each room explicitly. An optional entry state may play a
+one-shot section before the normal loop; an encounter can select a different
+fight state. See [room music](../recipes/room-music.md).
 
-`SfxFalloff` gives two distances from the nearest point of the shape. The
-sound keeps its authored level through the inner distance and fades smoothly
-to silence at the outer distance. Every point inside a circle or rectangle
-has distance zero. The default point source is full through 160 units and
-silent at 1600 units. Each emitter can supply a different range.
+## Spatial sound
 
-This follows the inner/outer-distance model described by
-[FMOD](https://www.fmod.com/docs/2.04/api/core-api-common.html).
-[Volumetric audio sources](https://developers.meta.com/vr/design/immersive_sound/)
-use source regions for extended sounds such as rivers and crowds.
+`SfxEmitter` is either global or spatial. Spatial emitters describe a point,
+circle or axis-aligned rectangle (`SfxShape`) and an inner/outer attenuation
+range (`SfxFalloff`). A listener inside an extended source hears full volume;
+gain falls toward zero beyond the inner radius and reaches zero at the outer
+radius. World-space sources must use simulation coordinates, not screen
+coordinates.
 
-`SfxListeners` is host presentation input. The platformer publishes the followed
-world position of every local view. The shared output uses the highest gain
-across those listeners, so a second view cannot double the voice volume.
-Global cues need no listener. Menus, dialogue-panel blips and narrative cues
-with no world origin use `SfxEmitter::Global`; zero is a valid world position.
+`SfxListeners` contains the local views' listener positions. The shared audio
+output takes the **maximum** attenuation gain across listeners rather than
+adding gains. A global sound needs no listener; `(0, 0)` is a valid world
+position and must not stand in for global audio.
 
-One-shots and loops use the same voice and gain calculation. Moving a listener
-updates playing voices. Restating a loop can move or reshape its emitter
-without restarting the clip. Backend gain changes use a 30 ms tween. The user
-mixer and acoustic-environment gain enter through `SfxMix`. The voice mixer
-multiplies those gains by distance attenuation and writes the final volume.
-Do not use a Kira channel-volume command for SFX: it replaces per-voice volume.
+`SfxMix` carries effective user/environment gain. The voice mixer combines it
+with spatial attenuation for each playing voice. Do not use a global Kira
+channel-volume replacement for SFX, since it would override per-voice gains.
+A loop may update its emitter without restarting, and moving listeners update
+playing voices. Hosts without an output device may still calculate and record
+these decisions for diagnostics.
 
-The gate hum uses a circle over the gate's authored prop region. Its full
-source region stays at full volume, then fades to silence over 1200 units.
-A host without a device records these same gain decisions and releases
-one-shots at the decoded clip duration.
-
-## VFX ownership
+## Visual effects
 
 `ambition_vfx` provides presentation-neutral effect messages. Render/content
-presentation plugins map those messages and simulation read models to sprites,
-particles, trails, flashes, camera effects, and provider-specific looks.
+plugins turn those messages and read models into particles, trails, flashes,
+shakes and provider-specific art. Hit/hurt geometry, shield state, movement,
+projectile trajectories and action timing remain simulation authority.
 
-Hitboxes, hurtboxes, projectile trajectories, shield state, and action timing
-remain simulation authority. A particle/sprite may visualize them but cannot
-define them.
+## When adding an effect
 
-## Invariants
+1. Identify the semantic event or read model that already represents the
+   gameplay fact. Prefer that over a second side-effect channel.
+2. Author/register the provider's cue or art and publish generated assets.
+3. Connect presentation to the existing consumer, preserving headless
+   behavior and provider selection.
+4. Verify the actual cue/visual in the affected scene. For browser audio,
+   follow [web audio testing](../recipes/web-audio-manual-test.md).
 
-- one semantic event should have one simulation emission site;
-- providers may replace presentation without changing simulation;
-- missing/degraded audio or VFX never changes game state;
-- IDs resolve through the active provider/context;
-- web audio readiness is explicit and not confused with game/content readiness;
-- generated output has a reproducible source and explicit publish step.
-
-## Validation
-
-```bash
-./run_tests.sh -p ambition_audio
-./run_tests.sh -p ambition_content -k audio
-./run_tests.sh -p ambition_render
-./run_tests.sh -k gameplay_effect
-```
-
-Use [`../recipes/web-audio-manual-test.md`](../recipes/web-audio-manual-test.md)
-for browser device acceptance.
+Missing or degraded presentation must not alter gameplay, and one gameplay
+transition should not cause duplicate sound/event emissions.

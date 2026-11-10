@@ -3,7 +3,7 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** THE PLAYABLE 80/40 SLICE IS COMMITTED (`fddf6084a`).
-The NPC merge is `e54699b85`; the combined snapshot schema is v440.
+The final NPC save merge is `55d5a4292`; the combined snapshot schema is v441.
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
 Station H has two reachable wall openings with widths 80 and 40. Each keeps
@@ -21,6 +21,8 @@ The guards are in `portal_similarity_slice`. Core (872), portal (141), runtime
 union. The sideways-pose fixtures now set physical material; their owner tests
 pass. Post-merge app portal tests (38), schema tests (4), NPC tests (2), Smash
 tests and workspace policy pass. The assembled app warning check passes.
+After `55d5a4292`, the assembled app check, both slice tests and all four
+schema tests pass again.
 
 The full workspace run is not green. Sanic reaches righting `WorkLimit`
 refusals without portals; its long soak was stopped. Fighter attack art and

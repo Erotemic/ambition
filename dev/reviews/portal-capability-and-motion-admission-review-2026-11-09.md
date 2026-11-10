@@ -861,7 +861,7 @@ corrected here; this packet does not claim a clean global citation scan.
 ### 80/40 playable slice
 
 Code: `fddf6084a`. Map station: `16f39fc`, merged with the scientist maps in
-`23068da`. Main merge: `e54699b85`; combined schema: v440.
+`23068da`. Final NPC save merge: `55d5a4292`; combined schema: v441.
 
 Each endpoint keeps its authored aperture. Native body parts meet room solids;
 the copied far-side solid path is removed. Host cuts keep foreground obstacles.
@@ -879,6 +879,8 @@ runtime 266 and renderer 523. Actor tests pass. Five owners' sideways-pose
 fixtures now set physical material and pass. Logs use `target/portal-slice-`.
 Post-merge app portal tests (38), schema tests (4), NPC tests (2), Smash
 tests and workspace policy pass. The assembled app warning check passes.
+After `55d5a4292`, the assembled app check, both slice tests and all four
+schema tests pass again. Those logs use `target/portal-slice-save-merge-`.
 
 Full-workspace validation is not green. The fighter-art assertion still
 reports `air_back` at x = 7.655999. History art is not fully published in this

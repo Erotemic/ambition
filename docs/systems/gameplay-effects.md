@@ -1,81 +1,56 @@
-# Gameplay effects, damage messages, and ECS messages
+# Gameplay effects and ECS messages
 
-Cross-system gameplay side effects travel as typed Bevy messages. Each message
-has a focused consumer. Do not add a custom bridge resource, a mixed-purpose
-effect enum, or a parallel side-effect vector.
+A simulation system uses typed Bevy messages to request effects owned by
+another domain. The receiving domain decides how to apply the request.
+This keeps combat, quests, switches, audio, and presentation from reaching
+into one another's internal resources.
 
-## Progression, save and audio effects
+## Cross-domain requests
 
-Four focused messages carry effects that cross into save, quest, encounter or
-standalone audio routing. Each has one consumer system in
-`crates/ambition_platformer2d_runtime/src/effect_bus.rs`:
+`crates/ambition_platformer2d_runtime/src/effect_bus.rs` handles four
+focused requests:
 
-| Message | Owner crate | Consumer |
+| Message | Consumed by | Result |
 |---|---|---|
-| `SetFlagRequested { id, on }` | `ambition_combat::events` | `apply_flag_effects` (save flag plus a same-frame `QuestAdvanceEvent::FlagSet`) |
-| `QuestAdvanceRequested(QuestAdvanceEvent)` | `ambition_persistence::quest` | `apply_quest_effects` |
-| `SwitchActivated { activation, pos }` | `ambition_encounter::switches` | `apply_switch_effects` (encounter queue plus click SFX) |
-| `GameplaySfxRequested { id, pos }` | `ambition_combat::events` | `apply_gameplay_sfx_effects` |
+| `SetFlagRequested` | `apply_flag_effects` | Changes the save flag through quest helpers and advances matching quest state |
+| `QuestAdvanceRequested` | `apply_quest_effects` | Enqueues an authored quest event |
+| `SwitchActivated` | `apply_switch_effects` | Queues the encounter activation and switch sound |
+| `GameplaySfxRequested` | `apply_gameplay_sfx_effects` | Emits a sound message |
 
-NPC strike and aggression flow through `ActorStimulus`
-(`ambition_combat::events`) to `apply_actor_stimuli`
-(`.../body/aggression.rs`).
+These messages do not replace the other domains' specific event types.
+`ActorStimulus` feeds aggression, `ActorActionMessage` requests resolved
+actor actions, `GameplayBannerRequested` requests UI text, and presentation
+uses messages such as `SfxMessage` and `VfxMessage`.
 
-## Domain-specific messages
+## Combat events
 
-Use a domain-specific message when the consumer is known and the payload is
-specific:
+`ambition_combat::events::HitEvent` is the common typed request for applying
+combat harm to bodies and world features. It carries a `CombatVolume`, source,
+attacker, room, target, damage, mode, knockback, exclusions, and SFX.
 
-- `HitEvent` (`ambition_combat::events`) for **all** combat damage, incoming and
-  outgoing.
-- `ActorActionMessage` (`ambition_characters::brain`) for resolved brain/action
-  requests that spawn or start concrete effects.
-- `GameplayBannerRequested` for HUD banner text.
-- `RoomReplayAdmitted` (`ambition_combat::events`) for a same-room reset. Its
-  readers drain it unconditionally, so a reset is never observed while no body
-  exists and re-read later against a different world.
-- Presentation messages such as `SfxMessage`, `VfxMessage` and
-  `DebrisBurstMessage` for facts that already have a presentation type.
+`HitSource` identifies the cause (`Melee`, `Projectile`, `Contact`, `Hazard`,
+`LeftTheWorld`, or `Pogo`), not whether the attacker was a player or boss.
+`HitTarget` distinguishes a resolved body victim from feature-oriented
+resolution; that distinction prevents scanning and damaging the same body
+twice. The body damage and player-damage consumers apply their respective
+parts of the result. Defense and reaction decisions belong downstream, not
+in a second role-specific event pipeline.
 
-## Damage: one `HitEvent`
+When adding a new attack, follow an existing producer and consumer for its
+kind of strike. Prefer extending the shared hit vocabulary over inventing a
+player-only or boss-only damage request.
 
-`HitEvent` carries `volume` (a `CombatVolume`), `damage`, `source: HitSource`,
-`attacker: Option<Entity>`, `room`, `target: HitTarget`, `mode: HitMode`,
-`knockback: Option<HitKnockback>`, `ignored_targets` and `strike_sfx`.
+## Scheduling and rollback
 
-`HitSource` names a KIND of harm, not a role: `Melee`, `Projectile`, `Contact`,
-`Hazard`, `LeftTheWorld`, `Pogo`. Attacker identity comes from
-`HitEvent::attacker`; victim routing comes from `HitTarget`. Do not add
-role-shaped variants (player slash, enemy projectile, boss attack).
+A message being emitted does not imply its effects have already been applied.
+The runtime's `combat_schedule.rs` and `world_schedule.rs` establish reader
+order. A producer needing same-tick visibility must be scheduled with the
+relevant consumer; otherwise the result may be observed on a later tick.
 
-`apply_feature_hit_events` (`.../body/damage/mod.rs`) applies hits to
-actors, bosses and breakables; the player-damage reader applies victim-side hits
-to players. Hostile `Hitbox` entities emit `HitEvent`s on overlap during active
-windows.
+Events and one-shot effects that cross rollback or room-reset boundaries need
+explicit replay/cleanup semantics. `RoomReplayAdmitted` represents an
+accepted replay, with consumers draining it at their assigned lifecycle seam.
 
-`HitEvent` does not model defense, armor, poise, stagger or reaction state. Those
-are resolved downstream. Extend `HitEvent` handling for new combat behaviour; do
-not add a parallel damage event.
-
-## Scheduling contract
-
-1. Simulation systems emit typed messages.
-2. Brain/action consumers resolve `ActorActionMessage` into hitboxes,
-   projectiles, boss specials and related effects.
-3. Damage systems resolve `HitEvent`s and hostile `Hitbox` overlaps against ECS
-   feature components.
-4. The focused effect readers apply save, quest, switch and SFX side effects;
-   the `ActorStimulus` readers apply NPC strike and aggression.
-5. Progression systems observe the updated state in the same frame.
-
-Do not make a producer reach into save, quest, boss, switch or audio resources
-unless the behaviour is local to that producer.
-
-## Adding gameplay behaviour
-
-Prefer, in order:
-
-1. an existing domain-specific message;
-2. a new focused typed message with its own consumer system, for cross-domain
-   progression, save or audio routing;
-3. for combat, `HitEvent`.
+Use an existing domain message when its semantics fit. Add a focused new
+message when another domain genuinely owns the requested effect; don't add
+an intermediary bus merely to pass the same payload onward.

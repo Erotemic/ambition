@@ -1,6 +1,5 @@
 ---
 status: current
-last_verified: 2026-07-18
 related_docs:
   - docs/systems/boss-encounter-architecture.md
   - docs/systems/actors-brains-and-character-content.md
@@ -8,52 +7,54 @@ related_docs:
 
 # Boss behavior profiles
 
-A boss is an ordinary actor body plus provider-authored identity, capabilities,
-brain/action policy, phase data, and presentation. “Boss” must not create a
-second combat or movement engine.
+A boss combines an authored encounter specification with reusable body,
+combat, brain, and presentation behavior. Named bosses belong to the game
+provider; shared mechanics belong to the engine.
 
-## Ownership
+## Where to author a boss
 
-- Provider content owns named boss profiles, phase/seed data, encounter bindings,
-  sprites, dialogue, audio, and rewards.
-- Character/brain domains own reusable decision/state-machine vocabulary.
-- Action schemes and move playback translate decisions into shared actor actions.
-- Movement/combat/projectile/world domains execute authoritative effects.
-- Presentation maps semantic state/effects to animation, VFX, SFX, and camera.
+In Ambition, these sources have different jobs:
 
-Current Ambition profile data lives under
-`game/ambition_content/assets/data/`. Use `agent_query.py` to locate the current
-schema and registration path rather than copying a field list from prose.
+- `game/ambition_content/assets/data/boss_encounters/<id>.ron` defines the
+  encounter's ID, display name, health thresholds, intro/transition timing,
+  and phase music (`BossEncounterSpec`).
+- `game/ambition_content/assets/data/boss_profiles.ron` defines behavior,
+  movement, attacks, strike geometry, rewards, and optional limb routes
+  (`BossBehaviorProfile`).
+- `game/ambition_content/assets/data/boss_seeds.ron` and the character/art
+  sources provide other prepared boss and presentation data.
 
-## Profile quality
+The schemas live in `crates/ambition_boss_encounter/src/pattern/`.
+`BossProfile::from_id` in `crates/ambition_boss_encounter/src/profile.rs`
+combines the encounter spec and behavior profile from the installed catalog.
+Start with a nearby existing boss and change its authored data rather than
+inventing a new construction path.
 
-A profile should describe reusable dimensions such as:
+## Runtime responsibilities
 
-- phase conditions and deterministic transitions;
-- move/sequence selection and cooldown/resource policy;
-- perception/memory requirements;
-- capability/action-set changes;
-- body/armor/hurtbox policy;
-- provider IDs for presentation and rewards.
+The encounter owns activation, phases, and completion. The boss body owns
+its physical state, damage, and action execution. The brain/pattern chooses
+moves; shared movement, combat, and projectile systems execute them.
+Presentation reads the resulting facts.
 
-It should not name Rust functions, mutate ECS directly, or duplicate a move's
-hitbox/projectile implementation.
+`BossBehaviorProfile` includes both flat attack tuning and an
+`attack_pattern`. `Cycle` uses the flat attack timings; `Scripted` uses the
+phase-keyed timeline. A move may supply custom `strike_geometry` and
+`limb_routing` without creating a separate boss-specific collision engine.
+For a new mechanic, extend the appropriate shared action or encounter
+vocabulary and express the selection in authored data.
 
-## Invariants
+## Missing content and validation
 
-- The same boss profile can run headlessly.
-- Move execution uses the same body/combat/action seams as non-boss actors.
-- Phase transitions are deterministic, observable, and snapshot-safe.
-- Encounter reset reconstructs the initial profile/brain/body state.
-- Provider validation rejects unknown IDs and inconsistent phase references
-  before activation.
+The current `BossProfile::from_id` requires an encounter spec. The behavior
+lookup can use a **generic fallback** when a named behavior profile is absent.
+That is useful for prototyping but is not proof that the intended boss was
+fully authored. Inspect the resolved profile when adding or renaming a boss.
 
-## Validation
+Validate the pack and then play the affected encounter. Check the phase
+transition, attack behavior, defeat, reset, and reward that your change
+actually touches; a broad boss-test run is not a prerequisite for editing
+one profile.
 
-```bash
-python scripts/agent_query.py "boss profile phase MovePlayback"
-python scripts/agent_query.py tests "boss profile validator"
-./run_tests.sh -p ambition_content -k boss
-./run_tests.sh -p ambition_characters -k boss
-./run_tests.sh -k boss
-```
+Related: [boss encounter architecture](boss-encounter-architecture.md),
+[adding a character](../recipes/adding-a-character.md).

@@ -1,55 +1,50 @@
 ---
 status: current
-last_verified: 2026-07-18
 related_docs:
   - docs/concepts/movement-collision.md
   - docs/mechanics/body-modes.md
+  - docs/systems/portals.md
 ---
 
 # Collision geometry and secondary physics
 
-Primary platformer body movement is deterministic engine simulation. Secondary
-physics may animate debris, props, or other non-authoritative presentation/toy
-objects, but must not become a second authority for actor outcomes.
+Authoritative geometry belongs to platformer simulation. Render bounds and
+visual-only physics do not decide body movement, strikes, hazards, or
+progression.
 
-## Shared geometry contract
+## Geometry ownership
 
-World/lowering produces typed collision and query geometry from provider-authored
-world records. Movement, blink, projectiles, portals, hazards, interactions, and
-spawn validation consume the same semantic surface vocabulary.
+`ambition_platformer2d_world` lowers provider world data into typed collision
+surfaces. The core movement and contact code owns body sweeps, collision
+repair, and responses. `ambition_platformer2d_core::frame::material_cast`
+provides material-space casting for bodies whose geometry occupies multiple
+spatial cells, including portal-carried partitions. The optional portal
+capability supplies its passage geometry.
 
-Required properties:
+These representations must agree on the physical outcome. An ordinary
+unpartitioned body may use a simpler AABB path, but a root AABB must not be
+treated as the complete occupied space of a body spanning a portal. Any
+fast path needs an explicit eligibility condition and consistent contact
+semantics, including when the body has little or no movement.
 
-- explicit body/query shapes and stable coordinate frames;
-- gravity-relative normals/tangents and contact classification;
-- deterministic ordering/tie-breaking for outcome-affecting queries;
-- semantic surface kinds rather than room/character names;
-- lifecycle-scoped moving/dynamic geometry;
-- safe reconstruction across load/reset/snapshot.
+The same authoritative collision vocabulary should serve movement, blink,
+projectiles, strikes, hazards, and safe spawning. New mechanics should not
+invent collision based on sprite bounds or maintain a second copy of room
+solids.
 
-## Primary versus secondary physics
+## Secondary physics
 
-Primary simulation owns actor transforms, contacts, hit/hurt geometry, moving
-platform attachment, and any object that can change gameplay outcomes.
+A separate backend may animate debris, decorations, or toy-world objects
+whose output has no gameplay consequences. Once another system reads its
+positions or contacts to decide health, movement, collection, or quest
+outcomes, those facts must be admitted into authoritative simulation and
+snapshot/restore behavior.
 
-A secondary physics backend may own visual debris or isolated toy-room state when
-its output cannot alter authoritative movement/combat/progression. If gameplay
-begins reading it, promote the required state/queries into the canonical
-simulation contract rather than coupling core logic to presentation physics.
+## When changing collision
 
-## Invariants
-
-- One collision representation feeds all authoritative mechanics.
-- Body shape transitions are validated before commit.
-- Moving-platform/reference-frame behavior is explicit and snapshot-safe.
-- Render bounds and sprite anchors never substitute for collision geometry.
-- Headless and visible compositions resolve the same contacts.
-
-## Validation
-
-```bash
-python scripts/agent_query.py "collision geometry moving platform secondary physics"
-python scripts/agent_query.py tests "collision gravity wall cling"
-./run_tests.sh -k collision
-./run_tests.sh -k moving_platform
-```
+Inspect both the common-body path and any active portal/material path.
+Check the actual affected gameplay, especially stationary overlap, moving
+platforms, rotated gravity, and partial portal occupancy when relevant.
+Measure the portal-free path before adding expensive general work to every
+body tick. Use targeted regression coverage for a demonstrated failure,
+not a separate battery of tests for each internal helper.

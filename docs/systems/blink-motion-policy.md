@@ -1,55 +1,46 @@
 ---
 status: current
-last_verified: 2026-07-18
 related_docs:
   - docs/mechanics/blink.md
   - docs/concepts/movement-collision.md
 ---
 
-# Blink motion policy
+# Blink destination and post-blink motion
 
-The blink mechanism should not bake in one character's post-blink feel. A policy
-selects the reusable choices around path resolution and retained motion while the
-body/collision domain owns the actual move.
+Blink uses the ordinary body movement state and world collision queries.
+The current implementation lives in
+`crates/ambition_platformer2d_core/src/movement/blink.rs`; there is no
+separate general-purpose, authored `BlinkPolicy` registry.
 
-## Policy dimensions
+## Destination
 
-A blink policy may define:
+The caller resolves aim into a world-space direction (including the body's
+facing and reference frame). `blink_destination_clusters` or
+`blink_destination_to_point_clusters` resolves a destination against the
+world and the body's size. Normal blink respects world bounds and blocking
+surfaces. The `unrestricted_blink` ability permits the developer override.
 
-- requested range and shortening behavior;
-- surfaces/volumes that block, permit, or terminate transit;
-- candidate safe-placement search order;
-- whether pre-blink tangential/gravity velocity is preserved, clamped, replaced,
-  or projected;
-- post-blink lock/recovery/cancel behavior;
-- resource, cooldown, and rejection semantics.
+The destination query returns a position, not a transaction containing
+position, resource costs, and presentation effects. The calling movement
+step is responsible for admitting and applying the complete action.
 
-Provider capabilities select and tune a policy. The implementation remains
-content-free and shared by every body.
+## Motion after a successful blink
 
-## Commit contract
+`complete_blink_clusters` updates position and velocity, clears conflicting
+maneuver states, arms grace and cooldown, and records a `BlinkEvent` and
+movement operation. It resolves velocity in the body's local frame, so
+rotating gravity does not turn a downward-speed clamp into a world-Y rule.
 
-Resolution produces either:
+The current code applies fixed tangential damping factors (0.35 for
+precision blink, 0.55 otherwise), while downward limits, cooldown,
+distance, and grace time come from ability tuning. If a new character needs
+a different response, first decide whether that dimension belongs in
+existing shared tuning before inventing a second movement path.
 
-- a complete result containing destination, resulting body motion/state, and
-  semantic outcome; or
-- a rejection reason with no authoritative mutation.
+## Change guidelines
 
-Apply position, motion, costs, and state together. Do not relocate first and then
-attempt to repair collision or resources in later systems.
-
-## Determinism
-
-- Candidate generation and tie-breaking are stable.
-- Queries use the same world/collision semantics as ordinary movement.
-- Gravity/orientation transforms are explicit.
-- Results do not depend on render frame rate, wall clock, query iteration order,
-  particles, or camera state.
-
-## Validation
-
-```bash
-python scripts/agent_query.py "blink motion policy destination"
-python scripts/agent_query.py tests "post blink velocity"
-./run_tests.sh -k blink
-```
+Maintain deterministic destination selection, no new penetration for
+ordinary blink, and coherent state after a rejected attempt. Keep camera
+movement and particles downstream of committed simulation events.
+Playtest both ordinary and precision blink in the affected gravity frame;
+use a focused check for a concrete collision or state regression.

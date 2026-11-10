@@ -1,6 +1,5 @@
 ---
 status: current
-last_verified: 2026-07-18
 related_docs:
   - docs/systems/boss-behavior-profiles.md
   - docs/systems/persistence-settings-and-progression.md
@@ -8,57 +7,51 @@ related_docs:
 
 # Boss encounter architecture
 
-A boss encounter composes generic encounter lifecycle with one or more actor
-profiles and provider-owned spatial/reward/presentation content.
+An encounter is a generic lifecycle with provider-authored participants,
+objectives, rewards, and presentation. Boss profiles supply the behavior of
+individual combatants; they do not own encounter completion.
 
-## Flow
+## Lifecycle authority
+
+`crates/ambition_encounter/src/lifecycle.rs` owns `EncounterLifecycle` and its
+state machine:
 
 ```text
-provider encounter spec + LDtk placement
-    -> provider preparation/validation
-    -> room/session construction transaction
-    -> encounter state machine owns activation/waves/completion
-    -> actor profiles/brains request shared actions
-    -> combat/world domains emit authoritative facts
-    -> encounter consumes facts and commits completion/reward
-    -> read models drive UI/audio/VFX/camera
+Inactive -> Starting { remaining } -> Active -> Completed | Failed
+              (optional intro; zero duration can enter Active directly)
 ```
 
-## Authority boundaries
+An `EncounterCommand` requests transitions. The lifecycle reducer owns phase
+changes; consumers read `phase()` rather than writing it. Wave progress and
+other encounter-specific facts live in their own policy/state components.
 
-- Encounter state owns activation, participants, gates, phase orchestration, and
-  one-shot completion.
-- Actor health/body/brain owns each participant's live state.
-- Combat owns accepted hit/damage facts.
-- Progression/persistence records durable completion/reward facts.
-- Provider content owns names, room placement, roster, rewards, music, dialogue,
-  and visual treatment.
-- Presentation never decides whether the encounter is complete.
+The provider's `boss_encounters/<id>.ron` describes an encounter's numeric and
+music configuration, while `boss_profiles.ron` describes the boss's behavior.
+`crates/ambition_boss_encounter/src/profile.rs` assembles the installed pair.
+Placement, room construction, activation triggers, and any scripted beats
+supply the surrounding experience.
 
-## Lifecycle
+## Ownership and effects
 
-All encounter-spawned actors, walls, hazards, prompts, and temporary state must
-belong to an explicit session/room/encounter scope. Room replacement, reset, and
-snapshot restore use canonical construction and cleanup rather than bespoke
-lists.
+- Encounter: activation, active participants, phases, gates, objectives,
+  completion, and reward authorization.
+- Body, brain, and combat: individual action, motion, health, strikes, and
+  accepted damage.
+- Progression/save: durable completion and rewards.
+- Presentation: music, camera, UI, dialogue, and VFX reacting to encounter
+  facts. Presentation does not decide the outcome.
 
-Completion and rewards are idempotent. Re-entering a completed encounter should
-follow provider policy without duplicating rewards or resurrecting stale gates.
+Room departure, encounter reset, and snapshot restoration must not leave
+stale participants or duplicate a one-shot reward. Prefer canonical room and
+entity lifecycle facilities rather than a special cleanup list for one boss.
 
-## Validation
+## Adding or changing an encounter
 
-Test the full state machine headlessly:
+Start with a nearby `boss_encounters/<id>.ron` and corresponding
+`boss_profiles.ron` row. Trace the activation/placement in the relevant room.
+Check that entering, defeating, resetting, and revisiting the encounter
+produce the intended state. When the change affects rewards or rollback,
+exercise that transition specifically. Broader tests are appropriate only
+when modifying the shared encounter lifecycle.
 
-- inactive -> armed -> active -> phase/wave transitions -> completed;
-- defeat/reset/re-entry;
-- participant despawn and room replacement;
-- one-shot reward and persisted completion;
-- provider validation for unknown characters, rooms, moves, rewards, or audio IDs.
-
-```bash
-python scripts/agent_query.py "boss encounter lifecycle reward"
-python scripts/agent_query.py tests "encounter completion reset"
-./run_tests.sh -p ambition_encounter
-./run_tests.sh -p ambition_content -k encounter
-./run_tests.sh -k boss
-```
+See [boss behavior profiles](boss-behavior-profiles.md).

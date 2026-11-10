@@ -880,6 +880,8 @@ fn place_respawning_fighters(
         // toward the blast zone it just left.
         let centre = stage.of(event.body);
         let placement = respawn_placement(centre, seat);
+        // The fighter's own air game, as its movement policy authors it.
+        let air_jumps = model.air_jumps();
         ambition_platformer2d::engine_core::reset_body_clusters(
             &mut model,
             &mut clusters,
@@ -892,9 +894,7 @@ fn place_respawning_fighters(
             ambition_platformer2d::engine_core::ResetFacing::Toward(
                 centre.x - placement.x,
             ),
-            // The engine's default air game. A stage that tunes it passes its
-            // own number here.
-            ambition_platformer2d::engine_core::DEFAULT_TUNING.air_jumps,
+            air_jumps,
         );
         // Cancel the swing the fighter carried into the knockout, through the
         // one teardown path that also despawns its strike boxes. Otherwise the
@@ -1155,6 +1155,8 @@ fn return_to_the_select_screen_when_the_match_ends(
     >,
     // Which session owns the world now; see the leftover-match note below.
     scope: Option<bevy::prelude::Res<ambition_platformer2d::actor::ActiveSessionScope>>,
+    // A paused game holds the card (the shell's pause menu pauses the mode).
+    mode: Option<bevy::prelude::Res<bevy::prelude::State<ambition_platformer2d::platformer::schedule::GameMode>>>,
     mut countdown: bevy::prelude::Local<Option<f32>>,
 ) {
     let on_stage = router
@@ -1215,6 +1217,10 @@ fn return_to_the_select_screen_when_the_match_ends(
     let Some(remaining) = countdown.as_mut() else {
         return;
     };
+    let paused = mode.is_some_and(|mode| *mode.get() == ambition_platformer2d::platformer::schedule::GameMode::Paused);
+    if paused {
+        return;
+    }
     *remaining -= time.delta_secs();
     if *remaining <= 0.0 {
         *countdown = None;

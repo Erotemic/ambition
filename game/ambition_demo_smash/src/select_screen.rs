@@ -73,7 +73,14 @@ pub enum Anchored {
     CardPortrait(usize),
     Start,
     Back,
+    /// A page arrow, where the layout puts its hit target (`next` or not).
+    /// Drawn only while the roster takes more than one page.
+    Page { next: bool },
 }
+
+/// The "page / pages" count on the next-page arrow.
+#[derive(Component, Clone, Copy)]
+pub struct PageCountLabel;
 
 /// A slot's token. Its resting position is derived from the slot's selection;
 /// while carried, it follows the carrier's hand.
@@ -710,6 +717,32 @@ pub fn spawn_select_screen(
                 ));
             });
 
+            for next in [false, true] {
+                let mut arrow = anchored(Anchored::Page { next });
+                arrow.1.flex_direction = FlexDirection::Column;
+                arrow.1.justify_content = JustifyContent::Center;
+                arrow.1.align_items = AlignItems::Center;
+                arrow.1.border = UiRect::all(Val::Px(2.0));
+                arrow.1.border_radius = BorderRadius::all(Val::Px(6.0));
+                root.spawn((
+                    arrow,
+                    BackgroundColor(select_look().button()),
+                    BorderColor::all(select_look().panel_edge()),
+                    GlobalZIndex(610),
+                    Name::new(if next { "next page button" } else { "previous page button" }),
+                ))
+                .with_children(|node| {
+                    node.spawn((
+                        Text::new(if next { ">" } else { "<" }),
+                        text_font(17.0),
+                        TextColor(select_look().ink()),
+                    ));
+                    if next {
+                        node.spawn((PageCountLabel, Text::new(String::new()), text_font(10.0), TextColor(select_look().dim_ink())));
+                    }
+                });
+            }
+
             let mut start = anchored(Anchored::Start);
             start.1.justify_content = JustifyContent::Center;
             start.1.align_items = AlignItems::Center;
@@ -921,12 +954,16 @@ pub(crate) struct SelectScreenInputs<'w, 's> {
     offer: Option<Res<'w, ambition_platformer2d::input::LocalSeatOffer>>,
     global_frame: Option<Res<'w, ambition_platformer2d::input::MenuControlFrame>>,
     host: Option<Res<'w, ambition_platformer2d::game_shell::ShellHostConfiguration>>,
+    router: Option<Res<'w, ambition_platformer2d::game_shell::ShellRouter>>,
     time: Res<'w, Time>,
 }
 
 #[derive(Default)]
 pub(crate) struct SelectDriverLocal {
     last_mouse: Option<Vec2>,
+    /// The select-route arrival `last_mouse` belongs to. A new arrival resets
+    /// the cursors, so the pointer's position counts as a move again.
+    arrival: Option<ambition_platformer2d::game_shell::ShellActivationId>,
     fingers: std::collections::HashMap<u64, usize>,
     back_hold_seconds: [f32; MAX_SELECT_SOURCES],
 }
@@ -1082,7 +1119,18 @@ pub(crate) fn drive_the_cursor(
     // ── the mouse ────────────────────────────────────────────────────────
     // Only a mouse move counts, so a stationary mouse does not fight the
     // arrow keys (the snap-back bug `SeatActiveDevices` addresses). Local,
-    // because this screen needs the move's position.
+    // because this screen needs the move's position. On a new arrival the
+    // cursors were reset, so the pointer's place counts as a move once: the
+    // first click after a match lands where the pointer is.
+    let arrival = inputs
+        .router
+        .as_deref()
+        .and_then(|router| router.active.as_ref())
+        .map(|active| active.activation_id);
+    if local.arrival != arrival {
+        local.arrival = arrival;
+        local.last_mouse = None;
+    }
     if let Some(position) = inputs
         .windows
         .iter()
@@ -1477,6 +1525,7 @@ pub fn place_the_screen(
     page: Res<SelectPage>,
     windows: Query<&Window>,
     mut nodes: Query<(&Anchored, &mut Node)>,
+    mut page_counts: Query<&mut Text, With<PageCountLabel>>,
 ) {
     let layout = current_layout(&windows, &fighters, &page);
     for (anchor, mut node) in &mut nodes {
@@ -1491,9 +1540,26 @@ pub fn place_the_screen(
             Anchored::CardPortrait(slot) => Some(layout.card_portrait(slot)),
             Anchored::Start => Some(layout.start_button()),
             Anchored::Back => Some(layout.back_button()),
+            Anchored::Page { next } => (layout.pages > 1).then(|| layout.page_button(next)),
         };
         if let Some(rect) = rect {
             set_rect(&mut node, rect);
+        }
+        // A portrait on another page is not drawn, and neither is anything in
+        // it: the layout already leaves it out of the hit targets, so drawing
+        // its old rectangle put a picture on the page that no input reaches.
+        // The page arrows are drawn exactly when they are targets.
+        if matches!(anchor, Anchored::Portrait(_) | Anchored::Page { .. }) {
+            let display = if rect.is_some() { Display::Flex } else { Display::None };
+            if node.display != display {
+                node.display = display;
+            }
+        }
+    }
+    let count = format!("{}/{}", layout.page + 1, layout.pages);
+    for mut text in &mut page_counts {
+        if text.0 != count {
+            text.0 = count.clone();
         }
     }
 }
@@ -2680,5 +2746,92 @@ mod touch_tests {
             Some(SlotPick::Random),
             "a stray finger committed a fighter nobody chose"
         );
+    }
+}
+
+#[cfg(test)]
+mod page_tests {
+    use super::*;
+
+    /// SD-01: the portraits drawn are the portraits the page's input reaches.
+    /// On a small window the roster takes more than one page; page 0 draws
+    /// only its own cells, and turning the page hides them and draws the next.
+    #[test]
+    fn only_the_current_pages_portraits_are_drawn() {
+        let mut app = App::new();
+        app.init_resource::<SmashRoster>().init_resource::<SelectPage>();
+        app.add_systems(Update, place_the_screen);
+        let mut window = Window::default();
+        window.resolution = bevy::window::WindowResolution::new(320, 240);
+        app.world_mut().spawn(window);
+        let cells = app.world().resource::<SmashRoster>().cell_count();
+        let portraits: Vec<Entity> = (0..cells)
+            .map(|index| app.world_mut().spawn((Anchored::Portrait(index), Node::default())).id())
+            .collect();
+        let drawn = |app: &App| -> Vec<usize> {
+            portraits
+                .iter()
+                .enumerate()
+                .filter(|(_, entity)| app.world().get::<Node>(**entity).expect("a portrait").display != Display::None)
+                .map(|(index, _)| index)
+                .collect()
+        };
+        let range = |page: usize| SelectLayout::paged(Vec2::new(320.0, 240.0), cells, page).page_range();
+        assert!(range(0).end < cells, "precondition: the roster ({cells}) takes more than one page at 320x240");
+
+        app.update();
+        assert_eq!(drawn(&app), range(0).collect::<Vec<_>>(), "page 0 draws only its own portraits");
+        app.world_mut().resource_mut::<SelectPage>().0 = 1;
+        app.update();
+        assert_eq!(drawn(&app), range(1).collect::<Vec<_>>(), "page 1 hides page 0's portraits");
+        app.world_mut().resource_mut::<SelectPage>().0 = 0;
+        app.update();
+        assert_eq!(drawn(&app), range(0).collect::<Vec<_>>(), "turning back draws page 0 again");
+    }
+
+    /// SD-05: each page target the layout offers has a visible arrow at its
+    /// rectangle, and the next arrow says which page of how many. With one
+    /// page there are no targets and no arrows.
+    #[test]
+    fn the_page_arrows_are_drawn_where_their_targets_are() {
+        let arrows_at = |size: (u32, u32), page: usize| {
+            let mut app = App::new();
+            app.init_resource::<SmashRoster>().insert_resource(SelectPage(page));
+            app.add_systems(Update, place_the_screen);
+            let mut window = Window::default();
+            window.resolution = bevy::window::WindowResolution::new(size.0, size.1);
+            app.world_mut().spawn(window);
+            let arrows = [false, true].map(|next| app.world_mut().spawn((Anchored::Page { next }, Node::default())).id());
+            let count = app.world_mut().spawn((PageCountLabel, Text::new(String::new()))).id();
+            app.update();
+            let cells = app.world().resource::<SmashRoster>().cell_count();
+            let layout = SelectLayout::paged(Vec2::new(size.0 as f32, size.1 as f32), cells, page);
+            let targets: Vec<HitRect> = layout
+                .targets()
+                .into_iter()
+                .filter(|(kind, _)| matches!(kind, SelectTarget::PagePrev | SelectTarget::PageNext))
+                .map(|(_, rect)| rect)
+                .collect();
+            let drawn: Vec<(f32, f32)> = arrows
+                .iter()
+                .filter_map(|arrow| {
+                    let node = app.world().get::<Node>(*arrow).expect("an arrow");
+                    (node.display != Display::None).then(|| match (node.left, node.top) {
+                        (Val::Px(left), Val::Px(top)) => (left, top),
+                        other => panic!("an arrow placed at {other:?}"),
+                    })
+                })
+                .collect();
+            let count = app.world().get::<Text>(count).expect("the count").0.clone();
+            (targets.iter().map(|rect| (rect.min.x, rect.min.y)).collect::<Vec<_>>(), drawn, count, layout.pages)
+        };
+        let (targets, drawn, count, pages) = arrows_at((320, 240), 1);
+        assert!(pages > 1, "precondition: the roster takes more than one page at 320x240");
+        assert_eq!(targets.len(), 2, "control: the layout offers both page targets");
+        assert_eq!(drawn, targets, "each arrow is drawn at its target");
+        assert_eq!(count, format!("2/{pages}"));
+        let (targets, drawn, _, pages) = arrows_at((1280, 720), 0);
+        assert_eq!(pages, 1, "precondition: the roster fits one page at 1280x720");
+        assert!(targets.is_empty() && drawn.is_empty(), "one page: no targets and no arrows");
     }
 }

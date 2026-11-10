@@ -70,11 +70,11 @@ or updating their source. Check with
 
 ### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
 
-**Failure:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). The card is still drawn for the primary live room's boss only, so a second local view in another boss's room shows none.
+**State:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami), and each local view shows the card of the boss in its own room (2026-11-10; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). What remains is acceptance evidence: a rendered witness of the card over several fights.
 
 **Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
 
-**Next action:** give the card to a view, as the HUD is: each local view shows the card of the boss in its own room.
+**Next action:** a rendered (GPU capture) witness of the card for two non-Wolfenstein bosses, and one of two views in two boss rooms. No skip input exists; if one is added, it advances the phase state and the card follows.
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 
@@ -199,11 +199,12 @@ check, stale mouse state at route entry, and invisible page controls.
 **Owner:** Smash select UI and route lifecycle, stock placement, and the shared
 body reset API. Evidence: [SD-01 through SD-07](demos/smash-defect-review-2026-10-31.md).
 
-**Next action:** reproduce and fix SD-01 and SD-05 through the one page layout;
-then SD-02 through the body's authored jump policy; then SD-03 and SD-04 through
-the existing pause and route lifecycle. Measure idle component change ticks and
-portrait demands for SD-06 and SD-07 before selecting a performance change.
-Keep the existing S0 combat work separate.
+**Fixed 2026-11-10:** SD-01 to SD-05, each with a headless test at its owner
+([review](demos/smash-defect-review-2026-10-31.md)).
+
+**Next action:** measure idle component change ticks and portrait demands for
+SD-06 and SD-07 before selecting a performance change. Keep the existing S0
+combat work separate.
 
 **Acceptance:** small-view mouse, touch and pad input reaches every visible
 page; off-page children are hidden. Real stock loss preserves each fighter's

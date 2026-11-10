@@ -1469,3 +1469,120 @@ fn every_schema_of_the_pack_reloads_between_sessions() {
         .unwatched(&crate::smash_pack::PACK);
     assert!(unwatched.is_empty(), "these schemas cost a restart: {unwatched:?}");
 }
+
+/// SD-02: a fighter that loses a stock comes back with its own air jumps, not
+/// the engine's default. Three fighters author 0, 1 and 3 air jumps, spend
+/// them, and respawn.
+#[test]
+fn a_respawn_gives_each_fighter_its_own_air_jumps() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::platformer::lifecycle::{insert_live_room_component, InRoomInstance, LiveRoomInstance};
+
+    let mut app = bevy::prelude::App::new();
+    app.add_message::<ambition_platformer2d::actor::FighterRespawnDue>();
+    app.add_systems(bevy::prelude::Update, place_respawning_fighters);
+    insert_live_room_component(app.world_mut(), ae::RoomGeometry(smash_stage().world.clone()));
+    let mut abilities = ae::AbilitySet::basic();
+    abilities.double_jump = true;
+    let fighters: Vec<(u8, bevy::prelude::Entity)> = [0_u8, 1, 3]
+        .into_iter()
+        .enumerate()
+        .map(|(seat, air_jumps)| {
+            let mut params = ae::AxisSweptParams::default();
+            params.locomotion.air_jumps = air_jumps;
+            let body = app
+                .world_mut()
+                .spawn((
+                    (
+                        ae::BodyAbilities { abilities },
+                        ae::BodyKinematics::default(),
+                        ae::BodyBaseSize::default(),
+                        ae::BodyGroundState::default(),
+                        ae::BodyWallState::default(),
+                        ae::BodyJumpState::fresh(0),
+                        ae::BodyDashState::default(),
+                        ae::BodyFlightState::default(),
+                    ),
+                    (
+                        ae::BodyBlinkState::default(),
+                        ae::BodyLedgeState::default(),
+                        ae::BodyDodgeState::default(),
+                        ae::BodyShieldState::default(),
+                        ae::BodyModeState::default(),
+                        ae::BodyEnvironmentContact::default(),
+                        ae::BodyActionBuffer::default(),
+                        ae::BodyRestartLatch::default(),
+                    ),
+                    ambition_platformer2d::actor::MotionModel::axis_swept(params),
+                    ambition_platformer2d::actor::MatchSeat(seat),
+                    InRoomInstance(LiveRoomInstance::ACTIVATION),
+                ))
+                .id();
+            (air_jumps, body)
+        })
+        .collect();
+    for (_, body) in &fighters {
+        app.world_mut().write_message(ambition_platformer2d::actor::FighterRespawnDue { body: *body });
+    }
+    app.update();
+    for (air_jumps, body) in fighters {
+        assert_eq!(
+            app.world().get::<ae::BodyJumpState>(body).expect("a fighter").air_jumps_available,
+            air_jumps,
+            "a fighter authored with {air_jumps} air jumps comes back with them"
+        );
+    }
+}
+
+/// SD-03: time spent paused does not count toward the result delay. The
+/// winner card stays up while the game is paused for longer than the delay;
+/// once it resumes, the stage returns to select after the delay.
+#[test]
+fn a_paused_result_card_waits_for_the_game() {
+    use ambition_platformer2d::game_shell::{
+        ActiveShellExperience, ShellActivationId, ShellCommand, ShellExperienceId, ShellRouteId, ShellRouter,
+    };
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(bevy::state::app::StatesPlugin).init_state::<GameMode>();
+    app.init_resource::<ambition_platformer2d::presentation::HudReadouts>()
+        .init_resource::<ShellRouter>()
+        .init_resource::<Time>()
+        .add_message::<ShellCommand>();
+    app.world_mut().resource_mut::<ShellRouter>().active = Some(ActiveShellExperience {
+        activation_id: ShellActivationId(1),
+        route_id: ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
+        experience_id: ShellExperienceId::new(SMASH_EXPERIENCE),
+        parameters: Default::default(),
+        load_authorization: None,
+        prepared_session: None,
+    });
+    let active = ambition_platformer2d::versus_match::ActiveMatch::for_test(2);
+    let mut settled = ambition_platformer2d::versus_match::StocksMatchSettled::default();
+    settled.settle(&active, ambition_platformer2d::actor::MatchVerdict::Winner("seat 1".to_string()));
+    app.insert_resource(active).insert_resource(settled);
+    app.add_systems(Update, return_to_the_select_screen_when_the_match_ends);
+    let delay = crate::rules::smash_rules().return_to_select_seconds;
+    let step = |app: &mut App, seconds: f32| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(seconds));
+        app.update();
+    };
+    let gone_to_select = |app: &mut App| {
+        let messages = app.world().resource::<Messages<ShellCommand>>();
+        messages.get_cursor().read(messages).any(|command| matches!(command, ShellCommand::GoTo(route) if route.as_str() == SMASH_SELECT_ROUTE))
+    };
+    // The card arms on the first frame.
+    step(&mut app, 0.0);
+    app.world_mut().resource_mut::<NextState<GameMode>>().set(GameMode::Paused);
+    for _ in 0..4 {
+        step(&mut app, delay);
+    }
+    assert!(!gone_to_select(&mut app), "paused for four delays, the stage stays on its result card");
+    app.world_mut().resource_mut::<NextState<GameMode>>().set(GameMode::Playing);
+    step(&mut app, delay * 0.5);
+    assert!(!gone_to_select(&mut app), "half the delay after the pause, the card is still up");
+    step(&mut app, delay * 0.6);
+    assert!(gone_to_select(&mut app), "the whole unpaused delay later, the stage goes back to select");
+}

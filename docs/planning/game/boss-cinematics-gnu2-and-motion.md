@@ -38,12 +38,17 @@ and `a_conducted_card_is_the_conductors_alone` (unit);
 woken in their own rooms, read from `BossRenderIndex`); Wolfenstein's
 conducted card stays `wolfenstein_fight`'s subject.
 
+**Done, 2026-11-10: a card per view.** `show_boss_name_card` draws one card
+over each local view, for the boss in that view's live room (the room of its
+`ResolvedViewSubject`), placed in the view's rectangle (`ViewPlacement` over
+the gameplay rectangle, as the HUD is). A composition with no local views
+draws the primary live room's card across the whole gameplay area. Witness:
+`boss_stage::name_card_tests::each_view_shows_the_card_of_the_boss_in_its_room`
+(two views in two rooms; a view whose boss shows no card shows none; poison:
+every view reads the primary's room, red).
+
 **Open.**
 
-- **Multiview.** The card is drawn for the boss in the *primary* live room
-  (`PrimaryLiveRoom`). A second local view in another boss's room shows no
-  card. A per-view card needs the card node to belong to a view, as the HUD
-  does.
 - **Skip.** Boss intros have no skip input; the card has nothing to skip.
   If an intro skip is added, it should advance the phase state, and the card
   follows.

@@ -1,7 +1,8 @@
 # Smash defect review — 2026-10-31
 
-**Source read:** `5ec96e4e3152` (2026-10-31). **State:** open findings; not
-runtime-confirmed. This review records defects and possible performance costs.
+**Source read:** `5ec96e4e3152` (2026-10-31). **State:** SD-01 through SD-05
+fixed 2026-11-10, each with a test that a poison of its fix reddens (see
+"Fixed" under each); SD-06 and SD-07 are open and unmeasured. This review records defects and possible performance costs.
 It does not track Smash feature parity or game feel.
 
 **Tracking:** [SMASH-DEFECTS in the live queue](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
@@ -49,6 +50,11 @@ presentation.
 **Acceptance:** No off-page portrait or child is visible. Page changes restore
 the right cells. Input and rendering select the same cells.
 
+**Fixed 2026-11-10.** `place_the_screen` hides every portrait the layout puts
+on another page (`Display::None`, so its children go too). Witness:
+`page_tests::only_the_current_pages_portraits_are_drawn` (320x240, pages 0,
+1 and 0 again).
+
 ## SD-02 — Respawn can change the fighter's air-jump count (P2)
 
 **Owner:** Smash stock and respawn placement, with the shared body reset API.
@@ -70,6 +76,11 @@ Do not replace the fighter's movement policy with a Smash-only default.
 **Acceptance:** A fighter gets its own jump budget on initial spawn and each
 respawn. The count does not depend on the stock number or seat.
 
+**Fixed 2026-11-10.** `place_respawning_fighters` passes the body's own
+`MotionModel::air_jumps()`. Witness: `tests::a_respawn_gives_each_fighter_its_own_air_jumps`
+(fighters authored with 0, 1 and 3 air jumps; the engine default made the
+0 come back as 1).
+
 ## SD-03 — The result timeout may advance during pause (P2)
 
 **Owner:** Smash match completion and shell pause state.
@@ -89,6 +100,11 @@ existing session and route reset behavior.
 **Acceptance:** Pause time does not consume the result delay. The game returns
 to select only after the unpaused delay. An abandoned match still returns by
 its current immediate path.
+
+**Fixed 2026-11-10.** The countdown holds while `GameMode` is `Paused` (the
+shell's pause menu pauses the mode). Witness:
+`tests::a_paused_result_card_waits_for_the_game` (paused for four delays the
+card stays; after resuming, select follows the whole delay and not half of it).
 
 ## SD-04 — A stationary mouse can target the wrong cell on re-entry (P2)
 
@@ -112,6 +128,12 @@ compete with pad or keyboard navigation.
 **Acceptance:** The first click after re-entry selects the cell under the
 pointer. Keyboard and pad navigation still work while the mouse is still.
 
+**Fixed 2026-11-10.** `drive_the_cursor` remembers which select-route arrival
+(`ShellActivationId`) its last mouse position belongs to; a new arrival
+counts the pointer's place as a move once. Witness:
+`pause_arbitration_tests::a_still_mouse_places_the_cursor_on_each_arrival`
+(control: within one arrival a still mouse does not move the cursor).
+
 ## SD-05 — Page input targets have no matching visible controls (P2)
 
 **Owner:** Smash select-screen UI.
@@ -133,6 +155,11 @@ Show the current page and page count. Do not invent a second hit layout.
 **Acceptance:** A visible page control maps to each active hit target. Controls
 are absent or disabled when only one page exists. Mouse, touch, and pad
 navigation all reach every page.
+
+**Fixed 2026-11-10.** Two page arrows (`Anchored::Page`) are drawn at
+`SelectLayout::page_button`, the rectangles of the `PagePrev`/`PageNext`
+targets, only while there is more than one page; the next arrow shows
+"page/pages". Witness: `page_tests::the_page_arrows_are_drawn_where_their_targets_are`.
 
 ## SD-06 — Idle UI projection may mark components changed (P2; measure)
 

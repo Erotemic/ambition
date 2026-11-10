@@ -1129,10 +1129,8 @@ fn a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare() {
 }
 
 fn refused_peer_crossing(configure_bob: impl FnOnce(&mut App)) -> Platformer2dSimHarness {
-
     let (a, b) = ("127.0.0.1:7021".parse().unwrap(), "127.0.0.1:7022".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
-    let ends = [to_bob.clone(), to_alice.clone()];
     let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, each_player_on_the_hub_door);
     let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, each_player_on_the_hub_door);
     configure_bob(bob.app_mut());

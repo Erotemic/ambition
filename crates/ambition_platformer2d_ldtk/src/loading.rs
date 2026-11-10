@@ -142,10 +142,27 @@ impl LdtkProject {
 
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref();
+        // A parse costs most of a second in a debug build, and one boot reads
+        // the same world twice (the room set, then the provider's
+        // preparation); a test process boots hundreds. A file whose size and
+        // time are unchanged is not parsed again.
+        let stamp = fs::metadata(path).ok().and_then(|meta| Some((meta.len(), meta.modified().ok()?)));
+        let key = stamp.map(|(len, modified)| (path.to_path_buf(), len, modified));
+        if let Some(key) = &key {
+            if let Some(project) = parsed().get(key) {
+                return Ok(project.clone());
+            }
+        }
         let text = fs::read_to_string(path)
             .map_err(|error| format!("could not read LDtk project {}: {error}", path.display()))?;
-        serde_json::from_str(&text)
-            .map_err(|error| format!("could not parse LDtk project {}: {error}", path.display()))
+        let project: Self = serde_json::from_str(&text)
+            .map_err(|error| format!("could not parse LDtk project {}: {error}", path.display()))?;
+        if let Some(key) = key {
+            let mut parsed = parsed();
+            parsed.retain(|(held, ..), _| held != &key.0);
+            parsed.insert(key, project.clone());
+        }
+        Ok(project)
     }
 
     /// Parse an in-memory LDtk project JSON string — the entry point for a
@@ -157,6 +174,14 @@ impl LdtkProject {
         serde_json::from_str(text)
             .map_err(|error| format!("could not parse LDtk project JSON: {error}"))
     }
+}
+
+type ParsedKey = (std::path::PathBuf, u64, std::time::SystemTime);
+
+fn parsed() -> std::sync::MutexGuard<'static, std::collections::HashMap<ParsedKey, LdtkProject>> {
+    static PARSED: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<ParsedKey, LdtkProject>>> =
+        std::sync::LazyLock::new(Default::default);
+    PARSED.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 fn parse_world_text(text: &str, source: &WorldSource) -> Result<LdtkProject, String> {

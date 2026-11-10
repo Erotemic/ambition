@@ -274,3 +274,33 @@ fn the_initial_title_stages_no_character_art() {
         .cast().len();
     assert_eq!(staged, 0, "the initial title demanded character art with no actor cast");
 }
+
+/// What one test boot costs, by phase: the harness built (App, plugins,
+/// content), the first update, and the next 59. Every `app_it` test that
+/// boots a room pays the first two.
+#[test]
+#[ignore = "probe: prints what one boot costs; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_one_boot_costs() {
+    use ambition_app::AmbitionSim as _;
+    for round in 0..3 {
+        let started = std::time::Instant::now();
+        let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(
+            crate::common::fixed_60hz_room_options(crate::two_players_two_live_rooms::ROOM),
+        )
+        .expect("the room boots");
+        let built = started.elapsed();
+        sim.app_mut().update();
+        let first = started.elapsed() - built;
+        for _ in 0..59 {
+            sim.app_mut().update();
+        }
+        let rest = started.elapsed() - built - first;
+        println!(
+            "[boot] round {round}: harness built {:.2} s, first update {:.2} s, next 59 updates {:.2} s ({:.1} ms each)",
+            built.as_secs_f64(),
+            first.as_secs_f64(),
+            rest.as_secs_f64(),
+            rest.as_secs_f64() * 1e3 / 59.0
+        );
+    }
+}

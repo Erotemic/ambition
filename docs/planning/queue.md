@@ -79,7 +79,7 @@ or updating their source. Check with
 
 **Measured 2026-11-10 (ISL-2e):** a hosted world that predicts its guest and rewinds only his room on a late input ends where an on-time run ends, at 9.4–16.3 ms of host update a frame (the late-applying host: 8.4–9.9; each GGRS peer: 33–48) ([result](engine/island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
 
-**Next action:** make the room rollback host production code (the probe's loop as a host-side system: per-room input history, prediction, a rewind on a late input, the shared clock and message channels, the world-write retraction of ISL-2d); ISL-2c, a hit on an NPC in the window; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
+**Next action:** make the room rollback host production code once the hosted world has a production input path (NA-2b's guest App and transport; until then the rewind has no caller but tests): per-room input history, prediction, a rewind on a late input, the shared clock and message channels, the world-write retraction of ISL-2d. Meanwhile: ISL-2c, a hit on an NPC in the window; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 
@@ -834,6 +834,24 @@ preserving distinct behavior witnesses, phase boundaries and negative controls.
 Remove obsolete diagnostics only after checking their actual callers. Use
 current `AGENTS.md` verification policy: no test-count/source-count floors or
 new meta-test machinery as a proxy for behavior.
+
+**Measured 2026-11-10 (boot cost):** in a sample of 152 `app_it` tests, the mean
+was 29 s and ten took 100 s or more. A harness boot costs about 11 s, and most
+tests boot at least once. Two pure parses ran again on every boot in one
+process:
+- the sprite sheet table (2.4 s), which now prepares against the process's last
+  table (`content::libraries`);
+- the LDtk world (about 0.75 s, twice per boot), whose parse is now kept per
+  path, size and file time (`LdtkProject::load_from_path`).
+
+Boots after the first now cost 7.0–7.7 s (`boot_budget::probe_what_one_boot_costs`).
+What remains is not one hot spot:
+- character preparation: 0.9 s over 212 characters;
+- sheet text reads: 0.75 s;
+- the asset catalog: 0.5 s;
+- Yarn: 0.4 s;
+- the first update: 0.9 s;
+- the settle: 1.6 s.
 
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn

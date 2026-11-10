@@ -530,12 +530,16 @@ impl CurveCell {
         &self,
         time: &Range<f64>,
     ) -> Result<Option<Vec<super::translation::MovingPlane>>, NumericFault> {
-        if self.scene.source.turn() != 0.0 || !self.clauses.is_empty()
-            || self
-                .scene
-                .links
-                .iter()
-                .any(|l| l.enter_step.turn != 0.0 || l.exit_step.turn != 0.0)
+        if self.scene.source.turn() != 0.0
+            || self.path.iter().any(|&index| {
+                let link = self.scene.links[index];
+                link.enter_step.turn != 0.0 || link.exit_step.turn != 0.0
+            })
+            || self.clauses.iter().any(|clause| self.scene.links[clause.link].enter_step.turn != 0.0)
+            || self.holes.iter().any(|hole| {
+                let link = self.scene.links[hole.link];
+                if hole.exit { link.exit_step.turn != 0.0 } else { link.enter_step.turn != 0.0 }
+            })
         {
             return Ok(None);
         }
@@ -543,6 +547,23 @@ impl CurveCell {
         let (states, poses) = self.scene.states(&self.path, middle, half)?;
         let state = *states.last().unwrap();
         let mut planes = self.base.clone();
+        let affine = |p: PlaneMotion| super::translation::MovingPlane {
+            plane: MaterialPlane {
+                offset: p.plane.offset - p.offset_rate * middle,
+                ..p.plane
+            },
+            rate: p.offset_rate,
+        };
+        for &clause in &self.clauses {
+            let state = states[clause.stage];
+            match self.scene.condition(clause, state, &poses, half) {
+                Truth::No if matches!(clause.kind, Kind::Stay(0)) => continue,
+                Truth::Yes => {}
+                _ => return Ok(None),
+            }
+            planes.extend(self.scene.planes(clause, state, poses[clause.link], 0.0)
+                .into_iter().map(|(plane, _)| affine(plane)));
+        }
         for &hole in &self.holes {
             match self.hole_condition(hole, state, &poses, half) {
                 Truth::No if hole.side == 0 => continue,
@@ -550,13 +571,7 @@ impl CurveCell {
                 _ => return Ok(None),
             }
             let (p, _) = self.hole_plane(hole, state, &poses, 0.0);
-            planes.push(super::translation::MovingPlane {
-                plane: MaterialPlane {
-                    offset: p.plane.offset - p.offset_rate * middle,
-                    ..p.plane
-                },
-                rate: p.offset_rate,
-            });
+            planes.push(affine(p));
         }
         Ok(Some(planes))
     }
@@ -994,6 +1009,16 @@ fn exists(cell: &CurveCell, work: &mut Work) -> Result<bool, Refusal> {
         if !potential(cell, &time, work)? {
             continue;
         }
+        // Use exact translating constraints when this cell has no turn.
+        // A distant turning link does not make an empty static cell curved.
+        if let Some(planes) = cell.affine_planes(&time)
+            .map_err(|e| failure(cell, None, RefusalReason::Numeric(e)))? {
+            if super::temporal::closure(&cell.scene.body, &planes, time.clone())
+                .map_err(|e| failure(cell, None, RefusalReason::Numeric(e)))?.is_some() {
+                return Ok(true);
+            }
+            continue;
+        }
         let middle = time.start + (time.end - time.start) * 0.5;
         for at in [time.start, middle, time.end] {
             if cell
@@ -1257,6 +1282,26 @@ mod tests {
     use crate::frame::thread::MaterialPrimitive;
     use crate::frame::{ApertureStep, PortalAperture, PortalFrame};
     use crate::{Aabb, Block, SurfaceChain, Vec2, World};
+
+    #[test]
+    fn a_static_opening_keeps_a_body_above_its_end_with_a_distant_turning_pair() {
+        let opening = |x, normal| PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(x, 248.0), normal), half_length: 40.0,
+        };
+        let mut links = PortalLink::both_ways(0, (opening(2800.0, -Vec2::X), opening(2544.0, Vec2::X))).to_vec();
+        let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::new(2900.0, 336.0), -Vec2::Y), half_length: 46.0 };
+        let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(3136.0, 186.0), -Vec2::Y), half_length: 46.0 };
+        links.extend(PortalLink::both_ways_with_steps(2, [
+            (enter, ApertureStep::fixed(enter.frame.origin, enter.frame.normal)),
+            (exit, ApertureStep::ending_at(exit.frame, Vec2::ZERO, 0.01)),
+        ]));
+        let domain = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(30.065935, 48.0_f32.next_up()) * 0.5));
+        let root = Vec2::new(2785.4165, 264.0_f32.next_down());
+        let material = MaterialPrimitive { domain: &domain, to_world: Sim2::new(1.0, bevy_math::Mat2::IDENTITY, root).unwrap() };
+        let cast = MaterialCast::new(material, root, Vec2::X * 4.5, 0.0..1.0);
+        let admission = MotionAdmission { convention: MapConvention::Rotation, ..admission(&links) };
+        admission.admit(cast, Vec2::X * 270.0, &[Vec2::Y * 2250.0]).unwrap();
+    }
 
     fn links(turn: f32) -> [PortalLink; 2] {
         let enter = PortalAperture {

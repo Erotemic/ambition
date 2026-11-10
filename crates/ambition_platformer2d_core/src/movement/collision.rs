@@ -19,12 +19,39 @@ fn apply_bounded_resolution(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     gravity_dir: Vec2,
     delta: Vec2,
+    block: Aabb,
+    normal: Vec2,
 ) -> bool {
-    if !is_contact_range_snap(delta, kinematics.aabb_oriented(gravity_dir)) {
+    let Some(position) = face_contact_position(*kinematics, gravity_dir, delta, block, normal) else {
+        return false;
+    };
+    if !is_contact_range_snap(position - kinematics.pos, kinematics.aabb_oriented(gravity_dir)) {
         return false;
     }
-    kinematics.pos += delta;
+    kinematics.pos = position;
     true
+}
+
+/// Round a contact position toward free space. A rounded box edge can hide
+/// penetration by the canonical material and prevent an exact aperture fit.
+fn face_contact_position(
+    body: crate::BodyKinematics, down: Vec2, delta: Vec2, block: Aabb, normal: Vec2,
+) -> Option<Vec2> {
+    let axis = if normal.x != 0.0 { Axis::X } else { Axis::Y };
+    let sign = axis_component(normal, axis);
+    let half = body.projected_half_extent(down, normal.as_dvec2()).ok()?;
+    let face = axis_component(if sign > 0.0 { block.max } else { block.min }, axis);
+    let bound = f64::from(face) + f64::from(sign) * half;
+    let mut rounded = bound as f32;
+    if f64::from(sign) * (f64::from(rounded) - bound) < 0.0 {
+        rounded = if sign > 0.0 { rounded.next_up() } else { rounded.next_down() };
+    }
+    if !rounded.is_finite() { return None; }
+    let mut position = body.pos + delta;
+    if sign * (axis_component(position, axis) - rounded) < 0.0 {
+        match axis { Axis::X => position.x = rounded, Axis::Y => position.y = rounded }
+    }
+    Some(position)
 }
 
 fn one_way_landing_from_feet(
@@ -377,8 +404,8 @@ pub(super) fn sweep_player_axis_clusters(
             || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
         {
             let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
-            let _ = apply_bounded_resolution(kinematics, gravity_dir, snap);
             let support_normal = support_face_normal(axis, gravity_dir);
+            let _ = apply_bounded_resolution(kinematics, gravity_dir, snap, hit.block.aabb, support_normal);
             // BEFORE the zero below destroys it — the whole reason the contact
             // carries it (see `Contact::impact_speed`).
             let impact = crate::collision_semantics::closing_speed(kinematics.vel, support_normal);
@@ -396,7 +423,7 @@ pub(super) fn sweep_player_axis_clusters(
             ));
         } else if role == AxisRole::Gravity {
             let (push, push_normal) = axis_face_resolution(body, hit.block.aabb, axis);
-            if apply_bounded_resolution(kinematics, gravity_dir, push) {
+            if apply_bounded_resolution(kinematics, gravity_dir, push, hit.block.aabb, push_normal) {
                 let impact = crate::collision_semantics::closing_speed(kinematics.vel, push_normal);
                 zero_axis_vel(kinematics, axis);
                 // The other end of the axis `on_ground` reports. Published so
@@ -441,8 +468,10 @@ pub(super) fn sweep_player_axis_clusters(
                 kinematics.pos += axis_vec(axis, delta_along * (1.0 - toi_fraction));
             } else {
                 let (d, normal_sign) = depen.expect("checked is_none above");
-                kinematics.pos += axis_vec(axis, d);
                 let side_normal = axis_vec(axis, normal_sign);
+                if !apply_bounded_resolution(kinematics, gravity_dir, axis_vec(axis, d), hit.block.aabb, side_normal) {
+                    return None;
+                }
                 // ⭐ THE WALL HIT, measured. This is the value nothing
                 // downstream could recover: the zero on the next line is what
                 // destroys it, and a body already stopped against a wall looks
@@ -484,9 +513,8 @@ pub(super) fn sweep_player_axis_clusters(
 /// repaired axis, and its SIGN says which bound this is: a positive correction demands `centre
 /// >= bound`, a negative one demands `centre <= bound`.
 ///
-/// Keeping the delta rather than only the bound is not bookkeeping: applying it
-/// reproduces the old arithmetic exactly, where `pos + (centre + delta - centre)`
-/// would not for large coordinates.
+/// The delta is used for the contact-range check. Commit the bound directly
+/// so subtraction and addition cannot round the accepted position again.
 struct AxisClaim<'a> {
     delta: Vec2,
     delta_along: f32,
@@ -563,7 +591,7 @@ fn resolve_axis_repair(
         {
             continue;
         }
-        let claim = match role {
+        let mut claim = match role {
             AxisRole::Gravity => {
                 let on_support = matches!(block.kind, BlockKind::OneWay)
                     || body_on_support_side(aabb, block.aabb, gravity_dir);
@@ -620,6 +648,13 @@ fn resolve_axis_repair(
                 }
             }
         };
+        let Some(position) = face_contact_position(*kinematics, gravity_dir, claim.delta, block.aabb, claim.normal) else {
+            continue;
+        };
+        claim.bound = axis_component(position, axis);
+        claim.delta_along = claim.bound - centre;
+        claim.delta = axis_vec(axis, claim.delta_along);
+        if !is_contact_range_snap(claim.delta, aabb) { continue; }
         // A correction of exactly zero demands nothing — the face is already
         // flush — so it never becomes a bound.
         if claim.delta_along > 0.0 {
@@ -661,7 +696,7 @@ fn resolve_axis_repair(
         // Feasible: at most one direction claimed, so its deepest claim IS the
         // binding edge of the interval.
         if let Some(binding) = toward_pos.as_ref().or(toward_neg.as_ref()) {
-            kinematics.pos += binding.delta;
+            match axis { Axis::X => kinematics.pos.x = binding.bound, Axis::Y => kinematics.pos.y = binding.bound }
         }
     }
     for claim in [toward_pos.as_ref(), toward_neg.as_ref()]
@@ -851,6 +886,36 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
 mod tests {
     use super::*;
     use crate::geometry::aabb_from_min_size;
+
+    #[test]
+    fn contact_positions_keep_canonical_material_outside_each_face() {
+        let block = Aabb::new(Vec2::splat(300.0), Vec2::splat(40.0));
+        for normal in [Vec2::X, -Vec2::X, Vec2::Y, -Vec2::Y] {
+            for down in [Vec2::X, Vec2::Y, Vec2::new(0.6, 0.8)] {
+                for scale in [0.5, 1.0, 2.0] {
+                    for parity in [-1.0, 1.0] {
+                        let mut body = crate::BodyKinematics {
+                            canonical_size: Vec2::new(30.0, 48.0_f32.next_up()),
+                            material: crate::frame::BodyMaterial::new(scale,
+                                bevy_math::Mat2::from_cols(Vec2::X, Vec2::Y * parity)).unwrap(),
+                            ..Default::default()
+                        };
+                        let half = body.projected_half_extent(down, normal.as_dvec2()).unwrap();
+                        body.pos = block.center() + normal * (40.0 + half as f32);
+                        let result = face_contact_position(body, down, Vec2::ZERO, block, normal).unwrap();
+                        let face = normal.as_dvec2().dot(block.center().as_dvec2()) + 40.0;
+                        let edge = normal.as_dvec2().dot(result.as_dvec2()) - half;
+                        assert!(edge >= face, "normal={normal}, down={down}, scale={scale}: {edge} < {face}");
+                        let axis = if normal.x != 0.0 { Axis::X } else { Axis::Y };
+                        let coordinate = axis_component(result, axis);
+                        let inward = if axis_component(normal, axis) > 0.0 { coordinate.next_down() } else { coordinate.next_up() };
+                        let inward_edge = f64::from(axis_component(normal, axis)) * f64::from(inward) - half;
+                        assert!(inward_edge < face, "the adjacent inward position must penetrate");
+                    }
+                }
+            }
+        }
+    }
 
     fn body(center: Vec2, half: Vec2) -> Aabb {
         Aabb::new(center, half)

@@ -16,6 +16,28 @@ use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms
 
 use crate::types::{PlacedPortal, PortalHostDepths};
 
+/// Resolve room identity and the room's declared portal capability.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PortalRooms<'w, 's> {
+    live: LiveRooms<'w, 's>,
+    rules: ambition_platformer2d_world::governing_rules::RulesOf<'w, 's,
+        ambition_platformer2d_shared_tangle::capability::UsedCapabilities>,
+}
+
+impl PortalRooms<'_, '_> {
+    pub fn of(&self, entity: Entity) -> Option<LiveRoomInstance> { self.live.of(entity) }
+    pub fn stamped(&self, entity: Entity) -> Option<LiveRoomInstance> { self.live.stamped(entity) }
+
+    pub fn allows(&self, entity: Entity) -> bool {
+        self.allows_room(self.of(entity))
+    }
+
+    pub fn allows_room(&self, room: PortalRoom) -> bool {
+        self.rules.in_live_room(room).is_none_or(|used|
+            used.uses(ambition_platformer2d_shared_tangle::capability::Capability::Portals))
+    }
+}
+
 /// The live room of a portal or a body. `None` is no live room that can be
 /// told: with two live rooms, an unstamped entity. Such portals pair only with
 /// each other, and such bodies meet only them.
@@ -28,9 +50,10 @@ pub struct PortalsByRoom(Vec<(PortalRoom, Vec<PlacedPortal>)>);
 
 impl PortalsByRoom {
     /// Group `portals` by the room `live` gives each of them.
-    pub fn collect<'a>(portals: impl IntoIterator<Item = (Entity, &'a PlacedPortal)>, live: &LiveRooms) -> Self {
+    pub fn collect<'a>(portals: impl IntoIterator<Item = (Entity, &'a PlacedPortal)>, live: &PortalRooms) -> Self {
         let mut rooms: Vec<(PortalRoom, Vec<PlacedPortal>)> = Vec::new();
         for (entity, portal) in portals {
+            if !live.allows(entity) { continue; }
             let room = live.of(entity);
             match rooms.iter_mut().find(|(seen, _)| *seen == room) {
                 Some((_, list)) => list.push(portal.clone()),

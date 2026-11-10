@@ -18,7 +18,7 @@ fn test_app() -> App {
         .init_resource::<PortalCarryAtlas>()
         .init_resource::<CarryQuadPool>()
         .add_systems(First, give_back_carried_layers)
-        .add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::publish_portal_passages).chain())
+        .add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_after_motion, ambition_portal2d::publish_portal_passages).chain())
         .add_systems(PostUpdate, carry_through_pairs);
     app.world_mut().spawn((
         Camera2d,

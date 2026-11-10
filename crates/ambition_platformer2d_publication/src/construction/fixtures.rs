@@ -43,7 +43,15 @@ pub fn replacement_mechanics() -> &'static ambition_platformer2d_construction::m
     static MECHANICS: std::sync::OnceLock<ambition_platformer2d_construction::mechanics::SessionMechanics,
     > =
         std::sync::OnceLock::new();
-    MECHANICS.get_or_init(Default::default)
+    MECHANICS.get_or_init(|| {
+        let mut mechanics = ambition_platformer2d_construction::mechanics::SessionMechanics::default();
+        #[cfg(feature = "portal")]
+        mechanics.construction_schemas.try_contribute(
+            ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+            ambition_portal2d::portal_gun_construction_registry().deterministic_dump(),
+        ).unwrap();
+        mechanics
+    })
 }
 
 /// The cast [`replacement_mechanics`] was frozen with, `'static` for the same
@@ -191,6 +199,7 @@ pub fn prepare(sprite_content: &ambition_sprite_sheet::SpriteContent,
     staging: &crate::construction::RoomContentStagingRegistry,
     recipes: &ActorConstructionRegistry,
 ) -> Result<RoomFeatureConstructionPlan, RoomFeatureConstructionError> {
+    let schemas = &replacement_mechanics().construction_schemas;
     RoomFeatureConstructionPlan::prepare(
         room,
         &Default::default(),
@@ -202,7 +211,7 @@ pub fn prepare(sprite_content: &ambition_sprite_sheet::SpriteContent,
             &Default::default(),
             ContentBinding::content_unstated(ae::ContentEpoch(4)),
         )
-        .with_prepared(fixture_cast()),
+        .with_prepared(fixture_cast()).with_construction_schemas(schemas),
     )
 }
 
@@ -493,6 +502,7 @@ pub fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
 pub fn prepare_with_placements(sprite_content: &ambition_sprite_sheet::SpriteContent,
     room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Result<RoomFeatureConstructionPlan, RoomFeatureConstructionError> {
+    let schemas = &replacement_mechanics().construction_schemas;
     RoomFeatureConstructionPlan::prepare(
         room,
         &placement_registry(),
@@ -504,7 +514,7 @@ pub fn prepare_with_placements(sprite_content: &ambition_sprite_sheet::SpriteCon
             &Default::default(),
             ContentBinding::content_unstated(ae::ContentEpoch(4)),
         )
-        .with_prepared(fixture_cast()),
+        .with_prepared(fixture_cast()).with_construction_schemas(schemas),
     )
 }
 

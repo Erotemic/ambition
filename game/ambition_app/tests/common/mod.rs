@@ -88,7 +88,7 @@ pub fn fixed_60hz_sim() -> Platformer2dSimHarness {
 /// at once, as it does in a game that declares no passages.
 pub fn doors_cross_at_once(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::session::rooms::passage::ZonePassageRules;
-    use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+    use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
     sim.world_mut()
         .resource_mut::<DeclaredRules<ZonePassageRules>>()
         .restate(RulesScope::UntaggedRooms, None);

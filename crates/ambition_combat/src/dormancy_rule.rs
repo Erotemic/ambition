@@ -4,7 +4,7 @@
 //! sleep is the engine's decision, not the game's.
 
 /// One game's dormancy rule, declared for the rooms it governs with
-/// [`DeclareRulesExt::declare_rules`](crate::scoped_rules::DeclareRulesExt::declare_rules).
+/// [`DeclareRulesExt::declare_rules`](ambition_platformer2d_world::scoped_rules::DeclareRulesExt::declare_rules).
 /// In a room that no game gave a rule, no brain sleeps.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DormancyRule {

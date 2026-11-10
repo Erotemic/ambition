@@ -449,7 +449,7 @@ fn player_box(app: &mut App) -> Vec2 {
         .iter(app.world())
         .next()
         .expect("gameplay has a primary player")
-        .size
+        .size()
 }
 
 fn player_on_ground(app: &mut App) -> bool {

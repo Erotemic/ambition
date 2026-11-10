@@ -5,7 +5,7 @@
 
 use ambition_demo_mary_o::MARY_O_MODE;
 use ambition_demo_mary_o_app::build_demo_app;
-use ambition_platformer2d::combat::scoped_rules::RulesScope;
+use ambition_platformer2d::world::scoped_rules::RulesScope;
 use ambition_platformer2d::platformer::schedule::SimScheduleExt;
 use ambition_platformer2d::runtime::RulesScopeSet;
 use bevy::ecs::schedule::graph::Direction;

@@ -362,7 +362,7 @@ ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-s
 ambition_audio = { path = "../ambition_audio" }
 ambition_platformer2d_assets = { path = "../ambition_platformer2d_assets" }
 # The two-game session fixture the per-room rule readers' tests share.
-ambition_combat = { path = "../ambition_combat", features = ["test-support"] }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world", features = ["test-support"] }
 # `test_item_catalog`: the shipped `items.ron` as a test fixture.
 ambition_items = { path = "../ambition_items", features = ["test-support"] }
 # The abilities carve took the shared spawn fixtures with it; the puppy-slug gun

@@ -1,7 +1,7 @@
 //! The rules that govern each live room: the reading of the declarations
 //! in [`crate::scoped_rules`], for the room a system or an entity is in.
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 
 use crate::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
 
@@ -10,10 +10,10 @@ use crate::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
 /// The one reading of the session for rule scopes. [`GoverningRules`] and the
 /// run conditions that gate a game's systems both read it, so a game's systems
 /// run exactly where its rules govern.
-#[derive(bevy::ecs::system::SystemParam)]
+#[derive(bevy_ecs::system::SystemParam)]
 pub struct CurrentRoom<'w, 's> {
     // The session's room set: a live room's mode is on its spec.
-    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, ambition_platformer2d_world::rooms::RoomSet>>,
+    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, crate::rooms::RoomSet>>,
     // Each room root, with the live room it is and the definition it seats.
     // One query: the run conditions of every game's systems fetch this each
     // frame, and a parameter costs on each fetch (F19).
@@ -22,7 +22,7 @@ pub struct CurrentRoom<'w, 's> {
         's,
         (
             Option<&'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-            Option<&'static ambition_platformer2d_world::rooms::LiveRoomDefinition>,
+            Option<&'static crate::rooms::LiveRoomDefinition>,
         ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
@@ -62,7 +62,7 @@ impl CurrentRoom<'_, '_> {
 
     /// A live room's reading from the definition its root seats; `NoRoom`
     /// with no definition or no room set.
-    fn mode_of(&self, definition: Option<&ambition_platformer2d_world::rooms::LiveRoomDefinition>) -> ActiveRoom<'_> {
+    fn mode_of(&self, definition: Option<&crate::rooms::LiveRoomDefinition>) -> ActiveRoom<'_> {
         match (self.rooms.as_ref(), definition) {
             (Some(rooms), Some(definition)) => ActiveRoom::live(rooms.spec(*definition).metadata.mode.as_deref()),
             _ => ActiveRoom::NoRoom,
@@ -75,9 +75,9 @@ impl CurrentRoom<'_, '_> {
 ///
 /// [`CurrentRoom`] reads THE live room, so with two live rooms it reads none,
 /// and a rule resolved from it is the rule of no room in both.
-#[derive(bevy::ecs::system::SystemParam)]
+#[derive(bevy_ecs::system::SystemParam)]
 pub struct LiveRuleRooms<'w, 's> {
-    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs<'w, 's>>,
+    rooms: Option<crate::rooms::LiveRoomSpecs<'w, 's>>,
 }
 
 impl LiveRuleRooms<'_, '_> {
@@ -111,7 +111,7 @@ impl LiveRuleRooms<'_, '_> {
 /// room is session state, so a rewind that restores the room restores the
 /// answer. A resolved-rules resource written each tick would be a second copy
 /// that rollback must also restore.
-#[derive(bevy::ecs::system::SystemParam)]
+#[derive(bevy_ecs::system::SystemParam)]
 pub struct GoverningRules<'w, 's, T: std::fmt::Debug + Send + Sync + 'static> {
     declared: Option<Res<'w, DeclaredRules<T>>>,
     room: CurrentRoom<'w, 's>,
@@ -149,7 +149,7 @@ impl GoverningRules<'_, '_, ambition_platformer2d_shared_tangle::capability::Use
 /// An entity in no live room (with two rooms live and no stamp) reads the
 /// rules of no room, as `CombatTuningOf` does. With no session, only a
 /// whole-process (`EveryRoom`) declaration governs, as before.
-#[derive(bevy::ecs::system::SystemParam)]
+#[derive(bevy_ecs::system::SystemParam)]
 pub struct RulesOf<'w, 's, T: std::fmt::Debug + Send + Sync + 'static> {
     rules: GoverningRules<'w, 's, T>,
     rooms: LiveRuleRooms<'w, 's>,

@@ -1377,6 +1377,7 @@ pub mod rollback;
 /// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
+    pub use ambition_platformer2d_world::{scoped_rules, governing_rules};
     /// A room's damaging volumes, as simulation state.
     pub use ambition_combat::hazard_runtime::HazardFeature;
     pub use ambition_platformer2d_physics_debris as physics;

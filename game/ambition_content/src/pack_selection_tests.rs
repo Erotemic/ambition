@@ -362,10 +362,10 @@ fn installed_in(app: &bevy::prelude::App, mover: &str, pack_cutscene_ids: &[Stri
         move_duration_s: duration_of(app, mover),
         items: world.resource::<ambition_items::ItemCatalog>().clone(),
         first_rung_ms: world
-            .resource::<ambition_combat::scoped_rules::DeclaredRules<
+            .resource::<ambition_platformer2d_world::scoped_rules::DeclaredRules<
                 ambition_characters::brain::fighter::FighterBrainLadder,
             >>()
-            .governing(ambition_combat::scoped_rules::ActiveRoom::Untagged)
+            .governing(ambition_platformer2d_world::scoped_rules::ActiveRoom::Untagged)
             .expect("Ambition declares a ladder for its own rooms")
             .level(1)
             .expect("a level 1")

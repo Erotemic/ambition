@@ -46,6 +46,7 @@ pub enum RoomFeatureConstructionError {
         room: String,
         id: String,
     },
+    UnavailableCapability { room: String, capability: &'static str },
     /// One typed construction lane could not be resolved into a valid plan.
     Construction(ambition_platformer2d_shared_tangle::construction::ConstructionError),
     /// Actor-lane parameters could not be resolved from content — for example
@@ -56,6 +57,7 @@ pub enum RoomFeatureConstructionError {
 impl std::fmt::Display for RoomFeatureConstructionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::UnavailableCapability { room, capability } => write!(f, "room `{room}` requires unavailable capability `{capability}`"),
             Self::Placement(error) => error.fmt(f),
             Self::ContentStaging(error) => error.fmt(f),
             Self::DuplicateAuthoritativeId { room, id } => write!(
@@ -148,6 +150,7 @@ pub struct OccurrenceContinuity<'a> {
 /// recipe table, and the content generation the plan is being prepared against.
 #[derive(Clone, Copy)]
 pub struct ActorConstructionContext<'a> {
+    pub construction_schemas: Option<&'a ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
     pub sprite_content: &'a ambition_sprite_sheet::SpriteContent,
     pub recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
     /// WHO EXISTS — the authored character catalog this construction resolves
@@ -235,6 +238,11 @@ pub struct ActorConstructionContext<'a> {
 }
 
 impl<'a> ActorConstructionContext<'a> {
+    pub fn with_construction_schemas(mut self, schemas: &'a ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog) -> Self {
+        self.construction_schemas = Some(schemas);
+        self
+    }
+
     pub fn new(sprite_content: &'a ambition_sprite_sheet::SpriteContent,
         recipes: &'a ambition_platformer2d_construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
@@ -246,6 +254,7 @@ impl<'a> ActorConstructionContext<'a> {
         content: ambition_platformer2d_shared_tangle::construction::ContentBinding,
     ) -> Self {
         Self {
+            construction_schemas: None,
             sprite_content,
             recipes,
             characters,
@@ -392,6 +401,7 @@ impl<'a> ActorConstructionContext<'a> {
     ) -> Self {
         let mut context = Self::new(mechanics.sprite_content(), recipes, characters, mechanics.sheets(), incoming);
         context.binding = expected_live;
+        context.construction_schemas = Some(mechanics.construction_schemas());
         context.prepared = mechanics.characters();
         context.brain_profiles = brain_profiles;
         context.continuity = continuity;
@@ -524,6 +534,12 @@ impl RoomFeatureConstructionPlan {
         // replaced.
         construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
+        #[cfg(not(feature = "portal"))]
+        if !room.portal_gun_spawns.is_empty() {
+            return Err(RoomFeatureConstructionError::UnavailableCapability {
+                room: room.id.clone(), capability: "portal gun",
+            });
+        }
         let paths = room_spec_paths(room);
         // ⭐ THE MEASUREMENT QUOTA IS SPENT HERE, AT PLAN TIME. A refused NPC
         // used to be refused by its lowering interpreter, after the plan had
@@ -876,6 +892,7 @@ impl RoomFeatureConstructionPlan {
             &outlook,
             &mut continuity_dependencies,
             &suppressed,
+            construction.construction_schemas,
         )
         .map_err(RoomFeatureConstructionError::Construction)?;
 

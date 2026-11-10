@@ -115,7 +115,7 @@ fn a_flight_into_a_narrow_edge_opening_reaches_it_on_both_sides() {
     let world = room(FLOOR - 1.0);
     let map = map_of(&world);
     for x in [0.0, world.size.x - 16.0] {
-        let zone = LoadingZone {
+        let zone = LoadingZone { presentation: Default::default(),
             id: "edge".into(), name: "edge".into(), activation: LoadingZoneActivation::Door,
             aabb: ae::Aabb { min: Vec2::new(x, FLOOR - 160.0), max: Vec2::new(x + 16.0, FLOOR) },
         };

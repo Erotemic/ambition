@@ -1587,6 +1587,7 @@ dependencies = [
  "ambition_extension_sdk",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_portal_port",
  "ambition_time",
  "bevy",

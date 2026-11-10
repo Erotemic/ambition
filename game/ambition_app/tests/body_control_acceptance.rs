@@ -5,7 +5,7 @@
 use ambition_app::{AmbitionSim, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::characters::action_scheme::{DrivenTechniques, ResolvedTechniqueEdges};
 use ambition_platformer2d::characters::control::{ActorControl, DrivingParticipant, PlayerSlot};
-use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
 use ambition_platformer2d::engine_core::ControlFrame;
 use ambition_platformer2d::entity_catalog::action_scheme::{
     ActionGate, ActionId, ActionSpec, ControlSlot,

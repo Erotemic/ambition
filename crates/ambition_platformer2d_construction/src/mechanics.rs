@@ -17,6 +17,8 @@
 /// it must accept an absent generation and skip its work.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct SessionMechanics {
+    /// The installed construction domains captured with this generation's identity.
+    pub construction_schemas: ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
     pub sprite_content: ambition_sprite_sheet::SpriteContent,
     // The prepared character cast is stored in `ActiveSessionCast`,
     // with the same lifetime as this resource. Read it through `SessionCast`.
@@ -42,6 +44,7 @@ pub struct SessionMechanics {
 /// either the mechanics or the active cast is absent. There is no
 /// fallback to process-global App registries.
 pub struct GenerationMechanics<'a> {
+    construction_schemas: &'a ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
     sprite_content: &'a ambition_sprite_sheet::SpriteContent,
     characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -57,6 +60,7 @@ impl<'a> GenerationMechanics<'a> {
         cast: &'a ambition_characters::prepared::ActiveSessionCast,
     ) -> Self {
         Self {
+            construction_schemas: &generation.construction_schemas,
             sprite_content: &generation.sprite_content,
             characters: cast.cast(),
             sheets: &generation.sheets,
@@ -75,6 +79,10 @@ impl<'a> GenerationMechanics<'a> {
         // Inserted and removed together; one without the other is a session
         // that lost half its generation, and it is refused like a lost whole.
         Some(Self::of(active?, cast?))
+    }
+
+    pub fn construction_schemas(&self) -> &'a ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog {
+        self.construction_schemas
     }
 
     pub fn sprite_content(&self) -> &'a ambition_sprite_sheet::SpriteContent { self.sprite_content }

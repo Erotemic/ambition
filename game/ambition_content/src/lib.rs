@@ -179,8 +179,8 @@ pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";
 /// the multi-game host each hosted game tags its rooms with its mode. A system
 /// that serves only Ambition's gameplay is added in this scope's set
 /// (`add_scoped_systems`), so it does no work while another game plays.
-pub const AMBITION_RULES: ambition_combat::scoped_rules::RulesScope =
-    ambition_combat::scoped_rules::RulesScope::UntaggedRooms;
+pub const AMBITION_RULES: ambition_platformer2d_world::scoped_rules::RulesScope =
+    ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms;
 
 /// The sandbox save file is Ambition's: the shell gives the live save to the
 /// experience with this id, so the two ids must be one.

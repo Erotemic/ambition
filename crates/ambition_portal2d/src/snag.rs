@@ -24,7 +24,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::{self as ae, AabbExt, BodyKinematics};
-use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
+use crate::rooms::PortalRooms;
 
 use crate::pieces::PortalAperture;
 use crate::rooms::PortalsByRoom;
@@ -208,7 +208,7 @@ pub fn snag_straddlers(
         Option<&PortalBackside>,
         Option<&ae::PoseOwnedExternally>,
     ), Without<ae::BodyInStorage>>,
-    live: LiveRooms,
+    live: PortalRooms,
 ) {
     let by_room = PortalsByRoom::collect(&portals, &live);
     if by_room.is_empty() {

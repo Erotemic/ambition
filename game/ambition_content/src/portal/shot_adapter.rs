@@ -37,6 +37,7 @@ pub fn portal_projectile_step(
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,
     mut sfx: ambition_sfx::SfxWriter,
+    live: ambition_portal2d::PortalRooms,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -50,6 +51,10 @@ pub fn portal_projectile_step(
     // Every placement this tick, decided before any of them is applied.
     let mut placements: Vec<Placement> = Vec::new();
     for (proj_entity, mut proj) in &mut projectiles {
+        if !live.allows(proj_entity) {
+            commands.entity(proj_entity).despawn();
+            continue;
+        }
         let Some(geometry) = world.of(proj_entity) else {
             continue;
         };

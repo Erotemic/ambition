@@ -64,6 +64,8 @@ Representative rules:
 - Human, brain, RL, and replay controllers converge on one actor-local
   action/body path.
 - Room/session entity creation uses lifecycle-scoped construction helpers.
+- The world domain owns scoped game rules and live room identity. Optional
+  mechanics read these rules through the world domain.
 - Tests do not widen production APIs or force app compilation into repository
   policy checks.
 - Process-global registries do not become hidden App/session authority.

@@ -6,7 +6,7 @@ use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::actor::{ActorFaction, BodyHealth};
 use ambition_platformer2d::combat::clank::AttacksClanked;
 use ambition_platformer2d::combat::rules::CombatRules;
-use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
 use ambition_platformer2d::engine_core::{BodyKinematics, Vec2};
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;

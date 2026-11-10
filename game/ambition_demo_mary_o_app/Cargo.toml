@@ -44,7 +44,7 @@ input = ["ambition_platformer2d/input"]
 # `wasm_modules`: a developer run loads the enemy brains from `.wasm` files
 # (`AMBITION_EXTENSION_MODULES`), so an enemy edit rebuilds only
 # `ambition_demo_mary_o_modules` and not this app.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["rollback", "ldtk", "ambition_render", "ambition_touch_input", "ambition_settings_menu"] }
 # The demo's own content + rules. The shell names nothing else.
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's
@@ -65,7 +65,7 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 ambition_demo_mary_o_modules = { path = "../ambition_demo_mary_o_modules" }
 
 # ONE aggregated integration-test binary instead of 11. See tests/mary_o_it.rs.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["test-support"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["test-support"] }
 
 [[test]]
 name = "mary_o_it"

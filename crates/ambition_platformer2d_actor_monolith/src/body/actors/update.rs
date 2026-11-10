@@ -1277,7 +1277,7 @@ fn integrate_actor_body(
 /// end, moving as the pair carries it. Its own entry is its whole box, first.
 pub fn snapshot_body_contact(
     marked: Query<(), With<ambition_platformer2d_core::movement::BodyContact>>,
-    rules: ambition_combat::governing_rules::RulesOf<ambition_platformer2d_core::movement::BodyContact>,
+    rules: ambition_platformer2d_world::governing_rules::RulesOf<ambition_platformer2d_core::movement::BodyContact>,
     mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
     bodies: Query<(
         bevy::prelude::Entity,

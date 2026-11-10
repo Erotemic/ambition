@@ -1369,7 +1369,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // which is why the resolution is a `SystemParam` that stores nothing rather than a derived
     // global.
     (
-        "ambition_combat::scoped_rules::DeclaredRules<",
+        "ambition_platformer2d_world::scoped_rules::DeclaredRules<",
         "authored rules stated at plugin build; the state they produce is registered per body. \
          The one runtime writer is the content reload restating a pack's rules (the fighter \
          ladder), which the publication boundary refuses while a timeline is live, so no tick \

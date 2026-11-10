@@ -3011,21 +3011,21 @@ fn pack_with_a_faster_first_rung() -> ambition_content_pack::PreparedContentPack
 }
 
 type Ladders =
-    ambition_combat::scoped_rules::DeclaredRules<ambition_characters::brain::fighter::FighterBrainLadder>;
+    ambition_platformer2d_world::scoped_rules::DeclaredRules<ambition_characters::brain::fighter::FighterBrainLadder>;
 
 /// The ladder that governs Ambition's rooms (the rooms with no mode tag), if
 /// any.
 fn ambitions_ladder(
     world: &bevy::ecs::world::World,
 ) -> Option<ambition_characters::brain::fighter::FighterBrainLadder> {
-    world.get_resource::<Ladders>()?.governing(ambition_combat::scoped_rules::ActiveRoom::Untagged).cloned()
+    world.get_resource::<Ladders>()?.governing(ambition_platformer2d_world::scoped_rules::ActiveRoom::Untagged).cloned()
 }
 
 /// Declare the shipped pack's ladder for every room, as the content plugin
 /// does at startup.
 fn declare_the_shipped_ladder(world: &mut bevy::ecs::world::World) {
     world.get_resource_or_insert_with(Ladders::default).restate(
-        ambition_combat::scoped_rules::RulesScope::EveryRoom,
+        ambition_platformer2d_world::scoped_rules::RulesScope::EveryRoom,
         Some(
             ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
                 crate::pack::shipped(),
@@ -4428,8 +4428,8 @@ fn pack_with_room_rules(edit: impl Fn(&str) -> String) -> ambition_content_pack:
 
 fn untagged<T: Clone + std::fmt::Debug + Send + Sync + 'static>(world: &bevy::ecs::world::World) -> Option<T> {
     world
-        .get_resource::<ambition_combat::scoped_rules::DeclaredRules<T>>()?
-        .governing(ambition_combat::scoped_rules::ActiveRoom::Untagged).cloned()
+        .get_resource::<ambition_platformer2d_world::scoped_rules::DeclaredRules<T>>()?
+        .governing(ambition_platformer2d_world::scoped_rules::ActiveRoom::Untagged).cloned()
 }
 
 fn reload_to(app: &mut bevy::app::App, candidate: ambition_content_pack::PreparedContentPack) {
@@ -4466,7 +4466,7 @@ fn host_with_the_shipped_room_rules() -> bevy::app::App {
     let mut app = host_with_the_shipped_cast();
     ambition_combat::room_rules::restate_room_rules(
         app.world_mut(),
-        ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+        ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
         ambition_combat::room_rules::lowered_room_rules(crate::pack::shipped()),
     );
     shell_active_on(&mut app, true);

@@ -80,7 +80,7 @@ fn compose_the_panes(
     views: Query<(Entity, &LocalViewId, Option<&ViewPlacement>), With<LocalView>>,
     panes: Query<Entity, With<TwinTrackPaneCamera>>,
 ) {
-    let live = room.in_scope(ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(
+    let live = room.in_scope(ambition_platformer2d::world::scoped_rules::RulesScope::Mode(
         TWINTRACK_EXPERIENCE,
     ));
     let mut seen: Vec<LocalViewId> = Vec::new();

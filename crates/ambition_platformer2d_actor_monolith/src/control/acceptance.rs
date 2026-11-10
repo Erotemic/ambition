@@ -68,7 +68,7 @@ pub fn gate_body_control(
     // The driven body also wears the techniques its own room's rules give it
     // (OW1: THE live room's rules were the rules of no room while two rooms
     // were live).
-    driven: ambition_combat::governing_rules::RulesOf<
+    driven: ambition_platformer2d_world::governing_rules::RulesOf<
         ambition_characters::action_scheme::DrivenTechniques,
     >,
     mut bodies: Query<(

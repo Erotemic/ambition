@@ -56,7 +56,6 @@ impl Plugin for SessionRoomVisualsPlugin {
                 crate::rendering::gate_portal_visuals::sync_portal_ring_animation,
                 crate::rendering::gate_portal_visuals::sync_ring_lit_glyphs
                     .after(crate::rendering::gate_portal_visuals::sync_portal_ring_animation),
-                crate::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
                 crate::rendering::gate_portal_visuals::sync_wormhole_destination_hue,
             )
                 .after(crate::rendering::present_live_room_visuals)

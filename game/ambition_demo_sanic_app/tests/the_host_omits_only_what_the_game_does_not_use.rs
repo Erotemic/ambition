@@ -1,7 +1,7 @@
 //! Sanic's host composes the engine for a profile, and the profile may
 //! leave out only what Sanic's rooms declare they do not use.
 
-use ambition_platformer2d::combat::scoped_rules::{ActiveRoom, DeclaredRules};
+use ambition_platformer2d::world::scoped_rules::{ActiveRoom, DeclaredRules};
 use ambition_platformer2d::platformer::capability::UsedCapabilities;
 use ambition_platformer2d::runtime::profile::CapabilityComposition as _;
 

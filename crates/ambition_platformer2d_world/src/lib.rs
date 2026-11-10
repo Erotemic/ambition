@@ -38,3 +38,6 @@ pub mod gated_lock_walls;
 
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;
+
+pub mod scoped_rules;
+pub mod governing_rules;

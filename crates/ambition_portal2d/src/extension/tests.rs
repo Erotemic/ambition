@@ -543,6 +543,12 @@ fn a_pair_that_closes_on_use_closes_once_a_body_comes_out() {
     came_out_at(&mut app, body, far_of(100.0) + ae::Vec2::new(0.0, 200.0));
     app.world_mut().run_schedule(Sim);
     assert_eq!(open_ends(&mut app).len(), 2, "a use elsewhere closed the pair");
+    let other_room = LiveRoomInstance::ACTIVATION.next();
+    app.world_mut().spawn((RoomInstanceRoot, other_room));
+    let other = app.world_mut().spawn(InRoomInstance(other_room)).id();
+    came_out_at(&mut app, other, far_of(100.0));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(open_ends(&mut app).len(), 2, "a transit in another room closed the pair");
     came_out_at(&mut app, body, far_of(100.0));
     app.world_mut().run_schedule(Sim);
     assert_eq!(open_ends(&mut app).len(), 0, "the used pair stayed open");

@@ -179,7 +179,7 @@ pub struct PortalFrames<'w, 's> {
         ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
+    live: ambition_portal2d::PortalRooms<'w, 's>,
 }
 
 impl PortalFrames<'_, '_> {

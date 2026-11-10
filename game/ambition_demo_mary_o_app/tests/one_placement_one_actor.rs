@@ -113,7 +113,7 @@ use ambition_platformer2d::actors::body::dormancy::Dormant;
     use ambition_platformer2d::characters::control::DrivingParticipant;
     use ambition_platformer2d::combat::components::EncounterMob;
     use ambition_platformer2d::actor::ActorFaction;
-    use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+    use ambition_platformer2d::world::scoped_rules::DeclaredRules;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::Mountable;
 
@@ -122,7 +122,7 @@ use ambition_platformer2d::actors::body::dormancy::Dormant;
     let rule = app
         .world()
         .get_resource::<DeclaredRules<DormancyRule>>()
-        .and_then(|rules| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))).copied())
+        .and_then(|rules| rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))).copied())
         .expect("Mary-O states a dormancy rule for her rooms");
     assert_eq!(rule.hostile_wake_radius, ambition_demo_mary_o::pack::room_rules().dormancy.expect("her rooms state a wake radius").hostile_wake_radius);
 

@@ -61,7 +61,7 @@ pub fn assess_dormancy(
     mut commands: Commands,
     // Each actor's own room's rule (OW1): with two rooms live, THE live
     // room's rule was the rule of no room, so no actor slept.
-    rule: ambition_combat::governing_rules::RulesOf<DormancyRule>,
+    rule: ambition_platformer2d_world::governing_rules::RulesOf<DormancyRule>,
     observers: Query<(Entity, &ae::BodyKinematics), With<ambition_characters::control::DrivingParticipant>>,
     mut actors: Query<(
         Entity,
@@ -173,7 +173,7 @@ mod tests {
 
     /// A standalone game's rule: these fixtures have no rooms.
     fn declare_rule(app: &mut App, radius: f32) {
-        use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+        use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
         app.declare_rules(
             RulesScope::EveryRoom,
             DormancyRule {
@@ -467,7 +467,7 @@ mod tests {
     /// With THE live room's rule, both rooms had none and every actor was awake.
     #[test]
     fn an_actor_sleeps_by_its_own_rooms_rule_and_observers() {
-        use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+        use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
         use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
         let mut app = App::new();
         app.declare_rules(
@@ -476,7 +476,7 @@ mod tests {
                 hostile_wake_radius: RADIUS,
             },
         );
-        let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
+        let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
         let stage = hall.next();
         app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(

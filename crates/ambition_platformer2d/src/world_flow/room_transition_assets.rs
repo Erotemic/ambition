@@ -2415,7 +2415,7 @@ mod tests {
             spec.loading_zones = doors
                 .iter()
                 .enumerate()
-                .map(|(at, other)| LoadingZone {
+                .map(|(at, other)| LoadingZone { presentation: Default::default(),
                     id: format!("to_{other}"),
                     name: format!("to_{other}"),
                     activation: LoadingZoneActivation::Door,

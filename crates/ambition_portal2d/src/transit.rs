@@ -205,7 +205,7 @@ pub fn publish_portal_carves(
     // of a body, and it asks the box the body has.
     bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>, Option<&PortalBackside>), Without<ae::BodyInStorage>>,
     transits: Query<(Entity, &PortalTransit), Without<ae::BodyInStorage>>,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    live: crate::rooms::PortalRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
     tuning: Option<Res<PortalTuning>>,
     mut carves: ResMut<PortalCarves>,
@@ -381,7 +381,7 @@ pub struct PortalBodyTransited {
 pub fn portal_transit(
     mut commands: Commands,
     portals: Query<(Entity, &PlacedPortal)>,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    live: crate::rooms::PortalRooms,
     mut bodies: Query<
         (
             Entity,
@@ -415,7 +415,7 @@ pub fn portal_transit(
     let by_room = PortalsByRoom::collect(&portals, &live);
 
     for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, mut roll, cooldown, record, backside, held, stored) in &mut bodies {
-        if stored {
+        if stored || !live.allows(entity) {
             commands.entity(entity).remove::<(PortalTransit, PortalBackside, PortalTransitCooldown)>();
             continue;
         }

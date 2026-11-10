@@ -2,7 +2,7 @@
 
 use ambition_platformer2d_core as ae;
 use bevy::ecs::system::SystemParam;
-use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
 use bevy::prelude::Entity;
 #[cfg(feature = "portal")]
 use bevy::prelude::{Res, Query};
@@ -15,7 +15,10 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     /// Which live room a shot and each thing it may reach are in (OW1 cut
     /// 4). Here and not a top-level parameter, for the reason the portals
     /// are.
-    live_rooms: LiveRooms<'w, 's>,
+    #[cfg(not(feature = "portal"))]
+    live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
+    #[cfg(feature = "portal")]
+    live_rooms: ambition_portal2d::PortalRooms<'w, 's>,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.
     #[cfg(feature = "portal")]

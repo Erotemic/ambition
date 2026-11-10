@@ -11,7 +11,7 @@ use ambition_platformer2d_world::rooms::*;
 use bevy::prelude::*;
 
 fn fixture(mode: PartyTravelMode, activation: LoadingZoneActivation) -> (App, [Entity; 2]) {
-    let zone = |id: &str, x| LoadingZone {
+    let zone = |id: &str, x| LoadingZone { presentation: Default::default(),
         id: id.into(), name: id.into(), activation,
         aabb: ae::Aabb::new(ae::Vec2::new(x, 100.0), ae::Vec2::splat(24.0)),
     };
@@ -165,7 +165,7 @@ fn the_same_exit_in_two_room_instances_cannot_form_an_agreement() {
 
 #[test]
 fn entry_animations_start_only_after_the_group_agrees() {
-    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
     use super::passage::{ZonePassage, ZonePassageRules};
     let (mut app, bodies) = fixture(PartyTravelMode::AllMembers, LoadingZoneActivation::Door);
     app.declare_rules(RulesScope::EveryRoom, ZonePassageRules);

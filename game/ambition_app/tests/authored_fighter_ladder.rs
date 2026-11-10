@@ -9,7 +9,7 @@
 use ambition_platformer2d::characters::actor::character_catalog::{BrainPreset};
 use ambition_platformer2d::character::brain_from_preset;
 use ambition_platformer2d::characters::brain::fighter::{FighterBrainLadder, FighterBrainProfile};
-use ambition_platformer2d::combat::scoped_rules::{ActiveRoom, DeclaredRules};
+use ambition_platformer2d::world::scoped_rules::{ActiveRoom, DeclaredRules};
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 
 /// The rung the smash roster's `duelist` actually ships on, and the one where the

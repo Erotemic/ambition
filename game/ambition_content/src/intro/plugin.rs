@@ -12,23 +12,12 @@ use bevy::prelude::*;
 
 
 
-/// The landing pad of the wake room: the zone the door of the hub arrives at.
-/// It names no target, so nothing leaves through it.
-pub const WAKE_ROOM_ARRIVAL_ZONE_ID: &str = "wake_room_arrival";
-
 pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
         // The flag chains the selected pack states (`data/flag_chains.ron`).
         super::route_state::register(app);
-        // The hub has a door to this room and this room has no door back: the
-        // zone a body arrives at is a place and not a door, so it has no
-        // picture.
-        {
-            use ambition_render::rendering::gate_portal_visuals::HiddenLoadingZonesAppExt;
-            app.hide_loading_zone(WAKE_ROOM_ARRIVAL_ZONE_ID);
-        }
         // The flag chains are not an installer. They re-derive a table from
         // the save every frame.
         //

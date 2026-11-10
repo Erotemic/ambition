@@ -5,7 +5,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
+use crate::rooms::PortalRooms;
 use ambition_platformer2d_shared_tangle::body::geometry::{BodyGeometry, MaterialBudget};
 
 use crate::rooms::PortalsByRoom;
@@ -29,22 +29,35 @@ fn linked_pairs_iter(portals:&[PlacedPortal]) -> impl Iterator<Item=(&PlacedPort
 
 /// Publish current apertures and occupancy before body integration.
 pub fn publish_portal_apertures(
+    mut commands: Commands,
+    portal_state: Query<Entity, Or<(
+        With<PortalTransit>, With<crate::PortalBackside>, With<crate::PortalTransitCooldown>,
+        With<crate::PortalEmission>, With<crate::PortalInputWarp>,
+    )>>,
     portals: Query<(Entity, &PlacedPortal)>,
     transits: Query<(Entity, &PortalTransit)>,
-    bodies: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
     own_policies: Query<(Entity, &MaterialBudget)>,
-    live: LiveRooms,
+    live: PortalRooms,
     tuning: Option<Res<PortalTuning>>,
     mut passages: ResMut<BodyGeometry>,
     // The rings last said, by room, so each is said once.
     mut rings_said: Local<Vec<(crate::rooms::PortalRoom, Vec<u32>)>>,
 ) {
+    // This publisher runs when the transit set sleeps. A disabled room must
+    // release its old portal state before body integration and input guards.
+    for body in &portal_state {
+        if !live.allows(body) {
+            commands.entity(body).remove::<(
+                PortalTransit, crate::PortalBackside, crate::PortalTransitCooldown,
+                crate::PortalEmission, crate::PortalInputWarp,
+            )>();
+        }
+    }
     let tuning = tuning.as_deref().copied().unwrap_or_default();
-    *passages = BodyGeometry::new(tuning.convention.map_convention()).with_default_budget(tuning.geometry.budget());
+    passages.reset_apertures(tuning.convention.map_convention(), tuning.geometry.budget());
     for (body, own) in &own_policies {
         passages.set_body_budget(body, own.0);
     }
-    write_materials(&mut passages, &bodies);
     let by_room = PortalsByRoom::collect(&portals, &live);
     let mut rings: Vec<(crate::rooms::PortalRoom, Vec<u32>)> = Vec::new();
     for (room, all) in by_room.rooms() {
@@ -76,11 +89,9 @@ pub fn publish_portal_apertures(
 pub fn publish_portal_passages(
     portals: Query<(Entity, &PlacedPortal)>,
     transits: Query<(Entity, &PortalTransit)>,
-    bodies: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
-    live: LiveRooms,
+    live: PortalRooms,
     mut passages: ResMut<BodyGeometry>,
 ) {
-    write_materials(&mut passages, &bodies);
     let by_room = PortalsByRoom::collect(&portals, &live);
     write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
 }
@@ -101,12 +112,86 @@ fn write_straddlers(
 }
 
 
-fn write_materials(
-    passages: &mut BodyGeometry,
-    bodies: &Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
-) {
-    passages.clear_materials();
-    for (body, kin, sweep) in bodies {
-        passages.set_body_material(body, kin.material_map(ae::SweepSample::down_or(sweep, ae::Vec2::Y)));
+#[cfg(test)]
+mod publication_measurements_tests;
+
+#[cfg(test)]
+mod capability_isolation_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::body::geometry::{publish_body_geometry_before_motion, publish_body_geometry_after_motion};
+    use ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission;
+    use ambition_platformer2d_shared_tangle::capability::{Capability, UsedCapabilities};
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    use ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session;
+    use ambition_platformer2d_world::scoped_rules::{DeclaredRules, RulesScope};
+
+    fn pose(poses: BodyPoseAdmission, mut bodies: Query<(Entity, &mut ae::BodyKinematics, &mut ae::SweepSample)>) {
+        for (entity, mut body, mut sweep) in &mut bodies {
+            let desired = ae::BodyKinematics { pos: Vec2::new(2.0, 0.0), ..*body };
+            let _ = poses.constrain(entity, &mut body, Some(&mut sweep), desired);
+        }
+    }
+
+    #[test]
+    fn publication_scopes_restrictions_and_clears_a_disabled_rooms_links() {
+        let mut app = App::new();
+        let first = two_game_session(&mut app, true);
+        let second = first.next();
+        let mut rules = DeclaredRules::<UsedCapabilities>::default();
+        rules.declare(RulesScope::UntaggedRooms, UsedCapabilities::ALL);
+        rules.declare(RulesScope::Mode("smash"), UsedCapabilities::ALL.without(Capability::Portals));
+        app.insert_resource(rules).init_resource::<BodyGeometry>();
+        app.add_message::<crate::PortalFireIntent>().add_message::<crate::PortalShotFired>();
+        app.add_systems(Update, (
+            crate::portal_fire_system, publish_body_geometry_before_motion, publish_portal_apertures, pose,
+            publish_body_geometry_after_motion, publish_portal_passages,
+        ).chain());
+        let mut owners = Vec::new();
+        for room in [first, second] {
+            app.world_mut().write_message(crate::PortalFireIntent {
+                origin: Vec2::ZERO, dir: Vec2::X,
+                channel: crate::PortalChannel::Gun(crate::PortalGunColor::BLUE),
+                id: None, room: Some(room),
+            });
+            for (channel, pos, normal) in [
+                (crate::PortalChannel::Gun(crate::PortalGunColor::BLUE), Vec2::ZERO, -Vec2::X),
+                (crate::PortalChannel::Gun(crate::PortalGunColor::ORANGE), Vec2::new(500.0,0.0), Vec2::X),
+            ] {
+                app.world_mut().spawn((PlacedPortal::fixed(channel, pos, normal, 80.0).unwrap(), InRoomInstance(room)));
+            }
+            let body = ae::BodyKinematics { pos: Vec2::new(-30.0,0.0), canonical_size: Vec2::splat(16.0), ..Default::default() };
+            owners.push(app.world_mut().spawn((body, ae::SweepSample::at_rest(body, Vec2::Y), InRoomInstance(room),
+                MaterialBudget(ae::frame::thread::PieceBudget { max_hops: 0, ..ae::frame::thread::PieceBudget::COMPOSED }))).id());
+        }
+        app.update();
+        let shots: Vec<_> = app.world_mut().query_filtered::<&InRoomInstance, With<crate::PortalShot>>().iter(app.world()).map(|room| room.0).collect();
+        assert_eq!(shots, vec![first]);
+        assert_eq!(app.world().get::<ae::BodyKinematics>(owners[0]).unwrap().pos, Vec2::new(-30.0,0.0));
+        assert_eq!(app.world().get::<ae::BodyKinematics>(owners[1]).unwrap().pos, Vec2::new(2.0,0.0));
+        let geometry = app.world().resource::<BodyGeometry>();
+        assert_eq!(geometry.links_in(Some(first)).len(), 2);
+        assert!(geometry.links_in(Some(second)).is_empty());
+        let channel = crate::PortalChannel::Gun(crate::PortalGunColor::BLUE);
+        app.world_mut().entity_mut(owners[0]).insert((
+            PortalTransit { straddling: channel, crossed: true },
+            crate::PortalBackside { channel },
+            crate::PortalTransitCooldown { pair: channel, remaining: 1.0 },
+            crate::PortalEmission { exit_normal: Vec2::X, timer: 1.0 },
+            crate::PortalInputWarp { n_in: Vec2::X, n_out: -Vec2::X, anchor: Vec2::X },
+        ));
+        let mut rules = DeclaredRules::<UsedCapabilities>::default();
+        rules.declare(RulesScope::EveryRoom, UsedCapabilities::ALL.without(Capability::Portals));
+        app.insert_resource(rules);
+        app.update();
+        let geometry = app.world().resource::<BodyGeometry>();
+        assert!(geometry.links_in(Some(first)).is_empty());
+        assert!(geometry.links_in(Some(second)).is_empty());
+        assert_eq!(app.world().get::<ae::BodyKinematics>(owners[0]).unwrap().pos, Vec2::new(2.0,0.0));
+        let body = app.world().entity(owners[0]);
+        assert!(!body.contains::<PortalTransit>());
+        assert!(!body.contains::<crate::PortalBackside>());
+        assert!(!body.contains::<crate::PortalTransitCooldown>());
+        assert!(!body.contains::<crate::PortalEmission>());
+        assert!(!body.contains::<crate::PortalInputWarp>());
     }
 }

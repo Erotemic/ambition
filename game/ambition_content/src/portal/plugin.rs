@@ -31,6 +31,9 @@ pub struct AmbitionPortalAdaptersPlugin;
 
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<ambition_portal2d::PortalGunPlugin>() {
+            app.add_plugins(ambition_portal2d::PortalGunPlugin);
+        }
         let sim = app.sim_schedule();
         // The consequences of a transit for the seat (the input guards, the
         // trace and trail notices, the turn-around) and for what the body

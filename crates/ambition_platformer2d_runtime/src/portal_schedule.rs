@@ -17,14 +17,14 @@ use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_portal2d::PortalSet;
 
-/// Adds `PortalPlugin` and places its sets in the sandbox schedule. Part of
+/// Adds portal simulation and places its sets in the simulation schedule. Part of
 /// [`crate::PlatformerEnginePlugins`] when the `portal` feature is on.
 pub struct PortalSchedulePlugin;
 
 impl Plugin for PortalSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        app.add_plugins(ambition_portal2d::PortalPlugin);
+        app.add_plugins(ambition_portal2d::PortalSimulationPlugin);
         // The consequences of a transit for the body a seat drives.
         app.add_message::<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>();
         app.add_systems(
@@ -164,39 +164,23 @@ impl Plugin for PortalSchedulePlugin {
     }
 }
 
-/// Keep portal construction capability and its schema installed by the same engine
-/// composition. The room planner's portal-gun lane is compile-time feature gated, while
-/// prepared-content fingerprinting reads runtime schema registration; `PortalSchedulePlugin`
-/// must therefore install the full `PortalPlugin`, not simulation alone.
 #[cfg(test)]
 mod tests {
     use super::PortalSchedulePlugin;
     use ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog;
 
-    /// One decision, two consequences. If this app can plan the portal-gun
-    /// construction lane — and it can, because this module only compiles under
-    /// the same feature — then the schema catalog must already know the domain.
     #[test]
-    fn installing_portal_simulation_also_installs_the_gun_capability_it_can_construct() {
+    fn simulation_only_has_no_gun_schema_and_the_gun_can_be_selected() {
         let mut app = bevy::prelude::App::new();
         app.add_plugins(PortalSchedulePlugin);
-
-        let catalog = app
-            .world()
-            .get_resource::<ConstructionSchemaCatalog>()
-            .expect(
-                "the portal composition contributed no construction schema at all, so the \
-                 assertion below could not have failed",
-            );
-        assert!(
-            catalog.contains_domain(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN),
-            "this composition compiles the portal-gun construction lane into room planning \
-             (the lane is `#[cfg(feature = \"portal\")]`, and so is this test) but installs \
-             no portal-gun capability, so prepared-content fingerprinting reports a world \
-             without guns while rooms still build authored gun pickups. If installing \
-             `PortalSimulationPlugin` alone is now a composition the engine wants, the lane \
-             needs a runtime capability token threaded into \
-             `ActorConstructionContext::for_live_room_construction` — see this module's header."
-        );
+        assert!(app.world().get_resource::<ConstructionSchemaCatalog>().is_none_or(|catalog|
+            !catalog.contains_domain(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN)));
+        app.add_plugins(ambition_portal2d::PortalGunPlugin);
+        let catalog = app.world().resource::<ConstructionSchemaCatalog>();
+        assert!(catalog.contains_domain(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN));
+        let dump = catalog.deterministic_dump();
+        let mut other = bevy::prelude::App::new();
+        other.add_plugins((PortalSchedulePlugin, ambition_portal2d::PortalGunPlugin));
+        assert_eq!(dump, other.world().resource::<ConstructionSchemaCatalog>().deterministic_dump());
     }
 }

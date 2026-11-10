@@ -738,6 +738,7 @@ impl PlatformerPreparation<'_> {
                 // published registry — see `candidate_cast_for`.
                 cast: ambition_characters::prepared::ActiveSessionCast(frozen_cast),
                 mechanical: SessionMechanics {
+                    construction_schemas: self.content_inputs.0.as_deref().cloned().unwrap_or_default(),
                     sprite_content: self.sprite_content.clone(),
                     sheets: self
                         .content_inputs
@@ -1037,6 +1038,8 @@ pub fn install_direct_session_root(
     let world = app.world();
     // The cast is folded at the barrier; see `freeze_direct_session_mechanics`.
     let mechanics = SessionMechanics {
+        construction_schemas: world.get_resource::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
+            .cloned().unwrap_or_default(),
         sprite_content: world.resource::<ambition_sprite_sheet::SpriteContent>().clone(),
         sheets: world
             .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()

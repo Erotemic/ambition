@@ -47,7 +47,6 @@ pub mod fade;
 pub mod feel;
 pub mod finish_zoom;
 pub mod footstool;
-pub mod governing_rules;
 pub mod guard;
 pub mod hand;
 pub mod hazard_runtime;
@@ -68,7 +67,6 @@ pub mod path_motion;
 #[cfg(feature = "content_pack")]
 pub mod room_rules;
 pub mod rules;
-pub mod scoped_rules;
 pub mod shot_birth;
 mod snapshot_impls;
 pub mod stale;
@@ -86,7 +84,6 @@ pub mod worn_kit;
 pub use components::*;
 pub use death_rules::{DeathInterlude, DeathRules, KillBeat, LevelReset, OutOfPlay};
 pub use events::*;
-pub use scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in
 // `ambition_platformer2d_shared_tangle::lifecycle` (ADR 0019).

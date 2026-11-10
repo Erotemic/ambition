@@ -6,7 +6,7 @@
 //! fighter's damage is percent, where 3 is a jab. So the engine has no
 //! threshold: a room whose game states none has no heavy hits.
 //!
-//! Declared with [`DeclareRulesExt`](crate::scoped_rules::DeclareRulesExt) like
+//! Declared with [`DeclareRulesExt`](ambition_platformer2d_world::scoped_rules::DeclareRulesExt) like
 //! every other per-game rule, and projected each tick into
 //! [`ResolvedCombatTuning::strike_weight`](crate::rules::ResolvedCombatTuning::strike_weight).
 //!

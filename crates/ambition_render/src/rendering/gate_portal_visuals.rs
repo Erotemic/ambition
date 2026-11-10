@@ -6,46 +6,10 @@
 use bevy::prelude::*;
 
 use super::actors::{draw_animator_frame, StanceSquash};
-use super::primitives::{LoadingZoneVisual, PortalSprite, PropVisual};
+use super::primitives::{PortalSprite, PropVisual};
 use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator};
 use ambition_time::PresentationTime;
 use ambition_platformer2d_world::rooms::{GatePortalPhase, GatePortalPhases, GatePortalRegistry};
-
-/// The loading zones a game draws no picture for, by zone id: a landing pad
-/// that is a place to arrive at and not a door (the wake room of the intro:
-/// the door of the hub is a one-way trip to it).
-#[derive(Resource, Default, Clone, Debug)]
-pub struct HiddenLoadingZones(pub std::collections::HashSet<String>);
-
-/// Register a zone with no picture from a content plugin's `build`.
-pub trait HiddenLoadingZonesAppExt {
-    fn hide_loading_zone(&mut self, zone_id: impl Into<String>) -> &mut Self;
-}
-
-impl HiddenLoadingZonesAppExt for App {
-    fn hide_loading_zone(&mut self, zone_id: impl Into<String>) -> &mut Self {
-        self.world_mut().get_resource_or_init::<HiddenLoadingZones>().0.insert(zone_id.into());
-        self
-    }
-}
-
-/// Hide the debug door-zone visual that `spawn_loading_zone` spawns for a
-/// LoadingZone registered as a portal. The gate sprites are the visual.
-///
-/// Runs each frame, so visuals re-spawned after a room reload are hidden
-/// too.
-pub fn hide_portal_loading_zone_visuals(
-    portals: Res<GatePortalRegistry>,
-    hidden: Option<Res<HiddenLoadingZones>>,
-    mut visuals: Query<(&LoadingZoneVisual, &mut Visibility)>,
-) {
-    for (visual, mut vis) in &mut visuals {
-        let no_picture = portals.is_portal(&visual.id) || hidden.as_ref().is_some_and(|hidden| hidden.0.contains(&visual.id));
-        if no_picture && *vis != Visibility::Hidden {
-            *vis = Visibility::Hidden;
-        }
-    }
-}
 
 /// Hide the portal sprite while its phase is `Off`; show it
 /// otherwise. Matches the prop entity by [`PropVisual::name`] against

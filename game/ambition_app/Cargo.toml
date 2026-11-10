@@ -103,6 +103,7 @@ visible_web_base = [
     "static_content",
     "portal",
     "portal_render",
+    "portal_ldtk",
     "bevy_ui_menu",
     # A SHELL HOST ROUTES; IT DOES NOT PAINT. `MinimalShellPlugins` adds
     # `BasicShellPresentationPlugin` only under this feature, so without it the browser composes a

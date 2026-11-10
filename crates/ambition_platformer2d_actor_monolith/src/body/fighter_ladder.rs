@@ -17,7 +17,7 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 /// content-generation commit and candidate adoption could apply a new
 /// ladder to fighters in the outgoing session.
 pub fn project_authored_fighter_ladder(
-    ladders: ambition_combat::governing_rules::RulesOf<ambition_characters::brain::fighter::FighterBrainLadder>,
+    ladders: ambition_platformer2d_world::governing_rules::RulesOf<ambition_characters::brain::fighter::FighterBrainLadder>,
     mut brains: bevy::prelude::Query<(bevy::prelude::Entity, &mut Brain)>,
 ) {
     // Resolve once for each room and borrow its declared ladder.
@@ -67,7 +67,7 @@ pub fn project_authored_fighter_ladder(
 mod ladder_projection_tests {
     use super::*;
     use ambition_characters::brain::fighter::FighterBrainLadder;
-    use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, RulesScope};
     use bevy::prelude::*;
 
     /// Two rungs that differ from the engine floor in the way the SHIPPED ladder
@@ -162,7 +162,7 @@ mod ladder_projection_tests {
             FighterBrainLadder::from_ron(&LADDER.replace("apm_cap: 60.0", "apm_cap: 30.0"))
                 .expect("the stage's ladder parses"),
         );
-        let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
+        let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
         app.add_systems(Update, project_authored_fighter_ladder);
         let in_hall = app.world_mut().spawn((fighter_brain(1), InRoomInstance(hall))).id();
         let on_stage = app.world_mut().spawn((fighter_brain(1), InRoomInstance(hall.next()))).id();

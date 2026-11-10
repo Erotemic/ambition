@@ -90,6 +90,15 @@ impl BodyGeometry {
         }
     }
 
+    /// Replace optional aperture restrictions without changing the body sample.
+    pub fn reset_apertures(&mut self, convention: MapConvention, budget: PieceBudget) {
+        self.convention = convention;
+        self.default_budget = budget;
+        self.bodies.clear();
+        self.rooms.clear();
+        self.straddling.clear();
+    }
+
     pub fn clear_materials(&mut self) { self.materials.clear(); }
 
     pub fn set_body_material(&mut self, body: Entity, material: Result<Sim2, NumericFault>) {
@@ -334,5 +343,32 @@ mod material_tests {
         geometry.clear_materials();
         assert_eq!(query(&geometry).unwrap_err().reason, RefusalReason::MissingMaterial);
         assert!(geometry.pieces(&shape, PartSource::World { owner: Some(body) }, Vec2::ZERO, None).is_ok());
+    }
+}
+
+/// Sample body material before motion. Optional mechanics do not own this map.
+pub fn publish_body_geometry_before_motion(
+    mut geometry: bevy::prelude::ResMut<BodyGeometry>,
+    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+) {
+    sample_body_material(&mut geometry, &bodies);
+}
+
+/// Refresh body material after chart transfers, before geometry consumers run.
+pub fn publish_body_geometry_after_motion(
+    mut geometry: bevy::prelude::ResMut<BodyGeometry>,
+    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+) {
+    sample_body_material(&mut geometry, &bodies);
+}
+
+fn sample_body_material(
+    geometry: &mut BodyGeometry,
+    bodies: &bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+) {
+    geometry.clear_materials();
+    for (body, kin, sweep) in bodies {
+        geometry.set_body_material(body, kin.material_map(
+            ambition_platformer2d_core::SweepSample::down_or(sweep, Vec2::Y)));
     }
 }

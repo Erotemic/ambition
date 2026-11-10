@@ -19,10 +19,11 @@ use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox, InBossConduct, I
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION};
 use ambition_extension_sdk::Phase;
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms, SessionCommands, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, SessionCommands, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_portal_port::{HeldPortalPairPort, LightLinePort, PortalEnd};
 use bevy::prelude::*;
+use crate::rooms::PortalRooms;
 
 use crate::{link_hash, PlacedPortal, PortalChannel, PortalChannelColor, PortalLink, PortalLook};
 
@@ -218,7 +219,7 @@ fn module_of(entry: &str) -> &str {
 fn lower_held_portal_pairs<L: LowersIn>(
     mut commands: SessionCommands,
     mut outbox: ResMut<ExtensionOutbox>,
-    live: LiveRooms,
+    live: PortalRooms,
     mut holders: Query<(Entity, &mut HeldPortalPairs)>,
     ids: Query<&SimId>,
     mut portals: Query<(Entity, &HeldPortalOf, &mut PlacedPortal, &mut PortalLook)>,
@@ -228,17 +229,18 @@ fn lower_held_portal_pairs<L: LowersIn>(
 ) {
     let submitted = outbox.drain::<HeldPortalPairPort>(&L::PHASE);
     let asked = |owner: Entity, r: &HeldPortalPairRecord| {
-        submitted.iter().any(|s| s.scope == owner && module_of(&s.entry) == &*r.module && s.value.slot == r.slot)
+        live.allows(owner) && submitted.iter().any(|s| s.scope == owner && module_of(&s.entry) == &*r.module && s.value.slot == r.slot)
     };
     // Where bodies came out this tick: a transit names its exit point, which
     // is the exit end's centroid, and not the end.
-    let exits: Vec<ae::Vec2> = transits.read().map(|transit| transit.transfer.exit.frame.origin).collect();
+    let exits: Vec<_> = transits.read().map(|transit| (live.of(transit.body), transit.transfer.exit.frame.origin)).collect();
     for (owner, mut held) in &mut holders {
         for record in held.0.iter_mut().filter(|r| r.phase == L::PHASE && r.closes_on_use && !r.spent) {
             let used = record.ends.iter().any(|end| {
                 portals.get(*end).is_ok_and(|(_, _, portal, _)| {
                     let reach = portal.opening_half_extent();
-                    exits.iter().any(|exit| {
+                    exits.iter().any(|(room, exit)| {
+                        if *room != live.of(owner) { return false; }
                         let offset = (*exit - portal.pos).abs();
                         offset.x <= reach.x && offset.y <= reach.y
                     })
@@ -293,6 +295,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
     let mut fizzled: Vec<(Entity, Arc<str>, u32)> = Vec::new();
     let mut new: Vec<(Entity, Vec<HeldPortalPairRecord>)> = Vec::new();
     for s in &submitted {
+        if !live.allows(s.scope) { continue; }
         let pair = &s.value;
         let prepared = match as_portals(&pair.ends) {
             Ok(prepared) => prepared,

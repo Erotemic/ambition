@@ -42,7 +42,7 @@ fn walled(app: &mut App) -> Vec<(String, Vec<Entity>)> {
 /// listed, and a door (pressed, not walked through) is no wall.
 #[test]
 fn an_edge_exit_is_a_wall_for_each_body_near_it_that_does_not_travel() {
-    let zone = |id: &str, x, activation| LoadingZone {
+    let zone = |id: &str, x, activation| LoadingZone { presentation: Default::default(),
         id: id.into(),
         name: id.into(),
         activation,

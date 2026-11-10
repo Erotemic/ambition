@@ -1,3 +1,4 @@
+use bevy_app::{App, Update};
 use super::*;
 use super::test_fixtures::*;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};

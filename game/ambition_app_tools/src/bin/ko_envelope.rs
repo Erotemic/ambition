@@ -599,11 +599,11 @@ impl KoProbe {
         if std::env::args().any(|a| a == "identity") {
             let amended = app
                 .world_mut()
-                .resource_mut::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<
+                .resource_mut::<ambition_platformer2d::world::scoped_rules::DeclaredRules<
                     ambition_platformer2d::combat::rules::CombatRules,
                 >>()
                 .amend(
-                    ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(
+                    ambition_platformer2d::world::scoped_rules::RulesScope::Mode(
                         ambition_demo_smash::SMASH_MODE,
                     ),
                     // `None` resolves to `GrowthBaseCurve::IDENTITY` — the law exactly

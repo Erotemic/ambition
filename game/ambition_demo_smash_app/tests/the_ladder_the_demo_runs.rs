@@ -18,9 +18,9 @@ fn the_demo_app_runs_its_fighters_on_smashs_ladder() {
     app.update();
     let declared = app
         .world()
-        .get_resource::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<FighterBrainLadder>>()
+        .get_resource::<ambition_platformer2d::world::scoped_rules::DeclaredRules<FighterBrainLadder>>()
         .and_then(|rules| {
-            rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::Mode(
+            rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::Mode(
                 ambition_demo_smash::SMASH_MODE,
             ))
         })

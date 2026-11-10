@@ -345,7 +345,7 @@ fn a_body_budget_overrides_the_room_budget() {
         app.insert_resource(PortalTuning { geometry, ..PortalTuning::default() });
         app.init_resource::<crate::PortalCarves>();
         app.init_resource::<BodyGeometry>();
-        app.add_systems(Update, (crate::publish_portal_apertures, crate::publish_portal_carves, crate::publish_portal_passages).chain());
+        app.add_systems(Update, (crate::publish_portal_apertures, crate::publish_portal_carves, ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_after_motion, crate::publish_portal_passages).chain());
         wall_pair(&mut app);
         let body = app
             .world_mut()

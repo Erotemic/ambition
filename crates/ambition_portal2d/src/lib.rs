@@ -92,7 +92,7 @@ pub use view::{
 };
 
 pub use plugin::{PortalGunPlugin, PortalPlugin, PortalSimulationPlugin};
-pub use rooms::{PortalHostDepthsByRoom, PortalRoom, PortalsByRoom};
+pub use rooms::{PortalHostDepthsByRoom, PortalRoom, PortalRooms, PortalsByRoom};
 pub use schedule::PortalSet;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.

@@ -1,8 +1,8 @@
 //! Game-scoped consequences of participant death (ADR 0033).
 //!
 //! The engine publishes the death fact; the owning game declares what follows
-//! with [`crate::scoped_rules::DeclareRulesExt::declare_rules`], and
-//! [`crate::scoped_rules::RulesScope`] selects which rooms a declaration governs, while
+//! with [`ambition_platformer2d_world::scoped_rules::DeclareRulesExt::declare_rules`], and
+//! [`ambition_platformer2d_world::scoped_rules::RulesScope`] selects which rooms a declaration governs, while
 //! [`DeathPolicy`](ambition_characters::actor::DeathPolicy) separately controls
 //! whether a body's full damage meter kills it. Level reset is roster-level
 //! policy through [`LevelReset`], not a consequence attached to one participant.
@@ -10,8 +10,8 @@
 use bevy::prelude::*;
 
 /// One game's death rules, declared in a
-/// [`DeclaredRules`](crate::scoped_rules::DeclaredRules) under the
-/// [`RulesScope`](crate::scoped_rules::RulesScope) it governs. Unclaimed rooms
+/// [`DeclaredRules`](ambition_platformer2d_world::scoped_rules::DeclaredRules) under the
+/// [`RulesScope`](ambition_platformer2d_world::scoped_rules::RulesScope) it governs. Unclaimed rooms
 /// use [`DeathRules::default`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DeathRules {
@@ -30,7 +30,7 @@ pub struct DeathRules {
 }
 
 /// What a kill does to the world in one game's rooms, declared in a
-/// [`DeclaredRules`](crate::scoped_rules::DeclaredRules): the world holds still
+/// [`DeclaredRules`](ambition_platformer2d_world::scoped_rules::DeclaredRules): the world holds still
 /// `freeze_s` past the blow (the impact freeze) and the screen shakes
 /// `shake_px`. A game that declares none has no kill beat.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]

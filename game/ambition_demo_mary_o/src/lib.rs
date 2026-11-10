@@ -1368,21 +1368,21 @@ impl Default for MaryOLevelState {
 pub struct MaryORulesPlugin {
     /// The rooms these rules govern. The declared rules and every system are
     /// gated by this one value.
-    scope: ambition_platformer2d::combat::scoped_rules::RulesScope,
+    scope: ambition_platformer2d::world::scoped_rules::RulesScope,
 }
 
 impl MaryORulesPlugin {
     /// Ambition hosts this demo: every rule sleeps outside Mary-O's rooms.
     pub fn hosted() -> Self {
         Self {
-            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(MARY_O_MODE),
+            scope: ambition_platformer2d::world::scoped_rules::RulesScope::Mode(MARY_O_MODE),
         }
     }
 
     /// The demo IS the game: the rules run unconditionally.
     pub fn global() -> Self {
         Self {
-            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::EveryRoom,
+            scope: ambition_platformer2d::world::scoped_rules::RulesScope::EveryRoom,
         }
     }
 }
@@ -1458,7 +1458,7 @@ impl Plugin for MaryORulesPlugin {
         // control frame, and `run_snake_shells` writes the body's velocity on a
         // different channel.
         {
-            use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+            use ambition_platformer2d::world::scoped_rules::DeclareRulesExt as _;
             let scope = self.scope;
             // Her death replay is the pack's (`assets/data/room_rules.ron`).
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules());

@@ -116,7 +116,7 @@ pub fn charge_projectile_input(
     // A refused press says why (`Q33`), as the action road's refusal does.
     mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
     // How the fireball flies in the firer's room: each game states its own.
-    fireball_flight: ambition_combat::governing_rules::RulesOf<ambition_projectiles::FireballFlight,
+    fireball_flight: ambition_platformer2d_world::governing_rules::RulesOf<ambition_projectiles::FireballFlight,
     >,
 ) {
     // Sim clock: spawner pacing freezes in bullet-time alongside the world.

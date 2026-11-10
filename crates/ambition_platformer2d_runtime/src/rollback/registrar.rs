@@ -361,6 +361,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::ENTITY_MAPPING.kind,
             spelling::ENTITY_MAPPING.detail);
+        super::room_snapshot::record_map_row::<T>(self.app, name);
         self
     }
 

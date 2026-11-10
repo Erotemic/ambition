@@ -63,6 +63,10 @@ const WAIVED: &[(&str, &str)] = &[
     // them from worn equipment and the controlled subject, which are rewound.
     // The edges the gate routes are a separate, derived row.
     (
+        "ambition_platformer2d_actor_monolith::body::life::LifeBook",
+        "the authored NPC lives (domains, schedules, holds): prepared content, published at build and by a content reload's publication, which stops and rebases the local timeline, so no rewind crosses a change; the simulation only reads it",
+    ),
+    (
         "ambition_platformer2d_ldtk::bevy_runtime::asset::LdtkRuntimeIndex",
         "the LDtk project's area table (levels and bounds per area): prepared content, written only by a content authority in `Update` (activation, hot reload) under the same restart as `ActiveContentBinding`, so no rewind crosses a change. The active area is `RoomSet`'s, which is registered",
     ),
@@ -1741,6 +1745,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "::rollback::registry::RollbackRegistry",
         "the registration contract itself",
+    ),
+    (
+        "::rollback::room_snapshot::RoomSnapshotRows",
+        "each registered row's room save and restore: filled at App build, never advanced in a frame",
     ),
     (
         "::lifecycle::session_messages::SessionMessageChannels",

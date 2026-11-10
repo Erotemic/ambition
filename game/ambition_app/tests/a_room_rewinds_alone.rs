@@ -92,9 +92,39 @@ fn differences(label: &str, expected: &BTreeMap<SimId, [f32; 5]>, got: &BTreeMap
     out
 }
 
-/// Rewind the hub to N and replay it, hiding Bob's room for the replay when
-/// `hide_the_lab`. Returns what differs from the first run.
-fn rewind_the_hub(hide_the_lab: bool) -> Vec<String> {
+/// Alice walks and attacks every fifteen frames: what the first witness
+/// avoided.
+fn alices_fight(frame: i32) -> ControlFrame {
+    ControlFrame {
+        attack_pressed: frame % 15 == 5,
+        attack_held: frame % 15 >= 5 && frame % 15 < 9,
+        ..alices_walk(frame)
+    }
+}
+
+/// What an entity is, independent of its `Entity` id: its `SimId`, else the
+/// rows it carries.
+fn describe(world: &World, rows: &RoomSnapshotRows, entity: Entity) -> String {
+    match world.get::<SimId>(entity) {
+        Some(id) => format!("{id:?}"),
+        None => format!("{:?}", rows.carried(world, &[entity]).into_iter().take(6).collect::<Vec<_>>()),
+    }
+}
+
+/// The room's entities, described, sorted: two runs that built the same
+/// entities give the same list whatever ids the entities got.
+fn census(world: &World, rows: &RoomSnapshotRows, entities: &[Entity]) -> Vec<String> {
+    let mut out: Vec<String> = entities.iter().map(|entity| describe(world, rows, *entity)).collect();
+    out.sort();
+    out
+}
+
+/// Rewind the hub to N and replay it, Alice driven by `alice`, hiding Bob's
+/// room for the replay when `hide_the_lab`. Returns what differs from the
+/// first run. Without `spawns_reported`, an entity spawned in or taken from
+/// the hub in the window fails the premise; with it, it is printed, and the
+/// replay has to build the same entities again.
+fn rewind_the_hub(hide_the_lab: bool, alice: fn(i32) -> ControlFrame, spawns_reported: bool) -> Vec<String> {
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(ROOM)).expect("the room boots");
     bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     alice_on_the_hub_door(&mut sim);
@@ -110,7 +140,7 @@ fn rewind_the_hub(hide_the_lab: bool) -> Vec<String> {
     // Frame N: save the hub and the clock.
     let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
     let hub_entities = of_room(sim.world_mut(), hub);
-    let saved = rows.save(sim.world(), &hub_entities);
+    let mut saved = rows.save(sim.world(), &hub_entities);
     let at_n = clock(sim.world());
     let hub_at_n = bodies(&mut sim, Some(hub));
     let lab_at_n = bodies(&mut sim, Some(lab));
@@ -118,7 +148,7 @@ fn rewind_the_hub(hide_the_lab: bool) -> Vec<String> {
 
     // Both rooms run on.
     for frame in 1..=WINDOW {
-        sim.drive_seat(0, alices_walk(frame));
+        sim.drive_seat(0, alice(frame));
         sim.drive_seat(1, bobs_walk(frame));
         sim.app_mut().update();
     }
@@ -128,18 +158,29 @@ fn rewind_the_hub(hide_the_lab: bool) -> Vec<String> {
     assert_ne!(hub_at_n, hub_at_end, "premise: the hub changed in the window");
     assert_ne!(lab_at_n, lab_at_end, "premise: Bob's room changed in the window");
     let hub_entities_at_end = of_room(sim.world_mut(), hub);
-    assert_eq!(hub_entities_at_end, hub_entities, "premise: no entity was spawned in or taken from the hub in the window");
+    let first_census = census(sim.world(), &rows, &hub_entities_at_end);
+    let mut spawned_or_gone = Vec::new();
+    for entity in hub_entities_at_end.iter().filter(|entity| !hub_entities.contains(entity)) {
+        spawned_or_gone.push(format!("spawned in the window: {entity:?} {}", describe(sim.world(), &rows, *entity)));
+    }
+    for entity in hub_entities.iter().filter(|entity| !hub_entities_at_end.contains(entity)) {
+        spawned_or_gone.push(format!("gone in the window: {entity:?}"));
+    }
+    if !spawns_reported {
+        assert!(spawned_or_gone.is_empty(), "premise: no entity was spawned in or taken from the hub in the window: {spawned_or_gone:?}");
+    }
 
     // The hub alone goes back to N and replays; Bob's room is hidden.
     let hidden = if hide_the_lab { of_room(sim.world_mut(), lab) } else { Vec::new() };
     for entity in &hidden {
         sim.world_mut().entity_mut(*entity).insert(Disabled);
     }
-    rows.restore(sim.world_mut(), &saved);
+    let restored = rows.restore(sim.world_mut(), &mut saved, &hub_entities_at_end);
+    println!("[rewind] the restore despawned {} and re-created {}", restored.despawned.len(), restored.recreated.len());
     set_clock(sim.world_mut(), at_n);
     assert_eq!(bodies(&mut sim, Some(hub)), hub_at_n, "premise: the restore put the hub back at N");
     for frame in 1..=WINDOW {
-        sim.drive_seat(0, alices_walk(frame));
+        sim.drive_seat(0, alice(frame));
         sim.drive_seat(1, ControlFrame::default());
         sim.app_mut().update();
     }
@@ -149,7 +190,24 @@ fn rewind_the_hub(hide_the_lab: bool) -> Vec<String> {
     let replayed = clock(sim.world());
     sim.world_mut().insert_resource(rows);
 
-    let mut wrong = differences("hub", &hub_at_end, &bodies(&mut sim, Some(hub)));
+    for line in &spawned_or_gone {
+        println!("[rewind] {line}");
+    }
+    let mut wrong = Vec::new();
+    let after_replay = of_room(sim.world_mut(), hub);
+    let replayed_census = census(sim.world(), sim.world().resource::<RoomSnapshotRows>(), &after_replay);
+    if replayed_census != first_census {
+        for line in replayed_census.iter().filter(|line| !first_census.contains(line)) {
+            wrong.push(format!("in the hub after the replay only: {line}"));
+        }
+        for line in first_census.iter().filter(|line| !replayed_census.contains(line)) {
+            wrong.push(format!("in the hub after the first run only: {line}"));
+        }
+        if replayed_census.len() != first_census.len() {
+            wrong.push(format!("the hub holds {} entities after the first run, {} after the replay", first_census.len(), replayed_census.len()));
+        }
+    }
+    wrong.extend(differences("hub", &hub_at_end, &bodies(&mut sim, Some(hub))));
     wrong.extend(differences("lab", &lab_at_end, &bodies(&mut sim, Some(lab))));
     if replayed.0 != at_end.0 {
         wrong.push(format!("clock: tick {:?} after the first run, {:?} after the replay", at_end.0, replayed.0));
@@ -162,15 +220,26 @@ fn rewind_the_hub(hide_the_lab: bool) -> Vec<String> {
 
 #[test]
 fn a_room_rewinds_and_replays_while_the_other_room_keeps_its_state() {
-    let wrong = rewind_the_hub(true);
+    let wrong = rewind_the_hub(true, alices_walk, false);
     assert!(wrong.is_empty(), "the replayed hub or the hidden room differs: {} differences", wrong.len());
 }
 
 /// The control: the same replay with Bob's room left in the world runs Bob's
 /// room on (his seat is idle in the replay), so hiding it is what keeps it.
+/// Run it beside the witness when the rewind changes; it is not a suite member.
 #[test]
+#[ignore = "control for the witness above; run with --ignored when the rewind changes"]
 fn without_hiding_the_other_room_the_replay_moves_it_too() {
-    let wrong = rewind_the_hub(false);
+    let wrong = rewind_the_hub(false, alices_walk, false);
     assert!(wrong.iter().any(|line| line.starts_with("lab ")), "the replay left Bob's room as it was although it ran: {wrong:?}");
     assert!(!wrong.iter().any(|line| line.starts_with("hub ")), "the hub replayed differently: {wrong:?}");
+}
+
+/// ISL-2c probe: the same rewind with Alice attacking. Prints what the replay
+/// could not keep; a measurement until the snapshot spawns and despawns.
+#[test]
+#[ignore = "probe: prints what an attack in the window breaks; run with --ignored --nocapture"]
+fn probe_a_rewind_with_an_attack_in_the_window() {
+    let wrong = rewind_the_hub(true, alices_fight, true);
+    println!("[rewind] {} differences with an attack in the window", wrong.len());
 }

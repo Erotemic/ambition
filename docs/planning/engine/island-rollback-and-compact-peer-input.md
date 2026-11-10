@@ -65,7 +65,7 @@ The input shrank by 52%, and the link traffic barely moved. GGRS XORs each input
 ## ISL-1 result (2026-11-10): what has a room
 
 Fixture: `game/ambition_app/tests/room_rollback_census.rs`,
-`which_rollback_state_belongs_to_one_room` (ignored; a measurement). Run:
+`probe_which_rollback_state_belongs_to_one_room` (ignored; a measurement). Run:
 
 ```
 cargo test -p ambition_app --test app_it --no-run
@@ -183,15 +183,26 @@ conversation); room-keyed resources are not saved; the replay re-runs systems
 that write committed-world resources (the save, the lives ledger) with nothing
 to stop a replayed write from landing twice.
 
+### ISL-2c, started (2026-11-10): spawn and despawn across the snapshot
+
+`RoomSnapshotRows::restore` now takes the room's entities at the restore:
+one spawned after the save is despawned, a saved one that is gone is spawned
+again, and the references the room's components hold to it are rewritten
+through the registered entity-mapping rows (`record_map_row`, recorded by both
+registrars; resource mappings are not). Unit-tested in the owner module. The
+probe `probe_a_rewind_with_an_attack_in_the_window` (ignored) replays the hub
+with Alice attacking every fifteen frames: nothing was spawned and the replay
+had no difference. The probe does not check that a swing ran or hit anything,
+so it is weak evidence about attacks.
+
 ### Next (ISL-2c and ISL-1b)
 
-1. **ISL-2c — the witness under load.** Same shape, with what this one
-   avoided, each added only with the mechanism it needs: an attack and a
-   projectile (spawn and despawn across the snapshot; entities keep their
-   `SimId`, so a re-created one maps by id), an NPC life that writes the
-   ledger (committed-world writes are refused or deferred during a replay),
-   and a connect (hitstop: ISL-1b below). A failure of the witness names the
-   state that could not be kept to one room.
+1. **ISL-2c — the witness under load.** A window where something is spawned
+   (a projectile from a ranged attack, a hit on an NPC), an NPC life that
+   writes the ledger (committed-world writes are refused or deferred during a
+   replay), and a connect (hitstop: ISL-1b below). A failure of the witness
+   names the state that could not be kept to one room. These run as probes or
+   one suite witness each, not a matrix.
 2. **ISL-1b — remove the couplings.** One change per coupling resource, each
    with a witness that an event in one room leaves another room's state
    unchanged: hitstop scoped to the room of the connect, projectile ids

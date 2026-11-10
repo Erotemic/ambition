@@ -1090,6 +1090,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + bevy::ecs::entity::MapEntities,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_map_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(

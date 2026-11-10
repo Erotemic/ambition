@@ -54,7 +54,7 @@ enum Place {
 
 #[test]
 #[ignore = "measurement: prints which rollback state has a room; run with --ignored --nocapture --test-threads=1"]
-fn which_rollback_state_belongs_to_one_room() {
+fn probe_which_rollback_state_belongs_to_one_room() {
     println!("\n[census] === plain host (no rollback session)");
     census(fixed_60hz_room_options(ROOM));
     // The control: under a rollback session `Rollback` marks what the snapshot
@@ -229,7 +229,7 @@ fn room_snapshots(sim: &mut Platformer2dSimHarness, rooms: [(&str, LiveRoomInsta
             .collect();
 
         // Premise: a restore puts a changed value back.
-        let snapshot = rows.save(world, &entities);
+        let mut snapshot = rows.save(world, &entities);
         let body = entities
             .iter()
             .copied()
@@ -237,7 +237,7 @@ fn room_snapshots(sim: &mut Platformer2dSimHarness, rooms: [(&str, LiveRoomInsta
             .expect("the room has a body");
         let before = world.get::<BodyKinematics>(body).expect("a body").pos;
         world.get_mut::<BodyKinematics>(body).expect("a body").pos.x += 100.0;
-        rows.restore(world, &snapshot);
+        rows.restore(world, &mut snapshot, &entities);
         assert_eq!(world.get::<BodyKinematics>(body).expect("a body").pos, before, "{label}: the restore did not put the body back");
 
         let runs = 60;
@@ -249,7 +249,7 @@ fn room_snapshots(sim: &mut Platformer2dSimHarness, rooms: [(&str, LiveRoomInsta
         let save_ms = start.elapsed().as_secs_f64() * 1e3 / f64::from(runs);
         let start = Instant::now();
         for _ in 0..runs {
-            rows.restore(world, &snapshot);
+            rows.restore(world, &mut snapshot, &entities);
         }
         let restore_ms = start.elapsed().as_secs_f64() * 1e3 / f64::from(runs);
         println!(

@@ -1,7 +1,7 @@
 # Simulation islands and compact peer input
 
-**Status:** compact GGRS input is done (NET-INPUT-WIDTH, 2026-11-10: 80 bytes per handle at wire identity 9); independently rewindable GGRS islands are a **deferred implementation branch** until the [host-authority comparison](hosted-world-networking-experiment.md) selects a topology. The active-area/loading-zone physical boundary remains useful for either topology.
-**Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) determines the flagship model; [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) (done) compacted the current GGRS hot path; [conditional SIMULATION-ISLANDS](../tracks.md#conditional-ggrs-island-rollback) retains ISL-1–ISL-4 for a customer that actually needs distributed GGRS histories.
+**Status:** compact GGRS input is done (NET-INPUT-WIDTH, 2026-11-10: 80 bytes per handle at wire identity 9). **Direction set 2026-11-10** ([decision](../maintainer-decisions.md)): the Ambition metroidvania moves away from App-wide rollback toward a hybrid model; rollback stays inside a room boundary (one live room instance is the island) while that is easy to maintain, and its room-level cost is measured before more is built on it. SIMULATION-ISLANDS is selected work under that direction; ISL-1 is [measured](#isl-1-result-2026-11-10-what-has-a-room). The Smash demo keeps its single rollback domain.
+**Execution:** [SIMULATION-ISLANDS](../queue.md#simulation-islands--room-level-rollback-inside-a-hybrid-world) (selected 2026-11-10); [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) builds the hosted half; [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) (done) compacted the current GGRS hot path.
 **Owners:** [netcode](netcode.md), [peer room commits](peer-room-commit-protocol.md), [open-world residency](open-world-runtime-and-residency.md), [simulation authority](simulation-authority-and-determinism.md), [multiplayer/multiview](multiplayer-and-multiview.md).
 
 ## Why this work was selected, and what it measured
@@ -50,7 +50,7 @@ The input shrank by 52%, and the link traffic barely moved. GGRS XORs each input
 
 ## SIMULATION-ISLANDS: independently rewindable active areas
 
-**Conditional; not selected for implementation until the backend decision.** The physical active-area boundary and committed transfer principles in the section above are backend-independent; the following ISL-1–ISL-4 prescribe a **specific GGRS island-history backend** only.
+**Selected 2026-11-10, inside a hybrid model.** The world outside a room (the save, quests, NPC lives, travel between rooms) moves toward hosted authority ([experiment](hosted-world-networking-experiment.md)); speculative rollback stays inside one live room while that is cheap. ISL-2 and ISL-4 below were written for distributed GGRS histories; read them as "a rollback history per room", whichever transport carries its inputs. Each step reports its cost against the App-wide baseline, because the decision to keep room-level rollback is a measured one.
 
 **ISL-1 — Scope and causal census.** Inventory every rollback-registered resource, event, entity, physics query, input owner and confirmed-effect producer that can affect two active areas. Classify as island-owned, committed-world-owned, or presentation/host-owned. Demonstrate that cross-area collision, projectile contact, timed environment effects, and direct writes cannot silently bypass an island boundary. Keep the existing `activeArea` level stitching intact, including continuous projectile transit across a seam within one composed runtime room.
 
@@ -62,10 +62,96 @@ The input shrank by 52%, and the link traffic barely moved. GGRS XORs each input
 
 **Acceptance:** two distinct active areas and at least one stitched multi-LDtk active area pass continuous-versus-isolated physics witnesses; rewinding one populated island cannot rewind another or revoke committed world facts. A local or peer-driven loading-zone crossing transfers a controlled body, equipment and persistence exactly once and the destination becomes the only authority. A live portal within one island still supports continuous projectile/body interaction; authoring a live portal whose endpoints lie in different islands yields a clear deterministic refusal. Per-island P2P input subscriptions demonstrably omit unrelated island input streams. Whole-session checkpoint and forced rebuild remain separately correct, with measured cost rather than asserted zero overhead.
 
+## ISL-1 result (2026-11-10): what has a room
+
+Fixture: `game/ambition_app/tests/room_rollback_census.rs`,
+`which_rollback_state_belongs_to_one_room` (ignored; a measurement). Run:
+
+```
+cargo test -p ambition_app --test app_it --no-run
+RUSTC_BOOTSTRAP=1 target/debug/deps/app_it-<hash> room_rollback_census --ignored --nocapture --test-threads=1
+```
+
+Scene: two live rooms. Alice crossed to `central_hub_complex`, and Bob stayed
+in `switch_lab`. The census runs once on a plain host and once under a
+sync-test rollback session (the control: there `bevy_ggrs::Rollback` marks
+exactly what the snapshot takes). Population: every entity carrying a
+component of a registered rollback row (298 component rows at schema 440),
+grouped by `InRoomInstance`.
+
+**Entities: the snapshot already partitions by room.**
+
+| Where | Entities |
+|---|---|
+| hub (Alice) | 22 |
+| `switch_lab` (Bob) | 2 |
+| no room | 4 |
+
+The control agrees: under the rollback session 28 entities carry `Rollback`,
+and none carries it without a registered row. Of the four roomless entities, two
+are the live room roots (each *is* its room: `root.room_instance` names it),
+one is the session root (25 rows of session and checkpoint bookkeeping:
+custody and occurrence baselines, checkpoint operations, party travel, room
+preparation), and one is a boss encounter (`encounter.*`, session-scoped). Of
+the 298 component rows, 92 occur only on room entities, 30 only on the four
+roomless ones, 4 on both (`entity.sim_id`, `entity.name`, `scope.session`,
+`body.sim_id_counter`: identity, which travels with its entity), and **172 on
+no entity in this scene**.
+
+**Cost: the snapshot is paid per registered type, not per room or body.** One
+`SaveWorld` run under the session takes **16.1 ms over 1,201 systems for 28
+entities** (debug build). That agrees with NA-1 (16–17 ms with 2 bodies or 18).
+Almost all of it is per-type dispatch, so room-level rollback built from the
+same per-type `bevy_ggrs` systems would pay that fixed cost **once per room
+history per simulated frame**: room-level rollback is only cheap with a snapshot
+whose cost follows the room's entities. The 172 empty rows are the measure of
+that waste today (58% of the component rows in an ordinary two-room scene).
+
+**Resources and messages: where rooms are coupled.** The 46 rollback resources
+have no entity, so the census cannot place them. From their owners:
+
+| Owner class | Resources | What room-level rollback needs |
+|---|---|---|
+| Keyed by live room already | `BaseGravity` (turned rooms), `PortalFrameHistory` (per room and channel), `GatePortalPhases` (per portal), Mary-O `BrokenBricks` / `SpentPowerBlocks`, Sanic `SpentMonitors` (`PerLiveRoom`) | Partition by key; no design change. |
+| Keyed by body or participant | `PendingPlayerHitEvents`, `PossessionState`, `SlotInteractionState` (and their entity mappings) | Partition by the body's or participant's room. |
+| Shared world clock | `SimTick`, `WorldTime`, `DayClock`, `ClockState` (its tick), `RegimePolicy`, `RequestedClockScale` | One logical clock (ADR 0037); a room's rewind reads it and must not write it. |
+| **Couplings: one room's event reaches every room** | `ImpactHitstop` (a connect, a death beat or a boss beat anywhere freezes the shared clock), the scale in `ClockState` (requested from Player 1's body: their hitstop or bullet-time slows every room), `ProjectileSeqCounter` (one projectile id sequence for all rooms), `ActiveConversation`, `ActiveCutscene` / `CutsceneSkipHold` (one each per world) | Must become per room (or per participant) before a room rewinds alone. |
+| Committed world (hosted authority) | `AmbitionGameSave`, `SaveRestored`, `OwnedItems`, `QuestRegistry`, `LifeLedger`, `AuthoredOccurrences`, the four `*SinceCheckpoint` deltas, `GateNetworkState`, `PendingLifecycleCommit`, `FactionRelations`, `FriendlyFire` | Written only by committed transactions out of a room (principle 4 above); not rewound by a room's history. |
+| Single-arena (Smash) | `ActiveMatch`, `ActiveRoundScope`, `LiveMatchTicks`, `SessionMatchOrdinal`, `StocksMatchSettled`, `SuddenDeathEntered`, `VersusMatch` | None: Smash keeps one rollback domain. |
+| Single-room demo content | `CutRopeHeavyObjectCycle`, `PendingCutRopeRoomReplay` | None while the demo has one room. |
+
+The 91 `message-clear` rows are App-wide message buffers, cleared on a rewind.
+A room rewinding alone may clear only the messages its own room wrote, so a
+message that crosses a frame boundary needs a room (or a body that has one),
+or must be drained within the frame it is written in.
+
+**What this says.** The entity half of the state has a room today, with no
+design change. The cost of keeping rollback at room level is decided by the
+snapshot mechanism, not by the state: the per-type `SaveWorld` costs the same
+for 28 entities as for a world, so a history per room on that mechanism
+multiplies it by the number of live rooms. The design work is the five
+coupling resources, the committed-world writes and the message buffers.
+
+### Next (ISL-2a and ISL-1b)
+
+1. **ISL-2a — what a room snapshot costs.** Save and restore one room's
+   entities (archetypes holding `Rollback` and that room's `InRoomInstance`)
+   plus its keyed resource slices, through the registered rows' own clone and
+   checksum functions, and time it beside `SaveWorld` in the same scene. This
+   is the number the keep-or-drop decision on room-level rollback needs. A
+   lever that helps the App-wide timeline too: skip a row whose type no
+   rollback entity carries this frame.
+2. **ISL-1b — remove the couplings.** One change per coupling resource, each
+   with a witness that an event in one room leaves another room's state
+   unchanged: hitstop scoped to the room of the connect, projectile ids
+   sequenced per room, a clock scale per room (Player 1's bullet-time slows
+   Player 1's room), one conversation and one cutscene per participant or
+   room. Then classify the 91 message rows by writer and reader room.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.
-2. After NET-AUTHORITY-EXPERIMENT, implement **SIMULATION-ISLANDS** only if the selected game/backend needs distributed GGRS histories. Otherwise satisfy continuous same-area physics, confirmed loading-zone transfer and region interest through hosted-world owners, and retain ISL-1–ISL-4 as deferred research. Do not reintroduce the retired barrier.
+2. **SIMULATION-ISLANDS** is selected (2026-11-10) as room-level rollback inside a hybrid world: rollback per live room while it stays cheap and easy to maintain, hosted authority for what crosses rooms. If its measured cost or upkeep stops paying, the fallback is hosted authority inside the room too (guest prediction and correction, NA-3), not the App-wide timeline. Do not reintroduce the retired barrier.
 3. Do not turn cross-island live portals into a hidden prerequisite for scaled portals. Only the same-island live portal path needs continuous causal geometry; no dynamic island merging/splitting is scheduled.
 4. Preserve existing game rules and deterministic gameplay, and distinguish local simulation from optional GGRS and from a future player-hosted authoritative replication backend. The old [ADR 0037](../../adr/0037-causally-isolated-simulation-islands.md) compared broader possibilities; this maintainer-selected implementation scope is deliberately narrower.
 5. Retire each selected queue task when its *production* acceptance is met. Do not claim NET-INPUT-WIDTH complete from a byte-count test alone; do not claim conditional GGRS islands complete from local-only room filtering.

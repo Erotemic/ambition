@@ -5,6 +5,12 @@
 **Proposed research boundary (2026-10-26), not an implemented architecture.** Region-scoped
 rollback is a candidate, not a commitment to automatic per-room GGRS sessions.
 
+**2026-11-10:** the maintainer set the direction for the Ambition metroidvania: a hybrid model,
+with rollback kept inside one live room (the island) while it is easy to maintain and its
+room-level cost measured, and hosted authority around the rooms. Still not implemented; the plan
+and the ISL-1 census are in
+[the owner plan](../planning/engine/island-rollback-and-compact-peer-input.md#isl-1-result-2026-11-10-what-has-a-room).
+
 ## Context
 
 Ambition permits several live rooms and players exploring independently, but its current GGRS

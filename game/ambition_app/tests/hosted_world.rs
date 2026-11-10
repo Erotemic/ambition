@@ -56,12 +56,12 @@ fn alice_fights(frame: i32) -> ControlFrame {
 
 /// Alice presses interact on frame 30: she leaves through the hub door and
 /// Bob stays, so the rest of the run has two live rooms.
-fn alice_leaves(frame: i32) -> ControlFrame {
+pub(crate) fn alice_leaves(frame: i32) -> ControlFrame {
     ControlFrame { interact_pressed: frame == 30, interact_held: (30..33).contains(&frame), ..Default::default() }
 }
 
 /// Put Alice on the door to the hub, which crosses at once.
-fn alice_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
+pub(crate) fn alice_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::engine_core::AabbExt as _;
     doors_cross_at_once(sim);
     let center = door_to(sim, "central_hub_complex").aabb.center();

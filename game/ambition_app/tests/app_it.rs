@@ -64,6 +64,7 @@ mod coop_friendly_fire;
 mod readiness_gate;
 mod two_peers;
 mod hosted_world;
+mod room_rollback_census;
 mod one_body_two_tickers;
 mod installed_techniques_are_declared;
 mod authored_effects_are_admitted;

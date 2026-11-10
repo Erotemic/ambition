@@ -683,6 +683,23 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     }
 }
 
+/// The app's Bevy plugins: the engine's `default_plugins`, less Bevy's render
+/// debug overlay. `bevy_dev_tools` is here for the FPS counter and the
+/// diagnostics panel; with `bevy_pbr` present, `DefaultPlugins` also adds
+/// `RenderDebugOverlayPlugin`, which nothing here reads. Its `update_overlay`
+/// queues an insert on every camera it has not seen, so a camera that a room
+/// retirement despawns in that frame made the command panic, and its F1/F2
+/// keys are the developer hotkeys' too.
+fn host_default_plugins() -> bevy::app::PluginGroupBuilder {
+    use bevy::dev_tools::render_debug::RenderDebugOverlayPlugin;
+    let plugins = ambition_platformer2d::app::default_plugins();
+    if plugins.contains::<RenderDebugOverlayPlugin>() {
+        plugins.disable::<RenderDebugOverlayPlugin>()
+    } else {
+        plugins
+    }
+}
+
 /// How [`build_visible_app`] creates its render surface.
 ///
 /// Desktop-only: the browser build has exactly one surface (its `<canvas>`), so
@@ -929,7 +946,7 @@ pub fn build_visible_app_with(
         "assets".to_owned()
     } else { game_asset_root() };
     ambition_platformer2d::asset_manager::library_source::register_game_source(&mut app, "game", &game_root);
-    let plugins = ambition_platformer2d::app::default_plugins()
+    let plugins = host_default_plugins()
         .set(ambition_log_plugin())
         .set(ambition_task_pool_plugin())
         .set(bevy::asset::AssetPlugin {
@@ -1184,7 +1201,7 @@ pub fn run_web() {
     // Must register before DefaultPlugins builds AssetPlugin.
     ambition_platformer2d::asset_manager::library_source::register_game_source(&mut app, "game", "assets");
     app.add_plugins(
-        ambition_platformer2d::app::default_plugins()
+        host_default_plugins()
             .set(ambition_log_plugin())
             .set(bevy::asset::AssetPlugin {
                 // NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.

@@ -509,6 +509,11 @@ peer crossings now commit on the shared input timeline **without a global hold
 or rebase**. Delayed-peer, corrected-combat, concurrent-loading, arrival-reset,
 rendered combat, and input-timing witnesses pass (latest `dc303e611`).
 
+**Verified 2026-11-10:** every gate 1-5 guard passes on the current tree,
+GPU captures included; the run found and fixed a panic when a camera retired
+in the frame Bevy's render debug overlay first saw it
+([verification](engine/peer-room-commit-protocol.md#verification-2026-11-10)).
+
 **Next action:** complete the broader **feature and tooling verification** for
 input-driven peer room commits. Reproduce a normal crossing and a failed or
 invalidated preparation with two peers; audit exact content/plan identity,

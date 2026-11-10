@@ -437,6 +437,8 @@ impl Plugin for WorldPrepSchedulePlugin {
         let sim = app.sim_schedule();
         app.add_plugins(ambition_platformer2d_actor_monolith::body::BodySimulationPlugin);
         ambition_platformer2d_world::platforms::install_moving_platform_simulation(app, sim);
+        // What F1 and headless inspection read of the walls (GOBS-1).
+        ambition_platformer2d_world::geometry_observers::install(app);
         app.add_systems(
             sim,
             crate::fall_rescue::rescue_falling_bodies

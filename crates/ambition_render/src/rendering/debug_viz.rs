@@ -769,6 +769,7 @@ impl Plugin for DebugVizPlugin {
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
         app.init_resource::<CombatGeometryView>();
+        app.init_resource::<super::observed_geometry::ObservedGeometryFrame>();
         let start_enabled = self.start_enabled;
         app.add_systems(
             Startup,
@@ -787,6 +788,8 @@ impl Plugin for DebugVizPlugin {
             Update,
             (
                 toggle_debug_viz,
+                super::observed_geometry::collect_observed_geometry
+                    .after(ambition_sim_view::PresentedPoseSet),
                 draw_debug_viz
                     .after(ambition_sim_view::PresentedPoseSet)
                     // Simulation-only hosts do not install gizmo assets.
@@ -934,6 +937,7 @@ pub fn draw_debug_viz(
     // Live gravity for the world-edge lines. `Option` because headless and
     // test apps do not insert it; then "down" is used.
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::BaseGravity>>,
+    observed: Res<super::observed_geometry::ObservedGeometryFrame>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         drawings.finish();
@@ -951,6 +955,9 @@ pub fn draw_debug_viz(
         drawings.draw(DrawingScope::Room(room), |gizmos| {
             // Only what is in the shown room is drawn, by that room's geometry.
             let shown_here = |entity: Entity| worlds.room_of(entity) == Some(room);
+            if developer_tools.show_observed_geometry {
+                super::observed_geometry::draw_observed_layers(gizmos, world, observed.in_room(room));
+            }
             draw_world_geometry(
                 gizmos,
                 world,

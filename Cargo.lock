@@ -849,6 +849,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_geometry_observation"
+version = "0.1.0"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ambition_held_items"
 version = "0.1.0"
 dependencies = [
@@ -1034,6 +1044,7 @@ dependencies = [
  "ambition_extension_wasm",
  "ambition_game_shell",
  "ambition_gameplay_trace",
+ "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
@@ -1576,6 +1587,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_entity_catalog",
+ "ambition_geometry_observation",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_registry_core",
@@ -1703,6 +1715,7 @@ dependencies = [
  "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_entity_catalog",
+ "ambition_geometry_observation",
  "ambition_input",
  "ambition_persistence",
  "ambition_platformer2d_core",
@@ -1802,6 +1815,7 @@ dependencies = [
  "ambition_dialog",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",

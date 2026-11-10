@@ -22,6 +22,7 @@ input = ["ambition_sim_view/input"]
 portal_render = ["dep:ambition_portal2d_presentation"]
 
 [dependencies]
+ambition_geometry_observation = { path = "../ambition_geometry_observation" }
 ambition_input = { path = "../ambition_input" }
 fontique = { version = "0.9", default-features = false }
 # OPTIONAL, and the ratchets are why. `image` is a PNG ENCODER and it is

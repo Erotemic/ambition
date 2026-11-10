@@ -109,6 +109,7 @@ pub mod cast_bubble;
 mod camera;
 pub mod control_legend;
 pub mod debug_viz;
+pub mod observed_geometry;
 pub mod retained_drawings;
 pub mod deferred_write_safety;
 pub mod dizzy_stars;

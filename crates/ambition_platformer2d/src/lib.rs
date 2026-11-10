@@ -811,6 +811,7 @@ pub use ambition_encounter as encounter;
 pub use ambition_encounter_features as encounter_features;
 pub use ambition_entity_catalog as entity_catalog;
 pub use ambition_game_shell as game_shell;
+pub use ambition_geometry_observation as geometry_observation;
 /// The PRESSED collectible: `GroundItem`, `ItemCustody`, the held specs and
 /// the pickup / use / throw / physics / residency chain it owns (D33,
 /// 2026-09-03). Not under [`actors`] any more, for the same reason as

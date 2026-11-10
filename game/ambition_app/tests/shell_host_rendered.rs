@@ -50,8 +50,20 @@ pub(crate) fn rendered_app() -> App {
 }
 
 pub(crate) fn rendered_app_with(render: VisibleRenderMode) -> App {
+    rendered_app_in_room(render, None)
+}
+
+/// The rendered host, its session starting in `room` when one is named (a
+/// room that does not resolve is fatal, not a silent start elsewhere).
+pub(crate) fn rendered_app_in_room(render: VisibleRenderMode, room: Option<&str>) -> App {
     let gpu = matches!(render, VisibleRenderMode::OffscreenGpu);
-    let mut app = ambition_app::app::build_visible_app(render, true);
+    let room = room.map(str::to_owned);
+    let mut app = ambition_app::app::build_visible_app_with(render, true, move |app| {
+        if let Some(room) = room {
+            app.insert_resource(ambition_app::app::StartRoomOverride(room));
+            app.insert_resource(ambition_app::app::StartRoomMustResolve);
+        }
+    });
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
     )));

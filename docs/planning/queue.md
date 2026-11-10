@@ -77,7 +77,9 @@ or updating their source. Check with
 
 **Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
 
-**Next action:** a rendered (GPU capture) witness of the card for two non-Wolfenstein bosses, and one of two views in two boss rooms. No skip input exists; if one is added, it advances the phase state and the card follows.
+**Rendered 2026-11-10:** a GPU capture witness draws the card for two non-Wolfenstein bosses (the T-rex and the Clockwork Warden), counted in the name's own rectangle against a capture before the wake ([owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)).
+
+**Next action:** a rendered witness of two views in two boss rooms (covered at the node today). No skip input exists; if one is added, it advances the phase state and the card follows.
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 

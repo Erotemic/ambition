@@ -14,6 +14,10 @@ ambition_content_cli = { path = "../../crates/ambition_content_cli" }
 serde = { workspace = true }
 ambition_htn = { path = "../../crates/ambition_htn" }
 
+[dev-dependencies]
+# The schema tests write their fixtures as the authored RON.
+ron = { workspace = true }
+
 [[bin]]
 name = "ambition_content_check"
 path = "src/main.rs"

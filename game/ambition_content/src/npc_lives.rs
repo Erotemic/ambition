@@ -35,6 +35,7 @@ pub fn life_book(lives: Option<&NpcLives>) -> LifeBook {
                         facts: row.facts.clone(),
                         authored: row.authored.clone(),
                         daily: row.daily.clone(),
+                        lines: row.lines.clone(),
                         observes,
                     })
             })

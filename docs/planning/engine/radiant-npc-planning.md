@@ -342,6 +342,19 @@ A source review of the slices above found lifecycle gaps. Fixed:
   offscreen catch-up crosses. The planner stays generic; the content says
   what recurs. Witness: `nikobolt_works_at_his_bench_and_lunches_at_noon`
   now lunches on day 2 too (without the reset it fails: he is still fed).
+- **Verbs that did nothing.** `say`, `use` and `rest` fell into a branch
+  that held the body (or did nothing) and then counted the step done.
+  Now: `say <topic>` speaks the line the life authors for the topic
+  (`lines`, a speech bubble over the body, the same message the ambient
+  barks use) and stops the plan with `NothingToSay` when there is none; a
+  verb must be one the executor carries out (`go_to`, `claim`, `release`,
+  `say`) or a timed task declared in `holds` (`use`, `rest`), and any other
+  stops the plan with `Unsupported` instead of passing. The schema refuses a
+  domain whose verb is neither and a life with no line for a topic it says.
+  Still open: `use <thing>` is a timed task at the place, not an interaction
+  with a world object; NPCs have no object-use path yet. Witnesses:
+  `two_scientists_take_turns_at_one_bench` (both lines heard, `talked` set),
+  `npc_lives::tests` (the two refusals).
 
 ## Acceptance
 

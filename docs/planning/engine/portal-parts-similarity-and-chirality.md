@@ -45,6 +45,13 @@ The impact film shows the body and far foot. Walls or platforms back all J
 mouths and both K mouths. I has a Reflection prompt at the existing wall pair.
 GNU-ton's simultaneous-limb capture and I's held-accessory film remain open.
 
+The November 10 review has three fixes: projectile refusals and dimensionless
+knockback in `741212079`, and proposed limb admission in `482dcfc5b`.
+Stationary material repair, independent capture ownership, runtime cost,
+capture budgets and room-scoped straddler lookup remain open. See the
+[review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
+for guards and verification scope.
+
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
 [portals are moving frames](portals-are-moving-frames.md), and

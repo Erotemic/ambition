@@ -12,7 +12,7 @@ model and transactional movement authority.
 | R4: independent bodies share one capture root and depth | Open. Keep each body's geometric and depth semantics. |
 | R5: movement and lookup costs need measurement | Open. Measure portal-free gameplay, body-to-visual lookup and repeated room-link construction. |
 | R6: capture density and capacity are fixed | Open. Measure viewport and capture costs before changing resource policy. |
-| R7: a failed limb correction can retain the proposed pose | Open. Sweep and admit the proposed pose before one commit. |
+| R7: a failed limb correction can retain the proposed pose | Fixed in `482dcfc5b`. Sweep and admit the proposal against physical room solids before one commit. Refusal retains the accepted pose and hold. |
 | R8: straddler lookup searches other rooms | Open. Resolve the link in the body's own room. |
 
 R1 has a real-app recipient refusal/resume witness. It checks retained pose,
@@ -29,4 +29,18 @@ The assembled app check passes. Logs use `target/portal-review-1-2-`,
 
 Do not convert a refused contact query to a miss. Do not apply a length
 conversion to a dimensionless combat multiplier. Full PSIM acceptance and the
-six open review findings remain open.
+five remaining review findings remain open.
+
+R7 replaces the runtime correction pass with prepared translation admission.
+The core guard checks near-side, half-scale, double-scale and chained stops.
+The pose-owner guard checks a refused hand beside an accepted hand, including
+history at tick end. The encounter guard checks root ownership, traversal and
+far-side damage when contact stops a diagonal proposal before its final axis.
+
+R7 validation: 1,892 owner tests and all 42 active GNU-ton cases pass across
+the full run and the corrected punch rerun. One GNU-ton measurement probe is
+ignored. The assembled app check, 73 active Smash cases and all 35 workspace
+policy cases pass. Six Smash probes are ignored. The policy run required the
+GOBS dependency declaration in `0a516ddc3`; the failed engine case then passes.
+Evidence uses `target/portal-review-7-*.log`. This is a focused lane. It does
+not prove the full workspace, device, GPU or performance requirements.

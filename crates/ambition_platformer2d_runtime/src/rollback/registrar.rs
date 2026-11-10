@@ -69,6 +69,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CANONICAL_IDENTICAL_CHECKSUM.kind,
             spelling::COMPONENT_CANONICAL_IDENTICAL_CHECKSUM.detail);
+        super::room_snapshot::record_codec_row::<T>(self.app, name);
         self
     }
 
@@ -78,6 +79,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_CURSOR.kind,
             spelling::COMPONENT_CLONE_CURSOR.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -87,6 +89,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_RESOLVED.kind,
             spelling::COMPONENT_CLONE_RESOLVED.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -96,6 +99,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_UNHASHED.kind,
             spelling::COMPONENT_CLONE_UNHASHED.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -110,6 +114,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_ENTITY_REF_REMAPPED.kind,
             spelling::COMPONENT_CLONE_ENTITY_REF_REMAPPED.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -124,6 +129,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_ENTITY_SET_REMAPPED.kind,
             spelling::COMPONENT_CLONE_ENTITY_SET_REMAPPED.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -138,6 +144,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_ENTITY_MAP_REMAPPED.kind,
             spelling::COMPONENT_CLONE_ENTITY_MAP_REMAPPED.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -152,6 +159,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_PROBED_FOR_LOCALIZATION.kind,
             spelling::COMPONENT_CLONE_PROBED_FOR_LOCALIZATION.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -161,6 +169,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED.kind,
             spelling::COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED.detail);
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -176,6 +185,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record_owned::<T>(owner, name, RollbackEntryKind::ComponentCloneCustomChecksum,
             format!("bevy_ggrs clone snapshot + {projection}"));
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -195,6 +205,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
             RollbackEntryKind::ComponentCloneCustomChecksum,
             detail,
         );
+        super::room_snapshot::record_clone_row::<T>(self.app, name);
         self
     }
 
@@ -234,6 +245,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         // `ambition_platformer2d_rollback_ggrs` spells it too, and the registry
         // panics if the two disagree — see ROLLBACK-KIND-SPELLING.
         self.record::<T>(owner, name, RollbackEntryKind::ComponentCanonicalCustomChecksum, detail);
+        super::room_snapshot::record_codec_row::<T>(self.app, name);
         self
     }
 
@@ -349,6 +361,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     {
         self.record::<T>(owner, name, spelling::ENTITY_MAPPING.kind,
             spelling::ENTITY_MAPPING.detail);
+        super::room_snapshot::record_map_row::<T>(self.app, name);
         self
     }
 

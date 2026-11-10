@@ -65,7 +65,7 @@ The input shrank by 52%, and the link traffic barely moved. GGRS XORs each input
 ## ISL-1 result (2026-11-10): what has a room
 
 Fixture: `game/ambition_app/tests/room_rollback_census.rs`,
-`which_rollback_state_belongs_to_one_room` (ignored; a measurement). Run:
+`probe_which_rollback_state_belongs_to_one_room` (ignored; a measurement). Run:
 
 ```
 cargo test -p ambition_app --test app_it --no-run
@@ -132,21 +132,127 @@ for 28 entities as for a world, so a history per room on that mechanism
 multiplies it by the number of live rooms. The design work is the five
 coupling resources, the committed-world writes and the message buffers.
 
-### Next (ISL-2a and ISL-1b)
+### ISL-2a result (2026-11-10): what a room snapshot costs
 
-1. **ISL-2a — what a room snapshot costs.** Save and restore one room's
-   entities (archetypes holding `Rollback` and that room's `InRoomInstance`)
-   plus its keyed resource slices, through the registered rows' own clone and
-   checksum functions, and time it beside `SaveWorld` in the same scene. This
-   is the number the keep-or-drop decision on room-level rollback needs. A
-   lever that helps the App-wide timeline too: skip a row whose type no
-   rollback entity carries this frame.
+`crates/ambition_platformer2d_runtime/src/rollback/room_snapshot.rs` keeps, for
+every registered component row, a type-erased save and restore that touch only
+the entities they are given (`RoomSnapshotRows`). Both registrars record it:
+the `bevy_ggrs` one on a rollback host (all 298 component rows) and the schema
+one on a hosted world. A room snapshot visits only the rows its entities carry. The
+census fixture times it beside `SaveWorld` in the same two-room scene, after a
+premise check that a restore puts a moved body back.
+
+| Snapshot | Entities | Rows visited | Save | Restore |
+|---|---|---|---|---|
+| App-wide `SaveWorld` (1,201 systems) | 28 | all | 16.3 ms | — |
+| Room: hub (Alice) | 22 | 95 | 1.35 ms | 1.26 ms |
+| Room: `switch_lab` (Bob) | 2 | 72 | 0.31 ms | 0.31 ms |
+
+Debug build, one run; compare ratios. The room snapshot holds **no resources
+and no checksum**, and `SaveWorld` holds both, so the ratio overstates the
+saving. Even so, both rooms together cost about a tenth of one App-wide save,
+and the quiet room's cost follows its two entities. **Keeping rollback at room
+level is affordable on this mechanism and is not affordable on the per-type
+one.** What it does not do yet: re-create an entity despawned after the save
+or despawn one spawned after it, map entity references, save the room's
+slices of the keyed resources, or checksum.
+
+### ISL-2b, first witness (2026-11-10): a room rewinds alone
+
+`game/ambition_app/tests/a_room_rewinds_alone.rs`. A hosted world (one App, no
+rollback session) with Alice in the hub and Bob in `switch_lab`. At frame N
+the hub's 23 entities (its root among them) are saved through the rows (100
+rows), with the clock (`SimTick`, `WorldTime`, `DayClock`, `ClockState`). Both
+rooms run 60 frames (Alice walks and jumps, Bob walks). Then the hub alone goes
+back to N and replays Alice's inputs, with Bob's room hidden by Bevy's
+`Disabled` (every default query skips it).
+
+- **Passes:** the hub ends with every body (the hub's NPCs among them) exactly
+  where the first run left it, Bob's room is exactly as it was before the
+  replay, and the tick agrees.
+- **The control** (`without_hiding_the_other_room_the_replay_moves_it_too`):
+  the same replay with Bob's room left in the world changes Bob's body (his
+  seat is idle in the replay), so hiding the room is what keeps it.
+
+So on this scene a room can be rewound and resimulated in the host's own App,
+with no second `World`: the schedule runs once per replayed frame and the
+other rooms simply are not in it. **Limits of this witness:** the window
+spawns and despawns nothing (the snapshot cannot yet); Alice only walks, so no
+coupling resource is exercised (no connect, no hitstop, no projectile, no
+conversation); room-keyed resources are not saved; the replay re-runs systems
+that write committed-world resources (the save, the lives ledger) with nothing
+to stop a replayed write from landing twice.
+
+### ISL-2c, started (2026-11-10): spawn and despawn across the snapshot
+
+`RoomSnapshotRows::restore` now takes the room's entities at the restore:
+one spawned after the save is despawned, a saved one that is gone is spawned
+again, and the references the room's components hold to it are rewritten
+through the registered entity-mapping rows (`record_map_row`, recorded by both
+registrars; resource mappings are not). Unit-tested in the owner module.
+
+Witness `a_rewound_room_fires_its_shots_again` (same fixture): Alice fires two
+shots in the window, one that ends inside it and one still in flight when it
+closes. The restore despawns the live one; the replay fires both again, and
+the hub ends with the same shot at the same age and position. The shot's
+`SimId` (`slot:0/1`) comes out the same because its counter
+(`body.sim_id_counter`) is on Alice and rewinds with her. The global
+`ProjectileSeqCounter` does not rewind, so the replayed shot's sequence number
+differs; behaviour does not depend on it within one room, but a room checksum
+would.
+
+### ISL-2d, measured (2026-11-10): a world write in a rewound window
+
+Probe `probe_a_coin_taken_in_a_rewound_window` (ignored): Alice takes the coin
+in `basement_treasure` while Bob stays in the hub; her room rewinds to before
+the pickup and replays it.
+
+| After | Wallet (on Alice's body) | `RewardGrantsSinceCheckpoint` (world) | Save |
+|---|---|---|---|
+| frame N | 0 | 0 grants | — |
+| the pickup | 25 | 1 | one flag set |
+| the restore | 0 | 1 | unchanged |
+| the replay | 25 | **2** | unchanged (the flag set again) |
+
+What lives on the room's entities rewinds with the room. An append-only world
+record does not: the replay records the grant a second time, and a death
+restore would then take back two grants for one coin. An idempotent world write
+(the save's flag) survives a replay that repeats it, but would stay wrong after
+a replay in which the pickup no longer happens.
+
+**Design (chosen, not built):** a world record written from a room carries the
+room and the tick (`SimTick`) it was written on. A room rewind to tick N
+announces itself (room, N), and each world store that takes room writes
+retracts that room's records after N; the replay writes them again. An
+overwrite (a save flag) keeps the value it replaced, so the retraction restores
+it. The alternative, holding a room's world writes in an outbox until its
+frames are confirmed, delays every world consequence by the rollback window
+and needs read-your-own-writes; retraction keeps world facts immediate. It is
+built with the room rollback host (the code that decides when a room rewinds),
+not before it: today only tests restore a room. Its first customers are the
+grant record and the save's pickup flags; the census of world stores written
+from rooms comes with it.
+
+### Next (ISL-2c and ISL-1b)
+
+1. **ISL-2c — the witness under load.** A hit on an NPC, an NPC life that
+   writes the ledger (committed-world writes are refused or deferred during a
+   replay), and a connect (hitstop: ISL-1b below). A failure of the witness
+   names the state that could not be kept to one room. These run as probes or
+   one suite witness each, not a matrix.
 2. **ISL-1b — remove the couplings.** One change per coupling resource, each
    with a witness that an event in one room leaves another room's state
-   unchanged: hitstop scoped to the room of the connect, projectile ids
+   unchanged. **Done 2026-11-10, the freeze:** with several live rooms neither
+   the impact hold nor Player 1's hitlag stops the shared clock
+   (`emit_primary_observer_time_intent`), as a conversation is not modal
+   there; one live room keeps the freeze. Witness:
+   `a_hit_in_one_room_does_not_freeze_the_other`. A freeze scoped to the
+   connect's room waits for a room clock (body motion reads the shared
+   `sim_dt`). Still open: projectile ids
    sequenced per room, a clock scale per room (Player 1's bullet-time slows
-   Player 1's room), one conversation and one cutscene per participant or
-   room. Then classify the 91 message rows by writer and reader room.
+   Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
+   about a hundred non-test sites), one conversation and one cutscene per participant or room. Then
+   classify the 91 message rows by writer and reader room.
 
 ## Order, exclusions and integration
 

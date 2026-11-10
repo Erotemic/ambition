@@ -65,6 +65,8 @@ mod readiness_gate;
 mod two_peers;
 mod hosted_world;
 mod room_rollback_census;
+mod a_room_rewinds_alone;
+mod a_hit_in_one_room_does_not_freeze_the_other;
 mod one_body_two_tickers;
 mod installed_techniques_are_declared;
 mod authored_effects_are_admitted;

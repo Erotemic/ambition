@@ -63,6 +63,7 @@ pub(crate) fn install_component_clone_checksum<T>(
 ) where
     T: Component<Mutability = Mutable> + Clone,
 {
+    ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(app, name);
     if should_install_backend(
         app,
         descriptor_owned::<T>(
@@ -457,6 +458,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + SnapshotState,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_codec_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -486,6 +488,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + SnapshotState,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_codec_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -515,6 +518,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone + SnapshotCursor,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -542,6 +546,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone + SnapshotResolve,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -565,6 +570,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -612,6 +618,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -645,6 +652,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -675,6 +683,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -705,6 +714,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -734,6 +744,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone + SnapshotState,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_clone_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -1079,6 +1090,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + bevy::ecs::entity::MapEntities,
     {
+        ambition_platformer2d_runtime::rollback::room_snapshot::record_map_row::<T>(self, name);
         if should_install_backend(
             self,
             descriptor::<T>(

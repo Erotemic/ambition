@@ -53,8 +53,9 @@ Unknown packages and empty selections are errors.
 5. **Visible/device acceptance** — only for visual feel, focus, layout, audio
    device behavior, packaging, or performance.
 
-Do not skip levels 1–4 merely because the visible binary is hard to automate.
-Improve the headless seam instead.
+When a change needs a check, do not skip levels 1–4 merely because the visible
+binary is hard to automate; improve the headless seam instead. Whether it needs
+a permanent test at all is the next section's question.
 
 ## Validation states and cadence
 
@@ -112,6 +113,30 @@ Prefer invariants and properties over tuned values:
 
 Replay hashes and snapshot bytes are canaries. Re-baseline them when an intended
 pre-release semantic change preserves the real invariants.
+
+### Not every check belongs in the suite
+
+Maintainer direction (2026-11-10): tests are not bad, but not everything needs
+to become a test that runs in the full suite, especially when the behaviour is
+marginal. A suite that takes hours hinders more than it helps.
+
+- **Check once, keep only what earns its place.** Verifying a change by running
+  something (a probe, a one-off scenario, a control, a poison) does not oblige
+  you to keep it. Keep a test in the default suite when it guards behaviour
+  that matters and could plausibly break again; leave a one-off check in the
+  commit message or the owner doc.
+- **Weigh the cost.** An `ambition_app` test boots the whole game; each one adds
+  seconds to every full run. Prefer the narrowest level that can fail (a unit
+  test in the owner crate) and one representative scenario over several
+  near-duplicates.
+- **Measurements and controls are not suite members.** A print-only measurement
+  is an ignored `probe_*`. A control that proved a witness could fail once
+  needs no permanent slot unless the witness's premise is fragile.
+- **Marginal behaviour gets no test.** Tuned values, presentation details and
+  one-step glue are settled by reading and running the game, not pinned.
+- **Run the cheapest sufficient lane.** Run the tests that can see the change
+  ([cheapest sufficient check](../recipes/cheapest-sufficient-check.md#the-matrix));
+  the full suite belongs at a milestone, not at every edit.
 
 ⛔ **And ask of every green test whether it COULD have failed.**
 [`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md) is the

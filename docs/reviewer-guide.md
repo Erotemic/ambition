@@ -401,13 +401,12 @@ Prefer explicit typed composition.
 
 Use the cheapest sufficient test while iterating.
 
-For a defect:
-
-```text
-targeted invariant test
-+
-production-path test when the behavior crosses systems/phases
-```
+For a defect that could plausibly recur: one targeted invariant test at the
+narrowest level that can fail. Add a production-path test only when the defect
+lived in the crossing between systems or phases and the narrow test cannot see
+it. A marginal defect needs no permanent test: verify the fix and say how in
+the commit message. Do not ask for tests a change does not need
+([not every check belongs in the suite](concepts/testing-and-validation.md#not-every-check-belongs-in-the-suite)).
 
 Aggregate simulation tests are evidence about outcomes, not causal proof.
 

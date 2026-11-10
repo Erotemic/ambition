@@ -26,6 +26,8 @@ pub use ambition_platformer2d_rollback_ggrs::peer_input::{
     PeerInput, PeerVerdict, PeerVerdicts, PreparationVerdict, ThisPeersVerdict,
 };
 pub use ambition_platformer2d_rollback_ggrs::local_session;
+/// One room's entities saved and restored through the registered rows (ISL-2a).
+pub use ambition_platformer2d_runtime::rollback::room_snapshot::{RoomRestore, RoomSnapshot, RoomSnapshotRows};
 /// A P2P session whose peers agree to start at the live world, and an
 /// in-memory transport for two Apps in one process (netcode N2).
 pub use ambition_platformer2d_rollback_ggrs::peer::{

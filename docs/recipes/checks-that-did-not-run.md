@@ -403,6 +403,11 @@ cases match.
 
 ## Running this audit yourself
 
+This is an audit of the gates, run when a gate's honesty is in doubt. It is not
+a checklist for every change: poison a guard you have reason to doubt, against
+fast tests, and do not add a permanent test for each finding
+([not every check belongs in the suite](../concepts/testing-and-validation.md#not-every-check-belongs-in-the-suite)).
+
 Cheapest first:
 
 1. **Run every guard and read its real exit code.**

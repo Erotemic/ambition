@@ -170,12 +170,7 @@ fn a_player_of_another_live_room_does_not_touch() {
     }
 }
 
-/// ⛔ A TOUCH IS BETWEEN THE BOXES THE BODIES COLLIDE WITH. A player in
-/// sideways gravity (its last step's DOWN is +X) lies along its wall: its
-/// 24 x 44 body is a 44 x 24 box. Beside the walker, that box meets the
-/// walker's side and the level box does not. The control is the same player
-/// with no turned step, which does not touch. The module is given the turned
-/// box too.
+/// Contact uses the physical body envelope, independent of its gravity reference.
 #[test]
 fn a_touch_is_between_the_boxes_the_bodies_collide_with() {
     for turned in [true, false] {
@@ -185,8 +180,8 @@ fn a_touch_is_between_the_boxes_the_bodies_collide_with() {
         // 128, the turned box (half 22) at 118.
         let beside = player(&mut app, "p1", ae::Vec2::new(140.0, 900.0), ae::Vec2::ZERO);
         if turned {
-            let kin = *app.world().get::<ae::BodyKinematics>(beside).unwrap();
-            app.world_mut().entity_mut(beside).insert(ae::SweepSample::at_rest(kin, ae::Vec2::X));
+            app.world_mut().get_mut::<ae::BodyKinematics>(beside).unwrap().material =
+                ae::frame::BodyMaterial::default().turned(std::f64::consts::FRAC_PI_2).unwrap();
         }
         app.world_mut().run_schedule(Sim);
         let table: Vec<(Entity, Vec<Entity>)> =
@@ -195,9 +190,10 @@ fn a_touch_is_between_the_boxes_the_bodies_collide_with() {
         assert_eq!(table, expected, "turned {turned}: the player touches the walker only with its turned box");
     }
     let kin = ae::BodyKinematics { pos: ae::Vec2::new(140.0, 900.0), canonical_size: ae::Vec2::new(24.0, 44.0), ..Default::default() };
-    let step = ae::SweepSample::at_rest(kin, ae::Vec2::X);
-    assert_eq!(contact_body(&kin, Some(&step)).size, [44.0, 24.0], "the module is given the box the body collides with");
-    assert_eq!(contact_body(&kin, None).size, [24.0, 44.0], "with no step, the level box");
+    assert_eq!(contact_body(&kin).size, [24.0, 44.0]);
+    let mut turned = kin;
+    turned.material = turned.material.turned(std::f64::consts::FRAC_PI_2).unwrap();
+    assert_eq!(contact_body(&turned).size, [44.0, 24.0]);
 }
 
 /// ⛔ A BOUNCE IS AGAINST THE TOUCHER'S OWN GRAVITY. Under reversed gravity

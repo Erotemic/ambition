@@ -237,6 +237,25 @@ impl BodyGeometry {
         self.pieces_from(volume, source, root, true, room)
     }
 
+    /// Partition canonical material that reaches from its source body.
+    pub fn body_pieces_reaching(
+        &self,
+        canonical: &CombatVolume,
+        body: Entity,
+        room: Option<LiveRoomInstance>,
+    ) -> Partition {
+        let map = self.body_material(body)?;
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        let root = map.point(Vec2::ZERO).map_err(numeric)?;
+        self.cut_material(MaterialPrimitive { domain: canonical, to_world: map }, PartSource::Body(body), root, true, room)
+    }
+
+    fn body_material(&self, body: Entity) -> Result<Sim2, Refusal> {
+        self.materials.get(&body).copied()
+            .ok_or(Refusal { path: Vec::new(), link: None, reason: RefusalReason::MissingMaterial })?
+            .map_err(|fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) })
+    }
+
     fn pieces_from(
         &self,
         volume: &CombatVolume,
@@ -245,18 +264,28 @@ impl BodyGeometry {
         reaching: bool,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
-        let cut_by = if reaching { partition_reaching } else { partition };
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
         let carrier = source.carrier();
         let root_map = match carrier {
-            Some(owner) => self.materials.get(&owner).copied()
-                .ok_or(Refusal { path: Vec::new(), link: None, reason: RefusalReason::MissingMaterial })?
-                .map_err(numeric)?,
+            Some(owner) => self.body_material(owner)?,
             None => Sim2::IDENTITY,
         };
         let canonical = ambition_platformer2d_core::frame::thread::map_volume(volume, &root_map.inverse().map_err(numeric)?)
             .map_err(numeric)?;
         let material = MaterialPrimitive { domain: &canonical, to_world: root_map };
+        self.cut_material(material, source, root, reaching, room)
+    }
+
+    fn cut_material(
+        &self,
+        material: MaterialPrimitive<'_>,
+        source: PartSource,
+        root: Vec2,
+        reaching: bool,
+        room: Option<LiveRoomInstance>,
+    ) -> Partition {
+        let cut_by = if reaching { partition_reaching } else { partition };
+        let carrier = source.carrier();
         let budget = self.budget_for(source.owner(), room);
         let straddled = carrier.and_then(|owner| self.straddled_by(owner));
         let links = self.links_in(room);

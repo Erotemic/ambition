@@ -19,6 +19,7 @@ use ambition_extension_host::{
 };
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_core as ae;
+use ae::AabbExt as _;
 use bevy::prelude::*;
 
 use ambition_characters::actor::ActorFaction;
@@ -523,6 +524,25 @@ fn shape_half(shape: &ae::VolumeShape) -> ae::Vec2 {
     bounds.max.abs().max(bounds.min.abs())
 }
 
+/// Convert a world-space request into material that follows its source body.
+fn canonical_riding_shape(
+    kin: &ae::BodyKinematics,
+    request: &ambition_combat_port::RidingHitbox,
+) -> Result<(ae::Vec2, ae::Vec2, Option<ae::VolumeShape>), ae::frame::NumericFault> {
+    let center = kin.pos + ae::Vec2::from(request.offset);
+    let world = match request.circle_radius {
+        Some(radius) => ae::CombatVolume::Circle { center, radius },
+        None => ae::CombatVolume::aabb(ae::Aabb::new(center, ae::Vec2::from(request.half_extent))),
+    };
+    let canonical = ae::frame::thread::map_volume(&world, &kin.material_map()?.inverse()?)?;
+    Ok(match canonical {
+        ae::CombatVolume::Aabb(bounds) => (bounds.center(), bounds.half_size(), None),
+        ae::CombatVolume::Circle { center, radius } => (center, ae::Vec2::splat(radius), Some(ae::VolumeShape::Circle { radius })),
+        ae::CombatVolume::Convex { points, bounds } => (ae::Vec2::ZERO, bounds.half_size(), Some(ae::VolumeShape::Convex { points })),
+        ae::CombatVolume::Obb { center, half, rotation } => (center, half, Some(ae::VolumeShape::Obb { half, angle: rotation })),
+    })
+}
+
 /// Lower `ambition.combat.riding_hitbox`: a hitbox that follows its owner, on
 /// the owner's effective side, shown by the owner's own art.
 fn lower_riding_hitboxes(
@@ -530,13 +550,14 @@ fn lower_riding_hitboxes(
     mut outbox: ResMut<ExtensionOutbox>,
     factions: Query<(
         &ActorFaction,
+        &ae::BodyKinematics,
         Option<&ambition_characters::control::DrivingParticipant>,
     )>,
 ) {
     for s in outbox.drain::<RidingHitboxPort>(&BOSS_CONDUCT) {
         // ⛔ SUBMITTED IS NOT APPLIED: a body with no faction cannot say whom
         // its hitbox hurts.
-        let Ok((authored, driver)) = factions.get(s.scope) else {
+        let Ok((authored, kin, driver)) = factions.get(s.scope) else {
             warn!(
                 "extension entry {} asked for a riding hitbox for {:?}, which has no faction; refused",
                 s.entry, s.scope
@@ -544,6 +565,10 @@ fn lower_riding_hitboxes(
             continue;
         };
         let h = s.value;
+        let Ok((offset, half, shape)) = canonical_riding_shape(kin, &h) else {
+            trace!(owner = ?s.scope, "riding strike material refused before publication");
+            continue;
+        };
         let side = crate::hit_side_from_actor_faction(crate::targeting::effective_faction(*authored, driver));
         commands.spawn((
             crate::strike::Hitbox {
@@ -551,10 +576,10 @@ fn lower_riding_hitboxes(
                 owner: s.scope,
                 source: side,
                 anchor: crate::strike::HitboxAnchor::FollowOwner {
-                    local_offset: ae::Vec2::from(h.offset),
+                    local_offset: offset,
                 },
-                half_extent: ae::Vec2::from(h.half_extent),
-                shape: h.circle_radius.map(|radius| ae::VolumeShape::Circle { radius }),
+                half_extent: half,
+                shape,
                 facing: 1.0,
                 damage: h.damage,
                 knockback: match h.knockback {

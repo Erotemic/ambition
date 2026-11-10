@@ -254,7 +254,6 @@ pub fn rebuild_combat_geometry_view(
         bevy::prelude::Has<ambition_combat::strike::DepictedByOwner>,
         Option<&ambition_combat::strike::RayStrike>,
     )>,
-    owner_boxes: Query<&CenteredAabb>,
     owner_kinematics: Query<&ae::BodyKinematics>,
     // Where a volume is when a portal pair cuts it: the pieces combat
     // resolves by. Absent in a composition with no portals.
@@ -311,21 +310,12 @@ pub fn rebuild_combat_geometry_view(
     }
 
     for (strike, hitbox, hits, depicted_by_owner, ray) in &hitboxes {
-        let owner_pos = match hitbox.anchor {
-            HitboxAnchor::World { .. } => Some(ae::Vec2::ZERO),
-            HitboxAnchor::FollowOwner { .. } => owner_boxes
-                .get(hitbox.owner)
-                .map(|aabb| aabb.center)
-                .or_else(|_| owner_kinematics.get(hitbox.owner).map(|kin| kin.pos))
-                .ok(),
-        };
-        let Some(owner_pos) = owner_pos else {
-            continue;
-        };
+        let owner = owner_kinematics.get(hitbox.owner).ok();
+        let Ok(volume) = hitbox.world_volume(owner) else { continue; };
         let room = rooms.stamped(strike).or_else(|| rooms.of(hitbox.owner));
-        let pieces = passages.and_then(|passages| cut(ambition_combat::hitbox::strike_pieces(Some(passages), hitbox, owner_pos, room)));
+        let pieces = passages.and_then(|passages| cut(ambition_combat::hitbox::strike_pieces(Some(passages), hitbox, owner, room)));
         view.strikes.push(CombatStrikeGeometryView {
-            volume: hitbox.world_volume(owner_pos),
+            volume,
             pieces,
             strike,
             owner: hitbox.owner,
@@ -354,6 +344,10 @@ pub fn rebuild_combat_geometry_view(
 
 #[cfg(test)]
 mod tests {
+fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
+    (ae::BodyKinematics { pos: aabb.center, canonical_size: aabb.half_size * 2.0, ..Default::default() }, aabb)
+}
+
     use super::*;
     use ambition_combat::hitbox::{HitSide, HitboxKnockback};
     use ambition_platformer2d_core::AabbExt;
@@ -374,7 +368,7 @@ mod tests {
         let owner = app
             .world_mut()
             .spawn((
-                CenteredAabb::from_aabb(collision),
+                body_box(CenteredAabb::from_aabb(collision)),
                 DamageableVolumes::single(authored_hurt),
                 ambition_characters::actor::BodyCombat::default(),
             ))
@@ -493,14 +487,14 @@ mod tests {
         let mut intangible = DamageableVolumes::default();
         intangible.clear();
         app.world_mut().spawn((
-            CenteredAabb::from_aabb(collision),
+            body_box(CenteredAabb::from_aabb(collision)),
             intangible,
             ambition_characters::actor::BodyCombat::default(),
         ));
         // No `DamageableVolumes` at all: the coarse fallback, which is a
         // different fact from being deliberately unhittable.
         app.world_mut().spawn((
-            CenteredAabb::from_aabb(collision),
+            body_box(CenteredAabb::from_aabb(collision)),
             ambition_characters::actor::BodyCombat::default(),
         ));
 
@@ -532,7 +526,7 @@ mod tests {
         let owner = app
             .world_mut()
             .spawn((
-                CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(8.0, 16.0)),
+                body_box(CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(8.0, 16.0))),
                 ambition_characters::actor::BodyCombat::default(),
             ))
             .id();
@@ -577,7 +571,7 @@ mod tests {
         let owner = app
             .world_mut()
             .spawn((
-                CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(8.0, 16.0)),
+                body_box(CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(8.0, 16.0))),
                 ambition_characters::actor::BodyCombat::default(),
             ))
             .id();

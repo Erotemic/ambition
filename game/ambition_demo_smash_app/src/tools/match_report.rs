@@ -1178,7 +1178,6 @@ fn sample(
     struct Victim {
         seat: usize,
         entity: Entity,
-        center: ae::Vec2,
         hurt: Vec<ae::CombatVolume>,
         body_box: ae::CombatVolume,
         dead: bool,
@@ -1213,9 +1212,8 @@ fn sample(
             Victim {
                 seat: seat.0,
                 entity,
-                center: aabb.center,
                 hurt,
-                body_box: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size() * 0.5)),
+                body_box: ae::CombatVolume::aabb(kin.aabb()),
                 dead: out_of_play || !health.alive(),
                 respawn: health.health.invulnerable.holds(
                     ambition_platformer2d::characters::actor::Invulnerability::RESPAWN,
@@ -1245,7 +1243,7 @@ fn sample(
         let Some(owner) = victims.iter().find(|v| v.entity == hitbox.owner) else {
             continue;
         };
-        let volume = hitbox.world_volume(owner.center);
+        let Ok(volume) = hitbox.world_volume(world.get::<ae::BodyKinematics>(hitbox.owner)) else { continue; };
         let b = volume.bounds();
         strike_centres.push((owner.seat, (b.min + b.max) * 0.5));
         strike_bounds.push((owner.seat, b));

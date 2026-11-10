@@ -121,7 +121,7 @@ fn seated_bodies(app: &mut App) -> Vec<SeatedBody> {
                 character: world
                     .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
                     .map(|w| w.id().to_string()),
-                size: kin.size(),
+                size: kin.canonical_size,
                 drawn_quad: world.get::<ActorRenderSize>(entity).map(|quad| quad.0),
                 art_floor,
                 facing: if kin.facing < 0.0 { -1.0 } else { 1.0 },
@@ -140,12 +140,13 @@ fn seated_bodies(app: &mut App) -> Vec<SeatedBody> {
 /// (`+x` toward facing, `+y` toward the feet), or `None` when none is live.
 fn live_strike_extent(app: &mut App, body: Entity, facing: f32) -> Option<((f32, f32), (f32, f32))> {
     let world = app.world_mut();
-    let center = world.get::<ae::CenteredAabb>(body)?.center;
+    let pose = *world.get::<ae::BodyKinematics>(body)?;
+    let center = pose.pos;
     let mut q = world.query::<&Hitbox>();
     q.iter(world)
         .filter(|hitbox| hitbox.owner == body)
         .map(|hitbox| {
-            let b = hitbox.world_volume(center).bounds();
+            let b = hitbox.world_volume(Some(&pose)).unwrap().bounds();
             let (lo_x, hi_x) = if facing < 0.0 {
                 (center.x - b.max.x, center.x - b.min.x)
             } else {

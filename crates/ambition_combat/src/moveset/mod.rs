@@ -1763,11 +1763,6 @@ pub fn advance_move_playback(
             }
             match (inside, live_slot) {
                 (true, None) => {
-                    let body_frame = owner_frames
-                        .get(owner)
-                        .map(|frame| frame.basis())
-                        .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
-                    let frame_down = body_frame.down;
                     // CM3: the smash-charge payoff. The scale interpolates
                     // `1.0 → charge_mult` by the charge fraction reached at
                     // this release instant (`t`, the owner's clock), so a held
@@ -1775,18 +1770,8 @@ pub fn advance_move_playback(
                     // leaves damage/knockback byte-identical — parity.
                     let charge_scale = pb.charge_scale();
                     for (v_idx, volume) in window.volumes.iter().enumerate() {
-                        // §7.1: a vfx-tagged (bladed) volume prefers the owner's
-                        // AUTHORED manifest hit polygon for this move's clip —
-                        // the box you author and see in `debug-hitboxes` IS the
-                        // gameplay damage box, restored onto the moveset path.
-                        // Directional variants rebind `clip`, so `attack_up` /
-                        // `attack_down` resolve their own rows the day they're
-                        // authored. Resolved body-LOCAL (origin, facing +1,
-                        // screen-down); the hitbox's own facing/frame_down
-                        // mirror + rotate it at query time (`place_at`), the
-                        // same math the bespoke path applied. `None` (no
-                        // authored row / silent volume) falls back to the
-                        // synthetic authored shape.
+                        // Authored polygons and synthetic shapes use canonical body axes.
+                        // Committed facing applies before the physical material map.
                         let manifest = volume.vfx.as_ref().and_then(|_| {
                             let clip = pb.spec.clip.clip.as_str();
                             // ⛔ `character_id`, NOT A SECOND RESOLUTION. It is
@@ -1804,7 +1789,7 @@ pub fn advance_move_playback(
                                 &character_catalog,
                                 sprite_cid,
                                 clip,
-                                kin.size(),
+                                kin.canonical_size,
                                 drawn_quad,
                                 Some(window.start_s),
                             )
@@ -1814,51 +1799,34 @@ pub fn advance_move_playback(
                         let art_floor = room_rules.of(owner).map_or(0.0, |rules| rules.art_hit_area_min);
                         let manifest = match manifest {
                             Some(volume) if art_floor > 0.0 => {
-                                Some(volume.at_least(ae::Vec2::splat(art_floor * kin.size().y)))
+                                Some(volume.at_least(ae::Vec2::splat(art_floor * kin.canonical_size.y)))
                             }
                             other => other,
                         };
                         // The drawn tip reaches back to the body: ONE rule,
                         // shared with the brain's coverage.
                         let manifest = manifest.map(|volume| crate::authored_coverage::strike_region(&volume));
-                        let (local, half_extent, shape) = match &manifest {
-                            // The authored convex blade: body-local points; the
-                            // hitbox anchors at the body and `place_at` mirrors
-                            // + gravity-rotates the hull each query.
+                        let (local_offset, half_extent, shape) = match &manifest {
                             Some(ae::CombatVolume::Convex { points, bounds }) => (
                                 ae::Vec2::ZERO,
                                 bounds.half_size(),
-                                Some(ae::VolumeShape::Convex {
-                                    points: points.clone(),
-                                }),
+                                Some(ae::VolumeShape::Convex { points: points.clone() }),
                             ),
-                            // The authored bbox fallback: same spawn-time
-                            // resolution as a synthetic Rect.
-                            Some(vol) => {
-                                let b = vol.bounds();
-                                let c = b.center();
-                                (ae::Vec2::new(c.x * pb.facing, c.y), b.half_size(), None)
+                            Some(volume) => {
+                                let bounds = volume.bounds();
+                                let center = bounds.center();
+                                (ae::Vec2::new(center.x * pb.facing, center.y), bounds.half_size(), None)
                             }
-                            // the plain authored shape goes through the SHARED
-                            // placement (see `place_body_local_volume`), which is
-                            // the same call a capture attempt makes — so a grab
-                            // box and an attack box cannot disagree about gravity.
-                            None => {
-                                let placed =
-                                    place_body_local_volume(&volume.shape, pb.facing, &body_frame);
-                                (placed.world_offset, placed.half_extent, placed.shape)
-                            }
-                        };
-                        // The two authored-manifest arms above are still placed
-                        // here: a convex hull anchors at the body and a resolved
-                        // bbox has already been mirrored, so neither takes the
-                        // body-local road.
-                        let (local_offset, half_extent) = match &manifest {
-                            Some(_) => (
-                                body_frame.to_world(local),
-                                body_frame.to_world_half(half_extent),
-                            ),
-                            None => (local, half_extent),
+                            None => match &volume.shape {
+                                ambition_entity_catalog::VolumeShape::Rect { offset, half_extents } => (
+                                    ae::Vec2::new(offset.0 * pb.facing, offset.1),
+                                    ae::Vec2::new(half_extents.0, half_extents.1), None,
+                                ),
+                                ambition_entity_catalog::VolumeShape::Circle { offset, radius } => (
+                                    ae::Vec2::new(offset.0 * pb.facing, offset.1),
+                                    ae::Vec2::splat(*radius), Some(ae::VolumeShape::circle(*radius)),
+                                ),
+                            },
                         };
                         let hb = Hitbox {
                             // CM8: the authored strike sound rides the volume onto
@@ -1897,7 +1865,7 @@ pub fn advance_move_playback(
                             // the final one does not.
                             reaction: volume.reaction,
                             guard: volume.guard,
-                            frame_down,
+                            frame_down: ae::Vec2::Y,
                         };
                         // §7.2: the slash VFX rides the SAME resolved volume the
                         // damage does (one box drives both) — emitted once at the
@@ -1928,7 +1896,7 @@ pub fn advance_move_playback(
                                 .unwrap_or(ambition_vfx::vfx::SlashPose::Side);
                             crate::util::emit_melee_slash(
                                 &mut vfx.for_room(rooms.of(owner)),
-                                &hb.world_volume(kin.pos),
+                                &match hb.world_volume(Some(&kin)) { Ok(volume) => volume, Err(_) => continue },
                                 kin.pos,
                                 owner,
                                 kind,

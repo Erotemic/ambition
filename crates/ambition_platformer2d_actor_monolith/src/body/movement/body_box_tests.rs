@@ -1,17 +1,4 @@
-//! An actor's body box is the one oriented box of its frame.
-//!
-//! The footprint every reader sees is the body's collision size turned to the
-//! frame whose DOWN is opposite the published support normal
-//! (`ambition_combat::body_geometry::publish_body_footprint`). The actor's own
-//! box (`ActorMut::aabb`, the volume of its contact attack) was a second
-//! statement of it: a swap of the two extents when the normal leaned more
-//! than 30 degrees to the side. The two agree for a cardinal normal and
-//! differ for every other one.
-//!
-//! Each arm steps a 48x22 body once in a gravity frame through the real
-//! `ActorMut::update`, so the kernel writes the normal, and compares the box
-//! of the contact attack with the published footprint and with the box the
-//! step moved.
+//! Contact attacks, published envelopes and motion records use one physical body pose.
 
 use super::*;
 use ambition_body_seed::clusters::SeedActorMut;
@@ -35,6 +22,17 @@ struct Stepped {
 }
 
 fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: ae::Vec2) -> Stepped {
+    let material = ae::frame::BodyMaterial::new(1.0, bevy::math::Mat2::from_cols(
+        ae::Vec2::new(down.y, -down.x), down,
+    )).unwrap();
+    step_with_material(sprite_content, down, material)
+}
+
+fn step_with_material(
+    sprite_content: &ambition_sprite_sheet::SpriteContent,
+    down: ae::Vec2,
+    material: ae::frame::BodyMaterial,
+) -> Stepped {
     let world = ae::World::new("body_box_test", ae::Vec2::new(4000.0, 4000.0), ae::Vec2::ZERO, Vec::new());
     let mut seed = ActorClusterSeed::new(&sprite_content,
         "slug".to_string(),
@@ -44,6 +42,7 @@ fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: 
         &[],
     );
     assert_eq!(seed.kin.size(), BODY, "premise: the body is not square");
+    seed.kin.material = material;
     seed.kin.vel = ae::Vec2::ZERO;
     seed.surface.gravity_scale = 1.0;
     seed.body = ActorBody::from_abilities(ae::AbilitySet::classic_actor(), false, seed.kin.size());
@@ -75,10 +74,8 @@ fn step_in_gravity(sprite_content: &ambition_sprite_sheet::SpriteContent, down: 
     let mut footprint = ae::CenteredAabb::from_center_size(em.kin.pos, em.kin.size());
     ambition_combat::body_geometry::publish_body_footprint(
         &mut footprint,
-        em.kin.pos,
-        em.kin.size(),
-        em.kin.facing,
-        -em.surface.surface_normal,
+        em.kin,
+        em.kin.canonical_size,
     );
     let normal = em.surface.surface_normal;
     let pos = em.kin.pos;
@@ -148,4 +145,15 @@ fn a_body_in_cardinal_gravity_attacks_with_its_footprint() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     the_three_boxes_are_one(&sprite_content, ae::Vec2::new(1.0, 0.0), ae::Vec2::new(11.0, 24.0));
     the_three_boxes_are_one(&sprite_content, ae::Vec2::new(0.0, 1.0), ae::Vec2::new(24.0, 11.0));
+}
+
+/// A gravity change does not replace the physical pose during admitted righting.
+#[test]
+fn contact_motion_and_published_envelopes_agree_during_righting() {
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let stepped = step_with_material(&sprites, ae::Vec2::X, ae::frame::BodyMaterial::IDENTITY);
+    let half = (stepped.step.max - stepped.step.min) * 0.5;
+    assert!((half - stepped.footprint.half_size).length() < 0.001);
+    assert!((stepped.contact_half - stepped.footprint.half_size).length() < 0.001);
+    assert!(half.y > BODY.y * 0.5 && half.y < BODY.x * 0.5);
 }

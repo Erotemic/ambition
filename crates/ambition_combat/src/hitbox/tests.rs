@@ -227,8 +227,8 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         reaction: None,
         guard: Default::default(),
     };
-    let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
-    let aabb_b = hitbox.world_aabb(ae::Vec2::new(200.0, 100.0));
+    let aabb_a = hitbox.world_aabb(Some(&ambition_platformer2d_core::BodyKinematics { pos: ae::Vec2::new(100.0, 100.0), ..Default::default() })).unwrap();
+    let aabb_b = hitbox.world_aabb(Some(&ambition_platformer2d_core::BodyKinematics { pos: ae::Vec2::new(200.0, 100.0), ..Default::default() })).unwrap();
     assert_eq!(aabb_a.center(), ae::Vec2::new(80.0, 100.0));
     assert_eq!(aabb_b.center(), ae::Vec2::new(180.0, 100.0));
     // Half-extent translates into a full-size AABB; the local
@@ -256,8 +256,8 @@ fn world_anchor_hitbox_ignores_owner_position() {
         reaction: None,
         guard: Default::default(),
     };
-    let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
-    let aabb_b = hitbox.world_aabb(ae::Vec2::new(9999.0, 9999.0));
+    let aabb_a = hitbox.world_aabb(Some(&ambition_platformer2d_core::BodyKinematics { pos: ae::Vec2::new(0.0, 0.0), ..Default::default() })).unwrap();
+    let aabb_b = hitbox.world_aabb(Some(&ambition_platformer2d_core::BodyKinematics { pos: ae::Vec2::new(9999.0, 9999.0), ..Default::default() })).unwrap();
     assert_eq!(aabb_a.center(), ae::Vec2::new(500.0, 600.0));
     assert_eq!(aabb_b.center(), ae::Vec2::new(500.0, 600.0));
 }
@@ -518,10 +518,10 @@ fn a_detached_strike_resolves_bodies_before_publishing_its_feature_remainder() {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(ae::CenteredAabb::new(
+        .spawn(body_box(ae::CenteredAabb::new(
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(12.0, 16.0),
-        ))
+        )))
         .id();
     app.world_mut().spawn((
         Hitbox {
@@ -639,7 +639,7 @@ fn a_world_anchored_box_outlives_its_owner_but_a_following_one_does_not() {
 fn hazard_victim(app: &mut App, faction: ActorFaction, at: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
-            ae::CenteredAabb::new(at, ae::Vec2::new(14.0, 20.0)),
+            body_box(ae::CenteredAabb::new(at, ae::Vec2::new(14.0, 20.0))),
             faction,
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
@@ -892,10 +892,10 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(ae::CenteredAabb::new(
+        .spawn(body_box(ae::CenteredAabb::new(
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(12.0, 16.0),
-        ))
+        )))
         .id();
     app.world_mut().spawn((
         Hitbox {
@@ -921,7 +921,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     let victim = app
         .world_mut()
         .spawn((
-            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(14.0, 20.0)),
+            body_box(ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(14.0, 20.0))),
             victim_faction,
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
@@ -1053,10 +1053,10 @@ fn enemy_hitbox_over_player_app_dealing(
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(ae::CenteredAabb::new(
+        .spawn(body_box(ae::CenteredAabb::new(
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(12.0, 16.0),
-        ))
+        )))
         .id();
     app.world_mut().spawn((
         Hitbox {
@@ -1190,7 +1190,7 @@ fn a_detached_strike_hits_each_body_only_once() {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(ae::CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)))
+        .spawn(body_box(ae::CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0))))
         .id();
     app.world_mut().spawn((
         Hitbox {
@@ -1324,20 +1324,20 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
         .world_mut()
         .spawn((
             ActorFaction::Player,
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
         ))
         .id();
     let victim = app
         .world_mut()
         .spawn((
             ActorFaction::Enemy,
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(130.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
@@ -1430,13 +1430,17 @@ fn landed_launch(
         .world_mut()
         .spawn((
             ActorFaction::Player,
-            ae::CenteredAabb::from_center_size(owner_at, ae::Vec2::new(20.0, 20.0)),
+            body_box(ae::CenteredAabb::from_center_size(owner_at, ae::Vec2::new(20.0, 20.0))),
             framed(owner_down),
         ))
         .id();
+    app.world_mut().get_mut::<ae::BodyKinematics>(owner).unwrap().material =
+        ae::frame::BodyMaterial::new(1.0, bevy::math::Mat2::from_cols(
+            ae::Vec2::new(owner_down.y, -owner_down.x), owner_down,
+        )).unwrap();
     app.world_mut().spawn((
         ActorFaction::Enemy,
-        ae::CenteredAabb::from_center_size(victim_at, ae::Vec2::new(20.0, 20.0)),
+        body_box(ae::CenteredAabb::from_center_size(victim_at, ae::Vec2::new(20.0, 20.0))),
         ambition_platformer2d_core::BodyMotionFacts::default(),
         ambition_platformer2d_core::BodyShieldState::default(),
         ambition_characters::actor::BodyCombat::default(),
@@ -1623,10 +1627,10 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         .spawn((
             ActorFaction::Player,
             crate::targeting::MatchTeam::new("seat-0"),
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
         ))
         .id();
     let victim = app
@@ -1635,10 +1639,10 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             ActorFaction::Player,
             crate::targeting::MatchTeam::new("seat-1"),
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(130.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
@@ -1672,7 +1676,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     );
     assert!(
         hitbox
-            .world_volume(app.world().get::<ae::CenteredAabb>(owner).unwrap().center)
+            .world_volume(app.world().get::<ae::BodyKinematics>(owner)).unwrap()
             .intersects_aabb(victim_body),
         "the authored strike, not body contact, must be what reaches the victim"
     );
@@ -1726,14 +1730,14 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         .world_mut()
         .spawn((
             ActorFaction::Player,
-            ae::CenteredAabb::new(owner_center, ae::Vec2::new(10.0, 20.0)),
+            body_box(ae::CenteredAabb::new(owner_center, ae::Vec2::new(10.0, 20.0))),
         ))
         .id();
     let victim = app
         .world_mut()
         .spawn((
             ActorFaction::Enemy,
-            ae::CenteredAabb::new(victim_center, ae::Vec2::new(10.0, 20.0)),
+            body_box(ae::CenteredAabb::new(victim_center, ae::Vec2::new(10.0, 20.0))),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
@@ -1767,7 +1771,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     );
     assert!(
         hitbox
-            .world_volume(owner_center)
+            .world_volume(app.world().get::<ae::BodyKinematics>(owner)).unwrap()
             .intersects_aabb(victim_body),
         "the strike polygon/box must reach the separated victim"
     );
@@ -1818,10 +1822,10 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
         .spawn((
             ActorFaction::Player,
             InRoomInstance(remote),
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
             // The move's own authoritative per-strike accumulator.
             {
                 let mut playback = crate::moveset::MovePlayback::new(
@@ -1838,10 +1842,10 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
         .spawn((
             ActorFaction::Enemy,
             InRoomInstance(emission),
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(130.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
@@ -1915,10 +1919,10 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(ae::CenteredAabb::new(
+        .spawn(body_box(ae::CenteredAabb::new(
             ae::Vec2::new(200.0, 0.0),
             ae::Vec2::new(12.0, 16.0),
-        ))
+        )))
         .id();
     app.world_mut().spawn((
         Hitbox {
@@ -1943,7 +1947,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     ));
     // A player victim overlapping the enemy strike (different faction → lands).
     app.world_mut().spawn((
-        ae::CenteredAabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(14.0, 20.0)),
+        body_box(ae::CenteredAabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(14.0, 20.0))),
         ActorFaction::Player,
         ambition_platformer2d_core::BodyMotionFacts::default(),
         ambition_platformer2d_core::BodyShieldState::default(),
@@ -2256,10 +2260,10 @@ mod strike_rank {
         app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
         let owner = app
             .world_mut()
-            .spawn(ae::CenteredAabb::new(
+            .spawn(body_box(ae::CenteredAabb::new(
                 ae::Vec2::new(0.0, 100.0),
                 ae::Vec2::new(12.0, 16.0),
-            ))
+            )))
             .id();
         let mut volume = |center: ae::Vec2, half: ae::Vec2, damage: i32, volume_rank: u16, wind: bool| {
             app.world_mut().spawn((
@@ -2623,20 +2627,20 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
         .world_mut()
         .spawn((
             ActorFaction::Player,
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
         ))
         .id();
     let victim = app
         .world_mut()
         .spawn((
             ActorFaction::Enemy,
-            ae::CenteredAabb::from_center_size(
+            body_box(ae::CenteredAabb::from_center_size(
                 ae::Vec2::new(130.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
-            ),
+            )),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             shield,
             ambition_characters::actor::BodyCombat::default(),
@@ -3165,12 +3169,12 @@ fn portal_strike_app(passages: Option<ambition_platformer2d_shared_tangle::body:
 
 fn publish_fixture_materials(
     geometry: Option<ResMut<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
-    bodies: Query<(Entity, &ae::CenteredAabb)>,
+    bodies: Query<(Entity, &ae::BodyKinematics)>,
 ) {
     let Some(mut geometry) = geometry else { return; };
     geometry.clear_materials();
-    for (entity, aabb) in &bodies {
-        geometry.set_body_material(entity, ae::frame::Sim2::new(1.0, bevy::math::Mat2::IDENTITY, aabb.center));
+    for (entity, kin) in &bodies {
+        geometry.set_body_material(entity, kin.material_map());
     }
 }
 
@@ -3408,7 +3412,7 @@ fn profile_strike_resolution_with_guards() {
     let guards = std::env::var("PG").map_or(true, |v| v != "0");
     for a in 0..attackers {
         let x = a as f32 * 250.0;
-        let owner = app.world_mut().spawn(ae::CenteredAabb::new(ae::Vec2::new(x, 100.0), ae::Vec2::new(12.0, 16.0))).id();
+        let owner = app.world_mut().spawn(body_box(ae::CenteredAabb::new(ae::Vec2::new(x, 100.0), ae::Vec2::new(12.0, 16.0)))).id();
         for v in 0..3u16 {
             let center = ae::Vec2::new(x + 30.0 + v as f32 * 20.0, 100.0);
             app.world_mut().spawn((
@@ -3498,4 +3502,94 @@ fn a_world_strike_uses_its_authors_portal_budget_without_using_its_body_chart() 
         app.update();
         assert_eq!(struck(&app,far),hits,"{budget:?}");
     }
+}
+
+fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
+    (ae::BodyKinematics { pos: aabb.center, canonical_size: aabb.half_size * 2.0, ..Default::default() }, aabb)
+}
+
+/// A strike follows physical scale, turn and parity while gravity stays fixed.
+#[test]
+fn a_strike_uses_current_material_and_keeps_its_canonical_source() {
+    use ae::frame::{BodyMaterial, thread::RefusalReason};
+    for reflected in [false, true] {
+        for facing in [-1.0, 1.0] {
+            let mut app = portal_strike_app(None);
+            let at = ae::Vec2::new(800.0, 500.0);
+            let rotation = bevy::math::Mat2::from_angle(0.61);
+            let axes = rotation * bevy::math::Mat2::from_cols(
+                if reflected { ae::Vec2::NEG_X } else { ae::Vec2::X }, ae::Vec2::Y,
+            );
+            let material = BodyMaterial::new(2.0, axes).unwrap();
+            let owner = app.world_mut().spawn((
+                ae::BodyKinematics { pos: at, material, facing, ..Default::default() },
+                ActorFaction::Player,
+            )).id();
+            let offset = ae::Vec2::new(facing * 160.0, -60.0);
+            let expected = at + axes * offset * 2.0;
+            let target = hazard_victim(&mut app, ActorFaction::Enemy, expected);
+            let gravity_only = hazard_victim(&mut app, ActorFaction::Enemy, at + offset);
+            strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: offset }, ae::Vec2::new(3.0, 5.0));
+            let mut query = app.world_mut().query::<&Hitbox>();
+            let hitbox = query.single(app.world()).unwrap().clone();
+            let body = *app.world().get::<ae::BodyKinematics>(owner).unwrap();
+            assert!(matches!(hitbox.world_volume(None).unwrap_err().reason, RefusalReason::MissingMaterial));
+            let world = hitbox.world_volume(Some(&body)).unwrap();
+            assert!((world.center() - expected).length() < 0.001);
+            let mut geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::default();
+            geometry.set_body_material(owner, body.material_map());
+            let pieces = strike_pieces(Some(&geometry), &hitbox, Some(&body), None).unwrap();
+            assert_eq!(pieces.len(), 1);
+            assert_eq!(pieces[0].source(), &hitbox.source_volume());
+            assert_eq!(pieces[0].world_volume(), &world);
+            app.update();
+            assert_eq!(struck(&app, target), 1);
+            assert_eq!(struck(&app, gravity_only), 0);
+        }
+    }
+}
+
+/// Canonical source coordinates survive a large room translation without a world round trip.
+#[test]
+fn a_strike_partition_preserves_source_coordinates_at_large_translation() {
+    let mut app = portal_strike_app(None);
+    let owner = app.world_mut().spawn(ae::BodyKinematics {
+        pos: ae::Vec2::splat(1_000_000.0),
+        material: ae::frame::BodyMaterial::new(1.3, bevy::math::Mat2::from_angle(0.37)).unwrap(),
+        ..Default::default()
+    }).id();
+    strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(1.0/3.0, 2.0/7.0) }, ae::Vec2::splat(3.7));
+    let mut query = app.world_mut().query::<&Hitbox>();
+    let hitbox = query.single(app.world()).unwrap();
+    let body = app.world().get::<ae::BodyKinematics>(owner).unwrap();
+    let mut geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::default();
+    geometry.set_body_material(owner, body.material_map());
+    let pieces = strike_pieces(Some(&geometry), hitbox, Some(body), None).unwrap();
+    assert_eq!(pieces[0].source(), &hitbox.source_volume());
+}
+
+/// Root reflection and aperture reflection compose once for geometry and launch.
+#[test]
+fn a_scaled_reflected_strike_carries_its_launch_through_an_unequal_native_pair() {
+    use ae::frame::{BodyMaterial, MapConvention, PortalAperture, PortalFrame};
+    let enter = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, ae::Vec2::NEG_Y), half_length: 40.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y), half_length: 80.0 };
+    let mut geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(MapConvention::Reflection);
+    geometry.add_pair(None, (enter, exit));
+    let mut app = portal_strike_app(Some(geometry));
+    let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(10.0, -60.0));
+    app.world_mut().get_mut::<ae::BodyKinematics>(owner).unwrap().material =
+        BodyMaterial::new(0.5, bevy::math::Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y)).unwrap();
+    let far = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(480.0, -180.0));
+    let below = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(10.0, 10.0));
+    strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 140.0) }, ae::Vec2::new(4.0, 8.0));
+    let mut boxes = app.world_mut().query::<&mut Hitbox>();
+    boxes.single_mut(app.world_mut()).unwrap().launch_dir = Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8)));
+    app.update();
+    assert_eq!(struck(&app, far), 1);
+    assert_eq!(struck(&app, below), 0);
+    let hits = app.world().resource::<CapturedHits>().body_hits();
+    let hit = hits.iter().find(|hit| hit.target == HitTarget::Body(far)).unwrap();
+    let launch = hit.knockback.as_ref().unwrap().launch_dir.unwrap().world().normalize_or_zero();
+    assert!((launch - ae::Vec2::new(0.6, -0.8)).length() < 0.00001, "launch {launch:?}");
 }

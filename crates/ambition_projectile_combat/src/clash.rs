@@ -92,7 +92,7 @@ fn arbitrate_attack_clashes(
             order: ClashOrder::Melee(sim_id.map(|id| id.as_str()).unwrap_or("")),
             attack: ClashAttack::Move(volume.owner),
             owner: volume.owner,
-            volume: hitbox.world_volume(kin.pos),
+            volume: match hitbox.world_volume(Some(kin)) { Ok(volume) => volume, Err(_) => continue },
             family: if grounded {
                 ClashFamily::GroundedMelee
             } else {

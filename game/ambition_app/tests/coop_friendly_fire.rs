@@ -200,7 +200,7 @@ fn a_damage_box_keeps_its_emission_room_and_session_after_its_source_leaves() {
         let attack = {
             let world = sim.world_mut();
             let attacks: Vec<_> = world.query::<(Entity, &combat::strike::Hitbox)>().iter(world)
-                .filter(|(_, hit)| hit.owner == owner && hit.world_volume(center).center() == center)
+                .filter(|(_, hit)| hit.owner == owner && hit.world_volume(None).unwrap().center() == center)
                 .map(|(entity, _)| entity).collect();
             assert_eq!(attacks.len(), 1, "immediate={immediate}, remote_credit={remote_credit}: one box at its place");
             attacks[0]

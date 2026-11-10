@@ -210,6 +210,7 @@ pub struct ActorSpriteOffset(pub ae::Vec2);
 /// what lets the boss body flow through the SAME `integrate_actor_body` every
 /// actor uses. Only bosses carry it today; the fine per-part hurtboxes still
 /// come from `damageable_volumes`, not this coarse box.
+/// The dimensions use canonical body axes before physical scale and rotation.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct BodyEnvelope(pub ae::Vec2);
 

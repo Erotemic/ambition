@@ -12,6 +12,9 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     let mut bodies = Vec::new();
     let mut visuals = Vec::new();
     let mut views = Vec::new();
+    let mut material_parts = Vec::new();
+    let mut strikes = Vec::new();
+    let mut portal_drawables = Vec::new();
     for entity in world.iter_entities() {
         if let Some(view) = entity.get::<engine::sim_view::camera_snapshot::CameraViewState>() {
             let frame = entity.get::<engine::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
@@ -22,6 +25,73 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                 "zoom": view.zoom_multiplier, "zone": view.active_camera_zone,
                 "follow": frame.map(|frame| [frame.follow_world.x, frame.follow_world.y]),
                 "room": frame.map(|frame| format!("{:?}", frame.room)),
+            }));
+        }
+        if let Some(geometry) = world.get_resource::<engine::platformer::body::geometry::BodyGeometry>() {
+            let room = entity.get::<engine::platformer::lifecycle::InRoomInstance>().map(|room| room.0);
+            if let Some(body) = entity.get::<engine::engine_core::BodyKinematics>()
+                .filter(|_| !entity.contains::<engine::engine_core::BodyInStorage>()) {
+                let partition = match (body.canonical_box(), body.material_map()) {
+                    (Ok(domain), Ok(to_world)) => partition_snapshot(geometry.body_pieces(
+                        engine::engine_core::frame::thread::MaterialPrimitive { domain: &domain, to_world }, entity.id(), room)),
+                    (domain, material) => json!({"numeric_error": format!("{domain:?} {material:?}")}),
+                };
+                material_parts.push(json!({"entity": format!("{:?}", entity.id()),
+                    "stable_id": entity.get::<engine::observation::SimId>().map(|id| id.as_str()),
+                    "position": body.pos.to_array(), "partition": partition}));
+            }
+            if let Some(hit) = entity.get::<engine::combat::strike::Hitbox>() {
+                let owner = world.get_entity(hit.owner).ok();
+                let room = owner.as_ref().and_then(|owner| owner.get::<engine::platformer::lifecycle::InRoomInstance>()).map(|room| room.0);
+                strikes.push(json!({"entity": format!("{:?}", entity.id()), "owner": format!("{:?}", hit.owner),
+                    "damage": hit.damage, "partition": partition_snapshot(engine::combat::hitbox::strike_pieces(
+                        Some(geometry), hit, world.get::<engine::engine_core::BodyKinematics>(hit.owner), room))}));
+            }
+        }
+        if entity.contains::<engine::portal_presentation::PortalSceneBody>()
+            || entity.contains::<engine::portal_presentation::PortalBodyPiece>()
+            || entity.contains::<engine::portal_presentation::PortalCarried>()
+            || entity.contains::<engine::portal_presentation::PortalCarryCamera>()
+            || entity.contains::<engine::render::rendering::actors::rigged::RiggedPresentationOf>()
+            || entity.contains::<engine::render::rendering::actors::rigged::RiggedPartSlot>()
+            || entity.contains::<engine::render::rendering::actors::rigged::RiggedImpostorCamera>() {
+            portal_drawables.push(json!({"entity": format!("{:?}", entity.id()),
+                "name": entity.get::<Name>().map(Name::as_str),
+                "body_view": entity.get::<engine::portal_presentation::PortalBodyView>().map(|view| format!("{view:?}")),
+                "components": entity.archetype().components().iter().filter_map(|id| world.components().get_info(*id)).map(|info| info.name().to_string()).collect::<Vec<_>>(),
+                "parent": entity.get::<ChildOf>().map(|v| format!("{:?}", v.parent())),
+                "rigged_body": entity.get::<engine::render::rendering::actors::rigged::RiggedPresentationOf>().map(|v| format!("{:?}", v.0)),
+                "rigged_frame": entity.get::<engine::render::rendering::actors::rigged::RiggedPresentation>().and_then(|p| {
+                    let root = entity.get::<engine::render::rendering::actors::rigged::RiggedPresentationOf>()?.0;
+                    let animator = world.get::<CharacterAnimator>(root)?;
+                    let row = animator.drawn_row().and_then(|slot| animator.spec.row_name(slot))?;
+                    Some(json!({"impostor":format!("{:?}",p.impostor),"row":row,"frame":animator.frame,
+                        "opacity":p.pages.flipbook.frame_opacity(row,animator.frame),"shown":p.shown.as_ref().map(|(_,at,generation)|format!("{at:?} {generation}"))}))
+                }),
+                "target": entity.get::<bevy::camera::RenderTarget>().map(|v| format!("{v:?}")),
+                "visibility": entity.get::<Visibility>().map(|v| format!("{v:?}")),
+                "inherited_visibility": entity.get::<InheritedVisibility>().map(|v| v.get()),
+                "view_visibility": entity.get::<ViewVisibility>().map(|v| v.get()),
+                "sprite_class": entity.get::<bevy::camera::visibility::VisibilityClass>().map(|v| v.0.contains(&std::any::TypeId::of::<Sprite>())),
+                "aabb": entity.get::<bevy::camera::primitives::Aabb>().map(|v| format!("{v:?}")),
+                "global_transform": entity.get::<GlobalTransform>().map(|v| format!("{v:?}")),
+                "sprite_color": entity.get::<Sprite>().map(|v| format!("{:?}", v.color)),
+                "sprite": entity.get::<Sprite>().map(|v| format!("{v:?}")),
+                "anchor": entity.get::<bevy::sprite::Anchor>().map(|v| format!("{v:?}")),
+                "atlas_rect": entity.get::<Sprite>().and_then(|sprite| sprite.texture_atlas.as_ref())
+                    .and_then(|atlas| world.get_resource::<Assets<TextureAtlasLayout>>()?.get(&atlas.layout)?.textures.get(atlas.index))
+                    .map(|rect| format!("{rect:?}")),
+                "visible_entities": entity.get::<bevy::camera::visibility::VisibleEntities>().map(|v| v.entities.values().flatten().map(|e| format!("{e:?}")).collect::<Vec<_>>()),
+                "layers": entity.get::<bevy::camera::visibility::RenderLayers>().map(|v| v.iter().collect::<Vec<_>>()),
+                "transform": entity.get::<Transform>().map(|v| format!("{v:?}")),
+                "image": entity.get::<Sprite>().map(|v| format!("{:?}", v.image)),
+                "sprite_size": entity.get::<Sprite>().and_then(|v| v.custom_size.map(|v| v.to_array())),
+                "clip_material": entity.get::<bevy::sprite_render::MeshMaterial2d<engine::portal_presentation::PortalClipMaterial>>()
+                    .and_then(|handle| world.get_resource::<Assets<engine::portal_presentation::PortalClipMaterial>>()?.get(&handle.0))
+                    .map(|material| format!("{material:?}")),
+                "mesh_positions": entity.get::<Mesh2d>().and_then(|handle| world.get_resource::<Assets<Mesh>>()?.get(&handle.0))
+                    .and_then(|mesh| mesh.attribute(Mesh::ATTRIBUTE_POSITION)).map(|positions| format!("{positions:?}")),
+                "camera": entity.get::<Camera>().map(|camera| json!({"active":camera.is_active,"order":camera.order})),
             }));
         }
         if let Some(worn) = entity.get::<WornCharacter>() {
@@ -68,6 +138,8 @@ pub fn snapshot(world: &World) -> serde_json::Value {
             }));
         }
     }
+    material_parts.sort_by_key(|row| row.to_string());
+    strikes.sort_by_key(|row| row.to_string());
     bodies.sort_by_key(|row| row.to_string());
     visuals.sort_by_key(|row| row.to_string());
     views.sort_by_key(|row| row.to_string());
@@ -86,5 +158,18 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "build": {"package": env!("CARGO_PKG_NAME"), "version": env!("CARGO_PKG_VERSION"), "revision": option_env!("AMBITION_BUILD_COMMIT")},
         "content_fingerprint": content,
         "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
-        "bodies": bodies, "visuals": visuals, "views": views, "music": music})
+        "bodies": bodies, "visuals": visuals, "views": views, "music": music, "material_parts": material_parts, "strikes": strikes, "portal_drawables": portal_drawables})
+}
+
+fn partition_snapshot(partition: engine::engine_core::frame::thread::Partition) -> serde_json::Value {
+    match partition {
+        Ok(parts) => json!({"parts": parts.iter().map(|piece| {
+            let map = piece.transform();
+            json!({"path": piece.path, "scale": map.scale(), "reflected": map.reflected(),
+                "source": format!("{:?}", piece.source()),
+                "source_region": piece.source_region().map(|points| points.iter().map(|p| p.to_array()).collect::<Vec<_>>()),
+                "region": piece.region().map(|points| points.iter().map(|p| p.to_array()).collect::<Vec<_>>())})
+        }).collect::<Vec<_>>()}),
+        Err(refusal) => json!({"refusal": format!("{:?}", refusal.reason), "path": refusal.path, "link": refusal.link}),
+    }
 }

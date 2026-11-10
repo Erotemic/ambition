@@ -133,6 +133,8 @@ struct SceneCaptureConfig {
     portal_effect_off: bool,
     /// Choose the physical portal convention before simulation starts.
     portal_convention: Option<ambition_platformer2d::portal::PortalConvention>,
+    /// Choose material limits before simulation starts.
+    portal_budget: Option<ambition_platformer2d::portal::PortalGeometry>,
     /// Draw these limbs of a part-drawn body (their `limb:<slot>` tracks)
     /// nowhere, in the body or in its limbs' twins (`--limbs-unseen`); empty
     /// for every limb. A film with the limbs and one without differ by the
@@ -405,6 +407,7 @@ OPTIONS:
                         the view through PORTAL is. PORTAL is a channel (as
                         `c131`) or a world X,Y (the portal nearest to it).
     --portal-convention rotation|reflection
+    --portal-budget HOPS,PIECES,SCALE_EXPONENT
                         select the physical mapping before the simulation starts
     --portal-effect off|cones
                         draw portals with body pieces only (`off`), no view
@@ -573,8 +576,10 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
                 // photographs the hub and exits 0.
                 app.insert_resource(ambition_app::app::StartRoomMustResolve);
             }
-            if let Some(convention) = config.portal_convention {
-                let tuning = ambition_platformer2d::portal::PortalTuning { convention, ..Default::default() };
+            if config.portal_convention.is_some() || config.portal_budget.is_some() {
+                let mut tuning = ambition_platformer2d::portal::PortalTuning::default();
+                if let Some(convention) = config.portal_convention { tuning.convention = convention; }
+                if let Some(budget) = config.portal_budget { tuning.geometry = budget; }
                 app.insert_resource(tuning);
                 app.insert_resource(ambition_platformer2d::portal::EditablePortalTuning(tuning));
             }
@@ -1423,6 +1428,7 @@ fn install_room_capture(app: &mut App) {
             hide_the_front_parallax.before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
     }
+    app.init_resource::<PendingArtSnapshot>().add_systems(Last, write_art_snapshot);
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
@@ -1634,6 +1640,7 @@ impl SceneCaptureConfig {
         let mut items: Vec<ItemAt> = Vec::new();
         let mut portal_effect_off = false;
         let mut portal_convention = None;
+        let mut portal_budget = None;
         let mut limbs_unseen: Option<Vec<String>> = None;
         let mut carry = true;
         let mut gear: Vec<(String, u64)> = Vec::new();
@@ -1976,6 +1983,17 @@ impl SceneCaptureConfig {
                     };
                     2
                 }
+                "--portal-budget" => {
+                    let text = args.get(i + 1).ok_or("--portal-budget wants HOPS,PIECES,SCALE_EXPONENT")?;
+                    let fields: Vec<_> = text.split(',').collect();
+                    if fields.len() != 3 { return Err("--portal-budget wants HOPS,PIECES,SCALE_EXPONENT".into()); }
+                    portal_budget = Some(ambition_platformer2d::portal::PortalGeometry::Composed {
+                        max_hops: fields[0].parse().map_err(|_| "invalid portal hop limit")?,
+                        max_pieces: fields[1].parse().map_err(|_| "invalid portal part limit")?,
+                        max_scale_exponent: fields[2].parse().map_err(|_| "invalid portal scale limit")?,
+                    });
+                    2
+                }
                 "--portal-convention" => {
                     use ambition_platformer2d::portal::PortalConvention;
                     portal_convention = Some(match args.get(i + 1).map(String::as_str) {
@@ -2191,6 +2209,7 @@ impl SceneCaptureConfig {
                 items: Vec::new(),
                 portal_effect_off: false,
                 portal_convention,
+                portal_budget,
                 limbs_unseen: None,
                 carry: true,
                 gear: Vec::new(),
@@ -2276,7 +2295,9 @@ impl SceneCaptureConfig {
             shots,
             items,
             portal_effect_off,
-            portal_convention,            limbs_unseen,
+            portal_convention,
+            portal_budget,
+            limbs_unseen,
             carry,
             gear,
             tick_per_frame,
@@ -3589,10 +3610,7 @@ fn request_capture(
     if config.art_snapshot {
         let path = config.output.with_extension(format!("{:04}.art.json", runtime.shot));
         commands.queue(move |world: &mut World| {
-            let report = art_snapshot::snapshot(world);
-            if let Err(error) = std::fs::write(&path, serde_json::to_vec_pretty(&report).expect("snapshot JSON")) {
-                eprintln!("capture_scene: cannot write {}: {error}", path.display());
-            }
+            world.resource_mut::<PendingArtSnapshot>().0 = Some(path);
         });
     }
     runtime.requested = true;
@@ -3922,5 +3940,16 @@ mod press_during_tests {
         let words = SceneCaptureConfig::from_args(room_args("--press Enter --press-during soon"))
             .expect_err("a non-integer is refused");
         assert!(words.contains("wants a frame count"), "{words}");
+    }
+}
+
+#[derive(Resource, Default)]
+struct PendingArtSnapshot(Option<std::path::PathBuf>);
+
+fn write_art_snapshot(world: &mut World) {
+    let Some(path) = world.resource_mut::<PendingArtSnapshot>().0.take() else { return; };
+    let report = art_snapshot::snapshot(world);
+    if let Err(error) = std::fs::write(&path, serde_json::to_vec_pretty(&report).expect("snapshot JSON")) {
+        eprintln!("capture_scene: cannot write {}: {error}", path.display());
     }
 }

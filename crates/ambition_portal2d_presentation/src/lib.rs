@@ -317,11 +317,11 @@ pub struct PortalCompositingCandidate {
 pub struct PortalBodyView {
     /// Body centre in engine world coordinates (top-left origin, y-down).
     pub pos: Vec2,
-    /// The size of the collision box of the body, on the world axes (crouch
-    /// and morph compaction included). It is the box the body has: in turned
-    /// gravity a body that is not square lies along its floor, and the host
-    /// publishes the turned box (`BodyKinematics::collision_box`), not the
-    /// level one.
+    /// The body domain before its physical material transform.
+    pub canonical_size: Vec2,
+    /// The accepted physical scale and orientation.
+    pub material: ae::frame::BodyMaterial,
+    /// World-axis bounds for controls and labels.
     pub size: Vec2,
     /// Facing sign: `>= 0.0` faces +x. Only the sign is read.
     pub facing: f32,

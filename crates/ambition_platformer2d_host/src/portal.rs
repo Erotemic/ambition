@@ -106,12 +106,8 @@ mod host_adapter {
         }
     }
 
-    /// Bridge the host's body visuals → the crate-owned [`PortalSceneBody`]
-    /// seam: a body's own drawable goes through a portal pair while its body
-    /// is in transit, and never by its own geometry (a giant whose arm's near
-    /// line is over its back is not carried). And a part-drawn body's parts
-    /// are drawn with their body (`PortalDrawnWith`). The presentation crate
-    /// names none of these types.
+    /// Mark body visuals for physical material rendering. The parts of a
+    /// rigged picture follow their body through `PortalDrawnWith`.
     #[allow(clippy::type_complexity)]
     pub fn tag_portal_scene_bodies(
         mut commands: Commands,
@@ -212,6 +208,8 @@ mod host_adapter {
         use ambition_platformer2d_core::AabbExt;
         PortalBodyView {
             pos: kin.pos,
+            canonical_size: kin.canonical_size,
+            material: kin.material,
             // The box the body has, turned as its last step turned it: the box
             // the portal core transits.
             size: kin.aabb().half_size() * 2.0,
@@ -220,19 +218,9 @@ mod host_adapter {
         }
     }
 
-    /// Each body that crosses a portal is cut at the seam, not the player
-    /// only. A body that is not the player is drawn by another entity than
-    /// its own (a `FeatureVisual` with its id), so the facts the piece
-    /// builder cuts by are published onto that visual while its body
-    /// straddles a portal: the scene-body tag, the pose, and the transit.
-    ///
-    /// The tag and the pose stay after the transit (the piece builder gives
-    /// the whole sprite back on the frame after, and it visits tagged
-    /// visuals only). The transit fact goes when the transit ends.
-    ///
-    /// A visual is matched to a body by id in its own live room: two live
-    /// rooms can hold the same id.
-    pub fn publish_transiting_feature_bodies(
+    /// Publish each feature body's accepted material onto its visual in the
+    /// same live room. Occupancy does not require centre transit.
+    pub fn publish_feature_body_views(
         mut commands: Commands,
         live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
         bodies: Query<(
@@ -240,7 +228,7 @@ mod host_adapter {
             &ambition_combat::FeatureId,
             &BodyKinematics,
 
-            &ambition_portal2d::PortalTransit,
+            Option<&ambition_portal2d::PortalTransit>,
         )>,
         visuals: Query<
             (Entity, &ambition_render::rendering::FeatureVisual, Has<PortalTransitView>),
@@ -263,11 +251,12 @@ mod host_adapter {
                 .find(|(body, id, ..)| id.0 == feature.id && live.of(*body) == room);
             match body {
                 Some((body, _, kin, transit)) => {
-                    commands.entity(visual).try_insert((
-                        PortalSceneBody,
-                        body_view(body, kin),
-                        PortalTransitView { straddling: transit.straddling },
-                    ));
+                    commands.entity(visual).try_insert((PortalSceneBody, body_view(body, kin)));
+                    if let Some(transit) = transit {
+                        commands.entity(visual).try_insert(PortalTransitView { straddling: transit.straddling });
+                    } else if shown_in_transit {
+                        commands.entity(visual).remove::<PortalTransitView>();
+                    }
                 }
                 None if shown_in_transit => {
                     commands.entity(visual).remove::<PortalTransitView>();
@@ -504,50 +493,27 @@ mod host_adapter {
         }
     }
 
-    /// Each item and each shot that straddles a portal is cut at the seam,
-    /// as a body is: the facts the piece builder cuts by go onto the visual
-    /// that draws it. An item's visual is linked to its item
-    /// (`GroundItemVisual`, made again each frame from the item's row), and
-    /// a shot's to its shot (`VisualProjectile`). The transit fact goes when
-    /// the transit ends.
+    /// Publish accepted body material onto item and projectile visuals.
     #[allow(clippy::type_complexity)]
-    pub fn publish_transiting_drawn_bodies(
+    pub fn publish_drawn_body_views(
         mut commands: Commands,
         transits: Query<&ambition_portal2d::PortalTransit>,
-        items: Res<ambition_sim_view::GroundItemsView>,
-        shots: Query<&BodyKinematics>,
+        bodies: Query<&BodyKinematics>,
         item_visuals: Query<(Entity, &ambition_render::rendering::GroundItemVisual, Has<PortalTransitView>)>,
         shot_visuals: Query<(Entity, &ambition_render::rendering::projectile_visuals::VisualProjectile, Has<PortalTransitView>)>,
     ) {
-        for (visual, link, shown_in_transit) in &item_visuals {
-            let row = items.0.iter().find(|row| row.item == link.0);
-            match (row, transits.get(link.0)) {
-                (Some(row), Ok(transit)) => {
-                    commands.entity(visual).try_insert((
-                        PortalSceneBody,
-                        PortalBodyView { pos: row.pos, size: row.half_extent * 2.0, facing: 1.0, body: link.0 },
-                        PortalTransitView { straddling: transit.straddling },
-                    ));
-                }
-                _ if shown_in_transit => {
+        let visuals = item_visuals.iter().map(|(visual, link, transit)| (visual, link.0, transit))
+            .chain(shot_visuals.iter().map(|(visual, link, transit)| (visual, link.0, transit)));
+        for (visual, body, shown_in_transit) in visuals {
+            if let Ok(kin) = bodies.get(body) {
+                commands.entity(visual).try_insert((PortalSceneBody, body_view(body, kin)));
+                if let Ok(transit) = transits.get(body) {
+                    commands.entity(visual).try_insert(PortalTransitView { straddling: transit.straddling });
+                } else if shown_in_transit {
                     commands.entity(visual).remove::<PortalTransitView>();
                 }
-                _ => {}
-            }
-        }
-        for (visual, link, shown_in_transit) in &shot_visuals {
-            match (shots.get(link.0), transits.get(link.0)) {
-                (Ok(kin), Ok(transit)) => {
-                    commands.entity(visual).try_insert((
-                        PortalSceneBody,
-                        body_view(link.0, kin),
-                        PortalTransitView { straddling: transit.straddling },
-                    ));
-                }
-                _ if shown_in_transit => {
-                    commands.entity(visual).remove::<PortalTransitView>();
-                }
-                _ => {}
+            } else if shown_in_transit {
+                commands.entity(visual).remove::<PortalTransitView>();
             }
         }
     }
@@ -1233,7 +1199,7 @@ mod host_adapter {
                         // Each other body that crosses: its facts go onto the
                         // visual that draws it. A host whose limb is in a pair
                         // after: its facts stand.
-                        (publish_transiting_feature_bodies, publish_threaded_host_pictures).chain(),
+                        (publish_feature_body_views, publish_threaded_host_pictures).chain(),
                     )
                         .in_set(PortalObservationSet)
                         .run_if(
@@ -1276,7 +1242,7 @@ mod host_adapter {
             // cut this frame (the presentation follows observation).
             app.add_systems(
                 Update,
-                publish_transiting_drawn_bodies
+                publish_drawn_body_views
                     .after(ambition_render::rendering::SpriteVisualSync)
                     .in_set(PortalObservationSet)
                     .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
@@ -1344,14 +1310,11 @@ mod tests {
         assert_eq!(cut_by(false), Some(purple), "the deep limb met second");
     }
 
-    /// A body that is not the player (a dog) is drawn by a visual with its
-    /// id. While the body straddles a portal the visual has the three facts
-    /// the piece builder cuts it by; when the transit ends the transit fact
-    /// goes and the tag stays, so the builder gives the whole sprite back. The
-    /// control is a second body that does not transit: its visual gets none.
+    /// Both feature bodies publish accepted material. Only the dog has an
+    /// active centre transit.
     #[test]
-    fn a_body_that_is_not_the_player_is_cut_while_it_is_in_transit() {
-        use super::host_adapter::publish_transiting_feature_bodies;
+    fn feature_body_material_is_published_before_and_during_centre_transit() {
+        use super::host_adapter::publish_feature_body_views;
         use ambition_portal2d::{PortalChannel, PortalChannelColor, PortalTransit};
         use ambition_portal2d_presentation::{PortalSceneBody, PortalTransitView};
         use ambition_render::rendering::FeatureVisual;
@@ -1365,7 +1328,7 @@ mod tests {
                 Vec::new(),
             )),
         );
-        app.add_systems(Update, publish_transiting_feature_bodies);
+        app.add_systems(Update, publish_feature_body_views);
         let purple = PortalChannel::Authored(PortalChannelColor::Purple);
         let dog = app
             .world_mut()
@@ -1384,7 +1347,8 @@ mod tests {
         assert_eq!(world.get::<PortalTransitView>(dog_visual), Some(&PortalTransitView { straddling: purple }));
         assert!(world.get::<PortalSceneBody>(dog_visual).is_some());
         assert_eq!(world.get::<PortalBodyView>(dog_visual).map(|view| view.pos), Some(Vec2::new(500.0, 300.0)));
-        assert!(world.get::<PortalSceneBody>(cat_visual).is_none(), "a body that does not transit was tagged");
+        assert!(world.get::<PortalSceneBody>(cat_visual).is_some());
+        assert_eq!(world.get::<PortalBodyView>(cat_visual).unwrap().pos, Vec2::new(100.0, 300.0));
         assert!(world.get::<PortalTransitView>(cat_visual).is_none());
 
         app.world_mut().entity_mut(dog).remove::<PortalTransit>();
@@ -1818,7 +1782,7 @@ mod tests {
 
 pub use host_adapter::{
     apply_portal_camera_continuity, load_portal_gun_art, portal_dev_toggle_system,
-    publish_portal_body_views, publish_transiting_feature_bodies, sync_portal_camera_continuity_focus,
+    publish_portal_body_views, publish_feature_body_views, sync_portal_camera_continuity_focus,
     sync_portal_debug_overlay_to_f1, sync_portal_viewer,
     tag_portal_affordance_body, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
     PortalContinuityCameraTagged, PortalObservationPlugin,

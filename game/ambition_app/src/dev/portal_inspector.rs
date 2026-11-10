@@ -11,7 +11,7 @@ mod enabled {
     use ambition_platformer2d::dev_tools::dev_tools::inspector_visible;
     #[cfg(feature = "portal_render")]
     use ambition_platformer2d::portal::PlacedPortal;
-    use ambition_platformer2d::portal::{PortalConvention, PortalTuning};
+    use ambition_platformer2d::portal::{PortalConvention, PortalGeometry, PortalTuning};
     #[cfg(feature = "portal_render")]
     use ambition_platformer2d::portal_presentation::{
         selected_portal_view_cone_debug_rows, PortalApertureLosQuality,
@@ -107,6 +107,37 @@ mod enabled {
                             &mut tuning.convention,
                             "Active portal map convention. Reflection preserves tangents and flips normals; Rotation maps the entry-facing chart into the exit.",
                         );
+                        field_label(ui, "geometry", "Limit the paths that each body can occupy.");
+                        let mut composed = matches!(tuning.geometry, PortalGeometry::Composed { .. });
+                        egui::ComboBox::from_id_salt("portal_geometry_combo")
+                            .selected_text(if composed { "Composed" } else { "SingleHop" })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut composed, false, "SingleHop");
+                                ui.selectable_value(&mut composed, true, "Composed");
+                            });
+                        ui.label("");
+                        ui.end_row();
+                        if composed != matches!(tuning.geometry, PortalGeometry::Composed { .. }) {
+                            tuning.geometry = if composed {
+                                let budget = ambition_platformer2d::engine_core::frame::thread::PieceBudget::COMPOSED;
+                                PortalGeometry::Composed { max_hops: budget.max_hops,
+                                    max_pieces: budget.max_pieces, max_scale_exponent: budget.max_scale_exponent }
+                            } else { PortalGeometry::SingleHop };
+                        }
+                        if let PortalGeometry::Composed { max_hops, max_pieces, max_scale_exponent } = &mut tuning.geometry {
+                            field_label(ui, "max_hops", "Maximum number of portal cuts in one path.");
+                            ui.add(egui::DragValue::new(max_hops).speed(1.0));
+                            ui.label("cuts");
+                            ui.end_row();
+                            field_label(ui, "max_pieces", "Maximum number of material parts.");
+                            ui.add(egui::DragValue::new(max_pieces).speed(1.0));
+                            ui.label("parts");
+                            ui.end_row();
+                            field_label(ui, "max_scale_exponent", "Maximum absolute base-two scale exponent.");
+                            ui.add(egui::DragValue::new(max_scale_exponent).speed(1.0));
+                            ui.label("exponent");
+                            ui.end_row();
+                        }
                         u32_row(
                             ui,
                             "raycast_recursion_depth",

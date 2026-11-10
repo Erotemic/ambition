@@ -111,13 +111,14 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_platformer2d_world"]
 watch_paths = ["crates/ambition_platformer2d_world/Cargo.toml"]
-rationale = "The world owner holds authored room data and services for live room geometry. Its explicit lower dependencies supply geometry, world and lifecycle vocabulary, asset identities, registry protocols, and the simulation clock. They do not add body execution, controllers, hosts, or rendering. ambition_time supplies WorldTime to advance every live room independently of body and view presence."
+rationale = "The world owner holds authored room data and services for live room geometry. Its explicit lower dependencies supply geometry, world and lifecycle vocabulary, asset identities, registry protocols, and the simulation clock. ambition_geometry_observation supplies the provider registry and observation records shared by headless tools and presentation. The world crate supplies its own geometry provider. They do not add body execution, controllers, hosts, or rendering. ambition_time supplies WorldTime to advance every live room independently of body and view presence."
 source_doc = "docs/architecture/package-and-capability-boundaries.md#layering"
 severity = "error"
 exact = true
 manifest = "crates/ambition_platformer2d_world/Cargo.toml"
 allow = [
     "ambition_asset_manager",
+    "ambition_geometry_observation",
     "ambition_platformer2d_core",
     "ambition_entity_catalog",
     "ambition_time",

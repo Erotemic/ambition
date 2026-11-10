@@ -125,22 +125,7 @@ fn the_coil_labs_prototype_turns_its_gravity_over_and_back() {
 #[test]
 fn the_range_officer_signs_it_off_as_probably_fine() {
     let mut app = a_session_in("eureka_test_range");
-    // The range's foes go first, and the robot is set down by the officer:
-    // this is his talk, and with a mite at the robot on the long walk to him
-    // he joins the fight with his fists (a resident who can fight rallies in
-    // a dangerous room) instead of standing at his post.
-    let foes: Vec<bevy::prelude::Entity> = {
-        let world = app.world_mut();
-        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::ActorDisposition)>();
-        q.iter(world)
-            .filter(|(_, disposition)| **disposition == ambition_platformer2d::combat::components::ActorDisposition::Hostile)
-            .map(|(foe, _)| foe)
-            .collect()
-    };
-    assert!(!foes.is_empty(), "the range has no foes to clear: the premise moved");
-    for foe in foes {
-        app.world_mut().entity_mut(foe).despawn();
-    }
+    // The officer's post is at the far end of a range with foes on it.
     set_down(&mut app, ae::Vec2::new(2380.0, 704.0));
     crate::the_pirate_port::talk(&mut app, "npc_eureka_pryce", "What is tested here?");
 }

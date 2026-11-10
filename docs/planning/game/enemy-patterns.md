@@ -23,7 +23,7 @@ Two enemies differ in their pattern, not only in their numbers.
 
 | Want | Where | Field |
 |---|---|---|
-| notice beat | `MeleeTactics::notice_s` (brute) | stands, facing its foe, for that long on first sight; again after losing it |
+| notice beat | `MeleeTactics::notice_s` (brute, flyer, skirmisher) | stands, facing its foe, for that long on first sight; again after losing it |
 | spacing | `MeleeTactics::footsies` | holds `hold_px` out, sways, commits after `wait_s` |
 | pack spacing | `MeleeTactics::waits_its_turn`, `lurk_px` | hangs back behind an ally; waits beside a foe above it |
 | hit and run | `BrainProfile::retreat_after_swing_s`, `MeleeTactics::flinch_back_s` | backs off after a swing / when hit |
@@ -47,7 +47,7 @@ The catalog row's `cues` (`CharacterCues`, `sfx_registry` ids), so a telegraph i
 
 The strike sounds are folded onto its moves when its kit is prepared (`moveset_prefabs::voice_moveset`), its moveset file's moves too. A move keeps a sound it authored. The beats are played by `body::play_beat_cues`, off the brain's beat edges (`Brain::beat`).
 
-The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/measure/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers and fighter engagement can emit notice beats. Skirmisher timing and the remaining authored profiles are tracked by ENEMY-NOTICE.
+The primeval trail and Castle Godwin rows state their cues (2026-10-30, the `enemy.<creature>.notice|tell|swing|hit` recipes). `scripts/measure/enemy_cue_reels.py` plays each row's cues in their timing, to judge by ear. Brutes, flyers, skirmishers and fighter engagement can emit notice beats. The remaining authored profiles are tracked by ENEMY-NOTICE.
 
 ## What the art gives a character
 
@@ -100,9 +100,19 @@ Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
 
 ## Not yet
 
-- **Skirmishers still lack a first-sight interval.** The dilophosaurus has a
-  ranged volley but `SkirmisherCfg` has no notice field. Fighter engagement
-  already has a notice interval and a beat; recheck pirate and ninja authored
-  profiles before changing that mechanism. Execution:
+- **Skirmisher notice: done 2026-11-10.** A skirmisher reads its profile's
+  `tactics.notice_s` (`SkirmisherCfg::notice_s`). On first sight it stands
+  and faces its foe for that long, without moving or shooting, then fights,
+  and it notices again after it loses the foe. The beat goes through the same
+  projection as every other controller (`Brain::is_noticing`: the `notice`
+  row and the notice cue). The dilophosaurus is authored: `notice_s: 0.4` and
+  its `enemy.dilophosaurus.notice` cue, a recipe it already had. Witness:
+  `a_skirmisher_notices_its_foe_before_it_moves_or_shoots`.
+
+  The other eighteen skirmisher profiles have no notice cue or row yet, so
+  they keep fighting on first sight. The pirate and ninja audit (2026-11-10)
+  found the same: apart from the oni leader, none has a notice row or cue,
+  and none runs fighter engagement (pirates run `Smash` or `Skirmisher`,
+  ninjas the catalog melee-brute presets). Each waits for its art and cue.
   [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

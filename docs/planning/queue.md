@@ -390,9 +390,27 @@ engagement already implements it.
 **Owner:** `ambition_characters::brain::state_machine`, combat brain emission,
 and authored character profiles. Design: [enemy patterns](game/enemy-patterns.md#not-yet).
 
-**Next action:** extend the existing first-sight/beat contract to skirmishers.
-Audit the named pirate and ninja profiles against fighter engagement; author
-missing values rather than another fighter notice implementation.
+**Done 2026-11-10:** skirmishers have the first-sight beat
+(`SkirmisherCfg::notice_s`, read from the profile's `tactics.notice_s`, through
+the shared `Brain::is_noticing` projection). The dilophosaurus is authored
+(0.4 s and its notice cue).
+
+**Audit 2026-11-10 (pirates and ninjas):** nothing to author yet. The oni
+leader is the one authored (0.5 s, `enemy.oni_leader.notice`). Every other
+pirate and ninja has no `notice` sheet row and no `.notice` cue recipe, so a
+`notice_s` would be a pause with no pose and no sound, which the acceptance
+below does not allow. Their brains: pirate strikers, brutes and the cutlass
+viper run the `Smash` template (no notice beat; it is the match-seat
+controller); the rangers, the raider and Iron Mary run `Skirmisher` (notice
+ready, data missing); the shadow duelists and heavies run the catalog presets
+`melee_brute_striker` / `melee_brute_brute` (`BrainPreset` carries no notice
+field; it is pinned to 0). None uses fighter engagement.
+
+**Next action:** when a pirate or ninja sheet gains a `notice` row and its cue
+recipe is published (a publishing machine), author `tactics.notice_s` on its
+`Skirmisher` profile; for a `Smash` or catalog-preset enemy, move it to a
+profile whose template already carries the beat (brute or skirmisher) rather
+than adding a notice to `Smash` or `BrainPreset`.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;
 loss and reacquisition follow the declared policy. Hurt interruption and
@@ -445,7 +463,32 @@ primeval, gate network and the rest) and its committed area specs are still
 in the main repo, about 2.5 MB with 238 commits of history. Their worlds have
 no record yet, so the guard is inert for them until their next apply.
 
-**Next action:** move each generator to `generators/<dimension>/` as History
+**Survey (2026-11-10):** `level ownership survey <spec>... --ldtk <world>`
+applies a generator's specs to a copy of its world and says, per room,
+whether the live room is still what they make (`reproduced`) or was changed
+after (`DIFFERS`). History's recorded generator reproduces its rooms (12 of
+12 sampled): the control. It replays `area create` only, not a generator's
+in-place steps after it (painting, `entity add`, `scenery_overlay.py`), so a
+DIFFERS may be those steps. Treat it as LDtk-owned: that keeps the room as it
+is, and costs the generator only a room it might have rebuilt.
+
+**Jungle done (2026-11-10):** all twelve `dinosaur.ldtk` rooms are LDtk-owned
+(`dinosaur.generated.json`). The six trail rooms and three of the six later
+ones DIFFER from their specs, as the primeval generator's own note said (the
+rooms were tuned in LDtk after it). Its scripts (`make_specs.py`,
+`side_exits.py`, `treetops.py`, `tar_pits.py`) were deleted; the last version
+is at `a910d3952e`.
+
+**First survey of the rest (bare specs):** art 12 of 15 reproduced; castle
+Godwin 3 of 6; castle kitchens 3 of 5; the breakable wall lab 0 of 2. The
+loose top-level specs and edits are one-offs, but some are still read:
+`hall_of_characters_area.ron` (`generate_hall_of_characters.py`),
+`symmetry_room_area.ron` (`gen_symmetry_room.py`) and
+`intro_raid_corridor_area.ron` (`test_spec_brains_resolve.py`).
+
+**Next action:** world by world, survey its generator, record the reproduced
+rooms as generated, adopt the rest, then move each generator to
+`generators/<dimension>/` as History
 did (its specs to the temp folder; `district_kit` stays in tools). Apply each
 once so its rooms are recorded. Hand-written one-off specs (`*_area.ron`,
 `*.yaml` edits) that already ran become LDtk-owned and are deleted.

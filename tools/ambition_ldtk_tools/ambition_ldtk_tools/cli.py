@@ -635,7 +635,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Who owns each level: its generator or the LDtk file. Usage: level "
             "ownership status|adopt|release [<level>...] --ldtk PATH. `status` lists "
             "levels edited in LDtk since their generator wrote them (exit 1 if any); "
-            "`adopt` makes levels LDtk-owned, so their generator skips them."
+            "`adopt` makes levels LDtk-owned, so their generator skips them; "
+            "`survey <spec>...` says which levels the specs still make as the world holds them."
         ),
     )
     level_sub.add_parser(

@@ -111,6 +111,13 @@ class GeneratedRecordTests(unittest.TestCase):
         self.assertEqual(generated_record.main(["release", LEVEL, "--ldtk", str(self.world)]), 0)
         self.assertIsNone(generated_record.check(self.world, level_of(self.world)))
 
+    def test_a_survey_tells_a_level_its_spec_makes_from_an_edited_one(self):
+        before = self.world.read_bytes()
+        self.assertEqual(generated_record.survey(self.world, [self.spec]), [(LEVEL, "reproduced")])
+        self.assertEqual(self.world.read_bytes(), before, "a survey does not write the live world")
+        edit_in_ldtk(self.world)
+        self.assertEqual(generated_record.survey(self.world, [self.spec]), [(LEVEL, "DIFFERS")])
+
     def test_moving_a_level_is_not_an_edit(self):
         # The LDtk editor owns placement (`area create --keep-position`).
         level = level_of(self.world)

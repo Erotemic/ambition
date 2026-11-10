@@ -1,6 +1,6 @@
 //! The primeval trail: the level of the dinosaurs.
 //!
-//! Six rooms in a row (`tools/ambition_ldtk_tools/specs/primeval/`): the
+//! Six rooms in a row (`dinosaur.ldtk`, LDtk-owned): the
 //! T-rex's kin are its enemies and the T-rex is at its end. This asks four
 //! things of it: that its rooms are a row with a door each way, that an enemy
 //! it places hunts (a placed catalog character with no profile stands where

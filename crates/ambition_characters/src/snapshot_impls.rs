@@ -651,6 +651,9 @@ impl SnapshotCursor for crate::brain::Brain {
                         put_f32(out, remaining);
                     }
                 }
+                // Its first sight of its foe, and the beat it stands for.
+                put_bool(out, state.noticed);
+                put_f32(out, state.noticing);
             }
             _ => put_u8(out, 0),
         }

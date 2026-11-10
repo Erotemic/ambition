@@ -90,8 +90,12 @@ delete each packet when its acceptance passes.
 
 ### JL-1 — Jungle geometry and walking loops
 
-**Owner:** `tools/ambition_ldtk_tools/specs/primeval/make_specs.py`,
-`treetops.py`, `side_exits.py` and adjacent primeval `.ron` rooms. Fold the
+**Owner:** `dinosaur.ldtk`, whose rooms are all LDtk-owned (LEVEL-TRUTH,
+2026-11-10: the primeval scripts were older than their rooms, so a re-apply
+would have dropped the tuning made in LDtk; their last version is at
+`a910d3952e`). Edit the rooms in LDtk or with in-place edits
+(`entity add`, `intgrid paint`), or give a new room to a generator in
+`game/ambition_map_assets/ambition_content/generators/`. Fold the
 existing trail to the surface, fossil beds/tar pits/amber vault underneath,
 canopy/treetops above and Smoking Mountain higher still. Reuse rooms and
 preserve secret exits, permanent breaks and existing placements. Make at least

@@ -170,6 +170,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
             fire_cooldown_s: 1.5,
             orbit_drift_rad_s: 0.6,
             ranged_volley: None,
+            notice_s: 0.0,
         },
         state: SkirmisherState::default(),
     });

@@ -24,6 +24,13 @@ Usage:
     python -m ambition_ldtk_tools level ownership status --ldtk <world>
     python -m ambition_ldtk_tools level ownership adopt <level>... --ldtk <world>
     python -m ambition_ldtk_tools level ownership release <level>... --ldtk <world>
+    python -m ambition_ldtk_tools level ownership survey <spec>... --ldtk <world>
+
+`survey` answers, for a world no generator has recorded yet, which of its
+levels a generator still makes: it applies the specs, in order, to a copy of
+the world and compares each level it made with the live one. A level that
+matches can be recorded as generated; one that differs was edited after its
+generator ran, and recording it would discard that edit at the next apply.
 """
 
 from __future__ import annotations
@@ -148,9 +155,65 @@ def status(ldtk: Path) -> list[tuple[str, str]]:
     return rows
 
 
+def _create(spec: Path, world: Path, package_root: Path):
+    import subprocess
+    import sys
+
+    return subprocess.run(
+        [sys.executable, "-m", "ambition_ldtk_tools", "area", "create", str(spec), "--ldtk", str(world),
+         "--replace-existing", "--keep-position"],
+        cwd=package_root, capture_output=True, text=True,
+    )
+
+
+def survey(ldtk: Path, specs: list[Path]) -> list[tuple[str, str]]:
+    """Each level the `specs` make, and whether the live `ldtk` holds it as
+    they make it: `reproduced`, `DIFFERS`, or `absent` (not in the live
+    world). The live world is not written."""
+    import shutil
+    import tempfile
+
+    from ambition_ldtk_tools import ron_parse
+
+    live = _levels(ldtk)
+    package_root = Path(__file__).resolve().parents[1]
+    with tempfile.TemporaryDirectory() as scratch:
+        copy = Path(scratch) / Path(ldtk).resolve().name
+        shutil.copyfile(Path(ldtk).resolve(), copy)
+        made = []
+        for n, spec in enumerate(specs):
+            text = Path(spec).read_text()
+            level_id = str(ron_parse.load(text)["level_id"])
+            # A link into another world file places its door in that file,
+            # which the copy does not hold: make the level without it.
+            local = Path(scratch) / f"{n}_{Path(spec).name}"
+            local.write_text(text)
+            done = _create(local, copy, package_root)
+            out = done.stdout + done.stderr
+            if done.returncode != 0 and "connect_to target_room" in out and "not found" in out:
+                import re
+
+                local.write_text(re.sub(r"connect_to: \[.*?\n    \],", "connect_to: [],", text, flags=re.S))
+                done = _create(local, copy, package_root)
+                out = done.stdout + done.stderr
+            if done.returncode != 0 and "wrote new level" not in out and "replaced level" not in out:
+                raise SystemExit(f"{spec}: area create failed:\n{out}")
+            made.append(level_id)
+        after = _levels(copy)
+    rows = []
+    for level_id in made:
+        if level_id not in live:
+            rows.append((level_id, "absent"))
+        elif fingerprint(live[level_id]) == fingerprint(after[level_id]):
+            rows.append((level_id, "reproduced"))
+        else:
+            rows.append((level_id, "DIFFERS"))
+    return rows
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=["status", "adopt", "release"])
+    parser.add_argument("action", choices=["status", "adopt", "release", "survey"])
     parser.add_argument("levels", nargs="*")
     parser.add_argument("--ldtk", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -161,6 +224,15 @@ def main(argv=None) -> int:
         edited = [level_id for level_id, owner in rows if owner == "HAND-EDITED"]
         print(f"{len(rows)} level(s); {len(edited)} hand-edited since their generator wrote them")
         return 1 if edited else 0
+    if args.action == "survey":
+        if not args.levels:
+            parser.error("survey needs the generator's area specs, in the order it applies them")
+        rows = survey(args.ldtk, [Path(spec) for spec in args.levels])
+        for level_id, verdict in rows:
+            print(f"{verdict:12} {level_id}")
+        differs = [level_id for level_id, verdict in rows if verdict != "reproduced"]
+        print(f"{len(rows)} level(s); {len(differs)} not as the specs make them")
+        return 1 if differs else 0
     if not args.levels:
         parser.error(f"{args.action} needs at least one level")
     data = load(args.ldtk)

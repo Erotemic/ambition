@@ -1,6 +1,6 @@
 """The entities of a dialed gate: a ring, its portal, its loading zone and
 its terminal. One place writes them, so each room generator that holds a ring
-(`specs/math_town`, `specs/primeval`, the hub's `make_gates.py`, ...) states
+(`specs/math_town`, the hub's `make_gates.py`, ...) states
 the same shape.
 
 A dialed ring's zone names no target: the gate network's live link decides

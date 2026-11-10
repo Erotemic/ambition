@@ -1,108 +1,58 @@
 # Developer hotkeys
 
-Developer keyboard policy has one owner:
+`crates/ambition_platformer2d_shared_tangle/src/developer_hotkeys.rs` owns the
+physical bindings. It maps exact key chords to `DeveloperAction`; consumers
+match the semantic action rather than reading function keys independently.
 
-```text
-crates/ambition_platformer2d_shared_tangle/src/developer_hotkeys.rs
-```
-
-That module maps exact physical chords to semantic `DeveloperAction` messages.
-Simulation, presentation, shell, and tooling systems consume those actions and
-must not read function keys directly. This keeps temporary debugging priorities
-editable in one file and prevents two subsystems from silently claiming the
-same key.
-
-## Current deck
+## Default bindings
 
 | Chord | Action |
 |---|---|
-| `F1` | toggle the global debug overlay |
-| `Shift+F1` | show (or hide) the debug overlay in its combat view: see below |
-| `F2` | toggle developer slow motion |
-| `F3` | toggle the resource inspector |
-| `F4` | toggle the world inspector |
-| `F5` | toggle the overview camera |
-| `F6` | toggle the FPS overlay |
-| `F7` | toggle the portal gun |
-| `Shift+F6` | toggle the gamepad-axis probe (and reset its peaks) |
-| `F8` | request one gameplay trace dump |
-| `Shift+F8` | request one portal view-cone dump |
-| `F9` | request one bounded GGRS rollback proof |
-| `F10` | quit the active session to its home route |
-| `F11` | validate and apply pending LDtk content |
-| `F12` | toggle LDtk auto-apply |
+| `F1` | Toggle debug overlay |
+| `Shift+F1` | Toggle combat overlay |
+| `F2` | Toggle developer slow motion |
+| `F3` | Toggle resource inspector |
+| `F4` | Toggle world inspector |
+| `F5` | Toggle overview camera |
+| `F6` | Toggle FPS overlay |
+| `Shift+F6` | Toggle and reset gamepad-axis probe |
+| `F7` | Toggle portal gun |
+| `F8` | Dump a gameplay trace |
+| `Shift+F8` | Dump the portal view cone |
+| `F9` | Request bounded GGRS rollback proof |
+| `F10` | Quit session to the home route |
+| `F11` | Validate/apply pending LDtk content |
+| `F12` | Toggle LDtk auto-apply |
 
-Borderless fullscreen and portal mapping convention have no developer
-shortcuts. Display mode remains a user setting; portal convention remains a
-code/configuration choice rather than a live gameplay toggle.
+These bindings are defaults, not an additional gameplay input layer. Add or
+change chords in `DeveloperHotkeyBindings::default`; the plugin validates
+uniqueness. Exact matching prevents a modified chord from also firing its
+unmodified counterpart. File-writing diagnostics run outside rollback.
 
-## Rules
+Display mode and portal mapping convention are separate configuration choices;
+they have no developer shortcuts.
 
-- Add or change physical chords only in `DeveloperHotkeyBindings::default`.
-- Consumers match `DeveloperAction`, never `KeyCode::F*`.
-- Chords are exact: extra Shift/Ctrl/Alt modifiers suppress an unmodified
-  binding, so `F8` and `Shift+F8` cannot both fire.
-- The plugin validates that every action and chord appears at most once.
-- Irreversible effects triggered by an action, such as writing trace files,
-  execute outside the rollback simulation schedule.
+## Combat view (`Shift+F1`)
 
-The bindings are a Bevy resource, so a future developer-settings loader can
-replace the default deck before `DeveloperHotkeyPlugin` builds without changing
-consumer systems.
+The combat preset shows hurt regions, active hitboxes, body collision, guards,
+projectile state, and damage labels. The visual implementation is in
+`game/ambition_app/src/dev/debug_overlay/gizmos.rs`. Use it to inspect actual
+combat volumes; for offscreen screenshots, `capture_scene --combat-overlay`
+enables the same class of evidence.
 
+## Gamepad-axis probe (`Shift+F6`)
 
-## The combat debug view (`Shift+F1`)
+The probe samples the raw Bevy `Gamepad` axes by connected controller and holds
+observed peaks. Toggle it to reset peak values; toggle it off to log a readout
+under `ambition::gamepad_probe`.
 
-What decides a blow, drawn over the game: the debug overlay in its `combat`
-view with every body's and every boss's volumes on. Press `Shift+F1` again to
-hide it. It works in every room, the Mockingbird's sky too.
+It exists to diagnose hardware that reports a smaller-than-expected stick
+range. Smash flick detection applies `AttackGestureTuning::flick_threshold`
+*after* input deadzone processing, so a controller may navigate normally yet
+never cross the attack threshold. The probe reports the effective threshold
+using the active settings rather than requiring an agent to guess a new tuning
+constant. See `game/ambition_app/src/dev/gamepad_probe.rs` and
+`crates/ambition_characters/src/actor/attack_gesture.rs`.
 
-- **Hurtboxes** (cyan): the parts a blow lands on, as the damage road reads
-  them (a boss's published parts).
-- **Hitboxes** (red): each live strike, labelled with its damage.
-- **Collision** (orange): each body's box.
-- **A boss's guard**: a steel-blue box and the label `GUARD UP: blows and
-  shots turn` while its hull turns blows (a hit then clangs and does no
-  damage); `guard down: blows land` while it is open.
-- **Shots**: each shot's box, labelled with its damage, the bounces it has
-  left and its time; a green cross where a shot bounced in the last 1.5 s.
-- **A label over each body**: its faction, its health, `INVULNERABLE` while
-  any invulnerability holds, and `GUARD UP` for a boss whose guard is up.
-
-The overlay is drawn in `game/ambition_app/src/dev/debug_overlay/gizmos.rs`.
-
-## The gamepad-axis probe (`Shift+F6`)
-
-What each connected pad's LEFT STICK actually reports, per pad, with a
-**peak-hold** — because nobody can hold a stick at its true maximum and read a
-screen at the same time. Push the stick to each corner, then look. Toggling
-resets the peaks, so a second run is a fresh measurement, and toggling OFF also
-writes the whole readout to the log (`ambition::gamepad_probe`) for a host where
-reading an overlay with both thumbs occupied is harder than it sounds.
-
-**Why it exists.** A Smash attack needs a left-stick FLICK, and
-`AttackGestureTuning::flick_threshold` is `0.8` applied AFTER the inner deadzone:
-
-```text
-post = (raw - deadzone) / (1 - deadzone)
-```
-
-A Switch Pro is detected as `GamepadStyle::Switch`, which takes the `Generic`
-profile's baseline `0.18`. So a flick needs **0.836 raw** while an ordinary
-directional tilt needs about **0.59 raw**. A pad that tops out near 0.80 on one
-host runs, tilts and drives menus perfectly while Smash attacks *cannot exist* —
-and the same pad on a host reaching 0.95+ works fine. The probe prints a verdict
-line saying which of those it is looking at.
-
-⭐ It reads Bevy's `Gamepad` **directly**, not the action layer: the question is
-about the DEVICE, and routing it through bindings, seats and action state would
-put four more suspects between the stick and the number.
-
-⚠ It DIAGNOSES; it does not calibrate. If a peak comes back under 0.836 the
-repair is an OUTER saturation stage at the shared input seam — an `outer`
-alongside the inner deadzone, so `0.8` means the same gesture on every pad — and
-not a weaker Smash threshold to suit one host. The right outer value is whatever
-this measures, which is why the measurement comes first.
-
-You can corroborate outside Ambition with `jstest` / `evdev-joystick`: a
-calibrated stick should approach the full ±32767 range.
+The probe diagnoses input; calibration or control-policy changes belong to the
+shared input system, not in a fighter-specific workaround.

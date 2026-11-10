@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-11-10
 related_docs:
   - docs/concepts/content-and-provider-boundaries.md
   - docs/systems/actors-brains-and-character-content.md
@@ -65,13 +65,16 @@ Alice: This returns to the catalog default.
 3. Keep actor-targeting explicit; a command acting on “the current NPC” must use
    the runtime's established dialogue subject/context.
 4. Register/update provider voiceprint/SFX mappings when needed.
-5. Run static lint and Yarn compile tests before a visible smoke test.
+5. Compile/validate the changed dialogue and play through the affected
+   conversation. When a command or runtime contract changed, run the relevant
+   focused test from the owning package:
 
 ```bash
-./run_tests.sh -p ambition_content -k dialogue
+python scripts/agent_query.py tests "dialogue lint yarn"
 ./run_tests.sh -p ambition_content -k yarn
-./run_tests.sh -p ambition_dialog
 ```
+
+A wording-only edit does not justify a full dialogue-runtime test sweep.
 
 ## Durable authoring rules
 

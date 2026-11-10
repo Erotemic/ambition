@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-02
+last_verified: 2026-11-10
 related_docs:
   - docs/concepts/ldtk-world-composition.md
   - docs/systems/ldtk-world-composition.md
@@ -44,19 +44,17 @@ WORLD=game/ambition_demo_mary_o/authoring/worlds/mary_o.ldtk
 # What can I place, which layers accept it, which fields, which enums —
 # and a CENSUS of the values this world already authors for each field.
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools vocabulary list \
-  --ldtk "$WORLD" [--identifier EnemySpawn] [--docs]
-# Placements that omit a field every other placement of their type authors,
-# and enum values the enum cannot spell.
+  --ldtk "$WORLD" --identifier EnemySpawn --docs
+# Find missing fields and invalid enum choices in one level.
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools vocabulary check \
-  --ldtk "$WORLD" [--level mary_o_1_3]
+  --ldtk "$WORLD" --level mary_o_1_3
 ```
 
-The census counts content rather than restating a Rust rule, so it cannot drift.
-
-⚠ **`validate` does NOT enforce the converter's required/refused contract.** A
-room can pass `area create`, `repair` and `validate` while an `EnemySpawn` has no
-`character_id`, which the converter refuses at load. Run `vocabulary check`
-before you hand a room off.
+The vocabulary command reports what the chosen world actually authors; the
+parser and converter remain the authority for accepted values. Schema
+`validate` does not cover every converter precondition. For example, a placed
+`EnemySpawn` without `character_id` can pass basic LDtk validation but fail
+conversion. Use `vocabulary check` when editing authored entity fields.
 
 ## A placed actor starts on the ground: `EnemySpawn.grounding`
 
@@ -302,17 +300,19 @@ cargo run -p ambition_app_tools --bin render_room_geometry -- <ROOM_ID>
 - A tool-generated diff must remain understandable in LDtk and in semantic diff
   output.
 
-## Validation
+## Validate the changed room
+
+Run `doctor` and inspect the semantic diff for authored geometry changes:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor "$WORLD"
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic HEAD:"$WORLD" "$WORLD"
-./run_tests.sh -p ambition_content -k ldtk
-./run_tests.sh -k room_spatial_integrity
 ```
 
-Use [`headless-room-verification.md`](headless-room-verification.md) for runtime
-proof. CLI help and source override old recipe flags.
+If you changed loader semantics or transition behavior, exercise the affected
+room through the real provider/runtime path. See
+[`headless-room-verification.md`](headless-room-verification.md). Do not run
+unrelated room test families for a content-only edit.
 
 ## ⛔ A regenerated `.ldtk` silently drops levels its specs do not know
 

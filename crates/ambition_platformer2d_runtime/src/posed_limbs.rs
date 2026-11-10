@@ -21,7 +21,7 @@ use ambition_platformer2d_core::AabbExt;
 /// Stop each posed limb where the pose its owner gave it this tick meets
 /// something solid.
 pub fn stop_posed_limbs_at_what_they_meet(
-    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut limbs: Query<
         (

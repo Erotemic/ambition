@@ -244,7 +244,7 @@ pub fn come_back_from_the_form(
 /// A level with a sky zone has a higher sky: she goes up out of the view as
 /// far as the zone (`crate::sky_top`), and the zone takes her.
 pub fn the_sky_has_a_top(
-    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d::platformer::body::pose::BodyPoseAdmission,
     rooms: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
     mut bodies: Query<
         (Entity, &mut ae::BodyKinematics, Option<&mut ae::SweepSample>, &ae::BodyGroundState),

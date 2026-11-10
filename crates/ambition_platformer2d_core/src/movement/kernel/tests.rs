@@ -53,7 +53,7 @@ fn step(
         model,
         &mut clusters,
         MotionStepContext {
-            portal: None,
+            admission: None,
             world,
             input,
             frame,
@@ -1110,7 +1110,7 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
                 &mut model,
                 &mut clusters,
                 MotionStepContext {
-                    portal: None,
+                    admission: None,
                     world: &world,
                     input,
                     frame,
@@ -1227,7 +1227,7 @@ fn walk_a_pair(
                 &mut models[which],
                 &mut clusters,
                 MotionStepContext {
-                    portal: None,
+                    admission: None,
                     world: &world,
                     input,
                     frame,
@@ -1382,7 +1382,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
             &mut model,
             &mut clusters,
             MotionStepContext {
-                portal: None,
+                admission: None,
                 world: &world,
                 input: InputState::default(),
                 frame,
@@ -1412,7 +1412,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
             &mut model,
             &mut clusters,
             MotionStepContext {
-                portal: None,
+                admission: None,
                 world: &world,
                 input: InputState::default(),
                 frame,
@@ -1434,7 +1434,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
             &mut model,
             &mut clusters,
             MotionStepContext {
-                portal: None,
+                admission: None,
                 world: &world,
                 input,
                 frame,
@@ -1498,7 +1498,7 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
                 &mut model,
                 &mut clusters,
                 MotionStepContext {
-                    portal: None,
+                    admission: None,
                     world: &world,
                     input: InputState::default(),
                     frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
@@ -1542,7 +1542,7 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
             model,
             &mut clusters,
             MotionStepContext {
-                portal: None,
+                admission: None,
                 world: &world,
                 input: InputState::default(),
                 frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
@@ -1619,7 +1619,7 @@ fn a_held_body_pinned_inside_solid_does_not_land() {
             &mut model,
             &mut clusters,
             MotionStepContext {
-                portal: None,
+                admission: None,
                 world: &world,
                 input: InputState::default(),
                 frame,
@@ -1730,7 +1730,7 @@ fn a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not() {
                 &mut model,
                 &mut clusters,
                 MotionStepContext {
-                    portal: None,
+                    admission: None,
                     world: &world,
                     input: InputState::default(),
                     frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
@@ -1770,7 +1770,7 @@ fn a_tall_body_rides_a_circle_whose_bottom_is_its_feet() {
 }
 
 #[test]
-fn a_portal_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
+fn a_motion_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
     use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink, RefusalReason};
     use crate::frame::{MapConvention, PortalAperture, PortalFrame};
     let world = empty_world();
@@ -1787,13 +1787,13 @@ fn a_portal_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
     let mut body = scratch.as_mut();
     body.sweep = Some(&mut sweep);
     let result = step_motion(&mut model, &mut body, MotionStepContext {
-        world: &world, portal: Some(MotionAdmission { links: &links, first: None,
+        world: &world, admission: Some(MotionAdmission { links: &links, first: None,
             budget: PieceBudget { max_scale_exponent: 12, max_hops: 0, max_pieces: 1 }, convention: MapConvention::Reflection }),
         input: InputState::default(), frame, facing_intent: 0.0, dt: 1.0 / 30.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false,
         recovery_commitment_outstanding: false,
     });
-    assert_eq!(result.events.portal_refusal.as_ref().map(|r| r.reason), Some(RefusalReason::HopLimit));
+    assert_eq!(result.events.motion_refusal.as_ref().map(|r| r.reason), Some(RefusalReason::HopLimit));
     assert_eq!(body.sweep.as_deref().unwrap().time, [1.0, 1.0]);
     assert_eq!(body.kinematics.pos, initial.pos);
     assert_eq!(body.kinematics.vel, initial.vel);
@@ -1815,7 +1815,7 @@ fn material_scale_changes_authored_control_units_and_keeps_gravity_in_world_unit
             let mut body = BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::sandbox_all());
             body.kinematics.material = crate::frame::BodyMaterial::new(scale, bevy_math::Mat2::IDENTITY).unwrap();
             let result = step(&mut model, &world, &mut body, MotionFrame::from_direction(Vec2::Y, gravity), input);
-            assert!(result.events.portal_refusal.is_none());
+            assert!(result.events.motion_refusal.is_none());
             assert_eq!(model.spec(), policy);
             body.kinematics.vel
         };
@@ -1862,7 +1862,7 @@ fn an_unrepresentable_controller_quantity_refuses_before_mutation() {
     let result = step(&mut model, &world, &mut body, MotionFrame::from_direction(Vec2::Y, 900.0), crawl_forward());
     assert_eq!(body.kinematics, before);
     assert_eq!(model.spec(), MotionModelSpec::AxisSwept(authored));
-    assert_eq!(result.events.portal_refusal.unwrap().reason,
+    assert_eq!(result.events.motion_refusal.unwrap().reason,
         crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::Overflow));
 }
 
@@ -1882,12 +1882,12 @@ fn an_unrepresentable_part_velocity_refuses_before_body_commit() {
     let mut model = MotionModel::default();
     let mut clusters = body.as_mut();
     let result = step_motion(&mut model, &mut clusters, MotionStepContext {
-        world: &world, portal: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
+        world: &world, admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
         input: InputState::default(), frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 0.0, dt: 0.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
     });
     assert_eq!(*clusters.kinematics, before);
-    assert_eq!(result.events.portal_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
+    assert_eq!(result.events.motion_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
 }
 
 #[test]
@@ -1913,15 +1913,15 @@ fn carried_acceleration_is_admitted_before_the_source_body_moves() {
             MotionFrame::with_accelerations(crate::AccelerationFrame::new(Vec2::Y), Vec2::ZERO, acceleration)
         };
         let result = step_motion(&mut model, &mut body.as_mut(), MotionStepContext {
-            world: &world, portal: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
+            world: &world, admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
             input: InputState::default(), frame, facing_intent: 0.0, dt: 1.0e-18,
             contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
         });
         if carried {
             assert_eq!(body.kinematics, before);
-            assert_eq!(result.events.portal_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
+            assert_eq!(result.events.motion_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
         } else {
-            assert!(result.events.portal_refusal.is_none(), "world forces do not travel with material");
+            assert!(result.events.motion_refusal.is_none(), "world forces do not travel with material");
             assert!(body.kinematics.pos.y > before.pos.y + 100.0, "the control must move through the aperture");
         }
     }
@@ -1996,12 +1996,12 @@ fn a_still_body_refuses_a_portal_that_only_intersects_during_its_turn() {
     let mut model = MotionModel::default();
     let mut clusters = body.as_mut();
     let result = step_motion(&mut model, &mut clusters, MotionStepContext {
-        world: &world, portal: Some(MotionAdmission { links: &links, first: None,
+        world: &world, admission: Some(MotionAdmission { links: &links, first: None,
             budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED }, convention: MapConvention::Reflection }),
         input: InputState::default(), frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 0.0, dt: 0.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false,
         recovery_commitment_outstanding: false,
     });
     assert_eq!(*clusters.kinematics, before);
-    assert_eq!(result.events.portal_refusal.unwrap().reason, RefusalReason::HopLimit);
+    assert_eq!(result.events.motion_refusal.unwrap().reason, RefusalReason::HopLimit);
 }

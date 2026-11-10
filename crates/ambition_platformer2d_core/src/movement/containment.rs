@@ -118,7 +118,7 @@ pub fn probe_containment(
             model,
             &mut clusters,
             MotionStepContext {
-                portal: None,
+                admission: None,
                 world,
                 input: InputState {
                     axes: probe.axes,

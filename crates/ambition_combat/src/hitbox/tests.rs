@@ -3134,9 +3134,9 @@ fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
 /// y is down. A floor portal at the origin, its front up, and its partner, a
 /// ceiling portal at (500, -200), its front down: what goes down into the
 /// floor comes down out of the ceiling.
-fn floor_to_ceiling() -> ambition_platformer2d_shared_tangle::portal_passages::PortalPassages {
+fn floor_to_ceiling() -> ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry {
     use ae::frame::{MapConvention, PortalAperture, PortalFrame};
-    let mut passages = ambition_platformer2d_shared_tangle::portal_passages::PortalPassages::new(MapConvention::Reflection);
+    let mut passages = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(MapConvention::Reflection);
     passages.add_pair(
         None,
         (
@@ -3147,7 +3147,7 @@ fn floor_to_ceiling() -> ambition_platformer2d_shared_tangle::portal_passages::P
     passages
 }
 
-fn portal_strike_app(passages: Option<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>) -> App {
+fn portal_strike_app(passages: Option<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>) -> App {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
@@ -3159,8 +3159,19 @@ fn portal_strike_app(passages: Option<ambition_platformer2d_shared_tangle::porta
     if let Some(passages) = passages {
         app.insert_resource(passages);
     }
-    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    app.add_systems(Update, (publish_fixture_materials, apply_hitbox_damage, capture_hits).chain());
     app
+}
+
+fn publish_fixture_materials(
+    geometry: Option<ResMut<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
+    bodies: Query<(Entity, &ae::CenteredAabb)>,
+) {
+    let Some(mut geometry) = geometry else { return; };
+    geometry.clear_materials();
+    for (entity, aabb) in &bodies {
+        geometry.set_body_material(entity, ae::frame::Sim2::new(1.0, bevy::math::Mat2::IDENTITY, aabb.center));
+    }
 }
 
 fn strike(app: &mut App, owner: Entity, anchor: HitboxAnchor, half_extent: ae::Vec2) {
@@ -3259,7 +3270,7 @@ fn a_strike_through_two_chained_pairs_hurts_where_the_room_lets_it_reach() {
         half_length: 40.0,
     };
     for (budget, hurts) in [(PieceBudget::SINGLE_HOP, false), (PieceBudget::COMPOSED, true)] {
-        let mut passages = ambition_platformer2d_shared_tangle::portal_passages::PortalPassages::new(MapConvention::Reflection);
+        let mut passages = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(MapConvention::Reflection);
         passages.add_pair(None, (ap(0.0, 0.0, -1.0), ap(500.0, -200.0, 1.0)));
         passages.add_pair(None, (ap(500.0, -170.0, -1.0), ap(900.0, -200.0, 1.0)));
         passages.set_budget(None, budget);
@@ -3474,7 +3485,7 @@ fn a_world_strike_uses_its_authors_portal_budget_without_using_its_body_chart() 
         frame:PortalFrame::fixed(ae::Vec2::new(x,y),ae::Vec2::new(0.0,ny)),half_length:40.0,
     };
     for (budget,hits) in [(PieceBudget::SINGLE_HOP,0),(PieceBudget::COMPOSED,1)] {
-        let mut passages=ambition_platformer2d_shared_tangle::portal_passages::PortalPassages::new(MapConvention::Reflection);
+        let mut passages=ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(MapConvention::Reflection);
         passages.add_pair(None,(ap(0.0,0.0,-1.0),ap(500.0,-200.0,1.0)));
         passages.add_pair(None,(ap(500.0,-170.0,-1.0),ap(900.0,-200.0,1.0)));
         passages.set_budget(None,PieceBudget::SINGLE_HOP);

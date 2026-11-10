@@ -28,7 +28,7 @@ use ambition_vfx::vfx::VfxInRoom;
 
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
 use ambition_platformer2d_shared_tangle::binding::BindingLedger;
-use ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom;
+use ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom;
 
 /// Sheets already resolved this session, keyed by the id a character named.
 ///

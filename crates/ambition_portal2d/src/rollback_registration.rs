@@ -104,7 +104,7 @@ where
         "rebuilt from placed portals and transit occupancy each frame",
     );
     registrar.declare_rollback_derived_resource::<
-        ambition_platformer2d_shared_tangle::portal_passages::PortalPassages,
+        ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry,
     >(
         OWNER,
         "derived.portal_passages",

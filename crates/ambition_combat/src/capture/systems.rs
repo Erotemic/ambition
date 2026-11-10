@@ -1515,6 +1515,31 @@ mod tests {
     /// captive across rather than leaving it behind — which is what makes a
     /// forward throw point where the player is looking.
     #[test]
+    fn a_denied_hold_releases_the_captive_at_its_accepted_pose() {
+        use ambition_characters::control::{ControlHold, ControlHolds};
+        use ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration;
+        let mut app = App::new();
+        app.add_systems(Update, maintain_existing_capture_pose);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::new(100.0, 50.0));
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(400.0, 400.0));
+        let before = *app.world().get::<ae::BodyKinematics>(victim).unwrap();
+        let history = ae::SweepSample::at_tick_end(before, ae::Vec2::Y);
+        let held = CapturedBy { captor, hold_offset_local: ae::Vec2::ZERO, hold_attachment: None };
+        app.world_mut().entity_mut(victim).insert((held.clone(), history,
+            ControlHolds::only(ControlHold::Relationship), CarriedAcceleration(ae::Vec2::splat(f32::NAN))));
+        app.update();
+        assert_eq!(*app.world().get::<ae::BodyKinematics>(victim).unwrap(), before);
+        assert_eq!(*app.world().get::<ae::SweepSample>(victim).unwrap(), history);
+        assert_eq!(app.world().get::<ae::CenteredAabb>(victim).unwrap().center, before.pos);
+        assert!(app.world().get::<CapturedBy>(victim).is_none());
+        assert!(!app.world().get::<ControlHolds>(victim).is_some_and(|holds| holds.holds(ControlHold::Relationship)));
+        app.world_mut().entity_mut(victim).remove::<CarriedAcceleration>();
+        app.world_mut().entity_mut(victim).insert(held);
+        app.update();
+        assert_eq!(app.world().get::<ae::BodyKinematics>(victim).unwrap().pos, ae::Vec2::new(100.0, 50.0));
+    }
+
+    #[test]
     fn a_captive_is_posed_at_its_captors_hold_anchor() {
         let mut app = App::new();
         app.add_systems(Update, maintain_existing_capture_pose);
@@ -2805,7 +2830,9 @@ type CaptorPoses<'w, 's> = Query<
 >;
 
 fn pose_captives(
-    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
+    mut commands: Commands,
+    mut holds: Query<&mut ambition_characters::control::ControlHolds>,
     //  `Without<CapturedBy>` is a SEMANTIC claim, not a borrow trick — though
     // Bevy asking for it is what made the claim explicit. A captive can never be
     // a captor: acquisition refuses a captor already under `ControlHolds`, and
@@ -2852,7 +2879,10 @@ fn pose_captives(
         );
         let pos = captor_kin.pos + frame.to_world(local);
         let desired = ae::BodyKinematics { pos, vel: captor_kin.vel, ..*kin };
-        if poses.constrain(entity, &mut kin, sweep.as_deref_mut(), desired).is_err() { continue; }
+        if poses.constrain(entity, &mut kin, sweep.as_deref_mut(), desired).is_err() {
+            release_capture(&mut commands, entity, Some(&mut ground), holds.get_mut(entity).ok().as_deref_mut());
+            continue;
+        }
         // Gravity is not written here: the frame resolver reads `CapturedBy`
         // and gives a held body no pull.
         // ⛔⛔ **THE CAPTIVE IS SUPPORTED WHERE ITS CAPTOR IS, AND SAYS SO.** A
@@ -2895,7 +2925,9 @@ fn pose_captives(
 /// against a `SystemTypeSet` carrying more than one instance, so every host
 /// that installed both panicked on schedule build.
 pub fn maintain_existing_capture_pose(
-    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
+    commands: Commands,
+    holds: Query<&mut ambition_characters::control::ControlHolds>,
     captors: CaptorPoses,
     captives: Query<(
         Entity,
@@ -2906,7 +2938,7 @@ pub fn maintain_existing_capture_pose(
         Option<&mut ae::SweepSample>,
     )>,
 ) {
-    pose_captives(poses, captors, captives);
+    pose_captives(poses, commands, holds, captors, captives);
 }
 
 /// A body caught THIS TICK, given its pose on the tick it was caught.
@@ -2920,7 +2952,9 @@ pub fn maintain_existing_capture_pose(
 /// hang where it stood until the next frame, one visible frame of a captive
 /// standing free inside somebody's grab animation.
 pub fn finalize_new_capture_pose(
-    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
+    commands: Commands,
+    holds: Query<&mut ambition_characters::control::ControlHolds>,
     captors: CaptorPoses,
     captives: Query<(
         Entity,
@@ -2931,7 +2965,7 @@ pub fn finalize_new_capture_pose(
         Option<&mut ae::SweepSample>,
     )>,
 ) {
-    pose_captives(poses, captors, captives);
+    pose_captives(poses, commands, holds, captors, captives);
 }
 
 /// A captor is restricted, not blanked.

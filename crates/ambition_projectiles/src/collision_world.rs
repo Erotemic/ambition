@@ -21,7 +21,7 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     #[cfg(feature = "portal")]
     portals: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
     #[cfg(feature = "portal")]
-    passages: Option<Res<'w, ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     /// The pair each shot is on the back of: it does not take the shot, so
     /// the shot's leg does not end at it (`first_portal_crossing`).
     #[cfg(feature = "portal")]

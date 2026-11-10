@@ -88,7 +88,7 @@ pub fn composite_far_side_bodies(
         Option<&crate::PortalTransitView>,
         // A drawable a pair carries is the carry's to draw.
         Has<crate::PortalCarried>,
-        Option<&ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom>,
+        Option<&ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom>,
     )>,
 ) {
     pool.begin(|entity| quads.contains(entity));
@@ -267,7 +267,7 @@ fn restore_hidden(
         Option<&crate::PortalTransitView>,
         // A drawable a pair carries is the carry's to draw.
         Has<crate::PortalCarried>,
-        Option<&ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom>,
+        Option<&ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom>,
     )>,
 ) {
     for (entity, ..) in candidates.iter_mut() {

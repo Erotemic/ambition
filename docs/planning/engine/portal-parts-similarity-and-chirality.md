@@ -285,7 +285,7 @@ Check the affected owners again after the optimization work ends.
 | --- | --- |
 | Pair algebra | `crates/ambition_platformer2d_core/src/frame.rs`: `Iso2` has public matrix fields and uses transpose as inverse. Pair helpers take frames, which have no aperture sizes. Introduce validated `Sim2` and derive portal maps from apertures. |
 | Partition | `crates/ambition_platformer2d_core/src/frame/thread.rs`: `VolumePiece` stores a mapped volume, world bounds, an `Iso2`, and a path. Keep canonical source regions as authority. Replace both the whole-piece fallback and the fallback that omits through-material. |
-| Domain queries | `crates/ambition_platformer2d_shared_tangle/src/portal_passages.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
+| Domain queries | `crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
 | Pair openings | `crates/ambition_portal2d/src/types.rs` and `crates/ambition_portal2d/src/link.rs`: `opening_half_length` takes the minimum through `partner_opening_half`. Remove that field and the equalizer when all consumers support the directed map. |
 | Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. Persistent root rebase remains open. |
 | World collision | `crates/ambition_platformer2d_shared_tangle/src/feature_overlay.rs` and `crates/ambition_platformer2d_world/src/collision.rs`: `PortalGlue` imports far-side geometry into the entry chart. Replace independent pair clipping with projections of canonical parts and the same validated maps. |
@@ -421,7 +421,7 @@ alone does not close a slice.
    **Deliberate defect:** omit scale from inverse or map a cut normal as an
    unnormalized displacement; the corresponding geometric assertion fails.
 2. **PSIM-1B: refusal reaches the source.** Replace both fallback modes in
-   the partitioner. Thread admission through `PortalPassages`, movement,
+   the partitioner. Thread admission through `BodyGeometry`, movement,
    carves, sweeps, and pose-owned extension. Add stable operation identity
    and reason before effects exist. Keep the last valid complete geometry
    on rejection. **Witness:** exhaust hops, pieces, and work in real body,
@@ -583,6 +583,19 @@ Use target-device results for GPU conclusions. Performance changes must not
 reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
+
+Motion-admission review, first packet: this commit. The body domain owns
+external pose admission and prepared group poses. Sequence progress, relationship
+release and boss holds now follow the admission result. A missing body material
+map returns a typed refusal. The old portal-named pose API is removed.
+Core motion reports generic refusal. See the [review](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md)
+for the remaining composition, presentation, isolation and acceptance work.
+
+The owning suites pass: core 856, shared 356, boss 246, combat 827, Mary O 205,
+mounts 16 and actors 589. Five tests remain ignored across these libraries.
+The app check and 35 workspace policy tests pass. App petting, grab and GNU-ton
+selections pass. Smash passes 71 tests with six ignored. This packet does not
+close the two walking/camera failures or complete PSIM acceptance.
 
 Closed-end contact checkpoint: `627255e43`. A shortened native cast retains
 first contact at its closed end. Interior topology boundaries keep their

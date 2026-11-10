@@ -259,7 +259,7 @@ pub fn rebuild_combat_geometry_view(
     // Where a volume is when a portal pair cuts it: the pieces combat
     // resolves by. Absent in a composition with no portals.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    passages: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     mut view: ResMut<CombatGeometryView>,
 ) {
     let passages = passages.as_deref();

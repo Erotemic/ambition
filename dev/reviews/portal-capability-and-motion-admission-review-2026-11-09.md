@@ -264,3 +264,32 @@ For the two specific camera/translation test names, inspect the real test target
 ## Completion report required from the implementing agent
 
 Report (1) each P01–P10 ID as resolved, deferred, or confirmed not an issue with code/test evidence; (2) the new owner and public path for external body pose admission; (3) the exact failure policy for flag, mount, capture, pet, boss holds; (4) feature/dependency closure results for Mary-O, simulation-only portals, and mixed-game hosting; (5) measured publication cost if P05 was changed; (6) baseline and latest result of the two named portal app tests; and (7) the exact verification commands, test counts, and commits. If a gate is still failing, name it rather than saying the portal work is complete.
+
+## Implementation receipts
+
+First packet: this commit. P03 and P04 are implemented. P01 has its body-owned
+API; body snapshot publication still needs its owner move. P02 uses explicit
+owner policies: flag and castle steps retry without progress; denied saddle
+poses dismount; denied captive poses use the capture release owner; petting
+prepares both bodies and cancels on denial; rejected boss poses retain holds.
+Fall rescue creates no ferry before admission. Talk spacing retains progress
+on denial. Sky and lava constraints retain physical state and dependent effects.
+
+The public pose path is
+`ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission`.
+The facade exposes the same body module. `prepare_body_pose` owns validation;
+`PreparedBodyPose::commit` owns the physical commit. `BodyGeometry` is the
+shared body geometry snapshot. Missing body material is a typed failure.
+There is no old pose API alias.
+
+Validation commands and results:
+
+- `cargo check -j12 -p ambition_app --tests`: pass.
+- Library batch for core, shared, boss, combat, Mary O, mounts and actors:
+  856, 356, 246, 827, 205, 16 and 589 pass. Five tests remain ignored.
+- `cargo test -j12 -p ambition_workspace_policy`: 35 pass.
+- App `pet`, `grab` and `gnu_ton_fight` selections: pass; GNU-ton has 39 passes.
+- `cargo test -j12 -p ambition_demo_smash_app`: 71 pass, six ignored.
+
+Logs use `target/portal-review-a-`. P05–P10 remain in progress. This receipt
+does not mark the full review or the portal implementation complete.

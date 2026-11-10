@@ -193,7 +193,7 @@ impl Plugin for PortalSimulationPlugin {
         );
         app.configure_sets(sim, PortalSet::Pose.before(PortalSet::Carves));
         app.configure_sets(sim, PortalSet::Frame.before(PortalSet::Transit));
-        app.init_resource::<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
         app.add_systems(sim, crate::publish_portal_apertures
             .before(crate::publish_portal_carves).in_set(PortalSet::Carves));
         app.configure_sets(sim, PortalSet::Passages.after(PortalSet::Transit));

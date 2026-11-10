@@ -116,7 +116,7 @@ fn crawl(
             model,
             &mut clusters,
             MotionStepContext {
-                portal: None,
+                admission: None,
                 world,
                 input: InputState {
                     axes: crate::reference_frame::LocalAxes::new(facing, 0.0),

@@ -21,7 +21,7 @@ use super::{
 #[derive(Clone, Copy)]
 pub struct MotionStepContext<'a> {
     pub world: &'a World,
-    pub portal: Option<crate::frame::thread::MotionAdmission<'a>>,
+    pub admission: Option<crate::frame::thread::MotionAdmission<'a>>,
     /// The typed, already-frame-resolved motion intent (see [`InputState`]).
     pub input: InputState,
     /// The body's current acceleration/reference frame. Every policy arm
@@ -153,7 +153,7 @@ pub fn step_motion(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
-    let portal = ctx.portal.filter(|portal| !portal.links.is_empty());
+    let portal = ctx.admission.filter(|portal| !portal.links.is_empty());
     if portal.is_none() && clusters.kinematics.material == crate::frame::BodyMaterial::IDENTITY {
         return step_admitted_motion(model, clusters, ctx);
     }
@@ -192,7 +192,7 @@ pub fn step_motion(
             *sample = SweepSample::at_tick_end(*clusters.kinematics, retained_down);
         }
         let mut events = FrameEvents::default();
-        events.portal_refusal = Some(refusal);
+        events.motion_refusal = Some(refusal);
         return MotionStepResult::from_events(events, ctx.frame);
     }
     candidate.commit(model, clusters);
@@ -222,7 +222,7 @@ fn step_admitted_motion(
     let authored = match prepare(model) {
         Ok(authored) => authored,
         Err(fault) => {
-            let events = FrameEvents { portal_refusal: Some(crate::frame::thread::Refusal {
+            let events = FrameEvents { motion_refusal: Some(crate::frame::thread::Refusal {
                 path: Vec::new(), link: None, reason: crate::frame::thread::RefusalReason::Numeric(fault),
             }), ..Default::default() };
             return MotionStepResult::from_events(events, ctx.frame);

@@ -277,6 +277,33 @@ fn step_phase(
 mod tests {
     use super::*;
 
+    #[test]
+    fn a_refused_flag_pose_retains_progress_and_resumes_after_recovery() {
+        use ambition_platformer2d::platformer::{frame_env::CarriedAcceleration, markers::ControlledSubject};
+        use ambition_platformer2d::world::rooms::{insert_room_set, RoomSet};
+        let mut app = App::new();
+        let room = crate::authored_room(crate::LEVEL_1_1_ROOM_ID);
+        let at = ae::Vec2::new(crate::room_pole(&room).unwrap().x, 300.0);
+        let id = room.id.clone();
+        insert_room_set(app.world_mut(), RoomSet::from_parts_or_panic(id, vec![room], vec![]));
+        let body = ae::BodyKinematics { pos: at, ..Default::default() };
+        let history = ae::SweepSample::at_tick_end(body, ae::Vec2::Y);
+        let her = app.world_mut().spawn((body, history, CarriedAcceleration(ae::Vec2::splat(f32::NAN)))).id();
+        let before = FlagSequence { phase: FlagPhase::WalkingOff { score: 100, remaining: 100.0 }, driven: Some(at) };
+        let sequence = app.world_mut().spawn(before).id();
+        app.insert_resource(ControlledSubject(Some(her)));
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 0.1));
+        app.add_systems(Update, run_flag_sequence);
+        app.update();
+        assert_eq!(*app.world().get::<FlagSequence>(sequence).unwrap(), before);
+        assert_eq!(*app.world().get::<ae::BodyKinematics>(her).unwrap(), body);
+        assert_eq!(*app.world().get::<ae::SweepSample>(her).unwrap(), history);
+        app.world_mut().entity_mut(her).remove::<CarriedAcceleration>();
+        app.update();
+        assert!(app.world().get::<ae::BodyKinematics>(her).unwrap().pos.x > at.x);
+        assert_ne!(*app.world().get::<FlagSequence>(sequence).unwrap(), before);
+    }
+
     const DT: f32 = 1.0 / 60.0;
     /// A body half-height for the tests. The pole's base is a GROUND LINE, so the
     /// slide must end this far above it — with her feet on the base, not her
@@ -592,7 +619,7 @@ mod tests {
 /// sequence simply overrules them. Blanking the control frame is what stops a
 /// player mashing jump from fighting the slide.
 pub fn run_flag_sequence(
-    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d::platformer::body::pose::BodyPoseAdmission,
     time: Res<ambition_platformer2d::time::WorldTime>,
     // The pole of the room the controlled body is in.
     rooms: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
@@ -621,18 +648,20 @@ pub fn run_flag_sequence(
     let Ok((mut kin, mut sweep)) = bodies.get_mut(entity) else {
         return;
     };
-    hold_her_while_the_sequence_runs(&mut commands, entity, &sequence, holds.get_mut(entity).ok().as_deref_mut());
 
     // Her LIVE half-height, so the slide plants the form she is actually wearing:
     // small and tall Mary-O stand on the same ground line, and the tall one is
     // not left with her knees in it.
     let half_height = kin.size().y * 0.5;
-    let Some(drive) =
-        step_flag_sequence(&mut sequence, &pole, kin.pos, half_height, time.sim_dt())
-    else {
-        return;
-    };
-    drive_her(&poses, entity, &drive, &mut kin, sweep.as_deref_mut(), modes.get_mut(entity).ok());
+    let mut candidate = *sequence;
+    if let Some(drive) = step_flag_sequence(&mut candidate, &pole, kin.pos, half_height, time.sim_dt()) {
+        if drive_her(&poses, entity, &drive, &mut kin, sweep.as_deref_mut(), modes.get_mut(entity).ok()).is_err() {
+            return;
+        }
+    }
+    *sequence = candidate;
+    hold_her_while_the_sequence_runs(&mut commands, entity, &sequence, holds.get_mut(entity).ok().as_deref_mut());
+
 }
 
 /// The sequence owns the body from the goal to the tally. The engine's
@@ -664,15 +693,15 @@ pub(crate) fn hold_her_while_the_sequence_runs(
 /// not a clip: the picker turns `Climbing` into the climb clip, as it does
 /// on a ladder.
 pub(crate) fn drive_her(
-    poses: &ambition_platformer2d::platformer::portal_passages::PoseAdmission,
+    poses: &ambition_platformer2d::platformer::body::pose::BodyPoseAdmission,
     entity: Entity,
     drive: &FlagDrive,
     kin: &mut ae::BodyKinematics,
     sweep: Option<&mut ae::SweepSample>,
     mode: Option<Mut<ae::BodyModeState>>,
-) {
+) -> Result<(), ae::frame::thread::Refusal> {
     let desired = ae::BodyKinematics { pos: drive.pos, vel: drive.vel, ..*kin };
-    if poses.constrain(entity, kin, sweep, desired).is_err() { return; }
+    poses.constrain(entity, kin, sweep, desired)?;
     // She looks the way she walks.
     if drive.vel.x.abs() > f32::EPSILON {
         kin.facing = drive.vel.x.signum();
@@ -687,6 +716,7 @@ pub(crate) fn drive_her(
             mode.body_mode = wanted;
         }
     }
+    Ok(())
 }
 
 /// This sequence's claim on the encounter layer's priority music tier.

@@ -339,12 +339,12 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
 #[test]
 fn a_body_budget_overrides_the_room_budget() {
     use ambition_platformer2d_core::frame::thread::PieceBudget;
-    use ambition_platformer2d_shared_tangle::portal_passages::{PortalPassages, PortalPieceBudget};
-    let glued = |geometry: crate::PortalGeometry, own: Option<PortalPieceBudget>| {
+    use ambition_platformer2d_shared_tangle::body::geometry::{BodyGeometry, MaterialBudget};
+    let glued = |geometry: crate::PortalGeometry, own: Option<MaterialBudget>| {
         let mut app = App::new();
         app.insert_resource(PortalTuning { geometry, ..PortalTuning::default() });
         app.init_resource::<crate::PortalCarves>();
-        app.init_resource::<PortalPassages>();
+        app.init_resource::<BodyGeometry>();
         app.add_systems(Update, (crate::publish_portal_apertures, crate::publish_portal_carves, crate::publish_portal_passages).chain());
         wall_pair(&mut app);
         let body = app
@@ -359,21 +359,21 @@ fn a_body_budget_overrides_the_room_budget() {
         }
         app.update();
         let glues = app.world().resource::<crate::PortalCarves>().glues.len();
-        let passages = app.world().resource::<PortalPassages>();
+        let passages = app.world().resource::<BodyGeometry>();
         (glues, passages.budget_for(Some(body), None))
     };
     let composed = crate::PortalGeometry::Composed { max_scale_exponent: 12, max_hops: 3, max_pieces: 24 };
     assert_eq!(glued(crate::PortalGeometry::SingleHop, None), (1, PieceBudget::SINGLE_HOP));
     assert_eq!(glued(composed, None), (1, PieceBudget { max_hops: 3, max_pieces: 24, max_scale_exponent: 12 }));
-    assert_eq!(glued(composed, Some(PortalPieceBudget(PieceBudget::SINGLE_HOP))), (1, PieceBudget::SINGLE_HOP));
-    assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(PortalPieceBudget(PieceBudget::COMPOSED))), (1, PieceBudget::COMPOSED));
+    assert_eq!(glued(composed, Some(MaterialBudget(PieceBudget::SINGLE_HOP))), (1, PieceBudget::SINGLE_HOP));
+    assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(MaterialBudget(PieceBudget::COMPOSED))), (1, PieceBudget::COMPOSED));
 }
 
 #[test]
 fn passage_publication_keeps_the_recorded_motion_in_both_directions() {
-    use ambition_platformer2d_shared_tangle::portal_passages::PortalPassages;
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
     let mut app=App::new();
-    app.init_resource::<PortalPassages>();
+    app.init_resource::<BodyGeometry>();
     app.add_systems(Update,crate::publish_portal_apertures);
     let [a,b]=wall_pair(&mut app);
     {
@@ -389,7 +389,7 @@ fn passage_publication_keeps_the_recorded_motion_in_both_directions() {
         portal.spin=portal.step.turn*60.0;
     }
     app.update();
-    let passages=app.world().resource::<PortalPassages>();
+    let passages=app.world().resource::<BodyGeometry>();
     let links=passages.links_in(None);
     assert_eq!(links.len(),2);
     assert_eq!(links[0].enter_step,links[1].exit_step);

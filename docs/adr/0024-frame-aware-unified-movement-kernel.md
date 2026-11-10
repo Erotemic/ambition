@@ -350,3 +350,25 @@ below the resolver, and integrated pose writers outside the kernel.
   dispatch to make an intermediate build easier.
 - Compile early and repeatedly; rebaseline tests that pin obsolete architecture
   while retaining or strengthening their behavioral guarantee.
+
+## External pose admission
+
+The body domain owns `body::pose::BodyPoseAdmission` in the shared platformer
+crate. It reads the current body, recorded sweep and carried acceleration.
+Optional spatial restrictions come from `body::geometry::BodyGeometry`.
+A portal-free composition needs no geometry resource to admit a valid pose.
+Core movement reports a generic `motion_refusal`; numeric validity does not
+belong to the portal capability. A refusal can retain an aperture path and link.
+
+`prepare_body_pose` validates without changing physical state. A coordinated
+operation prepares every participant before it commits any participant.
+The owner commits its relationship or sequence state after pose admission.
+A refused flag or castle step retains progress. A denied saddle ends the ride
+at the accepted pose. A denied capture uses `release_capture`. A denied pet
+cancels before either participant stops. A rejected boss pose retains its holds.
+Sky and lava constraints retry without committing their dependent effects.
+
+Material query maps are sampled before integration and after chart transfer.
+They are a read snapshot, not the body authority. A body source with no sampled
+map returns `MissingMaterial`. Only explicit world material uses identity.
+External pose admission validates the current body and does not need this map.

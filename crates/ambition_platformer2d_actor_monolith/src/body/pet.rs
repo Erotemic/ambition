@@ -175,7 +175,7 @@ pub struct PetRequested {
 /// speed toward `down`): the pet beat holds both bodies, and a held body is
 /// pinned by the motion authority, not by a bare velocity write.
 pub(super) fn stop_where_it_stands(
-    poses: &ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: &ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     entity: Entity,
     kinematics: &mut ambition_platformer2d_core::BodyKinematics,
     down: ambition_platformer2d_core::Vec2,
@@ -217,7 +217,7 @@ pub(super) fn half_on(half_size: ambition_platformer2d_core::Vec2, axis: ambitio
 /// no pet.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_pet_requests(
-    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut commands: Commands,
     mut requests: MessageReader<PetRequested>,
     ids: LiveBodies,
@@ -366,7 +366,7 @@ pub fn apply_pet_requests(
 /// both bodies go on the same tick.
 #[allow(clippy::too_many_arguments)]
 pub fn advance_pet_beats(
-    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     catalog: Res<CharacterCatalog>,
@@ -427,9 +427,16 @@ pub fn advance_pet_beats(
                 };
                 // The walk is over: the petter faces back across the petted
                 // body, and both stop where they stand.
+                let stopped = |kin: &BodyKinematics| BodyKinematics { vel: frame.down * kin.vel.dot(frame.down), ..*kin };
+                let prepared = poses.prepare(petter, &petter_kin, None, stopped(&petter_kin))
+                    .and_then(|first| poses.prepare(petted, &petted_kin, None, stopped(&petted_kin)).map(|second| (first, second)));
+                let Ok((first, second)) = prepared else {
+                    end_pet_beat(&mut commands, petter);
+                    continue;
+                };
+                first.commit(&mut petter_kin, None);
+                second.commit(&mut petted_kin, None);
                 commands.entity(petter).remove::<CommandedMove>();
-                if stop_where_it_stands(&poses, petter, &mut petter_kin, frame.down).is_err()
-                    || stop_where_it_stands(&poses, petted, &mut petted_kin, frame.down).is_err() { continue; }
                 petter_kin.facing = -beat.side;
                 petted_kin.facing = beat.side;
                 beat.stage = PetStage::Gesture {

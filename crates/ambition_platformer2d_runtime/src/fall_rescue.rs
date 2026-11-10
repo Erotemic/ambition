@@ -30,7 +30,7 @@ const FERRY_ID_PREFIX: &str = "fall_rescue";
 /// rises under it with the rest of the room's platforms.
 #[allow(clippy::type_complexity)]
 pub(crate) fn rescue_falling_bodies(
-    poses: ambition_platformer2d_shared_tangle::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut rooms: Query<
         (Entity, &mut MovingPlatformSet, &ae::RoomGeometry),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,

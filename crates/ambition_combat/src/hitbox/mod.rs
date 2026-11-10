@@ -3,7 +3,7 @@
 //! `HitboxHits` deduplicates victims across a multi-tick active window. `HitboxAnchor::FollowOwner`
 //! resolves world geometry from the owner's current position each tick.
 
-use ambition_platformer2d_shared_tangle::portal_passages::PartSource;
+use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::{Commands, Entity, Has, Message, MessageWriter, Query, Res, With};
 
@@ -338,7 +338,7 @@ pub fn hit_reaches_victim_through(
     victim_damageable: Option<&super::components::DamageableVolumes>,
     victim_aabb: &super::components::CenteredAabb,
     victim: Entity,
-    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> bool {
     let Some(passages) = passages.filter(|p| p.cuts_in(room, Some(victim))) else {
@@ -566,7 +566,7 @@ impl StrikeVictimItem<'_, '_> {
     /// The rule of [`strike_reaches_victim`], in pieces.
     pub fn hurt_pieces(
         &self,
-        passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+        passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> ambition_platformer2d_core::frame::thread::Partition {
         use ambition_platformer2d_core::frame::thread::VolumePiece;
@@ -813,7 +813,7 @@ fn spatial_source_of(hitbox: &Hitbox, owner_pos: ae::Vec2) -> ae::Vec2 {
 /// `ambition_portal2d_presentation::carry`). One placed in the world is cut
 /// square on by what it reaches through.
 pub fn strike_pieces(
-    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     hitbox: &Hitbox,
     owner_pos: ae::Vec2,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
@@ -834,7 +834,7 @@ pub fn hurt_pieces_of(
     body: Entity,
     center: ae::Vec2,
     parts: Vec<ae::CombatVolume>,
-    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> ambition_platformer2d_core::frame::thread::Partition {
     match passages {
@@ -912,7 +912,7 @@ pub fn apply_hitbox_damage(
     // through a pair hurts at its far end, and a body half through is hit at
     // both (`docs/planning/engine/portals-a-body-in-two-places.md`). Absent in
     // a composition with no portals: every volume is whole.
-    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) {
     use ambition_platformer2d_core::frame::thread::VolumePiece;
     // Each victim's pieces, cut once a tick.

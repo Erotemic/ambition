@@ -494,9 +494,9 @@ fn the_attachment_observation_gives_each_point_from_the_position_of_the_body() {
 fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
     use ae::frame::thread::{PieceBudget, VolumePiece};
     use ae::frame::{MapConvention, PortalAperture, PortalFrame};
-    use ambition_platformer2d_shared_tangle::portal_passages::{PartSource, PortalPassages};
+    use ambition_platformer2d_shared_tangle::body::geometry::{PartSource, BodyGeometry};
     let owner=Entity::from_raw_u32(1).unwrap();
-    let mut passages=PortalPassages::new(MapConvention::Reflection);
+    let mut passages=BodyGeometry::new(MapConvention::Reflection);
     passages.add_pair(None,(
         PortalAperture { frame:PortalFrame::fixed(ae::Vec2::new(10.0,0.0),-ae::Vec2::X),half_length:20.0 },
         PortalAperture { frame:PortalFrame::fixed(ae::Vec2::new(100.0,0.0),ae::Vec2::X),half_length:10.0 },

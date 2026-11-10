@@ -220,6 +220,34 @@ pub fn constrain_body_pose(
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
     carried_vectors: &[Vec2],
 ) -> Result<(), crate::frame::thread::Refusal> {
+    let prepared = prepare_body_pose(kinematics, sweep.as_deref(), desired, admission, carried_vectors)?;
+    prepared.commit(kinematics, sweep);
+    Ok(())
+}
+
+/// A validated external pose. Prepare all members of a group before commit.
+#[must_use]
+pub struct PreparedBodyPose {
+    body: crate::body_clusters::BodyKinematics,
+    sweep: SweepSample,
+}
+
+impl PreparedBodyPose {
+    /// Commit while the input bodies and admission context remain unchanged.
+    pub fn commit(self, body: &mut crate::body_clusters::BodyKinematics, sweep: Option<&mut SweepSample>) {
+        *body = self.body;
+        if let Some(sweep) = sweep { *sweep = self.sweep; }
+    }
+}
+
+/// Validate a complete external pose without changing its body or history.
+pub fn prepare_body_pose(
+    kinematics: &crate::body_clusters::BodyKinematics,
+    sweep: Option<&SweepSample>,
+    desired: crate::body_clusters::BodyKinematics,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    carried_vectors: &[Vec2],
+) -> Result<PreparedBodyPose, crate::frame::thread::Refusal> {
     use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}, NumericFault};
     let numeric = |reason| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(reason) };
     if desired.material != kinematics.material { return Err(numeric(NumericFault::InvalidFrame)); }
@@ -255,9 +283,7 @@ pub fn constrain_body_pose(
         None => cast.cells(None)?.admit_payloads(desired.vel, carried_vectors)?,
     }
     candidate.half = desired.half_oriented(candidate.down);
-    *kinematics = desired;
-    if let Some(sweep) = sweep { *sweep = candidate; }
-    Ok(())
+    Ok(PreparedBodyPose { body: desired, sweep: candidate })
 }
 
 /// THE FROZEN TICK — the fifth authority: what may change a body the kernel

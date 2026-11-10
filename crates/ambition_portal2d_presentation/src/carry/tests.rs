@@ -1,6 +1,6 @@
 use super::*;
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::portal_passages::{PortalPassages, PortalPieceBudget};
+use ambition_platformer2d_shared_tangle::body::geometry::{BodyGeometry, MaterialBudget};
 use ambition_portal2d::{PortalChannel, PortalChannelColor, PortalGunColor};
 use bevy::camera::Viewport;
 
@@ -14,7 +14,7 @@ fn test_app() -> App {
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<PortalClipMaterial>>()
         .init_resource::<ambition_portal2d::PortalTuning>()
-        .init_resource::<PortalPassages>()
+        .init_resource::<BodyGeometry>()
         .init_resource::<PortalCarryAtlas>()
         .init_resource::<CarryQuadPool>()
         .add_systems(First, give_back_carried_layers)
@@ -52,7 +52,7 @@ fn authored_entry() -> PortalChannel {
 }
 
 fn spawn_body(app: &mut App, budget: PieceBudget, y: f32, entry: PortalChannel) -> Entity {
-    let body = app.world_mut().spawn(PortalPieceBudget(budget)).id();
+    let body = app.world_mut().spawn(MaterialBudget(budget)).id();
     let pos = Vec2::new(498.0, y);
     let size = Vec2::splat(48.0);
     app.world_mut()

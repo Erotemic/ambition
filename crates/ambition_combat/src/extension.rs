@@ -291,7 +291,7 @@ fn cast_ray(
     ray: &HeldRay,
     body: Option<ae::Vec2>,
     walls: Option<&ae::World>,
-    passages: Option<&ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>,
+    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     owner: Entity,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> Option<(ae::Vec2, crate::strike::RayStrike, ae::VolumeShape)> {
@@ -329,7 +329,7 @@ fn cast_ray(
     if let Some(passages) = passages {
         let volume = shape.place_at(origin, 1.0, ae::Vec2::Y);
         if let Err(refusal) = passages.pieces(
-            &volume, ambition_platformer2d_shared_tangle::portal_passages::PartSource::World { owner: Some(owner) }, origin, room,
+            &volume, ambition_platformer2d_shared_tangle::body::geometry::PartSource::World { owner: Some(owner) }, origin, room,
         ) {
             trace!(?owner, ?refusal, "ray material refused before publication");
             return None;
@@ -356,7 +356,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
     )>,
     bodies: Query<(&ae::BodyKinematics, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>)>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) {
     let mut asked: Vec<AskedHeld> = outbox
         .drain::<HeldDamageBoxPort>(&P::PHASE)

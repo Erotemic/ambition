@@ -77,6 +77,7 @@ fn build_app() -> App {
     // `enforce_mount_rider_link` emits `MountDied` on dissolution; register the
     // message so its `MessageWriter` resolves in the harness (Q19).
     app.add_message::<MountDied>();
+    app.add_message::<RiderDismounted>();
     app
 }
 

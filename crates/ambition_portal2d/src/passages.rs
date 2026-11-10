@@ -1,12 +1,12 @@
 //! Publish this tick's pairs and straddlers in core geometry
-//! ([`PortalPassages`]), for a domain that is not the portal's (combat) to
+//! ([`BodyGeometry`]), for a domain that is not the portal's (combat) to
 //! tell where a volume is.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
-use ambition_platformer2d_shared_tangle::portal_passages::{PortalPassages, PortalPieceBudget};
+use ambition_platformer2d_shared_tangle::body::geometry::{BodyGeometry, MaterialBudget};
 
 use crate::rooms::PortalsByRoom;
 use crate::transit::PortalTransit;
@@ -15,7 +15,7 @@ use crate::types::{find_portal, PlacedPortal};
 
 /// Each linked pair of `portals` (one room's, in their stable order) once,
 /// from the end whose channel orders first: the pairs every reader of
-/// [`PortalPassages`] and the drawing of pieces cut by.
+/// [`BodyGeometry`] and the drawing of pieces cut by.
 pub fn linked_pairs(portals: &[PlacedPortal]) -> Vec<(ae::frame::PortalAperture, ae::frame::PortalAperture)> {
     linked_pairs_iter(portals).map(|(a,b)|(a.aperture(),b.aperture())).collect()
 }
@@ -32,15 +32,15 @@ pub fn publish_portal_apertures(
     portals: Query<(Entity, &PlacedPortal)>,
     transits: Query<(Entity, &PortalTransit)>,
     bodies: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
-    own_policies: Query<(Entity, &PortalPieceBudget)>,
+    own_policies: Query<(Entity, &MaterialBudget)>,
     live: LiveRooms,
     tuning: Option<Res<PortalTuning>>,
-    mut passages: ResMut<PortalPassages>,
+    mut passages: ResMut<BodyGeometry>,
     // The rings last said, by room, so each is said once.
     mut rings_said: Local<Vec<(crate::rooms::PortalRoom, Vec<u32>)>>,
 ) {
     let tuning = tuning.as_deref().copied().unwrap_or_default();
-    *passages = PortalPassages::new(tuning.convention.map_convention()).with_default_budget(tuning.geometry.budget());
+    *passages = BodyGeometry::new(tuning.convention.map_convention()).with_default_budget(tuning.geometry.budget());
     for (body, own) in &own_policies {
         passages.set_body_budget(body, own.0);
     }
@@ -78,7 +78,7 @@ pub fn publish_portal_passages(
     transits: Query<(Entity, &PortalTransit)>,
     bodies: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
     live: LiveRooms,
-    mut passages: ResMut<PortalPassages>,
+    mut passages: ResMut<BodyGeometry>,
 ) {
     write_materials(&mut passages, &bodies);
     let by_room = PortalsByRoom::collect(&portals, &live);
@@ -86,7 +86,7 @@ pub fn publish_portal_passages(
 }
 
 fn write_straddlers(
-    passages: &mut PortalPassages,
+    passages: &mut BodyGeometry,
     by_room: &PortalsByRoom,
     mut straddlers: Vec<(Entity, crate::rooms::PortalRoom, PortalTransit)>,
 ) {
@@ -102,7 +102,7 @@ fn write_straddlers(
 
 
 fn write_materials(
-    passages: &mut PortalPassages,
+    passages: &mut BodyGeometry,
     bodies: &Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>)>,
 ) {
     passages.clear_materials();

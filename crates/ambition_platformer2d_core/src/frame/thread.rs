@@ -545,6 +545,7 @@ fn cut_by(piece: &VolumePiece, reach: Option<Vec2>, link: &PortalLink, conventio
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RefusalReason {
+    MissingMaterial,
     HopLimit,
     PieceLimit,
     WorkLimit,

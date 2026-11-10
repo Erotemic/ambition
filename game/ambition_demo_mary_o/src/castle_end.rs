@@ -374,7 +374,7 @@ fn beat_of_her_room(
 /// falls with its plank.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn run_castle_ending(
-    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d::platformer::body::pose::BodyPoseAdmission,
     time: Res<ambition_platformer2d::time::WorldTime>,
     subject: Option<Res<ControlledSubject>>,
     rooms: Option<LiveRoomSpecs>,
@@ -408,6 +408,7 @@ pub fn run_castle_ending(
 
     // The others of her room: each boss, and the one she saved.
     let mut boss_left = false;
+    let mut bosses = Vec::new();
     let mut he_is_at = None;
     for (entity, kin, _, _, _, health, config, worn) in &bodies {
         if entity == her || live.of(entity) != room {
@@ -421,10 +422,7 @@ pub fn run_castle_ending(
             continue;
         }
         boss_left = true;
-        // It is dead before the sequence ends, so nothing releases this.
-        if sequence.active() {
-            claim_control_hold(&mut commands, entity, ControlHold::Sequence);
-        }
+        bosses.push(entity);
     }
     let planks_left = match (broken.as_deref(), geometry.room_of(her), geometry.of(her)) {
         (Some(broken), Some(room), Some(room_geometry)) => {
@@ -433,12 +431,6 @@ pub fn run_castle_ending(
         _ => false,
     };
 
-    crate::flag::hold_her_while_the_sequence_runs(
-        &mut commands,
-        her,
-        &sequence,
-        holds.get_mut(her).ok().as_deref_mut(),
-    );
     let Ok((_, mut kin, mut sweep, ground, mode, health, ..)) = bodies.get_mut(her) else {
         return;
     };
@@ -455,7 +447,23 @@ pub fn run_castle_ending(
     };
     let facts = CastleFacts { planks_left, boss_left };
     let in_the_beats = sequence.castle_beat().is_some();
-    let drive = step_castle_ending(&mut sequence, &goal, stomper, facts, time.sim_dt());
+    let mut candidate = *sequence;
+    let drive = step_castle_ending(&mut candidate, &goal, stomper, facts, time.sim_dt());
+    if let Some(drive) = &drive {
+        if crate::flag::drive_her(&poses, her, drive, &mut kin, sweep.as_deref_mut(), mode).is_err() {
+            return;
+        }
+    }
+    *sequence = candidate;
+    crate::flag::hold_her_while_the_sequence_runs(
+        &mut commands,
+        her,
+        &sequence,
+        holds.get_mut(her).ok().as_deref_mut(),
+    );
+    if sequence.active() {
+        for boss in bosses { claim_control_hold(&mut commands, boss, ControlHold::Sequence); }
+    }
     // Nothing hurts her from the switch to the tally. The claim is taken on
     // the tick the beats start and released on the tick they end: another
     // owner of the same reason keeps its claim in each other tick.
@@ -466,7 +474,6 @@ pub fn run_castle_ending(
     let Some(drive) = drive else {
         return;
     };
-    crate::flag::drive_her(&poses, her, &drive, &mut kin, sweep.as_deref_mut(), mode);
     let looks = sequence.castle_beat().and_then(|(beat, _)| beat.she_looks());
     if let Some(side) = looks.filter(|side| drive.vel.x == 0.0 && kin.facing != *side) {
         kin.facing = side;
@@ -524,7 +531,7 @@ pub fn charges_go_off_on_the_bridge(
 /// held it up.
 #[allow(clippy::type_complexity)]
 pub fn the_lava_takes_the_boss(
-    poses: ambition_platformer2d::platformer::portal_passages::PoseAdmission,
+    poses: ambition_platformer2d::platformer::body::pose::BodyPoseAdmission,
     sequences: Query<&FlagSequence>,
     subject: Option<Res<ControlledSubject>>,
     rooms: Option<LiveRoomSpecs>,

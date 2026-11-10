@@ -1,9 +1,8 @@
-//! The portal pairs of each live room this tick, for a domain that is not the
-//! portal's: where a volume is when a pair cuts it
-//! (`docs/planning/engine/portals-a-body-in-two-places.md`).
+//! Body material geometry and optional spatial restrictions for each live room.
 //!
-//! The portal domain publishes apertures before movement and refreshes body
-//! material maps after transit. A composition with no portals has no links.
+//! Material maps are sampled before movement and after chart transfers. Optional
+//! mechanics publish their aperture restrictions into this same snapshot. A
+//! missing body map is an error; world material has an explicit identity map.
 
 use ambition_platformer2d_core::frame::thread::{partition, partition_reaching, MaterialPrimitive, Partition, PieceBudget, PortalLink, Refusal, RefusalReason};
 use ambition_platformer2d_core::frame::{MapConvention, NumericFault, PortalAperture, Sim2};
@@ -15,7 +14,7 @@ use crate::lifecycle::LiveRoomInstance;
 /// A body's material budget overrides the room budget.
 /// An exhausted budget refuses the operation.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PortalPieceBudget(pub PieceBudget);
+pub struct MaterialBudget(pub PieceBudget);
 
 /// The material chart and the owner of its traversal policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,12 +49,12 @@ impl PartSource {
 pub struct ReachesFrom(pub Vec2);
 
 #[derive(Resource, Clone, Debug)]
-pub struct PortalPassages {
+pub struct BodyGeometry {
     convention: MapConvention,
     materials: std::collections::BTreeMap<Entity, Result<Sim2, NumericFault>>,
     /// How far the volumes of a room with no budget of its own are cut.
     default_budget: PieceBudget,
-    /// The bodies with a policy of their own ([`PortalPieceBudget`]).
+    /// The bodies with a policy of their own ([`MaterialBudget`]).
     bodies: Vec<(Entity, PieceBudget)>,
     /// Each live room's links (each pair both ways, in the pairs' order) and
     /// how far its volumes are cut ([`PieceBudget`]).
@@ -73,13 +72,13 @@ struct PassageRoom {
     budget: PieceBudget,
 }
 
-impl Default for PortalPassages {
+impl Default for BodyGeometry {
     fn default() -> Self {
         Self::new(MapConvention::default())
     }
 }
 
-impl PortalPassages {
+impl BodyGeometry {
     pub fn new(convention: MapConvention) -> Self {
         Self {
             convention,
@@ -145,7 +144,7 @@ impl PortalPassages {
         self.room(room).map_or(self.default_budget, |r| r.budget)
     }
 
-    /// `body` has a policy of its own ([`PortalPieceBudget`]).
+    /// `body` has a policy of its own ([`MaterialBudget`]).
     pub fn set_body_budget(&mut self, body: Entity, budget: PieceBudget) {
         match self.bodies.iter_mut().find(|(b, _)| *b == body) {
             Some((_, b)) => *b = budget,
@@ -240,8 +239,12 @@ impl PortalPassages {
         let cut_by = if reaching { partition_reaching } else { partition };
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
         let carrier = source.carrier();
-        let root_map = carrier.and_then(|owner| self.materials.get(&owner)).copied()
-            .unwrap_or(Ok(Sim2::IDENTITY)).map_err(numeric)?;
+        let root_map = match carrier {
+            Some(owner) => self.materials.get(&owner).copied()
+                .ok_or(Refusal { path: Vec::new(), link: None, reason: RefusalReason::MissingMaterial })?
+                .map_err(numeric)?,
+            None => Sim2::IDENTITY,
+        };
         let canonical = ambition_platformer2d_core::frame::thread::map_volume(volume, &root_map.inverse().map_err(numeric)?)
             .map_err(numeric)?;
         let material = MaterialPrimitive { domain: &canonical, to_world: root_map };
@@ -276,7 +279,8 @@ mod tests {
         let ceiling = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, -200.0), Vec2::new(0.0, 1.0)), half_length: 40.0 };
         let (here, there) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::from_ordinal(1));
         let (traveller, other) = (Entity::from_raw_u32(1).unwrap(), Entity::from_raw_u32(2).unwrap());
-        let mut passages = PortalPassages::default();
+        let mut passages = BodyGeometry::default();
+        for body in [traveller, other] { passages.set_body_material(body, Ok(Sim2::IDENTITY)); }
         passages.add_pair(Some(there), (floor, ceiling));
         passages.add_straddler(traveller, floor, ceiling);
 
@@ -306,7 +310,7 @@ mod material_tests {
         let root = Sim2::new(2.0, bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y), Vec2::new(100.0, 200.0)).unwrap();
         let canonical = CombatVolume::aabb(ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::new(10.0, 20.0)));
         let world = ambition_platformer2d_core::frame::thread::map_volume(&canonical, &root).unwrap();
-        let mut passages = PortalPassages::default();
+        let mut passages = BodyGeometry::default();
         passages.set_body_material(body, Ok(root));
         let pieces = passages.pieces(&world, PartSource::Body(body), Vec2::new(100.0, 200.0), None).unwrap();
         assert_eq!(pieces.len(), 1);
@@ -318,36 +322,17 @@ mod material_tests {
         assert_eq!(independent[0].source(), &world);
         assert!(!independent[0].transform().reflected());
     }
-}
-
-
-/// Admission context for a body whose pose an external owner controls.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct PoseAdmission<'w, 's> {
-    passages: Option<bevy::prelude::Res<'w, PortalPassages>>,
-    live: crate::lifecycle::LiveRooms<'w, 's>,
-    acceleration: bevy::prelude::Query<'w, 's, &'static crate::frame_env::CarriedAcceleration>,
-}
-
-impl PoseAdmission<'_, '_> {
-    pub fn constrain(
-        &self,
-        body: Entity,
-        kinematics: &mut ambition_platformer2d_core::BodyKinematics,
-        sweep: Option<&mut ambition_platformer2d_core::SweepSample>,
-        desired: ambition_platformer2d_core::BodyKinematics,
-    ) -> Result<(), Refusal> {
-        let carried = self.acceleration.get(body).ok()
-            .map_or(&[][..], |acceleration| std::slice::from_ref(&acceleration.0));
-        let result = ambition_platformer2d_core::movement::constrain_body_pose(kinematics, sweep, desired,
-            self.passages.as_deref().and_then(|passages| passages.motion_for(body, self.live.of(body))), carried);
-        if let Err(refusal) = &result {
-            tracing::trace!(target: "ambition_platformer2d::pose_admission", ?body,
-                from = ?kinematics.pos, to = ?desired.pos, ?refusal, "pose motion refused");
-        }
-        result
+    #[test]
+    fn a_body_source_requires_a_published_material_map() {
+        let body = Entity::from_raw_u32(1).unwrap();
+        let shape = CombatVolume::aabb(ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::ONE));
+        let mut geometry = BodyGeometry::default();
+        let query = |geometry: &BodyGeometry| geometry.pieces(&shape, PartSource::Body(body), Vec2::ZERO, None);
+        assert_eq!(query(&geometry).unwrap_err().reason, RefusalReason::MissingMaterial);
+        geometry.set_body_material(body, Ok(Sim2::IDENTITY));
+        assert_eq!(query(&geometry).unwrap().len(), 1);
+        geometry.clear_materials();
+        assert_eq!(query(&geometry).unwrap_err().reason, RefusalReason::MissingMaterial);
+        assert!(geometry.pieces(&shape, PartSource::World { owner: Some(body) }, Vec2::ZERO, None).is_ok());
     }
 }
-
-#[cfg(test)]
-mod pose_tests;

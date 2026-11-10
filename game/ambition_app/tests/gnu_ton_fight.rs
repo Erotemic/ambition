@@ -2777,3 +2777,80 @@ fn a_gnu_ton_fist_hits_once_after_three_cuts_and_replays_its_scaled_launch() {
     };
     assert_eq!(run(), run());
 }
+
+#[test]
+fn both_gnu_ton_fists_damage_separate_bodies_through_their_paths_in_one_tick() {
+    use ambition_platformer2d::characters::actor::{ActorFaction, Health};
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+    use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor, HitboxHits,
+        HitboxKnockback, HitboxLaunch, HitboxLifetime, HitSide};
+    let run = || {
+        let (mut sim, fists) = gnu_ton_multiple_path_scene();
+        sim.spawn_enemy_character_at("second_portal_target", "Second portal target", (800.0, 208.0),
+            (15.0, 24.0), CharacterBrain::Custom("raptor".into()), "npc_raptor_stalker");
+        let second = {
+            let world = sim.world_mut();
+            world.query::<(Entity, &FeatureId)>().iter(world)
+                .find(|(_, id)| id.as_str() == "second_portal_target").unwrap().0
+        };
+        sim.world_mut().entity_mut(second).insert((ActorFaction::Player,
+            BodyHealth::new(Health::new(100)), ambition_platformer2d::characters::actor::BodyCombat::default()));
+        place_player(&mut sim, Vec2::new(400.0, 608.0));
+        touchable_player(&mut sim);
+        let first = { let world = sim.world_mut(); world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap() };
+        let before = player(&mut sim).1;
+        let victims = [first, second];
+        let mut hitboxes = Vec::new();
+        for (index, (owner, ..)) in fists.iter().enumerate() {
+            let half = sim.world().get::<ae::BodyKinematics>(*owner).unwrap().canonical_size * 0.5;
+            hitboxes.push(sim.world_mut().spawn((
+                Hitbox { owner: *owner, source: HitSide::Boss,
+                    anchor: HitboxAnchor::FollowOwner { local_offset: Vec2::ZERO }, half_extent: half,
+                    shape: None, facing: 1.0, damage: if index == 0 { 7 } else { 11 },
+                    knockback: HitboxKnockback::LaunchSpeed { base: 200.0, growth: Some(0.0) },
+                    launch_dir: Some(HitboxLaunch::OwnerLocal(Vec2::new(0.6, -0.8))),
+                    reaction: None, guard: Default::default(), frame_down: Vec2::Y, strike_sfx: None },
+                HitboxLifetime { remaining_s: 1.0 }, HitboxHits::default(),
+            )).id());
+        }
+        sim.rebase_rollback_history().unwrap();
+        let mut cursor = bevy::ecs::message::MessageCursor::<ambition_platformer2d::combat::HitEvent>::default();
+        let mut same_tick = false;
+        let mut trace = Vec::new();
+        for _ in 0..20 {
+            sim.step(AgentAction::default());
+            sim.rollback_health().unwrap();
+            let mut reached = [false; 2];
+            for hit in cursor.read(sim.world().resource::<Messages<ambition_platformer2d::combat::HitEvent>>()) {
+                for index in 0..2 {
+                    if hit.attacker != Some(fists[index].0)
+                        || hit.target != ambition_platformer2d::combat::HitTarget::Body(victims[index]) { continue; }
+                    let knockback = hit.knockback.as_ref().unwrap();
+                    assert_eq!(hit.damage, if index == 0 { 7 } else { 11 });
+                    assert_eq!(knockback.magnitude, ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(
+                        if index == 0 { 100.0 } else { 400.0 }));
+                    assert!(knockback.launch_dir.unwrap().world().normalize().distance(Vec2::new(-0.6, -0.8)) < 1e-5);
+                    reached[index] = true;
+                }
+            }
+            same_tick |= reached == [true, true];
+            trace.push(victims.map(|victim| {
+                let world = sim.world();
+                (ae::snapshot::encode_state(world.get::<ae::BodyKinematics>(victim).unwrap()),
+                    world.get::<BodyHealth>(victim).unwrap().current())
+            }));
+        }
+        assert!(same_tick, "both scaled fists must reach their victims in one tick");
+        assert_eq!(player(&mut sim).1, before - 7);
+        assert_eq!(sim.world().get::<BodyHealth>(second).unwrap().current(), 89);
+        for index in 0..2 {
+            let hits = &sim.world().get::<HitboxHits>(hitboxes[index]).unwrap().hit;
+            assert_eq!(hits.len(), 1);
+            assert!(hits.contains(&victims[index]));
+            assert_eq!(sim.world().get::<Limb>(fists[index].0).unwrap().of, fists[index].1.of);
+        }
+        assert!(sim.rollback_execution_stats().unwrap().load_runs > 0);
+        trace
+    };
+    assert_eq!(run(), run());
+}

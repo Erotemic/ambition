@@ -52,15 +52,19 @@ fn authored_entry() -> PortalChannel {
 }
 
 fn spawn_body(app: &mut App, budget: PieceBudget, y: f32, entry: PortalChannel) -> Entity {
-    let body = app.world_mut().spawn(MaterialBudget(budget)).id();
     let pos = Vec2::new(498.0, y);
     let size = Vec2::splat(48.0);
+    let body = app.world_mut().spawn((MaterialBudget(budget), ae::BodyKinematics {
+        pos, canonical_size: size, ..Default::default()
+    })).id();
     app.world_mut()
         .spawn((
             PortalSceneBody,
             crate::PortalBodyView {
                 body,
                 pos,
+                canonical_size: size,
+                material: Default::default(),
                 size,
                 facing: 1.0,
             },
@@ -308,7 +312,10 @@ fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
             portal.normal = normal;
         }
         let side = app.world().get::<PlacedPortal>(if degree < 180 { a } else { b }).unwrap().clone();
-        app.world_mut().get_mut::<crate::PortalBodyView>(visual).unwrap().pos = side.pos + side.normal * 3.0;
+        let body = app.world().get::<crate::PortalBodyView>(visual).unwrap().body;
+        let pos = side.pos + side.normal * 3.0;
+        app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap().pos = pos;
+        app.world_mut().get_mut::<crate::PortalBodyView>(visual).unwrap().pos = pos;
         app.world_mut().get_mut::<crate::PortalTransitView>(visual).unwrap().straddling = side.channel;
         *app.world_mut().get_mut::<Transform>(visual).unwrap() =
             Transform::from_translation(PortalWorldFrame { size: WORLD }.to_render(side.pos, 20.0));
@@ -320,4 +327,54 @@ fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
         assert_eq!(app.world().resource::<Assets<PortalClipMaterial>>().len(), materials);
         assert_eq!(app.world().resource::<Assets<Mesh>>().len(), meshes);
     }
+}
+
+#[test]
+fn a_body_part_is_drawn_through_an_opening_before_centre_transit_starts() {
+    let mut app = test_app();
+    add_pair(&mut app, authored_entry(), 500.0, 800.0);
+    let visual = spawn_body(&mut app, PieceBudget::COMPOSED, 300.0, authored_entry());
+    app.world_mut().entity_mut(visual).remove::<crate::PortalTransitView>();
+    for _ in 0..6 { app.update(); }
+    let without_transit = outcome(&mut app, visual);
+    assert!(!without_transit.on_world);
+    assert!(without_transit.active_capture);
+    assert!(without_transit.pieces.len() >= 2);
+    app.world_mut().entity_mut(visual).insert(crate::PortalTransitView { straddling: authored_entry() });
+    for _ in 0..3 { app.update(); }
+    assert_eq!(without_transit, outcome(&mut app, visual));
+}
+
+#[test]
+fn a_reaching_swing_does_not_move_a_bodys_near_foot_into_the_aperture_wedge() {
+    let mut app = test_app();
+    let entry = authored_entry();
+    for portal in [
+        PlacedPortal::fixed(entry, Vec2::new(534.0, 312.0), Vec2::NEG_Y, 40.0).unwrap(),
+        PlacedPortal::fixed(entry.partner(), Vec2::new(200.0, 100.0), Vec2::NEG_Y, 40.0).unwrap(),
+    ] { app.world_mut().spawn(portal); }
+    let visual = spawn_body(&mut app, PieceBudget::SINGLE_HOP, 300.0, entry);
+    for _ in 0..6 { app.update(); }
+    let foot = PortalWorldFrame { size: WORLD }.to_render(Vec2::new(492.0, 322.0), 0.0).truncate();
+    let paints = |outcome: &Outcome| outcome.pieces.iter().any(|piece| {
+        if piece.positions.len() < 3 { return false; }
+        let points: Vec<Vec2> = piece.positions.iter().map(|position|
+            (piece.at + piece.rotation * (piece.scale * Vec3::from_array(*position))).truncate()).collect();
+        let mut positive = false;
+        let mut negative = false;
+        for index in 0..points.len() {
+            let a = points[index]; let b = points[(index+1)%points.len()];
+            let side = (b-a).perp_dot(foot-a);
+            positive |= side > 0.001;
+            negative |= side < -0.001;
+        }
+        !(positive && negative)
+    });
+    assert!(paints(&outcome(&mut app, visual)));
+    app.world_mut().spawn((Sprite::from_color(Color::WHITE, Vec2::splat(48.0)),
+        bevy::sprite::Anchor::default(),
+        Transform::from_translation(PortalWorldFrame { size: WORLD }.to_render(Vec2::new(512.0, 320.0), 25.0)),
+        ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom(Vec2::new(498.0,300.0))));
+    for _ in 0..3 { app.update(); }
+    assert!(paints(&outcome(&mut app, visual)), "the foot outside the mouth must remain in the near chart");
 }

@@ -276,6 +276,7 @@ mod tests {
         app.add_systems(Update, sync_portal_mode_indicator);
         let carrier = app.world_mut().spawn((PortalAffordanceBody, PortalBodyView {
             pos: Vec2::new(498.0, 300.0), size: Vec2::new(24.0, 40.0),
+            canonical_size: Vec2::new(24.0, 40.0), material: Default::default(),
             facing: 1.0, body: Entity::PLACEHOLDER,
         }, PortalGun::default())).id();
         app.update();

@@ -5,11 +5,10 @@
 //!
 //! Selection is by what goes through; the drawing is by geometry.
 //!
-//! * A body's own drawable ([`crate::PortalSceneBody`]) goes through while its
-//!   body is in transit: the host publishes the pair it straddles
-//!   ([`crate::PortalTransitView`]). A body that only overlaps an opening (a
-//!   giant whose arm's near line is over its back) is not in transit, and its
-//!   picture stays.
+//! * A body's own drawable ([`crate::PortalSceneBody`]) follows its physical
+//!   material parts. A part can pass through an opening before the body's
+//!   centre crosses its plane. A host can also lend a shallow part of its
+//!   picture to a limb ([`crate::PortalHostReach`]).
 //! * Any other drawable (worn gear, a held item, a flash, a trail, a slash,
 //!   dust, a spark, a bolt) goes through an opening when it reaches past the
 //!   entry plane, inside the opening, from the front: the rule a combat volume
@@ -162,8 +161,6 @@ struct Carry {
     reaching: bool,
     /// Every member uses this geometry policy.
     budget: PieceBudget,
-    /// A body's root can also anchor a drawable that reaches from it.
-    has_body: bool,
     /// A host's picture goes in only as deep as its limb (`PortalHostReach`).
     reach: Option<f32>,
     /// The drawables it carries (each with its family).
@@ -290,7 +287,7 @@ pub fn carry_through_pairs(
         (
             Entity,
             &crate::PortalBodyView,
-            &crate::PortalTransitView,
+            Option<&crate::PortalTransitView>,
             Option<&crate::PortalHostReach>,
         ),
         With<PortalSceneBody>,
@@ -353,19 +350,30 @@ pub fn carry_through_pairs(
 
     let mut carries: Vec<Carry> = Vec::new();
     if any_portal && !atlas.slots.is_empty() {
-        // Bodies in transit: the pair their host says they straddle.
+        // Bodies follow physical occupancy before and during centre transit.
         for (visual, view, transit, reach) in &bodies {
             let Some(placement) = frames.of(visual) else {
                 continue;
             };
             let all = by_room.in_room(Some(placement.room));
-            let Some(straddled) = find_portal(all, transit.straddling) else {
-                continue;
-            };
             let links = room_links(all);
-            let Some(link) = links.iter().find(|link| link.enter == straddled.aperture()) else {
-                continue;
+            if links.is_empty() { continue; }
+            let active = if reach.is_some() {
+                transit.and_then(|transit| find_portal(all, transit.straddling))
+                    .map(|portal| portal.aperture())
+            } else {
+                let Some(geometry) = passages.as_deref() else { continue; };
+                let domain = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, view.canonical_size * 0.5));
+                let Ok(to_world) = view.material.at(view.pos) else { continue; };
+                let Ok(parts) = geometry.body_pieces(ae::frame::thread::MaterialPrimitive {
+                    domain: &domain, to_world }, view.body, Some(placement.room)) else { continue; };
+                parts.iter().find(|part| part.is_carried())
+                    .and_then(|part| part.path.first())
+                    .and_then(|key| geometry.links_in(Some(placement.room)).iter().find(|link| link.key == *key))
+                    .map(|link| link.enter)
             };
+            let Some(link) = links.iter().find(|link| Some(link.enter) == active) else { continue; };
+            let Some(straddled) = all.iter().find(|portal| portal.aperture() == link.enter) else { continue; };
             let Ok((at, aabb, shown)) = families.placed.get(visual) else {
                 continue;
             };
@@ -390,7 +398,7 @@ pub fn carry_through_pairs(
                     carry.drawables.push(visual);
                     carry.min = carry.min.min(min);
                     carry.max = carry.max.max(max);
-                    carry.traced.push((view.body, view.pos, transit.straddling));
+                    carry.traced.push((view.body, view.pos, straddled.channel));
                 }
                 None => carries.push(Carry {
                     room: placement.room,
@@ -399,13 +407,12 @@ pub fn carry_through_pairs(
                     root: view.pos,
                     reaching: false,
                     budget,
-                    has_body: true,
                     reach,
                     drawables: vec![visual],
                     min,
                     max,
                     z: at.translation.z,
-                    traced: vec![(view.body, view.pos, transit.straddling)],
+                    traced: vec![(view.body, view.pos, straddled.channel)],
                 }),
             }
         }
@@ -455,16 +462,15 @@ pub fn carry_through_pairs(
             let link = through.path[0];
             let z = at.translation.z;
             // A carry is cut by one rule. Square-on drawables share one; a
-            // swing shares only with what reaches from its root, or with the
-            // body that swings it (a body that fits the opening is all in the
-            // wedge from its centre, so the wedge cuts it as square on does).
+            // swing shares only with other reaching drawables from its root.
+            // A body's material uses square-on cuts, including at an edge.
             let reaching = reaches_from.is_some();
             let shares = |c: &Carry| {
                 c.room == placement.room
                     && c.link == link
                     && c.budget == budget
                     && c.reach.is_none()
-                    && if reaching { c.root.distance(root) <= ROOT_SLACK && (c.reaching || c.has_body) } else { !c.reaching }
+                    && if reaching { c.root.distance(root) <= ROOT_SLACK && c.reaching } else { !c.reaching }
             };
             match carries.iter_mut().find(|c| shares(c)) {
                 Some(carry) => {
@@ -484,7 +490,6 @@ pub fn carry_through_pairs(
                     root,
                     reaching,
                     budget,
-                    has_body: false,
                     reach: None,
                     drawables: vec![drawable],
                     min,
@@ -684,7 +689,16 @@ pub fn carry_through_pairs(
 /// One carry slot: a texture `side` texels square and a camera that draws
 /// carry layer `slot` into it, `span` world units square.
 fn spawn_slot(commands: &mut Commands, images: &mut Assets<Image>, slot: usize, side: u32, span: f32) -> CarrySlot {
-    let image = images.add(Image::new_target_texture(side, side, TextureFormat::Rgba8UnormSrgb, None));
+    // The camera clears the target. CPU pixels would spend the upload budget
+    // and defer the changed clip meshes on the frame a new slot opens.
+    let mut target = Image::new_uninit(
+        bevy::render::render_resource::Extent3d { width: side, height: side, depth_or_array_layers: 1 },
+        bevy::render::render_resource::TextureDimension::D2,
+        TextureFormat::Rgba8UnormSrgb,
+        bevy::asset::RenderAssetUsages::default(),
+    );
+    target.texture_descriptor.usage |= bevy::render::render_resource::TextureUsages::RENDER_ATTACHMENT;
+    let image = images.add(target);
     let camera = commands
         .spawn((
             Camera2d,

@@ -324,6 +324,11 @@ fn far_side_contact(motion:ContactMotion) {
         if matches!(motion,ContactMotion::Wall|ContactMotion::Exit|ContactMotion::TurningWall|ContactMotion::TurningExit) && !moved_target && sim.world().get::<BodyKinematics>(shot)
             .is_some_and(|body|(body.pos-enter.pos).dot(enter.normal)<=10.01) {
             let world=sim.world_mut();
+            if matches!(motion,ContactMotion::Exit|ContactMotion::TurningExit) {
+                // The moving host replaces the fixed backing.
+                world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks
+                    .retain(|block| block.name != "K exit backing");
+            }
             if matches!(motion,ContactMotion::TurningWall) {
                 world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks
                     .retain(|block| block.name!="K far-side target");

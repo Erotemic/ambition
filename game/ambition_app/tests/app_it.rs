@@ -236,6 +236,7 @@ mod portal_floor_bounce_no_fallthrough;
 mod portal_compositing_is_wired_in_the_shipped_app;
 mod portal_lab_usable;
 mod portal_similarity_slice;
+mod portal_chain_lab;
 mod portal_reset_preserves_authored;
 mod portal_translation_camera_continuity;
 mod possession_end_to_end;

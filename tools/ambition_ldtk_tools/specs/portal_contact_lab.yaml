@@ -45,3 +45,12 @@ entities:
     name: lab_sign_k_exit
     text: 'The shot hits the far target before its centre crosses.'
     category: Custom
+
+- type: Solid
+  px: [680, 802]
+  size: [16, 96]
+  fields: {name: K entry backing}
+- type: Solid
+  px: [984, 652]
+  size: [16, 96]
+  fields: {name: K exit backing}

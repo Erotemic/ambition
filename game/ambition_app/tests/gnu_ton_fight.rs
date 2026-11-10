@@ -2173,10 +2173,10 @@ fn the_punch_hurts_under_the_far_line_through_the_pair() {
     for _ in 0..40 {
         sim.step(AgentAction::default());
         let (fist, in_pair) = blow_fist(&mut sim);
-        // On the near line's axis (the limb goes in square to it), and not
-        // at the far line.
-        let across = (fist - near).dot(normal.perp());
-        assert!(across.abs() < 1.0, "the fist is posed off the near line's axis, not on it: {fist:?} near {near:?}");
+        // A floor contact can stop a diagonal proposal before its final axis.
+        // The root stays at the entry; the material reaches the far side.
+        assert!(fist.distance_squared(near) < fist.distance_squared(far),
+            "the fist root moved to the far line: {fist:?}, entry {near:?}, exit {far:?}");
         threaded |= in_pair && (fist - near).dot(-normal) > 0.0;
     }
     assert!(threaded, "the fist went into the near line and was in the pair");

@@ -301,7 +301,7 @@ Use the repository test runner as the canonical headless front door:
 ./run_tests.sh --list                                   # what would run
 ./run_tests.sh -p <owning-package> -k <test-substring>  # focused
 ./run_tests.sh                                          # backbone: python + cargo test --workspace
-./run_tests.sh --run-everything-you-probably-dont-need-this   # exhaustive, ~1 hour
+./run_tests.sh --run-everything-you-probably-dont-need-this   # exhaustive; use only when warranted
 ```
 
 The default is the backbone, not the exhaustive plan. Each run prints what it

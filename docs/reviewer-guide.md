@@ -84,7 +84,9 @@ test is green
 ≠ test exercises the production seam
 ```
 
-For a cross-system defect, require at least one production-path regression.
+For a consequential cross-system defect, trace the production path and
+verify the fix there. Keep a permanent regression test only when it protects
+an important, plausible recurrence that existing coverage does not catch.
 
 ## Review priorities
 
@@ -399,7 +401,10 @@ Prefer explicit typed composition.
 
 ## Testing
 
-Use the cheapest sufficient test while iterating.
+Use the cheapest sufficient check while iterating. The repository-wide
+"Avoid bullshit guardrails" rule in `AGENTS.md` applies to reviews too:
+do not recommend redundant tests, source-text guards, or process machinery
+simply because they could be written.
 
 For a defect that could plausibly recur: one targeted invariant test at the
 narrowest level that can fail. Add a production-path test only when the defect
@@ -516,7 +521,7 @@ For each:
 severity
 file/function
 failure scenario
-why current tests missed it
+how to reproduce or observe it
 correct semantic fix
 ```
 

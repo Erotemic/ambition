@@ -49,12 +49,8 @@ should survive crate moves. Exact current symbols and files belong in source,
 - [`cryptography-crew.md`](cryptography-crew.md) — the crypto-themed NPC cast.
 - [`hall-of-characters-is-not-special.md`](hall-of-characters-is-not-special.md) — why the hall is ordinary content, not an engine case.
 
-> ⚠ **The four pages above were all missing from this index until 2026-09-03**,
-> and one of them — the style guide — had **zero inbound links anywhere in the
-> repository**. A concept page nothing points at is doctrine that cannot be
-> followed. ⇒ When adding a page under `docs/concepts/`, adding the row here is
-> the second half of the same change; nothing checks it, so nothing will remind
-> you.
+When adding a durable concept, link it from the relevant section of this
+index so a new contributor can find it.
 
 ## Maintenance
 

@@ -61,11 +61,18 @@ module
 Two capabilities claiming the same id is a REFUSAL, not a last-one-wins — that
 is the point of declaring them.
 
-⚠ **an action can be declared and queried; it cannot yet carry a device binding
-of its own.** `InputMap` is still keyed by the engine's closed `Platformer2dInputActionMonolith`,
-so a consumer fires your mechanic by writing your own request message — which is
-also how a scripted sequence or an AI would. Do not invent a private binding
-path around it.
+**Provider actions support device bindings.** `ActionRegistry::key` mints a
+`ProviderAction` for a declared semantic action. The composing host binds that
+key in `ambition_input::semantic::ProviderBindings` (an
+`InputMap<ProviderAction>`). Input routing publishes
+`SemanticActionPressed { id, participant }` after checking the participant's
+active input contexts. The capability reads that message and writes its own
+gameplay request. A scripted sequence or an AI can issue the same request
+without a device. See [adding a capability](../recipes/adding-a-capability.md#3-a-semantic-action)
+and `examples/capability_demo/src/lib.rs` for the working integration.
+
+The host owns the mapping and conflict policy. The capability does not need
+its own keyboard handler.
 
 **`requires_rollback(&[RequiredRollbackState])`** declares what a rewind must
 restore, and the composition refuses at assembly if nothing registered it.

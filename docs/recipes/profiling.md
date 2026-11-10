@@ -1,11 +1,21 @@
 # Profiling Ambition
 
+Start with a specific performance question and a representative workload.
+Do not start a profiling build just to satisfy a routine verification step.
+Before and after comparisons should use the same gameplay scene, build mode,
+and host conditions. A desktop trace cannot establish mobile performance.
+
+For the common case, run `scripts/measure/profile_desktop.sh` only when the
+profile is worth its build cost, then read the bundle `summary.md`. The table
+below routes narrower questions to the appropriate instrument. The longer
+sections are reference procedures; they are not a checklist for every change.
+
 ## Which instrument answers which question
 
-These tools are not interchangeable, and reaching for the wrong one wastes
-hours. Pick by the question you are actually asking:
+The instruments answer different questions. Choose based on the suspected
+bottleneck:
 
-**Start here.** `./scripts/measure/profile_desktop.sh`, play, quit. It builds the
+**Desktop entry point:** `./scripts/measure/profile_desktop.sh`, play, quit. It builds the
 optimized `profiling` profile with tracing on, captures perf + Tracy + the
 in-process workload censuses for the whole session, and writes one bundle whose
 `summary.md` answers most of the table below at once. Reach past it only when

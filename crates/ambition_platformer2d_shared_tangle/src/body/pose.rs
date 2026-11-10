@@ -13,6 +13,22 @@ pub struct BodyPoseAdmission<'w, 's> {
 }
 
 impl BodyPoseAdmission<'_, '_> {
+    pub fn constrain_translation(
+        &self,
+        world: &ambition_platformer2d_core::World,
+        body: Entity,
+        kinematics: &mut ambition_platformer2d_core::BodyKinematics,
+        sweep: Option<&mut ambition_platformer2d_core::SweepSample>,
+        desired: ambition_platformer2d_core::BodyKinematics,
+    ) -> Result<(), Refusal> {
+        let carried = self.acceleration.get(body).ok()
+            .map_or(&[][..], |acceleration| std::slice::from_ref(&acceleration.0));
+        ambition_platformer2d_core::movement::prepare_body_translation(world, kinematics, sweep.as_deref(), desired,
+            self.geometry.as_deref().and_then(|geometry| geometry.motion_for(body, self.live.of(body))), carried)?
+            .commit(kinematics, sweep);
+        Ok(())
+    }
+
     pub fn constrain(
         &self,
         body: Entity,

@@ -65,7 +65,6 @@ mod portal_body;
 mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;
-pub mod posed_limbs;
 pub mod profile;
 mod progression_schedule;
 pub mod projectile_schedule;

@@ -1,133 +1,106 @@
 # Agent worktrees
 
-Three fixed worktrees. A **coordinator** (Jon, or the coordinating session) assigns
-a slot; the agent working there does not choose one for itself.
+Work in the checkout and directory assigned by the maintainer or coordinator.
+Multiple agents may deliberately share one working tree; that is an accepted
+tradeoff, not a reason to move a task elsewhere. **Do not create, switch to,
+or claim a worktree without explicit authorization.** Building in an
+independently selected worktree is not a default workaround for concurrent
+edits or a long-running build.
 
+When authorized, use the existing fixed slots. A coordinator assigns the
+slot and its work; the worker stays in that slot.
+
+```text
+.worktrees/agent-worktree1
+.worktrees/agent-worktree2
+.worktrees/agent-worktree3
 ```
-.worktrees/agent-worktree1     fast lane
-.worktrees/agent-worktree2     medium
-.worktrees/agent-worktree3     slow lane
-```
 
-⛔ **Never create a worktree named after a feature.** Slots are numbered because
-identity is the *path*, not the work. Feature-named worktrees accumulate, nobody
-can tell which are live, and each one costs a cold target directory. They are
-checked out **detached**; your first act is `git switch -c <your-branch>`.
+Avoid feature-named worktrees. Numbered slots make ownership and cleanup
+explicit.
 
-⛔ **Do not claim a slot yourself.** Ask the coordinator. `list` shows who is
-where, so a collision is visible — but the fix is assignment, not detection.
+## Commands for an authorized slot
 
-## Commands
+Run from the primary repository checkout:
 
 ```bash
-scripts/agent_worktree.sh list                  # slots, HEAD, size, who is building
-scripts/agent_worktree.sh setup 1|2|3|all       # create + submodules + assets + bind mount
-scripts/agent_worktree.sh seed 2 [--from PATH]  # warm from an existing target (default: main)
-scripts/agent_worktree.sh clear 2 [--incremental|--all]
-scripts/agent_worktree.sh dedupe [--apply]      # hardlink identical artifacts across slots
-scripts/agent_worktree.sh jobs 2                # the -j number for that slot
+scripts/agent_worktree.sh list
+scripts/agent_worktree.sh setup 1
+scripts/agent_worktree.sh seed 1
+scripts/agent_worktree.sh jobs 1
+scripts/agent_worktree.sh clear 1 --incremental
 ```
 
-Every destructive or linking command refuses while that tree's build lock is
-held, so a slot cannot be cleared or seeded out from under a running build.
+`setup` initializes submodules, mirrors git-ignored assets, and configures
+target storage when needed. Fresh linked worktrees do not automatically
+contain generated art or initialized submodules. For an already created
+authorized worktree, `python3 scripts/mirror_assets_for_worktree.py` prepares
+the same assets and map submodule.
 
-## CPU budget
+A slot is checked out detached; create a task branch there if the
+coordinator requested one. Check `list` before making structural changes.
+It reports the current branch, target state, and active build lock.
 
-Whoever is on `main` gets the machine. Each slot gets half of the one above it.
+## Builds and target storage
 
-| where | `-j` on a 12-core box | rule |
-|---|---|---|
-| main | 12 | `nproc` |
-| slot 1 | 6 | `nproc / 2` |
-| slot 2 | 3 | `nproc / 4` |
-| slot 3 | 1 | `nproc / 8` |
+A worktree is not permission to run Cargo. The maintainer or coordinator
+decides which agent builds and when. Prefer one coordinated build over
+several simultaneous cold builds; workers can usually hand code back for
+verification in the assigned checkout.
 
-**Pass it.** `cargo build -j "$(scripts/agent_worktree.sh jobs 2)"`, or
-`./run_tests.sh -j N`, or export `CARGO_BUILD_JOBS`. Three agents that each
-believe they own twelve cores turn one build into three slow builds.
+When a build is authorized, inspect the target before building:
 
-Slot 3 is *meant* to be slow — it is for work that can take its time. A
-coordinator overrules any of this by naming a different `-j`.
+```bash
+scripts/setup/target_bindmount.sh --status
+```
 
-## What a fresh worktree costs
+`target_bindmount.sh` uses a guest-local store for worktrees on `virtiofs`.
+On an already local filesystem, a bind mount is optional and the script
+reports that no mount is needed. On `virtiofs`, set up the mount before
+a substantial build to avoid shared-filesystem overhead. A mount does not
+survive a reboot.
 
-`setup` handles all three, and each one is a real failure if skipped:
+Distinct worktrees must not write to one shared Cargo target directory.
+The prescribed storage setup gives each slot its own target. Do not use
+`CARGO_TARGET_DIR` as an improvised replacement for a required target-store
+setup; scripts that do not inherit your environment would use another path.
 
-- **Submodules** — empty in a fresh worktree. `game/ambition_map_assets` holds
-  every `.ldtk` world and the symlinks into it dangle without init, so authoring
-  work dies on a `FileNotFoundError` naming a path that visibly exists. An
-  unpushed submodule sha can only come from a warm clone.
-- **Generated art** — gitignored, so an unmirrored worktree bakes an EMPTY sheet
-  registry and ~40 tests fail for reasons unrelated to the change.
-  `scripts/mirror_assets_for_worktree.py` symlinks them file by file so a
-  regenerated sprite can land as a real file rather than in a shared directory.
-  ⛔ **The link alone does not protect main.** An open-for-write follows a
-  symlink (`Image.save`, `Path.write_text`, `shutil.copy2`), so a publisher
-  that writes through the link rewrites the main checkout. Publishers unlink a
-  symlinked destination first. A new publisher must do the same;
-  `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py` enforces
-  it.
-- **A warm target** — cold means an hour before the first useful result.
+The worktree helper caps its job budget at six for the primary checkout and
+divides that limit across the three slots (half, quarter, eighth, with a
+minimum of one). Ask the helper instead of hardcoding counts:
 
-## Target directories
+```bash
+cargo check -j "$(scripts/agent_worktree.sh jobs 1)" -p ambition_app
+```
 
-Each slot's `target/` is bind-mounted to its own store under
-`~/.cache/ambition-targets/`, keyed by worktree path. Slots never share a target,
-so **concurrent builds in different slots are fine**. An unbound worktree must
-not build against the shared target.
+Do not clear or reseed a slot while its build lock is held. Before cleanup
+under a target directory, confirm the correct mount or local ownership;
+the backing store may be shared with other tasks. The helper provides
+`clear` and `dedupe` for explicitly authorized maintenance.
 
-⚠ **A bind mount does not survive a reboot.** Re-run `setup all` after one, or
-builds silently go to the shared virtiofs mount and everything gets slower.
-`list` prints `LOCAL` instead of `bound` when that has happened.
+## Generated assets and submodules
 
-⛔ **A mount can outlive its store, and `mountpoint` cannot see it.** If a store
-under `~/.cache/ambition-targets/` is deleted under a live mount, every create
-under `target/` returns ENOENT ("No such file or directory" on a path that
-exists). `list` prints `BROKEN` (it probes a write), `target_bindmount.sh --check`
-exits 2, and `--mount` rebinds. The artifacts are gone with the store: repair,
-then reseed.
+Generated binary assets are git-ignored, so an unprepared worktree can
+build an empty sprite registry and fail unrelated checks. The mirror script
+links assets file by file. A publisher must not write through a symlink
+back into the primary checkout; it should replace the symlink before writing
+a generated output. This behavior has a focused repository check.
 
-## Seeding and clearing
+When a submodule has diverged, follow
+[the submodule procedure](../recipes/submodules.md); do not reset or
+overwrite another agent's work.
 
-`seed` copies a warm target into a slot:
+## Integrating a slot
 
-| what | how | why |
-|---|---|---|
-| `deps/` | **hardlinked** | content-hashed and *replaced* on rebuild (new inode), so links are safe and cost no space |
-| `.fingerprint/`, `build/` | copied | `*.json` is rewritten **in place** (same inode) — a hardlink here corrupts every tree sharing it |
-| `incremental/` | skipped | per-worktree edit-loop state, and the largest thing on disk |
+The coordinator handles merging and reassignment. Typically, merge the
+current primary branch into the assigned slot, resolve and verify there,
+then merge the slot back. Check shared schema numbers or counters after
+merging; a conflict-free textual merge can still combine different schema
+changes under one version number.
 
-⛔ Linking happens through the **backing stores** under
-`~/.cache/ambition-targets/`, never through the mounted `target/` paths: each
-slot's target is its own bind mount, and `link()` returns `EXDEV` across mount
-points even when both sit on one filesystem. Seeding this way takes seconds and
-no extra disk.
+Leave the slot on its task branch for reassignment unless the coordinator
+asks for cleanup. For shared-tree work, coordinate file ownership and
+commits directly instead of silently changing checkout topology.
 
-`clear <n>` drops `incremental/` only — artifacts survive, so the next build
-relinks rather than recompiles. `clear <n> --all` goes cold; reseed afterwards.
-
-`dedupe` hardlinks byte-identical artifacts **across** slots, `deps/` only.
-Cargo's `<crate>-<16 hex>` naming means an identical name implies identical
-inputs, and sampling this repo found 0 of 25 third-party rlibs embedding the
-checkout path — so foundation crates deduplicate across worktrees. First-party
-`ambition_*` crates, and crates whose build script `include!`s generated code
-(serde embeds its `OUT_DIR`), simply fail the content compare. No allowlist is
-needed. Dry-run by default.
-
-## Merging back
-
-Merge `main` into your slot FIRST, get it green there, then merge to `main`. A
-branch that drifts far behind becomes unmergeable where it matters (for example
-rollback schema).
-
-⛔ **A clean textual merge is not a clean semantic one.** If both sides bump a
-shared counter or version (for example `GGRS_ROLLBACK_SCHEMA_VERSION`) to the
-same literal for different changes, git merges the line without a conflict and
-the number now names two schemas. After any merge that touches a shared counter
-or version, check what the number now means.
-
-## Etiquette
-
-- `list` before you touch anything. `BUSY=yes` means a build holds that lock now.
-- Work only in the slot you were given. Verify on `main` only when asked to.
-- Leave the slot on your branch when you finish; the coordinator reassigns it.
+See [coordinating agents](../recipes/coordinator-and-worker-sessions.md) and
+[cheapest sufficient check](../recipes/cheapest-sufficient-check.md).

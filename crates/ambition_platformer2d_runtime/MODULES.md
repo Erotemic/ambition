@@ -30,7 +30,6 @@
 | [`portal_body`](src/portal_body.rs) | Runtime witnesses for atomic portal body transfer. |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
 | [`portal_seat`](src/portal_seat.rs) | What a portal transit means for the body a seat drives. |
-| [`posed_limbs`](src/posed_limbs.rs) | A limb its owner poses meets what is there (`docs/planning/engine/portals-a-body-in-two-places.md`, G6). |
 | [`profile`](src/profile.rs) | Named supported engine profiles: capability contracts, not plugin lists. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
@@ -53,7 +52,7 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 
-_46 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_45 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

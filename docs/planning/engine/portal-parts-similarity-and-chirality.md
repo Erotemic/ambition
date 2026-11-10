@@ -3,26 +3,27 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** REVIEW REPAIRS COMMITTED ON MAIN; FEATURE ACCEPTANCE OPEN
-(2026-11-10). P01–P06 and P08–P10 are repaired. P07 remains open for full
-feature acceptance. Physical root material and admitted righting are committed
-in `02cabae98`, with snapshot schema v432. Validation repairs are `4980e0a1b`.
-Physical-material and stamped-hand validation is recorded on `66900f4c6`
-(schema v433). The later seat-request merge is checked on `c9a5720b3`
-(schema v434).
+(2026-11-10). P01–P06 and P08–P10 are repaired. P07 remains open.
+Physical root material and admitted righting are in `02cabae98`. Canonical
+strike material and physical footprint publication are in `fcb9f7280`.
+The merged checks and riposte fixture repair are recorded on `0505b17e2`.
+Snapshot schema remains v434.
 
-The merged app portal selection passes 36 tests. The core has 869 passes and
-one ignored test. Workspace policy has 35 passes; Smash has 71 passes and six
-ignored tests. The assembled app compiles without warnings. The broad replay
-selection had 83 passes and one failed fixture; that fixture passes after its
-repair. Six replay diagnostics remain ignored. Standalone Mary-O has 140 passes
-and three ignored tests. The merged dog and GNU-ton selections pass. See the
-[physical root receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#physical-root-material-packet)
-for the validation scope and known failures.
+Owner-following strikes now keep canonical source shapes and use the accepted
+body material. Native partitions retain that source without a world-space
+round trip. Actor, home-body and spawn footprints use the same physical pose.
+Scale, turn, parity, source precision and admitted-righting tests pass.
+
+The merged app portal selection passes 36 tests. Smash passes 71 app tests and
+301 library tests. Renderer has 497 passes, including the per-view boss-card
+case. The assembled app compiles without warnings under its default features.
+See the [canonical strike receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#canonical-strike-material-packet)
+for the commands, scope and earlier validation receipts.
 
 No full PSIM acceptance slice is closed. Same-tick remaining motion, native body
-contacts, common combat/attachment maps, unequal apertures, the bounded numeric
-law and its fault effects, remaining lab examples and the full platform/performance
-matrix still need work.
+contacts, hurt/guard geometry, attachments, production unequal apertures, the
+bounded numeric law and its fault effects, H–J lab examples, and the full
+workspace, feature-union, device/GPU and performance gates still need work.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),

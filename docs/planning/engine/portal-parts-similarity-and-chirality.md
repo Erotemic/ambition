@@ -3,12 +3,14 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** REVIEW REPAIRS COMMITTED ON MAIN; FEATURE ACCEPTANCE OPEN
-(2026-11-09). The slot 1 work is merged. External pose admission and caller
+(2026-11-10). The slot 1 work is merged. External pose admission and caller
 transactions are committed in `4afbf6100`. Capability selection, body publication,
 room isolation and authored zone presentation are committed in `9e626f08b`.
-The map merge is `790e3ee`. P07 remains open: c141 camera continuity, thin-wall
-walking and the standalone spark/wall contact test are red. No PSIM acceptance
-slice is closed by these review repairs. See the [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#capability-and-publication-packet).
+The map merge is `790e3ee`. The spark/wall repair is `b2e8f750a`; canonical
+block contact and static-cell repairs are `f634f1870`. All 37 app portal tests
+and all 140 active standalone Mary-O integration tests pass. Departure material
+records and rollback schema v430 are committed in `1293c397f`. P07 remains open
+for full feature acceptance. No PSIM acceptance slice is closed by these repairs. See the [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#capability-and-publication-packet).
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -584,6 +586,17 @@ Use target-device results for GPU conclusions. Performance changes must not
 reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
+
+Departure material record: `1293c397f`. `SweepSample` retains the material at
+departure. Kernel admission, external pose admission and root crossing build
+the same cast from that record. A later root rebase cannot change its source.
+Snapshot and invalid-clock tests cover this contract. The portal-only record
+and adapter are removed. Both schema baselines use v430. The app portal
+selection has 37 passes; schema has four; policy has 35. Both resource-census
+tests pass after host-state classification. The assembled app check and all 53
+absence contracts pass. The [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#departure-material-record-packet)
+records the owner batch and exact limits. Production root rebasing, physical
+righting and full PSIM acceptance remain open.
 
 Canonical block contact and static-cell repair: `f634f1870`. Block contact
 positions now keep canonical material outside the face. Exact translating

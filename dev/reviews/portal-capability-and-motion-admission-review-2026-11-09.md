@@ -593,3 +593,38 @@ This lane does not prove full workspace libraries, Android execution, GPU
 captures or complete PSIM acceptance. Root rebasing, native actor contacts,
 unequal production apertures, rendering and the remaining lab acceptance still
 belong to the existing portal plan. P07 remains open for that full acceptance.
+
+### Departure material record packet
+
+Code commit: `1293c397f`. `SweepSample` now owns the departure material and its
+native cast. Kernel admission, external poses and portal crossing use that
+source. Snapshot restoration keeps its bits. A later live material change
+cannot change an earlier path. Portal crossing rejects a stale endpoint at
+the pure boundary. The portal-only record and adapter are removed.
+
+Rollback schema v430 covers the changed encoding and the preceding contact
+and room-admission behavior changes. Both baselines agree with the live dump.
+The existing census now classifies two host resources: `SmashAutoplayDriver`
+selects a profiling session in `Update`; `SpriteSheetWatchPolicy` selects file
+I/O during plugin setup. Neither is replay state. No simulation state was
+excluded. The obsolete adapter-name policy and exact system-population checks
+are removed. Custody ordering checks remain.
+
+| Command | Result |
+|---|---|
+| `cargo test -j12 -p ambition_platformer2d_core -p ambition_platformer2d_shared_tangle -p ambition_portal2d -p ambition_combat -p ambition_projectile_combat -p ambition_platformer2d_session --lib --no-fail-fast` | Core 862, shared 358, portal 141, combat 804, projectile-combat 29 and session 205 pass; five ignored. |
+| `cargo test -j6 -p ambition_content --lib portal` | 64 pass. |
+| `cargo test -j6 -p ambition_app --test app_it -- portal` | 37 pass. |
+| `cargo test -j6 -p ambition_app --test app_it -- rollback_schema_baseline` | Four pass. |
+| `cargo test -j6 -p ambition_app --test app_it -- rollback_` | 83 pass, two census failures, six ignored before host-state classification. |
+| `cargo test -j6 -p ambition_app --test app_it -- rollback_coverage::every_mutable_ambition_resource` | Both census tests pass after classification. The full selection was not repeated. |
+| `cargo test -j6 -p ambition_demo_smash_app` | 71 pass, six ignored. Its doctest target has no tests. |
+| `cargo test -j6 -p ambition_workspace_policy` | 35 pass after removal of the obsolete adapter-name policy. |
+| `cargo check -j6 -p ambition_app --tests` | Pass. |
+| `python3 scripts/checks/check_absence_contracts.py --check` | All 53 contracts hold. |
+
+Logs use `target/portal-source-pose-`. Each gate used a fixed source tree and
+the active target bind. The owning libraries ran before the schema version and
+test-metadata corrections; the app, schema, policy and contract gates ran on
+v430. This lane does not cover full workspace libraries, all feature unions,
+Android execution, GPU captures or full PSIM acceptance. P07 remains open.

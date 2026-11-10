@@ -64,7 +64,7 @@ fn the_cellars_under_customs_lie_down_the_plazas_well() {
 /// east end is false (the hoard behind it).
 #[test]
 fn the_smugglers_tunnel_loops_the_cellars_to_the_waterfront() {
-    use crate::the_note_travels_from_alice_to_bob::tap;
+    use crate::alices_battery_reaches_bob::tap;
     use ambition_platformer2d::engine_core as ae;
     use bevy::prelude::KeyCode;
 

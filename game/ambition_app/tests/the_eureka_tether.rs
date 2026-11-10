@@ -108,12 +108,12 @@ fn the_coil_labs_prototype_turns_its_gravity_over_and_back() {
         app.world().get::<ae::BodyKinematics>(body).expect("the player").pos.y
     };
     go_to(&mut app, ae::Vec2::new(1204.0, 490.0), "the prototype");
-    crate::the_note_travels_from_alice_to_bob::tap(&mut app, KeyCode::KeyF);
+    crate::alices_battery_reaches_bob::tap(&mut app, KeyCode::KeyF);
     for _ in 0..180 {
         app.update();
     }
     assert!(y(&mut app) < 150.0, "pressing the prototype did not drop the player on the ceiling (y {})", y(&mut app));
-    crate::the_note_travels_from_alice_to_bob::tap(&mut app, KeyCode::KeyF);
+    crate::alices_battery_reaches_bob::tap(&mut app, KeyCode::KeyF);
     for _ in 0..180 {
         app.update();
     }

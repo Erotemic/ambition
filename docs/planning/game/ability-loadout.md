@@ -46,14 +46,15 @@ demo, every ability is unlocked.
 |---|---|
 | 1 | Fireball, Eye Laser, Lightning°, Sword Stance, Axe Stance°, Whip Stance° |
 | 2 | Precision Blink, Contextual Blink°, Dash, Dash II°, Grapple, Mark / Recall |
-| 3 | Portal Gun, Javelin, Gun-Sword, Puppy-Slug Gun, Bomb, (empty) |
-| 4 | Health Cell, Mana Cell, (Spare Battery\*), (Sealed Note\*), (Field Survey\*), (empty) |
+| 3 | Portal Gun, (empty), Gun-Sword, Puppy-Slug Gun, Bomb, (empty) |
+| 4 | Health Cell, Mana Cell, (Spare Battery\*), (empty), (Field Survey\*), (empty) |
 
 ° = a placeholder (no row yet). \* = a key item: its cell is blank (see
 below). The Axe and the Map Fragment were removed on 2026-10-30 (Jon: "get
-rid of the javelin, axe, map fragment, sealed note"). The Javelin and Sealed Note remain in content.
-ITEM-CONTENT owns their removal and the fixture/intro updates. A test dependency
-does not retain unwanted named content. Exclusive groups: `projectile` (Fireball,
+rid of the javelin, axe, map fragment, sealed note"), the Javelin and the
+Sealed Note on 2026-11-10; each slot is an "Empty" reserved cell, so no other
+item's index moved. Alice now sends Bob a Spare Battery for his survey lamp
+in place of the note. Exclusive groups: `projectile` (Fireball,
 Eye Laser, Lightning), `stance` (Sword, Axe, Whip), `blink` (Precision,
 Contextual), `burst` (Dash, Dash II). Grapple and Mark / Recall are held
 gauntlets.
@@ -178,9 +179,10 @@ stays off until the slot is released (`Burn.dry`; guard
 standing row is no longer drawn on a crouched box
 (`a_crouched_body_draws_a_pin_crouched_or_not_at_all`).
 
-## Remaining item cleanup
+## Item cleanup (done 2026-11-10)
 
 The maintainer requested removal of Javelin, Axe, Map Fragment and Sealed Note
-on 2026-10-30. Axe and Map Fragment are absent from the grid; the other two
-still have content consumers. ITEM-CONTENT owns the remaining removal and a
-list of each retained item's real use. Recheck current consumers before edits.
+on 2026-10-30. All four are gone from the grid, the catalog, the dialogue and
+the tests that granted them; see [ITEM-CONTENT](../queue.md#item-content--remove-retired-items-without-letting-fixtures-retain-them)
+for the replacements and the usage list. The held object `javelin` (not the
+grid item) remains as the portal similarity lab's asymmetric gauge.

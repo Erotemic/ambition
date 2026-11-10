@@ -82,7 +82,7 @@ fn castle_godwin_is_one_connected_region() {
 /// to the barracks and back down. Before the lever, the stone is whole.
 #[test]
 fn the_lever_in_the_cells_opens_the_trapdoor_up_to_the_barracks() {
-    use crate::the_note_travels_from_alice_to_bob::tap;
+    use crate::alices_battery_reaches_bob::tap;
     use ambition_platformer2d::engine_core as ae;
     use bevy::prelude::KeyCode;
 

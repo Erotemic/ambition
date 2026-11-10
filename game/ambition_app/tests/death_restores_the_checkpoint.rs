@@ -579,10 +579,23 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
 
 type Item = ambition_platformer2d::item::Item;
 
-/// The item this pair MINTS. A javelin's authored `use_behavior` is
-/// `ThrowOnUse`, so a plain `Attack` throws it — no shield modifier needed, and
-/// the throw is the ordinary pressed action rather than a special case.
-const MINTED_ITEM: Item = Item::Javelin;
+/// The item this pair MINTS: a held weapon equipped out of the bag's count
+/// table, so there is no object behind the hand until a throw makes one. Its
+/// throw is Shield+Attack ([`throw_what_the_hand_holds`]); a plain Attack
+/// swings it. (The Javelin, thrown by a plain Attack, was removed from the
+/// game on 2026-11-10.)
+const MINTED_ITEM: Item = Item::GunSword;
+
+/// Shield+Attack: the throw that throws anything a hand holds.
+/// `AgentAction` hardcodes `shield_held: false`, so this goes through the
+/// control frame directly.
+fn throw_what_the_hand_holds(sim: &mut Platformer2dSimHarness) {
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+}
 
 /// Every live occurrence the SIMULATION minted, by identity.
 ///
@@ -668,10 +681,7 @@ fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
     );
 
     // ── 3. throw it: the mint ───────────────────────────────────────────────
-    sim.step(AgentAction {
-        attack: true,
-        ..base()
-    });
+    throw_what_the_hand_holds(sim);
     // Long enough for the arc to finish and the object to settle, so the pickup
     // below has a resting position to stand on.
     sim.step_n(base(), 120);
@@ -705,7 +715,7 @@ fn equip_the_minted_item(
 ) {
     let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
     let spec = ambition_platformer2d::held_items::held_spec_for_item(items.get(), MINTED_ITEM)
-        .expect("the javelin is a wired weapon with a held spec");
+        .expect("the gun-sword is a wired weapon with a held spec");
     ambition_platformer2d::held_items::equip_held_spec(
         &mut commands,
         player,
@@ -746,10 +756,7 @@ fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
         .unwrap();
     sim.rebase_rollback_history()
         .expect("the equipped quantity enters the baseline");
-    sim.step(AgentAction {
-        attack: true,
-        ..base()
-    });
+    throw_what_the_hand_holds(&mut sim);
     // Until the throw has minted its object, then long enough for the arc to
     // finish and the object to settle where the pickup will stand.
     for _ in 0..120 {
@@ -811,10 +818,7 @@ fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
         "the checkpoint did not bank the runtime recipe"
     );
 
-    sim.step(AgentAction {
-        attack: true,
-        ..base()
-    });
+    throw_what_the_hand_holds(&mut sim);
     sim.step_n(base(), 10);
     assert_returned(
         &mut sim,
@@ -1163,7 +1167,7 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
 /// death that takes the object back puts the row back too.
 ///
 /// ```text
-/// grant     one javelin, through the <<give_item>> channel
+/// grant     one gun-sword, through the <<give_item>> channel
 /// bank      a real shrine rest, with the entitlement unspent
 /// mint      equip and throw: the row is spent, the object exists
 /// die       and the row is back, because the object is gone with it
@@ -1194,10 +1198,7 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
         .world_mut()
         .run_system_once(equip_the_minted_item)
         .expect("the equip verb runs");
-    sim.step(AgentAction {
-        attack: true,
-        ..base()
-    });
+    throw_what_the_hand_holds(&mut sim);
     sim.step_n(base(), 120);
     assert!(
         !sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
@@ -1211,7 +1212,7 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
     assert_eq!(
         minted.len(),
         1,
-        "one granted javelin manifested {} objects: {minted:?}",
+        "one granted gun-sword manifested {} objects: {minted:?}",
         minted.len()
     );
 
@@ -1221,7 +1222,7 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
     assert!(
         sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
         "the death retracted the minted instance and did NOT put the quantity \
-         back — the player lost a javelin for having thrown it, which is the \
+         back — the player lost a gun-sword for having thrown it, which is the \
          annihilation the checkpoint baseline exists to prevent"
     );
 }
@@ -1728,14 +1729,14 @@ fn a_death_takes_back_what_was_put_down_in_another_players_room() {
     );
 }
 
-/// The javelins after Alice's death, counted in the bag and in the world, and
+/// The gun-swords after Alice's death, counted in the bag and in the world, and
 /// the same count just before her death. Alice is in the hub and Bob holds
-/// `switch_lab`. A javelin is in the bag at the checkpoint. Alice equips it
+/// `switch_lab`. A gun-sword is in the bag at the checkpoint. Alice equips it
 /// from the bag and throws it in `throw_in`, which mints the object and spends
 /// the quantity, then she goes back to the hub and dies there. When
 /// `carried_back`, she picks the object up again before she goes back, so it
 /// is in her hand when she dies.
-fn javelins_after_a_death_with_the_throw_in(throw_in: &str, carried_back: bool) -> (u32, u32) {
+fn minted_items_after_a_death_with_the_throw_in(throw_in: &str, carried_back: bool) -> (u32, u32) {
     let counts = totals(quantities_across_deaths(Thrown {
         item: MINTED_ITEM,
         into: throw_in,
@@ -1822,10 +1823,7 @@ fn throw_after_a_checkpoint(item: Item, into: &str, carried_back: bool) -> (Plat
             },
         )
         .expect("the equip verb runs");
-    sim.step(AgentAction {
-        attack: true,
-        ..base()
-    });
+    throw_what_the_hand_holds(&mut sim);
     // The minted object, seen on any frame of the flight: a bomb is gone
     // when its fuse ends.
     let mut object = None;
@@ -1927,7 +1925,7 @@ fn quantities_and_mint_marks_across_deaths(thrown: Thrown) -> (Vec<Quantity>, Mi
 /// What Alice threw into Bob's live room after the checkpoint stays there,
 /// and her death does not also put it back in the bag. The throw turned a
 /// quantity of the shared bag into an object in his room, and his room is
-/// not built again, so a restore of the checkpoint's bag makes the javelin
+/// not built again, so a restore of the checkpoint's bag makes the gun-sword
 /// twice (review 2026-10-05, P3: a mutation of the shared bag needs its
 /// owners and its sign). The control is the same throw in Alice's own room,
 /// which her death builds again: the object goes and the quantity comes back.
@@ -1936,20 +1934,20 @@ fn quantities_and_mint_marks_across_deaths(thrown: Thrown) -> (Vec<Quantity>, Mi
 /// takes the object back out of Bob's room and dies with it in her hand, her
 /// death takes the object back (it was minted after the checkpoint), so the
 /// quantity comes back too. A spend owned by the participants in the room of
-/// the throw would stay spent there, and the javelin would be gone.
+/// the throw would stay spent there, and the gun-sword would be gone.
 #[test]
 fn a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room() {
-    let (alone, alone_before) = javelins_after_a_death_with_the_throw_in(ROOM, false);
+    let (alone, alone_before) = minted_items_after_a_death_with_the_throw_in(ROOM, false);
     assert_eq!(
         (alone, alone_before),
         (1, 1),
         "control: a throw in Alice's own room, undone by her death"
     );
-    let (carried, carried_before) = javelins_after_a_death_with_the_throw_in("switch_lab", true);
+    let (carried, carried_before) = minted_items_after_a_death_with_the_throw_in("switch_lab", true);
     assert_eq!(
         (carried, carried_before),
         (1, 1),
-        "a javelin thrown into Bob's room and carried out again in Alice's hand, after her death"
+        "a gun-sword thrown into Bob's room and carried out again in Alice's hand, after her death"
     );
     // Thrown into Bob's live room and left there, and Alice dies TWICE. The
     // first restore keeps the spend, because the object stays in his room; it
@@ -1968,7 +1966,7 @@ fn a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_roo
     assert_eq!(
         totals(shared),
         [1, 1, 1],
-        "javelins in the bag and the world, thrown into Bob's live room: before \
+        "gun-swords in the bag and the world, thrown into Bob's live room: before \
          Alice's deaths, then after each. More than 1: a death put it back in the \
          bag while the object stayed in his room"
     );
@@ -1976,7 +1974,7 @@ fn a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_roo
         (before, pinned),
         ((true, true), Some((true, true))),
         "((row, mint mark) in the live ledger before the death, the same in the \
-         ledger the restore pins): the restore dropped the javelin's row or its mark"
+         ledger the restore pins): the restore dropped the gun-sword's row or its mark"
     );
 }
 
@@ -2074,10 +2072,10 @@ fn an_object_that_ended_is_not_built_again_when_its_room_is_live_again() {
 }
 
 /// A thrown object can lie in a room that is not live: Bob leaves the room
-/// the javelin lies in. The spend then follows the object's ledger row, not
+/// the gun-sword lies in. The spend then follows the object's ledger row, not
 /// the object, which is no entity. Alice's restore puts back the ledger it
-/// pinned, which has no row for a javelin thrown after the checkpoint, so the
-/// javelin goes, and its quantity comes back to the bag: one javelin, in the
+/// pinned, which has no row for a gun-sword thrown after the checkpoint, so the
+/// gun-sword goes, and its quantity comes back to the bag: one gun-sword, in the
 /// bag, also after a second death and in the room when Alice goes in.
 ///
 /// ⚠ This is the ledger's rule, and the spend reads it. A dormant object
@@ -2086,7 +2084,7 @@ fn an_object_that_ended_is_not_built_again_when_its_room_is_live_again() {
 /// (Q151). If the ledger comes to keep his dormant rows, this arm changes
 /// with it and the bag keeps the spend.
 #[test]
-fn a_death_takes_back_a_javelin_whose_room_is_not_live_with_its_row() {
+fn a_death_takes_back_a_minted_item_whose_room_is_not_live_with_its_row() {
     let dormant = Quantity { bag: 0, live: 0, dormant: 1 };
     let in_the_bag = Quantity { bag: 1, live: 0, dormant: 0 };
     assert_eq!(
@@ -2099,7 +2097,7 @@ fn a_death_takes_back_a_javelin_whose_room_is_not_live_with_its_row() {
             alice_goes_back: true,
         }),
         [dormant, in_the_bag, in_the_bag, in_the_bag],
-        "the javelin before Alice's deaths, after each, then in its room"
+        "the gun-sword before Alice's deaths, after each, then in its room"
     );
 }
 

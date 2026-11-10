@@ -15,7 +15,7 @@ use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::KeyCode;
 
 use crate::common::walk::{Keys, Press, Walker};
-use crate::the_note_travels_from_alice_to_bob::{dialog_active, flag, npc, tap};
+use crate::alices_battery_reaches_bob::{dialog_active, flag, npc, tap};
 use crate::the_pirate_port::{a_session_in, go, go_to, live_room, talk};
 
 const STREET: &str = "math_town_street";

@@ -1376,7 +1376,7 @@ pub fn system_detail_slot_text(
 
 /// The QUEST face: the things the player carries that are not equipment
 /// ([`is_equipment`]), each with its description. These are the key items
-/// (the sealed note, the field survey, the spare battery). The page has no
+/// (the field survey, the spare battery). The page has no
 /// cursor stops of its own: only its edge buttons.
 pub fn build_quest_page(owned: &Inventory<'_>, items: &ItemCatalog) -> MenuPageModel<MenuPage, MenuPageAction> {
     let title = line("menu.quest.title");

@@ -102,19 +102,46 @@ or updating their source. Check with
 
 ### ITEM-CONTENT — remove retired items without letting fixtures retain them
 
-**Failure:** Javelin and Sealed Note remain in authored content partly because
-older tests and the intro handover use them. Axe and Map Fragment removal is
-already reflected in the grid. The maintainer requested removal and an item
-usage list on 2026-10-30.
+**Done 2026-11-10 for the grid.** The Javelin and the Sealed Note are gone
+from the item grid, `items.ron`, the intro dialogue and every test that
+granted them. Their slots are "Empty" reserved cells (`Item::Empty3`,
+`Item::Empty4`), as the Axe's and the Map Fragment's were, so no other item's
+index or `dialog_id` moved. Replacements:
+
+- **The intro handover:** Alice sends Bob a Spare Battery for his survey lamp
+  (`intro.yarn`). Bob takes one only once Alice's flag is set, so a battery
+  bought at the port is not hers. The flag names (`alice_route_note_carried`,
+  `bob_field_survey_received`) are the save's and stay. Witness:
+  `alices_battery_reaches_bob` (renamed from `the_note_travels_from_alice_to_bob`),
+  with a new control: a bought battery is not offered to Bob.
+- **The bag-minted throwable** of the checkpoint and save fixtures: the
+  Gun-Sword (`death_restores_the_checkpoint`) and the Grapple
+  (`two_persistence_authorities_for_one_item`, whose authored reward is
+  already the gun-sword), thrown by Shield+Attack, which throws anything a
+  hand holds.
+
+**Usage list, 2026-11-10** (method: whole-word match of each item's
+`dialog_id` and `held_item_id` in content files under
+`game/ambition_content/assets`, `tools/ambition_ldtk_tools/specs` and
+`game/ambition_map_assets`, `items.ron` excluded; an ability id such as `dash`
+or `fireball` also matches move and boss names, so its count is an upper
+bound, not a list of grants): Fireball 8 files, Eye Laser 1, Lightning 4,
+Dash 20, Grapple 20, Mark / Recall 4, Gun-Sword 24, Puppy-Slug Gun 3, Bomb 24,
+Health Cell 3, Mana Cell 2, Spare Battery 3 (quests, the port's shop, the
+intro), Field Survey 1; Sword Stance, Axe Stance, Whip Stance, Precision
+Blink, Contextual Blink, Dash II and Portal Gun name no content file (the
+portal gun is placed by its own spawn kind; the stances and blinks are worn
+through `items.ron` rows).
+
+**Open:** the held object `javelin` (a held-item spec, not a grid item) is the
+portal similarity lab's asymmetric gauge
+(`tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml`), and the held
+item and save unit tests still use it as a pure throwable. The lab is the
+portals work's; when it picks another gauge, the spec, its art row and those
+tests can switch to the coconut.
 
 **Owner:** item content, held specs, world placements, intro dialogue and their
 behavioral fixtures. Design: [ability loadout](game/ability-loadout.md).
-
-**Next action:** list each remaining item and its real consumers. Remove the
-retired named content from every owner. Replace custody/checkpoint fixtures
-with an existing supported item and update the intro handover consistently;
-tests are not a reason to retain unwanted named content. Recheck saved-data
-handling before removing a serialized identifier.
 
 **Acceptance:** the equipment and quest pages reflect actual content. No
 placement, dialogue, recipe or save reader names a removed item. The retained

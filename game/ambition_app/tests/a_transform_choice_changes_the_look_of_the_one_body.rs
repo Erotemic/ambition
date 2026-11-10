@@ -131,7 +131,7 @@ fn a_look_with_a_transform_row_plays_it_when_the_body_changes_into_it() {
 /// the request (REVIEW-1013 item 2).
 #[test]
 fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
-    use crate::the_note_travels_from_alice_to_bob::{dialog_active, npc, put_body_at, tap};
+    use crate::alices_battery_reaches_bob::{dialog_active, npc, put_body_at, tap};
     use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
     use ambition_platformer2d::actors::body::transform_beat::TransformBeat;
     use ambition_platformer2d::dialog::DialogState;

@@ -88,10 +88,10 @@ fn every_slot_of_the_grid_can_carry_the_cursor() {
 fn a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid() {
     let catalog = ambition_platformer2d::items::test_item_catalog();
     let mut owned = OwnedItems::starter(catalog);
-    owned.grant(catalog, Item::SealedNote, 1);
+    owned.grant(catalog, Item::FieldSurvey, 1);
     owned.grant(catalog, Item::SpareBattery, 2);
-    let carried = [Item::SealedNote, Item::SpareBattery];
-    for item in [Item::SealedNote, Item::FieldSurvey, Item::SpareBattery] {
+    let carried = [Item::FieldSurvey, Item::SpareBattery];
+    for item in carried {
         assert!(!is_equipment(catalog, item), "{item:?} is not equipment");
     }
     for item in [Item::Fireball, Item::GunSword, Item::Bomb, Item::HealthCell] {
@@ -122,11 +122,10 @@ fn a_carried_key_item_is_on_the_quest_page_not_the_equipment_grid() {
     };
     let quest = texts(&build_quest_page(&ambition_platformer2d::items::Inventory::new(&owned, None), catalog));
     assert!(quest.contains(&line("menu.quest.carried")), "{quest:?}");
-    assert!(quest.contains(&"Sealed Note".to_string()), "the QUEST page lists the note: {quest:?}");
+    assert!(quest.contains(&"Field Survey".to_string()), "the QUEST page lists the survey: {quest:?}");
     assert!(quest.contains(&"Spare Battery x2".to_string()), "the QUEST page counts the batteries: {quest:?}");
-    let note = catalog.description(Item::SealedNote).unwrap();
-    assert!(quest.iter().any(|text| note.starts_with(text.as_str()) && !text.is_empty()), "no note text: {quest:?}");
-    assert!(!quest.iter().any(|text| text.starts_with("Field Survey")), "the survey is not carried: {quest:?}");
+    let survey = catalog.description(Item::FieldSurvey).unwrap();
+    assert!(quest.iter().any(|text| survey.starts_with(text.as_str()) && !text.is_empty()), "no survey text: {quest:?}");
     assert!(!quest.iter().any(|text| text.starts_with("Gun-Sword")), "equipment is not on the QUEST page: {quest:?}");
 
     let empty = texts(&build_quest_page(&ambition_platformer2d::items::Inventory::new(&OwnedItems::starter(catalog), None), catalog));
@@ -148,7 +147,7 @@ fn a_cell_states_each_fact_once() {
         })
         .collect();
     assert_eq!(details[Item::GunSword.index()], "equipped");
-    assert_eq!(details[Item::Javelin.index()], "equip");
+    assert_eq!(details[Item::Grapple.index()], "equip");
     assert_eq!(details[Item::HealthCell.index()], "use | x3");
     // A locked cell (a placeholder) says so once, and its name fits its cell:
     // no "--" beside "not owned", no " - ???" after the name.

@@ -246,7 +246,7 @@ mod tests {
     /// owned. Neither failure tells the player anything.
     ///
     /// The price check is conditional and the item check is not. `intro.yarn`'s
-    /// `<<sell_item "sealednote" 0>>` is a hand-over, not a sale, and has no label
+    /// `<<sell_item "sparebattery" 0>>` is a hand-over, not a sale, and has no label
     /// price. So the price pair is checked only where the author wrote one.
     #[test]
     fn a_sell_lines_guard_and_its_sale_name_the_same_item() {
@@ -327,7 +327,7 @@ mod tests {
     /// Every authored item id must resolve, and the resolver is asked, not
     /// re-implemented.
     ///
-    /// `<<give_item "sealednote" 1>>`, `<<buy_item "axe" 25>>` and
+    /// `<<give_item "sparebattery" 1>>`, `<<buy_item "bomb" 25>>` and
     /// `condition("inventory.holds", "gunsword")` all pass an author-typed string.
     /// `ItemCatalog::item_by_dialog_id` owns loose spelling (it accepts `HealthPotion`,
     /// `health_potion` and `healthcell`), so a misspelling is neither a compile
@@ -400,8 +400,8 @@ mod tests {
     #[test]
     fn count_args_is_quote_aware() {
         assert_eq!(count_args(""), 0);
-        assert_eq!(count_args("\"sealednote\" 1"), 2);
-        assert_eq!(count_args("\"sealednote\""), 1);
+        assert_eq!(count_args("\"sparebattery\" 1"), 2);
+        assert_eq!(count_args("\"sparebattery\""), 1);
         assert_eq!(
             count_args("\"a b c\" 1"),
             2,

@@ -136,20 +136,20 @@
             ],
         )),
     ),
-    // Intro v1: Alice's sealed note, then Bob's field survey, then the first system
+    // Intro v1: Alice's battery for Bob, then Bob's field survey, then the first system
     // boss and P5 Route Memory. Each step is a flag that a PickupSpawn in
     // alice_relay, bob_relay or first_system_boss sets.
     (
         id: "intro_cartography_route",
         title: "Carry the Quiet Route",
-        summary: "Alice trusts you with a sealed note. Bob owes her a survey.",
+        summary: "Alice sends a battery for Bob's survey lamp. Bob owes her a survey.",
         steps: [
             (
-                description: "Find Alice and accept her sealed route note.",
+                description: "Find Alice and take the battery she sends to Bob.",
                 condition: FlagSet("alice_route_note_carried"),
             ),
             (
-                description: "Reach Bob and pick up his field survey.",
+                description: "Bring Bob the battery and pick up his field survey.",
                 condition: FlagSet("bob_field_survey_received"),
             ),
             (

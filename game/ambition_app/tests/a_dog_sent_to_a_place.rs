@@ -3,8 +3,10 @@
 //!
 //! The basement dog is sent to a place in its room. It goes there by the
 //! room's surface graph with its own movement and the visit ends arrived with
-//! the dog standing there, or ends refused when no route gets there. A sync
-//! test replays the walk to the same world.
+//! the dog standing there, or ends refused when no route gets there. A visit
+//! under a sync test is witnessed by the scientists' bench hand-over
+//! (`two_scientists_share_one_bench`); the dog's walk under rollback by
+//! `a_dog_sent_for_an_item` and `companion_dog`.
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::visit::{Visit, VisitOutcome};
@@ -120,69 +122,4 @@ fn a_dog_sent_to_a_place_goes_there_or_says_it_cannot() {
     let (outcome, feet) = visit(place, down, false);
     assert_eq!(outcome, VisitOutcome::NoRoute, "without its jump the dog did not refuse the place");
     assert!(feet.distance(place) > 64.0, "control: the dog that refused stands at the place anyway ({feet:?})");
-}
-
-/// The place the sync arm sends the dog to, found before the session starts.
-#[derive(bevy::prelude::Resource, Clone, Copy)]
-struct ThePlace(ae::Vec2);
-
-/// Send the dog from inside the timeline: a visit put on from outside would
-/// not come back with a rewind past it.
-fn send_the_dog_from_inside_the_timeline(
-    mut commands: bevy::prelude::Commands,
-    place: bevy::prelude::Res<ThePlace>,
-    dogs: bevy::prelude::Query<(Entity, &WornCharacter), bevy::prelude::Without<Visit>>,
-) {
-    for (dog, worn) in &dogs {
-        if worn.id() == "npc_companion_dog" {
-            commands.entity(dog).insert(Visit::to(place.0));
-        }
-    }
-}
-
-/// ⭐ A VISIT RESIMULATES TO THE SAME WORLD. Under a sync test each frame is
-/// rewound and replayed and the checksums compared; the visit's arrival lands
-/// inside those windows. The premise: the visit ended arrived.
-#[test]
-fn a_dog_on_a_visit_resimulates_to_the_same_world() {
-    use crate::common::fixed_60hz_room_options;
-    use ambition_platformer2d::sim::SimScheduleExt;
-
-    let (place, _) = a_place_that_needs_a_jump();
-    let options = fixed_60hz_room_options(HUB)
-        .with_sync_test_rollback_settings(4, 10)
-        .with_rollback_players(2);
-    let mut sim = ambition_app::Platformer2dSimHarness::build(options, move |app, options| {
-        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-        app.insert_resource(ThePlace(place));
-        let label = app.sim_schedule();
-        app.add_systems(label, send_the_dog_from_inside_the_timeline);
-        Ok(())
-    })
-    .expect("the hub boots under a sync test");
-    sim.try_step(base()).expect("the first frame steps");
-    let dog = the_dog(&mut sim);
-    let mut outcome = VisitOutcome::Pending;
-    let mut after = 0;
-    for _ in 0..PATIENCE {
-        if sim.try_step(base()).is_err() {
-            break;
-        }
-        outcome = sim.world().get::<Visit>(dog).map_or(outcome, |visit| visit.outcome);
-        if outcome != VisitOutcome::Pending {
-            after += 1;
-            if after > 30 {
-                break;
-            }
-        }
-    }
-    assert_eq!(
-        (
-            ambition_platformer2d::rollback::session_is_active(sim.world()),
-            ambition_platformer2d::rollback::session_health(sim.world())
-        ),
-        (true, Ok(())),
-        "the replayed world differs from the world that ran first"
-    );
-    assert_eq!(outcome, VisitOutcome::Arrived, "premise: the visit ended arrived");
 }

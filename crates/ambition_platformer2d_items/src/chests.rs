@@ -82,9 +82,9 @@ pub fn open_ecs_chests(
     //
     // And where an authored chest is remembered opened, and whose horizons
     // own that (Q63, Q151).
-    (sim_ids, mut reward_grants, participants, mut occurrences, mut spent_since, room_specs): (
+    (sim_ids, (mut reward_grants, tick), participants, mut occurrences, mut spent_since, room_specs): (
         Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-        Option<ResMut<crate::pickup::RewardGrantsSinceCheckpoint>>,
+        (Option<ResMut<crate::pickup::RewardGrantsSinceCheckpoint>>, Option<Res<ambition_time::SimTick>>),
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
         Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
         Option<ResMut<crate::pickups::ConsumedSinceCheckpoint>>,
@@ -206,6 +206,9 @@ pub fn open_ecs_chests(
                         source,
                         collector: collector.clone(),
                         granted,
+                        written: rooms.of(entity).zip(tick.as_deref()).map(|(room, tick)| {
+                            ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
+                        }),
                     });
                 }
             }

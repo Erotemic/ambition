@@ -266,6 +266,27 @@ not before it: today only tests restore a room. Its first customers are the
 grant record and the save's pickup flags; the census of world stores written
 from rooms comes with it.
 
+**Built, first customer (review 2026-11-10, finding 7):** the retraction
+mechanism is in `ambition_platformer2d_shared_tangle::lifecycle::room_writes`:
+a world record written from a room carries a `RoomWrite` (room, `SimTick`),
+a store registers a retractor (`register_room_write_retractor`), and whatever
+rewinds a room calls `retract_room_writes(world, room, saved_at)`; each store
+drops that room's records with a tick after `saved_at` (the tick advances at
+the head of a step, so the window's first frame writes `saved_at + 1`). The
+grant record is the first customer: pickups and chests stamp each grant, and
+its retractor drops the room's later grants. Witness:
+`a_rewound_room_takes_back_the_grant_its_replay_writes_again` (one grant
+after the replay); the probe, now the control, still measures two without
+the retraction.
+
+**Still open before room rollback ships:** the save's pickup flags (an
+overwrite: the retractor must put back the value it replaced, which matters
+only when a replay no longer takes the pickup); a census of the other world
+stores a room writes (the occurrence ledger's taken rows, consumed-since-
+checkpoint, quest advances, the NPC life ledger), each registering a
+retractor; and the room rollback host that calls `retract_room_writes`
+(today only the tests do).
+
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 
 Probe `probe_what_room_rollback_costs_a_hosted_world`

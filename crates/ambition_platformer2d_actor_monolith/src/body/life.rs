@@ -365,6 +365,9 @@ struct RoomFacts {
     present: BTreeSet<(Option<LiveRoomInstance>, String)>,
     /// Lines spoken this tick: the room, where the bubble goes, the line.
     said: Vec<(Option<LiveRoomInstance>, ae::Vec2, String)>,
+    /// The hours an hour away (day * 24 + hour) already has each thing held,
+    /// by the bodies that caught up before this one on this tick.
+    booked: BTreeMap<(Option<LiveRoomInstance>, String, i64), f32>,
 }
 
 impl RoomFacts {
@@ -375,6 +378,10 @@ impl RoomFacts {
             }
             Observation::Present(character) => Value::Bool(self.present.contains(&(room, character.clone()))),
         }
+    }
+
+    fn booked(&self, room: Option<LiveRoomInstance>, thing: &str, at: i64) -> f32 {
+        self.booked.get(&(room, thing.to_string(), at)).copied().unwrap_or(0.0)
     }
 
     fn release(&mut self, body: Entity, room: Option<LiveRoomInstance>, life: &mut Life) {
@@ -399,7 +406,7 @@ struct Look<'a> {
 }
 
 /// Plan when a plan is due, and carry the plan out one step at a time.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn live_lives(
     mut commands: Commands,
     book: Res<LifeBook>,
@@ -426,6 +433,7 @@ pub fn live_lives(
             .collect(),
         present: characters.iter().map(|(body, worn)| (rooms.of(body), worn.id().to_string())).collect(),
         said: Vec::new(),
+        booked: BTreeMap::new(),
     };
     let mut order: Vec<(String, Entity)> =
         bodies.iter().map(|(body, _, worn, ..)| (worn.id().to_string(), body)).collect();
@@ -528,18 +536,19 @@ pub fn interrupt_talked_to_lives(
 }
 
 /// Write what a plan at `hour` reads besides the body's own facts: the hour,
-/// the authored facts, and what the body observes. An hour planned `offscreen`
-/// sees every thing free: no one held anything while no one was watching.
-fn facts_to_plan_by(life: &mut Life, facts: &RoomFacts, look: &Look, hour: i64, offscreen: bool) {
+/// the authored facts, and what the body observes. An hour away (`offscreen`,
+/// day * 24 + hour) sees a thing free while that hour has time left on it:
+/// what the bodies that caught up before this one booked, not who holds it now.
+fn facts_to_plan_by(life: &mut Life, facts: &RoomFacts, look: &Look, hour: i64, offscreen: Option<i64>) {
     life.facts.insert("hour".into(), Value::Int(hour));
     if let Some(spec) = look.spec {
         for (name, value) in &spec.authored {
             life.facts.insert(name.clone(), value.clone());
         }
         for (name, observation) in &spec.observes {
-            let seen = match observation {
-                Observation::Free(_) if offscreen => Value::Bool(true),
-                observation => facts.observe(look.body, look.room, observation),
+            let seen = match (observation, offscreen) {
+                (Observation::Free(thing), Some(at)) => Value::Bool(facts.booked(look.room, thing, at) < 1.0),
+                (observation, _) => facts.observe(look.body, look.room, observation),
             };
             life.facts.insert(name.clone(), seen);
         }
@@ -556,8 +565,8 @@ fn begin_day(life: &mut Life, spec: Option<&LifeSpec>) {
 }
 
 /// A body built again catches up the hours it was away: each whole hour it
-/// missed is planned and its steps' effects applied (no walking: claims and
-/// holds are of no one while no one watches); the current hour is planned and
+/// missed is planned and its steps' effects applied (no walking; a thing one
+/// holds is booked for that hour, [`plan_an_hour_away`]); the current hour is planned and
 /// its leading walks done at once; and the body is to be put at the last
 /// place the schedule sent it.
 #[allow(clippy::too_many_arguments)]
@@ -584,8 +593,7 @@ fn catch_up(
             begin_day(life, look.spec);
             planned_day = this_day;
         }
-        facts_to_plan_by(life, facts, look, (hour - back).rem_euclid(24), true);
-        let Ok(plan) = domain.plan(&life.facts) else { continue };
+        let Some(plan) = plan_an_hour_away(domain.as_ref(), life, book, facts, look, now - back) else { continue };
         for step in &plan {
             if step.action.verb == GO_TO {
                 last_place = step.action.target.clone();
@@ -607,13 +615,84 @@ fn catch_up(
         .filter(|place| *place != look.here);
 }
 
+/// The hours of the day each thing a plan claims is held for: the holds of
+/// its steps between the claim and the release (or the plan's end). A second
+/// claim lets the first go, as it does when carried out.
+fn held_by(plan: &[Step], book: &LifeBook) -> BTreeMap<String, f32> {
+    let mut held = BTreeMap::new();
+    let mut open: Option<String> = None;
+    for step in plan {
+        let target = step.action.target.clone().unwrap_or_default();
+        match step.action.verb.as_str() {
+            CLAIM => {
+                held.entry(target.clone()).or_insert(0.0);
+                open = Some(target);
+            }
+            RELEASE if open.as_ref() == Some(&target) => open = None,
+            verb => {
+                if let Some(thing) = &open {
+                    *held.get_mut(thing).expect("an open claim is booked") += book.holds.get(verb).copied().unwrap_or(0.0);
+                }
+            }
+        }
+    }
+    held
+}
+
+/// Plan the hour `at` (day * 24 + hour) of a body that was away, and book
+/// the things its plan holds. Nothing is simulated: a thing has the hour to
+/// give, the bodies that catch up on one tick book it in the order they are
+/// looked at (by character id, the same on every peer), and a plan that would
+/// hold a thing longer than the hour has left plans again with it taken.
+fn plan_an_hour_away(
+    domain: &dyn LifePlanner,
+    life: &mut Life,
+    book: &LifeBook,
+    facts: &mut RoomFacts,
+    look: &Look,
+    at: i64,
+) -> Option<Vec<Step>> {
+    facts_to_plan_by(life, facts, look, at.rem_euclid(24), Some(at));
+    // Each pass that plans again sets one more observed fact to false, so
+    // this ends.
+    loop {
+        let plan = domain.plan(&life.facts).ok()?;
+        let held = held_by(&plan, book);
+        let over = held
+            .iter()
+            .find(|(thing, hours)| facts.booked(look.room, thing, at) + **hours > 1.0 + f32::EPSILON)
+            .map(|(thing, _)| thing.clone());
+        let taken = over.and_then(|thing| {
+            let names: Vec<String> = look
+                .spec?
+                .observes
+                .iter()
+                .filter(|(name, observation)| {
+                    **observation == Observation::Free(thing.clone()) && life.facts.get(*name) != Some(&Value::Bool(false))
+                })
+                .map(|(name, _)| name.clone())
+                .collect();
+            (!names.is_empty()).then_some(names)
+        });
+        let Some(names) = taken else {
+            for (thing, hours) in held {
+                *facts.booked.entry((look.room, thing, at)).or_default() += hours;
+            }
+            return Some(plan);
+        };
+        for name in names {
+            life.facts.insert(name, Value::Bool(false));
+        }
+    }
+}
+
 fn replan(commands: &mut Commands, life: &mut Life, book: &LifeBook, facts: &mut RoomFacts, look: &Look, hour: i64) {
     // What the last plan held and where it walked are not this plan's.
     facts.release(look.body, look.room, life);
     if look.visit.is_some() {
         commands.entity(look.body).remove::<Visit>();
     }
-    facts_to_plan_by(life, facts, look, hour, false);
+    facts_to_plan_by(life, facts, look, hour, None);
     life.revision = life.revision.wrapping_add(1);
     let Some(domain) = book.domains.get(&life.domain) else {
         stop(life, LifeStop::NoDomain(life.domain.clone()));
@@ -852,5 +931,80 @@ pub fn start_lives_fresh(
 ) {
     if fresh.is_some() && !ledger.rows.is_empty() {
         ledger.rows.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_life_planning::Action;
+
+    /// Claims the bench, uses it and lets it go while `bench_free`; reads
+    /// notes otherwise.
+    #[derive(Debug)]
+    struct Bench;
+
+    impl LifePlanner for Bench {
+        fn plan(&self, facts: &Facts) -> Result<Vec<Step>, Refusal> {
+            let step = |task: &str, verb: &str| Step {
+                task: task.into(),
+                action: Action { verb: verb.into(), target: Some("bench".into()) },
+                because: Vec::new(),
+            };
+            Ok(if facts.get("bench_free") == Some(&Value::Bool(true)) {
+                vec![step("claim", CLAIM), step("experiment", "use"), step("release", RELEASE)]
+            } else {
+                vec![step("read", "read")]
+            })
+        }
+
+        fn step_done(&self, _: &str, _: &mut Facts) {}
+    }
+
+    fn spec() -> LifeSpec {
+        LifeSpec {
+            domain: "bench".into(),
+            facts: Facts::new(),
+            authored: Facts::new(),
+            daily: Facts::new(),
+            lines: BTreeMap::new(),
+            observes: [("bench_free".to_string(), Observation::Free("bench".into()))].into(),
+        }
+    }
+
+    /// What each of three bodies catching up one hour does, when a use of
+    /// the bench takes `use_hours`.
+    fn three_catch_up(use_hours: f32) -> Vec<String> {
+        let book = LifeBook { holds: [("use".to_string(), use_hours)].into(), ..Default::default() };
+        let spec = spec();
+        let mut facts =
+            RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: BTreeMap::new() };
+        let look = Look {
+            body: Entity::PLACEHOLDER,
+            room: None,
+            here: ae::Vec2::ZERO,
+            speaks_at: ae::Vec2::ZERO,
+            visit: None,
+            spec: Some(&spec),
+        };
+        (0..3)
+            .map(|_| {
+                let mut life = Life::new(&spec);
+                let plan = plan_an_hour_away(&Bench, &mut life, &book, &mut facts, &look, 24 + 9).expect("a plan");
+                plan[0].task.clone()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn bodies_away_share_a_thing_by_the_hours_it_has() {
+        // A use that takes the whole hour: the first body has the bench, the
+        // others find it taken.
+        assert_eq!(three_catch_up(1.0), ["claim", "read", "read"]);
+        // Half an hour each: two uses fit in the hour, the third does not.
+        assert_eq!(three_catch_up(0.5), ["claim", "claim", "read"]);
+        // Three quarters: the hour has a quarter left, which a second use
+        // would overrun, so the second body plans again with the bench taken.
+        assert_eq!(three_catch_up(0.75), ["claim", "read", "read"]);
     }
 }

@@ -350,6 +350,14 @@ record! {
     /// woke, or after it), and whether it has played.
     88 arrive_t: Option<f32>,
     89 arrived: bool,
+    /// How far into its walk row its hooves have stepped, in the row's
+    /// seconds: the distance it has walked over `stride::SPEED`, so a hoof
+    /// on the floor stands still on it as the body speeds up and slows down.
+    /// From the start of a walk; it runs on while the body slides to a stop.
+    90 stride: f32,
+    /// Seconds it has been drawn at rest with its arms on: the rest row
+    /// starts at its first frame, where a blow's last row ends.
+    91 rest_t: f32,
 }
 
 /// What he does on the giant's back when he is not in his saddle.
@@ -1516,7 +1524,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if free && c.walk_to.is_none() && c.walk_wait <= 0.0 {
         c.walk_to = ch::stride::mark(giant_pos.x, giant_size.x * 0.5, aim_now.x, hall.left, hall.right);
         c.walk_t = 0.0;
+        c.stride = 0.0;
     }
+    let giant_vel = v(giant.velocity);
+    c.stride += giant_vel.x.abs() * dt / ch::stride::SPEED;
+    // After its walk it slides to a stop; it is drawn walking until it stands.
+    let sliding = giant_vel.x.abs() > ch::stride::STANDING;
     if let Some(to) = c.walk_to {
         // It stops at its mark, when a beat begins, or when it cannot get there.
         if !free || (giant_pos.x - to).abs() <= ch::stride::ARRIVED || c.walk_t > ch::stride::STEP / ch::stride::SPEED * 2.0 {
@@ -1563,6 +1576,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         _ => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
     }
     let blow_row = blow.zip(cue.as_ref()).map(|(blow, cue)| blows::gnu(blow, arms_on, cue, part_now));
+    let mut resting = false;
     match (c.reflex, c.clamp) {
         // He comes in: it looks round at him, and roars when he is up.
         _ if arriving.is_some() => draw(inv, DrawnPart::Mount, Some(ch::arrival::gnu_rows(arriving.unwrap_or(0.0), arms_on)))?,
@@ -1576,10 +1590,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         (None, Some(t)) => draw(inv, DrawnPart::Mount, Some((&["hit"], t - ch::arms::SNAP, false)))?,
         // A blow through the pair: its tell, its strike, its hold, its way back.
         (None, None) if blow_row.is_some() => draw(inv, DrawnPart::Mount, blow_row)?,
-        // It walks: forward the way its art faces, or back.
-        (None, None) if c.walk_to.is_some() => {
-            let forward = c.walk_to.is_some_and(|to| (to - giant_pos.x) * turn > 0.0);
-            draw(inv, DrawnPart::Mount, Some((ch::stride::rows(forward, arms_on), c.walk_t, true)))?
+        // It walks: forward the way its art faces, or back. Its hooves step
+        // with the distance it covers (`stride`), not the time it walks.
+        (None, None) if c.walk_to.is_some() || (sliding && cue.is_none()) => {
+            let heading = c.walk_to.map_or(giant_vel.x, |to| to - giant_pos.x);
+            let forward = heading * turn > 0.0;
+            draw(inv, DrawnPart::Mount, Some((ch::stride::rows(forward, arms_on), c.stride, true)))?
         }
         // The player on its back: it looks round at him.
         (None, None) if c.look_t > 0.0 && cue.is_none() => {
@@ -1590,10 +1606,14 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let blow = c.blow_kind().unwrap_or(Blow::Hammer);
                 draw(inv, DrawnPart::Mount, Some((blows::rows(blow, true)[3], t, false)))?
             }
-            None => draw(inv, DrawnPart::Mount, Some(ch::arms::gnu(cue.as_ref(), clock)))?,
+            None => {
+                resting = !cue.as_ref().is_some_and(|cue| cue.mv == Move::Buck && cue.striking);
+                draw(inv, DrawnPart::Mount, Some(ch::arms::gnu(cue.as_ref(), c.rest_t)))?
+            }
         },
         (None, None) => draw(inv, DrawnPart::Mount, ch::rows::gnu(cue.as_ref()))?,
     }
+    c.rest_t = if resting { c.rest_t + dt } else { 0.0 };
     let mut poses = [Pose::idle(Vec2::ZERO); 2];
     for fist in Fist::BOTH {
         let i = fist.index();

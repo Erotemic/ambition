@@ -746,9 +746,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/movement_defaults_watch.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
-    "EditablePortalTuning": (
-        "game/ambition_app/src/dev/portal_inspector.rs",
-    ),
     "FixedStepsTaken": (
         "game/ambition_app/src/app/cli.rs",
         "game/ambition_app/src/headless.rs",
@@ -2903,11 +2900,6 @@ ADJUDICATED: dict[str, str] = {
         "outside tests finds only that publisher, and "
         "`a_movement_tuning_saved_while_the_game_runs_is_played` fails at 630 "
         "with the watch's write removed."
-    ),
-    "EditablePortalTuning": (
-        "The developer inspector authors the mirror. The admitted publisher "
-        "in ambition_portal2d::tuning is the only writer of PortalTuning. "
-        "The timeline owner admits each mechanical edit before publication."
     ),
     "ActiveSessionScope": (
         "THREE DISJOINT OPERATIONS, NEVER CONTENDING ON THE SAME WRITE. The "

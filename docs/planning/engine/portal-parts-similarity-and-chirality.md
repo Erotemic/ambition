@@ -6,8 +6,8 @@
 (2026-11-10). P01–P06 and P08–P10 are repaired. P07 remains open.
 Physical root material and admitted righting are in `02cabae98`. Canonical
 strike material and physical footprint publication are in `fcb9f7280`.
-The merged checks and riposte fixture repair are recorded on `0505b17e2`.
-Snapshot schema remains v434.
+The riposte fixture repair is in `0505b17e2`. The later item-content merge is
+checked on `d3e941b7b`. Snapshot schema remains v434.
 
 Owner-following strikes now keep canonical source shapes and use the accepted
 body material. Native partitions retain that source without a world-space

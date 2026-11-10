@@ -764,3 +764,9 @@ Logs use `target/portal-strike-`. Full workspace, feature-union, device/GPU and
 performance acceptance remain open. So do native body contacts, same-tick
 continuation, hurt/guard geometry, attachments, production unequal apertures
 and the remaining lab examples. No full PSIM slice is closed.
+
+On `d3e941b7b`, the later item-content merge passes 25 item tests, 24 app menu
+model tests, both held-item portal transit tests, the default-feature app
+warning check, all 53 absence contracts and the repository doc-link check.
+The held javelin remains the lab's asymmetric gauge. Logs use
+`target/portal-strike-gate-item-merge-`.

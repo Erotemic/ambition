@@ -128,3 +128,95 @@ fn a_woken_bosss_name_card_is_drawn_in_its_rectangle() {
         assert!(control * 10 < lit, "control: before the wake the same rectangle held {control} (with the card: {lit})");
     }
 }
+
+/// Every drawn name part's physical rectangle (min, max), left to right.
+fn name_rects(app: &mut App) -> Vec<(UVec2, UVec2)> {
+    let world = app.world_mut();
+    let mut parts = world.query::<(&BossNameCardPart, &ComputedNode, &UiGlobalTransform, &InheritedVisibility)>();
+    let mut rects: Vec<(UVec2, UVec2)> = parts
+        .iter(world)
+        .filter(|(part, node, _, visible)| **part == BossNameCardPart::Name && node.size().x > 0.0 && visible.get())
+        .map(|(_, node, transform, _)| {
+            let center = transform.translation;
+            let half = node.size() * 0.5;
+            ((center - half).max(Vec2::ZERO).as_uvec2(), (center + half).as_uvec2())
+        })
+        .collect();
+    rects.sort_by_key(|(min, _)| (min.x, min.y));
+    rects
+}
+
+/// Each boss's card, by the boss's id.
+fn cards_by_boss(app: &App) -> std::collections::BTreeMap<String, f32> {
+    app.world()
+        .get_resource::<ambition_platformer2d::sim_view::BossRenderIndex>()
+        .map(|index| index.iter().map(|(boss, view)| (boss.to_owned(), view.stage.card)).collect())
+        .unwrap_or_default()
+}
+
+/// Two local views in two boss rooms: Alice before the T-rex, Bob before the
+/// Clockwork Warden. Each view draws its own boss's card, in its own half,
+/// and neither rectangle holds the name once the cards are put away.
+#[test]
+#[ignore = "needs a wgpu adapter; captures two views' name cards in two boss rooms"]
+fn two_views_in_two_boss_rooms_each_draw_their_bosss_card() {
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    let host = crate::local_play_modes::gpu_capture(
+        crate::shell_host_rendered::rendered_app_in_room(ambition_app::app::VisibleRenderMode::OffscreenGpu, Some(ROOMS[0])),
+        "ambition-boss-card-two-views.png",
+        UVec2::new(1280, 720),
+    );
+    let (mut app, _pads) = crate::local_play_modes::split_session(host);
+    let (bodies, rooms) = crate::local_play_modes::separate_participant_to(&mut app, 1, ROOMS[1]);
+    {
+        let world = app.world_mut();
+        for body in bodies {
+            world.get_mut::<BodyHealth>(body).expect("a body").health.invulnerable.set(Invulnerability::SCRIPTED, true);
+        }
+    }
+
+    for (body, room) in bodies.into_iter().zip(rooms) {
+        let boss = {
+            let world = app.world_mut();
+            world
+                .query::<(&BossConfig, &ae::BodyKinematics, &InRoomInstance)>()
+                .iter(world)
+                .find(|(_, _, at)| **at == room)
+                .map(|(_, kin, _)| kin.pos)
+                .unwrap_or_else(|| panic!("the room {room:?} places a boss"))
+        };
+        crate::alices_battery_reaches_bob::put_body_at(&mut app, body, ae::Vec2::new(boss.x - 160.0, boss.y));
+    }
+    let mut frames = 0;
+    loop {
+        let cards = cards_by_boss(&app);
+        if cards.len() >= 2 && cards.values().all(|card| *card >= 0.99) {
+            break;
+        }
+        frames += 1;
+        assert!(frames < 60 * 7, "both cards did not come all the way up in seven seconds: {cards:?}");
+        app.update();
+    }
+    let rects = name_rects(&mut app);
+    assert_eq!(rects.len(), 2, "two views, two drawn names: {rects:?}");
+    assert!(rects[0].1.x <= 640 && rects[1].0.x >= 640, "each name is drawn in its own view's half: {rects:?}");
+    let during = captured(&mut app);
+    let output = app.world().resource::<CaptureSettings>().output.clone();
+    std::fs::copy(&output, output.with_file_name("ambition-boss-card-two-views-up.png")).expect("the capture is kept for review");
+    // The control: the same rectangles once both cards are put away. The
+    // bosses wake while the split session is set up, so there is no frame
+    // before the wake to compare with.
+    let mut frames = 0;
+    while cards_by_boss(&app).values().any(|card| *card > 0.01) {
+        frames += 1;
+        assert!(frames < 60 * 20, "the cards were not put away in twenty seconds: {:?}", cards_by_boss(&app));
+        app.update();
+    }
+    let after = captured(&mut app);
+    for rect in rects {
+        let (lit, control) = (name_coloured(&during, rect), name_coloured(&after, rect));
+        println!("two views: name rect {rect:?}: {lit} name-coloured pixels with the card, {control} after it");
+        assert!(lit > 400, "the card's rectangle {rect:?} holds only {lit} pixels of the name's colour");
+        assert!(control * 10 < lit, "control: with the card put away the same rectangle held {control} (with it: {lit})");
+    }
+}

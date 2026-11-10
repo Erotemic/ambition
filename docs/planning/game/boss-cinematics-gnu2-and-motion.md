@@ -52,9 +52,15 @@ every view reads the primary's room, red).
 - **Skip.** Boss intros have no skip input; the card has nothing to skip.
   If an intro skip is added, it should advance the phase state, and the card
   follows.
-- **A rendered witness of two views.** One view per boss room is rendered
-  (below); two views in two boss rooms are covered at the node
-  (`each_view_shows_the_card_of_the_boss_in_its_room`), not yet in pixels.
+- **Boss UI that is not per view (seen 2026-11-10 in the two-view captures).**
+  - The T-Rex's health bar is drawn top-centre across both views, over the
+    second player's HUD.
+  - A "GRADIENT SENTINEL" title banner is drawn the same way.
+  - The Sentinel's dialogue box is centred on the whole screen, not in the
+    view of the room it speaks in.
+
+  The name card is per view; these are not. They belong with the per-view
+  HUD work, not this row.
 
 **Done, 2026-11-10: a rendered witness.**
 `a_boss_name_card_is_drawn::a_woken_bosss_name_card_is_drawn_in_its_rectangle`
@@ -65,6 +71,20 @@ name's colour inside the name's own drawn rectangle: 2,981 for the T-rex and
 11,994 for the Clockwork Warden with the card, 0 in each before it. The
 captures (`/tmp/ambition-boss-card-<room>.png`) show "T-REX" and "CLOCKWORK
 WARDEN" with the rule beneath.
+
+**Done, 2026-11-10: a rendered witness of two views.**
+`a_boss_name_card_is_drawn::two_views_in_two_boss_rooms_each_draw_their_bosss_card`
+(app_it, GPU, `--include-ignored`) starts the shipped host in `trex_arena`
+with two pads in a fixed split. It sends the second seat to `basement_boss`
+and waits until both bosses' cards are all the way up. Then it counts each
+drawn name's pixels in its own rectangle:
+- the T-rex in the left half: 2,980;
+- the Clockwork Warden in the right half: 12,003.
+
+The control is the same rectangles once both cards are put away: 0 and 8.
+The bosses wake while the split is set up, so no frame exists before the
+wake. Captures: `/tmp/ambition-boss-card-two-views-up.png` (cards up) and
+`/tmp/ambition-boss-card-two-views.png` (put away).
 
 ## GNU2's finale (GNUTON-GNU2-FINALE)
 

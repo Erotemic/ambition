@@ -115,8 +115,6 @@ pub use tuning::{
     SPOT_DODGE_TIME, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 
-#[cfg(test)]
-use collision::body_is_side_contact;
 
 /// Frame-explicit axis-swept control phase — kernel-private. The current
 /// acceleration frame is supplied by the environment, never read from or

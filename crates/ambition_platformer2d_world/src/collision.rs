@@ -14,8 +14,8 @@
 //! and gates) stays actor-side; only the CONSUMPTION side is here.
 //!
 //! `world_with_sandbox_solids` adds moving platforms and ECS solids. Material
-//! casts read this physical world. Actor sweeps still use per-body portal
-//! holes and imported geometry through [`RoomCollision::solids_for`].
+//! casts and actor integration read this physical world. The per-body view
+//! in [`RoomCollision::solids_for`] serves the remaining root-chart queries.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::geometry::subtract_aabb;

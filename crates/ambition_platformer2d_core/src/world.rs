@@ -1227,6 +1227,19 @@ pub enum MaterialCollider<'a> {
 }
 
 impl MaterialCollider<'_> {
+    pub(crate) fn cmp_identity(self, other: Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (MaterialCollider::Block(a),MaterialCollider::Block(b)) => a.id.cmp(&b.id)
+                .then_with(|| a.aabb.min.x.total_cmp(&b.aabb.min.x))
+                .then_with(|| a.aabb.min.y.total_cmp(&b.aabb.min.y))
+                .then_with(|| a.aabb.max.x.total_cmp(&b.aabb.max.x))
+                .then_with(|| a.aabb.max.y.total_cmp(&b.aabb.max.y)),
+            (MaterialCollider::Block(_),MaterialCollider::Chain { .. }) => std::cmp::Ordering::Less,
+            (MaterialCollider::Chain { .. },MaterialCollider::Block(_)) => std::cmp::Ordering::Greater,
+            (MaterialCollider::Chain { chain:a,segment:i,.. },MaterialCollider::Chain { chain:b,segment:j,.. }) => a.name.cmp(&b.name).then(i.cmp(&j)),
+        }
+    }
+
     pub fn source(self) -> crate::collision_semantics::ContactSource {
         match self {
             Self::Block(block) => crate::collision_semantics::ContactSource::Block { kind: block.kind, id: block.id.clone() },
@@ -1269,17 +1282,7 @@ pub struct MaterialWorldHit<'a> {
 
 impl MaterialWorldHit<'_> {
     fn precedes(&self, other: &Self) -> bool {
-        let identity = match (self.collider, other.collider) {
-            (MaterialCollider::Block(a),MaterialCollider::Block(b)) => a.id.cmp(&b.id)
-                .then_with(|| a.aabb.min.x.total_cmp(&b.aabb.min.x))
-                .then_with(|| a.aabb.min.y.total_cmp(&b.aabb.min.y))
-                .then_with(|| a.aabb.max.x.total_cmp(&b.aabb.max.x))
-                .then_with(|| a.aabb.max.y.total_cmp(&b.aabb.max.y)),
-            (MaterialCollider::Block(_),MaterialCollider::Chain { .. }) => std::cmp::Ordering::Less,
-            (MaterialCollider::Chain { .. },MaterialCollider::Block(_)) => std::cmp::Ordering::Greater,
-            (MaterialCollider::Chain { chain:a,segment:i,.. },MaterialCollider::Chain { chain:b,segment:j,.. }) => a.name.cmp(&b.name).then(i.cmp(&j)),
-        };
-        self.contact.toi.total_cmp(&other.contact.toi).then(identity)
+        self.contact.toi.total_cmp(&other.contact.toi).then(self.collider.cmp_identity(other.collider))
             .then_with(|| self.contact.path.cmp(&other.contact.path)).is_lt()
     }
 }
@@ -1720,6 +1723,53 @@ impl World {
             }
         }
         match refused { Some((_,reason)) => Err(reason), None => Ok(best) }
+    }
+
+    /// Visit static polygon contacts through the admitted material cells.
+    pub(crate) fn material_axis_contacts<'w>(
+        &'w self, cells: &crate::frame::material_cast::MaterialCastCells<'_>, direction: Vec2,
+    ) -> Result<Vec<(MaterialCollider<'w>, crate::frame::material_cast::PolygonAxisContact)>, crate::frame::thread::Refusal> {
+        let mut contacts = Vec::new();
+        for part in cells.parts() {
+            let Some(bounds) = cells.bounds(part)? else { continue; };
+            for block in self.blocks.swept_near(bounds) {
+                let a = block.aabb;
+                let polygon = [a.min, Vec2::new(a.max.x, a.min.y), a.max, Vec2::new(a.min.x, a.max.y)];
+                if let Some(contact) = cells.polygon_axis_contact(part, &polygon, direction)? {
+                    contacts.push((MaterialCollider::Block(block), contact));
+                }
+            }
+            for (index, chain) in self.chains.indexed_swept_near(bounds) {
+                if !chain.velocity.is_finite() || !chain.turn.is_finite() || !chain.pivot.is_finite()
+                    || chain.points.iter().any(|point| !point.is_finite()) {
+                    return Err(crate::frame::thread::Refusal { path: part.path.clone(), link: None,
+                        reason: crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::NonFinite) });
+                }
+                if chain.closed && chain.kind == SurfaceKind::Solid && chain.points.len() >= 3 {
+                    if let Some(contact) = cells.polygon_axis_contact(part, &chain.points, direction)? {
+                        let point = contact.contact.world_point;
+                        let segment = (0..chain.segment_count()).min_by(|a, b| {
+                            let distance = |segment| {
+                                let (a, b) = chain.segment(segment);
+                                let edge = b - a;
+                                let t = if edge == Vec2::ZERO { 0.0 } else { ((point - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) };
+                                point.distance_squared(a + edge * t)
+                            };
+                            distance(*a).total_cmp(&distance(*b)).then(a.cmp(b))
+                        }).unwrap();
+                        contacts.push((MaterialCollider::Chain { chain, index, segment }, contact));
+                    }
+                } else {
+                    for segment in 0..chain.segment_count() {
+                        let (a, b) = chain.segment(segment);
+                        if let Some(contact) = cells.polygon_axis_contact(part, &[a, b], direction)? {
+                            contacts.push((MaterialCollider::Chain { chain, index, segment }, contact));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(contacts)
     }
 
     /// CC2 §3.3 (the sweep law, authoring half): water + climbable regions are

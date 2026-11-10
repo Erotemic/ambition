@@ -46,6 +46,7 @@ fn run() -> Vec<Vec<u8>> {
     let mut trace = Vec::new();
     let mut shrunk = 0;
     let mut restored = 0;
+    let mut stationary = None;
     for frame in 0..220 {
         if frame == 60 {
             let (_, pose) = body(&mut sim);
@@ -58,13 +59,19 @@ fn run() -> Vec<Vec<u8>> {
             world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks.retain(|b| b.name != "slice far contact");
             sim.rebase_rollback_history().unwrap();
         }
-        let moving = frame < 90 || frame >= 120;
+        let moving = frame < 50 || (60..90).contains(&frame) || frame >= 120;
         sim.step(AgentAction { move_x: if moving { 1.0 } else { 0.0 }, ..crate::common::base() });
         sim.rollback_health().unwrap_or_else(|error| panic!("frame {frame}: {error}"));
         let (_, pose) = body(&mut sim);
+        if frame == 50 { stationary = Some(pose.pos); }
+        if (51..60).contains(&frame) {
+            assert_eq!(Some(pose.pos), stationary, "a stationary partial body must keep its pose");
+            assert!(sim.observation().on_ground, "a stationary partial body must keep its support");
+        }
         if pose.material.scale() == 0.5 {
             shrunk += 1;
-            assert!(pose.material.reflected());
+            assert!(pose.material.reflected(), "frame {frame}: {pose:?}, convention {:?}",
+                sim.world().resource::<PortalTuning>().convention);
             if frame < 90 { assert_eq!(pose.facing, initial.facing, "held steering must retain material facing through a reflection"); }
             assert_eq!(pose.canonical_size, initial.canonical_size);
             assert_eq!(pose.size(), initial.size() * 0.5);
@@ -131,5 +138,20 @@ fn the_shipped_renderer_keeps_the_crossed_robots_physical_scale_and_reflection()
             "the rendered asymmetric point must use the collision material: {pose:?} {root:?}");
         samples += 1;
     }
-    assert!(samples > 20, "the rendered body must stay small and reflected after crossing");
+    let room = app.world().get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(player).map(|room| room.0);
+    let links = app.world().resource::<ambition_platformer2d::platformer::body::geometry::BodyGeometry>().links_in(room).len();
+    let probe = ambition_platformer2d::world::collision::with_room_in_world(app.world(),
+        app.world().get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(player), |scene| {
+            let walls = scene.solids()?;
+            let kin = *app.world().get::<BodyKinematics>(player)?;
+            let domain = kin.canonical_box().ok()?;
+            let geometry = app.world().resource::<ambition_platformer2d::platformer::body::geometry::BodyGeometry>();
+            let cast = ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
+                domain: &domain, to_world: kin.material_map().ok()? }, kin.pos, Vec2::X * 10.0, 0.0..1.0);
+            Some(format!("{:?}", walls.first_material_sweep(cast, geometry.motion_for(player, room), |_, _, _| Ok(true))
+                .map(|hit| hit.map(|hit| (hit.collider.source(), hit.contact)))))
+        });
+    assert!(samples > 20, "probe {probe:?}; contacts {:?}; the rendered body must stay small and reflected after crossing: {:?}, room {room:?}, links {links}, refusal {:?}",
+        app.world().get::<ambition_platformer2d::actors::body::BodyFrameOutput>(player).map(|output| &output.events.contacts),
+        app.world().get::<BodyKinematics>(player), app.world().get::<ambition_platformer2d::actors::body::BodyFrameOutput>(player).map(|output| &output.events.motion_refusal));
 }

@@ -31,6 +31,10 @@ fn run_bounce(dt: f32) -> BounceStats {
         .expect("Platformer2dSimHarness::new in portal_lab");
 
     let spawn = sim.observation().player_pos;
+    if std::env::var("BOUNCE_TRACE").is_ok() {
+        let (a, b) = first_floor_authored_portal_pair(&mut sim);
+        eprintln!("PAIR {:?} {} -> {:?} {}", a.pos, a.half_length, b.pos, b.half_length);
+    }
 
     // Phase 1: walk right onto the first floor portal center, then STOP.
     let mut prev = spawn;
@@ -58,6 +62,14 @@ fn run_bounce(dt: f32) -> BounceStats {
             grounded_frames += 1;
         }
         if std::env::var("BOUNCE_TRACE").is_ok() && frame % 5 == 0 {
+            let world = sim.world_mut();
+            let player = world.query_filtered::<bevy::prelude::Entity, (
+                bevy::prelude::With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+                bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>)>().single(world).unwrap();
+            let room = world.get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(player).map(|room| room.0);
+            let links = world.resource::<ambition_platformer2d::platformer::body::geometry::BodyGeometry>().links_in(room).len();
+            eprintln!("body {:?} room {:?} links {} contacts {:?}", world.get::<ambition_platformer2d::engine_core::BodyKinematics>(player), room, links,
+                world.get::<ambition_platformer2d::actors::body::BodyFrameOutput>(player).map(|output| &output.events.contacts));
             eprintln!(
                 "frame {frame}: pos=({:.1},{:.1}) vel=({:.1},{:.1}) grounded={}",
                 obs.player_pos.0,

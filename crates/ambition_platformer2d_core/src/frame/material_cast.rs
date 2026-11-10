@@ -9,6 +9,8 @@ use super::{NumericFault, Sim2};
 use crate::{Aabb, CombatVolume, Vec2};
 
 mod translation;
+mod penetration;
+pub(crate) use penetration::PolygonAxisContact;
 mod cell;
 mod temporal;
 mod affine;

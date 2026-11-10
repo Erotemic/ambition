@@ -1,74 +1,10 @@
 use crate::Vec2;
 use crate::collision_semantics::{
     Axis, AxisConstraintConflict, AxisRole, Contact, ContactKind, ContactSource, axis_role,
-    block_face_contact, body_on_support_side, is_contact_range_snap, is_full_collision_surface,
-    is_solid_for_axis, one_way_landing_from_previous_feet,
-    snap_feet_to_surface, surface_supports_body_at_rest,
+    is_contact_range_snap, is_full_collision_surface, surface_supports_body_at_rest,
 };
 use crate::geometry::{Aabb, AabbExt};
-use crate::world::{Block, BlockKind, World};
-
-/// Round a contact position toward free space. A rounded box edge can hide
-/// penetration by the canonical material and prevent an exact aperture fit.
-fn face_contact_position(
-    body: crate::BodyKinematics, delta: Vec2, block: Aabb, normal: Vec2,
-) -> Option<Vec2> {
-    let axis = if normal.x != 0.0 { Axis::X } else { Axis::Y };
-    let sign = axis_component(normal, axis);
-    let half = body.projected_half_extent(normal.as_dvec2()).ok()?;
-    let face = axis_component(if sign > 0.0 { block.max } else { block.min }, axis);
-    let bound = f64::from(face) + f64::from(sign) * half;
-    let mut rounded = bound as f32;
-    if f64::from(sign) * (f64::from(rounded) - bound) < 0.0 {
-        rounded = if sign > 0.0 { rounded.next_up() } else { rounded.next_down() };
-    }
-    if !rounded.is_finite() { return None; }
-    let mut position = body.pos + delta;
-    if sign * (axis_component(position, axis) - rounded) < 0.0 {
-        match axis { Axis::X => position.x = rounded, Axis::Y => position.y = rounded }
-    }
-    Some(position)
-}
-
-/// The outward normal of the SUPPORT face resolved on the gravity-role world
-/// axis: the cardinal face the body's feet snapped onto. For cardinal gravity
-/// this equals `-gravity_dir`; under an oblique frame the surface is still a
-/// cardinal face and the contact must carry ITS normal (the `Contact` doc's
-/// "outward normal of the SURFACE" contract).
-fn support_face_normal(axis: Axis, gravity_dir: Vec2) -> Vec2 {
-    axis_vec(axis, -axis_component(gravity_dir, axis).signum())
-}
-
-fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {
-    match axis {
-        Axis::X => {
-            if body.center().x <= block.center().x {
-                (
-                    Vec2::new(block.left() - body.right(), 0.0),
-                    Vec2::new(-1.0, 0.0),
-                )
-            } else {
-                (
-                    Vec2::new(block.right() - body.left(), 0.0),
-                    Vec2::new(1.0, 0.0),
-                )
-            }
-        }
-        Axis::Y => {
-            if body.center().y <= block.center().y {
-                (
-                    Vec2::new(0.0, block.top() - body.bottom()),
-                    Vec2::new(0.0, -1.0),
-                )
-            } else {
-                (
-                    Vec2::new(0.0, block.bottom() - body.top()),
-                    Vec2::new(0.0, 1.0),
-                )
-            }
-        }
-    }
-}
+use crate::world::{BlockKind, World};
 
 pub(crate) fn apply_side_contact(
     wall: &mut crate::body_clusters::BodyWallState,
@@ -83,19 +19,7 @@ pub(crate) fn apply_side_contact(
     }
 }
 
-/// A SUBMERGED body passes through everything, because it is not in the world.
-///
-/// ⛔⛔ UNCONDITIONAL, AND THAT IS THE DIFFERENCE FROM THE CLIMB RULE BELOW.
-/// A climbing body is still on the stage and only ignores the blocks its
-/// climbable region overlaps — lose the region and the floor is a floor again.
-/// There is no region under the stage to lose contact with, and a submerged
-/// body that could be stopped by geometry would be a fighter wedged inside the
-/// floor she went under, with nothing to push her out.
-///
-/// ⛔ HAZARDS TOO. The climb rule deliberately keeps hazards solid so a ladder
-/// cannot be used to walk through a spike; a submerged body is intangible for
-/// the same beats it is invisible, and a hazard that could touch her would
-/// contradict the `Invuln` window the move authors over the same span.
+/// A submerged body has no block contacts, including hazards.
 fn block_passable_while_submerged(body_mode: &crate::body_clusters::BodyModeState) -> bool {
     matches!(
         body_mode.body_mode,
@@ -103,22 +27,8 @@ fn block_passable_while_submerged(body_mode: &crate::body_clusters::BodyModeStat
     )
 }
 
-/// The blocks this body passes through this step — decided once, consulted by
-/// BOTH collision stages.
-///
-/// ⛔⛔ THE TWO STAGES HAD DIFFERENT IDEAS OF WHAT `Submerged` MEANS. The
-/// continuous sweep took `BodyModeState` and knew a submerged body is not in the
-/// world; [`resolve_axis_repair`] took neither it nor anything equivalent, so a
-/// body that legitimately travelled THROUGH a block was then found overlapping
-/// it and pushed back out — by the second half of the same function call. The
-/// mode that exists to make a body intangible was intangible to one stage only.
-///
-/// ⚠ CLIMBING HAD THE SAME GAP, and it is the reason this is a shared value
-/// rather than another `if Submerged` in the repair. A climbing body passes
-/// through exactly the blocks its climbable region overlaps; the repair could
-/// not tell which those were either, so it shoved a climber out of the wall she
-/// was on. One policy, asked the same question by both stages, is what makes
-/// "passable" mean one thing.
+/// Movement and repair use one passability policy. A climb permits only
+/// blocks in the active climbable region. It does not permit hazards.
 #[derive(Clone, Copy)]
 pub(super) struct BodyCollisionPolicy<'a> {
     body_mode: &'a crate::body_clusters::BodyModeState,
@@ -150,14 +60,6 @@ fn block_passable_during_climb_clusters(
     contact.region_aabb.strict_intersects(block.aabb)
 }
 
-/// `(min, max)` span of an AABB along one world axis.
-fn axis_span(aabb: Aabb, axis: Axis) -> (f32, f32) {
-    match axis {
-        Axis::X => (aabb.left(), aabb.right()),
-        Axis::Y => (aabb.top(), aabb.bottom()),
-    }
-}
-
 fn axis_vec(axis: Axis, along: f32) -> Vec2 {
     match axis {
         Axis::X => Vec2::new(along, 0.0),
@@ -172,13 +74,6 @@ fn axis_component(v: Vec2, axis: Axis) -> f32 {
     }
 }
 
-fn perp(axis: Axis) -> Axis {
-    match axis {
-        Axis::X => Axis::Y,
-        Axis::Y => Axis::X,
-    }
-}
-
 fn zero_axis_vel(kinematics: &mut crate::body_clusters::BodyKinematics, axis: Axis) {
     match axis {
         Axis::X => kinematics.vel.x = 0.0,
@@ -186,83 +81,8 @@ fn zero_axis_vel(kinematics: &mut crate::body_clusters::BodyKinematics, axis: Ax
     }
 }
 
-/// The body's span ALONG the swept axis is nested inside the block's span: the contact can only
-/// be on a face perpendicular to the sweep (a side graze while sweeping the gravity axis),
-/// never a support/head face — so the gravity-axis pass must not resolve it.
-fn body_is_nested_along(body: Aabb, block: Aabb, axis: Axis) -> bool {
-    const NESTED_EPS: f32 = 1.0e-4;
-    let (body_min, body_max) = axis_span(body, axis);
-    let (block_min, block_max) = axis_span(block, axis);
-    body_min >= block_min - NESTED_EPS && body_max <= block_max + NESTED_EPS
-}
-
-/// Down-gravity flavor kept for the focused unit tests; production goes
-/// through [`body_is_nested_along`] with the swept axis.
-#[cfg(test)]
-pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
-    body_is_nested_along(body, block, Axis::Y)
-}
-
-/// Resolve a SIDE-axis penetration of `body` into `block` along `axis`,
-/// returning `(delta_along, world_normal_sign)` to apply, or `None` to defer to
-/// the gravity pass. Axis-role generalization of the old X-only
-/// `resolve_x_penetration`; the guards protect whichever axis currently plays
-/// the side role, so they rotate with gravity.
-///
-/// Three rules, all guarding the OOB class from flying into a wide, thin block:
-/// 1. If the perpendicular exit is shorter, it's a support/head contact — defer
-///    to the gravity pass (which snaps the body out the short way) instead of
-///    shoving it out the wide block's far side edge (hundreds of px).
-/// 2. Otherwise push out the nearer side face, but NEVER out of the world: at a
-///    corner the nearer face of a boundary-spanning block IS the world edge, so
-///    pick the other face; if both exits would leave the world, defer.
-/// 3. And NEVER a pushout-teleport: a chosen exit deeper than the body's own
-///    half-extent means the body is embedded, not in contact — defer (the body's
-///    velocity carries it out the near face over subsequent frames). See
-///    [`is_contact_range_snap`].
-fn resolve_side_penetration(
-    body: Aabb,
-    block: Aabb,
-    axis: Axis,
-    world_extent_along: f32,
-) -> Option<(f32, f32)> {
-    let (body_min, body_max) = axis_span(body, axis);
-    let (block_min, block_max) = axis_span(block, axis);
-    let exit_neg = body_max - block_min; // push toward -axis this far
-    let exit_pos = block_max - body_min; // push toward +axis this far
-    let (pbody_min, pbody_max) = axis_span(body, perp(axis));
-    let (pblock_min, pblock_max) = axis_span(block, perp(axis));
-    let exit_perp = (pbody_max - pblock_min).min(pblock_max - pbody_min);
-    if exit_perp <= exit_neg.min(exit_pos) {
-        return None; // perpendicular exit is shorter -> the gravity pass owns it
-    }
-    let half = (body_max - body_min) * 0.5;
-    let center = (body_min + body_max) * 0.5;
-    let neg = ((center - exit_neg) - half >= 0.0).then_some((-exit_neg, -1.0));
-    let pos = ((center + exit_pos) + half <= world_extent_along).then_some((exit_pos, 1.0));
-    // Prefer the shorter exit; fall back to the other if it would leave the world.
-    let chosen = if exit_neg <= exit_pos {
-        neg.or(pos)
-    } else {
-        pos.or(neg)
-    };
-    chosen.filter(|&(d, _)| is_contact_range_snap(axis_vec(axis, d), body))
-}
-
-/// Role behavior:
-/// - Gravity axis: OneWay landing gate, nested side-graze rejection, feet
-///   snap + `on_ground` when moving toward the feet, head-face push otherwise.
-/// - Side axis: guarded side resolution ([`resolve_side_penetration`]:
-///   defer / world-bounds / no-pushout) with grazing-motion continuation, and
-///   wall contact armed in the body's LOCAL frame via [`apply_side_contact`]
-///   (the old X path stored the raw world sign, breaking cling under up
-///   gravity).
-///
-/// Falls back to [`resolve_axis_repair`] for stacked contacts or pre-existing
-/// penetrations — and returns that pass's verdict: `Some` when the solids
-/// claiming this axis this step admit NO position at all (see
-/// [`AxisConstraintConflict`]; the consequence of a crush is the owner's, not
-/// the kernel's).
+/// Sweep and repair canonical material. Conflicting correction bounds report
+/// a crush without choosing an occupied position.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn sweep_player_axis_clusters(
     world: &World,
@@ -281,14 +101,12 @@ pub(super) fn sweep_player_axis_clusters(
     refusal: &mut Option<crate::frame::thread::Refusal>,
 ) -> Option<AxisConstraintConflict> {
     let delta = axis_vec(axis, delta_along);
-    // ONE policy for both stages below. See [`BodyCollisionPolicy`] for what the
-    // repair used to do without it.
     let policy = BodyCollisionPolicy {
         body_mode,
         env_contact,
     };
-    if delta_along.abs() <= 1.0e-5 {
-        return resolve_axis_repair(
+    if delta_along == 0.0 {
+        return resolve_material_axis_repair(
             world,
             kinematics,
             ground,
@@ -299,6 +117,8 @@ pub(super) fn sweep_player_axis_clusters(
             drop_through,
             gravity_dir,
             contacts,
+            admission,
+            refusal,
         );
     }
 
@@ -349,25 +169,6 @@ pub(super) fn sweep_player_axis_clusters(
                 } else { kinematics.pos[component].next_down() };
             }
         }
-        if axis_component(normal, axis).abs() > 1.0 - 1.0e-6 {
-            let sign = axis_component(normal, axis).signum();
-            let support = match kinematics.projected_half_extent(normal.as_dvec2()) {
-                Ok(support) => support,
-                Err(fault) => {
-                    *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
-                        reason: crate::frame::thread::RefusalReason::Numeric(fault) });
-                    return None;
-                }
-            };
-            let bound = f64::from(axis_component(contact.point, axis)) + f64::from(sign) * support;
-            let mut coordinate = bound as f32;
-            if f64::from(sign) * (f64::from(coordinate) - bound) < 0.0 {
-                coordinate = if sign > 0.0 { coordinate.next_up() } else { coordinate.next_down() };
-            }
-            if sign * (axis_component(kinematics.pos, axis) - coordinate) < 0.0 {
-                match axis { Axis::X => kinematics.pos.x = coordinate, Axis::Y => kinematics.pos.y = coordinate }
-            }
-        }
         let physical_normal = contact.map.direction(normal);
         let remaining_surface = hit.collider.displacement() * (1.0 - contact.toi) as f32;
         let carry = physical_normal * remaining_surface.dot(physical_normal).max(0.0);
@@ -392,46 +193,28 @@ pub(super) fn sweep_player_axis_clusters(
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
         };
-        let surface_velocity = hit.collider.displacement();
+        let surface_velocity = match contact.map.inverse().and_then(|map| map.vector(hit.collider.displacement())) {
+            Ok(velocity) => velocity,
+            Err(fault) => {
+                *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
+                    reason: crate::frame::thread::RefusalReason::Numeric(fault) });
+                return None;
+            }
+        };
         contacts.push(Contact { kind, point: contact.point, normal, toi: contact.toi as f32,
             surface_velocity, impact_speed: impact, involuntary: false, source: hit.collider.source() });
     } else {
         kinematics.pos += delta;
     }
-    resolve_axis_repair(world, kinematics, ground, wall, policy, axis,
-        prev_feet_coord, drop_through, gravity_dir, contacts)
+    resolve_material_axis_repair(world, kinematics, ground, wall, policy, axis,
+        prev_feet_coord, drop_through, gravity_dir, contacts, admission, refusal)
 }
 
-/// One solid's CLAIM on the body's centre coordinate along the repaired axis.
-///
-/// A claim is not a position to write — it is a BOUND. `delta_along` is its component on the
-/// repaired axis, and its SIGN says which bound this is: a positive correction demands `centre
-/// >= bound`, a negative one demands `centre <= bound`.
-///
-/// The delta is used for the contact-range check. Commit the bound directly
-/// so subtraction and addition cannot round the accepted position again.
-struct AxisClaim<'a> {
-    delta: Vec2,
-    delta_along: f32,
-    /// `centre + delta_along` — the coordinate this claim will accept.
-    bound: f32,
-    normal: Vec2,
-    kind: ContactKind,
-    on_support: bool,
-    block: &'a Block,
-}
-
-/// Resolve penetration along one world axis using order-independent interval constraints.
-///
-/// Each intersecting solid contributes a lower or upper center bound. A feasible
-/// interval resolves to its binding edge; an empty interval returns
-/// [`AxisConstraintConflict`] without moving the body. Claims beyond
-/// [`is_contact_range_snap`] are excluded before interval construction, so an
-/// accepted repair is always one an individual contact was allowed to request.
+/// Repair and support use the same material cells as continuous contact.
 #[allow(clippy::too_many_arguments)]
-fn resolve_axis_repair(
+fn resolve_material_axis_repair(
     world: &World,
-    kinematics: &mut crate::body_clusters::BodyKinematics,
+    kinematics: &mut crate::BodyKinematics,
     ground: &mut crate::body_clusters::BodyGroundState,
     wall: &mut crate::body_clusters::BodyWallState,
     policy: BodyCollisionPolicy<'_>,
@@ -440,177 +223,104 @@ fn resolve_axis_repair(
     drop_through: bool,
     gravity_dir: Vec2,
     contacts: &mut Vec<Contact>,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    refusal: &mut Option<crate::frame::thread::Refusal>,
 ) -> Option<AxisConstraintConflict> {
+    use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
+    let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
+    let query = (|| {
+        let domain = kinematics.canonical_box().map_err(numeric)?;
+        let cells = MaterialCast::new(MaterialPrimitive { domain: &domain,
+            to_world: kinematics.material_map().map_err(numeric)? }, kinematics.pos,
+            Vec2::ZERO, 1.0..1.0).cells(admission)?;
+        world.material_axis_contacts(&cells, axis_vec(axis, 1.0))
+    })();
+    let mut hits = match query {
+        Ok(hits) => hits,
+        Err(reason) => { *refusal = Some(reason); return None; }
+    };
+    hits.sort_by(|(a, x), (b, y)| x.displacement.total_cmp(&y.displacement)
+        .then(a.cmp_identity(*b)).then(x.contact.path.cmp(&y.contact.path)));
+    let centre = axis_component(kinematics.pos, axis);
+    let mut lower: Option<(f64, ContactSource)> = None;
+    let mut upper: Option<(f64, ContactSource)> = None;
+    let mut accepted = Vec::new();
     let role = axis_role(axis, gravity_dir);
-    let aabb = kinematics.aabb();
-    let centre = axis_component(aabb.center(), axis);
-    // The deepest claim in each direction: `toward_pos` demands the largest
-    // minimum, `toward_neg` the smallest maximum.
-    let mut toward_pos: Option<AxisClaim> = None;
-    let mut toward_neg: Option<AxisClaim> = None;
-    for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
-        {
-            continue;
-        }
-        // ⭐ THE SAME QUESTION THE SWEEP ASKED. A block this body passed through
-        // contributes no repair claim, or the repair undoes the traversal the
-        // sweep just allowed.
-        if policy.passes_through(block) {
-            continue;
-        }
-        // `BonkOnly` reacts to rising-head contact but never supplies support/repair geometry.
-        if crate::collision_semantics::blocks_only_a_rising_head(block.kind) {
-            continue;
-        }
-        if matches!(block.kind, BlockKind::OneWay) {
-            if role != AxisRole::Gravity {
-                continue;
-            }
-            let delta = kinematics.vel * 1.0e-3;
-            if !one_way_landing_from_previous_feet(
-                aabb,
-                block.aabb,
-                block.velocity,
-                delta,
-                gravity_dir,
-                drop_through,
-                prev_feet_coord,
-            ) {
-                continue;
-            }
-        }
-        if role == AxisRole::Gravity
-            && is_full_collision_surface(block.kind)
-            && body_is_nested_along(aabb, block.aabb, axis)
-        {
-            continue;
-        }
-        let mut claim = match role {
-            AxisRole::Gravity => {
-                let on_support = matches!(block.kind, BlockKind::OneWay)
-                    || body_on_support_side(aabb, block.aabb, gravity_dir);
-                let (delta, normal) = if on_support {
-                    (
-                        snap_feet_to_surface(aabb, block.aabb, gravity_dir),
-                        support_face_normal(axis, gravity_dir),
-                    )
-                } else {
-                    axis_face_resolution(aabb, block.aabb, axis)
-                };
-                // A distant face cannot supply a contact repair.
-                if !is_contact_range_snap(delta, aabb) {
-                    continue;
-                }
-                let delta_along = axis_component(delta, axis);
-                AxisClaim {
-                    delta,
-                    delta_along,
-                    bound: centre + delta_along,
-                    normal,
-                    kind: if on_support {
-                        ContactKind::Support
-                    } else {
-                        ContactKind::Head
-                    },
-                    on_support,
-                    block,
-                }
-            }
-            AxisRole::Side => {
-                // `resolve_side_penetration` carries its own refusals (defer to
-                // the gravity pass, never out of the world, never a pushout
-                // teleport); `None` is "this block claims nothing here".
-                let Some((d, normal_sign)) = resolve_side_penetration(
-                    aabb,
-                    block.aabb,
-                    axis,
-                    axis_component(world.size, axis),
-                ) else {
-                    continue;
-                };
-                AxisClaim {
-                    delta: axis_vec(axis, d),
-                    delta_along: d,
-                    bound: centre + d,
-                    normal: axis_vec(axis, normal_sign),
-                    kind: ContactKind::Side,
-                    on_support: false,
-                    block,
+    for (collider, hit) in hits {
+        let normal = hit.contact.normal;
+        let support = normal.dot(-gravity_dir) > 0.5;
+        let eligible = match collider {
+            crate::world::MaterialCollider::Block(block) => !policy.passes_through(block) && match block.kind {
+                BlockKind::OneWay => role == AxisRole::Gravity && !drop_through && support
+                    && prev_feet_coord <= hit.contact.point.dot(gravity_dir) + crate::collision_semantics::ONE_WAY_CROSSING_SLOP,
+                BlockKind::BonkOnly => false,
+                kind => is_full_collision_surface(kind),
+            },
+            crate::world::MaterialCollider::Chain { chain, segment, .. } => {
+                if chain.closed && chain.kind == crate::world::SurfaceKind::Solid { true }
+                else {
+                    let face = match chain.normal_at_time(segment, 1.0) {
+                        Ok(face) => face,
+                        Err(fault) => { *refusal = Some(numeric(fault)); return None; }
+                    };
+                    // A static sample cannot board an open one-way line.
+                    // Its crossing or walking policy admits new support.
+                    hit.displacement == 0.0 && role == AxisRole::Gravity && !drop_through && support
+                        && hit.contact.map.direction(normal).dot(face) > 0.5
                 }
             }
         };
-        let Some(position) = face_contact_position(*kinematics, claim.delta, block.aabb, claim.normal) else {
-            continue;
-        };
-        claim.bound = axis_component(position, axis);
-        claim.delta_along = claim.bound - centre;
-        claim.delta = axis_vec(axis, claim.delta_along);
-        if !is_contact_range_snap(claim.delta, aabb) { continue; }
-        // A correction of exactly zero demands nothing — the face is already
-        // flush — so it never becomes a bound.
-        if claim.delta_along > 0.0 {
-            if toward_pos
-                .as_ref()
-                .is_none_or(|deepest| claim.delta_along > deepest.delta_along)
-            {
-                toward_pos = Some(claim);
-            }
-        } else if claim.delta_along < 0.0
-            && toward_neg
-                .as_ref()
-                .is_none_or(|deepest| claim.delta_along < deepest.delta_along)
-        {
-            toward_neg = Some(claim);
+        let gravity_contact = hit.minimum_normal.dot(gravity_dir).abs()
+            >= hit.minimum_normal.dot(gravity_dir.perp()).abs();
+        if !eligible || (role == AxisRole::Gravity) != gravity_contact { continue; }
+        let delta = axis_vec(axis, hit.displacement as f32);
+        if !is_contact_range_snap(delta, kinematics.aabb()) { continue; }
+        let bound = f64::from(centre) + hit.displacement;
+        if hit.displacement > 0.0 && lower.as_ref().is_none_or(|(old, _)| bound > *old) {
+            lower = Some((bound, collider.source()));
         }
+        if hit.displacement < 0.0 && upper.as_ref().is_none_or(|(old, _)| bound < *old) {
+            upper = Some((bound, collider.source()));
+        }
+        accepted.push((collider, hit));
     }
-
-    // Claims in BOTH directions == an empty interval: the +axis claimant's
-    // minimum sits above the -axis claimant's maximum, and no position on this
-    // axis satisfies both. What that MEANS to the body is the owner's call.
-    let conflict = match (&toward_pos, &toward_neg) {
-        (Some(demands_min), Some(demands_max)) => Some(AxisConstraintConflict {
-            axis,
-            min_center: demands_min.bound,
-            max_center: demands_max.bound,
-            min_source: ContactSource::Block {
-                kind: demands_min.block.kind,
-                id: demands_min.block.id.clone(),
-            },
-            max_source: ContactSource::Block {
-                kind: demands_max.block.kind,
-                id: demands_max.block.id.clone(),
-            },
+    let conflict = match (&lower, &upper) {
+        (Some((min, min_source)), Some((max, max_source))) if min > max => Some(AxisConstraintConflict {
+            axis, min_center: *min as f32, max_center: *max as f32,
+            min_source: min_source.clone(), max_source: max_source.clone(),
         }),
         _ => None,
     };
     if conflict.is_none() {
-        // Feasible: at most one direction claimed, so its deepest claim IS the
-        // binding edge of the interval.
-        if let Some(binding) = toward_pos.as_ref().or(toward_neg.as_ref()) {
-            match axis { Axis::X => kinematics.pos.x = binding.bound, Axis::Y => kinematics.pos.y = binding.bound }
+        if let Some((bound, _)) = lower.as_ref().or(upper.as_ref()) {
+            let sign = (*bound - f64::from(centre)).signum();
+            let mut coordinate = *bound as f32;
+            if sign * (f64::from(coordinate) - *bound) < 0.0 {
+                coordinate = if sign > 0.0 { coordinate.next_up() } else { coordinate.next_down() };
+            }
+            match axis { Axis::X => kinematics.pos.x = coordinate, Axis::Y => kinematics.pos.y = coordinate }
         }
     }
-    for claim in [toward_pos.as_ref(), toward_neg.as_ref()]
-        .into_iter()
-        .flatten()
-    {
-        if claim.on_support {
+    for (collider, hit) in accepted {
+        let normal = hit.contact.normal;
+        let kind = if normal.dot(-gravity_dir) > 0.5 {
             ground.on_ground = true;
-        }
-        let impact = crate::collision_semantics::closing_speed(kinematics.vel, claim.normal);
+            ContactKind::Support
+        } else if normal.dot(gravity_dir) > 0.5 {
+            ground.head_contact = true;
+            ContactKind::Head
+        } else {
+            apply_side_contact(wall, normal, gravity_dir);
+            ContactKind::Side
+        };
+        let surface_velocity = match hit.contact.map.inverse().and_then(|map| map.vector(collider.displacement())) {
+            Ok(velocity) => velocity,
+            Err(fault) => { *refusal = Some(numeric(fault)); return None; }
+        };
+        let impact_speed = crate::collision_semantics::closing_speed(kinematics.vel, normal);
         zero_axis_vel(kinematics, axis);
-        if claim.kind == ContactKind::Side {
-            apply_side_contact(wall, claim.normal, gravity_dir);
-        }
-        contacts.push(block_face_contact(
-            aabb,
-            claim.block,
-            claim.normal,
-            0.0,
-            claim.kind,
-            impact,
-        ));
+        contacts.push(Contact { kind, point: hit.contact.point, normal, toi: 0.0,
+            surface_velocity, impact_speed, involuntary: false, source: collider.source() });
     }
     conflict
 }
@@ -794,7 +504,16 @@ mod tests {
                         };
                         let half = body.projected_half_extent(normal.as_dvec2()).unwrap();
                         body.pos = block.center() + normal * (40.0 + half as f32);
-                        let result = face_contact_position(body, Vec2::ZERO, block, normal).unwrap();
+                        let world = World::new("rounding", Vec2::splat(1000.0), Vec2::ZERO,
+                            vec![crate::Block::solid("face", block.min, block.max - block.min)]);
+                        let axis = if normal.x != 0.0 { Axis::X } else { Axis::Y };
+                        let mut refusal = None;
+                        let feet = body.aabb().feet_coord(down);
+                        sweep_player_axis_clusters(&world, &mut body, &mut Default::default(),
+                            &mut Default::default(), &Default::default(), &Default::default(), axis,
+                            0.0, feet, false, down, &mut Vec::new(), None, &mut refusal);
+                        assert!(refusal.is_none(), "{refusal:?}");
+                        let result = body.pos;
                         let face = normal.as_dvec2().dot(block.center().as_dvec2()) + 40.0;
                         let edge = normal.as_dvec2().dot(result.as_dvec2()) - half;
                         assert!(edge >= face, "normal={normal}, down={down}, scale={scale}: {edge} < {face}");

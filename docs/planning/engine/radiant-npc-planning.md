@@ -241,6 +241,35 @@ free, at 10:39. Under a sync test the bench passes from one holder to the
 other with the session healthy. Slice 2's witness now runs at 9:30, before
 Coulomba is in, with Dmitri (no life) as its control.
 
+## Slice 4 (2026-11-10): interrupt and replan
+
+Three causes stop a plan, and each time the body plans again from the new
+facts, its life saying why (`Life::because`):
+
+- **A conversation.** `interrupt_talked_to_lives` stops the plan of the body
+  `ActiveConversation` names as its talker: it lets go of its claim and its
+  walk (`LifeStop::Interrupted("conversation")`). It runs outside the
+  gameplay gate, because a conversation puts the game in dialogue and the
+  gated executor does not run then (measured: the gated version never saw the
+  conversation). When the conversation ends, the body plans again.
+- **No route.** A refused visit (`NoRoute`) plans again at once and leaves
+  `unreachable:<place>` among the facts until the next hour.
+- **A place gone.** A place the room no longer names (`NoPlace`) does the
+  same with `absent:<place>`.
+
+A domain reads those facts (the scientists' `use the bench` method requires
+neither), so the replan chooses another way. The same failure twice in a row
+waits for the next hour, so a domain that ignores the fact does not plan
+every tick; an interrupt always replans.
+
+Witnesses (`game/ambition_app/tests/a_scientists_plan_is_interrupted.rs`):
+talked to on his way to the bench, Nikobolt stops, stands while they talk,
+then plans again (because of the conversation) and does the experiment at
+the bench; stood on the east gantry with no movement, his visit is refused
+and he plans to read notes (because `NoRoute("workbench")`, with
+`unreachable:workbench`); with the bench sign removed from the room he plans
+to read notes (because `NoPlace("workbench")`, with `absent:workbench`).
+
 ## Acceptance
 
 From the queue row: both scientists follow different authored schedules,

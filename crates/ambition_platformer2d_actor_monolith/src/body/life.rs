@@ -21,6 +21,14 @@
 //! since it planned (the bench it found taken is free again). A plan replaced
 //! lets go of what the body held.
 //!
+//! **Interrupts.** A body a conversation holds stops its plan (it lets go of
+//! its claim and its walk) and plans again when the conversation ends. A step
+//! that fails (no route to its place, a place the room no longer names) plans
+//! again at once, and the failure becomes a fact the domain can read:
+//! `unreachable:<place>` or `absent:<place>`, kept until the next hour. The
+//! reason is the life's `because`. The same failure twice in a row waits for
+//! the next hour, so a domain that ignores the fact does not plan every tick.
+//!
 //! **What it knows.** Its own facts, and the facts its row says it observes
 //! in the world, read when it plans: whether a thing is free (no other body
 //! in the room holds it) and whether a character is present (in the room).
@@ -133,7 +141,32 @@ pub enum LifeStop {
     NoRoute(String),
     /// Another body holds this thing.
     Taken(String),
+    /// Something outside the plan stopped it (a conversation).
+    Interrupted(String),
 }
+
+impl LifeStop {
+    /// A stop that plans again at once, rather than at the next hour.
+    fn replans(&self) -> bool {
+        matches!(self, Self::NoRoute(_) | Self::NoPlace(_) | Self::Interrupted(_))
+    }
+
+    /// The fact a failed step leaves for the next plan.
+    fn fact(&self) -> Option<String> {
+        match self {
+            Self::NoRoute(place) => Some(format!("{UNREACHABLE}{place}")),
+            Self::NoPlace(place) => Some(format!("{ABSENT}{place}")),
+            _ => None,
+        }
+    }
+}
+
+/// The fact a place no route got to leaves (`unreachable:<place>`).
+pub const UNREACHABLE: &str = "unreachable:";
+/// The fact a place the room no longer names leaves (`absent:<place>`).
+pub const ABSENT: &str = "absent:";
+/// The reason a conversation gives an interrupted plan.
+pub const CONVERSATION: &str = "conversation";
 
 impl Life {
     pub fn new(spec: &LifeSpec) -> Self {
@@ -246,6 +279,7 @@ pub fn live_lives(
     cycle: Option<Res<ambition_time::DayCycle>>,
     specs: LiveRoomSpecs,
     rooms: LiveRooms,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     characters: Query<(Entity, &WornCharacter)>,
     mut bodies: Query<(Entity, &mut Life, &WornCharacter, &ae::BodyKinematics, Option<&Visit>)>,
 ) {
@@ -275,6 +309,11 @@ pub fn live_lives(
             visit,
             observes: book.lives.get(&character).map(|spec| &spec.observes),
         };
+        // A conversation holds the body (`interrupt_talked_to_lives` stopped
+        // its plan): it waits.
+        if conversation.as_ref().and_then(|conversation| conversation.talker()) == Some(body) {
+            continue;
+        }
         let new_hour = life.planned_in != Some((clock.day, hour));
         let seen_change = life.doing == Doing::Idle
             && look.observes.is_some_and(|observes| {
@@ -282,10 +321,30 @@ pub fn live_lives(
                     .iter()
                     .any(|(name, observation)| life.facts.get(name) != Some(&facts.observe(body, look.room, observation)))
             });
+        let failed = life
+            .stopped
+            .clone()
+            // An interrupt does not repeat by itself; a failure can, and the
+            // same one twice waits for the next hour.
+            .filter(|why| {
+                life.doing == Doing::Idle
+                    && why.replans()
+                    && (matches!(why, LifeStop::Interrupted(_)) || life.because.as_ref() != Some(why))
+            });
         if new_hour || seen_change {
+            if new_hour {
+                // What failed last hour may not fail now.
+                life.facts.retain(|name, _| !name.starts_with(UNREACHABLE) && !name.starts_with(ABSENT));
+            }
             life.because = None;
             replan(&mut commands, &mut life, &book, &mut facts, &look, hour);
             life.planned_in = Some((clock.day, hour));
+        } else if let Some(why) = failed {
+            if let Some(fact) = why.fact() {
+                life.facts.insert(fact, Value::Bool(true));
+            }
+            life.because = Some(why);
+            replan(&mut commands, &mut life, &book, &mut facts, &look, hour);
         }
         if carry_out(&mut commands, &mut life, &book, &cycle, now, &specs, &mut facts, &look) == Carried::LostClaim {
             // Plan again at once, from what the body now sees; once a tick.
@@ -294,6 +353,35 @@ pub fn live_lives(
             let _ = carry_out(&mut commands, &mut life, &book, &cycle, now, &specs, &mut facts, &look);
         }
     }
+}
+
+/// Stop the plan of a body a conversation holds: it lets go of its claim and
+/// its walk, and plans again when the conversation ends (`live_lives`).
+///
+/// Outside the gameplay gate: a conversation puts the game in dialogue, which
+/// stops gated systems, so a gated reader would never see the conversation
+/// open. `ActiveConversation` is the rollback authority it reads.
+pub fn interrupt_talked_to_lives(
+    mut commands: Commands,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    mut bodies: Query<(&mut Life, Option<&Visit>)>,
+) {
+    let Some(talker) = conversation.and_then(|conversation| conversation.talker()) else {
+        return;
+    };
+    let Ok((mut life, visit)) = bodies.get_mut(talker) else {
+        return;
+    };
+    if life.steps.is_empty() && life.claim.is_none() {
+        return;
+    }
+    // The claim is the life's own field: other bodies read it from there on
+    // their next look.
+    life.claim = None;
+    if visit.is_some() {
+        commands.entity(talker).remove::<Visit>();
+    }
+    stop(&mut life, LifeStop::Interrupted(CONVERSATION.into()));
 }
 
 fn replan(commands: &mut Commands, life: &mut Life, book: &LifeBook, facts: &mut RoomFacts, look: &Look, hour: i64) {

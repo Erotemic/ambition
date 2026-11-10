@@ -33,10 +33,17 @@
                 "work": [
                     (
                         name: "use the bench",
-                        when: [Eq("bench_free", Is(Bool(true)))],
+                        // The executor leaves `unreachable:<place>` when no
+                        // route got there and `absent:<place>` when the room
+                        // no longer names it, until the next hour.
+                        when: [
+                            Eq("bench_free", Is(Bool(true))),
+                            Ne("unreachable:workbench", Is(Bool(true))),
+                            Ne("absent:workbench", Is(Bool(true))),
+                        ],
                         subtasks: ["go_to_bench", "claim_bench", "experiment", "release_bench"],
                     ),
-                    (name: "read notes while the bench is taken", subtasks: ["read_notes"]),
+                    (name: "read notes while the bench is taken, or out of reach", subtasks: ["read_notes"]),
                 ],
                 "talk_if_due": [
                     (

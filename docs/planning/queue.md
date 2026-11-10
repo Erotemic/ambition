@@ -73,7 +73,9 @@ or updating their source. Check with
 
 **Done 2026-11-10 (slice 3):** two scientists, one bench: a claim is simulation state (`Life::claim`; a lost claim replans at once and the life keeps why), observed facts (`Free`, `Present`) are read from the world when a body plans, and a spent plan replans when what it observes changes. Never two holders at once; both get a turn; the hand-over survives a sync test ([result](engine/radiant-npc-planning.md#slice-3-2026-11-10-two-scientists-one-bench)).
 
-**Next action:** slice 4, interrupt and replan: a player interaction, a blocked route or a removed object interrupts the current task, with the reason on the life. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
+**Done 2026-11-10 (slice 4):** interrupt and replan: a conversation stops the talked-to body's plan (outside the gameplay gate, which dialogue stops) and it replans when the conversation ends; a refused route or a place gone replans at once and leaves `unreachable:<place>` / `absent:<place>` for the domain; each new plan says why ([result](engine/radiant-npc-planning.md#slice-4-2026-11-10-interrupt-and-replan)).
+
+**Next action:** slice 5, offscreen and re-entry: a scientist in a room that is not live stands where the schedule says when the room is built again, with the facts the tasks would have set, and the same after save and reload. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 

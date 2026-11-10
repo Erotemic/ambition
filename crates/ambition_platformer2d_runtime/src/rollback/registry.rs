@@ -239,7 +239,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 434 -> 435: pending hits retain accepted material contact and target paths.
 // 435 -> 436: authored NPC life and visit state joins the merged snapshot.
 // 436 -> 437: a `Life` carries its claim on a thing and why its plan was made.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 437;
+// 437 -> 438: a talked-to life stops its plan, and a failed step replans.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 438;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

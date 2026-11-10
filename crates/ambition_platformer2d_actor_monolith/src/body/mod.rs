@@ -356,6 +356,14 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 .after(crate::body::visit::settle_visits)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
         );
+        // Outside the gate: a conversation stops gated systems, and this is
+        // what stops a talked-to body's plan.
+        app.add_systems(
+            sim,
+            crate::body::life::interrupt_talked_to_lives
+                .run_if(any_with_component::<crate::body::life::Life>)
+                .before(crate::body::life::live_lives),
+        );
         // A body crosses to its item's room after the held items and after
         // this tick's custody is derived: it reads `InCustodyOf` (what goes
         // with it), which is derived and not rolled back, so before its

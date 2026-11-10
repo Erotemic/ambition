@@ -900,3 +900,19 @@ Runtime libraries (252), the assembled app, the new GNU-ton witness, the
 existing far-side punch and rewind witnesses, and Smash pass. Logs use
 `target/portal-limbs-`. Simultaneous-path capture, chained hit/knockback and
 chained replay are not proved by this packet. P07 remains open.
+
+
+### Chained strike launch and replay
+
+`99d51bc9f` fixes launch scale lost through direction normalization. The
+contacting material map sets the launch magnitude through validated `Sim2`
+length conversion. A strike keeps its canonical map without portal geometry.
+The launch agrees before and after the source body rebases.
+
+The real GNU-ton fist deals seven damage once through three cuts, gives a
+reflected half-speed launch, and moves the player left and up. Snapshot loads
+run. Two runs give the same body, health and hit-ledger trace. Combat libraries
+(819, three ignored), the assembled app, both GNU-ton guards, all 38 app portal
+tests and Smash pass. Logs use `target/portal-launch-`; Smash results are in
+`.agent/portal-launch-smash-artifacts.jsonl`. Simultaneous damaging limbs, visual
+capture and the remaining lab examples are still open. P07 remains open.

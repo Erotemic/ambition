@@ -34,8 +34,9 @@ moving-target and carried-source projectile/hurt contact, other movement
 models, guard geometry, attachments, the bounded numeric law and fault effects,
 I–J lab stations, and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
-guards in `2c4bd3822`. Simultaneous-path visual and damage acceptance remain
-open.
+guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
+`99d51bc9f`. Simultaneous-path capture, two active limb strikes and the remaining
+lab stations remain open.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -1008,3 +1009,22 @@ existing far-side punch and rewind witnesses, and Smash pass. Logs use
 `target/portal-limbs-`. This packet does not prove simultaneous-path capture,
 chained hit/knockback, chained replay, or the remaining lab stations. Full
 PSIM-3 and P07 acceptance remain open.
+
+
+### Chained strike launch and replay
+
+`99d51bc9f` keeps launch speed in the contacting material's units. Direction
+normalization no longer discards scale. A strike keeps canonical material when
+no portal snapshot is present. The same strike therefore gives the same launch
+through three cuts at a total scale of 0.5 and after its source rebases.
+
+The guards are `a_chained_half_scale_strike_keeps_its_launch_after_the_source_rebases`
+and `a_gnu_ton_fist_hits_once_after_three_cuts_and_replays_its_scaled_launch`.
+The GNU-ton witness runs under the rollback host. Its fist deals seven damage
+once, produces a reflected launch at half speed, and moves the player left and
+up. A second run repeats the body, health and hit-ledger trace bit for bit.
+Combat libraries (819, three ignored), the assembled app, both GNU-ton guards,
+all 38 app portal tests and Smash pass. Logs use `target/portal-launch-`; Smash
+results are in `.agent/portal-launch-smash-artifacts.jsonl`. These checks do not
+prove visual capture or two simultaneous damaging limbs. Full PSIM acceptance
+remains open.

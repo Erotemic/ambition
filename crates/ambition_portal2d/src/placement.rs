@@ -33,7 +33,7 @@ pub fn raycast_through_portals(
         Some(ae::frame::thread::PortalLink::new(enter.aperture(),exit.aperture(),key as u32))
     }).collect::<Vec<_>>();
     ae::cast::trace_through_apertures(
-        world, &links, ae::cast::PortalRay { origin, direction: dir, reach: max_dist },
+        world, &links, ae::cast::PortalRay { origin, direction: dir, reach: max_dist, width: 0.0 },
         include_one_way, budget, convention,
     ).map(|trace| trace.hit)
 }
@@ -58,6 +58,7 @@ pub fn raycast_through_portals_tuned(
         ae::cast::RayBudget {
             max_hops: tuning.raycast_recursion_depth,
             max_scale_exponent: tuning.geometry.budget().max_scale_exponent,
+            max_pieces: tuning.geometry.budget().max_pieces,
         },
         tuning.convention.map_convention(),
     )

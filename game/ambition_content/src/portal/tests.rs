@@ -239,7 +239,7 @@ fn raycast_sees_through_a_portal_pair_and_recurses() {
         Vec2::new(0.0, 1.0),
         6000.0,
         false,
-        ae::cast::RayBudget { max_hops: 2, max_scale_exponent: 12 },
+        ae::cast::RayBudget { max_hops: 2, max_scale_exponent: 12, max_pieces: 32 },
         MapConvention::Reflection,
     ).unwrap();
     assert!(

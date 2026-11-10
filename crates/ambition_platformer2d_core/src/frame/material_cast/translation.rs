@@ -78,7 +78,10 @@ impl Window {
 }
 
 fn planes(points: &[DVec2], delta: DVec2) -> Vec<Plane> {
-    let area: f64 = edges(points).map(|(a, b)| a.perp_dot(b)).sum();
+    let origin = points.first().copied().unwrap_or_default();
+    let area: f64 = edges(points).map(|(a, b)| (a - origin).perp_dot(b - origin)).sum();
+    let boundary = (points.len() > 2 && area == 0.0).then(|| hull(points.to_vec()));
+    let points = boundary.as_deref().unwrap_or(points);
     let mut result = Vec::new();
     let mut push = |inward: DVec2, point: DVec2| {
         if inward != DVec2::ZERO {

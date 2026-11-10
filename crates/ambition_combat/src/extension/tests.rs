@@ -554,3 +554,20 @@ fn a_subunit_ray_does_not_extend_through_its_first_wall() {
     request.reach=f32::NAN;
     assert!(cast_ray(&request,None,None,None,owner,None).is_none());
 }
+
+#[test]
+fn a_held_ray_stops_when_its_edge_hits_a_wall_that_its_centre_misses() {
+    let owner = Entity::from_raw_u32(1).unwrap();
+    let world = ae::World::new("wide ray", ae::Vec2::splat(100.0), ae::Vec2::ZERO,
+        vec![ae::Block::solid("edge", ae::Vec2::new(12.0, 1.5), ae::Vec2::new(2.0, 2.0))]);
+    let request = HeldRay {
+        slot: 0, generation: 0, from: ambition_combat_port::Spot::World([0.0, 0.0]),
+        toward: [1.0, 0.0], reach: 40.0, width: 4.0, damage: 1, knockback: 1.0,
+        launch_dir: None, lifetime_s: 0.5, look: "laser".into(),
+    };
+    let (origin, strike, shape) = cast_ray(&request, None, Some(&world), None, owner, None).unwrap();
+    assert_eq!(strike.length, 12.0);
+    assert_eq!(shape.place_at(origin, 1.0, ae::Vec2::Y).bounds().max.x, 12.0);
+    let narrow = HeldRay { width: 1.0, ..request };
+    assert_eq!(cast_ray(&narrow, None, Some(&world), None, owner, None).unwrap().1.length, 40.0);
+}

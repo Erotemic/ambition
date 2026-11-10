@@ -135,7 +135,11 @@ impl<'a> MaterialCast<'a> {
             .map_err(numeric)?;
         if !self.delta.is_finite() || !self.root.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
         let bounds = self.material.domain.bounds();
-        if (bounds.max-bounds.min).min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
+        let dimensions = bounds.max - bounds.min;
+        // A finite cross-section sweeps a band without an artificial thickness.
+        if dimensions.min_element() < 0.0 {
+            return Err(numeric(NumericFault::InvalidScale));
+        }
         let policy = admission.unwrap_or(MotionAdmission { links: &[], first: None,
             budget: super::thread::PieceBudget::COMPOSED, convention: super::MapConvention::Reflection });
         let rotating = self.rotation.is_some_and(|rotation| rotation.turn != 0.0);

@@ -8,6 +8,26 @@ fn box_at(center: Vec2, half: Vec2) -> Vec<Vec2> {
 }
 
 #[test]
+fn a_finite_cross_section_sweeps_its_full_width_without_padding() {
+    let section = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(0.0, 2.0)));
+    for angle in [0.0, 0.37, std::f32::consts::FRAC_PI_2] {
+        let axes = Mat2::from_angle(angle);
+        let origin = Vec2::new(20.0, 50.0);
+        let map = Sim2::new(1.0, axes, origin).unwrap();
+        let cells = MaterialCast::new(MaterialPrimitive { domain: &section, to_world: map },
+            origin, axes * Vec2::new(10.0, 0.0), 1.0..1.0)
+            .with_initial_overlap(InitialOverlap::Report).cells(None).unwrap();
+        let obstacle = box_at(Vec2::new(5.5, 2.0), Vec2::new(0.5, 0.5)).into_iter()
+            .map(|point| map.point(point).unwrap()).collect::<Vec<_>>();
+        let hit = cells.against(&cells.parts()[0], &obstacle, Vec2::ZERO).unwrap().unwrap();
+        assert!((hit.toi - 0.5).abs() < 1.0e-6, "{angle}: {hit:?}");
+        let clear = box_at(Vec2::new(5.5, 3.0), Vec2::new(0.5, 0.5)).into_iter()
+            .map(|point| map.point(point).unwrap()).collect::<Vec<_>>();
+        assert!(cells.against(&cells.parts()[0], &clear, Vec2::ZERO).unwrap().is_none());
+    }
+}
+
+#[test]
 fn a_new_cell_owns_contact_at_a_topology_boundary() {
     let body = CombatVolume::circle(Vec2::ZERO, 1.0);
     let mut cells = MaterialCast::new(

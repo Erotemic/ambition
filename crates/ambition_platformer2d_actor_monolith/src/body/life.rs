@@ -94,6 +94,9 @@ pub struct LifeSpec {
     /// The facts the author owns (its hours): written into the body's facts
     /// each time it plans, from the book as it is then.
     pub authored: Facts,
+    /// The body's own facts that each day starts from again: on the first
+    /// plan of a new day each takes this value (`ate` is false at breakfast).
+    pub daily: Facts,
     /// Facts read from the world when the body plans, by fact name.
     pub observes: BTreeMap<String, Observation>,
 }
@@ -208,7 +211,13 @@ impl Life {
     pub fn new(spec: &LifeSpec) -> Self {
         Self {
             domain: spec.domain.clone(),
-            facts: spec.facts.iter().chain(&spec.authored).map(|(name, value)| (name.clone(), value.clone())).collect(),
+            facts: spec
+                .facts
+                .iter()
+                .chain(&spec.daily)
+                .chain(&spec.authored)
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect(),
             planned_in: None,
             steps: Vec::new(),
             doing: Doing::Idle,
@@ -427,6 +436,9 @@ pub fn live_lives(
             if new_hour {
                 // What failed last hour may not fail now.
                 life.facts.retain(|name, _| !name.starts_with(UNREACHABLE) && !name.starts_with(ABSENT));
+                if life.planned_in.is_some_and(|(day, _)| day != clock.day) {
+                    begin_day(&mut life, look.spec);
+                }
             }
             life.because = None;
             replan(&mut commands, &mut life, &book, &mut facts, &look, hour);
@@ -495,6 +507,15 @@ fn facts_to_plan_by(life: &mut Life, facts: &RoomFacts, look: &Look, hour: i64, 
     }
 }
 
+/// A new day: each fact the body starts every day from takes its value again.
+fn begin_day(life: &mut Life, spec: Option<&LifeSpec>) {
+    if let Some(spec) = spec {
+        for (name, value) in &spec.daily {
+            life.facts.insert(name.clone(), value.clone());
+        }
+    }
+}
+
 /// A body built again catches up the hours it was away: each whole hour it
 /// missed is planned and its steps' effects applied (no walking: claims and
 /// holds are of no one while no one watches); the current hour is planned and
@@ -515,7 +536,15 @@ fn catch_up(
     let (from_day, from_hour) = life.planned_in.unwrap_or((day, hour));
     let missed = ((i64::from(day) - i64::from(from_day)) * 24 + (hour - from_hour) - 1).clamp(0, CATCH_UP_HOURS);
     let mut last_place = None;
+    // The day of the hour last planned; each midnight crossed begins a day.
+    let mut planned_day = i64::from(from_day);
+    let now = i64::from(day) * 24 + hour;
     for back in (1..=missed).rev() {
+        let this_day = (now - back).div_euclid(24);
+        if this_day != planned_day {
+            begin_day(life, look.spec);
+            planned_day = this_day;
+        }
         facts_to_plan_by(life, facts, look, (hour - back).rem_euclid(24), true);
         let Ok(plan) = domain.plan(&life.facts, Budget::default()) else { continue };
         for step in &plan.steps {
@@ -524,6 +553,9 @@ fn catch_up(
             }
             domain.apply_step(&step.task, &mut life.facts);
         }
+    }
+    if i64::from(day) != planned_day {
+        begin_day(life, look.spec);
     }
     life.because = None;
     replan(commands, life, book, facts, look, hour);

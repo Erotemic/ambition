@@ -331,6 +331,18 @@ Saving the file in a running build that reads its content off disk asks for
 the same reload: `content_watch` watches every source the pack declares, the
 lives file among them (not witnessed for this family on its own).
 
+## Review fixes (2026-11-10)
+
+A source review of the slices above found lifecycle gaps. Fixed:
+
+- **The second day.** `ate` and `talked` were set once and never reset, so
+  from day 2 the scientists never lunched or talked again. A life now
+  authors `daily` facts (`npc_lives.ron`): each takes its authored value on
+  the first plan of a new day, in the live executor and for each midnight an
+  offscreen catch-up crosses. The planner stays generic; the content says
+  what recurs. Witness: `nikobolt_works_at_his_bench_and_lunches_at_noon`
+  now lunches on day 2 too (without the reset it fails: he is still fed).
+
 ## Acceptance
 
 From the queue row: both scientists follow different authored schedules,

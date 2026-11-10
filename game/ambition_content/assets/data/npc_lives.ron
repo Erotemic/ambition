@@ -91,9 +91,12 @@
             },
             facts: {
                 "at": Sym("lab"),
+                "experiments": Int(0),
+            },
+            // Each day starts unfed and with nothing said yet.
+            daily: {
                 "ate": Bool(false),
                 "talked": Bool(false),
-                "experiments": Int(0),
             },
             observes: {
                 "bench_free": Free("workbench"),
@@ -110,9 +113,12 @@
             },
             facts: {
                 "at": Sym("lab"),
+                "experiments": Int(0),
+            },
+            // Each day starts unfed and with nothing said yet.
+            daily: {
                 "ate": Bool(false),
                 "talked": Bool(false),
-                "experiments": Int(0),
             },
             observes: {
                 "bench_free": Free("workbench"),

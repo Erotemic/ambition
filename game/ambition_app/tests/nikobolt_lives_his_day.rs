@@ -53,7 +53,8 @@ fn hour(sim: &ambition_app::Platformer2dSimHarness) -> f32 {
 /// the plan is a working one: he walks to the bench and the experiment is
 /// done (his facts count it). The clock is then put on to just before noon,
 /// and at noon a new plan: he walks to the lunch crate and eats. Each phase
-/// is read off his body and his facts, not off the plan's words.
+/// is read off his body and his facts, not off the plan's words. The next
+/// day he is unfed again and lunches again.
 #[test]
 fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
     let mut sim = fixed_60hz_room_sim(LAB);
@@ -115,6 +116,30 @@ fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
     assert!(life.revision > revision, "premise: noon is a new plan");
     assert!((x - LUNCH_X).abs() < 48.0, "lunch was eaten away from the crate: x {x}");
     assert_eq!(life.doing, Doing::Idle, "after lunch his plan is spent");
+
+    // The next day (review 2026-11-10: `ate` was never reset, so he never
+    // ate again): just before noon of day 2 he is unfed again, and eats.
+    {
+        let world = sim.world_mut();
+        let cycle = *world.resource::<DayCycle>();
+        let mut clock = DayClock::at_hour(&cycle, 11.95);
+        clock.day = world.resource::<DayClock>().day + 1;
+        *world.resource_mut::<DayClock>() = clock;
+    }
+    let mut unfed = false;
+    let mut ate_again = None;
+    while hour(&sim) < 12.9 {
+        sim.step(base());
+        let life = sim.world().get::<Life>(nikobolt).unwrap();
+        unfed |= fact(life, "ate") == Some(Value::Bool(false));
+        if unfed && fact(life, "ate") == Some(Value::Bool(true)) {
+            ate_again = Some(x_of(&sim, nikobolt));
+            break;
+        }
+    }
+    assert!(unfed, "a new day did not start him unfed: {:?}", sim.world().get::<Life>(nikobolt));
+    let x = ate_again.unwrap_or_else(|| panic!("on day 2 Nikobolt did not eat by 12:54: {:?}", sim.world().get::<Life>(nikobolt)));
+    assert!((x - LUNCH_X).abs() < 48.0, "day 2's lunch was eaten away from the crate: x {x}");
 
     // The control: a character with no life stands where they stood.
     assert!(sim.world().get::<Life>(dmitri).is_none(), "premise: Dmitri has no life in the book");

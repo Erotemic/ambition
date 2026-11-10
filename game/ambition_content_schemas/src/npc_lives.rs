@@ -30,6 +30,10 @@ pub struct LifeRow {
     /// the character plans, never kept as its own.
     #[serde(default)]
     pub authored: BTreeMap<String, Value>,
+    /// Facts the character keeps that every day starts from again (`ate`:
+    /// false): each takes this value on the first plan of a new day.
+    #[serde(default)]
+    pub daily: BTreeMap<String, Value>,
     #[serde(default)]
     pub observes: BTreeMap<String, Observation>,
 }
@@ -67,13 +71,20 @@ fn problems(lives: &NpcLives) -> Vec<String> {
         if !lives.domains.contains_key(&life.domain) {
             problems.push(format!("`lives.{character}` plans with `{}`, which no domain is", life.domain));
         }
-        for (kind, names) in [("observes", life.observes.keys().collect::<Vec<_>>()), ("authors", life.authored.keys().collect())] {
+        for (kind, names) in [
+            ("observes", life.observes.keys().collect::<Vec<_>>()),
+            ("authors", life.authored.keys().collect()),
+            ("starts each day with", life.daily.keys().collect()),
+        ] {
             if let Some(name) = names.iter().find(|name| life.facts.contains_key(**name)) {
                 problems.push(format!("`lives.{character}` both keeps and {kind} `{name}`; the {kind} value replaces the kept one"));
             }
         }
         if let Some(name) = life.observes.keys().find(|name| life.authored.contains_key(*name)) {
             problems.push(format!("`lives.{character}` both authors and observes `{name}`"));
+        }
+        if let Some(name) = life.daily.keys().find(|name| life.authored.contains_key(*name) || life.observes.contains_key(*name)) {
+            problems.push(format!("`lives.{character}` starts each day with `{name}`, which it also authors or observes"));
         }
     }
     for (verb, hours) in &lives.holds {

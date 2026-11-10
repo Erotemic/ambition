@@ -20,7 +20,8 @@ carries closed campaigns. Unselected or customer-gated plans live in
    already completed morph-ball visibility, joining, party travel, baseline
    split-view or peer room-commit mechanics.
 3. **Selected product/asset fixes (2026-11-01 triage):** ASSET-SELECTION,
-   SMASH-DEFECTS, ITEM-CONTENT, ASSET-PUBLISH and ASSET-PREVIEW in that order.
+   SMASH-DEFECTS (done 2026-11-10), ITEM-CONTENT, ASSET-PUBLISH and
+   ASSET-PREVIEW in that order.
    A9's completed profile proof is not an automatic invitation to rewrite the
    capability architecture. Continue AP14 ownership work before lower-priority
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
@@ -216,28 +217,6 @@ loose unselected copies remain visible as workspace products. A usable old
 publication can run without a rebuild or a deep audit. A native host with
 served-content support enabled admits its shared library once; standalone
 served games still run.
-
-### SMASH-DEFECTS — select-screen, respawn and result lifecycle
-
-**Failure:** source review found off-page portraits that retain their old
-rectangle, a default jump budget at respawn, a result clock without a pause
-check, stale mouse state at route entry, and invisible page controls.
-
-**Owner:** Smash select UI and route lifecycle, stock placement, and the shared
-body reset API. Evidence: [SD-01 through SD-07](demos/smash-defect-review-2026-10-31.md).
-
-**Fixed 2026-11-10:** SD-01 to SD-05, each with a headless test at its owner
-([review](demos/smash-defect-review-2026-10-31.md)).
-
-**Next action:** measure idle component change ticks and portrait demands for
-SD-06 and SD-07 before selecting a performance change. Keep the existing S0
-combat work separate.
-
-**Acceptance:** small-view mouse, touch and pad input reaches every visible
-page; off-page children are hidden. Real stock loss preserves each fighter's
-jump budget. Pause preserves the result delay. The first click after route
-re-entry uses its actual pointer position. Report idle demand/change counts
-and frame cost separately from correctness.
 
 ### ASSET-PUBLISH — selection does not audit old bundle payloads
 
@@ -1084,6 +1063,10 @@ the game draws the same at each tier.
 ## Receipts
 
 Closed rows retained only where an open row, a script or an inbound link still needs their identity.
+
+### SMASH-DEFECTS — select-screen, respawn and result lifecycle
+
+Done 2026-11-10: SD-01 to SD-05 (off-page portraits drawn, default air jumps at respawn, a result clock that ran while paused, a stale mouse at route entry, invisible page controls), each with a headless test at its owner that a poison of its fix reddens. SD-06 (47 select-screen components marked changed on every idle frame, now 0) and SD-07 (one portrait resolution per occupied card per frame, now 0; a failed load restarted every frame, 8 ms a card on a VM missing two portraits) measured before and after; the windowed UI-layout saving of SD-06 is unmeasured and not claimed. Owner: [Smash defect review](demos/smash-defect-review-2026-10-31.md).
 
 ### NET-INPUT-WIDTH — remove idle room consensus from every frame
 

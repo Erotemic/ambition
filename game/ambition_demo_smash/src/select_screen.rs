@@ -126,6 +126,19 @@ pub fn stocks_button_text(choice: crate::SmashStockChoice) -> String {
 #[derive(Component, Clone, Copy)]
 pub struct CardPortrait(pub usize);
 
+/// The look a card's portrait was last resolved for. The card resolves its
+/// picture again only when the look changes or the art it came from does, so
+/// an idle card asks the asset server for nothing.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ShownPortrait(Option<PortraitLook>);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PortraitLook {
+    /// A fighter, or the skin it wears, by id.
+    Fighter(String),
+    Random,
+}
+
 /// The chosen fighter's name on a card.
 #[derive(Component, Clone, Copy)]
 pub struct CardName(pub usize);
@@ -873,6 +886,7 @@ pub fn spawn_select_screen(
                 root.spawn((
                     anchored(Anchored::CardPortrait(slot)),
                     CardPortrait(slot),
+                    ShownPortrait::default(),
                     ImageNode::default(),
                     GlobalZIndex(610),
                     // Hidden until something is picked; an empty `ImageNode`
@@ -1644,7 +1658,7 @@ pub fn sync_select_cards(
             Without<StageButtonLabel>,
         ),
     >,
-    mut card_portraits: Query<(&CardPortrait, &mut ImageNode, &mut Visibility)>,
+    mut card_portraits: Query<(&CardPortrait, &mut ShownPortrait, &mut ImageNode, &mut Visibility)>,
 ) {
     let catalog = Some(&*art.catalog);
     let no_skins = SmashSkins::default();
@@ -1704,9 +1718,14 @@ pub fn sync_select_cards(
         }
     }
 
-    for (portrait, mut image, mut visibility) in &mut card_portraits {
+    // Published art, the catalog or the entity sheets changing can change
+    // the picture of a look that did not change.
+    let art_changed = art.content.is_changed()
+        || art.catalog.is_changed()
+        || art.entities.as_ref().is_some_and(|entities| entities.is_changed());
+    for (portrait, mut shown, mut image, mut visibility) in &mut card_portraits {
         let card = select.slot(portrait.0);
-        let shown = card
+        let look = card
             .occupant
             .participates()
             .then_some(card.pick)
@@ -1714,10 +1733,18 @@ pub fn sync_select_cards(
             .and_then(|pick| match pick {
                 SlotPick::Fighter(index) => fighters
                     .get(index)
-                    .and_then(|id| art.portrait(card_skin(&fighters, skins, card).unwrap_or(id))),
-                SlotPick::Random => random_icon(&art).map(|handle| (handle, None)),
+                    .map(|id| PortraitLook::Fighter(card_skin(&fighters, skins, card).unwrap_or(id).to_string())),
+                SlotPick::Random => Some(PortraitLook::Random),
             });
-        match shown {
+        if shown.0 == look && !art_changed {
+            continue;
+        }
+        let picture = match &look {
+            Some(PortraitLook::Fighter(id)) => art.portrait(id),
+            Some(PortraitLook::Random) => random_icon(&art).map(|handle| (handle, None)),
+            None => None,
+        };
+        match picture {
             Some((handle, rect)) => {
                 if image.image != handle {
                     image.image = handle;
@@ -1729,6 +1756,7 @@ pub fn sync_select_cards(
             }
             None => set_visibility(&mut visibility, Visibility::Hidden),
         }
+        shown.set_if_neq(ShownPortrait(look));
     }
 }
 
@@ -1847,30 +1875,24 @@ pub fn sync_select_tokens_and_cursors(
     }
 }
 
-fn set_border(border: &mut BorderColor, color: Color) {
-    let next = BorderColor::all(color);
-    if *border != next {
-        *border = next;
-    }
+// These take the `Mut` itself, not `&mut T`: dereferencing a `Mut` mutably
+// marks the component changed whether or not anything is then written, and a
+// changed `Node` sends Bevy's UI layout back over the tree. Compare through
+// `Deref`; write only a value that differs.
+fn set_border(border: &mut Mut<BorderColor>, color: Color) {
+    border.set_if_neq(BorderColor::all(color));
 }
 
-fn set_visibility(visibility: &mut Visibility, next: Visibility) {
-    if *visibility != next {
-        *visibility = next;
-    }
+fn set_visibility(visibility: &mut Mut<Visibility>, next: Visibility) {
+    visibility.set_if_neq(next);
 }
 
-fn set_rect(node: &mut Node, rect: HitRect) {
+fn set_rect(node: &mut Mut<Node>, rect: HitRect) {
     let size = rect.size();
-    for (field, value) in [
-        (&mut node.left, Val::Px(rect.min.x)),
-        (&mut node.top, Val::Px(rect.min.y)),
-        (&mut node.width, Val::Px(size.x)),
-        (&mut node.height, Val::Px(size.y)),
-    ] {
-        if *field != value {
-            *field = value;
-        }
+    let (left, top, width, height) = (Val::Px(rect.min.x), Val::Px(rect.min.y), Val::Px(size.x), Val::Px(size.y));
+    if (node.left, node.top, node.width, node.height) != (left, top, width, height) {
+        let node = &mut **node;
+        (node.left, node.top, node.width, node.height) = (left, top, width, height);
     }
 }
 

@@ -2,7 +2,8 @@
 
 **Source read:** `5ec96e4e3152` (2026-10-31). **State:** SD-01 through SD-05
 fixed 2026-11-10, each with a test that a poison of its fix reddens (see
-"Fixed" under each); SD-06 and SD-07 are open and unmeasured. This review records defects and possible performance costs.
+"Fixed" under each). SD-06 and SD-07 were measured and fixed the same day,
+with before and after counts under each. This review records defects and possible performance costs.
 It does not track Smash feature parity or game feel.
 
 **Tracking:** [SMASH-DEFECTS in the live queue](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
@@ -183,6 +184,24 @@ Include a control case with actual layout changes.
 solely because the projection runs. Report before/after change counts and frame
 cost. Do not claim a performance win without measurements.
 
+**Fixed 2026-11-10 (measured).** The cause was as read: callers passed
+`&mut` of a `Mut<T>`, and that dereference marks the component changed before
+the helper compares. The helpers now take the `Mut` and write only a new value
+(`set_if_neq`, or a compare through `Deref` for the four `Node` fields).
+Witness: `an_idle_select_screen_writes_nothing::an_idle_select_screen_marks_nothing_changed`
+in `ambition_demo_smash_app`, on `build_demo_app` with one pad, counting
+changed components on the screen's pieces in `Last` over 120 idle frames.
+
+| | `Node` | `BorderColor` | `Visibility` | whole-app frame (headless debug) |
+|---|---|---|---|---|
+| before, each idle frame | 22 | 9 | 16 | 1272, 1059, 1140 us |
+| after, each idle frame | 0 | 0 | 0 | 1038, 1023 us |
+
+Control: a moved cursor marks its node on the next frame. The frame times do
+not separate: the headless foundation has no `UiPlugin`, so the layout pass
+the stray changes triggered does not run there. No frame-cost win is claimed;
+the saving is in Bevy's UI layout on a windowed host, unmeasured.
+
 ## SD-07 — Slot portraits request the same images on idle frames (P2; measure)
 
 **Owner:** Smash select-screen presentation and asset handles.
@@ -202,6 +221,30 @@ cost before changing how images are loaded.
 **Fix direction:** Keep a stable handle and image rectangle per selected
 character and skin. Refresh when a choice changes or when an existing reload path changes the
 selected asset generation. Do not add a hot-reload requirement.
+
+**Fixed 2026-11-10 (measured).** Each card carries `ShownPortrait`, the look
+(fighter or skin id, or the random square) its picture was resolved for. The
+card resolves again only when that look changes, or when `SpriteContent`, the
+catalog or the entity sheets change (an existing reload path).
+Measured with a temporary counter in `portrait_art` (not committed: the image
+ledger is process-wide, so a counting gate would read other tests' demands),
+two runs each, over 120 idle frames on `build_demo_app`:
+
+| occupied cards | resolutions before | frame before | resolutions after | frame after |
+|---|---|---|---|---|
+| 1 | 120 | 9689, 9160 us | 0 | 1197, 1041 us |
+| 4 | 360 (one pick has no portrait) | 18014, 17397 us | 0 | 1050, 1084 us |
+
+The source of the frame cost: on this VM two of the picked portraits are not
+published (`sprites/george_booul_portraits.png` and
+`sprites/player_robot_v2_portraits.png` are `NotFound`), and a `load` of a
+path whose load failed starts the load again, about 8 ms a frame for each such
+card. The card whose portrait loaded cost nothing measurable. So the size of
+the cost depends on the art present; the repeat demand happens everywhere.
+Witness for what the cache must not break:
+`a_card_shows_the_look_it_holds_after_the_look_changes` (another fighter, a
+skin, back again, and an empty card). A poison that keyed the cache on "a pick
+exists" instead of the look reddened it.
 
 **Acceptance:** Idle cards do not issue repeat image demands. Character and skin changes
 update the picture. A new published asset is visible after restart (or an

@@ -238,9 +238,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 433 -> 434: a seat's leave is a stamped request (`ParticipantLeaveRequested`).
 // 434 -> 435: pending hits retain accepted material contact and target paths.
 // 435 -> 436: authored NPC life and visit state joins the merged snapshot.
-
-// 436 -> 437: each aperture keeps its authored size; bodies cast native parts.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 437;
+// 436 -> 437: a `Life` carries its claim on a thing and why its plan was made.
+// 437 -> 438: a talked-to life stops its plan, and a failed step replans.
+// 438 -> 439: each character's last life joins the snapshot and catches up.
+// 439 -> 440: authored aperture sizes and native body contacts join the merge.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 440;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

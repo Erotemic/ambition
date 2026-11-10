@@ -33,10 +33,17 @@
                 "work": [
                     (
                         name: "use the bench",
-                        when: [Eq("bench_free", Is(Bool(true)))],
+                        // The executor leaves `unreachable:<place>` when no
+                        // route got there and `absent:<place>` when the room
+                        // no longer names it, until the next hour.
+                        when: [
+                            Eq("bench_free", Is(Bool(true))),
+                            Ne("unreachable:workbench", Is(Bool(true))),
+                            Ne("absent:workbench", Is(Bool(true))),
+                        ],
                         subtasks: ["go_to_bench", "claim_bench", "experiment", "release_bench"],
                     ),
-                    (name: "read notes while the bench is taken", subtasks: ["read_notes"]),
+                    (name: "read notes while the bench is taken, or out of reach", subtasks: ["read_notes"]),
                 ],
                 "talk_if_due": [
                     (
@@ -67,21 +74,49 @@
             },
         ),
     },
+    // Two scientists and one bench. Each keeps their own hours; whether
+    // the bench is free and whether the other is in the lab are read from the
+    // world when each plans, so one who finds the bench taken reads notes and
+    // takes the bench when it is free.
     lives: {
-        // Nikobolt keeps 8 to 18 and lunches at noon. Coulomba joins him in a
-        // later slice, with her own hours and the one bench between them.
+        // Nikobolt keeps 8 to 18 and lunches at noon.
         "npc_science_nikobolt": (
             domain: "eureka_scientist_day",
-            facts: {
+            // The hours are authored: read from this file each time a scientist
+            // plans, never kept as the scientist's own facts.
+            authored: {
                 "arrive_hour": Int(8),
                 "lunch_hour": Int(12),
                 "leave_hour": Int(18),
+            },
+            facts: {
                 "at": Sym("lab"),
-                "bench_free": Bool(true),
                 "ate": Bool(false),
                 "talked": Bool(false),
-                "partner_here": Bool(false),
                 "experiments": Int(0),
+            },
+            observes: {
+                "bench_free": Free("workbench"),
+                "partner_here": Present("npc_science_coulomba"),
+            },
+        ),
+        // Coulomba keeps 10 to 20 and lunches at one.
+        "npc_science_coulomba": (
+            domain: "eureka_scientist_day",
+            authored: {
+                "arrive_hour": Int(10),
+                "lunch_hour": Int(13),
+                "leave_hour": Int(20),
+            },
+            facts: {
+                "at": Sym("lab"),
+                "ate": Bool(false),
+                "talked": Bool(false),
+                "experiments": Int(0),
+            },
+            observes: {
+                "bench_free": Free("workbench"),
+                "partner_here": Present("npc_science_nikobolt"),
             },
         ),
     },

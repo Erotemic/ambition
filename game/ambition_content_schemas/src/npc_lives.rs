@@ -17,13 +17,30 @@ use serde::Deserialize;
 /// The authored FILE kind.
 pub const NPC_LIVES_SCHEMA: &str = "npc_lives";
 
-/// One character's life: the domain it plans with and its own facts.
+/// One character's life: the domain it plans with, its own facts, and the
+/// facts it reads from the world when it plans.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LifeRow {
     pub domain: String,
+    /// The facts the character starts with (what it has done).
     #[serde(default)]
     pub facts: BTreeMap<String, Value>,
+    /// The facts the author owns (its hours): read from the book each time
+    /// the character plans, never kept as its own.
+    #[serde(default)]
+    pub authored: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub observes: BTreeMap<String, Observation>,
+}
+
+/// A fact the world states, read when a body plans.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub enum Observation {
+    /// No other body in the room holds a claim on this thing.
+    Free(String),
+    /// A body of this character is in the room.
+    Present(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -49,6 +66,14 @@ fn problems(lives: &NpcLives) -> Vec<String> {
     for (character, life) in &lives.lives {
         if !lives.domains.contains_key(&life.domain) {
             problems.push(format!("`lives.{character}` plans with `{}`, which no domain is", life.domain));
+        }
+        for (kind, names) in [("observes", life.observes.keys().collect::<Vec<_>>()), ("authors", life.authored.keys().collect())] {
+            if let Some(name) = names.iter().find(|name| life.facts.contains_key(**name)) {
+                problems.push(format!("`lives.{character}` both keeps and {kind} `{name}`; the {kind} value replaces the kept one"));
+            }
+        }
+        if let Some(name) = life.observes.keys().find(|name| life.authored.contains_key(*name)) {
+            problems.push(format!("`lives.{character}` both authors and observes `{name}`"));
         }
     }
     for (verb, hours) in &lives.holds {

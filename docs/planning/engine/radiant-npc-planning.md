@@ -208,10 +208,115 @@ where he eats; Coulomba, with no life, does not move (the control); and the
 same day under a sync test resimulates to the same world with the experiment
 done at the bench.
 
-Not yet: Coulomba's life and the one bench between them (slice 3), facts
-read from the world rather than kept by the body (`bench_free`,
-`partner_here`), a fact that turns over with the day (`ate`), and `say` as a
-spoken line.
+Not yet: a fact that turns over with the day (`ate`), and `say` as a spoken
+line.
+
+## Slice 3 (2026-11-10): two scientists, one bench
+
+Coulomba has a life too (10-13-20), with the same domain. Three things were
+added to the executor:
+
+- **A claim is simulation state.** `claim <thing>` takes the thing for one
+  body in its live room (`Life::claim`); `release` lets it go, and so does a
+  replaced plan. A claim on a thing another body holds is lost: the body
+  plans again at once, from what it now sees, and its life keeps why
+  (`Life::because`, `LifeStop::Taken`).
+- **Facts read from the world.** A life row names what it observes:
+  `Free(thing)` (no other body in the room holds it) and `Present(character)`
+  (a body of that character is in the room). They are written into the
+  facts when the body plans, so `bench_free` and `partner_here` are no longer
+  the body's beliefs.
+- **A spent plan replans on what it sees.** A body whose plan is spent plans
+  again when an observed fact differs from its facts: the one who read notes
+  takes the bench once it is free.
+
+Bodies are looked at in the order of their character ids, so of two claims
+on one tick the first is a fact of the cast, not of query order.
+
+Witnesses (`game/ambition_app/tests/two_scientists_share_one_bench.rs`), from
+10:05: no tick has two holders or two users of the bench; Nikobolt arrives
+second, finds it taken (10:09) and plans `read_notes` instead; Coulomba's
+experiment ends at 10:23 and Nikobolt's, at the bench he took when it was
+free, at 10:39. Under a sync test the bench passes from one holder to the
+other with the session healthy. Slice 2's witness now runs at 9:30, before
+Coulomba is in, with Dmitri (no life) as its control.
+
+## Slice 4 (2026-11-10): interrupt and replan
+
+Three causes stop a plan, and each time the body plans again from the new
+facts, its life saying why (`Life::because`):
+
+- **A conversation.** `interrupt_talked_to_lives` stops the plan of the body
+  `ActiveConversation` names as its talker: it lets go of its claim and its
+  walk (`LifeStop::Interrupted("conversation")`). It runs outside the
+  gameplay gate, because a conversation puts the game in dialogue and the
+  gated executor does not run then (measured: the gated version never saw the
+  conversation). When the conversation ends, the body plans again.
+- **No route.** A refused visit (`NoRoute`) plans again at once and leaves
+  `unreachable:<place>` among the facts until the next hour.
+- **A place gone.** A place the room no longer names (`NoPlace`) does the
+  same with `absent:<place>`.
+
+A domain reads those facts (the scientists' `use the bench` method requires
+neither), so the replan chooses another way. The same failure twice in a row
+waits for the next hour, so a domain that ignores the fact does not plan
+every tick; an interrupt always replans.
+
+Witnesses (`game/ambition_app/tests/a_scientists_plan_is_interrupted.rs`):
+talked to on his way to the bench, Nikobolt stops, stands while they talk,
+then plans again (because of the conversation) and does the experiment at
+the bench; stood on the east gantry with no movement, his visit is refused
+and he plans to read notes (because `NoRoute("workbench")`, with
+`unreachable:workbench`); with the bench sign removed from the room he plans
+to read notes (because `NoPlace("workbench")`, with `absent:workbench`).
+
+## Slice 5, first part (2026-11-10): offscreen and re-entry
+
+A body in a room that is not live is not simulated. `LifeLedger` (rollback
+state, `actor.life_ledger`; cleared when a session activates) keeps each
+character's facts and the hour it last planned while its body lives. A body
+built again in a room that comes back takes its life from its row and
+catches up by schedule arithmetic:
+
+- each whole hour it missed is planned and the steps' effects applied, with
+  no walking; an hour planned offscreen sees every thing free (no one held
+  anything while no one watched);
+- the current hour is planned and its leading `go_to` steps are done at once;
+- the body is put at the last place its schedule sent it
+  (`put_returning_lives`), and the rest of the plan runs live.
+
+A catch-up plans at most a week of hours.
+
+Witness (`game/ambition_app/tests/a_scientist_away_is_where_the_schedule_says.rs`):
+the player leaves the lab at 9:30 (the lab is not live: nobody in it is
+simulated) and comes back at 19:30. Read against the schedule: Nikobolt
+(8-12-18) has gone home (he stands at the lab door, x 64 against the door's
+64), has eaten, and did an experiment in each working hour (7: 10, 11, 13-17);
+Coulomba (10-13-20) is at the bench (x 1072) at work, has eaten, and did 8
+(10-12, 14-18).
+
+Not yet: save and reload of the ledger (the second part of slice 5).
+
+## Slice 6 (2026-11-10): an edited life in the running game
+
+The lives are pack content (`data/npc_lives.ron`), so a content reload
+publishes an edited book with no Rust build. Witness
+(`game/ambition_app/tests/a_life_edit_reaches_the_running_game.rs`, the
+shipped visible composition in the coil lab): as shipped, Nikobolt's plan at
+eleven is "a working day"; an edit moving his lunch to eleven, compiled into
+a candidate pack in memory and published by `request_reload`, makes his plan
+at eleven "lunch". The reload prepares the session again, so the lab and
+Nikobolt are built anew from the edited pack (measured: another entity).
+
+A life row now separates `authored` facts (the hours, read from the book
+each time the body plans and never kept as its own) from `facts` (what it
+starts with and changes: `ate`, `experiments`). Slice 5 needs that split: a
+body rebuilt with facts restored from a ledger must not carry an hour the
+book no longer states.
+
+Saving the file in a running build that reads its content off disk asks for
+the same reload: `content_watch` watches every source the pack declares, the
+lives file among them (not witnessed for this family on its own).
 
 ## Acceptance
 

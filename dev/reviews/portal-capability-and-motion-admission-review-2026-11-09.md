@@ -711,13 +711,19 @@ After the last upstream merge, all six dog tests and 39 GNU-ton tests pass.
 One GNU-ton diagnostic is ignored. Standalone Mary-O passes all 140 active
 integration tests; three are ignored. All 53 absence contracts hold. The portal
 plan's 19 citations and all planning anchors resolve. The global doc-link check
-reports three links to `engine/radiant-npc-planning.md` outside this packet.
+also passes.
 Logs use `target/portal-root-extra-`.
 
 The later stamped-hand merge uses schema v433. Its equip/stow replay test,
 both held-projectile portal tests, four live schema tests, the default-feature
 warning check and all 53 absence contracts pass. Logs use
 `target/portal-root-hand-merge-`.
+
+On `c9a5720b3`, the later seat-request merge uses schema v434. Its three leave
+and rejoin tests, both held-projectile portal tests, four live schema tests,
+the default-feature warning check, all 53 absence contracts, the portal plan's
+19 citations and the repository doc-link check pass. Logs use
+`target/portal-root-seat-merge-`.
 
 Full workspace libraries, feature unions, device/GPU tests and performance
 acceptance are not covered by this packet. No full PSIM slice is closed. Native body contacts, same-tick

@@ -7,7 +7,8 @@
 feature acceptance. Physical root material and admitted righting are committed
 in `02cabae98`, with snapshot schema v432. Validation repairs are `4980e0a1b`.
 Physical-material and stamped-hand validation is recorded on `66900f4c6`
-(schema v433).
+(schema v433). The later seat-request merge is checked on `c9a5720b3`
+(schema v434).
 
 The merged app portal selection passes 36 tests. The core has 869 passes and
 one ignored test. Workspace policy has 35 passes; Smash has 71 passes and six
@@ -19,8 +20,9 @@ and three ignored tests. The merged dog and GNU-ton selections pass. See the
 for the validation scope and known failures.
 
 No full PSIM acceptance slice is closed. Same-tick remaining motion, native body
-contacts, common combat/attachment maps, unequal apertures, remaining lab examples
-and the full platform/performance matrix still need work.
+contacts, common combat/attachment maps, unequal apertures, the bounded numeric
+law and its fault effects, remaining lab examples and the full platform/performance
+matrix still need work.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),

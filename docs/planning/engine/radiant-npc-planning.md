@@ -208,10 +208,38 @@ where he eats; Coulomba, with no life, does not move (the control); and the
 same day under a sync test resimulates to the same world with the experiment
 done at the bench.
 
-Not yet: Coulomba's life and the one bench between them (slice 3), facts
-read from the world rather than kept by the body (`bench_free`,
-`partner_here`), a fact that turns over with the day (`ate`), and `say` as a
-spoken line.
+Not yet: a fact that turns over with the day (`ate`), and `say` as a spoken
+line.
+
+## Slice 3 (2026-11-10): two scientists, one bench
+
+Coulomba has a life too (10-13-20), with the same domain. Three things were
+added to the executor:
+
+- **A claim is simulation state.** `claim <thing>` takes the thing for one
+  body in its live room (`Life::claim`); `release` lets it go, and so does a
+  replaced plan. A claim on a thing another body holds is lost: the body
+  plans again at once, from what it now sees, and its life keeps why
+  (`Life::because`, `LifeStop::Taken`).
+- **Facts read from the world.** A life row names what it observes:
+  `Free(thing)` (no other body in the room holds it) and `Present(character)`
+  (a body of that character is in the room). They are written into the
+  facts when the body plans, so `bench_free` and `partner_here` are no longer
+  the body's beliefs.
+- **A spent plan replans on what it sees.** A body whose plan is spent plans
+  again when an observed fact differs from its facts: the one who read notes
+  takes the bench once it is free.
+
+Bodies are looked at in the order of their character ids, so of two claims
+on one tick the first is a fact of the cast, not of query order.
+
+Witnesses (`game/ambition_app/tests/two_scientists_share_one_bench.rs`), from
+10:05: no tick has two holders or two users of the bench; Nikobolt arrives
+second, finds it taken (10:09) and plans `read_notes` instead; Coulomba's
+experiment ends at 10:23 and Nikobolt's, at the bench he took when it was
+free, at 10:39. Under a sync test the bench passes from one holder to the
+other with the session healthy. Slice 2's witness now runs at 9:30, before
+Coulomba is in, with Dmitri (no life) as its control.
 
 ## Acceptance
 

@@ -2,32 +2,47 @@
 //!
 //! The executor of `docs/planning/engine/radiant-npc-planning.md`. A body
 //! whose character has a row in the game's [`LifeBook`] gets a [`Life`]: its
-//! domain's name and its own facts. On each new hour of the day the executor
-//! plans from those facts (the planner, `ambition_htn`, reads nothing else),
-//! then carries the plan's steps out one at a time:
+//! domain's name and its own facts. The executor plans from those facts (the
+//! planner, `ambition_htn`, reads nothing else), then carries the plan's
+//! steps out one at a time:
 //!
 //! - `go_to <place>` is a [`Visit`] to the place named in the body's room, and
 //!   is done when the visit arrives. The room's own name is the room: a body
 //!   already in it is there.
+//! - `claim <thing>` takes the thing for this body alone, in its live room. A
+//!   thing another body holds is a lost claim: the body lets go of what it
+//!   held and plans again at once, from what it now sees.
+//! - `release <thing>` lets go of it.
 //! - any other verb holds the body at its task for the hours the book says
 //!   (`holds`), or is done the tick it starts.
 //!
+//! **When it plans.** On each new hour of the day; at once after a lost
+//! claim; and when its plan is spent and something it observes has changed
+//! since it planned (the bench it found taken is free again). A plan replaced
+//! lets go of what the body held.
+//!
+//! **What it knows.** Its own facts, and the facts its row says it observes
+//! in the world, read when it plans: whether a thing is free (no other body
+//! in the room holds it) and whether a character is present (in the room).
 //! When a step is done its effects become the body's facts, so the next plan
 //! starts from what the body did, not from what it planned. A step that
 //! cannot be carried out (a place the room does not name, a place no route
-//! gets to) stops the plan with the reason, and the body waits for the next
-//! hour to plan again.
+//! gets to) stops the plan with the reason.
 //!
-//! Rollback state: the plan, how far it is, and the facts. The planner is
-//! not: it runs on the tick a plan is asked for, from the restored facts, so
-//! a replay plans the same steps.
+//! Bodies are looked at in the order of their character ids, so which of two
+//! bodies takes a thing first is a fact of the cast, not of query order.
+//!
+//! Rollback state: the plan, how far it is, the facts and the claim. The
+//! planner is not: it runs on the tick a plan is asked for, from the restored
+//! facts, so a replay plans the same steps.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use ambition_characters::actor::WornCharacter;
 use ambition_htn::{Budget, Domain, Facts, PlanFailure, Step};
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
 use bevy::prelude::{Commands, Component, Entity, Query, Res, Resource, Without};
 
@@ -38,6 +53,10 @@ pub use ambition_htn::Value;
 
 /// The verb that sends a body to a place.
 pub const GO_TO: &str = "go_to";
+/// The verb that takes a thing for one body alone.
+pub const CLAIM: &str = "claim";
+/// The verb that lets a claimed thing go.
+pub const RELEASE: &str = "release";
 
 /// Every authored life, published by the game from its content outside the
 /// tick. Lives are keyed by the character id of the body that lives them.
@@ -53,6 +72,17 @@ pub struct LifeBook {
 pub struct LifeSpec {
     pub domain: String,
     pub facts: Facts,
+    /// Facts read from the world when the body plans, by fact name.
+    pub observes: BTreeMap<String, Observation>,
+}
+
+/// A fact the world states, read when a body plans.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Observation {
+    /// No other body in the room holds a claim on this thing.
+    Free(String),
+    /// A body of this character is in the room.
+    Present(String),
 }
 
 /// What a body is doing with its life.
@@ -65,11 +95,17 @@ pub struct Life {
     /// The plan's steps still to do; the first is under way.
     pub steps: Vec<Step>,
     pub doing: Doing,
+    /// The thing this body holds a claim on, in its live room.
+    pub claim: Option<String>,
     /// How many plans this body has made.
     pub revision: u32,
     /// Why the last plan stopped short of its end, for an inspector and a
     /// line of dialogue. `None` while it runs, and once it ends.
     pub stopped: Option<LifeStop>,
+    /// Why this plan was made when the clock did not ask for one: the stop
+    /// that cut the last plan short ("the bench was taken"). `None` for a
+    /// plan of a new hour, or one made because something seen changed.
+    pub because: Option<LifeStop>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -95,6 +131,8 @@ pub enum LifeStop {
     NoPlace(String),
     /// No route gets the body to this place.
     NoRoute(String),
+    /// Another body holds this thing.
+    Taken(String),
 }
 
 impl Life {
@@ -105,8 +143,10 @@ impl Life {
             planned_in: None,
             steps: Vec::new(),
             doing: Doing::Idle,
+            claim: None,
             revision: 0,
             stopped: None,
+            because: None,
         }
     }
 
@@ -160,7 +200,44 @@ pub fn place_named(room: &RoomSpec, name: &str, here: ae::Vec2) -> Option<ae::Ve
         .or_else(|| room.loading_zones.iter().find(|zone| zone.id == name).map(|zone| center(&zone.aabb)))
 }
 
-/// Plan on each new hour, and carry the plan out one step at a time.
+/// Who holds what, and who is where, as the executor reads it this tick. It
+/// is updated as each body claims or lets go, so a later body sees an earlier
+/// one's claim on the same tick.
+struct RoomFacts {
+    claims: BTreeMap<(Option<LiveRoomInstance>, String), Entity>,
+    present: BTreeSet<(Option<LiveRoomInstance>, String)>,
+}
+
+impl RoomFacts {
+    fn observe(&self, body: Entity, room: Option<LiveRoomInstance>, observation: &Observation) -> Value {
+        match observation {
+            Observation::Free(thing) => {
+                Value::Bool(self.claims.get(&(room, thing.clone())).is_none_or(|holder| *holder == body))
+            }
+            Observation::Present(character) => Value::Bool(self.present.contains(&(room, character.clone()))),
+        }
+    }
+
+    fn release(&mut self, body: Entity, room: Option<LiveRoomInstance>, life: &mut Life) {
+        if let Some(thing) = life.claim.take() {
+            let key = (room, thing);
+            if self.claims.get(&key) == Some(&body) {
+                self.claims.remove(&key);
+            }
+        }
+    }
+}
+
+/// What one body is looked at with this tick.
+struct Look<'a> {
+    body: Entity,
+    room: Option<LiveRoomInstance>,
+    here: ae::Vec2,
+    visit: Option<&'a Visit>,
+    observes: Option<&'a BTreeMap<String, Observation>>,
+}
+
+/// Plan when a plan is due, and carry the plan out one step at a time.
 #[allow(clippy::type_complexity)]
 pub fn live_lives(
     mut commands: Commands,
@@ -168,7 +245,9 @@ pub fn live_lives(
     clock: Res<ambition_time::DayClock>,
     cycle: Option<Res<ambition_time::DayCycle>>,
     specs: LiveRoomSpecs,
-    mut bodies: Query<(Entity, &mut Life, &ae::BodyKinematics, Option<&Visit>)>,
+    rooms: LiveRooms,
+    characters: Query<(Entity, &WornCharacter)>,
+    mut bodies: Query<(Entity, &mut Life, &WornCharacter, &ae::BodyKinematics, Option<&Visit>)>,
 ) {
     // No day, no hours to live by.
     let Some(cycle) = cycle else { return };
@@ -177,25 +256,56 @@ pub fn live_lives(
     }
     let hour = clock.hour(&cycle).floor() as i64;
     let now = f64::from(clock.day) * f64::from(cycle.day_length_s) + f64::from(clock.seconds);
-    for (body, mut life, kinematics, visit) in &mut bodies {
-        if life.planned_in != Some((clock.day, hour)) {
-            plan(&mut life, &book, hour);
+    let mut facts = RoomFacts {
+        claims: bodies
+            .iter()
+            .filter_map(|(body, life, ..)| life.claim.clone().map(|thing| ((rooms.of(body), thing), body)))
+            .collect(),
+        present: characters.iter().map(|(body, worn)| (rooms.of(body), worn.id().to_string())).collect(),
+    };
+    let mut order: Vec<(String, Entity)> =
+        bodies.iter().map(|(body, _, worn, ..)| (worn.id().to_string(), body)).collect();
+    order.sort();
+    for (character, body) in order {
+        let Ok((_, mut life, _, kinematics, visit)) = bodies.get_mut(body) else { continue };
+        let look = Look {
+            body,
+            room: rooms.of(body),
+            here: kinematics.pos,
+            visit,
+            observes: book.lives.get(&character).map(|spec| &spec.observes),
+        };
+        let new_hour = life.planned_in != Some((clock.day, hour));
+        let seen_change = life.doing == Doing::Idle
+            && look.observes.is_some_and(|observes| {
+                observes
+                    .iter()
+                    .any(|(name, observation)| life.facts.get(name) != Some(&facts.observe(body, look.room, observation)))
+            });
+        if new_hour || seen_change {
+            life.because = None;
+            replan(&mut commands, &mut life, &book, &mut facts, &look, hour);
             life.planned_in = Some((clock.day, hour));
-            // A walk the last plan began is not this plan's.
-            if visit.is_some() {
-                commands.entity(body).remove::<Visit>();
-            }
-            if life.doing == Doing::Starting {
-                carry_out(&mut commands, body, &mut life, &book, &cycle, now, None, &specs, kinematics.pos);
-            }
-            continue;
         }
-        carry_out(&mut commands, body, &mut life, &book, &cycle, now, visit, &specs, kinematics.pos);
+        if carry_out(&mut commands, &mut life, &book, &cycle, now, &specs, &mut facts, &look) == Carried::LostClaim {
+            // Plan again at once, from what the body now sees; once a tick.
+            life.because = life.stopped.clone();
+            replan(&mut commands, &mut life, &book, &mut facts, &look, hour);
+            let _ = carry_out(&mut commands, &mut life, &book, &cycle, now, &specs, &mut facts, &look);
+        }
     }
 }
 
-fn plan(life: &mut Life, book: &LifeBook, hour: i64) {
+fn replan(commands: &mut Commands, life: &mut Life, book: &LifeBook, facts: &mut RoomFacts, look: &Look, hour: i64) {
+    // What the last plan held and where it walked are not this plan's.
+    facts.release(look.body, look.room, life);
+    if look.visit.is_some() {
+        commands.entity(look.body).remove::<Visit>();
+    }
     life.facts.insert("hour".into(), Value::Int(hour));
+    for (name, observation) in look.observes.into_iter().flatten() {
+        life.facts.insert(name.clone(), facts.observe(look.body, look.room, observation));
+    }
     life.revision = life.revision.wrapping_add(1);
     let Some(domain) = book.domains.get(&life.domain) else {
         stop(life, LifeStop::NoDomain(life.domain.clone()));
@@ -230,75 +340,102 @@ fn finish_step(life: &mut Life, book: &LifeBook) {
     life.doing = if life.steps.is_empty() { Doing::Idle } else { Doing::Starting };
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Carried {
+    /// The body waits on its step, or its plan is spent or stopped.
+    Waits,
+    /// A claim was lost: the caller plans again.
+    LostClaim,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn carry_out(
     commands: &mut Commands,
-    body: Entity,
     life: &mut Life,
     book: &LifeBook,
     cycle: &ambition_time::DayCycle,
     now: f64,
-    visit: Option<&Visit>,
     specs: &LiveRoomSpecs,
-    here: ae::Vec2,
-) {
+    facts: &mut RoomFacts,
+    look: &Look,
+) -> Carried {
+    let body = look.body;
     // Each pass either waits (return) or finishes a step; a plan's steps are
     // bounded, so this ends.
     for _ in 0..=life.steps.len() {
         let Some(step) = life.steps.first() else {
-            return;
+            return Carried::Waits;
         };
+        let target = step.action.target.clone().unwrap_or_default();
         match life.doing.clone() {
-            Doing::Idle => return,
+            Doing::Idle => return Carried::Waits,
             Doing::Starting if step.action.verb == GO_TO => {
-                let target = step.action.target.clone().unwrap_or_default();
-                let Some(place) = specs.spec_of(body).and_then(|room| place_named(room, &target, here)) else {
+                let Some(place) = specs.spec_of(body).and_then(|room| place_named(room, &target, look.here)) else {
                     stop(life, LifeStop::NoPlace(target));
-                    return;
+                    return Carried::Waits;
                 };
-                if place == here {
+                if place == look.here {
                     finish_step(life, book);
                     continue;
                 }
                 commands.entity(body).insert(Visit::to(place));
                 life.doing = Doing::GoingTo(place);
-                return;
+                return Carried::Waits;
+            }
+            Doing::Starting if step.action.verb == CLAIM => {
+                let key = (look.room, target.clone());
+                if facts.claims.get(&key).is_some_and(|holder| *holder != body) {
+                    stop(life, LifeStop::Taken(target));
+                    facts.release(body, look.room, life);
+                    return Carried::LostClaim;
+                }
+                // One claim per body: a second lets the first go.
+                facts.release(body, look.room, life);
+                facts.claims.insert(key, body);
+                life.claim = Some(target);
+                finish_step(life, book);
+            }
+            Doing::Starting if step.action.verb == RELEASE => {
+                if life.claim.as_deref() == Some(target.as_str()) {
+                    facts.release(body, look.room, life);
+                }
+                finish_step(life, book);
             }
             Doing::Starting => {
                 let hours = book.holds.get(&step.action.verb).copied().unwrap_or(0.0);
                 if hours > 0.0 {
                     let until = now + f64::from(hours) / 24.0 * f64::from(cycle.day_length_s);
                     life.doing = Doing::Holding { until };
-                    return;
+                    return Carried::Waits;
                 }
                 finish_step(life, book);
             }
             Doing::GoingTo(place) => {
                 // The visit is inserted by command: until it lands, or for
                 // another place, it says nothing about this step.
-                match visit.filter(|visit| visit.place == place).map(|visit| visit.outcome) {
+                match look.visit.filter(|visit| visit.place == place).map(|visit| visit.outcome) {
                     Some(VisitOutcome::Arrived) => {
                         commands.entity(body).remove::<Visit>();
                         finish_step(life, book);
                         // The rest of the plan starts on the next tick, when
                         // the removal has landed.
-                        return;
+                        return Carried::Waits;
                     }
                     Some(VisitOutcome::NoRoute) => {
-                        let target = step.action.target.clone().unwrap_or_default();
                         commands.entity(body).remove::<Visit>();
                         stop(life, LifeStop::NoRoute(target));
-                        return;
+                        return Carried::Waits;
                     }
-                    _ => return,
+                    _ => return Carried::Waits,
                 }
             }
             Doing::Holding { until } => {
                 if now < until {
-                    return;
+                    return Carried::Waits;
                 }
                 finish_step(life, book);
             }
         }
     }
+    Carried::Waits
 }

@@ -299,10 +299,10 @@ def coil_lab():
         resident("npc_eureka_dmitri", "eureka_dmitri", 560, floor),
         # Nikobolt and Coulomba are together between the two gantries, clear
         # of the door, the bench, and the gravity-prototype lever.
-        # Nikobolt lives his authored day (`data/npc_lives.ron`): a brain that
-        # goes only where his plan sends him.
+        # They live their authored days (`data/npc_lives.ron`): a brain that
+        # goes only where a plan sends it.
         resident("npc_science_nikobolt", "eureka_nikobolt", 750, floor, brain="keeps_to_its_tasks", h=76),
-        resident("npc_science_coulomba", "eureka_coulomba", 840, floor, h=68),
+        resident("npc_science_coulomba", "eureka_coulomba", 840, floor, brain="keeps_to_its_tasks", h=68),
         sign("lab_sign_rules", 640, ceiling + 40, "DO NOT TOUCH THE COILS. The coils will touch you.", 520),
         sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: AT WORK", 320),
         # The places of Nikobolt's day, by name: his plan's `go_to workbench`

@@ -3,10 +3,11 @@
 //!
 //! Nikobolt lives the authored scientist's day (`data/npc_lives.ron`) in the
 //! Eureka coil lab. The executor plans on each hour from his facts and carries
-//! the plan out with his own body: before noon he walks to the bench and does
-//! an experiment, at noon he walks to the lunch crate and eats. Coulomba has
-//! no life (yet): she is the control and stays where she stands. The same day
-//! under a sync test resimulates to the same world and the same facts.
+//! the plan out with his own body: at half past nine, before Coulomba comes in,
+//! he walks to the bench and does an experiment; at noon he walks to the
+//! lunch crate and eats. Dmitri has no life: the control, who stays where
+//! they stand. The same morning under a sync test resimulates to the same
+//! world.
 
 use crate::common::{base, fixed_60hz_room_options, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::life::{Doing, Life, Value};
@@ -17,12 +18,13 @@ use bevy::prelude::Entity;
 
 const LAB: &str = "eureka_coil_lab";
 const NIKOBOLT: &str = "npc_science_nikobolt";
-const COULOMBA: &str = "npc_science_coulomba";
+const DMITRI: &str = "npc_eureka_dmitri";
 /// The places his plan names, as the lab's signs place them (x).
 const WORKBENCH_X: f32 = 1072.0;
 const LUNCH_X: f32 = 248.0;
-/// The day starts at half past eleven: a working hour, then lunch.
-const START_HOUR: f32 = 11.5;
+/// The day starts at half past nine: Nikobolt's working hour, before Coulomba
+/// (in at ten) is in the lab to want the bench.
+const START_HOUR: f32 = 9.5;
 
 fn body(sim: &mut ambition_app::Platformer2dSimHarness, character: &str) -> Entity {
     let world = sim.world_mut();
@@ -47,10 +49,11 @@ fn hour(sim: &ambition_app::Platformer2dSimHarness) -> f32 {
     world.resource::<DayClock>().hour(world.resource::<DayCycle>())
 }
 
-/// ⭐ HE GOES WHERE HIS PLAN SAYS AND DOES WHAT IT SAYS. Before noon the plan
-/// is a working one: he walks to the bench and the experiment is done (his
-/// facts count it). At noon a new plan: he walks to the lunch crate and eats.
-/// Each phase is read off his body and his facts, not off the plan's words.
+/// ⭐ HE GOES WHERE HIS PLAN SAYS AND DOES WHAT IT SAYS. At half past nine
+/// the plan is a working one: he walks to the bench and the experiment is
+/// done (his facts count it). The clock is then put on to just before noon,
+/// and at noon a new plan: he walks to the lunch crate and eats. Each phase
+/// is read off his body and his facts, not off the plan's words.
 #[test]
 fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
     let mut sim = fixed_60hz_room_sim(LAB);
@@ -61,12 +64,12 @@ fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
         *world.resource_mut::<DayClock>() = DayClock::at_hour(&cycle, START_HOUR);
     }
     let nikobolt = body(&mut sim, NIKOBOLT);
-    let coulomba = body(&mut sim, COULOMBA);
-    let (nikobolt_at_start, coulomba_at_start) = (x_of(&sim, nikobolt), x_of(&sim, coulomba));
+    let dmitri = body(&mut sim, DMITRI);
+    let (nikobolt_at_start, dmitri_at_start) = (x_of(&sim, nikobolt), x_of(&sim, dmitri));
 
     // The working hour: to the bench, and one experiment done there.
     let mut at_the_bench = None;
-    while hour(&sim) < 12.0 {
+    while hour(&sim) < 10.0 {
         sim.step(base());
         let life = sim.world().get::<Life>(nikobolt).expect("Nikobolt has his life");
         if fact(life, "experiments") == Some(Value::Int(1)) && at_the_bench.is_none() {
@@ -75,7 +78,7 @@ fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
     }
     let (x, at, life) = at_the_bench.unwrap_or_else(|| {
         panic!(
-            "by noon Nikobolt had done no experiment: he stands at x {} (from {nikobolt_at_start}); his life: {:?}",
+            "by ten Nikobolt had done no experiment: he stands at x {} (from {nikobolt_at_start}); his life: {:?}",
             x_of(&sim, nikobolt),
             sim.world().get::<Life>(nikobolt)
         )
@@ -87,6 +90,11 @@ fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
 
     // Noon: a new plan, and lunch at the crate.
     let revision = life.revision;
+    {
+        let world = sim.world_mut();
+        let cycle = *world.resource::<DayCycle>();
+        *world.resource_mut::<DayClock>() = DayClock::at_hour(&cycle, 11.95);
+    }
     let mut lunched = None;
     while hour(&sim) < 12.9 {
         sim.step(base());
@@ -108,10 +116,10 @@ fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
     assert!((x - LUNCH_X).abs() < 48.0, "lunch was eaten away from the crate: x {x}");
     assert_eq!(life.doing, Doing::Idle, "after lunch his plan is spent");
 
-    // The control: a character with no life stands where she stood.
-    assert!(sim.world().get::<Life>(coulomba).is_none(), "premise: Coulomba has no life in the book");
-    let moved = (x_of(&sim, coulomba) - coulomba_at_start).abs();
-    assert!(moved < 4.0, "control: Coulomba, who has no life, moved {moved} px");
+    // The control: a character with no life stands where they stood.
+    assert!(sim.world().get::<Life>(dmitri).is_none(), "premise: Dmitri has no life in the book");
+    let moved = (x_of(&sim, dmitri) - dmitri_at_start).abs();
+    assert!(moved < 4.0, "control: Dmitri, who has no life, moved {moved} px");
 }
 
 /// ⭐ HIS DAY RESIMULATES TO THE SAME WORLD. Under a sync test each frame is
@@ -125,7 +133,7 @@ fn nikobolts_day_resimulates_to_the_same_world() {
         .with_rollback_players(2);
     let mut sim = ambition_app::Platformer2dSimHarness::build(options, |app, options| {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-        // The session's first day begins at half past eleven.
+        // The session's first day begins at half past nine.
         let mut cycle = *app.world().resource::<DayCycle>();
         cycle.start_hour = START_HOUR;
         app.insert_resource(cycle);

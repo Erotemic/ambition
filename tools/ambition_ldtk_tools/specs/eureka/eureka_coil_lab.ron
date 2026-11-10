@@ -25,7 +25,7 @@
         ( type: "OneWayPlatform", px: [1000, 464], size: [160, 16], fields: ( name: "bench" ) ),
         ( type: "NpcSpawn", px: [544, 448], size: [32, 64], fields: ( character_id: "npc_eureka_dmitri", prompt: "Talk", dialogue_id: "eureka_dmitri", brain_override: "stand_still" ) ),
         ( type: "NpcSpawn", px: [734, 436], size: [32, 76], fields: ( character_id: "npc_science_nikobolt", prompt: "Talk", dialogue_id: "eureka_nikobolt", brain_override: "keeps_to_its_tasks" ) ),
-        ( type: "NpcSpawn", px: [824, 444], size: [32, 68], fields: ( character_id: "npc_science_coulomba", prompt: "Talk", dialogue_id: "eureka_coulomba", brain_override: "stand_still" ) ),
+        ( type: "NpcSpawn", px: [824, 444], size: [32, 68], fields: ( character_id: "npc_science_coulomba", prompt: "Talk", dialogue_id: "eureka_coulomba", brain_override: "keeps_to_its_tasks" ) ),
         ( type: "DebugLabel", px: [380, 72], size: [520, 24], fields: ( name: "lab_sign_rules", text: "DO NOT TOUCH THE COILS. The coils will touch you.", category: "Custom" ) ),
         ( type: "DebugLabel", px: [940, 272], size: [320, 24], fields: ( name: "lab_sign_director", text: "N. TESSERACT, DIRECTOR: AT WORK", category: "Custom" ) ),
         ( type: "DebugLabel", px: [1002, 488], size: [140, 24], fields: ( name: "workbench", text: "COIL No. 27", category: "Custom" ) ),

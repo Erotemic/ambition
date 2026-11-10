@@ -67,9 +67,12 @@
             },
         ),
     },
+    // Two scientists and one bench. Each keeps their own hours; whether
+    // the bench is free and whether the other is in the lab are read from the
+    // world when each plans, so one who finds the bench taken reads notes and
+    // takes the bench when it is free.
     lives: {
-        // Nikobolt keeps 8 to 18 and lunches at noon. Coulomba joins him in a
-        // later slice, with her own hours and the one bench between them.
+        // Nikobolt keeps 8 to 18 and lunches at noon.
         "npc_science_nikobolt": (
             domain: "eureka_scientist_day",
             facts: {
@@ -77,11 +80,30 @@
                 "lunch_hour": Int(12),
                 "leave_hour": Int(18),
                 "at": Sym("lab"),
-                "bench_free": Bool(true),
                 "ate": Bool(false),
                 "talked": Bool(false),
-                "partner_here": Bool(false),
                 "experiments": Int(0),
+            },
+            observes: {
+                "bench_free": Free("workbench"),
+                "partner_here": Present("npc_science_coulomba"),
+            },
+        ),
+        // Coulomba keeps 10 to 20 and lunches at one.
+        "npc_science_coulomba": (
+            domain: "eureka_scientist_day",
+            facts: {
+                "arrive_hour": Int(10),
+                "lunch_hour": Int(13),
+                "leave_hour": Int(20),
+                "at": Sym("lab"),
+                "ate": Bool(false),
+                "talked": Bool(false),
+                "experiments": Int(0),
+            },
+            observes: {
+                "bench_free": Free("workbench"),
+                "partner_here": Present("npc_science_nikobolt"),
             },
         ),
     },

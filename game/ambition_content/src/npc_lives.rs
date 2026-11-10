@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use ambition_content_schemas::npc_lives::{lowered_npc_lives, NpcLives};
-use ambition_platformer2d::actors::body::life::{LifeBook, LifeSpec};
+use ambition_content_schemas::npc_lives::{lowered_npc_lives, NpcLives, Observation as Authored};
+use ambition_platformer2d::actors::body::life::{LifeBook, LifeSpec, Observation};
 use bevy::prelude::App;
 
 /// The book of `lives`. Absent means no lives: no body plans.
@@ -18,7 +18,20 @@ pub fn life_book(lives: Option<&NpcLives>) -> LifeBook {
         lives: lives
             .lives
             .iter()
-            .map(|(character, row)| (character.clone(), LifeSpec { domain: row.domain.clone(), facts: row.facts.clone() }))
+            .map(|(character, row)| {
+                let observes = row
+                    .observes
+                    .iter()
+                    .map(|(name, observation)| {
+                        let observation = match observation {
+                            Authored::Free(thing) => Observation::Free(thing.clone()),
+                            Authored::Present(character) => Observation::Present(character.clone()),
+                        };
+                        (name.clone(), observation)
+                    })
+                    .collect();
+                (character.clone(), LifeSpec { domain: row.domain.clone(), facts: row.facts.clone(), observes })
+            })
             .collect(),
         holds: lives.holds.clone(),
     }

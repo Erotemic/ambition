@@ -238,7 +238,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 433 -> 434: a seat's leave is a stamped request (`ParticipantLeaveRequested`).
 // 434 -> 435: a body sent to a place carries a `Visit`, and a body with an
 // authored life a `Life` (its facts and plan); both are rollback state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 435;
+// 435 -> 436: a `Life` carries its claim on a thing and why its plan was made.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 436;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

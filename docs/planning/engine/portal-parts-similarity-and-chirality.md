@@ -9,7 +9,8 @@ room isolation and authored zone presentation are committed in `9e626f08b`.
 The map merge is `790e3ee`. The spark/wall repair is `b2e8f750a`; canonical
 block contact and static-cell repairs are `f634f1870`. All 37 app portal tests
 and all 140 active standalone Mary-O integration tests pass. Departure material
-records and rollback schema v430 are committed in `1293c397f`. P07 remains open
+records and rollback schema v430 are committed in `1293c397f`. Full ray-band
+contacts and schema v431 are committed in `7263366ed`. P07 remains open
 for full feature acceptance. No PSIM acceptance slice is closed by these repairs. See the [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#capability-and-publication-packet).
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
@@ -587,6 +588,16 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
+Full ray-band contacts: `7263366ed`. Rays query their complete cross-section
+through the native cells. Each leg ends at its root crossing, then rebases
+before the remaining reach continues. Point rays use the same path. Shrink,
+expand, parity and aperture-edge witnesses pass. Core has 865 passes; combat
+has 805; shared has 358; portal has 141. Five library tests remain ignored.
+The app portal selection has 37 passes; the eye-laser case passes. Schema has
+four passes, content portal has 64, policy has 35 and Smash has 71. Six Smash
+cases remain ignored. The assembled app check and all 53 absence contracts
+pass. Both baselines use v431. Full PSIM acceptance remains open.
+
 Departure material record: `1293c397f`. `SweepSample` retains the material at
 departure. Kernel admission, external pose admission and root crossing build
 the same cast from that record. A later root rebase cannot change its source.
@@ -941,7 +952,8 @@ admission for the remaining free-body sweeps, physical pose turns and moving
 aperture hosts. Finish projectile body and feature contact queries,
 and the remaining attack updates.
 Body-attached ray origins still need the common material pose pass. Ray wall
-clipping still uses its centre line; finite-width contact remains open.
+contact uses its full cross-section in `7263366ed`; point rays use that same
+native query. Each source leg ends at its root crossing before rebasing.
 Check retained support facts, curved paths, control-phase displacement,
 topology changes after the aperture snapshot and candidate-copy cost.
 The existing gates do not close PSIM-1B.

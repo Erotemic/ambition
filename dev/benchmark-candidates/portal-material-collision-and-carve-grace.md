@@ -111,3 +111,12 @@ link does not make a static cell curved. Use exact translating constraints
 when they apply. A constant rounding bound can keep an empty cell possible
 through every time subdivision. More subdivision or a larger work budget
 does not prove that cell empty. Retain closed boundary strata for contact.
+
+End a source leg at its root crossing. Rebase the material before the remaining
+travel continues. A departure-chart cast cannot retain its far chart by moving
+the old root behind the entry. A return chart step restores existing material;
+reduce that inverse path before checking its traversal budget.
+
+A finite cross-section needs no artificial thickness. Native point and segment
+domains must keep their closed contact set. Build their planes from the convex
+boundary; repeated box vertices do not give a segment a polygon winding.

@@ -628,3 +628,41 @@ the active target bind. The owning libraries ran before the schema version and
 test-metadata corrections; the app, schema, policy and contract gates ran on
 v430. This lane does not cover full workspace libraries, all feature unions,
 Android execution, GPU captures or full PSIM acceptance. P07 remains open.
+
+### Full ray-band contact packet
+
+Code commit: `7263366ed`. Ray wall contact now uses the complete cross-section
+in native material cells. Each leg ends at the root crossing, then rebases
+before the remaining reach continues. A return chart step preserves the
+existing material path without another traversal hop. Width follows the
+composed scale. Point rays use the same query. Reach rounds toward free space.
+Schema v431 and both baselines record this behavior change.
+
+Witnesses cover a wall that the centre line misses, shrink and expand in both
+map conventions, edges outside an aperture, and an exact cross-section without
+added thickness. Existing one-sided, scaled-reach, cycle, box-boundary and
+angled-exit witnesses pass. Two fixtures now update the recorded host step
+when they change an aperture. Their contact assertions remain.
+
+| Command | Result |
+|---|---|
+| `cargo test -j6 -p ambition_platformer2d_core -p ambition_combat --lib --no-fail-fast` | Core 865 and combat 805 pass; four ignored. |
+| `cargo test -j6 -p ambition_platformer2d_shared_tangle -p ambition_portal2d --lib` | Shared 358 and portal 141 pass; one ignored. |
+| `cargo test -j6 -p ambition_app --test app_it -- the_eye_laser_takes_the_projectile_slot` | One pass. |
+| `cargo test -j6 -p ambition_app --test app_it -- portal` | 37 pass. |
+| `cargo test -j6 -p ambition_app --test app_it -- rollback_schema_baseline` | Four pass. |
+| `cargo test -j6 -p ambition_content --lib portal` | 64 pass. |
+| `cargo test -j6 -p ambition_workspace_policy` | 35 pass. |
+| `cargo check -j6 -p ambition_app --tests` | Pass. |
+| `cargo test -j6 -p ambition_demo_smash_app` | 71 pass, six ignored. The doctest target has no tests. |
+| `python3 scripts/checks/check_absence_contracts.py --check` | All 53 contracts hold. |
+
+Logs and status records use `target/portal-ray-band-`. The first content build
+stopped for disk space before testing. The retry passes after this run's
+incremental caches were removed. The source stayed fixed throughout the final
+gates. No full rollback selection, workspace library matrix, Android run, GPU
+capture or completed-path performance measurement is claimed. P07 remains open
+for full PSIM acceptance. Body-attached ray origins still need the common
+material pose read model; authored modules currently supply offsets that
+already include gravity orientation and physical size. That migration must
+change both sides together.

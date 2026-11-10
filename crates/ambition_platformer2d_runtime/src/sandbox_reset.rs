@@ -854,4 +854,52 @@ mod subjectless_replay_tests {
              will rebuild — admitting without recording is D-REPLAY-NOSUBJECT"
         );
     }
+
+    /// A replay asked for while another lifecycle operation owns the pending
+    /// slot is refused: no `RoomReplayAdmitted` is written, so no consequence
+    /// that hangs off it (the subject's return to spawn, the attempt-residue
+    /// sweep, content's per-attempt resets) runs, and the incumbent keeps the
+    /// slot.
+    #[test]
+    fn a_replay_refused_by_the_lifecycle_slot_admits_nothing() {
+        use ambition_platformer2d_session::lifecycle_commit::{
+            LifecycleIntent, PendingLifecycleCommit, RoomReconstitutionIntent,
+        };
+        let mut app = App::new();
+        app.add_message::<ambition_platformer2d_session::reset::RoomReplayRequested>();
+        app.add_message::<RoomReplayAdmitted>();
+        app.init_resource::<ActiveSessionScope>();
+        app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        app.init_resource::<PendingLifecycleCommit>();
+        ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), room_set("central"));
+        let incumbent = LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+            target_room: "somebody_elses_room".to_string(),
+        });
+        assert!(
+            app.world_mut()
+                .resource_mut::<PendingLifecycleCommit>()
+                .record(0, incumbent.clone())
+                .admitted(),
+            "the incumbent takes the empty slot"
+        );
+        app.add_systems(Update, admit_room_replay);
+        app.world_mut().write_message(
+            ambition_platformer2d_session::reset::RoomReplayRequested::manual(),
+        );
+        app.update();
+
+        let messages = app.world().resource::<bevy::prelude::Messages<RoomReplayAdmitted>>();
+        let mut cursor = messages.get_cursor();
+        assert_eq!(
+            cursor.read(messages).count(),
+            0,
+            "a replay refused by the slot announced itself, so its consequences run \
+             for an operation that never happens"
+        );
+        assert_eq!(
+            app.world().resource::<PendingLifecycleCommit>().peek().map(|pending| pending.kind.clone()),
+            Some(incumbent),
+            "the refused replay displaced the operation that owned the slot"
+        );
+    }
 }

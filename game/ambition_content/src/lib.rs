@@ -146,6 +146,7 @@ pub mod presentation;
 #[cfg(test)]
 mod projectile_polygon_moveset;
 pub mod projectiles;
+pub mod npc_lives;
 pub mod tuning;
 #[cfg(test)]
 mod pugnacious_polygon_moveset;

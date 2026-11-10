@@ -137,6 +137,7 @@ pub fn advise_navigation(
             // its brain's `target_pos` comes from.
             Option<&ambition_combat::components::ActorTarget>,
             Option<&super::errand::Errand>,
+            Option<&super::visit::Visit>,
             // Whether the body may leave the live rooms for its errand: a
             // body with durable whereabouts.
             Option<&ambition_combat::actor_tuning::ActorConfig>,
@@ -162,7 +163,7 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
-    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, config, origin) in &bodies {
+    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
         };
@@ -219,9 +220,24 @@ pub fn advise_navigation(
             let under = graph.surface_under(at, TARGET_DEPTH);
             under.is_some() && under == graph.surface_at(feet)
         });
-        let errand = errand
-            .filter(|errand| errand.outcome == super::errand::ErrandOutcome::Pending)
-            .map_or(ErrandSight::None, |errand| {
+        // A pending errand comes before a visit: the brain follows one place.
+        let pending_errand = errand.filter(|errand| errand.outcome == super::errand::ErrandOutcome::Pending);
+        let visit_sight = || {
+            let Some(visit) = visit.filter(|visit| visit.outcome == super::visit::VisitOutcome::Pending) else {
+                return ErrandSight::None;
+            };
+            let Some(from) = graph.surface_at(feet) else {
+                return ErrandSight::None;
+            };
+            match graph.surface_under(visit.place, TARGET_DEPTH) {
+                Some(under) if graph.reachable_from(from).contains(&under) => {
+                    ErrandSight::At(graph.point_on(under, graph.frame.along(visit.place)))
+                }
+                _ => ErrandSight::NoRoute,
+            }
+        };
+        let errand = pending_errand
+            .map_or_else(visit_sight, |errand| {
                 // A body in the air stands on no surface: no route is judged
                 // from there, and the errand waits for the body to land.
                 let Some(from) = graph.surface_at(feet) else {

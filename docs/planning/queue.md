@@ -67,7 +67,11 @@ or updating their source. Check with
 
 **Done 2026-11-10 (slice 1):** compared `bevy_htn` 0.0.1 (Bevy 0.15, text domains, reflected component state, random plan ids) and `bevy_bae` 0.1.0 (Bevy 0.18, Rust-bundle domains, `World` properties) with a standalone core, and chose the core: `crates/ambition_htn` (no Bevy; RON domain validated when read; facts in, an explained plan out; 4.9 us per plan on the scientists' benchmark day) ([result](engine/radiant-npc-planning.md#slice-1-result-2026-11-10-a-standalone-core)).
 
-**Next action:** slice 2, the executor: Nikobolt follows the benchmark day in the coil lab through the existing navigation brain. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
+**Done 2026-11-10 (slice 2, first part):** a body can be sent to a place: `Visit` (rollback state), answered by the navigation advisor and settled `Arrived` / `NoRoute`; the basement dog witnesses both and a sync test ([result](engine/radiant-npc-planning.md#slice-2-first-part-2026-11-10-a-body-sent-to-a-place)).
+
+**Done 2026-11-10 (slice 2):** the executor (`body::life`): a game's `LifeBook` (Ambition's pack file `data/npc_lives.ron`, schema `npc_lives`, republished by a content reload) gives a character a `Life` (rollback state); it plans on each new hour from its own facts, each `go_to` is a `Visit` to a place the room names (signs `workbench` and `lunch` in the coil lab), other verbs hold for their authored hours, and a step done makes its effects facts. Nikobolt works at the bench and lunches at noon; Coulomba (no life) is the control; the day resimulates under a sync test ([result](engine/radiant-npc-planning.md#slice-2-2026-11-10-nikobolt-lives-his-day)).
+
+**Next action:** slice 3, two NPCs and one exclusive workbench: Coulomba's life with her own hours, a typed claim on the bench in the simulation, and facts read from the world (`bench_free`, `partner_here`) rather than kept by the body. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 

@@ -224,6 +224,18 @@
             playful: 0.0,
             notice_radius: 0.0,
         ),
+        // Goes only where it is sent (a visit, an errand) and stays there: the
+        // brain of a character that lives an authored day (`npc_lives.ron`).
+        "keeps_to_its_tasks": Roam(
+            speed: 48.0,
+            trot_speed: 80.0,
+            rest_min_s: 1000000.0,
+            rest_max_s: 1000000.0,
+            company: 0.0,
+            stay_within: 0.0,
+            playful: 0.0,
+            notice_radius: 0.0,
+        ),
         "patrol_peaceful": Patrol(
             spawn_local_x: 0.0,
             radius: 64.0,

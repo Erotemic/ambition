@@ -153,6 +153,66 @@ stops at its budget. Run the measurement with
 What slice 1 does not settle: where a game's domain file lives and how it is
 reloaded (slice 6), and the executor's verbs (slice 2).
 
+## Slice 2, first part (2026-11-10): a body sent to a place
+
+The executor's `go_to` needs a goal that is a place, not an item. `Visit
+{ place, outcome }` (`body::visit`, rollback state, `actor.visit`) is the
+errand's sibling: the navigation advisor answers it with the same sight
+(`ErrandSight::At`, the feet point on the surface under the place, or
+`NoRoute` when no surface the body gets to is under it), a navigating brain
+goes there with the body's own movement, and `settle_visits` ends it
+`Arrived` when the advisor says the body stands at the brain's goal, or
+`NoRoute`. A pending errand comes before a visit. In-room only.
+
+Witnesses (`game/ambition_app/tests/a_dog_sent_to_a_place.rs`): the basement
+dog sent to a surface only its jump reaches arrives with its feet at the
+place, and without its jump refuses the same place where it stood; the visit,
+given from inside the timeline, resimulates to the same world under a sync
+test (4 frames of prediction, a check every 10).
+
+## Slice 2 (2026-11-10): Nikobolt lives his day
+
+The executor is `body::life` (engine; the actor crate). A game publishes a
+`LifeBook` (domains, a life per character id, and how long each verb holds a
+body); Ambition's is the pack file `data/npc_lives.ron` (schema `npc_lives`,
+owned by `ambition_content_schemas`, published at startup and again by a
+content reload, so an edited domain is the next plan's domain with no Rust
+build). A body whose character has a life gets a `Life` (rollback state,
+`actor.life`): its domain's name, its facts, the plan's remaining steps, what
+it is doing, a plan revision, and why the last plan stopped short.
+
+- **Plan on each new hour.** The `hour` fact is the whole hour of the
+  `DayClock`; the planner runs on the tick the hour changes, from the body's
+  facts. A plan that ends early waits for the next hour.
+- **`go_to <place>` is a `Visit`.** The place is what the body's room names:
+  the room's own name (the body is there), else the first authored thing of
+  that name: a sign, a placement, a prop, a door. A name the room lacks stops
+  the plan with `NoPlace`; a visit refused for want of a route, `NoRoute`.
+- **Any other verb holds** for the hours the book says (`holds`), or is done
+  the tick it starts.
+- **A step done makes its effects facts** (`Domain::apply_step`): the next
+  plan starts from what the body did.
+- **The brain goes only where it is sent.** `keeps_to_its_tasks` is a `Roam`
+  preset with no company and an endless rest, so the advisor's visit is the
+  only place it goes.
+
+The coil lab names its places with signs (generator
+`tools/ambition_ldtk_tools/specs/eureka/make_specs.py`): `workbench` ("COIL
+No. 27", at the bench) and `lunch` ("LUNCH. NAPKINS: 18", by the crate);
+home is out of `lab_door`.
+
+Witnesses (`game/ambition_app/tests/nikobolt_lives_his_day.rs`): from 11:30
+Nikobolt walks to the bench and does an experiment there (his facts count
+it and the bench is released); at noon a new plan sends him to the crate,
+where he eats; Coulomba, with no life, does not move (the control); and the
+same day under a sync test resimulates to the same world with the experiment
+done at the bench.
+
+Not yet: Coulomba's life and the one bench between them (slice 3), facts
+read from the world rather than kept by the body (`bench_free`,
+`partner_here`), a fact that turns over with the day (`ate`), and `say` as a
+spoken line.
+
 ## Acceptance
 
 From the queue row: both scientists follow different authored schedules,

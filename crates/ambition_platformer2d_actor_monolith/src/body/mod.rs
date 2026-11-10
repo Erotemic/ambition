@@ -64,6 +64,8 @@ mod dismounted_rider;
 pub mod dormancy;
 mod drawn_ledges;
 pub mod errand;
+pub mod life;
+pub mod visit;
 mod fade_rows;
 mod telegraph_rows;
 #[cfg(test)]
@@ -329,6 +331,29 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 .run_if(any_with_component::<crate::body::errand::Errand>)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Pickup)
+                .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
+        );
+        // A visit ends on the advice of its tick, as an errand does.
+        app.add_systems(
+            sim,
+            crate::body::visit::settle_visits
+                .run_if(any_with_component::<crate::body::visit::Visit>)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                .after(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Pickup)
+                .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
+        );
+        // A life plans and carries its plan out after its visit is settled,
+        // so a step that arrived this tick is done this tick.
+        app.init_resource::<crate::body::life::LifeBook>();
+        app.add_systems(
+            sim,
+            (
+                crate::body::life::attach_lives.run_if(|book: Res<crate::body::life::LifeBook>| !book.lives.is_empty()),
+                crate::body::life::live_lives.run_if(any_with_component::<crate::body::life::Life>),
+            )
+                .chain()
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                .after(crate::body::visit::settle_visits)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
         );
         // A body crosses to its item's room after the held items and after

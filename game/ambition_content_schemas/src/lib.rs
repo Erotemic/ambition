@@ -9,6 +9,7 @@
 
 pub mod autoplay;
 pub mod flag_chains;
+pub mod npc_lives;
 pub mod rules;
 pub mod text;
 pub mod yarn_dialogue;
@@ -25,6 +26,7 @@ pub fn ambition_schemas() -> Vec<SchemaRegistration> {
         rules::ambition_rules_schema(),
         text::ambition_text_schema(),
         flag_chains::flag_chains_schema(),
+        npc_lives::npc_lives_schema(),
         yarn_dialogue::yarn_dialogue_schema(),
     ]
 }

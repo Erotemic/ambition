@@ -206,6 +206,8 @@ mod movement_axis;
 mod neighbor_prefetch_prepares_rooms;
 mod a_route_over_rooms;
 mod a_dog_sent_for_an_item;
+mod a_dog_sent_to_a_place;
+mod nikobolt_lives_his_day;
 mod nav_graph_census;
 mod walked_route_census;
 mod no_character_resolves_art_by_an_ambiguous_root;

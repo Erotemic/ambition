@@ -110,7 +110,7 @@ fn a_card_shows_the_look_it_holds_after_the_look_changes() {
     // the fighter's own.
     app.world_mut()
         .insert_resource(SmashSkins([(first.clone(), vec![second.clone()])].into_iter().collect()));
-    let mut select = |app: &mut App, change: &dyn Fn(&mut SmashSelect)| {
+    let select = |app: &mut App, change: &dyn Fn(&mut SmashSelect)| {
         change(&mut app.world_mut().resource_mut::<SmashSelect>());
         for _ in 0..3 {
             app.update();

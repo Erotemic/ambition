@@ -12,6 +12,7 @@ description = "The schemas Ambition's own pack names beside the engine's, and th
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_content_cli = { path = "../../crates/ambition_content_cli" }
 serde = { workspace = true }
+ambition_htn = { path = "../../crates/ambition_htn" }
 
 [[bin]]
 name = "ambition_content_check"

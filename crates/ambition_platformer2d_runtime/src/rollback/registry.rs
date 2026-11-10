@@ -236,7 +236,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // Physical material replaces separate roll and support-orientation state.
 // 432 -> 433: a menu's stow of a hand is a stamped request (`ItemStowRequested`).
 // 433 -> 434: a seat's leave is a stamped request (`ParticipantLeaveRequested`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 434;
+// 434 -> 435: a body sent to a place carries a `Visit`, and a body with an
+// authored life a `Life` (its facts and plan); both are rollback state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 435;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

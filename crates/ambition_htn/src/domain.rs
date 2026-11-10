@@ -123,7 +123,9 @@ impl Domain {
         self.compound.contains_key(task) || self.primitive.contains_key(task)
     }
 
-    fn validate(&self) -> Result<(), DomainError> {
+    /// Check a domain built some other way than [`Self::from_ron`] (one
+    /// deserialized inside a larger file).
+    pub fn validate(&self) -> Result<(), DomainError> {
         if !self.declares(&self.root) {
             return Err(DomainError::UnknownRoot(self.root.clone()));
         }

@@ -26,6 +26,7 @@
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
 | [`moves_are_content`](src/moves_are_content.rs) | Are this provider's move tables content? |
 | [`music`](src/music.rs) | Ambition's adaptive music, handed to the reusable music director. |
+| [`npc_lives`](src/npc_lives.rs) | Ambition's NPC lives (`data/npc_lives.ron`), published to the engine's executor as its [`LifeBook`]. |
 | [`pack`](src/pack.rs) | Ambition's own content pack: the compile that is the load path. |
 | [`player_robot_lineage`](src/player_robot_lineage.rs) | The player robot's lineage: `robot` (v0), `player_robot_v2` and `player_robot_v3`, three incarnations of one character. |
 | [`player_robot_moveset`](src/player_robot_moveset.rs) | The player robot's actions, and the tests that pin its two move tables. |
@@ -45,7 +46,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_38 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_39 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

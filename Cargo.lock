@@ -503,6 +503,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content_cli",
  "ambition_content_pack",
+ "ambition_htn",
  "serde",
 ]
 
@@ -1107,6 +1108,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_gameplay_trace",
  "ambition_held_items",
+ "ambition_htn",
  "ambition_input",
  "ambition_interaction",
  "ambition_items",

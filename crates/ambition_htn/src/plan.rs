@@ -166,6 +166,15 @@ impl Search<'_> {
 }
 
 impl Domain {
+    /// Apply the effects of the primitive task `task` to `facts`: what an
+    /// executor does once it has carried the step out, so the facts it plans
+    /// from next are the ones the step made true.
+    pub fn apply_step(&self, task: &str, facts: &mut Facts) {
+        if let Some(primitive) = self.primitive.get(task) {
+            apply(&primitive.effects, facts);
+        }
+    }
+
     /// Plan the root task from `facts`.
     pub fn plan(&self, facts: &Facts, budget: Budget) -> Result<Plan, PlanFailure> {
         let mut search = Search { domain: self, budget, expansions: 0, rejected: Vec::new() };

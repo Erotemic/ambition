@@ -145,3 +145,19 @@ fn how_long_a_plan_takes() {
         started.elapsed().as_secs_f64() * 1e6 / plans as f64
     );
 }
+
+#[test]
+fn a_step_carried_out_makes_its_effects_facts() {
+    let domain = domain();
+    let mut facts = facts("nikobolt", 10, "lab", true, false);
+    domain.apply_step("claim_bench", &mut facts);
+    domain.apply_step("experiment", &mut facts);
+    domain.apply_step("experiment", &mut facts);
+    assert_eq!(facts["bench_free"], Value::Bool(false));
+    assert_eq!(facts["experiments"], Value::Int(2));
+    // A task with no effects, or no task of that name, changes nothing.
+    let before = facts.clone();
+    domain.apply_step("rest", &mut facts);
+    domain.apply_step("no_such_task", &mut facts);
+    assert_eq!(facts, before);
+}

@@ -110,7 +110,9 @@ Test: `game/ambition_app/tests/the_gnu_ton_apples.rs`.
   `a_skirmisher_notices_its_foe_before_it_moves_or_shoots`.
 
   The other eighteen skirmisher profiles have no notice cue or row yet, so
-  they keep fighting on first sight. Still open: recheck the pirate and ninja
-  authored profiles against fighter engagement.
+  they keep fighting on first sight. The pirate and ninja audit (2026-11-10)
+  found the same: apart from the oni leader, none has a notice row or cue,
+  and none runs fighter engagement (pirates run `Smash` or `Skirmisher`,
+  ninjas the catalog melee-brute presets). Each waits for its art and cue.
   [ENEMY-NOTICE](../queue.md#enemy-notice--complete-first-sight-beats-on-the-existing-brain-paths).
 - **Footsies and a running attack don't mix.** Holding in a band slows a body out of its run, so a pouncer should hit and run instead.

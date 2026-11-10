@@ -395,8 +395,22 @@ and authored character profiles. Design: [enemy patterns](game/enemy-patterns.md
 the shared `Brain::is_noticing` projection). The dilophosaurus is authored
 (0.4 s and its notice cue).
 
-**Next action:** audit the named pirate and ninja profiles against fighter engagement; author
-missing values rather than another fighter notice implementation.
+**Audit 2026-11-10 (pirates and ninjas):** nothing to author yet. The oni
+leader is the one authored (0.5 s, `enemy.oni_leader.notice`). Every other
+pirate and ninja has no `notice` sheet row and no `.notice` cue recipe, so a
+`notice_s` would be a pause with no pose and no sound, which the acceptance
+below does not allow. Their brains: pirate strikers, brutes and the cutlass
+viper run the `Smash` template (no notice beat; it is the match-seat
+controller); the rangers, the raider and Iron Mary run `Skirmisher` (notice
+ready, data missing); the shadow duelists and heavies run the catalog presets
+`melee_brute_striker` / `melee_brute_brute` (`BrainPreset` carries no notice
+field; it is pinned to 0). None uses fighter engagement.
+
+**Next action:** when a pirate or ninja sheet gains a `notice` row and its cue
+recipe is published (a publishing machine), author `tactics.notice_s` on its
+`Skirmisher` profile; for a `Smash` or catalog-preset enemy, move it to a
+profile whose template already carries the beat (brute or skirmisher) rather
+than adding a notice to `Smash` or `BrainPreset`.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;
 loss and reacquisition follow the declared policy. Hurt interruption and

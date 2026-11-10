@@ -14,8 +14,8 @@ When a command changes, update or delete the recipe in the same patch.
 - [`fresh-agent-navigation.md`](fresh-agent-navigation.md) — localize a task with
   `.agent` without loading the repository into context.
 - [`coordinator-and-worker-sessions.md`](coordinator-and-worker-sessions.md) —
-  spawning and integrating subagents; ⛔ **mirror a worktree's assets or ~40 tests
-  fail for reasons that are not your change.**
+  spawning and integrating subagents when authorized; mirror ignored assets
+  into a new worktree before interpreting asset-related failures.
 - [`headless-room-verification.md`](headless-room-verification.md) — prove a
   gameplay/world change through the real headless composition.
 - [`ldtk-authoring.md`](ldtk-authoring.md) — safe world edits and tool-assisted
@@ -34,11 +34,10 @@ When a command changes, update or delete the recipe in the same patch.
   running game does when you save a move table, a boss profile, a Yarn file or
   a module, and what an edit costs when it is not running.
 - [`writing-a-procedural-module.md`](writing-a-procedural-module.md) — a
-  gameplay algorithm with its own state, rebuilt as `.wasm` in ~0.3 s and
-  hot-reloaded into the running game; no engine build.
-- [`validating-a-content-pack.md`](validating-a-content-pack.md) — the ~5 ms
-  edit/validate loop, every refusal code and what it means, and how a capability
-  registers its own authored schema.
+  authored gameplay algorithm built as `.wasm` and hot-reloaded without
+  rebuilding the engine.
+- [`validating-a-content-pack.md`](validating-a-content-pack.md) — the edit/validate loop, refusal diagnostics, and capability-owned
+  authored schemas.
 - [`dialogue-authoring.md`](dialogue-authoring.md)
 - [`extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
 - [`add-showcase-room.md`](add-showcase-room.md)

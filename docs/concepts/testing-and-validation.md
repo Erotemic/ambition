@@ -139,7 +139,9 @@ marginal. A suite that takes hours hinders more than it helps.
   the full suite belongs at a milestone, not at every edit.
 
 A passing check is useful only if it exercised the relevant code and could
-have failed for the defect at issue.
+have failed for the defect at issue. The `AGENTS.md` section "Avoid bullshit
+guardrails" also governs reviews: verification does not require turning each
+probe, source-text scan, or process rule into a permanent test.
 [`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md) is the
 doctrine: a check that never executed, a check that executed and could not fail,
 a guard whose source-text anchor a formatter or a language rule can silently

@@ -29,15 +29,15 @@ production API merely to move a test.
 `tests/ambition_workspace_policy` links no production crate. Keep workspace
 scanners there so architecture checks do not compile the full app graph.
 
-## ⛔ `ambition_app` is ONE test binary, and that changes what you may assert
+## The `ambition_app` integration tests share one process
 
 The table above sends cross-crate behaviour to the `ambition_app` integration
 surface *"filtered by test name"*. The filtering is not a convenience:
 `game/ambition_app/Cargo.toml` declares a SINGLE `[[test]]` target, `app_it`, so
-all **150** files under `game/ambition_app/tests/` are modules of one binary and
-libtest runs them as threads in ONE PROCESS.
+the integration modules under `game/ambition_app/tests/` belong to that one
+binary. Libtest may run its cases concurrently in the same process.
 
-⇒ A test there may not assume it owns process-wide state. A sibling booting its
+A test there cannot assume it owns process-wide state. A sibling booting its
 own `App` populates `Assets<Image>`, resources and asset servers underneath your
 assertions, and the failure that produces is a GREEN one — your assertion was
 satisfied by somebody else's world.
@@ -51,7 +51,7 @@ it a runner:
 * and know that `./run_tests.sh --heavy` re-enables ignored tests, which is why
   that plan runs `--test-threads=1`.
 
-⚠ **`#[ignore]` carries three different meanings in this repo** — *slow*,
+**`#[ignore]` carries three different meanings in this repo** — *slow*,
 *prints or panics instead of asserting*, and *invalid unless alone* — and no
 flag distinguishes them. Print-only and panicking tests are therefore named
 `probe_*` and skipped by the heavy plan; the naming is enforced by

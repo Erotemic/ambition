@@ -364,6 +364,23 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
                 .after(crate::body::visit::settle_visits)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
         );
+        // The lives in the durable save: mirrored like every other durable
+        // family, restored on the tick a loaded save is applied, and cleared
+        // by a New Game.
+        app.add_systems(
+            sim,
+            crate::body::life::persist_lives_to_save
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::DurableHorizonSet::DomainMirror),
+        );
+        app.add_systems(
+            sim,
+            crate::body::life::restore_lives_from_save
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::DurableRestoreSet::Domains),
+        );
+        app.add_systems(
+            ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
+            crate::body::life::start_lives_fresh,
+        );
         // Outside the gate: a conversation stops gated systems, and this is
         // what stops a talked-to body's plan.
         app.add_systems(

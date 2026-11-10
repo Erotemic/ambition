@@ -241,8 +241,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 436 -> 437: a `Life` carries its claim on a thing and why its plan was made.
 // 437 -> 438: a talked-to life stops its plan, and a failed step replans.
 // 438 -> 439: each character's last life joins the snapshot and catches up.
-// 439 -> 440: authored aperture sizes and native body contacts join the merge.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 440;
+// 439 -> 440: saved NPC lives and native portal body contacts join the merge.
+// 440 -> 441: distinguish the combined save and portal snapshot.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 441;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

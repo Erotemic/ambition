@@ -7,11 +7,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A fact's value. Facts are what the executor knows about one NPC's world:
 /// the hour, where it is, whether the bench is free.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Value {
     Bool(bool),
     Int(i64),

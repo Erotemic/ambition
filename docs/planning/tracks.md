@@ -8,7 +8,7 @@ A track row should state only the enduring claim, the trigger for promotion and
 its owner. Revalidate all three against HEAD before moving a row to `queue.md`.
 Do not copy campaign history, volatile counts or closed-work receipts here.
 
-**Selected work moved out of the reservoir (2026-11-06):** the Radiant NPC planner, per-game network-authority experiment, boss cinematic census, GNU2 finale and GNU motion diagnosis now have explicit [`queue.md`](queue.md) entries and owner plans. Do not maintain parallel task checklists here. The unchosen full-island GGRS rollback implementation remains conditional on the network experiment.
+**Selected work moved out of the reservoir (2026-11-06):** the Radiant NPC planner, per-game network-authority experiment, boss cinematic census, GNU2 finale and GNU motion diagnosis now have explicit [`queue.md`](queue.md) entries and owner plans. Do not maintain parallel task checklists here. Room-level rollback (SIMULATION-ISLANDS) was selected on 2026-11-10 under the hybrid direction.
 
 ## Replenishment order
 
@@ -113,7 +113,7 @@ here.
 
 ### Conditional GGRS-island rollback
 
-- ▢ **Conditional GGRS-island rollback.** This is the *unselected* `SIMULATION-ISLANDS` branch (ISL-1–ISL-4), not an executable row while [NET-AUTHORITY-EXPERIMENT](queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) is open. Promote only if an accepted backend decision requires distributed GGRS histories in the flagship or another named customer. If hosted authority wins, keep `activeArea` continuity, local live portals, confirmed loading-zone custody and interest scoping in the hosted-region design; do not implement separate GGRS histories to satisfy this old label. Owner: [island rollback and compact input](engine/island-rollback-and-compact-peer-input.md#simulation-islands-independently-rewindable-active-areas).
+- ▶ **Selected 2026-11-10.** The maintainer chose a hybrid direction for the metroidvania: rollback kept inside a room while cheap, hosted authority around it. The work is the queue row [SIMULATION-ISLANDS](queue.md#simulation-islands--room-level-rollback-inside-a-hybrid-world); this heading stays for inbound links. Owner: [island rollback and compact input](engine/island-rollback-and-compact-peer-input.md#simulation-islands-independently-rewindable-active-areas).
 
 ### World facts, orchestration and agentic characters
 

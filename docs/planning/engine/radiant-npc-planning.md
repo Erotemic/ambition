@@ -295,7 +295,20 @@ simulated) and comes back at 19:30. Read against the schedule: Nikobolt
 Coulomba (10-13-20) is at the bench (x 1072) at work, has eaten, and did 8
 (10-12, 14-18).
 
-Not yet: save and reload of the ledger (the second part of slice 5).
+## Slice 5, second part (2026-11-10): the lives in the save
+
+The save keeps the ledger (`lives`, save version 6: each character's facts as
+the planner's RON text and the hour it last planned in). Like every durable
+family, `persist_lives_to_save` mirrors it once a loaded save is applied,
+`restore_lives_from_save` puts it back on the tick the loaded save is applied
+(and gives a life that attached before the restore its saved row, so a fresh
+life is not written over the saved one), and a New Game clears it. A death
+keeps it, as it keeps flags and quests. The clock is not in the save: a
+session started from it plans from its own start hour, with the saved facts.
+
+Witness (same file): Nikobolt's experiment at 9:30 is in the save; a session
+started from that save builds him with it (1 experiment); a session started
+without it builds him with none (the control).
 
 ## Slice 6 (2026-11-10): an edited life in the running game
 

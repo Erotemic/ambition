@@ -397,6 +397,21 @@ pub struct AmbitionGameSaveData {
     /// [`PersistedModuleRecord`].
     #[serde(default)]
     pub(crate) module_records: Vec<PersistedModuleRecord>,
+    /// Each authored NPC life as its body last lived it, so a body built after
+    /// a load catches up from what it had done. See [`PersistedLife`].
+    #[serde(default)]
+    pub(crate) lives: Vec<PersistedLife>,
+}
+
+/// One character's life as its body last lived it (`body::life::LifeLedger`):
+/// its facts, as the planner's RON text (this crate does not read them), and
+/// the (day, hour) it last planned in.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PersistedLife {
+    pub character: String,
+    pub facts: String,
+    #[serde(default)]
+    pub planned_in: Option<(u32, i64)>,
 }
 
 /// One extension module record the durable save keeps: the schema it was
@@ -414,13 +429,13 @@ pub struct PersistedModuleRecord {
 }
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
-/// v5 adds `module_records`.
+/// v5 adds `module_records`. v6 adds `lives`.
 ///
 /// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
 /// with an empty list, which is the correct reading. The bump makes a v5 file
 /// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
 /// the records it cannot read.
-pub const CURRENT_SAVE_VERSION: u32 = 5;
+pub const CURRENT_SAVE_VERSION: u32 = 6;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -483,6 +498,7 @@ impl AmbitionGameSaveData {
             custody: Vec::new(),
             minted_items: Arc::default(),
             module_records: Vec::new(),
+            lives: Vec::new(),
         }
     }
 
@@ -662,6 +678,16 @@ impl AmbitionGameSaveData {
         self.module_records = module_records;
     }
 
+    /// The NPC lives the save keeps, in character order.
+    pub fn lives(&self) -> &[PersistedLife] {
+        &self.lives
+    }
+
+    /// Replace the NPC lives.
+    pub fn set_lives(&mut self, lives: Vec<PersistedLife>) {
+        self.lives = lives;
+    }
+
     /// Which durable fact families differ between two saves, by name.
     ///
     /// The exhaustive destructure of both sides is the guard. Do not replace it
@@ -684,6 +710,7 @@ impl AmbitionGameSaveData {
             custody,
             minted_items,
             module_records,
+            lives,
         } = self;
         let Self {
             version: _,
@@ -701,6 +728,7 @@ impl AmbitionGameSaveData {
             custody: o_custody,
             minted_items: o_minted_items,
             module_records: o_module_records,
+            lives: o_lives,
         } = other;
         let mut differ = Vec::new();
         let mut check = |name: &'static str, same: bool| {
@@ -722,6 +750,7 @@ impl AmbitionGameSaveData {
         check("custody", custody == o_custody);
         check("minted_items", minted_items == o_minted_items);
         check("module_records", module_records == o_module_records);
+        check("lives", lives == o_lives);
         differ
     }
 
@@ -829,6 +858,9 @@ impl AmbitionGameSaveData {
                 3 => {}
                 // v4 → v5: additive; no module records is correct for a v4 file.
                 4 => {}
+                // v5 → v6: additive; no lives is correct for a v5 file (each
+                // body starts its life from the book).
+                5 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -859,6 +891,7 @@ impl AmbitionGameSaveData {
             custody,
             minted_items,
             module_records,
+            lives,
         } = self;
         encounters.clear();
         switches.clear();
@@ -874,6 +907,7 @@ impl AmbitionGameSaveData {
         custody.clear();
         *minted_items = Arc::default();
         module_records.clear();
+        lives.clear();
     }
 }
 
@@ -909,6 +943,13 @@ mod tests {
                     key: "test::k@1".into(),
                     schema: vec![1],
                     record: vec![2],
+                }])
+            }),
+            (vec!["lives"], |d| {
+                d.set_lives(vec![PersistedLife {
+                    character: "c".into(),
+                    facts: "{}".into(),
+                    planned_in: Some((1, 9)),
                 }])
             }),
             (vec!["minted_items"], |d| {
@@ -976,6 +1017,7 @@ mod tests {
             "custody",
             "minted_items",
             "module_records",
+            "lives",
         ]
         .into_iter()
         .collect();
@@ -1360,6 +1402,7 @@ mod tests {
             custody,
             minted_items,
             module_records,
+            lives,
         } = &data;
 
         // Anti-vacuity: a fresh save must hold no durable facts.
@@ -1374,7 +1417,8 @@ mod tests {
                 && occurrences.is_empty()
                 && custody.is_empty()
                 && minted_items.is_empty()
-                && module_records.is_empty(),
+                && module_records.is_empty()
+                && lives.is_empty(),
             "a new save carries no durable world facts to retract"
         );
         assert!(

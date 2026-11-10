@@ -3719,36 +3719,46 @@ fn a_chained_half_scale_strike_keeps_its_launch_after_the_source_rebases() {
         geometry.add_pair(None, (enter, exit));
         through = through.then(ae::frame::Sim2::through(&enter, &exit, MapConvention::Reflection).unwrap()).unwrap();
     }
-    let mut velocities = Vec::new();
-    for rebased in [false, true] {
-        let mut app = portal_strike_app(if rebased { None } else { Some(geometry.clone()) });
-        let owner = hazard_victim(&mut app, ActorFaction::Player, if rebased { through.point(at).unwrap() } else { at });
-        if rebased {
-            app.world_mut().get_mut::<ae::BodyKinematics>(owner).unwrap().material =
-                BodyMaterial::new(through.scale(), through.orthogonal()).unwrap();
+    for authored in [
+        crate::strike::HitboxKnockback::LaunchSpeed { base: 200.0, growth: Some(0.0) },
+        crate::strike::HitboxKnockback::FeelScale(1.0),
+    ] {
+        let mut velocities = Vec::new();
+        for rebased in [false, true] {
+            let mut app = portal_strike_app(if rebased { None } else { Some(geometry.clone()) });
+            let owner = hazard_victim(&mut app, ActorFaction::Player, if rebased { through.point(at).unwrap() } else { at });
+            if rebased {
+                app.world_mut().get_mut::<ae::BodyKinematics>(owner).unwrap().material =
+                    BodyMaterial::new(through.scale(), through.orthogonal()).unwrap();
+            }
+            let victim_at = ae::Vec2::new(1300.0, -195.0);
+            let victim = hazard_victim(&mut app, ActorFaction::Enemy, victim_at);
+            strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 70.0) }, ae::Vec2::new(10.0, 50.0));
+            {
+                let world = app.world_mut();
+                let mut hitbox = world.query::<&mut Hitbox>().single_mut(world).unwrap();
+                hitbox.knockback = authored.clone();
+                hitbox.launch_dir = Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8)));
+            }
+            app.update();
+            app.update();
+            assert_eq!(struck(&app, victim), 1, "one logical strike hits once, rebased={rebased}");
+            let hits = app.world().resource::<CapturedHits>();
+            let hit = hits.body_hits().into_iter().find(|hit| hit.target == HitTarget::Body(victim)).unwrap();
+            assert_eq!(hit.damage, 5);
+            let knockback = hit.knockback.as_ref().unwrap();
+            let velocity = ae::hit_response::knockback_velocity(victim_at, 1.0, ae::Vec2::Y,
+                Some(knockback), ae::Vec2::ZERO, false,
+                &crate::hit_reaction::hit_response_tuning(&Default::default(), false));
+            let expected = through.vector(ae::Vec2::new(120.0, -160.0)).unwrap();
+            match knockback.magnitude {
+                ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(_) =>
+                    assert!(velocity.distance(expected) < 1e-4, "rebased={rebased}: {velocity:?}, expected {expected:?}"),
+                ae::hit_response::HitKnockbackMagnitude::FeelScale(value) =>
+                    assert_eq!(value, 1.0, "a dimensionless multiplier must survive the portal and root rebase"),
+            }
+            velocities.push(velocity);
         }
-        let victim_at = ae::Vec2::new(1300.0, -195.0);
-        let victim = hazard_victim(&mut app, ActorFaction::Enemy, victim_at);
-        strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 70.0) }, ae::Vec2::new(10.0, 50.0));
-        {
-            let world = app.world_mut();
-            let mut hitbox = world.query::<&mut Hitbox>().single_mut(world).unwrap();
-            hitbox.knockback = crate::strike::HitboxKnockback::LaunchSpeed { base: 200.0, growth: Some(0.0) };
-            hitbox.launch_dir = Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8)));
-        }
-        app.update();
-        app.update();
-        assert_eq!(struck(&app, victim), 1, "one logical strike hits once, rebased={rebased}");
-        let hits = app.world().resource::<CapturedHits>();
-        let hit = hits.body_hits().into_iter().find(|hit| hit.target == HitTarget::Body(victim)).unwrap();
-        assert_eq!(hit.damage, 5);
-        let knockback = hit.knockback.as_ref().unwrap();
-        let velocity = ae::hit_response::knockback_velocity(victim_at, 1.0, ae::Vec2::Y,
-            Some(knockback), ae::Vec2::ZERO, false,
-            &crate::hit_reaction::hit_response_tuning(&Default::default(), false));
-        let expected = through.vector(ae::Vec2::new(120.0, -160.0)).unwrap();
-        assert!(velocity.distance(expected) < 1e-4, "rebased={rebased}: {velocity:?}, expected {expected:?}");
-        velocities.push(velocity);
+        assert_eq!(velocities[0], velocities[1]);
     }
-    assert_eq!(velocities[0], velocities[1]);
 }

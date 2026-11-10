@@ -773,7 +773,7 @@ pub fn step_projectiles(
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
-    for (proj_entity, _) in ordered {
+    'projectiles: for (proj_entity, _) in ordered {
         let Ok((
             _,
             mut kin,
@@ -945,21 +945,6 @@ pub fn step_projectiles(
                 continue;
             }
         };
-        *kin = candidate;
-        *game = candidate_game;
-
-        // A shot crosses a portal as every body does (`portal_transit`): it
-        // straddles the opening and the pair takes it when its centre
-        // crosses. Its leg is its sweep, so a fast shot that crossed a plane
-        // this tick is taken through it, not stopped on the wall behind.
-        commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel, time: [0.0, 1.0],
-            prev: leg_start,
-            curr: kin.pos,
-            vel: kin.vel,
-            half: kin.size() * 0.5,
-            down: ae::Vec2::ZERO,
-        });
-
         let blocked_at = world_response.contact.as_ref();
         // `true` when an independent blocker reaches this leg no later than the
         // candidate contact — strictly earlier, or at an exact tie, which the
@@ -1018,11 +1003,10 @@ pub fn step_projectiles(
             // `ProjectileHits` is authoritative rollback state because a
             // resimulated frame that lost it re-hits everybody the shot had
             // already passed through.
-            let leg = game.leg(kin.vel, *acceleration);
-            if leg != game.hits_cleared_on_leg {
-                already_hit.hit.clear();
-                game.hits_cleared_on_leg = leg;
-            }
+            let next_leg = candidate_game.leg(candidate.vel, *acceleration);
+            let rearm_hits = next_leg != candidate_game.hits_cleared_on_leg;
+            let may_touch = |target| Some(target) != owner_entity
+                && (rearm_hits || !already_hit.hit.contains(&target));
             // ⛔⛔ **WHERE IT WAS STRUCK, NOT WHERE THE TICK ENDED.** This was a
             // bare `bool`, and the splash below then used `kin.pos` — the
             // INTEGRATED ENDPOINT, which for a fast shot is far past a thin
@@ -1072,50 +1056,63 @@ pub fn step_projectiles(
             // protocol orders contacts within a projectile by finite time of
             // impact, and a family name is not a time.
             let feature_leg = leg;
-            let feature_contact = super::feature_contact::projectile_reaches_breakable(
-                &before,
-                feature_leg,
-                collision.body_geometry(),
-                shot_room,
-                |target| {
-                    shot_may_touch(owner_entity, &already_hit, target)
-                        && collision.room_of(target) == shot_room
-                },
-                &ecs_breakables,
-            )
-            .into_iter()
-            .chain(super::feature_contact::projectile_reaches_boss(
-                &before,
-                feature_leg,
-                collision.body_geometry(),
-                shot_room,
-                |target| {
-                    shot_may_touch(owner_entity, &already_hit, target)
-                        && collision.room_of(target) == shot_room
-                },
-                &ecs_bosses,
-            ))
-            // ⛔⛔ **A WALL EARLIER ON THE LEG STOPS THE SHOT BEFORE IT REACHES A
-            // CRATE OR A BOSS**, and this branch asked nothing at all. It emitted
-            // the targeted hit and the splash and `continue`d, so the world sweep
-            // below only ever ran when NO feature was reached — which made the
-            // ordering *"feature contact, else world collision"* rather than
-            // *"whichever came first"*. A breakable standing behind an unrelated
-            // solid was broken through it, and a boss behind one was damaged
-            // through it. Same rule as the bodies below, same single sweep, same
-            // strict comparison.
-            .filter(|contact| contact.contact.hit.toi <= travel_end)
-            .filter(|contact| !wall_blocks_reaching(contact.contact.hit.toi, &contact.target_id))
-            .min_by(super::feature_contact::FeatureContact::order_for_caller);
-            let mut ordered: Vec<_> = victims
-                .iter()
-                .filter(|victim| collision.room_of(victim.entity) == shot_room)
-                .filter_map(|victim| {
-                    victim.contact_along(&before, leg, collision.body_geometry(), shot_room).ok().flatten()
-                        .filter(|hit| hit.hit.toi <= travel_end)
-                        .map(|hit| (hit, victim))
-                })
-                .collect();
+            // Every recipient query must succeed before motion or contact is committed.
+            let prepared = (|| -> Result<_, ae::frame::thread::Refusal> {
+                let breakable_contact = super::feature_contact::projectile_reaches_breakable(
+                    &before,
+                    feature_leg,
+                    collision.body_geometry(),
+                    shot_room,
+                    |target| {
+                        may_touch(target)
+                            && collision.room_of(target) == shot_room
+                    },
+                    &ecs_breakables,
+                )?;
+                let boss_contact = super::feature_contact::projectile_reaches_boss(
+                    &before,
+                    feature_leg,
+                    collision.body_geometry(),
+                    shot_room,
+                    |target| {
+                        may_touch(target)
+                            && collision.room_of(target) == shot_room
+                    },
+                    &ecs_bosses,
+                )?;
+                let feature_contact = breakable_contact.into_iter().chain(boss_contact)
+                // ⛔⛔ **A WALL EARLIER ON THE LEG STOPS THE SHOT BEFORE IT REACHES A
+                // CRATE OR A BOSS**, and this branch asked nothing at all. It emitted
+                // the targeted hit and the splash and `continue`d, so the world sweep
+                // below only ever ran when NO feature was reached — which made the
+                // ordering *"feature contact, else world collision"* rather than
+                // *"whichever came first"*. A breakable standing behind an unrelated
+                // solid was broken through it, and a boss behind one was damaged
+                // through it. Same rule as the bodies below, same single sweep, same
+                // strict comparison.
+                .filter(|contact| contact.contact.hit.toi <= travel_end)
+                .filter(|contact| !wall_blocks_reaching(contact.contact.hit.toi, &contact.target_id))
+                .min_by(super::feature_contact::FeatureContact::order_for_caller);
+                let mut ordered = Vec::new();
+                for victim in victims.iter().filter(|victim| collision.room_of(victim.entity) == shot_room
+                    && may_touch(victim.entity)) {
+                    if let Some(hit) = victim.contact_along(&before, leg, collision.body_geometry(), shot_room)?
+                        .filter(|hit| hit.hit.toi <= travel_end) {
+                        ordered.push((hit, victim));
+                    }
+                }
+                Ok((feature_contact, ordered))
+            })();
+            let (feature_contact, mut ordered) = match prepared {
+                Ok(contacts) => contacts,
+                Err(refusal) => {
+                    *game = candidate_game;
+                    commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
+                    bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
+                        "projectile recipient contact refused before commit");
+                    continue 'projectiles;
+                }
+            };
             ordered.sort_by(|(at, a), (bt, b)| {
                 let (ax, ay) = (a.aabb.aabb().center().x, a.aabb.aabb().center().y);
                 let (bx, by) = (b.aabb.aabb().center().x, b.aabb.aabb().center().y);
@@ -1175,6 +1172,25 @@ pub fn step_projectiles(
                      already spent. Give the bodies identity where they are BUILT",
                 );
             }
+
+            if rearm_hits {
+                already_hit.hit.clear();
+                candidate_game.hits_cleared_on_leg = next_leg;
+            }
+            *kin = candidate;
+            *game = candidate_game;
+
+            // A shot crosses a portal as every body does (`portal_transit`): it
+            // straddles the opening and the pair takes it when its centre
+            // crosses. Its leg is its sweep, so a fast shot that crossed a plane
+            // this tick is taken through it, not stopped on the wall behind.
+            commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel, time: [0.0, 1.0],
+                prev: leg_start,
+                curr: kin.pos,
+                vel: kin.vel,
+                half: kin.size() * 0.5,
+                down: ae::Vec2::ZERO,
+            });
 
             for (contact, victim) in &ordered {
                 // ⛔ THE EARLIEST CONTACT WINS, WHATEVER FAMILY IT IS IN.

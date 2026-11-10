@@ -1298,9 +1298,9 @@ pub fn apply_hitbox_damage(
                     // could not tell one from a weak one.
                     HitKnockbackMagnitude::LaunchSpeed(_) => magnitude,
                 };
-                // Launch speed uses the contacting material scale across a root rebase.
+                // Only unit-bearing speed changes between material charts.
                 let magnitude = match magnitude {
-                    HitKnockbackMagnitude::FeelScale(value) => material_into_victim.length(value).map(HitKnockbackMagnitude::FeelScale),
+                    HitKnockbackMagnitude::FeelScale(_) => Ok(magnitude),
                     HitKnockbackMagnitude::LaunchSpeed(value) => material_into_victim.length(value).map(HitKnockbackMagnitude::LaunchSpeed),
                 };
                 let Ok(magnitude) = magnitude else { continue; };

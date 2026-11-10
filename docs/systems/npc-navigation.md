@@ -58,23 +58,18 @@ at the body's top speed (`run_speed` in its `locomotion`).
 A `MeleeBrute` can go to a foe on another surface by the same routes. Set
 `navigates: true` on its brain profile (`autonomous_profiles` in the
 catalog), which is the road a hostile or provoked body's brain is built by.
-A `MeleeBrute` catalog preset has the same field.
+A `MeleeBrute` catalog preset also accepts `navigates`. In the current
+`character_catalog.ron`, the Fascist Enforcer, Swordsman, Clubman, Failed
+Prototype, Attack Hound and Spectral Wolf enable it in their inline
+`autonomous_profile` definitions. The separate `pirate_boarder_heavy` named
+preset does **not** enable it; add the field there if that preset should
+navigate.
 
-```ron
-"pirate_boarder_heavy": (
-    template: MeleeBrute,
-    aggro_radius: 500.0,
-    attack_range: 90.0,
-    navigates: true,
-),
-```
-
-No shipped profile sets it. The rooms are sized for the player's jump, and a
-brute does not reach their platforms, so the field changes nothing there. The
-proof is a test that gives the brain to the dog's body in the hub basement
-(`a_brute_brain_in_the_dogs_body_climbs_to_its_target_...`). The brute goes by
-a route only to a foe it knows of (its ordinary chase), on a surface that is
-not its own. When no route goes there, it chases as before.
+A brute routes toward a foe it is already chasing, when the target is on a
+different reachable surface. Without a route it falls back to its normal
+chase behavior. Navigation is constrained by the **body's** movement and the
+room's surfaces, so enabling the flag does not guarantee every target can be
+reached. Check a representative encounter in the actual room.
 
 ## How to make a room that a body can navigate
 

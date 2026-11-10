@@ -79,24 +79,26 @@ Promote only after a real consumer demonstrates that the API, configuration,
 error model and feature surface make sense without Ambition's repository
 context. Do not externalize a crate merely because its name sounds generic.
 
-## Two goals, and the second is not implied by the first
+## Authority and optional composition
 
-⭐⭐ **AUTHORITY DECOMPOSITION IS NECESSARY. INDEPENDENTLY INSTALLABLE CAPABILITY
-COMPOSITION IS A SEPARATE SUCCESS CRITERION.** A domain can satisfy every rule on
-this page about ownership and dependency direction and still be mandatory in
-every supported composition. Both are required; neither substitutes for the
-other, and authority decomposition comes first.
+A coherent owner and an independently selectable capability are separate goals.
+Moving implementation into a new crate may clarify authority while leaving the
+capability mandatory in every host. A feature gate may remove runtime systems
+while still compiling the capability's dependencies.
 
-⇒ **The doctrine — the two dimensions, the ordering, the absence criterion, the
-intended layering, the runtime and shared-schedule risks, the stronger meaning of
-"decomposed", and the minimum-host tests that would prove it — lives in
-[`../planning/engine/architecture.md`](../planning/engine/architecture.md).**
-It is not restated here, so that there is one home for it.
+For a reusable optional capability, assess four aspects:
 
-⚠ Read it beside the rest of this page rather than instead of it: this page's
-"what earns a package" list is the threshold for CREATING a boundary; capability
-composability is the further question asked of a major reusable capability once
-it has one.
+| Aspect | Question |
+| --- | --- |
+| Semantic ownership | Who controls the facts and invariants? Can the owner operate without another capability's implementation policy? |
+| Runtime installation | Can a host omit the capability's systems and resources, including during restart and teardown? |
+| Compile-time closure | Does a consumer that omits the capability also omit its dependencies and features? |
+| Public API | Can another game request it without importing internal modules or installing unrelated capabilities? |
+
+Do not impose a fixed order between ownership extraction and composability.
+A minimal consumer may expose the missing authority boundary; an authority
+refactor may make the minimal consumer possible. The active extraction plans
+and measurements remain in [`../planning/engine/architecture.md`](../planning/engine/architecture.md).
 
 ## Capability composition
 

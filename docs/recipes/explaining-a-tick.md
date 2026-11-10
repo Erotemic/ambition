@@ -26,21 +26,21 @@ println!("{}", why.render());
 everything published about the WORLD on that tick (a rebase, a rules change) —
 because those explain a body too.
 
-⛔ **It returns ONE execution of that tick, not a merge of several.** A tick
-number is not a moment: frames restart at zero on every session, so generation 1
-tick 20 and generation 2 tick 20 are different things, and under a rollback host
-the same tick runs originally and again as resimulation. `explain` gives you the
-LATEST; `explanations(tick, subject)` gives every one, oldest first, and is what
-to reach for when the question is about the rewind itself.
+A tick can execute more than once during rollback, and ticks restart from
+zero with a new session generation. `explain(tick, subject)` returns the latest
+recorded execution. Use `explanations(tick, subject)` to inspect each execution
+separately, including repeated rollback attempts:
 
 ```rust
 for one in log.explanations(20, &SubjectKey::Seat(1)) {
-    println!("{} {:?}", one.key.generation, one.execution());
+    println!("generation={} attempt={} {:?}",
+        one.key.generation, one.key.attempt, one.execution());
 }
 ```
 
-⚠ two resimulations *within* one generation still group together, because
-nothing publishes an attempt counter yet.
+The runtime's `stamp_causal_frame` increments the attempt on each rollback
+batch and records it through `CausalLog::set_frame_attempt`. An original
+execution has attempt zero. Recording must be enabled to retain any facts.
 
 ## Recording is OFF by default
 
@@ -62,13 +62,18 @@ distinguishable from a gap the *simulation* caused.
 
 | question | domain | fact kind |
 |---|---|---|
-| Why did this body move this tick? | `MOVEMENT` | `movement_intent` |
-| Was this tick original or rollback resimulation? | `ROLLBACK` | `tick_execution` |
-| Why did this fighter choose this action? | `BRAIN` | `fighter_decision` ⚠ headless only, see below |
+| What control did a body receive? | `MOVEMENT` | `control_frame_received` |
+| What movement operation did the kernel perform? | `MOVEMENT` | `movement_operation` |
+| Why did this body request movement? | `MOVEMENT` | `movement_intent` |
+| Was a hit blocked, armored, or damaging? | `DAMAGE` | `hit_resolved` |
+| What knockback and hitstun were applied? | `DAMAGE` | `knockback_applied` |
+| Was this the original tick or rollback replay? | `ROLLBACK` | `tick_execution` |
+| Why did a fighter choose an action? | `BRAIN` | `fighter_decision` (headless publisher) |
 
-Not yet published: damage, lifecycle, move playback, contacts. `Explanation`
-tolerates their absence — a movement-only composition gets a shorter answer, not
-an error.
+These publishers depend on the capabilities installed in the host. The absence
+of a fact can mean the domain did not publish, the policy excluded it, or the
+relevant capability was not installed. Lifecycle and move-playback publishers
+are not covered by this recipe.
 
 ## Read fields, not prose
 
@@ -85,7 +90,7 @@ breaks a test.
 
 ```rust
 SubjectKey::Seat(1)          // a seat — stable across death and respawn
-SubjectKey::Sim("boss_a")    // a stable sim id
+SubjectKey::Sim("boss_a".into()) // a stable sim id
 SubjectKey::Unstable(idx)    // ⚠ a recorded API leak, not a design
 ```
 
@@ -103,7 +108,7 @@ let chain = why.chain_to(why.first("playback_began").unwrap());
 
 ## Publishing from your own capability
 
-**From an ECS system — the sound way:**
+**From a Bevy ECS system:**
 
 ```rust
 pub fn record_my_thing(
@@ -134,11 +139,10 @@ make a resimulated tick indistinguishable from its original.
 app.add_systems(sim, my_publisher.in_set(ambition_platformer2d_runtime::causal::RecordingSet::Publish));
 ```
 
-A publisher outside that set can run first and carry the *previous* frame's
-identity. That is not hypothetical — it is what the parallel-schedule proof
-found the first time the plugin was written.
+A publisher outside that set can carry the previous frame's identity if it
+runs before the frame stamp.
 
-**⛔ From pure code deep in a call tree — thread-local, and it has a contract:**
+**From pure code in a single-threaded call tree:**
 
 ```rust
 let (log, ()) = ambition_causal::with_sink(log, || run_the_pure_thing());
@@ -153,9 +157,9 @@ It does not vanish silently: `ambition_causal::facts_lost_offthread()` counts
 exactly that case, and `assert_no_offthread_loss()` turns it into a failure. If
 it fires, that domain needs `ResMut<CausalRecording>` instead.
 
-## Rules that are not negotiable
+## Authority rules
 
-* **⛔ the simulation must never READ a fact.** The ring is lossy, it is not
+* **Simulation must never read a recorded fact.** The ring is lossy, it is not
   rewound by a rollback host, and anything that branched on one would desync the
   moment history replayed. The thread-local sink's `record` returns `()` on
   purpose — there is no read path.

@@ -166,9 +166,10 @@ goes there with the body's own movement, and `settle_visits` ends it
 
 Witnesses (`game/ambition_app/tests/a_dog_sent_to_a_place.rs`): the basement
 dog sent to a surface only its jump reaches arrives with its feet at the
-place, and without its jump refuses the same place where it stood; the visit,
-given from inside the timeline, resimulates to the same world under a sync
-test (4 frames of prediction, a check every 10).
+place, and without its jump refuses the same place where it stood. Its own
+sync test (a visit given from inside the timeline resimulated to the same
+world) was cut 2026-11-10 to save 141 s of suite time: a visit under a sync
+test is witnessed by slice 3's bench hand-over.
 
 ## Slice 2 (2026-11-10): Nikobolt lives his day
 
@@ -204,12 +205,12 @@ home is out of `lab_door`.
 Witnesses (`game/ambition_app/tests/nikobolt_lives_his_day.rs`): from 11:30
 Nikobolt walks to the bench and does an experiment there (his facts count
 it and the bench is released); at noon a new plan sends him to the crate,
-where he eats; Coulomba, with no life, does not move (the control); and the
-same day under a sync test resimulates to the same world with the experiment
-done at the bench.
+where he eats; Coulomba, with no life, does not move (the control). His
+morning under a sync test (202 s) was cut 2026-11-10: slice 3's bench
+hand-over resimulates the same walk, claim, experiment and release.
 
-Not yet: a fact that turns over with the day (`ate`), and `say` as a spoken
-line.
+Not yet (both done since: review 2026-11-10, findings 2 and 3): a fact that
+turns over with the day (`ate`), and `say` as a spoken line.
 
 ## Slice 3 (2026-11-10): two scientists, one bench
 

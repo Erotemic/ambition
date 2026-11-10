@@ -6,10 +6,11 @@
 //! the plan out with his own body: at half past nine, before Coulomba comes in,
 //! he walks to the bench and does an experiment; at noon he walks to the
 //! lunch crate and eats. Dmitri has no life: the control, who stays where
-//! they stand. The same morning under a sync test resimulates to the same
-//! world.
+//! they stand. His morning under a sync test is witnessed by the bench
+//! hand-over (`two_scientists_share_one_bench`): the first holder walks,
+//! claims, experiments and lets go before the second takes it.
 
-use crate::common::{base, fixed_60hz_room_options, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actors::body::life::{Doing, Life, Value};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
@@ -145,47 +146,4 @@ fn nikobolt_works_at_his_bench_and_lunches_at_noon() {
     assert!(sim.world().get::<Life>(dmitri).is_none(), "premise: Dmitri has no life in the book");
     let moved = (x_of(&sim, dmitri) - dmitri_at_start).abs();
     assert!(moved < 4.0, "control: Dmitri, who has no life, moved {moved} px");
-}
-
-/// ⭐ HIS DAY RESIMULATES TO THE SAME WORLD. Under a sync test each frame is
-/// rewound and replayed and the checksums compared. His plan, its steps and
-/// his facts are rollback state; the planner runs again on a replayed hour
-/// from the restored facts. The premise: the experiment was done.
-#[test]
-fn nikobolts_day_resimulates_to_the_same_world() {
-    let options = fixed_60hz_room_options(LAB)
-        .with_sync_test_rollback_settings(4, 10)
-        .with_rollback_players(2);
-    let mut sim = ambition_app::Platformer2dSimHarness::build(options, |app, options| {
-        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-        // The session's first day begins at half past nine.
-        let mut cycle = *app.world().resource::<DayCycle>();
-        cycle.start_hour = START_HOUR;
-        app.insert_resource(cycle);
-        Ok(())
-    })
-    .expect("the coil lab boots under a sync test");
-    sim.try_step(base()).expect("the first frame steps");
-    let nikobolt = body(&mut sim, NIKOBOLT);
-    let mut experiments = None;
-    for _ in 0..60 * 40 {
-        if sim.try_step(base()).is_err() {
-            break;
-        }
-        experiments = sim.world().get::<Life>(nikobolt).and_then(|life| fact(life, "experiments"));
-        if experiments == Some(Value::Int(1)) {
-            break;
-        }
-    }
-    assert_eq!(
-        (
-            ambition_platformer2d::rollback::session_is_active(sim.world()),
-            ambition_platformer2d::rollback::session_health(sim.world())
-        ),
-        (true, Ok(())),
-        "the replayed world differs from the world that ran first"
-    );
-    assert_eq!(experiments, Some(Value::Int(1)), "premise: the experiment was done under the sync test");
-    let x = x_of(&sim, nikobolt);
-    assert!((x - WORKBENCH_X).abs() < 48.0, "under the sync test the experiment was done away from the bench: x {x}");
 }

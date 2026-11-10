@@ -32,6 +32,13 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                 "alive": entity.get::<BodyHealth>().map(|health| health.alive()),
                 "death": entity.get::<engine::combat::components::DeathBeat>().map(|beat| format!("{beat:?}")),
                 "position": entity.get::<engine::engine_core::BodyKinematics>().map(|body| [body.pos.x, body.pos.y]),
+                "facing": entity.get::<engine::engine_core::BodyKinematics>().map(|body| body.facing),
+                "material": entity.get::<engine::engine_core::BodyKinematics>().map(|body| json!({
+                    "scale": body.material.scale(),
+                    "orthogonal": body.material.orthogonal().to_cols_array(),
+                    "canonical_size": body.canonical_size.to_array(),
+                    "velocity": body.vel.to_array(),
+                })),
             }));
         }
         if let Some(animator) = entity.get::<CharacterAnimator>() {
@@ -50,6 +57,8 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                 "stable_id": entity.get::<engine::observation::SimId>().map(|id| id.as_str()),
                 "session": entity.get::<engine::platformer::lifecycle::SessionScopedEntity>().map(|scope| scope.0.0),
                 "feature_id": entity.get::<engine::render::rendering::FeatureVisual>().map(|feature| &feature.id),
+                "presented_facing": body_pose.map(|pose| pose.facing),
+                "sprite_flip_x": entity.get::<Sprite>().map(|sprite| sprite.flip_x),
                 "requested_pose": requested.map(|pose| format!("{pose:?}")),
                 "animator_pose": format!("{:?}", animator.current),
                 "resolved_row": row, "frame": animator.frame, "held": animator.clip_held,

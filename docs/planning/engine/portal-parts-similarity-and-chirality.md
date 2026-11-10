@@ -33,7 +33,10 @@ Full PSIM acceptance remains open: general remaining-time continuation,
 moving-target and carried-source projectile/hurt contact, other movement
 models, guard geometry, attachments, the bounded numeric law and fault effects,
 I–J lab stations, and device/GPU and performance gates. Two simultaneous limbs
-and a chained third portal follow the completed vertical slice.
+and a chained third portal now have native contact and GNU-ton occupancy
+guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
+`99d51bc9f`. Simultaneous-path capture, two active limb strikes and the remaining
+lab stations remain open.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -991,3 +994,67 @@ Station F and G labels identify moving entry and stationary-body pickup.
 GNU-ton acceptance and numerical-fault presentation remain open. Keep the
 minimum-opening policy in production until the coordinated switch. Measure
 allocation and frame cost on the completed production paths.
+
+
+### Fast posed limbs and multiple paths
+
+`2c4bd3822` removes the distance shortcut that skipped solid contact for fast
+conductor poses. The shared native cast stops two attached limbs at independent
+0.5x and 2x exits in one tick. It also stops a fast limb at a solid after three
+pairs. The real phase-two GNU-ton witness keeps two fist entities and their
+owner while both occupy separate pairs and one reaches a third cut.
+
+Runtime libraries (252), the assembled app, the new GNU-ton witness, the
+existing far-side punch and rewind witnesses, and Smash pass. Logs use
+`target/portal-limbs-`. This packet does not prove simultaneous-path capture,
+chained hit/knockback, chained replay, or the remaining lab stations. Full
+PSIM-3 and P07 acceptance remain open.
+
+
+### Chained strike launch and replay
+
+`99d51bc9f` keeps launch speed in the contacting material's units. Direction
+normalization no longer discards scale. A strike keeps canonical material when
+no portal snapshot is present. The same strike therefore gives the same launch
+through three cuts at a total scale of 0.5 and after its source rebases.
+
+The guards are `a_chained_half_scale_strike_keeps_its_launch_after_the_source_rebases`
+and `a_gnu_ton_fist_hits_once_after_three_cuts_and_replays_its_scaled_launch`.
+The GNU-ton witness runs under the rollback host. Its fist deals seven damage
+once, produces a reflected launch at half speed, and moves the player left and
+up. A second run repeats the body, health and hit-ledger trace bit for bit.
+Combat libraries (819, three ignored), the assembled app, both GNU-ton guards,
+all 38 app portal tests and Smash pass. Logs use `target/portal-launch-`; Smash
+results are in `.agent/portal-launch-smash-artifacts.jsonl`. These checks do not
+prove visual capture or two simultaneous damaging limbs. Full PSIM acceptance
+remains open.
+
+
+### Offscreen 80/40 image witness
+
+`3e443d731` adds `--portal-convention rotation|reflection` to `capture_scene`.
+The choice applies before simulation starts. Frame snapshots now include body
+material and canonical facing, plus presented facing and sprite flip.
+
+The tool builds and all seven existing tool tests pass. Real offscreen runs
+produce 80 frames each for Rotation and Reflection at station H. Their body
+snapshots retain canonical size and give positive and negative parity,
+respectively. The controlled Reflection run keeps canonical facing +1, clears
+the exit at half scale, and visibly puts the robot's antenna and face on the
+opposite sides. No renderer change was needed.
+
+The captures use the low quality profile, a fixed view, and windows off. The
+images and frame snapshots are under `target/portal-visual-h/`. The comparison
+is `heading-comparison.png`. Normalized material coverage, GNU-ton multi-path
+capture, other quality tiers, and device/performance acceptance remain open.
+
+Reproduce the controlled Reflection film after building `capture_scene`:
+
+```bash
+AMBITION_QUALITY_PROFILE=low target/debug/capture_scene portal_lab 2176,850 \
+  target/portal-visual-h/reflection-heading/f.png 1280x720 \
+  --player-at 1860,875@60 --player-holds right@60 \
+  --player-holds left@72 --player-holds none@82 \
+  --warmup 55 --frames 80 --stride 1 --tick-per-frame --camera-zoom debug \
+  --portal-effect off --portal-convention reflection --art-snapshot
+```

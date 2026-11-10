@@ -3698,3 +3698,57 @@ fn a_circular_hurt_region_is_hit_only_inside_its_native_far_side_cap() {
         assert_eq!(struck(&app, victim), hits, "point {at:?}");
     }
 }
+
+#[test]
+fn a_chained_half_scale_strike_keeps_its_launch_after_the_source_rebases() {
+    use ae::frame::{BodyMaterial, MapConvention, PortalAperture, PortalFrame};
+    use ae::frame::thread::PieceBudget;
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    let ap = |x, y, normal, half_length| PortalAperture {
+        frame: PortalFrame::fixed(ae::Vec2::new(x, y), normal), half_length,
+    };
+    let pairs = [
+        (ap(0.0, 0.0, -ae::Vec2::Y, 40.0), ap(500.0, -200.0, ae::Vec2::Y, 20.0)),
+        (ap(500.0, -190.0, -ae::Vec2::Y, 20.0), ap(900.0, -200.0, ae::Vec2::Y, 20.0)),
+        (ap(900.0, -190.0, -ae::Vec2::Y, 20.0), ap(1300.0, -200.0, ae::Vec2::Y, 20.0)),
+    ];
+    let at = ae::Vec2::new(0.0, -60.0);
+    let mut through = ae::frame::Sim2::IDENTITY;
+    let mut geometry = BodyGeometry::new(MapConvention::Reflection).with_default_budget(PieceBudget::COMPOSED);
+    for (enter, exit) in pairs {
+        geometry.add_pair(None, (enter, exit));
+        through = through.then(ae::frame::Sim2::through(&enter, &exit, MapConvention::Reflection).unwrap()).unwrap();
+    }
+    let mut velocities = Vec::new();
+    for rebased in [false, true] {
+        let mut app = portal_strike_app(if rebased { None } else { Some(geometry.clone()) });
+        let owner = hazard_victim(&mut app, ActorFaction::Player, if rebased { through.point(at).unwrap() } else { at });
+        if rebased {
+            app.world_mut().get_mut::<ae::BodyKinematics>(owner).unwrap().material =
+                BodyMaterial::new(through.scale(), through.orthogonal()).unwrap();
+        }
+        let victim_at = ae::Vec2::new(1300.0, -195.0);
+        let victim = hazard_victim(&mut app, ActorFaction::Enemy, victim_at);
+        strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 70.0) }, ae::Vec2::new(10.0, 50.0));
+        {
+            let world = app.world_mut();
+            let mut hitbox = world.query::<&mut Hitbox>().single_mut(world).unwrap();
+            hitbox.knockback = crate::strike::HitboxKnockback::LaunchSpeed { base: 200.0, growth: Some(0.0) };
+            hitbox.launch_dir = Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8)));
+        }
+        app.update();
+        app.update();
+        assert_eq!(struck(&app, victim), 1, "one logical strike hits once, rebased={rebased}");
+        let hits = app.world().resource::<CapturedHits>();
+        let hit = hits.body_hits().into_iter().find(|hit| hit.target == HitTarget::Body(victim)).unwrap();
+        assert_eq!(hit.damage, 5);
+        let knockback = hit.knockback.as_ref().unwrap();
+        let velocity = ae::hit_response::knockback_velocity(victim_at, 1.0, ae::Vec2::Y,
+            Some(knockback), ae::Vec2::ZERO, false,
+            &crate::hit_reaction::hit_response_tuning(&Default::default(), false));
+        let expected = through.vector(ae::Vec2::new(120.0, -160.0)).unwrap();
+        assert!(velocity.distance(expected) < 1e-4, "rebased={rebased}: {velocity:?}, expected {expected:?}");
+        velocities.push(velocity);
+    }
+    assert_eq!(velocities[0], velocities[1]);
+}

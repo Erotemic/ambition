@@ -131,6 +131,8 @@ struct SceneCaptureConfig {
     /// (`--portal-effect off`), so a body crossing a portal is measured as it
     /// is drawn and not again in a window that sees it.
     portal_effect_off: bool,
+    /// Choose the physical portal convention before simulation starts.
+    portal_convention: Option<ambition_platformer2d::portal::PortalConvention>,
     /// Draw these limbs of a part-drawn body (their `limb:<slot>` tracks)
     /// nowhere, in the body or in its limbs' twins (`--limbs-unseen`); empty
     /// for every limb. A film with the limbs and one without differ by the
@@ -402,6 +404,8 @@ OPTIONS:
                         `far` turns the windows off and puts the camera where
                         the view through PORTAL is. PORTAL is a channel (as
                         `c131`) or a world X,Y (the portal nearest to it).
+    --portal-convention rotation|reflection
+                        select the physical mapping before the simulation starts
     --portal-effect off|cones
                         draw portals with body pieces only (`off`), no view
                         windows, or with the windows (`cones`, the default)
@@ -568,6 +572,11 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
                 // Refuse an unknown room: otherwise the capture silently
                 // photographs the hub and exits 0.
                 app.insert_resource(ambition_app::app::StartRoomMustResolve);
+            }
+            if let Some(convention) = config.portal_convention {
+                let tuning = ambition_platformer2d::portal::PortalTuning { convention, ..Default::default() };
+                app.insert_resource(tuning);
+                app.insert_resource(ambition_platformer2d::portal::EditablePortalTuning(tuning));
             }
             // Optional "play as this character" override.
             if let Some(character_id) = config.character.clone() {
@@ -1624,6 +1633,7 @@ impl SceneCaptureConfig {
         let mut shots: Vec<ShotAt> = Vec::new();
         let mut items: Vec<ItemAt> = Vec::new();
         let mut portal_effect_off = false;
+        let mut portal_convention = None;
         let mut limbs_unseen: Option<Vec<String>> = None;
         let mut carry = true;
         let mut gear: Vec<(String, u64)> = Vec::new();
@@ -1966,6 +1976,15 @@ impl SceneCaptureConfig {
                     };
                     2
                 }
+                "--portal-convention" => {
+                    use ambition_platformer2d::portal::PortalConvention;
+                    portal_convention = Some(match args.get(i + 1).map(String::as_str) {
+                        Some("rotation") => PortalConvention::Rotation,
+                        Some("reflection") => PortalConvention::Reflection,
+                        _ => return Err("--portal-convention wants rotation or reflection".to_string()),
+                    });
+                    2
+                }
                 "--portal-effect" => {
                     match args.get(i + 1).map(String::as_str) {
                         Some("off") => portal_effect_off = true,
@@ -2171,6 +2190,7 @@ impl SceneCaptureConfig {
                 shots: Vec::new(),
                 items: Vec::new(),
                 portal_effect_off: false,
+                portal_convention,
                 limbs_unseen: None,
                 carry: true,
                 gear: Vec::new(),
@@ -2256,7 +2276,7 @@ impl SceneCaptureConfig {
             shots,
             items,
             portal_effect_off,
-            limbs_unseen,
+            portal_convention,            limbs_unseen,
             carry,
             gear,
             tick_per_frame,

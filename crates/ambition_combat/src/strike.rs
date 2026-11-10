@@ -20,7 +20,8 @@ pub enum HitboxKnockback {
     DirectedFeelScale { scale: f32, dir: f32 },
     /// Dimensionless multiplier over the victim's feel-tuned launch.
     FeelScale(f32),
-    /// Absolute engine-unit launch speed plus speed growth per damage point.
+    /// Launch speed in source material units, plus growth per damage point.
+    /// The contacting material map gives the speed in the victim's chart.
     ///
     /// `growth: None` means the volume did not decide and the RULESET's growth
     /// applies. `Some(0.0)` is FIXED knockback — the same launch at 0% and at

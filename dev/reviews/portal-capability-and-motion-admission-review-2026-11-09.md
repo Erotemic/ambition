@@ -888,3 +888,49 @@ checkout. Sanic reaches righting `WorkLimit` in a scene with no portals; the
 long soak was stopped and the remaining compiled libraries were run. The HTN
 crate added upstream enters the minimal consumer's closure. No footprint
 baseline waiver was added. These results do not close full P07 acceptance.
+
+
+### Fast posed limbs and multiple paths
+
+`2c4bd3822` removes the fast-pose distance bypass from native limb contact.
+Two attached limbs stop at separate scaled exits in one tick. A fast limb stops
+at a solid after three portal pairs. The real phase-two GNU-ton test retains
+two fist entities and their owner across separate pairs and a third cut.
+Runtime libraries (252), the assembled app, the new GNU-ton witness, the
+existing far-side punch and rewind witnesses, and Smash pass. Logs use
+`target/portal-limbs-`. Simultaneous-path capture, chained hit/knockback and
+chained replay are not proved by this packet. P07 remains open.
+
+
+### Chained strike launch and replay
+
+`99d51bc9f` fixes launch scale lost through direction normalization. The
+contacting material map sets the launch magnitude through validated `Sim2`
+length conversion. A strike keeps its canonical map without portal geometry.
+The launch agrees before and after the source body rebases.
+
+The real GNU-ton fist deals seven damage once through three cuts, gives a
+reflected half-speed launch, and moves the player left and up. Snapshot loads
+run. Two runs give the same body, health and hit-ledger trace. Combat libraries
+(819, three ignored), the assembled app, both GNU-ton guards, all 38 app portal
+tests and Smash pass. Logs use `target/portal-launch-`; Smash results are in
+`.agent/portal-launch-smash-artifacts.jsonl`. Simultaneous damaging limbs, visual
+capture and the remaining lab examples are still open. P07 remains open.
+
+
+### Offscreen 80/40 image witness
+
+`3e443d731` lets `capture_scene` select the physical portal convention at
+startup. Frame snapshots include material and canonical/presented facing.
+The tool builds and its seven tests pass. Real offscreen runs produce 80
+frames each in Rotation and Reflection. Canonical size stays fixed. Parity
+is positive in Rotation and negative in Reflection. A controlled Reflection
+run keeps canonical facing +1 and shows the robot's antenna and face on the
+opposite sides after it clears the exit at half scale.
+
+The captures use the low quality profile, a fixed view, and windows off.
+They are under `target/portal-visual-h/`. `heading-comparison.png` shows the
+controlled crossing.
+No renderer change was needed. Normalized coverage, GNU-ton multi-path capture,
+other quality tiers and device/performance acceptance remain open. P07 remains
+open.

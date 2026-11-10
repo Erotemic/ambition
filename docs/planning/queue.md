@@ -490,11 +490,17 @@ under a two-seat sync test),
 The menu already answered to the seat that opened it (`SeatMenuFrames`, one
 menu per member). Open: a remote peer's leave (this is local seats only).
 
-**Next action:**
+**Slice 4 (presentation) is met by existing witnesses (checked 2026-11-10):**
+the join opens the two-player presentation (seat 1's own HUD on the shared
+view, `a_joined_seat_has_its_own_hud_on_the_shared_view`, drawn in the
+rendered host by `a_joined_seat_has_a_drawn_hud_in_the_rendered_host`); its own
+view opens when the two are apart and the adaptive merge closes it when they
+regroup (`a_joined_seat_gets_its_own_view_when_the_primary_leaves_its_room`,
+`a_second_view_opens_when_the_players_drift_apart_in_one_room_and_closes_when_they_regroup`);
+the leave brings the single-player presentation back (`a_seat_leaves_the_session`).
 
-4. **Presentation:** the join opens the two-player presentation; the adaptive
-   merge stays (Q162). Nice to have: a portal that Player 2 drops out of,
-   presentation only.
+**Next action:** none required. Nice to have: a portal that Player 2 drops
+out of, presentation only. Open: a remote peer's leave.
 
 **Acceptance:** the controller and multiplayer tests of the 2026-10-19
 assignment (section 11), each a simulation-level witness with a negative

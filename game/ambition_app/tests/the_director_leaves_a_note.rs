@@ -203,10 +203,10 @@ fn land_the_tilt(app: &mut App, director: Entity, target: Entity) -> usize {
                 .world()
                 .get::<ae::CenteredAabb>(director)
                 .map(|aabb| aabb.center);
-            if let Some(owner_pos) = owner_pos {
+            if owner_pos.is_some() {
                 let box_center = {
                     use ae::AabbExt;
-                    hitbox.world_aabb(owner_pos).center()
+                    hitbox.world_aabb(app.world().get::<ae::BodyKinematics>(director)).unwrap().center()
                 };
                 let mut kin = app
                     .world_mut()

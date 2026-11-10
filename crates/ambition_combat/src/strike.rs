@@ -42,26 +42,21 @@ pub struct Hitbox {
     /// Source policy: Environment permits self-hits and ignores factions.
     /// Neutral does not damage bodies. Other sources use the common relation.
     pub source: HitSide,
-    /// `FollowOwner` re-resolves the AABB each tick from the owner's
-    /// authoritative position; `World` is a fixed world-space rectangle.
+    /// `FollowOwner` uses current body material. `World` uses room axes.
     pub anchor: HitboxAnchor,
     pub half_extent: ae::Vec2,
     /// Optional non-box strike shape (rotated box, disc, convex arc), in local
     /// space (`+x` = forward) and placed at the anchor center. `None` falls back
     /// to the `half_extent` box, so existing strikes are unchanged.
     pub shape: Option<ae::VolumeShape>,
-    /// Facing baked at spawn — mirrors an asymmetric `shape`. `1.0` for boxes /
-    /// discs (mirror-invariant).
+    /// Committed facing mirrors an asymmetric canonical shape.
     pub facing: f32,
     pub damage: i32,
     /// Explicitly unit-bearing knockback. Do not collapse feel multipliers and
     /// authored engine-unit speeds back into a bare scalar.
     pub knockback: HitboxKnockback,
-    /// The authored launch direction, with the axes it is written on
-    /// ([`HitboxLaunch`]). The damage resolver lowers it to world space when
-    /// the volume lands ([`Self::launch_world`]), with this volume's own
-    /// `facing` and `frame_down`: the facing and the frame of the body that
-    /// threw it. `None` uses the standard feel diagonal at the authored speed.
+    /// The authored launch direction and its axes. Body-local directions use
+    /// committed facing and current material. Absence uses the standard launch.
     pub launch_dir: Option<HitboxLaunch>,
     /// The volume's REACTION override, carried verbatim from the authored
     /// volume. `None` is an ordinary hit, which is nearly every hitbox.
@@ -95,12 +90,7 @@ pub struct Hitbox {
 pub enum HitboxLaunch {
     /// A direction on world axes, independent of either body's frame or facing.
     World(ae::Vec2),
-    /// On the owner's own axes, as a move volume authors it
-    /// (`HitVolume::launch_dir`): `+x` is the way the owner faced when it
-    /// threw the strike (`Hitbox::facing`), `+y` is toward its feet
-    /// (`Hitbox::frame_down`). `(0, -1)` launches up and `(0, 1)` spikes.
-    /// A body the volume catches BEHIND its owner is launched the way the
-    /// owner faces, as the volume says, and not back the other way.
+    /// A direction in canonical body axes. Committed facing selects forward.
     OwnerLocal(ae::Vec2),
     /// `x` is away from the strike's source, `y` is toward
     /// `Hitbox::frame_down`: a hit that pushes out from where it came from,
@@ -110,27 +100,45 @@ pub enum HitboxLaunch {
 }
 
 impl Hitbox {
-    /// The authored launch direction of this strike in world space, for a
-    /// victim at `victim_pos` struck from `source_pos`. THE one lowering of a
-    /// hitbox's launch: the damage resolver calls it while it has the volume.
+    /// Map the authored launch direction through the accepted strike material.
     pub fn launch_world(
         &self,
+        owner: Option<&ae::BodyKinematics>,
         source_pos: ae::Vec2,
         victim_pos: ae::Vec2,
-    ) -> Option<ae::hit_response::WorldLaunchDir> {
-        Some(match self.launch_dir? {
-            HitboxLaunch::World(direction) => ae::hit_response::WorldLaunchDir::from_world(direction),
+    ) -> Result<Option<ae::hit_response::WorldLaunchDir>, ae::frame::thread::Refusal> {
+        use ae::frame::thread::{Refusal, RefusalReason};
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        let Some(direction) = self.launch_dir else { return Ok(None); };
+        match direction {
+            HitboxLaunch::World(direction) => Ok(Some(ae::hit_response::WorldLaunchDir::from_world(direction))),
+            HitboxLaunch::AwayFromSource(local) => Ok(Some(ae::hit_response::WorldLaunchDir::away_from_source(
+                local, source_pos, victim_pos, self.frame_down, self.facing,
+            ))),
             HitboxLaunch::OwnerLocal(local) => {
-                ae::hit_response::WorldLaunchDir::from_source_local(local, self.facing, self.frame_down)
+                let direction = match self.anchor {
+                    HitboxAnchor::FollowOwner { .. } => {
+                        let owner = owner.ok_or(Refusal { path: Vec::new(), link: None, reason: RefusalReason::MissingMaterial })?;
+                        owner.material_map().map_err(numeric)?.direction(ae::Vec2::new(local.x * self.facing, local.y))
+                    }
+                    HitboxAnchor::World { .. } => ae::AccelerationFrame::new(self.frame_down).to_world(ae::Vec2::new(local.x * self.facing, local.y)),
+                };
+                Ok(Some(ae::hit_response::WorldLaunchDir::from_world(direction)))
             }
-            HitboxLaunch::AwayFromSource(local) => ae::hit_response::WorldLaunchDir::away_from_source(
-                local,
-                source_pos,
-                victim_pos,
-                self.frame_down,
-                self.facing,
-            ),
-        })
+        }
+    }
+
+    /// Place an attachment point on this strike's source body.
+    pub fn anchor_world(&self, local: ae::Vec2, owner: Option<&ae::BodyKinematics>) -> Result<ae::Vec2, ae::frame::thread::Refusal> {
+        use ae::frame::thread::{Refusal, RefusalReason};
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        match self.anchor {
+            HitboxAnchor::FollowOwner { .. } => {
+                let owner = owner.ok_or(Refusal { path: Vec::new(), link: None, reason: RefusalReason::MissingMaterial })?;
+                owner.material_map().map_err(numeric)?.point(ae::Vec2::new(local.x * self.facing, local.y)).map_err(numeric)
+            }
+            HitboxAnchor::World { center } => Ok(ae::hit_response::autolink_anchor_world(local, center, self.facing, self.frame_down)),
+        }
     }
 
     /// The autolink this hitbox carries, if its reaction is one.
@@ -168,9 +176,8 @@ impl Hitbox {
 
 #[derive(Clone, Copy, Debug)]
 pub enum HitboxAnchor {
-    /// Melee swing — the hitbox tracks the owner's `pos` each tick with a
-    /// per-strike local offset baked at spawn (facing encoded in
-    /// `local_offset.x`'s sign, so a flipped attacker needs no re-spawn).
+    /// A strike in canonical body axes. The offset includes committed facing.
+    /// The current body material supplies position, scale, turn and parity.
     FollowOwner { local_offset: ae::Vec2 },
     #[allow(dead_code)]
     World { center: ae::Vec2 },
@@ -261,26 +268,38 @@ impl bevy::ecs::entity::MapEntities for HitboxHits {
 }
 
 impl Hitbox {
-    /// Re-resolve this hitbox's world-space volume. Computed every tick rather
-    /// than mirrored on the entity so a moving owner needs no per-frame update.
-    /// Uses the authored `shape` when present (placed + facing-mirrored at the
-    /// anchor center); otherwise the `half_extent` box.
-    pub fn world_volume(&self, owner_pos: ae::Vec2) -> ae::CombatVolume {
-        let center = match self.anchor {
-            HitboxAnchor::FollowOwner { local_offset } => owner_pos + local_offset,
-            HitboxAnchor::World { center } => center,
+    /// The volume in canonical body axes, or room axes for a world anchor.
+    pub fn source_volume(&self) -> ae::CombatVolume {
+        let (center, down) = match self.anchor {
+            HitboxAnchor::FollowOwner { local_offset } => (local_offset, ae::Vec2::Y),
+            HitboxAnchor::World { center } => (center, self.frame_down),
         };
         match &self.shape {
-            Some(shape) => shape.place_at(center, self.facing, self.frame_down),
+            Some(shape) => shape.place_at(center, self.facing, down),
             None => ae::CombatVolume::aabb(ae::Aabb::new(center, self.half_extent)),
         }
     }
 
-    /// Conservative axis-aligned bounds of [`Self::world_volume`] — for the
-    /// debug overlay and any broad-phase callers.
-    pub fn world_aabb(&self, owner_pos: ae::Vec2) -> ae::Aabb {
-        self.world_volume(owner_pos).bounds()
+    /// Place a strike with the current physical material of its owner.
+    /// An owner-following strike requires an accepted body pose.
+    pub fn world_volume(&self, owner: Option<&ae::BodyKinematics>) -> Result<ae::CombatVolume, ae::frame::thread::Refusal> {
+        use ae::frame::thread::{Refusal, RefusalReason};
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        let source = self.source_volume();
+        match self.anchor {
+            HitboxAnchor::FollowOwner { .. } => {
+                let owner = owner.ok_or(Refusal { path: Vec::new(), link: None, reason: RefusalReason::MissingMaterial })?;
+                ae::frame::thread::map_volume(&source, &owner.material_map().map_err(numeric)?).map_err(numeric)
+            }
+            HitboxAnchor::World { .. } => Ok(source),
+        }
     }
+
+    /// The bounds of the accepted strike volume.
+    pub fn world_aabb(&self, owner: Option<&ae::BodyKinematics>) -> Result<ae::Aabb, ae::frame::thread::Refusal> {
+        self.world_volume(owner).map(|volume| volume.bounds())
+    }
+
 }
 
 // ===================================================================
@@ -384,18 +403,14 @@ pub(crate) fn spawn_damage_box(
 }
 
 /// Spawn a strike that follows its owner. The common body resolver supplies
-/// damage permission. Offsets and half extents use the owner's frame; convert
-/// them at spawn so each caller uses the same placement rule.
+/// damage permission. Store offsets and half extents in canonical body axes.
 pub fn spawn_body_strike(
     commands: &mut Commands,
     owner: Entity,
-    // In the OWNER'S OWN SPACE: `+x` is toward their facing, `+y` toward
-    // their feet. Rotated into the world below.
+    // Canonical offset with committed facing already applied.
     local_offset: ae::Vec2,
     facing: f32,
-    body_frame: ae::AccelerationFrame,
-    // Also body-local. A 90° frame swaps width for height; an off-axis frame
-    // gets `to_world_half`'s bounding over-approximation.
+    // Half extents use canonical body axes.
     half_extent: ae::Vec2,
     damage: i32,
     feel_scale: f32,
@@ -424,15 +439,15 @@ pub fn spawn_body_strike(
                 owner,
                 source: HitSide::Player,
                 anchor: HitboxAnchor::FollowOwner {
-                    local_offset: body_frame.to_world(local_offset),
+                    local_offset,
                 },
-                half_extent: body_frame.to_world_half(half_extent),
+                half_extent,
                 shape: None,
                 facing,
                 damage,
                 knockback: HitboxKnockback::FeelScale(feel_scale),
                 launch_dir: None,
-                frame_down: body_frame.down,
+                frame_down: ae::Vec2::Y,
                 reaction: None,
                 guard: Default::default(),
             },
@@ -508,7 +523,7 @@ mod hitbox_shape_tests {
             reaction: None,
             guard: Default::default(),
         };
-        match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
+        match hb.world_volume(Some(&ambition_platformer2d_core::BodyKinematics { pos: ae::Vec2::new(100.0, 50.0), ..Default::default() })).unwrap() {
             ae::CombatVolume::Circle { center, radius } => {
                 assert_eq!(center, ae::Vec2::new(120.0, 50.0));
                 assert_eq!(radius, 15.0);
@@ -539,8 +554,62 @@ mod hitbox_shape_tests {
             guard: Default::default(),
         };
         assert!(matches!(
-            hb.world_volume(ae::Vec2::ZERO),
+            hb.world_volume(None).unwrap(),
             ae::CombatVolume::Aabb(_)
         ));
+    }
+}
+
+#[cfg(test)]
+mod material_tests {
+    use super::*;
+    use ae::AabbExt as _;
+
+    fn strike() -> Hitbox {
+        Hitbox {
+            owner: Entity::PLACEHOLDER, source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(12.0, -8.0) },
+            half_extent: ae::Vec2::new(3.0, 5.0), shape: None,
+            facing: -1.0, damage: 1, knockback: HitboxKnockback::FeelScale(1.0),
+            launch_dir: Some(HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8))),
+            reaction: None, guard: Default::default(), frame_down: ae::Vec2::X, strike_sfx: None,
+        }
+    }
+
+    #[test]
+    fn shaped_strikes_launch_and_attachment_points_use_current_material_once() {
+        let mut strike = strike();
+        for reflected in [false, true] {
+            let axes = bevy::math::Mat2::from_angle(0.43) * bevy::math::Mat2::from_cols(
+                if reflected { ae::Vec2::NEG_X } else { ae::Vec2::X }, ae::Vec2::Y,
+            );
+            for scale in [0.5, 2.0] {
+                let body = ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 200.0),
+                    material: ae::frame::BodyMaterial::new(scale, axes).unwrap(),
+                    ..Default::default()
+                };
+                strike.shape = Some(ae::VolumeShape::Circle { radius: 7.0 });
+                let ae::CombatVolume::Circle { center, radius } = strike.world_volume(Some(&body)).unwrap() else { panic!("circle"); };
+                assert!((center - (body.pos + axes * ae::Vec2::new(12.0, -8.0) * scale)).length() < 0.001);
+                assert_eq!(radius, 7.0 * scale);
+                let launch = strike.launch_world(Some(&body), body.pos, center).unwrap().unwrap().world();
+                assert!((launch - axes * ae::Vec2::new(-0.6, -0.8)).length() < 0.00001);
+                let anchor = strike.anchor_world(ae::Vec2::new(4.0, -9.0), Some(&body)).unwrap();
+                assert!((anchor - (body.pos + axes * ae::Vec2::new(-4.0, -9.0) * scale)).length() < 0.001);
+                strike.shape = Some(ae::VolumeShape::Convex { points: vec![ae::Vec2::ZERO, ae::Vec2::new(9.0, -2.0), ae::Vec2::new(3.0, 8.0)] });
+                let before = strike.world_volume(Some(&body)).unwrap();
+                strike.frame_down = -strike.frame_down;
+                assert_eq!(strike.world_volume(Some(&body)).unwrap(), before);
+                assert!(before.bounds().half_size().min_element() > 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn a_world_strike_needs_no_body_material() {
+        let mut strike = strike();
+        strike.anchor = HitboxAnchor::World { center: ae::Vec2::new(500.0, 600.0) };
+        assert_eq!(strike.world_volume(None).unwrap(), strike.source_volume());
     }
 }

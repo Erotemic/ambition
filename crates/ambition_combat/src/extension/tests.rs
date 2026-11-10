@@ -571,3 +571,46 @@ fn a_held_ray_stops_when_its_edge_hits_a_wall_that_its_centre_misses() {
     let narrow = HeldRay { width: 1.0, ..request };
     assert_eq!(cast_ray(&narrow, None, Some(&world), None, owner, None).unwrap().1.length, 40.0);
 }
+
+/// A world-space port request enters body material without a second scale or turn.
+#[test]
+fn a_riding_request_keeps_world_geometry_then_follows_body_material() {
+    for reflected in [false, true] {
+        for radius in [None, Some(6.0)] {
+            let axes = bevy::math::Mat2::from_angle(0.53) * bevy::math::Mat2::from_cols(
+                if reflected { ae::Vec2::NEG_X } else { ae::Vec2::X }, ae::Vec2::Y,
+            );
+            let body = ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 200.0),
+                material: ae::frame::BodyMaterial::new(2.0, axes).unwrap(),
+                ..Default::default()
+            };
+            let request = ambition_combat_port::RidingHitbox {
+                offset: [30.0, -20.0], half_extent: [8.0, 12.0], circle_radius: radius,
+                damage: 1, knockback: RidingKnockback::FeelScale(1.0), launch_dir: None,
+                lifetime_s: 0.1, name: "material strike".into(),
+            };
+            let (offset, half_extent, shape) = canonical_riding_shape(&body, &request).unwrap();
+            let strike = crate::strike::Hitbox {
+                owner: Entity::PLACEHOLDER, source: crate::strike::HitSide::Boss,
+                anchor: crate::strike::HitboxAnchor::FollowOwner { local_offset: offset },
+                half_extent, shape, facing: 1.0, damage: 1,
+                knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
+                launch_dir: None, reaction: None, guard: Default::default(), frame_down: ae::Vec2::Y,
+                strike_sfx: None,
+            };
+            let world = strike.world_volume(Some(&body)).unwrap();
+            let expected_half = radius.map_or(ae::Vec2::new(8.0, 12.0), ae::Vec2::splat);
+            assert!((world.center() - ae::Vec2::new(130.0, 180.0)).length() < 0.001);
+            assert!((world.bounds().half_size() - expected_half).length() < 0.001);
+            let transfer = ae::frame::Sim2::new(0.5, bevy::math::Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y), ae::Vec2::new(500.0, 0.0)).unwrap();
+            let mut carried = body;
+            carried.pos = transfer.point(body.pos).unwrap();
+            carried.material = body.material.carried(transfer).unwrap();
+            let carried_volume = strike.world_volume(Some(&carried)).unwrap();
+            let expected = ae::frame::thread::map_volume(&world, &transfer).unwrap();
+            assert!((carried_volume.center() - expected.center()).length() < 0.001);
+            assert!((carried_volume.bounds().half_size() - expected.bounds().half_size()).length() < 0.001);
+        }
+    }
+}

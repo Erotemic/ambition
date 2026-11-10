@@ -441,6 +441,8 @@ fn in_sideways_gravity_she_surfaces_with_her_own_box_on_the_floor() {
         .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>(body)
         .unwrap()
         .publish_resolved_frame(ae::MotionFrame::from_direction(ae::Vec2::new(1.0, 0.0), 900.0));
+    app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap().material =
+        ae::frame::BodyMaterial::default().turned(-std::f64::consts::FRAC_PI_2).unwrap();
     fire(&mut app, body, down(120.0));
     fire(&mut app, body, up(120.0));
     assert_eq!(mode(&app, body), ae::player_state::BodyMode::Standing);

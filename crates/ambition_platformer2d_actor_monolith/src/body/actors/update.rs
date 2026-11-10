@@ -668,7 +668,7 @@ pub fn tick_actor_brains(
                         let art_floor = room_rules
                             .of(this_actor_entity)
                             .map_or(0.0, |rules| rules.art_hit_area_min);
-                        let size = body.kin.size();
+                        let size = body.kin.canonical_size;
                         let resolve = |clip: &str, start_s: f32| {
                             coverage_source
                                 .resolver
@@ -1237,25 +1237,9 @@ fn integrate_actor_body(
             });
         }
     }
-    // Publish the actor's footprint ORIENTED to its reference frame (a
-    // surface-walker's frame is its clung surface; everyone else's is gravity at
-    // their position), the single source of truth read by the debug overlay,
-    // player hurtbox, and target volumes. `surface_normal` is kept LIVE for
-    // every body by `em.update` (§B2), so it IS the frame — no conditional.
-    let down = -em.surface.surface_normal;
-    // The footprint size: a boss's coarse render envelope if it carries one,
-    // else the collision box (`em.kin.size`) — the ordinary actor, whose
-    // collision box IS its footprint. This is the one universal `CenteredAabb`
-    // publish rule (AJ5.1); it replaces the boss's old bespoke render-sized
-    // publish, so the same `to_world_half(size*0.5)` box comes out either way.
-    let footprint = envelope.unwrap_or(em.kin.size());
-    ambition_combat::body_geometry::publish_body_footprint(
-        aabb,
-        em.kin.pos,
-        footprint,
-        em.kin.facing,
-        down,
-    );
+    // Canonical composite envelopes and collision bodies use the same material map.
+    let footprint = envelope.unwrap_or(em.kin.canonical_size);
+    ambition_combat::body_geometry::publish_body_footprint(aabb, em.kin, footprint);
     // Publish the post-integration frame (identical to the brain frame except a
     // shark-crash zeroes it) so `emit_brain_action_messages` — which runs after
     // WorldPrep — sees the same frame the old fused loop did.

@@ -713,11 +713,7 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
             >>();
             let hitbox = q.iter(world).next().cloned();
             hitbox.map(|hitbox| {
-                let owner_pos = world
-                    .get::<ambition_platformer2d_core::CenteredAabb>(hitbox.owner)
-                    .map(|aabb| aabb.center)
-                    .expect("the attacking fighter carries its coarse box");
-                hitbox.world_aabb(owner_pos)
+                hitbox.world_aabb(world.get::<ambition_platformer2d_core::BodyKinematics>(hitbox.owner)).unwrap()
             })
         };
         let Some(strike) = strike else { continue };

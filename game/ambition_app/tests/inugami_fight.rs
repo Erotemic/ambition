@@ -310,7 +310,7 @@ fn a_stopped_runner_takes_ghost_fire_and_lightning_with_a_forward_launch() {
                 else { continue; };
             let source = world.get::<ae::BodyKinematics>(pursuer).unwrap().pos;
             let victim = world.get::<ae::BodyKinematics>(body).unwrap().pos;
-            let launch = strike.launch_world(source, victim).expect("a catch authors its launch").world();
+            let launch = strike.launch_world(world.get::<ae::BodyKinematics>(pursuer), source, victim).unwrap().expect("a catch authors its launch").world();
             assert!(launch.x > 0.0 && launch.y < 0.0, "the catch sends the runner back: {launch:?}");
             contact = Some((tick, kind));
         }

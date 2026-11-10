@@ -1398,7 +1398,7 @@ fn a_feature_contact_keeps_its_direct_request_and_one_landing_strike() {
     let world = app.world_mut();
     let strikes: Vec<_> = world.query::<(&ambition_combat::strike::Hitbox, &ambition_combat::events::HitSource)>()
         .iter(world).filter(|(_, cause)| **cause == ambition_combat::events::HitSource::Projectile)
-        .map(|(strike, _)| strike.world_volume(ae::Vec2::ZERO)).collect();
+        .map(|(strike, _)| strike.world_volume(None).unwrap()).collect();
     assert_eq!(strikes.len(), 1);
     assert!(strikes[0].intersects_aabb(ae::Aabb::new(ae::Vec2::new(400.0, 300.0), ae::Vec2::splat(1.0))));
 
@@ -2518,7 +2518,7 @@ fn the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint() {
         mut seen: ResMut<SplashCentres>,
     ) {
         seen.0.extend(strikes.iter().filter(|(_, cause)| **cause == HitSource::Projectile)
-            .map(|(strike, _)| strike.world_volume(ae::Vec2::ZERO).center()));
+            .map(|(strike, _)| strike.world_volume(None).unwrap().center()));
     }
 
     const TARGET: ae::Vec2 = ae::Vec2::new(400.0, 300.0);

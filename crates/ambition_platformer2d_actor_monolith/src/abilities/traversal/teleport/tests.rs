@@ -615,7 +615,11 @@ fn teleport_in(
     let body = spawn_teleporting_body(&mut app, from);
     {
         let mut entity = app.world_mut().entity_mut(body);
-        entity.get_mut::<ae::BodyKinematics>().unwrap().facing = facing;
+        let basis = ae::AccelerationFrame::new(gravity_dir);
+        let mut kin = entity.get_mut::<ae::BodyKinematics>().unwrap();
+        kin.facing = facing;
+        kin.material = ae::frame::BodyMaterial::new(1.0, bevy::math::Mat2::from_cols(basis.side, basis.down)).unwrap();
+        drop(kin);
         let mut frame = entity
             .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>()
             .unwrap();

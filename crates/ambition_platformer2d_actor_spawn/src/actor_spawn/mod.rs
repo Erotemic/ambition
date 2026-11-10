@@ -1983,22 +1983,13 @@ fn attach_mount_role_from(
     }
 }
 
-/// The box a body's per-tick publish writes, computed from the seed the body
-/// is built from.
-///
-/// An actor's `CenteredAabb` is its footprint: `publish_body_footprint` of its
-/// collision size, oriented by its surface. Construction writes the same
-/// answer, so the box is right from the batch that builds the body. A box
-/// taken from the placement is the size the level drew, not the size the
-/// character's art gives the body, and the publish corrected it one tick later.
+/// Construct the same physical envelope that body integration publishes.
 fn built_footprint(seed: &ambition_body_seed::ActorClusterSeed) -> CenteredAabb {
     let mut footprint = CenteredAabb::from_center_size(seed.kin.pos, seed.kin.size());
     ambition_combat::body_geometry::publish_body_footprint(
         &mut footprint,
-        seed.kin.pos,
-        seed.kin.size(),
-        seed.kin.facing,
-        -seed.surface.surface_normal,
+        &seed.kin,
+        seed.kin.canonical_size,
     );
     footprint
 }

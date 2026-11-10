@@ -1213,7 +1213,7 @@ fn data_driven_move_lands_a_hit_through_the_real_path() {
 /// spawned `FollowOwner` hitbox must rotate it into the owner's gravity frame at spawn, so the SAME
 /// move lands its box in the same BODY-relative place under every gravity.
 #[test]
-fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
+fn moveset_hitboxes_keep_canonical_shape_and_follow_physical_material() {
     // Authored body-local rect: forward (side +28) AND above the head
     // (down −20), non-square half so a 90° rotation is observable.
     fn overhead_swat() -> MoveSpec {
@@ -1264,12 +1264,15 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
             ae::Vec2::new(15.0, 24.0),
             overhead_swat(),
         );
-        // The owner's per-tick resolved frame is the rotation authority now —
-        // publish the test gravity on the BODY, as the resolution phase would.
+        // Set the reference and physical pose independently.
         let mut frame =
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
         frame.publish_resolved_frame(ae::MotionFrame::from_direction(gravity, 900.0));
         app.world_mut().entity_mut(attacker).insert(frame);
+        app.world_mut().get_mut::<ae::BodyKinematics>(attacker).unwrap().material =
+            ae::frame::BodyMaterial::new(1.0, bevy::math::Mat2::from_cols(
+                ae::Vec2::new(gravity.y, -gravity.x), gravity,
+            )).unwrap();
         run_seconds(&mut app, 0.31); // t ≈ 0.32, inside the active window
         let mut state = app.world_mut().query::<&Hitbox>();
         let hb = state
@@ -1277,7 +1280,13 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
             .next()
             .expect("active window spawns the volume");
         match hb.anchor {
-            HitboxAnchor::FollowOwner { local_offset } => (local_offset, hb.half_extent),
+            HitboxAnchor::FollowOwner { local_offset } => {
+                assert_eq!(local_offset, ae::Vec2::new(28.0, -20.0));
+                assert_eq!(hb.half_extent, ae::Vec2::new(16.0, 12.0));
+                let kin = app.world().get::<ae::BodyKinematics>(attacker).unwrap();
+                let bounds = hb.world_volume(Some(kin)).unwrap().bounds();
+                (bounds.center() - kin.pos, bounds.half_size())
+            },
             _ => panic!("a moveset volume must anchor FollowOwner"),
         }
     }
@@ -1296,15 +1305,14 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
     ] {
         let (world_offset, world_half) = spawn_and_read(dir);
         let frame = ae::AccelerationFrame::new(dir);
-        // The stored WORLD offset, read back into the BODY frame, is invariant
-        // across gravities — the symmetry property an unrotated spawn breaks.
+        // Recover the canonical offset from the placed physical volume.
         let recovered = frame.to_local(world_offset);
         assert!(
             (recovered - authored_local).length() < 1e-3,
             "dir {dir:?}: the body-local strike offset must be gravity-invariant; \
              got {recovered:?}, want {authored_local:?}"
         );
-        // The half-extent rotates too: (16,12) → (12,16) at 90°.
+        // The physical envelope follows the material axes.
         let expected_half = frame.to_world_half(authored_half);
         assert!(
             (world_half - expected_half).length() < 1e-3,

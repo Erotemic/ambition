@@ -73,35 +73,14 @@ pub trait CombatGeometry {
     fn hurtbox_selection(&self) -> AnimationSelection;
 }
 
-/// An actor's collision AABB — its combat-size body box oriented to its
-/// reference frame and shifted by any off-center `combat_offset`. The single
-/// way to ask "where is this actor's body" across player / NPC / enemy / boss.
-/// THE body-footprint publish — write a body's oriented collision box into
-/// the [`ae::CenteredAabb`] every consumer reads (the debug overlay, hurtbox
-/// resolution, target volumes).
-///
-/// Two spellings of a rule that names itself universal is the shape was, one layer over.
-///
-/// `footprint` is the body's collision size, or a boss's render envelope where
-/// one is carried. `frame_down` is the body's reference-frame down — gravity at
-/// its position, or a clung surface normal for a wall-walker — so a
-/// sideways-gravity body's box lies along the wall.
+/// Publish the physical envelope of canonical body or composite material.
 pub fn publish_body_footprint(
     out: &mut ae::CenteredAabb,
-    pos: ae::Vec2,
-    footprint: ae::Vec2,
-    facing: f32,
-    frame_down: ae::Vec2,
+    body: &ae::BodyKinematics,
+    canonical_size: ae::Vec2,
 ) {
-    use ae::AabbExt;
-    let body = collision_aabb(&SimpleActorGeometry {
-        pos,
-        size: footprint,
-        facing,
-        frame_down,
-    });
-    out.center = body.center();
-    out.half_size = body.half_size();
+    out.center = body.pos;
+    out.half_size = body.material.half_extent(canonical_size * 0.5);
 }
 
 pub fn collision_aabb(g: &impl CombatGeometry) -> ae::Aabb {

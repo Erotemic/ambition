@@ -815,13 +815,14 @@ fn spatial_source_of(hitbox: &Hitbox, owner_pos: ae::Vec2) -> ae::Vec2 {
 pub fn strike_pieces(
     passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     hitbox: &Hitbox,
-    owner_pos: ae::Vec2,
+    owner: Option<&ae::BodyKinematics>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> ambition_platformer2d_core::frame::thread::Partition {
     let carrier = matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }).then_some(hitbox.owner);
-    let volume = hitbox.world_volume(owner_pos);
+    let volume = hitbox.world_volume(owner)?;
+    let owner_pos = owner.map_or(volume.center(), |owner| owner.pos);
     match passages {
-        Some(p) if carrier.is_some() => p.pieces_reaching(&volume, PartSource::Body(hitbox.owner), owner_pos, room),
+        Some(p) if carrier.is_some() => p.body_pieces_reaching(&hitbox.source_volume(), hitbox.owner, room),
         Some(p) => p.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room),
         None => Ok(vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)]),
     }
@@ -862,7 +863,6 @@ pub fn apply_hitbox_damage(
         &mut crate::strike::FixedStrikeFeaturePulse,
         Option<&crate::strike::HitboxExclusions>,
     )>,
-    owners: Query<&super::components::CenteredAabb>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
     // (bare test bodies); every real body — player included — publishes one.
     owner_kin: Query<&ambition_platformer2d_core::BodyKinematics>,
@@ -939,51 +939,19 @@ pub fn apply_hitbox_damage(
     // late sourspot is the SAME pulse and does not re-hit, while a genuine
     // multi-hit puts a GAP in Active time and earns its second hit.
     let mut pulse_records: Vec<(Entity, Entity, Entity)> = Vec::new();
-    // Resolve the owner's collision-box center for FollowOwner tracking.
-    // Actors carry `CenteredAabb`; bare fixtures may carry only
-    // `BodyKinematics`. `None` (owner despawned) leaves the hitbox a harmless
-    // ghost for `tick_and_despawn_hitboxes`.
-    let owner_position = |hitbox: &Hitbox| {
-        let resolved_owner = owners
-            .get(hitbox.owner)
-            .map(|aabb| aabb.center)
-            .ok()
-            .or_else(|| owner_kin.get(hitbox.owner).map(|kin| kin.pos).ok());
-        Some(match (resolved_owner, hitbox.anchor) {
-            (Some(pos), _) => pos,
-            // ⛔⛔ A WORLD-ANCHORED BOX DOES NOT NEED AN OWNER THAT STILL EXISTS,
-            // AND REQUIRING ONE MADE EVERY ITEM BLAST A GHOST. `world_volume`
-            // reads `HitboxAnchor::World { center }` and ignores `owner_pos`
-            // entirely — but this resolution ran FIRST and `continue`d before any
-            // anchor was consulted. ⇒ A bomb or mine that names the exploding
-            // `GroundItem` as its owner despawns as it emits the effect, so the
-            // blast it just spawned was skipped on the very next tick, every
-            // time, with nothing anywhere saying so.
-            //
-            // ⭐ THE BOX'S OWN CENTRE IS THE HONEST SUBSTITUTE, not a zero: the
-            // value is still used for the launch direction and for `source_pos`,
-            // and a blast's knockback radiates FROM THE BLAST. A placeholder
-            // would have thrown every victim toward the world origin.
-            //
-            // ⚠ ONLY WHEN THE OWNER CANNOT BE RESOLVED. A World box whose owner
-            // is alive keeps using the owner's position exactly as before, so
-            // this repairs the ghost without changing a single case that already
-            // worked.
-            (None, HitboxAnchor::World { center }) => center,
-            // A FollowOwner box genuinely cannot be placed without one. Leave it
-            // a harmless ghost for `tick_and_despawn_hitboxes`.
-            (None, HitboxAnchor::FollowOwner { .. }) => return None,
-        })
+    let owner_position = |hitbox: &Hitbox| match hitbox.anchor {
+        HitboxAnchor::FollowOwner { .. } => owner_kin.get(hitbox.owner).ok().map(|kin| kin.pos),
+        HitboxAnchor::World { center } => Some(center),
     };
     // Where a strike is: its live room and its pieces. Each volume is placed
     // by its own anchor, carrier and room, also when another volume of the
     // same move asks about it.
-    let place = |hitbox_entity: Entity, hitbox: &Hitbox, owner_pos: ae::Vec2| {
+    let place = |hitbox_entity: Entity, hitbox: &Hitbox| {
         // The strike's live room: the volume's own, else its owner's. Two
         // live rooms share one local frame, so a body at the same place
         // in another room is not in reach.
         let room = rooms.stamped(hitbox_entity).or_else(|| rooms.of(hitbox.owner));
-        (room, strike_pieces(passages.as_deref(), hitbox, owner_pos, room))
+        (room, strike_pieces(passages.as_deref(), hitbox, owner_kin.get(hitbox.owner).ok(), room))
     };
     // The victims in a stable order (see the victim loop), sorted once a
     // tick: the order is the same for every strike.
@@ -1004,7 +972,7 @@ pub fn apply_hitbox_damage(
                 entity,
                 owner: hitbox.owner,
                 rank: *rank,
-                pieces: place(entity, hitbox, owner_pos).1.ok()?,
+                pieces: place(entity, hitbox).1.ok()?,
                 source: spatial_source_of(hitbox, owner_pos),
                 meets_guard: hitbox.meets_guard(),
                 exclusions,
@@ -1015,7 +983,7 @@ pub fn apply_hitbox_damage(
         let Some(owner_pos) = owner_position(hitbox) else {
             continue;
         };
-        let world_volume = hitbox.world_volume(owner_pos);
+        let Ok(world_volume) = hitbox.world_volume(owner_kin.get(hitbox.owner).ok()) else { continue; };
         // ⭐⭐ WHERE THE HIT CAME FROM IS THE ANCHOR'S QUESTION, NOT THE OWNER'S.
         // `world_volume` already ignores `owner_pos` for a `World` anchor, but
         // the knockback DIRECTION and `source_pos` still read it — so the same
@@ -1044,7 +1012,7 @@ pub fn apply_hitbox_damage(
         // cause describes the result.
         let body_source = (hitbox.source != HitSide::Neutral).then_some(*cause);
 
-        let (strike_room, pieces) = place(hitbox_entity, hitbox, owner_pos);
+        let (strike_room, pieces) = place(hitbox_entity, hitbox);
         let Ok(pieces) = pieces else { continue; };
         // What a feature (a boss, a breakable) is hit by: the pieces, when a
         // pair cut the strike; else the volume, whole.
@@ -1389,17 +1357,21 @@ pub fn apply_hitbox_damage(
                     HitKnockbackMagnitude::LaunchSpeed(_) => magnitude,
                 };
                 let Ok(victim_in_source) = from_victim.point(victim_body.center()) else { continue; };
-                let launch_dir = hitbox.launch_world(spatial_source, victim_in_source)
+                let Ok(launch_dir) = hitbox.launch_world(owner_kin.get(hitbox.owner).ok(), spatial_source, victim_in_source) else { continue; };
+                let launch_dir = launch_dir
                     .map(|launch| into_victim.vector(launch.world()).map(ae::hit_response::WorldLaunchDir::from_world))
                     .transpose();
                 let Ok(launch_dir) = launch_dir else { continue; };
-                let follow = hitbox.autolink().map(|link| -> Result<_, ae::frame::NumericFault> {
+                let follow = hitbox.autolink().map(|link| -> Result<_, ae::frame::thread::Refusal> {
+                    let numeric = |fault| ae::frame::thread::Refusal {
+                        path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(fault),
+                    };
                     Ok(ae::hit_response::AutolinkFollow {
-                        anchor_world: into_victim.point(ae::hit_response::autolink_anchor_world(
-                            ae::Vec2::new(link.anchor.0, link.anchor.1), owner_pos, hitbox.facing, hitbox.frame_down,
-                        ))?,
+                        anchor_world: into_victim.point(hitbox.anchor_world(
+                            ae::Vec2::new(link.anchor.0, link.anchor.1), owner_kin.get(hitbox.owner).ok(),
+                        )?).map_err(numeric)?,
                         carry: link.carry, pull: link.pull, max_speed: link.max_speed,
-                        source_vel: into_victim.vector(owner_kin.get(hitbox.owner).map(|kin| kin.vel).unwrap_or(ae::Vec2::ZERO))?,
+                        source_vel: into_victim.vector(owner_kin.get(hitbox.owner).map(|kin| kin.vel).unwrap_or(ae::Vec2::ZERO)).map_err(numeric)?,
                     })
                 }).transpose();
                 let Ok(follow) = follow else { continue; };

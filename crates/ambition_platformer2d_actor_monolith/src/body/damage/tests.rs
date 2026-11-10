@@ -2519,7 +2519,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     );
     assert!(
         hitbox
-            .world_volume(ae::Vec2::ZERO)
+            .world_volume(app.world().get::<ae::BodyKinematics>(player)).unwrap()
             .intersects_aabb(enemy_body),
         "the attack volume must reach the separated victim body"
     );

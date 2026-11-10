@@ -300,7 +300,6 @@ pub fn pogo_moveset_off_world_orbs(
         &crate::strike::Hitbox,
         &mut crate::on_hit::HitboxOnHit,
     )>,
-    boxes: Query<&ae::CenteredAabb>,
     mut owners: Query<(
         &physics::ResolvedMotionFrame,
         &mut ae::BodyKinematics,
@@ -317,8 +316,8 @@ pub fn pogo_moveset_off_world_orbs(
         .filter(|(_, _, on_hit)| on_hit.effect.key == crate::on_hit::POGO_BOUNCE_KEY)
         .filter(|(_, _, on_hit)| !on_hit.world_fired())
         .filter_map(|(hb_entity, hitbox, on_hit)| {
-            let owner_box = boxes.get(hitbox.owner).ok()?;
-            let world_box = hitbox.world_volume(owner_box.center).bounds();
+            let (_, kin, _) = owners.get(hitbox.owner).ok()?;
+            let world_box = hitbox.world_volume(Some(kin)).ok()?.bounds();
             Some((
                 hb_entity,
                 hitbox.owner,

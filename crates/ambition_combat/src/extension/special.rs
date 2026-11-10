@@ -118,11 +118,11 @@ pub fn special_params(params: &ambition_entity_catalog::ParamValue) -> Vec<(Stri
 pub fn lower_body_strikes(
     mut commands: Commands,
     mut outbox: ResMut<ExtensionOutbox>,
-    bodies: Query<(&ae::BodyKinematics, &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame)>,
+    bodies: Query<&ae::BodyKinematics>,
 ) {
     for submitted in outbox.drain::<BodyStrikePort>(&TECHNIQUE_EXECUTION) {
-        let Ok((kin, frame)) = bodies.get(submitted.scope) else {
-            warn!("extension entry {} asked for a strike on a body with no frame; refused", submitted.entry);
+        let Ok(kin) = bodies.get(submitted.scope) else {
+            warn!("extension entry {} asked for a strike with no body material; refused", submitted.entry);
             continue;
         };
         let strike = submitted.value;
@@ -132,7 +132,6 @@ pub fn lower_body_strikes(
             submitted.scope,
             ae::Vec2::new(facing * strike.forward[0], strike.forward[1]),
             facing,
-            frame.basis(),
             ae::Vec2::from(strike.half_extent),
             strike.damage,
             strike.knockback,

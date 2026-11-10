@@ -75,7 +75,9 @@ or updating their source. Check with
 
 **Done 2026-11-10 (ISL-2c, shots):** a room restore despawns what was spawned after the save and re-creates what is gone (references remapped); in the rewind witness Alice's shots fired in the window are fired again by the replay and end where they did.
 
-**Next action:** ISL-2c, a hit on an NPC and an NPC life writing the ledger in the window, each with the mechanism it needs; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
+**Measured 2026-11-10 (ISL-2d):** a coin taken in a rewound window pays the wallet once (it is on the body and rewinds) but is recorded twice in the world's grant record; the chosen design (world records stamped with room and tick, retracted on a room rewind) is built with the room rollback host ([result](engine/island-rollback-and-compact-peer-input.md#isl-2d-measured-2026-11-10-a-world-write-in-a-rewound-window)).
+
+**Next action:** the room rollback host: when and how a room rewinds in a hosted world (late guest input), with the world-write retraction; ISL-2c, a hit on an NPC in the window; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 

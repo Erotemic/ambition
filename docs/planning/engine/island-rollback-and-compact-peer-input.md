@@ -201,6 +201,38 @@ the hub ends with the same shot at the same age and position. The shot's
 differs; behaviour does not depend on it within one room, but a room checksum
 would.
 
+### ISL-2d, measured (2026-11-10): a world write in a rewound window
+
+Probe `probe_a_coin_taken_in_a_rewound_window` (ignored): Alice takes the coin
+in `basement_treasure` while Bob stays in the hub; her room rewinds to before
+the pickup and replays it.
+
+| After | Wallet (on Alice's body) | `RewardGrantsSinceCheckpoint` (world) | Save |
+|---|---|---|---|
+| frame N | 0 | 0 grants | — |
+| the pickup | 25 | 1 | one flag set |
+| the restore | 0 | 1 | unchanged |
+| the replay | 25 | **2** | unchanged (the flag set again) |
+
+What lives on the room's entities rewinds with the room. An append-only world
+record does not: the replay records the grant a second time, and a death
+restore would then take back two grants for one coin. An idempotent world write
+(the save's flag) survives a replay that repeats it, but would stay wrong after
+a replay in which the pickup no longer happens.
+
+**Design (chosen, not built):** a world record written from a room carries the
+room and the tick (`SimTick`) it was written on. A room rewind to tick N
+announces itself (room, N), and each world store that takes room writes
+retracts that room's records after N; the replay writes them again. An
+overwrite (a save flag) keeps the value it replaced, so the retraction restores
+it. The alternative, holding a room's world writes in an outbox until its
+frames are confirmed, delays every world consequence by the rollback window
+and needs read-your-own-writes; retraction keeps world facts immediate. It is
+built with the room rollback host (the code that decides when a room rewinds),
+not before it: today only tests restore a room. Its first customers are the
+grant record and the save's pickup flags; the census of world stores written
+from rooms comes with it.
+
 ### Next (ISL-2c and ISL-1b)
 
 1. **ISL-2c — the witness under load.** A hit on an NPC, an NPC life that

@@ -297,3 +297,66 @@ fn a_rewound_room_fires_its_shots_again() {
     let wrong = rewind_the_hub(true, true);
     assert!(wrong.is_empty(), "the replay with shots differs: {wrong:?}");
 }
+
+/// ISL-2d probe: a world write made in the window. Alice takes the coin in
+/// `basement_treasure` while Bob stays in the hub; the coin room rewinds to
+/// before the pickup and replays it. Her wallet is on her body and rewinds
+/// with the room; the grant record (`RewardGrantsSinceCheckpoint`) and the
+/// save belong to the world and do not. Prints what each says after the first
+/// run and after the replay.
+#[test]
+#[ignore = "probe: prints what a world write in a rewound window does; run with --ignored --nocapture"]
+fn probe_a_coin_taken_in_a_rewound_window() {
+    use crate::pickup_regrowth_across_rooms::{alices_balance, collect, COIN, COIN_ROOM, HUB};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        COIN_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    let grants = |sim: &Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::item_runtime::pickup::RewardGrantsSinceCheckpoint>().grants().len()
+    };
+    let saved_flags = |sim: &Platformer2dSimHarness| {
+        format!("{:?}", sim.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data()).len()
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let (balance_n, grants_n, save_n) = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
+
+    collect(&mut sim, COIN);
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (balance_1, grants_1, save_1) = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    let balance_restored = alices_balance(&mut sim);
+    collect(&mut sim, COIN);
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let (balance_2, grants_2, save_2) = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
+    println!("[coin] wallet: {balance_n} at N, {balance_1} after the pickup, {balance_restored} restored, {balance_2} after the replay");
+    println!("[coin] grants since the checkpoint: {grants_n} at N, {grants_1} after the pickup, {grants_2} after the replay");
+    println!("[coin] save (debug length): {save_n} at N, {save_1} after the pickup, {save_2} after the replay");
+    sim.world_mut().insert_resource(rows);
+}

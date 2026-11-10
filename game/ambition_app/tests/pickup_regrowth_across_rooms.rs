@@ -23,7 +23,7 @@ use crate::breakable_respawn_across_rooms::cross_to;
 use crate::common::{base, fixed_60hz_room_sim};
 
 const ROOM: &str = "basement_breakables";
-const HUB: &str = "central_hub_complex";
+pub(crate) const HUB: &str = "central_hub_complex";
 const HEART: &str = "regrowing heart";
 /// The heart beside it, authored `Never`: gone for the run once taken (Q154).
 const PLAIN: &str = "one-time heart";
@@ -76,7 +76,7 @@ fn player_at(sim: &mut Platformer2dSimHarness) -> Vec2 {
 
 /// Collect the pickup `name` by standing on it, as a player does. Returns the
 /// clock at the collection.
-fn collect(sim: &mut Platformer2dSimHarness, name: &str) -> f32 {
+pub(crate) fn collect(sim: &mut Platformer2dSimHarness, name: &str) -> f32 {
     let at = {
         let world = sim.world_mut();
         let mut q = world.query::<(&FeatureName, &CenteredAabb)>();
@@ -427,10 +427,10 @@ fn a_death_keeps_gone_a_one_time_heart_another_player_took_in_a_room_he_left() {
 }
 
 /// The room beside the hub that authors a coin pickup.
-const COIN_ROOM: &str = "basement_treasure";
-const COIN: &str = "currency pickup";
+pub(crate) const COIN_ROOM: &str = "basement_treasure";
+pub(crate) const COIN: &str = "currency pickup";
 
-fn alices_balance(sim: &mut Platformer2dSimHarness) -> i32 {
+pub(crate) fn alices_balance(sim: &mut Platformer2dSimHarness) -> i32 {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<
         &ambition_platformer2d::characters::actor::BodyWallet,

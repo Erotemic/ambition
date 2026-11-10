@@ -15,7 +15,8 @@
 use std::collections::BTreeMap;
 
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
-use ambition_platformer2d::engine_core::ControlFrame;
+use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};
+use ambition_platformer2d::platformer::projectile::ProjectileGameplay;
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
 use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::rollback::RoomSnapshotRows;
@@ -92,14 +93,52 @@ fn differences(label: &str, expected: &BTreeMap<SimId, [f32; 5]>, got: &BTreeMap
     out
 }
 
-/// Alice walks and attacks every fifteen frames: what the first witness
-/// avoided.
-fn alices_fight(frame: i32) -> ControlFrame {
-    ControlFrame {
-        attack_pressed: frame % 15 == 5,
-        attack_held: frame % 15 >= 5 && frame % 15 < 9,
-        ..alices_walk(frame)
-    }
+/// Alice fires a shot to her right: at frame 10 one that ends inside the
+/// window, at frame 30 one still in flight when it closes. The same shots in
+/// the first run and the replay, so the replay must spawn them again.
+fn alice_fires(sim: &mut Platformer2dSimHarness, frame: i32) {
+    use ambition_platformer2d::projectiles::{ProjectileSpawnRequest, ProjectileStart};
+    let lifetime = match frame {
+        10 => 0.3,
+        30 => 1.0,
+        _ => return,
+    };
+    let world = sim.world_mut();
+    let (alice, at) = world
+        .query_filtered::<(Entity, &BodyKinematics), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .map(|(entity, body)| (entity, body.pos))
+        .expect("Alice has a body");
+    world.write_message(ProjectileSpawnRequest::open(
+        alice,
+        ambition_platformer2d::projectiles::ProjectileSpawn {
+            origin: at + bevy::math::Vec2::new(24.0, 0.0),
+            dir: bevy::math::Vec2::new(1.0, 0.0),
+            speed: 240.0,
+            damage: 1,
+            max_lifetime: lifetime,
+            half_extent: bevy::math::Vec2::new(6.0, 6.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            bounces: 0,
+            bounce_on_world_contact: false,
+            boomerang_return_s: None,
+            splash_half_extent: 0.0,
+        },
+        ProjectileStart::StepThisTick,
+    ));
+}
+
+/// The hub's shots in flight: age and position, in order.
+fn shots_in(world: &mut World, room: LiveRoomInstance) -> Vec<[f32; 3]> {
+    let mut shots: Vec<[f32; 3]> = world
+        .query::<(&ProjectileGameplay, &BodyKinematics, &InRoomInstance)>()
+        .iter(world)
+        .filter(|(_, _, at)| at.0 == room)
+        .map(|(shot, body, _)| [shot.age, body.pos.x, body.pos.y])
+        .collect();
+    shots.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+    shots
 }
 
 /// What an entity is, independent of its `Entity` id: its `SimId`, else the
@@ -119,12 +158,12 @@ fn census(world: &World, rows: &RoomSnapshotRows, entities: &[Entity]) -> Vec<St
     out
 }
 
-/// Rewind the hub to N and replay it, Alice driven by `alice`, hiding Bob's
-/// room for the replay when `hide_the_lab`. Returns what differs from the
-/// first run. Without `spawns_reported`, an entity spawned in or taken from
-/// the hub in the window fails the premise; with it, it is printed, and the
+/// Rewind the hub to N and replay it, hiding Bob's room for the replay when
+/// `hide_the_lab`, with Alice firing her shots in the window when `shots`.
+/// Returns what differs from the first run. Without shots, an entity spawned
+/// in or taken from the hub in the window fails the premise; with them, the
 /// replay has to build the same entities again.
-fn rewind_the_hub(hide_the_lab: bool, alice: fn(i32) -> ControlFrame, spawns_reported: bool) -> Vec<String> {
+fn rewind_the_hub(hide_the_lab: bool, shots: bool) -> Vec<String> {
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(ROOM)).expect("the room boots");
     bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     alice_on_the_hub_door(&mut sim);
@@ -148,11 +187,15 @@ fn rewind_the_hub(hide_the_lab: bool, alice: fn(i32) -> ControlFrame, spawns_rep
 
     // Both rooms run on.
     for frame in 1..=WINDOW {
-        sim.drive_seat(0, alice(frame));
+        if shots {
+            alice_fires(&mut sim, frame);
+        }
+        sim.drive_seat(0, alices_walk(frame));
         sim.drive_seat(1, bobs_walk(frame));
         sim.app_mut().update();
     }
     let at_end = clock(sim.world());
+    let shots_at_end = shots_in(sim.world_mut(), hub);
     let hub_at_end = bodies(&mut sim, Some(hub));
     let lab_at_end = bodies(&mut sim, Some(lab));
     assert_ne!(hub_at_n, hub_at_end, "premise: the hub changed in the window");
@@ -166,7 +209,7 @@ fn rewind_the_hub(hide_the_lab: bool, alice: fn(i32) -> ControlFrame, spawns_rep
     for entity in hub_entities.iter().filter(|entity| !hub_entities_at_end.contains(entity)) {
         spawned_or_gone.push(format!("gone in the window: {entity:?}"));
     }
-    if !spawns_reported {
+    if !shots {
         assert!(spawned_or_gone.is_empty(), "premise: no entity was spawned in or taken from the hub in the window: {spawned_or_gone:?}");
     }
 
@@ -180,7 +223,10 @@ fn rewind_the_hub(hide_the_lab: bool, alice: fn(i32) -> ControlFrame, spawns_rep
     set_clock(sim.world_mut(), at_n);
     assert_eq!(bodies(&mut sim, Some(hub)), hub_at_n, "premise: the restore put the hub back at N");
     for frame in 1..=WINDOW {
-        sim.drive_seat(0, alice(frame));
+        if shots {
+            alice_fires(&mut sim, frame);
+        }
+        sim.drive_seat(0, alices_walk(frame));
         sim.drive_seat(1, ControlFrame::default());
         sim.app_mut().update();
     }
@@ -208,6 +254,14 @@ fn rewind_the_hub(hide_the_lab: bool, alice: fn(i32) -> ControlFrame, spawns_rep
         }
     }
     wrong.extend(differences("hub", &hub_at_end, &bodies(&mut sim, Some(hub))));
+    if shots {
+        assert_eq!(shots_at_end.len(), 1, "premise: one shot is in flight when the window closes: {shots_at_end:?}");
+        assert!(!spawned_or_gone.is_empty(), "premise: the shots were spawned in the hub");
+    }
+    let shots_after = shots_in(sim.world_mut(), hub);
+    if shots_after != shots_at_end {
+        wrong.push(format!("shots: {shots_at_end:?} after the first run, {shots_after:?} after the replay"));
+    }
     wrong.extend(differences("lab", &lab_at_end, &bodies(&mut sim, Some(lab))));
     if replayed.0 != at_end.0 {
         wrong.push(format!("clock: tick {:?} after the first run, {:?} after the replay", at_end.0, replayed.0));
@@ -220,7 +274,7 @@ fn rewind_the_hub(hide_the_lab: bool, alice: fn(i32) -> ControlFrame, spawns_rep
 
 #[test]
 fn a_room_rewinds_and_replays_while_the_other_room_keeps_its_state() {
-    let wrong = rewind_the_hub(true, alices_walk, false);
+    let wrong = rewind_the_hub(true, false);
     assert!(wrong.is_empty(), "the replayed hub or the hidden room differs: {} differences", wrong.len());
 }
 
@@ -230,16 +284,16 @@ fn a_room_rewinds_and_replays_while_the_other_room_keeps_its_state() {
 #[test]
 #[ignore = "control for the witness above; run with --ignored when the rewind changes"]
 fn without_hiding_the_other_room_the_replay_moves_it_too() {
-    let wrong = rewind_the_hub(false, alices_walk, false);
+    let wrong = rewind_the_hub(false, false);
     assert!(wrong.iter().any(|line| line.starts_with("lab ")), "the replay left Bob's room as it was although it ran: {wrong:?}");
     assert!(!wrong.iter().any(|line| line.starts_with("hub ")), "the hub replayed differently: {wrong:?}");
 }
 
-/// ISL-2c probe: the same rewind with Alice attacking. Prints what the replay
-/// could not keep; a measurement until the snapshot spawns and despawns.
+/// ISL-2c: a shot that ended inside the window and one still in flight are
+/// spawned after the save. The restore despawns them, and the replay fires
+/// them again: the hub ends with the same shot where it was.
 #[test]
-#[ignore = "probe: prints what an attack in the window breaks; run with --ignored --nocapture"]
-fn probe_a_rewind_with_an_attack_in_the_window() {
-    let wrong = rewind_the_hub(true, alices_fight, true);
-    println!("[rewind] {} differences with an attack in the window", wrong.len());
+fn a_rewound_room_fires_its_shots_again() {
+    let wrong = rewind_the_hub(true, true);
+    assert!(wrong.is_empty(), "the replay with shots differs: {wrong:?}");
 }

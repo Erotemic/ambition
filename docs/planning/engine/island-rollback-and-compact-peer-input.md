@@ -189,16 +189,21 @@ to stop a replayed write from landing twice.
 one spawned after the save is despawned, a saved one that is gone is spawned
 again, and the references the room's components hold to it are rewritten
 through the registered entity-mapping rows (`record_map_row`, recorded by both
-registrars; resource mappings are not). Unit-tested in the owner module. The
-probe `probe_a_rewind_with_an_attack_in_the_window` (ignored) replays the hub
-with Alice attacking every fifteen frames: nothing was spawned and the replay
-had no difference. The probe does not check that a swing ran or hit anything,
-so it is weak evidence about attacks.
+registrars; resource mappings are not). Unit-tested in the owner module.
+
+Witness `a_rewound_room_fires_its_shots_again` (same fixture): Alice fires two
+shots in the window, one that ends inside it and one still in flight when it
+closes. The restore despawns the live one; the replay fires both again, and
+the hub ends with the same shot at the same age and position. The shot's
+`SimId` (`slot:0/1`) comes out the same because its counter
+(`body.sim_id_counter`) is on Alice and rewinds with her. The global
+`ProjectileSeqCounter` does not rewind, so the replayed shot's sequence number
+differs; behaviour does not depend on it within one room, but a room checksum
+would.
 
 ### Next (ISL-2c and ISL-1b)
 
-1. **ISL-2c — the witness under load.** A window where something is spawned
-   (a projectile from a ranged attack, a hit on an NPC), an NPC life that
+1. **ISL-2c — the witness under load.** A hit on an NPC, an NPC life that
    writes the ledger (committed-world writes are refused or deferred during a
    replay), and a connect (hitstop: ISL-1b below). A failure of the witness
    names the state that could not be kept to one room. These run as probes or

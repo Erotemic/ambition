@@ -73,7 +73,9 @@ or updating their source. Check with
 
 **Done 2026-11-10 (ISL-1b, the freeze):** with several live rooms an impact hold or Player 1's hitlag no longer stops every room's clock; one live room keeps the freeze ([owner](engine/island-rollback-and-compact-peer-input.md#next-isl-2c-and-isl-1b)).
 
-**Next action:** ISL-2c, the same witness under load (an attack and a projectile across the snapshot, an NPC life writing the ledger, a connect), each with the mechanism it needs; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
+**Done 2026-11-10 (ISL-2c, shots):** a room restore despawns what was spawned after the save and re-creates what is gone (references remapped); in the rewind witness Alice's shots fired in the window are fired again by the replay and end where they did.
+
+**Next action:** ISL-2c, a hit on an NPC and an NPC life writing the ledger in the window, each with the mechanism it needs; ISL-1b, the remaining couplings (bullet-time's shared scale, projectile ids, the one conversation, the one cutscene), each with a witness that an event in one room leaves the other unchanged.
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 

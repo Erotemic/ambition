@@ -881,6 +881,7 @@ dependencies = [
 name = "ambition_htn"
 version = "0.1.0"
 dependencies = [
+ "ambition_life_planning",
  "ron 0.11.0",
  "serde",
 ]
@@ -927,6 +928,13 @@ dependencies = [
  "ambition_platformer2d_core",
  "bevy",
  "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
+name = "ambition_life_planning"
+version = "0.1.0"
+dependencies = [
  "serde",
 ]
 
@@ -1120,10 +1128,10 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_gameplay_trace",
  "ambition_held_items",
- "ambition_htn",
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
+ "ambition_life_planning",
  "ambition_match",
  "ambition_mount",
  "ambition_persistence",

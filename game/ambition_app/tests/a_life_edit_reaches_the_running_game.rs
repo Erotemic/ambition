@@ -37,7 +37,8 @@ fn just_before(app: &mut App, hour: f32) {
     *world.resource_mut::<DayClock>() = DayClock { day: day + 1, ..DayClock::at_hour(&cycle, hour - 0.01) };
 }
 
-/// The plan Nikobolt makes at `hour`: the method his day was lived by.
+/// The plan Nikobolt makes at `hour`: the first reason its planner gave (the
+/// method his day was lived by: `live_the_day: <method>`).
 fn the_plan_at(app: &mut App, hour: f32) -> String {
     just_before(app, hour);
     let body = nikobolt(app);
@@ -48,7 +49,7 @@ fn the_plan_at(app: &mut App, hour: f32) -> String {
         if let Some(life) = app.world().get::<Life>(body) {
             if Some(life.revision) != started && life.planned_in.map(|(_, at)| at) == Some(hour as i64) {
                 if let Some(step) = life.task() {
-                    return step.chain.first().map(|chosen| chosen.method.clone()).unwrap_or_default();
+                    return step.because.first().cloned().unwrap_or_default();
                 }
             }
         }
@@ -70,7 +71,7 @@ fn an_edited_lunch_hour_reaches_his_next_plan_in_the_running_game() {
 
     // Control: as shipped, eleven o'clock is a working hour.
     assert_eq!(lunch_hour_in_the_book(&app), Some(Value::Int(12)), "premise: the shipped lunch hour");
-    assert_eq!(the_plan_at(&mut app, 11.0), "a working day", "as shipped, eleven is not his lunch hour");
+    assert_eq!(the_plan_at(&mut app, 11.0), "live_the_day: a working day", "as shipped, eleven is not his lunch hour");
 
     let before = nikobolt(&mut app);
     let revision = app.world().get::<Life>(before).map(|life| life.revision);
@@ -109,5 +110,5 @@ fn an_edited_lunch_hour_reaches_his_next_plan_in_the_running_game() {
     );
 
     // The same hour is a lunch hour now.
-    assert_eq!(the_plan_at(&mut app, 11.0), "lunch", "after the reload, eleven is still not his lunch hour");
+    assert_eq!(the_plan_at(&mut app, 11.0), "live_the_day: lunch", "after the reload, eleven is still not his lunch hour");
 }

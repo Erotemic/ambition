@@ -7,17 +7,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-/// A fact's value. Facts are what the executor knows about one NPC's world:
-/// the hour, where it is, whether the bench is free.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Value {
-    Bool(bool),
-    Int(i64),
-    /// A name: a place, a person, a mood.
-    Sym(String),
-}
+pub use ambition_life_planning::Value;
 
 /// The right side of a comparison: a constant, or another fact (an NPC's own
 /// `arrive_hour`, so two NPCs share a domain and keep their own schedules).
@@ -44,14 +36,7 @@ pub enum Effect {
     Add(String, i64),
 }
 
-/// What the executor is asked to do: a verb it knows (`go_to`, `use`, `say`,
-/// `wait_until`) and its target, both opaque to the planner.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-pub struct Action {
-    pub verb: String,
-    #[serde(default)]
-    pub target: Option<String>,
-}
+pub use ambition_life_planning::Action;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Method {

@@ -23,6 +23,11 @@ use ambition_time::{ClockDomain, ClockObserver, ClockState};
 /// not modal there either. So with several live rooms neither the impact hold
 /// nor Player 1's hitlag freezes the clock; the hit body's own hitlag pose
 /// still shows the hit. Bullet-time still scales the shared clock.
+///
+/// PROVISIONAL: the struck room loses its freeze too, not only the other
+/// rooms. The intended rule is a freeze of the struck room alone, which needs
+/// a clock per room (ISL-1b,
+/// `docs/planning/engine/island-rollback-and-compact-peer-input.md`).
 pub fn emit_primary_observer_time_intent(
     drivers: Query<(Entity, &DrivingParticipant)>,
     bodies: Query<(&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat)>,

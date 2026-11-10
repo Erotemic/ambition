@@ -1,0 +1,13 @@
+[package]
+name = "ambition_life_planning"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The contract between an NPC life's executor and its planner: facts in, steps or an explained refusal out. An HTN is one planner; the executor names none."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }

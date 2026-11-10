@@ -10,5 +10,6 @@ description = "A hierarchical task network planner with no engine types: an auth
 crate-type = ["rlib"]
 
 [dependencies]
+ambition_life_planning = { path = "../ambition_life_planning" }
 ron = { workspace = true }
 serde = { workspace = true }

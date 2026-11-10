@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use ambition_content_schemas::npc_lives::{lowered_npc_lives, NpcLives, Observation as Authored};
-use ambition_platformer2d::actors::body::life::{LifeBook, LifeSpec, Observation};
+use ambition_platformer2d::actors::body::life::{LifeBook, LifePlanner, LifeSpec, Observation};
 use bevy::prelude::App;
 
 /// The book of `lives`. Absent means no lives: no body plans.
@@ -14,7 +14,11 @@ pub fn life_book(lives: Option<&NpcLives>) -> LifeBook {
         return LifeBook::default();
     };
     LifeBook {
-        domains: lives.domains.iter().map(|(name, domain)| (name.clone(), Arc::new(domain.clone()))).collect(),
+        domains: lives
+            .domains
+            .iter()
+            .map(|(name, domain)| (name.clone(), Arc::new(domain.clone()) as Arc<dyn LifePlanner>))
+            .collect(),
         lives: lives
             .lives
             .iter()

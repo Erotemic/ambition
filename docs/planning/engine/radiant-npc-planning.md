@@ -355,6 +355,19 @@ A source review of the slices above found lifecycle gaps. Fixed:
   with a world object; NPCs have no object-use path yet. Witnesses:
   `two_scientists_take_turns_at_one_bench` (both lines heard, `talked` set),
   `npc_lives::tests` (the two refusals).
+- **Work every tick for nothing.** The ledger cloned every life's facts
+  each tick to compare them, and the save mirror wrote every row to RON
+  each tick before comparing. Now the ledger compares in place and clones a
+  row only when it changed, and the mirror serializes only on a tick the
+  ledger was written or the save was applied.
+- **The planner behind a contract.** The executor called `Domain::plan`
+  and the actor crate depended on `ambition_htn`. Now
+  `crates/ambition_life_planning` is the contract (facts, values, actions,
+  steps with their reasons, an explained refusal, and `LifePlanner`: plan,
+  and apply a done step's effects); `ambition_htn::Domain` implements it,
+  and the executor holds `Arc<dyn LifePlanner>` per domain and depends on
+  the contract only. Navigation and the verbs' execution do not change with
+  the planner. A second planner (utility scoring) implements the same trait.
 
 ## Acceptance
 

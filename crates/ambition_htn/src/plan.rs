@@ -6,12 +6,10 @@
 //! reads only the snapshot it is given and keeps no state, so the same domain
 //! and facts give the same plan on every machine and every replay.
 
-use std::collections::BTreeMap;
 
 use crate::domain::{Action, Condition, Domain, Effect, Operand, Value};
 
-/// What one NPC knows, by name.
-pub type Facts = BTreeMap<String, Value>;
+pub use ambition_life_planning::Facts;
 
 /// One method chosen on the way to a step.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -176,6 +174,9 @@ impl Domain {
     }
 
     /// Plan the root task from `facts`.
+    ///
+    /// The [`ambition_life_planning::LifePlanner`] form, with the default
+    /// budget, is how an executor plans; this one returns the whole search.
     pub fn plan(&self, facts: &Facts, budget: Budget) -> Result<Plan, PlanFailure> {
         let mut search = Search { domain: self, budget, expansions: 0, rejected: Vec::new() };
         let mut steps = Vec::new();
@@ -183,5 +184,37 @@ impl Domain {
             Some(predicted) => Ok(Plan { steps, rejected: search.rejected, predicted }),
             None => Err(PlanFailure::NoPlan(search.rejected)),
         }
+    }
+}
+
+/// An HTN domain is a life planner: its steps carry the methods that chose
+/// them, its refusal what it tried.
+impl ambition_life_planning::LifePlanner for Domain {
+    fn plan(&self, facts: &Facts) -> Result<Vec<ambition_life_planning::Step>, ambition_life_planning::Refusal> {
+        match Domain::plan(self, facts, Budget::default()) {
+            Ok(plan) => Ok(plan
+                .steps
+                .into_iter()
+                .map(|step| ambition_life_planning::Step {
+                    because: step.chain.iter().map(|chosen| format!("{}: {}", chosen.task, chosen.method)).collect(),
+                    task: step.task,
+                    action: step.action,
+                })
+                .collect()),
+            Err(PlanFailure::NoPlan(tried)) => Err(ambition_life_planning::Refusal::NoPlan(
+                tried
+                    .iter()
+                    .map(|rejection| match &rejection.method {
+                        Some(method) => format!("{} by {method}: {:?} did not hold", rejection.task, rejection.failed),
+                        None => format!("{}: {:?} did not hold", rejection.task, rejection.failed),
+                    })
+                    .collect(),
+            )),
+            Err(PlanFailure::OverBudget) => Err(ambition_life_planning::Refusal::OverBudget),
+        }
+    }
+
+    fn step_done(&self, task: &str, facts: &mut Facts) {
+        self.apply_step(task, facts);
     }
 }

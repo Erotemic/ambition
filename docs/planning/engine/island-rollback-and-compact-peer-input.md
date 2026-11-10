@@ -314,9 +314,14 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    the impact hold nor Player 1's hitlag stops the shared clock
    (`emit_primary_observer_time_intent`), as a conversation is not modal
    there; one live room keeps the freeze. Witness:
-   `a_hit_in_one_room_does_not_freeze_the_other`. A freeze scoped to the
-   connect's room waits for a room clock (body motion reads the shared
-   `sim_dt`). Still open: projectile ids
+   `a_hit_in_one_room_does_not_freeze_the_other`. **This is provisional
+   (review 2026-11-10, finding 5):** it isolates the other room by giving up
+   the freeze in the struck room too (the struck body keeps its own hitlag,
+   but the rest of its room runs on), so a fight played while another room
+   is live does not feel like the same fight alone. The fix is a freeze
+   scoped to the connect's room, which waits for a room clock (body motion
+   reads the shared `sim_dt`). Independent room rollback does not ship until
+   that freeze is back in the struck room. Still open: projectile ids
    sequenced per room (deferred to the state transfer; see ISL-2c above), a clock scale per room (Player 1's bullet-time slows
    Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
    about a hundred non-test sites), one conversation and one cutscene per participant or room. Then

@@ -638,11 +638,13 @@ fn stage_cast_from_catalog(
 
     let sprite_content = world.resource::<ambition_platformer2d::sprite_sheet::SpriteContent>().clone();
     let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
+    // One vocabulary for the whole cast: it is a function of the sheets, not
+    // of the character, and building it costs as much as preparing one.
+    let bindings = ambition_platformer2d_assets::materialization::definition::with_engine_vocabularies(&sprite_content,
+        ambition_characters::prepared::CharacterBindings::default(),
+    );
     for definition in crate::character_catalog::buildable_definitions(&sprite_content, catalog, pack, rigs_admitted)
     {
-        let bindings = ambition_platformer2d_assets::materialization::definition::with_engine_vocabularies(&sprite_content,
-            ambition_characters::prepared::CharacterBindings::default(),
-        );
         ambition_characters::prepared::stage_character_revision_in(world, definition, &bindings)
             .map_err(|e| e.to_string())?;
     }

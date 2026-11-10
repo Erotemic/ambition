@@ -1447,7 +1447,7 @@ fn derive_presentation_dependencies(
 /// An ABSENT resolver means NOT CHECKED, and [`PreparedCharacter::checked`] says
 /// which namespaces were — "we did not look" must never read like "we looked and
 /// it was fine", which is the failure the binding boundary exists to prevent.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CharacterBindings {
     cues: Option<Resolver<SfxCueId>>,
     sheets: Option<Resolver<SheetTarget>>,

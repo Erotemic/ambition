@@ -110,12 +110,21 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
     // The shipped game does not admit rigs (see `BodyRigAdmission`).
     let rigs_admitted =
         ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
+    // One vocabulary for the whole cast: it is a function of the sheets, not
+    // of the character, and building it per registration cost as much as the
+    // preparation itself.
+    let bindings = ambition_platformer2d_assets::materialization::definition::with_engine_vocabularies(
+        &sprite_content,
+        ambition_characters::prepared::CharacterBindings::default(),
+    );
     for definition in buildable_definitions(&sprite_content, &catalog, &pack, rigs_admitted) {
         // A refusal stops the composition. A stable id authored by two
         // providers, or a display name shared by two characters, is two
         // authorities for one character; skipping the second registration would
         // let the first provider's definition take this row's facts.
-        app.register_character(definition);
+        if let Err(error) = app.try_register_character(definition, bindings.clone()) {
+            panic!("{error}");
+        }
     }
 }
 

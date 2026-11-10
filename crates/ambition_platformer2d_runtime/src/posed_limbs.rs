@@ -1,17 +1,4 @@
-//! A limb its owner poses meets what is there
-//! (`docs/planning/engine/portals-a-body-in-two-places.md`, G6).
-//!
-//! A boss's conductor poses a limb each tick (`PoseOwnedExternally`): the pose
-//! is where the limb is asked to go. It goes there from where it was until it
-//! meets something solid, on its own side or, when it reaches into a portal
-//! pair, at the far end: the world it is swept against is the one it meets
-//! (`ComposedRooms::solids_for`), whose glue puts what is in front of the far
-//! end behind the near one. It stops there. Where it touches is the owner's to
-//! read (`ambition.boss.mount`'s `contact`); the host does not recoil.
-//!
-//! A limb posed into something it was already in, or moved further in one
-//! tick than four times its size (a pose that puts it somewhere new, not one
-//! it moves to), is left where it is posed.
+//! A posed limb stops at native material contact on either side of a portal.
 
 use bevy::prelude::*;
 
@@ -23,6 +10,7 @@ use ambition_platformer2d_core::AabbExt;
 pub fn stop_posed_limbs_at_what_they_meet(
     poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     mut limbs: Query<
         (
             Entity,
@@ -54,14 +42,20 @@ pub fn stop_posed_limbs_at_what_they_meet(
         if world.blocks.near(from).into_iter().any(|block| solid(block) && block.aabb.strict_intersects(from)) {
             continue;
         }
-        let mut at = step.curr;
-        if let Some(hit) = world.first_body_sweep(from, delta, solid) {
-            at = step.prev + delta * hit.time_of_impact;
-        }
-        // What a pair turns is an outline, not a box.
-        if let Some((out, _)) = ae::solid_lines::put_out_of_solid_lines(&world, ae::Aabb::new(at, half)) {
-            at += out;
-        }
+        let Ok(domain) = kin.canonical_box() else { continue; };
+        let Ok(cast) = step.material_cast(&domain) else { continue; };
+        let admission = geometry.as_deref().and_then(|geometry| geometry.motion_for(limb, room.map(|room| room.0)));
+        let contact = world.first_material_sweep(cast, admission, |collider, _, _| {
+            Ok(match collider {
+                ae::world::MaterialCollider::Block(block) => solid(block),
+                ae::world::MaterialCollider::Chain { chain, .. } => chain.kind == ae::world::SurfaceKind::Solid,
+            })
+        });
+        let at = match contact {
+            Ok(Some(hit)) => (step.prev.as_dvec2() + delta.as_dvec2() * hit.contact.toi).as_vec2(),
+            Ok(None) => step.curr,
+            Err(_) => step.prev,
+        };
         if at != step.curr {
             // A pin: the limb holds where it stopped, at its own velocity.
             let desired = ae::BodyKinematics { pos: at, ..*kin };
@@ -77,7 +71,7 @@ pub fn stop_posed_limbs_at_what_they_meet(
 mod tests {
     use super::*;
     use ambition_platformer2d_core::frame::{MapConvention, PortalAperture, PortalFrame};
-    use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, PortalGlue, PortalGluePass};
+    use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, PortalHolePass};
 
     /// A floor (its top at y = 300) with a floor portal at x = 100, and a
     /// ceiling over a shelf at x = 600: the ceiling portal at y = 100, the
@@ -108,14 +102,14 @@ mod tests {
             .id();
         let mut overlay = FeatureEcsWorldOverlay::default();
         if glued {
-            overlay.portal_glues.push(PortalGluePass {
-                glue: PortalGlue {
-                    enter: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), -ae::Vec2::Y), half_length: 30.0 },
-                    exit: PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(600.0, 100.0), ae::Vec2::Y), half_length: 30.0 },
-                    convention: MapConvention::Reflection,
-                    depth: 60.0,
-                    dt: 0.0,
-                },
+            let enter = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(100.0, 300.0), -ae::Vec2::Y), half_length: 30.0 };
+            let exit = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(600.0, 100.0), ae::Vec2::Y), half_length: 30.0 };
+            let mut geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(MapConvention::Reflection);
+            geometry.add_pair(None, (enter, exit));
+            geometry.add_straddler(limb, enter, exit);
+            app.insert_resource(geometry);
+            overlay.portal_holes.push(PortalHolePass {
+                face: ae::frame::FaceRect { center: ae::Vec2::new(100.0, 330.0), normal: -ae::Vec2::Y, half_along: 30.0, half_out: 30.0 },
                 bodies: vec![limb],
             });
         }

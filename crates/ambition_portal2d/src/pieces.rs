@@ -120,14 +120,10 @@ pub fn front_distance(point: Vec2, frame: &PortalFrame) -> f32 {
 /// transfer, but not through a thick wall.
 pub const CARVE_DEPTH: f32 = 60.0;
 
-/// How far outward of the portal face (px) the carve also reaches. An
-/// authored portal can sit a few px off the grid-snapped collision edge (e.g.
-/// IntGrid top y=896, face y=900). Without this, a thin solid lip stays in the
-/// opening and the body rests on it. One grid cell covers any snap.
+/// Maximum host-surface offset used to admit a crossing from authored data.
 pub const SURFACE_GRACE: f32 = 16.0;
 
-/// The carve hole for a portal: the opening width along the surface, from
-/// [`SURFACE_GRACE`] outside the face to [`CARVE_DEPTH`] inside it.
+/// The opening width along the surface, from the face into its host.
 pub fn carve_hole(ap: &PortalAperture) -> ae::Aabb {
     carve_hole_with_depth(ap, f32::INFINITY)
 }
@@ -139,18 +135,16 @@ pub fn carve_hole_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::Aabb {
     carve_face_with_depth(ap, host_depth).bounds()
 }
 
-/// The carve hole turned to the portal's face: the opening along the face,
-/// from [`SURFACE_GRACE`] outside it to the host depth
-/// (at most [`CARVE_DEPTH`]) inside it. A portal on a line cuts this out of
-/// the line.
+/// Cut from the face into its host, to at most [`CARVE_DEPTH`].
+/// A solid in front of the face stays solid.
 pub fn carve_face_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::frame::FaceRect {
     let depth = CARVE_DEPTH.min(host_depth.max(0.0));
     let n = ap.frame.normal;
     ae::frame::FaceRect {
-        center: ap.frame.origin + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5),
+        center: ap.frame.origin - n * (depth * 0.5),
         normal: n,
         half_along: ap.half_length,
-        half_out: (SURFACE_GRACE + depth) * 0.5,
+        half_out: depth * 0.5,
     }
 }
 

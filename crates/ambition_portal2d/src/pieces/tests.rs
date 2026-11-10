@@ -106,16 +106,15 @@ fn front_distance_signs() {
 }
 
 #[test]
-fn carve_hole_reaches_through_the_surface_grace() {
+fn a_host_cut_keeps_the_space_in_front_of_the_face() {
     let f = floor(Vec2::new(100.0, 300.0));
     let hole = carve_hole(&f);
-    // The hole reaches `SURFACE_GRACE` outward of the face (y < 300), to
-    // clear a lip from grid-snap error...
+    // The cut starts at the host face.
     assert!(
-        (hole.min.y - (300.0 - SURFACE_GRACE)).abs() < 1e-3,
-        "hole reaches SURFACE_GRACE outward: {hole:?}"
+        (hole.min.y - 300.0).abs() < 1e-3,
+        "the cut starts at the host face: {hole:?}"
     );
-    // ...and mostly INWARD (CARVE_DEPTH into the wall).
+    // The back of the cut reaches into the host.
     assert!(
         (hole.max.y - (300.0 + CARVE_DEPTH)).abs() < 1e-3,
         "hole goes inward: {hole:?}"

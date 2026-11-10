@@ -875,9 +875,8 @@ fn an_oblique_frame_crawler_attaches_to_the_landed_surfaces_true_normal() {
             break;
         }
     }
-    assert_eq!(
-        attached,
-        Some(Vec2::new(0.0, -1.0)),
+    assert!(
+        attached.is_some_and(|normal| normal.distance(Vec2::NEG_Y) < 1.0e-6),
         "the attachment is the FLOOR's outward normal, not -frame.down ({:?})",
         -frame.down()
     );

@@ -1332,7 +1332,6 @@ mod compositing_report_tests {
             normal: Vec2::new(0.0, 1.0),
             half_length: 46.0,
             half_thickness: 9.0,
-            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             spin: 0.0,

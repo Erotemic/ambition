@@ -129,6 +129,7 @@ pub(super) fn integrate_velocity_clusters(
     // See `MotionStepContext::recovery_commitment_outstanding`.
     recovery_commitment_outstanding: bool,
     events: &mut FrameEvents,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) {
     use crate::player_state::BodyMode;
 
@@ -216,7 +217,8 @@ pub(super) fn integrate_velocity_clusters(
     let drop_through = wants_drop_through(input.local_axis().y, input.jump_pressed())
         || state.drop_through_timer > 0.0;
 
-    let sweep =
+    let mut refusal = None;
+    let mut sweep =
         |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
          axis: crate::collision_semantics::Axis,
          contacts: &mut Vec<crate::collision_semantics::Contact>,
@@ -275,6 +277,8 @@ pub(super) fn integrate_velocity_clusters(
                 drop_through,
                 frame.down(),
                 contacts,
+                admission,
+                &mut refusal,
             ));
         };
 
@@ -504,6 +508,8 @@ pub(super) fn integrate_velocity_clusters(
                     drop_through,
                     g,
                     &mut events.contacts,
+                    admission,
+                    &mut refusal,
                 ));
             }
         }
@@ -713,6 +719,8 @@ pub(super) fn integrate_velocity_clusters(
         && steer * travel > 0.0
         && stick_at_a_run
         && travel.abs() >= tuning.locomotion.run_commit_frac * tuning.locomotion.max_run_speed;
+    events.motion_refusal = refusal;
+
 }
 
 /// Ladder integration: drive vel.y from `axis_y * climb_speed`, scale x by `strafe_factor`, and

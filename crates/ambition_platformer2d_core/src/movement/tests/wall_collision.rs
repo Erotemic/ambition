@@ -695,7 +695,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         false,
         gravity_dir,
         &mut Vec::new(),
-    );
+    None, &mut None,);
     let after = scratch.kinematics.pos;
     assert!(
         after.x < 1100.0,
@@ -1179,7 +1179,7 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
                 false,
                 gravity_dir,
                 &mut Vec::new(),
-            )
+            None, &mut None,)
         };
     let from_ceiling_first = conflict(vec![ceiling(), platform()])
         .expect("a 32px gap cannot hold a 48px body — the axis must report no feasible position");
@@ -1291,7 +1291,7 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
                 false,
                 gravity_dir,
                 &mut Vec::new(),
-            )
+            None, &mut None,)
         };
     assert_eq!(
         conflict(vec![floor(), step()]),

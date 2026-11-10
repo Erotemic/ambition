@@ -178,6 +178,8 @@ pub(super) fn step_crawler(
     dt: f32,
     contacts: &mut Vec<Contact>,
     conflicts: &mut Vec<AxisConstraintConflict>,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    refusal: &mut Option<crate::frame::thread::Refusal>,
 ) {
     if facing_intent.abs() > 0.001 {
         clusters.kinematics.facing = facing_intent.signum();
@@ -190,7 +192,7 @@ pub(super) fn step_crawler(
 
     let attachment = match motion.state.attachment() {
         None => {
-            fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
+            fall_step(motion, world, clusters, frame, dt, contacts, conflicts, admission, refusal);
             publish_attachment_contact(motion, world, clusters, contacts);
             return;
         }
@@ -199,7 +201,7 @@ pub(super) fn step_crawler(
     let normal = match attachment {
         CrawlAttachment::Chain { chain, s } => {
             crawl_chain(
-                motion, world, clusters, frame, crawling, dt, contacts, conflicts, chain, s,
+                motion, world, clusters, frame, crawling, dt, contacts, conflicts, chain, s, admission, refusal,
             );
             return;
         }
@@ -233,7 +235,7 @@ pub(super) fn step_crawler(
             finish_attached(clusters);
         } else {
             motion.detach();
-            fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
+            fall_step(motion, world, clusters, frame, dt, contacts, conflicts, admission, refusal);
         }
         publish_attachment_contact(motion, world, clusters, contacts);
         return;
@@ -316,7 +318,7 @@ pub(super) fn step_crawler(
     // Nothing to cling to: detach and free-fall under the live frame.
     clusters.kinematics.pos = original_pos;
     motion.detach();
-    fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
+    fall_step(motion, world, clusters, frame, dt, contacts, conflicts, admission, refusal);
     publish_attachment_contact(motion, world, clusters, contacts);
 }
 
@@ -342,11 +344,13 @@ fn crawl_chain(
     conflicts: &mut Vec<AxisConstraintConflict>,
     chain: u32,
     s: f32,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    refusal: &mut Option<crate::frame::thread::Refusal>,
 ) {
     let Some(surface) = world.chains.get(chain as usize) else {
         // The clung geometry is gone (room swap without a transit): fall.
         motion.detach();
-        fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
+        fall_step(motion, world, clusters, frame, dt, contacts, conflicts, admission, refusal);
         return;
     };
     let facing = clusters.kinematics.facing;
@@ -356,7 +360,7 @@ fn crawl_chain(
     if !surface.closed && !(0.0..=total).contains(&next_s) {
         // Crawled off an open end: detach and free-fall under the live frame.
         motion.detach();
-        fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
+        fall_step(motion, world, clusters, frame, dt, contacts, conflicts, admission, refusal);
         return;
     }
     let f = surface.frame_at(next_s);
@@ -471,6 +475,8 @@ fn fall_step(
     dt: f32,
     contacts: &mut Vec<Contact>,
     conflicts: &mut Vec<AxisConstraintConflict>,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    refusal: &mut Option<crate::frame::thread::Refusal>,
 ) {
     clusters.ground.on_ground = false;
     let g = frame.down();
@@ -512,11 +518,26 @@ fn fall_step(
             false,
             g,
             contacts,
+            admission,
+            refusal,
         ));
     };
     sweep(clusters, side_axis);
     clusters.ground.on_ground = false;
     sweep(clusters, gravity_axis);
+
+    if let Some(chain) = contacts.iter().rev().find_map(|contact| {
+        match contact.source { ContactSource::Chain { chain, .. } if contact.kind == ContactKind::Support => Some(chain), _ => None }
+    }) {
+        let surface = &world.chains[chain as usize];
+        let (s, _) = surface.project(clusters.kinematics.pos);
+        let pose = surface.frame_at(s);
+        clusters.kinematics.pos = pose.point + pose.normal * (clusters.kinematics.canonical_size.y * 0.5 * clusters.kinematics.material.scale() as f32);
+        motion.state = CrawlerState::attached_to_chain(chain, s);
+        clusters.kinematics.vel = Vec2::ZERO;
+        clusters.ground.on_ground = true;
+        return;
+    }
 
     // Adhesion: a chain surface the body's underside touches captures the
     // crawler mid-fall — arbitrary-angle attachment through the same geometry

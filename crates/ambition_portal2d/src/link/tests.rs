@@ -15,7 +15,7 @@ fn app() -> App {
     let mut app = App::new();
     app.add_systems(
         Update,
-        (resolve_portal_links, equalize_pair_apertures).chain(),
+        resolve_portal_links,
     );
     app
 }
@@ -95,12 +95,9 @@ fn set_authored(app: &mut App, entity: Entity, half: f32) {
     p.half_length = half;
 }
 
-/// ⭐ THE EFFECTIVE OPENING IS DERIVED; THE AUTHORED ONE IS KEPT. An 80 end
-/// beside a 30 end opens 30, and opens 80 again when its partner grows to
-/// 80. The minimum was written back into the extent, so the 80 was lost and
-/// the pair stayed 30. Both spawn orders.
+/// Each endpoint retains its aperture when its partner changes size.
 #[test]
-fn a_pair_opens_its_smaller_end_and_opens_wide_again_when_it_grows() {
+fn a_pair_keeps_both_authored_openings() {
     for wide_first in [true, false] {
         let mut app = app();
         let mut big = floor(Vec2::new(100.0, 300.0));
@@ -115,7 +112,7 @@ fn a_pair_opens_its_smaller_end_and_opens_wide_again_when_it_grows() {
             (app.world_mut().spawn((PortalLink(link_hash("d")), big)).id(), b)
         };
         app.update();
-        assert!((opening(&app, a) - 30.0).abs() < 1e-3, "wide_first={wide_first}: {}", opening(&app, a));
+        assert!((opening(&app, a) - 80.0).abs() < 1e-3, "wide_first={wide_first}: {}", opening(&app, a));
         assert!((opening(&app, b) - 30.0).abs() < 1e-3);
         assert_eq!(app.world().get::<PlacedPortal>(a).unwrap().pos, Vec2::new(100.0, 300.0), "centered");
         assert!((authored(&app, a) - 80.0).abs() < 1e-3, "the authored 80 is kept: {}", authored(&app, a));
@@ -175,7 +172,7 @@ fn eviction_app() -> App {
     app.init_resource::<crate::PortalFrameHistory>();
     app.add_systems(
         Update,
-        (resolve_portal_links, equalize_pair_apertures, crate::evict_straddlers_on_portal_change).chain(),
+        (resolve_portal_links, crate::evict_straddlers_on_portal_change).chain(),
     );
     app
 }

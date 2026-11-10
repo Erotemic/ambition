@@ -872,6 +872,8 @@ fn oob_beside_a_solid(offset: ae::Vec2, down: ae::Vec2) -> Option<OobReason> {
     );
     let mut scratch = dummy_player(at);
     scratch.kinematics.canonical_size = ae::Vec2::new(24.0, 40.0);
+    scratch.kinematics.material = ae::frame::BodyMaterial::IDENTITY
+        .turned(f64::from(-down.x).atan2(f64::from(down.y))).unwrap();
     let mut record = ae::SweepSample::at_rest(scratch.kinematics, down);
     let mut clusters = scratch.as_mut();
     clusters.sweep = Some(&mut record);

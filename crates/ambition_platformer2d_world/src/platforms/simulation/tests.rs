@@ -184,6 +184,7 @@ fn lift_contacts_use_the_body_frame_and_collision_plane() {
     for depth in [ae::DepthPlane::PLAYABLE, ae::DepthPlane(1)] {
         let mut app = lift_app();
         let kin = ae::BodyKinematics {
+            material: ae::frame::BodyMaterial::IDENTITY.turned(-std::f64::consts::FRAC_PI_2).unwrap(),
             pos: ae::Vec2::new(298.5, 800.0),
             canonical_size: ae::Vec2::new(30.0, 48.0),
             ..Default::default()

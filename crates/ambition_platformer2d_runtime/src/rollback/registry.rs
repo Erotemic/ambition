@@ -239,7 +239,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 434 -> 435: pending hits retain accepted material contact and target paths.
 // 435 -> 436: authored NPC life and visit state joins the merged snapshot.
 
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 436;
+// 436 -> 437: each aperture keeps its authored size; bodies cast native parts.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 437;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

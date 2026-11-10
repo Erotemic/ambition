@@ -212,11 +212,10 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(
             sim,
             (
-                // Link ids to channel pairs, then equalize each pair's opening,
+                // Resolve link ids before the pair geometry is read.
                 // with the tick's pose: the carve, eviction and transit see the
                 // results.
                 crate::resolve_portal_links.in_set(crate::PortalLinkResolution),
-                crate::equalize_pair_apertures,
             )
                 .chain()
                 // Both visit placed portals only.

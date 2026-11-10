@@ -87,8 +87,7 @@ fn app() -> App {
         .add_message::<crate::PortalBodyTransited>()
         .add_systems(
             Sim,
-            (crate::resolve_portal_links, crate::equalize_pair_apertures)
-                .chain()
+            crate::resolve_portal_links
                 .after(ExtensionSet::Lower(BOSS_CONDUCT)),
         )
         .add_extension_module(ModuleDescriptor {

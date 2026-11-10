@@ -519,7 +519,7 @@ fn a_body_in_sideways_gravity_rests_at_the_shrine_its_own_box_touches() {
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);
         let pos = Vec2::new(100.0, 100.0);
-        let body = BodyKinematics { material: Default::default(),
+        let body = BodyKinematics { material: ambition_platformer2d_core::frame::BodyMaterial::IDENTITY.turned(-std::f64::consts::FRAC_PI_2).unwrap(),
             pos,
             vel: Vec2::ZERO,
             canonical_size: Vec2::new(24.0, 40.0),

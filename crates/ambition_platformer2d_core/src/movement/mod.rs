@@ -181,6 +181,7 @@ pub(crate) fn update_body_control_in_frame(
         clusters.dodge,
         platform_drop,
         clusters.env_contact.water.is_some(),
+        frame,
     );
 
     abilities::apply_fly_toggle(
@@ -208,7 +209,6 @@ pub(crate) fn update_body_control_in_frame(
         clusters.kinematics,
         clusters.abilities,
         input,
-        frame,
         tuning,
         &mut events,
     );
@@ -293,6 +293,7 @@ pub(crate) fn update_body_simulation_in_frame(
     contact: body_contact::BodyContactField<'_>,
     // See `MotionStepContext::recovery_commitment_outstanding`.
     recovery_commitment_outstanding: bool,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> FrameEvents {
     // §3.1 SweepSample: both endpoints are captured INSIDE the kernel —
     // `prev` at sim-phase entry, `curr` at exit — so any position change
@@ -314,6 +315,7 @@ pub(crate) fn update_body_simulation_in_frame(
         tuning,
         contact,
         recovery_commitment_outstanding,
+        admission,
     );
     // The box this arm sweeps is the body's box turned to the frame's DOWN
     // (`aabb_oriented(frame.down())` in every collision of the step).
@@ -457,6 +459,7 @@ fn update_body_simulation_inner(
     contact: body_contact::BodyContactField<'_>,
     // See `MotionStepContext::recovery_commitment_outstanding`.
     recovery_commitment_outstanding: bool,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> (FrameEvents, SimPhaseReach) {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
@@ -763,6 +766,7 @@ fn update_body_simulation_inner(
         contact,
         recovery_commitment_outstanding,
         &mut events,
+        admission,
     );
 
     // Probe for a fresh ledge grab now that the integration step
@@ -804,6 +808,7 @@ pub(crate) fn update_body_with_frame_clusters(
     recovery_commitment_outstanding: bool,
     // See `PoseOwnedExternally`: a constrained body spends no buffered maneuver.
     pose_owned_externally: bool,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> FrameEvents {
     let tuning = axis.params;
     let state = &mut axis.state;
@@ -853,6 +858,7 @@ pub(crate) fn update_body_with_frame_clusters(
         tuning,
         contact,
         recovery_commitment_outstanding,
+        admission,
     );
     if arriving_out_of_a_launch {
         for contact in &mut sim_events.contacts {

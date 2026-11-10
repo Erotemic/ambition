@@ -171,8 +171,9 @@ pub fn step_motion(
         else if matches!(result.support, SupportFact::Riding(_) | SupportFact::Attached(_)) {
             std::f64::consts::PI
         } else { 8.0 * f64::from(ctx.dt.max(0.0)) };
-    let admitted = super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
-        target, max_step, f64::from(ctx.dt), ctx.world, ctx.admission, &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run]);
+    let admitted = if let Some(refusal) = result.events.motion_refusal.clone() { Err(refusal) }
+        else { super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
+        target, max_step, f64::from(ctx.dt), ctx.world, ctx.admission, &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run]) };
     if let Err(refusal) = admitted {
         if let Some(sample) = clusters.sweep.as_deref_mut() {
             *sample = SweepSample::at_tick_end(*clusters.kinematics, retained_down);
@@ -290,6 +291,7 @@ fn step_world_motion(
                 ctx.contact,
                 ctx.recovery_commitment_outstanding,
                 ctx.pose_owned_externally,
+                ctx.admission,
             );
             MotionStepResult::from_events(events, ctx.frame)
         }
@@ -647,6 +649,8 @@ fn step_adhesive_crawler(
         ctx.dt,
         &mut events.contacts,
         &mut events.constraint_conflicts,
+        ctx.admission,
+        &mut events.motion_refusal,
     );
     match (was_attached, motion.state.is_attached()) {
         (false, true) => events.operations.push(super::MovementOp::CrawlAttach),

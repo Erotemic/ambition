@@ -1,0 +1,49 @@
+level_id: portal_lab
+entities:
+- type: Solid
+  px: [1904, 768]
+  size: [16, 128]
+  fields: {name: similarity_h_large_host}
+- type: Solid
+  px: [2448, 816]
+  size: [16, 80]
+  fields: {name: similarity_h_small_host}
+- type: Portal
+  px: [1895, 816]
+  size: [18, 80]
+  fields:
+    id: similarity_h_large
+    name: H 80 to 40
+    link: portal_lab_h_similarity
+    normal: left
+    color: purple
+- type: Portal
+  px: [2439, 856]
+  size: [18, 40]
+  fields:
+    id: similarity_h_small
+    name: H 40 to 80
+    link: portal_lab_h_similarity
+    normal: left
+    color: yellow
+- type: GroundItem
+  px: [1840, 878]
+  size: [20, 14]
+  fields:
+    id: portal_lab_asymmetric_javelin
+    name: javelin
+    held_item: javelin
+- type: DebugLabel
+  px: [1792, 692]
+  size: [390, 48]
+  fields:
+    name: lab_sign_h
+    text: 'H: 80 / 40. Walk right to shrink. Select Reflection in F3 to mirror the body.'
+    category: Custom
+- type: DebugLabel
+  px: [2240, 748]
+  size: [370, 48]
+  fields:
+    name: lab_sign_h_return
+    text: 'Release movement, then walk right into the 40 opening to restore size and handedness.'
+    category: Custom

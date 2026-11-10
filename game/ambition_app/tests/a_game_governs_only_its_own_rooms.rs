@@ -1,6 +1,8 @@
 #![cfg(feature = "input")]
-//! A game's rules govern its own rooms and nobody else's: its death rules and
-//! its dormancy rule.
+//! A game's rules govern its own rooms and nobody else's: its death, dormancy,
+//! combat, prompt, presentation and strike-weight rules, and the capabilities
+//! whose systems sleep outside the rooms that use them. All of it is read from
+//! one composition of the shipped host.
 //!
 //! Three games in the shipped host state what a death means — Ambition
 //! (`replay_level_after(0.0)`), Sanic (the same), and Mary-O (a 3.2s hold sized
@@ -20,19 +22,16 @@ use ambition_platformer2d::combat::death_rules::DeathRules;
 use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
 use bevy::prelude::*;
 
-/// Compose the shipped multi-game host and hand back its App.
+/// Compose the shipped multi-game host, simulated by `Rollback` as the shipped
+/// app is (its simulation runs in its own schedule apart from the frame's
+/// presentation), and hand back its App.
 ///
 /// Build-time only: rules are declared in plugin `build`, so no frame has to run
-/// and none does.
+/// and none does. One composition serves every check below, because each reads
+/// the same composed declarations and schedule graphs.
 fn compose_the_shipped_host() -> App {
-    compose_the_host_simulated_by(None)
-}
-
-/// [`compose_the_shipped_host`], with the simulation host set first when
-/// `host` names one. The shipped app sets `Rollback`, whose simulation runs
-/// in its own schedule apart from the frame's presentation.
-fn compose_the_host_simulated_by(host: Option<ambition_platformer2d::runtime::SimulationHost>) -> App {
     use ambition_app::app::shell_host;
+    use ambition_platformer2d::runtime::SimulationHostAppExt as _;
     use bevy::asset::AssetPlugin;
     use bevy::image::ImagePlugin;
     use bevy::state::app::StatesPlugin;
@@ -46,15 +45,37 @@ fn compose_the_host_simulated_by(host: Option<ambition_platformer2d::runtime::Si
     app.add_plugins(StatesPlugin);
     app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
-    if let Some(host) = host {
-        use ambition_platformer2d::runtime::SimulationHostAppExt as _;
-        app.set_simulation_host(host);
-    }
+    app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Rollback);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
     shell_host::compose_ambition_shell_host(&mut app);
     app
+}
+
+/// Every check of this file, over one composed host. Each check names its own
+/// fact in its failure message.
+#[test]
+fn each_game_governs_only_its_own_rooms_in_the_shipped_host() {
+    let mut app = compose_the_shipped_host();
+    let app = &mut app;
+    the_host_composes_three_games_each_scoped_to_its_own_rooms(app);
+    a_smash_stage_does_not_inherit_mary_os_level_replay(app);
+    each_declared_mode_resolves_to_its_own_games_rules(app);
+    each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms(app);
+    each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms(app);
+    only_smash_rooms_name_prompts_by_button(app);
+    smashs_presentation_and_limit_govern_only_smash_rooms(app);
+    each_game_draws_its_own_line_between_light_and_heavy_hits(app);
+    only_ambitions_doors_play_a_passage(app);
+    #[cfg(feature = "portal")]
+    portals_sleep_in_mary_os_rooms_and_run_in_ambitions(app);
+    mounts_sleep_in_mary_os_rooms_and_run_in_ambitions(app);
+    grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters(app);
+    encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions(app);
+    a_game_declares_each_capability_its_maps_author(app);
+    yarn_sleeps_in_rooms_whose_game_uses_no_dialogue(app);
+    a_games_simulation_systems_sleep_outside_its_rooms(app);
 }
 
 fn declared(app: &App) -> &DeclaredRules<DeathRules> {
@@ -69,9 +90,7 @@ fn declared(app: &App) -> &DeclaredRules<DeathRules> {
 /// really declares the long hold (otherwise "smash reads the default" is true
 /// because nobody declared anything), and that a `smash`-tagged room reads the
 /// engine default anyway.
-#[test]
-fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
-    let app = compose_the_shipped_host();
+fn a_smash_stage_does_not_inherit_mary_os_level_replay(app: &mut App) {
     let rules = declared(&app);
 
     let hers = rules
@@ -107,9 +126,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
 /// The general form: whatever each game states, resolving a mode tag must return
 /// that game's statement, and resolving an unclaimed tag must return the
 /// default. A fourth game added tomorrow is covered by the same table.
-#[test]
-fn each_declared_mode_resolves_to_its_own_games_rules() {
-    let app = compose_the_shipped_host();
+fn each_declared_mode_resolves_to_its_own_games_rules(app: &mut App) {
     let rules = declared(&app);
 
     for (scope, stated) in rules.iter() {
@@ -135,18 +152,16 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
     );
 }
 
-/// the probe for the probe. The assertions above are worth exactly as much
-/// as the composition behind them: a host that registered one game — or none —
-/// would satisfy every one of them by having nothing to contest.
+/// The floor under every other check, so it runs first: the checks are worth
+/// exactly as much as the composition behind them, and a host that registered
+/// one game — or none — would satisfy them by having nothing to contest.
 ///
-/// the floor is not "somebody claims every room". It is that the three
-/// games that MEASURABLY collided are all present with their own scopes, and
-/// that Ambition's own claim is the untagged rooms rather than the binary. If
-/// `MaryOExperiencePlugin` ever stops being listed in `shell_host.rs`, the test
-/// above goes green because it stopped looking.
-#[test]
-fn the_host_composes_three_games_each_scoped_to_its_own_rooms() {
-    let app = compose_the_shipped_host();
+/// The floor is not "somebody claims every room". It is that the three games
+/// that MEASURABLY collided are all present with their own scopes, and that
+/// Ambition's own claim is the untagged rooms rather than the binary. If
+/// `MaryOExperiencePlugin` ever stops being listed in `shell_host.rs`, the death
+/// rule checks go green because they stopped looking.
+fn the_host_composes_three_games_each_scoped_to_its_own_rooms(app: &mut App) {
     let scopes: Vec<RulesScope> = declared(&app).iter().map(|(scope, _)| scope).collect();
 
     for expected in [
@@ -176,9 +191,7 @@ fn the_host_composes_three_games_each_scoped_to_its_own_rooms() {
 /// would reach the host's rooms. The expected values are each game's own
 /// constants, and the arena that states no rule reads none: no brain sleeps
 /// there.
-#[test]
-fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms() {
-    let app = compose_the_shipped_host();
+fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms(app: &mut App) {
     let rules = app
         .world()
         .get_resource::<DeclaredRules<DormancyRule>>()
@@ -214,11 +227,9 @@ fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms() {
 /// skipped the lobby needed a second publisher, and a release that missed left
 /// the rules in the next game. Declared by room, the host's own rooms and the
 /// hosted platformers read none: their knockback plays the world's baseline.
-#[test]
-fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms() {
+fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms(app: &mut App) {
     use ambition_platformer2d::combat::rules::CombatRules;
 
-    let app = compose_the_shipped_host();
     let rules = app
         .world()
         .get_resource::<DeclaredRules<CombatRules>>()
@@ -251,11 +262,9 @@ fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms() {
 ///
 /// Smash inserted the naming as a global resource when a battle started, and
 /// nothing gave it back, so after one match every game's prompts named buttons.
-#[test]
-fn only_smash_rooms_name_prompts_by_button() {
+fn only_smash_rooms_name_prompts_by_button(app: &mut App) {
     use ambition_platformer2d::sim_view::PromptNaming;
 
-    let app = compose_the_shipped_host();
     let naming = app
         .world()
         .get_resource::<DeclaredRules<PromptNaming>>()
@@ -282,8 +291,7 @@ fn only_smash_rooms_name_prompts_by_button() {
 /// saved copy back on exit. The portal ones overwrote the host's own
 /// configuration, which a developer may have changed, and a missed exit left
 /// all three in the next game.
-#[test]
-fn smashs_presentation_and_limit_govern_only_smash_rooms() {
+fn smashs_presentation_and_limit_govern_only_smash_rooms(app: &mut App) {
     use ambition_demo_smash::limit::{smash_limit, SmashLimitFill};
     use ambition_platformer2d::portal_presentation::{PortalCameraTransitMode, PortalViewConeMode};
 
@@ -293,7 +301,6 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
             .unwrap_or_else(|| panic!("Smash declares {}", std::any::type_name::<T>()))
     }
 
-    let app = compose_the_shipped_host();
     let smash = Some(ambition_demo_smash::SMASH_MODE);
     assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(smash)).copied(), Some(SmashLimitFill(smash_limit())));
     assert_eq!(
@@ -331,12 +338,10 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
 /// ⭐ The two lines must differ, or "each game reads its own" is also true of
 /// one global number: Ambition's damage is health (3 is a smash attack) and
 /// Smash's is percent (3 is a jab).
-#[test]
-fn each_game_draws_its_own_line_between_light_and_heavy_hits() {
+fn each_game_draws_its_own_line_between_light_and_heavy_hits(app: &mut App) {
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::combat::strike_weight::StrikeWeightRules;
 
-    let app = compose_the_shipped_host();
     let lines = app
         .world()
         .get_resource::<DeclaredRules<StrikeWeightRules>>()
@@ -355,12 +360,10 @@ fn each_game_draws_its_own_line_between_light_and_heavy_hits() {
 /// Ambition's doors play a passage and the hosted games' doors cross at once.
 /// The rule was one global switch set when Ambition was installed, so with
 /// Ambition in the hub every game's door played Ambition's passage.
-#[test]
-fn only_ambitions_doors_play_a_passage() {
+fn only_ambitions_doors_play_a_passage(app: &mut App) {
     use ambition_platformer2d::session::rooms::passage::ZonePassageRules;
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
 
-    let app = compose_the_shipped_host();
     let rules = app
         .world()
         .get_resource::<DeclaredRules<ZonePassageRules>>()
@@ -383,15 +386,13 @@ fn only_ambitions_doors_play_a_passage() {
 /// that her rooms use no portals, and the portal transit is in the portals'
 /// capability set, whose condition asks the room's game (findings F31).
 #[cfg(feature = "portal")]
-#[test]
-fn portals_sleep_in_mary_os_rooms_and_run_in_ambitions() {
+fn portals_sleep_in_mary_os_rooms_and_run_in_ambitions(app: &mut App) {
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use ambition_platformer2d::platformer::schedule::SimScheduleExt;
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
 
-    let mut app = compose_the_shipped_host();
     let rules = app
         .world()
         .get_resource::<DeclaredRules<UsedCapabilities>>()
@@ -432,15 +433,13 @@ fn portals_sleep_in_mary_os_rooms_and_run_in_ambitions() {
 /// Mounts sleep in Mary-O's rooms and run in Ambition's, as portals do: her
 /// game declares no mounts, and the mount crate's sets are in the mounts'
 /// capability set.
-#[test]
-fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions() {
+fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions(app: &mut App) {
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use ambition_platformer2d::platformer::schedule::SimScheduleExt;
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
 
-    let mut app = compose_the_shipped_host();
     let rules = app
         .world()
         .get_resource::<DeclaredRules<UsedCapabilities>>()
@@ -473,14 +472,12 @@ fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions() {
 /// Grabs and throws sleep in Mary-O's and Sanic's rooms and run in Smash's
 /// and Ambition's: at home neither runner has an attack, and every capture
 /// system of the simulation is in the captures' capability set.
-#[test]
-fn grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters() {
+fn grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters(app: &mut App) {
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules, SystemSet};
 
-    let mut app = compose_the_host_simulated_by(Some(ambition_platformer2d::runtime::SimulationHost::Rollback));
     let rules = app
         .world()
         .get_resource::<DeclaredRules<UsedCapabilities>>()
@@ -535,15 +532,13 @@ fn grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters() {
 /// their games declare no encounters, and each encounter step is in the
 /// encounters' capability set. The switch drain and the banners are not: other
 /// games' rooms press switches and show banners.
-#[test]
-fn encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions() {
+fn encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions(app: &mut App) {
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use ambition_platformer2d::platformer::schedule::SimScheduleExt;
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
 
-    let mut app = compose_the_shipped_host();
     let rules = app
         .world()
         .get_resource::<DeclaredRules<UsedCapabilities>>()
@@ -598,8 +593,7 @@ fn encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions() {
 /// entity that needs a capability is compared with the declaration of the game
 /// whose worlds hold it. Sanic declared no portals while his Act 3 rifts are
 /// portals, and the rift slept (`three_acts`).
-#[test]
-fn a_game_declares_each_capability_its_maps_author() {
+fn a_game_declares_each_capability_its_maps_author(app: &mut App) {
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
 
@@ -638,7 +632,6 @@ fn a_game_declares_each_capability_its_maps_author() {
         found
     }
 
-    let app = compose_the_shipped_host();
     let rules = app
         .world()
         .get_resource::<DeclaredRules<UsedCapabilities>>()
@@ -669,13 +662,11 @@ fn a_game_declares_each_capability_its_maps_author() {
 /// sleeps where the active room's game uses no dialogue, once its project is
 /// compiled (`app::plugins`). Mary-O declares no dialogue, so in her rooms it
 /// sleeps.
-#[test]
-fn yarn_sleeps_in_rooms_whose_game_uses_no_dialogue() {
+fn yarn_sleeps_in_rooms_whose_game_uses_no_dialogue(app: &mut App) {
     use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
     use bevy::ecs::schedule::{Schedules, SystemSet};
 
-    let app = compose_the_shipped_host();
     let rules = app
         .world()
         .get_resource::<DeclaredRules<UsedCapabilities>>()
@@ -713,15 +704,13 @@ fn owning_crate(name: &str) -> &str {
 /// Measured before this held (hub census, 2026-10-21): while Ambition, Mary-O
 /// or Sanic played, Smash's sudden-death round ran, and Ambition's cut-rope
 /// arena answered every other game's resets and replays.
-#[test]
-fn a_games_simulation_systems_sleep_outside_its_rooms() {
+fn a_games_simulation_systems_sleep_outside_its_rooms(app: &mut App) {
     use ambition_platformer2d::platformer::schedule::SimScheduleExt;
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules};
 
     const GAMES: &[&str] = &["ambition_content", "ambition_demo_mary_o", "ambition_demo_sanic", "ambition_demo_smash"];
 
-    let mut app = compose_the_host_simulated_by(Some(ambition_platformer2d::runtime::SimulationHost::Rollback));
     let sim = app.sim_schedule();
     assert_ne!(sim, bevy::prelude::Update.intern(), "the premise: the simulation has its own schedule");
     let schedules = app.world().resource::<Schedules>();

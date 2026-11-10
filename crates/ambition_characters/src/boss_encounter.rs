@@ -74,6 +74,71 @@ pub struct BossEncounterSpec {
     /// death hands the fight to another (Wolfenstein to the Inugami) does not.
     #[serde(default)]
     pub slow_motion_finish: bool,
+    /// When its name card shows. Every boss gets one: the encounter's own
+    /// beat by default, or its conductor's.
+    #[serde(default)]
+    pub name_card: BossNameCardCue,
+}
+
+/// When a boss's name card (its name large across the screen, its title under
+/// it) is shown.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum BossNameCardCue {
+    /// The encounter shows it this many seconds after the boss wakes: it comes
+    /// in, holds and goes ([`BossNameCardCue::card`]).
+    At(f32),
+    /// Its conductor stages the card (`ambition.boss.stage`), timed to its own
+    /// intro (Wolfenstein's roar, the Inugami's rise). The encounter shows
+    /// none, so the card is never shown twice.
+    Conducted,
+}
+
+impl Default for BossNameCardCue {
+    fn default() -> Self {
+        Self::At(0.4)
+    }
+}
+
+const NAME_CARD_IN_S: f32 = 0.35;
+const NAME_CARD_HOLD_S: f32 = 2.2;
+const NAME_CARD_OUT_S: f32 = 0.5;
+
+impl BossNameCardCue {
+    /// How far the encounter's own card has come in, 0 to 1, for a boss in
+    /// `state` whose encounter authors `intro_seconds`. A function of the
+    /// boss's phase state, so a rewind, a replay and a retry each show it
+    /// again on the same frames.
+    pub fn card(self, intro_seconds: f32, state: &ActorPhaseState) -> f32 {
+        let Self::At(at) = self else {
+            return 0.0;
+        };
+        let Some(since) = state.seconds_since_wake(intro_seconds) else {
+            return 0.0;
+        };
+        let t = since - at;
+        let smooth = |u: f32| {
+            let u = u.clamp(0.0, 1.0);
+            u * u * (3.0 - 2.0 * u)
+        };
+        if t < 0.0 {
+            0.0
+        } else if t < NAME_CARD_IN_S {
+            smooth(t / NAME_CARD_IN_S)
+        } else if t < NAME_CARD_IN_S + NAME_CARD_HOLD_S {
+            1.0
+        } else {
+            1.0 - smooth((t - NAME_CARD_IN_S - NAME_CARD_HOLD_S) / NAME_CARD_OUT_S)
+        }
+    }
+
+    /// The seconds after waking at which the card is fully gone; `None` for a
+    /// conducted card.
+    pub fn gone_after(self) -> Option<f32> {
+        match self {
+            Self::At(at) => Some(at + NAME_CARD_IN_S + NAME_CARD_HOLD_S + NAME_CARD_OUT_S),
+            Self::Conducted => None,
+        }
+    }
 }
 
 // Entity-local phase state. Health stays on `BodyHealth`; phase progression
@@ -260,6 +325,21 @@ impl ActorPhaseState {
             triggers,
             start_phase,
             pending: None,
+        }
+    }
+
+    /// Seconds since the boss woke, while it is in the phase it woke into or
+    /// in the first phase after its intro. `None` asleep and after that: the
+    /// count is for the first beats of a fight, which is all its name card
+    /// needs.
+    pub fn seconds_since_wake(&self, intro_seconds: f32) -> Option<f32> {
+        use BossEncounterPhase::{Dormant, Intro, Phase1};
+        if self.phase == Dormant {
+            None
+        } else if self.phase == self.start_phase {
+            Some(self.phase_elapsed)
+        } else {
+            (self.start_phase == Intro && self.phase == Phase1).then(|| intro_seconds + self.phase_elapsed)
         }
     }
 

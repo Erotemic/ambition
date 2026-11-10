@@ -1,32 +1,9 @@
-//! Boss lifecycle CONTRACT pins — the headless safety net for Stage R3 of the
-//! boss entity-local refactor (`docs/systems/boss-encounter-architecture.md`).
-//!
-//! R3 flips boss HP/phase authority off the global `BossEncounterRegistry` onto
-//! the entity and deletes the live map. The *consequences* of a boss dying —
-//! the save records it Cleared, its reward chest drops, and the adaptive-music
-//! request restores to room music — have no other headless coverage and can't
-//! be eyeballed in CI. These tests pin that observable contract against the
-//! CURRENT (registry) implementation so R3 must preserve it.
-//!
-//! Stable parts: the ASSERTIONS (music set during the fight; save Cleared +
-//! reward chest + music cleared after death). Authority-coupled part: the
-//! `force_kill_boss` helper drives the current registry authority — R3 repoints
-//! it to the entity (`BossEncounter.health`/`encounter.phase`), and the assertions
-//! must still pass. The cut-rope victory NPC + in-place replay are content-
-//! specific + headless-hard (R5 rewrites cut-rope as an EncounterScript); they
-//! remain an explicit in-game verification item, but cut-rope's death
-//! consequences share the generic entity-death path pinned here.
-//!
-//! ⚠ **THAT PARAGRAPH'S CONDITION HAS SINCE BEEN MET — re-derived 2026-09-06.**
-//! It defers cut-rope as "headless-hard" and names R5 as the thing that would
-//! change that. **R5 HAS LANDED**: the fight is the behemoth's authored
-//! `encounter_script` (its `boss_profiles.ron` row), the generic encounter
-//! pieces with no cut-rope-specific physics or steering. Measured:
-//! the room boots headlessly in **0.87 s** with both authored props present, and
-//! `mod cut_rope_arena` now drives the rope-cut end to end. ⇒ The deferral was
-//! correct when written and expired without anyone re-deriving it; what remains
-//! genuinely unpinned here is the victory NPC and the in-place replay, not the
-//! fight's trigger.
+//! What a boss's life and death leave in the assembled game: the save's
+//! cleared record (keyed by placement), the reward chest, the drops of a real
+//! kill, the fight's music claim, practice copies, a replayed boss, and a New
+//! Game that brings the run's dead back. The helpers here (`spawn_mockingbird`,
+//! `force_kill_boss`, `kill_boss_with_a_real_hit`, `boss_cleared`, ...) are
+//! shared with the other boss and restore tests.
 
 #![cfg(feature = "rl_sim")]
 
@@ -34,10 +11,7 @@ use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::boss_encounter::BossOverrides;
 use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
-use ambition_platformer2d::boss_encounter::{
-    BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
-    EncounterScript, EncounterTrigger,
-};
+use ambition_platformer2d::boss_encounter::BossEncounterPhase;
 use ambition_platformer2d::combat::components::BossRewardChest;
 
 use ambition_platformer2d::encounter::EncounterMusicRequest;
@@ -92,8 +66,7 @@ pub(crate) fn spawn_mockingbird_beside(sim: &mut Platformer2dSimHarness, runtime
 /// sees its chest because `sync_boss_reward_chests_ecs`
 /// (`ambition_boss_encounter/src/rewards.rs:24`) is driven by the SAVE's cleared
 /// record, not by the kill — *"idempotently ensure cleared boss encounters have
-/// ECS reward chests"*. So the chest half is real and the kill-road half is
-/// untested, and the test's name does not distinguish them.
+/// ECS reward chests"*.
 ///
 /// ⇒ **Do not reason about boss drops through this helper.** A test that wants
 /// the real road must deliver a `HitEvent` — and must STEP until the phase is
@@ -208,109 +181,39 @@ fn lower_guard(world: &mut bevy::prelude::World, placement_id: &str) {
 // Sharing the fixture rather than copying it is deliberate — two fixtures for
 // one road drift, and the one that drifts is the one nobody is looking at.
 
-/// ⭐⭐ **THE BOSS'S SIGNATURE GAUNTLET REACHES THE FLOOR — on the road the game
-/// actually uses.**
-///
-/// ⛔ Every boss drop is spawned inside `apply_boss_hit`'s `killed` branch, and
-/// `apply_boss_hit` has exactly ONE call site: `apply_feature_hit_events`
-/// (`body/damage/mod.rs:819`). `force_kill_boss` writes HP to zero and
-/// never enters it, so before this test NOTHING exercised the drop road —
-/// `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music` sees its
-/// chest through the SAVE (`sync_boss_reward_chests_ecs` is *"idempotently
-/// ensure cleared boss encounters have ECS reward chests"*), which is a
-/// different road that a real kill is not needed for.
-///
-/// ⇒ This one delivers a real `HitEvent` in a vulnerable phase and asserts the
-/// gauntlet exists as a pick-up-able `GroundItem`. `mockingbird`'s profile
-/// declares `signature_gauntlet: Some("volley")`
-/// (`game/ambition_content/assets/data/boss_profiles.ron`), and
-/// `boss_signature_gauntlets_map_to_real_wielded_held_items` pins that id
-/// against the ability const — so this closes the loop between the guarded DATA
-/// and the road that reads it.
-#[test]
-fn a_defeated_boss_drops_its_signature_gauntlet_on_the_real_kill_road() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "gauntlet_dropper");
-
-    // ⛔ NOT "no ground items before": the sandbox AUTHORS them. Measured
-    // 2026-09-03 when this assertion was `is_empty()` and failed on frame 0 —
-    // `sandbox.ldtk` places `GroundItem`s for `blink`, `grapple`, `mark_recall`,
-    // `bomb` and the gauntlets themselves, so every signature gauntlet already
-    // exists somewhere in the world as an AUTHORED object.
-    //
-    // ⇒ Which is why this counts a DELTA. "A volley exists" would pass without
-    // the boss dying at all; only "one more volley than before" is a statement
-    // about the drop.
-    let volleys_before = ground_item_specs(sim.world_mut())
-        .iter()
-        .filter(|id| *id == "volley")
-        .count();
-
-    kill_boss_with_a_real_hit(&mut sim, "gauntlet_dropper", 600);
-    for _ in 0..120 {
-        sim.step(AgentAction::default());
-    }
-
-    assert_eq!(
-        boss_alive(sim.world_mut(), "gauntlet_dropper"),
-        Some(false),
-        "precondition: the real hit killed it (if this fails the DROP assertion \
-         below is meaningless, not passing)",
-    );
-
-    let specs = ground_item_specs(sim.world_mut());
-    let volleys_after = specs.iter().filter(|id| *id == "volley").count();
-    assert!(
-        volleys_after > volleys_before,
-        "mockingbird declares `signature_gauntlet: Some(\"volley\")`, so a boss \
-         killed on the real road must leave one MORE pick-up-able `volley` than \
-         the world already authored. before={volleys_before} after={volleys_after}; \
-         ground items present: {specs:?}",
-    );
-}
-
-/// What one real kill of a mockingbird leaves, for the practice test below:
-/// one more `volley` gauntlet on the floor than before, the `pirate_treasure`
-/// quest's step (its step 0 is `BossDefeated("mockingbird")`, and it starts at
-/// boot), and what the boss's reward chest holds.
-fn one_real_mockingbird_kill(practice: bool,
+/// What one real kill of a mockingbird at `placement` leaves, for the practice
+/// test below: whether the floor holds one more `volley` gauntlet than before,
+/// the `pirate_treasure` quest's step (its step 0 is
+/// `BossDefeated("mockingbird")`, and it starts at boot), and what the boss's
+/// reward chest holds.
+fn one_real_mockingbird_kill(sim: &mut Platformer2dSimHarness, placement: &str, practice: bool,
 ) -> (bool, u8, Vec<ambition_platformer2d::entity_catalog::PickupKind>,
 ) {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "hall_copy");
+    spawn_mockingbird(sim, placement);
     sim.step(AgentAction::default());
     {
         let world = sim.world_mut();
         let mut q = world.query::<&mut BossConfig>();
         let mut config = q
             .iter_mut(world)
-            .find(|config| config.id == "hall_copy")
+            .find(|config| config.id == placement)
             .expect("the spawned boss has a config");
         config.practice = practice;
     }
-    let step_before = sim
-        .world()
-        .resource::<ambition_content::quest::QuestRegistry>()
-        .get("pirate_treasure")
-        .expect("the quest is authored")
-        .step;
-    assert_eq!(step_before, 0, "precondition: the quest waits on the mockingbird");
     let volleys = |world: &mut World| {
         ground_item_specs(world).iter().filter(|id| *id == "volley").count()
     };
     let volleys_before = volleys(sim.world_mut());
 
-    kill_boss_with_a_real_hit(&mut sim, "hall_copy", 600);
+    kill_boss_with_a_real_hit(sim, placement, 600);
     // The defeat is recorded when the death settles; the steps let the chest
     // fall.
     for _ in 0..200 {
         sim.step(AgentAction::default());
     }
     assert!(
-        boss_cleared(&sim, "hall_copy"),
-        "precondition: the real hit killed it and its death was recorded"
+        boss_cleared(sim, placement),
+        "precondition: the real hit killed {placement} and its death was recorded"
     );
     let dropped_gauntlet = volleys(sim.world_mut()) > volleys_before;
     let step_after = sim
@@ -324,7 +227,7 @@ fn one_real_mockingbird_kill(practice: bool,
     )>();
     let rewards = chests
         .iter(world)
-        .filter(|(reward, _)| reward.encounter_id == "hall_copy")
+        .filter(|(reward, _)| reward.encounter_id == placement)
         .filter_map(|(_, chest)| chest.chest.reward.clone())
         .collect();
     (dropped_gauntlet, step_after, rewards)
@@ -337,19 +240,26 @@ fn one_real_mockingbird_kill(practice: bool,
 /// not impact the alive/dead status of the boss in the game. They are
 /// completely separate."
 ///
-/// The control is the same kill of a copy that is not practice: it drops the
-/// gauntlet, moves the quest and drops the relic, so each practice assertion
-/// is about the flag, not about a road that drops nothing anyway.
+/// The control is the same kill of a copy that is not practice, afterwards in
+/// the same run: it drops the gauntlet, moves the quest and drops the relic,
+/// so each practice assertion is about the flag, not about a road that drops
+/// nothing anyway. The practice copy dies first, so the quest still waits on a
+/// mockingbird when it does.
 #[test]
 fn a_practice_copy_dies_without_the_story_consequences() {
     use ambition_platformer2d::entity_catalog::PickupKind;
 
-    let (gauntlet, step, chest) = one_real_mockingbird_kill(false);
-    assert!(gauntlet, "control: the story's mockingbird drops its gauntlet");
-    assert_eq!(step, 1, "control: the story's mockingbird moves `pirate_treasure` on");
-    assert_eq!(chest, vec![PickupKind::Custom("pirate_hoard".into())], "control: its relic");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let step_before = sim
+        .world()
+        .resource::<ambition_content::quest::QuestRegistry>()
+        .get("pirate_treasure")
+        .expect("the quest is authored")
+        .step;
+    assert_eq!(step_before, 0, "precondition: the quest waits on the mockingbird");
 
-    let (gauntlet, step, chest) = one_real_mockingbird_kill(true);
+    let (gauntlet, step, chest) = one_real_mockingbird_kill(&mut sim, "hall_copy", true);
     assert!(!gauntlet, "a practice copy drops no signature gauntlet");
     assert_eq!(step, 0, "a practice copy moves no quest");
     assert_eq!(
@@ -359,6 +269,11 @@ fn a_practice_copy_dies_without_the_story_consequences() {
         }],
         "a practice copy's chest holds a purse"
     );
+
+    let (gauntlet, step, chest) = one_real_mockingbird_kill(&mut sim, "story_copy", false);
+    assert!(gauntlet, "control: the story's mockingbird drops its gauntlet");
+    assert_eq!(step, 1, "control: the story's mockingbird moves `pirate_treasure` on");
+    assert_eq!(chest, vec![PickupKind::Custom("pirate_hoard".into())], "control: its relic");
 }
 
 /// Every `GroundItem` in the world, by its held-item id.
@@ -418,55 +333,8 @@ fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhas
         .and_then(|(_, status)| status.encounter.as_ref().map(|p| p.phase))
 }
 
-fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
-    let mut q = world.query::<(
-        &BossConfig,
-        &ambition_platformer2d::characters::actor::BodyHealth,
-    )>();
-    q.iter(world)
-        .find(|(config, _)| config.id == placement_id)
-        .map(|(_, health)| health.max())
-}
-
-fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
-    let mut q = world.query::<(
-        &BossConfig,
-        &mut ambition_platformer2d::characters::actor::BodyHealth,
-    )>();
-    for (config, mut health) in q.iter_mut(world) {
-        if config.id == placement_id {
-            health.health.current = hp;
-        }
-    }
-}
-
-fn has_encounter_for(world: &mut World, placement_id: &str) -> bool {
-    let mut q = world.query_filtered::<&ambition_platformer2d::encounter::Encounter, bevy::prelude::With<EncounterDef>>();
-    q.iter(world).any(|e| e.id == placement_id)
-}
-
 fn boss_reward_chest_count(world: &mut World) -> usize {
     world.query::<&BossRewardChest>().iter(world).count()
-}
-
-/// While a boss is alive and woken, the adaptive-music request carries its
-/// track. (R3 must keep boss music playing through the fight.)
-#[test]
-fn boss_music_plays_during_the_fight() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "music_boss");
-
-    // A few frames to wake the boss (Dormant → Intro) + publish its music.
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-
-    assert_eq!(
-        music_track(&sim).as_deref(),
-        Some(MOCKINGBIRD_TRACK),
-        "a woken boss's encounter requests its own music track"
-    );
 }
 
 /// A defeated boss leaves a Cleared save record, drops its reward chest, and
@@ -517,29 +385,70 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
     );
 }
 
-/// R4: "cleared" is keyed to the encounter PLACEMENT, not the archetype — so the
-/// SAME boss archetype reused at a different placement is NOT pre-marked cleared.
+/// "Cleared" is keyed to the boss PLACEMENT, not the archetype, and a cleared
+/// placement loads as a corpse that stays one.
+///
+/// * A mockingbird defeated at placement A does not pre-clear the SAME
+///   archetype at placement B: B spawns alive and unrecorded.
+/// * A placement the save already records Cleared never becomes visible and
+///   never replays its death animation. ⛔ The encounter driver zeroes a
+///   cleared boss's HP on its first tick, and the presentation pass starts the
+///   death animation on the edge "was Active, is now dead", so a boss that is
+///   cleared before it was ever seen needs its `BossPhase` to read `Defeated`
+///   by the time that edge is looked at, or a boss the player beat an hour ago
+///   dies again on screen every time they walk in.
 #[test]
-fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
+fn cleared_is_kept_by_placement_and_a_pre_cleared_boss_never_replays_its_death() {
+    use ambition_platformer2d::combat::components::{BossPhase, DeathBeat};
+
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
-
-    // Placement A: a mockingbird the player defeats.
+    sim.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut()
+        .set_boss("pre_cleared", PersistedEncounterState::Cleared);
+    spawn_mockingbird(&mut sim, "pre_cleared");
     spawn_mockingbird(&mut sim, "placement_a");
-    for _ in 0..6 {
+
+    // Every frame from the pre-cleared boss's spawn: it is never visible.
+    let mut observed = 0;
+    let mut watch = |sim: &mut Platformer2dSimHarness, frame: usize| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(
+            &BossConfig,
+            &ambition_platformer2d::characters::actor::BodyHealth,
+            &DeathBeat,
+            &BossPhase,
+        )>();
+        let Some((_, health, death, phase)) =
+            q.iter(world).find(|(config, ..)| config.id == "pre_cleared")
+        else {
+            return;
+        };
+        observed += 1;
+        assert!(
+            !death.visible(health.alive()),
+            "frame {frame}: the pre-cleared boss is visible (alive={}, dead for \
+             {:?}s, phase {phase:?}) — it is dying again on screen",
+            health.alive(),
+            death.since_s,
+        );
+    };
+    for frame in 0..6 {
         sim.step(AgentAction::default());
+        watch(&mut sim, frame);
     }
     force_kill_boss(&mut sim, "placement_a");
-    for _ in 0..200 {
+    for frame in 6..206 {
         sim.step(AgentAction::default());
+        watch(&mut sim, frame);
     }
+    assert!(observed > 0, "the pre-cleared boss was never spawned, so nothing was checked");
     assert!(
         boss_cleared(&sim, "placement_a"),
         "placement A must be recorded cleared after its defeat"
     );
 
-    // Placement B: the SAME archetype, a different placement id. It must NOT be
-    // pre-marked cleared just because another mockingbird was beaten.
     spawn_mockingbird(&mut sim, "placement_b");
     for _ in 0..6 {
         sim.step(AgentAction::default());
@@ -552,248 +461,6 @@ fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
         boss_alive(sim.world_mut(), "placement_b"),
         Some(true),
         "the reused-archetype boss at a new placement must spawn alive, not skipped"
-    );
-}
-
-/// The in-place reset resets `health`/`alive` but must also clear the entity-local phase state
-/// — otherwise the boss stays in last attempt's `Death` phase and the death-resolution re-kills
-/// it the instant it "respawns".
-#[test]
-fn boss_revives_after_a_room_reset() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    spawn_mockingbird(&mut sim, "respawner");
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-    force_kill_boss(&mut sim, "respawner");
-    for _ in 0..200 {
-        sim.step(AgentAction::default());
-    }
-    assert_eq!(boss_alive(sim.world_mut(), "respawner"), Some(false));
-    assert!(
-        boss_cleared(&sim, "respawner"),
-        "precondition: defeated + cleared"
-    );
-
-    // No hand retraction: the defeat fell after the last checkpoint (there is
-    // none), so the generic boss road retracts it on the admitted replay
-    // (BOSS-REPLAY-RETRACTION).
-    // ⭐ THE ASK, NOT THE FACT. `RoomReplayAdmitted` is written by the engine's
-    // admission system and nothing else; a fixture that wrote it would get the
-    // replay's consequences without the room rebuild that makes them mean
-    // anything.
-    sim.world_mut().write_message(
-        ambition_platformer2d::session::reset::RoomReplayRequested::manual());
-    for _ in 0..15 {
-        sim.step(AgentAction::default());
-    }
-
-    assert_eq!(
-        boss_alive(sim.world_mut(), "respawner"),
-        Some(true),
-        "the boss must revive after a room reset, not stay dead from the last attempt"
-    );
-    assert_ne!(
-        boss_phase(sim.world_mut(), "respawner"),
-        Some(BossEncounterPhase::Death),
-        "and not be stuck in the Death phase"
-    );
-    assert!(
-        !boss_cleared(&sim, "respawner"),
-        "and not be re-marked cleared on the revive"
-    );
-}
-
-// ===== R6: spawn seam "tweaks Z" =====
-
-/// Two DIFFERENT boss archetypes spawned via the seam are both fightable, each
-/// with its own profile-derived state (independent HP pools + encounters).
-#[test]
-fn two_different_bosses_are_both_fightable() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    let (px, py) = player_pos(sim.world_mut());
-
-    sim.spawn_boss_at(
-        "mock",
-        "mockingbird",
-        (px - 350.0, py),
-        (30.0, 30.0),
-        BossBrain::PhaseScript {
-            script_id: "mockingbird".to_string(),
-        },
-    );
-    sim.spawn_boss_at(
-        "sentinel",
-        "clockwork_warden",
-        (px + 350.0, py),
-        (30.0, 30.0),
-        BossBrain::PhaseScript {
-            script_id: "clockwork_warden".to_string(),
-        },
-    );
-    for _ in 0..6 {
-        sim.step(AgentAction::default());
-    }
-
-    assert_eq!(boss_alive(sim.world_mut(), "mock"), Some(true));
-    assert_eq!(boss_alive(sim.world_mut(), "sentinel"), Some(true));
-    assert!(has_encounter_for(sim.world_mut(), "mock"));
-    assert!(has_encounter_for(sim.world_mut(), "sentinel"));
-    // Different archetypes  different authored HP pools (independent profiles).
-    let mock_hp = boss_max_hp(sim.world_mut(), "mock").expect("mock seeded");
-    let sentinel_hp = boss_max_hp(sim.world_mut(), "sentinel").expect("sentinel seeded");
-    assert_ne!(
-        mock_hp, sentinel_hp,
-        "two different boss archetypes should resolve distinct HP pools"
-    );
-}
-
-/// A boss spawned with `no_encounter` is a plain tough enemy: it exists + fights,
-/// but NO encounter entity wraps it (so no HUD / lock-walls / win-lose).
-#[test]
-fn boss_spawned_with_no_encounter_has_no_encounter_entity() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    let (px, py) = player_pos(sim.world_mut());
-
-    sim.spawn_boss_at_with(
-        "plain_brute",
-        "mockingbird",
-        (px, py),
-        (30.0, 30.0),
-        BossBrain::PhaseScript {
-            script_id: "mockingbird".to_string(),
-        },
-        BossOverrides {
-            no_encounter: true,
-            ..BossOverrides::default()
-        },
-    );
-    for _ in 0..6 {
-        sim.step(AgentAction::default());
-    }
-
-    assert_eq!(
-        boss_alive(sim.world_mut(), "plain_brute"),
-        Some(true),
-        "the no-encounter boss still exists + lives (a plain tough enemy)"
-    );
-    assert!(
-        !has_encounter_for(sim.world_mut(), "plain_brute"),
-        "a no_encounter boss must NOT be wrapped by an encounter entity (no HUD)"
-    );
-}
-
-/// A boss spawned with EMPTY phase triggers never phases up — it fights its one
-/// phase to death. Proves phases are trivially-flippable DATA (no code change).
-#[test]
-fn boss_with_empty_phase_triggers_never_phases_up() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    let (px, py) = player_pos(sim.world_mut());
-
-    sim.spawn_boss_at_with(
-        "no_phases",
-        "mockingbird",
-        (px, py),
-        (30.0, 30.0),
-        BossBrain::PhaseScript {
-            script_id: "mockingbird".to_string(),
-        },
-        BossOverrides {
-            phase_triggers: Some(Vec::new()),
-            ..BossOverrides::default()
-        },
-    );
-    for _ in 0..6 {
-        sim.step(AgentAction::default());
-    }
-
-    // No triggers  no intro tell, so it wakes straight into Phase1 and stays.
-    assert_eq!(
-        boss_phase(sim.world_mut(), "no_phases"),
-        Some(BossEncounterPhase::Phase1),
-        "empty triggers ⇒ the boss wakes into Phase1 (no forced Intro)"
-    );
-
-    // Drop HP well past where the mockingbird would normally phase up (66% / 25%)
-    // and confirm it does NOT advance — there are no triggers to fire.
-    set_boss_hp(sim.world_mut(), "no_phases", 1);
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-    assert_eq!(
-        boss_phase(sim.world_mut(), "no_phases"),
-        Some(BossEncounterPhase::Phase1),
-        "with no phase triggers the boss never phases up, even at 1 HP"
-    );
-}
-
-// ===== R5: encounter script + on-death payload =====
-
-/// An `EncounterScript` beat waiting on a gate force-kills its member when the
-/// gate fires — exercised through the REAL Progression schedule (this is the
-/// generic mechanism the cut-rope fight is expressed with: rope/anvil fire the
-/// gate, the script does the kill, the entity death pipeline records Cleared).
-#[test]
-fn encounter_script_gate_force_kills_through_the_real_schedule() {
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    let (px, py) = player_pos(sim.world_mut());
-    sim.spawn_boss_at(
-        "scripted",
-        "mockingbird",
-        (px, py),
-        (30.0, 30.0),
-        BossBrain::PhaseScript {
-            script_id: "mockingbird".to_string(),
-        },
-    );
-    // Wake the boss + let `sync_boss_encounter_entities` create its encounter.
-    for _ in 0..8 {
-        sim.step(AgentAction::default());
-    }
-
-    // Attach a gate→ForceKill script to the boss's encounter entity.
-    {
-        let world = sim.world_mut();
-        let mut q = world.query_filtered::<
-            (bevy::prelude::Entity, &ambition_platformer2d::encounter::Encounter,
-        ),
-            bevy::prelude::With<EncounterDef>>();
-        let enc = q
-            .iter(world)
-            .find(|(_, encounter)| encounter.id == "scripted")
-            .map(|(e, _)| e)
-            .expect("the woken boss has an encounter entity");
-        world
-            .entity_mut(enc)
-            .insert(EncounterScript::new(vec![EncounterBeat::new(
-                EncounterTrigger::Gate("kill_now".to_string()),
-                vec![EncounterEffect::ForceKill(0)],
-            )]));
-    }
-
-    // The boss is alive until the gate fires.
-    assert_eq!(boss_alive(sim.world_mut(), "scripted"), Some(true));
-
-    // Fire the gate → the script force-kills member 0; step so it resolves.
-    sim.world_mut()
-        .write_message(EncounterGate::new("kill_now"));
-    for _ in 0..200 {
-        sim.step(AgentAction::default());
-    }
-
-    assert_eq!(
-        boss_alive(sim.world_mut(), "scripted"),
-        Some(false),
-        "the encounter script's gate→ForceKill must kill the member"
-    );
-    assert!(
-        boss_cleared(&sim, "scripted"),
-        "a script-killed boss flows through the same death→Cleared pipeline"
     );
 }
 
@@ -936,54 +603,6 @@ fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, kin)| bevy::prelude::Vec2::new(kin.pos.x, kin.pos.y))
-}
-
-/// A placement the save already records Cleared loads as a corpse and STAYS one:
-/// it never becomes visible and never replays its death animation.
-///
-/// ⛔ The encounter driver zeroes a cleared boss's HP on its first tick, and the
-/// presentation pass starts the death animation on the edge "was Active, is now
-/// dead" — so a boss that is cleared before it was ever seen needs its
-/// `BossPhase` to read `Defeated` by the time that edge is looked at, or a boss
-/// the player beat an hour ago dies again on screen every time they walk in.
-#[test]
-fn a_boss_cleared_before_it_spawns_never_replays_its_death() {
-
-use ambition_platformer2d::combat::components::{BossPhase, DeathBeat};
-
-    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("sandbox sim builds");
-    sim.world_mut()
-        .resource_mut::<AmbitionGameSave>()
-        .data_mut()
-        .set_boss("pre_cleared", PersistedEncounterState::Cleared);
-    spawn_mockingbird(&mut sim, "pre_cleared");
-
-    let mut observed = 0;
-    for frame in 0..90 {
-        sim.step(AgentAction::default());
-        let world = sim.world_mut();
-        let mut q = world.query::<(
-            &BossConfig,
-            &ambition_platformer2d::characters::actor::BodyHealth,
-            &DeathBeat,
-            &BossPhase,
-        )>();
-        let Some((_, health, death, phase)) =
-            q.iter(world).find(|(config, ..)| config.id == "pre_cleared")
-        else {
-            continue;
-        };
-        observed += 1;
-        assert!(
-            !death.visible(health.alive()),
-            "frame {frame}: the pre-cleared boss is visible (alive={}, dead for \
-             {:?}s, phase {phase:?}) — it is dying again on screen",
-            health.alive(),
-            death.since_s,
-        );
-    }
-    assert!(observed > 0, "the pre-cleared boss was never spawned, so nothing was checked");
 }
 
 /// Reset Sandbox is a New Game: every boss the run defeated is alive again.

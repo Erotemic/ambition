@@ -256,6 +256,9 @@ fn compare(alice: &Platformer2dSimHarness, bob: &Platformer2dSimHarness) -> (BTr
 struct Outcome {
     healths: (Result<(), String>, Result<(), String>),
     rollbacks: u64,
+    /// What Alice's and Bob's ends sent, and the frames they settled.
+    traffic: [ambition_platformer2d::rollback::LinkTraffic; 2],
+    frames: usize,
     /// Rows whose census differs between the peers, each with the first
     /// (generation, frame) it differs at.
     differing: RowsThatDiffer,
@@ -304,6 +307,7 @@ fn two_peers_with(
 ) -> Outcome {
     let (a, b) = ("127.0.0.1:7001".parse().unwrap(), "127.0.0.1:7002".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
+    let ends = [to_bob.clone(), to_alice.clone()];
     let (mut alice, sharp) = peer(room, 0, (1, b), to_bob, Poison::None);
     let (mut bob, _) = peer(room, 1, (0, a), to_alice, poison);
     let mut updates = 0;
@@ -348,6 +352,8 @@ fn two_peers_with(
     let probes = alice.world().resource::<RollbackChecksumProbes>();
     let value_probed = &probes.type_names() - &probes.presence_only_type_names();
     Outcome {
+        traffic: ends.map(|end| end.sent()),
+        frames: settled(&alice).min(settled(&bob)),
         sessions: compared.len(),
         carried,
         sharp,
@@ -598,11 +604,14 @@ struct TimelineDoorOutcome {
     replayed_commits: [bool; 2],
     settling: [Vec<i32>; 2],
     arrival_resets: [usize; 2],
+    traffic: [ambition_platformer2d::rollback::LinkTraffic; 2],
+    frames: i32,
 }
 
 fn crossings_on_one_timeline(count: u8, order: [usize; 2], configure: fn(&mut App)) -> TimelineDoorOutcome {
     let (a, b) = ("127.0.0.1:7051".parse().unwrap(), "127.0.0.1:7052".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
+    let ends = [to_bob.clone(), to_alice.clone()];
     let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, each_player_on_the_hub_door);
     let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, each_player_on_the_hub_door);
     for sim in [&mut alice, &mut bob] { configure(sim.app_mut()); }
@@ -642,6 +651,7 @@ fn crossings_on_one_timeline(count: u8, order: [usize; 2], configure: fn(&mut Ap
     }
     let (compared, differing) = compare(&alice, &bob);
     TimelineDoorOutcome {
+        traffic: ends.map(|end| end.sent()), frames: confirmed(&alice).min(confirmed(&bob)),
         healths: [alice.rollback_health(), bob.rollback_health()], differing, compared, applied,
         progressed_while_pending,
         rollbacks: [&alice, &bob].iter().filter_map(|sim| sim.rollback_execution_stats()).map(|stats| stats.lifetime_load_runs).sum(),
@@ -673,6 +683,33 @@ fn ordinary_peer_crossings_apply_on_shared_input_frames_without_holding_or_rebas
         assert!(outcome.applied[0].values().all(|(_, room)| *room == Some(destination)));
         assert_eq!(outcome.rooms, [vec![(destination, HUB.into())], vec![(destination, HUB.into())]]);
         assert_eq!(outcome.members, [(Some(destination), Some(Some(destination))); 2]);
+    }
+}
+
+/// NET-INPUT-WIDTH's measurement: what the link carries, beside the width of
+/// one input. GGRS delta-encodes each input against the last acknowledged one
+/// and run-length-compresses it, so the link is not 2 x the input width a
+/// frame; a verdict that does not change between frames costs little on it.
+/// Two scenes: steady play with a 3-update latency (so predictions roll back),
+/// and two crossings agreed on one timeline.
+#[test]
+#[ignore = "measurement: prints link bytes per frame; run with --ignored --nocapture"]
+fn how_many_bytes_the_link_carries_a_frame() {
+    println!("[link] input wire identity {}", ambition_platformer2d::engine_core::CONTROL_FRAME_WIRE_IDENTITY);
+    let steady = two_peers_in(ROOM, holds_right_and_fires, Poison::None);
+    assert_eq!(steady.healths, (Ok(()), Ok(())));
+    let crossing = crossings_on_one_timeline(2, [0, 1], |_| {});
+    assert_eq!(crossing.healths, [Ok(()), Ok(())]);
+    for (scene, traffic, frames, rollbacks) in [
+        ("steady play", steady.traffic, steady.frames as u64, steady.rollbacks),
+        ("two crossings", crossing.traffic, crossing.frames as u64, crossing.rollbacks),
+    ] {
+        for (who, sent) in ["alice", "bob"].into_iter().zip(traffic) {
+            println!(
+                "[link] {scene}: {who} sent {} messages, {} bytes over {frames} frames: {:.1} bytes a frame ({rollbacks} rollbacks)",
+                sent.messages, sent.bytes, sent.bytes as f64 / frames.max(1) as f64
+            );
+        }
     }
 }
 
@@ -1092,7 +1129,6 @@ fn a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare() {
 }
 
 fn refused_peer_crossing(configure_bob: impl FnOnce(&mut App)) -> Platformer2dSimHarness {
-
     let (a, b) = ("127.0.0.1:7021".parse().unwrap(), "127.0.0.1:7022".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
     let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, each_player_on_the_hub_door);

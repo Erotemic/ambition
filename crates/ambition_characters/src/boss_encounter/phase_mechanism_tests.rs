@@ -223,5 +223,44 @@ fn legacy_spec() -> BossEncounterSpec {
         voice: None,
         wake_radius: None,
         slow_motion_finish: false,
+        name_card: Default::default(),
+    }
+}
+
+/// The card a boss shows `seconds` after it wakes, ticked at 60 Hz at full
+/// health.
+fn card_after(spec: &BossEncounterSpec, seconds: f32) -> f32 {
+    let mut state = ActorPhaseState::from_spec(spec);
+    state.wake();
+    for _ in 0..(seconds * 60.0).round() as usize {
+        state.tick(1.0 / 60.0, 1.0);
+    }
+    spec.name_card.card(spec.intro_seconds, &state)
+}
+
+/// Every boss shows its name card by default: it comes in after it wakes,
+/// holds, and is gone. An intro shorter than the card does not cut it: the
+/// count runs on into the first phase.
+#[test]
+fn the_encounter_shows_a_name_card_after_the_boss_wakes() {
+    for intro_seconds in [0.0, 1.0, 2.4] {
+        let spec = BossEncounterSpec { intro_seconds, ..legacy_spec() };
+        let asleep = ActorPhaseState::from_spec(&spec);
+        assert_eq!(spec.name_card.card(intro_seconds, &asleep), 0.0, "a sleeping boss shows no card");
+        assert_eq!(card_after(&spec, 0.1), 0.0, "the card waits for its cue");
+        assert_eq!(card_after(&spec, 1.5), 1.0, "intro {intro_seconds}: the card is up");
+        assert_eq!(card_after(&spec, 2.6), 1.0, "intro {intro_seconds}: the card holds past the intro's end");
+        let gone = spec.name_card.gone_after().expect("an encounter card ends");
+        assert_eq!(card_after(&spec, gone + 0.1), 0.0, "intro {intro_seconds}: the card goes");
+    }
+}
+
+/// A boss whose conductor stages its card gets none from the encounter, so
+/// the card is not shown twice.
+#[test]
+fn a_conducted_card_is_the_conductors_alone() {
+    let spec = BossEncounterSpec { name_card: BossNameCardCue::Conducted, ..legacy_spec() };
+    for seconds in [0.5, 1.5, 3.0] {
+        assert_eq!(card_after(&spec, seconds), 0.0);
     }
 }

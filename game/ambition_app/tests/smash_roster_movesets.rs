@@ -40,8 +40,8 @@ const KNOWN_UNARMED: &[&str] = &[
     // short form's, so she arrives here unarmed exactly as `mary_o` did.
     "mary_o_tall",
     "sanic",
-    "npc_alice",
-    "npc_bob",
+    // Not Alice or Bob: every person fights with bare hands now
+    // (`ambition::bare_hands`), so their prepared kits have a melee.
     // AND EMMY LEFT IT THE SAME DAY, for the same two reasons.
     //
     // he is NOT unarmed in a match: the stage arms every seat (see the companion test below).

@@ -3,6 +3,7 @@
 
     python specs/scenery_overlay.py           # prints what it would add
     python specs/scenery_overlay.py --apply   # adds what is missing
+    python specs/scenery_overlay.py --apply science.ldtk   # ... to one world
 
 Run it from `tools/ambition_ldtk_tools`.
 
@@ -168,7 +169,15 @@ def overlay_yaml(level_id: str, pieces: list[tuple[int, str, int, int]], px: flo
 
 
 def main(argv) -> int:
-    for world, levels in OVERLAYS.items():
+    # A world file named on the line limits the run to those worlds: a room
+    # just regenerated is dressed without touching (or needing the art of)
+    # the others.
+    only = {arg for arg in argv if arg.endswith(".ldtk")}
+
+    def chosen(table: dict) -> list:
+        return [(world, levels) for world, levels in table.items() if not only or world in only]
+
+    for world, levels in chosen(OVERLAYS):
         ldtk = WORLDS / world
         for level_id, pieces in levels.items():
             # Each piece is added once, by its own name: a piece appended to
@@ -180,7 +189,7 @@ def main(argv) -> int:
                 continue
             if missing and (code := add_entities(overlay_yaml(level_id, missing), ldtk, HERE / f".{level_id}_scenery.yaml")):
                 return code
-    for world, levels in RESIDENTS.items():
+    for world, levels in chosen(RESIDENTS):
         ldtk = WORLDS / world
         for level_id, residents in levels.items():
             first = f'"{residents[0][1]}"'
@@ -188,7 +197,7 @@ def main(argv) -> int:
                 print(f"{world} {level_id}: {'present' if first in ldtk.read_text() else 'would add'} {len(residents)} resident(s)")
             elif code := add_entities(resident_yaml(level_id, residents), ldtk, HERE / f".{level_id}_residents.yaml", unless=first):
                 return code
-    for world, levels in SIGNS.items():
+    for world, levels in chosen(SIGNS):
         ldtk = WORLDS / world
         for level_id, signs in levels.items():
             first = f'"{signs[0][0]}"'
@@ -196,7 +205,7 @@ def main(argv) -> int:
                 print(f"{world} {level_id}: {'present' if first in ldtk.read_text() else 'would add'} {len(signs)} sign(s)")
             elif code := add_entities(sign_yaml(level_id, signs), ldtk, HERE / f".{level_id}_signs.yaml", unless=first):
                 return code
-    for world, levels in CHESTS.items():
+    for world, levels in chosen(CHESTS):
         ldtk = WORLDS / world
         for level_id, chests in levels.items():
             placed = ldtk.read_text()

@@ -521,6 +521,59 @@ mod tests {
         );
     }
 
+    /// The map hangs the rope from the ceiling and ends it on the heavy object.
+    ///
+    /// The rope is drawn from the top of its authored box to the bottom
+    /// (`a_rope_is_drawn_from_the_top_of_its_box_to_the_bottom`, in the
+    /// renderer), so the box is where the rope is. A box that starts under the
+    /// ceiling is a rope that hangs from nothing.
+    #[test]
+    fn the_ropes_box_starts_at_the_ceiling_and_ends_on_the_heavy_object() {
+        use ambition_platformer2d::engine_core as ae;
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
+        let manifest = crate::worlds::world_manifest();
+        let project = LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let rooms = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("the shipped worlds compose");
+        let spec = rooms
+            .rooms
+            .iter()
+            .find(|room| room.id == "you_have_to_cut_the_rope")
+            .expect("the cut-rope room is a shipped room");
+        let prop = |kind: &str| {
+            spec.props.iter().find(|p| p.kind == kind).unwrap_or_else(|| panic!("the room authors a `{kind}` prop"))
+        };
+        let (rope, anvil) = (prop("cut_rope_rope"), prop("cut_rope_anvil"));
+        let (rope_top, rope_bottom) = (rope.pos.y - rope.size.y * 0.5, rope.pos.y + rope.size.y * 0.5);
+        let solid_at = |p: ae::Vec2| {
+            spec.world.blocks.iter().any(|block| {
+                matches!(block.kind, ae::BlockKind::Solid)
+                    && p.x >= block.aabb.min.x
+                    && p.x <= block.aabb.max.x
+                    && p.y >= block.aabb.min.y
+                    && p.y <= block.aabb.max.y
+            })
+        };
+        assert!(
+            solid_at(ae::Vec2::new(rope.pos.x, rope_top - 1.0)) && !solid_at(ae::Vec2::new(rope.pos.x, rope_top + 1.0)),
+            "the top of the rope's box (y {rope_top}) is not the under side of a solid ceiling: \
+             (solid 1 above, solid 1 under) = ({}, {})",
+            solid_at(ae::Vec2::new(rope.pos.x, rope_top - 1.0)),
+            solid_at(ae::Vec2::new(rope.pos.x, rope_top + 1.0))
+        );
+        let anvil_top = anvil.pos.y - anvil.size.y * 0.5;
+        assert!(
+            (rope_bottom - anvil_top).abs() < 0.5
+                && (rope.pos.x - anvil.pos.x).abs() <= anvil.size.x * 0.5,
+            "the rope's box ends at y {rope_bottom}, x {}; the heavy object's box starts at y {anvil_top} \
+             and is {} wide about x {}",
+            rope.pos.x,
+            anvil.size.x,
+            anvil.pos.x
+        );
+    }
+
     /// The rope holds the rules' heavy objects in their order, and the list
     /// wraps: a pack that names three gets a cycle of three.
     #[test]

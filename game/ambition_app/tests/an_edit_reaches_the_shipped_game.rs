@@ -1,31 +1,27 @@
-//! An edit on disk reaches the game the SHIPPED composition plays.
+//! An edit reaches the game the SHIPPED composition plays (`build_visible_app`).
 //!
-//! ⛔⛤ **THIS IS THE ONE HOP EVERY OTHER RELOAD WITNESS LEAVES OUT, AND THE
-//! QUEUE SAYS SO IN ITS OWN RECEIPT:** *"STILL CRATE-LEVEL, not through
-//! `build_visible_app`; the app-level version is what would witness the one hop
-//! the identity packet could not."* The crate-level arms in
-//! `ambition_content::reload` hand-build a world, insert a `ShellRouter`, and add
-//! `publish_staged_reload_on_activation` themselves — so every one of them stays
-//! green if the shipped composition never registers the system, never reaches an
-//! active route, or registers a route with no preparation plan. This one asks the
-//! real `build_visible_app`.
+//! The crate-level arms in `ambition_content::reload` hand-build a world,
+//! insert a `ShellRouter`, and add `publish_staged_reload_on_activation`
+//! themselves, so each of them stays green if the shipped composition never
+//! registers the system, never reaches an active route, or registers a route
+//! with no preparation plan. The rules a reload follows (staleness, no-op
+//! candidates, supersession, quest compatibility, the publication lease) are
+//! tested there; these tests ask the real app the questions only it can
+//! answer:
 //!
-//! ⭐⭐ **AND IT WATCHES THE FIGHTER LADDER RATHER THAN A MOVESET, WHICH IS A
-//! MEASURED CHOICE AND NOT A CONVENIENCE.** MEASURED 2026-09-12 and recorded in
-//! `queue.md`: the body the shipped `ambition_gameplay` route constructs carries
-//! eight moves and every one of them is a DERIVED KIT move, while the authored
-//! `moveset` pack holds a different vocabulary and names no player robot. Their
-//! intersection is EMPTY. So a moveset edit is the wrong subject here — it would
-//! prove the transaction ran and show nothing the shipped route plays.
-//! `fighter_brain_ladder` is the second content family, it IS installed by
-//! `AmbitionContentPlugin::build` in this composition, and it is republished at
-//! the activation boundary.
+//! - a content reload's families land on the activation frame, together, and
+//!   a candidate refused by its preparation, its content graph or its
+//!   activation gate publishes nothing;
+//! - a session is prepared hidden beside the one that is playing, and a
+//!   handoff, a supersession, a cancellation or a refusal leaves no candidate,
+//!   receipt, scope or hold behind;
+//! - the developer world reload (LDtk) rebuilds every live room or none, runs
+//!   its effects only behind its verdict, and moves the bodies that stay out
+//!   of new solids.
 //!
-//! ⚠ THE EDIT IS BUILT IN MEMORY, NOT WRITTEN TO THE TREE. A guard whose subject
-//! MUTATES THE REPOSITORY is one this project has already been bitten by;
-//! `compile_pack_with` is the road that makes the edited pack without touching
-//! `game/ambition_content/assets`.
-
+//! ⚠ THE EDITS ARE BUILT IN MEMORY OR IN THE TEMPORARY DIRECTORY, NEVER IN THE
+//! TREE: `compile_pack_with` makes an edited pack without touching
+//! `game/ambition_content/assets`, and world edits are copies.
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
 
@@ -152,23 +148,6 @@ fn step_until_the_generation_settles(app: &mut bevy::prelude::App) {
     }
 }
 
-/// For a request refused at request time: no generation exists, so there is
-/// nothing to wait for. Step the settle frames and hold that none appears.
-fn step_with_no_generation_pending(app: &mut bevy::prelude::App) {
-    use ambition_content::reload::PendingGeneration;
-    assert!(
-        !app.world().contains_resource::<PendingGeneration>(),
-        "a generation is pending after a request that was refused at request time"
-    );
-    for _ in 0..crate::common::SETTLE_FRAMES_AFTER_ACTIVATION {
-        app.update();
-    }
-    assert!(
-        !app.world().contains_resource::<PendingGeneration>(),
-        "a generation appeared after a request that was refused at request time"
-    );
-}
-
 fn active_route(app: &bevy::prelude::App) -> Option<String> {
     app.world()
         .get_resource::<ShellRouter>()
@@ -176,6 +155,22 @@ fn active_route(app: &bevy::prelude::App) -> Option<String> {
         .map(|active| active.route_id.as_str().to_string())
 }
 
+/// ⭐⭐ **ONE CANDIDATE EDITING EVERY PARTICIPATING FAMILY LANDS WHOLE, ON THE
+/// ACTIVATION FRAME.** It edits the fighter ladder, the encounter waves, an SFX
+/// cue, the goblin lab's adaptive cue binding, the lab's cutscene banner and
+/// the first quest's title (with the player on that
+/// quest's second step). Nothing moves at the request; on every frame before
+/// the activation every family is N's; on the frame the shell activates, every
+/// family is N+1's; and the engine's identities (selection, fingerprint, epoch,
+/// construction provenance) name N+1 too. The new session's quest book is never
+/// N's, and settled it is N+1's with the player's progress.
+///
+/// It watches the fighter ladder rather than a moveset: the body the shipped
+/// `ambition_gameplay` route constructs carries only DERIVED KIT moves, and
+/// the authored `moveset` pack names no player robot, so a moveset edit would
+/// prove the transaction ran and show nothing the route plays.
+/// `fighter_brain_ladder` is installed by `AmbitionContentPlugin::build` in this
+/// composition and republished at the activation boundary.
 #[test]
 fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -231,7 +226,33 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
          below is about a reload"
     );
 
-    // ── the premise: both live families are the shipped ones ────────────────
+    advance_first_steps_one_step(&mut app);
+
+    // ── the premise: every live family is the shipped one ───────────────────
+    let sfx_before = first_sfx_frequency_of(&app);
+    assert_eq!(lab_banner(&app), "// cutscene proof", "the premise: N's banner");
+    assert_eq!(quest_place(&app, "first_steps").map(|place| place.0).as_deref(), Some("First Steps"), "the premise: N's quest title");
+    #[cfg(feature = "audio")]
+    assert_eq!(
+        goblin_binding(&app),
+        ("first_goblin_tune_v2".to_string(), "intro".to_string()),
+        "the premise: N starts the goblin cue on its intro"
+    );
+    // Which families have moved to N+1: (ladder, waves, sfx, cutscene, cue).
+    // The quest book is session state and is read on its own.
+    let moved = |app: &bevy::prelude::App| {
+        #[cfg(feature = "audio")]
+        let cue = goblin_binding(app).1 == "wave1";
+        #[cfg(not(feature = "audio"))]
+        let cue = true;
+        [
+            live_first_rung(app) == 499.0,
+            live_second_goblin_delay(app) == 0.75,
+            first_sfx_frequency_of(app) == sfx_before + 1.0,
+            lab_banner(app) == "// cutscene proof, revised",
+            cue,
+        ]
+    };
     let before = live_first_rung(&app);
     assert_eq!(
         before, 500.0,
@@ -254,45 +275,40 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // throws information away.
     let provenance_before = stamped_content_terms(&mut app);
 
-    // ── an edit, in memory, TOUCHING TWO FAMILIES AT ONCE ───────────────────
-    // ⭐⭐ **TWO FAMILIES IN ONE CANDIDATE IS THE POINT, AND IT IS THE 2026-09-12
-    // REVIEW'S FINDING 4.** The crate-level arms proved each family publishes,
-    // but they INJECTED `ShellEvent::RouteActivated` — so "the transaction is
-    // atomic across families" was asserted about a boundary the test itself
-    // fired. Here one edit moves the ladder AND the wave book, nothing but
-    // `update()` drives the shell, and both must land on the SAME frame as the
-    // activation. A transaction that published one family and deferred the other
-    // would build a world half of generation N and half of N+1.
-    let mut edited_ladder = false;
-    let mut edited_waves = false;
+    // ── an edit, in memory, touching every participating family ─────────────
+    // One commit, one frame, every family: the crate-level arms inject
+    // `ShellEvent::RouteActivated` themselves, so atomicity across families is
+    // only asked of a real boundary here. A transaction that published one
+    // family and deferred another would build a world half of N and half of N+1.
+    let mut edited = std::collections::BTreeMap::new();
     let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| match declared {
-            "data/fighter_brain_ladder.ron" => {
-                let out = text.replacen("reaction_ms: 500.0", "reaction_ms: 499.0", 1);
-                edited_ladder = out != text;
-                out
-            }
-            "data/encounters/goblin_encounter.ron" => {
-                let out = text.replacen("delay: 0.70", "delay: 0.75", 1);
-                edited_waves = out != text;
-                out
-            }
-            _ => text,
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            let (from, to) = match declared {
+                "data/fighter_brain_ladder.ron" => ("reaction_ms: 500.0", "reaction_ms: 499.0"),
+                "data/encounters/goblin_encounter.ron" => ("delay: 0.70", "delay: 0.75"),
+                "audio/sfx_registry.ron" => (
+                    "frequency: 460.0, frequency_end: 720.0,",
+                    "frequency: 461.0, frequency_end: 720.0,",
+                ),
+                "audio/music_cues.ron" => (r#"starting_state: "intro""#, r#"starting_state: "wave1""#),
+                "data/cutscenes/sandbox.ron" => ("// cutscene proof", "// cutscene proof, revised"),
+                "data/quests.ron" => (r#"title: "First Steps""#, r#"title: "First Steps, revised""#),
+                _ => return text,
+            };
+            let out = text.replacen(from, to, 1);
+            edited.insert(declared.to_string(), out != text);
+            out
         })
         .expect("the edited pack compiles"),
     );
-    // ⛔ A FLOOR ON EACH EDIT SEPARATELY. A retuned value or a renamed source
-    // leaves one closure arm a no-op, and a single combined flag would let the
-    // family that still changed carry the arm for the one that did not.
+    // A floor on each edit separately: a retuned value or a renamed source
+    // leaves one arm a no-op, and the families that still changed would carry
+    // the test for it.
+    let stale: Vec<&String> = edited.iter().filter(|(_, changed)| !**changed).map(|(source, _)| source).collect();
     assert!(
-        edited_ladder,
-        "`data/fighter_brain_ladder.ron` no longer carries `reaction_ms: 500.0`, \
-         so the ladder half of this witness is vacuous"
-    );
-    assert!(
-        edited_waves,
-        "`data/encounters/goblin_encounter.ron` no longer carries `delay: 0.70`, \
-         so the encounter-wave half of this witness is vacuous"
+        edited.len() == 6 && stale.is_empty(),
+        "these sources no longer carry the text the edit replaces, so their half of this test is vacuous: {stale:?} \
+         (sources edited: {edited:?})"
     );
     let base = ambition_content::pack::selected(app.world())
         .expect("the composition selected a pack")
@@ -315,18 +331,18 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
             outcome,
             ambition_content::reload::ReloadRequest::Requested { .. }
         ),
-        "the shipped composition refused a ladder-only reload: {outcome:?}"
+        "the shipped composition refused the reload: {outcome:?}"
     );
     assert_eq!(
-        live_first_rung(&app),
-        500.0,
-        "the REQUEST published on the spot instead of staging — the old \
+        moved(&app),
+        [false; 5],
+        "the REQUEST published (ladder, waves, sfx, cutscene, cue) on the spot instead of staging: the old \
          generation must stay authoritative until the new one activates"
     );
     assert_eq!(
-        live_second_goblin_delay(&app),
-        0.70,
-        "the REQUEST published the wave book on the spot instead of staging"
+        quest_place(&app, "first_steps").map(|place| place.0).as_deref(),
+        Some("First Steps"),
+        "⛔ the request changed the live quest book"
     );
     assert_eq!(
         ambition_content::pack::selected(app.world())
@@ -338,35 +354,15 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     );
 
     // ── and the shell's own lifecycle carries it the rest of the way ─────────
-    // ⭐ NOTHING IS HAND-DRIVEN HERE. The crate-level arms write
-    // `ShellEvent::RouteActivated` themselves; this one only calls `update()`,
-    // so the router mints the transaction, the provider re-prepares, and the
-    // activation authorizes the publication exactly as a running game does.
+    // Nothing is hand-driven: only `update()`, so the router mints the
+    // transaction, the provider re-prepares, and the activation authorizes the
+    // publication exactly as a running game does.
     //
-    // ⛔⛔⛔ **THE FAMILY MUST LAND ON THE SAME FRAME AS THE ACTIVATION, AND
-    // "EVENTUALLY" IS WHAT HID A PRODUCTION BUG.** The first version of this
-    // test looped up to 240 updates and asserted only the final value — so it
-    // passed while the publication arrived ONE FRAME AFTER the world was built
-    // from it. MEASURED 2026-09-12 before the fix: the activation id moved on
-    // frame 2, `[sprite-bind] worn character` (the session provider constructing
-    // the new world) logged on frame 2, and the ladder moved on frame **3**.
-    //
-    // ⇒ A tolerance is a claim that the gap does not matter. Here the gap IS
-    // the defect: a publication that lands after the world is built publishes
-    // into a world already built without it. This asserts the frame, not the
-    // outcome.
-    //
-    // ⚠ **THE MECHANISM NAMED HERE UNTIL 2026-09-19 NO LONGER EXISTS**, and it
-    // was the same sentence `reload.rs` carried — one fact with two owners, so
-    // the correction had to be made twice. It read
-    // *"`activate_prepared_platformer_sessions` reads `PreparedCharacterRegistry`
-    // inside `GameplaySessionSet::Providers` on the activation frame"*: that
-    // system was deleted by A10.5 (`c89c68747`), construction moved EARLIER to
-    // `prepare_candidate_platformer_session`, and the builder holds no registry
-    // field — the cast arrives as a `PreparedContent` argument. ⛔ The frame
-    // this test pins is therefore still the right thing to pin, but the reason
-    // it matters is now an open question rather than a settled one; see
-    // CANDIDATE-GENERATION-ORDER in `docs/planning/queue.md`.
+    // ⛔ The families must land ON the activation frame. A test that waited for
+    // the value passed while the publication arrived one frame after the world
+    // was built from it: a publication that lands after the world is built
+    // publishes into a world already built without it. This asserts the frame,
+    // not the outcome.
     let activation_before = activation_id(&app);
     let mut activated_on = None;
     for frame in 0..240 {
@@ -375,10 +371,26 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
             activated_on = Some(frame);
             break;
         }
+        assert_eq!(moved(&app), [false; 5], "frame {frame}: (ladder, waves, sfx, cutscene, cue) moved before the activation");
+        assert_eq!(
+            quest_place(&app, "first_steps").map(|place| place.0).as_deref(),
+            Some("First Steps"),
+            "frame {frame}: N's session lost its quest book before the activation"
+        );
     }
     let activated_on = activated_on.expect(
         "the shipped shell never re-activated the route, so the reload's \
          transaction never reached its boundary",
+    );
+    assert_eq!(
+        moved(&app),
+        [true; 5],
+        "⛔ ON THE ACTIVATION FRAME {activated_on} THE FAMILIES WERE NOT ALL N+1's (ladder, waves, sfx, cutscene, cue)"
+    );
+    assert_ne!(
+        quest_place(&app, "first_steps").map(|place| place.0).as_deref(),
+        Some("First Steps"),
+        "⛔ frame {activated_on}: THE NEW SESSION SERVES N'S QUEST BOOK"
     );
     assert_eq!(
         live_first_rung(&app),
@@ -426,17 +438,10 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
         ),
         "the ENGINE is still fingerprinting against generation N's pack"
     );
-    // ⛔⛔ **AND THE CAST GENERATION MUST *NOT* MOVE, WHICH IS THE OPPOSITE OF
-    // WHAT I FIRST ASSERTED HERE — THE TEST FOUND IT.** This candidate edits the
-    // fighter ladder and the encounter waves and no move table, so
-    // `moveset_changed` is false, `request_reload` stages no cast, and
-    // `publish_admitted_revision` never runs. MEASURED: the arm asserting the
-    // generation MOVED failed with `CharacterCatalogGeneration(1)` on both sides.
-    //
-    // ⇒ That is the 2026-09-12 review's item 5 holding in production: the
-    // transaction is no longer moveset-centric, so a family that did not change
-    // is not re-published and does not consume a cast generation. An arm that
-    // demanded the cast clock advance would be demanding the defect back.
+    // ⛔ The cast generation must NOT move: this candidate edits no move table,
+    // so `request_reload` stages no cast and a family that did not change is
+    // not re-published. A cast clock that advanced here would mean the
+    // transaction re-publishes the whole cast for every edit.
     let cast_after = app
         .world()
         .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
@@ -444,8 +449,7 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     assert_eq!(
         cast_after, cast_before,
         "a generation that changes NO move table still moved the cast, so every \
-         ladder or waves edit re-publishes the whole cast and the transaction is \
-         still moveset-centric"
+         edit re-publishes the whole cast"
     );
     // ⛔⛤ **AND THE ROOM THE RELOAD REBUILT WAS PUBLISHED, NOT REFUSED.**
     //
@@ -550,234 +554,367 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
          that two hosts AGREE about it would still be green.",
         base, candidate.fingerprint
     );
+
+    // The quest registry is session state: the new session's first tick fills
+    // it from the selected pack and the save.
+    for _ in 0..10 {
+        app.update();
+    }
+    assert_eq!(
+        quest_place(&app, "first_steps"),
+        Some(("First Steps, revised".to_string(), true, 1)),
+        "the new session's quest book is not N+1's with the player's progress"
+    );
 }
 
-/// ⛔⛤ **DOES THE SHIPPED APP EVER HOLD TWO `SessionRoot`s? MEASURED, BECAUSE
-/// EVERY `SessionWorldRef`/`SessionWorldMut` SITE DEPENDS ON THE ANSWER AND
-/// NOBODY HAD ASKED IT.**
+/// The number of entities matching `F` including hidden candidates.
+fn count_including_hidden<F: bevy::ecs::query::QueryFilter>(app: &mut bevy::prelude::App) -> usize {
+    ambition_platformer2d::platformer::construction::count_matching_including_hidden_candidates::<F>(app.world_mut())
+}
+
+/// ⛔⛤ **A SESSION IS PREPARED HIDDEN BESIDE THE ONE THAT IS PLAYING, AND ONLY
+/// ADMISSION MAKES IT LIVE**, asked of the shipped composition across its first
+/// activation and a shell handoff (the live route replaced with itself, which
+/// retires and activates on one frame).
 ///
-/// ⚠ **THE SIZE OF THAT POPULATION IS NOT THIS ARM'S TO STATE**, and it used to
-/// be: the docstring carried *"217 references across 108 files at HEAD"* while
-/// the census row `BEVY-SESSION-ROOT` carried 193, and on 2026-09-19 the tree
-/// answered 183 or 199 depending on whether comments and test modules are
-/// stripped. Four numbers, two owners, none of them current. The count now lives
-/// once, with its method, in
-/// `docs/planning/consolidation/architecture-census.md`; this arm needs only
-/// that the population is large and that every member is a `Single`.
+/// `Q132`: there is exactly one canonical `SessionRoot`. `SessionWorldRef` /
+/// `SessionWorldMut` are `Single<.., With<SessionRoot>>` and match nothing on a
+/// frame with two, so every one of those systems would be skipped silently. A
+/// replacement may be PREPARED while the current session is live, but it carries
+/// `CandidateSessionRoot` until it is adopted. So on every frame the count of
+/// `SessionRoot` INCLUDING hidden entities is at most one, and a candidate root
+/// must be seen beside it (otherwise "at most one" says nothing about a
+/// candidate).
 ///
-/// `SessionWorldRef` / `SessionWorldMut` are `Single<.., With<SessionRoot>>`, and
-/// `Single` matches only when there is EXACTLY ONE. Meanwhile
-/// `live_session_world_root` deliberately selects the root owned by
-/// `ActiveSessionScope`, *"so a lingering retired root is not a candidate rather
-/// than an ambiguity"*. ⇒ Two ownership semantics for one fact, and a 2026-09-13
-/// review said candidate coexistence would make the ordinary one ambiguous.
+/// On the first activation, every frame between the candidate's first room
+/// publishing and the session starting, an ordinary query (no
+/// `Allow<InactiveCandidate>`) sees nothing the session owns: the room's own
+/// publication must not release the session's invisibility.
 ///
-/// ⭐ **`Q132` DECIDED IT ON 2026-09-19: there is exactly one canonical live
-/// `SessionRoot`.** So the `Single` reading is the engine's meaning and a
-/// two-root frame is INVALID rather than ambiguous — which makes this arm a
-/// witness of an invariant instead of a measurement of a risk. Its companion
-/// `a_prepared_candidate_never_counts_as_a_canonical_session_root` holds the
-/// other half the ruling asks for.
+/// On the handoff, while N is still the live scope:
+/// - N's simulation population (entities with a `SimId`) is unchanged: the
+///   candidate's first room plans the same authored ids and must not declare
+///   N's holders superseded;
+/// - no `RoomLoaded` reaches the world, because `FreshAttempt` reads it and
+///   production clears rollback-registered staged hits on it; the room's
+///   lifecycle is held as frozen effects and paid at admission;
+/// - `FactionRelations` (rollback-registered) keeps a stance set on N while a
+///   candidate room is constructed;
+/// - N's minted-item baseline does not learn a mint only the save describes.
 ///
-/// ⭐⭐ **BUT "TWO ROOTS CAN EXIST" IS A CLAIM ABOUT THIS COMPOSITION, NOT A
-/// THEOREM — AND IT IS CHEAPER TO MEASURE THAN TO DESIGN AROUND.** The one
-/// recorded occurrence was a BUILD-TIME root coexisting with an activation's, and
-/// that root is gone (`app/resources.rs` records its removal). The other source is
-/// a retired scope's root surviving into the next activation, which
-/// `SessionScopeSet`'s `RetireAuthority -> Cleanup -> Activate` ordering closed
-/// on 2026-09-13.
+/// After the handoff the incoming room was published, the world holds
+/// authoritative identities and can be described (no identity held twice), no
+/// candidate or receipt outlives the transaction, and the adopted session has
+/// its `SessionMechanics` and moving platforms (the controls for
+/// `a_candidate_session_whose_route_is_cancelled_is_discarded`).
 ///
-/// ⇒ This drives a real shell handoff — the road whose world log shows
-/// `session-end` and `session-start` on ONE frame — and counts roots every frame.
-/// If the count never exceeds one, `Single` is unambiguous in production and no
-/// site is exposed today; if it does, this arm names the frame.
+/// It also checks, at build, that each cast of the shipped composition is
+/// stated again at a sheet publication: a cast without a restater keeps a
+/// scale of the old records while its bodies are built from the new ones (the
+/// road itself: `ambition_platformer2d --features content_pack --test
+/// sheet_derived_cast`).
 #[test]
 fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
+    use ambition_platformer2d::actor::ActorFaction;
+    use ambition_platformer2d::combat::targeting::FactionRelations;
+    use ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline;
+    use ambition_platformer2d::platformer::lifecycle::{
+        session_world_component, session_world_component_mut, CandidateSessionRoot,
+        SessionRoot, SessionScopeId, SessionScopedEntity,
+    };
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use bevy::prelude::With;
+
+    fn population(app: &mut bevy::prelude::App, owner: SessionScopeId) -> std::collections::BTreeSet<SimId> {
+        let world = app.world_mut();
+        world
+            .query::<(&SessionScopedEntity, &SimId)>()
+            .iter(world)
+            .filter(|(scoped, _)| scoped.0 == owner)
+            .map(|(_, id)| id.clone())
+            .collect()
+    }
+
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    {
+        use ambition_platformer2d::characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA;
+        let mut expected = vec!["the Ambition cast".to_string()];
+        expected.extend(
+            app.world()
+                .resource::<ambition_platformer2d::content::live_reload::EmbeddedPackWatches>()
+                .0
+                .iter()
+                .map(|watch| watch.pack().prepared())
+                .filter(|pack| pack.schemas.keys().any(|schema| schema.0 == CHARACTER_CATALOG_SCHEMA))
+                .map(|pack| format!("the cast of `{}`", pack.id.0)),
+        );
+        assert!(expected.len() > 2, "the premise: the shipped composition watches the demo casts: {expected:?}");
+        let restaters = app.world().resource::<ambition_platformer2d::content::sprite_reload::SheetDerivedRestaters>();
+        let names: Vec<&str> = restaters.names().collect();
+        for cast in &expected {
+            assert!(names.contains(&cast.as_str()), "{cast} is not stated again at a sheet publication; restated: {names:?}");
+        }
+    }
+    // `Last`: the room publishes from a command flush inside the frame, and an
+    // `Update` reader registered here would see the message only on the next
+    // frame, after the window has closed.
+    app.insert_resource(RoomLoadsSeen::default());
+    app.add_systems(bevy::prelude::Last, count_room_loads);
     app.finish();
     app.update();
 
     let gameplay = ShellRouteId::new("ambition_gameplay");
-    let roots_now = |app: &mut bevy::prelude::App| -> usize {
-        let world = app.world_mut();
-        let mut query = world
-            .query::<&ambition_platformer2d::platformer::lifecycle::SessionRoot>();
-        query.iter(world).count()
-    };
+    app.world_mut().write_message(ShellCommand::ReplaceWith { route: gameplay.clone(), request: None });
 
-    app.world_mut()
-        .write_message(ShellCommand::ReplaceWith {
-            route: gameplay.clone(),
-            request: None,
-        });
-
-    let mut seen_one = false;
-    let mut worst = 0usize;
-    let mut worst_frame = 0usize;
+    // ── the first activation ─────────────────────────────────────────────────
+    let mut canonical_high_water = (0usize, 0usize);
+    let mut saw_canonical = false;
+    let mut candidate_frames = 0usize;
+    let mut room_published_at = None;
+    let mut session_started_at = None;
+    let mut seen_early: Option<(usize, usize)> = None;
     let mut window = crate::common::ActivationWindow::new("ambition_gameplay");
     for frame in 0.. {
         if window.closed(&app) {
             break;
         }
         app.update();
-        let roots = roots_now(&mut app);
-        if roots > worst {
-            worst = roots;
-            worst_frame = frame;
+        let canonical = count_including_hidden::<With<SessionRoot>>(&mut app);
+        if canonical > canonical_high_water.0 {
+            canonical_high_water = (canonical, frame);
         }
-        if roots == 1 {
-            seen_one = true;
+        saw_canonical |= canonical == 1;
+        if count_including_hidden::<With<CandidateSessionRoot>>(&mut app) > 0 {
+            candidate_frames += 1;
+        }
+        if room_published_at.is_none()
+            && app
+                .world()
+                .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
+                .is_some_and(|verification| verification.published)
+        {
+            room_published_at = Some(frame);
+        }
+        if session_started_at.is_none() && live_scope(&app).is_some() {
+            session_started_at = Some(frame);
+        }
+        if session_started_at.is_none() {
+            let visible = {
+                let world = app.world_mut();
+                world.query::<&SessionScopedEntity>().iter(world).count()
+            };
+            if visible > 0 && seen_early.is_none() {
+                seen_early = Some((frame, visible));
+            }
         }
     }
-
-    // ⚠ THE PREMISE, and without it "never two" is satisfied by "never one":
-    // a run that failed to activate any session at all would pass silently.
+    assert!(saw_canonical, "no canonical session root appeared in the first activation, so it activated nothing");
     assert!(
-        seen_one,
-        "no session root ever appeared in the activation window, so this measured a route \
-         that never activated rather than a handoff"
+        candidate_frames > 0,
+        "no frame of the first activation held a `CandidateSessionRoot`: the candidate road did not run, or the \
+         candidate carries `SessionRoot` and is being counted as the canonical root"
+    );
+    let (published_at, started_at) = (
+        room_published_at.expect("the candidate's first room never published"),
+        session_started_at.expect("the session never started"),
+    );
+    assert!(
+        started_at > published_at,
+        "the room published at frame {published_at} and the session started at {started_at}: there is no interval \
+         between the inner verdict and the outer one to judge"
+    );
+    assert_eq!(
+        seen_early, None,
+        "⛔ AN INNER PUBLICATION RELEASED THE CANDIDATE SESSION'S INVISIBILITY: ordinary queries saw (frame, count) \
+         session-owned entities before the session started (room published at {published_at}, session started at \
+         {started_at})"
     );
 
-    // ── the handoff: replace the live route with itself, which is the road the
-    //    world log shows retiring and activating on ONE frame ──────────────────
-    let activation_before = activation_id(&app);
+    // ── world N, with state a candidate must not touch ──────────────────────
+    let live = live_scope(&app).expect("the first session owns a scope");
+    let before = population(&mut app, live);
+    assert!(!before.is_empty(), "the premise: world N is a populated session");
+    app.world_mut().resource_mut::<FactionRelations>().set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    const MINTED: &str = "minted:a10_candidate_horizon_mint";
+    let minted = SimId::from_snapshot(MINTED.to_string());
+    session_world_component_mut::<MintedItemBaseline>(app.world_mut()).unwrap().adopt(Default::default());
     app.world_mut()
-        .write_message(ShellCommand::ReplaceWith {
-            route: gameplay,
-            request: None,
-        });
-    let mut handoff_worst = 0usize;
-    let mut handoff_frame = 0usize;
-    for frame in 0..240 {
-        app.update();
-        let roots = roots_now(&mut app);
-        if roots > handoff_worst {
-            handoff_worst = roots;
-            handoff_frame = frame;
-        }
-    }
-
-    // ⚠ **AND THE SECOND PREMISE, WHICH IS THE ONE THAT MATTERS HERE:** "never
-    // two roots during a handoff" is trivially true of a handoff that never
-    // happened. The activation id must have MOVED.
-    let activation_after = activation_id(&app);
-    assert!(
-        activation_before.is_some() && activation_after != activation_before,
-        "the activation id did not move across the `ReplaceWith` ({activation_before:?} \
-         -> {activation_after:?}), so the second half measured no handoff at all"
-    );
-
-    assert!(
-        worst <= 1 && handoff_worst <= 1,
-        "THE SHIPPED APP HOLDS {worst} SESSION ROOT(S) (first activation, frame \
-         {worst_frame}) and {handoff_worst} (handoff, frame {handoff_frame}). \
-         `SessionWorldRef`/`SessionWorldMut` are `Single<.., With<SessionRoot>>` \
-         at every site, and `Single` matches NOTHING when the count is not one — so \
-         on that frame every one of those systems is silently skipped while \
-         `live_session_world_root` would have resolved the live root by scope. \
-         That is the two-semantics gap, and this names the frame it opens on."
-    );
-}
-
-/// Which canonical identities in the SHIPPED VISIBLE COMPOSITION have no session
-/// owner, across a handoff.
-///
-/// ⚠ **THE COMPOSITION IS THE POINT.** Its sibling in
-/// `walking_into_a_loading_zone` censuses the `fixed_60hz_sim` harness, which is
-/// a different program: a claim about "the shipped app" made there is a claim
-/// about the wrong population. This one boots `build_visible_app` and samples
-/// after a handoff, because the question it exists to answer — why three
-/// identities read as unowned to a candidate session's first room — was asked
-/// during a handoff in this composition.
-#[test]
-#[ignore = "probe: census of canonical identities with no session owner, visible composition"]
-fn probe_process_resident_canonical_identities_in_the_visible_app() {
-    fn census(app: &mut bevy::prelude::App, when: &str) {
-        let world = app.world_mut();
-        let mut q = world.query::<(
-            &ambition_platformer2d::platformer::sim_id::SimId,
-            Option<&ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>,
-        )>();
-        let mut rows: Vec<(String, Option<u64>)> = q
-            .iter(world)
-            .map(|(id, owner)| (id.as_str().to_string(), owner.map(|owner| owner.0 .0)))
-            .collect();
-        rows.sort();
-        let unscoped = rows.iter().filter(|(_, owner)| owner.is_none()).count();
-        eprintln!(
-            "[probe] {when}: {unscoped} of {} canonical identities carry NO session owner",
-            rows.len()
-        );
-        for (id, owner) in rows.iter().filter(|(_, owner)| owner.is_none()) {
-            eprintln!("[probe]   UNSCOPED {id} {owner:?}");
-        }
-        for (id, owner) in rows.iter().filter(|(id, _)| {
-            id.starts_with("encounter:") || id.starts_with("slot:") || id.starts_with("session:")
-        }) {
-            eprintln!("[probe]   {id} -> scope {owner:?}");
-        }
-    }
-
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .0
+        .set_minted_items(vec![ambition_platformer2d::persistence::save_data::PersistedMintedItem {
+            occurrence: MINTED.to_string(),
+            parent: "placement:ground_gun_sword".to_string(),
+            sequence: 1,
+            held_item: "ground_gun_sword".to_string(),
+        }]);
     app.update();
-    let gameplay = ShellRouteId::new("ambition_gameplay");
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay.clone(),
-        request: None,
-    });
-    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
-    census(&mut app, "first session live");
+    assert!(
+        app.world().resource::<FactionRelations>().is_hostile(ActorFaction::Enemy, ActorFaction::Boss),
+        "the premise: the stance set on N did not take"
+    );
+    assert!(
+        session_world_component::<MintedItemBaseline>(app.world()).unwrap().description_of(&minted).is_none(),
+        "the premise: N's minted baseline does not describe the mint"
+    );
+    let loads_before = app.world().resource::<RoomLoadsSeen>().0;
+    let activation_before = activation_id(&app);
 
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay,
-        request: None,
-    });
-    for _ in 0..240 {
+    // ── the handoff ──────────────────────────────────────────────────────────
+    app.world_mut().write_message(ShellCommand::ReplaceWith { route: gameplay, request: None });
+    let mut handoff_roots = (0usize, 0usize);
+    let mut handoff_candidates = 0usize;
+    let mut lost = std::collections::BTreeSet::new();
+    let mut window_frames = 0usize;
+    let mut frozen_high_water = 0usize;
+    let mut loads_in_window = 0usize;
+    let mut stance_frames = 0usize;
+    let mut stance_survived = true;
+    let mut minted_leaked = false;
+    let started = std::time::Instant::now();
+    let mut frame = 0usize;
+    while activation_id(&app) == activation_before {
+        assert!(
+            started.elapsed() < crate::common::ACTIVATION_CEILING,
+            "the handoff did not activate in {frame} frames ({:?})",
+            started.elapsed()
+        );
+        app.update();
+        frame += 1;
+        let roots = count_including_hidden::<With<SessionRoot>>(&mut app);
+        if roots > handoff_roots.0 {
+            handoff_roots = (roots, frame);
+        }
+        if count_including_hidden::<With<CandidateSessionRoot>>(&mut app) > 0 {
+            handoff_candidates += 1;
+        }
+        if live_scope(&app) != Some(live) {
+            continue;
+        }
+        window_frames += 1;
+        lost.extend(before.difference(&population(&mut app, live)).cloned());
+        frozen_high_water = frozen_high_water
+            .max(ambition_platformer2d::publication::publications_holding_frozen_effects(app.world_mut()));
+        loads_in_window = app.world().resource::<RoomLoadsSeen>().0 - loads_before;
+        if ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()) > 0 {
+            stance_frames += 1;
+            stance_survived &= app.world().resource::<FactionRelations>().is_hostile(ActorFaction::Enemy, ActorFaction::Boss);
+        }
+        minted_leaked |= session_world_component::<MintedItemBaseline>(app.world())
+            .is_some_and(|baseline| baseline.description_of(&minted).is_some());
+    }
+    for _ in 0..crate::common::SETTLE_FRAMES_AFTER_ACTIVATION {
         app.update();
     }
-    census(&mut app, "after a handoff");
+
+    assert!(
+        handoff_roots.0 <= 1 && canonical_high_water.0 <= 1,
+        "THE SHIPPED APP HELD {} `SessionRoot`s counting hidden entities on frame {} of the first activation and {} \
+         on frame {} of the handoff. `Single<.., With<SessionRoot>>` matches nothing on such a frame",
+        canonical_high_water.0,
+        canonical_high_water.1,
+        handoff_roots.0,
+        handoff_roots.1
+    );
+    assert!(handoff_candidates > 0, "no frame of the handoff held a `CandidateSessionRoot`");
+    assert!(window_frames > 0, "the handoff activated on its first frame: no frame had a candidate beside the live session");
+    assert!(
+        lost.is_empty(),
+        "⛔ THE CANDIDATE SESSION TOOK ENTITIES OUT OF THE WORLD THAT WAS STILL PLAYING: {lost:?}"
+    );
+    assert_eq!(
+        loads_in_window, 0,
+        "⛔ A ROOM PUBLISHED INSIDE A PENDING CANDIDATE SESSION ANNOUNCED ITSELF TO THE LIVE ONE: {loads_in_window} \
+         `RoomLoaded` across {window_frames} frames while N was live"
+    );
+    // After the count above, so a reverted deferral fails on the count and not
+    // on this premise.
+    assert!(
+        frozen_high_water > 0,
+        "no publication held frozen effects while the candidate was pending, so the zero above says nothing about the deferral"
+    );
+    assert!(stance_frames > 0, "no candidate was outstanding in the handoff, so nothing was constructed beside N");
+    assert!(stance_survived, "⛔ CONSTRUCTING A CANDIDATE ROOM RESET THE LIVE SESSION'S `FactionRelations`");
+    assert!(
+        !minted_leaked,
+        "⛔ PREPARING A CANDIDATE INSTALLED ITS MINTED BASELINE OVER THE PLAYING SESSION'S"
+    );
+
+    // ── after the handoff ────────────────────────────────────────────────────
+    assert_ne!(live_scope(&app), Some(live), "the handoff did not move the live scope");
+    assert!(
+        app.world().resource::<RoomLoadsSeen>().0 > loads_before,
+        "⛔ THE DEFERRED ROOM LIFECYCLE WAS NEVER PAID: the admitted session's first room never announced itself"
+    );
+    assert_eq!(
+        ambition_platformer2d::publication::publications_holding_frozen_effects(app.world_mut()),
+        0,
+        "a publication still holds frozen effects after its session was admitted"
+    );
+    let verification =
+        app.world().resource::<ambition_platformer2d::publication::LastConstructionVerification>().clone();
+    assert!(
+        verification.published,
+        "⛔ THE INCOMING SESSION'S ROOM WAS REFUSED: its roots are dropped and the handoff lands in an empty world: {verification:?}"
+    );
+    let roster = {
+        let world = app.world_mut();
+        world.query::<&SimId>().iter(world).count()
+    };
+    assert!(roster > 0, "the handoff published a room and the world holds no authoritative identities: {verification:?}");
+    assert!(
+        ambition_platformer2d::platformer::construction::TransactionBaseline::capture(app.world_mut()).is_ok(),
+        "⛔ THE WORLD THE HANDOFF PUBLISHED CANNOT BE DESCRIBED: some identity has two authoritative holders, so the \
+         outgoing session's world still stands beside the incoming one"
+    );
+    assert_eq!(
+        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        0,
+        "⛔ A HIDDEN CANDIDATE OUTLIVED THE HANDOFF"
+    );
+    assert_eq!(
+        ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
+        0,
+        "a publication receipt is still standing after the handoff settled"
+    );
+    assert!(
+        app.world().get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>().is_some(),
+        "an adopted session has no `SessionMechanics`"
+    );
+    assert!(
+        !ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app.world())
+            .expect("the live room has moving platforms")
+            .0
+            .is_empty(),
+        "an adopted session installed no moving platforms"
+    );
 }
 
-/// ⭐ A RELOAD WHOSE BOUNDARY CLOSES WHILE IT WAITS IS CANCELLED WHOLE, AND
-/// WHICH OF TWO OWNERS CANCELS IT IS MEASURED.
+/// ⭐ A RELOAD WHOSE BOUNDARY CLOSES WHILE IT WAITS IS CANCELLED WHOLE.
 ///
 /// A content reload is legal against a timeline that is healthy and that this
-/// host may rebase (`Q118`). Two things ask again after the request:
+/// host may rebase (`Q118`). Two owners ask again after the request: the lease
+/// breaker (`break_the_publication_lease_when_the_boundary_closes`) on each
+/// frame from the adoption, cancelling on the frame after the boundary closes;
+/// and the activation gate (`answer_the_publication_gate`) on each frame the
+/// route is ready but for its holds. Each owner's rules are tested in
+/// `ambition_content::reload` (`reload_tests.rs`, the "mid flight" arms); this
+/// asks the shipped shell, with its real load barrier and holds, for the
+/// arms only the two together decide:
 ///
-/// - the lease breaker (`break_the_publication_lease_when_the_boundary_closes`)
-///   asks on each frame from the adoption of the transaction, and cancels the
-///   transaction on the frame after the boundary closes;
-/// - the activation gate (`answer_the_publication_gate`) is asked on each
-///   frame that the route is ready but for its holds, and at the activation.
+/// - a slow preparation with the boundary open publishes (the control);
+/// - the boundary closes after the route is ready (an unhealthy authority):
+///   cancelled on the next frame;
+/// - the boundary closes while the route prepares and opens again before it is
+///   ready: the gate alone would publish, so only the breaker can cancel this,
+///   which makes the admission a lease for the life of the transaction.
 ///
-/// Measured 2026-10-05 in this fixture with each owner removed in turn (the
-/// breaker an early return; the gate an `Admit` each time):
+/// "Cancelled" is: the route is not activated, the content is the old
+/// generation's, nothing is staged, and the transaction's holds are released.
 ///
-/// | the boundary closes                                | breaker and gate | gate only        | neither   |
-/// |----------------------------------------------------|------------------|------------------|-----------|
-/// | never                                              | published        | published        | published |
-/// | when the route is ready, and stays (two kinds)     | cancelled, +1    | cancelled, +1    | published |
-/// | at the request, for one update (before adoption)   | published        | published        | published |
-/// | while the route prepares, and stays                | cancelled, +1    | cancelled, ready | published |
-/// | while the route prepares, open again before ready  | cancelled, +1    | PUBLISHED        | published |
-///
-/// "+1" is the frame after the boundary closed; "ready" is the frame the
-/// route became ready, 6 frames later in this fixture. "Cancelled" is the same
-/// state in each cell: the route is not activated, the content is of the old
-/// generation, nothing is staged, and the two holds of the transaction are
-/// released.
-///
-/// So the gate alone gives the same result wherever the boundary is closed on
-/// a frame that the route is ready. The breaker is the one owner of the last
-/// row, and of the early frame in the row above it: the admission is a lease
-/// for the life of the transaction, not only a question at the activation.
-/// With the breaker removed, the last two closed arms here fail.
-///
-/// The fixture: a reload of the fighter ladder (500 ms to 499 ms) on the
-/// shipped app, with a hold that has no gate on the route, as the loading
-/// screen has, released 12 frames after the route is ready. A slow preparation
-/// keeps the barrier of the route not ready for 8 frames after the adoption.
+/// The fixture: a reload of the fighter ladder (500 ms to 499 ms), with a hold
+/// that has no gate on the route, as the loading screen has, released 12
+/// frames after the route is ready. A slow preparation keeps the route's
+/// barrier not ready for 8 frames after the adoption.
 #[test]
 fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
     use ambition_platformer2d::game_shell::{ShellHoldId, ShellRouteHolds};
@@ -795,15 +932,10 @@ fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
     }
     #[derive(Clone, Copy, Debug, PartialEq)]
     enum Arm {
-        /// Control: the boundary stays open.
-        Never,
-        /// Control of the slow preparation.
+        /// Control: a slow preparation, the boundary open.
         SlowNever,
         /// Closed 3 frames after the route is ready, to the end.
         WhenReady(Kind),
-        /// Closed at the request, open again after one update: before the
-        /// transaction is adopted, so nothing is owed yet.
-        BeforeAdoption,
         /// A slow preparation, closed 2 frames after the adoption.
         WhilePreparing { opens_again: bool },
     }
@@ -840,12 +972,8 @@ fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
     let screen = ShellHoldId::new("test:loading-screen");
     let mut wrong: Vec<String> = Vec::new();
     for (arm, expected) in [
-        (Arm::Never, End::Published),
         (Arm::SlowNever, End::Published),
-        (Arm::WhenReady(Kind::Foreign), End::Cancelled(1)),
         (Arm::WhenReady(Kind::Unhealthy), End::Cancelled(1)),
-        (Arm::BeforeAdoption, End::Published),
-        (Arm::WhilePreparing { opens_again: false }, End::Cancelled(1)),
         (Arm::WhilePreparing { opens_again: true }, End::Cancelled(1)),
     ] {
         let mut app = a_running_shipped_session();
@@ -883,9 +1011,6 @@ fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
             matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
             "{arm:?}: the reload was refused when it was asked for: {outcome:?}"
         );
-        if arm == Arm::BeforeAdoption {
-            close(&mut app, Kind::Foreign);
-        }
 
         let slow = matches!(arm, Arm::SlowNever | Arm::WhilePreparing { .. });
         let (mut adopted_at, mut ready_at, mut closed_at, mut ended_at) = (None, None, None, None);
@@ -902,9 +1027,6 @@ fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
             }
             if ready(&app) && ready_at.is_none() {
                 ready_at = Some(frame);
-            }
-            if arm == Arm::BeforeAdoption && frame == 0 {
-                app.world_mut().insert_resource(owned);
             }
             // The slow preparation: the barrier stays not ready for 8 frames.
             if slow && adopted_at.is_some_and(|at| frame <= at + 8) {
@@ -977,10 +1099,6 @@ fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
             }
             _ => None,
         };
-        eprintln!(
-            "[lease] {arm:?}: adopted {adopted_at:?} ready {ready_at:?} closed {closed_at:?} \
-             ended {ended_at:?}: {end:?}"
-        );
         if end.as_ref() != Some(&expected) {
             wrong.push(format!(
                 "{arm:?}: {expected:?} is correct. The reload ended as {end:?}: (activated, \
@@ -1020,156 +1138,6 @@ pub(crate) fn press_apply_reload(app: &mut bevy::prelude::App) {
     app.world_mut()
         .write_message(ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction::ApplyLdtkReload);
     app.update();
-}
-
-/// ⛔⛤ **THE DEV WORLD RELOAD, AT LAST WITNESSED — AND IN BOTH DIRECTIONS.**
-///
-/// A10.3 moved every effect of the LDtk hot reload behind its publication's
-/// exact verdict: the body transit, the dialog close, the combat and cooldown
-/// resets, the developer flash and the presentation spawns. That landed
-/// compile-verified and REASONED, because this road had no end-to-end coverage in
-/// either direction and the queue row said so for a day.
-///
-/// ⭐ **NO FILE IS WRITTEN.** Pressing Apply re-reads the same project, which is
-/// an equivalent reload: it still prepares a candidate, still builds the room as
-/// hidden candidates, and still publishes it — the whole A10 bracket, without
-/// touching a shared tree's content.
-#[test]
-fn a_committed_world_reload_applies_its_effects() {
-    let mut app = a_running_shipped_session();
-    let before = app
-        .world()
-        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
-        .applied_count;
-
-    press_apply_reload(&mut app);
-
-    let reload = app
-        .world()
-        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
-        .clone();
-    assert!(
-        reload.applied_count > before,
-        "the reload did not apply, so this arm says nothing about what a \
-         COMMITTED reload does: {:?} / {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
-    assert_eq!(
-        dev_preset_flash(&app),
-        1.0,
-        "a committed world reload did not flash the developer overlay — either \
-         its effects no longer run behind the verdict at all, or this \
-         discriminator is dead and the refusal arm below certifies nothing"
-    );
-    // ⛔⛤ AND NO RECEIPT OUTLIVES ITS OPERATION ON THE ORDINARY ROAD EITHER. The
-    // session handoff, the first room and this reload each began a publication;
-    // every one of them is `UntilOwnerRetires`, so every one owes a
-    // `retire_publication`. MEASURED here rather than argued from five call
-    // sites — which is exactly how the candidate slot's missing exits hid.
-    assert_eq!(
-        ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
-        0,
-        "a publication receipt is still standing after a committed reload settled"
-    );
-    assert_eq!(
-        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
-        0,
-        "⛔ A HIDDEN CANDIDATE OUTLIVED ITS TRANSACTION after a committed reload \
-         settled: neither published nor discarded"
-    );
-    // ⛔⛤ **AND NO DUPLICATE AUTHORITATIVE IDENTITY IN THE PUBLISHED WORLD — the
-    // success arm's half of A10's acceptance scenario.** Asked of the SAME
-    // authority publication is verified against rather than of a census written
-    // for the test: `TransactionBaseline::capture` is precisely the operation
-    // that cannot describe a world holding one identity twice, and
-    // `BaselineCaptureError::DuplicateIdentity` is the refusal these arms induce
-    // ON PURPOSE elsewhere. ⇒ Its control is
-    // `a_refused_world_reload_leaves_the_running_game_untouched`, whose two
-    // process-resident twins make this exact call fail.
-    assert!(
-        ambition_platformer2d::platformer::construction::TransactionBaseline::capture(
-            app.world_mut()
-        )
-        .is_ok(),
-        "⛔ THE WORLD A COMMITTED RELOAD PUBLISHED CANNOT BE DESCRIBED: some \
-         identity has two authoritative holders, which is the one thing \
-         publication must never produce"
-    );
-    assert!(
-        reload.last_status.contains("applied") && reload.last_errors.is_empty(),
-        "the status a developer reads does not say a committed reload applied: \
-         {:?} / {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
-    // ⭐ THE CONTROL FOR THE REFUSAL ARM'S ROLLBACK ASSERTION. A committed reload
-    // DOES release the local baseline — `restart_local_ggrs_after_hot_reload`
-    // stops the session in the same frame's `PostUpdate` and the session owner
-    // rebases it. Without this, "a refused reload left the timeline alone" would
-    // be equally true of a build where nothing ever touches it.
-    assert!(
-        !ambition_platformer2d::rollback::session_is_active(&app.world()),
-        "a committed world reload did not release the local rollback baseline, \
-         so the refusal arm's rollback assertion has no discriminating power"
-    );
-}
-
-/// A reload waits for a live room that has no geometry, and says so. The
-/// publication of that room would be refused when it is applied, after the
-/// rooms before it published. `pending` is not cleared. When the room is
-/// gone, the same press applies, which is the control.
-///
-/// This arm was `a_world_reload_asked_for_while_two_rooms_are_live_waits`:
-/// a reload rebuilt one live room, so with two it waited. It rebuilds each
-/// live room now (`a_world_reload_rebuilds_every_live_room`), and this is
-/// the one wait that is left.
-#[test]
-fn a_world_reload_waits_for_a_live_room_with_no_geometry() {
-    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
-    let mut app = a_running_shipped_session();
-    let applied = |app: &bevy::prelude::App| app.world().resource::<WorldSourceHotReload>().applied_count;
-    let before = applied(&app);
-    // A live room root of a room that is not live, with no geometry.
-    let definition = {
-        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >(app.world())
-        .expect("the session keeps its room set");
-        rooms.definition_by_id("basement_npcs").expect("the shipped world has the room")
-    };
-    let second = ambition_platformer2d::platformer::lifecycle::spawn_live_room(
-        app.world_mut(),
-        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance::from_ordinal(1_000),
-        definition,
-    );
-    assert!(
-        app.world().get::<ambition_platformer2d::engine_core::RoomGeometry>(second).is_none(),
-        "the new live room root has geometry, so this arm does not test the wait"
-    );
-
-    press_apply_reload(&mut app);
-    let reload = app.world().resource::<WorldSourceHotReload>().clone();
-    assert_eq!(
-        (
-            reload.applied_count,
-            reload.last_status.starts_with("world reload waits: live room #1000 has no geometry"),
-        ),
-        (before, true),
-        "a reload with a live room that has no geometry: (applied count, the status says it waits); status {:?}, errors {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
-
-    app.world_mut().entity_mut(second).despawn();
-    press_apply_reload(&mut app);
-    let reload = app.world().resource::<WorldSourceHotReload>().clone();
-    assert!(
-        reload.applied_count > before,
-        "control: with that room gone, the reload did not apply: {:?} / {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
 }
 
 /// What each live room is made of, by room id: its live instance, and the
@@ -1402,469 +1370,482 @@ fn place_of(
     Some((kinematics.pos, clear.distance(kinematics.pos) < 0.01))
 }
 
-/// ⭐ A WORLD RELOAD MOVES THE BODY THAT STAYS OUT OF THE NEW SOLIDS.
-///
-/// A reload replaces the geometry under each body that is not a resident of
-/// its room. The reload moves that body to a clear place in the new geometry
-/// of its room (`rehome_and_dress`). This had no witness.
-///
-/// The file that is reloaded is a copy whose `Collision` layer has solid
-/// cells over the place where Alice stands. The reading is her place on the
-/// frame the reload is applied, and whether it is clear in the geometry of
-/// her room.
-///
-/// - One live room.
-/// - Two live rooms, and Alice in the second one. The room of the primary
-///   seat is the room the reload publishes first, whichever it is.
-/// - Control: two live rooms and no solid over Alice. She is where she was.
-///
-/// ⛔ A RESIDENT DOES NOT STAY, AND THIS ARM SAYS SO. A body that is a
-/// resident of its room is removed with the room, and the reload builds the
-/// authored bodies again. Measured 2026-10-05: Bob of these fixtures, a
-/// spawned actor that seat 1 drives, is a resident. The reload of his room
-/// removes him, also in the control, and nothing builds him again. The last
-/// assertion fails when such a driven body stays. The home body of a joined
-/// seat is not a resident and does stay; its move has its own arm,
-/// `a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids`.
-#[test]
-fn a_world_reload_moves_the_body_that_stays_out_of_the_new_solids() {
-    use crate::neighbor_prefetch_prepares_rooms::{alice, bob, live_room_ids, room_of};
-    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+/// A character id that no catalog has.
+const STRANGER: &str = "a_character_nobody_registered";
 
-    #[derive(Clone, Copy, Debug, PartialEq)]
-    enum Arm {
-        OneRoom,
-        SecondRoom,
-        Control,
-    }
-    let mut wrong: Vec<String> = Vec::new();
-    for arm in [Arm::Control, Arm::OneRoom, Arm::SecondRoom] {
-        let (mut app, room) = match arm {
-            Arm::SecondRoom | Arm::Control => {
-                let (app, _) =
-                    a_running_shipped_session_with_two_live_rooms(Leaver::Alice, SECOND_LIVE_ROOM);
-                (app, SECOND_LIVE_ROOM.to_owned())
-            }
-            Arm::OneRoom => {
-                let app = a_running_shipped_session();
-                let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-                    .expect("the session has a live room")
-                    .id
-                    .clone();
-                (app, start)
-            }
-        };
-        // Alice comes to rest.
-        for _ in 0..60 {
-            app.update();
-        }
-        let alice = alice(&mut app);
-        let driven = bob(&mut app);
-        let half = app
-            .world()
-            .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
-            .expect("Alice has a body")
-            .size()
-            * 0.5;
-        // ⛔ THE PREMISE: before the reload Alice is clear, in the room this
-        // arm changes.
-        let before = place_of(&app, alice);
-        assert_eq!(
-            (before.map(|(_, clear)| clear), room_of(&app, alice)),
-            (Some(true), Some(room.clone())),
-            "{arm:?}: before the reload (Alice is clear, her room): she is at {before:?}"
-        );
-        let (was, _) = before.expect("checked");
-        let rooms_before = live_room_ids(&mut app);
-
-        let _copy = watch_an_edited_copy(&mut app, &format!("seat_{arm:?}"), |project| match arm {
-            Arm::Control => move_an_entity(project, &room, "NpcSpawn"),
-            _ => put_a_solid_over(project, &room, was, half),
-        });
-        let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
-        press_apply_reload(&mut app);
-        let reload = app.world().resource::<WorldSourceHotReload>().clone();
-        assert_eq!(
-            (reload.applied_count, reload.last_errors.is_empty()),
-            (applied + 1, true),
-            "{arm:?}: the reload did not apply: {:?} / {:?}",
-            reload.last_status,
-            reload.last_errors
-        );
-
-        let after = place_of(&app, alice);
-        let driven_stays = driven.map(|body| app.world().get_entity(body).is_ok());
-        eprintln!(
-            "[re-seat] {arm:?}: Alice {before:?} -> {after:?} in {:?}; the driven body stays: \
-             {driven_stays:?}; live rooms {rooms_before:?} -> {:?}",
-            room_of(&app, alice),
-            live_room_ids(&mut app)
-        );
-        let Some((is, clear)) = after else {
-            wrong.push(format!("{arm:?}: after the reload Alice is in no live room"));
-            continue;
-        };
-        if room_of(&app, alice).as_deref() != Some(room.as_str()) {
-            wrong.push(format!(
-                "{arm:?}: after the reload Alice is in {:?}, not in `{room}`",
-                room_of(&app, alice)
-            ));
-        }
-        if !clear {
-            wrong.push(format!(
-                "{arm:?}: after the reload Alice is at {is:?}, inside a solid of the new \
-                 geometry of `{room}`"
-            ));
-        }
-        let moved = is.distance(was);
-        match arm {
-            Arm::Control if moved > 2.0 => wrong.push(format!(
-                "control: no solid was put over Alice, and the reload moved her {moved} px"
-            )),
-            Arm::OneRoom | Arm::SecondRoom if moved < 2.0 => wrong.push(format!(
-                "{arm:?}: a solid was put over Alice and she is where she was ({is:?})"
-            )),
-            _ => {}
-        }
-        // The premise of "one body stays". See the note above.
-        if driven_stays == Some(true) {
-            wrong.push(format!(
-                "{arm:?}: the driven body stayed in a room that the reload built again. It is \
-                 a second body that stays: move it out of the new solids too"
-            ));
-        }
-    }
-    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+/// Point the reload back at the world file the session watched at its start.
+fn watch_the_source_again(app: &mut bevy::prelude::App, source: &std::path::Path) {
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .watch_path = Some(source.to_path_buf());
 }
 
-/// A WORLD RELOAD MOVES THE BODY OF A JOINED SEAT OUT OF THE NEW SOLIDS.
-///
-/// The home body of a joined seat is owned by the session, so a reload keeps
-/// it (Q153 join). The reload moves it to a clear place in the new
-/// geometry of its room, as it moves the primary body. Seat 1 joins through
-/// the join system, run once on the world with a Start press in seat 1's slot
-/// (the shipped composition opens one handle, so no device presses for it).
-///
-/// - Control: the reload moves an NPC and puts no solid over the seat; the
-///   body of seat 1 is where it was.
-/// - The reload puts a solid over the body of seat 1; it is moved and clear.
-#[test]
-fn a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids() {
+fn watched_source(app: &bevy::prelude::App) -> std::path::PathBuf {
+    app.world()
+        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .watch_path
+        .clone()
+        .expect("the shipped session watches a world file")
+}
+
+/// Seat 1 joins through the join system, run once with a Start press in its
+/// slot (the shipped composition opens one handle, so no device presses for
+/// it). Answers the seat's home body.
+fn join_seat_one(app: &mut bevy::prelude::App) -> bevy::prelude::Entity {
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
     use ambition_platformer2d::platformer::markers::PlayerEntity;
     use bevy::ecs::system::RunSystemOnce as _;
+    app.world_mut().resource_mut::<SlotControls>().set(
+        PlayerSlot(1),
+        ambition_platformer2d::engine_core::ControlFrame { start_pressed: true, ..Default::default() },
+    );
+    app.world_mut()
+        .run_system_once(ambition_platformer2d::session::join::seat_a_joining_participant)
+        .expect("the join system runs");
+    // No handle writes slot 1 in this composition, so the press would stay.
+    app.world_mut().resource_mut::<SlotControls>().set(PlayerSlot(1), Default::default());
+    let world = app.world_mut();
+    world
+        .query_filtered::<(bevy::prelude::Entity, &DrivingParticipant), bevy::prelude::With<PlayerEntity>>()
+        .iter(world)
+        .find(|(_, driver)| driver.0 == PlayerSlot(1))
+        .map(|(body, _)| body)
+        .expect("seat 1 joined")
+}
+
+/// Half the size of `body`'s box.
+fn half_size_of(app: &bevy::prelude::App, body: bevy::prelude::Entity) -> ambition_platformer2d::engine_core::Vec2 {
+    app.world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(body)
+        .expect("the body has kinematics")
+        .size()
+        * 0.5
+}
+
+/// Each live room that `before` read was rebuilt by the reload just applied:
+/// a new live instance and one content term, not the old one; the session's
+/// generation moved; no receipt or hidden candidate is left; each room
+/// can be described; and the rooms stay as the reload left them.
+///
+/// A live identity is the pair (live room, `SimId`) and two live room roots
+/// wear one `SimId`, so a capture of the whole world is a `DuplicateIdentity`
+/// with two live rooms. Each room is described on its own.
+fn assert_each_live_room_was_rebuilt(
+    app: &mut bevy::prelude::App,
+    before: &std::collections::BTreeMap<
+        String,
+        (ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, std::collections::BTreeSet<String>),
+    >,
+    epoch_before: u64,
+    arm: &str,
+) {
+    let old_terms: std::collections::BTreeSet<&String> = before.values().flat_map(|(_, terms)| terms).collect();
+    let after = live_room_readings(app);
     let mut wrong: Vec<String> = Vec::new();
-    for solid in [false, true] {
-        let mut app = a_running_shipped_session();
-        for _ in 0..60 {
-            app.update();
-        }
-        let room = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-            .expect("the session has a live room")
-            .id
-            .clone();
-        app.world_mut().resource_mut::<SlotControls>().set(
-            PlayerSlot(1),
-            ambition_platformer2d::engine_core::ControlFrame {
-                start_pressed: true,
-                ..Default::default()
-            },
-        );
-        app.world_mut()
-            .run_system_once(ambition_platformer2d::session::join::seat_a_joining_participant)
-            .expect("the join system runs");
-        // No handle writes slot 1 in this composition, so the press would
-        // stay in the slot.
-        app.world_mut().resource_mut::<SlotControls>().set(PlayerSlot(1), Default::default());
-        let world = app.world_mut();
-        let seat = world
-            .query_filtered::<(bevy::prelude::Entity, &DrivingParticipant), bevy::prelude::With<PlayerEntity>>()
-            .iter(world)
-            .find(|(_, driver)| driver.0 == PlayerSlot(1))
-            .map(|(body, _)| body)
-            .expect("seat 1 joined");
-        // The body of seat 1 comes to rest.
-        for _ in 0..60 {
-            app.update();
-        }
-        let half = app
-            .world()
-            .get::<ambition_platformer2d::engine_core::BodyKinematics>(seat)
-            .expect("the body of seat 1 has kinematics")
-            .size()
-            * 0.5;
-        let before = place_of(&app, seat);
-        assert_eq!(
-            before.map(|(_, clear)| clear),
-            Some(true),
-            "solid={solid}: before the reload the body of seat 1 is clear: {before:?}"
-        );
-        let (was, _) = before.expect("checked");
-        let _copy = watch_an_edited_copy(&mut app, &format!("joined_seat_{solid}"), |project| {
-            if solid {
-                put_a_solid_over(project, &room, was, half)
-            } else {
-                move_an_entity(project, &room, "NpcSpawn")
-            }
-        });
-        press_apply_reload(&mut app);
-        let Some((is, clear)) = place_of(&app, seat) else {
-            wrong.push(format!("solid={solid}: after the reload the body of seat 1 is gone or in no live room"));
+    if after.keys().ne(before.keys()) {
+        wrong.push(format!(
+            "the live rooms changed: {:?} -> {:?}",
+            before.keys().collect::<Vec<_>>(),
+            after.keys().collect::<Vec<_>>()
+        ));
+    }
+    for (room, (instance, terms)) in &after {
+        let Some((old_instance, _)) = before.get(room) else {
             continue;
         };
-        let moved = is.distance(was);
-        if !clear {
-            wrong.push(format!("solid={solid}: the body of seat 1 is at {is:?}, inside a solid of `{room}`"));
+        if instance == old_instance {
+            wrong.push(format!("`{room}` kept its live instance {instance}: it was not rebuilt"));
         }
-        if solid && moved < 2.0 {
-            wrong.push(format!("a solid was put over seat 1 and it is where it was ({is:?})"));
+        if terms.iter().any(|term| old_terms.contains(term)) {
+            wrong.push(format!("`{room}` still carries the content term of the old generation: {terms:?}"));
         }
-        if !solid && moved > 2.0 {
-            wrong.push(format!("control: no solid over seat 1, and the reload moved it {moved} px"));
+        if terms.len() != 1 {
+            wrong.push(format!("`{room}` does not carry one content term: {terms:?}"));
         }
     }
-    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    let new_terms: std::collections::BTreeSet<&String> = after.values().flat_map(|(_, terms)| terms).collect();
+    if new_terms.len() != 1 {
+        wrong.push(format!("the live rooms are not of one generation: {new_terms:?}"));
+    }
+    assert!(wrong.is_empty(), "{arm}: a live room was not rebuilt from the reloaded world:\n  {}", wrong.join("\n  "));
+    assert_ne!(the_only_prepared_epoch(app), epoch_before, "{arm}: the generation of the session did not move");
+    assert_eq!(
+        (
+            ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
+            ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        ),
+        (0, 0),
+        "{arm}: (publication receipts, hidden candidates) left after the reload settled"
+    );
+    for (room, (instance, _)) in &after {
+        let described = ambition_platformer2d::platformer::construction::TransactionBaseline::capture_for_session(
+            app.world_mut(),
+            ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+            ambition_platformer2d::platformer::lifecycle::TransactionRooms::only(*instance),
+        );
+        assert!(described.is_ok(), "{arm}: the room `{room}` that the reload published cannot be described: {:?}", described.err());
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(live_room_readings(app), after, "{arm}: the live rooms changed in the 30 frames after the reload");
+}
+
+/// ⛔⛤ **THE DEV WORLD RELOAD OF ONE LIVE ROOM: REFUSED WHOLE, OR APPLIED WITH
+/// ALL ITS EFFECTS.** Every effect of the LDtk hot reload (the body transit,
+/// the dialog close, the combat and cooldown resets, the developer flash, the
+/// presentation spawns) runs behind its publication's verdict. In order, on
+/// one running session:
+///
+/// 1. A world that cannot be described (two process-resident holders of one
+///    canonical identity, so they are in the candidate's world too) is
+///    refused: the flash does not move, nothing counts as applied, the room is
+///    the same, the receipt is retired, and the live rollback timeline is NOT
+///    torn down for a room that was never built.
+/// 2. A person (`NpcSpawn`) naming a character nobody registered is refused by
+///    the preflight, which names the room and the character, instead of
+///    stopping the game when the room is built (`report_unprepared_character`).
+/// 3. With each fault gone, an edited copy (an entity moved) applies: the
+///    flash moves, no receipt or candidate is left, the world can be
+///    described, the local rollback baseline is released for the owner to
+///    rebase (the control for step 1), and the room is rebuilt.
+/// 4. A copy with solids over Alice and over the home body of a joined seat
+///    applies, and each body that stays (Alice, and the joined seat's home
+///    body, owned by the session per Q153) is moved to a clear place in the
+///    new geometry (`rehome_and_dress`).
+/// 5. A live room root with no geometry makes the reload wait, and say so,
+///    rather than refuse after the rooms before it published; with the room
+///    gone, the same press applies. Last, because the waiting reload stays
+///    pending and applies once the room is gone.
+///
+/// ⚠ Nothing in the tree is written: edited copies live in the temporary
+/// directory.
+#[test]
+fn a_world_reload_of_one_live_room_is_refused_whole_or_applied_whole() {
+    use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+    let reload = |app: &bevy::prelude::App| app.world().resource::<WorldSourceHotReload>().clone();
+
+    let mut app = a_running_shipped_session();
+    let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("the session has a live room")
+        .id
+        .clone();
+    let source = watched_source(&app);
+    let applied = reload(&app).applied_count;
+    let readings = live_room_readings(&mut app);
+    let epoch = the_only_prepared_epoch(&mut app);
+
+    // ── 1. a world that cannot be described ─────────────────────────────────
+    assert!(
+        ambition_platformer2d::rollback::session_is_active(app.world()),
+        "the running session has no rollback timeline, so a refusal that tears one down would go unseen"
+    );
+    let twins: Vec<_> = (0..2)
+        .map(|_| app.world_mut().spawn(ambition_platformer2d::platformer::sim_id::SimId::placement("corrupt_twin")).id())
+        .collect();
+    press_apply_reload(&mut app);
+    let verdict = app.world().resource::<ambition_platformer2d::publication::LastConstructionVerification>().clone();
+    assert!(!verdict.published, "the reload's room was not refused: {verdict:?}");
+    let status = reload(&app);
+    // The reload road ran and recorded its own refusal: a reload that never
+    // happened would also leave everything below untouched.
+    assert!(
+        !status.last_errors.is_empty() && status.last_status.contains("rejected"),
+        "the hot reload did not record a refusal: {:?} / {:?}",
+        status.last_status,
+        status.last_errors
+    );
+    assert_eq!(dev_preset_flash(&app), 0.0, "⛔ A REFUSED WORLD RELOAD RAN ITS EFFECTS (the flash moved)");
+    assert_eq!(status.applied_count, applied, "a refused reload counted itself as applied");
+    assert_eq!(
+        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone()),
+        Some(start.clone()),
+        "⛔ A REFUSED WORLD RELOAD CHANGED THE ROOM THE PLAYER IS IN"
+    );
+    assert!(
+        ambition_platformer2d::rollback::session_is_active(app.world()),
+        "⛔ A REFUSED WORLD RELOAD TORE DOWN THE ROLLBACK TIMELINE OF THE WORLD IT LEFT STANDING"
+    );
+    assert_eq!(
+        ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
+        0,
+        "⛔ A REFUSED WORLD RELOAD'S PUBLICATION RECEIPT IS STILL STANDING"
+    );
+    for twin in twins {
+        app.world_mut().despawn(twin);
+    }
+
+    // ── 2. a person naming a character nobody registered ────────────────────
+    {
+        let _copy = watch_an_edited_copy(&mut app, "one_room_stranger", |project| {
+            name_an_unknown_character(project, &start, "NpcSpawn", STRANGER)
+        });
+        press_apply_reload(&mut app);
+    }
+    let status = reload(&app);
+    assert_eq!(
+        (status.applied_count, status.last_status.contains("rejected")),
+        (applied, true),
+        "a person naming an unknown character was not refused: {:?} / {:?}",
+        status.last_status,
+        status.last_errors
+    );
+    assert!(
+        status.last_errors.iter().any(|error| error.contains(&format!("`{start}`")) && error.contains(STRANGER)),
+        "the refusal does not name the room `{start}` and the character: {:?}",
+        status.last_errors
+    );
+    assert_eq!(
+        (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
+        (readings.clone(), epoch),
+        "⛔ A REFUSED RELOAD REBUILT THE LIVE ROOM, or moved the generation of the session"
+    );
+    watch_the_source_again(&mut app, &source);
+
+    // ── 3. an edited copy applies ────────────────────────────────────────────
+    let before = live_room_readings(&mut app);
+    let epoch_before = the_only_prepared_epoch(&mut app);
+    assert!(
+        before.len() == 1 && before.values().all(|(_, terms)| terms.len() == 1),
+        "before the reload the live room does not carry one content term: {before:?}"
+    );
+    let _moved = watch_an_edited_copy(&mut app, "one_room", |project| move_an_entity(project, &start, "PogoOrb"));
+    press_apply_reload(&mut app);
+    let status = reload(&app);
+    assert_eq!(
+        (status.applied_count, status.last_status.contains("applied"), status.last_errors.is_empty()),
+        (applied + 1, true, true),
+        "the edited copy did not apply: {:?} / {:?}",
+        status.last_status,
+        status.last_errors
+    );
+    assert_eq!(dev_preset_flash(&app), 1.0, "a committed world reload did not flash the developer overlay");
+    assert!(
+        ambition_platformer2d::platformer::construction::TransactionBaseline::capture(app.world_mut()).is_ok(),
+        "⛔ THE WORLD A COMMITTED RELOAD PUBLISHED CANNOT BE DESCRIBED: some identity has two authoritative holders"
+    );
+    // `restart_local_ggrs_after_hot_reload` stops the session in this frame's
+    // `PostUpdate` and the owner rebases it.
+    assert!(
+        !ambition_platformer2d::rollback::session_is_active(app.world()),
+        "a committed world reload did not release the local rollback baseline"
+    );
+    assert_each_live_room_was_rebuilt(&mut app, &before, epoch_before, "one live room");
+
+    // ── 4. solids over the bodies that stay ─────────────────────────────────
+    let seat = join_seat_one(&mut app);
+    let alice = alice(&mut app);
+    // The two bodies come to rest.
+    for _ in 0..60 {
+        app.update();
+    }
+    let (alice_was, seat_was) = match (place_of(&app, alice), place_of(&app, seat)) {
+        (Some((alice_at, true)), Some((seat_at, true))) if room_of(&app, alice).as_deref() == Some(start.as_str()) => {
+            (alice_at, seat_at)
+        }
+        other => panic!("before the reload Alice and seat 1 are not both clear, in `{start}`: {other:?}"),
+    };
+    let (alice_half, seat_half) = (half_size_of(&app, alice), half_size_of(&app, seat));
+    let _solids = watch_an_edited_copy(&mut app, "one_room_solids", |project| {
+        put_a_solid_over(project, &start, alice_was, alice_half);
+        put_a_solid_over(project, &start, seat_was, seat_half);
+    });
+    press_apply_reload(&mut app);
+    let status = reload(&app);
+    assert_eq!(
+        (status.applied_count, status.last_errors.is_empty()),
+        (applied + 2, true),
+        "the copy with solids did not apply: {:?} / {:?}",
+        status.last_status,
+        status.last_errors
+    );
+    for (who, body, was) in [("Alice", alice, alice_was), ("seat 1", seat, seat_was)] {
+        match place_of(&app, body) {
+            None => panic!("after the reload {who} is gone or in no live room"),
+            Some((is, clear)) => {
+                assert!(clear, "after the reload {who} is at {is:?}, inside a solid of the new geometry of `{start}`");
+                assert!(is.distance(was) >= 2.0, "a solid was put over {who} and the reload left them where they were ({is:?})");
+            }
+        }
+    }
+    assert_eq!(room_of(&app, alice).as_deref(), Some(start.as_str()), "after the reload Alice is not in `{start}`");
+
+    // ── 5. a live room root with no geometry ────────────────────────────────
+    let definition = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(app.world())
+    .expect("the session keeps its room set")
+    .definition_by_id("basement_npcs")
+    .expect("the shipped world has the room");
+    let empty = ambition_platformer2d::platformer::lifecycle::spawn_live_room(
+        app.world_mut(),
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance::from_ordinal(1_000),
+        definition,
+    );
+    assert!(
+        app.world().get::<ambition_platformer2d::engine_core::RoomGeometry>(empty).is_none(),
+        "the new live room root has geometry, so this does not test the wait"
+    );
+    press_apply_reload(&mut app);
+    let status = reload(&app);
+    assert_eq!(
+        (status.applied_count, status.last_status.starts_with("world reload waits: live room #1000 has no geometry")),
+        (applied + 2, true),
+        "a reload with a live room that has no geometry: (applied count, the status says it waits); status {:?}, errors {:?}",
+        status.last_status,
+        status.last_errors
+    );
+    app.world_mut().entity_mut(empty).despawn();
+    // The control: with that room gone, the same press applies.
+    press_apply_reload(&mut app);
+    let status = reload(&app);
+    assert_eq!(
+        status.applied_count,
+        applied + 3,
+        "with the room that has no geometry gone, the reload did not apply: {:?} / {:?}",
+        status.last_status,
+        status.last_errors
+    );
 }
 
 /// ⭐ A WORLD RELOAD REBUILDS EVERY LIVE ROOM.
 ///
-/// A reload replaces the room set. A live room that it did not rebuild would
-/// keep the content of the old generation under the new set's definition of
-/// its room. So the reload publishes the room of the primary seat, which
-/// brings the set, and then each other live room from that set, in one
-/// command flush. The generation of the session moves one time, after the
-/// last room.
+/// A live room that the reload did not rebuild would keep the content of the
+/// old generation under the new set's definition of its room. So the reload
+/// publishes the room of the primary seat, which brings the set, and then each
+/// other live room from that set, in one command flush; the session's
+/// generation moves once, after the last room.
 ///
-/// The file that is reloaded is a changed copy (one entity moved), so the
-/// reload is a new generation and its content term is a new one. The reading
-/// for each live room is its live instance and the content terms that its
-/// stamped entities carry.
+/// Alice (the primary seat) is in the second live room, so that room is
+/// published first. The edited copy moves an NPC there:
+/// - Alice stays where she was (the control for the solid below);
+/// - Bob, a spawned actor that seat 1 drives, is a resident of his room: he is
+///   removed with the room and nothing builds him again. A driven body that
+///   stayed would be a second body the reload has to move out of new solids.
 ///
-/// - Control, one live room: it is rebuilt, as before.
-/// - Two live rooms: each is rebuilt. Before, the reload waited (`world
-///   reload waits: 2 rooms are live`), and the two rooms kept their content.
+/// A second edited copy then puts a solid over Alice: she is moved to a clear
+/// place in the new geometry of her room.
 #[test]
 fn a_world_reload_rebuilds_every_live_room() {
+    use crate::neighbor_prefetch_prepares_rooms::{alice, bob, room_of};
     use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+    let applied = |app: &bevy::prelude::App| app.world().resource::<WorldSourceHotReload>().applied_count;
+    let apply = |app: &mut bevy::prelude::App, what: &str| {
+        let count = applied(app);
+        press_apply_reload(app);
+        let status = app.world().resource::<WorldSourceHotReload>().clone();
+        assert_eq!(
+            (status.applied_count, status.last_status.contains("applied"), status.last_errors.is_empty()),
+            (count + 1, true, true),
+            "{what}: the reload did not apply: {:?} / {:?}",
+            status.last_status,
+            status.last_errors
+        );
+    };
 
-    for two_rooms in [false, true] {
-        let arm = if two_rooms { "two live rooms" } else { "one live room" };
-        let (mut app, edited_room, moved) = if two_rooms {
-            let (app, _) =
-                a_running_shipped_session_with_two_live_rooms(Leaver::Alice, SECOND_LIVE_ROOM);
-            (app, SECOND_LIVE_ROOM.to_owned(), "NpcSpawn")
-        } else {
-            let app = a_running_shipped_session();
-            let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-                .expect("the session has a live room")
-                .id
-                .clone();
-            (app, start, "PogoOrb")
-        };
-        let before = live_room_readings(&mut app);
-        let epoch_before = the_only_prepared_epoch(&mut app);
-        // ⛔ THE PREMISE. Each live room has stamped content, and all of it is
-        // of one generation. A room with no stamped entity reads the same
-        // rebuilt or kept.
-        let old_terms: std::collections::BTreeSet<&String> =
-            before.values().flat_map(|(_, terms)| terms).collect();
-        assert!(
-            before.len() == if two_rooms { 2 } else { 1 }
-                && before.values().all(|(_, terms)| terms.len() == 1)
-                && old_terms.len() == 1,
-            "{arm}: before the reload, each live room does not carry one content term, the \
-             same one: {before:?}"
-        );
-        let old_term = (*old_terms.iter().next().expect("one term")).clone();
-
-        let _copy = watch_an_edited_copy(&mut app, if two_rooms { "two" } else { "one" }, |project| {
-            move_an_entity(project, &edited_room, moved)
-        });
-        let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
-        press_apply_reload(&mut app);
-
-        let reload = app.world().resource::<WorldSourceHotReload>().clone();
-        assert_eq!(
-            (reload.applied_count, reload.last_status.contains("applied"), reload.last_errors.is_empty()),
-            (applied + 1, true, true),
-            "{arm}: the reload did not apply: {:?} / {:?}",
-            reload.last_status,
-            reload.last_errors
-        );
-        let after = live_room_readings(&mut app);
-        let mut wrong: Vec<String> = Vec::new();
-        if after.keys().ne(before.keys()) {
-            wrong.push(format!(
-                "the live rooms changed: {:?} -> {:?}",
-                before.keys().collect::<Vec<_>>(),
-                after.keys().collect::<Vec<_>>()
-            ));
-        }
-        for (room, (instance, terms)) in &after {
-            let Some((old_instance, _)) = before.get(room) else {
-                continue;
-            };
-            if instance == old_instance {
-                wrong.push(format!("`{room}` kept its live instance {instance}: it was not rebuilt"));
-            }
-            if terms.contains(&old_term) {
-                wrong.push(format!(
-                    "`{room}` still carries the content term of the old generation: {terms:?}"
-                ));
-            }
-            if terms.len() != 1 {
-                wrong.push(format!("`{room}` does not carry one content term: {terms:?}"));
-            }
-        }
-        let new_terms: std::collections::BTreeSet<&String> =
-            after.values().flat_map(|(_, terms)| terms).collect();
-        if new_terms.len() != 1 {
-            wrong.push(format!("the live rooms are not of one generation: {new_terms:?}"));
-        }
-        assert!(
-            wrong.is_empty(),
-            "{arm}: a live room was not rebuilt from the reloaded world:\n  {}",
-            wrong.join("\n  ")
-        );
-        // The session is on the new generation, one time.
-        assert_eq!(
-            the_only_prepared_epoch(&mut app),
-            epoch_before + 1,
-            "{arm}: the generation of the session did not move by one"
-        );
-        // Each publication of the sequence is ended: no receipt and no hidden
-        // candidate is left, and each live room can be described.
-        assert_eq!(
-            (
-                ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
-                ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
-            ),
-            (0, 0),
-            "{arm}: (publication receipts, hidden candidates) left after the reload settled"
-        );
-        // ⚠ ROOM BY ROOM. A live identity is the pair (live room, `SimId`), and
-        // two live room roots wear one `SimId`, so a capture of the whole
-        // world is a `DuplicateIdentity` with two live rooms, before a reload
-        // and after it (measured; the "Root identity" row of the open-world
-        // plan).
-        for (room, (instance, _)) in &after {
-            let described =
-                ambition_platformer2d::platformer::construction::TransactionBaseline::capture_for_session(
-                    app.world_mut(),
-                    ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-                    ambition_platformer2d::platformer::lifecycle::TransactionRooms::only(*instance),
-                );
-            assert!(
-                described.is_ok(),
-                "{arm}: the room `{room}` that the reload published cannot be described: {:?}",
-                described.err()
-            );
-        }
-        // The rooms stay as the reload left them.
-        for _ in 0..30 {
-            app.update();
-        }
-        assert_eq!(
-            live_room_readings(&mut app),
-            after,
-            "{arm}: the live rooms changed in the 30 frames after the reload"
-        );
+    let (mut app, _) = a_running_shipped_session_with_two_live_rooms(Leaver::Alice, SECOND_LIVE_ROOM);
+    // Alice comes to rest.
+    for _ in 0..60 {
+        app.update();
     }
+    let alice = alice(&mut app);
+    let driven = bob(&mut app).expect("Bob is in the world");
+    let was = match place_of(&app, alice) {
+        Some((at, true)) if room_of(&app, alice).as_deref() == Some(SECOND_LIVE_ROOM) => at,
+        other => panic!("before the reload Alice is not clear in `{SECOND_LIVE_ROOM}`: {other:?}"),
+    };
+    let before = live_room_readings(&mut app);
+    let epoch_before = the_only_prepared_epoch(&mut app);
+    let old_terms: std::collections::BTreeSet<&String> = before.values().flat_map(|(_, terms)| terms).collect();
+    assert!(
+        before.len() == 2 && before.values().all(|(_, terms)| terms.len() == 1) && old_terms.len() == 1,
+        "before the reload, the two live rooms do not carry one content term, the same one: {before:?}"
+    );
+
+    let _moved = watch_an_edited_copy(&mut app, "two", |project| move_an_entity(project, SECOND_LIVE_ROOM, "NpcSpawn"));
+    apply(&mut app, "an NPC moved");
+    let Some((is, clear)) = place_of(&app, alice) else {
+        panic!("after the reload Alice is in no live room");
+    };
+    assert!(clear && room_of(&app, alice).as_deref() == Some(SECOND_LIVE_ROOM), "after the reload Alice is at {is:?}, not clear in `{SECOND_LIVE_ROOM}`");
+    assert!(is.distance(was) <= 2.0, "no solid was put over Alice, and the reload moved her {} px", is.distance(was));
+    assert!(
+        app.world().get_entity(driven).is_err(),
+        "the driven body stayed in a room that the reload built again: it is a second body that stays, so move it out \
+         of the new solids too"
+    );
+    // One move for the whole sequence, not one per room. Asked of a fresh
+    // session: after refused reloads the epoch was measured to move by two.
+    assert_eq!(the_only_prepared_epoch(&mut app), epoch_before + 1, "the generation of the session did not move once for two rooms");
+    assert_each_live_room_was_rebuilt(&mut app, &before, epoch_before, "two live rooms");
+
+    let was = place_of(&app, alice).expect("Alice is in a live room").0;
+    let half = half_size_of(&app, alice);
+    let _solid = watch_an_edited_copy(&mut app, "two_solid", |project| put_a_solid_over(project, SECOND_LIVE_ROOM, was, half));
+    apply(&mut app, "a solid over Alice");
+    let Some((is, clear)) = place_of(&app, alice) else {
+        panic!("after the second reload Alice is in no live room");
+    };
+    assert_eq!(room_of(&app, alice).as_deref(), Some(SECOND_LIVE_ROOM), "after the second reload Alice left `{SECOND_LIVE_ROOM}`");
+    assert!(clear, "after the second reload Alice is at {is:?}, inside a solid of the new geometry");
+    assert!(is.distance(was) >= 2.0, "a solid was put over Alice and she is where she was ({is:?})");
 }
 
-/// ⛔ A RELOAD THAT CANNOT REBUILD ONE LIVE ROOM REBUILDS NONE.
+/// ⛔ AN ENEMY NAMING A CHARACTER NOBODY REGISTERED, IN A LIVE ROOM THAT IS
+/// NOT THE PRIMARY SEAT'S, REFUSES THE WHOLE RELOAD.
 ///
-/// Each plan is prepared before the first room is staged. The first room's
-/// publication moves the session to the new room set, so a room that fails
-/// after it leaves a mixed world. In each arm the changed copy gives one
-/// live room a body that names a character nobody registered, so the plan of
-/// that room does not prepare. The refusal names the room and the character,
-/// and no live room and no generation changes.
-///
-/// - An ENEMY in Bob's room, which is not the room of the primary seat. The
-///   control of the two below: an enemy was always refused when its room was
-///   planned.
-/// - A PERSON (`NpcSpawn`) in Bob's room.
-/// - A PERSON in the one live room, the plain reload.
-///
-/// ⛔ The two person arms were a PANIC. A person is a placement, and the
-/// preflight did not look at a placement, so the plan prepared and the
-/// recipe stopped the game when the room was built
-/// (`report_unprepared_character`).
+/// Each plan is prepared before the first room is staged; the first room's
+/// publication moves the session to the new room set, so a room that failed
+/// after it would leave a mixed world. The refusal names the room and the
+/// character, and no live room and no generation changes. The person arms of
+/// this refusal are in
+/// `a_world_reload_with_two_live_rooms_publishes_all_or_none` and
+/// `a_world_reload_of_one_live_room_is_refused_whole_or_applied_whole`.
 #[test]
 fn a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none() {
     use ambition_platformer2d::dev_tools::WorldSourceHotReload;
-    const STRANGER: &str = "a_character_nobody_registered";
-
-    // (the arm, Bob's room if there are two live rooms, the body that names
-    // the stranger)
-    for (arm, bobs_room, entity) in [
-        ("an enemy in the room that is not the primary seat's", Some("basement_enemies"), "EnemySpawn"),
-        ("a person in the room that is not the primary seat's", Some("basement_npcs"), "NpcSpawn"),
-        ("a person in the one live room", None, "NpcSpawn"),
-    ] {
-        let (mut app, start) = match bobs_room {
-            Some(room) => a_running_shipped_session_with_two_live_rooms(Leaver::Bob, room),
-            None => {
-                let app = a_running_shipped_session();
-                let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-                    .expect("the session has a live room")
-                    .id
-                    .clone();
-                (app, start)
-            }
-        };
-        // ⛔ THE PREMISE: Alice is in the start room, so with two live rooms
-        // the room that cannot be rebuilt is not the first room of the reload.
-        {
-            use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
-            let body = alice(&mut app);
-            assert_eq!(room_of(&app, body), Some(start.clone()), "{arm}: Alice is not in the start room");
-        }
-        let faulty_room = bobs_room.unwrap_or(start.as_str()).to_owned();
-        let before = live_room_readings(&mut app);
-        let epoch_before = the_only_prepared_epoch(&mut app);
-        let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
-
-        let _copy = watch_an_edited_copy(&mut app, "refused", |project| {
-            name_an_unknown_character(project, &faulty_room, entity, STRANGER)
-        });
-        press_apply_reload(&mut app);
-
-        let reload = app.world().resource::<WorldSourceHotReload>().clone();
-        assert_eq!(
-            (reload.applied_count, reload.last_status.contains("rejected")),
-            (applied, true),
-            "{arm}: the reload was not refused: {:?} / {:?}",
-            reload.last_status,
-            reload.last_errors
-        );
-        assert!(
-            reload
-                .last_errors
-                .iter()
-                .any(|error| error.contains(&format!("`{faulty_room}`")) && error.contains(STRANGER)),
-            "{arm}: the refusal does not name the room `{faulty_room}` and the character: {:?}",
-            reload.last_errors
-        );
-        if bobs_room.is_some() {
-            assert!(
-                reload.last_errors.iter().any(|error| error.contains(&format!("live room '{faulty_room}'"))),
-                "{arm}: the refusal does not say which LIVE room cannot be rebuilt: {:?}",
-                reload.last_errors
-            );
-        }
-        assert_eq!(
-            (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
-            (before.clone(), epoch_before),
-            "{arm}: ⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
-        );
-        // The game runs on.
-        for _ in 0..30 {
-            app.update();
-        }
-        assert_eq!(live_room_readings(&mut app), before, "{arm}: the live rooms changed after the refusal");
+    let faulty_room = "basement_enemies";
+    let (mut app, start) = a_running_shipped_session_with_two_live_rooms(Leaver::Bob, faulty_room);
+    {
+        use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
+        let body = alice(&mut app);
+        assert_eq!(room_of(&app, body), Some(start.clone()), "Alice is not in the start room");
     }
+    let before = live_room_readings(&mut app);
+    let epoch_before = the_only_prepared_epoch(&mut app);
+    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+    let _copy = watch_an_edited_copy(&mut app, "refused_enemy", |project| {
+        name_an_unknown_character(project, faulty_room, "EnemySpawn", STRANGER)
+    });
+    press_apply_reload(&mut app);
+    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    assert_eq!(
+        (reload.applied_count, reload.last_status.contains("rejected")),
+        (applied, true),
+        "the reload was not refused: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+    assert!(
+        reload.last_errors.iter().any(|error| error.contains(&format!("`{faulty_room}`")) && error.contains(STRANGER)),
+        "the refusal does not name the room `{faulty_room}` and the character: {:?}",
+        reload.last_errors
+    );
+    assert!(
+        reload.last_errors.iter().any(|error| error.contains(&format!("live room '{faulty_room}'"))),
+        "the refusal does not say which LIVE room cannot be rebuilt: {:?}",
+        reload.last_errors
+    );
+    assert_eq!(
+        (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
+        (before.clone(), epoch_before),
+        "⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
+    );
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(live_room_readings(&mut app), before, "the live rooms changed after the refusal");
 }
 
 /// Give the first `entity` of a level whose `activeArea` is `room`, and that
@@ -1907,7 +1888,7 @@ fn name_an_unknown_character(
 ///
 /// The two carry the room's stamp, so only a transaction of that room has
 /// them in its world (`TransactionRooms::admits`). The existing refusal arm
-/// (`a_refused_world_reload_leaves_the_running_game_untouched`) gives its two
+/// (`a_world_reload_of_one_live_room_is_refused_whole_or_applied_whole`) gives its two
 /// holders no stamp, so each room's transaction has them and the first room
 /// refuses.
 fn put_two_holders_of_one_identity_in(
@@ -1932,85 +1913,11 @@ fn the_room_can_be_described(
     .is_ok()
 }
 
-/// ⛔ A LIVE ROOM THAT CANNOT BE DESCRIBED STOPS THE RELOAD BEFORE ITS FIRST
-/// ROOM.
-///
-/// The plans of all the live rooms prepare (the edit is a valid one). Bob's
-/// room, which is not the room of the primary seat, holds two bodies of one
-/// identity, so its transaction cannot open. That is found when the reload is
-/// asked for, and no live room and no generation changes.
-///
-/// Measured before the guard (2026-10-09): the room of the primary seat
-/// published, Bob's room was refused when its transaction opened, and the
-/// status was `THE WORLD IS MIXED`.
-#[test]
-fn a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none() {
-    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
-
-    let (mut app, start) = a_running_shipped_session_with_two_live_rooms(Leaver::Bob, SECOND_LIVE_ROOM);
-    let before = live_room_readings(&mut app);
-    let epoch_before = the_only_prepared_epoch(&mut app);
-    let (first_live, faulty_live) = (before[&start].0, before[SECOND_LIVE_ROOM].0);
-    put_two_holders_of_one_identity_in(app.world_mut(), faulty_live);
-    // ⛔ THE PREMISE: the fault is in the later room only. If the first room
-    // could not be described too, the reload is refused at its first room, and
-    // that is the arm `a_refused_world_reload_leaves_the_running_game_untouched`.
-    assert_eq!(
-        (the_room_can_be_described(&mut app, first_live), the_room_can_be_described(&mut app, faulty_live)),
-        (true, false),
-        "premise: (the room of the primary seat can be described, Bob's room can be described)"
-    );
-    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
-
-    let _copy = watch_an_edited_copy(&mut app, "undescribed", |project| {
-        move_an_entity(project, SECOND_LIVE_ROOM, "NpcSpawn")
-    });
-    press_apply_reload(&mut app);
-
-    let reload = app.world().resource::<WorldSourceHotReload>().clone();
-    assert!(
-        !reload.last_errors.iter().any(|error| error.contains("THE WORLD IS MIXED")),
-        "⛔ THE RELOAD LEFT A MIXED WORLD: {:?}",
-        reload.last_errors
-    );
-    assert_eq!(
-        (reload.applied_count, reload.last_status.contains("rejected")),
-        (applied, true),
-        "the reload was not refused: {:?} / {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
-    assert!(
-        reload
-            .last_errors
-            .iter()
-            .any(|error| error.contains(&format!("live room '{SECOND_LIVE_ROOM}'")) && error.contains("corrupt_twin")),
-        "the refusal does not name the live room and the identity that two bodies hold: {:?}",
-        reload.last_errors
-    );
-    assert_eq!(
-        (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
-        (before.clone(), epoch_before),
-        "⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
-    );
-    assert_eq!(
-        (
-            ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
-            ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
-        ),
-        (0, 0),
-        "(publication receipts, hidden candidates) left after the refusal"
-    );
-    for _ in 0..30 {
-        app.update();
-    }
-    assert_eq!(live_room_readings(&mut app), before, "the live rooms changed after the refusal");
-}
-
-/// The fault of [`a_later_room_refused_after_the_first_room_passed_rebuilds_none`]:
-/// when the reload builds the first body of a live room that is not `first`
-/// and not `into` (a candidate of the room it mints first), it puts two
-/// holders of one identity in the live room `into`.
+/// The fault of the last step of
+/// [`a_world_reload_with_two_live_rooms_publishes_all_or_none`]: when the
+/// reload builds the first body of a live room that is not `first` and not
+/// `into` (a candidate of the room it mints first), it puts two holders of one
+/// identity in the live room `into`.
 #[derive(bevy::prelude::Resource)]
 struct FaultWhenTheFirstRoomIsBuilt {
     first: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
@@ -2020,42 +1927,44 @@ struct FaultWhenTheFirstRoomIsBuilt {
 
 /// ⛔ A MULTI-ROOM RELOAD PUBLISHES ALL ITS ROOMS OR NONE.
 ///
-/// The first room is held after its check, and each later room is checked
-/// against the set and counter the session will hold when the rooms before it
-/// are committed. A later room refused after the first room passed refuses
-/// every room. Before the hold, this state was a named mixed world: the first
-/// room published and the session moved to the new generation while the later
-/// room kept the old one.
+/// Alice is in the start room (the room the reload publishes first) and Bob,
+/// driven by seat 1, in `basement_npcs`. Each fault below is in Bob's room, so
+/// the first room's own checks pass; each refuses every room, names the room,
+/// and leaves each live room's instance, content and the session's generation
+/// as they were, with no receipt or hidden candidate left. In order, on one
+/// running session:
 ///
-/// Each fault that is present when the reload is asked for is refused before
-/// the first room
-/// (`a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none`,
-/// `a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none`).
-/// So the fault is injected after the reload is asked for, by an observer of
-/// this test: when the reload builds the first body of its first room, it
-/// puts two holders of one identity in Bob's room. The transaction of the
-/// first room does not have Bob's room in its world, so it passes.
+/// 1. A person (`NpcSpawn`) naming a character nobody registered: the preflight
+///    looks at placements too, so the plan does not prepare (it used to prepare
+///    and stop the game when the room was built).
+/// 2. Two holders of one identity in Bob's room, present at the request: the
+///    room's transaction cannot open, which is found before the first room.
+/// 3. The same fault injected AFTER the request, by an observer, when the
+///    reload builds the first body of its first room: the first room is held
+///    after its check, and each later room is checked against the set and
+///    counter the session will hold when the rooms before it are committed, so
+///    the later refusal refuses the first room too.
+///
+/// With the fault gone, the same reload applies and brings each live room to
+/// one new generation.
 ///
 /// ⚠ A reload keeps the entity of a live room root and gives it its new
-/// identity in place: `Add` and `Insert` of `LiveRoomInstance` and of
-/// `RoomInstanceRoot` do not fire in a reload (measured). The stamp of a body
+/// identity in place: `Add` and `Insert` of `LiveRoomInstance` and
+/// `RoomInstanceRoot` do not fire in a reload. The stamp of a body
 /// (`InRoomInstance`) is added, so the observer watches that.
-///
-/// What is held:
-/// - the status names the refused room and says no room was reloaded;
-/// - each live room keeps its live instance and the old generation, and the
-///   generation of the session did not move;
-/// - no publication receipt and no hidden candidate is left, and the game
-///   runs on;
-/// - with the fault gone, the reload applied again brings each live room to
-///   one new generation.
 #[test]
-fn a_later_room_refused_after_the_first_room_passed_rebuilds_none() {
+fn a_world_reload_with_two_live_rooms_publishes_all_or_none() {
     use ambition_platformer2d::dev_tools::WorldSourceHotReload;
     use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
     use bevy::prelude::*;
 
     let (mut app, start) = a_running_shipped_session_with_two_live_rooms(Leaver::Bob, SECOND_LIVE_ROOM);
+    {
+        use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
+        let body = alice(&mut app);
+        assert_eq!(room_of(&app, body), Some(start.clone()), "the premise: Alice is in the start room");
+    }
+    let source = watched_source(&app);
     let before = live_room_readings(&mut app);
     let epoch_before = the_only_prepared_epoch(&mut app);
     let (first_live, later_live) = (before[&start].0, before[SECOND_LIVE_ROOM].0);
@@ -2065,12 +1974,81 @@ fn a_later_room_refused_after_the_first_room_passed_rebuilds_none() {
         vec![&old_term],
         "premise: the two live rooms are of one generation"
     );
+    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+    let unchanged = |app: &mut bevy::prelude::App, what: &str| {
+        let reload = app.world().resource::<WorldSourceHotReload>().clone();
+        assert!(
+            !reload.last_errors.iter().any(|error| error.contains("MIXED")),
+            "{what}: ⛔ THE RELOAD LEFT A MIXED WORLD: {:?}",
+            reload.last_errors
+        );
+        assert_eq!(
+            (reload.applied_count, reload.last_status.contains("rejected")),
+            (applied, true),
+            "{what}: the reload was not refused: {:?} / {:?}",
+            reload.last_status,
+            reload.last_errors
+        );
+        assert_eq!(
+            (live_room_readings(app), the_only_prepared_epoch(app)),
+            (before.clone(), epoch_before),
+            "{what}: ⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
+        );
+        assert_eq!(
+            (
+                ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
+                ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+            ),
+            (0, 0),
+            "{what}: (publication receipts, hidden candidates) left after the refusal"
+        );
+        reload.last_errors
+    };
 
-    app.insert_resource(FaultWhenTheFirstRoomIsBuilt {
-        first: first_live,
-        into: later_live,
-        made: Vec::new(),
-    });
+    // ── 1. a person naming a character nobody registered ────────────────────
+    {
+        let _copy = watch_an_edited_copy(&mut app, "two_room_stranger", |project| {
+            name_an_unknown_character(project, SECOND_LIVE_ROOM, "NpcSpawn", STRANGER)
+        });
+        press_apply_reload(&mut app);
+    }
+    let errors = unchanged(&mut app, "a person naming an unknown character");
+    assert!(
+        errors.iter().any(|error| error.contains(&format!("`{SECOND_LIVE_ROOM}`")) && error.contains(STRANGER))
+            && errors.iter().any(|error| error.contains(&format!("live room '{SECOND_LIVE_ROOM}'"))),
+        "the refusal does not name the live room `{SECOND_LIVE_ROOM}` and the character: {errors:?}"
+    );
+    watch_the_source_again(&mut app, &source);
+
+    // ── 2. Bob's room cannot be described, at the request ───────────────────
+    let twins = put_two_holders_of_one_identity_in(app.world_mut(), later_live);
+    assert_eq!(
+        (the_room_can_be_described(&mut app, first_live), the_room_can_be_described(&mut app, later_live)),
+        (true, false),
+        "premise: (the room of the primary seat can be described, Bob's room can be described)"
+    );
+    {
+        let _copy = watch_an_edited_copy(&mut app, "undescribed", |project| {
+            move_an_entity(project, SECOND_LIVE_ROOM, "NpcSpawn")
+        });
+        press_apply_reload(&mut app);
+    }
+    let errors = unchanged(&mut app, "a live room that cannot be described");
+    assert!(
+        errors.iter().any(|error| error.contains(&format!("live room '{SECOND_LIVE_ROOM}'")) && error.contains("corrupt_twin")),
+        "the refusal does not name the live room and the identity that two bodies hold: {errors:?}"
+    );
+    for twin in twins {
+        app.world_mut().despawn(twin);
+    }
+    watch_the_source_again(&mut app, &source);
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(live_room_readings(&mut app), before, "the live rooms changed in the 30 frames after the refusals");
+
+    // ── 3. the same fault, after the first room passed ──────────────────────
+    app.insert_resource(FaultWhenTheFirstRoomIsBuilt { first: first_live, into: later_live, made: Vec::new() });
     app.world_mut().add_observer(
         |stamped: On<Add, InRoomInstance>, mut world: bevy::ecs::world::DeferredWorld| {
             // Asked of the entity and not of a query: a candidate is hidden
@@ -2086,64 +2064,29 @@ fn a_later_room_refused_after_the_first_room_passed_rebuilds_none() {
             let twins = [(); 2].map(|()| {
                 world
                     .commands()
-                    .spawn((
-                        ambition_platformer2d::platformer::sim_id::SimId::placement("corrupt_twin"),
-                        InRoomInstance(into),
-                    ))
+                    .spawn((ambition_platformer2d::platformer::sim_id::SimId::placement("corrupt_twin"), InRoomInstance(into)))
                     .id()
             });
             world.resource_mut::<FaultWhenTheFirstRoomIsBuilt>().made.extend(twins);
         },
     );
-    // ⛔ THE PREMISE: no fault is present when the reload is asked for.
     assert!(
         the_room_can_be_described(&mut app, first_live) && the_room_can_be_described(&mut app, later_live),
         "premise: each live room can be described before the reload"
     );
-    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
-
-    let _copy = watch_an_edited_copy(&mut app, "mixed", |project| {
-        move_an_entity(project, SECOND_LIVE_ROOM, "NpcSpawn")
-    });
+    let _copy = watch_an_edited_copy(&mut app, "mixed", |project| move_an_entity(project, SECOND_LIVE_ROOM, "NpcSpawn"));
     press_apply_reload(&mut app);
-
     let twins = app.world().resource::<FaultWhenTheFirstRoomIsBuilt>().made.clone();
     assert_eq!(twins.len(), 2, "premise: the fault was injected when the first room was built");
-    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    let errors = unchanged(&mut app, "a later room refused after the first room passed");
     assert!(
-        !reload.last_errors.iter().any(|error| error.contains("MIXED"))
-            && reload
-                .last_errors
-                .iter()
-                .any(|error| error.contains(&format!("'{SECOND_LIVE_ROOM}'")) && error.contains("no room was reloaded")),
-        "the status does not say that the later room was refused and no room was reloaded: {:?} / {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
-    assert_eq!(reload.applied_count, applied, "a refused reload counted itself as applied");
-
-    let after = live_room_readings(&mut app);
-    assert_eq!(
-        after[&start], before[&start],
-        "the first room was published although a later room was refused"
-    );
-    assert_eq!(
-        after[SECOND_LIVE_ROOM], before[SECOND_LIVE_ROOM],
-        "the refused room does not keep its live instance and the old generation"
-    );
-    assert_eq!(the_only_prepared_epoch(&mut app), epoch_before, "the generation of the session moved");
-    assert_eq!(
-        (
-            ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
-            ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
-        ),
-        (0, 0),
-        "(publication receipts, hidden candidates) left after the refused reload"
+        errors.iter().any(|error| error.contains(&format!("'{SECOND_LIVE_ROOM}'")) && error.contains("no room was reloaded")),
+        "the status does not say that the later room was refused and no room was reloaded: {errors:?}"
     );
     for _ in 0..30 {
         app.update();
     }
-    assert_eq!(live_room_readings(&mut app), after, "the live rooms changed in the 30 frames after");
+    assert_eq!(live_room_readings(&mut app), before, "the live rooms changed in the 30 frames after");
 
     // With the fault gone, the reload applies onto the world the refusal kept.
     for twin in twins {
@@ -2153,7 +2096,7 @@ fn a_later_room_refused_after_the_first_room_passed_rebuilds_none() {
     let reload = app.world().resource::<WorldSourceHotReload>().clone();
     assert!(
         reload.last_status.contains("applied") && reload.last_errors.is_empty(),
-        "the second reload did not apply: {:?} / {:?}",
+        "the reload did not apply once the fault was gone: {:?} / {:?}",
         reload.last_status,
         reload.last_errors
     );
@@ -2161,107 +2104,7 @@ fn a_later_room_refused_after_the_first_room_passed_rebuilds_none() {
     let terms: std::collections::BTreeSet<&String> = repaired.values().flat_map(|(_, terms)| terms).collect();
     assert!(
         terms.len() == 1 && !terms.contains(&old_term) && repaired[SECOND_LIVE_ROOM].0 != later_live,
-        "the second reload did not bring each live room to one new generation: {repaired:?}"
-    );
-}
-
-/// ⛔⛤ **AND A REFUSED RELOAD COSTS THE RUNNING GAME NOTHING.**
-///
-/// The refusal is a production one: two process-resident holders of one identity
-/// make a world `TransactionBaseline::capture` cannot describe, so the reload's
-/// candidate room cannot be verified. Nothing test-only is wired into
-/// construction, and nothing is written to disk.
-///
-/// ⭐ Its control is the arm above, which proves the flash moves on a reload that
-/// DOES commit — without it, "the flash did not move" would also be true of a
-/// reload that never happened.
-#[test]
-fn a_refused_world_reload_leaves_the_running_game_untouched() {
-    let mut app = a_running_shipped_session();
-    let before_room = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
-    .map(|spec| spec.id.clone())
-    .expect("the running session carries a room set");
-    let before_applied = app
-        .world()
-        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
-        .applied_count;
-
-    // A world that cannot be described: two holders of one canonical identity,
-    // process-resident so they are in the candidate's world too.
-    for _ in 0..2 {
-        app.world_mut()
-            .spawn(ambition_platformer2d::platformer::sim_id::SimId::placement(
-                "corrupt_twin",
-            ));
-    }
-
-    assert!(
-        ambition_platformer2d::rollback::session_is_active(app.world()),
-        "the running session has no rollback timeline, so the assertion below \
-         about a refused reload not tearing one down says nothing"
-    );
-
-    press_apply_reload(&mut app);
-
-    let verdict = app
-        .world()
-        .resource::<ambition_platformer2d::publication::LastConstructionVerification>()
-        .clone();
-    assert!(
-        !verdict.published,
-        "the reload's room was not refused, so this arm is about a committed \
-         reload rather than a refused one: {verdict:?}"
-    );
-    // ⭐ THE PREMISE, ASSERTED: the reload ROAD ran and recorded a refusal of its
-    // own. Without this the arm below is equally true of a reload that never
-    // happened — a missing player, an unset watch path, a silent early return.
-    let reload = app
-        .world()
-        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
-        .clone();
-    assert!(
-        !reload.last_errors.is_empty() && reload.last_status.contains("rejected"),
-        "the hot reload did not record a refusal, so nothing here is a statement \
-         about a REFUSED reload: {:?} / {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
-    assert_eq!(
-        dev_preset_flash(&app),
-        0.0,
-        "⛔ A REFUSED WORLD RELOAD RAN ITS EFFECTS. The flash is the cheapest of \
-         them; the same verdict gates the body transit, the dialogue close, the \
-         combat and cooldown resets and the presentation spawns"
-    );
-    assert_eq!(
-        app.world()
-            .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
-            .applied_count,
-        before_applied,
-        "a refused reload counted itself as applied"
-    );
-    assert_eq!(
-        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone()),
-        Some(before_room),
-        "⛔ A REFUSED WORLD RELOAD CHANGED THE ROOM THE PLAYER IS IN"
-    );
-    // ⛔⛤ MEASURED 2026-09-15, AND IT WAS FALSE: a refused reload stopped the
-    // live GGRS session, because the restart was requested before a single root
-    // was built. The world it was playing was intact and its rollback timeline
-    // was torn down for a room that does not exist. Its control is the arm above,
-    // which shows a COMMITTED reload does rebase the baseline.
-    assert!(
-        ambition_platformer2d::rollback::session_is_active(app.world()),
-        "⛔ A REFUSED WORLD RELOAD TORE DOWN THE ROLLBACK TIMELINE OF THE WORLD \
-         IT LEFT STANDING"
-    );
-    // ⛔ A refused receipt is as consumed as an admitted one. The committed arm
-    // above counts receipts; without this one, an owner that retired only on
-    // success would pass every test on this road.
-    assert_eq!(
-        ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
-        0,
-        "⛔ A REFUSED WORLD RELOAD'S PUBLICATION RECEIPT IS STILL STANDING"
+        "the reload did not bring each live room to one new generation: {repaired:?}"
     );
 }
 
@@ -2275,7 +2118,7 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
 /// first room finds two holders of one identity and refuses, through
 /// `verify_committed_roster`, exactly as it would for any real duplicate.
 ///
-/// ⭐ **THE CONTROL IS `a_shell_handoff_publishes_the_incoming_sessions_room`**,
+/// ⭐ **THE CONTROL IS `the_shipped_app_never_holds_two_session_roots_across_a_handoff`**,
 /// which drives the same two `ReplaceWith` commands with no duplicate standing
 /// and lands the incoming session. Without it, "the handoff did not happen" would
 /// be satisfied by a handoff that never worked.
@@ -2422,7 +2265,19 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         route: gameplay,
         request: None,
     });
-    for _ in 0..240 {
+    // Until a room transaction was refused (under the shared ceiling), then
+    // frames for the refusal's exits to run; the premise below names a
+    // refusal that never came.
+    let started = std::time::Instant::now();
+    while app
+        .world()
+        .resource::<ambition_platformer2d::publication::LastConstructionVerification>()
+        .published
+        && started.elapsed() < crate::common::ACTIVATION_CEILING
+    {
+        app.update();
+    }
+    for _ in 0..30 {
         app.update();
     }
 
@@ -2555,251 +2410,36 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
     );
 }
 
-/// ⛔⛤ **A10 AT SESSION SCOPE, IN THE SHIPPED APP: THE CANDIDATE DOES NOT TOUCH
-/// THE WORLD THAT IS PLAYING.**
+/// ⛔⛤ **A SUPERSEDED CANDIDATE SESSION IS DISCARDED, AND ITS TRANSACTION
+/// CANNOT PUBLISH.**
 ///
-/// A10.5 prepares the incoming session — its hidden root, its hidden player, its
-/// first room — while the outgoing session is still live and the route is still
-/// pending. That is the whole guarantee and it is also the whole hazard: the
-/// candidate's first room plans the same authored placement ids the playing
-/// session is standing on, and a process-wide baseline declares them SUPERSEDED.
-/// MEASURED 2026-09-15, before the verifiers were taught whose world they were
-/// looking at: *"18 declared departures retired"* one frame BEFORE the incoming
-/// session started — the candidate despawning the world it was meant to replace
-/// only if it succeeded.
+/// `CandidateSessionSlot` is one deep: a second pending route replaces the
+/// first. The superseded candidate (hidden root, hidden first room, publication
+/// receipt, reserved scope, gate registration) must be discarded, not left
+/// alive and unreachable: a candidate that is neither published nor discarded
+/// is the state A10's lifecycle exists to make impossible.
 ///
-/// ⇒ This samples EVERY FRAME of the handoff rather than the ends: while the
-/// live scope is still N, N's population must be exactly what it was. A world
-/// that is corrected afterwards is a world that was broken.
-#[test]
-fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
-    use ambition_platformer2d::platformer::lifecycle::{
-        ActiveSessionScope, SessionScopeId, SessionScopedEntity,
-    };
-
-    fn scope(app: &bevy::prelude::App) -> Option<SessionScopeId> {
-        app.world()
-            .get_resource::<ActiveSessionScope>()
-            .and_then(ActiveSessionScope::current)
-    }
-    // ⛔ IDENTITIES, NOT A COUNT. This counted every session-scoped entity,
-    // particles included, and six dust particles expiring during 240 frames of
-    // idle play read as "a refused candidate cost world N six entities". What a
-    // candidate could take from N is its SIMULATION: the entities with a
-    // `SimId`. A set also says which one went.
-    fn population(
-        app: &mut bevy::prelude::App,
-        owner: SessionScopeId,
-    ) -> std::collections::BTreeSet<ambition_platformer2d::platformer::sim_id::SimId> {
-        let world = app.world_mut();
-        world
-            .query::<(&SessionScopedEntity, &ambition_platformer2d::platformer::sim_id::SimId)>()
-            .iter(world)
-            .filter(|(scoped, _)| scoped.0 == owner)
-            .map(|(_, id)| id.clone())
-            .collect()
-    }
-
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
-    app.update();
-
-    let gameplay = ShellRouteId::new("ambition_gameplay");
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay.clone(),
-        request: None,
-    });
-    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
-    let live = scope(&app).expect("the first session activated");
-    let before = population(&mut app, live);
-    assert!(
-        !before.is_empty(),
-        "the premise: world N is a populated session. Without it 'N was not \
-         touched' would be true of an empty world"
-    );
-
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay,
-        request: None,
-    });
-    let mut handed_over = false;
-    let mut lost = std::collections::BTreeSet::new();
-    // Bounded by the shared wall-clock ceiling, not by a frame count: the
-    // loop ends at the handoff, and the frames it takes vary with load.
-    let started = std::time::Instant::now();
-    while started.elapsed() < crate::common::ACTIVATION_CEILING {
-        app.update();
-        match scope(&app) {
-            // ⛔ THE ONLY FRAMES THIS ARM JUDGES. Once the active scope has
-            // MOVED, N is retired by its own lifecycle and is supposed to empty.
-            Some(current) if current == live => {
-                lost.extend(before.difference(&population(&mut app, live)).cloned());
-            }
-            _ => {
-                handed_over = true;
-                break;
-            }
-        }
-    }
-    assert!(
-        handed_over,
-        "the handoff never happened, so no candidate was ever prepared beside \
-         world N and this arm measured nothing"
-    );
-    assert!(
-        lost.is_empty(),
-        "⛔ THE CANDIDATE SESSION TOOK ENTITIES OUT OF THE WORLD THAT WAS STILL \
-         PLAYING. Its first room plans the same authored ids, and a verifier that \
-         does not ask WHOSE world it is looking at declares them superseded and \
-         despawns them — before anything has decided the candidate may be played: \
-         {lost:?}"
-    );
-}
-
-/// ⛔⛤ **A10 ON THE HANDOFF ROAD: THE INCOMING SESSION GETS A ROOM WITH THINGS
-/// IN IT.**
-///
-/// Every room root is minted hidden, so a refused room is DROPPED. The handoff
-/// is the road that used to produce the worst refusal in the whole suite — a
-/// session retiring its old scope and starting the new one in the SAME frame, so
-/// the incoming room's transaction captured a baseline still holding all 18 of
-/// the outgoing scope's placements (`room-refused :: 18x Duplicated`). Under the
-/// bracket that drops the entire room, and the new session wakes up in an empty
-/// world.
-///
-/// ⚠ **THE ORDERING FIX IS WHAT CLOSED IT** (`SessionScopeSet` chains
-/// `RetireAuthority -> Cleanup -> Activate -> Presentation`), and
-/// `the_retired_scopes_sweep_precedes_the_incoming_sessions_construction`
-/// asks the SCHEDULE. This asks the RESULT, which is the half a schedule
-/// assertion cannot cover: an ordering can be right and the room still refused
-/// for some other reason.
-///
-/// ⭐ The roster assertion is what makes it non-vacuous. `published` alone could
-/// be a stale verdict from the first activation — both activations build the same
-/// room, so the id cannot tell them apart — but a live authoritative roster after
-/// the handoff can only come from a room that actually arrived.
-#[test]
-fn a_shell_handoff_publishes_the_incoming_sessions_room() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
-    app.update();
-
-    let gameplay = ShellRouteId::new("ambition_gameplay");
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay.clone(),
-        request: None,
-    });
-    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
-    let before = activation_id(&app);
-
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay,
-        request: None,
-    });
-    // Until the activation id moves (the handoff), under the shared ceiling,
-    // then the settle frames; the assertion below names a handoff that never
-    // came.
-    let started = std::time::Instant::now();
-    while activation_id(&app) == before && started.elapsed() < crate::common::ACTIVATION_CEILING {
-        app.update();
-    }
-    for _ in 0..crate::common::SETTLE_FRAMES_AFTER_ACTIVATION {
-        app.update();
-    }
-    let after = activation_id(&app);
-    assert!(
-        before.is_some() && after != before,
-        "the activation id did not move ({before:?} -> {after:?}), so no handoff \
-         happened and everything below is about the FIRST session"
-    );
-
-    let verification = app
-        .world()
-        .resource::<ambition_platformer2d::publication::LastConstructionVerification>()
-        .clone();
-    assert!(
-        verification.published,
-        "⛔ THE INCOMING SESSION'S ROOM WAS REFUSED. Under the candidate bracket \
-         its roots are dropped, so the handoff lands the player in an empty \
-         world: {verification:?}"
-    );
-
-    let roster = {
-        let world = app.world_mut();
-        world
-            .query::<&ambition_platformer2d::platformer::sim_id::SimId>()
-            .iter(world)
-            .count()
-    };
-    assert!(
-        roster > 0,
-        "the handoff published a room and the world holds no authoritative \
-         identities at all: {verification:?}"
-    );
-    // ⛔⛤ **AND N+1 IS DESCRIBABLE: no duplicate authoritative identity after the
-    // replacement.** The other half of A10's success arm, asked of the SAME
-    // authority publication is verified against rather than of a census written
-    // for the test — `TransactionBaseline::capture` is exactly the operation that
-    // cannot describe a world holding one identity twice. ⇒ The retired session's
-    // world is genuinely gone rather than coexisting with the one that replaced
-    // it, which a roster COUNT alone cannot tell you.
-    assert!(
-        ambition_platformer2d::platformer::construction::TransactionBaseline::capture(
-            app.world_mut()
-        )
-        .is_ok(),
-        "⛔ THE WORLD THE HANDOFF PUBLISHED CANNOT BE DESCRIBED: some identity has \
-         two authoritative holders, so the outgoing session's world is still \
-         standing beside the incoming one"
-    );
-    assert_eq!(
-        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
-        0,
-        "⛔ A HIDDEN CANDIDATE OUTLIVED THE HANDOFF: neither published nor \
-         discarded"
-    );
-    assert_eq!(
-        ambition_platformer2d::publication::outstanding_publications(app.world_mut()),
-        0,
-        "a publication receipt is still standing after the handoff settled"
-    );
-    // ⭐ THE CONTROL FOR THE CANCEL ARM'S ITEM-4 ASSERTION. `SessionMechanics` is
-    // installed by ADOPTION, so a live session has one; without this, "a
-    // cancelled candidate left no `SessionMechanics` behind" would be equally
-    // true of a composition that never installs it at all.
-    assert!(
-        app.world()
-            .get_resource::<ambition_platformer2d::construction::mechanics::SessionMechanics>()
-            .is_some(),
-        "an adopted session has no `SessionMechanics`, so the cancel arm's claim          that preparation installs none is a claim about nothing"
-    );
-    // ⭐ AND THE SAME CONTROL FOR THE PLATFORM STATE. MEASURED: this handoff
-    // installs 1 moving platform on the live room's root, and the cancel arm
-    // ends with no live room at all, so the pair is a real discriminator.
-    assert!(
-        !ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app.world()).expect("the live room has moving platforms")
-            .0
-            .is_empty(),
-        "an adopted session installed no moving platforms, so the cancel arm's          claim that preparation installs none is a claim about nothing"
-    );
-}
-
-/// ⛔⛤ **A SUPERSEDED CANDIDATE SESSION IS DISCARDED, NOT DROPPED.**
-///
-/// `CandidateSessionSlot` is one deep. A second pending route replaces the first,
-/// and the assignment that does it used to overwrite a whole prepared session —
-/// hidden root, hidden first room, publication receipt and reserved scope, all
-/// alive and none of them reachable again. A candidate that is neither PUBLISHED
-/// nor DISCARDED is the state A10's lifecycle exists to make impossible.
+/// And the superseded TRANSACTION, which is what a caller correlates its own
+/// request on, ends named `Superseded` and cannot publish when the production
+/// `PreparedSessionRegistry` is asked to (the router's logic is tested on a
+/// hand-built `ShellRouter`; this asks the composed host).
 #[test]
 fn a_candidate_session_replaced_while_pending_is_discarded() {
+    use ambition_platformer2d::game_shell::{PreparedSessionRegistry, ProviderLoadTransaction, ShellEvent, TransactionEnd};
+    use bevy::ecs::message::Messages;
+
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.finish();
     app.update();
     let gameplay = ShellRouteId::new("ambition_gameplay");
+    let mut cursor = app.world().resource::<Messages<ShellEvent>>().get_cursor();
+    let mut seen: Vec<ShellEvent> = Vec::new();
+    let mut read = |app: &bevy::prelude::App, seen: &mut Vec<ShellEvent>| {
+        seen.extend(cursor.read(app.world().resource::<Messages<ShellEvent>>()).cloned());
+    };
 
     // Two routes requested with only a few frames between them, so the second
-    // arrives while the first is still PENDING — the state that supersedes a
+    // arrives while the first is still PENDING: the state that supersedes a
     // prepared candidate instead of adopting it.
     app.world_mut().write_message(ShellCommand::ReplaceWith {
         route: gameplay.clone(),
@@ -2807,14 +2447,61 @@ fn a_candidate_session_replaced_while_pending_is_discarded() {
     });
     for _ in 0..3 {
         app.update();
+        read(&app, &mut seen);
     }
+    let first: ProviderLoadTransaction = seen
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("the shipped composition emitted no `PreparationRequested` in three frames, so there is no transaction to supersede");
     app.world_mut().write_message(ShellCommand::ReplaceWith {
         route: gameplay,
         request: None,
     });
-    for _ in 0..360 {
+    // Until the second route is active and nothing is pending (under the shared
+    // ceiling), then a few frames for the exits to run.
+    let started = std::time::Instant::now();
+    let mut after = 0;
+    while after < 10 {
+        assert!(started.elapsed() < crate::common::ACTIVATION_CEILING, "the second route did not settle in {:?}", started.elapsed());
         app.update();
+        read(&app, &mut seen);
+        let router = app.world().resource::<ShellRouter>();
+        if router.active.is_some() && router.pending.is_none() {
+            after += 1;
+        }
     }
+
+    // ⛔ A second, DIFFERENT transaction was minted: a reused one would mean
+    // nothing was superseded.
+    let minted: Vec<_> = seen
+        .iter()
+        .filter_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.barrier.load_id.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        minted.len() >= 2 && minted[0] != minted[1],
+        "the second request did not mint a fresh transaction ({minted:?}), so nothing was superseded"
+    );
+    let ended = seen.iter().find_map(|event| match event {
+        ShellEvent::TransactionEnded { barrier, reason, .. } if *barrier == first.barrier => Some(reason.clone()),
+        _ => None,
+    });
+    assert_eq!(
+        ended,
+        Some(TransactionEnd::Superseded),
+        "the first transaction ended as {ended:?} rather than named superseded: a caller waiting on it has nothing \
+         to match on"
+    );
+    let published = app.world_mut().resource_mut::<PreparedSessionRegistry>().publish(&first);
+    assert!(
+        published.is_none(),
+        "the superseded transaction published in the shipped app ({published:?}): a generation nobody admitted"
+    );
 
     use ambition_platformer2d::platformer::lifecycle::{session_root_for_scope, SessionScopeId};
 
@@ -3011,95 +2698,6 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     );
 }
 
-/// ⛔⛤ **REVIEW FINDING 2: AN INNER PUBLICATION MUST NOT RELEASE AN OUTER ONE'S
-/// INVISIBILITY.**
-///
-/// A candidate ROOM inside a candidate SESSION is hidden for two independent
-/// reasons. With a unit `InactiveCandidate` those were the same component, so the
-/// room's own `publish_candidate` — which succeeds well before the shell decides
-/// anything — removed the SESSION's barrier with it, and the candidate session's
-/// room roots became visible to ordinary gameplay queries while the route was
-/// still pending.
-///
-/// ⚠ **IT IS NOT ENOUGH THAT NOTHING CURRENTLY LOOKS IN THAT INTERVAL.** That
-/// makes correctness depend on "nothing interesting happens between inner
-/// publication and outer publication" rather than on representing the nesting,
-/// and it does not survive `session -> region -> room`.
-///
-/// ⭐ The window is real and measurable on a COLD app: the first room publishes
-/// around frame 2 and the session starts around frame 12.
-#[test]
-fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
-    app.update();
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: ShellRouteId::new("ambition_gameplay"),
-        request: None,
-    });
-
-    // Every frame from the room's verdict to the session's start, an ORDINARY
-    // query — one with no `Allow<InactiveCandidate>` — must see nothing the
-    // candidate owns.
-    let mut room_published_at = None;
-    let mut session_started_at = None;
-    let mut worst: Option<(usize, usize)> = None;
-    let mut window = crate::common::ActivationWindow::new("ambition_gameplay");
-    for frame in 0.. {
-        if window.closed(&app) {
-            break;
-        }
-        app.update();
-        let published = app
-            .world()
-            .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
-            .is_some_and(|verification| verification.published);
-        if published && room_published_at.is_none() {
-            room_published_at = Some(frame);
-        }
-        let live = app
-            .world()
-            .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
-            .and_then(
-                ambition_platformer2d::platformer::lifecycle::ActiveSessionScope::current,
-            );
-        if live.is_some() && session_started_at.is_none() {
-            session_started_at = Some(frame);
-        }
-        // Before the session is live, NOTHING it owns may answer an ordinary
-        // query. `population` is exactly such a query.
-        if session_started_at.is_none() {
-            let visible = {
-                let world = app.world_mut();
-                let mut query = world.query::<&ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>();
-                query.iter(world).count()
-            };
-            if visible > 0 && worst.is_none() {
-                worst = Some((frame, visible));
-            }
-        }
-    }
-
-    // ⭐ THE PREMISE: the window this arm is about actually opened.
-    let (published_at, started_at) = (
-        room_published_at.expect("the candidate's first room never published"),
-        session_started_at.expect("the session never started"),
-    );
-    assert!(
-        started_at > published_at,
-        "the room published at frame {published_at} and the session started at \
-         {started_at}, so there is no interval between the inner verdict and the \
-         outer one and this arm says nothing"
-    );
-    assert_eq!(
-        worst, None,
-        "⛔ AN INNER PUBLICATION RELEASED THE CANDIDATE SESSION'S INVISIBILITY. \
-         Ordinary gameplay queries saw session-owned entities while the route was \
-         still pending (room published at frame {published_at}, session started \
-         at {started_at})"
-    );
-}
-
 /// ⛔⛤ **THE BEHAVIOURAL HALF OF REVIEW FINDING 2 / AUDIT FINDING 3, OWED SINCE
 /// 2026-09-15 AND PAID HERE.**
 ///
@@ -3230,47 +2828,6 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
     );
 }
 
-/// ⛔⛤ **THE PREREQUISITE THAT MAKES CANDIDATE CONSTRUCTION SAFE, ASKED OF THE
-/// SHIPPED COMPOSITION — 2026-09-15 AUDIT, FINDING 4.**
-///
-/// `InactiveCandidate` hides an entity ONLY because
-/// `register_inactive_candidate_filter` made it a bevy disabling component.
-/// Without that call the marker is an ordinary inert component: every root the
-/// room bracket stamps is stamped, and every one of them is LIVE — a half-built
-/// room participating in the running world while it is being validated, and
-/// silently.
-///
-/// ⛔⛔ **AND THE GUARD FOR IT DID NOT EXIST.** `ambition_platformer2d_runtime`
-/// names `the_shipped_app_hides_candidates_before_they_are_verified` in a
-/// comment beside the registration, as the thing that would catch its removal.
-/// MEASURED 2026-09-15: a repo-wide grep finds that name in exactly ONE place —
-/// that comment. **A test cited by a comment is not a test**, and a `//` comment
-/// is not scanned by the citation gate, so the claim had been standing
-/// unchallenged.
-///
-/// ⭐ **THIS IS THE PREFLIGHT, AND ITS MOMENT IS APP BUILD.** The audit asks for
-/// prerequisites checked *before any candidate spawn can be queued*; the
-/// prerequisite is a property of the WORLD, established once at composition
-/// build, and that is strictly earlier than any command a room queues.
-/// `transaction::open`'s refusal remains the backstop for a hand-built world —
-/// and `a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate` now
-/// asserts that backstop leaves nothing standing.
-#[test]
-fn the_shipped_app_hides_candidates_before_they_are_verified() {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
-    app.update();
-    assert!(
-        ambition_platformer2d::platformer::construction::inactive_candidate_filter_installed(
-            app.world_mut()
-        ),
-        "⛔ THE SHIPPED COMPOSITION DOES NOT HIDE CANDIDATES. `InactiveCandidate` \
-         is not a disabling component in this world, so every root the room \
-         bracket calls invisible is LIVE while it is being validated, and a \
-         REFUSED room is visible debris rather than a drop"
-    );
-}
-
 /// How many `RoomLoaded` messages this composition has published since the arm
 /// installed the counter.
 #[derive(bevy::prelude::Resource, Default)]
@@ -3293,551 +2850,9 @@ fn live_scope(
         .and_then(ambition_platformer2d::platformer::lifecycle::ActiveSessionScope::current)
 }
 
-/// ⛔⛤ **A10 NESTED ENTITY VISIBILITY WITHOUT NESTING PUBLICATION EFFECTS —
-/// 2026-09-15 HOLISTIC AUDIT, FINDING 1.**
-///
-/// A candidate session's first room reaches its own verdict and admits its own
-/// population while the session around it is still hidden and still refusable.
-/// That is correct. What was not correct is that the same success arm then did
-/// everything the room owed the world OUTSIDE its population — retired declared
-/// predecessors, applied custody handoffs, replaced the world-defining state,
-/// and wrote a `RoomLoaded` carrying nothing but a room id.
-///
-/// ⚠ **`RoomLoaded` ALONE BREAKS THE INVARIANT, ON THE SHIPPED HANDOFF.**
-/// `FreshAttempt` treats any `RoomLoaded` as a fresh attempt, and production's
-/// `void_pending_player_hits_at_lifecycle_boundaries` answers it by clearing
-/// `PendingPlayerHitEvents` — rollback-registered and checksummed. MEASURED in
-/// the world log before the fix: on a route handoff B's room published at frame
-/// 242 while A was still the live session, which activated at 243. A candidate
-/// that then refused would have left A playable but NOT unchanged, and unchanged
-/// is exactly what the last-good-world invariant promises.
-///
-/// ⭐ **THE SUBJECT IS ASSERTED TO EXIST BEFORE ITS ABSENCE IS.**
-/// `publications_holding_frozen_effects` counts the state the fix creates, so
-/// this arm fails loudly rather than passing vacuously if the candidate never
-/// reached its inner verdict inside the window.
-#[test]
-fn a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_session() {
-    use ambition_platformer2d::game_shell::ShellRequestId;
-
-    let mut app = a_running_shipped_session();
-    app.insert_resource(RoomLoadsSeen::default());
-    // ⛔⛤ **`Last`, NOT `Update` — THE POISON SAID SO.** With the counter in
-    // `Update` the reverted fix still measured ZERO escaped loads: the room
-    // publishes from a command flush inside the frame, and an `Update` reader
-    // registered afterwards does not see the message until the NEXT frame — by
-    // which time the session has been admitted and the window has closed. The
-    // instrument was reporting the absence of its own cursor position.
-    app.add_systems(bevy::prelude::Last, count_room_loads);
-    app.update();
-
-    let live_before = live_scope(&app);
-    assert!(
-        live_before.is_some(),
-        "no session is live, so there is no last-good world for a candidate to \
-         disturb and this arm says nothing"
-    );
-    let loads_before = app.world().resource::<RoomLoadsSeen>().0;
-
-    let request = ShellRequestId::new("a10-nested-effects-witness");
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: ShellRouteId::new("ambition_gameplay"),
-        request: Some(request),
-    });
-
-    // The window: B prepared and hidden, A still the live session.
-    let mut window_frames = 0usize;
-    let mut frozen_high_water = 0usize;
-    let mut loads_in_window = 0usize;
-    for _ in 0..60 {
-        app.update();
-        if live_scope(&app) != live_before {
-            break;
-        }
-        window_frames += 1;
-        frozen_high_water = frozen_high_water.max(
-            ambition_platformer2d::publication::publications_holding_frozen_effects(
-                app.world_mut(),
-            ),
-        );
-        loads_in_window = app.world().resource::<RoomLoadsSeen>().0 - loads_before;
-    }
-
-    assert!(
-        window_frames > 0,
-        "the route activated on the very first frame, so there is no interval in \
-         which a candidate is pending and this arm says nothing"
-    );
-    assert_eq!(
-        loads_in_window, 0,
-        "⛔ A ROOM PUBLISHED INSIDE A PENDING CANDIDATE SESSION ANNOUNCED ITSELF \
-         TO THE LIVE ONE. {loads_in_window} `RoomLoaded` message(s) reached the \
-         world across {window_frames} frames while session {live_before:?} was \
-         still the one being played. `FreshAttempt` reads exactly this and \
-         production clears rollback-authoritative staged hits on it, so a \
-         candidate that later refused would have changed the world it promised \
-         to leave alone"
-    );
-    // ⛔⛤ **THE PREMISE COMES SECOND, AND THE ORDER IS THE POINT.** Asserting it
-    // FIRST made the poison run fire on the premise rather than on the subject:
-    // reverting the deferral removes the frozen state, so *"no publication held
-    // frozen effects"* masked the `RoomLoaded` that was escaping one line below.
-    // A poison that fires on a vacuity guard proves the guard works and says
-    // nothing about the assertion it guards. MEASURED with `deferred = false`:
-    // this order fails on the count above.
-    assert!(
-        frozen_high_water > 0,
-        "⛔ PREMISE: no publication ever held frozen effects while the candidate \
-         session was pending across {window_frames} frames, so the zero asserted \
-         above is a claim about the WINDOW rather than about the deferral"
-    );
-
-    // ⭐ THE OTHER HALF: the notification is not LOST, it is OWED. Admission is
-    // what pays it.
-    for _ in 0..120 {
-        app.update();
-    }
-    assert_ne!(
-        live_scope(&app),
-        live_before,
-        "the candidate never became the live session, so the admission half of \
-         this arm says nothing"
-    );
-    assert!(
-        app.world().resource::<RoomLoadsSeen>().0 > loads_before,
-        "⛔ THE DEFERRED ROOM LIFECYCLE WAS NEVER PAID. The candidate session was \
-         admitted and its first room's `RoomLoaded` never reached the world, so \
-         every per-attempt reader still believes it is in the previous room"
-    );
-    assert_eq!(
-        ambition_platformer2d::publication::publications_holding_frozen_effects(
-            app.world_mut()
-        ),
-        0,
-        "a publication is still holding frozen effects after its session was \
-         admitted, so something the room owes the world is owed forever"
-    );
-}
-
-/// ⛔⛤ **FINDING 1's SECOND MANIFESTATION: A ROOM RESET `FactionRelations`.**
-///
-/// `RoomFeatureConstructionPlan::spawn` inserted
-/// `FactionRelations::default()` on every room spawn, a hidden candidate's
-/// included — an App-global resource that is rollback-registered and
-/// checksummed. So preparing candidate B rewrote live session A's combat
-/// relations before B had a verdict, let alone an admission.
-///
-/// ⚠ **IT WAS LATENT, MEASURED: every `set_hostile`/`set_mutual_hostile` in the
-/// workspace outside `Default` is in a test, so no production road makes the
-/// shipped table non-default.** This arm makes it non-default ON PURPOSE, which
-/// is the only way the reset is observable at all — and the audit's rule is that
-/// the effect must be unexpressible rather than merely unobserved.
-#[test]
-fn preparing_a_candidate_does_not_reset_the_live_sessions_faction_relations() {
-    use ambition_platformer2d::actor::ActorFaction;
-    use ambition_platformer2d::combat::targeting::FactionRelations;
-    use ambition_platformer2d::game_shell::ShellRequestId;
-
-    let mut app = a_running_shipped_session();
-    app.world_mut()
-        .resource_mut::<FactionRelations>()
-        .set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
-    app.update();
-    // ⭐ THE PREMISE: the value this arm watches really is not the default one.
-    assert!(
-        app.world()
-            .resource::<FactionRelations>()
-            .is_hostile(ActorFaction::Enemy, ActorFaction::Boss),
-        "the stance this arm watches did not take, so a later equality against \
-         the default would pass for the wrong reason"
-    );
-
-    let request = ShellRequestId::new("a10-faction-relations-witness");
-    let live_before = live_scope(&app);
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: ShellRouteId::new("ambition_gameplay"),
-        request: Some(request.clone()),
-    });
-    let mut window_frames = 0usize;
-    let mut survived_every_frame = true;
-    for _ in 0..30 {
-        app.update();
-        if ambition_platformer2d::platformer::construction::outstanding_candidates(
-            app.world_mut(),
-        ) == 0
-        {
-            continue;
-        }
-        window_frames += 1;
-        survived_every_frame &= app
-            .world()
-            .resource::<FactionRelations>()
-            .is_hostile(ActorFaction::Enemy, ActorFaction::Boss);
-    }
-
-    assert!(
-        window_frames > 0,
-        "no candidate was ever outstanding, so nothing was constructed off to the \
-         side and this arm says nothing"
-    );
-    assert!(
-        survived_every_frame,
-        "⛔ CONSTRUCTING A CANDIDATE ROOM RESET THE LIVE SESSION'S \
-         `FactionRelations`. The stance this arm set on the session that was \
-         PLAYING was gone while a candidate nobody had admitted was being built, \
-         and the table is rollback-registered and checksummed"
-    );
-
-    // ⚠ **AND THE CANCEL VARIANT THE AUDIT ASKS FOR DOES NOT BELONG ON THIS ARM
-    // — MEASURED, NOT ASSUMED.** I extended it with a production
-    // `ShellCommand::CancelPending` and an assertion that A's scope was
-    // unchanged, and it failed with `Some(SessionScopeId(1)) != Some(0)`: on a
-    // WARM handoff the route activates within the window and the candidate is
-    // ADMITTED before a cancellation issued from the test can win the race. So
-    // the arm would have been asserting about an admitted session while claiming
-    // to be about an abandoned one.
-    //
-    // ⇒ The cancellation road's witness is
-    // `a_candidate_session_whose_route_is_cancelled_is_discarded`, which starts
-    // COLD — the pending window is wide there and narrow here, which is itself
-    // the measured fact. This arm keeps the half it can state honestly: the
-    // stance survived every frame in which a candidate existed, admitted or not.
-    let _ = (request, live_before);
-}
-
-/// ⛔⛤ **REVIEW FINDING 2: THE CANDIDATE'S MINTED DESCRIPTIONS ARE ITS OWN.**
-///
-/// `OccurrenceContinuity` needs two descriptors to rebuild a runtime-minted
-/// occurrence: the ledger row saying WHERE it is, and the minted description
-/// saying WHAT it is. The candidate carried its own ledger and then read the LIVE
-/// `MintedItemBaseline` for the second half — B's whereabouts against A's
-/// descriptions, a mixed-session durable horizon.
-///
-/// ⛔⛤ **THE POSITIVE HALF IS GUARANTEED STRUCTURALLY, NOT BY THIS ARM, AND THAT
-/// IS DELIBERATE.** `PlatformerSessionBuilder` no longer HOLDS the live
-/// `AuthoredOccurrences` or `MintedItemBaseline` — both fields are deleted, and
-/// the compiler reported them dead the moment candidate construction stopped
-/// reading them. "Candidate construction reads a live durable resource" is not a
-/// mistake that type can express any more, which is stronger than a test.
-///
-/// ⚠ **AND I TRIED TO WITNESS IT BEHAVIOURALLY AND WITHDREW THE ARM.** A save
-/// fixture that names a runtime mint and expects the candidate's hidden first
-/// room to rebuild it did not reach its subject: the mint was reconstructed under
-/// NEITHER baseline, so the arm could not tell the fix from the defect. Making it
-/// real needs a save whose ledger, custody and minted rows together describe a
-/// mint the start room actually reinstates — a fixture job, not an assertion. An
-/// arm that passes without reaching its subject is worse than no arm.
-///
-/// ⇒ What this DOES witness is the half that is observable: preparing a candidate
-/// installs nothing over the playing session's minted baseline.
-#[test]
-fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one() {
-    use ambition_platformer2d::persistence::save_data::PersistedMintedItem;
-
-    let mut app = a_running_shipped_session();
-    let minted_id = "minted:a10_candidate_horizon_mint";
-    let id =
-        ambition_platformer2d::platformer::sim_id::SimId::from_snapshot(minted_id.to_string());
-
-    // A's baseline cannot describe M; B's save can. If preparing B installs B's
-    // horizon process-wide — which is what finding 1 was about, in the resource
-    // finding 2 added — A's baseline learns about M.
-    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(app.world_mut()).unwrap()
-        .adopt(Default::default());
-    {
-        let mut save = app
-            .world_mut()
-            .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
-        save.0.set_minted_items(vec![PersistedMintedItem {
-            occurrence: minted_id.to_string(),
-            parent: "placement:ground_gun_sword".to_string(),
-            sequence: 1,
-            held_item: "ground_gun_sword".to_string(),
-        }]);
-    }
-    assert!(
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
-            .description_of(&id)
-            .is_none(),
-        "the premise: A's live baseline does not describe this mint"
-    );
-
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: ShellRouteId::new("ambition_gameplay"),
-        request: None,
-    });
-    for _ in 0..3 {
-        app.update();
-    }
-
-    assert!(
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
-            .description_of(&id)
-            .is_none(),
-        "⛔ PREPARING A CANDIDATE INSTALLED ITS MINTED BASELINE OVER THE PLAYING \
-         SESSION'S. The candidate is not admitted; its durable horizon belongs to \
-         it until adoption"
-    );
-}
-
-/// ⛔⛤ **A SUPERSEDED TRANSACTION CANNOT PUBLISH — IN THE COMPOSED HOST.**
-///
-/// The A-supersedes-B hold race had three witnesses and all three hand-built a
-/// `ShellRouter::default()` and registered their own catalog:
-/// `provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication`,
-/// `a_superseded_transaction_names_the_request_it_cancelled` and
-/// `superseded_load_cannot_authorize_commit`. They pin the ROUTER'S LOGIC. None
-/// of them asks the shipped composition anything, and MEASURED 2026-09-16, no
-/// `app_it` arm read `ShellEvent::PreparationRequested` or a transaction's
-/// `barrier.load_id` at all — the only `ShellEvent::` mentions in the whole
-/// integration suite were in comments. So the question *"can a superseded
-/// transaction still publish HERE"* had never been put to a real app.
-///
-/// ⭐ **THE SESSION HALF WAS ALREADY COVERED**, by
-/// `a_candidate_session_replaced_while_pending_is_discarded` above, which drives
-/// the same overlap and asserts the superseded CANDIDATE is discarded. This arm
-/// is the other half: the TRANSACTION identity, which is what a caller
-/// correlates its own request on.
-///
-/// ⚠ **THE CLAIM IS MADE BY CALLING `publish` ON THE REAL REGISTRY.** Asserting
-/// that a record is absent would test a lookup; asking the production
-/// `PreparedSessionRegistry` to publish the superseded transaction and requiring
-/// `None` tests the refusal itself.
-#[test]
-fn a_superseded_transaction_cannot_publish_in_the_shipped_app() {
-    use ambition_platformer2d::game_shell::{
-        PreparedSessionRegistry, ProviderLoadTransaction, ShellEvent, TransactionEnd,
-    };
-    use bevy::ecs::message::Messages;
-
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
-    app.update();
-    let gameplay = ShellRouteId::new("ambition_gameplay");
-
-    let mut seen: Vec<ShellEvent> = Vec::new();
-    let drain = |app: &mut bevy::prelude::App, seen: &mut Vec<ShellEvent>| {
-        if let Some(mut messages) = app.world_mut().get_resource_mut::<Messages<ShellEvent>>() {
-            seen.extend(messages.drain());
-        }
-    };
-
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay.clone(),
-        request: None,
-    });
-    // Few enough frames that the first transaction is still PENDING when the
-    // second request lands — the state that supersedes rather than adopts.
-    for _ in 0..3 {
-        app.update();
-        drain(&mut app, &mut seen);
-    }
-
-    let first: ProviderLoadTransaction = seen
-        .iter()
-        .find_map(|event| match event {
-            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
-            _ => None,
-        })
-        .expect(
-            "the shipped composition emitted no `PreparationRequested` in three frames, so \
-             there is no transaction for a second request to supersede and this arm measures \
-             nothing",
-        );
-
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: gameplay,
-        request: None,
-    });
-    for _ in 0..360 {
-        app.update();
-        drain(&mut app, &mut seen);
-    }
-
-    // ⚠ **THE PREMISE, AND WITHOUT IT "CANNOT PUBLISH" IS SATISFIED BY "NEVER
-    // EXISTED".** A second, DIFFERENT transaction must have been minted; if the
-    // router had reused the first one there would be no supersession here at all
-    // and every assertion below would pass for the wrong reason.
-    let minted: Vec<_> = seen
-        .iter()
-        .filter_map(|event| match event {
-            ShellEvent::PreparationRequested(transaction) => {
-                Some(transaction.barrier.load_id.clone())
-            }
-            _ => None,
-        })
-        .collect();
-    assert!(
-        minted.len() >= 2 && minted[0] != minted[1],
-        "the second request did not mint a fresh transaction ({minted:?}), so nothing was \
-         superseded and this arm is vacuous"
-    );
-
-    // ⛔ THE FIRST TRANSACTION ENDED, IT WAS NAMED, AND THE REASON IS SUPERSESSION.
-    let ended = seen.iter().find_map(|event| match event {
-        ShellEvent::TransactionEnded {
-            barrier, reason, ..
-        } if *barrier == first.barrier => Some(reason.clone()),
-        _ => None,
-    });
-    assert_eq!(
-        ended,
-        Some(TransactionEnd::Superseded),
-        "the shipped composition ended the first transaction as {ended:?} rather than \
-         naming it superseded. A caller waiting on its own transaction has nothing to \
-         match on for the one terminal state that produces no error at all"
-    );
-
-    // ⛔⛤ AND IT CANNOT PUBLISH. Asked of the PRODUCTION registry, not a fixture.
-    let published = app
-        .world_mut()
-        .resource_mut::<PreparedSessionRegistry>()
-        .publish(&first);
-    assert!(
-        published.is_none(),
-        "the superseded transaction published in the shipped app ({published:?}). A \
-         publication from a cancelled transaction hands the live session a generation \
-         nobody admitted"
-    );
-}
-
-/// ⛔⛤ **THE `Q132` RULING MADE THIS ARM REQUIRED RATHER THAN NICE: A CANDIDATE
-/// MUST NOT COUNT AS A CANONICAL ROOT IN THE WITNESS OF THE ONE-ROOT INVARIANT.**
-///
-/// Decided 2026-09-19 — there is exactly one canonical live `SessionRoot`, two
-/// published roots are invalid, and preparing a replacement while the current
-/// session is live is allowed *provided the candidate carries a distinct
-/// prepared identity and does not masquerade as a root*. The ruling asks for
-/// production-composition witnesses of both halves.
-///
-/// ⚠ **THE EXISTING ARM CANNOT SUPPLY THE SECOND HALF, AND THAT IS WHY THIS
-/// EXISTS.** `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-/// counts roots with an ordinary query, and `InactiveCandidate` is a DISABLING
-/// component — so a hidden candidate is excluded by construction and that arm is
-/// green whether or not one was ever prepared. It cannot tell *"the candidate
-/// road ran and was correctly invisible"* from *"no candidate was prepared at
-/// all"*: the population-blind reading `Q132` itself warned about, where "it ran
-/// and found nothing" and "it never ran" are the same string.
-///
-/// ⛔⛤ **AND THE FIRST VERSION OF THIS ARM PROVED THE MASQUERADE AND READ IT AS
-/// AGREEMENT — CORRECTED 2026-09-19 WHEN THE RULING WAS IMPLEMENTED.** It
-/// asserted `visible = 0, including hidden = 1` and called that the candidate
-/// "not counting". What those two numbers actually said is that the candidate
-/// WAS a `SessionRoot` and was merely invisible — which is the weaker claim the
-/// ruling refuses, because every construction query that legitimately says
-/// `Allow<InactiveCandidate>` saw two canonical roots for one live world.
-///
-/// ⇒ The assertion the ruling asks for is on the count INCLUDING hidden
-/// entities: at most one `SessionRoot` on every frame of the handoff, candidate
-/// or not. A prepared candidate carries `CandidateSessionRoot` instead, and
-/// that count is the anti-vacuity premise — without it, "never two" would be
-/// satisfied by a route where no replacement was ever prepared.
-///
-/// ⭐ MEASURED 2026-09-19 on this route with the representation in place:
-/// `SessionRoot` including hidden never exceeds one, and the frames before
-/// adoption hold a `CandidateSessionRoot` beside a canonical count of zero.
-///
-/// ⛔⛤ **AND THE FIRST POISON PASSED, WHICH IS A FACT ABOUT THE TREE RATHER
-/// THAN ABOUT THIS ARM.** Neutering `hide_candidate_session_root` changed
-/// nothing here: it has exactly ONE production caller
-/// (`actor_monolith/src/publication/stage.rs:1576`) and every other caller is a
-/// test. The road that hides THIS root is `SessionSpawnScope::apply_to`
-/// (`shared_tangle/src/lifecycle/session.rs:293-300`), which applies the
-/// candidate policy to every session-owned spawn — *"which is why the candidate
-/// policy lives on the scope rather than at each spawn site"*. Poisoning THAT
-/// fires both arms. ⇒ Two hiding roads exist and only one governs a session
-/// root's visibility on the shipped handoff; a reader looking for the mechanism
-/// by name would find the wrong one first.
-#[test]
-fn a_prepared_candidate_never_counts_as_a_canonical_session_root() {
-    use bevy::prelude::With;
-    type Root = ambition_platformer2d::platformer::lifecycle::SessionRoot;
-    type Candidate = ambition_platformer2d::platformer::lifecycle::CandidateSessionRoot;
-
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
-    app.update();
-
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: ShellRouteId::new("ambition_gameplay"),
-        request: None,
-    });
-
-    let mut canonical_high_water = 0usize;
-    let mut worst_frame = 0usize;
-    let mut saw_canonical = false;
-    let mut candidate_frames = Vec::new();
-    let mut window = crate::common::ActivationWindow::new("ambition_gameplay");
-    for frame in 0.. {
-        if window.closed(&app) {
-            break;
-        }
-        app.update();
-        let world = app.world_mut();
-        // ⛔ INCLUDING HIDDEN, WHICH IS THE WHOLE ASSERTION. An ordinary query
-        // cannot see a candidate at all, so counting that way answers a
-        // question about VISIBILITY when the ruling is about IDENTITY.
-        let canonical = ambition_platformer2d::platformer::construction::
-            count_matching_including_hidden_candidates::<With<Root>>(world);
-        let candidates = ambition_platformer2d::platformer::construction::
-            count_matching_including_hidden_candidates::<With<Candidate>>(world);
-        if canonical > canonical_high_water {
-            canonical_high_water = canonical;
-            worst_frame = frame;
-        }
-        if canonical == 1 {
-            saw_canonical = true;
-        }
-        if candidates > 0 {
-            candidate_frames.push((frame, canonical, candidates));
-        }
-    }
-
-    // ⚠ THE PREMISE, and without it "never two" is satisfied by "never one".
-    assert!(
-        saw_canonical,
-        "no canonical session root ever appeared in the activation window, so this measured \
-         a route that never activated rather than a handoff"
-    );
-
-    assert!(
-        canonical_high_water <= 1,
-        "frame {worst_frame} held {canonical_high_water} `SessionRoot`s counting \
-         HIDDEN entities. Two roots are invalid whether or not one of them is \
-         visible: a replacement may be PREPARED while the current session is \
-         live, but it carries `CandidateSessionRoot` until it is adopted and must \
-         not stand as a second canonical root in the meantime"
-    );
-
-    // ⛔ THE PREMISE THE CANONICAL COUNT CANNOT SUPPLY. "At most one root" is
-    // trivially true of a route that never prepared a replacement, so the arm
-    // has to see a candidate exist beside the count it is constraining.
-    assert!(
-        !candidate_frames.is_empty(),
-        "no frame held a `CandidateSessionRoot`, so the count above is green for \
-         an unknown reason — either the candidate road did not run, or the \
-         candidate is carrying `SessionRoot` again and the count is one because \
-         the two are being conflated. Both are the defect this arm exists to \
-         separate"
-    );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // CANDIDATE-GENERATION-ORDER: the candidate is prepared against ITS audio.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/// The shipped app, activated on its gameplay route and settled.
-fn app_playing_gameplay() -> bevy::prelude::App {
-    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.finish();
-    app.update();
-    app.world_mut().write_message(ShellCommand::ReplaceWith {
-        route: ShellRouteId::new("ambition_gameplay"),
-        request: None,
-    });
-    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
-    app
-}
 
 fn provider_audio(app: &bevy::prelude::App) -> (bool, bool) {
     let catalogs = app
@@ -3850,139 +2865,113 @@ fn provider_audio(app: &bevy::prelude::App) -> (bool, bool) {
     )
 }
 
-/// ⛔⛤ **A CANDIDATE THAT DROPS A PROVIDER'S WHOLE MUSIC OR SFX FRAGMENT IS
-/// REFUSED BY ITS OWN PREPARATION, AND THE LIVE SESSION KEEPS ITS AUDIO.**
-///
-/// N has Ambition's music and SFX. N+1 stops declaring one registry. The
-/// provider EXPECTS both (`with_music`, `with_procedural_sfx`), so a preparation
-/// that sees N+1's audio fails with "Provider music is not ready". Preparation
-/// used to read the App's registry, which is N until the commit, found the
-/// fragment, admitted the session, and the commit then published a catalog with
-/// no music.
-///
-/// ⭐ Nothing here fakes the boundary: the request, the shell's lifecycle and
-/// the provider's preparation all run as in the game. The control below edits
-/// the SAME registry without dropping it and activates, so the refusal is about
-/// presence and not about the audio domain being unreloadable.
-#[test]
-fn a_candidate_that_drops_a_providers_audio_is_refused_and_the_live_audio_survives() {
-    for (omitted, what) in [
-        ("audio/sfx_registry.ron", "SFX"),
-    ] {
-        let mut app = app_playing_gameplay();
-        assert_eq!(
-            provider_audio(&app),
-            (true, true),
-            "the premise: N carries both of the provider's audio registries"
-        );
-        let live_activation = activation_id(&app).expect("a live session");
-        let base = ambition_content::pack::selected(app.world())
-            .expect("a selection")
-            .fingerprint;
+/// The reload holds still standing on the gameplay route (`content-publication:`
+/// ones; the load presentation keeps its own ready-hold while a failure is on
+/// screen).
+fn reload_holds(app: &bevy::prelude::App) -> Vec<String> {
+    app.world()
+        .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+        .held(&ShellRouteId::new("ambition_gameplay"))
+        .iter()
+        .map(|hold| format!("{hold:?}"))
+        .filter(|hold| hold.contains("content-publication:"))
+        .collect()
+}
 
-        let candidate = std::sync::Arc::new(
-            ambition_content::pack::compile_pack_omitting(&[omitted])
-                .expect("a pack that stops declaring one registry compiles"),
-        );
-        assert_ne!(candidate.fingerprint, base, "the premise: N+1 differs from N");
+/// ⛔⛤ **A CANDIDATE ITS OWN PREPARATION REFUSES PUBLISHES NOTHING, AND THE
+/// LIVE SESSION KEEPS EVERY FAMILY IT HAD.**
+///
+/// The provider EXPECTS its SFX and its adaptive cues, so a preparation that
+/// sees a candidate without one fails ("... is not ready"). Preparation reads
+/// the CANDIDATE's audio: read from the App's registry, which is N until the
+/// commit, it would find the fragment, admit the session, and the commit would
+/// publish a catalog without it. Nothing here fakes the boundary. On one
+/// session:
+///
+/// 1. The candidate drops the SFX registry and edits the goblin cue binding,
+///    the lab's cutscene banner and the first quest's title, with the player
+///    on that quest's second step: none of it is published, the player keeps
+///    their place, the selection stays N and the reload's hold is released.
+/// 2. A candidate that drops the adaptive cues is refused the same way.
+///
+/// The control is `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`,
+/// where the same families, edited and not dropped, activate.
+#[test]
+fn a_candidate_its_preparation_refuses_leaves_every_live_family_at_n() {
+    let mut app = a_running_shipped_session();
+    advance_first_steps_one_step(&mut app);
+    let audio_before = provider_audio(&app);
+    assert!(audio_before.1, "the premise: N carries the provider's SFX registry");
+    #[cfg(feature = "audio")]
+    assert_eq!(goblin_binding(&app).1, "intro", "the premise: N starts the goblin cue on its intro");
+    assert_eq!(lab_banner(&app), "// cutscene proof", "the premise: N's banner");
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let request_and_settle = |app: &mut bevy::prelude::App,
+                              candidate: std::sync::Arc<ambition_platformer2d::content::PreparedContentPack>,
+                              what: &str| {
+        assert_ne!(candidate.fingerprint, base, "{what}: the premise: N+1 differs from N");
         let outcome = ambition_content::reload::request_reload(
             app.world_mut(),
-            ambition_content::CandidateGeneration::prepared_against(
-                std::sync::Arc::clone(&candidate),
-                Some(base),
-            ),
+            ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
         );
         assert!(
             matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
-            "dropping the {what} registry was refused at REQUEST time, so the \
-             candidate-preparation question this arm asks never arises: {outcome:?}"
+            "{what}: refused at REQUEST time, so the preparation question never arises: {outcome:?}"
         );
-        step_until_the_generation_settles(&mut app);
-
+        step_until_the_generation_settles(app);
         assert_eq!(
-            activation_id(&app),
+            activation_id(app),
             Some(live_activation),
-            "⛔ A CANDIDATE WITHOUT THE PROVIDER'S {what} ACTIVATED: its preparation \
-             was answered from the App's audio, which is still N"
+            "{what}: ⛔ THE CANDIDATE ACTIVATED: its preparation was answered from the App's audio, which is still N"
         );
         assert_eq!(
-            provider_audio(&app),
-            (true, true),
-            "⛔ A REFUSED CANDIDATE CHANGED THE LIVE AUDIO CATALOG"
-        );
-        assert_eq!(
-            ambition_content::pack::selected(app.world())
-                .expect("a selection")
-                .fingerprint,
+            ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
             base,
-            "a refused candidate became the App's selection"
+            "{what}: a refused candidate became the App's selection"
         );
-        assert!(
-            ambition_content::reload::pending_pack(app.world()).is_none(),
-            "a refused candidate is still pending"
-        );
-        let held = app
-            .world()
-            .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
-            .held(&ShellRouteId::new("ambition_gameplay"));
-        // The load presentation keeps its own ready-hold while the failure is
-        // on screen; the reload's holds are the `content-publication:` ones.
-        let leaked: Vec<_> = held
-            .iter()
-            .filter(|hold| format!("{hold:?}").contains("content-publication:"))
-            .collect();
-        assert!(leaked.is_empty(), "a refused candidate's reload hold outlived it: {leaked:?}");
-    }
-}
-
-/// The control for the arm above: the SAME registry, edited and not dropped,
-/// activates and publishes. Without it the refusal could be the audio domain
-/// being unreloadable, or a harness that never activates anything.
-#[test]
-fn a_candidate_that_edits_a_providers_audio_activates_and_publishes_it() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world())
-        .expect("a selection")
-        .fingerprint;
-    let first_frequency = |app: &bevy::prelude::App| {
-        app.world()
-            .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
-            .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
-            .expect("the provider's SFX")
-            .sfx[0]
-            .frequency
+        assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "{what}: a refused candidate is still pending");
+        assert!(reload_holds(app).is_empty(), "{what}: a refused candidate's reload hold outlived it: {:?}", reload_holds(app));
     };
-    let before = first_frequency(&app);
-    let mut edited = false;
+
+    // ── 1. without its SFX, and with three other families edited ────────────
+    let mut edited = (false, false, false);
     let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared == "audio/sfx_registry.ron" {
-                let out = text.replacen(
-                    "frequency: 460.0, frequency_end: 720.0,",
-                    "frequency: 461.0, frequency_end: 720.0,",
-                    1,
-                );
-                edited = out != text;
-                return out;
-            }
-            text
+        ambition_content::pack::compile_pack_omitting_with(&["audio/sfx_registry.ron"], |declared, text| {
+            let (from, to, flag) = match declared {
+                "audio/music_cues.ron" => (r#"starting_state: "intro""#, r#"starting_state: "wave1""#, &mut edited.0),
+                "data/cutscenes/sandbox.ron" => ("// cutscene proof", "// cutscene proof, revised", &mut edited.1),
+                "data/quests.ron" => (r#"title: "First Steps""#, r#"title: "First Steps, revised""#, &mut edited.2),
+                _ => return text,
+            };
+            let out = text.replacen(from, to, 1);
+            *flag = out != text;
+            out
         })
-        .expect("compiles"),
+        .expect("a pack that stops declaring its SFX compiles"),
     );
-    assert!(edited, "the SFX registry no longer states the edited cue");
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    assert_eq!(edited, (true, true, true), "the pack no longer states the edited (cue binding, banner, quest title)");
+    request_and_settle(&mut app, candidate, "without its SFX");
+    assert_eq!(provider_audio(&app), audio_before, "⛔ A REFUSED CANDIDATE CHANGED THE LIVE AUDIO CATALOG");
+    #[cfg(feature = "audio")]
+    assert_eq!(goblin_binding(&app).1, "intro", "⛔ A REFUSED CANDIDATE'S CUE CATALOG WAS PUBLISHED");
+    assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ A REFUSED CANDIDATE'S CUTSCENES WERE PUBLISHED");
+    assert_eq!(
+        quest_place(&app, "first_steps"),
+        Some(("First Steps".to_string(), true, 1)),
+        "⛔ A REFUSED CANDIDATE CHANGED THE QUEST BOOK OR THE PLAYER'S PLACE IN IT"
     );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
-        "{outcome:?}"
-    );
-    assert_eq!(first_frequency(&app), before, "the request published on the spot");
-    step_until_the_generation_settles(&mut app);
-    assert_ne!(activation_id(&app), Some(live_activation), "the edit never activated");
-    assert_eq!(first_frequency(&app), before + 1.0, "the edited cue was not published");
+
+    // ── 2. without its adaptive cues ─────────────────────────────────────────
+    #[cfg(feature = "audio")]
+    {
+        let candidate = std::sync::Arc::new(
+            ambition_content::pack::compile_pack_omitting(&["audio/music_cues.ron"])
+                .expect("a pack that stops declaring its cues compiles"),
+        );
+        request_and_settle(&mut app, candidate, "without its adaptive cues");
+        assert_eq!(goblin_binding(&app).1, "intro", "⛔ A REFUSED CANDIDATE CHANGED THE LIVE CUES");
+    }
 }
 
 /// A track whose file moves is played from its new file after the reload,
@@ -3990,7 +2979,7 @@ fn a_candidate_that_edits_a_providers_audio_activates_and_publishes_it() {
 #[cfg(feature = "audio")]
 #[test]
 fn a_reload_that_moves_a_tracks_file_plays_the_new_file() {
-    let mut app = app_playing_gameplay();
+    let mut app = a_running_shipped_session();
     let base = ambition_content::pack::selected(app.world())
         .expect("a selection")
         .fingerprint;
@@ -4054,264 +3043,6 @@ fn goblin_binding(app: &bevy::prelude::App) -> (String, String) {
     (binding.cue_id, binding.starting_state)
 }
 
-/// The pack with the goblin binding starting on `wave1` (and, when asked, the
-/// SFX cue's frequency edited, so a second participating family changes with it).
-#[cfg(feature = "audio")]
-fn pack_with_goblin_starting_on_wave1(
-    also_edit_sfx: bool,
-) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
-    let mut cue_edited = false;
-    let pack = ambition_content::pack::compile_pack_with(|declared, text| {
-        if declared == "audio/music_cues.ron" {
-            let out = text.replacen(r#"starting_state: "intro""#, r#"starting_state: "wave1""#, 1);
-            cue_edited = out != text;
-            return out;
-        }
-        if also_edit_sfx && declared == "audio/sfx_registry.ron" {
-            return text.replacen(
-                "frequency: 460.0, frequency_end: 720.0,",
-                "frequency: 461.0, frequency_end: 720.0,",
-                1,
-            );
-        }
-        text
-    })
-    .expect("an edited binding compiles");
-    assert!(cue_edited, "the cue file no longer states the edited binding");
-    std::sync::Arc::new(pack)
-}
-
-#[cfg(feature = "audio")]
-fn first_sfx_frequency(app: &bevy::prelude::App) -> f32 {
-    app.world()
-        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
-        .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
-        .expect("the provider's SFX")
-        .sfx[0]
-        .frequency
-}
-
-/// ⭐ **A CUE EDIT IS PLAYED, AND IT BECOMES VISIBLE AT THE ACTIVATION BOUNDARY
-/// TOGETHER WITH EVERY OTHER CHANGED FAMILY.**
-///
-/// One candidate edits the goblin lab's cue binding AND an SFX cue. Frame by
-/// frame the test records three facts: has the shell activated a new session,
-/// does the adaptive catalog state N+1, does the SFX catalog state N+1. All
-/// three must flip on the SAME frame, and not before the request's frame has
-/// passed. A cue catalog published at request time flips first; one published
-/// a frame late (an ordering edge instead of the commit) flips last.
-#[cfg(feature = "audio")]
-#[test]
-fn an_adaptive_cue_edit_is_visible_with_its_session_and_with_the_other_changed_families() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let sfx_before = first_sfx_frequency(&app);
-    assert_eq!(
-        goblin_binding(&app),
-        ("first_goblin_tune_v2".to_string(), "intro".to_string()),
-        "the premise: N starts the goblin cue on its intro"
-    );
-
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(
-            pack_with_goblin_starting_on_wave1(true),
-            Some(base),
-        ),
-    );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
-        "{outcome:?}"
-    );
-    assert_eq!(
-        goblin_binding(&app).1,
-        "intro",
-        "⛔ the request published the cue catalog on the spot"
-    );
-
-    let mut first_flip = None;
-    for frame in 0..240 {
-        app.update();
-        let seen = (
-            activation_id(&app) != Some(live_activation),
-            goblin_binding(&app).1 == "wave1",
-            first_sfx_frequency(&app) == sfx_before + 1.0,
-        );
-        if seen != (false, false, false) {
-            first_flip = Some((frame, seen));
-            break;
-        }
-    }
-    let (frame, seen) = first_flip.expect("the edit never reached the game");
-    assert_eq!(
-        seen,
-        (true, true, true),
-        "⛔ ON FRAME {frame} THE FAMILIES WERE NOT VISIBLE TOGETHER \
-         (activation, cue catalog, sfx): {seen:?}"
-    );
-}
-
-/// ⛔ **A CANDIDATE THAT CHANGES THE CUES AND IS THEN REFUSED LEAVES THE CUES
-/// AT N.**
-///
-/// N+1 starts the goblin cue on wave1 AND drops the SFX registry. The cue edit
-/// is valid, the dropped registry is refused by the candidate's own preparation
-/// (the arm above), so nothing may publish: the catalog still states `intro`,
-/// the selection is N, and the live session is the one that was running.
-#[cfg(feature = "audio")]
-#[test]
-fn a_refused_candidate_leaves_the_adaptive_cues_at_the_live_generation() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-
-    let mut cue_edited = false;
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_omitting_with(&["audio/sfx_registry.ron"], |declared, text| {
-            if declared == "audio/music_cues.ron" {
-                let out = text.replacen(r#"starting_state: "intro""#, r#"starting_state: "wave1""#, 1);
-                cue_edited = out != text;
-                return out;
-            }
-            text
-        })
-        .expect("compiles"),
-    );
-    assert!(cue_edited, "the cue file no longer states the edited binding");
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
-        "refused at request time, so the preparation arm never runs: {outcome:?}"
-    );
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
-    assert_eq!(
-        goblin_binding(&app).1,
-        "intro",
-        "⛔ A REFUSED CANDIDATE'S CUE CATALOG WAS PUBLISHED"
-    );
-    assert_eq!(
-        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
-        base,
-        "a refused candidate became the App's selection"
-    );
-}
-
-/// Identical content is a no-op, and a candidate prepared against a generation
-/// that has since moved is refused as stale, so it cannot fold its cue edit
-/// into a catalog it did not read.
-#[cfg(feature = "audio")]
-#[test]
-fn an_unchanged_or_stale_cue_candidate_publishes_nothing() {
-    let mut app = app_playing_gameplay();
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-
-    // No-op: the shipped pack again.
-    let same = std::sync::Arc::new(ambition_content::pack::compile_pack_with(|_, text| text).expect("compiles"));
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(same, Some(base)),
-    );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::Unchanged),
-        "identical content minted a generation: {outcome:?}"
-    );
-
-    // Publish a real edit, so `base` is now behind.
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(
-            pack_with_goblin_starting_on_wave1(false),
-            Some(base),
-        ),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(goblin_binding(&app).1, "wave1", "the premise: the edit published");
-    let published = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    assert_ne!(published, base);
-
-    // Stale: another cue edit, still prepared against the OLD base.
-    let stale = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared == "audio/music_cues.ron" {
-                return text.replacen(r#"starting_state: "intro""#, r#"starting_state: "wave2""#, 1);
-            }
-            text
-        })
-        .expect("compiles"),
-    );
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(stale, Some(base)),
-    );
-    assert!(
-        matches!(
-            outcome,
-            ambition_content::reload::ReloadRequest::Refused(
-                ambition_content::reload::MoveReload::StaleGeneration { .. }
-            )
-        ),
-        "a stale candidate was not refused as stale: {outcome:?}"
-    );
-    step_with_no_generation_pending(&mut app);
-    assert_eq!(goblin_binding(&app).1, "wave1", "a stale candidate changed the cue catalog");
-    assert_eq!(
-        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
-        published
-    );
-}
-
-/// ⛔⛤ **A CANDIDATE THAT DROPS THE PROVIDER'S ADAPTIVE CUES IS REFUSED BY ITS
-/// OWN PREPARATION, AND THE LIVE SESSION KEEPS ITS CUES.**
-///
-/// A pack without `audio/music_cues.ron` compiles (measured; the lowering used
-/// to claim otherwise). The provider EXPECTS adaptive cues, so a preparation
-/// that sees N+1's catalog fails with "Adaptive music is not ready". Preparation
-/// used to read the App's registry, which is N until the commit, found the
-/// catalog, admitted the session, and the commit then published a registry
-/// without it. The control is the edited-binding arm above: the same family,
-/// changed and not dropped, activates.
-#[cfg(feature = "audio")]
-#[test]
-fn a_candidate_that_drops_the_adaptive_cues_is_refused_and_the_live_cues_survive() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    assert_eq!(goblin_binding(&app).1, "intro", "the premise: N has the provider's cues");
-
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_omitting(&["audio/music_cues.ron"])
-            .expect("a pack that stops declaring its cues compiles"),
-    );
-    assert_ne!(candidate.fingerprint, base, "the premise: N+1 differs from N");
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
-        "refused at REQUEST time, so the preparation question this arm asks never arises: {outcome:?}"
-    );
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(
-        activation_id(&app),
-        Some(live_activation),
-        "⛔ A CANDIDATE WITHOUT THE PROVIDER'S ADAPTIVE CUES ACTIVATED: its preparation was \
-         answered from the App's cue catalog, which is still N"
-    );
-    assert_eq!(goblin_binding(&app).1, "intro", "⛔ A REFUSED CANDIDATE CHANGED THE LIVE CUES");
-    assert_eq!(
-        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
-        base,
-        "a refused candidate became the App's selection"
-    );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // I2/I3: the cutscene library takes part in a reload.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4332,81 +3063,6 @@ fn lab_banner(app: &bevy::prelude::App) -> String {
     }
 }
 
-/// `cutscene_lab_intro`'s banner reworded, optionally with an SFX cue edited too (a
-/// second participating family) or the SFX registry dropped (a refusal).
-fn pack_with_a_reworded_lab_banner(
-    also_edit_sfx: bool,
-    drop_sfx: bool,
-) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
-    let mut edited = false;
-    let edit = |declared: &str, text: String| {
-        if declared == "data/cutscenes/sandbox.ron" {
-            let out = text.replacen("// cutscene proof", "// cutscene proof, revised", 1);
-            edited = out != text;
-            return out;
-        }
-        if also_edit_sfx && declared == "audio/sfx_registry.ron" {
-            return text.replacen(
-                "frequency: 460.0, frequency_end: 720.0,",
-                "frequency: 461.0, frequency_end: 720.0,",
-                1,
-            );
-        }
-        text
-    };
-    let pack = if drop_sfx {
-        ambition_content::pack::compile_pack_omitting_with(&["audio/sfx_registry.ron"], edit)
-    } else {
-        ambition_content::pack::compile_pack_with(edit)
-    }
-    .expect("an edited cutscene compiles");
-    assert!(edited, "the cutscene file no longer states the edited banner");
-    std::sync::Arc::new(pack)
-}
-
-/// ⭐ **A CUTSCENE EDIT IS VISIBLE WITH ITS SESSION AND WITH EVERY OTHER CHANGED
-/// FAMILY, ON THE SAME FRAME.** The candidate rewords the lab's banner and edits
-/// an SFX cue; frame by frame the test records whether the shell activated a new
-/// session, whether the library states N+1, and whether the SFX catalog does.
-#[test]
-fn a_cutscene_edit_is_visible_with_its_session_and_with_the_other_changed_families() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let sfx_before = first_sfx_frequency_of(&app);
-    assert_eq!(lab_banner(&app), "// cutscene proof", "the premise: N's banner");
-
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(
-            pack_with_a_reworded_lab_banner(true, false),
-            Some(base),
-        ),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ the request published the library on the spot");
-
-    let mut first_flip = None;
-    for frame in 0..240 {
-        app.update();
-        let seen = (
-            activation_id(&app) != Some(live_activation),
-            lab_banner(&app) == "// cutscene proof, revised",
-            first_sfx_frequency_of(&app) == sfx_before + 1.0,
-        );
-        if seen != (false, false, false) {
-            first_flip = Some((frame, seen));
-            break;
-        }
-    }
-    let (frame, seen) = first_flip.expect("the edit never reached the game");
-    assert_eq!(
-        seen,
-        (true, true, true),
-        "⛔ ON FRAME {frame} THE FAMILIES WERE NOT VISIBLE TOGETHER (activation, cutscenes, sfx): {seen:?}"
-    );
-}
-
 fn first_sfx_frequency_of(app: &bevy::prelude::App) -> f32 {
     app.world()
         .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
@@ -4414,82 +3070,6 @@ fn first_sfx_frequency_of(app: &bevy::prelude::App) -> f32 {
         .expect("the provider's SFX")
         .sfx[0]
         .frequency
-}
-
-/// ⛔ A candidate that edits a cutscene and is then REFUSED (its SFX registry is
-/// dropped; the provider expects it) leaves the library at N: the same
-/// retention law as the audio and cue families.
-#[test]
-fn a_refused_candidate_leaves_the_cutscene_library_at_the_live_generation() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(
-            pack_with_a_reworded_lab_banner(false, true),
-            Some(base),
-        ),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
-    assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ A REFUSED CANDIDATE'S CUTSCENES WERE PUBLISHED");
-    assert_eq!(
-        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
-        base,
-        "a refused candidate became the App's selection"
-    );
-}
-
-/// Identical content is a no-op, and a candidate prepared against a generation
-/// that has since moved is refused as stale and cannot fold its edit in.
-#[test]
-fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
-    let mut app = app_playing_gameplay();
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let same = std::sync::Arc::new(ambition_content::pack::compile_pack_with(|_, text| text).expect("compiles"));
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(same, Some(base)),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Unchanged), "{outcome:?}");
-
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(
-            pack_with_a_reworded_lab_banner(false, false),
-            Some(base),
-        ),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(lab_banner(&app), "// cutscene proof, revised", "the premise: the edit published");
-
-    let stale = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared == "data/cutscenes/sandbox.ron" {
-                return text.replacen("// cutscene proof", "// cutscene proof, stale", 1);
-            }
-            text
-        })
-        .expect("compiles"),
-    );
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(stale, Some(base)),
-    );
-    assert!(
-        matches!(
-            outcome,
-            ambition_content::reload::ReloadRequest::Refused(
-                ambition_content::reload::MoveReload::StaleGeneration { .. }
-            )
-        ),
-        "a stale candidate was not refused as stale: {outcome:?}"
-    );
-    step_with_no_generation_pending(&mut app);
-    assert_eq!(lab_banner(&app), "// cutscene proof, revised", "a stale candidate changed the library");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4551,183 +3131,31 @@ fn advance_first_steps_one_step(app: &mut bevy::prelude::App) {
     );
 }
 
-/// ⭐ **A QUEST EDIT IS PLAYED FROM THE NEXT SESSION, WITH THE PLAYER'S PROGRESS,
-/// AND NEVER N'S BOOK IN THE NEW SESSION.**
+/// ⛔ **THE ACTIVATION GATE ASKS THE REQUEST-TIME QUESTIONS AGAIN WITH THE WORLD
+/// AS IT IS AT THE ACTIVATION, AND CANCELS RATHER THAN CLAMPS OR OVERWRITES.**
+/// Which precondition moved is `activation_refusal`'s answer
+/// (`reload_tests::the_activation_refusal_names_the_precondition_that_moved`);
+/// this asks the shipped shell to act on it. On one session:
 ///
-/// The registry is session state: the new session's first tick fills it from the
-/// selected pack and the save. The candidate retitles a quest AND edits an SFX
-/// cue; the player stands on the quest's second step. Frame by frame: when the
-/// shell activates the new session and the SFX catalog states N+1, the quest
-/// registry must not state N (it is empty until its first tick, then N+1), and
-/// settled it says N+1's title at the SAME place.
+/// 1. A candidate cutting `first_steps` to one step is admitted while the
+///    player is on step 0. Before it activates the player reaches step 1, and
+///    the book has no place for them: the generation is cancelled, its hold
+///    released, and the player keeps their step in the live book.
+/// 2. The control: the save moves the same way under a candidate that does not
+///    touch the quest book (a reworded banner), and it activates with the
+///    player's step.
+/// 3. Another provider replaces the cutscene row (same id) a waiting candidate
+///    rewords. The publication cannot refuse, so the gate cancels, and the
+///    foreign row is still there.
 #[test]
-fn a_quest_edit_is_played_from_the_next_session_with_the_players_progress() {
-    let mut app = app_playing_gameplay();
-    advance_first_steps_one_step(&mut app);
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let sfx_before = first_sfx_frequency_of(&app);
-    assert_eq!(quest_place(&app, "first_steps").map(|place| place.0).as_deref(), Some("First Steps"));
+fn the_activation_gate_cancels_a_generation_whose_world_moved_while_it_waited() {
+    use ambition_platformer2d::persistence::quest::QuestAdvanceEvent;
+    let mut app = a_running_shipped_session();
+    let advance = |app: &mut bevy::prelude::App, event: QuestAdvanceEvent| {
+        app.world_mut().resource_mut::<ambition_content::quest::QuestRegistry>().push_event(event);
+    };
 
-    let mut edited = (false, false);
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared == "data/quests.ron" {
-                let out = text.replacen(r#"title: "First Steps""#, r#"title: "First Steps, revised""#, 1);
-                edited.0 = out != text;
-                return out;
-            }
-            if declared == "audio/sfx_registry.ron" {
-                let out = text.replacen(
-                    "frequency: 460.0, frequency_end: 720.0,",
-                    "frequency: 461.0, frequency_end: 720.0,",
-                    1,
-                );
-                edited.1 = out != text;
-                return out;
-            }
-            text
-        })
-        .expect("compiles"),
-    );
-    assert_eq!(edited, (true, true), "the pack no longer states the edited quest title and cue");
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    assert_eq!(
-        quest_place(&app, "first_steps").map(|place| place.0).as_deref(),
-        Some("First Steps"),
-        "⛔ the request changed the live quest book"
-    );
-
-    let mut flip = None;
-    for frame in 0..240 {
-        app.update();
-        let activated = activation_id(&app) != Some(live_activation);
-        let title = quest_place(&app, "first_steps").map(|place| place.0);
-        if !activated {
-            assert_eq!(title.as_deref(), Some("First Steps"), "N's session lost its quest book early");
-            continue;
-        }
-        flip = Some((frame, first_sfx_frequency_of(&app) == sfx_before + 1.0, title));
-        break;
-    }
-    let (frame, sfx_is_new, title) = flip.expect("the edit never activated");
-    assert!(sfx_is_new, "frame {frame}: the session activated before the SFX family published");
-    assert_ne!(
-        title.as_deref(),
-        Some("First Steps"),
-        "⛔ frame {frame}: THE NEW SESSION SERVES N'S QUEST BOOK"
-    );
-    for _ in 0..10 {
-        app.update();
-    }
-    assert_eq!(
-        quest_place(&app, "first_steps"),
-        Some(("First Steps, revised".to_string(), true, 1)),
-        "the new session's quest book is not N+1's with the player's progress"
-    );
-}
-
-/// ⛔ A candidate that edits the quest book and is then REFUSED (its SFX registry
-/// is dropped) leaves the quest book, and the player's place in it, at N.
-#[test]
-fn a_refused_candidate_leaves_the_quest_book_at_the_live_generation() {
-    let mut app = app_playing_gameplay();
-    advance_first_steps_one_step(&mut app);
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let mut edited = false;
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_omitting_with(&["audio/sfx_registry.ron"], |declared, text| {
-            if declared == "data/quests.ron" {
-                let out = text.replacen(r#"title: "First Steps""#, r#"title: "First Steps, revised""#, 1);
-                edited = out != text;
-                return out;
-            }
-            text
-        })
-        .expect("compiles"),
-    );
-    assert!(edited);
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
-    assert_eq!(
-        quest_place(&app, "first_steps"),
-        Some(("First Steps".to_string(), true, 1)),
-        "⛔ A REFUSED CANDIDATE CHANGED THE QUEST BOOK OR THE PLAYER'S PLACE IN IT"
-    );
-}
-
-/// ⛔ **A QUEST BOOK THAT HAS NO PLACE FOR A RECORDED STEP IS REFUSED, NOT
-/// CLAMPED.** The same candidate (`first_steps` cut to one step) is admitted
-/// while the player is on step 0 and refused, at request time, once the save
-/// records step 1, with the live book and the staged state untouched.
-#[test]
-fn a_quest_book_with_no_place_for_a_recorded_step_is_refused() {
-    // The control: nobody has progressed, so one step is enough.
-    let mut app = app_playing_gameplay();
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(pack_with_a_one_step_first_quest(), Some(base)),
-    );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
-        "the control candidate was refused although no progress is lost: {outcome:?}"
-    );
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(
-        app.world()
-            .resource::<ambition_content::quest::QuestRegistry>()
-            .get("first_steps")
-            .map(|state| state.spec.steps.len()),
-        Some(1),
-        "the control candidate never reached the new session"
-    );
-
-    // The arm: the player is past step 0.
-    let mut app = app_playing_gameplay();
-    advance_first_steps_one_step(&mut app);
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(pack_with_a_one_step_first_quest(), Some(base)),
-    );
-    assert!(
-        matches!(
-            outcome,
-            ambition_content::reload::ReloadRequest::Refused(
-                ambition_content::reload::MoveReload::QuestBookRefused(ref why)
-            ) if why.contains("first_steps")
-        ),
-        "a quest book with no place for step 1 was not refused: {outcome:?}"
-    );
-    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "a refused candidate is pending");
-    for _ in 0..60 {
-        app.update();
-    }
-    assert_eq!(activation_id(&app), Some(live_activation), "a refused candidate activated");
-    assert_eq!(quest_place(&app, "first_steps"), Some(("First Steps".to_string(), true, 1)));
-}
-
-/// ⛔ **A SAVE THAT MOVES WHILE A GENERATION WAITS CANCELS IT, NOT CLAMPS IT.**
-/// The candidate (`first_steps` cut to one step) is admitted while the player is
-/// on step 0. Before it activates the player reaches step 1, and the book has no
-/// place for them. The activation gate asks the same question again with the
-/// save as it is then, and refuses: the session is not replaced and the player
-/// stays on their step in the live book.
-#[test]
-fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
-    let mut app = app_playing_gameplay();
+    // ── 1. the save moves under a book that has no place for it ─────────────
     let live_activation = activation_id(&app).expect("a live session");
     let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
     let outcome = ambition_content::reload::request_reload(
@@ -4739,26 +3167,11 @@ fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
         "the premise: admitted while nobody has progressed: {outcome:?}"
     );
     assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: it is in flight");
-    // The save moves under the waiting generation.
-    app.world_mut()
-        .resource_mut::<ambition_content::quest::QuestRegistry>()
-        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
+    advance(&mut app, QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
     step_until_the_generation_settles(&mut app);
-    assert_eq!(
-        activation_id(&app),
-        Some(live_activation),
-        "⛔ THE GENERATION ACTIVATED OVER A SAVE IT HAS NO PLACE FOR"
-    );
+    assert_eq!(activation_id(&app), Some(live_activation), "⛔ THE GENERATION ACTIVATED OVER A SAVE IT HAS NO PLACE FOR");
     assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the refused generation is still pending");
-    let leaked: Vec<_> = app
-        .world()
-        .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
-        .held(&ShellRouteId::new("ambition_gameplay"))
-        .iter()
-        .filter(|hold| format!("{hold:?}").contains("content-publication:"))
-        .map(|hold| format!("{hold:?}"))
-        .collect();
-    assert!(leaked.is_empty(), "the refused generation's hold outlived it: {leaked:?}");
+    assert!(reload_holds(&app).is_empty(), "the refused generation's hold outlived it: {:?}", reload_holds(&app));
     assert_eq!(
         quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
         Some((true, 1)),
@@ -4772,182 +3185,40 @@ fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
         Some(3),
         "the live book is not the one the player was admitted against"
     );
-}
 
-/// ⛔ **A PROVIDER THAT TAKES AN AMBITION CUTSCENE ID WHILE A GENERATION WAITS
-/// CANCELS IT, NOT OVERWRITTEN BY IT.** The candidate rewords `cutscene_lab_intro` and is
-/// admitted while the library holds Ambition's row. Before it activates another
-/// provider replaces that row (same id). The publication cannot refuse, so the
-/// activation gate asks the ownership question again and cancels: the foreign row
-/// is still there afterwards and the session is not replaced.
-#[test]
-fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
-    let mut app = app_playing_gameplay();
+    // ── 2. the control: the same kind of move, no quest edit ────────────────
+    let requested = request_the_banner(&mut app, "// a banner, no quest edit", false);
+    assert!(matches!(requested, ambition_content::reload::ReloadRequest::Requested { .. }), "{requested:?}");
+    advance(&mut app, QuestAdvanceEvent::EncounterCleared("goblin_encounter".to_string()));
+    step_until_the_generation_settles(&mut app);
+    assert_ne!(activation_id(&app), Some(live_activation), "a candidate with no quest edit was cancelled by a save that moved");
+    assert_eq!(lab_banner(&app), "// a banner, no quest edit", "the candidate never published");
+    assert_eq!(
+        quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
+        Some((true, 2)),
+        "the player's step did not survive the activation"
+    );
+
+    // ── 3. another provider takes the cutscene id ───────────────────────────
     let live_activation = activation_id(&app).expect("a live session");
     let requested = request_the_banner(&mut app, "// a banner the foreign row must survive", false);
     assert!(
         matches!(requested, ambition_content::reload::ReloadRequest::Requested { .. }),
         "the premise: admitted while the library held Ambition's own row: {requested:?}"
     );
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::cutscene::CutsceneLibrary>()
-        .insert(ambition_platformer2d::cutscene::CutsceneScript::new(
+    app.world_mut().resource_mut::<ambition_platformer2d::cutscene::CutsceneLibrary>().insert(
+        ambition_platformer2d::cutscene::CutsceneScript::new(
             "cutscene_lab_intro",
             vec![ambition_platformer2d::cutscene::CutsceneBeat::Banner {
                 text: "// the other provider".to_string(),
                 seconds: 1.0,
             }],
-        ));
-    // ⭐ THE REASON IS THE CUTSCENE'S, NOT THE SAVE'S. The gate used to chain both
-    // questions through one error and log every refusal as "the save moved". It
-    // asks `activation_refusal` now and logs that value, so classifying the
-    // in-flight state classifies the log line the gate emits.
-    let reason = ambition_content::reload::activation_refusal(app.world())
-        .expect("a foreign row took the id while the generation waited, and nothing refused");
-    assert!(
-        matches!(reason, ambition_content::reload::ActivationRefusal::CutsceneOwnershipChanged(ref why) if why.contains("cutscene_lab_intro")),
-        "⛔ the cutscene-ownership race was reported as {reason:?}"
-    );
-    assert!(
-        !reason.to_string().contains("save moved"),
-        "the cutscene refusal still blames the save: {reason}"
+        ),
     );
     step_until_the_generation_settles(&mut app);
-    assert_eq!(
-        activation_id(&app),
-        Some(live_activation),
-        "⛔ THE GENERATION ACTIVATED OVER ANOTHER PROVIDER'S CUTSCENE"
-    );
+    assert_eq!(activation_id(&app), Some(live_activation), "⛔ THE GENERATION ACTIVATED OVER ANOTHER PROVIDER'S CUTSCENE");
     assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the refused generation is still pending");
     assert_eq!(lab_banner(&app), "// the other provider", "⛔ THE FOREIGN ROW WAS OVERWRITTEN");
-}
-
-/// ⛔ **A STEP THE PLAYER REACHES WHILE A GENERATION WAITS IS PINNED TOO.** The
-/// candidate rewrites step 1's condition (a FUTURE step while the player is on
-/// step 0, so it is admitted: rule 3). Before it activates the player reaches
-/// step 1, which is now their current objective, and the candidate would change
-/// what they are chasing. The gate asks the compatibility question again with the
-/// save as it is then and cancels; the live book keeps the original condition.
-#[test]
-fn a_step_the_player_reaches_while_the_generation_waits_is_pinned_at_the_gate() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let mut edited = false;
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared != "data/quests.ron" {
-                return text;
-            }
-            let out = text.replacen(
-                r#"EncounterCleared("goblin_encounter")"#,
-                r#"FlagSet("test_switch_toggled")"#,
-                1,
-            );
-            edited = out != text;
-            out
-        })
-        .expect("compiles"),
-    );
-    assert!(edited, "the quest book no longer states the edited condition");
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
-        "the premise: a future step may be edited while the player is on step 0: {outcome:?}"
-    );
-    app.world_mut()
-        .resource_mut::<ambition_content::quest::QuestRegistry>()
-        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
-    step_until_the_generation_settles(&mut app);
-    assert_eq!(
-        activation_id(&app),
-        Some(live_activation),
-        "⛔ THE GENERATION ACTIVATED AND CHANGED THE OBJECTIVE THE PLAYER REACHED"
-    );
-    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the refused generation is still pending");
-    assert_eq!(
-        quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
-        Some((true, 1)),
-        "the player was moved off their step"
-    );
-}
-
-/// ⭐ THE SAVE'S REASON IS THE QUEST'S. The mirror of the cutscene arm: the same
-/// activation question, answered by the other precondition, names the quest book
-/// and the save, and does not mention a cutscene. Deterministic: the save is
-/// moved directly while the generation waits, then the in-flight state is
-/// classified before the shell gets to act on it.
-#[test]
-fn a_quest_refusal_at_activation_names_the_quest_and_the_save_not_a_cutscene() {
-    let mut app = app_playing_gameplay();
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared != "data/quests.ron" {
-                return text;
-            }
-            text.replacen(
-                r#"EncounterCleared("goblin_encounter")"#,
-                r#"FlagSet("test_switch_toggled")"#,
-                1,
-            )
-        })
-        .expect("compiles"),
-    );
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    assert!(
-        ambition_content::reload::activation_refusal(app.world()).is_none(),
-        "the premise: nothing refuses while the player is on step 0"
-    );
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-        .data_mut()
-        .set_quest(
-            "first_steps",
-            ambition_platformer2d::persistence::save_data::PersistedQuestState::InProgress,
-            1,
-        );
-    let reason = ambition_content::reload::activation_refusal(app.world())
-        .expect("the player reached the edited step and nothing refused");
-    assert!(
-        matches!(reason, ambition_content::reload::ActivationRefusal::QuestProgressIncompatible(ref why) if why.contains("first_steps")),
-        "⛔ the quest race was reported as {reason:?}"
-    );
-    assert!(!reason.to_string().contains("cutscene"), "the quest refusal blames a cutscene: {reason}");
-}
-
-/// The control for the gate's quest question: the SAME moving save under a
-/// candidate that does not touch the quest book activates. Without it the
-/// cancel above could be any cause; with it the quest question is the only
-/// thing that differs.
-#[test]
-fn a_save_that_moves_while_a_generation_without_quest_changes_waits_does_not_cancel_it() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let requested = request_the_banner(&mut app, "// a banner, no quest edit", false);
-    assert!(matches!(requested, ambition_content::reload::ReloadRequest::Requested { .. }), "{requested:?}");
-    app.world_mut()
-        .resource_mut::<ambition_content::quest::QuestRegistry>()
-        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
-    step_until_the_generation_settles(&mut app);
-    assert_ne!(
-        activation_id(&app),
-        Some(live_activation),
-        "a candidate with no quest edit was cancelled by a save that moved"
-    );
-    assert_eq!(lab_banner(&app), "// a banner, no quest edit", "the candidate never published");
-    assert_eq!(
-        quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
-        Some((true, 1)),
-        "the player's step did not survive the activation"
-    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4993,300 +3264,149 @@ fn request_the_banner(
     )
 }
 
-/// ⭐ **THE NEWEST CANDIDATE WINS, AND THE SUPERSEDED ONE NEVER BECOMES VISIBLE.**
+/// ⭐ **A NEWER SAVE ENDS THE GENERATION IN FLIGHT, AND ONLY THE NEWEST DISK
+/// STATE IS EVER SEEN.** Each time a candidate A (a reworded banner) is
+/// requested and in flight; then, on one session:
 ///
-/// Candidate A is in flight (requested, adopted, not yet activated) when B is
-/// requested. A is cancelled; B activates alone. Frame by frame the library's
-/// banner is read, and A's text must never be seen; the shell activates exactly
-/// one new session (B's), and B's second family (an SFX cue) arrives with it.
+/// 1. The content goes back to what is running (a revert): A is cancelled,
+///    nothing replaces it, and the game never leaves N.
+/// 2. The author saves B, which breaks the content graph: the lab's entry
+///    cutscene is renamed (the room's binding would silently never play) and a
+///    quest step names a boss that does not exist. B is refused by the judge
+///    startup runs (`validate_content_graph` against the LDtk project the App
+///    plays, so the shipped app must install that project or the judge is
+///    skipped), the refusal names both faults, and A, which described a disk
+///    that no longer exists, is cancelled.
+/// 3. The author saves B, a valid edit: A is cancelled with its activation gate
+///    forgotten, and B activates alone with its second family (an SFX cue).
+///
+/// A's banner is never seen on any frame.
 #[test]
-fn a_newer_candidate_supersedes_the_one_in_flight_and_the_old_one_is_never_seen() {
-    let mut app = app_playing_gameplay();
+fn a_newer_save_ends_the_generation_in_flight_and_the_old_one_is_never_seen() {
+    let mut app = a_running_shipped_session();
     let live_activation = activation_id(&app).expect("a live session");
     let sfx_before = first_sfx_frequency_of(&app);
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    // Step until the shell has no transaction in flight and `done` holds, then
+    // a few frames more, holding on each that the banner is never `never`.
+    let step_until_settled = |app: &mut bevy::prelude::App, never: &str, done: &dyn Fn(&bevy::prelude::App) -> bool| {
+        let started = std::time::Instant::now();
+        let mut after = 0;
+        while after < 10 {
+            assert!(started.elapsed() < crate::common::ACTIVATION_CEILING, "the shell did not settle in {:?}", started.elapsed());
+            app.update();
+            assert_ne!(lab_banner(app), never, "⛔ A CANDIDATE THAT WAS ENDED HAD ITS CUTSCENES PUBLISHED");
+            let done = done(app);
+            if app.world().resource::<ShellRouter>().pending.is_none() && done {
+                after += 1;
+            }
+        }
+    };
+    let request_a = |app: &mut bevy::prelude::App, text: &'static str| {
+        let a = request_the_banner(app, text, false);
+        assert!(matches!(a, ambition_content::reload::ReloadRequest::Requested { .. }), "{a:?}");
+        app.update();
+        assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: A is in flight");
+    };
 
+    // ── 1. a revert ──────────────────────────────────────────────────────────
+    request_a(&mut app, "// A, which is reverted");
+    let live = std::sync::Arc::new(ambition_content::pack::compile_pack_with(|_, text| text).expect("compiles"));
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(live, Some(base)),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::CancelledInFlight { .. }), "{outcome:?}");
+    step_until_settled(&mut app, "// A, which is reverted", &|_| true);
+    assert_eq!(activation_id(&app), Some(live_activation), "the reverted candidate's session activated");
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the reverted candidate is still pending");
+
+    // ── 2. a save that breaks the content graph ─────────────────────────────
+    request_a(&mut app, "// A, which the refused save replaces");
+    let mut edited = (false, false);
+    let broken = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            let (from, to, flag) = match declared {
+                "data/cutscenes/sandbox.ron" => {
+                    (r#"id: "cutscene_lab_intro","#, r#"id: "cutscene_lab_intro_renamed","#, &mut edited.0)
+                }
+                "data/quests.ron" => (r#"BossDefeated("clockwork_warden")"#, r#"BossDefeated("no_such_boss")"#, &mut edited.1),
+                _ => return text,
+            };
+            let out = text.replacen(from, to, 1);
+            *flag = out != text;
+            out
+        })
+        .expect("a pack with a renamed script and an unknown boss compiles"),
+    );
+    assert_eq!(edited, (true, true), "the pack no longer states the (renamed script, edited boss)");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(broken, Some(base)),
+    );
+    let ambition_content::reload::ReloadRequest::Refused(ambition_content::reload::MoveReload::ContentGraphRefused(errors)) =
+        outcome
+    else {
+        panic!("a candidate that breaks the content graph was not refused as such: {outcome:?}");
+    };
+    assert!(
+        errors.iter().any(|error| error.contains("cutscene_lab_intro") && error.contains("unknown cutscene")),
+        "the refusal does not name the dead cutscene binding: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error.contains("first_steps") && error.contains("no_such_boss")),
+        "the refusal does not name the quest and the boss: {errors:?}"
+    );
+    assert!(
+        ambition_content::reload::pending_pack(app.world()).is_none(),
+        "⛔ A STAYED PENDING BESIDE THE REFUSAL OF THE SAVE THAT REPLACED IT"
+    );
+    step_until_settled(&mut app, "// A, which the refused save replaces", &|_| true);
+    assert_eq!(activation_id(&app), Some(live_activation), "the cancelled generation activated");
+    assert_eq!(
+        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
+        base,
+        "a refused candidate became the App's selection"
+    );
+
+    // ── 3. a newer valid save ────────────────────────────────────────────────
     let a = request_the_banner(&mut app, "// A, which is superseded", false);
     let ambition_content::reload::ReloadRequest::Requested { request: a_request, superseded: None, .. } = a else {
         panic!("A was not requested: {a:?}");
     };
-    let a_hold = ambition_platformer2d::game_shell::ShellHoldId::new(format!(
-        "content-publication:{}",
-        a_request.as_str()
-    ));
-    // Two frames: A's transaction exists and is ADOPTED (so it holds the route
-    // and has a claim), and it has not activated.
+    let a_hold =
+        ambition_platformer2d::game_shell::ShellHoldId::new(format!("content-publication:{}", a_request.as_str()));
+    // Two frames: A's transaction exists and is ADOPTED (it holds the route and
+    // has a claim), and it has not activated.
     app.update();
     app.update();
     assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: A is in flight");
-    assert!(
-        app.world()
-            .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
-            .held(&ShellRouteId::new("ambition_gameplay"))
-            .iter()
-            .any(|hold| format!("{hold:?}").contains("content-publication:")),
-        "the premise: A has been adopted and holds the route"
-    );
+    assert!(!reload_holds(&app).is_empty(), "the premise: A has been adopted and holds the route");
     assert_eq!(activation_id(&app), Some(live_activation), "the premise: A has not activated");
 
     let b = request_the_banner(&mut app, "// B, which wins", true);
     let ambition_content::reload::ReloadRequest::Requested { superseded: Some(_), .. } = b else {
         panic!("B did not supersede A: {b:?}");
     };
-
-    // A's activation gate is forgotten with A: a registration that outlives its
-    // transaction is a hold nobody will ever release.
+    // A registration that outlives its transaction is a hold nobody will ever
+    // release.
     assert!(
-        app.world()
-            .resource::<ambition_platformer2d::game_shell::ShellActivationGates>()
-            .evaluator(&a_hold)
-            .is_none(),
+        app.world().resource::<ambition_platformer2d::game_shell::ShellActivationGates>().evaluator(&a_hold).is_none(),
         "⛔ THE SUPERSEDED GENERATION'S ACTIVATION GATE WAS LEFT REGISTERED"
     );
-    let mut activations = std::collections::BTreeSet::new();
-    for _ in 0..240 {
-        app.update();
-        let banner = lab_banner(&app);
-        assert_ne!(banner, "// A, which is superseded", "⛔ THE SUPERSEDED CANDIDATE'S CUTSCENES WERE PUBLISHED");
-        activations.insert(activation_id(&app));
-    }
+    let activations = std::cell::RefCell::new(std::collections::BTreeSet::from([Some(live_activation)]));
+    step_until_settled(&mut app, "// A, which is superseded", &|app| {
+        activations.borrow_mut().insert(activation_id(app));
+        activation_id(app) != Some(live_activation)
+    });
     assert_eq!(lab_banner(&app), "// B, which wins", "the newest candidate never published");
     assert_eq!(first_sfx_frequency_of(&app), sfx_before + 1.0, "B's second family did not arrive with it");
     assert_eq!(
-        activations.len(),
+        activations.borrow().len(),
         2,
-        "the shell activated {activations:?}: the live session and B's, and no session of A's"
+        "the shell activated {:?}: the live session and B's, and no session of A's",
+        activations.borrow()
     );
     assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "a generation is still pending");
-    let held = app
-        .world()
-        .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
-        .held(&ShellRouteId::new("ambition_gameplay"));
-    let leaked: Vec<_> = held
-        .iter()
-        .filter(|hold| format!("{hold:?}").contains("content-publication:"))
-        .collect();
-    assert!(leaked.is_empty(), "a cancelled generation's hold outlived it: {leaked:?}");
-}
-
-/// A revert in flight: A is requested, then the content goes back to what is
-/// running. A is cancelled, nothing replaces it, and the game never leaves N.
-#[test]
-fn reverting_the_content_while_a_generation_is_in_flight_cancels_it() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let a = request_the_banner(&mut app, "// A, which is reverted", false);
-    assert!(matches!(a, ambition_content::reload::ReloadRequest::Requested { .. }), "{a:?}");
-    app.update();
-    assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: A is in flight");
-
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let live = std::sync::Arc::new(ambition_content::pack::compile_pack_with(|_, text| text).expect("compiles"));
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(live, Some(base)),
-    );
-    assert!(
-        matches!(outcome, ambition_content::reload::ReloadRequest::CancelledInFlight { .. }),
-        "{outcome:?}"
-    );
-    for _ in 0..240 {
-        app.update();
-        assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ THE REVERTED CANDIDATE'S CUTSCENES WERE PUBLISHED");
-    }
-    assert_eq!(activation_id(&app), Some(live_activation), "the cancelled candidate's session activated");
-    assert!(ambition_content::reload::pending_pack(app.world()).is_none());
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// I2/I3: a candidate is judged against the world that is running.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Request `candidate` against the shipped game and say what happened, with the
-/// live generation untouched afterwards.
-fn request_and_expect_a_graph_refusal(
-    candidate: std::sync::Arc<ambition_platformer2d::content::PreparedContentPack>,
-) -> Vec<String> {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let started = std::time::Instant::now();
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    eprintln!("[content-graph] the candidate was judged in {:?}", started.elapsed());
-    let ambition_content::reload::ReloadRequest::Refused(ambition_content::reload::MoveReload::ContentGraphRefused(errors)) =
-        outcome
-    else {
-        panic!("a candidate that breaks the content graph was not refused as such: {outcome:?}");
-    };
-    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "a refused candidate is pending");
-    for _ in 0..60 {
-        app.update();
-    }
-    assert_eq!(activation_id(&app), Some(live_activation), "a refused candidate activated");
-    assert_eq!(
-        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
-        base,
-        "a refused candidate became the App's selection"
-    );
-    errors
-}
-
-/// ⛔ **A CANDIDATE THAT REMOVES A CUTSCENE THE WORLD STILL NAMES IS REFUSED.**
-/// `cutscene_lab`'s `entry_cutscene` field names `cutscene_lab_intro`; the
-/// candidate renames the script, so the room's binding would silently never play
-/// (`drain_cutscene_triggers` skips a missing script). Startup refuses the same
-/// graph; the reload now asks the same judge.
-#[test]
-fn a_candidate_that_removes_a_cutscene_a_room_names_is_refused() {
-    let mut edited = false;
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared == "data/cutscenes/sandbox.ron" {
-                let out = text.replacen(r#"id: "cutscene_lab_intro","#, r#"id: "cutscene_lab_intro_renamed","#, 1);
-                edited = out != text;
-                return out;
-            }
-            text
-        })
-        .expect("a renamed script compiles"),
-    );
-    assert!(edited, "the cutscene file no longer states the renamed script");
-    let errors = request_and_expect_a_graph_refusal(candidate);
-    assert!(
-        errors.iter().any(|error| error.contains("cutscene_lab_intro") && error.contains("unknown cutscene")),
-        "the refusal does not name the dead binding: {errors:?}"
-    );
-}
-
-/// ⛔ **A CANDIDATE REFUSED AFTER ADMISSION ALSO ENDS THE GENERATION IN FLIGHT.**
-/// A is requested, then the author saves B, which breaks the content graph. B is
-/// refused, and A, which described a disk that no longer exists, is cancelled
-/// rather than left to publish an edit the newest disk state does not carry.
-#[test]
-fn a_candidate_refused_by_the_content_graph_cancels_the_generation_in_flight() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    let a = request_the_banner(&mut app, "// A, which the refused save replaces", false);
-    assert!(matches!(a, ambition_content::reload::ReloadRequest::Requested { .. }), "{a:?}");
-    app.update();
-    assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: A is in flight");
-
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let mut edited = false;
-    let broken = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared == "data/cutscenes/sandbox.ron" {
-                let out = text.replacen(r#"id: "cutscene_lab_intro","#, r#"id: "cutscene_lab_intro_renamed","#, 1);
-                edited = out != text;
-                return out;
-            }
-            text
-        })
-        .expect("a renamed script compiles"),
-    );
-    assert!(edited, "the cutscene file no longer states the renamed script");
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(broken, Some(base)),
-    );
-    assert!(
-        matches!(
-            outcome,
-            ambition_content::reload::ReloadRequest::Refused(
-                ambition_content::reload::MoveReload::ContentGraphRefused(_)
-            )
-        ),
-        "the premise: B is refused by the content graph: {outcome:?}"
-    );
-    assert!(
-        ambition_content::reload::pending_pack(app.world()).is_none(),
-        "⛔ A STAYED PENDING BESIDE THE REFUSAL OF THE SAVE THAT REPLACED IT"
-    );
-    for _ in 0..240 {
-        app.update();
-        assert_eq!(lab_banner(&app), "// cutscene proof", "⛔ THE CANCELLED GENERATION'S CUTSCENES WERE PUBLISHED");
-    }
-    assert_eq!(activation_id(&app), Some(live_activation), "the cancelled generation activated");
-}
-
-/// ⛔ **A QUEST STEP THAT NAMES A BOSS THAT DOES NOT EXIST IS REFUSED**, with the
-/// quest named, instead of becoming a step nobody can complete.
-#[test]
-fn a_candidate_whose_quest_names_a_boss_that_does_not_exist_is_refused() {
-    let mut edited = false;
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared == "data/quests.ron" {
-                let out = text.replacen(
-                    r#"BossDefeated("clockwork_warden")"#,
-                    r#"BossDefeated("no_such_boss")"#,
-                    1,
-                );
-                edited = out != text;
-                return out;
-            }
-            text
-        })
-        .expect("a quest that names an unknown boss compiles"),
-    );
-    assert!(edited, "the quest book no longer states the edited boss");
-    let errors = request_and_expect_a_graph_refusal(candidate);
-    assert!(
-        errors.iter().any(|error| error.contains("first_steps") && error.contains("no_such_boss")),
-        "the refusal does not name the quest and the boss: {errors:?}"
-    );
-}
-
-/// A pack without its quest file COMPILES (measured: `quest_specs_of` used to
-/// panic for it), so a reload can propose it. The next session starts with an
-/// empty book and does not panic in `populate_quest_registry`.
-#[test]
-fn a_candidate_without_a_quest_file_starts_the_next_session_with_no_quests() {
-    let mut app = app_playing_gameplay();
-    let live_activation = activation_id(&app).expect("a live session");
-    assert!(quest_place(&app, "first_steps").is_some(), "the premise: N has the quest");
-    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
-    let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_omitting(&["data/quests.ron"]).expect("a pack without quests compiles"),
-    );
-    let outcome = ambition_content::reload::request_reload(
-        app.world_mut(),
-        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
-    );
-    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    step_until_the_generation_settles(&mut app);
-    assert_ne!(activation_id(&app), Some(live_activation), "the candidate never activated");
-    let registry = app.world().resource::<ambition_content::quest::QuestRegistry>();
-    assert!(registry.initialized, "the new session never populated its registry");
-    assert!(registry.quests.is_empty(), "the new session kept quests the candidate does not declare");
-}
-
-/// Each cast of the shipped composition reads its body scale, hurtboxes and
-/// rig from its sheets when it is defined, so each is stated again at a sheet
-/// publication. A cast without a restater keeps a scale of the old records
-/// while its bodies are built from the new ones. The road itself:
-/// `ambition_platformer2d --features content_pack --test sheet_derived_cast`.
-#[test]
-fn each_cast_of_the_shipped_composition_is_stated_again_with_the_sheets() {
-    use ambition_platformer2d::characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA;
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    let mut expected = vec!["the Ambition cast".to_string()];
-    expected.extend(
-        app.world()
-            .resource::<ambition_platformer2d::content::live_reload::EmbeddedPackWatches>()
-            .0
-            .iter()
-            .map(|watch| watch.pack().prepared())
-            .filter(|pack| pack.schemas.keys().any(|schema| schema.0 == CHARACTER_CATALOG_SCHEMA))
-            .map(|pack| format!("the cast of `{}`", pack.id.0)),
-    );
-    assert!(expected.len() > 2, "the premise: the shipped composition watches the demo casts: {expected:?}");
-    let restaters = app.world().resource::<ambition_platformer2d::content::sprite_reload::SheetDerivedRestaters>();
-    let names: Vec<&str> = restaters.names().collect();
-    for cast in &expected {
-        assert!(names.contains(&cast.as_str()), "{cast} is not stated again at a sheet publication; restated: {names:?}");
-    }
+    assert!(reload_holds(&app).is_empty(), "a cancelled generation's hold outlived it: {:?}", reload_holds(&app));
 }

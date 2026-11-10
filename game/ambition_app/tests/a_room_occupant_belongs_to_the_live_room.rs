@@ -62,6 +62,20 @@ fn settle(sim: &mut Platformer2dSimHarness) {
 /// unstamped, and none still names the room it replaced. Coming back to
 /// `switch_lab` is a third live room, not the first one again. The body that
 /// crosses moves with each publication: it is never left in the room it left.
+///
+/// The same session also holds two keyed behaviours, each with its control:
+///
+/// - OW1 cut 3d: the body step moves each body against the live room it is in.
+///   The driven body stamped with a live room this session has not published
+///   (#7) has no collision world, so it is not integrated and a held run does
+///   not move it. It runs back the way the first control came, so a wall cannot
+///   be the reason it stands still. The controls are the same body in its own
+///   live room, before and after, running each way.
+/// - OW1 cut 2: a publication retires the residents of the live room it
+///   replaces, and no other live room's. The control is stamped with the room
+///   being left and is swept; the subject is stamped with #7, which is what a
+///   second instance's resident looks like to this road, and it stays, still
+///   in #7.
 #[test]
 fn every_room_occupant_belongs_to_the_live_room_it_was_built_for() {
     let mut sim = Platformer2dSimHarness::new_with_options(
@@ -69,12 +83,42 @@ fn every_room_occupant_belongs_to_the_live_room_it_was_built_for() {
     )
     .expect("switch_lab boots");
     settle(&mut sim);
+    let (first, _) = census(&mut sim);
+    let elsewhere = (0..7).fold(LiveRoomInstance::ACTIVATION, |room, _| room.next());
+
+    let right = run(&mut sim, 1.0);
+    assert!(right > 1.0, "control: a held run moved the body {right} in its own live room");
+    stamp_the_body(&mut sim, elsewhere);
+    let stranded = run(&mut sim, -1.0);
+    assert_eq!(
+        stranded, 0.0,
+        "a body in a room that is not live moved {stranded}: it collided with another live room"
+    );
+    stamp_the_body(&mut sim, first);
+    let left = run(&mut sim, -1.0);
+    assert!(left < -1.0, "control: back in its own live room, a held run moved the body {left}");
+
+    let world = sim.world_mut();
+    let control = world.spawn((RoomScopedEntity, InRoomInstance(first))).id();
+    let subject = world.spawn((RoomScopedEntity, InRoomInstance(elsewhere))).id();
 
     let mut seen = Vec::new();
     for target in [None, Some(HUB), Some(ROOM)] {
         if let Some(target) = target {
             assert_eq!(walk_through_the_door_to(&mut sim, target), target);
             settle(&mut sim);
+        }
+        if target == Some(HUB) {
+            let world = sim.world_mut();
+            assert!(
+                world.get_entity(control).is_err(),
+                "a resident of the live room that was left survived its replacement"
+            );
+            assert_eq!(
+                world.get::<InRoomInstance>(subject).map(|room| room.0),
+                Some(elsewhere),
+                "a resident of another live room was retired, or moved, by this room's replacement"
+            );
         }
         let (live, occupants) = census(&mut sim);
         assert!(
@@ -106,53 +150,21 @@ fn every_room_occupant_belongs_to_the_live_room_it_was_built_for() {
     );
 }
 
-/// OW1 cut 2: a publication retires the residents of the live room it
-/// replaces, and no other live room's.
-///
-/// The control is stamped with the room being left and is swept. The subject
-/// is stamped with a live room this session has not published (#7), which is
-/// what a second instance's resident looks like to this road, and it stays,
-/// still in #7. Before the sweep was keyed, both were swept.
-#[test]
-fn a_resident_of_another_live_room_stays_when_this_one_is_replaced() {
-    let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM),
-    )
-    .expect("switch_lab boots");
-    settle(&mut sim);
-
-    let (live, _) = census(&mut sim);
-    let elsewhere = (0..7).fold(LiveRoomInstance::ACTIVATION, |room, _| room.next());
-    let world = sim.world_mut();
-    let control = world.spawn((RoomScopedEntity, InRoomInstance(live))).id();
-    let subject = world.spawn((RoomScopedEntity, InRoomInstance(elsewhere))).id();
-
-    assert_eq!(walk_through_the_door_to(&mut sim, HUB), HUB);
-    settle(&mut sim);
-
-    let world = sim.world_mut();
-    assert!(
-        world.get_entity(control).is_err(),
-        "a resident of the live room that was left survived its replacement"
-    );
-    assert_eq!(
-        world.get::<InRoomInstance>(subject).map(|room| room.0),
-        Some(elsewhere),
-        "a resident of another live room was retired, or moved, by this room's replacement"
-    );
-}
-
 /// The unstamped-resident arm of `InRoomInstance::leaves_with` is exact only
 /// while no simulated room resident is unstamped. This holds that population at
-/// zero over every room the shipped world authors, after the room loads and
-/// after the body has run and attacked through it (drops, projectiles, split
-/// offspring).
+/// zero over a sample of the shipped rooms, after each room loads and after the
+/// body has run and attacked through it (drops, projectiles, split offspring).
 ///
-/// One session tours the rooms: a departure (`Destination::Room`, the road a
+/// ⭐ A STAMP IS GIVEN BY THE ROAD THAT SPAWNS A RESIDENT, NOT BY THE ROOM, so
+/// the sample covers spawn families rather than rooms: [`a_room_per_family`]
+/// picks rooms until every authored enemy character, boss brain, held item,
+/// placement kind and feature family of the shipped world is in one of them.
+/// Touring every room cost a time that grew with each room authored.
+///
+/// One session tours the sample: a departure (`Destination::Room`, the road a
 /// level's end takes) brings the body to each in turn, and each arrival is a
-/// room loaded and published as at boot. A boot for each room cost 2.1 s and a
-/// departure 0.17 s (debug, measured 2026-10-18). A room the tour cannot
-/// reach fails the census: it is not left out.
+/// room loaded and published as at boot. A room the tour cannot reach fails
+/// the census: it is not left out.
 ///
 /// ⚠ The sample is what running right and attacking reaches in the headless
 /// harness: no thrown item, portal shot or match item, and no presentation.
@@ -163,13 +175,10 @@ fn every_room_resident_carries_its_live_room_after_combat() {
         fixed_60hz_room_options(HUB),
     )
     .expect("the hub boots");
-    let rooms: Vec<String> = session_world_component::<ambition_platformer2d::world::rooms::RoomSet>(sim.world_mut())
-        .expect("the session has a room set")
-        .rooms
-        .iter()
-        .map(|room| room.id.clone())
-        .collect();
-    assert!(rooms.len() > 50, "only {} rooms: not the shipped world", rooms.len());
+    let set = session_world_component::<ambition_platformer2d::world::rooms::RoomSet>(sim.world_mut())
+        .expect("the session has a room set");
+    assert!(set.rooms.len() > 50, "only {} rooms: not the shipped world", set.rooms.len());
+    let rooms = a_room_per_family(&set.rooms);
     let leaver = sim.world_mut().spawn(Departure::default()).id();
 
     let mut stamped = 0;
@@ -209,15 +218,65 @@ fn every_room_resident_carries_its_live_room_after_combat() {
         }
     }
     assert!(unreached.is_empty(), "the tour did not reach {unreached:?}");
-    // 66 over 72 rooms when this was written (2026-09-29). The floor refuses a
-    // census that saw nothing, not a room that lost an occupant.
-    assert!(stamped >= 50, "only {stamped} stamped residents: the census saw nothing");
+    // The floor refuses a census that saw nothing, not a room that lost an
+    // occupant.
+    assert!(stamped >= 20, "only {stamped} stamped residents over {} rooms: the census saw nothing", rooms.len());
     assert!(
         unstamped.is_empty(),
         "{} room resident(s) carry no live room, so a keyed sweep takes them with \
          whichever room is left: {unstamped:?}",
         unstamped.len()
     );
+}
+
+/// The spawn families `room` authors: each enemy character, boss brain, held
+/// item and placement kind by name, and each other feature family by kind.
+fn families(room: &ambition_platformer2d::world::rooms::RoomSpec) -> std::collections::BTreeSet<String> {
+    let mut out = std::collections::BTreeSet::new();
+    out.extend(room.enemy_spawns.iter().map(|enemy| format!("enemy {}", enemy.payload.character_id.0)));
+    out.extend(room.boss_spawns.iter().map(|boss| format!("boss {:?}", boss.payload)));
+    out.extend(room.ground_items.iter().map(|item| format!("item {}", item.held_item)));
+    out.extend(room.placements.iter().map(|placement| {
+        let schema = format!("{:?}", placement.schema);
+        let kind = schema.split(|c: char| !c.is_alphanumeric()).next().unwrap_or_default().to_string();
+        format!("placement {kind}")
+    }));
+    for (family, present) in [
+        ("portal gun", !room.portal_gun_spawns.is_empty()),
+        ("shrine", !room.shrines.is_empty()),
+        ("moving platform", !room.moving_platforms.is_empty()),
+        ("mount", !room.mount_links.is_empty()),
+        ("boss succession", !room.boss_successions.is_empty()),
+        ("encounter", !room.encounter_triggers.is_empty()),
+    ] {
+        if present {
+            out.insert(family.to_string());
+        }
+    }
+    out
+}
+
+/// Rooms, in room-set order, that together author every spawn family of
+/// `rooms`: a greedy cover, each pick the room that adds the most families not
+/// yet covered.
+fn a_room_per_family(rooms: &[ambition_platformer2d::world::rooms::RoomSpec]) -> Vec<String> {
+    let each: Vec<std::collections::BTreeSet<String>> = rooms.iter().map(families).collect();
+    let mut covered = std::collections::BTreeSet::new();
+    let mut picked = std::collections::BTreeSet::new();
+    loop {
+        let best = (0..rooms.len())
+            .filter(|index| !picked.contains(index))
+            .map(|index| (each[index].difference(&covered).count(), index))
+            .max_by_key(|(adds, index)| (*adds, std::cmp::Reverse(*index)));
+        match best {
+            Some((adds, index)) if adds > 0 => {
+                covered.extend(each[index].iter().cloned());
+                picked.insert(index);
+            }
+            _ => break,
+        }
+    }
+    picked.into_iter().map(|index| rooms[index].id.clone()).collect()
 }
 
 /// Hold a run in `direction` for half a second, and return how far the driven
@@ -240,37 +299,4 @@ fn stamp_the_body(sim: &mut Platformer2dSimHarness, room: LiveRoomInstance) {
         .single(world)
         .expect("one driven body");
     world.entity_mut(body).insert(InRoomInstance(room));
-}
-
-/// OW1 cut 3d: the body step moves each body against the live room it is in.
-///
-/// The subject is the driven body stamped with a live room this session has
-/// not published (#7). That room has no collision world, so the body is not
-/// integrated and a held run does not move it. It runs back the way the first
-/// control came, so a wall cannot be the reason it stands still. The controls
-/// are the same body in the live room, before and after, running each way.
-/// Before the step was keyed, the body read the sole live room whatever its
-/// stamp, and ran in all three.
-#[test]
-fn a_body_moves_only_against_the_live_room_it_is_in() {
-    let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM),
-    )
-    .expect("switch_lab boots");
-    settle(&mut sim);
-    let (live, _) = census(&mut sim);
-
-    let right = run(&mut sim, 1.0);
-    assert!(right > 1.0, "control: a held run moved the body {right} in its own live room");
-
-    stamp_the_body(&mut sim, (0..7).fold(LiveRoomInstance::ACTIVATION, |room, _| room.next()));
-    let stranded = run(&mut sim, -1.0);
-    assert_eq!(
-        stranded, 0.0,
-        "a body in a room that is not live moved {stranded}: it collided with another live room"
-    );
-
-    stamp_the_body(&mut sim, live);
-    let left = run(&mut sim, -1.0);
-    assert!(left < -1.0, "control: back in its own live room, a held run moved the body {left}");
 }

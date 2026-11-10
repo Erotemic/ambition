@@ -9,7 +9,9 @@ are one geography with a gate each.
 rooms in `science.ldtk` and checks that no room id is in two world files.
 Change the script, not the specs. Run it from `tools/ambition_ldtk_tools`
 with that tool's `.venv`, after `../gnu_ton_gravity/make_specs.py --apply`
-(the spoke and the works name each other's doors).
+(the spoke and the works name each other's doors), and then
+`../scenery_overlay.py --apply`, which puts back the decks' scenery art and
+signs (the rooms are older than their art).
 
 ## The rooms
 
@@ -19,14 +21,23 @@ with that tool's `.venv`, after `../gnu_ton_gravity/make_specs.py --apply`
 | `orbital_station_docking_bay` | the hauler *Remainder* in its berth, the gantry, a shuttle; Captain Reyes, Bo Lindqvist |
 | `orbital_station_observation_deck` | the viewpoint on the planet; Wen Liang, Neil onGras Turfson |
 | `orbital_station_habitation` | bunks, galley, hydroponic racks; Gus Pell |
-| `orbital_station_service_deck` | the plant, the cargo lift, the hatch of the damaged spur, the spoke; Hamid Rahimi |
+| `orbital_station_service_deck` | the plant, the hatch of the damaged spur, the spoke; Hamid Rahimi |
 | `orbital_station_damaged_spur` | the optional dangerous branch: broken deck over live cable, crawlers and mites, the breaker and a cache |
 | `orbital_station_spoke` | the walk to the gravity works, a tram over the open gap, the lower end of the works' lift |
 
-Loop: habitation, observation deck, docking bay (by its gantry), service deck
-(by the cargo lift). Shortcut: the freight lane from the gate deck to the bay,
-once customs clears the crate. The trail's shortcut is the works' lift from
-`gnu_ton_works_approach` to the end of the spoke, by the orchard.
+Two decks, one over the other, laid out as the world map shows them: on each,
+a room opens on the next through its side (no doors between rooms of a deck,
+Jon 2026-11-09). Upper deck, west to east: service deck, habitation ring,
+observation deck. Lower deck: gate deck, docking bay, tether terminus
+(`../eureka/`). Stairs join the gate deck to the ring and the bay's gantry to
+the observation deck, each pair standing over each other; the spur's hatch
+and the spoke are doors off the service deck.
+
+Loop: gate deck, habitation ring, observation deck, docking bay, and back to
+the gate deck by the freight lane once customs clears the crate. The tether
+only goes up: the way down to the planet is the gate. The trail's shortcut is
+the works' lift from `gnu_ton_works_approach` to the end of the spoke, by the
+orchard.
 
 ## The errand: consignment 0447
 

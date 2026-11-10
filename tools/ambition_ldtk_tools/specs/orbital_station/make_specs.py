@@ -12,17 +12,16 @@ file is one dimension (Jon, 2026-10-24). A long spoke joins the two on foot
 and by tram, so they are two places of one geography; each has its own gate
 (`GALACTIC` at the gate dock, `ASCENT` at the orchard).
 
-The rooms, and the way each joins the next:
+The rooms, and the way each joins the next. The station is two decks, one
+over the other: on each, a room's side opens on the next (side loading
+zones, Jon 2026-11-09: "side loading zones instead of doors"), and the
+stairs between the decks, the spur's hatch and the spoke are doors.
 
-    gate dock --(stairs)-- habitation --- observation deck
-        |                     |                  |
-    (freight lane,       service deck --(lift)-- docking bay
-     shut by customs)     |       |                  |
-        +-----------------|-------|------ (freight lane) --+
-                          |    (hatch, by pass)
-                        spoke  damaged spur
-                          |
-                    the orchard (gravity works)
+    damaged spur   service deck | habitation    | observation deck
+        (hatch, by pass)--+     |   (stairs)    |  (stairs)
+    spoke --(door)--------+     |      |        |     |
+                                | gate dock     | docking bay   | tether terminus
+                                     (freight lane, shut by customs)
 
 - `orbital_station_gate_dock`: the gate's arrival (`orbital_station_gate_arrival`)
   and a clear floor for the ring and its terminal (Agent GATE places them),
@@ -44,10 +43,11 @@ The rooms, and the way each joins the next:
   over the gap where the spoke is open to space, and the lower end of the
   works' lift (its gate is let go from inside).
 
-Cycles: habitation, service deck, docking bay and observation deck are one
-loop; the freight lane, once customs clears the crate, is a short way from
-the gate dock to the bay. The lift from the GNU-ton approach to the spoke is
-the trail's shortcut.
+Cycles: the gate dock, the habitation ring, the observation deck and the
+docking bay are one loop once customs clears the crate and the freight
+lane opens between the dock and the bay. The lift from the GNU-ton approach
+to the spoke is the trail's shortcut. There is no way down to the planet
+but the gate: the tether only goes up (Jon, 2026-11-09).
 
 The arrival is the zone of the dock's ring (GALACTIC, a ring of the gate
 network) and its terminal stands beside it.
@@ -103,16 +103,23 @@ BG = "#0E1424"
 WALL = 16
 
 #: Each room: (world_x, world_y, width, height). The station is below the
-#: gravity works in the world's layout.
+#: gravity works in the world's layout. The rooms that join by a side touch
+#: there with their floors level (`specs/check_flat_map.py`): the lower deck's
+#: floor is world y 2972 (the tether terminus's, `specs/eureka`), the upper's
+#: 1948. The stairs between them stand over each other.
 ROOMS_AT = {
-    DOCK: (0, 2400, 2240, 768),
-    BAY: (2496, 2144, 2560, 1024),
-    VIEW: (2496, 1280, 1600, 768),
-    HAB: (0, 1408, 2400, 768),
-    SERVICE: (-2496, 1280, 2240, 896),
-    SPUR: (-5312, 1280, 2560, 896),
+    DOCK: (256, 2268, 2240, 768),
+    BAY: (2496, 2012, 2560, 1024),
+    VIEW: (3392, 1244, 1600, 768),
+    HAB: (992, 1244, 2400, 768),
+    SERVICE: (-1248, 1116, 2240, 896),
+    SPUR: (-3808, 1116, 2560, 896),
     SPOKE: (-3712, 192, 3200, 640),
 }
+#: The tether's terminus, east of the bay (`specs/eureka`), and its side.
+TERMINUS, TERMINUS_WEST = "orbital_station_tether_terminus", "terminus_west"
+#: How high a side opening between two decks is.
+OPENING = 128
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +159,12 @@ def door(zone, name, x, floor, to_room, to_zone, bidirectional=True):
                   target_room=to_room, target_zone=to_zone, bidirectional=bidirectional)
 
 
+def edge(zone, name, x, floor, to_room, to_zone, h=OPENING):
+    """A side loading zone 16 wide at `x`, from `floor` up `h`."""
+    return entity("LoadingZone", x, floor - h, 16, h, id=zone, name=name, activation="EdgeExit",
+                  target_room=to_room, target_zone=to_zone, bidirectional=True)
+
+
 def landing(zone, name, x, floor):
     """A door that only receives: an arrival with no way out of its own."""
     return entity("LoadingZone", x, floor - 96, 48, 96, id=zone, name=name, activation="Door")
@@ -185,8 +198,8 @@ def switch(sid, x, floor, prompt):
                   target_encounter="", action="ToggleFlag")
 
 
-def foe(rid, n, character, x, floor, w, h):
-    return entity("EnemySpawn", x, floor - h, w, h, name=f"{rid}_{character}_{n}", brain="combatant",
+def foe(rid, n, character, x, floor, w, h, brain="combatant"):
+    return entity("EnemySpawn", x, floor - h, w, h, name=f"{rid}_{character}_{n}", brain=brain,
                   character_id=character, respawn="OnRoomReenter")
 
 
@@ -202,13 +215,15 @@ def camera(rid, w, h):
     return entity("CameraZone", 0, 0, w, h, id=f"{rid}_camera", name=f"{rid}_camera", mode="Default")
 
 
-def shell(w, h, floor, vault=48):
-    """The floor, the vault and the two end walls of a deck."""
+def shell(w, h, floor, vault=48, west=0, east=0):
+    """The floor, the vault and the two end walls of a deck. `west` and
+    `east` are how high each end wall is open over the floor, for a side
+    loading zone."""
     return [
         solid("floor", 0, floor, w, h - floor),
         solid("vault", 0, 0, w, vault),
-        solid("west_wall", 0, vault, WALL, floor - vault),
-        solid("east_wall", w - WALL, vault, WALL, floor - vault),
+        solid("west_wall", 0, vault, WALL, floor - vault - west),
+        solid("east_wall", w - WALL, vault, WALL, floor - vault - east),
     ]
 
 
@@ -255,7 +270,7 @@ def gate_dock():
     _, _, w, h = ROOMS_AT[rid]
     floor = 704
     pen_x = 1712
-    e = shell(w, h, floor) + [
+    e = shell(w, h, floor, east=PEN_GATE_H) + [
         # The arrival, with the floor clear from x 128 to 640 for the ring
         # (192 wide) and its terminal, to the vault (656 high). Until the
         # ring's return terminal exists, the arrival is also the temporary
@@ -275,14 +290,14 @@ def gate_dock():
         prop("dock_customs_desk", "orbital_customs_desk", 1320, floor, 200, 110),
         resident("npc_station_okafor", "station_okafor", 1420, floor, roam=False),
         prop("dock_manifest_board", "orbital_manifest_board", 1060, 400, 300, 150),
-        door("dock_habitation_door", "up to the habitation ring", 1600, floor, HAB, "hab_dock_door"),
+        door("dock_habitation_door", "the stairs up to the habitation ring", 1640, floor, HAB, "hab_dock_door"),
         # The quarantine pen: a roof over the east end, its gate, the crate,
-        # and the freight lane's door to the bay behind it.
+        # and the freight lane on to the bay behind it, through the end wall.
         solid("pen_roof", pen_x, floor - PEN_GATE_H - 16, w - pen_x - WALL, 16),
         lock("dock_quarantine_gate", "the gate of the quarantine pen", pen_x, floor - PEN_GATE_H, PEN_GATE_W, PEN_GATE_H,
              CLEARED, look="orbital_quarantine_gate"),
         prop("dock_consignment", "orbital_consignment", 1880, floor, 72, 52),
-        door("dock_freight_door", "the freight lane to the docking bay", 2128, floor, BAY, "bay_freight_door"),
+        edge("dock_freight_lane", "the freight lane to the docking bay", w - WALL, floor, BAY, "bay_freight_lane", PEN_GATE_H),
     ]
     return rid, room(rid, e, "THE GATE DECK: EVERYTHING THE RING BRINGS STOPS AT CUSTOMS")
 
@@ -290,14 +305,16 @@ def gate_dock():
 def docking_bay():
     """The docking bay, open on space behind its field. The hauler hangs in
     its berth over the floor; a gantry climbs from the floor to a walk under
-    its spine and on to the observation deck's door, high in the east."""
+    its spine and on to the stairs up to the observation deck, high in the
+    east. The freight lane comes in at the west end, the tether terminus is
+    on through the east end."""
     rid = BAY
     _, _, w, h = ROOMS_AT[rid]
     floor = 960
     walk = 576
-    e = shell(w, h, floor) + [
+    e = shell(w, h, floor, west=PEN_GATE_H, east=OPENING) + [
         # The freight lane from the gate dock, behind its own pen gate.
-        door("bay_freight_door", "the freight lane to the gate deck", 48, floor, DOCK, "dock_freight_door"),
+        edge("bay_freight_lane", "the freight lane to the gate deck", 0, floor, DOCK, "dock_freight_lane", PEN_GATE_H),
         solid("pen_roof", WALL, floor - PEN_GATE_H - 16, 224 - WALL, 16),
         lock("bay_quarantine_gate", "the bay's gate of the freight lane", 128, floor - PEN_GATE_H, PEN_GATE_W, PEN_GATE_H,
              CLEARED, look="orbital_quarantine_gate"),
@@ -317,12 +334,11 @@ def docking_bay():
         ledge("hauler_walk", 640, walk, 1760),
         resident("npc_station_reyes", "station_reyes", 1560, walk, roam=False),
         coin("bay_spine_coin", 1100, walk - 40),
-        # The landing of the observation deck's door, high in the east.
+        # The landing of the stairs up to the observation deck, high in the east.
         solid("east_landing", 2400, walk, w - 2400 - WALL, 32),
-        door("bay_observation_door", "up to the observation deck", 2448, walk, VIEW, "view_bay_door"),
-        door("bay_lift_door", "the cargo lift to the service deck", 2448, floor, SERVICE, "service_lift_door"),
-        # The space elevator's terminus, east of the bay (`specs/eureka`).
-        door("bay_tether_door", "to the tether terminus", 2300, floor, "orbital_station_tether_terminus", "terminus_bay_door"),
+        door("bay_observation_door", "the stairs up to the observation deck", 2408, walk, VIEW, "view_bay_door"),
+        # The space elevator's terminus, on east (`specs/eureka`).
+        edge("bay_east", "on to the tether terminus", w - WALL, floor, TERMINUS, TERMINUS_WEST),
     ]
     return rid, room(rid, e, "THE DOCKING BAY: THE HAULER REMAINDER IN ITS BERTH", theme=OPEN_THEME)
 
@@ -332,14 +348,15 @@ def observation_deck():
     rid = VIEW
     _, _, w, h = ROOMS_AT[rid]
     floor = 704
-    e = shell(w, h, floor) + [
-        door("view_bay_door", "down to the docking bay", 48, floor, BAY, "bay_observation_door"),
+    e = shell(w, h, floor, west=OPENING) + [
+        edge("view_west", "to the habitation ring", 0, floor, HAB, "hab_east"),
         start(rid, 160, floor),
         prop("view_bench_west", "orbital_bench", 360, floor, 160, 40),
         prop("view_bench_east", "orbital_bench", 960, floor, 160, 40),
         resident("npc_neil_ongras_turfson", "station_neil", 600, floor, h=72, roam=False),
         resident("npc_station_wen", "station_wen", 1100, floor, roam=False),
-        door("view_habitation_door", "to the habitation ring", w - 112, floor, HAB, "hab_view_door"),
+        # Over the bay's landing (the two decks' stairs stand over each other).
+        door("view_bay_door", "the stairs down to the docking bay", 1512, floor, BAY, "bay_observation_door"),
     ]
     return rid, room(rid, e, "THE OBSERVATION DECK", theme=OPEN_THEME)
 
@@ -349,30 +366,32 @@ def habitation():
     rid = HAB
     _, _, w, h = ROOMS_AT[rid]
     floor = 704
-    e = shell(w, h, floor) + [
-        door("hab_view_door", "to the observation deck", 48, floor, VIEW, "view_habitation_door"),
+    e = shell(w, h, floor, west=OPENING, east=OPENING) + [
+        edge("hab_west", "to the service deck", 0, floor, SERVICE, "service_east"),
         start(rid, 160, floor),
         prop("hab_bunks", "orbital_bunks", 240, floor, 220, 160),
         prop("hab_galley", "orbital_galley", 620, floor, 260, 120),
         resident("npc_station_pell", "station_pell", 760, floor, roam=False),
-        door("hab_dock_door", "down to the gate deck", 1100, floor, DOCK, "dock_habitation_door"),
+        # Over the gate deck's stairs.
+        door("hab_dock_door", "the stairs down to the gate deck", 904, floor, DOCK, "dock_habitation_door"),
         prop("hab_hydroponics", "orbital_hydroponics", 1400, floor, 240, 140),
         prop("hab_bunks_east", "orbital_bunks", 1760, floor, 220, 160),
-        door("hab_service_door", "to the service deck", w - 112, floor, SERVICE, "service_hab_door"),
+        edge("hab_east", "to the observation deck", w - WALL, floor, VIEW, "view_west"),
     ]
     return rid, room(rid, e, "THE HABITATION RING")
 
 
 def service_deck():
-    """The service deck: the plant, the cargo lift down to the bay, the
-    hatch of the damaged spur, and the spoke to the gravity works."""
+    """The service deck: the plant, the hatch of the damaged spur, and the
+    spoke to the gravity works. The habitation ring is on through its east
+    end."""
     rid = SERVICE
     _, _, w, h = ROOMS_AT[rid]
     floor = 832
     # The spur's end of the deck, shut in: the west wall, a roof, and the
     # hatch under the roof's east end. The spur's door is behind it.
     hatch_x = 208
-    e = shell(w, h, floor) + [
+    e = shell(w, h, floor, east=OPENING) + [
         solid("hatch_roof", WALL, floor - 144, hatch_x + 64 - WALL, 16),
         lock("service_spur_hatch", "the hatch of the damaged spur", hatch_x, floor - 128, 64, 128, SPUR_PASS,
              look="orbital_spur_hatch"),
@@ -381,8 +400,7 @@ def service_deck():
         start(rid, 520, floor),
         prop("service_plant", "orbital_machinery", 600, floor, 300, 200),
         resident("npc_station_rahimi", "station_rahimi", 980, floor),
-        door("service_lift_door", "the cargo lift to the docking bay", 1200, floor, BAY, "bay_lift_door"),
-        door("service_hab_door", "to the habitation ring", w - 112, floor, HAB, "hab_service_door"),
+        edge("service_east", "to the habitation ring", w - WALL, floor, HAB, "hab_west"),
     ]
     return rid, room(rid, e, "THE SERVICE DECK")
 
@@ -413,8 +431,8 @@ def damaged_spur():
         start(rid, 160, floor),
         # Fallen plate overhead, low enough to duck a jump into.
         solid("fallen_plate", 900, 48, 160, 560),
-        foe(rid, 1, "npc_searchlight_crawler", 1000, floor, 48, 34),
-        foe(rid, 2, "npc_searchlight_crawler", 1600, floor, 48, 34),
+        foe(rid, 1, "npc_dividing_mite", 1000, floor, 32, 24, "dividing_mite"),
+        foe(rid, 2, "npc_dividing_mite", 1600, floor, 32, 24, "dividing_mite"),
         foe(rid, 3, "npc_exploding_mite", 2100, floor, 32, 28),
         foe(rid, 4, "npc_exploding_mite", 2200, floor, 32, 28),
         # A ledge over the last deck with a coin, out of the crawlers' way.

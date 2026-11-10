@@ -399,8 +399,13 @@ impl<N: Namespace> Resolver<N> {
 /// suggests a genuine near-miss rather than the least-distant unrelated entry.
 fn closest(needle: &str, haystack: &[String]) -> Option<String> {
     let budget = 2.min(needle.len().div_ceil(2));
+    let needle_chars = needle.chars().count();
     let typo = haystack
         .iter()
+        // The distance is at least the difference in length, so a candidate
+        // that differs by more than the budget is out without the full
+        // comparison. A missing sheet is checked against every sheet key.
+        .filter(|candidate| candidate.chars().count().abs_diff(needle_chars) <= budget)
         .map(|candidate| (edit_distance(needle, candidate), candidate))
         // Ties go to the first in sorted order, so the suggestion is deterministic.
         .filter(|(distance, _)| *distance <= budget)

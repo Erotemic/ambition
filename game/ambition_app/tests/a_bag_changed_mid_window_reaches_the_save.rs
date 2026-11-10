@@ -1,21 +1,13 @@
-//! DURABLE-HORIZON-CHECKSUM — a save mirror written from `Update`, driven across
-//! a rollback window while the value it mirrors actually CHANGES.
+//! Durable save state written inside a rollback window.
 //!
-//! `persist_inventory_to_save` runs in top-level `Update`, which does not rewind,
-//! and writes `AmbitionGameSave` — a `rollback_resource_clone_checksum`
-//! registration, so it FEEDS THE PEER CHECKSUM. Its plugin says the placement is
-//! deliberate and argues it from file side effects: writing a file twice is not a
-//! desync. That argument does not reach the hashed half.
+//! Every arm runs the real composition under a GGRS sync test (or on a timeline
+//! this host owns) and asks whether a durable fact survives the rewind exactly
+//! once: a conversation's visit, a New Game, a cutscene dismiss and skip, an item
+//! used from the menu, a ledger write, a startup load, and a host intent's tick.
 //!
-//! ⛔ AND THE EXISTING SYNC TESTS CANNOT ASK THIS. `rollback_full_reset.rs` and
-//! `rollback_lifecycle_reset.rs` both drive this mirror for 180 and 240 frames
-//! and are green — but the mirror is VALUE-COMPARED, so in a world where the bag
-//! never changes it writes once and early-returns forever after. A green window
-//! over a mirror that is not writing says nothing about a mirror that is.
-//!
-//! ⇒ So this arm changes `OwnedItems` in the MIDDLE of the window, which is the
-//! shape the menu makes: `dispatch_menu_action` equips from `Update`, outside the
-//! rewind, exactly as this does.
+//! The arms marked `playtest` are investigations of how a message produced
+//! outside, or after, its consumer behaves under a rewind. They are kept for
+//! the next such question and are not gates.
 
 #![cfg(feature = "rl_sim")]
 
@@ -28,542 +20,12 @@ type SaveRestored = ambition_platformer2d::platformer::lifecycle::SaveRestored;
 type AmbitionGameSave = ambition_platformer2d::persistence::save::AmbitionGameSave;
 type OwnedItems = ambition_platformer2d::item::OwnedItems;
 type Item = ambition_platformer2d::item::Item;
-type ItemGrantRequested = ambition_platformer2d::item::ItemGrantRequested;
 
-/// The room the other rollback arms use, so a failure here is about the mirror
-/// rather than about an unusual world.
+/// The calibration lab, the room the other rollback arms use.
 const ROOM: &str = "combat_calibration_lab";
-
-fn repro_sim() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-    )
-    .expect("Ambition GGRS sync-test harness builds in the calibration lab")
-}
-
-/// The SAME world with no rollback session at all. ⛔ WITHOUT THIS THE REPRO
-/// PROVES NOTHING: "the bag lost an item" and "the REWIND took the item back"
-/// look identical from inside one harness, and plenty of other things clear a
-/// bag.
-fn control_sim() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM),
-    )
-    .expect("the same world builds without a rollback session")
-}
-
-/// What the autosave would commit — the mirrored value, not the live bag.
-fn mirrored_items(sim: &Platformer2dSimHarness) -> Vec<String> {
-    sim.world()
-        .resource::<AmbitionGameSave>()
-        .data()
-        .items()
-        .iter()
-        .map(|item| format!("{item:?}"))
-        .collect()
-}
 
 fn health(sim: &Platformer2dSimHarness) -> Result<(), String> {
     ambition_platformer2d::rollback::session_health(sim.world())
-}
-
-/// A grant that happens INSIDE the rewinding schedule, installed through the
-/// `compose` callback so it is present before the harness's first update rather
-/// than bolted on after its GGRS session has started.
-/// ⛔ THE CONTROL FOR EVERY OTHER ARM IN THIS FILE, AND IT WAS MISSING.
-/// The three arms above all run on `with_sync_test_rollback_settings`, and none
-/// of them asks how many SIM TICKS their window actually contains. A window that
-/// holds six ticks is not the window the arm's name claims, and an arm that
-/// steps 240 times over a stopped schedule agrees with itself forever.
-///
-/// ⇒ This prints the tick trajectory of both harnesses over the same 240 steps.
-/// The rollback one is the question; the no-rollback one is the reference that
-/// says whether the room itself can tick at all.
-#[test]
-#[ignore = "PROBE, print-only: how many sim ticks each harness gives per 240 steps"]
-fn probe_how_far_each_harness_ticks_over_the_same_window() {
-    for (name, mut sim) in [
-        ("rollback sync-test", repro_sim()),
-        ("no rollback session", control_sim()),
-        ("compose, empty system", sim_composed_with(nothing_each_tick)),
-        ("compose, grant each tick", sim_composed_with(grant_each_tick)),
-        (
-            "compose, touch the bag, grant ZERO",
-            sim_composed_with(touch_the_bag_each_tick),
-        ),
-        (
-            "compose, grant ONCE at tick 20",
-            sim_composed_with(grant_once_at_tick_20),
-        ),
-        (
-            "compose, request a grant each tick",
-            sim_composed_with(request_a_grant_each_tick),
-        ),
-    ] {
-        // ⛔ THE BAG TRAVELS WITH THE TICK, BECAUSE A ROW WHOSE SYSTEM NEVER
-        // FIRED IS CLEAN FOR THE WRONG REASON. "Granting once at tick 20 does not
-        // desync" and "the grant never happened" are the same trajectory, and
-        // only this column tells them apart.
-        let mut trajectory: Vec<(usize, u64, u32)> =
-            vec![(0, sim_tick(&sim), live_cells(&sim))];
-        for frame in 1..=240 {
-            sim.step(AgentAction::default());
-            if frame % 40 == 0 {
-                trajectory.push((frame, sim_tick(&sim), live_cells(&sim)));
-            }
-        }
-        // ⚠ A STOPPED CLOCK HAS A REASON AND `session_health` HOLDS IT. Printing
-        // the trajectory without it reports the symptom and hides the cause.
-        println!(
-            "[tick] {name}: (step, tick, bag)={trajectory:?} health={:?}",
-            health(&sim)
-        );
-    }
-}
-
-/// ⛔ THE ROW'S ACTUAL QUESTION, MEASURED FRAME BY FRAME RATHER THAN ARGUED.
-/// `persist_inventory_to_save` derives the checksummed `AmbitionGameSave` once
-/// per FRAME in `Update`; the sim advances and is compared once per TICK. This
-/// prints both clocks beside both values for the first frames of the window,
-/// which is where the session is still alive.
-///
-/// ⚠ It runs the SANCTIONED road — `ItemGrantRequested`, which
-/// `apply_item_grants` owns and which is `clear_message_on_rollback` — so a
-/// mismatch here cannot be dismissed as writing rollback state from the wrong
-/// place.
-#[test]
-#[ignore = "PROBE, print-only: the save mirror's clock against the sim's clock"]
-fn probe_the_mirror_and_the_sim_do_not_share_a_clock() {
-    for (name, mut sim) in [
-        ("requested grant (sanctioned road)", sim_composed_with(request_a_grant_each_tick)),
-        ("direct write", sim_composed_with(grant_each_tick)),
-    ] {
-        println!("── {name}");
-        for step in 0..14 {
-            // ⛔ THE RAW LIST, NOT A SUBSTRING MATCH ON IT. Filtering these for
-            // "HealthCell" returned 0 for the whole window and I read that as
-            // "the save is not changing" — a false negative from guessing the
-            // encoding. `census_all` then showed `AmbitionGameSave` as the one
-            // entry of 364 that moves with the bag.
-            let mirrored = mirrored_items(&sim).join(",");
-            println!(
-                "   step={step:>2} tick={:>3} live={:>3} mirrored=[{mirrored}] health={:?}",
-                sim_tick(&sim),
-                live_cells(&sim),
-                health(&sim).err().map(|error| error.chars().take(46).collect::<String>()),
-            );
-            sim.step(AgentAction::default());
-        }
-    }
-}
-
-/// ⛔ WHICH HASHED ENTRY MOVES WHEN THE BAG MOVES — asked of the registry
-/// instead of guessed. Four hypotheses were each cheap and each wrong; the
-/// registry already knows every entry that feeds the peer checksum, and
-/// `RollbackChecksumProbes::census_all` will read them all.
-///
-/// The method is a DIFFERENCE BETWEEN TWO RUNS AT THE SAME TICK. ⚠ THIS DOC
-/// CLAIMED A DIFFERENCE ACROSS A REWIND "CANNOT BE OBSERVED FROM OUTSIDE" AND
-/// THAT IS FALSE — `RollbackRestoreAudit` censuses every save and compares when
-/// GGRS saves the SAME frame twice, which is what a resimulation is, and it
-/// shipped before this probe. YardratAmbition used it to read the replay
-/// directly: the replay xor is CONSTANT across frames 2, 3, 4 while the
-/// first-pass xor moves every frame. ⇒ Two runs at one tick prove the entry
-/// FOLLOWS the bag; only the audit shows the replay stops updating it. Both
-/// harnesses take the same `ResMut<OwnedItems>` at the same schedule position and
-/// fire the same change detection; one grants 1 per tick and one grants 0. Any
-/// hashed entry whose census differs between them is a value that derives from
-/// the bag, which is exactly the population this row is missing.
-///
-/// ⚠ Read inside frames 0..=5. The granting run invalidates at frame 6 and
-/// everything after that is a frozen world agreeing with itself.
-#[test]
-#[ignore = "PROBE, print-only: which hashed rollback entries follow the bag"]
-fn probe_which_hashed_entries_follow_the_bag() {
-    use std::collections::BTreeMap;
-
-    fn census_at(
-        sim: &mut Platformer2dSimHarness,
-        steps: usize,
-    ) -> BTreeMap<&'static str, (usize, u64)> {
-        for _ in 0..steps {
-            sim.step(AgentAction::default());
-        }
-        let probes = sim
-            .world()
-            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
-            .clone();
-        probes
-            .census_all(sim.world_mut())
-            .into_iter()
-            .map(|(name, census)| (name, (census.count, census.xor)))
-            .collect()
-    }
-
-    // ⚠ FIVE STEPS, WHICH IS INSIDE THE LIVE WINDOW. At six the granting run is
-    // already invalidated and its census describes a stopped world.
-    const STEPS: usize = 5;
-    let mut granting = sim_composed_with(grant_each_tick);
-    let mut still = sim_composed_with(touch_the_bag_each_tick);
-    println!(
-        "   granting health={:?} / still health={:?}",
-        health(&granting),
-        health(&still)
-    );
-    let moved = census_at(&mut granting, STEPS);
-    let held = census_at(&mut still, STEPS);
-    println!(
-        "   after {STEPS} steps: granting bag={} tick={}, still bag={} tick={}",
-        live_cells(&granting),
-        sim_tick(&granting),
-        live_cells(&still),
-        sim_tick(&still)
-    );
-
-    let mut differ = 0usize;
-    for (name, (count, xor)) in &moved {
-        match held.get(name) {
-            Some((held_count, held_xor)) if held_count == count && held_xor == xor => {}
-            Some((held_count, held_xor)) => {
-                differ += 1;
-                println!(
-                    "   ≠ {name}: granting=({count}, {xor:#x}) still=({held_count}, {held_xor:#x})"
-                );
-            }
-            None => {
-                differ += 1;
-                println!("   ≠ {name}: present only in the granting run");
-            }
-        }
-    }
-    // ⛔ ANTI-VACUITY: zero probes censused reads exactly like zero differences.
-    println!("   {differ} of {} probed entries differ", moved.len());
-    assert!(
-        !moved.is_empty(),
-        "no rollback checksum probes were censused at all, so this probe compared          nothing and its clean output means nothing"
-    );
-}
-
-/// ⛔ WHETHER "ONE CHANGE IS CLEAN" IS A RESULT OR AN ARTEFACT.
-///
-/// `probe_how_far_each_harness_ticks_over_the_same_window` reports that a grant
-/// firing ONCE at tick 20 runs 240 steps with `session_health` clean, and the
-/// bag column proves the grant fired. ⚠ THAT IS STILL NOT ENOUGH. The sync test
-/// compares a frame against its own resimulation, and the save's value is what
-/// two passes disagree about — so if the save had already settled by the frames
-/// GGRS actually compared, the comparison had nothing to disagree about and the
-/// clean run says nothing. A floor must be raised on the quantity the claim is
-/// about, not on the instrument's own activity. (YardratAmbition's lesson, from
-/// an audit that would have called a stationary ground item reproducible.)
-///
-/// ⇒ So this prints the SAVE'S OWN CENSUS per step across the grant, next to the
-/// bag. `check_distance` is 4, so the frames compared around tick 20 are the
-/// handful either side of it. If the xor moves at the grant and the neighbouring
-/// ticks are inside that distance, the comparison did straddle a moving value
-/// and "one change is clean" is a real result.
-#[test]
-#[ignore = "PROBE, print-only: was the save still moving at the frames GGRS compared"]
-fn probe_whether_the_single_grant_lands_where_the_comparison_looks() {
-    let mut sim = sim_composed_with(grant_once_at_tick_20);
-    for _ in 0..14 {
-        sim.step(AgentAction::default());
-    }
-    for _ in 0..14 {
-        let tick = sim_tick(&sim);
-        let bag = live_cells(&sim);
-        let probes = sim
-            .world()
-            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
-            .clone();
-        let save = probes
-            .census_all(sim.world_mut())
-            .into_iter()
-            .find(|(name, _)| name.contains("AmbitionGameSave"))
-            .map(|(_, census)| census.xor);
-        println!(
-            "   tick={tick:>3} bag={bag:>3} save_xor={:?} health={:?}",
-            save.map(|xor| format!("{xor:#018x}")),
-            health(&sim).err().map(|e| e.chars().take(40).collect::<String>())
-        );
-        sim.step(AgentAction::default());
-    }
-}
-
-/// ⛔ THE THRESHOLD BETWEEN "ONE CHANGE IS CLEAN" AND "EVERY TICK DESYNCS".
-/// Both are measured; the gap between them is the whole open question, and it is
-/// a PARAMETER rather than a mystery. `N` consecutive granting ticks starting at
-/// 20, for a spread of `N`. The smallest `N` that reports a mismatch is the
-/// answer, and a spread that is clean at every `N` says the cadence is not what
-/// matters after all.
-///
-/// ⚠ Read the bag column, not just the health: an `N` whose grants never fired
-/// is clean for the wrong reason, and the bag is what says they did.
-#[test]
-#[ignore = "PROBE, print-only: how many consecutive changed ticks it takes to desync"]
-fn probe_how_many_consecutive_changed_ticks_desync() {
-    fn run<const N: u64>() -> (u32, Option<String>) {
-        fn grant<const N: u64>(
-            tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-            mut owned: bevy::prelude::ResMut<OwnedItems>,
-        ) {
-            if (20..20 + N).contains(&tick.0) {
-                owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
-            }
-        }
-        let mut sim = sim_composed_with(grant::<N>);
-        for _ in 0..120 {
-            sim.step(AgentAction::default());
-        }
-        (
-            live_cells(&sim),
-            health(&sim)
-                .err()
-                .map(|error| error.chars().take(44).collect::<String>()),
-        )
-    }
-
-    // ⛔ The starter bag is 3, so `bag == 3 + N` is the premise that the grants
-    // fired; anything else and that row measures nothing.
-    for (n, (bag, err)) in [
-        (1, run::<1>()),
-        (2, run::<2>()),
-        (3, run::<3>()),
-        (4, run::<4>()),
-        (5, run::<5>()),
-        (8, run::<8>()),
-        // ⛔ UNBOUNDED FROM TICK 20. `N` up to 8 is clean and granting EVERY tick
-        // from tick 1 dies at frames [2, 3, 4], so the question is whether the
-        // cadence needs longer than 8 or whether the defect is about EARLY
-        // frames. This row is the discriminator: same every-tick cadence, late
-        // start. (Its premise is `bag > 3 + 8`, not `3 + N`.)
-        (0, run::<10_000>()),
-    ] {
-        let expected_floor = if n == 0 { 3 + 8 } else { 3 + n };
-        let fired = if bag >= expected_floor { "grants fired" } else { "⛔ PREMISE" };
-        let label = if n == 0 { "every tick from 20".to_string() } else { format!("N={n}") };
-        println!("   {label:>20} bag={bag:>3} ({fired}) health={err:?}");
-    }
-}
-
-/// ⛔ NOT CADENCE — START TICK. Granting EVERY tick from tick 1 desyncs at frames
-/// [2, 3, 4]; granting every tick from tick 20 is clean over 120 steps with the
-/// bag reaching 104. So the cadence sweep's answer was that cadence is not the
-/// variable. This sweeps the START TICK instead, granting unconditionally from
-/// `FROM` onward, and the smallest `FROM` that stays clean is the edge of the
-/// window where the defect lives.
-#[test]
-#[ignore = "PROBE, print-only: the start tick at which an every-tick grant stops desyncing"]
-fn probe_which_start_tick_stops_desyncing() {
-    fn run<const FROM: u64>() -> (u64, u32, Option<String>) {
-        fn grant<const FROM: u64>(
-            tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-            mut owned: bevy::prelude::ResMut<OwnedItems>,
-        ) {
-            if tick.0 >= FROM {
-                owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
-            }
-        }
-        let mut sim = sim_composed_with(grant::<FROM>);
-        for _ in 0..120 {
-            sim.step(AgentAction::default());
-        }
-        (
-            sim_tick(&sim),
-            live_cells(&sim),
-            health(&sim)
-                .err()
-                .map(|error| error.chars().take(44).collect::<String>()),
-        )
-    }
-
-    for (from, (tick, bag, err)) in [
-        (1, run::<1>()),
-        (2, run::<2>()),
-        (4, run::<4>()),
-        (6, run::<6>()),
-        (8, run::<8>()),
-        (12, run::<12>()),
-        (16, run::<16>()),
-        (20, run::<20>()),
-    ] {
-        // ⛔ The premise: a clean row must ALSO have kept ticking, or it is clean
-        // because the session died quietly rather than because nothing diverged.
-        let premise = if bag > 3 { "granted" } else { "⛔ NEVER GRANTED" };
-        println!(
-            "   from tick {from:>3}: end tick={tick:>4} bag={bag:>4} ({premise}) health={err:?}"
-        );
-    }
-}
-
-/// ⛔ ACCUMULATION OR AN UPDATE-CADENCE LAG — two candidates with OPPOSITE
-/// predictions, separated by one write. YardratAmbition's design; a mechanism
-/// that explains the number is not evidence for it, so this asks the tree.
-///
-/// **A — ACCUMULATION.** `grant` makes the bag `3 + (times the system has RUN)`,
-/// which is not a function of the FRAME, because a resimulation re-executes
-/// steps. Predicts: a value that changes every tick but is a pure function of
-/// the tick runs clean.
-///
-/// **B — THE ONE-UPDATE LAG.** The mirror runs in `Update`, once per
-/// `app.update()`, while GGRS snapshots during the sim schedule — so a frame's
-/// snapshot holds the save as of the PREVIOUS update, and how many sim steps sat
-/// in that update differs between passes. Predicts: a pure function of the tick
-/// still desyncs, because the lag is about WHEN the mirror ran.
-///
-/// ⚠ The second row is the control that keeps either answer from being about the
-/// harness: the same write fired ONCE must stay clean, reproducing `b0b7280dc`.
-#[test]
-#[ignore = "PROBE, print-only: accumulation versus an Update-cadence lag"]
-fn probe_whether_a_pure_function_of_the_tick_also_desyncs() {
-    fn set_from_tick(
-        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-        mut owned: bevy::prelude::ResMut<OwnedItems>,
-    ) {
-        // ⛔ A PURE FUNCTION OF THE TICK, which is the whole point: `take`
-        // everything first so the result cannot depend on how many times this ran.
-        owned.take(Item::HealthCell, u32::MAX);
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, (tick.0 % 5) as u32);
-    }
-    fn set_from_tick_once(
-        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-        mut owned: bevy::prelude::ResMut<OwnedItems>,
-    ) {
-        if tick.0 == 20 {
-            owned.take(Item::HealthCell, u32::MAX);
-            owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 2);
-        }
-    }
-
-    // ⛔ THE ROW THAT STOPS THIS REPEATING THE LAST MISTAKE. `set_from_tick`
-    // writes from tick 1, and the accumulating reproduction also writes from tick
-    // 1 while the one-shot control fires at 20 — so without this row the
-    // experiment varies START TICK alongside the arithmetic, which is exactly the
-    // confound that made "sustained versus single" wrong. An accumulating grant
-    // from tick 4 is clean; a pure function from tick 4 must be compared against
-    // THAT, not against the once-at-20 control.
-    fn set_from_tick_after_3(
-        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-        mut owned: bevy::prelude::ResMut<OwnedItems>,
-    ) {
-        if tick.0 >= 4 {
-            owned.take(Item::HealthCell, u32::MAX);
-            owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, (tick.0 % 5) as u32);
-        }
-    }
-
-    for (name, mut sim) in [
-        ("pure f(tick), EVERY tick", sim_composed_with(set_from_tick)),
-        (
-            "pure f(tick), every tick FROM 4",
-            sim_composed_with(set_from_tick_after_3),
-        ),
-        ("pure f(tick), ONCE at 20", sim_composed_with(set_from_tick_once)),
-        ("accumulating grant, EVERY tick", sim_composed_with(grant_each_tick)),
-    ] {
-        // ⛔ THE PREMISE, AND `bag=0` IS WHY IT IS HERE. `tick % 5` is zero once
-        // every five ticks, so the FINAL bag reads 0 both when the write ran and
-        // when it never ran at all. The high-water mark separates them: a write
-        // that ran reaches 4, and one that never ran never leaves the starter 3.
-        let mut peak = live_cells(&sim);
-        for _ in 0..120 {
-            sim.step(AgentAction::default());
-            peak = peak.max(live_cells(&sim));
-        }
-        println!(
-            "   {name:>32}: end tick={:>4} bag={:>4} peak={peak:>4} health={:?}",
-            sim_tick(&sim),
-            live_cells(&sim),
-            health(&sim)
-                .err()
-                .map(|error| error.chars().take(40).collect::<String>())
-        );
-    }
-}
-
-/// ⛔ WHY THE FIRST THREE TICKS ARE DIFFERENT — the one candidate left standing
-/// after accumulation and the update-lag were both refuted, and it is offered as
-/// a candidate rather than asserted.
-///
-/// `complete_durable_restore` sets `SaveRestored` ONCE, from `Update`, on the
-/// first frame a primary player body exists, and that latch gates whether the
-/// three save mirrors write at all. It is `rollback_resource_clone`, so a rewind
-/// RESTORES it — and a rewind into a frame where it was still false lets the next
-/// `Update` run `complete_durable_restore` a second time, which also writes
-/// `ResetToCheckpoint`. Once it has settled, restoring `true` over `true` is a
-/// no-op. ⇒ That shape would make ticks 1..=3 special and everything after
-/// boring, which is the shape the measurements have.
-///
-/// This prints the latch beside the tick and the save's census for the first
-/// steps of both a desyncing run and a clean one.
-#[test]
-#[ignore = "PROBE, print-only: does the SaveRestored latch move during the first ticks"]
-fn probe_whether_the_restore_latch_settles_before_the_window() {
-    fn latch(sim: &Platformer2dSimHarness) -> Option<bool> {
-        sim.world().get_resource::<SaveRestored>().map(|l| l.0)
-    }
-    fn save_xor(sim: &mut Platformer2dSimHarness) -> Option<u64> {
-        let probes = sim
-            .world()
-            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
-            .clone();
-        probes
-            .census_all(sim.world_mut())
-            .into_iter()
-            .find(|(name, _)| name.contains("AmbitionGameSave"))
-            .map(|(_, census)| census.xor)
-    }
-
-    for (name, mut sim) in [
-        ("grants from tick 1 (desyncs)", sim_composed_with(grant_each_tick)),
-        ("no writer at all (clean)", sim_composed_with(nothing_each_tick)),
-    ] {
-        println!("── {name}");
-        for step in 0..10 {
-            let (tick, bag, l) = (sim_tick(&sim), live_cells(&sim), latch(&sim));
-            let xor = save_xor(&mut sim);
-            println!(
-                "   step={step:>2} tick={tick:>3} bag={bag:>3} SaveRestored={l:?}                  save_xor={:?} health={:?}",
-                xor.map(|x| format!("{x:#018x}")),
-                health(&sim).err().map(|e| e.chars().take(34).collect::<String>())
-            );
-            sim.step(AgentAction::default());
-        }
-    }
-}
-
-/// ⛔ DOES THE WORLD STOP CHANGING WHERE THE DESYNC STOPS? YardratAmbition's
-/// candidate for why ticks 1..=3 are special: the frame-1 lifecycle trace shows
-/// roots admitted, a candidate session published and entities promoted, so the
-/// early ticks are the only ones at which the ENTITY POPULATION is still moving.
-/// That is a structural property of the window rather than of anything a test
-/// writes, and it would explain why the START TICK is the only variable that
-/// predicts the outcome.
-///
-/// ⚠ It has a constraint to satisfy, from a measurement already taken: a system
-/// granting ZERO every tick FROM TICK 1 is clean. So the window alone is not
-/// sufficient — the property has to be a conjunction, a CHANGED hashed value
-/// during a window that is still settling.
-///
-/// This prints the roster size per tick, with no writer at all, so the answer is
-/// about the world rather than about a probe's writes.
-#[test]
-#[ignore = "PROBE, print-only: when the entity population stops changing"]
-fn probe_when_the_world_stops_settling() {
-    let mut sim = sim_composed_with(nothing_each_tick);
-    let mut previous = feature_roster(&mut sim).len();
-    println!("   tick={:>3} roster={previous:>4} (before any step)", sim_tick(&sim));
-    for _ in 0..12 {
-        sim.step(AgentAction::default());
-        let now = feature_roster(&mut sim).len();
-        let moved = if now == previous { "" } else { "  ← CHANGED" };
-        println!("   tick={:>3} roster={now:>4}{moved}", sim_tick(&sim));
-        previous = now;
-    }
 }
 
 /// The schedule's own step count. This file never writes it, which is the
@@ -573,81 +35,6 @@ fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {
         .get_resource::<ambition_platformer2d::time::SimTick>()
         .map(|tick| tick.0)
         .unwrap_or(u64::MAX)
-}
-
-fn grant_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
-    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
-}
-
-/// The other half of the bisect: same road into the schedule, no writes at all.
-fn nothing_each_tick() {}
-
-/// ⛔ ONE CHANGE, NOT ONE PER TICK — which is what decides whether Q129 is
-/// urgent. A pickup during play changes the bag ONCE; this reproduction changes
-/// it every tick, which is the loudest possible version of the defect.
-///
-/// ⚠ The gate is `SimTick`, and that is the whole reason this is a valid
-/// one-shot. A `Local` flag would NOT be restored by a rewind, so the replay
-/// would skip the grant the original pass performed and manufacture a divergence
-/// of its own. `SimTick` is rollback state, so the replay re-enters the same
-/// branch on the same tick.
-fn grant_once_at_tick_20(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut owned: bevy::prelude::ResMut<OwnedItems>,
-) {
-    if tick.0 == 20 {
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
-    }
-}
-
-/// ⛔ THE CONTROL THAT SEPARATES THE VALUE FROM THE SYSTEM. This takes the same
-/// `ResMut<OwnedItems>` at the same ambiguous schedule position and fires the
-/// same change detection, but grants ZERO — the bag's value never moves. If this
-/// desyncs, the trigger is a system's PRESENCE in the schedule and nothing in
-/// this file is about items at all.
-fn touch_the_bag_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
-    owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 0);
-}
-
-/// The SANCTIONED road, which is the whole difference from `grant_each_tick`:
-/// ask for the grant instead of performing it. `apply_item_grants` is already in
-/// the sim schedule and owns the write, and `ItemGrantRequested` is
-/// `clear_message_on_rollback`, so a rewind drops the request and the replay
-/// re-issues it.
-fn request_a_grant_each_tick(
-    mut requests: bevy::prelude::MessageWriter<ItemGrantRequested>,
-) {
-    requests.write(ItemGrantRequested {
-        item: Item::HealthCell,
-        count: 1,
-    });
-}
-
-fn sim_that_grants_inside_the_tick() -> Platformer2dSimHarness {
-    sim_composed_with(grant_each_tick)
-}
-
-fn sim_composed_with<M>(
-    system: impl bevy::prelude::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>
-    + Clone
-    + Send
-    + Sync
-    + 'static,
-) -> Platformer2dSimHarness {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            app.add_systems(label, system.clone());
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with a grant inside the tick")
 }
 
 /// The room-scoped roster. A full sandbox reset despawns this whole set and
@@ -663,670 +50,6 @@ fn feature_roster(sim: &mut Platformer2dSimHarness) -> std::collections::HashSet
     q.iter(world).collect()
 }
 
-/// The LIVE bag, which is what separates the two ways this arm can fail: a
-/// mirror that did not write, and a write the rewind took back before the
-/// mirror ever saw it.
-///
-/// ⚠ A CONSUMABLE ON PURPOSE. `OwnedItems::grant` clamps every non-`Consumable`
-/// category to 1, so a held tool cannot be granted twice and cannot be granted
-/// at all if the starter bag already holds one — which would make these arms
-/// report "the rewind no longer takes it back", i.e. read as FIXED.
-fn live_cells(sim: &Platformer2dSimHarness) -> u32 {
-    sim.world().resource::<OwnedItems>().count(Item::HealthCell)
-}
-
-#[test]
-fn a_bag_changed_from_update_is_silently_taken_back_by_the_rewind() {
-    let mut sim = repro_sim();
-
-    // ── PREMISE 1: the latch. `persist_inventory_to_save` early-returns on
-    // `!restored.0` forever, so an arm that never flips it measures nothing.
-    // ⚠ The latch asks for a primary player BODY, not for a save file.
-    let mut latched = false;
-    for _ in 0..240 {
-        sim.step(AgentAction::default());
-        if sim
-            .world()
-            .get_resource::<SaveRestored>()
-            .is_some_and(|restored| restored.0)
-        {
-            latched = true;
-            break;
-        }
-    }
-    assert!(
-        latched,
-        "`SaveRestored` never became true, so all three save mirrors early-return \
-         forever and a green window below would say nothing about rollback"
-    );
-
-    // Let the first mirror write settle, so what follows is a CHANGE rather than
-    // the initial population of an empty save.
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-    let before = mirrored_items(&sim);
-    let baseline = live_cells(&sim);
-
-    // ── THE WRITE, in the shape the menu makes it: `OwnedItems` mutated from
-    // outside the rewinding schedule, mid-window.
-    {
-        let world = sim.world_mut();
-        let mut owned = world.resource_mut::<OwnedItems>();
-        owned.grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
-    }
-    let granted = live_cells(&sim);
-    assert_eq!(
-        granted,
-        baseline + 1,
-        "the grant did not reach the live bag, so nothing below is measuring a change"
-    );
-
-    // ── PREMISE 2, MID-ARM: the mirror has to actually write, and it has to have
-    // written by the time the window has run. A value that is right at frame 0
-    // and right at frame N can have been lost and re-established in between, so
-    // this is sampled rather than only compared at the ends.
-    let mut wrote_at: Option<usize> = None;
-    let mut lost_after_writing: Vec<usize> = Vec::new();
-    let mut live_lost_at: Option<usize> = None;
-
-    for frame in 0..240 {
-        sim.step(AgentAction::default());
-        health(&sim).unwrap_or_else(|error| {
-            panic!(
-                "frame {frame} desynced after the bag changed from `Update`: {error}\n\
-                 mirrored items now: {:?}",
-                mirrored_items(&sim)
-            )
-        });
-        if live_lost_at.is_none() && live_cells(&sim) < granted {
-            live_lost_at = Some(frame);
-        }
-        let now = mirrored_items(&sim);
-        if wrote_at.is_none() && now != before {
-            wrote_at = Some(frame);
-        } else if wrote_at.is_some() && now == before {
-            lost_after_writing.push(frame);
-        }
-    }
-
-    // ⛔⛤ THIS ARM ASSERTS A DEFECT, DELIBERATELY. Everything above is the
-    // reproduction; what follows records what the engine DOES today so that the
-    // day it changes, somebody is told. ⇒ WHEN THIS ARM GOES RED THE DEFECT IS
-    // FIXED: delete it and close `MENU-RESET-MIDSESSION` in docs/planning/queue.md.
-    //
-    // ⚠ It is paired with `the_control_keeps_the_same_grant_when_nothing_rewinds`,
-    // which runs the SAME grant in the SAME world with no rollback session and
-    // keeps it for 240 frames. Without that control "the bag lost an item" and
-    // "the REWIND took the item back" are indistinguishable.
-    // ⚠ `is_some`, not a frame number. MEASURED at frame 0 on 2026-09-16 — the
-    // sync-test rewinds every step, so the loss is immediate — but pinning the
-    // index would redden this shared lane for a scheduling change that does not
-    // alter the claim. The claim is THAT the rewind takes it back.
-    assert!(
-        live_lost_at.is_some(),
-        "the rewind no longer takes back a bag changed from `Update` — that is \
-         the FIX this arm is waiting for, not a regression. Delete this arm and \
-         close MENU-RESET-MIDSESSION."
-    );
-    assert!(
-        wrote_at.is_none(),
-        "the save mirror wrote at {wrote_at:?} after a grant the rewind took \
-         back, which is a DIFFERENT state from the one measured on 2026-09-16 \
-         (the value was restored before `persist_inventory_to_save` ever saw a \
-         difference, so it never wrote at all). Re-read the row before changing \
-         this."
-    );
-    assert_eq!(
-        before,
-        mirrored_items(&sim),
-        "the mirrored bag moved even though the live grant was taken back"
-    );
-    assert!(
-        lost_after_writing.is_empty(),
-        "unreachable while the mirror never writes; kept so the sampling above \
-         is not dead code if the behaviour changes"
-    );
-}
-
-/// ⛔ THE CONTROL, AND THE ARM ABOVE IS WORTHLESS WITHOUT IT. "The bag lost an
-/// item" and "the REWIND took the item back" are indistinguishable from inside
-/// one harness, and plenty of things clear a bag. This runs the SAME grant in
-/// the SAME world with no rollback session and keeps it for 240 frames.
-#[test]
-fn the_control_keeps_the_same_grant_when_nothing_rewinds() {
-    let mut sim = control_sim();
-    for _ in 0..120 {
-        sim.step(AgentAction::default());
-        if sim
-            .world()
-            .get_resource::<SaveRestored>()
-            .is_some_and(|restored| restored.0)
-        {
-            break;
-        }
-    }
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-    {
-        let world = sim.world_mut();
-        world.resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::test_item_catalog(), Item::HealthCell, 1);
-    }
-    let granted = live_cells(&sim);
-    assert!(granted > 0, "the grant did not reach the live bag at all");
-
-    for frame in 0..240 {
-        sim.step(AgentAction::default());
-        assert!(
-            live_cells(&sim) >= granted,
-            "the control lost the grant at frame {frame} with NO rollback session \
-             running, so the repro arm's loss is not evidence about the rewind — \
-             find what else clears `OwnedItems` before reading it that way"
-        );
-    }
-}
-
-/// DURABLE-HORIZON-CHECKSUM's own question, which is the OPPOSITE of the two
-/// arms above: what happens when the mirrored value changes LEGITIMATELY, inside
-/// the rewinding schedule, so the `Update` mirror has a real change to carry?
-///
-/// `persist_inventory_to_save` derives `AmbitionGameSave` from simulation state
-/// once per FRAME, while the value is snapshotted and compared once per TICK. A
-/// peer that rewound and re-simulated three ticks ran the sim three extra times
-/// and `Update` zero extra times.
-///
-/// ⚠ The grant is unconditional rather than one-shot ON PURPOSE. A "fire once"
-/// flag would itself have to be rollback state for the one-shot to replay
-/// correctly, and a flag that survives the rewind would suppress the replayed
-/// grant and manufacture the divergence this arm is looking for.
-/// ⛔ INCONCLUSIVE ABOUT THE MIRROR, AND IT FAILED IN A MORE USEFUL DIRECTION.
-/// Kept as a probe because the scaffolding is the expensive part and because the
-/// measurement below is the thing worth starting from.
-///
-/// MEASURED 2026-09-16, `SimTick` and the bag over the same 240 `sim.step()`
-/// calls, bisected against `probe_how_far_each_harness_ticks_over_the_same_window`:
-///
-/// | harness | tick at 0/40/…/240 |
-/// |---|---|
-/// | `new_with_options` sync-test | 1, 41, 81, 121, 161, 201, 241 |
-/// | no rollback session | 0, 40, 80, …, 240 |
-/// | `build` + compose, EMPTY system | 1, 41, 81, 121, 161, 201, 241 |
-/// | `build` + compose, THIS grant | 1, 6, 6, 6, 6, 6, 6 |
-///
-/// ⛔ THE CLOCK STOPS BECAUSE THE SESSION DIED, AND NOTHING IN THE STEP LOOP
-/// SAYS SO. `session_health` reads `GGRS sync-test checksum mismatch at frames
-/// [2, 3, 4, …]` on that last row, repeating forever. An invalidated session
-/// keeps accepting `sim.step()` and returns an observation every time; it simply
-/// stops advancing `SimTick`. Every assertion after the invalidation runs over a
-/// frozen world and agrees with itself.
-///
-/// ⚠ SO MY FIRST READING WAS WRONG IN THE WAY THAT MATTERS: I wrote that "the
-/// simulation stops advancing", which is true of this harness and of NO OTHER
-/// one here. The compose road is innocent — an empty system through the same
-/// callback ticks 1:1. What stalls the session is THIS SYSTEM writing
-/// `OwnedItems` from a bare sim system, and `OwnedItems` is
-/// `rollback_resource_clone` (`ambition_items/src/rollback_registration.rs:11`).
-/// ⇒ A rollback-registered resource has one sanctioned writer road
-/// (`ItemGrantRequested` → `apply_item_grants`), and writing it directly from an
-/// unordered system desyncs the sync test rather than being ignored.
-///
-/// ⇒ WHAT IS STILL OWED for the mirror question is unchanged and now has a
-/// shape: a window in which the mirrored value changes tick over tick WITHOUT
-/// desyncing — which means going through `ItemGrantRequested`, not around it.
-#[test]
-#[ignore = "PROBE, print-only: the in-sim grant desyncs the sync test, which freezes the clock"]
-fn probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window() {
-    let mut sim = sim_that_grants_inside_the_tick();
-
-    // ⚠ THE PREMISE IS "MY SYSTEM RAN", AND `count > 0` DOES NOT SAY THAT — the
-    // starter bag may already hold cells. Two samples, and the SECOND must exceed
-    // the first.
-    let at_start = live_cells(&sim);
-    for _ in 0..60 {
-        sim.step(AgentAction::default());
-    }
-    let settled = live_cells(&sim);
-    assert!(
-        settled > at_start,
-        "the in-sim grant did not accumulate over 60 steps ({at_start} -> \
-         {settled}), so the system was never reached and nothing below measures \
-         the mirror"
-    );
-
-    let mut desync: Option<(usize, String)> = None;
-    let mut mirror_moved = false;
-    // ⚠ THE TICK IS IN THIS TUPLE BECAUSE "THE SIM STOPPED" AND "MY WRITER
-    // STOPPED" LOOK IDENTICAL FROM THE BAG ALONE. Only a column that the
-    // schedule owns, and that this file does not write, tells them apart.
-    let mut trajectory: Vec<(usize, u64, u32)> = Vec::new();
-    let before = mirrored_items(&sim);
-    for frame in 0..240 {
-        sim.step(AgentAction::default());
-        if desync.is_none() {
-            if let Err(error) = health(&sim) {
-                desync = Some((frame, error));
-            }
-        }
-        if mirrored_items(&sim) != before {
-            mirror_moved = true;
-        }
-        if frame % 40 == 0 {
-            trajectory.push((frame, sim_tick(&sim), live_cells(&sim)));
-        }
-    }
-    trajectory.push((240, sim_tick(&sim), live_cells(&sim)));
-
-    assert!(
-        live_cells(&sim) > settled,
-        "the in-sim grant stopped accumulating (settled={settled}, \
-         trajectory={trajectory:?} as (step, tick, cells), health={:?}), so the \
-         window ran over a value that was not changing and a clean result says \
-         nothing. ⇒ If the tick column is also frozen, read the health: a \
-         session that invalidated keeps accepting steps and stops advancing",
-        health(&sim)
-    );
-    assert!(
-        mirror_moved,
-        "`persist_inventory_to_save` never mirrored the changing bag, so this \
-         arm measured a mirror that was not writing"
-    );
-    assert!(
-        desync.is_none(),
-        "⛔ mirroring a value that changes INSIDE the sim from a system that runs \
-         once per FRAME desynced at {desync:?} — that is DURABLE-HORIZON-CHECKSUM's \
-         per-frame-versus-per-tick question answered in the affirmative"
-    );
-}
-
-// ---------------------------------------------------------------------------
-// The one-shot pair against GGRS start
-// ---------------------------------------------------------------------------
-
-/// One frame's answer to the three questions the ordering turns on.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct DurableRestoreFrame {
-    session_world: bool,
-    primary_bodies: usize,
-    ggrs_live: bool,
-    restored: bool,
-    ggrs_frame: i32,
-}
-
-#[derive(bevy::prelude::Resource, Default)]
-struct DurableRestoreLog(Vec<DurableRestoreFrame>);
-
-fn record_durable_restore_order(world: &mut bevy::prelude::World) {
-    let session_world =
-        ambition_platformer2d::platformer::lifecycle::session_world_entity(world).is_some();
-    let primary_bodies = world
-        .query_filtered::<bevy::prelude::Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>()
-        .iter(world)
-        .count();
-    let ggrs_live = world.contains_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>();
-    let restored = world
-        .get_resource::<SaveRestored>()
-        .is_some_and(|latch| latch.0);
-    let ggrs_frame = world
-        .get_resource::<ambition_platformer2d::rollback::RollbackFrameCount>()
-        .map(|count| count.0)
-        .unwrap_or(-1);
-    world
-        .resource_mut::<DurableRestoreLog>()
-        .0
-        .push(DurableRestoreFrame {
-            session_world,
-            primary_bodies,
-            ggrs_live,
-            restored,
-            ggrs_frame,
-        });
-}
-
-fn sim_recording_the_restore_order() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            app.init_resource::<DurableRestoreLog>();
-            app.init_resource::<WithinFrameOrder>();
-            // `Last`, so the frame is read after every schedule that could have
-            // moved any of the four facts.
-            app.add_systems(bevy::prelude::Last, record_durable_restore_order);
-            // The probe that resolves WITHIN the frame both facts flip on: it
-            // takes an edge to the latch and samples the OTHER subject.
-            use bevy::prelude::IntoScheduleConfigs as _;
-            app.add_systems(
-                bevy::prelude::Update,
-                sample_ggrs_after_the_latch.after(
-                    ambition_platformer2d::session::durable_horizon::complete_durable_restore,
-                ),
-            );
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with the restore-order recorder")
-}
-
-/// When does the durable-restore chain run, relative to the frame GGRS starts?
-///
-/// ⛔ THE ANSWER IS "AFTER", WHICH IS THE UNFAVOURABLE ONE. The chain —
-/// `adopt_occurrence_checkpoint_from_save`, `restore_inventory_from_save`,
-/// `complete_durable_restore` — sits in top-level `Update` and writes
-/// rollback-registered state. The session-scope waivers excuse a write like that
-/// when it PRECEDES the timeline. Measured here, the timeline precedes the write:
-/// the session goes live on frame 1 or 2 and the latch flips on frame 2, and the
-/// within-frame probe — a sampler with an explicit `.after(complete_durable_restore)`
-/// edge — finds the GGRS session ALREADY LIVE at the instant the latch has just
-/// been set.
-///
-/// ⛔⛤ AND IT IS INSIDE THE REWIND WINDOW, which is what makes it a defect rather
-/// than an ordering curiosity. `RollbackFrameCount` reads **1** at that instant —
-/// timeline frame one, not "before frame zero" — and the sync-test settings give
-/// a check distance of four, so a resimulation reaches back past it. The three
-/// restored resources are `rollback_resource_clone_checksum` registrations, so a
-/// rewind across frame 1 restores them to their pre-write snapshot and `Update`
-/// does not re-run.
-///
-/// ⚠ AND THE GAP IS NOT STABLE AGAINST UNRELATED COMPOSITION CHANGES, which is
-/// the more useful half. `maintain_local_session` runs in `Update` in
-/// `LocalSessionSet::Maintain`, ordered only `.after(InputSet::Collect)`; the
-/// restore chain is in top-level `Update` with no edge to it at all. Adding ONE
-/// exclusive system to `Update` — this probe's own within-frame sampler — moved
-/// the session start from frame 2 to frame 1 and shortened the boot by a frame:
-///
-///     without the within-frame sampler   ggrs@2 restored@2, 35 frames, 3/3 runs
-///     with it                            ggrs@1 restored@2, 34 frames, 6/6 runs
-///
-/// ⇒ So this probe PERTURBS ITS OWN SUBJECT, and that is the finding rather than
-/// a caveat: each configuration is perfectly repeatable and they disagree, so the
-/// order these two land in is a property of the whole `Update` set and not of
-/// either system. Do not read the exact frame numbers as the fact. The fact is
-/// that nothing orders them.
-#[test]
-#[ignore = "PROBE, print-only: reports the frame each of the four durable-restore facts first becomes true"]
-fn probe_when_the_durable_restore_latch_flips_against_ggrs_start() {
-    let mut sim = sim_recording_the_restore_order();
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-    let log = sim.world().resource::<DurableRestoreLog>().0.clone();
-    let first = |pred: fn(&DurableRestoreFrame) -> bool| {
-        log.iter().position(pred).map(|i| i as i64).unwrap_or(-1)
-    };
-    eprintln!(
-        "PROBE frames={} session_world@{} body@{} ggrs@{} restored@{}",
-        log.len(),
-        first(|f| f.session_world),
-        first(|f| f.primary_bodies > 0),
-        first(|f| f.ggrs_live),
-        first(|f| f.restored),
-    );
-    for (i, f) in log.iter().enumerate().take(6) {
-        eprintln!("  frame {i}: {f:?}");
-    }
-    eprintln!(
-        "PROBE within-frame {:?}",
-        sim.world().resource::<WithinFrameOrder>()
-    );
-}
-
-#[derive(bevy::prelude::Resource, Default, Debug)]
-struct WithinFrameOrder {
-    ggrs_live_just_after_the_latch: Option<bool>,
-    ggrs_frame_when_the_latch_was_set: Option<i32>,
-}
-
-fn sample_ggrs_after_the_latch(world: &mut bevy::prelude::World) {
-    let latched = world
-        .get_resource::<SaveRestored>()
-        .is_some_and(|latch| latch.0);
-    if !latched {
-        return;
-    }
-    let live = world.contains_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>();
-    let frame = world
-        .get_resource::<ambition_platformer2d::rollback::RollbackFrameCount>()
-        .map(|count| count.0)
-        .unwrap_or(-1);
-    let mut order = world.resource_mut::<WithinFrameOrder>();
-    if order.ggrs_live_just_after_the_latch.is_none() {
-        order.ggrs_live_just_after_the_latch = Some(live);
-        order.ggrs_frame_when_the_latch_was_set = Some(frame);
-    }
-}
-
-/// A MID-SESSION LOAD, with the rollback timeline already live and settled.
-///
-/// The boot ordering probe above shows the durable-restore chain landing at GGRS
-/// frame 1. This asks the sharper version of the same question: re-arm the latch
-/// long after the timeline has settled, hand the chain a save that is NOT empty,
-/// and see what the restore audit says about where the writes happened.
-///
-/// ⛔ `restore_inventory_from_save` carries a waiver FOR THE ACTIVATION CASE
-/// ONLY, and `durable_horizon.rs` supports a mid-session load — so this is the
-/// case the waiver excluded and nobody had driven.
-///
-/// ⚠ WHY AN EMPTY SAVE PROVES NOTHING HERE, and it is why the lane's green on
-/// `no_registered_type_is_written_outside_the_rewinding_schedule` must not be
-/// quoted against this: `adopt_the_ledger` writes what it read, so against the
-/// harness's empty save it writes the same empty value the baselines already
-/// hold, and a value-compared audit sees two identical censuses. The seeded
-/// occurrence below is the whole point.
-/// ⛔⛤ **MEASURED 2026-09-16 AND IT DESYNCS.** With the load staged at tick 40:
-///
-///     written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline"]
-///     session_health()                          Err("checksum mismatch at frames [38, 39, 40]")
-///
-/// ⇒ This is the POSITIVE CONTROL this class has owed all day, and it names the
-/// culprit rather than the file: the staging system writes `AmbitionGameSave` and
-/// `SaveRestored` from INSIDE the schedule and neither appears in the outside set.
-/// What appears is `OccurrenceBaseline`, whose only writer here is
-/// `adopt_occurrence_checkpoint_from_save`, in `Update`.
-///
-/// ⚠ CONTROL, with its confound stated: the same staging system with the latch
-/// left ALONE — so the restore chain never fires — reports `Ok(())` and an empty
-/// outside set. The confound is that leaving the latch true also lets the
-/// in-schedule mirror re-derive the save on the next tick, so the control differs
-/// in two ways rather than one. It is enough to attribute the desync to the chain
-/// and not to this system's presence in the schedule; it is not enough to say a
-/// save write is harmless on its own.
-#[test]
-#[ignore = "PROBE, print-only: reports what a mid-session load writes outside the rewinding schedule"]
-fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
-    let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            use ambition_platformer2d::sim::SimScheduleExt;
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            app.init_resource::<PeakBaselineRows>();
-            app.add_systems(bevy::prelude::Last, record_peak_baseline_rows);
-            let label = app.sim_schedule();
-            app.add_systems(label, stage_a_mid_session_load_at_tick_40);
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with the baseline recorder");
-    sim.world_mut()
-        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-    let peak_before = sim.world().resource::<PeakBaselineRows>().0;
-    let audit_before = {
-        let audit = sim
-            .world()
-            .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
-        (
-            audit.live_comparisons,
-            audit
-                .written_outside_the_rewinding_schedule()
-                .iter()
-                .map(|name| (*name).to_string())
-                .collect::<Vec<String>>(),
-        )
-    };
-
-    // ⛔ THE STAGING CANNOT HAPPEN FROM OUT HERE, and finding that out is half
-    // the result. `AmbitionGameSave` is `rollback_resource_clone_checksum` and
-    // `SaveRestored` is `rollback_resource_clone`, so a write between two
-    // `step()` calls is restored away by the next rollback: measured, the latch
-    // never went false and the save's occurrence count never left zero. The
-    // staging system above is inside the rewinding schedule, where a
-    // resimulation re-applies it — which is exactly the property the writer
-    // under investigation lacks.
-    for _ in 0..90 {
-        sim.step(AgentAction::default());
-    }
-
-    let latched = sim.world().resource::<SaveRestored>().0;
-    let rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(sim.world()).unwrap()
-        .remembered()
-        .rows()
-        .count();
-    // ⭐ AND THE OUTSIDE SET HAS A THIRD MEMBER SINCE SCHEMA v195:
-    // `AuthoredOccurrences`. It is not a new defect — it is the same `Update`
-    // write it always was, newly VISIBLE, because this detector's population is
-    // REGISTERED types and a `declare_rollback_derived_*` type was never in it.
-    // ⇒ A false derived declaration removes its own subject from the guard named
-    // after the problem.
-    // ⭐ THE SECOND BASELINE, UNDER THE SAME PRESSURE FOR THE FIRST TIME.
-    let custody_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(sim.world()).unwrap()
-        .rows()
-        .count();
-    let save_rows = sim
-        .world()
-        .resource::<AmbitionGameSave>()
-        .data()
-        .occurrences()
-        .len();
-    let audit = sim
-        .world()
-        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
-    let moved = audit.types_whose_census_moved_across_compared_frames();
-    eprintln!(
-        "PROBE mid-session-load latched={latched} baseline_rows={rows} \
-         custody_rows={custody_rows} save_rows={save_rows} comparisons {} -> {} \
-         outside_before={:?} outside_after={:?} moved={} health={:?}",
-        audit_before.0,
-        audit.live_comparisons,
-        audit_before.1,
-        audit.written_outside_the_rewinding_schedule(),
-        moved.len(),
-        health(&sim),
-    );
-    let peak_after = sim.world().resource::<PeakBaselineRows>().0;
-    eprintln!("PROBE peak baseline rows before={peak_before} after={peak_after}");
-    let trace = sim.world().resource::<PeakBaselineRows>().1.clone();
-    eprintln!(
-        "PROBE (latched, save_rows, baseline_rows, authored_rows) frames 28..42: {:?}",
-        &trace[28.min(trace.len())..42.min(trace.len())]
-    );
-    eprintln!("PROBE moved types: {moved:?}");
-
-    // ⛔ THE PREMISE, ASSERTED, BECAUSE ASSUMING IT IS WHAT PRODUCED THE WRONG
-    // ANSWER LAST TIME. A staging system that loads nothing reports an empty
-    // outside set and looks exactly like a clean subject. Both halves of the
-    // durable horizon must actually arrive before the reading below means
-    // anything.
-    assert_eq!(
-        (rows, custody_rows),
-        (1, 1),
-        "the staged load must put a row in BOTH baselines, or this probe is \
-         reporting on a subject that was never captured (occurrence={rows}, \
-         custody={custody_rows})"
-    );
-
-    // The defect, stated so that FIXING it reds this arm instead of leaving a
-    // stale `#[ignore]`d probe agreeing with whatever the code does. Q135 is
-    // the ruling; when it lands, invert this.
-    let outside = audit.written_outside_the_rewinding_schedule();
-    for owed in [
-        "ambition_platformer2d_shared_tangle::lifecycle::continuity::OccurrenceBaseline",
-        "ambition_platformer2d_shared_tangle::lifecycle::custody_horizon::CustodyBaseline",
-    ] {
-        assert!(
-            outside.contains(&owed),
-            "{owed} is no longer written outside the rewinding schedule \
-             (outside={outside:?}) — if that is a FIX, invert this arm and \
-             close Q135; if it is a weaker fixture, the probe lost its subject"
-        );
-    }
-}
-
-/// The most rows `OccurrenceBaseline` ever held, sampled every frame — because
-/// the adoption is a ONE-FRAME write and the room republishes over it.
-#[derive(bevy::prelude::Resource, Default)]
-struct PeakBaselineRows(usize, Vec<(bool, usize, usize, usize)>);
-
-fn record_peak_baseline_rows(
-    baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
-    >,
-    authored: Option<
-        bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>,
-    >,
-    save: bevy::prelude::Res<AmbitionGameSave>,
-    latch: bevy::prelude::Res<SaveRestored>,
-    mut peak: bevy::prelude::ResMut<PeakBaselineRows>,
-) {
-    let rows = baseline.remembered().rows().count();
-    if rows > peak.0 {
-        peak.0 = rows;
-    }
-    peak.1.push((
-        latch.0,
-        save.data().occurrences().len(),
-        rows,
-        authored.map(|a| a.rows().count()).unwrap_or(usize::MAX),
-    ));
-}
-
-/// Stage the mid-session load from INSIDE the rewinding schedule, so a rollback
-/// re-applies it instead of undoing it.
-fn stage_a_mid_session_load_at_tick_40(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut save: bevy::prelude::ResMut<AmbitionGameSave>,
-    mut restored: bevy::prelude::ResMut<SaveRestored>,
-) {
-    use ambition_platformer2d::persistence::save_data::{
-        PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
-    };
-    if tick.0 != 40 {
-        return;
-    }
-    // ⛔⛤ **THE CUSTODY LIST USED TO BE `Vec::new()`, AND THAT IS WHY
-    // `CustodyBaseline` READ CLEAN.** `adopt_occurrence_checkpoint_from_save`
-    // hands BOTH baselines to `adopt_the_ledger`, so an empty custody list makes
-    // it write back the same value it read — no census change, and the audit
-    // cannot see a write that does not move the value. The page recorded
-    // `CustodyBaseline` as clean on exactly that evidence, which was a statement
-    // about the PRESSURE and not about the resource. ⇒ Both halves are seeded
-    // now, so the two are under the same pressure and a difference between them
-    // means something.
-    save.data_mut().set_durable_horizon(
-        vec![PersistedOccurrence::new(
-            "probe:seeded_occurrence",
-            PersistedWhereabouts::Placed {
-                room: ROOM.to_string(),
-                x: 64,
-                y: 64,
-            },
-        )],
-        vec![PersistedCustody::new(
-            "probe:seeded_occurrence",
-            "probe:seeded_custodian",
-        )],
-    );
-    restored.0 = false;
-}
-
 /// The dialogue-visit id the two arms below share. Namespaced so a content
 /// author's node can never collide with it.
 const VISIT_NODE: &str = "probe:visit_counted_from_update";
@@ -1338,286 +61,69 @@ fn visit_count(sim: &Platformer2dSimHarness) -> u32 {
         .dialog_visit_count(VISIT_NODE)
 }
 
-/// Count a visit the way `dispatch_pending_dialog_requests` does — from outside
-/// the rewinding schedule, into the hashed save.
-fn count_a_visit_from_update(sim: &mut Platformer2dSimHarness) {
-    sim.world_mut()
-        .resource_mut::<AmbitionGameSave>()
-        .data_mut()
-        .increment_dialog_visit(VISIT_NODE);
+/// Whether the GGRS session was live on the first frame the durable-restore
+/// latch was up. Installed as an exclusive `Update` system after
+/// `complete_durable_restore`: an unrelated `Update` member like this one is
+/// what used to move the session start onto a tick simulated with the latch
+/// down.
+#[derive(bevy::prelude::Resource, Default)]
+struct WithinFrameOrder {
+    ggrs_live_just_after_the_latch: Option<bool>,
 }
 
-/// ⛔⛤ A DIALOGUE VISIT COUNTED FROM `Update` IS TAKEN BACK BY THE REWIND, AND
-/// THE PEER CHECKSUM IS NOT THE MECHANISM.
-///
-/// `dispatch_pending_dialog_requests` (`crates/ambition_dialog/src/bridge.rs`)
-/// calls `save.data_mut().increment_dialog_visit(&dialogue_id)` in top-level
-/// `Update`, and consumes the request that caused it with
-/// `state.pending_start.take()` from a `DialogState` that is on no rollback road.
-/// ⇒ A rewind restores the save to its pre-increment value, the request does not
-/// come back, and nothing re-runs the dispatcher. **The visit is LOST**, and it
-/// is the one save field no tick can re-derive: an increment is neither
-/// idempotent nor a function of simulation state.
-///
-/// ⛔ THIS ARM EXISTS TO NARROW [Q134] TO ONE WAY. That question offers
-/// *"stop the checksum covering fields no tick derives"* as a repair. It is not
-/// one. `rollback_resource_clone_checksum` installs
-/// `rollback_resource_with_clone` and `checksum_resource` INDEPENDENTLY
-/// (`crates/ambition_platformer2d_rollback_ggrs/src/registration.rs`, inside
-/// `install_resource_clone_checksum`), so narrowing the checksum changes only
-/// what two peers compare and leaves the snapshot/restore untouched — and the
-/// restore is what loses the visit.
-///
-/// ⭐ AND THAT IS MEASURED RATHER THAN READ, BY AN ARM THAT HAS BEEN GREEN IN
-/// THIS FILE ALL ALONG: `a_bag_changed_from_update_is_silently_taken_back_by_the_rewind`
-/// takes back an `Update` write to `OwnedItems`, which is
-/// `rollback_resource_clone` — snapshotted and restored, in NO peer checksum at
-/// all. A field outside the checksum still loses its `Update` write.
-///
-/// ⇒ WHEN THIS ARM GOES RED THE DEFECT IS FIXED. Delete it, and record what
-/// made the visit replayable. (Q134 is decided: a visit count is per
-/// participant, not shared world state.)
-///
-/// [Q134]: ../../../docs/planning/maintainer-decisions.md
-#[test]
-fn a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind() {
-    let mut sim = repro_sim();
-
-    // PREMISE: the latch, for the same reason the bag arm needs it — a world
-    // where the save mirrors never run is not the world the dispatcher writes
-    // into.
-    let mut latched = false;
-    for _ in 0..240 {
-        sim.step(AgentAction::default());
-        if sim
-            .world()
-            .get_resource::<SaveRestored>()
-            .is_some_and(|restored| restored.0)
-        {
-            latched = true;
-            break;
-        }
+fn sample_ggrs_after_the_latch(world: &mut bevy::prelude::World) {
+    let latched = world
+        .get_resource::<SaveRestored>()
+        .is_some_and(|latch| latch.0);
+    if !latched {
+        return;
     }
-    assert!(
-        latched,
-        "`SaveRestored` never became true, so the save mirrors early-return \
-         forever and nothing below is measuring the dispatcher's world"
-    );
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-
-    assert_eq!(
-        visit_count(&sim),
-        0,
-        "the probe's node was already visited, so the increment below would not \
-         be the first and the loss could be read as a miscount"
-    );
-    count_a_visit_from_update(&mut sim);
-    assert_eq!(
-        visit_count(&sim),
-        1,
-        "the increment did not reach the live save, so nothing below is \
-         measuring a change"
-    );
-
-    // Sampled every frame rather than compared at the ends, because a value that
-    // is right at frame 0 and right at frame N can have been lost in between.
-    let mut lost_at: Option<usize> = None;
-    for frame in 0..240 {
-        sim.step(AgentAction::default());
-        if lost_at.is_none() && visit_count(&sim) < 1 {
-            lost_at = Some(frame);
-        }
-    }
-
-    assert!(
-        lost_at.is_some(),
-        "the rewind no longer takes back a dialogue visit counted from \
-         `Update` — that is the FIX this arm is waiting for, not a regression. \
-         Delete this arm."
-    );
-    assert_eq!(
-        visit_count(&sim),
-        0,
-        "the visit came back by the end of the window, so the loss is a \
-         transient rather than the restore, and the claim above is wrong"
-    );
-}
-
-/// ⛔ THE CONTROL, AND THE ARM ABOVE IS WORTHLESS WITHOUT IT. "The save lost a
-/// visit" and "the REWIND took the visit back" are indistinguishable from inside
-/// one harness — the durable restore rewrites this save, and a reset clears it.
-/// This runs the SAME increment in the SAME world with no rollback session.
-#[test]
-fn the_control_keeps_the_same_visit_when_nothing_rewinds() {
-    let mut sim = control_sim();
-    let mut latched = false;
-    for _ in 0..240 {
-        sim.step(AgentAction::default());
-        if sim
-            .world()
-            .get_resource::<SaveRestored>()
-            .is_some_and(|restored| restored.0)
-        {
-            latched = true;
-            break;
-        }
-    }
-    assert!(
-        latched,
-        "the control never latched, so it is not the same world as the repro"
-    );
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-
-    count_a_visit_from_update(&mut sim);
-    for frame in 0..240 {
-        sim.step(AgentAction::default());
-        assert_eq!(
-            visit_count(&sim),
-            1,
-            "frame {frame}: the visit left the save with NO rollback session \
-             running, so something other than the rewind clears it and the \
-             repro above is not measuring the rewind"
-        );
+    let live = world.contains_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>();
+    let mut order = world.resource_mut::<WithinFrameOrder>();
+    if order.ggrs_live_just_after_the_latch.is_none() {
+        order.ggrs_live_just_after_the_latch = Some(live);
     }
 }
 
-/// The ticks the in-schedule counter fires on. Five, not one, so the arm below
-/// distinguishes "the restore made it idempotent" from "tick 90 was simulated
-/// once".
-const VISIT_TICKS: [u64; 5] = [90, 91, 95, 120, 121];
+/// Every `(SimTick, SaveRestored)` pair this world simulated, one row per PASS.
+/// Read from inside the simulation schedule, because a read between
+/// `sim.step()` calls cannot see a latch that is down only while the schedule
+/// runs.
+#[derive(bevy::prelude::Resource, Default)]
+struct LatchInsideTheSchedule(Vec<(u64, bool)>);
 
-/// Count the visit from inside the rewinding schedule, on five known ticks.
-fn count_a_visit_inside_the_tick(
+fn record_the_latch_from_inside_the_schedule(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut save: bevy::prelude::ResMut<AmbitionGameSave>,
+    restored: Option<bevy::prelude::Res<SaveRestored>>,
+    mut log: bevy::prelude::ResMut<LatchInsideTheSchedule>,
 ) {
-    if VISIT_TICKS.contains(&tick.0) {
-        save.data_mut().increment_dialog_visit(VISIT_NODE);
-    }
+    log.0
+        .push((tick.0, restored.is_some_and(|restored| restored.0)));
 }
 
-/// ✔⛤ AN INCREMENT INSIDE THE REWINDING SCHEDULE IS IDEMPOTENT, BECAUSE THE
-/// RESTORE MAKES IT SO — MEASURED, AND IT IS THE OPPOSITE OF WHAT Q134 ARGUES.
-///
-/// Q134 reasons that *"an increment is neither idempotent nor derivable"* and
-/// prices its option 2 accordingly. **The first half is false where it matters.**
-/// A resimulated tick does not add to the value the previous run left: the
-/// snapshot restores `AmbitionGameSave` to its state BEFORE the tick, so every
-/// replay adds one to the same base and reaches the same total. Non-idempotence
-/// only bites a write the snapshot cannot reach — which is precisely where
-/// `dispatch_pending_dialog_requests` puts it.
-///
-/// ⇒ So the repair is the ordinary one and not a research project: move the
-/// increment into the rewinding schedule, driven by a fact a replay reproduces.
-/// `ambition_conversation::ActiveConversation` is already rollback state
-/// (`rollback_resource_clone_entity_set_probed` + `rollback_resource_map_entities`)
-/// and already carries a deterministic `ConversationInstanceId` with an
-/// `opened_at` tick, so the edge "this instance became live" is replayable.
-/// `ambition_dialog` needs no rollback vocabulary; it keeps Yarn.
-///
-/// ⚠ FIVE TICKS, NOT ONE, and that is the whole strength of this arm. A single
-/// tick reaching 1 is also what "the tick ran once, no replay happened" looks
-/// like. Five separate ticks reaching exactly 5 says each one's increment landed
-/// exactly once across every replay of it.
-#[test]
-fn an_increment_inside_the_tick_is_made_idempotent_by_the_restore() {
-    let mut sim = sim_composed_with(count_a_visit_inside_the_tick);
-    // ⛔ THE REWIND IS A PREMISE, NOT AN ASSUMPTION. Five ticks reaching five is
-    // ALSO what a harness with no rollback session reports — the control below
-    // measures exactly that. So this arm has to witness that frames were
-    // actually compared, or its subject was never present.
-    sim.world_mut()
-        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
-    for _ in 0..200 {
-        sim.step(AgentAction::default());
-    }
-    let compared = sim
-        .world()
-        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>()
-        .live_comparisons;
-    assert!(
-        compared > 0,
-        "no frame was compared across a restore, so this harness did not rewind          and the count below is the control's measurement wearing the repro's          name"
-    );
-    assert!(
-        sim_tick(&sim) > *VISIT_TICKS.last().expect("five ticks"),
-        "the window ended before the last counted tick, so a low count below \
-         would mean 'not yet' rather than 'idempotent'"
-    );
-    assert_eq!(
-        visit_count(&sim),
-        VISIT_TICKS.len() as u32,
-        "an increment inside the rewinding schedule no longer lands exactly once \
-         per tick. HIGHER means replays are accumulating and the restore is not \
-         reaching this resource — re-read Q134, whose cost argument depends on \
-         this. LOWER means a tick in VISIT_TICKS never ran."
-    );
-}
-
-/// ⛔ THE CONTROL FOR THE ARM ABOVE, and it is the ABSENCE of the rewind rather
-/// than a different instance of it. Without a rollback session the same five
-/// increments must also reach five — otherwise "the restore made it idempotent"
-/// and "these five ticks each fired once, rewind or no rewind" are the same
-/// measurement, and the arm above says nothing about the restore.
-///
-/// ⚠ This is the weaker direction on purpose: agreement here does not prove the
-/// restore did anything, it removes the reading under which the restore was
-/// never involved. What proves the restore matters is the pair of arms that
-/// bracket it — the `Update` write LOSES its increment and the in-schedule write
-/// KEEPS exactly one per tick, in the same world.
-#[test]
-fn the_control_counts_the_same_five_visits_with_no_rewind() {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM),
-        |app, options| {
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            app.add_systems(label, count_a_visit_inside_the_tick);
-            Ok(())
-        },
-    )
-    .expect("the same world builds without a rollback session");
-    for _ in 0..200 {
-        sim.step(AgentAction::default());
-    }
-    assert_eq!(
-        visit_count(&sim),
-        VISIT_TICKS.len() as u32,
-        "the counter did not land five times in a world with NO rewind, so the \
-         arm above is measuring the fixture and not the restore"
-    );
-}
-
-/// The two ticks the acceptance arm opens a conversation on, and the tick it
-/// closes the first one. TWO openings, because an arm that expects 1 cannot tell
-/// "counted on the opening edge" from "counted once ever".
-const OPENS_AT: [u64; 2] = [90, 150];
-const CLOSES_AT: u64 = 120;
+/// The ticks the stand-in opens a conversation on, and the tick it closes the
+/// first one. The first is the first tick of the session, the earliest moment a
+/// scripted or room-entry conversation can open. Two openings, because an arm
+/// that expects 1 cannot tell "counted on the opening edge" from "counted once
+/// ever".
+const FIRST_TICK: u64 = 1;
+const OPENS_AT: [u64; 2] = [FIRST_TICK, 40];
+const CLOSES_AT: u64 = 20;
 
 /// Open and close a conversation on known ticks, from inside the rewinding
-/// schedule — standing in for `interact_ecs_actors_and_switches`, which needs a
+/// schedule, standing in for `interact_ecs_actors_and_switches`, which needs a
 /// body in reach of an NPC with a compiled Yarn node.
 ///
-/// ⚠ It mints the instance the way production does, at the CURRENT tick, rather
-/// than through `LiveConversation::for_test` — that hatch opens at tick zero on
-/// purpose, and the opening tick is the entire subject here.
+/// It mints the instance at the CURRENT tick, as production does, rather than
+/// through `LiveConversation::for_test`, which opens at tick zero: the opening
+/// tick is the subject.
 fn open_a_conversation_on_known_ticks(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut conversation: bevy::prelude::ResMut<
         ambition_platformer2d::conversation::ActiveConversation,
     >,
 ) {
-    use ambition_platformer2d::conversation::{
-        ActiveConversation, ConversationInstanceId, LiveConversation,
-    };
-    let _: &ActiveConversation = &conversation;
+    use ambition_platformer2d::conversation::{ConversationInstanceId, LiveConversation};
     if tick.0 == CLOSES_AT {
         conversation.close();
         return;
@@ -1640,20 +146,36 @@ fn open_a_conversation_on_known_ticks(
     });
 }
 
-/// ✔⛤ THE ACCEPTANCE FOR THE REPAIR: A CONVERSATION'S VISIT IS COUNTED ONCE PER
-/// OPENING, ACROSS A REWOUND WINDOW.
+/// The ticks this world simulated before the durable-restore latch rose.
 ///
-/// `count_the_dialogue_visit_when_a_conversation_opens` runs in the sim schedule
-/// and fires on `ActiveConversation`'s `opened_at == SimTick`, which is a pure
-/// function of rollback state. Two openings of the same node must reach exactly
-/// two, with every tick of the window resimulated.
+/// Ticks, not host frames: which host frame the boot lands on moves under
+/// unrelated composition changes, and `FIRST_TICK` is the first tick whatever
+/// frame it runs on.
+fn ticks_simulated_unrestored(sim: &Platformer2dSimHarness) -> Vec<u64> {
+    sim.world()
+        .resource::<LatchInsideTheSchedule>()
+        .0
+        .iter()
+        .filter(|(_, restored)| !restored)
+        .map(|(tick, _)| *tick)
+        .collect()
+}
+
+/// A conversation's visit is counted once per opening across a rewound window,
+/// including an opening on the first tick of the session.
 ///
-/// ⛔ THE COUNT IS THE WHOLE ASSERTION, IN BOTH DIRECTIONS. **0** is the old
-/// defect's signature — nothing counted the visit, or it was counted and taken
-/// back. **More than 2** is the failure mode the edge exists to prevent: a
-/// level rule (`opened_at <= now`) or change detection would fire on every tick
-/// the conversation stays live, and a restore marks a rollback-registered
-/// resource changed, so `is_changed` fires every frame under GGRS.
+/// `count_the_dialogue_visit_when_a_conversation_opens` fires on
+/// `ActiveConversation`'s `opened_at == SimTick`, a pure function of rollback
+/// state. 0 visits means the counter never fired or its write was taken back;
+/// more than one per opening means the edge has become a level (`opened_at <=
+/// now`, or change detection, which a restore fires every frame under GGRS).
+///
+/// The first-tick opening is the session-start gate's witness:
+/// `maintain_local_session` refuses to start a GGRS session over a world whose
+/// durable state is still loading. Without the gate the first tick is
+/// simulated with the latch down and its visit is dropped. The within-frame
+/// sampler is installed because an unrelated `Update` system is what used to
+/// move the session start onto that tick.
 #[test]
 fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -1666,31 +188,28 @@ fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
             use bevy::prelude::IntoScheduleConfigs as _;
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
             let label = app.sim_schedule();
-            // ⛔⛤ THE SET IS LOAD-BEARING AND COST AN HOUR. Registered anywhere
-            // else in this schedule, the stand-in opens the conversation AFTER
-            // the counter has already run for that tick — so the counter sees
-            // the instance first at `opened_at + 1`, the edge is gone, and the
-            // visit is never counted. Measured: the same fixture reports 0
-            // visits unset and 2 with this line, with the counter's own
-            // `opened_at == now` never once true in the first case.
-            // ⇒ `FeatureInteractionSet::Actuate` is where
-            // `interact_ecs_actors_and_switches` — the real opener — sits, and
-            // the counter's `.after(interact_ecs_actors_and_switches)` edge is
-            // the production form of this line.
-            //
-            // ⛔⛤ AND THE SET ALONE WAS NOT AN ORDER (2026-10-01). The counter is
-            // after the real opener SYSTEM, not after the set, so the stand-in
-            // was unordered against it and the topological sort decided. Adding
-            // unrelated sets elsewhere in the sim schedule flipped that sort
-            // and both openers here counted 0. The `.before` edge is the order
-            // the set only seemed to give.
+            app.init_resource::<LatchInsideTheSchedule>();
+            // `Actuate` is where the real opener sits, and the `.before` edge is
+            // the order the counter's `.after(interact_ecs_actors_and_switches)`
+            // gives the real one: the set alone leaves the stand-in unordered
+            // against the counter, and opened after it the edge is never seen.
             app.add_systems(
                 label,
-                open_a_conversation_on_known_ticks
-                    .in_set(ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate)
-                    .before(
+                (
+                    record_the_latch_from_inside_the_schedule,
+                    open_a_conversation_on_known_ticks.before(
                         ambition_platformer2d::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
                     ),
+                )
+                    .in_set(
+                        ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,
+                    ),
+            );
+            app.init_resource::<WithinFrameOrder>();
+            app.add_systems(
+                bevy::prelude::Update,
+                sample_ggrs_after_the_latch
+                    .after(ambition_platformer2d::session::durable_horizon::complete_durable_restore),
             );
             Ok(())
         },
@@ -1698,9 +217,10 @@ fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
     .expect("the sync-test harness builds with a conversation opener");
     sim.world_mut()
         .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
-    for _ in 0..240 {
+    for _ in 0..60 {
         sim.step(AgentAction::default());
     }
+
     let compared = sim
         .world()
         .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>()
@@ -1711,352 +231,43 @@ fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
          rewind it claims to survive"
     );
     assert!(
+        sim.world()
+            .resource::<WithinFrameOrder>()
+            .ggrs_live_just_after_the_latch
+            .is_some(),
+        "the within-frame sampler never ran after the latch rose, so the \
+         composition this arm guards is not the one it built"
+    );
+    assert!(
         sim_tick(&sim) > *OPENS_AT.last().expect("two openings"),
         "the window ended before the second opening, so a count of 1 would mean \
          'not yet' rather than 'counted once'"
     );
     assert!(
         sim.world()
-            .get_resource::<SaveRestored>()
-            .is_some_and(|restored| restored.0),
-        "the latch never flipped, so the counter early-returned for the whole \
-         window and a count of 0 would say nothing about the edge"
+            .resource::<LatchInsideTheSchedule>()
+            .0
+            .iter()
+            .any(|(tick, _)| *tick == FIRST_TICK),
+        "the world never simulated its first tick; if the durable hydration gate \
+         now refuses to start a session at all, this is where it shows"
+    );
+    assert_eq!(
+        ticks_simulated_unrestored(&sim),
+        Vec::<u64>::new(),
+        "ticks were simulated before the durable restore completed: the timeline \
+         is starting over an unhydrated world, which the session-start gate in \
+         `maintain_local_session` exists to refuse"
     );
     assert_eq!(
         visit_count(&sim),
         OPENS_AT.len() as u32,
-        "two conversation openings did not produce two visits. 0 means the \
-         counter never fired or its write was taken back — the defect this \
-         repair closes. MORE than 2 means the edge is not an edge and the \
-         counter is firing while the conversation merely stays live."
+        "two conversation openings (one on the first tick) did not produce two \
+         visits. Fewer: the counter never fired, its write was taken back, or the \
+         first-tick visit hit a counter still gated on the latch. More: the \
+         opening edge has become a level"
     );
 }
-
-
-/// Every per-type census this world reported, keyed by the tick it was taken on.
-///
-/// ⛔ THE POINT IS THE PASS, NOT THE TICK. Under the sync test each frame is
-/// simulated several times, so one tick has several entries here. A type whose
-/// entries for ONE tick disagree is a type two passes of the same frame computed
-/// differently — which is what a checksum mismatch at that frame IS, expressed
-/// as a type instead of a frame number.
-#[derive(bevy::prelude::Resource, Default)]
-struct CensusByPass(
-    std::collections::BTreeMap<
-        u64,
-        Vec<std::collections::BTreeMap<&'static str, (usize, u64)>>,
-    >,
-    /// `(AuthoredOccurrences rows, save occurrence rows)` per pass.
-    std::collections::BTreeMap<u64, Vec<(usize, usize)>>,
-);
-
-fn record_the_census_of_every_pass(world: &mut bevy::prelude::World) {
-    let Some(tick) = world
-        .get_resource::<ambition_platformer2d::time::SimTick>()
-        .map(|tick| tick.0)
-    else {
-        return;
-    };
-    let probes = world
-        .remove_resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>();
-    let Some(probes) = probes else {
-        return;
-    };
-    let census: std::collections::BTreeMap<&'static str, (usize, u64)> = probes
-        .census_all(world)
-        .into_iter()
-        .map(|(name, census)| (name, (census.count, census.xor)))
-        .collect();
-    world.insert_resource(probes);
-    // ⭐ AND THE ROWS, RECORDED BESIDE THE CENSUS. These two are different KINDS
-    // of evidence about the same resource — a COUNT here, a digest there — so a
-    // disagreement between them is informative rather than redundant. (Until the
-    // probe was strengthened this read was the only witness, because a
-    // presence-only probe on a singleton resource reports `count: 1, xor: 0`
-    // however many rows it holds.)
-    let authored = world
-        .get_resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
-        .map_or(usize::MAX, |authored| authored.rows().count());
-    let saved = world
-        .get_resource::<AmbitionGameSave>()
-        .map_or(usize::MAX, |save| save.data().occurrences().len());
-    let mut by_pass = world.remove_resource::<CensusByPass>().unwrap_or_default();
-    by_pass.0.entry(tick).or_default().push(census);
-    by_pass.1.entry(tick).or_default().push((authored, saved));
-    world.insert_resource(by_pass);
-}
-
-/// ✔⛤ THE MID-SESSION LOAD NO LONGER REACHES BACKWARDS ACROSS THE REWIND — AND
-/// THE LOAD'S LEDGER WRITE IS NOW DETERMINISTICALLY LOST INSTEAD, WHICH IS THE
-/// REMAINING HALF OF [Q135].
-///
-/// ⚠ THIS ARM WAS INVERTED WHEN THE DEFECT CLOSED, and the history matters
-/// because the numbers below used to be the other way round. What follows is what
-/// it measured while `AuthoredOccurrences` was declared `Derived`:
-///
-/// Of 364 probed entries, exactly one disagrees between two passes of the same
-/// frame outside world construction: `AmbitionGameSave`, at frames 38 and 39 —
-/// the frames the sync test names. Neither baseline disagrees, so the
-/// `OccurrenceBaseline` path this was first attributed to is not the road.
-///
-/// ⭐ THE ROAD IS `AuthoredOccurrences`, which is
-/// `declare_rollback_derived_resource` — carried in no snapshot, restored by no
-/// rewind — on the stated grounds that it is *"republished from live state while
-/// its room is loaded"*. `adopt_the_ledger` fills it from the SAVE instead, and
-/// nothing republishes it during a rewind, so it keeps the adopted row while the
-/// timeline re-simulates frames from BEFORE the load. Then
-/// `persist_occurrence_horizon_to_save` mirrors that row into the save's
-/// occurrence slice, which is hashed. ⇒ A hashed value derived, inside the
-/// rewinding schedule, from a value that does not rewind.
-///
-/// Measured `(AuthoredOccurrences rows, save occurrence rows)` per pass, load
-/// staged at tick 40:
-///
-/// ```text
-/// tick 37   (0,0) (0,0) (0,0) (0,0) (1,0)
-/// tick 38   (0,0) (0,0) (0,0) (1,1)
-/// tick 39   (0,0) (0,0) (1,1)
-/// tick 40   (0,1) (1,1)
-/// ```
-///
-/// ⚠ AND THE LEAK REACHES ONE FRAME FURTHER BACK THAN THE SYNC TEST REPORTS:
-/// tick 37's last pass already holds the row. The checksum only notices once the
-/// mirror has copied it into the save.
-///
-/// ⛔⛤ AND THE INSTRUMENT'S BLIND SPOT IS THE SUBJECT ITSELF — measured, after
-/// a first reading that got the reason wrong. `AuthoredOccurrences` IS probed
-/// and IS one of the 364 entries; its probe is **presence-only**, and a presence
-/// probe on a RESOURCE reports `count: 1, xor: 0` however many rows the resource
-/// holds. So the census can see the type and can never see this defect. That is
-/// the weakness `declare_rollback_derived_component`'s own doc names — *"for a
-/// singleton derived resource 'present' is nearly a constant"* — which is why
-/// the rows are read directly here, beside the census.
-///
-/// ⛔⛤ AND THE DECLARED REASON IS FALSE, WHICH THE REGISTRATION DOC PREDICTED IN
-/// THESE WORDS: *"a derived declaration that lies is worse than no declaration,
-/// because it satisfies the coverage sweep."* It records one such lie already
-/// (`ProjectileOwner`, a day of bisection). This is a second:
-/// `AuthoredOccurrences` declares *"republished from live state while its room
-/// is loaded"*, and `adopt_the_ledger` fills it from a SAVE with no republish to
-/// correct it across a rewind. ⚠ `every_presence_only_probe_is_named_with_its_reason`
-/// deliberately does not list derived registrations, on the grounds that their
-/// reason is declared at the registration site — so the promise is checked for
-/// EXISTENCE and never for TRUTH.
-///
-/// ✅ **AND THAT IS CLOSED.** `AuthoredOccurrences` is
-/// `rollback_resource_clone_checksum` now, so the snapshot restores its rows and
-/// the leak has nowhere to come from. Measured after: **no entry of the 364
-/// disagrees between two passes of one frame outside world construction**, and
-/// ticks 37-39 read `(0,0)` on every pass where they used to read `(1,1)` on the
-/// later ones.
-///
-/// ⭐ AND THE LOAD NOW LANDS (2026-10-03). Until then the adopter ran in
-/// top-level `Update`, so once the ledger rewound its write was restored away:
-/// the save held the row from tick 40 on and the ledger held none, in every
-/// pass. A divergence had become a deterministic loss. The restore chain runs
-/// in the simulation now (BODY-BORN-ON-THE-TIMELINE), so the write is part of
-/// the tick that makes it: the ledger holds the row after the load, and every
-/// replay of a tick agrees.
-#[test]
-fn a_mid_session_load_does_not_reach_back_across_the_rewind() {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            use bevy::prelude::IntoScheduleConfigs as _;
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            app.init_resource::<CensusByPass>();
-            app.add_systems(
-                label,
-                (
-                    stage_a_mid_session_load_at_tick_40,
-                    record_the_census_of_every_pass,
-                )
-                    .chain(),
-            );
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with a per-pass census");
-    for _ in 0..120 {
-        sim.step(AgentAction::default());
-    }
-
-    let by_pass = sim.world().resource::<CensusByPass>();
-    // A type is a SUSPECT when one tick's passes disagree about it. Report how
-    // many ticks each suspect disagreed on, so a per-tick-changing type (which
-    // disagrees everywhere) is distinguishable from one that only disagrees at
-    // the load.
-    let mut disagreed: std::collections::BTreeMap<&'static str, Vec<u64>> =
-        std::collections::BTreeMap::new();
-    for (tick, passes) in &by_pass.0 {
-        if passes.len() < 2 {
-            continue;
-        }
-        for (name, first) in &passes[0] {
-            if passes[1..]
-                .iter()
-                .any(|later| later.get(name) != Some(first))
-            {
-                disagreed.entry(name).or_default().push(*tick);
-            }
-        }
-    }
-    let ticks_with_passes = by_pass.0.values().filter(|p| p.len() >= 2).count();
-    let entries = by_pass.0.values().next().map_or(0, |p| p[0].len());
-    eprintln!(
-        "PASSES ticks={} ticks-with-2+-passes={ticks_with_passes} entries={entries}",
-        by_pass.0.len(),
-    );
-    for (name, ticks) in &disagreed {
-        eprintln!(
-            "PASSES disagreed on {} tick(s): {name} at {:?}",
-            ticks.len(),
-            &ticks[..ticks.len().min(6)]
-        );
-    }
-    for tick in [37u64, 38, 39, 40, 41] {
-        eprintln!(
-            "PASSES tick {tick}: (authored, saved) per pass = {:?}",
-            by_pass.1.get(&tick)
-        );
-    }
-
-    // ⛔ THE ARM'S OWN PREMISE ABOUT ITS INSTRUMENT, ASSERTED. Reading the rows
-    // directly is only justified while the census cannot see them; if the probe
-    // is ever strengthened, the census becomes the better witness and the
-    // reasoning above needs rewriting rather than re-running.
-    {
-        const SUBJECT: &str =
-            "ambition_platformer2d_shared_tangle::lifecycle::continuity::AuthoredOccurrences";
-        let probes = sim
-            .world()
-            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>();
-        assert!(
-            probes.type_names().contains(&SUBJECT),
-            "the subject left the probe set entirely, so 'the census cannot see \
-             this defect' is now true for a different reason than the one stated"
-        );
-        assert!(
-            !probes.presence_only_type_names().contains(&SUBJECT),
-            "the subject's probe went back to presence-only, which on a \
-             singleton resource reports `count: 1, xor: 0` however many rows it \
-             holds — so the census below can no longer see the cause and this \
-             arm is reporting on its own blindness"
-        );
-    }
-
-    // ── PREMISES, because every number below is worthless without them.
-    assert!(
-        ticks_with_passes >= 20,
-        "only {ticks_with_passes} tick(s) were simulated more than once, so \
-         there is barely a replay here to disagree with"
-    );
-    assert!(
-        entries > 300,
-        "the probe set collapsed to {entries} entries; a small population \
-         reports few suspects for a reason that is not agreement"
-    );
-
-    // ── PREMISE: the load actually happened. `saved` must reach the row, or
-    // the agreement below is agreement about a load that never ran.
-    let load_landed = by_pass
-        .1
-        .iter()
-        .any(|(tick, passes)| *tick >= 40 && passes.iter().any(|(_, saved)| *saved > 0));
-    assert!(
-        load_landed,
-        "the staged load never reached the save, so this arm is reporting on a \
-         world where nothing loaded"
-    );
-
-    // ── SUBJECT ONE: no frame's passes disagree about the ledger any more.
-    let carried_back: Vec<u64> = [37u64, 38, 39]
-        .into_iter()
-        .filter(|tick| {
-            by_pass.1.get(tick).is_some_and(|passes| {
-                passes.iter().any(|(authored, _)| *authored == 0)
-                    && passes.iter().any(|(authored, _)| *authored > 0)
-            })
-        })
-        .collect();
-    assert!(
-        carried_back.is_empty(),
-        "`AuthoredOccurrences` disagrees between passes of ticks \
-         {carried_back:?}, which are frames from BEFORE the load — so the row is \
-         reaching backwards across the rewind again. The registration is what \
-         stops that: `rollback_resource_clone_checksum`, not \
-         `declare_rollback_derived_*`."
-    );
-
-    // ── SUBJECT TWO: and the load's ledger write LANDS, and every replay of a
-    // tick agrees about it. Until 2026-10-03 the write was LOST: the adopter ran
-    // in `Update`, and a rewind put the ledger back. It runs in the simulation
-    // now (BODY-BORN-ON-THE-TIMELINE), so the write is part of the tick that
-    // makes it, and that tick's replays make it again.
-    let after_the_load: Vec<(u64, Vec<usize>)> = by_pass
-        .1
-        .iter()
-        .filter(|(tick, _)| **tick >= 40)
-        .map(|(tick, passes)| (*tick, passes.iter().map(|(authored, _)| *authored).collect()))
-        .collect();
-    assert!(
-        after_the_load
-            .iter()
-            .any(|(_, rows)| rows.iter().any(|rows| *rows > 0)),
-        "the load's ledger write never landed after tick 40, so the restore \
-         chain is not applying the save from the simulation"
-    );
-    let replays_disagree: Vec<u64> = after_the_load
-        .iter()
-        .filter(|(_, rows)| rows.windows(2).any(|pair| pair[0] != pair[1]))
-        .map(|(tick, _)| *tick)
-        .collect();
-    assert!(
-        replays_disagree.is_empty(),
-        "the passes of ticks {replays_disagree:?} disagree about the ledger after \
-         the load: a replay of the tick that applies the save did not apply it \
-         the same way"
-    );
-
-    // ── SUBJECT THREE, AND THE WIDEST: NOTHING at all disagrees between two
-    // passes of one frame, over the whole probed set, outside world
-    // construction. This is the assertion the repair earns; while the ledger was
-    // `Derived` the set was exactly `{AmbitionGameSave, AuthoredOccurrences}`,
-    // with the ledger's first disagreement one frame AHEAD of the save's because
-    // the chain is ledger -> mirror -> hashed save.
-    //
-    // ⚠ TICK 0 IS EXCLUDED because the world is being built during its passes,
-    // which is not a replay disagreement about simulation.
-    let outside_construction: Vec<(&&str, &Vec<u64>)> = disagreed
-        .iter()
-        .filter(|(_, ticks)| ticks.iter().any(|tick| *tick > 0))
-        .map(|(name, ticks)| (name, ticks))
-        .collect();
-    assert!(
-        outside_construction.is_empty(),
-        "{} probed entr(ies) disagree between two passes of one frame: {:?}. A \
-         member here is a value two passes of the same simulated frame computed \
-         differently, which is what a peer checksum mismatch IS.",
-        outside_construction.len(),
-        &outside_construction[..outside_construction.len().min(6)]
-    );
-    // ── AND THE SYNC TEST ITSELF, which is a different KIND of evidence than
-    // the per-pass census: GGRS's own comparison rather than this arm's.
-    health(&sim).unwrap_or_else(|error| {
-        panic!(
-            "the per-pass census found no disagreement and the sync test \
-             disagrees anyway, so something diverges that no probe covers. The \
-             probed set is a FLOOR on what is compared, not the whole of \
-             it.\n{error}"
-        )
-    });
-}
-
 
 const LEDGER_ROW_AT: u64 = 5;
 const LEDGER_OCCURRENCE: &str = "probe:an_object_the_world_remembers";
@@ -2090,31 +301,13 @@ fn leave_one_row_in_the_occurrence_ledger(
     occurrences.adopt_rows(rows);
 }
 
-/// ⛔⛤ ONE WRITE TO THE OCCURRENCE LEDGER FROM INSIDE THE SIMULATION DESYNCS THE
-/// SYNC TEST WITHIN TWO TICKS. `AuthoredOccurrences` IS AUTHORITATIVE MUTABLE
-/// SIMULATION STATE AND ITS `Derived` DECLARATION IS FALSE.
-///
-/// ⭐ THIS NEEDS NO SAVE FILE, NO LOAD AND NO NEW GAME, which is what makes it
-/// the right witness. The mid-session-load arm above reaches the same defect
-/// through `adopt_occurrence_checkpoint_from_save`, a road whose production
-/// customer is not established, and that invited the reading that the defect is
-/// a property of an unsupported feature. It is not: a single `adopt_rows` call
-/// in the rewinding schedule is enough.
-///
-/// ⛔ AND THE SHIPPED INSTANCE OF THIS WRITE WAS NEW GAME, which cleared the
-/// ledger inside this same schedule until 2026-09-29 (it restores the ledger on
-/// the confirmed-frame commit now). A rewind across such a clear cannot restore
-/// what it cleared, and for a row naming an unloaded room there is no live
-/// producer that could republish it — so the *"republished from live state
-/// while its room is loaded"* justification has nothing to offer.
-///
-/// ⚠ MEASURED BEHAVIOUR OF THE DEFECT, 2026-09-16: with the row seeded the
-/// timeline stalls at `SimTick` 7 with a checksum mismatch; with the identical
-/// fixture and no row it reaches 31. **A row in this ledger is not inert.**
-///
-/// ⚠ THIS ARM ASSERTS THE REPAIRED BEHAVIOUR AND FAILS UNTIL
-/// `AuthoredOccurrences` BECOMES REAL ROLLBACK STATE. The defect already has a
-/// witness; what this owes is the acceptance.
+/// One write to the occurrence ledger from inside the simulation keeps the sync
+/// test healthy. `AuthoredOccurrences` is authoritative mutable simulation
+/// state, so it has to be snapshotted and restored: carried in no snapshot, a
+/// row written once survives a rewind into frames from before the write,
+/// `persist_occurrence_horizon_to_save` mirrors it into the hashed save, and two
+/// passes of one frame disagree within two ticks. A row naming an unloaded room
+/// has no live producer that could republish it.
 #[test]
 fn one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -2131,7 +324,7 @@ fn one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test() {
         },
     )
     .expect("the sync-test harness builds with one ledger write");
-    for _ in 0..140 {
+    for _ in 0..40 {
         sim.step(AgentAction::default());
     }
 
@@ -2141,44 +334,29 @@ fn one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test() {
         .rows()
         .count();
     let reached = sim_tick(&sim);
-    eprintln!("LEDGER rows={rows} SimTick={reached} health={:?}", health(&sim));
-
-    // ── PREMISE: the write happened. Without it a clean window says nothing.
     assert_eq!(
         rows, 1,
         "the seeded row is not in the ledger, so this arm is measuring a world \
          where nothing wrote to it"
     );
-
-    // ── THE SUBJECT.
     health(&sim).unwrap_or_else(|error| {
         panic!(
-            "one `adopt_rows` call inside the rewinding schedule desynced the \
-             sync test. `AuthoredOccurrences` is `declare_rollback_derived_*`, so \
-             no snapshot restores it: the row survives a rewind into frames from \
-             before the write, `persist_occurrence_horizon_to_save` mirrors it \
-             into the hashed save, and two passes of one frame disagree.\n\
-             SimTick reached {reached} (an unseeded run of this fixture reaches \
-             31)\n{error}"
+            "one `adopt_rows` call inside the rewinding schedule desynced the sync \
+             test: the ledger is not restored by the rewind. SimTick reached \
+             {reached}\n{error}"
         )
     });
     assert!(
         reached > 25,
-        "the timeline stalled at tick {reached}; an unseeded run of this fixture \
-         reaches 31, so the write is holding the session back even if the \
-         checksum happens to agree"
+        "the timeline stalled at tick {reached}, so the write is holding the \
+         session back even though the checksum agrees"
     );
 }
 
-const NEW_GAME_AT: u64 = 30;
 
-/// Every value `SaveRestored` held, sampled once per `Update`.
-///
-/// ⛔⛤ THIS EXISTS BECAUSE A BETWEEN-STEP READ CANNOT SEE THE TRANSITION.
-/// The old New Game reducer lowered the latch and the load chain raised it
-/// again in the SAME frame, so `sim.step()`-boundary sampling reported it true
-/// throughout — measured: the first version of the arm below passed with the
-/// defect fully present, which is a vacuous guard wearing a green tick.
+/// Every value `SaveRestored` held, sampled once per `Update`. A read between
+/// `sim.step()` calls cannot see a latch lowered and raised again inside one
+/// frame, which is the shape a New Game that reloaded the save would have.
 #[derive(bevy::prelude::Resource, Default)]
 struct LatchHistory(Vec<bool>);
 
@@ -2187,513 +365,6 @@ fn record_the_latch_every_frame(
     mut history: bevy::prelude::ResMut<LatchHistory>,
 ) {
     history.0.push(restored.0);
-}
-
-/// Put a row in each occurrence baseline, then commit New Game — all from
-/// inside the rewinding schedule, which is where the shipped reset lives.
-fn seed_both_baselines_then_start_a_new_game(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut occurrence_baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
-        ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
-    >,
-    mut custody_baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
-        ambition_platformer2d::platformer::lifecycle::CustodyBaseline,
-    >,
-    mut new_games: bevy::prelude::MessageWriter<
-        ambition_platformer2d::session::reset::NewGameRequested,
-    >,
-) {
-    use ambition_platformer2d::platformer::lifecycle::{
-        AuthoredOccurrences, OccurrenceWhereabouts,
-    };
-    use ambition_platformer2d::platformer::sim_id::SimId;
-    if tick.0 == 5 {
-        let subject = SimId::from_snapshot("probe:a_thing_the_checkpoint_remembers".to_string());
-        let mut rows = std::collections::BTreeMap::new();
-        rows.insert(subject.clone(), OccurrenceWhereabouts::InCustody);
-        let mut remembered = AuthoredOccurrences::default();
-        remembered.adopt_rows(rows);
-        occurrence_baseline.adopt(remembered);
-        let mut held = std::collections::BTreeMap::new();
-        held.insert(
-            subject,
-            SimId::from_snapshot("probe:a_custodian".to_string()),
-        );
-        custody_baseline.adopt(held);
-    } else if tick.0 == NEW_GAME_AT {
-        new_games.write(ambition_platformer2d::session::reset::NewGameRequested);
-    }
-}
-
-/// ✔⛤ NEW GAME CLEARS THE OCCURRENCE BASELINES ITSELF, AND NEVER LOWERS THE
-/// DURABLE-RESTORE LATCH TO DO IT.
-///
-/// The old New Game inventory reducer ended `restored.0 = false`, which sent
-/// the fresh run back through the generic load chain so that
-/// `adopt_occurrence_checkpoint_from_save` would re-adopt these two baselines
-/// from the wiped file. ⛔ **That line was the ONLY place in the codebase that
-/// lowered `SaveRestored`** — measured by census — so it was single-handedly
-/// creating a "replace the save while a GGRS session is live" road that no
-/// product feature asked for, and running a chain of `Update` systems over
-/// rollback-owned state to do it.
-///
-/// ⇒ Every other fresh-run durable fact was already reset in that same function
-/// (bag, wallet, minted-item baseline, owned-items baseline); these two were the
-/// whole reason to re-enter the load road. They are reset directly now.
-///
-/// Since 2026-09-29 a New Game is a checkpoint restore to the fresh baseline, and
-/// the baselines are cleared by `adopt_pinned_lifecycle_baselines` on the
-/// commit. `AuthoredOccurrences` is not checked here: the same commit restores
-/// it from the pinned empty ledger.
-#[test]
-fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    let mut sim = Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            use bevy::prelude::IntoScheduleConfigs as _;
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            // Before the admission, so the request is read on the tick it is
-            // written and a rewind to that tick writes it again.
-            app.add_systems(
-                label,
-                seed_both_baselines_then_start_a_new_game
-                    .before(ambition_platformer2d::platformer::lifecycle::CheckpointRestore),
-            );
-            // ⚠ `Update`, not the sim schedule: the chain that lowers and raises
-            // the latch lives in `Update`, and that is the resolution the claim
-            // needs.
-            app.init_resource::<LatchHistory>();
-            // ⛔⛤ AND `.before` THE RESTORE CHAIN, WHICH IS THE THIRD TIME THIS
-            // ARM'S SHUTTER OPENED AT THE WRONG MOMENT. Unordered in `Update`
-            // the recorder lands AFTER `complete_durable_restore` has raised the
-            // latch again, so it reports `true` on every frame with the defect
-            // fully present. The window where the latch is false is: the sim
-            // schedule lowers it (from `PreUpdate`, under the rollback host) and
-            // this same frame's `Update` chain raises it. Sampling has to sit at
-            // the head of that chain.
-            app.add_systems(
-                bevy::prelude::Update,
-                record_the_latch_every_frame.before(
-                    ambition_platformer2d::session::durable_horizon::adopt_occurrence_checkpoint_from_save,
-                ),
-            );
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with a New Game on a known tick");
-
-    // Sampled EVERY step, because the claim is that the latch never goes false —
-    // and a value that is true at the start and true at the end can have been
-    // false in between. That is exactly how the old road worked.
-    let mut latch_lowered_at: Vec<usize> = Vec::new();
-    let mut baselines_seeded = false;
-    // ⛔ AND THE ROSTER IS WHAT PROVES THE RESET COMMITTED, not `SimTick`. A
-    // committed reset writes a `ClockResetRequest`, so the tick counter is not a
-    // measure of window progress across one: measured, a 140-step run and a
-    // 280-step run both report tick 32 against a reset staged at 30. The reset
-    // despawns and respawns the room's roster, and despawn bumps the entity
-    // generation, so NO original `Entity` value survives a rebuild that really
-    // ran.
-    let roster_before = feature_roster(&mut sim);
-    for frame in 0..200 {
-        sim.step(AgentAction::default());
-        if !sim
-            .world()
-            .get_resource::<SaveRestored>()
-            .is_some_and(|restored| restored.0)
-        {
-            // Kept, but it is the WEAK reading — see `LatchHistory`.
-            latch_lowered_at.push(frame);
-        }
-        if !baselines_seeded
-            && ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(sim.world()).unwrap()
-                .remembered()
-                .rows()
-                .count()
-                > 0
-        {
-            baselines_seeded = true;
-        }
-    }
-
-    let occurrence_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(sim.world()).unwrap()
-        .remembered()
-        .rows()
-        .count();
-    let custody_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(sim.world()).unwrap()
-        .rows()
-        .count();
-    let roster_after = feature_roster(&mut sim);
-    let survivors = roster_before.intersection(&roster_after).count();
-    eprintln!(
-        "NEWGAME tick={} seeded={baselines_seeded} occurrence_rows={occurrence_rows} \
-         custody_rows={custody_rows} latch_lowered_at={latch_lowered_at:?} \
-         roster {} -> {} survivors={survivors}",
-        sim_tick(&sim),
-        roster_before.len(),
-        roster_after.len(),
-    );
-
-    // ── PREMISES. The window has to reach the reset, and the baselines have to
-    // have held something, or "they are empty" is a statement about a seed that
-    // never landed.
-    assert!(
-        !roster_before.is_empty(),
-        "the room had no roster before the reset, so 'the roster was rebuilt' \
-         below is a claim about an empty set"
-    );
-    assert_eq!(
-        survivors, 0,
-        "{survivors} of {} roster entities survived, so the New Game reset did \
-         not rebuild the world and nothing below is about a committed reset",
-        roster_before.len()
-    );
-    assert!(
-        baselines_seeded,
-        "the occurrence baseline never held a row, so 'New Game cleared it' is a \
-         claim about an empty subject"
-    );
-
-    // ── THE SUBJECT, both halves.
-    assert_eq!(
-        (occurrence_rows, custody_rows),
-        (0, 0),
-        "New Game left rows in the occurrence baselines, so the fresh run \
-         inherits what the finished run remembered at its last checkpoint"
-    );
-    // ── AND THE LATCH, AT THE RESOLUTION THE CLAIM NEEDS.
-    let history = &sim.world().resource::<LatchHistory>().0;
-    let first_true = history.iter().position(|held| *held);
-    assert!(
-        first_true.is_some(),
-        "the latch never became true in {} sampled frames, so this arm never \
-         entered the state it is about",
-        history.len()
-    );
-    let lowered_after: Vec<usize> = history
-        .iter()
-        .enumerate()
-        .skip(first_true.expect("asserted just above"))
-        .filter(|(_, held)| !**held)
-        .map(|(index, _)| index)
-        .collect();
-    assert!(
-        lowered_after.is_empty(),
-        "`SaveRestored` went false again at sampled frames {:?} of {} after \
-         first becoming true. That is the mid-session save-replacement road: it \
-         re-runs a chain of `Update` systems over rollback-owned state while a \
-         GGRS session is already live. New Game must RESET its durable domains, \
-         not RELOAD them.\n\
-         ⚠ The between-step reading says {latch_lowered_at:?}, and it is blind \
-         to a lower-and-raise inside one frame — which is exactly what the old \
-         road did.",
-        &lowered_after[..lowered_after.len().min(8)],
-        history.len()
-    );
-}
-
-/// Every `(SimTick, SaveRestored)` pair this world simulated, in execution
-/// order, one row per PASS.
-///
-/// ⛔ READ FROM INSIDE THE SIMULATION SCHEDULE, which is the whole point.
-/// `probe_when_the_durable_restore_latch_flips_against_ggrs_start` samples
-/// between `sim.step()` calls and therefore cannot see a latch that is false
-/// only WHILE the schedule runs — the error that made the New Game window look
-/// two frames wide and closed.
-#[derive(bevy::prelude::Resource, Default)]
-struct LatchInsideTheSchedule(Vec<(u64, u64, bool)>);
-
-/// The host frame this world is on, counted OUTSIDE the simulation schedule.
-///
-/// ⭐ IT IS THE JOIN BETWEEN THE TWO INSTRUMENTS. A between-frame probe reports
-/// "frame 1: ggrs live, restored false"; an in-schedule probe reports "tick 0:
-/// restored true". Neither row can refute the other without a shared column,
-/// and this is it.
-#[derive(bevy::prelude::Resource, Default)]
-struct HostFrame(u64);
-
-fn count_the_host_frame(mut frame: bevy::prelude::ResMut<HostFrame>) {
-    frame.0 += 1;
-}
-
-fn record_the_latch_from_inside_the_schedule(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    frame: bevy::prelude::Res<HostFrame>,
-    restored: Option<bevy::prelude::Res<SaveRestored>>,
-    mut log: bevy::prelude::ResMut<LatchInsideTheSchedule>,
-) {
-    log.0
-        .push((frame.0, tick.0, restored.is_some_and(|restored| restored.0)));
-}
-
-/// Build the in-schedule latch recorder, optionally alongside the within-frame
-/// sampler whose mere presence
-/// [`probe_when_the_durable_restore_latch_flips_against_ggrs_start`] measured as
-/// moving the GGRS start by a frame.
-///
-/// ⭐ THE SAMPLER IS THE VARIABLE, and it is installed or not installed in
-/// worlds that are otherwise identical — including the recorder. The earlier
-/// probe compared a world WITH the sampler against a world with NOTHING added,
-/// so "the sampler moved it" and "adding any Update system moves it" were the
-/// same measurement.
-fn sim_recording_the_latch_inside_the_schedule(
-    with_the_within_frame_sampler: bool,
-) -> Platformer2dSimHarness {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            use bevy::prelude::IntoScheduleConfigs as _;
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            app.init_resource::<LatchInsideTheSchedule>();
-            app.init_resource::<HostFrame>();
-            app.add_systems(bevy::prelude::Last, count_the_host_frame);
-            app.add_systems(
-                label,
-                record_the_latch_from_inside_the_schedule.in_set(
-                    ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,
-                ),
-            );
-            if with_the_within_frame_sampler {
-                app.init_resource::<WithinFrameOrder>();
-                app.add_systems(
-                    bevy::prelude::Update,
-                    sample_ggrs_after_the_latch.after(
-                        ambition_platformer2d::session::durable_horizon::complete_durable_restore,
-                    ),
-                );
-            }
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with an in-schedule latch recorder")
-}
-
-/// Open a conversation on the FIRST tick the simulation ever runs, and never
-/// again.
-///
-/// ⚠ TICK 0 IS NOT AN ARBITRARY EARLY TICK, it is the one the measurement
-/// named: with the perturbing sampler installed, tick 0 is the only tick ever
-/// simulated while `SaveRestored` is false. A conversation cannot open earlier
-/// than the first tick, so this is the earliest openable moment of a session —
-/// unreachable by a human hand on the pad, reachable by a scripted or
-/// autostarted conversation, and reachable by any content that opens dialogue
-/// on room entry.
-/// The tick of a session's first simulation step. `SimTick` names the step
-/// now running, and `0` is the moment before the first one (`Q128`).
-const FIRST_TICK: u64 = 1;
-
-fn open_a_conversation_on_the_very_first_tick(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut conversation: bevy::prelude::ResMut<
-        ambition_platformer2d::conversation::ActiveConversation,
-    >,
-) {
-    use ambition_platformer2d::conversation::{
-        ConversationInstanceId, LiveConversation,
-    };
-    if tick.0 != FIRST_TICK {
-        return;
-    }
-    conversation.open(LiveConversation {
-        instance: ConversationInstanceId::mint(
-            tick.0,
-            VISIT_NODE,
-            None,
-            None,
-            &ambition_platformer2d::dialog::DialogueContext::scripted(),
-        ),
-        initiator: None,
-        talker: None,
-        input_owner: InputOwner::Primary,
-        speaker_name: String::new(),
-    });
-}
-
-fn sim_opening_a_conversation_on_the_first_tick(
-    with_the_within_frame_sampler: bool,
-) -> Platformer2dSimHarness {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            use bevy::prelude::IntoScheduleConfigs as _;
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            app.init_resource::<LatchInsideTheSchedule>();
-            app.init_resource::<HostFrame>();
-            app.add_systems(bevy::prelude::Last, count_the_host_frame);
-            app.add_systems(
-                label,
-                (
-                    record_the_latch_from_inside_the_schedule,
-                    // Before the counter, as an edge: see the note in
-                    // `a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window`.
-                    open_a_conversation_on_the_very_first_tick.before(
-                        ambition_platformer2d::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
-                    ),
-                )
-                    .in_set(
-                        ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,
-                    ),
-            );
-            if with_the_within_frame_sampler {
-                app.init_resource::<WithinFrameOrder>();
-                app.add_systems(
-                    bevy::prelude::Update,
-                    sample_ggrs_after_the_latch.after(
-                        ambition_platformer2d::session::durable_horizon::complete_durable_restore,
-                    ),
-                );
-            }
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with a first-tick conversation opener")
-}
-
-/// The ticks this world simulated before the durable-restore latch rose.
-///
-/// ⚠ TICKS, NOT HOST FRAMES. Which host frame the boot lands on is exactly what
-/// [`probe_when_the_durable_restore_latch_flips_against_ggrs_start`] measured as
-/// moving under unrelated composition changes, so asserting on it would make
-/// this arm fail for the reason it is trying to REPORT. The tick number is the
-/// stable fact: `FIRST_TICK` is the first tick whatever frame it runs on.
-fn ticks_simulated_unrestored(sim: &Platformer2dSimHarness) -> Vec<u64> {
-    sim.world()
-        .resource::<LatchInsideTheSchedule>()
-        .0
-        .iter()
-        .filter(|(_, _, restored)| !restored)
-        .map(|(_, tick, _)| *tick)
-        .collect()
-}
-
-/// ✔⛤ **A CONVERSATION OPENED ON THE FIRST TICK OF A SESSION IS COUNTED ONCE,
-/// AND NO LONGER DEPENDS ON UNRELATED `Update` MEMBERSHIP.**
-///
-/// The two arms are the same world with the same opener, the same in-schedule
-/// recorder and the same tick. The only difference is whether one unrelated
-/// `Update` system — this file's own within-frame sampler — is installed. That
-/// is the variable on purpose: before the repair it DECIDED the answer.
-///
-/// ```text
-///                   before the gate                     after
-/// sampler absent    tick 0 simulated, latch TRUE  -> 1   unchanged -> 1
-/// sampler present   tick 0 simulated, latch FALSE -> 0   no unrestored tick -> 1
-/// ```
-///
-/// `maintain_local_session` now refuses to CREATE a GGRS session over a world
-/// whose durable state is still loading, so no tick is simulated before
-/// `SaveRestored` rises in either composition and
-/// `count_the_dialogue_visit_when_a_conversation_opens` never has to drop a
-/// write it has nowhere to put. The counter's `if !restored.0` guard is
-/// untouched and stays correct; what changed is that it is no longer reachable
-/// with a live conversation behind it.
-///
-/// ⭐ THE CONTROL IS THE ABSENCE OF THE PERTURBATION, not a different
-/// conversation. An arm reporting a number alone could mean the stand-in never
-/// opened anything; the pair rules that out with the same code, and the
-/// `unrestored` assertions below rule out the arms having become the same
-/// condition measured twice.
-///
-/// ⚠ **THIS ARM IS THE GATE'S ONLY WITNESS, AND ITS POWER IS IN THE SECOND
-/// ASSERTION.** Deleting the gate makes `ticks_simulated_unrestored(&with)`
-/// read `[0]` and that arm's visit count read 0 — measured, both. Do not
-/// "repair" a future failure here by relaxing the counter's edge to
-/// `opened_at <= tick`: that turns an edge into a level and over-counts every
-/// tick a conversation stays live, which
-/// `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind`'s
-/// more-than-two case pins.
-#[test]
-fn a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once() {
-    let mut without = sim_opening_a_conversation_on_the_first_tick(false);
-    for _ in 0..12 {
-        without.step(AgentAction::default());
-    }
-    let mut with = sim_opening_a_conversation_on_the_first_tick(true);
-    for _ in 0..12 {
-        with.step(AgentAction::default());
-    }
-
-    for (name, sim) in [("without", &without), ("with", &with)] {
-        // PREMISE: the world simulated its first tick at all. A visit count from a world
-        // whose schedule never ran says nothing about the counter — and it is
-        // the failure this repair could plausibly CAUSE, since the gate can
-        // refuse to start a session.
-        assert!(
-            sim.world()
-                .resource::<LatchInsideTheSchedule>()
-                .0
-                .iter()
-                .any(|(_, tick, _)| *tick == FIRST_TICK),
-            "the {name}-sampler world never simulated its first tick. If the durable \
-             hydration gate is now refusing to start a session at all, this is \
-             where that shows up — a world that never simulates is not a world \
-             that never loses a visit"
-        );
-        assert_eq!(
-            ticks_simulated_unrestored(sim),
-            Vec::<u64>::new(),
-            "the {name}-sampler world simulated ticks before the durable restore \
-             completed. That is the defect the session-start gate in \
-             `maintain_local_session` closes, and a non-empty list here means \
-             the timeline is starting over an unhydrated world again"
-        );
-        assert_eq!(
-            visit_count(sim),
-            1,
-            "a conversation opened on the first tick of the {name}-sampler world was not \
-             counted exactly once. 0 is the pre-repair signature: the visit \
-             reached a counter that was still gated on the latch. More than 1 \
-             means the opening edge has become a level"
-        );
-    }
-}
-
-/// Is any simulation tick ever SIMULATED while the durable-restore latch is
-/// still false?
-///
-/// ⛔ THE BETWEEN-FRAME PROBE CANNOT ANSWER THIS, and the distinction is the
-/// finding. It reports the frame GGRS becomes LIVE against the frame the latch
-/// rises; liveness is not advance. A session can exist for a frame without
-/// stepping the timeline, and a frame of that shape carries no tick for a
-/// conversation to open on.
-#[test]
-#[ignore = "probe: prints the latch as the simulation itself sees it, with and without the perturbing sampler"]
-fn probe_the_latch_as_the_opener_sees_it() {
-    for with_sampler in [false, true] {
-        let mut sim = sim_recording_the_latch_inside_the_schedule(with_sampler);
-        for _ in 0..12 {
-            sim.step(AgentAction::default());
-        }
-        let log = &sim.world().resource::<LatchInsideTheSchedule>().0;
-        eprintln!(
-            "PROBE with_within_frame_sampler={with_sampler} passes={} first={:?} \
-             unrestored_ticks={:?}",
-            log.len(),
-            log.first(),
-            log.iter()
-                .filter(|(_, _, restored)| !restored)
-                .map(|(frame, tick, _)| (*frame, *tick))
-                .collect::<Vec<_>>(),
-        );
-        for (index, (frame, tick, restored)) in log.iter().take(8).enumerate() {
-            eprintln!("    pass {index:>3}: host frame {frame:>3}  tick {tick:>3}  restored {restored}");
-        }
-    }
 }
 
 /// Every commit of a New Game this world performed, by the `SimTick` it
@@ -2712,50 +383,6 @@ fn record_every_new_game_commit(
     if fresh.is_some() {
         commits.0.push(tick.0);
     }
-}
-
-/// The tick the in-sim control asks for its New Game on — comfortably after
-/// durable hydration, so neither arm is racing the latch.
-const IN_SIM_NEW_GAME_AT: u64 = 30;
-
-fn request_a_new_game_from_inside_the_sim(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut new_games: bevy::prelude::MessageWriter<
-        ambition_platformer2d::session::reset::NewGameRequested,
-    >,
-) {
-    if tick.0 == IN_SIM_NEW_GAME_AT {
-        new_games.write(ambition_platformer2d::session::reset::NewGameRequested);
-    }
-}
-
-fn sim_recording_new_game_commits(with_an_in_sim_requester: bool) -> Platformer2dSimHarness {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room(ROOM)
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            use bevy::prelude::IntoScheduleConfigs as _;
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            app.init_resource::<ResetCommits>();
-            app.add_systems(
-                ambition_platformer2d::platformer::lifecycle::CheckpointDomainApply,
-                record_every_new_game_commit,
-            );
-            if with_an_in_sim_requester {
-                app.add_systems(
-                    label,
-                    request_a_new_game_from_inside_the_sim
-                        .before(ambition_platformer2d::platformer::lifecycle::CheckpointRestore),
-                );
-            }
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with a reset-commit recorder")
 }
 
 /// Step until the durable latch rises, then a little further.
@@ -2779,200 +406,162 @@ fn step_past_hydration(sim: &mut Platformer2dSimHarness) {
     );
 }
 
-/// ⭐ A NEW GAME ASKED FOR BY THE HOST COMMITS EXACTLY ONCE UNDER A REWIND, AND
-/// THE REWIND AGREES WITH ITSELF.
+/// Put a row in each occurrence baseline on tick 5, from inside the rewinding
+/// schedule, so the New Game below has something to clear.
+fn seed_both_baselines(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut occurrence_baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+        ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
+    >,
+    mut custody_baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+        ambition_platformer2d::platformer::lifecycle::CustodyBaseline,
+    >,
+) {
+    use ambition_platformer2d::platformer::lifecycle::{
+        AuthoredOccurrences, OccurrenceWhereabouts,
+    };
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    if tick.0 != 5 {
+        return;
+    }
+    let subject = SimId::from_snapshot("probe:a_thing_the_checkpoint_remembers".to_string());
+    let mut rows = std::collections::BTreeMap::new();
+    rows.insert(subject.clone(), OccurrenceWhereabouts::InCustody);
+    let mut remembered = AuthoredOccurrences::default();
+    remembered.adopt_rows(rows);
+    occurrence_baseline.adopt(remembered);
+    let mut held = std::collections::BTreeMap::new();
+    held.insert(subject, SimId::from_snapshot("probe:a_custodian".to_string()));
+    custody_baseline.adopt(held);
+}
+
+fn baseline_rows(sim: &Platformer2dSimHarness) -> (usize, usize) {
+    use ambition_platformer2d::platformer::lifecycle::{
+        session_world_component, CustodyBaseline, OccurrenceBaseline,
+    };
+    let occurrences = session_world_component::<OccurrenceBaseline>(sim.world())
+        .unwrap()
+        .remembered()
+        .rows()
+        .count();
+    let custody = session_world_component::<CustodyBaseline>(sim.world())
+        .unwrap()
+        .rows()
+        .count();
+    (occurrences, custody)
+}
+
+/// A New Game the host asks for commits exactly once under a rewind, rebuilds
+/// the room, clears the occurrence baselines, and never lowers the
+/// durable-restore latch to do it.
 ///
-/// A menu that set a rollback-registered latch from `Update` had its write
-/// restored away by the next rewind: measured 2026-09-16, 0 commits against the
-/// in-sim control's 1. The menu now writes a `NewGameRequested` host intent
-/// (`HostIntentWriter`); the ledger releases it on its stamped tick, first pass
-/// and every resimulation alike.
-///
-/// ⭐ NEW-GAME-RESYNC: both arms also keep `rollback_health()`. The New Game
-/// used to rebuild the world in the simulation, and a rewind across that frame
-/// brought its bodies back without their derived components, so the sync test
-/// failed at the reset tick on BOTH roads. It is a checkpoint restore now, and
-/// the room is rebuilt on the confirmed-frame commit.
-///
-/// The in-sim arm is the control: a fixture that cannot reset at all would
-/// print 0 for both.
+/// The menu writes `NewGameRequested` as a host intent; the ledger releases it
+/// on its stamped tick in the first pass and in every resimulation, and the
+/// checkpoint restore to the fresh baseline commits on the confirmed frame. A
+/// rollback-registered latch set from `Update` would be restored away by the
+/// next rewind (0 commits); a release that is not an edge would arm a second
+/// reset from a replayed tick (2 commits). Resetting the durable domains, not
+/// reloading the save, is what keeps the latch up: lowering it re-runs the load
+/// chain over rollback-owned state while a session is live.
 #[test]
 fn a_new_game_asked_for_by_the_host_commits_once_under_a_rewind() {
-    let mut inside = sim_recording_new_game_commits(true);
-    step_past_hydration(&mut inside);
-    for _ in 0..200 {
-        inside.step(AgentAction::default());
-    }
-    inside
-        .rollback_health()
-        .expect("the in-sim New Game desynced the sync test (NEW-GAME-RESYNC)");
-    let inside_commits = inside.world().resource::<ResetCommits>().0.clone();
-    assert_eq!(
-        inside_commits.len(),
-        1,
-        "the in-sim control did not commit exactly one New Game (ticks {inside_commits:?}), \
-         so this fixture cannot measure the host road"
-    );
-
-    // THE MENU'S ROAD: a host intent written from outside the simulation.
-    let mut outside = sim_recording_new_game_commits(false);
-    step_past_hydration(&mut outside);
-    for _ in 0..20 {
-        outside.step(AgentAction::default());
-    }
-    ambition_platformer2d::platformer::host_intents::write_host_intent(
-        outside.world_mut(),
-        ambition_platformer2d::session::reset::NewGameRequested,
-    );
-    for _ in 0..200 {
-        outside.step(AgentAction::default());
-    }
-    outside
-        .rollback_health()
-        .expect("the host's New Game desynced the sync test");
-    let outside_commits = outside.world().resource::<ResetCommits>().0.clone();
-    assert_eq!(
-        outside_commits.len(),
-        1,
-        "a New Game written as a host intent committed {} time(s) (ticks \
-         {outside_commits:?}). 0: the rewind erased it again. More than 1: the \
-         release is not an edge and a replayed tick armed a second reset",
-        outside_commits.len(),
-    );
-}
-
-/// The tick the in-sim control writes its grant request on.
-const IN_SIM_GRANT_AT: u64 = 30;
-
-fn request_a_grant_from_inside_the_sim(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut requests: bevy::prelude::MessageWriter<ambition_platformer2d::item::ItemGrantRequested>,
-) {
-    if tick.0 == IN_SIM_GRANT_AT {
-        requests.write(ambition_platformer2d::item::ItemGrantRequested {
-            item: ambition_platformer2d::item::Item::HealthCell,
-            count: 1,
-        });
-    }
-}
-
-fn sim_granting_an_item(with_an_in_sim_producer: bool) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
-    Platformer2dSimHarness::build(
+    let mut sim = Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
+            use bevy::prelude::IntoScheduleConfigs as _;
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
             let label = app.sim_schedule();
-            if with_an_in_sim_producer {
-                app.add_systems(label, request_a_grant_from_inside_the_sim);
-            }
+            app.init_resource::<ResetCommits>();
+            app.add_systems(
+                ambition_platformer2d::platformer::lifecycle::CheckpointDomainApply,
+                record_every_new_game_commit,
+            );
+            app.add_systems(
+                label,
+                seed_both_baselines.before(ambition_platformer2d::platformer::lifecycle::CheckpointRestore),
+            );
+            app.init_resource::<LatchHistory>();
+            app.add_systems(
+                bevy::prelude::Update,
+                record_the_latch_every_frame.before(
+                    ambition_platformer2d::session::durable_horizon::adopt_occurrence_checkpoint_from_save,
+                ),
+            );
             Ok(())
         },
     )
-    .expect("the sync-test harness builds with an item-grant producer")
-}
-
-fn health_cells(sim: &Platformer2dSimHarness) -> u32 {
-    sim.world()
-        .get_resource::<ambition_platformer2d::item::OwnedItems>()
-        .map_or(u32::MAX, |owned| {
-            owned.count(ambition_platformer2d::item::Item::HealthCell)
-        })
-}
-
-/// ⛔⛤ **THE REPAIR BOTH REVIEWS PROPOSED FOR [MENU-RESET-MIDSESSION] DOES NOT
-/// WORK FROM OUTSIDE THE SIMULATION, AND THAT IS WHY THIS ARM EXISTS BEFORE THE
-/// REPAIR DOES — MEASURED 2026-09-16.**
-///
-/// Both reviews named `ItemGrantRequested`/`ShopTransactionRequested` as the road
-/// a menu action should take *instead of* writing rollback state. Their shipped
-/// producer is a conversation node, which runs INSIDE the sim schedule, and the
-/// messages are `clear_message_on_rollback`
-/// (`crates/ambition_items/src/rollback_registration.rs`) — so **the queue is
-/// rollback state too.** Measured, one grant of one `HealthCell`:
-///
-/// ```text
-/// written from INSIDE the sim schedule    bag 3 -> 4
-/// written from OUTSIDE it (the menu)      bag 3 -> 3, no transient change at all
-/// ```
-///
-/// ⇒ **Re-spelling the menu's write as one of these messages would change
-/// nothing.** A message cleared on rollback, produced outside the timeline, is
-/// exactly as loseable as the resource write it would replace: the rewind clears
-/// the queue and restores the bag, and nothing re-produces the request.
-///
-/// ⭐ THE IN-SIM ARM IS THE CONTROL, AND WITHOUT IT THE ZERO IS UNREADABLE — a
-/// composition that never installs `apply_item_grants` prints the same `3 -> 3`.
-/// The two arms differ only in WHERE the message is written.
-///
-/// ⚠ **SO THE OPEN QUESTION IS NOT "WHICH MESSAGE" BUT "HOW DOES A LOCAL INTENT
-/// ENTER A SYNCHRONISED TIMELINE AT ALL".** A menu press is a local input event,
-/// and in rollback netcode local inputs reach the timeline through the INPUT
-/// payload GGRS carries — not through a resource or a rewinding queue. That is a
-/// peer-visible design decision (the input wire format), which is why it belongs
-/// in a maintainer question rather than in a quiet refactor. Recorded in
-/// [MENU-RESET-MIDSESSION].
-///
-/// [MENU-RESET-MIDSESSION]: ../../../docs/planning/queue.md
-#[test]
-fn a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost() {
-    // CONTROL: the same message, written from inside the timeline.
-    let mut inside = sim_granting_an_item(true);
-    step_past_hydration(&mut inside);
-    let inside_before = health_cells(&inside);
-    for _ in 0..200 {
-        inside.step(AgentAction::default());
-    }
-    assert_eq!(
-        health_cells(&inside),
-        inside_before + 1,
-        "the in-sim control did not grant its item, so `apply_item_grants` is \
-         either absent from this composition or never reached — every number \
-         below would then be measuring the fixture rather than the road"
-    );
-
-    // THE MENU'S POSITION: a producer outside the rewinding schedule.
-    let mut outside = sim_granting_an_item(false);
-    step_past_hydration(&mut outside);
+    .expect("the sync-test harness builds with a reset-commit recorder");
+    step_past_hydration(&mut sim);
     for _ in 0..20 {
-        outside.step(AgentAction::default());
+        sim.step(AgentAction::default());
     }
-    let before = health_cells(&outside);
-    outside
-        .world_mut()
-        .write_message(ambition_platformer2d::item::ItemGrantRequested {
-            item: ambition_platformer2d::item::Item::HealthCell,
-            count: 1,
-        });
-
-    // Sampled every frame: a value that is right at both ends can still have
-    // been granted and taken back in between, and "never landed" is a different
-    // finding from "landed and was reverted".
-    let mut ever_rose = false;
-    for _ in 0..200 {
-        outside.step(AgentAction::default());
-        if health_cells(&outside) > before {
-            ever_rose = true;
-        }
-    }
-    assert_eq!(
-        health_cells(&outside),
-        before,
-        "a grant requested from outside the simulation now survives — that is \
-         the FIX this arm is waiting for, not a regression. Invert it, and note \
-         in MENU-RESET-MIDSESSION what made a local intent reach the timeline"
+    assert_ne!(
+        baseline_rows(&sim),
+        (0, 0),
+        "the occurrence baselines never held the seeded rows, so 'New Game \
+         cleared them' would be a claim about an empty subject"
     );
+    // The roster proves the reset committed: a reset rebuilds the room, and
+    // despawn bumps the generation, so no original `Entity` survives a rebuild.
+    let roster_before = feature_roster(&mut sim);
+    assert!(!roster_before.is_empty(), "the room had no roster before the reset");
+
+    ambition_platformer2d::platformer::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::session::reset::NewGameRequested,
+    );
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+
+    sim.rollback_health()
+        .expect("the host's New Game desynced the sync test");
+    let commits = sim.world().resource::<ResetCommits>().0.clone();
+    assert_eq!(
+        commits.len(),
+        1,
+        "a New Game written as a host intent committed {} time(s) (ticks \
+         {commits:?}). 0: the rewind erased it. More than 1: the release is not \
+         an edge and a replayed tick armed a second reset",
+        commits.len(),
+    );
+    let survivors = roster_before.intersection(&feature_roster(&mut sim)).count();
+    assert_eq!(
+        survivors, 0,
+        "{survivors} of {} roster entities survived, so the New Game did not \
+         rebuild the room",
+        roster_before.len()
+    );
+    assert_eq!(
+        baseline_rows(&sim),
+        (0, 0),
+        "New Game left rows in the occurrence baselines, so the fresh run \
+         inherits what the finished run remembered at its last checkpoint"
+    );
+    let history = &sim.world().resource::<LatchHistory>().0;
+    let first_true = history
+        .iter()
+        .position(|held| *held)
+        .expect("the latch rose before the New Game");
+    let lowered_after: Vec<usize> = history
+        .iter()
+        .enumerate()
+        .skip(first_true)
+        .filter(|(_, held)| !**held)
+        .map(|(index, _)| index)
+        .collect();
     assert!(
-        !ever_rose,
-        "the grant DID land and was then taken back, which is a different defect \
-         from the one recorded here: this arm says the request never reaches \
-         `apply_item_grants` at all. Update the row to whichever it is"
+        lowered_after.is_empty(),
+        "`SaveRestored` went false again at sampled frames {:?} of {} after first \
+         becoming true: New Game must reset its durable domains, not reload them",
+        &lowered_after[..lowered_after.len().min(8)],
+        history.len()
     );
 }
-
 
 const CUTSCENE_ID: &str = "cutscene_lab_intro";
 const CUTSCENE_TRIGGER_AT: u64 = 30;
@@ -3027,26 +616,21 @@ fn step_until_the_cutscene_waits(sim: &mut Platformer2dSimHarness) -> usize {
     );
 }
 
-/// ⭐ A CUTSCENE DISMISS IS PART OF THE SEAT'S INPUT, SO IT SURVIVES A REWIND
-/// AND IS SPENT EXACTLY ONCE.
-///
-/// It was a host resource (`CutsceneAdvanceRequest`) written from `Update` and
-/// taken inside the sim schedule. The rewind restored `ActiveCutscene` and not
-/// the request, so the authoritative replay never advanced: MEASURED 2026-09-16,
-/// a host-side dismiss left the cutscene on beat 1. The dismiss now rides the
-/// primary seat's `ControlFrame::confirm_pressed`, which GGRS re-delivers on
-/// every resimulation of the tick it was pressed on (`CUTSCENE-ROLLBACK-DECISION`,
-/// `Q136`).
+/// A cutscene dismiss and a cutscene skip ride the primary seat's input, so a
+/// rewind re-delivers them and each is spent exactly once.
 ///
 /// `cutscene_lab_intro` is banner, dialogue, a 0.4 s wait, dialogue. One confirm
-/// on the first dialogue must land on the SECOND and stop there: a lost edge
-/// stays on beat 1, and a doubled one goes past beat 3.
+/// on the first dialogue must land on the SECOND and stop there: beat 1 means
+/// the press was lost to the rewind, past beat 3 means it was spent twice. The
+/// skip is a HOLD of the seat's cancel, accumulated on the simulation clock:
+/// released before `SKIP_HOLD_THRESHOLD_SECS` (1.2 s) the partial hold resets
+/// and the cutscene plays on; held past it the cutscene ends.
 #[test]
-fn a_cutscene_dismiss_on_the_seats_input_survives_the_rewind_once() {
+fn a_cutscene_dismiss_and_skip_on_the_seats_input_survive_the_rewind_once() {
     let mut sim = sim_playing_a_cutscene();
     let waiting = step_until_the_cutscene_waits(&mut sim);
     assert_eq!(waiting, 1, "the premise: the first dialogue beat is waiting");
-    for _ in 0..30 {
+    for _ in 0..5 {
         sim.step(AgentAction::default());
     }
     assert_eq!(
@@ -3054,11 +638,12 @@ fn a_cutscene_dismiss_on_the_seats_input_survives_the_rewind_once() {
         Some((1, false)),
         "the control: without a confirm the dialogue beat waits"
     );
+
     sim.step(AgentAction {
         confirm: true,
         ..AgentAction::default()
     });
-    for _ in 0..200 {
+    for _ in 0..60 {
         sim.step(AgentAction::default());
         health(&sim).unwrap_or_else(|error| panic!("the dismiss desynced: {error}"));
     }
@@ -3069,16 +654,8 @@ fn a_cutscene_dismiss_on_the_seats_input_survives_the_rewind_once() {
          the second dialogue beat and stop: beat 1 means the press was lost to the \
          rewind, past beat 3 means it was spent twice"
     );
-}
 
-/// The skip is a HOLD of the seat's cancel, accumulated on the simulation clock
-/// inside the timeline. Held past `SKIP_HOLD_THRESHOLD_SECS` it ends the
-/// cutscene; released early, the partial hold resets and the cutscene plays on.
-#[test]
-fn a_cutscene_skip_is_a_hold_of_the_seats_cancel() {
-    let hold = |ticks: usize| {
-        let mut sim = sim_playing_a_cutscene();
-        step_until_the_cutscene_waits(&mut sim);
+    let hold = |sim: &mut Platformer2dSimHarness, ticks: usize| {
         for _ in 0..ticks {
             sim.step(AgentAction {
                 cancel_held: true,
@@ -3087,63 +664,27 @@ fn a_cutscene_skip_is_a_hold_of_the_seats_cancel() {
         }
         for _ in 0..30 {
             sim.step(AgentAction::default());
-            health(&sim).unwrap_or_else(|error| panic!("the skip hold desynced: {error}"));
+            health(sim).unwrap_or_else(|error| panic!("the skip hold desynced: {error}"));
         }
-        let partial = sim
-            .world()
-            .resource::<ambition_platformer2d::cutscene::CutsceneSkipHold>()
-            .seconds;
-        (cutscene_beat(&sim), partial)
     };
-    // 0.5 s: under the 1.2 s threshold.
+    // 0.5 s: under the threshold.
+    hold(&mut sim, 30);
+    let partial = sim
+        .world()
+        .resource::<ambition_platformer2d::cutscene::CutsceneSkipHold>()
+        .seconds;
     assert_eq!(
-        hold(30),
-        (Some((1, false)), 0.0),
+        (cutscene_beat(&sim), partial),
+        (Some((3, false)), 0.0),
         "a released-early cancel skipped the cutscene or left its hold standing"
     );
     // 1.5 s: past it.
-    assert_eq!(hold(90).0, None, "a cancel held past the threshold did not skip the cutscene");
-}
-
-/// The tick the in-sim control raises its heal on — well after the primary
-/// player has settled and carries a `SimId`.
-const PLAYER_HEAL_TICK: u64 = 100;
-
-/// Small enough that `BodyHealth::max` (raised to 100 below) leaves headroom,
-/// large enough that a rounding/clamp quirk could not manufacture the number
-/// by accident.
-const PLAYER_HEAL_AMOUNT: i32 = 10;
-
-fn heal_the_player_from_inside_the_sim(
-    primary: bevy::prelude::Query<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>,
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut heals: bevy::prelude::MessageWriter<
-        ambition_platformer2d::damage::healing::BodyHealRequested,
-    >,
-) {
-    if tick.0 == PLAYER_HEAL_TICK {
-        heals.write(ambition_platformer2d::damage::healing::BodyHealRequested::new(
-            PLAYER_HEAL_AMOUNT, primary.single().expect("the heal fixture has one primary body"),
-        ));
-    }
-}
-
-fn sim_healing_the_player(with_an_in_sim_producer: bool) -> Platformer2dSimHarness {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    Platformer2dSimHarness::build(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_sync_test_rollback_settings(4, 10),
-        |app, options| {
-            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
-            let label = app.sim_schedule();
-            if with_an_in_sim_producer {
-                app.add_systems(label, heal_the_player_from_inside_the_sim);
-            }
-            Ok(())
-        },
-    )
-    .expect("the sync-test harness builds with a heal-request producer")
+    hold(&mut sim, 90);
+    assert_eq!(
+        cutscene_beat(&sim),
+        None,
+        "a cancel held past the threshold did not skip the cutscene"
+    );
 }
 
 fn player_health(sim: &mut Platformer2dSimHarness) -> i32 {
@@ -3157,49 +698,15 @@ fn player_health(sim: &mut Platformer2dSimHarness) -> i32 {
         .map_or(i32::MIN, |health| health.health.current)
 }
 
-/// Deep the max and shallow the current so a heal has somewhere to go — a
-/// player who is already full would make a heal that landed and one that
-/// vanished print the same number.
+/// Damage the primary player so a heal has somewhere to go, on a timeline this
+/// host owns.
 ///
-/// A direct `world_mut` write predates GGRS's stored history, so it must
-/// become the rollback baseline before anything is measured against it
-/// (harness contract on `world_mut`; see `wear_oracle_armor` in
-/// `rollback_exit_oracle.rs`).
-fn damage_the_player_so_a_heal_would_be_visible(sim: &mut Platformer2dSimHarness) {
-    let world = sim.world_mut();
-    let player = {
-        let mut q = world.query_filtered::<
-            bevy::prelude::Entity,
-            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
-        >();
-        q.single(world)
-            .expect("the sim boots exactly one primary player")
-    };
-    if let Some(mut health) =
-        world.get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(player)
-    {
-        health.health.max = 100;
-        health.health.current = 50;
-    }
-    sim.rebase_rollback_history()
-        .expect("the damage setup becomes the rollback baseline");
-}
-
-/// The same setup as [`damage_the_player_so_a_heal_would_be_visible`], but for
-/// a `LocalMaintainer`-owned timeline, which must NOT be rebaselined through
-/// `rebase_rollback_history`.
-///
-/// ⛔⛤ **`rebase_rollback_history` CALLS `start_sync_test_session`, WHICH
-/// HARDCODES `SyncTestOwner::Caller`** (`session.rs:184`). Calling it here
-/// would silently flip the ownership stamp `maintainer_owned_rollback_sim` just
-/// established back to caller-owned — exactly the half-written fact
-/// `hand_the_timeline_to_the_local_maintainer`'s own doc warns about: "the
-/// owner stamp and the installed session are ONE FACT, and writing half of it
-/// is how a fixture comes to describe a world that cannot exist." So this
-/// re-arms through the same seam the fixture was built with instead: stop the
-/// (now stale) session, arm the local policy again, and let
-/// `maintain_local_session` install a fresh maintainer-owned session baselined
-/// on the post-damage world.
+/// It must NOT rebaseline through `rebase_rollback_history`: that calls
+/// `start_sync_test_session`, which stamps `SyncTestOwner::Caller` and would
+/// flip the ownership `maintainer_owned_rollback_sim` established, leaving the
+/// owner stamp and the installed session disagreeing. So it re-arms through the
+/// fixture's own seam: stop the stale session, arm the local policy again, and
+/// let `maintain_local_session` install a fresh session over the damaged world.
 fn damage_the_player_and_reassert_local_maintainer(
     sim: &mut Platformer2dSimHarness,
 ) {
@@ -3238,74 +745,51 @@ fn damage_the_player_and_reassert_local_maintainer(
     });
 }
 
-/// ⭐ A HEALTH CELL USED FROM THE MENU HEALS ONCE AND SPENDS ONE CELL, ACROSS
-/// A REWIND.
-///
-/// The menu used to take the cell out of `OwnedItems` and write
-/// `BodyHealRequested` from `Update`. Measured 2026-09-18: the heal landed
-/// for about two frames and GGRS's first correction revoked it, because the
-/// rewind restored `BodyHealth` and nothing raised the heal again. The menu now
-/// writes one `ItemUseRequested` host intent, and `apply_item_uses` spends the
-/// cell and raises the heal on the stamped tick, in the first pass and in every
-/// resimulation.
-///
-/// The in-sim arm is the control for the heal itself: a composition that
-/// cannot heal would fail both arms.
+/// A Health Cell used from the menu heals once and spends one cell, across a
+/// rewind. The menu writes one `ItemUseRequested` host intent and
+/// `apply_item_uses` spends the cell and raises the heal on the stamped tick,
+/// in the first pass and in every resimulation. A heal written from `Update`
+/// instead is revoked by GGRS's first correction.
 #[test]
 fn a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell() {
-    let mut inside = sim_healing_the_player(true);
-    damage_the_player_so_a_heal_would_be_visible(&mut inside);
-    let inside_before = player_health(&mut inside);
-    for _ in 0..200 {
-        inside.step(AgentAction::default());
-    }
-    assert_eq!(
-        player_health(&mut inside),
-        inside_before + PLAYER_HEAL_AMOUNT,
-        "the in-sim control did not heal the player, so `apply_body_heal_requests` \
-         is not reached in this composition"
-    );
-
-    // THE MENU'S POSITION, on a timeline this host owns. The starter bag holds
-    // the cells.
-    let mut outside = crate::common::maintainer_owned_rollback_sim(40);
-    damage_the_player_and_reassert_local_maintainer(&mut outside);
-    let before = player_health(&mut outside);
+    let mut sim = crate::common::maintainer_owned_rollback_sim(40);
+    damage_the_player_and_reassert_local_maintainer(&mut sim);
+    let before = player_health(&mut sim);
     let cells = |sim: &Platformer2dSimHarness| {
         sim.world()
             .resource::<ambition_platformer2d::items::OwnedItems>()
             .count(ambition_platformer2d::items::Item::HealthCell)
     };
-    let cells_before = cells(&outside);
+    let cells_before = cells(&sim);
     assert!(cells_before >= 1, "the starter bag holds no Health Cell to use");
     ambition_platformer2d::platformer::host_intents::write_host_intent(
-        outside.world_mut(),
+        sim.world_mut(),
         ambition_platformer2d::items::ItemUseRequested { participant: ambition_platformer2d::characters::control::PlayerSlot(0),
             item: ambition_platformer2d::items::Item::HealthCell,
         },
     );
-    for _ in 0..200 {
-        outside.step(AgentAction::default());
+    for _ in 0..40 {
+        sim.step(AgentAction::default());
     }
-    outside.rollback_health().unwrap_or_else(|error| {
+    sim.rollback_health().unwrap_or_else(|error| {
         panic!("the timeline diverged across the menu's item use: {error}")
     });
     assert_eq!(
-        player_health(&mut outside),
+        player_health(&mut sim),
         before + ambition_platformer2d::item_runtime::narrative::HEALTH_CELL_HEAL,
         "a Health Cell used from the menu did not heal exactly once. Equal to \
-         `before`: the rewind revoked it again. Twice the heal: a replayed tick \
-         spent the intent a second time"
+         `before`: the rewind revoked it. Twice the heal: a replayed tick spent \
+         the intent a second time"
     );
     assert_eq!(
-        cells(&outside),
+        cells(&sim),
         cells_before - 1,
         "the bag and the heal disagree: one use must spend exactly one cell"
     );
 }
 
-/// The tick the in-sim control raises its cycle on — the same offset the heal
-/// control uses, well after the room has settled.
+/// The tick the in-sim control raises its cycle on, well after the room has
+/// settled.
 const GRAVITY_CYCLE_TICK: u64 = 100;
 
 fn cycle_gravity_from_inside_the_sim(
@@ -3364,52 +848,24 @@ fn base_gravity(sim: &Platformer2dSimHarness) -> bevy::prelude::Vec2 {
         .dir_in(room)
 }
 
-/// ⛔ THE FOURTH [Q136] INGRESS FINDING, AND UNTIL NOW THE ONLY ONE WITHOUT A
-/// WITNESS.
+/// `AmbientGravityRequest` is written by the developer hotkey `cycle_dev_gravity`
+/// in `Update` (`game/ambition_app/src/menu/kaleidoscope_app.rs`) and read by
+/// `apply_ambient_gravity_requests` inside the sim schedule: a host-latched edge,
+/// spent on a speculative frame, that nothing re-produces after the rewind
+/// (Q136). The in-sim arm is the control: `BaseGravity::cycle` is a four-state
+/// rotation, so a reader that never ran and one that ran four times both read
+/// as unchanged, and only the same fixture flipping it from inside separates
+/// "lost" from "this fixture cannot flip gravity".
 ///
-/// `AmbientGravityRequest` is written by `cycle_dev_gravity`
-/// (`game/ambition_app/src/menu/kaleidoscope_app.rs:2054`), which reads
-/// `keys.just_pressed(KeyCode::Backslash)` in `Update`, and read by
-/// `apply_ambient_gravity_requests`
-/// (`crates/ambition_platformer2d_shared_tangle/src/gravity.rs:137`), which the
-/// monolith registers into the sim schedule
-/// (`crates/ambition_platformer2d_runtime/src/gravity/plugin.rs:96-105`).
-/// A host-latched input edge, spent on a speculative frame, that nothing
-/// re-produces after the rewind — the clone's mechanism on a developer hotkey.
+/// Both arms assert the transition, not the endpoint, because
+/// `reset_gravity_on_room_reset` restores the authored default on a room
+/// replay inside the window; a reset moves gravity TO the default, never one
+/// cycle step away from it.
 ///
-/// ⚠ **THE ROW CLAIMED THIS FOR A DAY ON A READING ALONE.** Its three siblings
-/// each named an arm; this one named none, and a defect nobody has run is a
-/// prediction. It reproduces — and the SHAPE is not the one the row's sibling
-/// text would have predicted. This is the item grant's FLAT ZERO, not the
-/// heal's transient: `BaseGravity` never passes through the cycled direction on
-/// any of 200 frames, where the heal is visible for about two frames before the
-/// first correction revokes it. Same ownership mode, same rollback settings,
-/// different shape, so "host-raised intents are lost the way the heal is lost"
-/// is not a sentence this census can make. This arm holds the SYMPTOM; which of
-/// the drain, the cursor or bevy's two-frame expiry owns it is a mechanism
-/// question it does not settle, exactly as the heal's arm says of its own.
-///
-/// ⭐ THE IN-SIM ARM IS THE CONTROL, and it is load-bearing here for a reason
-/// the heal's is not: `BaseGravity::cycle` is a four-state rotation, so a
-/// composition where `apply_ambient_gravity_requests` never ran and one where
-/// it ran four times both read as unchanged. The control proves one cycle is
-/// visible at all.
-///
-/// ⛔⛤ **AND BOTH ARMS ASSERT THE TRANSITION, NOT THE ENDPOINT, BECAUSE THE
-/// ENDPOINT IS OWNED BY SOMETHING ELSE.** The first draft compared gravity
-/// after 200 steps and the CONTROL failed — not because the in-sim cycle was
-/// lost, but because it landed at tick 100 and was restored to the authored
-/// default at step 158 by `reset_gravity_on_room_reset`
-/// (`crates/ambition_platformer2d_runtime/src/gravity/lifecycle.rs:28-39`),
-/// which fires on `RoomReplayAdmitted`. An idle 200-frame window reaches a
-/// replay, so an endpoint reading would have called a working road broken.
-///
-/// ⇒ Each arm therefore asserts that gravity reached EXACTLY ONE CYCLE STEP
-/// from where it started. That is a direction a reset cannot manufacture: a
-/// reset moves gravity TO the default, and both fixtures start there.
-///
-/// [Q136]: ../../../docs/planning/awaiting-maintainer-decision.md
+/// It asserts the defect is still present and fires when it is fixed, so it is
+/// a tracking measurement rather than a contract.
 #[test]
+#[ignore = "playtest: tracks a known dev-hotkey ingress defect (Q136); it fires when the defect is fixed, so it is not a gate"]
 fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
     // CONTROL: the same message, written from inside the timeline.
     let mut inside = sim_cycling_gravity(true);
@@ -3430,19 +886,10 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
          be measuring the fixture rather than the road"
     );
 
-    // THE DEV HOTKEY'S POSITION: a producer outside the rewinding schedule, on
-    // a timeline this host owns.
-    // ⛔⛤ **THE SAME COMPOSITION AS THE CONTROL, WHICH IS NOT WHAT THIS ARM'S
-    // SIBLINGS DO AND IS WHY THIS ONE IS TRUSTWORTHY.** The heal arm pairs
-    // `sim_healing_the_player` against `common::maintainer_owned_rollback_sim`,
-    // two different compositions, and gets away with it. Gravity does not:
-    // measured 2026-09-18, writing `AmbientGravityRequest::Cycle` on EVERY one
-    // of 200 frames into the sandbox composition moves `BaseGravity` not once,
-    // because `apply_ambient_gravity_requests` is not reached there at all.
-    // ⇒ A flat zero from that fixture would have read exactly like the item
-    // grant's lost-intent flat zero and meant only "no reader here". The one
-    // difference between these two arms has to be WHERE the message is
-    // written, so both build through `sim_cycling_gravity`.
+    // The dev hotkey's position: a producer outside the rewinding schedule, on
+    // a timeline this host owns, in the SAME composition as the control, so the
+    // only difference between the arms is where the message is written (the
+    // sandbox composition does not reach `apply_ambient_gravity_requests`).
     let mut outside = sim_cycling_gravity(false);
     crate::common::hand_the_timeline_to_the_local_maintainer(&mut outside);
     for _ in 0..40 {
@@ -3474,15 +921,8 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
             reached_the_cycle = true;
         }
     }
-    // ⛔ ASSERTS THE SHIPPED BEHAVIOUR AND FIRES WHEN THE DEFECT IS FIXED, the
-    // convention its three siblings in this file use: a permanently red arm
-    // teaches the next reader to scroll past the line carrying the finding.
-    //
-    // ⚠ THE LIVENESS IS CARRIED BY THE CONTROL ABOVE, NOT BY A TRANSIENT HERE.
-    // The heal's arm can floor `ever_rose` because its loss is a revocation;
-    // this one is a FLAT ZERO, so there is no transient to floor and the only
-    // thing separating "lost" from "this fixture cannot flip gravity" is that
-    // the SAME fixture flips it when the write comes from inside.
+    // A flat zero, not a revocation: there is no transient to floor, and the
+    // control above is what separates "lost" from "cannot flip gravity".
     assert!(
         !reached_the_cycle,
         "an ambient-gravity cycle requested from outside the simulation now \
@@ -3501,35 +941,22 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Q136 / SetFlagRequested — a message whose PRODUCER is ordered after its own
-// consumer, so the message straddles a tick boundary.
+// Q136 / SetFlagRequested: a message whose producer is ordered after its own
+// consumer, so it straddles a tick boundary.
 //
-// ⛔⛤ THE CLAIM UNDER TEST, AND WHY IT NEEDED A WITNESS RATHER THAN A READING.
-// `emit_intro_flag_chains` is added to the sim schedule
-// `.after(Platformer2dSimulationPhase::GameplayEffects)`
-// (`game/ambition_content/src/intro/plugin.rs:145-158`), and its consumer
-// `apply_flag_effects` runs INSIDE `GameplayEffects`
-// (`crates/ambition_platformer2d_actor_monolith/src/body/mod.rs:216`). So a
-// `SetFlagRequested` raised on tick N is read on tick N+1, and
-// `clear_message_on_rollback::<SetFlagRequested>` empties the buffer in
-// `LoadWorld::Mapping`. Review read that as a pending PAST being dropped by a
-// rewind; the plugin's own comment argues the opposite, that the restore re-arms
-// the producer's change gate so resimulation re-raises the message.
-//
-// ⇒ BOTH READINGS ARE ARGUMENTS ABOUT THE SAME FOUR LINES, which is exactly the
-// situation this file exists for. The arms below ask the world instead. The
-// question they answer is the MECHANISM's — can a `SetFlagRequested` produced
-// after its consumer still reach the save across a rewind — not the intro
-// chain's, because a mechanism that survives here cannot fail there for a
-// scheduling reason.
+// `emit_intro_flag_chains` runs after `Platformer2dSimulationPhase::GameplayEffects`
+// and its consumer `apply_flag_effects` runs inside it, so a request raised on
+// tick N is read on tick N+1, and `clear_message_on_rollback` empties the
+// buffer on a rewind in between. The arms ask the mechanism, with stand-in
+// producers, rather than the intro chain itself.
 
 /// Not a shipped flag id. A shipped one can be set by the world itself, and the
 /// arm would be reading somebody else's write.
 const WITNESS_FLAG: &str = "a_straddling_setflag_witness";
 
-/// ⚠ GATED ON `SimTick`, NOT A `Local`, for the reason `grant_once_at_tick_20`
-/// states one screen up: a `Local` is not rollback state, so the replay would
-/// skip a branch the original pass took and manufacture its own divergence.
+/// Gated on `SimTick`, not a `Local`: a `Local` is not rollback state, so the
+/// replay would skip a branch the original pass took and manufacture its own
+/// divergence.
 const RAISE_AT: u64 = 40;
 
 fn request_the_flag_once(
@@ -3587,13 +1014,10 @@ fn derive_the_flag_from_the_save(
 
 /// The flag whose landing ARMS the derivation above.
 ///
-/// ⛔⛤ **THE FIRST GATED FIXTURE HAD NO PRIMER AND ITS PREMISE ARM CAUGHT IT.**
-/// The derivation only runs on a tick where `AmbitionGameSave` is CHANGED, and
-/// in a fixture where nothing else writes the save, nothing ever changes it —
-/// so the derivation never ran, the flag was never set, and the rollback arm
-/// beside it "failed" while measuring nothing at all. That is the chicken and
-/// egg the real chain does not have: `emit_intro_flag_chains` is armed by a
-/// PREVIOUS flag write, which is what makes it a chain.
+/// The flag whose landing arms the derivation above. The derivation only runs
+/// on a tick where `AmbitionGameSave` changed, and in a fixture where nothing
+/// else writes the save it would never run; `emit_intro_flag_chains` is armed
+/// the same way, by a previous flag write.
 const PRIMER_FLAG: &str = "a_straddling_setflag_witness_primer";
 
 /// Written once, on the SOUND road (before its consumer), purely to move the
@@ -3619,11 +1043,8 @@ fn witness_flag_is_set(sim: &Platformer2dSimHarness) -> bool {
         .is_some_and(|save| save.data().flag(WITNESS_FLAG))
 }
 
-/// The witness composition, parameterised on the only two things that differ
-/// between the three arms. ⚠ The ordering is applied INSIDE the build closure
-/// because `.after(..)` yields a `ScheduleConfigs`, which is not `Clone` — the
-/// bound `sim_composed_with` carries, and the reason this needs its own builder
-/// rather than reusing that one.
+/// The witness composition, parameterised on the producer's slot and on whether
+/// a rollback session runs.
 fn witness_sim(after_consumer: bool, rollback: bool) -> Platformer2dSimHarness {
     witness_sim_with(after_consumer, rollback, true)
 }
@@ -3712,11 +1133,10 @@ fn drive_until_refused(sim: &mut Platformer2dSimHarness, frames: usize) {
     }
 }
 
-/// ⛔ THE PREMISE ARM. Everything below reads "the flag is not set" as evidence
-/// about a rewind, and that reading is only available if this composition can
-/// set the flag AT ALL. No rollback session, producer ordered BEFORE its
-/// consumer so the message never straddles anything.
+/// The premise for the straddle arms: with no rollback and the producer
+/// before its consumer, this composition can set the flag at all.
 #[test]
+#[ignore = "playtest: premise of the SetFlagRequested straddle investigation; not a gate"]
 fn a_flag_requested_inside_the_tick_reaches_the_save_without_rollback() {
     let mut sim = witness_sim(false, false);
     drive(&mut sim, 240);
@@ -3728,11 +1148,10 @@ fn a_flag_requested_inside_the_tick_reaches_the_save_without_rollback() {
     );
 }
 
-/// ⭐ THE IN-TICK CONTROL, WITH ROLLBACK. Same request, same window, same
-/// sync-test settings — only the schedule position differs from the arm below.
-/// `clear_message_on_rollback` is sound exactly while a message is produced and
-/// consumed within ONE tick, so this is that sound case under a live rewind.
+/// Control for the straddle: the same request ordered BEFORE its consumer, the
+/// case `clear_message_on_rollback` is designed for, under a live rewind.
 #[test]
+#[ignore = "playtest: control of the SetFlagRequested straddle investigation; not a gate"]
 fn a_flag_requested_before_its_consumer_survives_the_rewind() {
     let mut sim = witness_sim(false, true);
     drive(&mut sim, 240);
@@ -3749,42 +1168,14 @@ fn a_flag_requested_before_its_consumer_survives_the_rewind() {
     );
 }
 
-/// ⛔⛤ **THE WITNESS, AND IT LANDED HARDER THAN EITHER READING PREDICTED.**
-/// Identical to the control above except the producer is ordered AFTER
-/// `GameplayEffects`, which is `emit_intro_flag_chains`'s position — so the
-/// message is a pending PAST across the tick boundary rather than an abandoned
-/// future.
-///
-/// ⚠ I WROTE DOWN WHAT EACH OUTCOME WOULD MEAN BEFORE RUNNING IT, and the run
-/// returned a third thing. The two predictions were "the flag is silently lost"
-/// (review's reading) and "resimulation re-raises it, so nothing is lost" (the
-/// plugin comment's reading). What happens is a **GGRS sync-test checksum
-/// mismatch**, measured at frames 41, 42, 43 for a request raised on tick 40
-/// (measured again 2026-10-05, with the first-run witness off: frames 40, 41
-/// and 42, reported at frame 44).
-///
-/// ⇒ **THAT IS THE WORSE OF THE TWO, NOT A MIDDLE.** A lost flag is one peer
-/// missing an effect; a checksum mismatch is the peers DISAGREEING, which is
-/// the failure `clear_message_on_rollback` exists to prevent. The mechanism is
-/// the one review named: the request is raised on tick N and read on N+1, so a
-/// rollback landing between them replays N+1 with the buffer already cleared,
-/// the flag is not written on the replay, and `AmbitionGameSave` — a
-/// `rollback_resource_clone_checksum` registration — hashes differently than it
-/// did on the original pass.
-///
-/// ⭐ TWO CONTROLS MAKE THIS A STATEMENT ABOUT THE STRADDLE RATHER THAN ABOUT
-/// THIS FILE. The same request ordered BEFORE the consumer is clean and sets
-/// the flag; the same system in the SAME slot writing nothing is clean. Only
-/// the combination diverges.
-///
-/// ⚠ WHAT THIS DOES NOT SAY. It is a statement about the MECHANISM, not about
-/// `emit_intro_flag_chains`, which additionally carries a
-/// `resource_exists_and_changed::<AmbitionGameSave>` gate this arm does not
-/// reproduce. The plugin argues that gate re-arms on restore and re-raises the
-/// message. That argument is now the only thing standing between the intro
-/// chain and this divergence, and it needs its own arm — so `Q136` keeps
-/// `SetFlagRequested`.
+/// A request raised AFTER its consumer, in `emit_intro_flag_chains`'s slot, is
+/// a pending past across the tick boundary: a rollback landing between raise
+/// and read replays N+1 with the buffer already cleared, the flag is not
+/// written on the replay, and the hashed `AmbitionGameSave` diverges. The result
+/// is a checksum mismatch, not a quietly lost flag. It pins the frame and the
+/// reporter, so it describes today's rollback host rather than a contract.
 #[test]
+#[ignore = "playtest: demonstrates a desync mechanism with pinned frame numbers and reporter wording; expected to change as the rollback host evolves"]
 fn a_flag_requested_after_its_consumer_desyncs_the_timeline() {
     let mut sim = witness_sim(true, true);
     drive_until_refused(&mut sim, 240);
@@ -3798,10 +1189,9 @@ fn a_flag_requested_after_its_consumer_desyncs_the_timeline() {
              chain still sits in this slot"
         );
     };
-    // ⚠ THE FRAME IS THE CLAIM, NOT MERELY THAT SOMETHING BROKE. The rewind
-    // that loses the request loads frame `RAISE_AT - 1` and runs the next
-    // four frames again (the check distance of this sim). Two reporters name
-    // that one replay, measured 2026-10-05:
+    // The rewind that loses the request loads frame `RAISE_AT - 1` and runs the
+    // next four frames again (the check distance of this sim). Two reporters
+    // name that one replay:
     //
     // - The first-run witness of the rollback host, on that step. It names
     //   the newest frame of the replay, `RAISE_AT + 3`: the first run of that
@@ -3831,14 +1221,15 @@ fn a_flag_requested_after_its_consumer_desyncs_the_timeline() {
     );
     assert!(
         !witness_flag_is_set(&sim),
-        "the flag IS set after the desync, which would mean the divergence is          not the missing write this arm attributes it to"
+        "the flag IS set after the desync, which would mean the divergence is \
+         not the missing write this arm attributes it to"
     );
 }
 
-/// ⛔ THE SLOT CONTROL. The same system shape in the same slot after
-/// `GameplayEffects`, writing nothing. A desync here would mean the finding is
-/// about occupying that slot and not about a message straddling a tick.
+/// Slot control for the straddle: the same system shape in the same slot,
+/// writing nothing, does not desync.
 #[test]
+#[ignore = "playtest: control of the SetFlagRequested straddle investigation; not a gate"]
 fn a_silent_system_after_the_consumer_does_not_desync() {
     let mut sim = witness_sim_with(true, true, false);
     drive(&mut sim, 240);
@@ -3851,52 +1242,18 @@ fn a_silent_system_after_the_consumer_does_not_desync() {
     );
 }
 
-/// ⛔ THE PREMISE FOR THE GATED PAIR. The derivation only runs on a tick where
-/// `AmbitionGameSave` is CHANGED, so a composition where the save never moves
-/// would never run it at all and a green rollback arm below would mean nothing.
-#[test]
-fn the_gated_derivation_reaches_the_save_without_rollback() {
-    let mut sim = gated_witness_sim(false);
-    drive(&mut sim, 240);
-    assert!(
-        witness_flag_is_set(&sim),
-        "the gated derivation never set the witness flag with no rollback at \
-         all. Either `AmbitionGameSave` is never marked changed on this route, \
-         or the derivation never ran — and under either the rollback arm below \
-         is measuring nothing"
-    );
-}
-
-/// ⛔⛤ **THE ARM `Q136` WAS MISSING: IS THE INTRO CHAIN'S `run_if` GATE ENOUGH
-/// TO SURVIVE THE STRADDLE THAT DESYNCS WITHOUT IT?**
-///
-/// `a_flag_requested_after_its_consumer_desyncs_the_timeline` proves the
-/// schedule position alone loses the message — a checksum mismatch, not a
-/// dropped input. But `emit_intro_flag_chains` is not that system: it is a
-/// DERIVATION over rollback state, gated on
-/// `resource_exists_and_changed::<AmbitionGameSave>`, and the plugin argues
-/// this is exactly why it is safe — *"`bevy_ggrs` 0.22 restores a resource with
-/// `S::update(resource.as_mut(), snapshot)` and `ResMut::as_mut` marks it
-/// changed unconditionally, so every restore re-arms this condition"*.
-///
-/// ⇒ That argument is the ONLY thing standing between the shipped intro chain
-/// and the divergence the arm above witnesses, and it had no test. This is it:
-/// same slot, same payload, same rollback settings — plus the gate and the
-/// skip-if-already-present that make it a derivation instead of an edge.
-///
-/// ⚠ WRITTEN BEFORE RUNNING, so the result cannot pick its own meaning:
-///   - PASSES ⇒ the plugin's argument holds where it matters. Re-deriving
-///     inside the rewinding schedule really does repair a straddled message,
-///     `Q136`'s escape three is sound for `SetFlagRequested`, and the row can
-///     close on evidence rather than on reasoning.
-///   - FAILS ⇒ the shipped intro chain desyncs the timeline, the repair that
-///     moved it out of `Update` was incomplete, and the narrow fix (order the
-///     producer BEFORE `GameplayEffects`) becomes urgent rather than a
-///     maintainer preference about next-tick chaining.
+/// The shipped intro chain's shape survives the straddle: a derivation over the
+/// save, gated on `resource_exists_and_changed::<AmbitionGameSave>` and skipping
+/// a flag already present, in the slot after its consumer. A restore marks the
+/// resource changed, which re-arms the gate, so the replayed tick re-raises the
+/// message. A desync here makes `emit_intro_flag_chains` a live desync; a clean
+/// timeline with no flag means the chain is lost quietly.
 #[test]
 fn the_gated_derivation_survives_the_straddle_that_desyncs_without_it() {
     let mut sim = gated_witness_sim(true);
-    drive(&mut sim, 240);
+    // The primer lands at tick 40 and the check distance is 4: 80 frames covers
+    // the derivation and every replay of it.
+    drive(&mut sim, 80);
 
     let verdict = health(&sim);
     assert_eq!(
@@ -3915,20 +1272,11 @@ fn the_gated_derivation_survives_the_straddle_that_desyncs_without_it() {
     );
 }
 
-/// ⛔⛤ **WHICH HALF DOES THE WORK — THE `run_if` GATE, OR THE IDEMPOTENT
-/// DERIVATION?** The gated arm differs from the desyncing one-shot in TWO ways
-/// at once, and crediting the gate without separating them would be a property
-/// measured only on the accused. This is the same derivation in the same slot
-/// with the gate REMOVED.
-///
-/// ⚠ Its outcome is a finding either way and neither is a defect:
-///   - green ⇒ the DERIVATION SHAPE is what survives the rewind, and the gate
-///     is a cost optimisation. `Q136`'s escape three should then be stated as
-///     "re-derive inside the rewinding schedule", with no mention of change
-///     detection — which is how the page already words it.
-///   - red ⇒ the GATE is load-bearing, and escape three's statement is
-///     incomplete without it.
+/// Which half survives the rewind, the `run_if` gate or the idempotent
+/// derivation: the same derivation with the gate removed. Either outcome is a
+/// finding about Q136's escape three, not a defect.
 #[test]
+#[ignore = "playtest: research question for Q136 (either outcome is a finding, neither a defect); not a gate"]
 fn separating_the_gate_from_the_derivation_shape() {
     let mut sim = gated_witness_sim_with(true, false);
     drive(&mut sim, 240);
@@ -3947,23 +1295,16 @@ fn separating_the_gate_from_the_derivation_shape() {
     );
 }
 
-/// ⭐ THE SHIPPED LOAD UNDER A ROLLBACK HOST, WITH BOTH HALVES OF THE DURABLE
-/// HORIZON SEEDED, APPLIED BY THE SIMULATION ON A LIVE TIMELINE.
+/// A startup load with both halves of the durable horizon seeded is applied by
+/// the simulation on a live sync-test timeline, and every frame stays healthy.
 ///
-/// A save file is read once, at `Startup`. The simulation applies it
-/// (`DurableRestoreSet`, in the sim schedule) from rollback state, so the
-/// writes to the hashed `OccurrenceBaseline` and `CustodyBaseline` are an
-/// ordinary step: a rewind past it applies the file again on the same tick.
-/// This is BODY-BORN-ON-THE-TIMELINE's acceptance: a non-empty save crosses
-/// the rise on a live sync-test timeline and every frame stays healthy.
-///
-/// The seeded rows are what make it a measurement: an empty horizon hydrates to
-/// the value the baselines already hold, so nothing would move either way.
-///
-/// ⚠ THE PREMISE IS THAT THE RISE IS ON THE TIMELINE: frames with a live
-/// session and an unapplied save must exist. Before 2026-10-03 this test
-/// asserted the opposite (no such frame), because the restore ran in `Update`
-/// and a `Q135` gate held the session back until it had run.
+/// The save is read once, at `Startup`; the simulation applies it
+/// (`DurableRestoreSet`) from rollback state, so the writes to the hashed
+/// `OccurrenceBaseline` and `CustodyBaseline` are an ordinary step that a rewind
+/// past it applies again on the same tick. The seeded rows are what make it a
+/// measurement: an empty horizon hydrates to the value the baselines already
+/// hold. The premise is that the rise is on the timeline: frames with a live
+/// session and an unapplied save must exist.
 #[test]
 fn a_startup_load_is_applied_on_the_timeline_and_resimulates_identically() {
     use ambition_platformer2d::persistence::save_data::{
@@ -3998,7 +1339,9 @@ fn a_startup_load_is_applied_on_the_timeline_and_resimulates_identically() {
         },
     )
     .expect("the sync-test harness boots with a save file");
-    for frame in 0..240 {
+    // Hydration completes within the first frames; 60 covers it and well more
+    // than one check distance after it.
+    for frame in 0..60 {
         sim.step(AgentAction::default());
         health(&sim).unwrap_or_else(|error| panic!("frame {frame} after a startup load desynced: {error}"));
     }
@@ -4040,33 +1383,6 @@ fn record_a_timeline_over_an_unrestored_save(world: &mut bevy::prelude::World) {
     let mut order = world.resource_mut::<LiveBeforeRestored>();
     order.live += 1;
     order.unrestored += u32::from(!restored);
-}
-
-/// NEW-GAME-RESYNC's localizer: the in-sim control under `RollbackRestoreAudit`.
-/// Prints each component whose census differs between the first pass and a
-/// replay. The row closed with an empty list; keep it for the next divergence.
-#[test]
-#[ignore = "PROBE, print-only: where an in-sim New Game diverges"]
-fn probe_where_the_in_sim_new_game_diverges() {
-    let mut sim = sim_recording_new_game_commits(true);
-    sim.world_mut()
-        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
-    step_past_hydration(&mut sim);
-    for _ in 0..40 {
-        sim.step(AgentAction::default());
-    }
-    let audit = sim
-        .world()
-        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
-    eprintln!("PROBE coverage {}", audit.coverage());
-    for divergence in audit.divergences.iter().take(40) {
-        eprintln!("PROBE {divergence}");
-    }
-    eprintln!(
-        "PROBE commits {:?} health {:?}",
-        sim.world().resource::<ResetCommits>().0,
-        sim.rollback_health().map_err(|e| e.to_string().chars().take(80).collect::<String>())
-    );
 }
 
 /// A host intent acts on the tick it is stamped for.

@@ -27,6 +27,16 @@ Some construction integration still lives in `ambition_platformer2d_actor_monoli
 while the decomposition continues. New code should strengthen the contracts
 above rather than create another loader/spawn path.
 
+## Which way a zone goes
+
+A zone's way is read off the room links (`RoomSet::way_of`): both ways, out
+only (its far side has no link back to this room), or in only (it has no
+link out: a place to arrive at). The renderer draws a zone that is not both
+ways tinted and signed over it, `ONE WAY: NO RETURN` or `NO EXIT`, and a
+door's nameplate says so too (Jon, 2026-11-09: a one-way door must be
+"EXTREMELY clear"). Nothing is authored for it: a link written one way is
+drawn as one.
+
 ## Transition invariants
 
 - repeated overlap with the same loading zone does not mint duplicate active

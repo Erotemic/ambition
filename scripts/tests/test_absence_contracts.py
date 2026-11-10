@@ -845,10 +845,10 @@ def test_the_input_payload_census_is_not_silently_empty():
     # reorder, which changes what every byte after it means.
     assert shape[:3] == [
         "PeerInput::control: ControlFrame",
-        "PeerInput::verdict: PeerVerdict",
+        "PeerInput::verdict: PeerVerdictToken",
         "axis_x: f32",
     ], shape[:3]
-    assert "PreparationVerdict::Failed" in shape, "the verdict half is not censused"
+    assert shape[-1] == "PeerVerdictToken::word: u64", "the verdict half is not censused"
 
 
 def test_a_field_added_without_bumping_the_identity_is_caught(tmp_path, monkeypatch):

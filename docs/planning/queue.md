@@ -11,7 +11,7 @@ carries closed campaigns. Unselected or customer-gated plans live in
 
 ## Current order and selection
 
-1. **Network architecture (maintainer priority, updated 2026-11-06):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. The [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) GGRS hot-path defect is still concrete; minimize that backend's packets without presuming it is the flagship's final protocol. Keep [GGRS island-history partitioning](tracks.md#conditional-ggrs-island-rollback) deferred until that experiment chooses a backend; `activeArea` physical continuity, loading-zone custody and local live portals remain relevant either way, and are covered by the authority experiment and existing multiplayer owners.
+1. **Network architecture (maintainer priority, updated 2026-11-06):** [NET-AUTHORITY-EXPERIMENT](#net-authority-experiment--compare-hosted-world-replication-with-ggrs) compares player-hosted authoritative Ambition (with client prediction) against existing GGRS; Smash keeps bounded rollback. [NET-INPUT-WIDTH](#net-input-width--remove-idle-room-consensus-from-every-frame) compacted the GGRS input (done 2026-11-10); its measurement says message count, not input width, drives that backend's link traffic. Keep [GGRS island-history partitioning](tracks.md#conditional-ggrs-island-rollback) deferred until that experiment chooses a backend; `activeArea` physical continuity, loading-zone custody and local live portals remain relevant either way, and are covered by the authority experiment and existing multiplayer owners.
 2. **Multiplayer correctness:** [MULTIPLAYER-SEAMS](#multiplayer-seams--make-local-multiplayer-safe-for-netplay) feature/tooling validation;
    then LOADOUT-AUTHORITY and LOCAL-PLAY-MODES menu leave. Honor the
    2026-10-19 ruling order for CHARACTER-FORM, COOP-RECOVERY,
@@ -49,23 +49,13 @@ or updating their source. Check with
 
 ### NET-AUTHORITY-EXPERIMENT — compare hosted-world replication with GGRS
 
-**Customer:** persistent Ambition multiplayer, NPC lives, late join and different-room participation have different cost/authority needs than Smash rollback. The current 168-byte GGRS input and App-wide rewind may be unnecessary for the flagship's intended player-hosted experience.
+**Customer:** persistent Ambition multiplayer, NPC lives, late join and different-room participation have different cost/authority needs than Smash rollback. The App-wide GGRS rewind (and the per-message link cost measured by NET-INPUT-WIDTH) may be unnecessary for the flagship's intended player-hosted experience.
 
 **Owner:** [authority-model experiment](engine/hosted-world-networking-experiment.md) and [network topology](engine/network-topology-and-authority-research.md).
 
-**Next action:** NA-1 benchmark the working GGRS path; NA-2 construct a minimal player-hosted authoritative two-region/guest fixture using existing body/seat authorities; NA-3 exercise prediction, interest subscriptions, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
+**Next action:** NA-1 and a first NA-2 are measured (2026-11-10, [results](engine/hosted-world-networking-experiment.md#na-1-and-na-2-2026-11-10)): each GGRS peer spends about 4× the host's update per frame even without rollbacks, and room-scoped replication bytes depend on delta encoding. Next: split the GGRS per-frame cost; NA-2b a guest App that applies room-scoped snapshots; NA-3 guest prediction, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
 
 **Acceptance:** runnable headless comparison, byte and CPU measurements, stable guest input/reconciliation, region-scoped replication, persistent host-owned NPC facts, no service dependency, and an explicit per-game synchronization decision. Do not remove GGRS or rewrite working multiplayer merely from prose.
-
-### NET-INPUT-WIDTH — remove idle room consensus from every frame
-
-**Failure:** `PeerInput` is 168 fixed-width bincode bytes per player per tick: 72 bytes of `ControlFrame` plus 96 bytes of `PeerVerdict`, including full plan/content hashes even when no operation is underway. This increases every input stream's traffic irrespective of active room crossings.
-
-**Owner:** [island rollback and compact peer input](engine/island-rollback-and-compact-peer-input.md#net-input-width-reduce-serialized-per-frame-input-first), [netcode](engine/netcode.md#the-input-payload-two-peers-exchange) and [peer room commits](engine/peer-room-commit-protocol.md).
-
-**Next action:** NPI-1 measure and trace all verdict consumers; NPI-2 move rare room-preparation data out of the per-frame hot path while retaining frame-stamped, replay-stable agreement; NPI-3 migrate the wire identity, exact-byte tests and multi-handle fixed width. This task is **independent** of region-scoped rollback and should land first.
-
-**Acceptance:** normal input is at most 80 serialized bytes per player per frame (72 if no small in-band token is required), without the repeated 96-byte verdict; every delayed/corrected/concurrent peer crossing and failure case still agrees on the exact frame with no reintroduced global hold. Source and actual link traffic are measured separately; a changed wire identity refuses incompatible peers. Checkpoint/rebuild barrier behavior is preserved.
 
 ### RADIANT-NPC-HTN — authored NPC lives and replaceable planning
 
@@ -79,11 +69,11 @@ or updating their source. Check with
 
 ### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
 
-**Failure:** a generic boss name card and intro cutscene trigger exist, but name-card opacity is driven by individual `BossStage` requests (Wolfenstein/Inugami explicit), and the shared cutscene library does not provide every boss an intro. A roster-wide guarantee is absent.
+**Failure:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). The card is still drawn for the primary live room's boss only, so a second local view in another boss's room shows none.
 
 **Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
 
-**Next action:** census instantiated boss IDs and intro pathways; add an encounter-owned default title-card beat that leaves unique conductor cinematics intact; correct view/room ownership for multiview and repeated boss attempts. Test all configured bosses rather than only Wolfenstein.
+**Next action:** give the card to a view, as the HUD is: each local view shows the card of the boss in its own room.
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 
@@ -1072,6 +1062,10 @@ the game draws the same at each tier.
 ## Receipts
 
 Closed rows retained only where an open row, a script or an inbound link still needs their identity.
+
+### NET-INPUT-WIDTH — remove idle room consensus from every frame
+
+Done 2026-11-10: `PeerInput` is 80 bytes at wire identity 9 (was 168); the 96-byte verdict is an 8-byte token compared, never decoded, by each peer. All `two_peers` agreement cases pass. Measured link traffic fell only 0.5% in steady play and 4% across crossings, because GGRS already delta- and run-length-encodes inputs. Owner: [compact peer input](engine/island-rollback-and-compact-peer-input.md#result-2026-11-10).
 
 ### PARTY-TRAVEL-POLICIES — configurable group crossings and a leader view
 

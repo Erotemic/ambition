@@ -1,43 +1,38 @@
-//! ⭐⭐ **EDIT DISK -> THE CONSTRUCTED ACTOR PLAYS IT, THROUGH THE SHELL.**
+//! A file saved on disk while the game runs reaches the bodies the game
+//! constructed, through the content watch, the reload request and the shell's
+//! own re-preparation and activation. No Cargo, no linker, no direct
+//! publication API.
 //!
-//! The 2026-09-12 review's final acceptance sentence, end to end: edit a file on
-//! disk, compile a candidate, request a reload, let the SHELL re-prepare and
-//! activate on its own, and show the body the game CONSTRUCTED is playing the
-//! edited move. No Cargo, no linker, no direct publication API.
+//! The crate-level arm `a_host_plays_a_move_edited_on_disk_after_it_was_built`
+//! stops at `PreparedCharacterRegistry`. These read the BUILT BODIES
+//! (`ActorMoveset`, `BodyHealth`, `CombatTuning`) and the session's frozen
+//! cast, which only a real preparation produces.
 //!
-//! ⛔ THE HOP THE CRATE-LEVEL ARM DOES NOT REACH.
-//! `a_host_plays_a_move_edited_on_disk_after_it_was_built` asserts the edit
-//! arrives in `PreparedCharacterRegistry` — the registry, not the fighter. This
-//! asserts `ActorMoveset` on a BUILT BODY. Poisoning the call site that passes
-//! the transaction into `content_identity_for` left 868 tests green because
-//! catching it needs a REAL preparation, and this is the arm that runs one.
+//! Why `proving_grounds`: the default `ambition_gameplay` room's player wears
+//! the derived kit moves, which no authored move table names, and the smash
+//! composition runs a live rollback timeline that refuses publication by
+//! design. `proving_grounds` routes `ambition_gameplay` through the shell with
+//! no `ActiveRollbackAuthority` and builds three goblins whose 34 moves are
+//! `goblin.ron`'s own.
 //!
-//! ⛔⛤ **WHY THIS ROOM, MEASURED, AFTER TWO WRONG COMPOSITIONS.**
-//! 1. The shipped `ambition_gameplay` DEFAULT room was the first candidate and
-//!    is useless here: its player body (`slot:0`) wears the eight DERIVED KIT
-//!    moves (`attack_up`, `attack_air`, ...), and `player_robot` has no authored
-//!    move table at all, so the authored ids and that body's ids are DISJOINT.
-//! 2. The smash composition DOES seat an authored fighter — `smash_roster(
-//!    ["director"])` gives a body with 33 moves in the `director_*` vocabulary — and
-//!    is STILL wrong, because it runs a live rollback timeline:
-//!    `request_reload` there returns `Refused(RefusedDuringLiveTimeline)`. A
-//!    healthy speculating timeline refuses publication BY DESIGN.
-//! ⇒ The witness needs a body playing AUTHORED moves *and* a legal publication
-//!    boundary. MEASURED in `proving_grounds`: route `ambition_gameplay` through
-//!    the shell, NO `ActiveRollbackAuthority` (so the boundary is Legal), and
-//!    three goblin bodies carrying 34 moves whose ids are `goblin.ron`'s own.
+//! The move edit is a timing, never an extent: for most of the roster a
+//! rendered sprite stage derives the strike geometry from a bone segment, so an
+//! extents edit would not reach the actor. Timing is not overridden.
 //!
-//! ⚠ AND THE EDIT IS A TIMING, NEVER AN EXTENT. MEASURED: for ten of sixteen
-//! fighters the authored strike GEOMETRY is overridden by a rendered sprite
-//! stage that derives the hitbox from a bone segment, so an extents edit would
-//! not reach the actor for most of the roster. Timing is not overridden.
+//! The provider-ordering edge (`.before(GameplaySessionSet::Providers)`) is NOT
+//! witnessed here: this room's goblins exist before the re-preparation, so
+//! nothing is constructed for the edge to order against. Its witness is
+//! `an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays`.
 use crate::common;
 
 /// An AUTHORED move id — `goblin.ron`'s, not one of the derived kit ids.
+#[cfg(not(feature = "static_content"))]
 const SUBJECT: &str = "jab";
 /// The authored source it lives in, as `pack.ron` spells it.
+#[cfg(not(feature = "static_content"))]
 const SUBJECT_SOURCE: &str = "data/movesets/goblin.ron";
 /// What the edit adds. Large enough that no rounding could explain the result.
+#[cfg(not(feature = "static_content"))]
 const BUMP: f32 = 0.5;
 
 /// Every duration a CONSTRUCTED body is currently playing for [`SUBJECT`],
@@ -63,6 +58,7 @@ const BUMP: f32 = 0.5;
 /// ⇒ A red that says "the edit did not arrive" when the edit arrived on every
 /// body it was authored for is a false red, and a false red is obeyed faster
 /// than a false green is questioned. The population is the measurement.
+#[cfg(not(feature = "static_content"))]
 fn subject_durations_on_bodies(
     sim: &mut ambition_sim_harness::Platformer2dSimHarness,
 ) -> Vec<f32> {
@@ -86,6 +82,7 @@ fn subject_durations_on_bodies(
 /// ⛔ THE QUESTION THIS ARM IS ABOUT IS *"did the edit reach the bodies built
 /// from the edited source"*, so the answer is a COUNT over a population, not one
 /// body's reading.
+#[cfg(not(feature = "static_content"))]
 fn subject_body_count_at(
     sim: &mut ambition_sim_harness::Platformer2dSimHarness,
     expected: f32,
@@ -105,6 +102,7 @@ fn subject_body_count_at(
 /// ⛔⛤ **EDITED THROUGH THE TYPED DOCUMENT, AND THE EDIT IS COUNTED.** A fixture
 /// edit that matches nothing and a passing test look identical; this repository
 /// has been bitten by a zero-match substitution twice in one day.
+#[cfg(not(feature = "static_content"))]
 fn export_with_the_subject_retimed(root: &std::path::Path) -> (usize, usize, f32) {
     let written = ambition_content::pack::export_sources_to(root).expect("sources export");
     let path = root.join(SUBJECT_SOURCE);
@@ -140,6 +138,7 @@ fn export_with_the_subject_retimed(root: &std::path::Path) -> (usize, usize, f32
 }
 
 /// The shell's current activation id, or `None` before any route is active.
+#[cfg(not(feature = "static_content"))]
 fn activation_id(
     sim: &mut ambition_sim_harness::Platformer2dSimHarness,
 ) -> Option<ambition_platformer2d::game_shell::ShellActivationId> {
@@ -150,159 +149,197 @@ fn activation_id(
 }
 
 /// The live cast's generation.
+#[cfg(not(feature = "static_content"))]
 fn cast_generation(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Option<u64> {
     sim.world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .map(|r| r.generation().get())
 }
 
-/// ⭐⭐ **THE ACCEPTANCE ARM.**
+/// ⭐ THE RUNNING GAME PLAYS SAVED FILES, with no call from the test. The
+/// content watch (`ambition_content::content_watch`) sees a source change,
+/// compiles the pack from disk and requests the reload; the shell re-prepares
+/// and activates on its own. The watch is pointed at an exported copy, so the
+/// test edits no file another test reads. One sim carries every save:
 ///
-/// ⛔⛤ **WHAT THIS ARM DOES *NOT* WITNESS, STATED SO NOBODY TRUSTS IT FOR THE
-/// WRONG THING.** It witnesses the ACTIVATION -> ACTOR publication: the shell
-/// activates, and at the end of that frame the constructed body plays the edit.
-/// It does NOT witness the provider-ORDERING edge. MEASURED: deleting
-/// `.before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)`
-/// from `ambition_content::reload::register` leaves this arm GREEN, even in the
-/// activating-frame form above — because `proving_grounds`' goblin bodies ALREADY
-/// EXIST and the re-preparation does not rebuild them, so nothing constructs a
-/// session for the edge to order against. The constraint is vacuously satisfied
-/// on this road, and an arm cannot protect a constraint its road does not
-/// exercise.
-///
-/// ⚠ **THE MEASUREMENT NAMED `activate_prepared_platformer_sessions` UNTIL
-/// 2026-09-19, AND THAT SYSTEM IS GONE.** A10.5 split it: construction is
-/// `prepare_candidate_platformer_session`, which is
-/// `.before(AmbitionGameShellSet::Pending)`, and what remains in
-/// `GameplaySessionSet::Providers` is `adopt_candidate_platformer_session`,
-/// which adopts an already-built world rather than building one. ⇒ The
-/// vacuity above is a fact about THIS ROAD and still holds; what the
-/// `.before(Providers)` edge now guarantees is a different question, and
-/// `ambition_content::reload::register` answers it at the edge itself.
-///
-/// ⇒ That edge is held by
-/// `an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
-/// (`an_edit_reaches_the_shipped_game.rs`), where the world IS built from the
-/// publication and removing the edge does redden it. If that arm is ever
-/// deleted or repointed, the ordering loses its only witness — this one will
-/// not notice.
+/// 1. A file no `pack.ron` line declares is not played and requests nothing.
+/// 2. One save edits five families: a move timing (`goblin.ron`), a character
+///    row's HP and tags (`character_catalog.ron`), a fighter facet and an item
+///    row. Until the activation the bodies play the old move; on the frame the
+///    shell activates they play the new one and the cast generation has moved.
+///    Then every goblin is rebuilt with the saved HP and as a robot (its hurt
+///    material comes from the catalog row's tags, which the prepared cast does
+///    not carry, so this is the candidate CATALOG reaching construction), the
+///    session's frozen cast holds the edits, and one save made one reload.
+/// 3. A save that adds a character row and one that removes it: the row joins
+///    and leaves both the published and the frozen cast, and the others stay.
+/// 4. A line added to `pack.ron` brings the file from step 1 into the library.
+/// 5. The movement defaults take their own road (`MovementDefaultsWatch`, the
+///    mirror the F3 inspector writes): a save that does not parse is refused,
+///    a valid one changes how high the player jumps, a misspelt feel field
+///    refuses the whole save, and a feel-only save writes no movement tuning.
+#[cfg(not(feature = "static_content"))]
 #[test]
-fn an_edit_on_disk_reaches_the_constructed_actor_through_the_shell() {
+fn content_files_saved_while_the_game_runs_are_played() {
+    use ambition_app::app::movement_defaults_watch::MovementDefaultsWatch;
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_content::gameplay_defaults::PLATFORMER_DEFAULTS_FILE;
+    use ambition_platformer2d::characters::prepared::{ActiveSessionCast, PreparedCharacterRegistry};
+    use ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE;
+    use ambition_platformer2d::cutscene::CutsceneLibrary;
+    use ambition_platformer2d::engine_core::ActiveMovementTuning;
+    use ambition_platformer2d::items::{item_catalog, Item};
+    use ambition_platformer2d::vfx::vfx::ImpactMaterial;
+    type Sim = ambition_sim_harness::Platformer2dSimHarness;
+    const EDITED_HP: i32 = 9;
+    const ADDED: &str = "goblin_scout";
+
+    let frozen_has = |sim: &Sim, id: &str| {
+        sim.world()
+            .get_resource::<ActiveSessionCast>()
+            .and_then(ActiveSessionCast::cast)
+            .is_some_and(|cast| cast.get(id).is_some())
+    };
+    let published_has = |sim: &Sim, id: &str| {
+        sim.world().get_resource::<PreparedCharacterRegistry>().is_some_and(|cast| cast.get(id).is_some())
+    };
+    let jab = |sim: &Sim| {
+        sim.world()
+            .get_resource::<ActiveSessionCast>()
+            .and_then(ActiveSessionCast::cast)
+            .and_then(|cast| cast.get("player_robot_v3"))
+            .and_then(|definition| definition.scaled_move_damage.get(&FIGHTER_DAMAGE))
+            .and_then(|damage| damage.get("jab").cloned())
+    };
+    let gun_sword = |sim: &Sim| {
+        item_catalog(sim.world()).display_name(Item::GunSword).expect("the pack names the gun-sword").to_string()
+    };
+    let has_new_script = |sim: &Sim| {
+        sim.world()
+            .get_resource::<CutsceneLibrary>()
+            .is_some_and(|library| library.get("a_script_added_on_disk").is_some())
+    };
+    let robots = |sim: &mut Sim| {
+        let materials = goblin_materials(sim);
+        !materials.is_empty() && materials.iter().all(|material| *material == ImpactMaterial::Robot)
+    };
+    let jump = |sim: &Sim| sim.world().resource::<ActiveMovementTuning>().0.jump_speed;
+
     let mut sim = common::fixed_60hz_room_sim("proving_grounds");
     for _ in 0..40 {
         sim.step(common::base());
     }
 
-    // ── premise: constructed bodies are playing the AUTHORED move ───────────
-    //
-    // ⚠ THE POPULATION, and its SIZE is part of the premise: this room builds
-    // three goblins from `goblin.ron`, and an arm that cannot say how many
-    // bodies it is about cannot tell "the edit reached them" from "the edit
-    // reached the one I happened to sample".
+    // ── the premises: what the room plays before any save ───────────────────
+    // The population and its size: the room builds three goblins from
+    // `goblin.ron`, and every later count is compared against this one.
     let before = subject_durations_on_bodies(&mut sim).first().copied().unwrap_or_else(|| {
-        panic!(
-            "no constructed body plays `{SUBJECT}`, so this room cannot witness an authored edit"
-        )
+        panic!("no constructed body plays `{SUBJECT}`, so this room cannot witness an authored edit")
     });
-    assert!(
-        before.is_finite() && before > 0.0,
-        "the body reports a nonsense duration for `{SUBJECT}`: {before}"
-    );
-    // ⛔⛔ **THE ANTI-VACUITY FLOOR, AND IT IS THE HALF THE OLD `.next()` COULD
-    // NOT HAVE.** Every later assertion is a COUNT compared against this one, so
-    // a run where the goblins silently stopped being built would fail here
-    // rather than pass two counts of zero against each other.
     let subjects_before = subject_body_count_at(&mut sim, before);
     assert!(
         subjects_before >= 3,
-        "this room is supposed to build three bodies from `{SUBJECT_SOURCE}` and \
-         {subjects_before} carry `{SUBJECT}` at the authored {before}s — the arm \
-         would be comparing counts of nearly nothing"
+        "this room builds three bodies from `{SUBJECT_SOURCE}` and {subjects_before} carry `{SUBJECT}` at {before}s"
     );
-    // ⛔ THE BOUNDARY MUST BE LEGAL, ASSERTED RATHER THAN HOPED. A live rollback
-    // timeline refuses publication by design, and the smash composition — the
-    // other place an authored body exists — is refused for exactly that reason.
+    // A live rollback timeline refuses publication by design.
     assert!(
         sim.world()
             .get_resource::<ambition_platformer2d::runtime::rollback::ActiveRollbackAuthority>()
             .is_none(),
-        "this room has a live rollback authority, so the reload will be refused \
-         at the publication boundary and the arm would be about that refusal"
+        "this room has a live rollback authority, so the reload would be refused at the publication boundary"
     );
-
+    let hps_before = goblin_max_hps(&mut sim);
+    assert!(
+        hps_before.len() >= 3 && hps_before.iter().all(|&hp| hp != EDITED_HP),
+        "the premise: three goblins whose HP the edit changes, got {hps_before:?}"
+    );
+    let materials_before = goblin_materials(&mut sim);
+    assert!(
+        materials_before.len() == hps_before.len()
+            && materials_before.iter().all(|material| *material == ImpactMaterial::Flesh),
+        "the premise: the goblins are flesh, got {materials_before:?}"
+    );
+    assert_eq!(jab(&sim), Some(vec![3]), "the premise: the shipped facet's jab deals 3");
+    assert_eq!(gun_sword(&sim), "Gun-Sword", "the premise: the shipped catalog names the slot `Gun-Sword`");
+    assert!(frozen_has(&sim, "goblin") && !frozen_has(&sim, ADDED), "the premise: the goblin is in the cast and `{ADDED}` is not");
+    assert!(
+        sim.world().get_resource::<ContentSourceWatch>().is_some()
+            && sim.world().get_resource::<MovementDefaultsWatch>().is_some(),
+        "the premise: a build that reads content off disk watches it"
+    );
     let before_activation = activation_id(&mut sim);
     let before_generation = cast_generation(&mut sim);
     assert!(
         before_activation.is_some() && before_generation.is_some(),
-        "the room has no active shell route or no published cast, so neither clock \
-         this arm watches exists yet"
+        "the room has no active shell route or no published cast, so neither clock this test watches exists yet"
     );
 
     let root = std::env::temp_dir().join(format!(
-        "ambition_edit_to_play_{}_{}",
+        "ambition_content_watch_{}_{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos()
     ));
+    let dir = root.with_extension("movement");
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let (written, edited, authored_before) = export_with_the_subject_retimed(&root);
-        assert!(
-            written > 10,
-            "the export wrote {written} source(s); the pack declares many more, so \
-             the edit would be against a directory that is not this build's content"
-        );
-        // ⛔ THE EDIT MATCHED EXACTLY ONE MOVE.
-        assert_eq!(
-            edited, 1,
-            "the retime matched {edited} authored move(s) named `{SUBJECT}` in \
-             {SUBJECT_SOURCE}; it must match exactly one or this witness is not \
-             about the move it names"
-        );
+        let written = ambition_content::pack::export_sources_to(&root).expect("sources export");
+        assert!(written > 10, "the export wrote {written} source(s), so the watch would read a directory that is not this build's content");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let requested = |sim: &Sim| sim.world().resource::<ContentSourceWatch>().requested;
+        let step_until = |sim: &mut Sim, done: &dyn Fn(&mut Sim) -> bool, what: &str| {
+            let mut frames = 0;
+            while !done(sim) {
+                sim.step(common::base());
+                frames += 1;
+                assert!(frames < 600, "600 frames after the save, {what}; reloads requested: {}", requested(&*sim));
+            }
+        };
+
+        // ── 1. a file no manifest line declares ──────────────────────────────
+        // A file system's clock can be coarse: each save must look newer.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(
+            root.join("data/cutscenes/added_on_disk.ron"),
+            r#"[(id: "a_script_added_on_disk", beats: [Wait(seconds: 0.1)], seen_flag: None)]"#,
+        )
+        .unwrap();
+        for _ in 0..120 {
+            sim.step(common::base());
+        }
+        assert_eq!(requested(&sim), 0, "an unchanged copy, or a file no manifest line declares, asked for a reload");
+        assert!(!has_new_script(&sim), "a file no manifest line declares was played");
+
+        // ── 2. one save, five families ───────────────────────────────────────
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let (_, edited, authored_before) = export_with_the_subject_retimed(&root);
+        assert_eq!(edited, 1, "the retime matched {edited} authored move(s) named `{SUBJECT}` in {SUBJECT_SOURCE}");
         assert!(
             (authored_before - before).abs() < 1e-4,
-            "the body plays `{SUBJECT}` at {before} but the authored source says \
-             {authored_before} — the body is not playing the file this edits"
+            "the body plays `{SUBJECT}` at {before} but the authored source says {authored_before}: the body does not play the file this edits"
         );
+        let catalog_path = root.join("data/character_catalog.ron");
+        let shipped_catalog = std::fs::read_to_string(&catalog_path).unwrap();
+        let edited_catalog = {
+            let start = shipped_catalog.find("\"goblin\": (").expect("the catalog has a goblin row");
+            let at = start + shipped_catalog[start..].find("max_health: Some(").expect("the row states its HP");
+            let end = at + shipped_catalog[at..].find(')').unwrap() + 1;
+            let text = format!("{}max_health: Some({EDITED_HP}){}", &shipped_catalog[..at], &shipped_catalog[end..]);
+            let at = start + text[start..].find("tags: [").expect("the row states its tags") + "tags: [".len();
+            format!("{}\"robot\", {}", &text[..at], &text[at..])
+        };
+        std::fs::write(&catalog_path, &edited_catalog).unwrap();
+        let facet = root.join("data/fighters/player_robot_v3.ron");
+        let text = std::fs::read_to_string(&facet).unwrap();
+        assert_eq!(text.matches("\"jab\": [3],").count(), 1, "the premise: the facet states the jab once");
+        std::fs::write(&facet, text.replacen("\"jab\": [3],", "\"jab\": [4],", 1)).unwrap();
+        let items = root.join("data/items.ron");
+        let text = std::fs::read_to_string(&items).unwrap();
+        let from = "display_name: \"Gun-Sword\",";
+        assert_eq!(text.matches(from).count(), 1, "the premise: items.ron names the gun-sword once");
+        std::fs::write(&items, text.replacen(from, "display_name: \"Sword-Gun\",", 1)).unwrap();
 
-        let pack = ambition_content::pack::compile_pack_from(&root)
-            .expect("the edited directory compiles as a pack");
-        let candidate = ambition_platformer2d::content::CandidateGeneration::prepared_against(
-            std::sync::Arc::new(pack),
-            None,
-        );
-        let request = ambition_content::reload::request_reload(sim.world_mut(), candidate);
-        assert!(
-            matches!(
-                request,
-                ambition_content::reload::ReloadRequest::Requested { .. }
-            ),
-            "the reload was not requested, so nothing downstream is about an edit; \
-             got {request:?}"
-        );
-
-        // ⭐ HALF THE CLAIM: THE REQUEST PUBLISHES NOTHING. The staging boundary
-        // is what makes the activation atomic instead of incremental.
-        assert_eq!(
-            subject_body_count_at(&mut sim, before),
-            subjects_before,
-            "the request alone changed what the live bodies play — the edit reached \
-             the actors before any activation, so there is no boundary to be atomic at"
-        );
-
-        // ⛔⛔ **ASSERT AT THE ACTIVATING FRAME, NOT AT A FRAME BUDGET'S END.**
-        // A loop that waits for the VALUE and then asserts it passes even when
-        // the publication lands a frame AFTER the world was built from it — and
-        // that one-frame gap is a real, shipped defect class here (activation on
-        // frame N, session provider constructing the world on frame N, the family
-        // landing on N+1). MEASURED: with this arm bounded by a 600-frame budget
-        // and asserting only the final value, deleting
-        // `.before(GameplaySessionSet::Providers)` from `reload::register` did
-        // NOT redden it. A tolerance is a claim that the gap does not matter, and
-        // here the gap IS the thing under test.
-        // ⇒ So: step until the ACTIVATION ID moves, stop on that frame, and
-        // assert the actor at the end of it.
+        // Assert at the activating frame, not at a frame budget's end: a
+        // publication that lands a frame after the world was built from it
+        // passes a wait for the value.
         let mut activated_at = None;
         for frame in 0..600 {
             sim.step(common::base());
@@ -310,106 +347,156 @@ fn an_edit_on_disk_reaches_the_constructed_actor_through_the_shell() {
                 activated_at = Some(frame);
                 break;
             }
+            assert_eq!(
+                subject_body_count_at(&mut sim, before),
+                subjects_before,
+                "frame {frame}: the bodies changed what they play before any activation, so there is no boundary to be atomic at"
+            );
         }
         let activated_at = activated_at.unwrap_or_else(|| {
             panic!(
-                "600 frames after the request the shell never activated a new \
-                 generation (activation is still {before_activation:?}), so the break \
-                 is before the activation and not after it — do NOT raise the frame \
-                 count without finding out which hop"
+                "600 frames after the save the shell never activated a new generation (reloads requested: {})",
+                requested(&sim)
             )
         });
-
-        // ⛔ EVERY BODY BUILT FROM THE EDITED SOURCE, not the first one the
-        // archetype iteration happens to yield — see `subject_durations_on_bodies`.
-        let now = subject_body_count_at(&mut sim, before + BUMP);
         assert_eq!(
-            now,
+            subject_body_count_at(&mut sim, before + BUMP),
             subjects_before,
-            "the shell activated on frame {activated_at} and the constructed body \
-             is STILL playing `{SUBJECT}` at {now:?} rather than {}. The publication \
-             and the world built from it are one frame apart, which is the ordering \
-             `reload::register`'s `.before(GameplaySessionSet::Providers)` exists to \
-             hold.",
+            "the shell activated on frame {activated_at} and the constructed bodies play `{SUBJECT}` at {:?}, not {}",
+            subject_durations_on_bodies(&mut sim),
             before + BUMP
         );
+        // This candidate edits a move table, so it stages a cast: a generation
+        // that did not advance means the edit reached the actor by another road.
+        assert_ne!(cast_generation(&mut sim), before_generation, "the cast generation did not advance for a candidate that edits `{SUBJECT}`");
 
-        // ⛔⛤ **AND THE CAST CLOCK MUST HAVE MOVED, BECAUSE THIS CANDIDATE EDITS A
-        // MOVE TABLE.** An app-level witness whose candidate touches no moveset
-        // sees this clock stand still — correctly, since nothing is staged. This
-        // one stages a cast, so a generation that did NOT advance means the
-        // staging block was skipped and the edit reached the actor by some other
-        // road than the one under test.
-        assert_ne!(
-            cast_generation(&mut sim),
-            before_generation,
-            "the cast generation did not advance for a candidate that edits \
-             `{SUBJECT}`, so no cast was staged and the value above arrived by a \
-             road this arm does not describe"
+        step_until(
+            &mut sim,
+            &|sim| {
+                let hps = goblin_max_hps(sim);
+                !hps.is_empty() && hps.iter().all(|&hp| hp == EDITED_HP) && robots(sim) && jab(&*sim) == Some(vec![4]) && gun_sword(&*sim) == "Sword-Gun"
+            },
+            "the goblins, the facet or the item catalog do not play the save",
         );
-    }));
-    let _ = std::fs::remove_dir_all(&root);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
-}
+        assert_eq!(requested(&sim), 1, "one save, one reload");
+        assert_eq!(goblin_max_hps(&mut sim).len(), hps_before.len(), "the same goblins, rebuilt");
+        let catalog = sim.world().resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
+        let row = catalog.get("goblin").expect("the published catalog has the goblin");
+        assert_eq!(row.max_health, Some(EDITED_HP), "the App's catalog is not the published one");
+        assert!(row.tags.iter().any(|tag| tag == "robot"), "the App's catalog does not carry the saved tag");
+        // The cast the session FROZE, not only the App's registry: bodies are
+        // derived from the generation's cast (`SessionCast`).
+        let frozen_hp = sim
+            .world()
+            .resource::<ActiveSessionCast>()
+            .cast()
+            .and_then(|cast| cast.get("goblin"))
+            .and_then(|definition| definition.vitals.max_health);
+        assert_eq!(frozen_hp, Some(EDITED_HP), "the session did not freeze the cast it was prepared from");
 
-/// ⭐ THE RUNNING GAME PLAYS A SAVED FILE, with no call from the test: the
-/// content watch (`ambition_content::content_watch`) sees the source change,
-/// compiles the pack from disk, and asks for the reload the arm above asks for
-/// by hand. The watch is pointed at an exported copy, so the arm edits no file
-/// another test reads.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn a_content_file_saved_while_the_game_runs_is_played() {
-    use ambition_content::content_watch::ContentSourceWatch;
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-    let before = subject_durations_on_bodies(&mut sim)
-        .first()
-        .copied()
-        .expect("a constructed body plays the subject");
-    let subjects_before = subject_body_count_at(&mut sim, before);
-    assert!(subjects_before >= 3, "the premise: three bodies play `{SUBJECT}`");
-    assert!(
-        sim.world().get_resource::<ContentSourceWatch>().is_some(),
-        "the premise: a build that reads content off disk watches it"
-    );
-
-    let root = std::env::temp_dir().join(format!("ambition_content_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
-        let requested = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-            sim.world().resource::<ContentSourceWatch>().requested
+        // ── 3. a row added, then removed ─────────────────────────────────────
+        let with_scout = {
+            let start = edited_catalog.find("\"goblin\": (").expect("the catalog has a goblin row");
+            let end = start + edited_catalog[start..].find("\"sandbag\": (").expect("the sandbag row follows it");
+            let row = edited_catalog[start..end]
+                .replacen("\"goblin\": (", &format!("\"{ADDED}\": ("), 1)
+                .replacen("display_name: \"Goblin\"", "display_name: \"Goblin Scout\"", 1);
+            format!("{}{row}{}", &edited_catalog[..end], &edited_catalog[end..])
         };
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&catalog_path, &with_scout).unwrap();
+        step_until(&mut sim, &|sim| frozen_has(&*sim, ADDED), "the added character is not in the frozen cast");
+        assert!(published_has(&sim, ADDED), "the added character is not in the published cast");
+        assert!(frozen_has(&sim, "goblin"), "adding a character dropped the others");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&catalog_path, &edited_catalog).unwrap();
+        step_until(&mut sim, &|sim| !frozen_has(&*sim, ADDED), "the removed character is still in the frozen cast");
+        assert!(!published_has(&sim, ADDED), "the removed character is still in the published cast");
+        assert!(frozen_has(&sim, "goblin"), "removing a character dropped the others");
+        assert_eq!(requested(&sim), 3, "three saves, three reloads");
+
+        // ── 4. the manifest line ─────────────────────────────────────────────
+        let manifest = root.join("pack.ron");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        let anchor = r#"(path: "data/cutscenes/intro.ron", schema: "cutscene_library", version: 1),"#;
+        assert_eq!(text.matches(anchor).count(), 1, "the premise: the manifest declares the intro cutscenes once");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(
+            &manifest,
+            text.replacen(
+                anchor,
+                &format!(r#"{anchor} (path: "data/cutscenes/added_on_disk.ron", schema: "cutscene_library", version: 1),"#),
+                1,
+            ),
+        )
+        .unwrap();
+        step_until(&mut sim, &|sim| has_new_script(&*sim), "the library has no script from the file the manifest now declares");
+
+        // ── 5. the movement defaults ─────────────────────────────────────────
+        let shipped = std::fs::read_to_string(PLATFORMER_DEFAULTS_FILE).expect("the defaults file");
+        let shipped_jump = jump(&sim);
+        let stated = format!("jump_speed: {shipped_jump:.1},");
+        assert_eq!(shipped.matches(&stated).count(), 1, "the premise: the defaults file states the live jump speed ({stated}) once");
+        let before_launch = launch_speed(&mut sim);
+        assert!(before_launch > 0.0, "the premise: the player leaves the floor when it jumps");
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("platformer_defaults.ron");
+        std::fs::write(&file, &shipped).unwrap();
+        sim.world_mut().insert_resource(MovementDefaultsWatch::new(file.clone()));
+        let applied = |sim: &Sim| sim.world().resource::<MovementDefaultsWatch>().applied;
+        let raised = shipped_jump + 70.0;
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, "( this is not the defaults").unwrap();
         for _ in 0..45 {
             sim.step(common::base());
         }
-        assert_eq!(requested(&sim), 0, "an unchanged copy asks for nothing");
-
-        // A file system's clock can be coarse: the save must look newer.
+        assert_eq!((applied(&sim), jump(&sim)), (0, shipped_jump), "a save that does not parse is refused");
         std::thread::sleep(std::time::Duration::from_millis(20));
-        let (_, edited, _) = export_with_the_subject_retimed(&root);
-        assert_eq!(edited, 1);
+        std::fs::write(&file, shipped.replace(&stated, &format!("jump_speed: {raised:.1},"))).unwrap();
         let mut frames = 0;
-        while subject_body_count_at(&mut sim, before + BUMP) < subjects_before {
+        while jump(&sim) != raised {
             sim.step(common::base());
             frames += 1;
-            assert!(
-                frames < 600,
-                "600 frames after the save the bodies still play `{SUBJECT}` at {:?}; \
-                 reloads requested: {}",
-                subject_durations_on_bodies(&mut sim),
-                requested(&sim)
-            );
+            assert!(frames < 120, "120 frames after the save the jump speed is {}", jump(&sim));
         }
-        assert_eq!(requested(&sim), 1, "one save, one reload");
-        eprintln!("a saved move edit was played {frames} frames after the save");
+        assert_eq!(applied(&sim), 1, "one save, one write");
+        // The resource alone would pass if every body read an authored tuning
+        // of its own.
+        let after_launch = launch_speed(&mut sim);
+        assert!(
+            after_launch > before_launch * 1.05,
+            "the player's jump launch did not follow the saved tuning: {before_launch} before, {after_launch} after"
+        );
+        use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
+        let hitlag = |sim: &Sim| sim.world().resource::<Platformer2dFeelTuningMonolith>().hitlag_time;
+        assert_eq!(hitlag(&sim), Platformer2dFeelTuningMonolith::default().hitlag_time, "the premise: the shipped hitlag");
+        let with_feel = |jump_speed: f32, feel: &str| {
+            let moved = shipped.replace(&stated, &format!("jump_speed: {jump_speed:.1},"));
+            let close = moved.rfind(')').expect("the file is one tuple");
+            format!("{}    feel: ({feel}),\n{}", &moved[..close], &moved[close..])
+        };
+        let feel_written = |sim: &Sim| sim.world().resource::<MovementDefaultsWatch>().applied_feel;
+        // A field the feel does not have refuses the whole save: the jump speed
+        // in the same save is not taken either.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, with_feel(raised + 10.0, "hitlag_tme: 0.25")).unwrap();
+        for _ in 0..45 {
+            sim.step(common::base());
+        }
+        assert_eq!((feel_written(&sim), jump(&sim)), (0, raised), "a misspelt feel field did not refuse the save");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, with_feel(raised, "hitlag_time: 0.25")).unwrap();
+        let mut frames = 0;
+        while hitlag(&sim) != 0.25 {
+            sim.step(common::base());
+            frames += 1;
+            assert!(frames < 120, "120 frames after the save the hitlag is {}", hitlag(&sim));
+        }
+        assert_eq!((applied(&sim), feel_written(&sim)), (1, 1), "the feel save wrote more than the feel");
+        assert_eq!(jump(&sim), raised, "a feel-only save changed the movement tuning");
     }));
     let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&dir);
     if let Err(payload) = outcome {
         std::panic::resume_unwind(payload);
     }
@@ -595,320 +682,6 @@ fn goblin_max_hps(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec
         .collect()
 }
 
-/// ⭐ A CHARACTER CATALOG EDIT IS PLAYED WITHOUT A RESTART. A saved row is a
-/// revision of the whole cast, folded against the candidate catalog, frozen by
-/// the preparation and published with the catalog at the activation.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn a_character_row_saved_while_the_game_runs_is_played() {
-    use ambition_content::content_watch::ContentSourceWatch;
-    const EDITED: i32 = 9;
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-    let before = goblin_max_hps(&mut sim);
-    assert!(before.len() >= 3, "the premise: the room builds three goblins, got {before:?}");
-    assert!(before.iter().all(|&hp| hp != EDITED), "the premise: the edit changes the HP: {before:?}");
-
-    let root = std::env::temp_dir().join(format!("ambition_catalog_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        let path = root.join("data/character_catalog.ron");
-        let text = std::fs::read_to_string(&path).unwrap();
-        let start = text.find("\"goblin\": (").expect("the catalog has a goblin row");
-        let at = start + text[start..].find("max_health: Some(").expect("the row states its HP");
-        let end = at + text[at..].find(')').unwrap() + 1;
-        std::fs::write(&path, format!("{}max_health: Some({EDITED}){}", &text[..at], &text[end..])).unwrap();
-
-        let mut frames = 0;
-        while goblin_max_hps(&mut sim).iter().any(|&hp| hp != EDITED) || goblin_max_hps(&mut sim).is_empty() {
-            sim.step(common::base());
-            frames += 1;
-            assert!(
-                frames < 600,
-                "600 frames after the save the goblins have {:?}; reloads requested: {}",
-                goblin_max_hps(&mut sim),
-                sim.world().resource::<ContentSourceWatch>().requested
-            );
-        }
-        assert_eq!(goblin_max_hps(&mut sim).len(), before.len(), "the same goblins, rebuilt");
-        let catalog = sim.world().resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
-        assert_eq!(
-            catalog.get("goblin").and_then(|row| row.max_health),
-            Some(EDITED),
-            "the App's catalog is the published one"
-        );
-        // ⛔ AND THE CAST THE SESSION FROZE. Under the poison "the claim
-        // carries no candidate cast" the session froze 5 while the App's
-        // registry held 9. Before 2026-10-01 the goblins still had 9:
-        // `apply_worn_character_gameplay` re-derived each body from the App
-        // cast. It reads the generation's cast now (`SessionCast`), and the
-        // same poison stops the loop above at [5, 5, 5].
-        let frozen = sim
-            .world()
-            .resource::<ambition_platformer2d::characters::prepared::ActiveSessionCast>()
-            .cast()
-            .and_then(|cast| cast.get("goblin"))
-            .and_then(|definition| definition.vitals.max_health);
-        assert_eq!(frozen, Some(EDITED), "the session froze the cast it was prepared from");
-        eprintln!("a saved character row was played {frames} frames after the save");
-    }));
-    let _ = std::fs::remove_dir_all(&root);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
-}
-
-/// ⭐ A FIGHTER FACET SAVED WHILE THE GAME RUNS REACHES THE CAST. The facet
-/// folds into its character's definition, so the reload re-stages the cast from
-/// the live catalog and the edited pack, and the next session freezes the edit.
-/// The watch is pointed at an exported copy.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn a_fighter_facet_saved_while_the_game_runs_reaches_the_cast() {
-    use ambition_content::content_watch::ContentSourceWatch;
-    use ambition_platformer2d::characters::prepared::ActiveSessionCast;
-    use ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE;
-    let jab = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-        sim.world()
-            .get_resource::<ActiveSessionCast>()
-            .and_then(ActiveSessionCast::cast)
-            .and_then(|cast| cast.get("player_robot_v3"))
-            .and_then(|definition| definition.scaled_move_damage.get(&FIGHTER_DAMAGE))
-            .and_then(|damage| damage.get("jab").cloned())
-    };
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-    assert_eq!(jab(&sim), Some(vec![3]), "the premise: the shipped facet's jab deals 3");
-
-    let root = std::env::temp_dir().join(format!("ambition_facet_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        let path = root.join("data/fighters/player_robot_v3.ron");
-        let text = std::fs::read_to_string(&path).unwrap();
-        assert_eq!(text.matches("\"jab\": [3],").count(), 1, "the premise: the facet states the jab once");
-        std::fs::write(&path, text.replacen("\"jab\": [3],", "\"jab\": [4],", 1)).unwrap();
-
-        let mut frames = 0;
-        while jab(&sim) != Some(vec![4]) {
-            sim.step(common::base());
-            frames += 1;
-            assert!(
-                frames < 600,
-                "600 frames after the save the frozen jab is {:?}; reloads requested: {}",
-                jab(&sim),
-                sim.world().resource::<ContentSourceWatch>().requested
-            );
-        }
-        assert_eq!(sim.world().resource::<ContentSourceWatch>().requested, 1, "one save, one reload");
-        eprintln!("a saved fighter facet reached the frozen cast {frames} frames after the save");
-    }));
-    let _ = std::fs::remove_dir_all(&root);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
-}
-
-/// ⭐ AN ITEM ROW SAVED WHILE THE GAME RUNS IS PLAYED. The item catalog is an
-/// App-local resource, and the items reload family publishes the edited pack's
-/// catalog with the selection. The watch is pointed at an exported copy.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn an_item_row_saved_while_the_game_runs_is_played() {
-    use ambition_content::content_watch::ContentSourceWatch;
-    use ambition_platformer2d::items::{item_catalog, Item};
-    let gun_sword = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-        item_catalog(sim.world()).display_name(Item::GunSword).expect("the pack names the gun-sword").to_string()
-    };
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-    assert_eq!(gun_sword(&sim), "Gun-Sword", "the premise: the shipped catalog names the slot `Gun-Sword`");
-
-    let root = std::env::temp_dir().join(format!("ambition_items_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        let path = root.join("data/items.ron");
-        let text = std::fs::read_to_string(&path).unwrap();
-        let from = "display_name: \"Gun-Sword\",";
-        assert_eq!(text.matches(from).count(), 1, "the premise: items.ron names the gun-sword once");
-        std::fs::write(&path, text.replacen(from, "display_name: \"Sword-Gun\",", 1)).unwrap();
-
-        let mut frames = 0;
-        while gun_sword(&sim) != "Sword-Gun" {
-            sim.step(common::base());
-            frames += 1;
-            assert!(
-                frames < 600,
-                "600 frames after the save the catalog names the slot {:?}; reloads requested: {}",
-                gun_sword(&sim),
-                sim.world().resource::<ContentSourceWatch>().requested
-            );
-        }
-        assert_eq!(sim.world().resource::<ContentSourceWatch>().requested, 1, "one save, one reload");
-        eprintln!("a saved item row reached the item catalog {frames} frames after the save");
-    }));
-    let _ = std::fs::remove_dir_all(&root);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
-}
-
-/// A source line added to `pack.ron` while the game runs is played: the
-/// watch looks at the manifest, compiles the root's own list, and the new
-/// cutscene reaches the running library with no build. The control is the same
-/// file saved first with no line in the manifest: nothing reloads.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn a_source_added_to_pack_ron_while_the_game_runs_is_played() {
-    use ambition_content::content_watch::ContentSourceWatch;
-    use ambition_platformer2d::cutscene::CutsceneLibrary;
-    let has_new_script = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-        sim.world()
-            .get_resource::<CutsceneLibrary>()
-            .is_some_and(|library| library.get("a_script_added_on_disk").is_some())
-    };
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-
-    let root = std::env::temp_dir().join(format!("ambition_manifest_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(
-            root.join("data/cutscenes/added_on_disk.ron"),
-            r#"[(id: "a_script_added_on_disk", beats: [Wait(seconds: 0.1)], seen_flag: None)]"#,
-        )
-        .unwrap();
-        for _ in 0..120 {
-            sim.step(common::base());
-        }
-        assert!(!has_new_script(&sim), "the premise: a file no manifest line declares is not played");
-        assert_eq!(sim.world().resource::<ContentSourceWatch>().requested, 0, "a file no manifest line declares asked for a reload");
-
-        let manifest = root.join("pack.ron");
-        let text = std::fs::read_to_string(&manifest).unwrap();
-        let anchor = r#"(path: "data/cutscenes/intro.ron", schema: "cutscene_library", version: 1),"#;
-        assert_eq!(text.matches(anchor).count(), 1, "the premise: the manifest declares the intro cutscenes once");
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(
-            &manifest,
-            text.replacen(
-                anchor,
-                &format!(r#"{anchor} (path: "data/cutscenes/added_on_disk.ron", schema: "cutscene_library", version: 1),"#),
-                1,
-            ),
-        )
-        .unwrap();
-
-        let mut frames = 0;
-        while !has_new_script(&sim) {
-            sim.step(common::base());
-            frames += 1;
-            assert!(
-                frames < 600,
-                "600 frames after the manifest save the library has no new script; reloads requested: {}",
-                sim.world().resource::<ContentSourceWatch>().requested
-            );
-        }
-        eprintln!("a source added to pack.ron reached the cutscene library {frames} frames after the save");
-    }));
-    let _ = std::fs::remove_dir_all(&root);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
-}
-
-/// ⭐ A CATALOG SAVE THAT ADDS A CHARACTER, AND ONE THAT REMOVES IT, ARE BOTH
-/// PLAYED WITHOUT A RESTART. The added row is built and staged like every other
-/// row; the removed one is RETIRED: it leaves the cast and the stored source
-/// (`CandidateCatalog::retired`), so a later revision cannot bring it back. The
-/// watch is pointed at an exported copy.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn a_catalog_save_that_adds_or_removes_a_character_is_played() {
-    use ambition_content::content_watch::ContentSourceWatch;
-    use ambition_platformer2d::characters::prepared::ActiveSessionCast;
-    const ADDED: &str = "goblin_scout";
-    let frozen_has = |sim: &ambition_sim_harness::Platformer2dSimHarness, id: &str| {
-        sim.world()
-            .get_resource::<ActiveSessionCast>()
-            .and_then(ActiveSessionCast::cast)
-            .is_some_and(|cast| cast.get(id).is_some())
-    };
-    let published_has = |sim: &ambition_sim_harness::Platformer2dSimHarness, id: &str| {
-        sim.world()
-            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
-            .is_some_and(|cast| cast.get(id).is_some())
-    };
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-    assert!(frozen_has(&sim, "goblin"), "the premise: the goblin is in the cast");
-    assert!(!frozen_has(&sim, ADDED), "the premise: `{ADDED}` is not");
-
-    let root = std::env::temp_dir().join(format!("ambition_roster_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
-        let path = root.join("data/character_catalog.ron");
-        let shipped = std::fs::read_to_string(&path).unwrap();
-        let start = shipped.find("\"goblin\": (").expect("the catalog has a goblin row");
-        let end = start + shipped[start..].find("\"sandbag\": (").expect("the sandbag row follows it");
-        let row = shipped[start..end]
-            .replacen("\"goblin\": (", &format!("\"{ADDED}\": ("), 1)
-            .replacen("display_name: \"Goblin\"", "display_name: \"Goblin Scout\"", 1);
-        let with_scout = format!("{}{row}{}", &shipped[..end], &shipped[end..]);
-        let requested = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-            sim.world().resource::<ContentSourceWatch>().requested
-        };
-        let step_until = |sim: &mut ambition_sim_harness::Platformer2dSimHarness,
-                          done: &dyn Fn(&ambition_sim_harness::Platformer2dSimHarness) -> bool,
-                          what: &str| {
-            let mut frames = 0;
-            while !done(sim) {
-                sim.step(common::base());
-                frames += 1;
-                assert!(frames < 600, "600 frames after the save, {what}; reloads requested: {}", requested(sim));
-            }
-            frames
-        };
-
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(&path, &with_scout).unwrap();
-        let frames = step_until(&mut sim, &|sim| frozen_has(sim, ADDED), "the added character is not in the frozen cast");
-        assert!(published_has(&sim, ADDED), "and the published cast has it");
-        assert!(frozen_has(&sim, "goblin"), "adding a character kept the others");
-        eprintln!("an added character reached the frozen cast {frames} frames after the save");
-
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(&path, &shipped).unwrap();
-        let frames = step_until(&mut sim, &|sim| !frozen_has(sim, ADDED), "the removed character is still in the frozen cast");
-        assert!(!published_has(&sim, ADDED), "and the published cast dropped it");
-        assert!(frozen_has(&sim, "goblin"), "removing a character kept the others");
-        assert_eq!(requested(&sim), 2, "two saves, two reloads");
-        eprintln!("a removed character left the frozen cast {frames} frames after the save");
-    }));
-    let _ = std::fs::remove_dir_all(&root);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
-}
-
 /// The hurt material of every goblin the room built: a raw catalog fact (the
 /// row's tags), not a prepared-cast one.
 #[cfg(not(feature = "static_content"))]
@@ -924,186 +697,6 @@ fn goblin_materials(
         .filter(|(worn, _)| worn.0.to_string() == "goblin")
         .map(|(_, tuning)| tuning.hurt_feedback.material)
         .collect()
-}
-
-/// ⭐ A CATALOG-ONLY EDIT IS BUILT FROM THE CANDIDATE CATALOG, NOT THE APP'S.
-/// A body's hurt material comes from its catalog row's tags
-/// (`actor_hurt_feedback`), which the prepared cast does not carry. The claim
-/// carried only the N+1 cast, so the candidate room built its goblins with
-/// the App's catalog, which is N until the commit: the goblins stayed flesh
-/// while the published catalog said robot. Saving `"robot"` into the goblin's
-/// tags now rebuilds every goblin as a robot, and the App's catalog says so.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn a_catalog_tag_saved_while_the_game_runs_is_built_from_the_candidate_catalog() {
-    use ambition_content::content_watch::ContentSourceWatch;
-    use ambition_platformer2d::vfx::vfx::ImpactMaterial;
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-    let before = goblin_materials(&mut sim);
-    assert!(
-        before.len() >= 3 && before.iter().all(|material| *material == ImpactMaterial::Flesh),
-        "the premise: the room builds three flesh goblins, got {before:?}"
-    );
-
-    let root = std::env::temp_dir().join(format!("ambition_catalog_tag_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        let path = root.join("data/character_catalog.ron");
-        let text = std::fs::read_to_string(&path).unwrap();
-        let start = text.find("\"goblin\": (").expect("the catalog has a goblin row");
-        let at = start + text[start..].find("tags: [").expect("the row states its tags") + "tags: [".len();
-        std::fs::write(&path, format!("{}\"robot\", {}", &text[..at], &text[at..])).unwrap();
-
-        let mut frames = 0;
-        let robots = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
-            let materials = goblin_materials(sim);
-            !materials.is_empty() && materials.iter().all(|material| *material == ImpactMaterial::Robot)
-        };
-        let published = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-            sim.world()
-                .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()
-                .get("goblin")
-                .is_some_and(|row| row.tags.iter().any(|tag| tag == "robot"))
-        };
-        while !published(&sim) {
-            sim.step(common::base());
-            frames += 1;
-            assert!(
-                frames < 600,
-                "600 frames after the save the App's catalog has no robot goblin; reloads requested: {}",
-                sim.world().resource::<ContentSourceWatch>().requested
-            );
-        }
-        // The room the commit published was built before the App's catalog
-        // changed: give it the frames the HP arm gives its rebuild.
-        for _ in 0..30 {
-            if robots(&mut sim) {
-                break;
-            }
-            sim.step(common::base());
-        }
-        assert!(
-            robots(&mut sim),
-            "the App's catalog says the goblin is a robot, and the goblins the reload built are {:?}",
-            goblin_materials(&mut sim)
-        );
-        assert_eq!(goblin_materials(&mut sim).len(), before.len(), "the same goblins, rebuilt");
-    }));
-    let _ = std::fs::remove_dir_all(&root);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
-}
-
-/// ⭐ A MOVEMENT-DEFAULTS EDIT SAVED WHILE THE GAME RUNS IS PLAYED, through the
-/// developer-edit road (`MovementDefaultsWatch` writes the mirror the F3
-/// inspector writes; the proposal is admitted and published in `PreUpdate`).
-/// A save that does not parse is refused and the running tuning stays. The
-/// watch is pointed at a copy, so the arm edits no file another test reads.
-#[cfg(not(feature = "static_content"))]
-#[test]
-fn a_movement_tuning_saved_while_the_game_runs_is_played() {
-    use ambition_app::app::movement_defaults_watch::MovementDefaultsWatch;
-    use ambition_content::gameplay_defaults::PLATFORMER_DEFAULTS_FILE;
-    use ambition_platformer2d::engine_core::ActiveMovementTuning;
-    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
-    for _ in 0..40 {
-        sim.step(common::base());
-    }
-    assert!(
-        sim.world().get_resource::<MovementDefaultsWatch>().is_some(),
-        "the premise: a build that reads the defaults off disk watches them"
-    );
-    let jump = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-        sim.world().resource::<ActiveMovementTuning>().0.jump_speed
-    };
-    let shipped = std::fs::read_to_string(PLATFORMER_DEFAULTS_FILE).expect("the defaults file");
-    assert_eq!(jump(&sim), 630.0, "the premise: the shipped jump speed is the one the edit changes");
-    assert_eq!(shipped.matches("jump_speed: 630.0,").count(), 1, "the premise: the file states it once");
-
-    let before = launch_speed(&mut sim);
-    assert!(before > 0.0, "the premise: the player leaves the floor when it jumps");
-
-    let dir = std::env::temp_dir().join(format!("ambition_movement_watch_{}", std::process::id()));
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        std::fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("platformer_defaults.ron");
-        std::fs::write(&file, &shipped).unwrap();
-        sim.world_mut().insert_resource(MovementDefaultsWatch::new(file.clone()));
-        let applied = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-            sim.world().resource::<MovementDefaultsWatch>().applied
-        };
-
-        // A file system's clock can be coarse: each save must look newer.
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(&file, "( this is not the defaults").unwrap();
-        for _ in 0..45 {
-            sim.step(common::base());
-        }
-        assert_eq!((applied(&sim), jump(&sim)), (0, 630.0), "a save that does not parse is refused");
-
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(&file, shipped.replace("jump_speed: 630.0,", "jump_speed: 700.0,")).unwrap();
-        let mut frames = 0;
-        while jump(&sim) != 700.0 {
-            sim.step(common::base());
-            frames += 1;
-            assert!(frames < 120, "120 frames after the save the jump speed is {}", jump(&sim));
-        }
-        assert_eq!(applied(&sim), 1, "one save, one write");
-        eprintln!("a saved movement tuning was played {frames} frames after the save");
-        // ⭐ AND THE PLAYER JUMPS WITH IT: the resource alone would pass if
-        // every body read an authored tuning of its own.
-        let after = launch_speed(&mut sim);
-        assert!(
-            after > before * 1.05,
-            "the player's jump launch did not follow the saved tuning: {before} before, {after} after"
-        );
-        eprintln!("the player's jump launch: {before} before the save, {after} after");
-
-        // ⭐ THE FEEL VALUES TAKE THE SAME ROAD (`EditableFeelTuning`), and a
-        // save that changes only them writes no movement tuning.
-        use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
-        let hitlag = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-            sim.world().resource::<Platformer2dFeelTuningMonolith>().hitlag_time
-        };
-        assert_eq!(hitlag(&sim), Platformer2dFeelTuningMonolith::default().hitlag_time, "the premise");
-        let with_feel = |jump_speed: &str, feel: &str| {
-            let moved = shipped.replace("jump_speed: 630.0,", &format!("jump_speed: {jump_speed},"));
-            let close = moved.rfind(')').expect("the file is one tuple");
-            format!("{}    feel: ({feel}),\n{}", &moved[..close], &moved[close..])
-        };
-        let feel_written = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
-            sim.world().resource::<MovementDefaultsWatch>().applied_feel
-        };
-        // A field the feel does not have refuses the whole save, not only
-        // itself: the jump speed in the same save is not taken either.
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(&file, with_feel("710.0", "hitlag_tme: 0.25")).unwrap();
-        for _ in 0..45 {
-            sim.step(common::base());
-        }
-        assert_eq!((feel_written(&sim), jump(&sim)), (0, 700.0), "a misspelt feel field refuses the save");
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        std::fs::write(&file, with_feel("700.0", "hitlag_time: 0.25")).unwrap();
-        let mut frames = 0;
-        while hitlag(&sim) != 0.25 {
-            sim.step(common::base());
-            frames += 1;
-            assert!(frames < 120, "120 frames after the save the hitlag is {}", hitlag(&sim));
-        }
-        assert_eq!((applied(&sim), feel_written(&sim)), (1, 1), "the feel save wrote the feel only");
-        assert_eq!(jump(&sim), 700.0, "and the movement tuning stayed");
-    }));
-    let _ = std::fs::remove_dir_all(&dir);
-    if let Err(payload) = outcome {
-        std::panic::resume_unwind(payload);
-    }
 }
 
 /// The primary player's fastest upward speed in the frames after a jump press,

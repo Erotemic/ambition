@@ -311,12 +311,9 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         // deferred `Commands`, not a world — which is why its doc says the
         // caller owes the check.
         //
-        // ⛔⛔ **THIS COMMENT CITED A GUARD THAT DID NOT EXIST UNTIL 2026-09-15.**
-        // It named `the_shipped_app_hides_candidates_before_they_are_verified` as
-        // the shipped guard; a repo-wide grep found that name in exactly one
-        // place, this comment. The arm now exists, in
-        // `game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs`. ⚠ A `//`
-        // comment is invisible to the citation gate, which is why the claim stood.
+        // A published room inside a pending candidate stays invisible to the
+        // running game: `an_edit_reaches_the_shipped_game.rs` watches a handoff
+        // for it.
         ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
             app.world_mut(),
         );

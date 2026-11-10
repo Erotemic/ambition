@@ -246,10 +246,50 @@ pub(crate) fn die_and_watch(sim: &mut Platformer2dSimHarness, mut watch: impl Fn
     );
     // The interlude counts down on the sim clock and only then asks the roster
     // for the consequence; the rebuild it requests takes several more frames.
+    // So: step until the checkpoint coordinator records a new committed
+    // restore, then settle. A death that commits nothing (the outcome never
+    // changes) runs the whole window.
+    let before = latest_restore_outcome(sim);
+    let mut settle: Option<usize> = None;
     for frame in 0..240 {
         sim.step(base());
         watch(sim, frame);
+        if settle.is_none() {
+            let now = latest_restore_outcome(sim);
+            if now != before && now.starts_with("Some(Committed") {
+                settle = Some(30);
+            }
+        }
+        if let Some(left) = settle.as_mut() {
+            if *left == 0 {
+                return;
+            }
+            *left -= 1;
+        }
     }
+}
+
+/// Step until the checkpoint coordinator records a committed restore other
+/// than `before`, then 30 frames for the rebuild to land; at most `max` frames.
+fn step_until_a_restore_commits(sim: &mut Platformer2dSimHarness, before: &str, max: usize) {
+    for _ in 0..max {
+        sim.step(base());
+        let now = latest_restore_outcome(sim);
+        if now != before && now.starts_with("Some(Committed") {
+            sim.step_n(base(), 30);
+            return;
+        }
+    }
+}
+
+/// The checkpoint coordinator's latest restore outcome, as text; empty when
+/// the world has no session root.
+fn latest_restore_outcome(sim: &Platformer2dSimHarness) -> String {
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes,
+    >(sim.world())
+    .map(|outcomes| format!("{:?}", outcomes.latest()))
+    .unwrap_or_default()
 }
 
 /// THE FIXTURE. Seven beats, in the order the rule states them.
@@ -289,7 +329,50 @@ fn a_death_returns_what_was_not_banked_and_keeps_what_was() {
     commit_a_checkpoint(&mut sim);
 
     // ── 6. death restores C1: still held, and the pedestal stays empty ───────
-    die(&mut sim);
+    //
+    // This reset re-authors an identity a hand is holding, so publication
+    // declares a supersession: the candidate is verified while its predecessor
+    // is still live, and publication takes the predecessor itself (it records
+    // the holder when the supersession is declared). Every frame is sampled,
+    // because "it closed eventually" is not "no frame boundary ever saw two".
+    let mut peak = 0usize;
+    let mut worst_frame = 0usize;
+    let mut custody_windows = 0usize;
+    let mut published_supersessions = 0usize;
+    die_and_watch(&mut sim, |sim, frame| {
+        let live = occurrences(sim, &reward).len();
+        if live > peak {
+            peak = live;
+            worst_frame = frame;
+        }
+        // The MAX, never a sum: the record is last-writer-wins and persists.
+        if let Some(verification) = sim
+            .world()
+            .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
+        {
+            if verification.published {
+                published_supersessions = published_supersessions.max(verification.supersessions);
+            }
+            custody_windows = custody_windows.max(verification.left_to_custodian);
+        }
+    });
+    assert!(
+        published_supersessions > 0,
+        "no publication in this reset declared a supersession that published, so \
+         nothing here witnesses a candidate verified while its predecessor was \
+         still live"
+    );
+    assert_eq!(
+        custody_windows, 0,
+        "a supersession in custody was left to its custodian, so its handoff did \
+         not record"
+    );
+    assert_eq!(
+        peak, 1,
+        "⛔ the reset was visible as {peak} holders of one identity at frame \
+         {worst_frame}: a frame boundary that sees two is a duplicate \
+         authoritative identity in the published world"
+    );
     assert_still_held(
         &mut sim,
         &reward,
@@ -667,7 +750,15 @@ fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
         attack: true,
         ..base()
     });
-    sim.step_n(base(), 120);
+    // Until the throw has minted its object, then long enough for the arc to
+    // finish and the object to settle where the pickup will stand.
+    for _ in 0..120 {
+        sim.step(base());
+        if dynamic_occurrences(&mut sim).len() > before.len() {
+            break;
+        }
+    }
+    sim.step_n(base(), 40);
     let minted: Vec<_> = dynamic_occurrences(&mut sim)
         .into_iter()
         .filter(|id| !before.contains(id))
@@ -789,7 +880,9 @@ fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
         "the restore did not install frame zero"
     );
 
-    for _ in 0..80 {
+    // Long enough for the sync test to load the restored baseline several
+    // times (its check distance is 4).
+    for _ in 0..20 {
         sim.step(base());
         sim.rollback_health()
             .expect("the restored baseline stays deterministic");
@@ -921,16 +1014,18 @@ fn a_banked_runtime_mint_returns_to_the_hand_that_banked_it() {
     );
 }
 
-/// B1: A RUNTIME-MINTED INSTANCE STILL IN THE HAND AT DEATH, ACQUIRED AFTER
-/// THE CHECKPOINT, IS TAKEN BACK.
+/// B: A RUNTIME MINT ACQUIRED AFTER THE CHECKPOINT IS GONE AFTER A DEATH,
+/// whether it is still in the hand or its entity is already gone.
 ///
-/// The ordinary retraction arm, reached by an object that has no authored record
-/// behind it — so the despawn cannot be softened into "let the room re-author
-/// it", because no room will.
-///
-/// the identity is asserted absent EVERYWHERE, not merely absent from the
-/// hand: a restore that put it back on some floor would satisfy "you are not
-/// holding it" and still be a world the player had never been in.
+/// The one in the hand reaches the ordinary retraction arm with no authored
+/// record behind it, so the despawn cannot be softened into "let the room
+/// re-author it". The one left next door is the half that stops the cheap wrong
+/// answer: its entity was destroyed with the room it was left in, so the only
+/// thing standing between it and a resurrection is that the commit-time
+/// snapshot never saw it. "Rebuild everything the engine remembers minting" is
+/// the forbidden design, a growing registry of every instance that ever
+/// existed. Each identity is asserted absent EVERYWHERE, not merely from the
+/// hand.
 #[test]
 fn a_runtime_mint_acquired_after_the_checkpoint_is_gone_after_a_death() {
     let mut sim = fixed_60hz_room_sim(ROOM);
@@ -939,65 +1034,10 @@ fn a_runtime_mint_acquired_after_the_checkpoint_is_gone_after_a_death() {
     // ── the checkpoint FIRST, with empty hands ──────────────────────────────
     commit_a_hub_checkpoint(&mut sim);
 
-    // ── and only THEN the mint ──────────────────────────────────────────────
-    let minted = mint_a_dynamic_item(&mut sim);
-    let landed = resting_place(&mut sim, &minted);
-    pick_up(&mut sim, landed, &minted);
-    // THE NON-VACUITY GUARD: it really is in the hand going into the death,
-    // so "gone afterwards" is a claim about a retraction that happened rather
-    // than about a scenario that never got started.
-    assert_still_held(
-        &mut sim,
-        &minted,
-        "the mint must be in hand at the moment of death, or the claim below is \
-         vacuous",
-    );
-
-    die(&mut sim);
-
-    assert!(
-        occurrences(&mut sim, &minted).is_empty(),
-        "⛔ `{}` was minted AFTER the checkpoint, so it did not exist at the \
-         checkpoint and a death owes it to nobody — not to the hand, and not to \
-         any floor. Found {:?}",
-        minted.as_str(),
-        occurrences(&mut sim, &minted)
-    );
-    let player = body(&mut sim);
-    assert!(
-        sim.world()
-            .get::<ambition_platformer2d::combat::held_items::HeldItem>(player)
-            .is_none(),
-        "and the hand is empty: retracting the object without retracting the \
-         hand leaves the body wielding a ghost it can never put down"
-    );
-}
-
-/// this is the half that stops the cheap wrong answer, and B1 above does
-/// NOT stop it. In B1 the object is still a live entity when the death lands,
-/// so the ordinary retraction arm despawns it and any implementation passes.
-/// Here the entity is already gone — destroyed with the room it was left in —
-/// which is precisely the state that made fixture A need materialization at all.
-/// So the only thing standing between this object and a resurrection is that
-/// nothing remembers it, and "rebuild everything the engine remembers minting"
-/// is exactly the forbidden design: a growing registry of every instance that
-/// ever existed.
-///
-/// The commit-time snapshot is what it is measuring.
-#[test]
-fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
-    let mut sim = fixed_60hz_room_sim(ROOM);
-    sim.step_n(base(), 8);
-
-    // THE ONE MOVED LINE. In fixture A this rest happens with the mint
-    // already in hand.
-    commit_a_hub_checkpoint(&mut sim);
-
-    let minted = mint_a_dynamic_item(&mut sim);
-    let landed = resting_place(&mut sim, &minted);
-    pick_up(&mut sim, landed, &minted);
-
-    // Carried next door and left there, exactly as in fixture A.
+    // ── a mint carried next door and left there ─────────────────────────────
+    let left = mint_a_dynamic_item(&mut sim);
+    let landed = resting_place(&mut sim, &left);
+    pick_up(&mut sim, landed, &left);
     walk_through_the_door_to(&mut sim, NEIGHBOUR);
     sim.step_frame(ControlFrame {
         attack_pressed: true,
@@ -1006,33 +1046,48 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
     });
     sim.step_n(base(), 30);
     walk_through_the_door_to(&mut sim, ROOM);
-
-    // THE NON-VACUITY GUARD, and it is the same one fixture A needs: the
-    // entity really is gone before the death, so what happens next is a decision
-    // about REBUILDING rather than about re-assigning something still resident.
     assert!(
-        occurrences(&mut sim, &minted).is_empty(),
+        occurrences(&mut sim, &left).is_empty(),
         "the neighbour must actually have unloaded and taken the minted object's \
-         ENTITY with it, or this test measures nothing"
+         ENTITY with it, or the death below decides nothing about rebuilding"
+    );
+
+    // ── and a mint still in the hand at the death ───────────────────────────
+    let held = mint_a_dynamic_item(&mut sim);
+    let landed = resting_place(&mut sim, &held);
+    pick_up(&mut sim, landed, &held);
+    assert_still_held(
+        &mut sim,
+        &held,
+        "the mint must be in hand at the moment of death, or the retraction claim \
+         is vacuous",
     );
 
     die(&mut sim);
 
     assert!(
-        occurrences(&mut sim, &minted).is_empty(),
-        "⛔ `{}` was minted AFTER the checkpoint, so the checkpoint never saw it \
-         and a death owes it to nobody. Coming back here means the engine is \
-         rebuilding from a record of everything it ever minted rather than from \
-         a snapshot of what was true at the commit. Found {:?}",
-        minted.as_str(),
-        occurrences(&mut sim, &minted)
+        occurrences(&mut sim, &held).is_empty(),
+        "⛔ `{}` was minted AFTER the checkpoint and held at the death, so a death \
+         owes it to nobody — not to the hand, and not to any floor. Found {:?}",
+        held.as_str(),
+        occurrences(&mut sim, &held)
+    );
+    assert!(
+        occurrences(&mut sim, &left).is_empty(),
+        "⛔ `{}` was minted AFTER the checkpoint, so the checkpoint never saw it. \
+         Coming back means the engine rebuilds from a record of everything it \
+         ever minted rather than from a snapshot of what was true at the commit. \
+         Found {:?}",
+        left.as_str(),
+        occurrences(&mut sim, &left)
     );
     let player = body(&mut sim);
     assert!(
         sim.world()
             .get::<ambition_platformer2d::combat::held_items::HeldItem>(player)
             .is_none(),
-        "and nothing was put into the hand either"
+        "and the hand is empty: retracting the object without retracting the \
+         hand leaves the body wielding a ghost it can never put down"
     );
 }
 
@@ -1099,78 +1154,13 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     );
 }
 
-/// ONE ENTITLEMENT MUST NOT MANIFEST TWO OBJECTS.
+/// One entitlement manifests exactly one object, and a death puts the
+/// entitlement back.
 ///
-/// What that could not reach is an entitlement that never had an object behind it: a granted
-/// quantity is `stored`, the throw mints an INSTANCE, and nothing spends the row.
-#[test]
-fn one_granted_quantity_mints_exactly_one_object() {
-    use ambition_platformer2d::item::ItemGrantRequested;
-    use ambition_platformer2d::item::OwnedItems;
-    use bevy::ecs::system::RunSystemOnce;
-
-    let mut sim = fixed_60hz_room_sim(ROOM);
-    sim.step_n(base(), 8);
-    let before = dynamic_occurrences(&mut sim);
-
-    // ONE entitlement, through the channel `<<give_item>>` uses.
-    sim.world_mut().write_message(ItemGrantRequested {
-        item: MINTED_ITEM,
-        count: 1,
-    });
-    sim.step_n(base(), 4);
-    assert!(
-        sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
-        "the grant did not land, so this measures nothing"
-    );
-
-    // Try to spend it TWICE, the way the grid would: the menu offers an item the
-    // player owns, so a round is attempted only while the entitlement is there.
-    //
-    // the ownership check is the menu's rule, restated — it is not this test
-    // being polite. `equip_held_spec` is the take-custody verb and equips
-    // whatever it is handed; what decides that a row is offerable is the grid,
-    // and the whole point of spending the row at the mint is that the grid stops
-    // offering it. A round that equipped regardless would be measuring a
-    // pathway no player has.
-    let mut rounds = 0;
-    for _ in 0..2 {
-        if !sim.world().resource::<OwnedItems>().has(MINTED_ITEM) {
-            break;
-        }
-        rounds += 1;
-        let _ = sim
-            .world_mut()
-            .run_system_once(equip_the_minted_item)
-            .expect("the equip verb runs");
-        sim.step(AgentAction {
-            attack: true,
-            ..base()
-        });
-        sim.step_n(base(), 120);
-    }
-    // the zero floor: a run that never equipped at all would satisfy "one
-    // object" by minting none.
-    assert_eq!(rounds, 1, "the entitlement was offerable {rounds} time(s)");
-
-    let minted: Vec<SimId> = dynamic_occurrences(&mut sim)
-        .into_iter()
-        .filter(|id| !before.contains(id))
-        .collect();
-    assert_eq!(
-        minted.len(),
-        1,
-        "one granted javelin manifested {} objects: {minted:?} — the entitlement \
-         survived its own mint, so the grid can equip a phantom and throw it \
-         again",
-        minted.len()
-    );
-}
-
-/// AND A DEATH PUTS THE ENTITLEMENT BACK — the half that makes spending it
-/// safe.
-///
-/// The throw's own comment said exactly that, and it is why the gate stood.
+/// A granted quantity is `stored`, and the throw that mints an instance from it
+/// spends the row, so the inventory grid, which offers only what the bag holds,
+/// cannot equip a phantom and throw it again. Spending it is safe because a
+/// death that takes the object back puts the row back too.
 ///
 /// ```text
 /// grant     one javelin, through the <<give_item>> channel
@@ -1199,6 +1189,7 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
         "the checkpoint must see the entitlement, or this measures nothing"
     );
 
+    let before = dynamic_occurrences(&mut sim);
     let _ = sim
         .world_mut()
         .run_system_once(equip_the_minted_item)
@@ -1210,7 +1201,18 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
     sim.step_n(base(), 120);
     assert!(
         !sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
-        "the mint did not spend the row, so the restore below proves nothing"
+        "the mint did not spend the row: the entitlement survived its own mint, so \
+         the grid can offer it again and throw a second object"
+    );
+    let minted: Vec<SimId> = dynamic_occurrences(&mut sim)
+        .into_iter()
+        .filter(|id| !before.contains(id))
+        .collect();
+    assert_eq!(
+        minted.len(),
+        1,
+        "one granted javelin manifested {} objects: {minted:?}",
+        minted.len()
     );
 
     die(&mut sim);
@@ -1226,57 +1228,58 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
 
 /// A death undoes a purchase made since the checkpoint whole: the goods leave
 /// the bag and the coins come back to the wallet. The control is a purchase
-/// before the checkpoint: the checkpoint holds it, and a death keeps both
-/// halves.
+/// before the checkpoint, in the same life: the checkpoint holds it, and the
+/// death keeps both its halves.
 #[test]
 fn a_death_undoes_a_purchase_since_the_checkpoint_whole() {
     use ambition_platformer2d::characters::actor::BodyWallet;
     use ambition_platformer2d::item::shop::{ShopSide, ShopTransactionRequested};
     use ambition_platformer2d::item::{Item, OwnedItems};
 
-    /// (bombs in the bag, coins in the wallet) after the purchase, then after
-    /// a death. `banked` commits the checkpoint after the purchase, not before.
-    fn after_a_death(banked: bool) -> ((u32, i32), (u32, i32)) {
-        let purse = |sim: &mut Platformer2dSimHarness| {
-            let entity = body(sim);
-            sim.world().get::<BodyWallet>(entity).map_or(0, |wallet| wallet.balance)
-        };
-        let bombs =
-            |sim: &mut Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::Bomb);
-        let mut sim = fixed_60hz_room_sim(ROOM);
-        sim.step_n(base(), 8);
-        let entity = body(&mut sim);
-        sim.world_mut().entity_mut(entity).insert(BodyWallet { balance: 20 });
-        sim.step_n(base(), 2);
-        if !banked {
-            commit_a_checkpoint(&mut sim);
-        }
+    let purse = |sim: &mut Platformer2dSimHarness| {
+        let entity = body(sim);
+        sim.world().get::<BodyWallet>(entity).map_or(0, |wallet| wallet.balance)
+    };
+    let bombs =
+        |sim: &mut Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::Bomb);
+    let buy_a_bomb = |sim: &mut Platformer2dSimHarness| {
         sim.world_mut().write_message(ShopTransactionRequested {
             item: Item::Bomb,
             price: 6,
             side: ShopSide::Buy,
         });
         sim.step_n(base(), 2);
-        if banked {
-            commit_a_checkpoint(&mut sim);
-        }
-        let bought = (bombs(&mut sim), purse(&mut sim));
-        die(&mut sim);
-        sim.step_n(base(), 90);
-        (bought, (bombs(&mut sim), purse(&mut sim)))
-    }
+    };
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+    let entity = body(&mut sim);
+    sim.world_mut().entity_mut(entity).insert(BodyWallet { balance: 20 });
+    sim.step_n(base(), 2);
+    let at_start = bombs(&mut sim);
 
-    let (bought, after) = after_a_death(false);
-    assert_eq!(bought.1, 14, "premise: the purchase spent 6 of 20 coins: {bought:?}");
+    buy_a_bomb(&mut sim);
+    commit_a_checkpoint(&mut sim);
+    let banked = (bombs(&mut sim), purse(&mut sim));
     assert_eq!(
-        after,
-        (bought.0 - 1, 20),
-        "(bombs, coins) after a death that undoes the purchase: the goods leave \
-         and the coins come back"
+        banked,
+        (at_start + 1, 14),
+        "premise: the banked purchase spent 6 of 20 coins for one bomb"
     );
-    let (bought, after) = after_a_death(true);
-    assert_eq!(bought.1, 14, "premise: the purchase spent 6 of 20 coins: {bought:?}");
-    assert_eq!(after, bought, "control: a purchase the checkpoint holds survives the death whole");
+
+    buy_a_bomb(&mut sim);
+    assert_eq!(
+        (bombs(&mut sim), purse(&mut sim)),
+        (at_start + 2, 8),
+        "premise: the purchase after the checkpoint spent 6 more coins for one more bomb"
+    );
+    die(&mut sim);
+    sim.step_n(base(), 90);
+    assert_eq!(
+        (bombs(&mut sim), purse(&mut sim)),
+        banked,
+        "(bombs, coins) after a death: the purchase since the checkpoint must be \
+         undone whole (its bomb gone, its 6 coins back) and the banked one kept whole"
+    );
 }
 
 /// The boss whose profile authors a `signature_gauntlet`, and the id that
@@ -1664,139 +1667,6 @@ fn a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding() {
     );
 }
 
-/// ⛔⛤ **A10: DOES THE CUSTODY-DEFERRED SUPERSESSION WINDOW EVER SHOW TWO
-/// AUTHORITATIVE HOLDERS OF ONE IDENTITY?**
-///
-/// Publication's projected verifier admits EXACTLY TWO occupants for an identity
-/// whose predecessor was declared to depart under `DepartureAuthority::Custodian`
-/// — the one place A10 permits a duplicate, because
-/// `restore_custody_to_checkpoint` unequips AND despawns as one operation keyed
-/// on that entity, so publication reaching in first destroys the key the other
-/// half is found by. That is Model B, and it is declared rather than hidden.
-///
-/// ⚠ **WHAT WAS NEVER MEASURED IS HOW WIDE THE WINDOW IS.** MEASURED 2026-09-15
-/// with a probe on `retire_superseded`'s caller: this exact fixture — room
-/// `central_hub_complex`, identity `placement:ground_gun_sword` — is one of the
-/// five publications in the whole `app_it` suite that declares one
-/// (`left_to_custodian=1`, `retired=0`). So the window is real here, and this
-/// samples EVERY FRAME of the reset rather than the settled state 240 frames
-/// later, which is the difference between "it closed eventually" and "no frame
-/// boundary ever saw two".
-#[test]
-fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
-    let mut sim = fixed_60hz_room_sim(ROOM);
-    sim.step_n(base(), 8);
-    let reward = SimId::placement(REWARD);
-
-    // ⚠ THE HISTORY IS THE FIXTURE, and an abbreviated one does NOT open the
-    // window — MEASURED: acquire-then-checkpoint-then-die alone declares no
-    // custody departure at all, and the premise assertion below is what caught
-    // that. The beats are the ones `a_death_returns_what_was_not_banked_and_keeps_what_was`
-    // runs up to its second death, which is the publication the probe saw declare
-    // one: the reward is acquired and given back by a first death, acquired
-    // AGAIN, and only then banked — so the rebuild re-authors an identity whose
-    // live holder is in another authority's custody.
-    let pedestal = resting_place(&mut sim, &reward);
-    pick_up(&mut sim, pedestal, &reward);
-    die(&mut sim);
-    let pedestal_again = resting_place(&mut sim, &reward);
-    pick_up(&mut sim, pedestal_again, &reward);
-    commit_a_checkpoint(&mut sim);
-
-    let victim = body(&mut sim);
-    let (x, y) = body_pos(&mut sim);
-    sim.world_mut().write_message(
-        ambition_platformer2d::combat::death_rules::ActorDiedMessage {
-            victim,
-            pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
-            cause: ambition_platformer2d::combat::death_rules::DeathCause {
-                source: ambition_platformer2d::combat::HitSource::Hazard,
-                attacker: None,
-            },
-        },
-    );
-
-    let mut peak = 0usize;
-    let mut worst_frame = 0usize;
-    let mut custody_windows = 0usize;
-    let mut published_supersessions = 0usize;
-    for frame in 0..240 {
-        sim.step(base());
-        let live = occurrences(&mut sim, &reward).len();
-        if live > peak {
-            peak = live;
-            worst_frame = frame;
-        }
-        // The MAX, never a sum: the record is last-writer-wins and persists, so
-        // adding it up every frame would count one window 240 times.
-        if let Some(verification) = sim
-            .world()
-            .get_resource::<ambition_platformer2d::publication::LastConstructionVerification>()
-        {
-            if verification.published {
-                published_supersessions = published_supersessions.max(verification.supersessions);
-            }
-        }
-        custody_windows = custody_windows.max(
-            sim.world()
-                .get_resource::<
-                    ambition_platformer2d::publication::LastConstructionVerification,
-                >()
-                .map_or(0, |verification| verification.left_to_custodian),
-        );
-    }
-
-    // ⭐ THE PREMISE FIRST: a publication in this reset really did leave a
-    // predecessor to its custodian. Without this the assertion below is equally
-    // true of a reset that never opened a custody window at all — and the whole
-    // arm would be measuring nothing while passing.
-    // ⛔⛤ **A10'S SUPERSESSION CASE, IN PRODUCTION: validation succeeded WITHOUT
-    // first destroying the live body.** `ProjectionViolation::SupersededNotLive`
-    // exists precisely to refuse a declared supersession whose live half is
-    // already gone, so a declared supersession that PUBLISHED is one whose
-    // predecessor was still standing when the projected post-publication world
-    // was verified. The reset re-authors an identity a hand is holding, which is
-    // exactly the "old A live, hidden B verified, B declares it supersedes A"
-    // shape the campaign owes a production witness for.
-    assert!(
-        published_supersessions > 0,
-        "no publication in this reset declared a supersession that published, so \
-         nothing here witnesses a candidate verified while its predecessor was \
-         still live"
-    );
-    // ⛔⛤ **MODEL A: PUBLICATION TAKES THE PREDECESSOR ITSELF.** This asserted
-    // `custody_windows > 0` while Model B was live -- publication left a
-    // predecessor standing in a hand for the custodian to remove. Model A records
-    // `(holder, spec_id)` when the supersession is DECLARED, so publication can
-    // despawn it and the drain strips the hand from that record; there is no
-    // window left to count. `Custodian` survives only as the fallback for a hand
-    // the world cannot resolve, so a NON-zero here means a handoff failed to
-    // record and Model B took the row.
-    assert_eq!(
-        custody_windows, 0,
-        "a supersession in custody was left to its custodian, so its handoff did \
-         not record"
-    );
-    // ⛔⛤ AND THE WINDOW IS NARROWER THAN A FRAME BOUNDARY. MEASURED: peak 1.
-    // Publication leaves the predecessor standing and the custodian removes it
-    // without the sim schedule ever running in between, so the duplicate the
-    // projected verifier ADMITS is never observable to anything that steps.
-    assert_eq!(
-        peak, 1,
-        "⛔ A CUSTODY-DEFERRED SUPERSESSION WAS VISIBLE AS {peak} HOLDERS OF ONE \
-         IDENTITY at frame {worst_frame}. Model B permits publication to leave \
-         the predecessor standing, but only for a window no scheduled system \
-         observes; a frame boundary that sees two is a duplicate authoritative \
-         identity in the published world"
-    );
-    assert_still_held(
-        &mut sim,
-        &reward,
-        "the reset must leave the banked reward in the hand it was in at the \
-         checkpoint",
-    );
-}
-
 /// Q151 and "Alice's actions inside Bob's room": Alice banks a checkpoint
 /// with the gun-sword in hand, puts it down in Bob's live room, goes back to
 /// the hub and dies. Her restore puts it back in her hand. Bob's room stays
@@ -1985,7 +1855,19 @@ fn throw_after_a_checkpoint(item: Item, into: &str, carried_back: bool) -> (Plat
 /// object): just before the first death, then after each death, then (with
 /// `alice_goes_back`) in the room it was thrown in.
 fn quantities_across_deaths(thrown: Thrown) -> Vec<Quantity> {
+    quantities_and_mint_marks_across_deaths(thrown).0
+}
+
+/// (row, mint mark) of a thrown object in one ledger.
+type MintMark = (bool, bool);
+
+/// [`quantities_across_deaths`], and the object's (row, mint mark) in the live
+/// ledger just before the first death and in the ledger that death's restore
+/// pins, read on the first frame the restore is accepted, before any later
+/// producer can mark the live object again.
+fn quantities_and_mint_marks_across_deaths(thrown: Thrown) -> (Vec<Quantity>, MintMark, Option<MintMark>) {
     use ambition_platformer2d::item::OwnedItems;
+    use ambition_platformer2d::session::checkpoint::AcceptedCheckpointRestore;
     use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
 
     let (mut sim, object) = throw_after_a_checkpoint(thrown.item, thrown.into, thrown.carried_back);
@@ -2015,9 +1897,22 @@ fn quantities_across_deaths(thrown: Thrown) -> Vec<Quantity> {
             "precondition: Bob's room retired when he left it"
         );
     }
+    let mark = |ledger: &AuthoredOccurrences| (ledger.whereabouts(&object).is_some(), ledger.is_mint(&object));
+    let before = mark(sim.world().resource::<AuthoredOccurrences>());
+    let mut pinned = None;
     let mut counts = vec![count(&mut sim, Some(&object))];
-    for _ in 0..thrown.deaths {
-        die(&mut sim);
+    for death in 0..thrown.deaths {
+        die_and_watch(&mut sim, |sim, _| {
+            if death > 0 || pinned.is_some() {
+                return;
+            }
+            pinned = ambition_platformer2d::platformer::lifecycle::session_world_component::<AcceptedCheckpointRestore>(
+                sim.world(),
+            )
+            .and_then(AcceptedCheckpointRestore::accepted)
+            .and_then(|accepted| accepted.lifecycle.as_ref())
+            .map(|inputs| mark(inputs.occurrences.remembered()));
+        });
         sim.step_n(base(), 90);
         counts.push(count(&mut sim, Some(&object)));
     }
@@ -2026,7 +1921,7 @@ fn quantities_across_deaths(thrown: Thrown) -> Vec<Quantity> {
         sim.step_n(base(), 10);
         counts.push(count(&mut sim, Some(&object)));
     }
-    counts
+    (counts, before, pinned)
 }
 
 /// What Alice threw into Bob's live room after the checkpoint stays there,
@@ -2056,78 +1951,72 @@ fn a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_roo
         (1, 1),
         "a javelin thrown into Bob's room and carried out again in Alice's hand, after her death"
     );
-    let (shared, before) = javelins_after_a_death_with_the_throw_in("switch_lab", false);
-    assert_eq!(before, 1, "precondition: one javelin, in Bob's room, before the death");
+    // Thrown into Bob's live room and left there, and Alice dies TWICE. The
+    // first restore keeps the spend, because the object stays in his room; it
+    // must also keep the spend recorded, or the second restore of the same
+    // checkpoint puts the quantity back while the object stays. And it keeps
+    // the row's mint mark: the checkpoint compaction drops only a consumed
+    // MINT, and the mark is in the peer checksum and the save.
+    let (shared, before, pinned) = quantities_and_mint_marks_across_deaths(Thrown {
+        item: MINTED_ITEM,
+        into: "switch_lab",
+        carried_back: false,
+        bob_leaves: false,
+        deaths: 2,
+        alice_goes_back: false,
+    });
     assert_eq!(
-        shared, 1,
-        "Alice's death put the javelin she threw into Bob's live room back in the \
-         bag, and the object stayed in his room"
+        totals(shared),
+        [1, 1, 1],
+        "javelins in the bag and the world, thrown into Bob's live room: before \
+         Alice's deaths, then after each. More than 1: a death put it back in the \
+         bag while the object stayed in his room"
+    );
+    assert_eq!(
+        (before, pinned),
+        ((true, true), Some((true, true))),
+        "((row, mint mark) in the live ledger before the death, the same in the \
+         ledger the restore pins): the restore dropped the javelin's row or its mark"
     );
 }
 
-/// The bag after a New Game in the room fixture, when the composition's
-/// starting bag is `starting` (the App's own when `None`), and the App's own
-/// starting bag.
-fn the_bag_after_a_new_game(
-    starting: Option<ambition_platformer2d::items::OwnedItems>,
-) -> (ambition_platformer2d::items::OwnedItems, ambition_platformer2d::items::OwnedItems) {
+/// A New Game gives the bag the composition began with (`StartingBag`), not
+/// Ambition's starter set. A composition that begins with an empty bag is stood
+/// in for by an empty `StartingBag`; the App's own starting bag is not empty, so
+/// a New Game that left the bag alone, or handed out the starter set, fails.
+#[test]
+fn a_new_game_gives_the_bag_the_composition_began_with() {
     use ambition_platformer2d::item_runtime::starting_bag::StartingBag;
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 10);
-    let own = sim.world().resource::<StartingBag>().bag().clone();
-    if let Some(bag) = starting {
-        sim.world_mut().insert_resource(StartingBag::of(bag));
-    }
+    assert_ne!(
+        sim.world().resource::<StartingBag>().bag().clone(),
+        Default::default(),
+        "precondition: the App's starting bag is not empty, so the arm can tell"
+    );
+    assert_ne!(
+        sim.world().resource::<ambition_platformer2d::items::OwnedItems>().clone(),
+        Default::default(),
+        "precondition: the live bag is not empty before the New Game"
+    );
+    sim.world_mut().insert_resource(StartingBag::of(Default::default()));
+    let before = latest_restore_outcome(&sim);
     sim.world_mut()
         .write_message(ambition_platformer2d::session::reset::NewGameRequested);
-    sim.step_n(base(), 240);
-    let outcome = format!(
-        "{:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
-        .expect("the live session root carries the checkpoint coordinator")
-            .latest()
-    );
+    let mut outcome = before.clone();
+    for _ in 0..240 {
+        sim.step(base());
+        outcome = latest_restore_outcome(&sim);
+        if outcome != before {
+            break;
+        }
+    }
     assert!(outcome.starts_with("Some(Committed"), "precondition: the New Game committed: {outcome}");
-    (sim.world().resource::<ambition_platformer2d::items::OwnedItems>().clone(), own)
-}
-
-/// A New Game gives the bag the composition began with (`StartingBag`).
-/// It gave the Ambition starter set, so a composition that begins with an
-/// empty bag got Ambition's starter items. Here a composition that begins
-/// with an empty bag is stood in for by an empty `StartingBag`. The control
-/// is the App's own starting bag, which the New Game gives back.
-#[test]
-fn a_new_game_gives_the_bag_the_composition_began_with() {
-    let (control, own) = the_bag_after_a_new_game(None);
-    assert_ne!(own, Default::default(), "precondition: the App's starting bag is not empty, so the arm can tell");
-    assert_eq!(control, own, "control: a New Game gave another bag than the App's own starting bag");
-    let (empty, _) = the_bag_after_a_new_game(Some(Default::default()));
+    sim.step_n(base(), 4);
     assert_eq!(
-        empty,
+        sim.world().resource::<ambition_platformer2d::items::OwnedItems>().clone(),
         ambition_platformer2d::items::OwnedItems::default(),
         "a New Game in a composition that begins with an empty bag gave it items"
-    );
-}
-
-/// The javelin of [`a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room`],
-/// and Alice dies twice (review 2026-10-05, finding 1). The first restore
-/// keeps the spend, because the object stays in Bob's live room. It must also
-/// keep the spend recorded, or the second restore of the same checkpoint puts
-/// the quantity back in the bag while the object stays. The control is the
-/// count before the first death.
-#[test]
-fn a_second_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room() {
-    assert_eq!(
-        totals(quantities_across_deaths(Thrown {
-            item: MINTED_ITEM,
-            into: "switch_lab",
-            carried_back: false,
-            bob_leaves: false,
-            deaths: 2,
-            alice_goes_back: false,
-        })),
-        [1, 1, 1],
-        "javelins in the bag and the world: before Alice's deaths, then after each"
     );
 }
 
@@ -2163,131 +2052,24 @@ fn a_death_does_not_put_back_in_the_bag_a_bomb_that_exploded_in_another_players_
 }
 
 /// An object that ended is not built again where it ended. A bomb exploded in
-/// Bob's room; Bob leaves, so the room retires, and Alice goes in. The row of
-/// the bomb placed it where it exploded, so the room built it again, and the
-/// bag had spent it. The control is a javelin, which does not end: it lies
-/// where it fell, and the room builds it again (OW3).
+/// Bob's room; Bob leaves, so the room retires, and Alice goes in. A row placing
+/// the bomb where it exploded would have the room build it again after the bag
+/// had spent it. That a retired room's dormant mint IS built again on re-entry
+/// is held by `a_save_remembers_where_you_left_things::a_gauntlet_no_checkpoint_saw_is_still_where_it_was_left`.
 #[test]
 fn an_object_that_ended_is_not_built_again_when_its_room_is_live_again() {
-    let thrown = |item| Thrown {
-        item,
-        into: "switch_lab",
-        carried_back: false,
-        bob_leaves: true,
-        deaths: 0,
-        alice_goes_back: true,
-    };
-    let lying = Quantity { bag: 0, live: 0, dormant: 1 };
-    assert_eq!(
-        quantities_across_deaths(thrown(MINTED_ITEM)),
-        [lying, Quantity { bag: 0, live: 1, dormant: 0 }],
-        "control: the javelin while its room is not live, then when Alice is in it"
-    );
     let gone = Quantity { bag: 0, live: 0, dormant: 0 };
     assert_eq!(
-        quantities_across_deaths(thrown(Item::Bomb)),
+        quantities_across_deaths(Thrown {
+            item: Item::Bomb,
+            into: "switch_lab",
+            carried_back: false,
+            bob_leaves: true,
+            deaths: 0,
+            alice_goes_back: true,
+        }),
         [gone, gone],
         "the bomb that exploded, while its room is not live, then when Alice is in it"
-    );
-}
-
-/// MINT-ROW COMPACTION (BAG-RECORD-HORIZON, open item 2). A `Consumed` row of an
-/// ENDED RUNTIME MINT stays for as long as the restore's spend rule may read it,
-/// and is gone when a checkpoint commits after its end: the ledger, the
-/// checkpoint's baseline and the save all lose it. Before the commit it is
-/// there, marked as a mint.
-///
-/// The controls are the rows that must outlive the commit: a taken one-time
-/// pickup's `Consumed` and an opened chest's `Spent`. Both are authored, so
-/// neither is marked; a compaction that dropped every `Consumed` row would
-/// resurrect the pickup and re-arm the chest's reward.
-///
-/// The save is checked for the controls' presence too, which is what shows the
-/// mirror ran: "the save has no row for the bomb" is otherwise satisfied by a
-/// save that mirrors nothing.
-#[test]
-fn a_bomb_that_exploded_leaves_no_ledger_row_once_a_checkpoint_commits() {
-    use ambition_platformer2d::item::{ItemGrantRequested, OwnedItems};
-    use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceBaseline, OccurrenceWhereabouts};
-    use bevy::ecs::system::RunSystemOnce;
-
-    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
-    assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
-    // The demo's bag starts with a stock of bombs; this story counts one.
-    sim.world_mut().resource_mut::<OwnedItems>().take(Item::Bomb, u32::MAX);
-    sim.world_mut().write_message(ItemGrantRequested { item: Item::Bomb, count: 1 });
-    sim.step_n(base(), 4);
-    commit_a_checkpoint(&mut sim);
-    sim.world_mut()
-        .run_system_once(
-            |mut commands: bevy::prelude::Commands,
-             items: ambition_platformer2d::items::ItemCatalogRead,
-             mut bodies: bevy::prelude::Query<
-                (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
-                ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
-            >| {
-                let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
-                let spec = ambition_platformer2d::held_items::held_spec_for_item(items.get(), Item::Bomb)
-                    .expect("a bomb is a wired weapon with a held spec");
-                ambition_platformer2d::held_items::equip_held_spec(&mut commands, player, &mut repertoire, spec);
-            },
-        )
-        .expect("the equip verb runs");
-    sim.step(AgentAction { attack: true, ..base() });
-    let mut bomb = None;
-    for _ in 0..120 {
-        sim.step(base());
-        bomb = bomb.or_else(|| dynamic_occurrences(&mut sim).into_iter().next());
-    }
-    let bomb = bomb.expect("precondition: the throw minted a bomb");
-    assert_eq!(sim.world().resource::<OwnedItems>().count(Item::Bomb), 0, "precondition: the throw spent it");
-    assert!(dynamic_occurrences(&mut sim).is_empty(), "precondition: the bomb exploded and is no entity");
-
-    let pickup = SimId::placement("a_pickup_the_world_remembers_taking");
-    let chest = SimId::placement("a_chest_the_world_remembers_opening");
-    {
-        let mut ledger = sim.world_mut().resource_mut::<AuthoredOccurrences>();
-        assert_eq!(
-            ledger.whereabouts(&bomb),
-            Some(&OccurrenceWhereabouts::Consumed),
-            "precondition: the bomb's end is a Consumed row"
-        );
-        assert!(ledger.is_mint(&bomb), "precondition: the row is marked as a runtime mint");
-        assert_eq!(ledger.consume([pickup.clone()]), 1);
-        assert_eq!(ledger.spend([chest.clone()]), 1);
-    }
-    sim.step_n(base(), 3);
-    let in_save = |sim: &mut Platformer2dSimHarness, id: &SimId| {
-        sim.world()
-            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-            .data()
-            .occurrences()
-            .iter()
-            .any(|row| row.id == id.as_str())
-    };
-    assert!(in_save(&mut sim, &bomb), "before a commit the save mirrors the bomb's end");
-
-    commit_a_checkpoint(&mut sim);
-    sim.step_n(base(), 3);
-
-    let ledger = sim.world().resource::<AuthoredOccurrences>();
-    assert_eq!(ledger.whereabouts(&bomb), None, "a checkpoint committed after the bomb ended: its row is gone");
-    assert!(!ledger.is_mint(&bomb), "and so is its mark");
-    assert_eq!(ledger.whereabouts(&pickup), Some(&OccurrenceWhereabouts::Consumed), "CONTROL: the taken pickup stays taken");
-    assert_eq!(ledger.whereabouts(&chest), Some(&OccurrenceWhereabouts::Spent), "CONTROL: the opened chest stays opened");
-    assert_eq!(
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<OccurrenceBaseline>(sim.world()).unwrap().remembered().whereabouts(&bomb),
-        None,
-        "the checkpoint's baseline was copied after the compaction"
-    );
-    assert!(in_save(&mut sim, &pickup) && in_save(&mut sim, &chest), "CONTROL: the save mirrors the authored rows");
-    assert!(!in_save(&mut sim, &bomb), "the save has no row for the bomb");
-    die(&mut sim);
-    sim.step_n(base(), 90);
-    assert_eq!(
-        sim.world().resource::<OwnedItems>().count(Item::Bomb),
-        0,
-        "the bomb was spent before this checkpoint; a death after it gives nothing back"
     );
 }
 
@@ -2391,6 +2173,8 @@ fn a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy() {
             "{arm:?}, control: Bob took the gun-sword before Alice's death"
         );
         let alice = body(&mut sim);
+        // The restore outcome the wait below must see replaced.
+        let mut before = latest_restore_outcome(&sim);
         match arm {
             BobWith::CarriedOut => {
                 // Her death, without waiting for her return: her room waits
@@ -2426,10 +2210,11 @@ fn a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy() {
             BobWith::DiedHolding => {
                 kill(&mut sim, alice);
                 sim.step_n(base(), 60);
+                before = latest_restore_outcome(&sim);
                 kill(&mut sim, bob);
             }
         }
-        sim.step_n(base(), 400);
+        step_until_a_restore_commits(&mut sim, &before, 400);
         let bob = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(bob);
         readings.push(the_reward_with_bob(&mut sim, bob));
     }
@@ -2496,45 +2281,4 @@ fn a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers() {
         "(held by Bob, held by another, lying, ledger row) after Alice's death"
     );
     assert_still_held(&mut sim, &reward, "Alice banked it in hand, so her death puts it back there");
-}
-
-/// ⭐ A DEATH KEEPS THE MINT MARK OF WHAT IT KEEPS IN ANOTHER PLAYER'S ROOM
-/// (review 2026-10-08). Alice banks a checkpoint, throws a javelin into Bob's
-/// live room (a runtime mint), goes back to the hub and dies. Her restore
-/// keeps the javelin's row, because Bob's room is not built again, and it
-/// must keep the row's provenance too: the checkpoint compaction drops only
-/// a consumed MINT, and the mark is in the peer checksum and the save.
-///
-/// Read on the first frame the restore is accepted, from the ledger it pins,
-/// before any later producer can mark the live object again. The control is
-/// the live ledger just before the death.
-#[test]
-fn a_death_keeps_the_mint_mark_of_what_it_keeps_in_another_players_room() {
-    use ambition_platformer2d::session::checkpoint::AcceptedCheckpointRestore;
-    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
-    let (mut sim, javelin) = throw_after_a_checkpoint(MINTED_ITEM, "switch_lab", false);
-    let before = {
-        let ledger = sim.world().resource::<AuthoredOccurrences>();
-        (ledger.whereabouts(&javelin).is_some(), ledger.is_mint(&javelin))
-    };
-    let mut pinned = None;
-    die_and_watch(&mut sim, |sim, _| {
-        if pinned.is_some() {
-            return;
-        }
-        pinned = ambition_platformer2d::platformer::lifecycle::session_world_component::<AcceptedCheckpointRestore>(
-            sim.world(),
-        )
-        .and_then(AcceptedCheckpointRestore::accepted)
-        .and_then(|accepted| accepted.lifecycle.as_ref())
-        .map(|inputs| {
-            let ledger = inputs.occurrences.remembered();
-            (ledger.whereabouts(&javelin).is_some(), ledger.is_mint(&javelin))
-        });
-    });
-    assert_eq!(
-        (before, pinned),
-        ((true, true), Some((true, true))),
-        "((row, mint mark) in the live ledger before the death, the same in the ledger the restore pins)"
-    );
 }

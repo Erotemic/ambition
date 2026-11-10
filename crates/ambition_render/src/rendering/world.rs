@@ -21,7 +21,7 @@ use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec};
+use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec, ZoneWay};
 use ambition_sprite_sheet::character::{
     build_character_presentation, build_character_presentation_with_render_size, feet_anchor_for,
     CharacterAnimator,
@@ -66,6 +66,7 @@ pub fn present_live_room_visuals(
             &mut commands,
             scope,
             rooms.rooms().spec(definition),
+            &|zone| rooms.rooms().way_of(definition, zone),
             assets.as_deref(),
             prop_sheets.as_deref(),
         );
@@ -80,6 +81,9 @@ pub fn spawn_room_visuals(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     spec: &ambition_platformer2d_world::rooms::RoomSpec,
+    // Which way each of its zones goes, by zone id: a one-way door is drawn
+    // as one.
+    way_of: &dyn Fn(&str) -> ZoneWay,
     assets: Option<&GameAssets>,
     prop_sheets: Option<&PropSheets>,
 ) {
@@ -164,7 +168,7 @@ pub fn spawn_room_visuals(
         spawn_climbable_region(commands, session_scope, world, region, theme);
     }
     for zone in &spec.loading_zones {
-        spawn_loading_zone(commands, session_scope, world, zone, assets, theme);
+        spawn_loading_zone(commands, session_scope, world, zone, way_of(&zone.id), assets, theme);
     }
     // Per-family authored visuals. Each family carries an `Authored<T>`
     // payload; `spawn_authored_visual` builds the sprite and label.
@@ -1208,11 +1212,28 @@ pub fn spawn_block(
 /// (`targets/props/entities.py`): all doors have one shape and one size.
 pub const DOOR_SPRITE_ASPECT: f32 = 126.0 / 242.0;
 
+/// What a zone that cannot be gone through both ways says over itself, in the
+/// colour it is tinted: a one-way door must be unmistakable before the body
+/// commits to it (Jon, 2026-11-09: "EXTREMELY clear that it is one way").
+pub fn one_way_sign(way: ZoneWay) -> Option<(&'static str, Color)> {
+    match way {
+        ZoneWay::BothWays => None,
+        ZoneWay::OutOnly => Some(("ONE WAY: NO RETURN", Color::srgb(1.0, 0.34, 0.26))),
+        ZoneWay::InOnly => Some(("NO EXIT", Color::srgb(0.62, 0.62, 0.66))),
+    }
+}
+
+/// A zone drawn as a way that cannot be gone through both ways
+/// ([`one_way_sign`]).
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OneWayZone(pub ZoneWay);
+
 pub fn spawn_loading_zone(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
     zone: &LoadingZone,
+    way: ZoneWay,
     assets: Option<&GameAssets>,
     // The theme the room names, if its doors take the door of the theme
     // (`terrain_skin::dress_themed_doors`).
@@ -1244,10 +1265,14 @@ pub fn spawn_loading_zone(
         )
     };
     let sprite_key = game_assets::loading_zone_sprite(zone.activation);
-    let sprite = match assets {
+    let mut sprite = match assets {
         Some(a) => entity_sprite(a, sprite_key, render, fallback_color),
         None => Sprite::from_color(fallback_color, render),
     };
+    let one_way = one_way_sign(way);
+    if let Some((_, tint)) = one_way {
+        sprite.color = tint;
+    }
     let mut visual = commands.spawn_session_scoped(
         session_scope,
         (
@@ -1266,12 +1291,34 @@ pub fn spawn_loading_zone(
         visual.insert(super::terrain_skin::ThemedDoor(theme));
     }
     if matches!(zone.activation, LoadingZoneActivation::Door) {
-        visual.insert(DoorNameplateSource::new(
-            zone.id.clone(),
-            zone.name.clone(),
-            zone.aabb,
-        ));
-    } else {
+        let label = match one_way {
+            Some((warning, _)) => format!("{} ({warning})", zone.name),
+            None => zone.name.clone(),
+        };
+        visual.insert(DoorNameplateSource::new(zone.id.clone(), label, zone.aabb));
+    }
+    if one_way.is_some() {
+        visual.insert(OneWayZone(way));
+    }
+    if let Some((warning, _)) = one_way {
+        // Over the zone and over its nameplate, big: read from across the
+        // room, not at the threshold.
+        let over = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 52.0);
+        let sign = spawn_world_label(
+            commands,
+            session_scope,
+            world,
+            format!("fixture:zone_way:{}", zone.id),
+            WorldLabelFamily::Fixture,
+            over,
+            warning,
+            20.0,
+        );
+        // Hidden with the zone's picture where a portal or a game draws it
+        // (`hide_portal_loading_zone_visuals`).
+        commands.entity(sign).insert(crate::rendering::primitives::LoadingZoneVisual { id: zone.id.clone() });
+    }
+    if !matches!(zone.activation, LoadingZoneActivation::Door) {
         let label_pos = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 18.0);
         spawn_world_label(
             commands,
@@ -2874,12 +2921,12 @@ mod zone_presentation_tests {
         };
         let hidden_room = LiveRoomInstance::ACTIVATION;
         let visible_room = hidden_room.next();
-        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(hidden_room)), &room, &zone, None, None);
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(hidden_room)), &room, &zone, ZoneWay::BothWays, None, None);
         zone.presentation = LoadingZonePresentation::Default;
-        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, None, None);
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
         zone.id = "secret_way".into();
         assert!(zone.is_secret());
-        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, None, None);
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
         ecs.flush();
         let visuals: Vec<_> = ecs.query::<(&crate::rendering::primitives::LoadingZoneVisual, &InRoomInstance)>().iter(&ecs).collect();
         assert_eq!(visuals.len(), 1);

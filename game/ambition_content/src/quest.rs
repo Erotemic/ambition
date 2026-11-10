@@ -130,6 +130,22 @@ pub fn grant_quest_completion_rewards(
 mod tests {
     use super::*;
 
+    /// A pack without its quest file compiles, so a reload can select one; the
+    /// next session's book is then empty and populating it does not panic.
+    #[test]
+    fn a_pack_without_a_quest_file_populates_an_empty_book() {
+        use bevy::ecs::system::RunSystemOnce as _;
+        let pack = crate::pack::compile_pack_omitting(&["data/quests.ron"]).expect("a pack without quests compiles");
+        let mut world = World::new();
+        world.insert_resource(crate::pack::SelectedContentPack(std::sync::Arc::new(pack)));
+        world.init_resource::<QuestRegistry>();
+        world.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        world.run_system_once(populate_quest_registry).expect("the registry populates");
+        let registry = world.resource::<QuestRegistry>();
+        assert!(registry.initialized, "the registry was not populated");
+        assert!(registry.quests.is_empty(), "a pack without quests populated {:?}", registry.quests.keys().collect::<Vec<_>>());
+    }
+
     fn pirate_treasure_spec() -> ambition_persistence::quest::QuestSpec {
         shipped_quest_specs()
             .into_iter()

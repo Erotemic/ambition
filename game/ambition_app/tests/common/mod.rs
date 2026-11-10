@@ -713,10 +713,11 @@ pub fn strengthen_the_float_rows(world: &mut bevy::prelude::World) -> Vec<&'stat
 }
 
 /// The frames a session is stepped after its route is active, for a caller
-/// that wants a settled session. An unloaded run has the gameplay route
-/// active on frame 3 (measured 2026-10-09), so this is the 240 frames the
-/// fixtures stepped before, counted from the activation.
-pub const SETTLE_FRAMES_AFTER_ACTIVATION: usize = 237;
+/// that wants a settled session: the player lands and the first room's
+/// arrivals end. Each frame of the shipped session costs ~36 ms in a test,
+/// so this is the measured need, not a margin; a caller that waits for
+/// something slower waits for that thing.
+pub const SETTLE_FRAMES_AFTER_ACTIVATION: usize = 30;
 
 /// How long [`step_until_route_is_active`] waits before it says the route
 /// did not activate.

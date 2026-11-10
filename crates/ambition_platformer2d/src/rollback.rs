@@ -30,7 +30,7 @@ pub use ambition_platformer2d_rollback_ggrs::local_session;
 /// in-memory transport for two Apps in one process (netcode N2).
 pub use ambition_platformer2d_rollback_ggrs::peer::{
     build_peer_session, loopback_transports, start_peer_session, LoopbackSocket,
-    LoopbackTransport, PeerContentContract, PeerLineage, PeerSessionSettings, PeerTimelineContract, PeerTransport,
+    LinkTraffic, LoopbackTransport, PeerContentContract, PeerLineage, PeerSessionSettings, PeerTimelineContract, PeerTransport,
 };
 pub use ambition_platformer2d_rollback_ggrs::session::{
     drive_control_frame, drive_slot_frame, mechanical_mutation_boundary,

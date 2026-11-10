@@ -46,11 +46,16 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   (`RoomSpec::boss_successions`), in the same live room: where its body
 ///   is, how big it is, the side it faces, and whether it lives. A successor
 ///   sleeps until that placement is cleared, and rises from that body.
+///   `reach` is how far the boss's body box can move left, right, up and
+///   down before it meets a solid of its live room, each capped at
+///   [`REACH_CAP`]: a body inside a solid reaches `0` every way. A boss that
+///   flies by a pose of its own steers by it, and sees when it is stuck.
 /// * **Absence** — `target` is `None` when the boss tracks nothing, and
 ///   `target_body` also when the tracked entity has no body; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss;
 ///   `room` is `None` when the room cannot be told; `predecessor` is `None`
 ///   for a boss that follows none, and when that boss is not in its room.
+///   `reach` is `None` when the room cannot be told.
 /// * **Replay** — derived each tick from rollback state.
 pub struct BossConductPort;
 
@@ -110,7 +115,13 @@ pub struct BossConduct {
     pub awake: bool,
     /// The boss this one wakes after, in its live room.
     pub predecessor: Option<Predecessor>,
+    /// How far the body can move `[left, right, up, down]` before it meets
+    /// a solid, each at most [`REACH_CAP`].
+    pub reach: Option<[f32; 4]>,
 }
+
+/// The farthest [`BossConduct::reach`] looks.
+pub const REACH_CAP: f32 = 512.0;
 
 /// The boss a successor wakes after, as the successor sees it.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -168,8 +179,8 @@ impl Port for BossConductPort {
     /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
     /// Version 6 (2026-10-10): `size`. Version 7 (2026-10-12): the
     /// `swing` of `target_body`. Version 8 (2026-10-18): `awake`. Version 9
-    /// (2026-10-20): `predecessor`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 9);
+    /// (2026-10-20): `predecessor`. Version 10 (2026-11-09): `reach`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 10);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -214,6 +225,11 @@ impl Port for BossConductPort {
             wire::put_f32(out, p.side);
             wire::put_bool(out, p.alive);
         });
+        wire::put_opt(out, v.reach, |out, reach| {
+            for way in reach {
+                wire::put_f32(out, way);
+            }
+        });
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -253,6 +269,7 @@ impl Port for BossConductPort {
             size: r.vec2()?,
             awake: r.bool()?,
             predecessor: r.opt(|r| Ok(Predecessor { position: r.vec2()?, size: r.vec2()?, side: r.f32()?, alive: r.bool()? }))?,
+            reach: r.opt(|r| Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?]))?,
         })
     }
 }
@@ -1116,11 +1133,12 @@ mod tests {
             size: [40.0, 60.0],
             awake: true,
             predecessor: Some(Predecessor { position: [600.0, 780.0], size: [84.0, 140.0], side: -1.0, alive: false }),
+            reach: Some([12.0, REACH_CAP, 0.0, 33.5]),
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let at_rest = BossConduct { target_body: Some(BodyBox { position: [1.0, 2.0], size: [3.0, 4.0], swing: None }), ..conduct.clone() };
         assert_eq!(round::<BossConductPort>(&at_rest), at_rest);
-        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, predecessor: None, ..conduct };
+        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, predecessor: None, reach: None, ..conduct };
         assert_eq!(round::<BossConductPort>(&bare), bare);
         for guarded in [false, true] {
             assert_eq!(round::<BossGuardPort>(&BossGuard { guarded }), BossGuard { guarded });

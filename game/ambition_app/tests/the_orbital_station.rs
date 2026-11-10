@@ -14,6 +14,7 @@ const SERVICE: &str = "orbital_station_service_deck";
 const SPUR: &str = "orbital_station_damaged_spur";
 const SPOKE: &str = "orbital_station_spoke";
 const ORCHARD: &str = "gnu_ton_orchard";
+const TERMINUS: &str = "orbital_station_tether_terminus";
 
 fn room_with(id: &str, save: ambition_platformer2d::session::AmbitionGameSaveData) -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(id).with_save(save))
@@ -64,14 +65,17 @@ fn walk(sim: &mut Platformer2dSimHarness, target: &str) {
     assert_eq!(sim.observation().active_room, target, "the walk from `{from}` ended elsewhere");
 }
 
-/// ⭐ THE STATION IS WALKED. From the gate deck the robot walks up to the
-/// habitation ring, along to the observation deck, down to the docking bay,
-/// by the cargo lift to the service deck and back to the habitation ring:
-/// a loop, by doors and with its own inputs. The way home is the gate deck.
+/// ⭐ THE STATION IS WALKED. From the gate deck the robot climbs the stairs
+/// to the habitation ring, walks out of its west side to the service deck and
+/// back, on through its east side to the observation deck, down the stairs to
+/// the docking bay, through its east side to the tether terminus and back,
+/// and by the freight lane (customs has cleared the crate) to the gate deck:
+/// a loop, with its own inputs. Between the rooms of a deck there are no
+/// doors.
 #[test]
-fn the_station_is_one_loop_of_walked_doors() {
-    let mut sim = room(DOCK);
-    for target in [HAB, VIEW, BAY, SERVICE, HAB, DOCK] {
+fn the_station_is_one_loop_of_walked_decks() {
+    let mut sim = room_with(DOCK, with_flags(&["orbital_consignment_cleared"]));
+    for target in [HAB, SERVICE, HAB, VIEW, BAY, TERMINUS, BAY, DOCK] {
         walk(&mut sim, target);
     }
 }
@@ -129,7 +133,7 @@ fn the_damaged_spur_has_foes_and_a_breaker() {
             .iter(world)
             .filter(|(_, health)| health.alive())
             .map(|(worn, _)| worn.id().to_string())
-            .filter(|id| id == "npc_searchlight_crawler" || id == "npc_exploding_mite")
+            .filter(|id| id == "npc_dividing_mite" || id == "npc_exploding_mite")
             .collect()
     };
     assert_eq!(foes.len(), 4, "two crawlers and two mites in the spur: {foes:?}");

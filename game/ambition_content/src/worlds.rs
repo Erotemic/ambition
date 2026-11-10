@@ -525,4 +525,74 @@ mod tests {
             );
         }
     }
+
+    /// NO TWO ROOMS ANYWHERE IN THE SHIPPED WORLDS AUTHOR ONE ID — checked on
+    /// the MERGED room set, which the per-file validator cannot see.
+    ///
+    /// `SimId::placement(id)` is a GLOBAL namespace, and
+    /// `validate.placement_id_collision` checks uniqueness per file. The merged
+    /// set is the artifact where the cross-world question is answerable.
+    ///
+    /// What a collision would cost: `OccurrenceContinuity` keys dispositions on
+    /// `SimId`, so one id claimed by two rooms means one row speaking for two
+    /// things. Carry either out of its room and the ledger suppresses BOTH on
+    /// rebuild — the object in your hands and a stranger two worlds away.
+    ///
+    /// `LoadingZone` ids are excluded, matching the validator's own exemption: a
+    /// zone's `target_zone` resolves within its `target_room`, so `return_door`
+    /// naming a zone in seven rooms is correct rather than a collision.
+    #[test]
+    fn no_two_rooms_in_the_merged_world_author_the_same_id() {
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
+        use std::collections::BTreeMap;
+
+        let manifest = world_manifest();
+        let project = LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("the shipped worlds compose");
+        let mut owners: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for room in &set.rooms {
+            let ids = room
+                .placements
+                .iter()
+                .map(|placement| placement.id.0.clone())
+                .chain(room.enemy_spawns.iter().map(|enemy| enemy.id.clone()))
+                .chain(room.boss_spawns.iter().map(|boss| boss.id.clone()))
+                .chain(room.ground_items.iter().map(|item| item.id.clone()))
+                .chain(room.gravity_zones.iter().map(|zone| zone.id.clone()))
+                .chain(room.shrines.iter().map(|shrine| shrine.id.clone()));
+            for id in ids {
+                owners.entry(id).or_default().push(room.id.clone());
+            }
+        }
+
+        // The zero floor, in BOTH dimensions: a set that loaded one world, or
+        // ids that stopped being readable, would report "no collisions" over
+        // almost nothing.
+        assert!(
+            set.rooms.len() >= 50,
+            "only {} rooms were merged — the secondary worlds did not load, so this \
+             is not a CROSS-WORLD check at all",
+            set.rooms.len()
+        );
+        assert!(
+            owners.len() >= 300,
+            "only {} authored ids were read across {} rooms; the collection above has \
+             stopped seeing a kind that carries an id",
+            owners.len(),
+            set.rooms.len()
+        );
+        let collisions: Vec<String> = owners
+            .iter()
+            .filter(|(_, claimants)| claimants.len() > 1)
+            .map(|(id, claimants)| format!("`{id}` in {claimants:?}"))
+            .collect();
+        assert!(
+            collisions.is_empty(),
+            "two rooms author one id, and `SimId::placement(..)` is a GLOBAL namespace — \
+             so one occurrence row speaks for both, and carrying either out of its room \
+             suppresses the other on rebuild: {collisions:?}"
+        );
+    }
 }

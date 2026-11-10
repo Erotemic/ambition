@@ -2,7 +2,7 @@
 
 ## Current architecture/product experiments (2026-11-06)
 
-The flagship is being evaluated as a **player-hosted authoritative persistent world**, with client-side prediction for controlled actors and independently simulated/replicated `activeArea` regions. This is **not a completed backend choice**: the [hosted-world vs GGRS experiment](engine/hosted-world-networking-experiment.md) owns the measurement and decision, and [NET-INPUT-WIDTH](queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) still describes the current GGRS input defect. Smash retains rollback. Do not prematurely build independent GGRS histories for every area while the flagship authority model is under evaluation.
+The flagship is being evaluated as a **player-hosted authoritative persistent world**, with client-side prediction for controlled actors and independently simulated/replicated `activeArea` regions. This is **not a completed backend choice**: the [hosted-world vs GGRS experiment](engine/hosted-world-networking-experiment.md) owns the measurement and decision, and [NET-INPUT-WIDTH](queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) records that the GGRS input was compacted (2026-11-10). Smash retains rollback. Do not prematurely build independent GGRS histories for every area while the flagship authority model is under evaluation.
 
 NPC life is a first-class customer: [Radiant-style authored HTN plans and smart-object/offscreen semantics](engine/radiant-npc-planning.md) must work without an engine rebuild, not as a giant Bevy entity hierarchy tied to always-resident bodies. Boss content has a separate selected [roster-wide cinematic intro and GNU2 finale/motion fidelity plan](game/boss-cinematics-gnu2-and-motion.md). These add executable queue tasks; they do not redefine the no-compile G0-G5 acceptance gates.
 
@@ -322,11 +322,11 @@ semantics to local, online and mixed participants and to shared/fixed/adaptive
 split presentation. Local different-room play exists in the engine: separated seats
 each keep a live room and each view draws its own room. A second seat joins by
 an explicit gesture in an opt-in mode (Q153, ruled 2026-10-19; LOCAL-PLAY-MODES). Online transport waits for a real
-customer. **Selected immediate architecture work:** reduce the 168-byte peer
-input's idle 96-byte preparation verdict, then provide independent rollback
-histories per live `activeArea` instance. See [compact peer input and simulation
-islands](engine/island-rollback-and-compact-peer-input.md); packet-width reduction
-is not blocked by the larger island migration.
+customer. The peer input's idle 96-byte preparation verdict became an 8-byte
+token on 2026-11-10 (168 to 80 bytes), which moved link traffic by 0.5–4%.
+Independent rollback histories per live `activeArea` instance wait on the
+authority experiment. See [compact peer input and simulation
+islands](engine/island-rollback-and-compact-peer-input.md).
 
 Owners: [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
 and [`game/multiplayer.md`](game/multiplayer.md).

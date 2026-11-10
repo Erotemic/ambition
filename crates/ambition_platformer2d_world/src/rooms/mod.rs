@@ -19,6 +19,7 @@ mod spawn;
 mod specs;
 
 pub use binding::RoomBindings;
+pub use graph::ZoneWay;
 pub use camera::*;
 pub use gate_network::*;
 pub use gate_portal::*;

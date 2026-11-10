@@ -102,14 +102,31 @@ pub(crate) fn go_to(app: &mut App, at: ae::Vec2, what: &str) {
     }
 }
 
+/// Take every hostile body out of the world.
+pub(crate) fn clear_the_foes(app: &mut App) {
+    use ambition_platformer2d::combat::components::ActorDisposition;
+    let foes: Vec<bevy::prelude::Entity> = {
+        let world = app.world_mut();
+        let mut query = world.query::<(bevy::prelude::Entity, &ActorDisposition)>();
+        query.iter(world).filter(|(_, disposition)| disposition.is_hostile()).map(|(foe, _)| foe).collect()
+    };
+    for foe in foes {
+        app.world_mut().entity_mut(foe).despawn();
+    }
+    app.update();
+}
+
 /// Walk by keys to the resident `character`, press Interact, take the first
 /// choice (it must read `choice`), and press through the rest. Answers what
 /// the resident said first.
 ///
-/// A resident can move while the player walks: in a dangerous room it joins a
-/// fight the walk starts (`body::rally_allies_to_the_fight`). So the walk goes
-/// again to where it stands now, up to three times, before the talk fails.
+/// This is a test of what a resident says, not of a fight: the room's foes go
+/// first. In a dangerous room a resident who can fight joins a fight the walk
+/// starts (`body::rally_allies_to_the_fight`) and leaves its post. It can
+/// still move on its own, so the walk goes again to where it stands now, up
+/// to three times, before the talk fails.
 pub(crate) fn talk(app: &mut App, character: &str, choice: &str) -> String {
+    clear_the_foes(app);
     let mut opened = false;
     for _ in 0..3 {
         let at = {

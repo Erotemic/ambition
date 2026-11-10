@@ -660,7 +660,7 @@ fn app_room_scoped_characters(app: &mut bevy::prelude::App) -> Vec<String> {
 ///
 /// ⚠ **NO FILE IS WRITTEN.** Pressing Apply re-reads the same project, which is
 /// an equivalent reload — it still prepares a candidate, still builds the room,
-/// still publishes it. `a_committed_world_reload_applies_its_effects` owns the
+/// still publishes it. `a_world_reload_of_one_live_room_is_refused_whole_or_applied_whole` owns the
 /// proof that this keypress commits at all; this arm re-checks `applied_count`
 /// because a REFUSED reload builds nothing and would satisfy every assertion
 /// below for the wrong reason.

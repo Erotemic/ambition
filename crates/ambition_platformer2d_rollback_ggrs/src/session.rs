@@ -1123,7 +1123,7 @@ fn publish_local_inputs(
             let input = if first_peer_frame {
                 PeerInput::default()
             } else {
-                PeerInput { control: pending.get(handle), verdict: verdict.0 }
+                PeerInput { control: pending.get(handle), verdict: verdict.0.token() }
             };
             (handle, input)
         })

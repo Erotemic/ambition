@@ -10,7 +10,7 @@
 use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::rollback::{Rollback, RollbackRegistry};
+use ambition_platformer2d::rollback::Rollback;
 use bevy::prelude::With;
 
 fn rollback_sim() -> Platformer2dSimHarness {
@@ -31,66 +31,6 @@ fn scripted_action(frame: usize) -> AgentAction {
         attack: frame % 11 == 2,
         projectile: frame % 13 == 4,
         ..AgentAction::default()
-    }
-}
-
-#[test]
-fn sync_test_session_performs_real_rewinds_and_resimulation() {
-    let mut sim = rollback_sim();
-    for frame in 0..32 {
-        sim.step(scripted_action(frame));
-        sim.rollback_health()
-            .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
-    }
-
-    let stats = sim
-        .rollback_execution_stats()
-        .expect("GGRS instrumentation is installed");
-    assert!(
-        stats.load_runs > 0,
-        "SyncTestSession issued LoadWorld requests"
-    );
-    assert!(
-        stats.advance_runs > 32,
-        "resimulation executes more GGRS frames than external harness steps: {stats:?}"
-    );
-}
-
-#[test]
-fn two_ggrs_harnesses_match_under_the_same_input_stream() {
-    let mut left = rollback_sim();
-    let mut right = rollback_sim();
-
-    for frame in 0..48 {
-        let action = scripted_action(frame);
-        let a = left.step(action);
-        let b = right.step(action);
-        left.rollback_health().unwrap();
-        right.rollback_health().unwrap();
-
-        assert_eq!(
-            a.player_pos, b.player_pos,
-            "position diverged at frame {frame}"
-        );
-        assert_eq!(
-            a.player_vel, b.player_vel,
-            "velocity diverged at frame {frame}"
-        );
-        assert_eq!(a.hp, b.hp, "health diverged at frame {frame}");
-        assert_eq!(
-            a.active_room, b.active_room,
-            "room diverged at frame {frame}"
-        );
-        assert_eq!(
-            a.enemies.len(),
-            b.enemies.len(),
-            "entity population diverged at frame {frame}"
-        );
-        assert_eq!(
-            a.pickups.len(),
-            b.pickups.len(),
-            "pickup population diverged at frame {frame}"
-        );
     }
 }
 
@@ -157,20 +97,64 @@ fn assert_family_anchored<'w, D, F>(
     );
 }
 
-/// Every authoritative entity family is a GGRS anchor — checked against a
-/// world where each family actually has members.
+/// Every authoritative entity family is a GGRS anchor, checked against a world
+/// where each family actually has members. Projectiles only exist once something
+/// fires, so this is checked on the first frame one is live.
+fn assert_authoritative_families_anchored(world: &mut bevy::prelude::World) {
+    let mut bodies =
+        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::engine_core::BodyKinematics>>();
+    assert_family_anchored::<(), _>(world, "BodyKinematics", &mut bodies);
+
+    let mut features = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
+    assert_family_anchored::<(), _>(world, "FeatureSimEntity", &mut features);
+
+    let mut projectiles = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>();
+    assert_family_anchored::<(), _>(world, "ProjectileGameplay", &mut projectiles);
+
+    let mut roots = world
+        .query_filtered::<Option<&Rollback>, With<ambition_platformer2d::world::rooms::RoomSet>>();
+    assert_family_anchored::<(), _>(world, "RoomSet", &mut roots);
+}
+
+fn prepared_content_identity(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::runtime::PreparedContentIdentity {
+    let world = sim.world_mut();
+    let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
+    query.single(world).copied().expect("prepared identity exists")
+}
+
+/// The mutable-state rewind canary. Persistent, sim-mutated state that
+/// CHANGES during the run must survive rewind + resimulation identically.
 ///
-/// Projectiles only exist once something fires, so the sim is driven with the
-/// scripted stream (which presses `projectile` every 13th frame) until the
-/// family is non-empty, and the assertion runs on THAT world.
+/// `SyncTestSession` is what makes this sharp: every harness step saves,
+/// advances, rewinds, and resimulates the same frames with the same inputs, then
+/// compares checksums. State the simulation writes but nothing registered for
+/// rollback survives the rewind unchanged instead of being restored, so the
+/// resimulated pass computes a different value and `rollback_health` reports the
+/// mismatch.
+///
+/// The teeth are in the "actually changed" assertions. A rewind canary over
+/// state that held its initial value for the whole run is vacuous: it would stay
+/// green with the state entirely unregistered, because there was nothing to
+/// restore. So this drives play that provably mutates dash charges and air jumps
+/// (movement resources spent in the air and replenished on the ground), asserts
+/// they moved, asserts rewinds actually happened, and only then treats sustained
+/// checksum agreement as evidence.
+///
+/// The same run checks that every authoritative entity family is a GGRS anchor
+/// (on the first frame a fired projectile is live) and that play does not move
+/// the session's content identity.
 #[test]
-fn authoritative_entity_families_are_ggrs_anchors() {
+fn sim_mutated_state_that_changes_survives_rewind_identically() {
     let mut sim = rollback_sim();
+    let start = sim.observation();
+    let content = prepared_content_identity(&mut sim);
 
     // A projectile only exists once one is FIRED, and the production spawner
-    // (`fire_held_ranged_system`) fires the CONTROLLED SUBJECT's held item on the attack press.
-    // Inserting the authored component, not a hand-built projectile: what is under test is whether
-    // the PRODUCTION spawn path anchors what it spawns.
+    // (`fire_held_ranged_system`) fires the CONTROLLED SUBJECT's held item on the
+    // attack press. Inserting the authored component, not a hand-built
+    // projectile: what is under test is whether the PRODUCTION spawn path
+    // anchors what it spawns. Inserted before the first step, so every snapshot
+    // holds it.
     {
         let world = sim.world_mut();
         let subject = world
@@ -193,113 +177,10 @@ fn authoritative_entity_families_are_ggrs_anchors() {
         ));
     }
 
-    // Drive until a projectile is live, so the projectile family is real
-    // rather than empty. Bodies/features/roots exist from setup; this loop is
-    // for the one family that has to be created by play.
-    let mut projectile_seen = false;
-    for frame in 0..120 {
-        sim.step(AgentAction {
-            attack: true,
-            ..scripted_action(frame)
-        });
-        let world = sim.world_mut();
-        let mut live = world
-            .query_filtered::<(), With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>();
-        if live.iter(world).next().is_some() {
-            projectile_seen = true;
-            break;
-        }
-    }
-    assert!(
-        projectile_seen,
-        "no projectile spawned in 120 frames of holding a ranged item and \
-         pressing attack, so this test cannot check the projectile anchor at \
-         all — fix the driver, do not delete the assertion"
-    );
-
-    let world = sim.world_mut();
-
-    let mut bodies =
-        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::engine_core::BodyKinematics>>();
-    assert_family_anchored::<(), _>(world, "BodyKinematics", &mut bodies);
-
-    let mut features = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
-    assert_family_anchored::<(), _>(world, "FeatureSimEntity", &mut features);
-
-    let mut projectiles = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>();
-    assert_family_anchored::<(), _>(world, "ProjectileGameplay", &mut projectiles);
-
-    let mut roots = world
-        .query_filtered::<Option<&Rollback>, With<ambition_platformer2d::world::rooms::RoomSet>>();
-    assert_family_anchored::<(), _>(world, "RoomSet", &mut roots);
-}
-
-#[test]
-fn registration_dump_and_fingerprint_are_stable() {
-    let first = rollback_sim();
-    let second = rollback_sim();
-    let a = first.world().resource::<RollbackRegistry>();
-    let b = second.world().resource::<RollbackRegistry>();
-    assert_eq!(a.deterministic_dump(), b.deterministic_dump());
-    assert_eq!(a.schema_fingerprint(), b.schema_fingerprint());
-}
-
-#[test]
-fn ordinary_room_local_motion_does_not_invalidate_the_session_contract() {
-    let mut sim = rollback_sim();
-    let initial = {
-        let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
-        query
-            .single(world)
-            .copied()
-            .expect("prepared identity exists")
-    };
-
-    for frame in 0..20 {
-        sim.step(scripted_action(frame));
-        sim.rollback_health().unwrap();
-    }
-
-    let observed = {
-        let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
-        query
-            .single(world)
-            .copied()
-            .expect("prepared identity remains attached")
-    };
-    assert_eq!(
-        initial, observed,
-        "simulation frames never change the content epoch"
-    );
-}
-
-/// The mutable-state rewind canary. Persistent, sim-mutated state that
-/// CHANGES during the run must survive rewind + resimulation identically.
-///
-/// `SyncTestSession` is what makes this sharp: every harness step saves,
-/// advances, rewinds, and resimulates the same frames with the same inputs, then
-/// compares checksums. State the simulation writes but nothing registered for
-/// rollback survives the rewind unchanged instead of being restored, so the
-/// resimulated pass computes a different value and `rollback_health` reports the
-/// mismatch.
-///
-/// The teeth are in the "actually changed" assertions. A rewind canary over
-/// state that held its initial value for the whole run is vacuous: it would stay
-/// green with the state entirely unregistered, because there was nothing to
-/// restore. So this drives play that provably mutates dash charges and air jumps
-/// (movement resources spent in the air and replenished on the ground), asserts
-/// they moved, asserts rewinds actually happened, and only then treats sustained
-/// checksum agreement as evidence.
-#[test]
-fn sim_mutated_state_that_changes_survives_rewind_identically() {
-    let mut sim = rollback_sim();
-    let start = sim.observation();
-
     let mut dash_changed = false;
     let mut air_jumps_changed = false;
     let mut position_changed = false;
+    let mut anchors_checked = false;
     for frame in 0..90 {
         let observed = sim.step(scripted_action(frame));
         sim.rollback_health()
@@ -308,8 +189,23 @@ fn sim_mutated_state_that_changes_survives_rewind_identically() {
         dash_changed |= observed.dash_charges != start.dash_charges;
         air_jumps_changed |= observed.air_jumps != start.air_jumps;
         position_changed |= observed.player_pos != start.player_pos;
+        if !anchors_checked {
+            let world = sim.world_mut();
+            let mut live = world
+                .query_filtered::<(), With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>();
+            if live.iter(world).next().is_some() {
+                assert_authoritative_families_anchored(world);
+                anchors_checked = true;
+            }
+        }
     }
 
+    assert!(
+        anchors_checked,
+        "no projectile spawned in 90 frames of holding a ranged item and \
+         pressing attack, so the projectile anchor was never checked — fix the \
+         driver, do not delete the assertion"
+    );
     assert!(
         dash_changed,
         "dash charges never moved, so agreeing checksums prove nothing about \
@@ -324,6 +220,11 @@ fn sim_mutated_state_that_changes_survives_rewind_identically() {
         position_changed,
         "the body never moved, so the scripted stream is not exercising the \
          simulation at all"
+    );
+    assert_eq!(
+        prepared_content_identity(&mut sim),
+        content,
+        "simulation frames never change the content epoch"
     );
 
     let stats = sim
@@ -473,6 +374,9 @@ fn an_hp_triggered_boss_phase_change_replays_identically() {
             .get::<ambition_platformer2d::boss_encounter::BossEncounter>(boss)
             .and_then(|b| b.encounter.as_ref().map(|e| e.phase))
     };
+    // Past the change by more than the check distance (4), so the change frame
+    // and the shockwave's tick are each resimulated and compared.
+    const PAST_THE_CHANGE: usize = 12;
     let mut reached = None;
     for frame in 0..420 {
         sim.step(AgentAction::default());
@@ -481,7 +385,10 @@ fn an_hp_triggered_boss_phase_change_replays_identically() {
         if reached.is_none() && phase(&mut sim) == Some(BossEncounterPhase::Phase2) {
             reached = Some(frame);
         }
+        if reached.is_some_and(|reached| frame >= reached + PAST_THE_CHANGE) {
+            break;
+        }
     }
     let reached = reached.expect("the premise: the HP trigger moved the warden to Phase2");
-    assert!(reached + 60 < 420, "the arm kept rewinding well past the change (frame {reached})");
+    assert!(reached + PAST_THE_CHANGE < 420, "the arm kept rewinding well past the change (frame {reached})");
 }

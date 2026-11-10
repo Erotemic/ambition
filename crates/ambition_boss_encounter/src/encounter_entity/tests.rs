@@ -71,6 +71,37 @@ fn active_boss_gets_a_single_boss_encounter_entity() {
     assert_eq!(q.iter(app.world()).count(), 1, "no duplicate encounter");
 }
 
+/// A boss spawned with `no_encounter` is a plain tough enemy: it lives, and
+/// nothing wraps it (no HUD, lock-walls or win/lose).
+#[test]
+fn a_boss_with_no_encounter_is_not_wrapped() {
+    let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterCommand>();
+    app.add_systems(Update, sync_boss_encounter_entities);
+    let boss = app
+        .world_mut()
+        .spawn((
+            awake_boss("plain_brute", 30),
+            crate::BossOverrides {
+                no_encounter: true,
+                ..Default::default()
+            },
+        ))
+        .id();
+    // The control: the same boss without the override is wrapped.
+    app.world_mut().spawn(awake_boss("wrapped", 30));
+
+    app.update();
+
+    let mut q = app.world_mut().query::<&ambition_encounter::Encounter>();
+    let ids: Vec<_> = q.iter(app.world()).map(|e| e.id.clone()).collect();
+    assert_eq!(ids, vec!["wrapped_runtime".to_string()], "only the boss without `no_encounter` is wrapped");
+    assert!(
+        app.world().get::<ambition_characters::actor::BodyHealth>(boss).is_some_and(|h| h.alive()),
+        "the unwrapped boss still lives"
+    );
+}
+
 #[test]
 fn progress_reflects_member_hp_and_phase() {
     let mut app = App::new();

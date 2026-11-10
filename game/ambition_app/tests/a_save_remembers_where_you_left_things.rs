@@ -173,7 +173,14 @@ fn boot_with(room: &str, file: &AmbitionGameSaveData) -> Platformer2dSimHarness 
     sim.step_n(base(), 8);
     sim.world_mut().resource_mut::<AmbitionGameSave>().0 = file.clone();
     sim.world_mut().resource_mut::<SaveRestored>().0 = false;
-    sim.step_n(base(), 90);
+    for _ in 0..90 {
+        sim.step(base());
+        if sim.world().resource::<SaveRestored>().0 {
+            break;
+        }
+    }
+    // A few frames past the latch, so the rebuild it requested has landed.
+    sim.step_n(base(), 4);
     assert!(
         sim.world().resource::<SaveRestored>().0,
         "the load must have LANDED — a latch still false means it returned early \
@@ -254,7 +261,9 @@ fn live_bodies_named(sim: &mut Platformer2dSimHarness, id: &SimId) -> usize {
 }
 
 /// An authored object moved to another room must reload there exactly once, while
-/// the source room remains suppressed. A default-file control proves the source still authors it.
+/// the source room remains suppressed. The control is the source room before the
+/// pickup: it authors the object, so the empty pedestal after the load is about
+/// the save.
 #[test]
 fn an_object_left_in_another_room_is_lying_there_after_a_load() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
@@ -327,31 +336,46 @@ fn an_object_left_in_another_room_is_lying_there_after_a_load() {
          one: the occurrence exists, next door, and the file says so. Got {:?}",
         occurrences(&mut home, &authored)
     );
-
-    // Control path.
-    let mut fresh = boot_with(SOURCE_ROOM, &AmbitionGameSaveData::new());
-    assert_eq!(
-        occurrences(&mut fresh, &authored).len(),
-        1,
-        "⭐⭐ and the emptiness above is about the SAVE. A default file leaves the \
-         object on its pedestal, so a room that had simply stopped authoring it — \
-         or a harness that had failed to build one — cannot pass this pair"
-    );
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// FALSIFIER B — CUSTODY SURVIVES A LOAD.
+// FALSIFIER B — CUSTODY SURVIVES A LOAD, AND A TERMINAL ROW STAYS TERMINAL.
 // ───────────────────────────────────────────────────────────────────────────
 
 /// Save while holding a weapon and restore the same occurrence to the same hand.
 /// The source room suppresses its authored copy; checkpoint reconstruction
 /// materializes the held occurrence from the saved custody identity.
+///
+/// And a `Consumed` occurrence stays absent after a load, while an unrelated
+/// authored occurrence stays on its pedestal. That file is constructed directly
+/// because no live producer emits a terminal `Consumed` row for an authored
+/// ground item.
+///
+/// The control for both loads is the room before anything happens: it authors
+/// both objects, on their pedestals, and the hand is empty.
 #[test]
 fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
     let reward = SimId::placement(ENDED);
+    let untouched = SimId::placement(UNTOUCHED);
 
     let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
     sim.step_n(base(), 10);
+    // ── THE CONTROL ─────────────────────────────────────────────────────────
+    assert!(
+        occurrences(&mut sim, &reward)
+            .first()
+            .is_some_and(|(_, custody)| custody.in_world()),
+        "'{TWO_ITEM_ROOM}' authors `{ENDED}` on its pedestal, so its absence or \
+         its place in a hand below is about the save and not about the room"
+    );
+    let empty_handed = body(&mut sim);
+    assert!(
+        sim.world().get::<Held>(empty_handed).is_none(),
+        "the room starts with an empty hand, so 'still holding it' below is a \
+         claim about the SAVE"
+    );
+    let untouched_pedestal = resting_place(&mut sim, &untouched);
+
     pick_up(&mut sim, &reward);
     sim.step_n(base(), 4);
 
@@ -375,7 +399,7 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
     );
     assert_eq!(file.custody()[0].occurrence, reward.as_str());
 
-    // ── LOAD ────────────────────────────────────────────────────────────────
+    // ── LOAD: the weapon is back in the hand ────────────────────────────────
     let mut loaded = boot_with(TWO_ITEM_ROOM, &file);
     let holder = body(&mut loaded);
     let live = occurrences(&mut loaded, &reward);
@@ -400,61 +424,22 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
          body permanently unable to pick anything else up"
     );
 
-    // ── THE CONTROL ─────────────────────────────────────────────────────────
-    let mut fresh = boot_with(TWO_ITEM_ROOM, &AmbitionGameSaveData::new());
-    let empty_handed = body(&mut fresh);
-    assert!(
-        fresh.world().get::<Held>(empty_handed).is_none(),
-        "⭐⭐ a default file leaves the hand empty, so 'still holding it' above is \
-         a claim about the SAVE rather than about how this room starts"
-    );
-    assert!(
-        occurrences(&mut fresh, &reward)
-            .first()
-            .is_some_and(|(_, custody)| custody.in_world()),
-        "and it leaves the weapon on its pedestal"
-    );
-}
-
-/// A `Consumed` occurrence must stay absent after load, while an unrelated authored
-/// occurrence remains on its pedestal. The file is constructed directly because no live
-/// producer emits terminal `Consumed` rows.
-#[test]
-fn a_consumed_occurrence_is_not_resurrected_by_a_load_and_an_untouched_one_is_untouched() {
-    let ended = SimId::placement(ENDED);
-    let untouched = SimId::placement(UNTOUCHED);
-
-    // Control: an empty save authors both occurrences.
-    let mut fresh = boot_with(TWO_ITEM_ROOM, &AmbitionGameSaveData::new());
-    assert_eq!(
-        occurrences(&mut fresh, &ended).len(),
-        1,
-        "⭐⭐ NON-VACUITY: '{TWO_ITEM_ROOM}' authors `{ENDED}`, so the absence \
-         asserted below is about the terminal row and not about the room"
-    );
-    let untouched_pedestal = resting_place(&mut fresh, &untouched);
-
-    // Load a file that marks only one occurrence as consumed.
-    let mut file = AmbitionGameSaveData::new();
-    file.set_durable_horizon(vec![PersistedOccurrence::new(
-        ended.as_str(),
+    // ── LOAD a file that marks the same occurrence consumed ────────────────
+    let mut ended = AmbitionGameSaveData::new();
+    ended.set_durable_horizon(vec![PersistedOccurrence::new(
+        reward.as_str(),
         PersistedWhereabouts::Consumed,
     )], Vec::new());
-
-    let mut loaded = boot_with(TWO_ITEM_ROOM, &file);
-
-    // The consumed occurrence stays absent.
+    let mut consumed = boot_with(TWO_ITEM_ROOM, &ended);
     assert!(
-        occurrences(&mut loaded, &ended).is_empty(),
+        occurrences(&mut consumed, &reward).is_empty(),
         "⛔ the world remembered ending this occurrence and the file carried that \
          memory. Bringing it back is a load overruling a terminal disposition — \
          the consumed key back on its pedestal, the destroyed mechanism whole \
          again. Got {:?}",
-        occurrences(&mut loaded, &ended)
+        occurrences(&mut consumed, &reward)
     );
-
-    // ── CLAIM 2: and the record nobody touched is exactly as authored ───────
-    let still = occurrences(&mut loaded, &untouched);
+    let still = occurrences(&mut consumed, &untouched);
     assert_eq!(
         still.len(),
         1,
@@ -463,7 +448,7 @@ fn a_consumed_occurrence_is_not_resurrected_by_a_load_and_an_untouched_one_is_un
          is the whole world'. Got {still:?}"
     );
     assert!(still[0].1.in_world());
-    let where_it_is = resting_place(&mut loaded, &untouched);
+    let where_it_is = resting_place(&mut consumed, &untouched);
     let drift =
         (where_it_is.0 - untouched_pedestal.0).abs() + (where_it_is.1 - untouched_pedestal.1).abs();
     assert!(
@@ -521,8 +506,14 @@ fn dropped_gauntlet(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
 ///
 /// ⇒ If the brain-registry arm of `held_spec_by_id` were ever dropped, the load
 /// would warn "no item spec answers to that id" and the hand would come back
-/// empty — which is the only failure this test can produce and the reason it is
-/// worth a boss kill.
+/// empty.
+///
+/// The same file is also where the two durable writers must agree: every
+/// minted-item row (`set_minted_items`, `items/pickup/minted_horizon.rs`) must
+/// name an occurrence the save holds (`set_durable_horizon`,
+/// `session/durable_horizon.rs`). They are separate authorities, each
+/// idempotent against its own field, and a unit test that constructs both
+/// cannot witness them disagreeing; this drives both production writers.
 #[test]
 fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_load() {
     let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
@@ -548,8 +539,38 @@ fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_loa
 
     pick_up(&mut sim, &occurrence);
     crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
+    sim.step_n(base(), 4);
     let file = the_file(&sim);
 
+    // ── THE FILE: every minted row names an occurrence the save holds ───────
+    // A file with no minted rows satisfies "no orphaned minted row" for free.
+    assert!(
+        !file.minted_items().is_empty(),
+        "the save carries NO minted-item rows after a mint taken into a hand and \
+         banked, so nothing below is being checked. occurrences={:?}",
+        file.occurrences().len()
+    );
+    let known: Vec<&str> = file.occurrences().iter().map(|o| o.id.as_str()).collect();
+    for row in file.minted_items() {
+        assert!(
+            known.contains(&row.occurrence.as_str()),
+            "minted-item row names occurrence {:?}, which the REAL save does not \
+             hold: the minted-item writer and the durable-horizon writer disagree \
+             on the file. occurrences={known:?}",
+            row.occurrence
+        );
+    }
+    for row in file.custody() {
+        assert!(
+            known.contains(&row.occurrence.as_str()),
+            "custody row names occurrence {:?}, which the REAL save does not hold \
+             — these two share a setter, so its pairing was bypassed. \
+             occurrences={known:?}",
+            row.occurrence
+        );
+    }
+
+    // ── THE LOAD ────────────────────────────────────────────────────────────
     let mut fresh = boot_with(TWO_ITEM_ROOM, &file);
 
     let after = occurrences(&mut fresh, &occurrence);
@@ -567,158 +588,11 @@ fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_loa
     );
 }
 
-/// THE ROOM BUILD'S SECOND DESCRIBER, ON A SPEC THE ITEM CATALOG CANNOT RESOLVE.
-///
-/// ⛔⛔ `features/ecs/spawn/mod.rs:594` is the third and last production caller
-/// of `held_spec_by_id` that Ambition exploration owns — the arm that rebuilds a
-/// runtime mint the player left lying in a room, using the CHECKPOINT's
-/// description and the ledger's position. Its own comment records the failure it
-/// already fixed once: the narrow `held_item_by_id` lookup answered `None` for a
-/// javelin that came out of the inventory, and "lost it a second time".
-///
-/// ⇒ That was the CATALOG arm. This is the other one. A boss gauntlet resolves
-/// only through `HELD_ITEMS`, so if this describer ever narrowed the other way,
-/// a gauntlet put down in a room would be gone when the player walked back in
-/// and every catalog-known item would still be fine.
-///
-/// ```text
-/// mint   a real boss kill
-/// bank   a shrine rest WITH IT IN HAND. Since OW3 the door does not need
-///        it: the save's record describes the dormant mint (see
-///        `a_gauntlet_no_checkpoint_saw_is_still_where_it_was_left`)
-/// leave  put it down, walk out the door; the room unloads
-/// return the rebuild reinstates it, from the description and the ledger's `at`
-/// ```
-#[test]
-fn a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is() {
-    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
-    sim.step_n(base(), 30);
-    assert!(
-        dropped_gauntlet(&mut sim).is_empty(),
-        "precondition: the hub's authored `{GAUNTLET}` is a different road"
-    );
-
-    crate::boss_lifecycle::spawn_mockingbird(&mut sim, "left_behind_gauntlet_boss");
-    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, "left_behind_gauntlet_boss", 600);
-    sim.step_n(base(), 120);
-    let dropped = dropped_gauntlet(&mut sim);
-    assert_eq!(dropped.len(), 1, "the kill must leave exactly one gauntlet");
-    let occurrence = dropped.into_iter().next().expect("one drop");
-
-    pick_up(&mut sim, &occurrence);
-    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
-    throw_it_down(&mut sim);
-    sim.step_n(base(), 120);
-    let where_it_fell = resting_place(&mut sim, &occurrence);
-
-    let away = walk_through_the_door_to(&mut sim, "vertical_shaft");
-    assert_ne!(
-        away, TWO_ITEM_ROOM,
-        "the body must actually have left the room, or nothing unloaded"
-    );
-    walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
-    sim.step_n(base(), 60);
-
-    let back = occurrences(&mut sim, &occurrence);
-    assert_eq!(
-        back.len(),
-        1,
-        "exactly one live occurrence of `{}` after re-entering: zero means the \
-         room build could not resolve a spec the item catalog does not know, two \
-         means it authored one beside the one it reinstated. got {back:?}",
-        occurrence.as_str()
-    );
-    assert!(
-        back[0].1.in_world(),
-        "and it is lying in the room, not in a hand"
-    );
-    let now = resting_place(&mut sim, &occurrence);
-    assert!(
-        (now.0 - where_it_fell.0).abs() < 4.0 && (now.1 - where_it_fell.1).abs() < 4.0,
-        "and it is where it fell: dropped at {where_it_fell:?}, rebuilt at {now:?}"
-    );
-}
-
-/// A REAL save holds the occurrence every minted-item row names.
-///
-/// ⛔⛔ THE UNIT TEST FOR THIS INVARIANT CANNOT WITNESS ITS VIOLATION.
-/// `save_data.rs`'s `no_durable_row_names_an_occurrence_the_save_does_not_hold`
-/// builds a save, calls `set_durable_horizon` and `set_minted_items` with matching
-/// ids, and then asserts they match — a test that CONSTRUCTS its subject cannot
-/// witness its absence. Its own doc names the defect it is standing in for:
-/// *"`set_minted_items` is a separate authority from `set_durable_horizon` and
-/// nothing reconciles them"*, with separate production writers
-/// (`items/pickup/minted_horizon.rs` vs `session/durable_horizon.rs`) each
-/// idempotent against its OWN field.
-///
-/// ⇒ So this drives both production writers and asks the file. Mint a gauntlet
-/// off a real boss kill, take it into a hand, commit a checkpoint — the minted
-/// capture takes only occurrences in custody, which is why the pick-up precedes
-/// the bank — and then read what the autosave would commit.
-#[test]
-fn a_real_save_holds_the_occurrence_every_minted_row_names() {
-    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
-    sim.step_n(base(), 30);
-
-    crate::boss_lifecycle::spawn_mockingbird(&mut sim, "minted_horizon_boss");
-    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, "minted_horizon_boss", 600);
-    sim.step_n(base(), 120);
-    let dropped = dropped_gauntlet(&mut sim);
-    assert_eq!(
-        dropped.len(),
-        1,
-        "the kill must leave exactly one runtime-minted gauntlet, or there is no \
-         minted row for the file to hold"
-    );
-    let occurrence = dropped.into_iter().next().expect("one drop");
-
-    pick_up(&mut sim, &occurrence);
-    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
-    sim.step_n(base(), 60);
-
-    let file = the_file(&sim);
-    // ⚠ ANTI-VACUITY, and it is the whole reason this test exists at app level: a
-    // file with no minted rows satisfies "no orphaned minted row" for free, which
-    // is exactly how the unit-test version of this question stays green.
-    assert!(
-        !file.minted_items().is_empty(),
-        "the save carries NO minted-item rows after a mint taken into a hand and \
-         banked, so nothing below is being checked. occurrences={:?}",
-        file.occurrences().len()
-    );
-    let known: Vec<&str> = file.occurrences().iter().map(|o| o.id.as_str()).collect();
-    assert!(
-        !known.is_empty(),
-        "the save carries minted rows and NO occurrence rows at all — the two \
-         writers have already disagreed about whether anything durable happened"
-    );
-    for row in file.minted_items() {
-        assert!(
-            known.contains(&row.occurrence.as_str()),
-            "minted-item row names occurrence {:?}, which the REAL save does not \
-             hold. `set_minted_items` (items/pickup/minted_horizon.rs) and \
-             `set_durable_horizon` (session/durable_horizon.rs) are separate \
-             authorities, each idempotent against its own field, and this is what \
-             their disagreement looks like on the file. occurrences={known:?}",
-            row.occurrence
-        );
-    }
-    for row in file.custody() {
-        assert!(
-            known.contains(&row.occurrence.as_str()),
-            "custody row names occurrence {:?}, which the REAL save does not hold \
-             — and these two DO share a setter, so this failing means the setter's \
-             own pairing was bypassed. occurrences={known:?}",
-            row.occurrence
-        );
-    }
-}
-
-/// Mint a gauntlet off a real boss kill in the hub, take it in hand, bank it
-/// if `bank`, throw it down and walk out to the shaft. The gauntlet's id and
-/// where it fell. The hub is then not live, so the gauntlet is a dormant
-/// record: a `Placed` row in the occurrence ledger and a minted description.
-fn a_gauntlet_left_in_the_hub(sim: &mut Platformer2dSimHarness, boss: &str, bank: bool) -> (SimId, (f32, f32)) {
+/// Mint a gauntlet off a real boss kill in the hub, take it in hand, bank it,
+/// throw it down and walk out to the shaft. The gauntlet's id and where it
+/// fell. The hub is then not live, so the gauntlet is a dormant record: a
+/// `Placed` row in the occurrence ledger and a minted description.
+fn a_banked_gauntlet_left_in_the_hub(sim: &mut Platformer2dSimHarness, boss: &str) -> (SimId, (f32, f32)) {
     sim.step_n(base(), 30);
     crate::boss_lifecycle::spawn_mockingbird(sim, boss);
     crate::boss_lifecycle::kill_boss_with_a_real_hit(sim, boss, 600);
@@ -727,22 +601,29 @@ fn a_gauntlet_left_in_the_hub(sim: &mut Platformer2dSimHarness, boss: &str, bank
     assert_eq!(dropped.len(), 1, "the kill must leave exactly one gauntlet");
     let occurrence = dropped.into_iter().next().expect("one drop");
     pick_up(sim, &occurrence);
-    if bank {
-        crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(sim);
-    }
+    crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(sim);
     throw_it_down(sim);
     sim.step_n(base(), 120);
     let where_it_fell = resting_place(sim, &occurrence);
+    leave_the_hub(sim, &[&occurrence]);
+    (occurrence, where_it_fell)
+}
+
+/// Walk out of the hub to the shaft, so the hub retires and `dormant` are
+/// records rather than live objects.
+fn leave_the_hub(sim: &mut Platformer2dSimHarness, dormant: &[&SimId]) {
     assert_eq!(
         walk_through_the_door_to(sim, "vertical_shaft"),
         "vertical_shaft",
         "precondition: the body did not leave the hub, so the hub is still live"
     );
-    assert!(
-        occurrences(sim, &occurrence).is_empty(),
-        "precondition: the gauntlet is still live, so it is not a dormant record"
-    );
-    (occurrence, where_it_fell)
+    for occurrence in dormant {
+        assert!(
+            occurrences(sim, occurrence).is_empty(),
+            "precondition: `{}` is still live, so it is not a dormant record",
+            occurrence.as_str()
+        );
+    }
 }
 
 /// The gauntlet is in the hub again, once, lying where it fell.
@@ -764,15 +645,12 @@ fn the_gauntlet_is_back(sim: &mut Platformer2dSimHarness, occurrence: &SimId, wh
 }
 
 /// OW3: a checkpoint taken in another room keeps a dormant room's minted
-/// item. The checkpoint once described only the mints that were live, so a
-/// shrine rest in the shaft forgot the gauntlet lying in the hub, and the hub
-/// was rebuilt without it. The control is
-/// `a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is`: no checkpoint
-/// while the hub is not live.
+/// item; a checkpoint that described only the live mints would forget the
+/// gauntlet lying in the hub, and the hub would be rebuilt without it.
 #[test]
 fn a_gauntlet_left_in_a_room_outlives_a_checkpoint_taken_in_another() {
     let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
-    let (occurrence, where_it_fell) = a_gauntlet_left_in_the_hub(&mut sim, "dormant_checkpoint_gauntlet_boss", true);
+    let (occurrence, where_it_fell) = a_banked_gauntlet_left_in_the_hub(&mut sim, "dormant_checkpoint_gauntlet_boss");
     // Off the door: the shrine is used with the interact press, and on the
     // door that press goes back to the hub.
     let door = door_to(&mut sim, TWO_ITEM_ROOM).aabb;
@@ -791,16 +669,15 @@ fn a_gauntlet_left_in_a_room_outlives_a_checkpoint_taken_in_another() {
 }
 
 /// OW3: a save taken in another room keeps a dormant room's minted item. The
-/// save once mirrored only the live mints, so the file placed the gauntlet in
-/// the hub and held no description to build it from. And the load's rebuild
-/// refused the whole hub, because the gauntlet's parent, the boss that dropped
-/// it, is in no room of a fresh process: a reinstated row does not need its
-/// parent. (The door witnesses above do not see that rule: their boss is
-/// staged room content that the rebuild plans again.)
+/// file must place the gauntlet in the hub AND hold a description to build it
+/// from, and the load's rebuild must accept a reinstated row whose parent, the
+/// boss that dropped it, is in no room of a fresh process. (The door witnesses
+/// do not see that rule: their boss is staged room content that the rebuild
+/// plans again.)
 #[test]
 fn a_gauntlet_left_in_a_room_outlives_a_save_taken_in_another() {
     let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
-    let (occurrence, where_it_fell) = a_gauntlet_left_in_the_hub(&mut sim, "dormant_save_gauntlet_boss", true);
+    let (occurrence, where_it_fell) = a_banked_gauntlet_left_in_the_hub(&mut sim, "dormant_save_gauntlet_boss");
     sim.step_n(base(), 30);
     let file = the_file(&sim);
     assert!(
@@ -822,44 +699,52 @@ fn a_gauntlet_left_in_a_room_outlives_a_save_taken_in_another() {
     the_gauntlet_is_back(&mut fresh, &occurrence, where_it_fell);
 }
 
-/// OW3: a minted item that no checkpoint ever saw is still in the room it was
-/// left in. The room build described a dormant mint only from the last
-/// checkpoint, so a gauntlet taken up and put down between two checkpoints was
-/// gone when the player came back.
+/// OW3: runtime mints no checkpoint ever saw are still in the room they were
+/// left in when it is live again: one taken up and put down, and one nobody
+/// ever carried.
+///
+/// The room build rebuilds a dormant mint from the ledger's `at` and the mint's
+/// description, through `held_spec_by_id` (`features/ecs/spawn`); a boss
+/// gauntlet resolves only through `HELD_ITEMS`, so a describer narrowed to the
+/// item catalog loses it while every catalog item is fine. The carried one
+/// needs a description no checkpoint wrote; the uncarried one needs a ledger
+/// row that custody never admitted.
 #[test]
 fn a_gauntlet_no_checkpoint_saw_is_still_where_it_was_left() {
     let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
-    let (occurrence, where_it_fell) = a_gauntlet_left_in_the_hub(&mut sim, "unbanked_gauntlet_boss", false);
-    walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
-    sim.step_n(base(), 60);
-    the_gauntlet_is_back(&mut sim, &occurrence, where_it_fell);
-}
-
-/// OW3: a runtime mint that nobody carried is still where it fell when its
-/// room is live again. The ledger once admitted an occurrence only through
-/// custody, so a boss's gauntlet left on the floor had no row, and the hub
-/// was rebuilt without it.
-#[test]
-fn a_gauntlet_nobody_carried_is_still_where_it_fell() {
-    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
     sim.step_n(base(), 30);
+
+    // Nobody carries this one.
     crate::boss_lifecycle::spawn_mockingbird(&mut sim, "uncarried_gauntlet_boss");
     crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, "uncarried_gauntlet_boss", 600);
     sim.step_n(base(), 120);
     let dropped = dropped_gauntlet(&mut sim);
-    assert_eq!(dropped.len(), 1, "the kill must leave exactly one gauntlet");
-    let occurrence = dropped.into_iter().next().expect("one drop");
-    let where_it_fell = resting_place(&mut sim, &occurrence);
+    assert_eq!(dropped.len(), 1, "the first kill must leave exactly one gauntlet");
+    let uncarried = dropped.into_iter().next().expect("one drop");
+    let uncarried_fell = resting_place(&mut sim, &uncarried);
+
+    // This one is taken up and put down, with no checkpoint between. Its boss
+    // stands well clear of the first gauntlet, so the pickup cannot take that.
+    crate::boss_lifecycle::spawn_mockingbird_beside(&mut sim, "unbanked_gauntlet_boss", 240.0);
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, "unbanked_gauntlet_boss", 600);
+    sim.step_n(base(), 120);
+    let carried = dropped_gauntlet(&mut sim)
+        .into_iter()
+        .find(|id| *id != uncarried)
+        .expect("the second kill must leave a second gauntlet");
+    pick_up(&mut sim, &carried);
+    throw_it_down(&mut sim);
+    sim.step_n(base(), 120);
+    let carried_fell = resting_place(&mut sim, &carried);
     assert_eq!(
-        walk_through_the_door_to(&mut sim, "vertical_shaft"),
-        "vertical_shaft",
-        "precondition: the body did not leave the hub, so the hub is still live"
+        resting_place(&mut sim, &uncarried),
+        uncarried_fell,
+        "precondition: the first gauntlet did not move while the second was handled"
     );
-    assert!(
-        occurrences(&mut sim, &occurrence).is_empty(),
-        "precondition: the gauntlet is still live, so it is not a dormant record"
-    );
+
+    leave_the_hub(&mut sim, &[&uncarried, &carried]);
     walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
     sim.step_n(base(), 60);
-    the_gauntlet_is_back(&mut sim, &occurrence, where_it_fell);
+    the_gauntlet_is_back(&mut sim, &uncarried, uncarried_fell);
+    the_gauntlet_is_back(&mut sim, &carried, carried_fell);
 }

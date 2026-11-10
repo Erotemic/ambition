@@ -300,6 +300,23 @@ impl LoopbackTransport {
     pub fn dropped_old_parcels(&self) -> u64 {
         self.link.lock().expect("no holder of the link panics").dropped_old
     }
+
+    /// What this end has sent so far: messages, and their bytes as GGRS's UDP
+    /// socket would put them in datagrams (bincode, as `UdpNonBlockingSocket`
+    /// encodes a `Message`). The link traffic, as opposed to the width of one
+    /// input: GGRS delta-encodes and run-length-compresses inputs before they
+    /// are sent.
+    pub fn sent(&self) -> LinkTraffic {
+        self.link.lock().expect("no holder of the link panics")
+            .sent.get(&self.address).copied().unwrap_or_default()
+    }
+}
+
+/// Messages and datagram bytes one end of a link has sent.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LinkTraffic {
+    pub messages: u64,
+    pub bytes: u64,
 }
 
 /// One end of an in-memory link between peers in one process, for one session.
@@ -321,6 +338,7 @@ struct Link {
     waiting: BTreeMap<SocketAddr, VecDeque<Parcel>>,
     dropped_old: u64,
     contracts: BTreeMap<(u32, SocketAddr), PeerTimelineContract>,
+    sent: BTreeMap<SocketAddr, LinkTraffic>,
 }
 
 struct Parcel {
@@ -342,6 +360,7 @@ pub fn loopback_transports(
         waiting: BTreeMap::new(),
         dropped_old: 0,
         contracts: BTreeMap::new(),
+        sent: BTreeMap::new(),
     }));
     let end = |address| LoopbackTransport {
         address,
@@ -374,6 +393,9 @@ impl PeerTransport for LoopbackTransport {
 impl NonBlockingSocket<SocketAddr> for LoopbackSocket {
     fn send_to(&mut self, message: &Message, addr: &SocketAddr) {
         let mut link = self.link.lock().expect("no holder of the link panics");
+        let traffic = link.sent.entry(self.address).or_default();
+        traffic.messages += 1;
+        traffic.bytes += bincode::serialized_size(message).unwrap_or(0);
         link.waiting.entry(*addr).or_default().push_back(Parcel {
             from: self.address,
             generation: self.generation,

@@ -1928,8 +1928,8 @@ PEER_INPUT_SOURCE = "crates/ambition_platformer2d_rollback_ggrs/src/peer_input.r
 #: The non-primitive types this census FOLLOWS into. A field of any other type
 #: is refused rather than recorded — see `refuse_variable_width`.
 _FOLLOWED_FIELD_TYPES = ("AttackStrengthHint", "crate::ControlFrameModes", "InputFrameMode", "crate::party_controls::PartyControlPreference")
-#: The same, for the `PeerInput` wrapper and its verdict.
-_FOLLOWED_PEER_INPUT_TYPES = ("ControlFrame", "PeerVerdict", "PreparationVerdict")
+#: The same, for the `PeerInput` wrapper and its verdict token.
+_FOLLOWED_PEER_INPUT_TYPES = ("ControlFrame", "PeerVerdictToken")
 
 FIXED_WIDTH_PRIMITIVES = frozenset(
     {"bool", "f32", "f64"}
@@ -2121,7 +2121,9 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     local_structs = set(re.findall(r"pub struct (\w+) \{", peer_input))
     followed = set(_FOLLOWED_PEER_INPUT_TYPES) | local_structs
     wrapper_rows = []
-    owners = ["PeerInput", "PeerVerdict"]
+    # Followed from the wrapper, so a type that leaves the wire (the full
+    # `PeerVerdict` did at identity 9) leaves the census with it.
+    owners = ["PeerInput"]
     for owner in owners:
         owner_body = peer_input.split(f"pub struct {owner} {{", 1)[1].split("\n}", 1)[0]
         owner_fields = re.findall(
@@ -2132,14 +2134,10 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
         for _, ty in owner_fields:
             if ty in local_structs and ty not in owners:
                 owners.append(ty)
-    verdict_enum = peer_input.split("pub enum PreparationVerdict {", 1)[1].split(
-        "\n}", 1
-    )[0]
-    verdict_variants = serialized_variants("PreparationVerdict", verdict_enum)
-    shape = wrapper_rows[0] + shape + [row for owner in wrapper_rows[1:] for row in owner] + verdict_variants
+    shape = wrapper_rows[0] + shape + [row for owner in wrapper_rows[1:] for row in owner]
     # ⛔ THE ENUM ROWS ONLY. `shape` also holds `Struct::field: Type` rows, and a
     # refusal that read those would be answering a different question.
-    carrying = variants_carrying_data(hint_variants + mode_variants + verdict_variants)
+    carrying = variants_carrying_data(hint_variants + mode_variants)
     if carrying:
         raise AssertionError(
             f"the peer input payload now has data-carrying enum variant(s): "

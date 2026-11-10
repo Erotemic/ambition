@@ -199,11 +199,12 @@ check, stale mouse state at route entry, and invisible page controls.
 **Owner:** Smash select UI and route lifecycle, stock placement, and the shared
 body reset API. Evidence: [SD-01 through SD-07](demos/smash-defect-review-2026-10-31.md).
 
-**Next action:** reproduce and fix SD-01 and SD-05 through the one page layout;
-then SD-02 through the body's authored jump policy; then SD-03 and SD-04 through
-the existing pause and route lifecycle. Measure idle component change ticks and
-portrait demands for SD-06 and SD-07 before selecting a performance change.
-Keep the existing S0 combat work separate.
+**Fixed 2026-11-10:** SD-01 to SD-05, each with a headless test at its owner
+([review](demos/smash-defect-review-2026-10-31.md)).
+
+**Next action:** measure idle component change ticks and portrait demands for
+SD-06 and SD-07 before selecting a performance change. Keep the existing S0
+combat work separate.
 
 **Acceptance:** small-view mouse, touch and pad input reaches every visible
 page; off-page children are hidden. Real stock loss preserves each fighter's

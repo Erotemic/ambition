@@ -630,3 +630,36 @@ fn the_select_screen_publishes_its_cue_and_retracts_it_on_the_way_out() {
         "a cue left behind outlives its surface"
     );
 }
+
+/// SD-04: after a match, the select screen comes back with its cursors reset.
+/// A mouse that has not moved since must still put the desktop seat's cursor
+/// where the pointer is, so the first click lands under it.
+#[test]
+fn a_still_mouse_places_the_cursor_on_each_arrival() {
+    let mut app = app_with(false);
+    seat_presses(&mut app, 0, MenuControlFrame::default());
+    let pointer = Vec2::new(321.0, 234.0);
+    let mut window = Window::default();
+    window.set_cursor_position(Some(pointer));
+    app.world_mut().spawn(window);
+    let cursor = |app: &App| {
+        app.world()
+            .resource::<select_screen::cursor::SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position
+    };
+    app.update();
+    assert_eq!(cursor(&app), pointer, "control: the pointer places the cursor on the first arrival");
+
+    // The match, and back: the route's arrival changes and the cursors reset,
+    // as `reset_select_frontend_on_arrival` does. The mouse did not move.
+    *app.world_mut().resource_mut::<select_screen::cursor::SelectCursors>() = Default::default();
+    app.update();
+    assert_ne!(cursor(&app), pointer, "control: within one arrival a still mouse does not move the cursor");
+    let mut router = app.world_mut().resource_mut::<ambition_platformer2d::game_shell::ShellRouter>();
+    let active = router.active.as_mut().expect("on the select route");
+    active.activation_id = ambition_platformer2d::game_shell::ShellActivationId(active.activation_id.0 + 1);
+    app.update();
+    assert_eq!(cursor(&app), pointer, "the next arrival puts the cursor under the still pointer");
+}

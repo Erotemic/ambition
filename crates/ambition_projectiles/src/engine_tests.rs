@@ -14,7 +14,7 @@ fn world_contact(body: &mut ProjectileBody, aabb: Aabb, kind: ambition_platforme
     let mut block=Block::solid("contact",aabb.min,aabb.max-aabb.min); block.kind=kind;
     let world=World::new("projectile kind",Vec2::splat(1000.0),Vec2::ZERO,vec![block]);
     let mut before=body.kin; before.pos-=before.vel*0.1;
-    let response=crate::resolve_world_collision(before,body.kin,body.game,&world,Vec2::Y,0.1,0.0..1.0,None).unwrap();
+    let response=crate::resolve_world_collision(before,body.kin,body.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None).unwrap();
     body.kin=response.body; body.game.bounces_remaining=response.bounces_remaining;
     response.outcome
 }

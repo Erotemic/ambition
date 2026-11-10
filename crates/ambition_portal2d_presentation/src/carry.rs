@@ -15,7 +15,7 @@
 //!   entry plane, inside the opening, from the front: the rule a combat volume
 //!   is cut by. It moves through square on from its own centre, or reaches
 //!   from the point it says
-//!   ([`ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom`]: a
+//!   ([`ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom`]: a
 //!   swing, from the body that swings it), and then goes through in the wedge
 //!   from that point through the opening's ends, as its hits do
 //!   ([`ae::frame::thread::partition_reaching`]). No kind opts in, so a new
@@ -282,7 +282,7 @@ pub fn carry_through_pairs(
     frames: PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
-    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     mut atlas: ResMut<PortalCarryAtlas>,
     mut assets: CarryAssets,
     mut cameras: CarryCameras,
@@ -303,7 +303,7 @@ pub fn carry_through_pairs(
             Option<(&Sprite, &bevy::sprite::Anchor)>,
             &Transform,
             &Visibility,
-            Option<&ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom>,
+            Option<&ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom>,
         ),
         (
             Or<(With<Sprite>, With<Mesh2d>, With<Text2d>)>,

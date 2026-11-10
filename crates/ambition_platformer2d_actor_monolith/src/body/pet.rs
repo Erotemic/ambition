@@ -175,12 +175,14 @@ pub struct PetRequested {
 /// speed toward `down`): the pet beat holds both bodies, and a held body is
 /// pinned by the motion authority, not by a bare velocity write.
 pub(super) fn stop_where_it_stands(
+    poses: &ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
+    entity: Entity,
     kinematics: &mut ambition_platformer2d_core::BodyKinematics,
     down: ambition_platformer2d_core::Vec2,
-) {
-    let at = kinematics.pos;
+) -> Result<(), ambition_platformer2d_core::frame::thread::Refusal> {
     let fall = down * kinematics.vel.dot(down);
-    ambition_platformer2d_core::movement::constrain_body_pose(kinematics, None, at, fall);
+    let desired = ambition_platformer2d_core::BodyKinematics { vel: fall, ..*kinematics };
+    poses.constrain(entity, kinematics, None, desired)
 }
 
 /// The frame a pet is in: the frame of the petter, or normal gravity for a
@@ -215,6 +217,7 @@ pub(super) fn half_on(half_size: ambition_platformer2d_core::Vec2, axis: ambitio
 /// no pet.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_pet_requests(
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut commands: Commands,
     mut requests: MessageReader<PetRequested>,
     ids: LiveBodies,
@@ -327,11 +330,11 @@ pub fn apply_pet_requests(
         };
         // The petted body turns to that side now, and waits there. `side` is
         // a sign on the side axis, as a facing is.
-        petted_kin.facing = side;
         // It stops where it stands: the hold blanks its control from the next
         // tick, and a walking dog would otherwise slide off the mark on its
         // momentum. A pin, through the motion authority (ADR 0024).
-        stop_where_it_stands(&mut petted_kin, frame.down);
+        if stop_where_it_stands(&poses, petted, &mut petted_kin, frame.down).is_err() { continue; }
+        petted_kin.facing = side;
         let mark = mark_for(side);
         let walk = (mark - on_side(petter_kin.pos)).abs() / PET_WALK_SPEED;
         commands.entity(petter).insert((
@@ -363,6 +366,7 @@ pub fn apply_pet_requests(
 /// both bodies go on the same tick.
 #[allow(clippy::too_many_arguments)]
 pub fn advance_pet_beats(
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     catalog: Res<CharacterCatalog>,
@@ -379,8 +383,11 @@ pub fn advance_pet_beats(
 ) {
     let dt = world_time.sim_dt();
     for (petter, mut beat) in &mut petters {
-        let petted = ids.entity_of(&beat.petted);
-        let pair = petted.and_then(|petted| bodies.get_many_mut([petter, petted]).ok());
+        let Some(petted) = ids.entity_of(&beat.petted) else {
+            end_pet_beat(&mut commands, petter);
+            continue;
+        };
+        let pair = bodies.get_many_mut([petter, petted]).ok();
         let Some(
             [(mut petter_kin, petter_combat), (mut petted_kin, petted_combat)],
         ) = pair
@@ -407,8 +414,7 @@ pub fn advance_pet_beats(
                     beat.stage = PetStage::Walk { remaining };
                     continue;
                 }
-                let Some((center, petting)) = petted
-                    .and_then(|petted| pettable.get(petted).ok())
+                let Some((center, petting)) = pettable.get(petted).ok()
                     .and_then(|(aabb, interaction)| {
                         ambition_conversation::character_id_of(&interaction.interactable)
                             .and_then(|character| catalog.get(character))
@@ -421,11 +427,18 @@ pub fn advance_pet_beats(
                 };
                 // The walk is over: the petter faces back across the petted
                 // body, and both stop where they stand.
+                let stopped = |kin: &BodyKinematics| BodyKinematics { vel: frame.down * kin.vel.dot(frame.down), ..*kin };
+                let prepared = poses.prepare(petter, &petter_kin, None, stopped(&petter_kin))
+                    .and_then(|first| poses.prepare(petted, &petted_kin, None, stopped(&petted_kin)).map(|second| (first, second)));
+                let Ok((first, second)) = prepared else {
+                    end_pet_beat(&mut commands, petter);
+                    continue;
+                };
+                first.commit(&mut petter_kin, None);
+                second.commit(&mut petted_kin, None);
                 commands.entity(petter).remove::<CommandedMove>();
                 petter_kin.facing = -beat.side;
                 petted_kin.facing = beat.side;
-                stop_where_it_stands(&mut petter_kin, frame.down);
-                stop_where_it_stands(&mut petted_kin, frame.down);
                 beat.stage = PetStage::Gesture {
                     remaining: PET_SECONDS,
                 };
@@ -437,8 +450,7 @@ pub fn advance_pet_beats(
                 }
                 // The hearts rise from the head that is petted; from the top
                 // of the petted body's front when it publishes no head.
-                let head = petted
-                    .and_then(|petted| petted_head(&landmarks, petted))
+                let head = petted_head(&landmarks, petted)
                     .map(|head| {
                         ambition_combat::body_landmarks::feet_of(&petted_kin, frame.down)
                             + ambition_combat::body_rig::BodyRigPose::to_body(head, petted_kin.facing, frame.down)

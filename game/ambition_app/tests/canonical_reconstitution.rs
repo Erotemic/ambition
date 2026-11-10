@@ -827,7 +827,7 @@ fn an_object_in_your_hands_survives_a_replay_and_is_not_re_authored() {
 
     let pos = sim
         .world()
-        .get::<ambition_platformer2d::item::GroundItem>(item)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(item)
         .expect("the authored occurrence is a ground item")
         .pos;
     sim.teleport_player((pos.x, pos.y));

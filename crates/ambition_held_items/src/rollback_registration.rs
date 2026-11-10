@@ -5,6 +5,9 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 
 /// Register this domain's rollback state.
 pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
+    registrar.declare_rollback_derived_component::<ambition_platformer2d_core::BodyInStorage>(
+        OWNER, "derived.item_body_presence", "world presence derived from item custody before spatial queries",
+    );
     registrar.declare_rollback_derived_component::<crate::ItemBody>(
         OWNER,
         "derived.item_body",

@@ -763,7 +763,7 @@ fn a_host_composing_this_plugin_can_route_to_the_stage() {
 #[test]
 fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
     use ambition_platformer2d::combat::rules::CombatRules;
-    use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+    use ambition_platformer2d::world::scoped_rules::DeclaredRules;
     use ambition_platformer2d::game_shell::MinimalShellPlugins;
     use bevy::prelude::*;
 
@@ -788,13 +788,13 @@ fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
 
     let declared = app.world().resource::<DeclaredRules<CombatRules>>();
     assert_eq!(
-        declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))).copied(),
+        declared.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))).copied(),
         Some(crate::smash_combat_rules()),
         "a Smash stage must play under the rules Smash declares"
     );
     for elsewhere in [None, Some("mary_o"), Some("ambition_versus")] {
         assert_eq!(
-            declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(elsewhere)).copied(),
+            declared.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(elsewhere)).copied(),
             None,
             "⛔ the stage's DI budget governs a room it does not own ({elsewhere:?}) and \
              follows the player into a game that authored none"
@@ -805,7 +805,7 @@ fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
         .world()
         .resource::<DeclaredRules<ambition_platformer2d::combat::strike_weight::StrikeWeightRules>>();
     assert_eq!(
-        strike_weight.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))).copied(),
+        strike_weight.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))).copied(),
         crate::smash_room_rules().strike_weight,
         "a Smash stage must land heavy where Smash's `room_rules.ron` says"
     );

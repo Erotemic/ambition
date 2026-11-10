@@ -210,19 +210,80 @@ pub fn carry_body(
 /// owner is the body's motion authority while engaged; like [`carry_body`] it
 /// does not fabricate or clear contact facts.
 ///
-/// The path ends at the pin: a held body travelled from where this step began
-/// to where its holder put it, and that is the segment a path reader tests.
+/// A valid recorded line ends at the pin. A body with no travel record is
+/// placed at tick end. Admission validates the complete candidate before commit.
+/// Refusal retains both the body and its prior accepted record.
 pub fn constrain_body_pose(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     sweep: Option<&mut SweepSample>,
-    pos: Vec2,
-    vel: Vec2,
-) {
-    kinematics.pos = pos;
-    kinematics.vel = vel;
-    if let Some(sweep) = sweep {
-        sweep.curr = pos;
+    desired: crate::body_clusters::BodyKinematics,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    carried_vectors: &[Vec2],
+) -> Result<(), crate::frame::thread::Refusal> {
+    let prepared = prepare_body_pose(kinematics, sweep.as_deref(), desired, admission, carried_vectors)?;
+    prepared.commit(kinematics, sweep);
+    Ok(())
+}
+
+/// A validated external pose. Prepare all members of a group before commit.
+#[must_use]
+pub struct PreparedBodyPose {
+    body: crate::body_clusters::BodyKinematics,
+    sweep: SweepSample,
+}
+
+impl PreparedBodyPose {
+    /// Commit while the input bodies and admission context remain unchanged.
+    pub fn commit(self, body: &mut crate::body_clusters::BodyKinematics, sweep: Option<&mut SweepSample>) {
+        *body = self.body;
+        if let Some(sweep) = sweep { *sweep = self.sweep; }
     }
+}
+
+/// Validate a complete external pose without changing its body or history.
+pub fn prepare_body_pose(
+    kinematics: &crate::body_clusters::BodyKinematics,
+    sweep: Option<&SweepSample>,
+    desired: crate::body_clusters::BodyKinematics,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    carried_vectors: &[Vec2],
+) -> Result<PreparedBodyPose, crate::frame::thread::Refusal> {
+    use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}, NumericFault};
+    let numeric = |reason| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(reason) };
+    if desired.material != kinematics.material { return Err(numeric(NumericFault::InvalidFrame)); }
+    if !desired.pos.is_finite() || !desired.vel.is_finite() || !desired.facing.is_finite() || !desired.canonical_size.is_finite() {
+        return Err(numeric(NumericFault::NonFinite));
+    }
+    if desired.canonical_size.min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
+    if let Some(sample) = sweep.as_deref() {
+        sample.travel.line(sample.prev, sample.curr).map_err(numeric)?;
+        if !sample.down.is_finite() || sample.time.iter().any(|time| !time.is_finite()) {
+            return Err(numeric(NumericFault::NonFinite));
+        }
+        if sample.time[0] < 0.0 || sample.time[1] > 1.0 || sample.time[0] > sample.time[1] {
+            return Err(numeric(NumericFault::InvalidFrame));
+        }
+    }
+    let prior = sweep.as_deref().and_then(|sample| sample.ending_at(kinematics.pos)).copied();
+    let mut candidate = match prior {
+        Some(sample) if sample.time[0] != sample.time[1] => SweepSample {
+            curr: desired.pos, vel: desired.vel, travel: crate::LinearTravel::Complete,
+            half: desired.half_oriented(sample.down), ..sample
+        },
+        Some(sample) => SweepSample { time: sample.time, ..SweepSample::at_tick_end(desired, sample.down) },
+        None => SweepSample::at_tick_end(desired, Vec2::ZERO),
+    };
+    let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, desired.canonical_size * 0.5));
+    let map = desired.material.at(candidate.prev, candidate.down).map_err(numeric)?;
+    let (delta, until) = candidate.travel.line(candidate.prev, candidate.curr).map_err(numeric)?;
+    let cast = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world: map },
+        candidate.prev, delta, candidate.time[0]..candidate.time[1]).prefix(until)?;
+    match admission {
+        Some(admission) => admission.admit(cast, desired.vel, carried_vectors)?,
+        None => cast.cells(None)?.admit_payloads(desired.vel, carried_vectors)?,
+    }
+    candidate.half = desired.half_oriented(candidate.down);
+    Ok(PreparedBodyPose { body: desired, sweep: candidate })
 }
 
 /// THE FROZEN TICK — the fifth authority: what may change a body the kernel
@@ -641,12 +702,14 @@ mod tests {
         assert_eq!(clusters.kinematics.pos, Vec2::new(53.0, 50.0));
         assert!(clusters.ground.on_ground, "a carried body stays supported");
         assert!(sample.ending_at(clusters.kinematics.pos).is_some(), "the carry extends the path");
+        let desired = crate::BodyKinematics { pos: Vec2::new(80.0, 40.0), vel: Vec2::new(0.0, 5.0), ..*clusters.kinematics };
         constrain_body_pose(
             clusters.kinematics,
             Some(&mut sample),
-            Vec2::new(80.0, 40.0),
-            Vec2::new(0.0, 5.0),
-        );
+            desired,
+            None,
+            &[],
+        ).unwrap();
         assert_eq!(clusters.kinematics.pos, Vec2::new(80.0, 40.0));
         assert_eq!(clusters.kinematics.vel, Vec2::new(0.0, 5.0));
         assert!(clusters.ground.on_ground);
@@ -654,3 +717,6 @@ mod tests {
         assert_eq!(sample.prev, Vec2::new(40.0, 50.0), "from where the step began");
     }
 }
+
+#[cfg(test)]
+mod pose_tests;

@@ -108,6 +108,12 @@ impl Plugin for HeldItemSimulationPlugin {
                 .chain()
                 .in_set(ItemPickupSet::CoreHeldItems),
         );
+        let prepare_presence = project_item_body_presence
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep);
+        #[cfg(feature = "portal")]
+        let prepare_presence = prepare_presence.before(ambition_portal2d::PortalSet::Carves);
+        app.add_systems(sim, prepare_presence);
+        app.add_systems(sim, project_item_body_presence.in_set(HeldItemStep::Residency));
         app.add_systems(
             sim,
             (
@@ -268,23 +274,9 @@ impl ItemCustody {
     }
 }
 
-/// WHERE AN ITEM IS, WHOEVER HAS IT.
-///
-/// ⭐⭐ ONE QUESTION WITH TWO ANSWERS, and asking it wrongly is a whole class of
-/// defect. `GroundItem::pos` is the world's copy of an item's position and
-/// [`ground_item_physics`] deliberately stops updating it once the item is in a
-/// hand — the item has left the world, so the world stops simulating it. Every
-/// reader that then keeps using `GroundItem::pos` for a HELD item is reading the
-/// spot where it was picked up. Measured on the Smash bomb: pick one up at X,
-/// carry it to Y, let the fuse run out, and the blast happens at X.
-///
-/// ⛔ THE FIX IS NOT "KEEP WRITING `GroundItem::pos`". A held item that also
-/// maintains a world position has two authorities for where it is, and the
-/// pickup road exists precisely to have one. The position of a held thing is a
-/// DERIVED fact about its holder, so it is derived.
-///
-/// A supported load uses the two bodies. Other held items use the holding hand.
-/// Simulation effects and presentation read the same derived position.
+/// Resolve an item's position from its custody.
+/// A stored item uses its holder's attachment. Its retained physical body
+/// records the last independent world state and supplies the missing-holder fallback.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ItemWorldPos<'w, 's> {
     holders: Query<'w, 's, &'static ae::BodyKinematics>,
@@ -348,18 +340,18 @@ impl ItemWorldPos<'_, '_> {
 
     /// Where this item is right now.
     ///
-    /// Falls back to `GroundItem::pos` when the holder cannot be read — a holder
+    /// Falls back to the retained body position when the holder cannot be read — a holder
     /// that despawned this tick is a stale relationship, and the item's last
     /// world position is a better answer than the origin.
-    pub fn of(&self, custody: &ItemCustody, item: &GroundItem) -> Vec2 {
+    pub fn of(&self, custody: &ItemCustody, body: &BodyKinematics) -> Vec2 {
         match custody {
-            ItemCustody::InWorld => item.pos,
+            ItemCustody::InWorld => body.pos,
             ItemCustody::Held { holder } => self
                 .holders
                 .get(*holder)
                 .map(|kin| self.supported_anchor(*holder, Vec2::Y)
                     .unwrap_or_else(|| holding_hand_world(&self.landmarks, *holder, kin, Vec2::Y)))
-                .unwrap_or(item.pos),
+                .unwrap_or(body.pos),
         }
     }
 }
@@ -372,100 +364,42 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
     }
 }
 
-/// A held item resting in the world, pick-up-able with `Attack` when the
-/// player is empty-handed. Thrown items carry a `vel` and arc under gravity
-/// until they settle on a surface (`vel == ZERO` means resting).
-///
-/// A required component makes "every ground item has a custody" a property of the TYPE, so a
-/// ninth spawn site cannot omit it and cannot default to a state that reads as "not in the
-/// world".
-///
-/// ⛔⛔ **`#[non_exhaustive]` BECAUSE MINTING AN OCCURRENCE HAD SEVEN AUTHORITIES
-/// AND NO CONSTRUCTOR.** A7's writer census (now in
-/// `docs/planning/engine/item-custody-and-accounting.md`) found seven struct-literal sites
-/// across three crates each assembled a ground item, one of them a death-drop
-/// policy — which A7's own acceptance forbids, *"reward policy receives accepted
-/// outcomes; it does not become an alternative item minting path"*. It could
-/// because there was no narrower road to take. The attribute does not hide the
-/// fields (motion writes `pos` and `vel` every tick and still does); it removes
-/// the ability of another crate to ASSEMBLE one.
-///
-/// It is turned by what turns a body (a portal pair that turns what it
-/// carries) and rights itself as a body does: the `ActorRoll` it requires.
+/// One persistent item occurrence. Shared body components own its motion.
 #[derive(Component, Clone, Debug)]
-#[require(ItemCustody, ambition_platformer2d_shared_tangle::orientation::ActorRoll)]
+#[require(ItemCustody, BodyKinematics, ae::SweepSample, ambition_platformer2d_shared_tangle::orientation::ActorRoll)]
 #[non_exhaustive]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
-    pub pos: Vec2,
-    pub vel: Vec2,
-    pub half_extent: Vec2,
-    /// The last step `ground_item_physics` moved it, `(from, to)`: the
-    /// segment a portal sweeps (`FreePortalBody::last_step`). `None` once it
-    /// rests or is held.
-    step: Option<(Vec2, Vec2)>,
 }
 
-/// A thrown item is a free body that travels through portal pairs, moved
-/// in place: its own `pos` and `vel` are the body portal core reads and writes.
-#[cfg(feature = "portal")]
-impl ambition_portal2d::FreePortalBody for GroundItem {
-    fn pos(&self) -> Vec2 {
-        self.pos
-    }
-    fn vel(&self) -> Vec2 {
-        self.vel
-    }
-    fn half_extent(&self) -> Vec2 {
-        self.half_extent
-    }
-    fn emerge(&mut self, pos: Vec2, vel: Vec2) {
-        self.pos = pos;
-        self.vel = vel;
-    }
-    fn last_step(&self) -> Option<(Vec2, Vec2)> {
-        self.step
-    }
-    type Presence = ItemCustody;
-    fn present(custody: Option<&ItemCustody>) -> bool {
-        custody.is_none_or(ItemCustody::in_world)
-    }
+/// The item and its initial physical state enter the world together.
+#[derive(Bundle)]
+pub struct GroundItemBundle {
+    item: GroundItem,
+    body: BodyKinematics,
+    sweep: ae::SweepSample,
 }
 
 impl GroundItem {
-    /// An occurrence that arrives AT REST.
-    ///
-    /// ⭐ THE DISTINCTION WAS ALREADY IN THE CALL SITES, SPELLED AS A COMMENT.
-    /// Five of the six minting sites wrote `vel: Vec2::ZERO` and one of them
-    /// explained why in prose — *"a dropped item falls under
-    /// `ground_item_physics` from wherever the stage put its point; giving it a
-    /// velocity here would be this system having an opinion about how items
-    /// arrive"*. A comment stating a rule is a specification, so it is the type's
-    /// job: an authored placement, a match spawn, a death drop and a pickup
-    /// cannot now express a launch velocity by accident.
-    pub fn at_rest(spec: HeldItemSpec, pos: Vec2, half_extent: Vec2) -> Self {
-        Self {
-            spec,
-            pos,
-            vel: Vec2::ZERO,
-            half_extent,
-            step: None,
-        }
+    pub fn at_rest(spec: HeldItemSpec, pos: Vec2, half_extent: Vec2) -> GroundItemBundle {
+        Self::released(spec, pos, Vec2::ZERO, half_extent)
     }
 
-    /// An occurrence RELEASED with a velocity — a throw.
-    ///
-    /// ⚠ THE ONLY ROAD THAT TAKES A `vel`, and it is deliberately the narrow one:
-    /// exactly one site in the repo mints a moving ground item today (the release
-    /// path in this crate). A second caller is a design question, not a fill-in.
-    pub fn released(spec: HeldItemSpec, pos: Vec2, vel: Vec2, half_extent: Vec2) -> Self {
-        Self {
-            spec,
-            pos,
-            vel,
-            half_extent,
-            step: None,
-        }
+    pub fn released(spec: HeldItemSpec, pos: Vec2, vel: Vec2, half_extent: Vec2) -> GroundItemBundle {
+        let body = BodyKinematics { pos, vel, canonical_size: half_extent * 2.0, ..Default::default() };
+        let sweep = ae::SweepSample::at_tick_end(body, Vec2::ZERO);
+        GroundItemBundle { item: Self { spec }, body, sweep }
+    }
+}
+
+/// Custody determines whether the retained body has independent world geometry.
+pub fn project_item_body_presence(
+    mut commands: Commands,
+    items: Query<(Entity, &ItemCustody, Has<ae::BodyInStorage>), With<GroundItem>>,
+) {
+    for (entity, custody, stored) in &items {
+        if custody.in_world() && stored { commands.entity(entity).remove::<ae::BodyInStorage>(); }
+        if !custody.in_world() && !stored { commands.entity(entity).insert(ae::BodyInStorage); }
     }
 }
 
@@ -577,6 +511,14 @@ pub struct ItemBody {
     pub rest_speed: f32,
 }
 
+/// Apply an accepted body-impact response to a loose item's motion.
+/// The game supplies the retained speed fraction and its upper limit.
+pub fn rebound_item(body: &mut BodyKinematics, retained: f32, speed_limit: f32) {
+    let velocity = body.vel.as_dvec2();
+    let speed = (velocity.length() * f64::from(retained)).min(f64::from(speed_limit));
+    body.vel = (-velocity.normalize_or_zero() * speed).as_vec2();
+}
+
 /// THIS ITEM MET THE COLLISION WORLD THIS TICK AND BOUNCED, and how fast it
 /// went into the surface.
 ///
@@ -628,10 +570,10 @@ pub fn carry_or_wake_settled_items(
     mut commands: Commands,
     world: ambition_platformer2d_world::collision::CollisionWorld,
     live: LiveRooms,
-    mut settled: Query<(Entity, &mut GroundItem, &ItemCustody, Has<ItemStruckSurface>), With<SettledItem>>,
+    mut settled: Query<(Entity, &mut BodyKinematics, &mut ae::SweepSample, &ItemCustody, Has<ItemStruckSurface>), (With<SettledItem>, With<GroundItem>)>,
 ) {
     let solids = SolidsByRoom::build(&world, settled.iter().map(|(entity, ..)| live.of(entity)));
-    for (entity, mut item, custody, struck_surface) in &mut settled {
+    for (entity, mut item, mut sweep, custody, struck_surface) in &mut settled {
         // The strike of the tick it settled on is over: the physics step,
         // which republishes it, does not step a settled item.
         if struck_surface {
@@ -640,13 +582,15 @@ pub fn carry_or_wake_settled_items(
         if !custody.in_world() {
             continue;
         }
+        let before = *item;
+        *sweep = ae::SweepSample::at_rest(before, Vec2::ZERO);
         let Some(world) = solids.met_by(&world, live.of(entity), entity) else {
             continue;
         };
         // A thin band just past the item's own footprint: what it would rest ON.
         let probe = ae::Aabb::new(
             item.pos + Vec2::new(0.0, 1.0),
-            item.half_extent + Vec2::new(0.0, 1.0),
+            item.half_oriented(Vec2::ZERO) + Vec2::new(0.0, 1.0),
         );
         let support = world.blocks.iter().find(|block| {
             ae::collision_semantics::is_support_surface(block.kind)
@@ -659,6 +603,7 @@ pub fn carry_or_wake_settled_items(
             Some(block) => {
                 if block.velocity != Vec2::ZERO {
                     item.pos += block.velocity;
+                    sweep.curr = item.pos;
                 }
             }
         }
@@ -695,8 +640,8 @@ pub fn ground_item_physics(
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut commands: Commands,
     mut grounds: Query<
-        (Entity, &mut GroundItem, &ItemCustody, Option<&ItemBody>, Has<ItemStruckSurface>),
-        Without<SettledItem>,
+        (Entity, &mut BodyKinematics, &mut ae::SweepSample, &ItemCustody, Option<&ItemBody>, Has<ItemStruckSurface>),
+        (Without<SettledItem>, With<GroundItem>),
     >,
     // ⭐⭐ THE OTHER CONTACT POPULATION. A thrown item's world is not only the
     // collision world: it is also full of BODIES, and Jon's rule for a live bomb
@@ -736,17 +681,17 @@ pub fn ground_item_physics(
     // Thrown / dropped items are free bodies that integrate through the shared
     // world-forces seam. Gravity is resolved per item by position, so an item
     // thrown into a gravity column falls the column's way (localized).
-    for (entity, mut item, custody, body, had_surface_strike) in &mut grounds {
+    for (entity, mut item, mut sweep, custody, body, had_surface_strike) in &mut grounds {
         // A carried item has no independent motion — it is not in the world to
         // fall through. Checked on custody rather than inferred from `vel ==
         // ZERO`, because "resting" and "in a hand" are different states that
         // happen to share a velocity, and only one of them may be stepped.
         if !custody.in_world() {
-            if item.step.is_some() {
-                item.step = None;
-            }
+            *sweep = ae::SweepSample::at_tick_end(*item, Vec2::ZERO);
             continue;
         }
+        let before = *item;
+        *sweep = ae::SweepSample::at_rest(before, Vec2::ZERO);
         let room = live.of(entity);
         let Some(world) = solids.met_by(&world, room, entity) else {
             continue;
@@ -754,7 +699,7 @@ pub fn ground_item_physics(
         // Free bodies resolve gravity by the body-overlap rule, not the center
         // point (ADR 0024) — a zone grabs an item the item TOUCHES.
         let local = ambition_platformer2d_shared_tangle::gravity::GravityField {
-            dir: gravity.dir_for(room, ae::Aabb::new(item.pos, item.half_extent)),
+            dir: gravity.dir_for(room, ae::Aabb::new(item.pos, item.half_oriented(Vec2::ZERO))),
         };
         ambition_platformer2d_shared_tangle::gravity::apply_world_forces(
             &mut item.vel,
@@ -773,9 +718,9 @@ pub fn ground_item_physics(
         // other item stops dead against it.
         let bounced = body
             .filter(|_| !outside_world)
-            .map(|body| bounce_step(&world, item.pos, item.vel, item.half_extent, local.dir, dt, *body));
+            .map(|body| bounce_step(&world, item.pos, item.vel, item.half_oriented(Vec2::ZERO), local.dir, dt, *body));
         let blocked = bounced.is_none() && {
-            let next_aabb = ae::Aabb::new(next, item.half_extent);
+            let next_aabb = ae::Aabb::new(next, item.half_oriented(Vec2::ZERO));
             world.blocks.iter().any(|block| {
                 ae::collision_semantics::is_support_surface(block.kind)
                     && next_aabb.strict_intersects(block.aabb)
@@ -816,7 +761,7 @@ pub fn ground_item_physics(
                 .is_ok_and(|(_, aabb, _, _, _)| at.strict_intersects(aabb.aabb()))
         };
         let struck_bodies = || {
-            let here = ae::Aabb::new(item.pos, item.half_extent);
+            let here = ae::Aabb::new(item.pos, item.half_oriented(Vec2::ZERO));
             let mut struck: Vec<Entity> = bodies
                 .iter()
                 .filter(|(victim, _, health, out_of_play, plane)| {
@@ -826,7 +771,7 @@ pub fn ground_item_physics(
                 .filter(|(victim, aabb, _, _, _)| {
                     ambition_platformer2d_core::cast::aabb_path_contacts(
                         end,
-                        item.half_extent,
+                        item.half_oriented(Vec2::ZERO),
                         travelled,
                         aabb.aabb(),
                     ) && !entered_now(here, *victim)
@@ -866,7 +811,6 @@ pub fn ground_item_physics(
             } else if had_surface_strike {
                 commands.entity(entity).remove::<ItemStruckSurface>();
             }
-            item.step = (bounce.end != item.pos).then_some((item.pos, bounce.end));
             item.pos = bounce.end;
             item.vel = bounce.vel;
             if bounce.settles {
@@ -882,14 +826,15 @@ pub fn ground_item_physics(
             // `SettledItem::impact_speed`.
             let impact_speed = item.vel.length();
             item.vel = Vec2::ZERO;
-            item.step = None;
             commands
                 .entity(entity)
                 .try_insert(SettledItem { impact_speed });
         } else {
-            item.step = Some((item.pos, next));
             item.pos = next;
         }
+        sweep.prev = before.pos;
+        sweep.curr = item.pos;
+        sweep.vel = before.vel;
     }
 }
 
@@ -1021,9 +966,9 @@ pub fn return_released_items(
         Option<&SupportedCarry>,
         Option<&ambition_combat::held_items::MoveBrandishedItem>,
     )>,
-    mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
+    mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
 ) {
-    for (entity, mut item, mut custody) in &mut carried {
+    for (entity, item, body, mut custody) in &mut carried {
         let ItemCustody::Held { holder } = *custody else {
             continue;
         };
@@ -1049,11 +994,12 @@ pub fn return_released_items(
             continue;
         }
         // The body let go: the object lands where that body is standing.
-        item.pos = support.and_then(|support| holders.get(support.supporter).ok())
+        let pos = support.and_then(|support| holders.get(support.supporter).ok())
             .map_or(kin.pos, |(partner, ..)| SupportedCarry::anchor(kin, partner, Vec2::Y));
         commands.entity(holder).remove::<SupportedCarry>();
         // A released object is at rest, not mid-throw.
-        item.vel = Vec2::ZERO;
+        let body = BodyKinematics { pos, vel: Vec2::ZERO, ..*body };
+        commands.entity(entity).insert((body, ae::SweepSample::at_tick_end(body, Vec2::ZERO)));
         *custody = ItemCustody::InWorld;
         // ⭐ AND THIS IS NOT A `Release` AT ALL — it is a stow, from the menu or
         // a brandish swap. It stamps no `ReleasedAs`, so a bomb that leaves a
@@ -1158,7 +1104,7 @@ pub fn record_placed_ground_items(
         (
             Entity,
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
-            &GroundItem,
+            &BodyKinematics,
             &ItemCustody,
             // A runtime mint (`Dynamic`) enters the ledger where it lies; see
             // `AuthoredOccurrences::admit_mints`. An authored item does not:
@@ -1371,7 +1317,8 @@ pub fn take_ground_item(
     body: Entity,
     repertoire: &mut RepertoireQueryItem<'_, '_>,
     item: Entity,
-    ground: &mut GroundItem,
+    ground: &GroundItem,
+    item_body: &BodyKinematics,
     custody: &mut ItemCustody,
 ) {
     // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
@@ -1386,7 +1333,8 @@ pub fn take_ground_item(
     // the fuse honest — `ReleasedAs` is — but a held object with a
     // stale world velocity would resume mid-arc the moment it is put
     // back down.
-    ground.vel = Vec2::ZERO;
+    let resting = BodyKinematics { vel: Vec2::ZERO, ..*item_body };
+    commands.entity(item).insert((resting, ae::SweepSample::at_tick_end(resting, Vec2::ZERO)));
 }
 
 /// Empty a body's hand of whatever it holds — a held item, the portal gun, or
@@ -1567,7 +1515,7 @@ pub fn pickup_held_item_system(
     mut bodies: Query<(&mut ActorControl, &BodyKinematics, Option<&ae::SweepSample>, RepertoireQuery)>,
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
-    mut grounds: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
+    mut grounds: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
     // A body picks up only an item in its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
@@ -1589,13 +1537,13 @@ pub fn pickup_held_item_system(
         }
         // The reach of the body is its collision box, as its last step turned it.
         let player_aabb = kin.collision_box(last_step);
-        for (item, mut ground, mut custody) in &mut grounds {
+        for (item, ground, item_body, mut custody) in &mut grounds {
             // Only an item that is IN THE WORLD, in the body's live room, can
             // be grabbed.
             if !custody.in_world() || rooms.of(item) != rooms.of(player) {
                 continue;
             }
-            let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);
+            let ground_aabb = item_body.aabb();
             // AMBITION_REVIEW(discrete_ok): CC2 §3.3 GroundItem pickup — gated on a
             // deliberate `melee_pressed` while overlapping (the button-press branch
             // above), not a path-dependent auto-collect. You cannot fly THROUGH and
@@ -1613,7 +1561,7 @@ pub fn pickup_held_item_system(
                 // same reset that retracts the object, and impossible to disagree
                 // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
                 //
-                take_ground_item(&mut commands, player, &mut repertoire, item, &mut ground, &mut custody);
+                take_ground_item(&mut commands, player, &mut repertoire, item, ground, item_body, &mut custody);
                 // The Attack press is *consumed* by the pickup so the same press
                 // doesn't also fire the just-equipped item this frame. Clear the
                 // brain-resolved `ActorControl` (the subject-generic held-item / ability
@@ -1784,7 +1732,7 @@ pub fn throw_held_item_system(
     >,
     // The object this body is CARRYING, found by the custody it records rather
     // than by the hand remembering an entity handle.
-    mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
+    mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
     // The thrower's identity stream, for the one case that genuinely mints a new
     // object (see below). N3.1: a dynamically-spawned sim entity takes
     // `(spawner SimId, per-spawner counter)`, never a global counter.
@@ -1988,7 +1936,7 @@ pub fn release_carried_item(
     commands: &mut Commands,
     body: Entity,
     repertoire: &mut RepertoireQueryItem<'_, '_>,
-    carried: &mut Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
+    carried: &mut Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
     pos: Vec2,
     vel: Vec2,
     release: Release,
@@ -1997,11 +1945,11 @@ pub fn release_carried_item(
     // The item this body took custody of is still a live entity carrying its
     // own identity, so the release resets its custody and writes the launch
     // onto it.
-    let Some((entity, mut ground, mut custody)) = carried.iter_mut().find(|(_, _, custody)| custody.held_by(body)) else {
+    let Some((entity, _, item_body, mut custody)) = carried.iter_mut().find(|(_, _, _, custody)| custody.held_by(body)) else {
         return false;
     };
-    ground.pos = pos;
-    ground.vel = vel;
+    let released = BodyKinematics { pos, vel, ..*item_body };
+    commands.entity(entity).insert((released, ae::SweepSample::at_tick_end(released, Vec2::ZERO)));
     *custody = ItemCustody::InWorld;
     // The release SAYS what it was. Every fuse downstream reads this
     // rather than re-deriving intent from the launch vector.

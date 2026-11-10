@@ -119,7 +119,7 @@ pub struct FriendlyFire {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[component(immutable)]
 pub struct ParticipantFriendlyFire {
-    pub scope: crate::scoped_rules::RulesScope,
+    pub scope: ambition_platformer2d_world::scoped_rules::RulesScope,
     pub enabled: bool,
 }
 

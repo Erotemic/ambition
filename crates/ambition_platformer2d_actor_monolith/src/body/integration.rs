@@ -106,7 +106,7 @@ pub(super) fn integrate_home_body(
         // drives.
         pose_owned_externally,
         ae::MotionStepContext {
-            portal,
+            admission: portal,
             world,
             input,
             frame: motion_frame,

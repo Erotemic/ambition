@@ -48,3 +48,8 @@ ambition_portal_port = { path = "../ambition_portal_port" }
 # host reads the logical tick and gameplay time too; the adapter's tests in
 # a tiny App give it both.
 ambition_time = { path = "../ambition_time" }
+
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+
+[dev-dependencies]
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world", features = ["test-support"] }

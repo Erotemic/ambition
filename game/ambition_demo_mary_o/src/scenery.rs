@@ -116,17 +116,7 @@ pub fn register_mary_o_construction_props(app: &mut App) {
         );
         app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::platform_looks(&crate::pack::PACK));
     }
-    // A loading zone of Mary-O has no picture and no nameplate. Her doors are
-    // pipes and poles; a zone is the sky of a level that is a secret, or the
-    // place where a trip ends.
-    {
-        use ambition_platformer2d::render::rendering::gate_portal_visuals::HiddenLoadingZonesAppExt;
-        for room in crate::authored_world().rooms {
-            for zone in room.loading_zones {
-                app.hide_loading_zone(zone.id);
-            }
-        }
-    }
+
 }
 
 /// Each pit of lava of a room: the name and the box of each damage volume the

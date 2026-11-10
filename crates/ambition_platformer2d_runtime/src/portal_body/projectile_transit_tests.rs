@@ -59,13 +59,13 @@ fn place_wall_pair(app: &mut App) {
         Vec2::new(20.0, 200.0),
         Vec2::new(1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
     app.world_mut().spawn(PlacedPortal::fixed(
         ORANGE,
         Vec2::new(380.0, 200.0),
         Vec2::new(-1.0, 0.0),
         ambition_portal2d::PORTAL_OPENING_HALF,
-    ));
+    ).unwrap());
 }
 
 #[test]

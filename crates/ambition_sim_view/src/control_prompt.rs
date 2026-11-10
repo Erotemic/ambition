@@ -304,11 +304,11 @@ pub fn rebuild_control_prompt(
     // it. Undeclared (the ordinary case) is `ByMove` — the behaviour every
     // experience had before the knob existed. The subject's OWN room (OW1):
     // with two rooms live, THE live room's rules were the rules of no room.
-    naming: ambition_combat::governing_rules::RulesOf<
+    naming: ambition_platformer2d_world::governing_rules::RulesOf<
         PromptNaming>,
     // The techniques the subject's room's rules give the driven body, which
     // the gate also reads.
-    driven: ambition_combat::governing_rules::RulesOf<
+    driven: ambition_platformer2d_world::governing_rules::RulesOf<
         ambition_characters::action_scheme::DrivenTechniques,
     >,
     mut last_driven: Local<Option<ambition_characters::action_scheme::DrivenTechniques>>,
@@ -1053,7 +1053,7 @@ mod tests {
     /// the cache key holds the resolved value, so the room change re-derives.
     #[test]
     fn a_room_that_asks_for_button_names_gets_them_and_no_other_room_does() {
-        use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+        use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, RulesScope};
 
         fn stand_in(app: &mut App, mode: Option<&str>) {
             let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
@@ -1455,7 +1455,7 @@ mod tests {
     #[test]
     fn the_driven_body_wears_the_rules_techniques_in_its_prompt() {
         use ambition_characters::action_scheme::DrivenTechniques;
-        use ambition_combat::scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
+        use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
         use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec};
 
         fn dash(label: &str) -> DrivenTechniques {
@@ -1562,7 +1562,7 @@ mod tests {
     #[test]
     fn the_prompt_follows_the_rules_of_the_subjects_own_live_room() {
         use ambition_characters::action_scheme::DrivenTechniques;
-        use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+        use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, RulesScope};
         use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec};
         use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 

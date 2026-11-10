@@ -399,7 +399,7 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
     use ambition_platformer2d::combat::actor_tuning::ActorConfig;
     use ambition_platformer2d::combat::components::EncounterMob;
     use ambition_platformer2d::actor::ActorFaction;
-    use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+    use ambition_platformer2d::world::scoped_rules::DeclaredRules;
     use ambition_platformer2d::mount::Mountable;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
@@ -410,7 +410,7 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
     let rule = app
         .world()
         .get_resource::<DeclaredRules<DormancyRule>>()
-        .and_then(|rules| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_sanic::SANIC_MODE))).copied())
+        .and_then(|rules| rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some(ambition_demo_sanic::SANIC_MODE))).copied())
         .expect("Sanic states a dormancy rule for his rooms");
     assert_eq!(
         rule.hostile_wake_radius,

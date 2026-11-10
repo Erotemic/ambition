@@ -8,6 +8,7 @@ description = "Authored room data and live world geometry: room graphs, placemen
 
 [features]
 default = []
+test-support = []
 
 [dependencies]
 bevy_log = { version = "0.19.1", default-features = false }

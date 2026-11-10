@@ -273,15 +273,16 @@ pub(crate) fn spawn_portal_into(
     spec: &ambition_platformer2d_world::rooms::PortalSpec,
 ) {
     let half_length = spec.half_length.unwrap_or(ambition_portal2d::PORTAL_OPENING_HALF);
-    scope.insert_room_in_session((
-            Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
-            ambition_portal2d::PlacedPortal::fixed(
-                portal_color_from_spec(spec.color).channel(),
-                spec.pos,
-                spec.normal,
-                half_length,
-            ),
-    ));
+    let portal = match ambition_portal2d::PlacedPortal::fixed(
+        portal_color_from_spec(spec.color).channel(), spec.pos, spec.normal, half_length,
+    ) {
+        Ok(portal) => portal,
+        Err(fault) => {
+            warn!("portal {} has an invalid placement: {fault:?}; refused", spec.id);
+            return;
+        }
+    };
+    scope.insert_room_in_session((Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)), portal));
     if let Some(link) = &spec.link {
         scope.insert(ambition_portal2d::PortalLink(ambition_portal2d::link_hash(
             link,

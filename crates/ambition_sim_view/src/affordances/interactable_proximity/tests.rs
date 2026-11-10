@@ -48,7 +48,7 @@ fn prompt(arm: Arm) -> InteractVariant {
         ae::World::new("room", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, Vec::new()),
     );
     if let Some(door) = arm.door {
-        room.loading_zones = vec![ambition_platformer2d_world::rooms::LoadingZone {
+        room.loading_zones = vec![ambition_platformer2d_world::rooms::LoadingZone { presentation: Default::default(),
             id: "door".into(),
             name: "door".into(),
             activation: ambition_platformer2d_world::rooms::LoadingZoneActivation::Door,

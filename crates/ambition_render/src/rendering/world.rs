@@ -51,8 +51,6 @@ pub fn present_live_room_visuals(
     assets: Option<Res<GameAssets>>,
     prop_sheets: Option<Res<PropSheets>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    // The zones a game draws no picture for. Absent: each zone has its picture.
-    hidden_zones: Option<Res<super::gate_portal_visuals::HiddenLoadingZones>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -71,7 +69,6 @@ pub fn present_live_room_visuals(
             &|zone| rooms.rooms().way_of(definition, zone),
             assets.as_deref(),
             prop_sheets.as_deref(),
-            hidden_zones.as_deref(),
         );
         commands.spawn_session_scoped(
             scope,
@@ -89,9 +86,6 @@ pub fn spawn_room_visuals(
     way_of: &dyn Fn(&str) -> ZoneWay,
     assets: Option<&GameAssets>,
     prop_sheets: Option<&PropSheets>,
-    // The loading zones that have no picture and no nameplate
-    // (`HiddenLoadingZones`): a place to arrive at, or a zone that is a secret.
-    hidden_zones: Option<&super::gate_portal_visuals::HiddenLoadingZones>,
 ) {
     let world = &spec.world;
     spawn_grid(commands, session_scope, world);
@@ -174,14 +168,6 @@ pub fn spawn_room_visuals(
         spawn_climbable_region(commands, session_scope, world, region, theme);
     }
     for zone in &spec.loading_zones {
-        // No picture is no nameplate also: the nameplate of a zone that is not
-        // drawn named a place nothing showed (the name of the sky zone of
-        // Mary-O 1-1, over a level whose secret it is).
-        // A secret way is drawn by the room's art (a false wall, a loose
-        // board): a doorway and its name there would give it away.
-        if zone.is_secret() || hidden_zones.is_some_and(|hidden| hidden.0.contains(&zone.id)) {
-            continue;
-        }
         spawn_loading_zone(commands, session_scope, world, zone, way_of(&zone.id), assets, theme);
     }
     // Per-family authored visuals. Each family carries an `Authored<T>`
@@ -1253,6 +1239,7 @@ pub fn spawn_loading_zone(
     // (`terrain_skin::dress_themed_doors`).
     theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
+    if !zone.shows_marker() { return; }
     let size = zone.aabb.half_size() * 2.0;
     let fallback_color = match zone.activation {
         LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
@@ -1293,8 +1280,6 @@ pub fn spawn_loading_zone(
             anchor,
             Transform::from_translation(world_to_bevy(world, sprite_pos, DOOR_Z)),
             Name::new(format!("Loading zone: {}", zone.name)),
-            // Carries the zone id so portal-aware systems can hide this debug
-            // door for portal-mode zones (the portal sprite is the door).
             crate::rendering::primitives::LoadingZoneVisual {
                 id: zone.id.clone(),
             },
@@ -2915,5 +2900,38 @@ mod themed_brick_tests {
         for (brick, expected) in bricks.into_iter().zip(replacement) {
             assert_eq!(app.world().get::<Sprite>(brick).unwrap().image, expected);
         }
+    }
+}
+
+#[cfg(test)]
+mod zone_presentation_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use ambition_platformer2d_world::rooms::LoadingZonePresentation;
+
+    #[test]
+    fn equal_zone_ids_in_different_rooms_keep_their_authored_presentation() {
+        let mut ecs = World::new();
+        let room = ae::World::new("room", ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new());
+        let mut zone = LoadingZone {
+            id: "shared_door".into(), name: "door".into(),
+            activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
+            presentation: LoadingZonePresentation::SceneArt,
+        };
+        let hidden_room = LiveRoomInstance::ACTIVATION;
+        let visible_room = hidden_room.next();
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(hidden_room)), &room, &zone, ZoneWay::BothWays, None, None);
+        zone.presentation = LoadingZonePresentation::Default;
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
+        zone.id = "secret_way".into();
+        assert!(zone.is_secret());
+        spawn_loading_zone(&mut ecs.commands(), SessionSpawnScope::UNSCOPED.in_room(Some(visible_room)), &room, &zone, ZoneWay::BothWays, None, None);
+        ecs.flush();
+        let visuals: Vec<_> = ecs.query::<(&crate::rendering::primitives::LoadingZoneVisual, &InRoomInstance)>().iter(&ecs).collect();
+        assert_eq!(visuals.len(), 1);
+        assert_eq!(visuals[0].0.id, "shared_door");
+        assert_eq!(visuals[0].1.0, visible_room);
+        assert_eq!(ecs.query::<&DoorNameplateSource>().iter(&ecs).count(), 1);
     }
 }

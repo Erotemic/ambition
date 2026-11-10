@@ -13,7 +13,7 @@ fn purple_at(x: f32) -> PlacedPortal {
         Vec2::new(x, 300.0),
         Vec2::new(-1.0, 0.0),
         46.0,
-    )
+    ).unwrap()
 }
 
 fn yellow_at(x: f32) -> PlacedPortal {
@@ -22,7 +22,7 @@ fn yellow_at(x: f32) -> PlacedPortal {
         Vec2::new(x, 300.0),
         Vec2::new(1.0, 0.0),
         46.0,
-    )
+    ).unwrap()
 }
 
 fn test_app() -> App {

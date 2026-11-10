@@ -8,7 +8,7 @@ fn floor(pos: Vec2) -> PlacedPortal {
         pos,
         Vec2::new(0.0, -1.0),
         crate::PORTAL_OPENING_HALF,
-    )
+    ).unwrap()
 }
 
 fn app() -> App {
@@ -145,11 +145,11 @@ fn a_slope_portal_and_a_wall_portal_open_to_one_length() {
     let channel = PortalChannel::Authored(PortalChannelColor::Indexed(0));
     let a = app
         .world_mut()
-        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(100.0, 300.0), slope, crate::PORTAL_OPENING_HALF)))
+        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(100.0, 300.0), slope, crate::PORTAL_OPENING_HALF).unwrap()))
         .id();
     let b = app
         .world_mut()
-        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), wall, crate::PORTAL_OPENING_HALF)))
+        .spawn((PortalLink(link_hash("e")), PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), wall, crate::PORTAL_OPENING_HALF).unwrap()))
         .id();
     app.update();
     let (oa, ob) = (opening(&app, a), opening(&app, b));

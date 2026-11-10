@@ -149,7 +149,7 @@ pub fn advise_navigation(
     items: Query<(
         Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
-        &ambition_held_items::GroundItem,
+        &ae::BodyKinematics,
         &ambition_held_items::ItemCustody,
     )>,
     // The players, for a body with no foe: it attends to the nearest one in
@@ -244,7 +244,7 @@ pub fn advise_navigation(
                                 may_leave,
                                 specs,
                                 ledger.as_deref(),
-                                &items,
+                                items.iter().map(|(entity, id, _, custody)| (entity, id, custody)),
                             )
                         });
                         // An item that lies somewhere no route reaches is not

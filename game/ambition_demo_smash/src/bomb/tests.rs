@@ -12,7 +12,7 @@ use ambition_platformer2d::characters::brain::action_set::{ActionRequest, Specia
 use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::smash_bomb::{DropBombParams, DROP_BOMB};
-use ambition_platformer2d::item::{GroundItem, ItemCustody, SettledItem};
+use ambition_platformer2d::item::{ItemCustody, SettledItem};
 use ambition_platformer2d::platformer::sim_id::SimId;
 
 fn params(fuse_s: f32) -> DropBombParams {
@@ -53,7 +53,7 @@ fn a_bomb_on(road: Road, fuse_s: f32, vel: ae::Vec2) -> (App, Entity) {
         .find(|(_, entity)| entity.kind == BOMB)
         .map(|(bomb, _)| bomb)
         .expect("the press dropped a bomb");
-    app.world_mut().get_mut::<GroundItem>(bomb).expect("the bomb is an item").vel = vel;
+    app.world_mut().get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(bomb).expect("the bomb is an item").vel = vel;
     (app, bomb)
 }
 
@@ -175,7 +175,7 @@ fn a_carried_bomb_blasts_where_its_holder_is() {
         .id();
     {
         let mut entity = app.world_mut().entity_mut(bomb);
-        entity.get_mut::<GroundItem>().expect("the bomb").pos = picked_up_at;
+        entity.get_mut::<ambition_platformer2d::engine_core::BodyKinematics>().expect("the bomb").pos = picked_up_at;
         entity.insert(ItemCustody::Held { holder });
     }
     let centers: Vec<_> = blasts_of(&mut app, 6).into_iter().map(|blast| blast.center).collect();

@@ -80,6 +80,7 @@ pub fn resolve_world_collision<'w>(
     gravity_dir: Vec2,
     dt: f32,
     time:std::ops::Range<f64>,
+    travel: ae::LinearTravel,
     admission: Option<MotionAdmission<'_>>,
 ) -> Result<ProjectileWorldCollision<'w>, Refusal> {
     if !before.vel.is_finite()
@@ -100,18 +101,16 @@ pub fn resolve_world_collision<'w>(
         return Err(numeric(NumericFault::Underflow));
     }
     let shape = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, half));
-    let delta = Sim2::IDENTITY
-        .vector_from_wide(after.pos.as_dvec2() - before.pos.as_dvec2())
-        .map_err(numeric)?;
-    let cast = MaterialCast {
-        time,
-        material: MaterialPrimitive {
+    let (delta, until) = travel.line(before.pos, after.pos).map_err(numeric)?;
+    let cast = MaterialCast::new(
+        MaterialPrimitive {
             domain: &shape,
             to_world: before.material_map(Vec2::ZERO).map_err(numeric)?,
         },
-        root: before.pos,
+        before.pos,
         delta,
-    };
+        time,
+    ).prefix(until)?;
     let down = super::body::projectile_down(gravity_dir);
     let contact = world.first_material_sweep(cast, admission, |collider, _, hit| {
         let one_way = match collider {

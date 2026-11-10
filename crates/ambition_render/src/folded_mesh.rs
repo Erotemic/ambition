@@ -5,7 +5,7 @@
 //!
 //! So such a mesh works with portals by construction. Each frame its
 //! triangles are cut where the room's portal pairs cut a volume
-//! (`PortalPassages::pieces`, the resolver's own rule for a strike): the part
+//! (`BodyGeometry::pieces`, the resolver's own rule for a strike): the part
 //! that reaches through a pair from its front is drawn out of the other end.
 //! The part behind a pane from the viewer (the far side of a portal's wall)
 //! is not drawn inside the pane, which shows the view through it instead
@@ -15,7 +15,7 @@
 //! Its material only composites the colours its triangles carry: added
 //! (light) or blended. No shader draws a shape.
 
-use ambition_platformer2d_shared_tangle::portal_passages::PartSource;
+use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::NoFrustumCulling,
@@ -37,7 +37,7 @@ use ambition_platformer2d_core::frame::thread::{HalfPlane, VolumePiece};
 #[cfg(feature = "portal_render")]
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomOf, LiveRooms};
-use ambition_platformer2d_shared_tangle::portal_passages::PortalPassages;
+use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
 
 /// Triangles with a colour at each corner (linear RGBA), world space (+y
 /// down).
@@ -355,7 +355,7 @@ fn write_folded_meshes(
     materials: Res<FoldMaterials>,
     world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     rooms: LiveRooms,
-    passages: Option<Res<PortalPassages>>,
+    passages: Option<Res<BodyGeometry>>,
     #[cfg(feature = "portal_render")] panes: Panes,
     mut folded: Query<(Entity, &FoldedMesh, Option<&FoldedMeshDrawn>, &mut Transform), Changed<FoldedMesh>>,
 ) {

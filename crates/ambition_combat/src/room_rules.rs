@@ -32,7 +32,7 @@ use ambition_characters::actor::Corpse;
 use crate::dormancy_rule::DormancyRule;
 use crate::landing_lag::LandingLagRules;
 use crate::rules::CombatRules;
-use crate::scoped_rules::{DeclareRulesExt as _, DeclaredRules, RulesScope};
+use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, DeclaredRules, RulesScope};
 use crate::strike_weight::StrikeWeightRules;
 use ambition_projectiles::FireballFlight;
 use ambition_platformer2d_core::movement::BodyContact;

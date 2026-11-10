@@ -525,21 +525,21 @@ pub enum SanicActPhase {
 pub struct SanicRulesPlugin {
     /// The rooms these rules govern. The declared rules and every system are
     /// gated by this one value.
-    scope: ambition_platformer2d::combat::scoped_rules::RulesScope,
+    scope: ambition_platformer2d::world::scoped_rules::RulesScope,
 }
 
 impl SanicRulesPlugin {
     /// Ambition hosts this demo: every rule sleeps outside the Sanic rooms.
     pub fn hosted() -> Self {
         Self {
-            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SANIC_MODE),
+            scope: ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SANIC_MODE),
         }
     }
 
     /// The demo IS the game: the rules run unconditionally.
     pub fn global() -> Self {
         Self {
-            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::EveryRoom,
+            scope: ambition_platformer2d::world::scoped_rules::RulesScope::EveryRoom,
         }
     }
 }
@@ -571,7 +571,7 @@ impl Plugin for SanicRulesPlugin {
         // The dormancy rule has the same scope: a far badnik does not walk off
         // a ledge while Sanic is at the start.
         {
-            use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+            use ambition_platformer2d::world::scoped_rules::DeclareRulesExt as _;
             let scope = self.scope;
             ambition_platformer2d::combat::room_rules::declare_room_rules(app, scope, crate::pack::room_rules(),
             );

@@ -1,6 +1,6 @@
 use super::*;
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::portal_passages::{PortalPassages, PortalPieceBudget};
+use ambition_platformer2d_shared_tangle::body::geometry::{BodyGeometry, MaterialBudget};
 use ambition_portal2d::{PortalChannel, PortalChannelColor, PortalGunColor};
 use bevy::camera::Viewport;
 
@@ -14,11 +14,11 @@ fn test_app() -> App {
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<PortalClipMaterial>>()
         .init_resource::<ambition_portal2d::PortalTuning>()
-        .init_resource::<PortalPassages>()
+        .init_resource::<BodyGeometry>()
         .init_resource::<PortalCarryAtlas>()
         .init_resource::<CarryQuadPool>()
         .add_systems(First, give_back_carried_layers)
-        .add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::publish_portal_passages).chain())
+        .add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_after_motion, ambition_portal2d::publish_portal_passages).chain())
         .add_systems(PostUpdate, carry_through_pairs);
     app.world_mut().spawn((
         Camera2d,
@@ -40,8 +40,8 @@ fn test_app() -> App {
 
 fn add_pair(app: &mut App, channel: PortalChannel, entry: f32, exit: f32) {
     for portal in [
-        PlacedPortal::fixed(channel, Vec2::new(entry, 300.0), Vec2::NEG_X, 100.0),
-        PlacedPortal::fixed(channel.partner(), Vec2::new(exit, 300.0), Vec2::X, 100.0),
+        PlacedPortal::fixed(channel, Vec2::new(entry, 300.0), Vec2::NEG_X, 100.0).unwrap(),
+        PlacedPortal::fixed(channel.partner(), Vec2::new(exit, 300.0), Vec2::X, 100.0).unwrap(),
     ] {
         app.world_mut().spawn(portal);
     }
@@ -52,7 +52,7 @@ fn authored_entry() -> PortalChannel {
 }
 
 fn spawn_body(app: &mut App, budget: PieceBudget, y: f32, entry: PortalChannel) -> Entity {
-    let body = app.world_mut().spawn(PortalPieceBudget(budget)).id();
+    let body = app.world_mut().spawn(MaterialBudget(budget)).id();
     let pos = Vec2::new(498.0, y);
     let size = Vec2::splat(48.0);
     app.world_mut()
@@ -283,8 +283,8 @@ fn a_body_stays_visible_on_the_first_frame_of_an_authored_or_new_gun_pair() {
 fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
     let mut app = test_app();
     let entry = authored_entry();
-    let a = app.world_mut().spawn(PlacedPortal::fixed(entry, Vec2::new(2200.0, 876.0), Vec2::X, 100.0)).id();
-    let b = app.world_mut().spawn(PlacedPortal::fixed(entry.partner(), Vec2::new(2550.0, 680.0), Vec2::X, 100.0)).id();
+    let a = app.world_mut().spawn(PlacedPortal::fixed(entry, Vec2::new(2200.0, 876.0), Vec2::X, 100.0).unwrap()).id();
+    let b = app.world_mut().spawn(PlacedPortal::fixed(entry.partner(), Vec2::new(2550.0, 680.0), Vec2::X, 100.0).unwrap()).id();
     let visual = spawn_body(&mut app, PieceBudget::COMPOSED, 300.0, entry);
     app.world_mut().entity_mut(visual).insert(Aabb {
         center: Vec3::ZERO.into(),

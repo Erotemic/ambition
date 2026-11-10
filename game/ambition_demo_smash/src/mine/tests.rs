@@ -215,13 +215,13 @@ fn the_placed_mine_is_a_ground_item_somebody_could_pick_up() {
     let mut app = app();
     let fighter = a_fighter(&mut app, 1, 100.0);
     press(&mut app, fighter);
-    let mut query = app.world_mut().query::<(&GroundItem, &ItemCustody)>();
-    let (item, custody) = query.iter(app.world()).next().expect("the mine is an item");
+    let mut query = app.world_mut().query::<(&GroundItem, &ambition_platformer2d::engine_core::BodyKinematics, &ItemCustody)>();
+    let (item, body, custody) = query.iter(app.world()).next().expect("the mine is an item");
     assert_eq!(item.spec.id.as_str(), "polygon_mine");
     assert_eq!(*custody, ItemCustody::InWorld);
     // Body-local offset, mirrored by facing: planted behind her, not inside
     // her.
-    assert!(item.pos.x < 100.0, "planted behind the placer");
+    assert!(body.pos.x < 100.0, "planted behind the placer");
 }
 
 /// The loaded file's mine places, waits and goes off as the linked one's. Its

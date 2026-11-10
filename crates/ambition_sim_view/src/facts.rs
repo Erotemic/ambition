@@ -555,6 +555,7 @@ pub fn rebuild_ground_items_view(
     grounds: Query<(
         bevy::prelude::Entity,
         &ambition_held_items::GroundItem,
+        &ae::BodyKinematics,
         &ambition_held_items::ItemCustody,
         Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
         Option<&ambition_abilities::ranged::bomb::BombFuse>,
@@ -564,11 +565,11 @@ pub fn rebuild_ground_items_view(
     view.0.extend(
         grounds
             .iter()
-            .filter(|(_, _, custody, _, _)| custody.in_world())
-            .map(|(item, ground, _, roll, fuse)| GroundItemFact {
+            .filter(|(_, _, _, custody, _, _)| custody.in_world())
+            .map(|(item, ground, body, _, roll, fuse)| GroundItemFact {
                 item,
-                pos: ground.pos,
-                half_extent: ground.half_extent,
+                pos: body.pos,
+                half_extent: body.size() * 0.5,
                 item_id: ground.spec.id.clone(),
                 room: live.of(item),
                 roll: roll.map_or(0.0, |roll| roll.angle),

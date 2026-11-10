@@ -19,7 +19,7 @@
 
 use ambition_platformer2d::combat::dormancy_rule::DormancyRule;
 use ambition_platformer2d::combat::death_rules::DeathRules;
-use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
 use bevy::prelude::*;
 
 /// Compose the shipped multi-game host, simulated by `Rollback` as the shipped
@@ -94,7 +94,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay(app: &mut App) {
     let rules = declared(&app);
 
     let hers = rules
-        .governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))).copied()
+        .governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))).copied()
         .unwrap_or_default();
     assert_eq!(
         hers.interlude,
@@ -110,7 +110,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay(app: &mut App) {
         "…and her level must still go back when nobody is left in play",
     );
 
-    let stage = rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_smash::SMASH_MODE)));
+    let stage = rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some(ambition_demo_smash::SMASH_MODE)));
     assert_eq!(
         stage,
         None,
@@ -134,7 +134,7 @@ fn each_declared_mode_resolves_to_its_own_games_rules(app: &mut App) {
             continue;
         };
         assert_eq!(
-            rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(mode))),
+            rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some(mode))),
             Some(stated),
             "`{mode}` rooms must read the rules `{mode}` declared, not another \
              game's. Declared: {:?}",
@@ -145,7 +145,7 @@ fn each_declared_mode_resolves_to_its_own_games_rules(app: &mut App) {
     // A mode nobody in this binary claims. Not a hypothetical: it is exactly the
     // position `smash` and `versus` are in.
     assert_eq!(
-        rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some("a_mode_no_game_in_this_binary_declares"))),
+        rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(Some("a_mode_no_game_in_this_binary_declares"))),
         None,
         "an unclaimed room reads the engine default; a stranger's rules are \
          never the fallback",
@@ -196,7 +196,7 @@ fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms(app: &mut 
         .world()
         .get_resource::<DeclaredRules<DormancyRule>>()
         .expect("the shipped host's games declare dormancy rules");
-    let radius = |mode: Option<&str>| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).map(|rule| rule.hostile_wake_radius);
+    let radius = |mode: Option<&str>| rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(mode)).map(|rule| rule.hostile_wake_radius);
 
     for (mode, expected) in [
         (None, Some(ambition_platformer2d::combat::room_rules::lowered_room_rules(ambition_content::pack::shipped()).and_then(|rules| rules.dormancy).expect("Ambition's rooms state a wake radius").hostile_wake_radius)),
@@ -249,7 +249,7 @@ fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms(app: &m
         (Some(ambition_demo_mary_o::MARY_O_MODE), None),
     ] {
         assert_eq!(
-            rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
+            rules.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(mode)).copied(),
             expected,
             "rooms tagged {mode:?} must read their own game's combat rules. \
              Declared: {:?}",
@@ -277,7 +277,7 @@ fn only_smash_rooms_name_prompts_by_button(app: &mut App) {
         (Some(ambition_demo_mary_o::MARY_O_MODE), None),
     ] {
         assert_eq!(
-            naming.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
+            naming.governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(mode)).copied(),
             expected,
             "rooms tagged {mode:?} name prompts by the wrong vocabulary"
         );
@@ -302,13 +302,13 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms(app: &mut App) {
     }
 
     let smash = Some(ambition_demo_smash::SMASH_MODE);
-    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)).copied(), Some(SmashLimitFill(smash_limit())));
+    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(smash)).copied(), Some(SmashLimitFill(smash_limit())));
     assert_eq!(
-        table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)).copied(),
+        table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(smash)).copied(),
         Some(PortalCameraTransitMode::Pop)
     );
     assert_eq!(
-        table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)).copied(),
+        table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(smash)).copied(),
         Some(PortalViewConeMode::Static)
     );
     // Sanic states its own cones (`Static`) for its own rooms. That is
@@ -322,9 +322,9 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms(app: &mut App) {
     ] {
         assert_eq!(
             (
-                table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
-                table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
-                table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).copied(),
+                table::<SmashLimitFill>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(mode)).copied(),
+                table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(mode)).copied(),
+                table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::live(mode)).copied(),
             ),
             (None, None, cones),
             "rooms tagged {mode:?} read another game's presentation or Smash's Limit"
@@ -339,7 +339,7 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms(app: &mut App) {
 /// one global number: Ambition's damage is health (3 is a smash attack) and
 /// Smash's is percent (3 is a jab).
 fn each_game_draws_its_own_line_between_light_and_heavy_hits(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::combat::strike_weight::StrikeWeightRules;
 
     let lines = app
@@ -362,7 +362,7 @@ fn each_game_draws_its_own_line_between_light_and_heavy_hits(app: &mut App) {
 /// Ambition in the hub every game's door played Ambition's passage.
 fn only_ambitions_doors_play_a_passage(app: &mut App) {
     use ambition_platformer2d::session::rooms::passage::ZonePassageRules;
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
 
     let rules = app
         .world()
@@ -387,7 +387,7 @@ fn only_ambitions_doors_play_a_passage(app: &mut App) {
 /// capability set, whose condition asks the room's game (findings F31).
 #[cfg(feature = "portal")]
 fn portals_sleep_in_mary_os_rooms_and_run_in_ambitions(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use ambition_platformer2d::platformer::schedule::SimScheduleExt;
     use bevy::ecs::schedule::graph::Direction;
@@ -434,7 +434,7 @@ fn portals_sleep_in_mary_os_rooms_and_run_in_ambitions(app: &mut App) {
 /// game declares no mounts, and the mount crate's sets are in the mounts'
 /// capability set.
 fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use ambition_platformer2d::platformer::schedule::SimScheduleExt;
     use bevy::ecs::schedule::graph::Direction;
@@ -473,7 +473,7 @@ fn mounts_sleep_in_mary_os_rooms_and_run_in_ambitions(app: &mut App) {
 /// and Ambition's: at home neither runner has an attack, and every capture
 /// system of the simulation is in the captures' capability set.
 fn grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use bevy::ecs::schedule::graph::Direction;
     use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules, SystemSet};
@@ -533,7 +533,7 @@ fn grabs_sleep_in_the_runners_rooms_and_run_in_the_fighters(app: &mut App) {
 /// encounters' capability set. The switch drain and the banners are not: other
 /// games' rooms press switches and show banners.
 fn encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, CapabilitySet, UsedCapabilities};
     use ambition_platformer2d::platformer::schedule::SimScheduleExt;
     use bevy::ecs::schedule::graph::Direction;
@@ -594,7 +594,7 @@ fn encounters_sleep_in_mary_os_and_sanics_rooms_and_run_in_ambitions(app: &mut A
 /// whose worlds hold it. Sanic declared no portals while his Act 3 rifts are
 /// portals, and the rift slept (`three_acts`).
 fn a_game_declares_each_capability_its_maps_author(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
 
     // The map entities whose work is a capability's.
@@ -663,7 +663,7 @@ fn a_game_declares_each_capability_its_maps_author(app: &mut App) {
 /// compiled (`app::plugins`). Mary-O declares no dialogue, so in her rooms it
 /// sleeps.
 fn yarn_sleeps_in_rooms_whose_game_uses_no_dialogue(app: &mut App) {
-    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::world::scoped_rules::ActiveRoom;
     use ambition_platformer2d::platformer::capability::{Capability, UsedCapabilities};
     use bevy::ecs::schedule::{Schedules, SystemSet};
 
@@ -750,4 +750,54 @@ fn a_games_simulation_systems_sleep_outside_its_rooms(app: &mut App) {
         assert!(counted.get(game).is_some_and(|n| *n > 0), "the premise: `{game}` registers simulation systems ({counted:?})");
     }
     assert!(awake.is_empty(), "these games' simulation systems run in every game's rooms: {awake:#?}");
+}
+
+#[cfg(feature = "portal")]
+#[test]
+fn mary_o_body_admission_ignores_an_ambition_rooms_live_portals() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::platformer::body::geometry::{BodyGeometry, MaterialBudget, publish_body_geometry_before_motion};
+    use ambition_platformer2d::platformer::body::pose::BodyPoseAdmission;
+    use ambition_platformer2d::platformer::capability::UsedCapabilities;
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, RoomInstanceRoot, SessionRoot, SessionScopeId};
+    use ambition_platformer2d::world::rooms::{RoomSet, RoomSpec};
+    use ambition_platformer2d::portal::{PlacedPortal, PortalChannel, PortalGunColor};
+    use bevy::ecs::system::RunSystemOnce;
+
+    fn request(poses: BodyPoseAdmission, mut bodies: Query<(Entity, &mut ae::BodyKinematics, &mut ae::SweepSample)>) {
+        for (entity, mut body, mut sweep) in &mut bodies {
+            let desired = ae::BodyKinematics { pos: ae::Vec2::new(2.0, 0.0), ..*body };
+            let _ = poses.constrain(entity, &mut body, Some(&mut sweep), desired);
+        }
+    }
+    let host = compose_the_shipped_host();
+    let rules = host.world().resource::<DeclaredRules<UsedCapabilities>>().clone();
+    let mut app = App::new();
+    app.insert_resource(rules).init_resource::<BodyGeometry>();
+    let mut mary = RoomSpec::new("review_mary", ae::World::new("review_mary", ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()));
+    mary.metadata.mode = Some(ambition_demo_mary_o::MARY_O_MODE.into());
+    let ambition = RoomSpec::new("review_ambition", ae::World::new("review_ambition", ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()));
+    app.world_mut().spawn((SessionRoot(SessionScopeId(1)), RoomSet::from_parts_or_panic("review_ambition", vec![ambition, mary], Vec::new())));
+    ambition_platformer2d::world::rooms::seat_sole_live_room_by_id(app.world_mut(), "review_ambition").unwrap();
+    let first = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>(app.world()).unwrap();
+    let second = first.next();
+    let mary_definition = ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(app.world()).unwrap().definition_by_id("review_mary").unwrap();
+    app.world_mut().spawn((RoomInstanceRoot, second, mary_definition));
+    let mut owners = Vec::new();
+    for room in [first, second] {
+        for (color, pos, normal) in [(PortalGunColor::BLUE, ae::Vec2::ZERO, -ae::Vec2::X), (PortalGunColor::ORANGE, ae::Vec2::new(500.0, 0.0), ae::Vec2::X)] {
+            app.world_mut().spawn((PlacedPortal::fixed(PortalChannel::Gun(color), pos, normal, 80.0).unwrap(), InRoomInstance(room)));
+        }
+        let body = ae::BodyKinematics { pos: ae::Vec2::new(-30.0, 0.0), canonical_size: ae::Vec2::splat(16.0), ..Default::default() };
+        owners.push(app.world_mut().spawn((body, ae::SweepSample::at_rest(body, ae::Vec2::Y), InRoomInstance(room),
+            MaterialBudget(ae::frame::thread::PieceBudget { max_hops: 0, ..ae::frame::thread::PieceBudget::COMPOSED }))).id());
+    }
+    app.world_mut().run_system_once(publish_body_geometry_before_motion).unwrap();
+    app.world_mut().run_system_once(ambition_platformer2d::portal::publish_portal_apertures).unwrap();
+    app.world_mut().run_system_once(request).unwrap();
+    assert_eq!(app.world().get::<ae::BodyKinematics>(owners[0]).unwrap().pos.x, -30.0);
+    assert_eq!(app.world().get::<ae::BodyKinematics>(owners[1]).unwrap().pos.x, 2.0);
+    app.world_mut().entity_mut(owners[0]).insert(InRoomInstance(second));
+    app.world_mut().run_system_once(request).unwrap();
+    assert_eq!(app.world().get::<ae::BodyKinematics>(owners[0]).unwrap().pos.x, 2.0);
 }

@@ -17,7 +17,7 @@ pub static PACK: EmbeddedPack = ambition_platformer2d::content_pack! {
 /// A build that reads the pack off disk states the room rules in `scope`
 /// again when an edit to them is published between sessions.
 pub fn room_rules_reload(
-    scope: ambition_platformer2d::combat::scoped_rules::RulesScope,
+    scope: ambition_platformer2d::world::scoped_rules::RulesScope,
 ) -> ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin {
     ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::room_rules(&PACK, scope)
 }

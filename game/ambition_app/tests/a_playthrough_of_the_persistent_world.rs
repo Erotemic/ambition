@@ -41,7 +41,6 @@ const ROUTE_TO_ALICE: &[&str] = &[
 const BLINK: &str = "ground_blink";
 
 type Custody = ambition_platformer2d::held_items::ItemCustody;
-type Ground = ambition_platformer2d::held_items::GroundItem;
 
 /// Every live occurrence of `id`, and its custody. A count, not a lookup: a
 /// copy and a loss are both failures.
@@ -67,7 +66,7 @@ fn take(app: &mut App, id: &SimId) -> ae::Vec2 {
     let at = {
         let world = app.world_mut();
         let found: Vec<ae::Vec2> = world
-            .query::<(&SimId, &Ground, &Custody)>()
+            .query::<(&SimId, &ambition_platformer2d::engine_core::BodyKinematics, &Custody)>()
             .iter(world)
             .filter(|(sim_id, _, custody)| *sim_id == id && custody.in_world())
             .map(|(_, ground, _)| ground.pos)
@@ -494,7 +493,7 @@ fn a_death_sends_the_blink_back_to_where_it_lay() {
     let lying: Vec<ae::Vec2> = {
         let world = app.world_mut();
         world
-            .query::<(&SimId, &Ground, &Custody)>()
+            .query::<(&SimId, &ambition_platformer2d::engine_core::BodyKinematics, &Custody)>()
             .iter(world)
             .filter(|(id, _, custody)| *id == &blink && custody.in_world())
             .map(|(_, ground, _)| ground.pos)

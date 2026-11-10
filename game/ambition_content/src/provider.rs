@@ -359,7 +359,7 @@ fn ambition_session_world(
     );
     prepared_world.prepared_source().with_participant_friendly_fire(
         ambition_combat::targeting::ParticipantFriendlyFire {
-            scope: ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+            scope: ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
             enabled,
         },
     )

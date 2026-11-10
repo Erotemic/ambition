@@ -1,11 +1,11 @@
 //! A session with two games' rooms live, for the witnesses of the per-room
 //! rule readers here and in the crates that read rules per room.
 
-use bevy::prelude::*;
+use bevy_app::App;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component, LiveRoomInstance, RoomInstanceRoot, SessionRoot, SessionScopeId,
 };
-use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
+use crate::rooms::{RoomSet, RoomSpec};
 
 /// The hall's live room and the stage's.
 pub type TwoRooms = (LiveRoomInstance, LiveRoomInstance);
@@ -35,7 +35,7 @@ pub fn two_game_session(app: &mut App, two: bool) -> LiveRoomInstance {
             Vec::new(),
         ),
     ));
-    ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), "hall")
+    crate::rooms::seat_sole_live_room_by_id(app.world_mut(), "hall")
         .expect("the fixture set holds its room");
     let first = *ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         LiveRoomInstance,

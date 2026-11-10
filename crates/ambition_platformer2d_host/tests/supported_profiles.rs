@@ -349,7 +349,7 @@ fn a_second_session_in_one_process_steps_as_the_first() {
 
 #[test]
 fn checkpoint_startup_does_not_depend_on_held_use() {
-    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
     use ambition_platformer2d_runtime::profile::{
         COLLECTION_WITHOUT_HELD_USE, HEADLESS_BODY_WORLD,
     };

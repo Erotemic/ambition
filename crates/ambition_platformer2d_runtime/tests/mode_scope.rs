@@ -315,7 +315,7 @@ fn a_game_with_a_mode_owner() -> App {
     app.add_plugins(ambition_platformer2d_runtime::ModeScopePlugin);
     ambition_platformer2d_runtime::install_mode_owner(
         &mut app,
-        ambition_combat::scoped_rules::RulesScope::Mode("a"),
+        ambition_platformer2d_world::scoped_rules::RulesScope::Mode("a"),
         "a",
         ActClock::default,
     );
@@ -390,7 +390,7 @@ fn an_every_room_owner_lives_in_untagged_rooms() {
     app.add_plugins(ambition_platformer2d_runtime::ModeScopePlugin);
     ambition_platformer2d_runtime::install_mode_owner(
         &mut app,
-        ambition_combat::scoped_rules::RulesScope::EveryRoom,
+        ambition_platformer2d_world::scoped_rules::RulesScope::EveryRoom,
         "standalone",
         ActClock::default,
     );
@@ -430,7 +430,7 @@ fn a_mode_owner_is_told_when_it_arrives_in_a_room() {
     let mut app = a_game_with_a_mode_owner();
     ambition_platformer2d_runtime::install_mode_owner(
         &mut app,
-        ambition_combat::scoped_rules::RulesScope::Mode("b"),
+        ambition_platformer2d_world::scoped_rules::RulesScope::Mode("b"),
         "b",
         ActClock::default,
     );
@@ -589,7 +589,7 @@ struct TintChanges(u32);
 /// per rule change, not one per frame or per room.
 #[test]
 fn a_room_rule_projects_into_its_read_model_and_changes_only_with_the_answer() {
-    use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, RulesScope};
 
     fn count(mut changes: ResMut<TintChanges>) {
         changes.0 += 1;
@@ -642,8 +642,8 @@ fn a_room_rule_projects_into_its_read_model_and_changes_only_with_the_answer() {
 /// govern with no room too, so its setup runs under them.
 #[test]
 fn a_rule_and_its_gate_agree_about_no_room_an_untagged_room_and_a_mode() {
-    use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
-    use ambition_combat::governing_rules::GoverningRules;
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d_world::governing_rules::GoverningRules;
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn read(app: &mut App) -> (Option<u8>, bool, Option<u16>, bool) {

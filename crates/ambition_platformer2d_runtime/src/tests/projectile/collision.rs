@@ -143,7 +143,7 @@ fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle
         ),
     ] {
         app.world_mut().spawn((
-            PlacedPortal::fixed(channel, pos, normal, 40.0),
+            PlacedPortal::fixed(channel, pos, normal, 40.0).unwrap(),
             InRoomInstance(second),
         ));
     }
@@ -187,7 +187,7 @@ fn a_body_behind_a_portal_is_hit(portals: bool) -> bool {
             (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0),
             ),
         ] {
-            app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
+            app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0).unwrap());
         }
     }
     // One leg of 24 px, 590 to 614: its centre crosses the plane at 600, and
@@ -237,7 +237,7 @@ fn a_fast_shot_through_a_portal_reaches_a_body_just_past_the_exit() {
         (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0),
         ),
     ] {
-        app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0));
+        app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0).unwrap());
     }
     // 8 wide, 40 in front of the orange: inside a step of 96.
     let target = spawn_boss(&mut app, "past", ae::Vec2::new(1240.0, 800.0), ae::Vec2::new(4.0, 23.0),
@@ -2728,7 +2728,7 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
     let mut destination=body.kin;
     destination.pos+=destination.vel*DT;
     let selected=ambition_projectiles::resolve_world_collision(
-        body.kin,destination,body.game,&world,ae::Vec2::Y,DT,0.0..1.0,None,
+        body.kin,destination,body.game,&world,ae::Vec2::Y,DT,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None,
     ).expect("the contact is representable");
     let Some(ae::world::MaterialCollider::Block(selected_block))=selected.contact.as_ref().map(|hit|hit.collider)
         else { panic!("the shot must reach a block"); };
@@ -3038,4 +3038,30 @@ fn a_crate_no_shot_can_break_still_stops_the_shot() {
         "a bolt flew straight through a SOLID crate: a published surface does \
          not participate in projectile collision, which is what Q96 ruled it must"
     );
+}
+
+#[test]
+fn a_returning_shot_still_meets_the_wall_after_its_feature_hit() {
+    use ambition_combat::components::FeatureName;
+    let world = ae::World::new("returning contact", ae::Vec2::splat(2000.0), ae::Vec2::splat(200.0), vec![
+        ae::Block::solid("later wall", ae::Vec2::new(420.0, 250.0), ae::Vec2::new(20.0, 100.0)),
+    ]);
+    let mut app = projectile_test_app(world, ae::Vec2::splat(200.0), 1.0);
+    let target = app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+        ambition_combat::components::FeatureId::new("first crate"),
+        FeatureName::new("first crate"),
+        ambition_platformer2d_shared_tangle::sim_id::SimId::placement("first crate"),
+        ambition_combat::components::CenteredAabb::from_center_size(ae::Vec2::new(400.0, 300.0), ae::Vec2::new(24.0, 46.0)),
+        BreakableFeature::new(ambition_interaction::Breakable::new("first crate", 1)),
+    )).id();
+    let spec = ProjectileKind::Fireball.spec(ae::Vec2::new(360.0, 300.0), ae::Vec2::X, 1.0);
+    let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+    body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+    body.acceleration.0 = ae::Vec2::new(-6000.0, 0.0);
+    crate::projectile_tests::spawn_player_projectile(&mut app, body);
+    advance_time(&mut app, 0.016);
+    app.update();
+    assert!(app.world().get::<BreakableFeature>(target).unwrap().broken());
+    assert!(crate::projectile_tests::projectile_bodies(&mut app).is_empty(), "the wall ends this shot after the crate contact");
 }

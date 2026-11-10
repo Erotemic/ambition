@@ -73,7 +73,7 @@ impl EmbeddedPackReloadPlugin {
     /// The pack's `room_rules`, declared in `scope` once at start
     /// (`declare_room_rules`), stated again at each publication that changes
     /// them.
-    pub fn room_rules(pack: &'static EmbeddedPack, scope: crate::combat::scoped_rules::RulesScope) -> Self {
+    pub fn room_rules(pack: &'static EmbeddedPack, scope: crate::world::scoped_rules::RulesScope) -> Self {
         use crate::combat::room_rules::{lowered_room_rules, restate_room_rules, ROOM_RULES_SCHEMA};
         Self {
             pack,
@@ -90,9 +90,9 @@ impl EmbeddedPackReloadPlugin {
     /// stated again at each publication that changes it. A pack that no
     /// longer states a ladder removes the declaration: its fighters then play
     /// the engine floor.
-    pub fn fighter_ladder(pack: &'static EmbeddedPack, scope: crate::combat::scoped_rules::RulesScope) -> Self {
+    pub fn fighter_ladder(pack: &'static EmbeddedPack, scope: crate::world::scoped_rules::RulesScope) -> Self {
         use crate::combat::brain::fighter::content_schema::{lowered_fighter_brain_ladder, FIGHTER_BRAIN_LADDER_SCHEMA};
-        use crate::combat::scoped_rules::DeclaredRules;
+        use crate::world::scoped_rules::DeclaredRules;
         Self {
             pack,
             live: &[],
@@ -826,7 +826,7 @@ mod tests {
     /// the next room of that mode is governed by the saved file.
     #[test]
     fn the_room_rules_restater_states_the_scopes_rules_again() {
-        use crate::combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
+        use crate::world::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
         use crate::combat::strike_weight::StrikeWeightRules;
 
         let (pack, root) = pack_with_rules("room_rules_restater", "(heavy_hit_damage: Some(12))");
@@ -856,7 +856,7 @@ mod tests {
     fn the_ladder_restater_states_the_scopes_ladder_again() {
         use crate::characters::brain::fighter::FighterBrainLadder;
         use crate::combat::brain::fighter::content_schema::lowered_fighter_brain_ladder;
-        use crate::combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
+        use crate::world::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
 
         let shipped = std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/ambition_content/assets/data/fighter_brain_ladder.ron"),

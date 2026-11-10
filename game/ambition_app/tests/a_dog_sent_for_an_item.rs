@@ -99,13 +99,13 @@ fn give_the_dog_its_jump(sim: &mut ambition_app::Platformer2dSimHarness, dog: En
 fn put_the_blink_on(sim: &mut ambition_app::Platformer2dSimHarness, blink: Entity, graph: &NavGraph, surface: usize) {
     let middle = (graph.surfaces[surface].left + graph.surfaces[surface].right) * 0.5;
     let feet = graph.point_on(surface, middle);
-    let mut ground = sim.world_mut().get_mut::<GroundItem>(blink).expect("the Blink lies in the world");
-    ground.pos = feet - graph.frame.down * (ground.half_extent.y + 1.0);
+    let mut ground = sim.world_mut().get_mut::<ae::BodyKinematics>(blink).expect("the Blink lies in the world");
+    ground.pos = feet - graph.frame.down * (ground.size().y * 0.5 + 1.0);
     ground.vel = ae::Vec2::ZERO;
 }
 
 fn sim_blink_at(sim: &ambition_app::Platformer2dSimHarness, blink: Entity) -> ae::Vec2 {
-    sim.world().get::<GroundItem>(blink).expect("the Blink lies in the world").pos
+    sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(blink).expect("the Blink lies in the world").pos
 }
 
 /// ⭐ THE SAME ITEM, AND THE BODY'S OWN MOVEMENT DECIDES. Put where only a
@@ -149,9 +149,9 @@ fn without_its_jump_the_dog_refuses_what_needs_one() {
         let (graph, surface) = needs_a_jump(&mut sim, dog);
         put_the_blink_on(&mut sim, blink, &graph, surface);
         give_the_dog_its_jump(&mut sim, dog, jump);
-        let put = sim.world().get::<GroundItem>(blink).expect("the Blink").pos;
+        let put = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(blink).expect("the Blink").pos;
         sim.step_n(base(), 10);
-        let lies = sim.world().get::<GroundItem>(blink).expect("the Blink").pos;
+        let lies = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(blink).expect("the Blink").pos;
         assert_eq!(
             sim.world().get::<ae::BodyAbilities>(dog).map(|a| a.abilities.jump),
             Some(jump),

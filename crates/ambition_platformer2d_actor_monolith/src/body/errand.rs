@@ -82,7 +82,7 @@ pub(crate) fn errand_item_at<'a>(
     errand: &Errand,
     body_room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    items: impl IntoIterator<Item = (Entity, &'a SimId, &'a ambition_held_items::GroundItem, &'a ambition_held_items::ItemCustody)>,
+    items: impl IntoIterator<Item = (Entity, &'a SimId, &'a ae::BodyKinematics, &'a ambition_held_items::ItemCustody)>,
 ) -> Option<ae::Vec2> {
     items
         .into_iter()
@@ -133,7 +133,7 @@ pub(crate) fn errand_crossing<'a>(
     may_leave: bool,
     specs: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
     ledger: Option<&ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
-    items: impl IntoIterator<Item = (Entity, &'a SimId, &'a ambition_held_items::GroundItem, &'a ambition_held_items::ItemCustody)>,
+    items: impl IntoIterator<Item = (Entity, &'a SimId, &'a ambition_held_items::ItemCustody)>,
 ) -> Result<ErrandCrossing, ErrandRefusal> {
     use ErrandRefusal::{Gone, NoRoute};
     let rooms = specs.rooms();
@@ -148,7 +148,7 @@ pub(crate) fn errand_crossing<'a>(
     let from = specs.definition_in(body_room).ok_or(Gone)?;
     let live_item = items
         .into_iter()
-        .find(|(_, id, _, custody)| **id == errand.fetch && custody.in_world())
+        .find(|(_, id, custody)| **id == errand.fetch && custody.in_world())
         .map(|(item, ..)| specs.live().of(item));
     // The definition the item lies in, and its live room when it is live.
     let (to, item_room) = match live_item {
@@ -243,7 +243,6 @@ pub fn cross_on_errands(
     items: Query<(
         Entity,
         &SimId,
-        &ambition_held_items::GroundItem,
         &ambition_held_items::ItemCustody,
     )>,
     custody: Query<(Entity, &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)>,
@@ -275,7 +274,7 @@ pub fn cross_on_errands(
         };
         let durable = ambition_platformer2d_construction::whereabouts::keeps_durable_whereabouts(&specs, config, origin);
         let Ok(crossing) =
-            errand_crossing(errand, body_room, durable, &specs, occurrences.as_deref(), &items)
+            errand_crossing(errand, body_room, durable, &specs, occurrences.as_deref(), items.iter())
         else {
             continue;
         };
@@ -339,7 +338,8 @@ pub fn settle_errands(
     mut grounds: Query<(
         Entity,
         &SimId,
-        &mut ambition_held_items::GroundItem,
+        &ambition_held_items::GroundItem,
+        &ae::BodyKinematics,
         &mut ambition_held_items::ItemCustody,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -370,17 +370,18 @@ pub fn settle_errands(
         }
         // The reach of the body is its collision box, as for a press.
         let reach = kinematics.collision_box(last_step);
-        for (item, id, mut ground, mut custody) in &mut grounds {
+        for (item, id, ground, item_body, mut custody) in &mut grounds {
             if *id != errand.fetch || !custody.in_world() || rooms.of(item) != rooms.of(body) {
                 continue;
             }
-            if reach.strict_intersects(ae::Aabb::new(ground.pos, ground.half_extent)) {
+            if reach.strict_intersects(item_body.aabb()) {
                 ambition_held_items::take_ground_item(
                     &mut commands,
                     body,
                     &mut repertoire,
                     item,
-                    &mut ground,
+                    ground,
+                    item_body,
                     &mut custody,
                 );
                 errand.outcome = ErrandOutcome::Done;

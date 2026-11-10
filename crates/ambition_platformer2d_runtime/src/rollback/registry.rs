@@ -227,7 +227,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // Body material scale and orientation are persistent state.
 // Portal steps retain the start pose and the host's displacement and turn.
 // Root motion samples retain their interval within the world tick.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 428;
+// 428 -> 429: item motion uses shared body state; custody derives world presence.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 429;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

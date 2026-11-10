@@ -148,8 +148,8 @@ fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
         body,
         transfer: ambition_platformer2d::portal::PortalTransfer::new(
             ae::Vec2::ZERO, ae::Vec2::ZERO,
-            &ambition_platformer2d::portal::PlacedPortal::fixed(ambition_platformer2d::portal::PortalChannel::Gun(ambition_platformer2d::portal::PortalGunColor::BLUE), ae::Vec2::ZERO, -ae::Vec2::Y, 40.0),
-            &ambition_platformer2d::portal::PlacedPortal::fixed(ambition_platformer2d::portal::PortalChannel::Gun(ambition_platformer2d::portal::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0),
+            &ambition_platformer2d::portal::PlacedPortal::fixed(ambition_platformer2d::portal::PortalChannel::Gun(ambition_platformer2d::portal::PortalGunColor::BLUE), ae::Vec2::ZERO, -ae::Vec2::Y, 40.0).unwrap(),
+            &ambition_platformer2d::portal::PlacedPortal::fixed(ambition_platformer2d::portal::PortalChannel::Gun(ambition_platformer2d::portal::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0).unwrap(),
             &ambition_platformer2d::portal::PortalTuning::default(),
         ).unwrap(),
         facing_flip: false,

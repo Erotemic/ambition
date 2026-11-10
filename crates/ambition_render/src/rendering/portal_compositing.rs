@@ -285,7 +285,7 @@ mod tests {
             ambition_platformer2d_core::Vec2::new(900.0, 300.0),
             ambition_platformer2d_core::Vec2::new(-1.0, 0.0),
             46.0,
-        ));
+        ).unwrap());
         app.add_systems(Update, publish_portal_compositing_candidates);
         app
     }
@@ -641,7 +641,7 @@ mod bridge_meets_compositor_tests {
             ambition_platformer2d_core::Vec2::new(500.0, 300.0),
             ambition_platformer2d_core::Vec2::new(-1.0, 0.0),
             46.0,
-        )
+        ).unwrap()
     }
 
     fn app() -> App {

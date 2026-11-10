@@ -2,7 +2,7 @@
 //!
 //! A route mutating global tuning and undoing it afterwards is a lifecycle borrowing an authority
 //! it does not own. So a game DECLARES its rules ([`CombatRules`]) for the rooms it governs, with
-//! `declare_rules` (see [`crate::scoped_rules`]). A projection folds the active room's rules over
+//! `declare_rules` (see [`ambition_platformer2d_world::scoped_rules`]). A projection folds the active room's rules over
 //! the world's baseline every tick, and combat reads the result ([`ResolvedCombatTuning`]).
 //! Nothing is written back and nothing is published or released, so leaving the rooms IS the exit.
 //!

@@ -1,7 +1,7 @@
 //! The per-frame actor tick: syncing poses from feature AABBs, driving the
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
-use ambition_platformer2d_shared_tangle::portal_passages::PartSource;
+use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use super::*;
 use crate::body::ActorMutIntegrationExt;
 use ambition_body_seed::clusters::ActorMut;
@@ -1277,7 +1277,7 @@ fn integrate_actor_body(
 /// end, moving as the pair carries it. Its own entry is its whole box, first.
 pub fn snapshot_body_contact(
     marked: Query<(), With<ambition_platformer2d_core::movement::BodyContact>>,
-    rules: ambition_combat::governing_rules::RulesOf<ambition_platformer2d_core::movement::BodyContact>,
+    rules: ambition_platformer2d_world::governing_rules::RulesOf<ambition_platformer2d_core::movement::BodyContact>,
     mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
     bodies: Query<(
         bevy::prelude::Entity,
@@ -1289,7 +1289,7 @@ pub fn snapshot_body_contact(
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // Last tick's pairs and straddlers: where each body is as this tick begins.
-    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) {
     snapshot.clear();
     if marked.is_empty() && !rules.any_live_declaration() { return; }
@@ -1393,7 +1393,7 @@ pub struct BodyIntegrationMessages<'w> {
 /// collision world for its room and its own contact, tuning, and envelope data.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
-    passages: Option<Res<ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     // Empty in every composition that has not granted the capability, and an empty snapshot
     // answers `BodyContactField::NONE` for every body.
     contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,

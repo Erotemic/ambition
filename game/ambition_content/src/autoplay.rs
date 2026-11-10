@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn a_flying_body_opens_an_edge_door_without_putting_its_center_outside_the_room() {
-        let zone = LoadingZone {
+        let zone = LoadingZone { presentation: Default::default(),
             id: "west".into(), name: "west".into(), activation: LoadingZoneActivation::Door,
             aabb: ae::Aabb { min: ae::Vec2::new(0.0, 384.0), max: ae::Vec2::new(16.0, 480.0) },
         };

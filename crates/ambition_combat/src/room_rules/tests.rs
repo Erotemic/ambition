@@ -181,10 +181,10 @@ fn body_contact_is_scoped_and_removed_when_the_rule_is_removed() {
     let scope = RulesScope::Mode("mary_o");
     let mut app = App::new();
     declare_room_rules(&mut app, scope, rules);
-    assert_eq!(app.world().resource::<DeclaredRules<BodyContact>>().governing(crate::scoped_rules::ActiveRoom::Mode("mary_o")), rules.body_contact.as_ref());
-    assert!(app.world().resource::<DeclaredRules<BodyContact>>().governing(crate::scoped_rules::ActiveRoom::Mode("sanic")).is_none());
+    assert_eq!(app.world().resource::<DeclaredRules<BodyContact>>().governing(ambition_platformer2d_world::scoped_rules::ActiveRoom::Mode("mary_o")), rules.body_contact.as_ref());
+    assert!(app.world().resource::<DeclaredRules<BodyContact>>().governing(ambition_platformer2d_world::scoped_rules::ActiveRoom::Mode("sanic")).is_none());
     restate_room_rules(app.world_mut(), scope, None);
-    assert!(app.world().resource::<DeclaredRules<BodyContact>>().governing(crate::scoped_rules::ActiveRoom::Mode("mary_o")).is_none());
+    assert!(app.world().resource::<DeclaredRules<BodyContact>>().governing(ambition_platformer2d_world::scoped_rules::ActiveRoom::Mode("mary_o")).is_none());
     for value in ["-0.1", "1.1", "NaN"] {
         assert!(!check(&format!("(body_contact: Some((resistance: {value})))")).diagnostics.is_empty());
     }

@@ -985,7 +985,7 @@ mod tests {
         catalog.rings.retain(|ring| ["hub", "math"].contains(&ring.zone.as_str()));
         let room = |id: &str, zone: &str| {
             let mut room = RoomSpec::new(id, World::new(id, Vec2::splat(500.0), Vec2::splat(100.0), vec![]));
-            room.loading_zones.push(LoadingZone {
+            room.loading_zones.push(LoadingZone { presentation: Default::default(),
                 id: zone.into(), name: zone.into(), activation: LoadingZoneActivation::Door,
                 aabb: Aabb::new(Vec2::splat(100.0), Vec2::splat(30.0)),
             });

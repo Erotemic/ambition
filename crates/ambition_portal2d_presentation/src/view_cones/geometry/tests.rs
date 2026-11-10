@@ -250,7 +250,7 @@ fn placed(channel: ambition_portal2d::PortalChannel, pos: Vec2, normal: Vec2) ->
         pos,
         normal,
         ambition_portal2d::PORTAL_OPENING_HALF,
-    )
+    ).unwrap()
 }
 
 fn span_x(cone: &ViewCone) -> f32 {

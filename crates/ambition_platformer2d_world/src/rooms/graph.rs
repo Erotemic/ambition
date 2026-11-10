@@ -924,7 +924,7 @@ mod room_identity_tests {
         };
         let room = |id: &str, zone: &str| {
             let mut room = RoomSpec::new(id, world());
-            room.loading_zones.push(LoadingZone {
+            room.loading_zones.push(LoadingZone { presentation: Default::default(),
                 id: zone.to_string(),
                 name: zone.to_string(),
                 activation: LoadingZoneActivation::Door,

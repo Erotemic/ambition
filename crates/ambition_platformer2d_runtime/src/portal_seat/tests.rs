@@ -59,7 +59,7 @@ fn same_wall_pair_app(who: Body) -> (App, Entity) {
             Vec2::new(20.0, y),
             Vec2::new(1.0, 0.0),
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ));
+        ).unwrap());
     }
     let mut body = app.world_mut().spawn(BodyKinematics { material: Default::default(),
         pos: Vec2::new(20.0, 200.0),
@@ -72,6 +72,11 @@ fn same_wall_pair_app(who: Body) -> (App, Entity) {
         Body::PossessedWithTheSeat => body.insert(DrivingParticipant(PlayerSlot::PRIMARY)),
     };
     let body = body.id();
+    let kin = *app.world().get::<BodyKinematics>(body).unwrap();
+    let mut sweep = ambition_platformer2d_core::SweepSample::at_rest(kin, Vec2::Y);
+    sweep.prev = kin.pos + Vec2::X * 10.0;
+    sweep.vel = kin.vel;
+    app.world_mut().entity_mut(body).insert(sweep);
     (app, body)
 }
 

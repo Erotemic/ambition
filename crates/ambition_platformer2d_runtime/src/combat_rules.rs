@@ -19,20 +19,20 @@ use bevy::prelude::{Commands, Res};
 /// one tick where they differ.
 pub fn project_combat_rules(
     mut commands: Commands,
-    declared: ambition_combat::governing_rules::GoverningRules<ambition_combat::rules::CombatRules>,
+    declared: ambition_platformer2d_world::governing_rules::GoverningRules<ambition_combat::rules::CombatRules>,
     // The room's line between light and heavy hits: a rule of its own, so a
     // game that declares no combat ruleset can still draw it.
-    strike_weight: ambition_combat::governing_rules::GoverningRules<
+    strike_weight: ambition_platformer2d_world::governing_rules::GoverningRules<
         ambition_combat::strike_weight::StrikeWeightRules,
     >,
     // The room's share of each move's landing lag: a rule of its own too.
-    landing_lag: ambition_combat::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
+    landing_lag: ambition_platformer2d_world::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
     baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
     participant_rule: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_combat::targeting::ParticipantFriendlyFire,
     >>,
-    rule_rooms: ambition_combat::governing_rules::LiveRuleRooms,
+    rule_rooms: ambition_platformer2d_world::governing_rules::LiveRuleRooms,
     roots: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -44,7 +44,7 @@ pub fn project_combat_rules(
     // `Option` on both baselines: a minimal headless world that never stands
     // up the tuning resources still resolves, and `resolve_over` says what an
     // absent baseline stands at.
-    let resolve = |room: ambition_combat::scoped_rules::ActiveRoom<'_>| {
+    let resolve = |room: ambition_platformer2d_world::scoped_rules::ActiveRoom<'_>| {
         let mut resolved = ambition_combat::rules::ResolvedCombatTuning::resolve_over(
             declared.in_room(room).copied(),
             baseline_feel.as_deref(),
@@ -57,7 +57,7 @@ pub fn project_combat_rules(
             .map(|rule| rule.enabled);
         resolved
     };
-    commands.insert_resource(resolve(ambition_combat::scoped_rules::ActiveRoom::NoRoom));
+    commands.insert_resource(resolve(ambition_platformer2d_world::scoped_rules::ActiveRoom::NoRoom));
     for (root, room) in &roots {
         commands
             .entity(root)
@@ -69,7 +69,7 @@ pub fn project_combat_rules(
 mod tests {
     use super::*;
     use ambition_combat::rules::RoomCombatTuning;
-    use ambition_combat::scoped_rules::{DeclaredRules, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclaredRules, RulesScope};
     use ambition_combat::strike_weight::StrikeWeightRules;
     use ambition_platformer2d_shared_tangle::lifecycle::{
         session_world_component, LiveRoomInstance, RoomInstanceRoot, SessionRoot, SessionScopeId,

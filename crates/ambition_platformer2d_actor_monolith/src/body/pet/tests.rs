@@ -512,3 +512,31 @@ fn a_hand_behind_the_petters_feet_is_not_a_reach() {
     assert_eq!(reach_of(10.0, 28.0, -17.0), None);
     assert_eq!(reach_of(10.0, 28.0, 0.0), None);
 }
+
+#[test]
+fn a_refused_second_participant_cancels_without_stopping_the_first() {
+    let mut app = app();
+    let dog_at = ae::Vec2::new(100.0, 100.0);
+    let player = spawn_player(&mut app, dog_at + ae::Vec2::X * 30.0);
+    let dog = spawn_character(&mut app, dog_at, "good_dog");
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    arrive(&mut app, player);
+    app.world_mut().get_mut::<BodyKinematics>(player).unwrap().vel = ae::Vec2::X * 23.0;
+    app.world_mut().get_mut::<BodyKinematics>(dog).unwrap().vel = ae::Vec2::X * 31.0;
+    app.world_mut().entity_mut(dog).insert(ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration(ae::Vec2::splat(f32::NAN)));
+    let before = *app.world().get::<BodyKinematics>(player).unwrap();
+    let dog_before = *app.world().get::<BodyKinematics>(dog).unwrap();
+    app.update();
+    assert_eq!(*app.world().get::<BodyKinematics>(player).unwrap(), before);
+    assert_eq!(*app.world().get::<BodyKinematics>(dog).unwrap(), dog_before);
+    assert!(app.world().get::<PetBeat>(player).is_none());
+    assert!(app.world().get::<CommandedMove>(player).is_none());
+    assert!(!gesture_held(&app, player) && !gesture_held(&app, dog));
+    app.world_mut().entity_mut(dog).remove::<ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration>();
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    if walk_mark(&app, player).is_some() { arrive(&mut app, player); }
+    app.update();
+    assert!(matches!(app.world().get::<PetBeat>(player).map(|beat| beat.stage), Some(PetStage::Gesture { .. })));
+}

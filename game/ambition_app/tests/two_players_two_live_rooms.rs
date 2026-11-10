@@ -1286,7 +1286,7 @@ fn pick_up_and_walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target
     let (item, _) = blink_run_pickup(sim);
     let at = sim
         .world()
-        .get::<ambition_platformer2d::held_items::GroundItem>(item)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(item)
         .expect("the item is a ground item")
         .pos;
     sim.teleport_player((at.x, at.y));

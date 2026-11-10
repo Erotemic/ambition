@@ -40,6 +40,7 @@ pub fn portal_fire_system(
     mut fires: MessageReader<PortalFireIntent>,
     mut commands: SessionCommands,
     mut fired: MessageWriter<PortalShotFired>,
+    live: crate::PortalRooms,
 ) {
     // The session that owns each shot. With no session the intents are read
     // and dropped, so an old intent cannot fire in the next session.
@@ -48,6 +49,7 @@ pub fn portal_fire_system(
         let Some(scope) = scope else {
             continue;
         };
+        if !live.allows_room(fire.room.or(scope.room())) { continue; }
         let dir = fire.dir.normalize_or_zero();
         if dir == Vec2::ZERO {
             continue;

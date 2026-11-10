@@ -123,7 +123,7 @@ mod tests {
         spec.metadata.visual_profile.parallax_theme = Some(theme.key().to_string());
         spec.loading_zones = doors
             .iter()
-            .map(|other| LoadingZone {
+            .map(|other| LoadingZone { presentation: Default::default(),
                 id: format!("to_{other}"),
                 name: format!("to_{other}"),
                 activation: LoadingZoneActivation::Door,

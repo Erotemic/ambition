@@ -378,7 +378,7 @@ pub fn lower_module_item_spawns(
 /// Keep each module entity that is an item where the item is, whoever holds
 /// it. Runs before the entities are ticked, after the items moved.
 pub fn follow_module_items(
-    mut entities: Query<(&mut ModuleEntity, &ambition_held_items::GroundItem, &ambition_held_items::ItemCustody)>,
+    mut entities: Query<(&mut ModuleEntity, &ae::BodyKinematics, &ambition_held_items::ItemCustody)>,
     where_it_is: ambition_held_items::ItemWorldPos,
 ) {
     for (mut entity, item, custody) in &mut entities {

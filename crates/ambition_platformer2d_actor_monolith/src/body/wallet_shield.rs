@@ -17,7 +17,7 @@ use ambition_platformer2d_shared_tangle::schedule::{
 
 /// A game's rule that a wallet absorbs a hit in the rooms it governs, for a
 /// body whose character states `wallet_shield`. Declared with
-/// [`DeclareRulesExt::declare_rules`](ambition_combat::scoped_rules::DeclareRulesExt::declare_rules).
+/// [`DeclareRulesExt::declare_rules`](ambition_platformer2d_world::scoped_rules::DeclareRulesExt::declare_rules).
 /// In a room that no game gave this rule, no wallet absorbs a hit, because no
 /// game there shows what the spent wallet becomes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,7 +33,7 @@ pub fn project_wallet_shields(
     mut commands: Commands,
     // Each body's own room's rule (OW1): with two rooms live, THE live room's
     // rule was the rule of no room, and no wallet shielded anywhere.
-    rule: ambition_combat::governing_rules::RulesOf<WalletShieldRule>,
+    rule: ambition_platformer2d_world::governing_rules::RulesOf<WalletShieldRule>,
     cast: ambition_characters::prepared::SessionCast,
     // Only a body that wears a character or has the shield can change: with no
     // filter the query visited every entity of the world each tick.
@@ -82,7 +82,7 @@ impl Plugin for WalletShieldPlugin {
 mod tests {
     use super::*;
     use ambition_characters::prepared::PreparedCharacterRegistry;
-    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
 
     /// A body that wears `shielded` (its row states `wallet_shield`) or
     /// `plain` (it does not), in an app whose only room is tagged `mode`.
@@ -188,7 +188,7 @@ mod tests {
             .prepared,
         );
         app.insert_resource(cast);
-        let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
+        let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
         app.declare_rules(RulesScope::Mode("smash"), WalletShieldRule);
         app.add_systems(Update, project_wallet_shields);
         let bodies = [hall, hall.next()].map(|room| {

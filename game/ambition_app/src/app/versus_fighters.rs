@@ -47,7 +47,7 @@ pub fn register_versus_cast(app: &mut bevy::prelude::App, default_character: &st
     });
     app.add_plugins(EmbeddedPackReloadPlugin::room_rules(
         &PACK,
-        ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(super::versus::VERSUS_EXPERIENCE),
+        ambition_platformer2d::world::scoped_rules::RulesScope::Mode(super::versus::VERSUS_EXPERIENCE),
     ));
 }
 

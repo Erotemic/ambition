@@ -46,14 +46,14 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 
     let zone_center = ae::Vec2::new(100.0, 100.0);
     let mut room_a = spec_with(RoomMetadata::default(), "a");
-    room_a.loading_zones = vec![LoadingZone {
+    room_a.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "exit_a".into(),
         name: "east".into(),
         activation: LoadingZoneActivation::Walk,
         aabb: ae::Aabb::new(zone_center, ae::Vec2::new(24.0, 24.0)),
     }];
     let mut room_b = spec_with(RoomMetadata::default(), "b");
-    room_b.loading_zones = vec![LoadingZone {
+    room_b.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "entry_b".into(),
         name: "west".into(),
         activation: LoadingZoneActivation::Walk,
@@ -192,14 +192,14 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     // in one frame.
     let zone_center = ae::Vec2::new(100.0, 100.0);
     let mut room_a = spec_with(RoomMetadata::default(), "a");
-    room_a.loading_zones = vec![LoadingZone {
+    room_a.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "exit_a".into(),
         name: "east".into(),
         activation: LoadingZoneActivation::Walk,
         aabb: ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
     }];
     let mut room_b = spec_with(RoomMetadata::default(), "b");
-    room_b.loading_zones = vec![LoadingZone {
+    room_b.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "entry_b".into(),
         name: "west".into(),
         activation: LoadingZoneActivation::Walk,
@@ -340,14 +340,14 @@ fn room_crossed_to(
     }
 
     let mut room_a = spec_with(RoomMetadata::default(), "a");
-    room_a.loading_zones = vec![LoadingZone {
+    room_a.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "exit_a".into(),
         name: "east".into(),
         activation: LoadingZoneActivation::EdgeExit,
         aabb: zone,
     }];
     let mut room_b = spec_with(RoomMetadata::default(), "b");
-    room_b.loading_zones = vec![LoadingZone {
+    room_b.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "entry_b".into(),
         name: "west".into(),
         activation: LoadingZoneActivation::EdgeExit,
@@ -478,7 +478,7 @@ fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches
             model,
             &mut clusters,
             ambition_platformer2d_core::MotionStepContext {
-                portal: None,
+                admission: None,
                 world: &world,
                 input: ae::InputState::default(),
                 frame: ae::MotionFrame::from_acceleration(
@@ -854,7 +854,7 @@ fn loading_zone_activation_label_is_non_empty() {
 
 #[test]
 fn loading_zone_is_ready_respects_activation() {
-    let edge = LoadingZone {
+    let edge = LoadingZone { presentation: Default::default(),
         id: "x".into(),
         name: "x".into(),
         aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
@@ -864,7 +864,7 @@ fn loading_zone_is_ready_respects_activation() {
     assert!(edge.is_ready(false));
     assert!(edge.is_ready(true));
 
-    let door = LoadingZone {
+    let door = LoadingZone { presentation: Default::default(),
         id: "y".into(),
         name: "y".into(),
         aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
@@ -877,7 +877,7 @@ fn loading_zone_is_ready_respects_activation() {
 
 #[test]
 fn loading_zone_hint_includes_door_prompt() {
-    let door = LoadingZone {
+    let door = LoadingZone { presentation: Default::default(),
         id: "lab_door".into(),
         name: "lab door".into(),
         aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
@@ -891,7 +891,7 @@ fn loading_zone_hint_includes_door_prompt() {
 
 #[test]
 fn loading_zone_hint_for_edge_exit_skips_prompt() {
-    let edge = LoadingZone {
+    let edge = LoadingZone { presentation: Default::default(),
         id: "east_exit".into(),
         name: "east exit".into(),
         aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
@@ -1012,7 +1012,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
                 model,
                 &mut clusters,
                 ambition_platformer2d_core::MotionStepContext {
-                    portal: None,
+                    admission: None,
                     world: &world,
                     input: ae::InputState {
                         axes: ae::LocalAxes::new(1.0, 0.0),
@@ -1049,14 +1049,14 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
     );
 
     let mut room = spec_with(RoomMetadata::default(), "a");
-    room.loading_zones = vec![LoadingZone {
+    room.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "exit_a".into(),
         name: "east".into(),
         activation: LoadingZoneActivation::EdgeExit,
         aabb: ae::Aabb::new(zone_center, zone_half),
     }];
     let mut room_b = spec_with(RoomMetadata::default(), "b");
-    room_b.loading_zones = vec![LoadingZone {
+    room_b.loading_zones = vec![LoadingZone { presentation: Default::default(),
         id: "entry_b".into(),
         name: "west".into(),
         activation: LoadingZoneActivation::EdgeExit,
@@ -1305,14 +1305,14 @@ fn app_with_a_door(
     {
         let zone_center = ae::Vec2::new(100.0, 100.0);
         let mut room_a = spec_with(RoomMetadata::default(), "a");
-        room_a.loading_zones = vec![LoadingZone {
+        room_a.loading_zones = vec![LoadingZone { presentation: Default::default(),
             id: "door_a".into(),
             name: "east door".into(),
             activation: LoadingZoneActivation::Door,
             aabb: ae::Aabb::new(zone_center, ae::Vec2::new(24.0, 24.0)),
         }];
         let mut room_b = spec_with(RoomMetadata::default(), "b");
-        room_b.loading_zones = vec![LoadingZone {
+        room_b.loading_zones = vec![LoadingZone { presentation: Default::default(),
             id: "entry_b".into(),
             name: "west".into(),
             activation: LoadingZoneActivation::Door,
@@ -1576,14 +1576,14 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
     let b_zone = ae::Vec2::new(60.0, 100.0);
     let crossing_from = |room: LiveRoomInstance| {
         let mut room_a = spec_with(RoomMetadata::default(), "a");
-        room_a.loading_zones = vec![LoadingZone {
+        room_a.loading_zones = vec![LoadingZone { presentation: Default::default(),
             id: "exit_a".into(),
             name: "east".into(),
             activation: LoadingZoneActivation::Walk,
             aabb: ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::new(24.0, 24.0)),
         }];
         let mut room_b = spec_with(RoomMetadata::default(), "b");
-        room_b.loading_zones = vec![LoadingZone {
+        room_b.loading_zones = vec![LoadingZone { presentation: Default::default(),
             id: "entry_b".into(),
             name: "west".into(),
             activation: LoadingZoneActivation::Walk,

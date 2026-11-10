@@ -181,6 +181,17 @@ impl BodyKinematics {
         self.material.at(self.pos, down)
     }
 
+    /// Project the canonical box onto a world-space axis.
+    pub fn projected_half_extent(self, down: Vec2, axis: bevy_math::DVec2) -> Result<f64, crate::frame::NumericFault> {
+        use crate::frame::NumericFault;
+        if !axis.is_finite() || !self.canonical_size.is_finite() { return Err(NumericFault::NonFinite); }
+        if self.canonical_size.min_element() <= 0.0 { return Err(NumericFault::InvalidScale); }
+        let map = self.material.at(self.pos, down)?;
+        let half = self.canonical_size.as_dvec2() * 0.5;
+        Ok((map.direction_wide(bevy_math::DVec2::X).dot(axis).abs() * half.x
+            + map.direction_wide(bevy_math::DVec2::Y).dot(axis).abs() * half.y) * map.scale_wide())
+    }
+
     /// The body's world-space AABB (centered on `pos`, half-extents `size/2`).
     pub fn aabb(self) -> crate::Aabb {
         self.aabb_oriented(Vec2::ZERO)
@@ -217,6 +228,11 @@ impl BodyKinematics {
     }
 }
 
+/// The body is retained by an owner and has no independent world presence.
+/// The custody owner derives this marker before spatial simulation reads it.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default)]
+pub struct BodyInStorage;
+
 /// A complete line or a closed prefix of its original parameterization.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum LinearTravel {
@@ -226,11 +242,20 @@ pub enum LinearTravel {
 }
 
 impl LinearTravel {
-    pub fn delta(self, from: Vec2, to: Vec2) -> Vec2 {
-        match self { Self::Complete => to - from, Self::Prefix { delta, .. } => delta }
-    }
-    pub fn until(self) -> f64 {
-        match self { Self::Complete => 1.0, Self::Prefix { until, .. } => until }
+    /// Recover the original line and its closed end parameter.
+    pub fn line(self, from: Vec2, to: Vec2) -> Result<(Vec2, f64), crate::frame::NumericFault> {
+        use crate::frame::{NumericFault, Sim2};
+        if !from.is_finite() || !to.is_finite() { return Err(NumericFault::NonFinite); }
+        match self {
+            Self::Complete => Ok((Sim2::IDENTITY.vector_from_wide(to.as_dvec2() - from.as_dvec2())?, 1.0)),
+            Self::Prefix { delta, until } => {
+                if !delta.is_finite() || !until.is_finite() { return Err(NumericFault::NonFinite); }
+                if !(0.0..=1.0).contains(&until) { return Err(NumericFault::InvalidFrame); }
+                let endpoint = Sim2::IDENTITY.point_from_wide(from.as_dvec2() + delta.as_dvec2() * until)?;
+                if endpoint != to { return Err(NumericFault::InvalidFrame); }
+                Ok((delta, until))
+            }
+        }
     }
 }
 
@@ -293,6 +318,11 @@ impl SweepSample {
         }
     }
 
+    /// Record the final pose without a prior travel interval.
+    pub fn at_tick_end(body: BodyKinematics, down: Vec2) -> Self {
+        Self { time: [1.0, 1.0], ..Self::at_rest(body, down) }
+    }
+
     /// The DOWN of a body, for a reader that has its frame and its record: the
     /// DOWN of its last step if a step has moved it, else `frame_down`.
     ///
@@ -321,12 +351,7 @@ impl SweepSample {
     /// the sample is still a true record of the step but not the path to here,
     /// and a reader must not splice it onto the live pose.
     pub fn ending_at(&self, live_pos: Vec2) -> Option<&Self> {
-        if let LinearTravel::Prefix { delta, until } = self.travel {
-            if !delta.is_finite() || !until.is_finite() || !(0.0..=1.0).contains(&until)
-                || (self.prev.as_dvec2() + delta.as_dvec2() * until).as_vec2() != self.curr {
-                return None;
-            }
-        }
+        self.travel.line(self.prev, self.curr).ok()?;
         ((self.curr - live_pos).length_squared() <= 1.0).then_some(self)
     }
 

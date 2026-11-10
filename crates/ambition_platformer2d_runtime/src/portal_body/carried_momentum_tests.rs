@@ -24,7 +24,7 @@ fn carried_run_after_fling(body_down: Vec2) -> f32 {
         (PortalChannel::Gun(PortalGunColor::BLUE), Vec2::ZERO, ENTER_NORMAL),
         (PortalChannel::Gun(PortalGunColor::ORANGE), Vec2::new(100.0, 100.0), EXIT_NORMAL),
     ] {
-        app.world_mut().spawn(PlacedPortal::fixed(channel, at, normal, 40.0));
+        app.world_mut().spawn(PlacedPortal::fixed(channel, at, normal, 40.0).unwrap());
     }
     let mut frame = ResolvedMotionFrame::default();
     frame.publish_resolved_frame(MotionFrame::from_direction(body_down, 1000.0));
@@ -35,6 +35,11 @@ fn carried_run_after_fling(body_down: Vec2) -> f32 {
         },
         frame, BodyFlightState::default(),
     )).id();
+    let kin = *app.world().get::<BodyKinematics>(body).unwrap();
+    let mut sweep = ambition_platformer2d_core::SweepSample::at_rest(kin, body_down);
+    sweep.prev = kin.pos + ENTER_NORMAL * 10.0;
+    sweep.vel = kin.vel;
+    app.world_mut().entity_mut(body).insert(sweep);
     app.update();
     assert!(app.world().get::<BodyKinematics>(body).unwrap().pos.x > 100.0);
     app.world().get::<BodyFlightState>(body).unwrap().carried_run
@@ -87,7 +92,7 @@ fn portal_schedule_plugin_carries_a_fling_for_any_game() {
             pos,
             normal,
             ambition_portal2d::PORTAL_OPENING_HALF,
-        ));
+        ).unwrap());
     }
     let mut frame = ResolvedMotionFrame::default();
     frame.publish_resolved_frame(MotionFrame::from_direction(Vec2::new(0.0, 1.0), 1000.0));
@@ -105,6 +110,11 @@ fn portal_schedule_plugin_carries_a_fling_for_any_game() {
         ))
         .id();
 
+    let kin = *app.world().get::<BodyKinematics>(body).unwrap();
+    let mut sweep = ambition_platformer2d_core::SweepSample::at_rest(kin, Vec2::Y);
+    sweep.prev = kin.pos + ENTER_NORMAL * 10.0;
+    sweep.vel = kin.vel;
+    app.world_mut().entity_mut(body).insert(sweep);
     let mut arrived = None;
     for _ in 0..4 {
         app.update();

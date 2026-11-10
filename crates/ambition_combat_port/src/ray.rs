@@ -6,7 +6,7 @@
 //! the first wall and goes on through each portal pair it enters, so its
 //! length is its length unfolded. It hurts as one volume from where it
 //! starts, and the portal pairs cut that volume as they cut every other
-//! (`PortalPassages::pieces`): what reaches through a pair is out of its
+//! (`BodyGeometry::pieces`): what reaches through a pair is out of its
 //! other end. Its look is a name the presentation resolves, drawn from the
 //! ray's published geometry; the module never draws it.
 

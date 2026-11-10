@@ -12,7 +12,7 @@ fn app_with(fill: LimitMeterFill, road: Road) -> App {
     app.add_message::<BlockedBodyHit>();
     // No session here, so only a whole-process declaration governs.
     {
-        use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+        use ambition_platformer2d::world::scoped_rules::{DeclareRulesExt as _, RulesScope};
         app.declare_rules(RulesScope::EveryRoom, SmashLimitFill(fill));
     }
     app.add_systems(Update, fill_limit_meters);
@@ -59,8 +59,8 @@ fn other_pool() -> ActorResources {
 fn fighter(app: &mut App) -> Entity {
     let declaration = app
         .world()
-        .resource::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<SmashLimitFill>>()
-        .governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::NoRoom)
+        .resource::<ambition_platformer2d::world::scoped_rules::DeclaredRules<SmashLimitFill>>()
+        .governing(ambition_platformer2d::world::scoped_rules::ActiveRoom::NoRoom)
         .expect("the test app declares a fill")
         .0
         .declaration();
@@ -534,7 +534,7 @@ fn blocking_alone_can_fill_a_meter_the_clock_cannot() {
 /// two rooms live is no room, so no meter filled.
 #[test]
 fn a_meter_fills_by_the_rule_of_its_own_live_room() {
-    use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d::world::scoped_rules::{DeclareRulesExt as _, RulesScope};
     use ambition_platformer2d::platformer::lifecycle::{
         session_world_component, sole_live_room_component, InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
         SessionRoot, SessionScopeId,

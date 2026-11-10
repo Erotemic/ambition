@@ -14,7 +14,7 @@
 //!
 //! The developer debug overlay is separate.
 
-use ambition_platformer2d_shared_tangle::portal_passages::ReachesFrom;
+use ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer2d_core::AabbExt;

@@ -307,7 +307,7 @@ mod host_adapter {
     #[allow(clippy::type_complexity)]
     pub fn publish_threaded_host_pictures(
         mut commands: Commands,
-        live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        live: ambition_portal2d::PortalRooms,
         limbs: Query<(
             Entity,
             &ambition_characters::actor::Limb,
@@ -699,7 +699,7 @@ mod host_adapter {
         gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
         body_kinematics: Query<&BodyKinematics>,
         body_transits: Query<&ambition_portal2d::PortalTransit>,
-        portals: Query<&ambition_portal2d::PlacedPortal>,
+        portals: Query<(Entity, &ambition_portal2d::PlacedPortal)>,
         // The session's portal map convention, from the resource that owns it.
         tuning: Option<Res<ambition_portal2d::PortalTuning>>,
         (mut parallax_carry, time): (
@@ -719,7 +719,7 @@ mod host_adapter {
         let gravity_dir = ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
             gravity.as_deref(),
         );
-        let portal_list: Vec<ambition_portal2d::PlacedPortal> = portals.iter().cloned().collect();
+        let by_room = frames.portals_by_room(portals.iter());
 
         for (view, mut camera_ease, subject, state) in &mut views {
             // A view is given its anchor the first frame it is seen.
@@ -1015,7 +1015,7 @@ mod host_adapter {
                     if let Some(roll) = portal_camera_roll_at_progress(
                         body,
                         transit,
-                        &portal_list,
+                        by_room.in_room(frames.room_of(followed)),
                         gravity_dir,
                         config.roll_epsilon_radians,
                         convention,
@@ -1324,7 +1324,7 @@ mod tests {
             app.add_systems(Update, publish_threaded_host_pictures);
             // Two floor openings, their fronts up.
             for (channel, x) in [(purple, 0.0), (teal, 300.0)] {
-                app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(x, 300.0), Vec2::new(0.0, -1.0), 40.0));
+                app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(x, 300.0), Vec2::new(0.0, -1.0), 40.0).unwrap());
             }
             let host = app.world_mut().spawn((ambition_combat::FeatureId("giant".into()), body(Vec2::new(150.0, 200.0)))).id();
             // 30 into the purple opening, and 5 into the teal one.
@@ -1430,9 +1430,9 @@ mod tests {
         // A floor pair, so a body standing on the blue portal straddles its plane.
         let floor = Vec2::new(0.0, -1.0);
         app.world_mut()
-            .spawn(PlacedPortal::fixed(blue, Vec2::new(200.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF));
+            .spawn(PlacedPortal::fixed(blue, Vec2::new(200.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF).unwrap());
         app.world_mut()
-            .spawn(PlacedPortal::fixed(orange, Vec2::new(300.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF));
+            .spawn(PlacedPortal::fixed(orange, Vec2::new(300.0, 300.0), floor, ambition_portal2d::PORTAL_OPENING_HALF).unwrap());
         // Its feet are below the plane (y 275..315, plane 300).
         let player = app
             .world_mut()
@@ -1658,7 +1658,7 @@ mod tests {
     /// projection a game's rule reaches no reader.
     #[test]
     fn the_host_projects_the_active_rooms_portal_rules() {
-        use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+        use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt as _, RulesScope};
         use ambition_platformer2d_world::rooms::{RoomMetadata, RoomSet, RoomSpec};
         use ambition_portal2d_presentation::{
             PortalCameraTransitMode, PortalCameraTransitRule, PortalViewConeMode,
@@ -1771,8 +1771,8 @@ mod tests {
             PortalChannel::Authored(PortalChannelColor::Yellow),
         );
         // A wall pair: in at x = 100 facing +x, out at x = 1500 facing -x.
-        app.world_mut().spawn(PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0));
-        app.world_mut().spawn(PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0));
+        app.world_mut().spawn(PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0).unwrap());
+        app.world_mut().spawn(PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0).unwrap());
         let crossed = |app: &mut App, y: f32| {
             app.world_mut()
                 .spawn((body(Vec2::new(1495.0, y)), PortalTransit { straddling: yellow, crossed: true }))
@@ -1799,8 +1799,8 @@ mod tests {
                 body,
                 transfer: ambition_portal2d::PortalTransfer::new(
                     Vec2::new(95.0, 500.0), -Vec2::X * 400.0,
-                    &PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0),
-                    &PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0),
+                    &PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0).unwrap(),
+                    &PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0).unwrap(),
                     &ambition_portal2d::PortalTuning::default(),
                 ).unwrap(),
                 facing_flip: false,

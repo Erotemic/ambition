@@ -139,7 +139,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
 
     // `portal_lab` has no mode tag, so a declaration for untagged rooms is
     // the one that governs it.
-    use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d::world::scoped_rules::{DeclareRulesExt as _, RulesScope};
     app.declare_rules(RulesScope::UntaggedRooms, CombatRules {
         bark_chance: None,
         // This fixture is about DI and knockback growth reaching the resolved
@@ -219,7 +219,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
     // A room no game governs plays the baseline. No restore step runs, and the
     // world is already what it always was. The other games' declarations stay.
     {
-        use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+        use ambition_platformer2d::world::scoped_rules::DeclaredRules;
         let kept = app.world().resource::<DeclaredRules<CombatRules>>().clone();
         let mut without_untagged = DeclaredRules::<CombatRules>::default();
         for (scope, rules) in kept.iter() {

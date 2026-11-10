@@ -1259,7 +1259,7 @@ fn publish_fighter_ladder(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
-    use ambition_combat::scoped_rules::{DeclaredRules, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclaredRules, RulesScope};
     let ladder =
         ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(pack).cloned();
     world
@@ -1278,7 +1278,7 @@ fn publish_room_rules(
 ) {
     ambition_combat::room_rules::restate_room_rules(
         world,
-        ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+        ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
         ambition_combat::room_rules::lowered_room_rules(pack),
     );
 }

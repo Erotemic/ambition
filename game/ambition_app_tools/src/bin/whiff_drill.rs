@@ -124,7 +124,7 @@ fn main() {
         for rung in ladder.rungs_mut() {
             rung.tactics = true;
         }
-        use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+        use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
         app.world_mut()
             .get_resource_or_insert_with(
                 DeclaredRules::<ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>::default,

@@ -726,7 +726,7 @@ pub fn compose_versus_experience(app: &mut App) {
 fn declare_versus_rules(app: &mut App) {
     ambition_platformer2d::combat::room_rules::declare_room_rules(
         app,
-        ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
+        ambition_platformer2d::world::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
         versus_room_rules(),
     );
 }

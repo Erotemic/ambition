@@ -18,7 +18,8 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, SessionScopeActivated};
+use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated;
+use crate::rooms::PortalRooms;
 
 use crate::color::PortalChannel;
 use crate::pieces::{self as pp, PortalAperture, PortalFrame};
@@ -89,8 +90,8 @@ const EVICT_MARGIN: f32 = 1.0;
 pub fn evict_straddlers_on_portal_change(
     mut history: ResMut<PortalFrameHistory>,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>)>,
-    live: LiveRooms,
+    mut bodies: Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>), Without<ae::BodyInStorage>>,
+    live: PortalRooms,
 ) {
     // A hosted aperture moving with its face is the same portal, not a close:
     // compare against the host-carried position. Unhosted portals have zero
@@ -107,38 +108,12 @@ pub fn evict_straddlers_on_portal_change(
     history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
 }
 
-/// The same eviction for free bodies `B` (a thrown item): a plane that closes
-/// under one pushes it clear as it pushes a kernel body. Runs before
-/// [`evict_straddlers_on_portal_change`], which then moves the history on.
-pub fn evict_free_straddlers_on_portal_change<B: crate::FreePortalBody>(
-    history: Res<PortalFrameHistory>,
-    portals: Query<(Entity, &PlacedPortal)>,
-    mut bodies: Query<(Entity, &mut B, Option<&B::Presence>)>,
-    live: LiveRooms,
-) {
-    if history.0.is_empty() {
-        return;
-    }
-    let current = current_frames(&portals, &live);
-    for (room, plane) in closing_planes(&history, &current) {
-        for (entity, mut body, presence) in &mut bodies {
-            if live.of(entity) != room || !B::present(presence) {
-                continue;
-            }
-            let aabb = ae::Aabb::new(body.pos(), body.half_extent());
-            if let Some(push) = eviction_push(aabb, body.pos(), &plane) {
-                let (pos, vel) = (body.pos() + push, body.vel());
-                body.emerge(pos, vel);
-            }
-        }
-    }
-}
-
 type CurrentFrames = HashMap<(PortalRoom, PortalChannel), (PortalAperture, PortalFrame)>;
 
-fn current_frames(portals: &Query<(Entity, &PlacedPortal)>, live: &LiveRooms) -> CurrentFrames {
+fn current_frames(portals: &Query<(Entity, &PlacedPortal)>, live: &PortalRooms) -> CurrentFrames {
     portals
         .iter()
+        .filter(|(entity, _)| live.allows(*entity))
         .map(|(entity, p)| ((live.of(entity), p.channel), (p.aperture(), p.prev_frame())))
         .collect()
 }
@@ -185,12 +160,12 @@ fn eviction_push(body: ae::Aabb, center: ae::Vec2, plane: &PortalAperture) -> Op
 fn evict_for_plane(
     plane: PortalAperture,
     room: PortalRoom,
-    bodies: &mut Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>)>,
-    live: &LiveRooms,
+    bodies: &mut Query<(Entity, &mut BodyKinematics, Option<&mut ae::SweepSample>, Option<&ae::PoseOwnedExternally>), Without<ae::BodyInStorage>>,
+    live: &PortalRooms,
 ) {
     for (entity, mut kin, mut sweep, held) in bodies.iter_mut() {
         // Its owner places it: a plane that moves does not move it.
-        if live.of(entity) != room || crate::transit::pose_is_held(held) {
+        if !live.allows(entity) || live.of(entity) != room || crate::transit::pose_is_held(held) {
             continue;
         }
         // The box the body has: turned as its last step turned it.

@@ -484,7 +484,7 @@ impl Platformer2dSimHarness {
         // records custody instead of being despawned), so an unfiltered query
         // would report the axe in the agent's own hand as an axe lying on the
         // floor — an instrument agreeing with a state that does not exist.
-        let mut pickup_query = self.app.world_mut().query::<(&GroundItem, &ItemCustody)>();
+        let mut pickup_query = self.app.world_mut().query::<(&GroundItem, &BodyKinematics, &ItemCustody)>();
         let mut player_query = self
             .app
             .world_mut()
@@ -506,9 +506,9 @@ impl Platformer2dSimHarness {
             .collect();
         let pickups: Vec<PickupObs> = pickup_query
             .iter(world)
-            .filter(|(_, custody)| custody.in_world())
-            .map(|(g, _)| PickupObs {
-                pos: (g.pos.x, g.pos.y),
+            .filter(|(_, _, custody)| custody.in_world())
+            .map(|(g, body, _)| PickupObs {
+                pos: (body.pos.x, body.pos.y),
                 id: g.spec.id.clone(),
             })
             .collect();

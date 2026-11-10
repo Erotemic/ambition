@@ -2,11 +2,11 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** PAUSED AFTER A COMMITTED CHECKPOINT (2026-11-09).
+**Work state:** IMPLEMENTATION RESUMED ON MAIN (Jon, 2026-11-09).
 The slot 1 work was merged. Main is the active checkout. Jon asked for a safe
-commit point before the pause. The root-scan packet is committed as
-`e3ebef90f`; its affected checks pass. No build or test is running.
-Do not resume the broader implementation until Jon asks. Preserve the merged
+commit point before the pause. The native source-admission packet is committed as `9098b5d54`. The shared
+item-body packet is `821ce15c3`. Their affected checks pass.
+Jon asked to continue and finish the work. Preserve the merged
 slot 1 checkpoint, `portal-similarity-draft`. Feature acceptance remains open.
 See [Committed checkpoint](#committed-checkpoint) and [Draft status](#draft-status).
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
@@ -285,9 +285,9 @@ Check the affected owners again after the optimization work ends.
 | --- | --- |
 | Pair algebra | `crates/ambition_platformer2d_core/src/frame.rs`: `Iso2` has public matrix fields and uses transpose as inverse. Pair helpers take frames, which have no aperture sizes. Introduce validated `Sim2` and derive portal maps from apertures. |
 | Partition | `crates/ambition_platformer2d_core/src/frame/thread.rs`: `VolumePiece` stores a mapped volume, world bounds, an `Iso2`, and a path. Keep canonical source regions as authority. Replace both the whole-piece fallback and the fallback that omits through-material. |
-| Domain queries | `crates/ambition_platformer2d_shared_tangle/src/portal_passages.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
+| Domain queries | `crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
 | Pair openings | `crates/ambition_portal2d/src/types.rs` and `crates/ambition_portal2d/src/link.rs`: `opening_half_length` takes the minimum through `partner_opening_half`. Remove that field and the equalizer when all consumers support the directed map. |
-| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries normals but no full map; `FreePortalBody::emerge` accepts only position and velocity. Extend the common result and both adapters together. |
+| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. Persistent root rebase remains open. |
 | World collision | `crates/ambition_platformer2d_shared_tangle/src/feature_overlay.rs` and `crates/ambition_platformer2d_world/src/collision.rs`: `PortalGlue` imports far-side geometry into the entry chart. Replace independent pair clipping with projections of canonical parts and the same validated maps. |
 | Body contact | `crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`: `snapshot_body_contact` publishes a whole owner box plus carried boxes, then maps foreign boxes back through one straddled link. Use clipped parts and map each constraint to its one owner. |
 | Transit consequences | `crates/ambition_platformer2d_runtime/src/portal_body.rs`: carried momentum and projectile acceleration reconstruct rigid maps from normals. Read the admitted transit map and velocity facts instead. |
@@ -421,7 +421,7 @@ alone does not close a slice.
    **Deliberate defect:** omit scale from inverse or map a cut normal as an
    unnormalized displacement; the corresponding geometric assertion fails.
 2. **PSIM-1B: refusal reaches the source.** Replace both fallback modes in
-   the partitioner. Thread admission through `PortalPassages`, movement,
+   the partitioner. Thread admission through `BodyGeometry`, movement,
    carves, sweeps, and pose-owned extension. Add stable operation identity
    and reason before effects exist. Keep the last valid complete geometry
    on rejection. **Witness:** exhaust hops, pieces, and work in real body,
@@ -584,8 +584,120 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
+Motion-admission review, first packet: this commit. The body domain owns
+external pose admission and prepared group poses. Sequence progress, relationship
+release and boss holds now follow the admission result. A missing body material
+map returns a typed refusal. The old portal-named pose API is removed.
+Core motion reports generic refusal. See the [review](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md)
+for the remaining composition, presentation, isolation and acceptance work.
+
+The owning suites pass: core 856, shared 356, boss 246, combat 827, Mary O 205,
+mounts 16 and actors 589. Five tests remain ignored across these libraries.
+The app check and 35 workspace policy tests pass. App petting, grab and GNU-ton
+selections pass. Smash passes 71 tests with six ignored. This packet does not
+close the two walking/camera failures or complete PSIM acceptance.
+
+Closed-end contact checkpoint: `627255e43`. A shortened native cast retains
+first contact at its closed end. Interior topology boundaries keep their
+existing contact ownership. The new witness fails before the fix and passes
+for four prefix lengths and two world-time intervals after it. All 856 core
+tests pass; one measurement remains ignored. The assembled app check passes.
+Logs use `target/portal-closed-end-`. This query fix does not close native
+actor collision or the two existing walking/camera failures below.
+
+External pose admission checkpoint: `9f2a8fa1a`. Boss and limb pins,
+mount seats, captive poses, pet stops, rescue poses and scripted end scenes
+use the same atomic admission path. A refusal retains the body's physical
+state and prior accepted motion record. An instant pin keeps its recorded
+time; a new body is placed at tick end. The query uses each body's policy
+and carried acceleration. Part geometry does not gain separate controller
+velocity state.
+
+Portal placement now accepts a finite nonzero direction and normalizes it
+before publication. Invalid position, direction or size returns a typed
+fault. An invalid held-pair edit retains both live ends. This fixes rounded
+authored directions that caused native pose admission to reject GNU-ton's
+portal geometry.
+
+The core and shared libraries pass 855 and 354 tests. One core measurement
+remains ignored. The portal library passes 142 tests. All 39 GNU-ton fight
+tests pass, including rewind identity. The assembled app check passes.
+The constructor client test targets compile. Boss encounters, combat, Mary O,
+mounts and actors pass 246, 826, 204, 15 and 588 tests. Three combat tests and
+one Mary O test remain ignored. The broader app `portal` selection passes 34
+tests and fails two: `c141_to_c140_preserves_screen_position_and_continues_right`
+and `thin_wall_walk_keeps_apparent_player_position_smooth`. The first reports
+a discontinuity; the second reports no crossing. Both failures reproduce with identical assertions against the Rust sources
+of `f7ad6e564`. The baseline run passes one case and fails these same two.
+Do not report the broader selection as green. Baseline evidence is in
+`target/portal-camera-baseline-status.json` and its log. Other logs use
+`target/portal-pose-final-` and `target/portal-pose-clients-`.
+These checks cover external linear pins. They do not close moving-host
+admission, physical righting, native actor contacts or any full PSIM slice.
+
+Recorded source-rotation checkpoint: `b7e11ad40`. One native source curve
+controls part maps, interval bounds, root paths, contact normals and payload
+velocity. It keeps full turns about a translating pivot and derives angular
+velocity from the original duration. A closed prefix retains the original
+curve and world clock. A later winding can fit after the first pose fails.
+Small turns about distant pivots retain their radial displacement. A cast
+without a gameplay policy does not acquire a portal scale cap.
+
+All 849 core tests and 139 portal tests pass. One core measurement remains
+ignored. The assembled app check passes. Fourteen new tests cover source
+rotation, orbiting circles, moving-frame velocity composition, numerical
+refusal, contact covariance and closed prefixes. Logs use the
+`target/portal-source-rotation-final-` prefix. These tests exercise the query;
+physical righting and the remaining pose producers do not yet emit these
+curves. No PSIM acceptance slice is closed by this packet.
+
+Source refusal checkpoint: `46058c220`. A rejected operation records only the
+retained pose at tick end. The real-app G test covers refusal and later transfer
+when its budget is restored.
+
+Native transit checkpoint: `0aeb65a81`. The packet replaces its box envelope with the canonical body
+and material map. The opening fit uses physical material axes. A long turned
+body can pass when its material fits even if its envelope is too wide. The
+witness covers two scales and both parities. All 139 portal tests, 64 content
+portal tests and 14 app portal tests pass. The assembled app check passes.
+These checks do not close actor collision, root rebasing or PSIM acceptance.
+
+Shared item-body checkpoint: `821ce15c3` (2026-11-09). Loose items now use the shared
+body and sweep state. Custody removes stored bodies from spatial queries. The
+separate free-body portal path is removed. Item impact response belongs to the
+item motion owner. Rollback schema 429 records the new storage contract.
+
+The item suite passes 47 tests. The portal, ability and content selections pass
+138, 57 and 69 tests. Smash passes 71 tests with six ignored. The assembled app
+check passes. The app batch passes 109 tests; its target-fixture and schema
+failures pass in a seven-test follow-up. The five coconut tests and the two-host
+physical-state check pass. The 34 passing policy tests and repaired engine
+policy check cover all 35 policy tests.
+
+The two prior resource-classification failures remain. Repository tooling
+reached 542 passes and 15 skips before it was stopped after the existing
+consolidation-ledger failure. Doc anchors pass. The prior doc-link and citation
+failures remain. These results do not claim a green full-repository run.
+
+The continuous-admission packet now uses the native material cells and their
+recorded time intervals. Payload validation covers each occupied interval,
+including intermediate aperture turns. A closed cast prefix keeps the original
+line and world clock. Projectile world and damage contacts use that parameter.
+A returning shot also resolves a later wall after its feature hit.
+
+This packet passes 835 core tests, 138 portal tests, 19 shared projectile tests,
+60 runtime projectile tests and 13 assembled-app portal tests. One core test
+remains ignored. The assembled app check passes. Logs use the
+`target/portal-native-prefix-` prefix. A real-app follow-up exposed a refused actor that still crossed through the
+full-turn G aperture. Refusal now records only the retained pose at tick end;
+it does not invent an earlier stationary path. The actor remains in place with
+zero hops and crosses after its budget is restored. Both G app tests pass.
+The focused kernel refusal test, 47 item tests and 29 projectile-combat tests
+also pass. No complete PSIM acceptance slice is closed.
+
+
 Code checkpoint: `e3ebef90f` (2026-11-09). Lab map checkpoint: `16018b5` in
-the map submodule. The broader portal goal remains paused and incomplete.
+the map submodule. The broader portal goal is resumed and incomplete.
 
 The root query follows recorded aperture turns and returns the crossing time
 and sampled poses. Transit and projectile contact limits use this query.
@@ -628,7 +740,7 @@ also reports the existing `scroll_lab_door` validation error. H–J remain draft
 authoring in `portal_similarity_lab.yaml`; they are not live scale, chirality
 or multi-link acceptance examples.
 
-On resume, continue persistent root material rebasing, remaining motion in the
+Continue persistent root material rebasing, remaining motion in the
 same tick, complete source admission and canonical consumer integration.
 Unequal apertures, GNU-ton acceptance and numerical-fault presentation remain
 open. Union-feature, full library, replay, rendering and performance acceptance
@@ -641,6 +753,11 @@ ideas file.
 
 The tested foundation is merged into main with the Android profiling and asset
 loading work. No complete PSIM acceptance slice is closed.
+
+- Loose items use `BodyKinematics` and `SweepSample`. `GroundItem` owns item
+  metadata. Custody derives `BodyInStorage` before spatial reads. One portal
+  path handles carves, snag, eviction and transit. The separate free-body
+  trait and its systems are removed. Pickup and release retain material state.
 
 - `Sim2` keeps scale, orthogonal composition and translation in double
   precision. It validates projected coordinates, feature resolution and moving
@@ -661,12 +778,12 @@ loading work. No complete PSIM acceptance slice is closed.
   travelled paths. Both controller adapters use the same admission input.
 - The common transit result includes the validated similarity, both apertures,
   stable directed channels and actual entry, mapped and assisted exit velocities.
-  Both body storage adapters validate carried acceleration before changing body
+  The common body path validates carried acceleration before changing body
   state. The same transfer commits carried run. The separate runtime adapters
   that reconstructed rigid maps from normals are removed.
 - Carried acceleration is a shared body capability. Projectile construction,
   stepping, snapshots and restoration use that value. World gravity and force
-  zones keep their own contributions. The rollback schema is 427.
+  zones keep their own contributions. The rollback schema is 429.
 - Source admission checks carried acceleration along each path. It does not
   map world gravity or world force fields. Projectile flight validates a
   candidate before it commits motion or contacts. Refusal clears stale travel
@@ -674,7 +791,7 @@ loading work. No complete PSIM acceptance slice is closed.
   its budget is restored.
 - An approaching body prepares both host openings for its own use. A fast
   crossing can skip the begin latch and still advance from the exit without
-  meeting that exit's uncut host. This applies to both body storage types.
+  meeting that exit's uncut host. This applies to actors and loose items.
 - The material cast query partitions a swept spatial domain and clips each
   physical obstacle in that domain. It casts the actual primitive, keeps
   circles analytic and returns the source collider and directed path.
@@ -718,9 +835,8 @@ loading work. No complete PSIM acceptance slice is closed.
   Transit uses that record instead of a line through the projected endpoint.
   Motion samples use rollback schema 428. Physical righting,
   persistent root material rebasing, motion after a crossing and complete
-  motion-source admission remain open. The generic transit adapter still
-  supplies a collision-box envelope; the projectile scan supplies canonical
-  material. The root scan does not close angular transit acceptance.
+  motion-source admission remain open. The generic transit adapter and projectile scan both supply canonical
+  material and its physical axes. The root scan does not close angular transit acceptance.
   A host wrap closes the
   old plane; its aperture does not sweep between the two locations.
 - Projectile world contacts use the original collider and the selected part.
@@ -772,8 +888,9 @@ ignored. The preceding ray work passed combat,
 portal and renderer libraries and the assembled eye-laser and portal cases.
 These results do not close replay, visual or performance acceptance.
 
-Finish source admission for free-body sweeps, externally owned poses and
-moving aperture hosts. Finish projectile body and feature contact queries,
+External linear pose pins use the shared source admission. Finish source
+admission for the remaining free-body sweeps, physical pose turns and moving
+aperture hosts. Finish projectile body and feature contact queries,
 and the remaining attack updates.
 Body-attached ray origins still need the common material pose pass. Ray wall
 clipping still uses its centre line; finite-width contact remains open.

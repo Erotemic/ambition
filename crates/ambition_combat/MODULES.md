@@ -31,7 +31,6 @@
 | [`feel`](src/feel.rs) | Live gameplay-feel tuning owned by the combat domain. |
 | [`finish_zoom`](src/finish_zoom.rs) | The finishing blow pulls the camera in. |
 | [`footstool`](src/footstool.rs) | Footstool interaction: jumping off another body. |
-| [`governing_rules`](src/governing_rules.rs) | The rules that govern each live room: the reading of the declarations in [`crate::scoped_rules`], for the room a system or an entity is in. |
 | [`guard`](src/guard.rs) | Guards at play: where each one is this tick, the strikes they turn aside, and what a turned strike does to the two bodies. |
 | [`hand`](src/hand.rs) | What a body can do right now, kept equal to what its durable facts say. |
 | [`hazard_runtime`](src/hazard_runtime.rs) | `HazardRuntime`: the per-hazard runtime blob (id/name/pos/size, its `DamageVolume`, optional patrol `PathMotion`, and resolve `HitMode`) carried by LDtk-entity hazards. |
@@ -50,7 +49,6 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_combat`. |
 | [`room_rules`](src/room_rules.rs) | The `room_rules` authored-content schema: the per-game rules of a game's own rooms, as data in its pack. |
 | [`rules`](src/rules.rs) | The combat rules a match plays under — resolved, not borrowed. |
-| [`scoped_rules`](src/scoped_rules.rs) | Rules that one game states for the rooms it governs (ADR 0033). |
 | [`shot_birth`](src/shot_birth.rs) | Where a shot is born, and so where its charge is drawn. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire-format implementations for combat-owned types. |
 | [`stale`](src/stale.rs) | Move staling — the history that makes a repeated answer worth less. |
@@ -64,7 +62,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_57 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_55 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

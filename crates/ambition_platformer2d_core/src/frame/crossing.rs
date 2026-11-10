@@ -35,7 +35,7 @@ fn rounding(magnitude: f64) -> f64 { magnitude * f64::EPSILON * 64.0 }
 
 impl MaterialCast<'_> {
     /// Follow the complete recorded turn. The primitive keeps its canonical
-    /// shape and translates with the root throughout this cast.
+    /// shape and follows its recorded source motion throughout this cast.
     pub fn crossing(
         &self, step: ApertureStep, end: PortalAperture, until: f64,
     ) -> Result<Option<RootCrossing>, RefusalReason> {
@@ -46,6 +46,7 @@ impl MaterialCast<'_> {
             || !(0.0..=1.0).contains(&until) {
             return Err(numeric(NumericFault::InvalidFrame));
         }
+        let until = until.min(self.until);
         step.sample_wide(end, self.time.start).map_err(numeric)?;
         super::thread::map_volume(self.material.domain, &self.material.to_world).map_err(numeric)?;
         let normal = end.frame.normal.as_dvec2().normalize();
@@ -76,17 +77,24 @@ impl Curve<'_, '_> {
         super::rotation_ending_at(f64::from(self.step.turn), self.world(time))
             * self.end.frame.normal.as_dvec2().normalize()
     }
+    fn relative(&self, time: f64) -> (DVec2, DVec2) {
+        let source = self.cast.source();
+        let arm = bevy_math::DMat2::from_angle(source.turn() * time) * source.root_arm();
+        (self.a + self.b * time + super::material_cast::rotation_delta(source.turn() * time, source.root_arm()),
+            self.b + perpendicular(arm) * source.turn())
+    }
     fn sample(&self, time: f64) -> (f64, f64) {
         let n = self.normal(time);
-        let x = self.a + self.b * time;
+        let (x, rate) = self.relative(time);
         (n.dot(x) - self.depth,
-            self.omega * perpendicular(n).dot(x) + n.dot(self.b))
+            self.omega * perpendicular(n).dot(x) + n.dot(rate))
     }
-    fn fits(&self, time: f64) -> bool {
+    fn fits(&self, time: f64) -> Result<bool, RefusalReason> {
         let tangent = perpendicular(self.normal(time));
-        let map = self.cast.material.to_world;
-        let center = self.a + self.b * time;
-        let root = self.cast.root.as_dvec2();
+        let source = self.cast.source();
+        let map = source.map_at(time).map_err(numeric)?;
+        let center = self.relative(time).0;
+        let root = source.root_at(time);
         let offset = map.translation() - root;
         let project = |point: DVec2| tangent.dot(
             map.direction_wide(point) * map.scale_wide() + offset + center,
@@ -103,15 +111,16 @@ impl Curve<'_, '_> {
         let half = f64::from(self.end.half_length);
         let error = rounding(lo.abs() + hi.abs() + half + center.length()
             + offset.length() + self.along.abs());
-        lo >= -half - error && hi <= half + error
+        Ok(lo >= -half - error && hi <= half + error)
     }
     fn hit(&self, time: f64) -> Result<Option<RootCrossing>, RefusalReason> {
-        if !self.fits(time) { return Ok(None); }
+        if !self.fits(time)? { return Ok(None); }
         let (distance, _) = self.sample(time);
-        let error = rounding(self.a.length() + self.b.length() * time.abs() + self.depth.abs());
+        let error = rounding(self.a.length() + self.b.length() * time.abs()
+            + super::material_cast::rotation_delta(self.cast.source().turn() * time, self.cast.source().root_arm()).length() + self.depth.abs());
         if distance.abs() > error { return Err(numeric(NumericFault::Precision)); }
         let point = super::Sim2::IDENTITY.point_from_wide(
-            self.cast.root.as_dvec2() + self.cast.delta.as_dvec2() * time,
+            self.cast.source().root_at(time),
         ).map_err(numeric)?;
         let world_time = self.world(time);
         Ok(Some(RootCrossing {
@@ -123,12 +132,14 @@ impl Curve<'_, '_> {
         let (f0, d0) = self.sample(0.0);
         if f0 == 0.0 && d0 < 0.0 { return self.hit(0.0); }
         if self.until == 0.0 { return Ok(None); }
-        if self.omega == 0.0 {
+        let source = self.cast.source();
+        let source_arc = source.turn() != 0.0 && source.root_arm() != DVec2::ZERO;
+        if self.omega == 0.0 && !source_arc {
             if d0 >= 0.0 || f0 < 0.0 { return Ok(None); }
             let time = -f0 / d0;
             return if (0.0..=self.until).contains(&time) { self.hit(time) } else { Ok(None) };
         }
-        if self.b == DVec2::ZERO { return self.periodic(); }
+        if self.b == DVec2::ZERO && source.turn() == 0.0 { return self.periodic(); }
         let mut intervals = vec![0.0..self.until];
         let mut work = 0;
         while let Some(interval) = intervals.pop() {
@@ -137,14 +148,18 @@ impl Curve<'_, '_> {
             if !self.reaches_opening(&interval) { continue; }
             let (middle, radius) = super::interval_center(&interval);
             let (f, derivative) = self.sample(middle);
-            let x = self.a + self.b * middle;
+            let (x, rate) = self.relative(middle);
             let span = self.cast.time.end - self.cast.time.start;
             let angle = super::rotation_bound(f64::from(self.step.turn), self.world(middle), span * radius);
-            let error = rounding(x.length() + self.b.length() * radius + self.depth.abs());
-            let variation = self.b.length() * radius + angle * x.length() + error;
+            let error = rounding(x.length() + self.b.length() * radius
+                + super::material_cast::rotation_delta(source.turn() * middle, source.root_arm()).length() + self.depth.abs());
+            let source_angle = source.angle_bound(middle, radius);
+            let x_variation = self.b.length() * radius + source_angle * source.root_arm().length();
+            let variation = x_variation + angle * x.length() + error;
             if f - variation > 0.0 || f + variation < 0.0 { continue; }
-            let derivative_variation = self.omega.abs() * (self.b.length() * radius + angle * x.length())
-                + angle * self.b.length() + rounding(self.omega.abs() * x.length() + self.b.length());
+            let derivative_variation = self.omega.abs() * (x_variation + angle * x.length())
+                + source.turn().abs() * source_angle * source.root_arm().length()
+                + angle * rate.length() + rounding(self.omega.abs() * x.length() + rate.length());
             if derivative - derivative_variation >= 0.0 { continue; }
             if derivative + derivative_variation < 0.0 {
                 let (left, _) = self.sample(interval.start);
@@ -188,6 +203,17 @@ impl Curve<'_, '_> {
     }
     /// At a crossing the root must lie in this annulus about the pivot.
     fn reaches_opening(&self, time: &std::ops::Range<f64>) -> bool {
+        let source = self.cast.source();
+        if source.turn() != 0.0 && source.root_arm() != DVec2::ZERO {
+            let (middle, half) = super::interval_center(time);
+            let distance = self.relative(middle).0.length();
+            let variation = self.b.length() * half + source.angle_bound(middle, half) * source.root_arm().length();
+            let opening_half = f64::from(self.end.half_length);
+            let inner = self.depth.hypot((self.along.abs() - opening_half).max(0.0));
+            let outer = self.depth.hypot(self.along.abs() + opening_half);
+            let error = rounding(distance + variation + inner + outer);
+            return distance - variation <= outer + error && distance + variation >= inner - error;
+        }
         let a = self.a + self.b * time.start;
         let b = self.a + self.b * time.end;
         let delta = b - a;
@@ -215,9 +241,14 @@ mod tests {
         (ApertureStep::ending_at(end.frame, Vec2::ZERO, turn), end)
     }
     fn cast<'a>(shape: &'a CombatVolume, from: Vec2, delta: Vec2) -> MaterialCast<'a> {
-        MaterialCast { material: MaterialPrimitive {
+        MaterialCast::new(
+            MaterialPrimitive {
             domain: shape, to_world: Sim2::new(1.0, bevy_math::Mat2::IDENTITY, from).unwrap(),
-        }, root: from, delta, time: 0.0..1.0 }
+        },
+            from,
+            delta,
+            0.0..1.0,
+        )
     }
 
     #[test]
@@ -316,7 +347,7 @@ mod tests {
         let restored = decode_state::<crate::SweepSample>(&encode_state(&sample)).unwrap();
         assert_eq!(encode_state(&restored), encode_state(&sample));
         assert!(restored.ending_at(hit.point).is_some());
-        assert_eq!(query.crossing(step, end, restored.travel.until()).unwrap().unwrap(), hit);
+        assert_eq!(query.crossing(step, end, restored.travel.line(restored.prev, restored.curr).unwrap().1).unwrap().unwrap(), hit);
         assert!(query.crossing(step, end, hit.toi * 0.5).unwrap().is_none());
         sample.curr.x += 0.25;
         assert!(sample.ending_at(sample.curr).is_none());

@@ -47,7 +47,7 @@ impl PortalConvention {
 /// How much of a body a portal carries while it is in two places
 /// (`docs/planning/engine/portals-a-body-in-two-places.md`, Policy). A rule of
 /// the game, never of a graphics setting; a body may ask for its own
-/// (`PortalPieceBudget`).
+/// (`MaterialBudget`).
 #[derive(Clone, Copy, Debug, Default, Reflect, PartialEq, Eq)]
 pub enum PortalGeometry {
     /// A path can cross one pair. Refuse an operation that needs another cut.

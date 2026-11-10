@@ -21,6 +21,7 @@ use ambition_platformer2d_core::AabbExt;
 /// Stop each posed limb where the pose its owner gave it this tick meets
 /// something solid.
 pub fn stop_posed_limbs_at_what_they_meet(
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut limbs: Query<
         (
@@ -63,8 +64,8 @@ pub fn stop_posed_limbs_at_what_they_meet(
         }
         if at != step.curr {
             // A pin: the limb holds where it stopped, at its own velocity.
-            let vel = kin.vel;
-            ae::movement::constrain_body_pose(&mut kin, Some(&mut *step), at, vel);
+            let desired = ae::BodyKinematics { pos: at, ..*kin };
+            if poses.constrain(limb, &mut kin, Some(&mut *step), desired).is_err() { continue; }
             if let Some(mut aabb) = aabb {
                 aabb.center = at;
             }

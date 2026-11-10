@@ -101,7 +101,7 @@ pub use combat_schedule::CombatSchedulePlugin;
 // `add_systems` — which declares nothing, and is why a misspelled authored key
 // still reaches the runtime as a mid-fight warning. Exporting it is what lets
 // the strict unknown-key pass become reachable at all.
-pub use ambition_combat::governing_rules::CurrentRoom;
+pub use ambition_platformer2d_world::governing_rules::CurrentRoom;
 /// The one road a host input takes into the simulation. See the module docs.
 pub use ambition_platformer2d_shared_tangle::host_intents;
 pub use combat_schedule::{install_module_technique, install_technique, install_techniques};

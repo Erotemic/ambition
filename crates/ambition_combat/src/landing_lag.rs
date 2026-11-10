@@ -7,7 +7,7 @@
 //! feel is not a platform fighter's (Ambition: a body is not to stand locked
 //! after it lands) keeps the moves and says how much of that cost it charges.
 //!
-//! Declared with [`DeclareRulesExt`](crate::scoped_rules::DeclareRulesExt) like
+//! Declared with [`DeclareRulesExt`](ambition_platformer2d_world::scoped_rules::DeclareRulesExt) like
 //! every other per-game rule, and projected each tick into
 //! [`ResolvedCombatTuning::landing_lag`](crate::rules::ResolvedCombatTuning::landing_lag).
 //!

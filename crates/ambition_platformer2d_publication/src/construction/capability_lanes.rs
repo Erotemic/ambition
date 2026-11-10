@@ -171,8 +171,11 @@ impl CapabilityLanes {
         outlook: &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
         dependencies: &mut super::continuity::ContinuityDependencies,
         suppressed: &BTreeSet<SimId>,
+        schemas: Option<&ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
     ) -> Result<Self, ambition_platformer2d_shared_tangle::construction::ConstructionError> {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity;
+        #[cfg(not(feature = "portal"))]
+        let _ = schemas;
 
         let gravity = prepare_lane(
             scope.clone(),
@@ -182,12 +185,18 @@ impl CapabilityLanes {
             &gravity::gravity_zone_construction_registry(),
         )?;
         #[cfg(feature = "portal")]
+        let portal_registry = if schemas.is_some_and(|catalog| catalog.contains_domain(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN)) {
+            ambition_portal2d::portal_gun_construction_registry()
+        } else {
+            ambition_portal2d::PortalGunConstructionRegistry::default()
+        };
+        #[cfg(feature = "portal")]
         let portal = prepare_lane(
             scope.clone(),
             ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
             super::portal_construction::authored_requests(room, outlook, dependencies),
             suppressed,
-            &ambition_portal2d::portal_gun_construction_registry(),
+            &portal_registry,
         )?;
 
         Ok(Self {
@@ -455,5 +464,36 @@ impl CapabilityReceipts {
         roster.extend(gravity.committed_ids().iter().map(ToString::to_string));
         #[cfg(feature = "portal")]
         roster.extend(portal.committed_ids().iter().map(ToString::to_string));
+    }
+}
+
+#[cfg(all(test, feature = "portal"))]
+mod schema_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::construction::{ConstructionError, ConstructionSchemaCatalog};
+    use ambition_platformer2d_core as ae;
+
+    #[test]
+    fn gun_construction_requires_the_generation_schema() {
+        let scope = ConstructionScope::in_generation(ContentBinding::RuntimeDynamic, None);
+        let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+            "test", ae::World::new("test", ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()),
+        );
+        let outlook = Default::default();
+        let mut dependencies = Default::default();
+        let suppressed = BTreeSet::new();
+        assert!(CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, None).is_ok());
+        room.portal_gun_spawns.push(ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
+            id: "gun".into(), name: "gun".into(), pos: ae::Vec2::ZERO,
+            half_extent: ae::Vec2::splat(8.0), pair: 0,
+        });
+        assert!(matches!(CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, None), Err(ConstructionError::UnknownRecipe { .. })));
+        let mut schemas = ConstructionSchemaCatalog::default();
+        schemas.try_contribute(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+            ambition_portal2d::portal_gun_construction_registry().deterministic_dump()).unwrap();
+        let first = CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, Some(&schemas)).unwrap();
+        let second = CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, Some(&schemas)).unwrap();
+        assert_eq!(first.portal.planned_ids().len(), 1);
+        assert_eq!(first.portal.deterministic_dump(), second.portal.deterministic_dump());
     }
 }

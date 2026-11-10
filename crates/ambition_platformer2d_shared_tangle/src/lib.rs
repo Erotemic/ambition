@@ -44,7 +44,6 @@ pub mod world_item_art;
 pub mod worn_gear;
 
 pub mod physics;
-pub mod portal_passages;
 
 pub mod shrine;
 

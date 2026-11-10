@@ -2,7 +2,7 @@
 
 use ambition_platformer2d_core as ae;
 use bevy::ecs::system::SystemParam;
-use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
 use bevy::prelude::Entity;
 #[cfg(feature = "portal")]
 use bevy::prelude::{Res, Query};
@@ -15,13 +15,16 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     /// Which live room a shot and each thing it may reach are in (OW1 cut
     /// 4). Here and not a top-level parameter, for the reason the portals
     /// are.
-    live_rooms: LiveRooms<'w, 's>,
+    #[cfg(not(feature = "portal"))]
+    live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
+    #[cfg(feature = "portal")]
+    live_rooms: ambition_portal2d::PortalRooms<'w, 's>,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.
     #[cfg(feature = "portal")]
     portals: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
     #[cfg(feature = "portal")]
-    passages: Option<Res<'w, ambition_platformer2d_shared_tangle::portal_passages::PortalPassages>>,
+    passages: Option<Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     /// The pair each shot is on the back of: it does not take the shot, so
     /// the shot's leg does not end at it (`first_portal_crossing`).
     #[cfg(feature = "portal")]
@@ -51,16 +54,28 @@ impl ProjectileCollisionWorld<'_, '_> {
         room: Option<LiveRoomInstance>,
         before: ae::BodyKinematics,
         after: ae::BodyKinematics,
+        time: std::ops::Range<f64>,
+        travel: ae::LinearTravel,
         acceleration: ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
     ) -> Result<(), ae::frame::thread::Refusal> {
         let Some(admission) = self.motion_for(shot, room) else {
             return Ok(());
         };
         if admission.links.is_empty() { return Ok(()); }
-        let map = after.material_map(ae::Vec2::ZERO).map_err(|reason| ae::frame::thread::Refusal {
+        let map = before.material_map(ae::Vec2::ZERO).map_err(|reason| ae::frame::thread::Refusal {
             path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
         })?;
-        admission.admit(before.aabb(), after.aabb(), map, after.vel, &[acceleration.0])
+        let (delta, until) = travel.line(before.pos, after.pos).map_err(|reason| ae::frame::thread::Refusal {
+            path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+        })?;
+        let domain = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));
+        let source = ae::frame::material_cast::MaterialCast::new(
+            ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
+            before.pos,
+            delta,
+            time,
+        ).prefix(until)?;
+        admission.admit(source, after.vel, &[acceleration.0])
     }
 
     /// The pair `shot` is on the back of, if any.

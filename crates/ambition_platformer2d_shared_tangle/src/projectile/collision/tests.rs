@@ -13,7 +13,7 @@ fn a_rotating_one_way_line_keeps_the_front_contact_after_the_back_contact() {
     let mut shot=straight_projectile(Vec2::new(0.0,8.0));
     shot.kin.canonical_size=Vec2::splat(2.0);
     shot.kin.vel=Vec2::ZERO;
-    let response=resolve_world_collision(shot.kin,shot.kin,shot.game,&world,Vec2::Y,1.0,0.0..1.0,None).unwrap();
+    let response=resolve_world_collision(shot.kin,shot.kin,shot.game,&world,Vec2::Y,1.0,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None).unwrap();
     let hit=response.contact.unwrap();
     let advance=hit.contact.toi*f64::from(turn);
     assert!(advance>4.0 && advance<5.0,"{hit:?}, advance={advance}");
@@ -28,7 +28,7 @@ fn resolve_motion(
     let mut before=*kin;
     before.pos-=kin.vel*0.1;
     game.world_hit=policy;
-    let response=super::resolve_world_collision(before,*kin,*game,world,gravity,0.1,0.0..1.0,None).unwrap();
+    let response=super::resolve_world_collision(before,*kin,*game,world,gravity,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None).unwrap();
     *kin=response.body;
     game.bounces_remaining=response.bounces_remaining;
     response.outcome
@@ -398,7 +398,7 @@ fn a_projectile_meets_the_far_wall_before_its_root_crosses() {
     let mut after=before; after.pos=Vec2::ZERO;
     let world=world_with_block(ae::BlockKind::Solid,Vec2::new(103.0,0.0),Vec2::new(1.0,20.0));
     let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
-    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,Some(admission)).unwrap();
+    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
     assert!(matches!(response.outcome,WorldHitOutcome::Expired { .. }));
     assert!((response.body.pos.x+6.0).abs()<0.001,"{response:?}");
     let contact=response.contact.unwrap();
@@ -424,7 +424,7 @@ fn a_far_side_bounce_uses_relative_surface_motion_in_the_root_chart() {
     let mut world=world_with_block(ae::BlockKind::Solid,Vec2::new(102.0,0.0),Vec2::new(1.0,40.0));
     world.blocks[0].velocity=Vec2::X;
     let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
-    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,Some(admission)).unwrap();
+    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
     assert!(matches!(response.outcome,WorldHitOutcome::Bounced { .. }),"{response:?}");
     assert_eq!(response.bounces_remaining,1);
     assert!((response.body.vel.y+26.5).abs()<0.001,"{response:?}");

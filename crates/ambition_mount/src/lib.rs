@@ -751,8 +751,13 @@ pub fn steer_mount_from_rider(
 /// composite and a mount in a separate composite; never the same
 /// entity playing both roles in one frame.)
 pub fn sync_riders_to_mounts(
+    mut commands: Commands,
+    mut slots: Query<&mut MountSlot>,
+    mut left: MessageWriter<RiderDismounted>,
+    poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
     mut riders: Query<
         (
+            Entity,
             &RidingOn,
             &mut CenteredAabb,
             Option<&MountedSize>,
@@ -792,6 +797,7 @@ pub fn sync_riders_to_mounts(
     >,
 ) {
     for (
+        rider,
         riding,
         mut rider_aabb,
         mounted_size,
@@ -810,9 +816,8 @@ pub fn sync_riders_to_mounts(
         // Sky-rider size: keep the authored rider footprint stable while the
         // mount is alive. The same footprint remains after dismount; larger
         // cove pirates are separate authored actor spawns.
-        if let Some(size) = mounted_size {
-            rider_kin.canonical_size = size.0;
-        }
+        let mut desired = *rider_kin;
+        if let Some(size) = mounted_size { desired.canonical_size = size.0; }
         // Snap pose to the mount. Vel zeroed so update_ecs_actors'
         // integrator can't drift the rider off the mount on the
         // next frame.
@@ -822,7 +827,7 @@ pub fn sync_riders_to_mounts(
         let frame = mount_frame.basis();
         // The rider stands on the seat: its centre is half ITS height above it,
         // in the mount's frame.
-        let rider_centre = mountable.seat - ae::Vec2::new(0.0, rider_kin.size().y * 0.5);
+        let rider_centre = mountable.seat - ae::Vec2::new(0.0, desired.size().y * 0.5);
         let rider_local = saddle_world_offset(
             rider_centre,
             ae::mirror_side(mount_kin.facing, mount_unmirrored),
@@ -830,13 +835,14 @@ pub fn sync_riders_to_mounts(
         );
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted.
-        ae::movement::constrain_body_pose(
-            &mut rider_kin,
-            rider_sweep.as_deref_mut(),
-            mount_kin.pos + rider_local,
-            ae::Vec2::ZERO,
-        );
-        rider_kin.facing = mount_kin.facing;
+        desired.pos = mount_kin.pos + rider_local;
+        desired.vel = ae::Vec2::ZERO;
+        desired.facing = mount_kin.facing;
+        if poses.constrain(rider, &mut rider_kin, rider_sweep.as_deref_mut(), desired).is_err() {
+            dissolve_ride(&mut commands, rider, riding.mount, DismountReason::PoseRefused,
+                slots.get_mut(riding.mount).ok().as_deref_mut(), &mut left);
+            continue;
+        }
         // ⛔ `invalidate()` for the same reason a captive gets it: the saddle pin
         // is a discrete pose write every tick, so clearing the flag without the
         // BASELINE leaves the kernel believing the rider was airborne — and a
@@ -876,6 +882,8 @@ pub fn sync_riders_to_mounts(
 /// different consequence adds an arm rather than reusing a near-enough one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DismountReason {
+    /// The saddle pose could not be admitted. Keep the last physical pose.
+    PoseRefused,
     /// The ride was for a fixed time and the time is up. See [`RideLease`].
     LeaseExpired,
     /// The rider chose to get off — a jump, a dodge, whatever the ruleset
@@ -1273,45 +1281,27 @@ pub fn apply_dismount_requests(
         // The centre only: the next publish states the footprint of the
         // restored size (see `sync_riders_to_mounts`).
         aabb.center = kin.pos;
-        commands.entity(request.rider).remove::<(RidingOn, Mounted, RideLease)>();
-        // The ride's hold only: another holder keeps its own.
-        ambition_platformer2d_core::release_pose_hold(&mut commands, request.rider, ambition_platformer2d_core::PoseHold::Ride);
-        // ⛔⛔ AND THE RIDE'S CLAIM ENDS HERE, which it did not until 2026-09-06.
-        // This arm removes `RidingOn`, and the only other place that released the
-        // mount's claim queries bodies that HAVE `RidingOn` — so after an ordinary
-        // dismount the rider could never reconcile: a stale, rollback-canonical
-        // Mount claim for the rest of the match.
-        // ⇒ The Pirate Admiral's timed shark is the production path: its lease
-        // expires, `DismountRequested` fires, and he walks away still described as
-        // mount-controlled.
-        //
-        // ⚠ A CLAIM MUST BE RELEASED WHERE ITS FACT ENDS, not only where the
-        // dramatic version of its ending is handled. The death arm was the
-        // ending somebody thought of; the lease expiring is the one that ships.
-        ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
-            &mut commands,
-            request.rider,
-            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
-        );
-        if let Ok(mut slot) = mounts.get_mut(mount) {
-            // Only if it is still THIS rider's slot: a mount already re-crewed
-            // must not be emptied by a stale request.
-            if slot.rider == Some(request.rider) {
-                slot.rider = None;
-            }
-        }
-        bevy::log::info!(
-            target: "ambition::mount",
-            "dismounted: rider={:?} mount={mount:?} reason={:?}",
-            request.rider,
-            request.reason,
-        );
-        left.write(RiderDismounted {
-            rider: request.rider,
-            mount,
-            reason: request.reason,
-        });
+        dissolve_ride(&mut commands, request.rider, mount, request.reason,
+            mounts.get_mut(mount).ok().as_deref_mut(), &mut left);
     }
+}
+
+/// End the ride at its last accepted pose and release only this relationship.
+fn dissolve_ride(
+    commands: &mut Commands,
+    rider: Entity,
+    mount: Entity,
+    reason: DismountReason,
+    slot: Option<&mut MountSlot>,
+    left: &mut MessageWriter<RiderDismounted>,
+) {
+    commands.entity(rider).remove::<(RidingOn, Mounted, RideLease)>();
+    ae::release_pose_hold(commands, rider, ae::PoseHold::Ride);
+    ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+        commands, rider, ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+    );
+    if let Some(slot) = slot.filter(|slot| slot.rider == Some(rider)) { slot.rider = None; }
+    left.write(RiderDismounted { rider, mount, reason });
 }
 
 /// A rider left a LIVE mount's saddle. The twin of `MountDied`, which announces
@@ -2482,8 +2472,33 @@ mod footprint_tests {
     }
 
     #[test]
+    fn a_refused_saddle_releases_the_relation_at_its_last_accepted_pose() {
+        use ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration;
+        let mut app = App::new();
+        app.add_message::<RiderDismounted>();
+        app.add_systems(Update, sync_riders_to_mounts);
+        let (rider, mount) = pair(&mut app, TURNED_HALF, ResolvedMotionFrame::default(), true);
+        let before = *app.world().get::<ae::BodyKinematics>(rider).unwrap();
+        let history = ae::SweepSample::at_tick_end(before, Vec2::Y);
+        app.world_mut().entity_mut(rider).insert((history, CarriedAcceleration(Vec2::splat(f32::NAN)),
+            ae::PoseOwnedExternally::only(ae::PoseHold::Ride), CanPilot { classes: vec![MountClass::default()] }));
+        app.update();
+        assert_eq!(*app.world().get::<ae::BodyKinematics>(rider).unwrap(), before);
+        assert_eq!(*app.world().get::<ae::SweepSample>(rider).unwrap(), history);
+        assert!(app.world().get::<RidingOn>(rider).is_none());
+        assert!(app.world().get::<ae::PoseOwnedExternally>(rider).is_none());
+        assert_eq!(app.world().get::<MountSlot>(mount).unwrap().rider, None);
+        app.world_mut().entity_mut(rider).remove::<CarriedAcceleration>();
+        assert!(board(app.world_mut(), rider, mount));
+        app.update();
+        assert_ne!(app.world().get::<ae::BodyKinematics>(rider).unwrap().pos, before.pos);
+        assert_eq!(app.world().get::<RidingOn>(rider).unwrap().mount, mount);
+    }
+
+    #[test]
     fn the_saddle_pin_keeps_the_half_of_a_rider_in_turned_gravity() {
         let mut app = App::new();
+        app.add_message::<RiderDismounted>();
         app.add_systems(Update, sync_riders_to_mounts);
         let (rider, mount) = pair(&mut app, TURNED_HALF, sideways(), true);
         the_footprint_keeps_the_published_half(&mut app, rider, TURNED_HALF, "the saddle pin");
@@ -2500,6 +2515,7 @@ mod footprint_tests {
     fn the_saddle_pin_keeps_the_envelope_of_a_rider() {
         let envelope = Vec2::new(40.0, 40.0);
         let mut app = App::new();
+        app.add_message::<RiderDismounted>();
         app.add_systems(Update, sync_riders_to_mounts);
         let (rider, _) = pair(&mut app, envelope, ResolvedMotionFrame::default(), true);
         the_footprint_keeps_the_published_half(&mut app, rider, envelope, "the saddle pin");

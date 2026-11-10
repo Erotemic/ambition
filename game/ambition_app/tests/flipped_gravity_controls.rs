@@ -80,7 +80,7 @@ fn right_is_screen_right_after_a_portal_into_up_gravity() {
         ];
         for (color, at) in ends {
             world.spawn((
-                PlacedPortal::fixed(PortalChannel::Authored(color), at, Vec2::X, 46.0),
+                PlacedPortal::fixed(PortalChannel::Authored(color), at, Vec2::X, 46.0).unwrap(),
                 InRoomInstance(room),
             ));
         }

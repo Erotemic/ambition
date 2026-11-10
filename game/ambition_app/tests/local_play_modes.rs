@@ -1497,7 +1497,7 @@ fn capture_debug_views(separate: bool) {
         let pos = app.world().get::<BodyKinematics>(body).unwrap().pos + Vec2::new(100.0, 0.0);
         let channel = PortalChannel::Authored(PortalChannelColor::Indexed(240 + 2 * index as u8));
         portal_colors.push((room, channel.display().0.with_alpha(0.95).to_linear()));
-        app.world_mut().spawn((InRoomInstance(room), PlacedPortal::fixed(channel, pos, Vec2::NEG_X, 30.0)));
+        app.world_mut().spawn((InRoomInstance(room), PlacedPortal::fixed(channel, pos, Vec2::NEG_X, 30.0).unwrap()));
     }
     app.world_mut().resource_mut::<DeveloperRuntimeState>().debug = true;
     {

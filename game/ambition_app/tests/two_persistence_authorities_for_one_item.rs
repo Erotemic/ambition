@@ -77,7 +77,7 @@ fn dynamic_occurrences(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
 
 /// Unique in-world position for this identity; panic if the fixture is absent or duplicated.
 fn resting_place(sim: &mut Platformer2dSimHarness, id: &SimId) -> (f32, f32) {
-    let mut query = sim.world_mut().query::<(&SimId, &Ground, &Custody)>();
+    let mut query = sim.world_mut().query::<(&SimId, &ambition_platformer2d::engine_core::BodyKinematics, &Custody)>();
     let found: Vec<(f32, f32)> = query
         .iter(sim.world())
         .filter(|(sim_id, _, custody)| *sim_id == id && custody.in_world())

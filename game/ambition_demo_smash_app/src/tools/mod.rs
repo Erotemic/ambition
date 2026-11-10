@@ -23,7 +23,7 @@ pub mod stage_diagram;
 /// Govern the demo's Smash rooms with `ladder`: a tool's `--ladder FILE` arm.
 /// It replaces the rows Smash's pack declares (`data/fighter_brain_ladder.ron`).
 pub(crate) fn declare_smash_ladder(app: &mut bevy::prelude::App, ladder: ambition_platformer2d::characters::brain::fighter::FighterBrainLadder) {
-    use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
+    use ambition_platformer2d::world::scoped_rules::{DeclaredRules, RulesScope};
     app.world_mut()
         .get_resource_or_insert_with(DeclaredRules::<ambition_platformer2d::characters::brain::fighter::FighterBrainLadder>::default)
         .restate(RulesScope::Mode(ambition_demo_smash::SMASH_MODE), Some(ladder));

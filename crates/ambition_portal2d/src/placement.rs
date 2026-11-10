@@ -136,6 +136,13 @@ pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
     cross <= f64::from(portal.aperture().half_length) * 2.0
 }
 
+/// Project the canonical box onto the opening's tangent.
+fn material_fits(body: ae::BodyKinematics, down: Vec2, portal: &PlacedPortal) -> Result<bool, ae::frame::NumericFault> {
+    let normal = portal.normal.as_dvec2().normalize();
+    let tangent = bevy::math::DVec2::new(-normal.y, normal.x);
+    Ok(body.projected_half_extent(down, tangent)? <= f64::from(portal.aperture().half_length))
+}
+
 /// Margin (px) added to a portal's thin face so a body resting on the surface
 /// begins transit on contact. The carve opens only after transit begins.
 pub(crate) const TRANSIT_BEGIN_MARGIN: f32 = 6.0;
@@ -247,7 +254,7 @@ pub enum TransitStep {
     },
     /// Leave the current body unchanged when the map cannot be represented.
     Refused {
-        channel: PortalChannel,
+        channel: Option<PortalChannel>,
         reason: ae::frame::thread::RefusalReason,
     },
     /// The body fully cleared the plane — remove [`PortalTransit`].
@@ -346,6 +353,7 @@ pub struct SweptSample {
     pub vel: Vec2,
     pub time: [f64; 2],
     pub travel: ae::LinearTravel,
+    pub down: Vec2,
 }
 
 /// The first admitted root crossing and the sampled partner pose.
@@ -372,7 +380,7 @@ fn transfer_step(
         crossing.entry_channel, crossing.exit_channel, enter, exit, tuning) {
         Ok(transfer) => transfer,
         Err(reason) => return TransitStep::Refused {
-            channel: crossing.entry_channel, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+            channel: Some(crossing.entry_channel), reason: ae::frame::thread::RefusalReason::Numeric(reason),
         },
     };
     transfer.crossing_time = crossing.root.world_time;
@@ -381,7 +389,7 @@ fn transfer_step(
     transfer.exit_pos = match transfer.map.point(center) {
         Ok(point) => point,
         Err(reason) => return TransitStep::Refused {
-            channel: crossing.entry_channel, reason: ae::frame::thread::RefusalReason::Numeric(reason),
+            channel: Some(crossing.entry_channel), reason: ae::frame::thread::RefusalReason::Numeric(reason),
         },
     };
     let convention = tuning.convention.map_convention();
@@ -399,18 +407,14 @@ fn transfer_step(
 /// transit tumbles or just turns around. This form updates overlap state.
 /// It has no recorded travel and cannot transfer a root.
 pub fn transit_step(
-    center: Vec2,
-    size: Vec2,
-    vel: Vec2,
+    body: ae::BodyKinematics,
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],
     gravity_dir: Vec2,
 ) -> TransitStep {
     transit_step_with_tuning(
-        center,
-        size,
-        vel,
+        body,
         None,
         transit,
         cooldown_pair,
@@ -426,10 +430,12 @@ pub fn first_portal_crossing(
     backside: Option<crate::PortalBackside>,
 ) -> Result<Option<f64>, CrossingRefusal> {
     let domain = ae::CombatVolume::aabb(ae::Aabb::new(from, size * 0.5));
-    let cast = ae::frame::material_cast::MaterialCast {
-        material: ae::frame::thread::MaterialPrimitive::world(&domain),
-        root: from, delta: to - from, time: 0.0..1.0,
-    };
+    let cast = ae::frame::material_cast::MaterialCast::new(
+        ae::frame::thread::MaterialPrimitive::world(&domain),
+        from,
+        to - from,
+        0.0..1.0,
+    );
     first_portal_crossing_through(&cast, portals, backside, 1.0).map(|hit| hit.map(|hit| hit.root.toi))
 }
 
@@ -458,15 +464,27 @@ pub fn first_portal_crossing_through(
 }
 
 fn swept_crossing_step(
-    sweep: SweptSample, center: Vec2, size: Vec2, vel: Vec2,
+    sweep: SweptSample, body: ae::BodyKinematics,
     portals: &[PlacedPortal], gravity_dir: Vec2, tuning: &PortalTuning,
 ) -> Option<TransitStep> {
-    let domain = ae::CombatVolume::aabb(ae::Aabb::new(sweep.pos, size * 0.5));
-    let cast = ae::frame::material_cast::MaterialCast {
-        material: ae::frame::thread::MaterialPrimitive::world(&domain),
-        root: sweep.pos, delta: sweep.travel.delta(sweep.pos, center), time: sweep.time[0]..sweep.time[1],
+    let center = body.pos;
+    let vel = body.vel;
+    let domain = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, body.canonical_size * 0.5));
+    let map = match body.material.at(sweep.pos, sweep.down) {
+        Ok(map) => map,
+        Err(reason) => return Some(TransitStep::Refused { channel: None, reason: ae::frame::thread::RefusalReason::Numeric(reason) }),
     };
-    match first_portal_crossing_through(&cast, portals, None, sweep.travel.until()) {
+    let (delta, until) = match sweep.travel.line(sweep.pos, center) {
+        Ok(line) => line,
+        Err(reason) => return Some(TransitStep::Refused { channel: None, reason: ae::frame::thread::RefusalReason::Numeric(reason) }),
+    };
+    let cast = ae::frame::material_cast::MaterialCast::new(
+        ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
+        sweep.pos,
+        delta,
+        sweep.time[0]..sweep.time[1],
+    ).prefix(until).expect("the motion record validates its original parameter");
+    match first_portal_crossing_through(&cast, portals, None, until) {
         Ok(Some(hit)) => {
             let frame = hit.root.aperture.frame;
             let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
@@ -475,7 +493,7 @@ fn swept_crossing_step(
             Some(transfer_step(hit, center, carried, gravity_dir, tuning))
         }
         Ok(None) => None,
-        Err(refusal) => Some(TransitStep::Refused { channel: refusal.channel, reason: refusal.reason }),
+        Err(refusal) => Some(TransitStep::Refused { channel: Some(refusal.channel), reason: refusal.reason }),
     }
 }
 
@@ -483,9 +501,7 @@ fn swept_crossing_step(
 /// straddle, but only a directed root crossing can transfer the body.
 #[allow(clippy::too_many_arguments)]
 pub fn transit_step_with_tuning(
-    center: Vec2,
-    size: Vec2,
-    vel: Vec2,
+    kinematics: ae::BodyKinematics,
     sweep: Option<SweptSample>,
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
@@ -493,13 +509,16 @@ pub fn transit_step_with_tuning(
     gravity_dir: Vec2,
     tuning: &PortalTuning,
 ) -> TransitStep {
-    let body = ae::Aabb::new(center, size * 0.5);
+    let center = kinematics.pos;
+    let vel = kinematics.vel;
+    let down = sweep.map_or(Vec2::ZERO, |sweep| sweep.down);
+    let body = kinematics.aabb_oriented(down);
     // Resolve `(straddled, its linked exit)` for a color — both must be placed.
     let pair_for = |c: PortalChannel| -> Option<(PlacedPortal, PlacedPortal)> {
         Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
     };
     if let Some(sweep) = sweep {
-        if let Some(step) = swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning) {
+        if let Some(step) = swept_crossing_step(sweep, kinematics, portals, gravity_dir, tuning) {
             return step;
         }
     }
@@ -516,9 +535,11 @@ pub fn transit_step_with_tuning(
                 if find_portal(portals, enter.channel.partner()).is_none() {
                     continue;
                 }
-                if !portal_fits(size, enter) {
-                    continue;
-                }
+                let fits = match material_fits(kinematics, down, enter) {
+                    Ok(fits) => fits,
+                    Err(reason) => return TransitStep::Refused { channel: Some(enter.channel), reason: ae::frame::thread::RefusalReason::Numeric(reason) },
+                };
+                if !fits { continue; }
                 let frame = enter.frame();
                 // Begin when the leading face reaches the opening from the
                 // front: the centroid must be on the room side of the plane

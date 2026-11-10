@@ -49,7 +49,7 @@ fn step_transit_step(
     }
     clusters.sweep = Some(&mut sample);
     let context = MotionStepContext {
-        portal: None,
+        admission: None,
         world: &world,
         input: InputState::default(),
         frame,

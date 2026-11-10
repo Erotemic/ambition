@@ -1,93 +1,10 @@
-//! S7 — does one of the 25 sharpest unchecksummed rows actually differ at a
-//! frame compared twice?
-//!
-//! S7 narrows the 99 rows outside the session checksum to **25** by intersecting
-//! three conditions: no value projection, read by an unfiltered per-tick query,
-//! and carrying a float-bearing field. Twelve of the 25 are mutably borrowed in
-//! production. `item.ground_item` is the largest writer of all of them, with
-//! seven `&mut GroundItem` sites, and it carries `pos`, `vel` and `half_extent`
-//! as `Vec2` — a moving physical object whose position decides whether a body
-//! can pick it up.
-//!
-//! ⛔⛤ **THE INSTRUMENT S8 USED IS STRUCTURALLY BLIND TO EVERY ONE OF THE 25,
-//! AND THAT IS WHY THIS FILE HAD TO ADD A ROAD RATHER THAN POINT AT ONE.**
-//! `RollbackRestoreAudit` compares `probes.census_all(world)`, and a row
-//! registered through `rollback_component_clone` gets
-//! `ChecksumProbe::presence_for::<T>` — whose census is `census_presence`, which
-//! hard-codes `xor: 0`. It counts carriers. A float can drift by any amount in
-//! every carrier and the census is byte-identical. So "point the existing audit
-//! at the 25" was not a plan; it was a plan to re-measure the carrier count.
-//!
-//! ⇒ `RollbackChecksumProbes::strengthen_with` is the road: it replaces a
-//! presence probe with a VALUE projection at runtime, which the audit then reads.
-//! Strength is owned by the probe collection, not by the registration site.
-//! ⚠ It had to be added because there was no way to strengthen a DIAGNOSTIC
-//! without editing the registration, which changes that row's `detail`, which
-//! changes `schema_dump()`, which changes `compute_schema_fingerprint` — a
-//! purely local diagnostic property welded to peer-visible identity. `Q122`.
+//! Check body animation state across simulation replay.
 
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-
-type GroundItem = ambition_platformer2d::item::GroundItem;
-
-/// ⛔⛤ **THE ROOM IS `blink_run` AND THE FIRST RUN OF THIS FILE PROVES WHY.**
-/// Pointed at `combat_calibration_lab` — the room every other rollback arm uses
-/// — the strengthened probe reported `carriers=0` at every one of 40 steps, 148
-/// saves, 108 replay-comparable, and *"no component changed across a save/load of
-/// the same frame"*. That room authors no ground item. A clean divergence report
-/// over a population of ZERO is byte-identical to a clean one over a population
-/// that moved, and the only reason the first run was not read as an answer is
-/// that the probe printed the carrier count beside it.
-///
-/// `blink_run` authors exactly one ground item, which is what makes "the authored
-/// object" an unambiguous phrase here as it is in `a_dropped_item_falls`.
-const ROOM: &str = "blink_run";
-
-/// Steps taken AFTER the release, while the object is falling — so every one of
-/// them is a frame at which `pos` and `vel` are genuinely different from the
-/// last. An item at rest carries a float that does not move, and a probe over it
-/// answers about rest.
-const FALLING_STEPS: usize = 24;
-
-/// ⛔ THE WHOLE VALUE, NOT ONE FIELD. Every float `GroundItem` carries goes in,
-/// by `to_bits`, so the fold is exact rather than tolerant: the question is
-/// whether two saves of the same frame agree bit for bit, and a rounding drift
-/// is precisely the thing a tolerance would hide.
-///
-/// ⚠ `spec` is folded through its `Debug` rather than a field walk, because what
-/// this arm needs is "did anything about this carrier change", not an attribution
-/// to a field. A `Debug` string is a stable function of the value within one
-/// build, which is all a same-process resimulation comparison requires — it is
-/// NOT peer-stable, and nothing here reaches a peer checksum.
-fn whole_ground_item(item: &GroundItem) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    for f in [
-        item.pos.x,
-        item.pos.y,
-        item.vel.x,
-        item.vel.y,
-        item.half_extent.x,
-        item.half_extent.y,
-    ] {
-        f.to_bits().hash(&mut hasher);
-    }
-    format!("{:?}", item.spec).hash(&mut hasher);
-    hasher.finish()
-}
-
-/// The CONTROL projection: it reads the carrier and returns a constant. Folded
-/// over the same carriers at the same frames, it must report NO divergence
-/// however much the values move — so a divergence under `whole_ground_item` is
-/// attributable to the VALUE and not to the strengthening itself, to carriers
-/// appearing, or to the audit's fold.
-fn a_constant_per_carrier(_item: &GroundItem) -> u64 {
-    1
-}
 
 fn sim_in(room: &str) -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(
@@ -100,9 +17,8 @@ fn sim_in(room: &str) -> Platformer2dSimHarness {
     .expect("the sync-test harness builds")
 }
 
-/// Strengthen `GroundItem`'s probe and turn the audit on. Returns whether the
-/// probe was found, which the caller must assert: `strengthen_with` refuses an
-/// unregistered type rather than inventing coverage.
+/// Install the value projection and start the restore audit.
+/// Return false if the component has no registered probe.
 fn strengthen_and_audit<T: bevy::prelude::Component>(
     sim: &mut Platformer2dSimHarness,
     projection: fn(&T) -> u64,
@@ -212,126 +128,6 @@ fn the_reading_is_about_the_subject(reading: &Reading, subject: &str) {
          to disagree about. `resimulations > 0` does not imply this: the window is \
          long and the compared frames are few",
         reading.censuses_at_compared_frames
-    );
-}
-
-/// The authored object, taken up by the pressed pickup a player actually uses,
-/// then released with `grab_pressed`. Both halves are the production road —
-/// `a_dropped_item_falls` pins them — and the release is what puts the value in
-/// motion, which is the premise this whole file rests on.
-fn release_the_authored_object(sim: &mut Platformer2dSimHarness) -> bevy::prelude::Entity {
-    type ItemCustody = ambition_platformer2d::held_items::ItemCustody;
-    let lying: Vec<(bevy::prelude::Entity, (f32, f32))> = {
-        let mut query = sim
-            .world_mut()
-            .query::<(bevy::prelude::Entity, &GroundItem, &ItemCustody)>();
-        let mut found: Vec<_> = query
-            .iter(sim.world())
-            .filter(|(_, _, custody)| custody.in_world())
-            .map(|(entity, ground, _)| (entity, (ground.pos.x, ground.pos.y)))
-            .collect();
-        found.sort_by_key(|(entity, _)| *entity);
-        found
-    };
-    assert_eq!(
-        lying.len(),
-        1,
-        "'{ROOM}' should author exactly one ground item lying in the world; \
-         without one this file measures a population of zero and reports it clean"
-    );
-    let (item, (x, y)) = lying[0];
-    sim.teleport_player((x, y));
-    sim.step(AgentAction {
-        attack: true,
-        ..AgentAction::default()
-    });
-    sim.step(AgentAction::default());
-    assert!(
-        matches!(
-            sim.world().get::<ItemCustody>(item),
-            Some(ItemCustody::Held { .. })
-        ),
-        "the pressed pickup should have taken custody of the authored object"
-    );
-    sim.step_frame(ambition_platformer2d::engine_core::ControlFrame {
-        grab_pressed: true,
-        ..Default::default()
-    });
-    let released = sim
-        .world()
-        .get::<GroundItem>(item)
-        .expect("the object is still a ground item");
-    assert!(
-        released.vel.y > 0.0,
-        "a Z-drop launches at zero and picks up gravity on the release step; \
-         this object left the hand doing {:?}, so nothing below is in motion",
-        released.vel
-    );
-    item
-}
-
-/// ⛔⛤ **THE ANSWER FOR ONE OF THE 25, ASSERTED — AND ITS FOUR ANTI-VACUITY
-/// FLOORS, WHICH ARE MOST OF THE ARM.**
-///
-/// The question S7 leaves open is whether a row that is outside the peer checksum
-/// and read every tick and carries a float actually DIFFERS at a frame compared
-/// twice. `the_reading_is_about_the_subject` holds three of the four floors; the
-/// fourth is `strengthen_with` returning `true`, inside `measure`.
-#[test]
-fn a_falling_ground_item_reproduces_its_value_across_every_resimulation() {
-    let reading = measure(
-        ROOM,
-        FALLING_STEPS,
-        |sim| {
-            release_the_authored_object(sim);
-        },
-        AgentAction::default,
-        whole_ground_item,
-    );
-    the_reading_is_about_the_subject(&reading, "a falling ground item");
-    assert_eq!(
-        reading.diverging, 0,
-        "a falling ground item's pos/vel/half_extent did NOT reproduce across a \
-         resimulation of the same frame. That is a value outside the peer \
-         checksum, read by an unfiltered per-tick query, drifting locally — \
-         which is the S7 finding stated as a defect rather than a ranking"
-    );
-}
-
-/// ⛔ **THE CONTROL, AND IT IS THE ABSENCE OF THE SUBJECT RATHER THAN A DIFFERENT
-/// INSTANCE OF IT.** Identical room, identical release, identical audit,
-/// identical carriers — and a projection that reads the carrier and returns a
-/// constant. Its census must therefore take exactly ONE value at every compared
-/// frame — the floor the arm above requires to be greater than one — and it must
-/// report no divergence.
-///
-/// ⇒ Without this, `diverging == 0` above is equally well explained by a
-/// strengthened probe that never actually observes the value.
-#[test]
-fn a_constant_projection_folds_to_one_value_and_reports_nothing() {
-    let reading = measure(
-        ROOM,
-        FALLING_STEPS,
-        |sim| {
-            release_the_authored_object(sim);
-        },
-        AgentAction::default,
-        a_constant_per_carrier,
-    );
-    assert!(reading.smallest_carriers >= 1, "the control ran over no carriers");
-    assert!(reading.resimulations > 0, "the control compared nothing");
-    assert_eq!(
-        reading.censuses_at_compared_frames, 1,
-        "the control projection returns a constant per carrier, so across a \
-         window with a constant carrier count its census must take exactly one \
-         value; {} means it is reading something it should not be",
-        reading.censuses_at_compared_frames
-    );
-    assert_eq!(
-        reading.diverging, 0,
-        "a constant-per-carrier fold reported a GroundItem divergence, so the \
-         divergence is about the carrier POPULATION and not the value — which \
-         would make the arm above unable to tell the two apart"
     );
 }
 

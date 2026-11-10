@@ -226,9 +226,9 @@ fn a_pool_noodle_by_the_pools_is_taken_and_swung() {
     let mut sim = room("noodly_cistern");
     let (noodle, at) = {
         let world = sim.world_mut();
-        let mut items = world.query::<(Entity, &GroundItem)>();
+        let mut items = world.query::<(Entity, &GroundItem, &ambition_platformer2d::engine_core::BodyKinematics)>();
         let mut noodles: Vec<(Entity, f32, f32)> =
-            items.iter(world).filter(|(_, item)| item.spec.id == "pool_noodle").map(|(e, item)| (e, item.pos.x, item.pos.y)).collect();
+            items.iter(world).filter(|(_, item, _)| item.spec.id == "pool_noodle").map(|(e, _, body)| (e, body.pos.x, body.pos.y)).collect();
         assert_eq!(noodles.len(), 2, "the cistern has two pool noodles");
         noodles.sort_by(|a, b| a.1.total_cmp(&b.1));
         (noodles[0].0, (noodles[0].1, noodles[0].2 - 16.0))

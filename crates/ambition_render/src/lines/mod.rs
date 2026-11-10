@@ -24,7 +24,7 @@
 
 pub mod strands;
 
-use ambition_platformer2d_shared_tangle::portal_passages::PartSource;
+use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 

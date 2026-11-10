@@ -460,3 +460,6 @@ mod body_contact_room_tests {
 
 mod room;
 pub use room::PrimaryLiveRoom;
+
+pub mod geometry;
+pub mod pose;

@@ -104,9 +104,9 @@ impl Plugin for AmbitionContentPlugin {
         // that ships its own rows declares them for its mode, and the
         // narrower scope wins there (queue CPU-LADDER).
         {
-            use ambition_combat::scoped_rules::DeclareRulesExt as _;
+            use ambition_platformer2d_world::scoped_rules::DeclareRulesExt as _;
             app.declare_rules(
-                ambition_combat::scoped_rules::RulesScope::EveryRoom,
+                ambition_platformer2d_world::scoped_rules::RulesScope::EveryRoom,
                 ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(&pack)
                     .cloned()
                     .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
@@ -119,7 +119,7 @@ impl Plugin for AmbitionContentPlugin {
         // back" (ADR 0033).
         ambition_combat::room_rules::declare_room_rules(
             app,
-            ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+            ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
             ambition_combat::room_rules::lowered_room_rules(&pack)
                 .copied()
                 .expect("Ambition's pack has a `room_rules` source, and a pack that compiles lowers it"),
@@ -143,9 +143,9 @@ impl Plugin for AmbitionContentPlugin {
         // through it; you leap into a gate and it ripples (Jon, 2026-10-19).
         // Its own rooms only, so a hosted game keeps the instant crossing.
         {
-            use ambition_combat::scoped_rules::DeclareRulesExt as _;
+            use ambition_platformer2d_world::scoped_rules::DeclareRulesExt as _;
             app.declare_rules(
-                ambition_combat::scoped_rules::RulesScope::UntaggedRooms,
+                ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
                 ambition_platformer2d_session::rooms::passage::ZonePassageRules,
             );
         }

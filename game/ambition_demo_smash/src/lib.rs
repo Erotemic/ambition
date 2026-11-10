@@ -414,45 +414,45 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // no other room. A room that leaves the mode leaves the rules, so
         // nothing publishes them on entry or gives them back on exit.
         {
-            use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+            use ambition_platformer2d::world::scoped_rules::DeclareRulesExt as _;
             // The combat rules and the heavy-hit line are the pack's
             // (`assets/data/room_rules.ron`).
             ambition_platformer2d::combat::room_rules::declare_room_rules(
                 app,
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 smash_room_rules(),
             );
             app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::room_rules(
                 &crate::smash_pack::PACK,
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
             ));
             // What "CPU level N" means in Smash's rooms is Smash's (Q88). In
             // the shipped game this narrower scope wins over Ambition's
             // every-room declaration of the same file.
             app.declare_rules(
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 crate::smash_pack::fighter_ladder(),
             );
             app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::fighter_ladder(
                 &crate::smash_pack::PACK,
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
             ));
             // No named boss encounters, no dialogue and no player trail on a
             // Smash stage: the engine's work for those sleeps there.
             app.declare_rules(
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 crate::USED_CAPABILITIES,
             );
             // Name prompts by button. A Smash Attack slot hosts a dozen moves
             // chosen by direction and posture, so naming the move would change
             // as the body moves. Rooms of other games keep naming the move.
             app.declare_rules(
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 ambition_platformer2d::sim_view::PromptNaming::ByButton,
             );
             // Only the seats hold a Limit slot, so the fill reaches no other body.
             app.declare_rules(
-                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 crate::limit::SmashLimitFill(crate::limit::smash_limit()),
             );
             // A viewer-dependent cone is undefined with no primary player, and
@@ -461,11 +461,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             {
                 use ambition_platformer2d::portal_presentation as portal_view;
                 app.declare_rules(
-                    ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                    ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
                     portal_view::PortalCameraTransitMode::Pop,
                 );
                 app.declare_rules(
-                    ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                    ambition_platformer2d::world::scoped_rules::RulesScope::Mode(SMASH_MODE),
                     portal_view::PortalViewConeMode::Static,
                 );
             }

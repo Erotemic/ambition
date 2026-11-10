@@ -111,12 +111,13 @@ struct Member {
 /// portals of its own room only, so two rooms can use one channel.
 pub fn resolve_portal_links(
     mut portals: Query<(Entity, &PortalLink, &mut PlacedPortal)>,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    live: crate::rooms::PortalRooms,
 ) {
     // Each room's groups in link-hash order, so a new group takes the same
     // free pair on every run, whatever the query order.
     let mut rooms: BTreeMap<crate::PortalRoom, BTreeMap<u64, Vec<Member>>> = BTreeMap::new();
     for (entity, link, p) in portals.iter() {
+        if !live.allows(entity) { continue; }
         rooms
             .entry(live.of(entity))
             .or_default()
@@ -220,7 +221,7 @@ fn assign_room(groups: &mut BTreeMap<u64, Vec<Member>>, assigned: &mut Vec<(Enti
 /// which end it does first, and an end whose partner grows opens wide again.
 pub fn equalize_pair_apertures(
     mut portals: Query<(Entity, &mut PlacedPortal)>,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    live: crate::rooms::PortalRooms,
 ) {
     // Choose the partner with `find_portal` among the portals of the same
     // live room, the same rule transit uses, so the doorway is sized for the

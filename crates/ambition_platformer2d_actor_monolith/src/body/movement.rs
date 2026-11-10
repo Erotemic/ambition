@@ -382,7 +382,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             // know about each other. This is its first consumer.
             pose_owned_externally,
             ae::MotionStepContext {
-                portal,
+                admission: portal,
                 world,
                 input,
                 frame: motion_frame,

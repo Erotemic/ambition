@@ -6,7 +6,7 @@ use ambition_platformer2d_core::{self as ae, BodyKinematics, SweepSample};
 
 use super::snag_push;
 use crate::color::{PortalChannel, PortalGunColor};
-use crate::transit::{FreePortalBody, PortalTransit};
+use crate::transit::{PortalTransit};
 use crate::types::PlacedPortal;
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
@@ -17,11 +17,11 @@ const HALF: f32 = 30.0;
 const BODY: Vec2 = Vec2::new(10.0, 20.0);
 
 fn floor() -> PlacedPortal {
-    PlacedPortal::fixed(BLUE, FLOOR, Vec2::new(0.0, -1.0), HALF)
+    PlacedPortal::fixed(BLUE, FLOOR, Vec2::new(0.0, -1.0), HALF).unwrap()
 }
 
 fn exit() -> PlacedPortal {
-    PlacedPortal::fixed(ORANGE, Vec2::new(600.0, 300.0), Vec2::new(0.0, -1.0), HALF)
+    PlacedPortal::fixed(ORANGE, Vec2::new(600.0, 300.0), Vec2::new(0.0, -1.0), HALF).unwrap()
 }
 
 fn at(x: f32, y: f32) -> ae::Aabb {
@@ -61,46 +61,25 @@ fn a_body_drifting_past_an_end_inside_the_opening_is_held_at_its_side() {
 
 /// A free body that falls into a floor portal with part of it past the end
 /// is held on the host and does not go through; one over the opening does.
-#[derive(Component, Clone, Copy, Debug)]
-struct Probe {
-    pos: Vec2,
-    vel: Vec2,
-    step: Option<(Vec2, Vec2)>,
+fn probe(pos: Vec2, vel: Vec2, step: Option<(Vec2, Vec2)>) -> (BodyKinematics, SweepSample) {
+    let body = BodyKinematics { pos, vel, canonical_size: BODY * 2.0, ..Default::default() };
+    let mut sweep = SweepSample::at_rest(body, Vec2::Y);
+    if let Some((from, to)) = step {
+        sweep.prev = from;
+        sweep.curr = to;
+    } else {
+        sweep.time = [1.0, 1.0];
+    }
+    (body, sweep)
 }
 
-#[derive(Component)]
-struct Held;
-
-impl FreePortalBody for Probe {
-    fn pos(&self) -> Vec2 {
-        self.pos
-    }
-    fn vel(&self) -> Vec2 {
-        self.vel
-    }
-    fn half_extent(&self) -> Vec2 {
-        BODY
-    }
-    fn emerge(&mut self, pos: Vec2, vel: Vec2) {
-        self.pos = pos;
-        self.vel = vel;
-    }
-    fn last_step(&self) -> Option<(Vec2, Vec2)> {
-        self.step
-    }
-    type Presence = Held;
-    fn present(held: Option<&Held>) -> bool {
-        held.is_none()
-    }
-}
-
-fn fall(mut bodies: Query<&mut Probe>) {
-    for mut body in &mut bodies {
+fn fall(mut bodies: Query<(&mut BodyKinematics, &mut SweepSample)>) {
+    for (mut body, mut sweep) in &mut bodies {
         body.vel.y += 1400.0 / 60.0;
         let from = body.pos;
         let vel = body.vel;
         body.pos += vel / 60.0;
-        body.step = Some((from, body.pos));
+        *sweep = SweepSample { prev: from, ..SweepSample::at_rest(*body, Vec2::Y) };
     }
 }
 
@@ -114,17 +93,17 @@ fn dropped_at(x: f32) -> (Vec2, f32) {
     app.add_message::<crate::PortalBodyTransited>();
     app.add_systems(
         Update,
-        (fall, crate::snag_free_straddlers::<Probe>, crate::portal_transit_free_bodies::<Probe>).chain(),
+        (fall, crate::snag_straddlers, crate::portal_transit).chain(),
     );
     app.world_mut().spawn(floor());
     app.world_mut().spawn(exit());
-    let body = app.world_mut().spawn(Probe { pos: Vec2::new(x, 260.0), vel: Vec2::ZERO, step: None }).id();
+    let body = app.world_mut().spawn(probe(Vec2::new(x, 260.0), Vec2::ZERO, None)).id();
     let mut furthest = x;
     for _ in 0..60 {
         app.update();
-        furthest = furthest.max(app.world().get::<Probe>(body).unwrap().pos.x);
+        furthest = furthest.max(app.world().get::<BodyKinematics>(body).unwrap().pos.x);
     }
-    (app.world().get::<Probe>(body).unwrap().pos, furthest)
+    (app.world().get::<BodyKinematics>(body).unwrap().pos, furthest)
 }
 
 #[test]
@@ -160,7 +139,7 @@ fn a_kernel_body_half_past_an_end_is_held() {
 #[test]
 fn a_body_walking_past_an_end_in_a_slope_opening_meets_its_side() {
     let normal = Vec2::new(-0.5, -0.866).normalize();
-    let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, normal, 46.0).aperture();
+    let ap = PlacedPortal::fixed(BLUE, Vec2::ZERO, normal, 46.0).unwrap().aperture();
     let up_the_slope = ap.frame.tangent();
     assert!(up_the_slope.x > 0.0, "premise: the tangent runs up the slope to the right");
     // 27.5 along (and the squeeze) and 10 deep: a step of 4.5 px right took
@@ -188,11 +167,8 @@ fn a_body_that_cuts_the_plane_past_an_end_is_not_taken() {
     let portals = [floor(), exit()];
     let straddling = Some(PortalTransit { straddling: BLUE, crossed: false });
     let step = |x: f32| {
-        transit_step_with_tuning(
-            Vec2::new(x, 302.0),
-            BODY * 2.0,
-            Vec2::new(0.0, 100.0),
-            Some(crate::SweptSample { travel: Default::default(), pos: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0] }),
+        transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(x, 302.0), canonical_size: BODY * 2.0, vel: Vec2::new(0.0, 100.0), ..Default::default() },
+            Some(crate::SweptSample { down: Vec2::ZERO, travel: Default::default(), pos: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0] }),
             straddling,
             None,
             &portals,

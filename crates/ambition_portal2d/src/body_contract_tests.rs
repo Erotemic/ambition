@@ -1,7 +1,6 @@
 //! What every body that crosses a portal can rely on, whatever stores it.
 //!
-//! A free body here is [`Probe`], a component that is its own body, as a
-//! thrown item is: the arms run the systems a composition registers for one.
+//! Bodies use the same physical components for each custody state.
 
 use bevy::prelude::*;
 
@@ -9,9 +8,9 @@ use ambition_platformer2d_core::{self as ae, AabbExt, BodyKinematics, SweepSampl
 
 use crate::color::{PortalChannel, PortalGunColor};
 use crate::placement::{transit_step_with_tuning, TransitStep};
-use crate::transit::{FreePortalBody, PortalTransit};
+use crate::transit::{PortalTransit};
 use crate::tuning::PortalTuning;
-use crate::types::{PlacedPortal, PortalHostDepths};
+use crate::types::{PlacedPortal};
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
@@ -19,48 +18,26 @@ const HALF: f32 = crate::types::PORTAL_OPENING_HALF;
 
 /// A free body: where it is, how it moves, its last step, and whether
 /// something holds it.
-#[derive(Component, Clone, Copy, Debug)]
-struct Probe {
-    pos: Vec2,
-    vel: Vec2,
-    step: Option<(Vec2, Vec2)>,
-}
-
-#[derive(Component)]
-struct Held;
-
-impl FreePortalBody for Probe {
-    fn pos(&self) -> Vec2 {
-        self.pos
+fn physical_body(pos: Vec2, vel: Vec2, step: Option<(Vec2, Vec2)>) -> (BodyKinematics, SweepSample) {
+    let body = BodyKinematics { pos, vel, canonical_size: Vec2::splat(8.0) * 2.0, ..Default::default() };
+    let mut sweep = SweepSample::at_rest(body, Vec2::Y);
+    if let Some((from, to)) = step {
+        sweep.prev = from;
+        sweep.curr = to;
+    } else {
+        sweep.time = [1.0, 1.0];
     }
-    fn vel(&self) -> Vec2 {
-        self.vel
-    }
-    fn half_extent(&self) -> Vec2 {
-        Vec2::splat(8.0)
-    }
-    fn emerge(&mut self, pos: Vec2, vel: Vec2) {
-        self.pos = pos;
-        self.vel = vel;
-        self.step = None;
-    }
-    fn last_step(&self) -> Option<(Vec2, Vec2)> {
-        self.step
-    }
-    type Presence = Held;
-    fn present(held: Option<&Held>) -> bool {
-        held.is_none()
-    }
+    (body, sweep)
 }
 
 /// A wall pair: blue at x = 20 facing +x, orange at x = 380 facing -x.
 fn wall_pair(app: &mut App) -> [Entity; 2] {
     [
         app.world_mut()
-            .spawn(PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF))
+            .spawn(PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF).unwrap())
             .id(),
         app.world_mut()
-            .spawn(PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF))
+            .spawn(PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF).unwrap())
             .id(),
     ]
 }
@@ -70,7 +47,7 @@ fn transit_app() -> App {
     app.init_resource::<PortalTuning>();
     app.add_message::<crate::PortalBodyEntered>();
     app.add_message::<crate::PortalBodyTransited>();
-    app.add_systems(Update, (crate::portal_transit, crate::portal_transit_free_bodies::<Probe>));
+    app.add_systems(Update, crate::portal_transit);
     app
 }
 
@@ -84,21 +61,21 @@ fn a_held_free_body_neither_crosses_nor_straddles() {
     let body = app
         .world_mut()
         .spawn((
-            Probe { pos: at, vel: Vec2::new(-300.0, 0.0), step: None },
+            physical_body(at, Vec2::new(-300.0, 0.0), None),
             PortalTransit { straddling: BLUE, crossed: false },
-            Held,
+            ae::BodyInStorage,
         ))
         .id();
     app.update();
-    assert_eq!(app.world().get::<Probe>(body).unwrap().pos, at, "a held body was moved by the pair");
+    assert_eq!(app.world().get::<BodyKinematics>(body).unwrap().pos, at, "a held body was moved by the pair");
     assert!(app.world().get::<PortalTransit>(body).is_none(), "a held body still straddles");
 
     // Control: the same body in the world crosses.
-    app.world_mut().entity_mut(body).remove::<Held>();
+    app.world_mut().entity_mut(body).remove::<ae::BodyInStorage>();
     app.world_mut().entity_mut(body).insert(PortalTransit { straddling: BLUE, crossed: false });
-    app.world_mut().get_mut::<Probe>(body).unwrap().step = Some((at + Vec2::X * 12.0, at));
+    app.world_mut().entity_mut(body).insert(SweepSample { prev: at + Vec2::X * 12.0, ..physical_body(at, Vec2::new(-300.0, 0.0), Some((at + Vec2::X * 12.0, at))).1 });
     app.update();
-    assert!(app.world().get::<Probe>(body).unwrap().pos.x > 300.0, "control: the body did not cross");
+    assert!(app.world().get::<BodyKinematics>(body).unwrap().pos.x > 300.0, "control: the body did not cross");
 }
 
 /// A crossing that skipped `Begin` (one step from in front of the plane to
@@ -114,11 +91,7 @@ fn a_crossing_that_skipped_begin_leaves_the_body_straddling_the_exit() {
     let kernel = app.world_mut().spawn((kin, record)).id();
     let free = app
         .world_mut()
-        .spawn(Probe {
-            pos: Vec2::new(14.0, 230.0),
-            vel: Vec2::new(-1800.0, 0.0),
-            step: Some((Vec2::new(44.0, 230.0), Vec2::new(14.0, 230.0))),
-        })
+        .spawn(physical_body(Vec2::new(14.0, 230.0), Vec2::new(-1800.0, 0.0), Some((Vec2::new(44.0, 230.0), Vec2::new(14.0, 230.0)))))
         .id();
     app.update();
     for body in [kernel, free] {
@@ -141,7 +114,7 @@ fn the_last_pair_closing_ends_every_straddle() {
     let free = app
         .world_mut()
         .spawn((
-            Probe { pos: Vec2::new(22.0, 230.0), vel: Vec2::ZERO, step: None },
+            physical_body(Vec2::new(22.0, 230.0), Vec2::ZERO, None),
             PortalTransit { straddling: BLUE, crossed: false },
         ))
         .id();
@@ -167,25 +140,21 @@ fn a_fast_free_body_crosses_on_its_last_step() {
     app.insert_resource(depths);
     let body = app
         .world_mut()
-        .spawn(Probe {
-            pos: Vec2::new(-60.0, 200.0),
-            vel: Vec2::new(-2400.0, 0.0),
-            step: Some((Vec2::new(40.0, 200.0), Vec2::new(-60.0, 200.0))),
-        })
+        .spawn(physical_body(Vec2::new(-60.0, 200.0), Vec2::new(-2400.0, 0.0), Some((Vec2::new(40.0, 200.0), Vec2::new(-60.0, 200.0)))))
         .id();
     app.update();
     // 80 px into blue is 80 px out of orange, moving out of it.
-    let probe = app.world().get::<Probe>(body).unwrap();
+    let probe = app.world().get::<BodyKinematics>(body).unwrap();
     assert!((probe.pos - Vec2::new(300.0, 200.0)).length() < 1e-3, "the step through the opening did not cross: {probe:?}");
     assert_eq!(probe.vel, Vec2::new(-2400.0, 0.0), "momentum was not carried: {probe:?}");
 
     // Control: the same body with no step is past the hole and is not taken.
     let stale = app
         .world_mut()
-        .spawn(Probe { pos: Vec2::new(-60.0, 200.0), vel: Vec2::new(-2400.0, 0.0), step: None })
+        .spawn(physical_body(Vec2::new(-60.0, 200.0), Vec2::new(-2400.0, 0.0), None))
         .id();
     app.update();
-    assert_eq!(app.world().get::<Probe>(stale).unwrap().pos.x, -60.0, "control: a body with no step was taken");
+    assert_eq!(app.world().get::<BodyKinematics>(stale).unwrap().pos.x, -60.0, "control: a body with no step was taken");
 }
 
 /// A floor portal at y = 300 closes under a free body whose centre is 4
@@ -196,17 +165,17 @@ fn a_closing_plane_pushes_a_free_body_clear() {
     app.init_resource::<crate::PortalFrameHistory>();
     app.add_systems(
         Update,
-        (crate::evict_free_straddlers_on_portal_change::<Probe>, crate::evict_straddlers_on_portal_change).chain(),
+        crate::evict_straddlers_on_portal_change,
     );
     let closing = app
         .world_mut()
-        .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), Vec2::new(0.0, -1.0), HALF))
+        .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), Vec2::new(0.0, -1.0), HALF).unwrap())
         .id();
-    let body = app.world_mut().spawn(Probe { pos: Vec2::new(500.0, 296.0), vel: Vec2::ZERO, step: None }).id();
+    let body = app.world_mut().spawn(physical_body(Vec2::new(500.0, 296.0), Vec2::ZERO, None)).id();
     app.update();
     app.world_mut().entity_mut(closing).despawn();
     app.update();
-    let y = app.world().get::<Probe>(body).unwrap().pos.y;
+    let y = app.world().get::<BodyKinematics>(body).unwrap().pos.y;
     assert!(y + 8.0 <= 300.0, "the body still straddles the closed plane: y={y}");
 }
 
@@ -226,7 +195,7 @@ fn planes_closing_together_push_a_body_the_same_whatever_their_order() {
                 .into_iter()
                 .map(|channel| {
                     let normal = if channel == BLUE { Vec2::new(0.0, -1.0) } else { Vec2::new(0.0, 1.0) };
-                    app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), normal, HALF)).id()
+                    app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(500.0, 300.0), normal, HALF).unwrap()).id()
                 })
                 .collect();
             let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(500.0, 300.0), vel: Vec2::ZERO, canonical_size: Vec2::splat(16.0), facing: 1.0 };
@@ -249,8 +218,8 @@ fn planes_closing_together_push_a_body_the_same_whatever_their_order() {
 /// beside the opening or through an unpaired portal.
 #[test]
 fn a_leg_ends_where_its_centre_enters_a_paired_opening() {
-    let blue = PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF);
-    let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF);
+    let blue = PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF).unwrap();
+    let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF).unwrap();
     let size = Vec2::splat(16.0);
     let t = crate::first_portal_crossing(Vec2::new(40.0, 200.0), Vec2::new(0.0, 200.0), size, &[blue.clone(), orange.clone()], None);
     assert!(t.unwrap().is_some_and(|t| (t - 0.5).abs() < 1e-4), "{t:?}");
@@ -264,7 +233,7 @@ fn a_body_beside_an_opening_does_not_open_it() {
     // A wall portal facing +x whose top end is a ledge's top (y up from the
     // end is past it): a body standing on the ledge, its feet on the end and
     // its box over the face, is beside the opening, not in line with it.
-    let p = PlacedPortal::fixed(BLUE, Vec2::new(100.0, 248.0), Vec2::new(1.0, 0.0), 40.0);
+    let p = PlacedPortal::fixed(BLUE, Vec2::new(100.0, 248.0), Vec2::new(1.0, 0.0), 40.0).unwrap();
     let top_end = 248.0 - 40.0;
     let half = Vec2::new(15.0, 24.0);
     let on_the_ledge = ambition_platformer2d_core::Aabb::new(Vec2::new(98.0, top_end - half.y + 0.6), half);
@@ -280,7 +249,7 @@ fn a_body_standing_past_an_openings_end_does_not_open_it() {
     // A body standing on the line past its right end, its box over the end
     // and settling into the line as standing bodies do, is not falling
     // through: the hole stays shut under it (the c130 ramp, Jon 2026-10-16).
-    let p = PlacedPortal::fixed(BLUE, Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0), 40.0);
+    let p = PlacedPortal::fixed(BLUE, Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0), 40.0).unwrap();
     let half = Vec2::new(11.0, 20.0);
     let past_the_end = ambition_platformer2d_core::Aabb::new(Vec2::new(145.0, 300.0 - half.y + 0.5), half);
     assert!(!crate::transit::body_opens(&p, past_the_end, past_the_end.center(), Vec2::new(0.0, 30.0), 0.0));
@@ -340,18 +309,15 @@ fn a_posed_body_is_in_the_pair_it_reaches_into_and_is_not_moved() {
 #[test]
 fn a_shots_leg_ends_only_where_the_transit_takes_it() {
     use crate::placement::SweptSample;
-    let blue = PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF);
-    let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF);
+    let blue = PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF).unwrap();
+    let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF).unwrap();
     let portals = [blue, orange];
     let size = Vec2::splat(16.0);
     let vel = Vec2::new(-2400.0, 0.0);
     let taken = |from: Vec2, to: Vec2| {
         matches!(
-            transit_step_with_tuning(
-                to,
-                size,
-                vel,
-                Some(SweptSample { travel: Default::default(), time: [0.0, 1.0], pos: from, vel }),
+            transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: to, canonical_size: size, vel: vel, ..Default::default() },
+                Some(SweptSample { down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], pos: from, vel }),
                 None,
                 None,
                 &portals,
@@ -373,13 +339,13 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
 #[test]
 fn a_body_budget_overrides_the_room_budget() {
     use ambition_platformer2d_core::frame::thread::PieceBudget;
-    use ambition_platformer2d_shared_tangle::portal_passages::{PortalPassages, PortalPieceBudget};
-    let glued = |geometry: crate::PortalGeometry, own: Option<PortalPieceBudget>| {
+    use ambition_platformer2d_shared_tangle::body::geometry::{BodyGeometry, MaterialBudget};
+    let glued = |geometry: crate::PortalGeometry, own: Option<MaterialBudget>| {
         let mut app = App::new();
         app.insert_resource(PortalTuning { geometry, ..PortalTuning::default() });
         app.init_resource::<crate::PortalCarves>();
-        app.init_resource::<PortalPassages>();
-        app.add_systems(Update, (crate::publish_portal_apertures, crate::publish_portal_carves, crate::publish_portal_passages).chain());
+        app.init_resource::<BodyGeometry>();
+        app.add_systems(Update, (crate::publish_portal_apertures, crate::publish_portal_carves, ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_after_motion, crate::publish_portal_passages).chain());
         wall_pair(&mut app);
         let body = app
             .world_mut()
@@ -393,21 +359,21 @@ fn a_body_budget_overrides_the_room_budget() {
         }
         app.update();
         let glues = app.world().resource::<crate::PortalCarves>().glues.len();
-        let passages = app.world().resource::<PortalPassages>();
+        let passages = app.world().resource::<BodyGeometry>();
         (glues, passages.budget_for(Some(body), None))
     };
     let composed = crate::PortalGeometry::Composed { max_scale_exponent: 12, max_hops: 3, max_pieces: 24 };
     assert_eq!(glued(crate::PortalGeometry::SingleHop, None), (1, PieceBudget::SINGLE_HOP));
     assert_eq!(glued(composed, None), (1, PieceBudget { max_hops: 3, max_pieces: 24, max_scale_exponent: 12 }));
-    assert_eq!(glued(composed, Some(PortalPieceBudget(PieceBudget::SINGLE_HOP))), (1, PieceBudget::SINGLE_HOP));
-    assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(PortalPieceBudget(PieceBudget::COMPOSED))), (1, PieceBudget::COMPOSED));
+    assert_eq!(glued(composed, Some(MaterialBudget(PieceBudget::SINGLE_HOP))), (1, PieceBudget::SINGLE_HOP));
+    assert_eq!(glued(crate::PortalGeometry::SingleHop, Some(MaterialBudget(PieceBudget::COMPOSED))), (1, PieceBudget::COMPOSED));
 }
 
 #[test]
 fn passage_publication_keeps_the_recorded_motion_in_both_directions() {
-    use ambition_platformer2d_shared_tangle::portal_passages::PortalPassages;
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
     let mut app=App::new();
-    app.init_resource::<PortalPassages>();
+    app.init_resource::<BodyGeometry>();
     app.add_systems(Update,crate::publish_portal_apertures);
     let [a,b]=wall_pair(&mut app);
     {
@@ -423,7 +389,7 @@ fn passage_publication_keeps_the_recorded_motion_in_both_directions() {
         portal.spin=portal.step.turn*60.0;
     }
     app.update();
-    let passages=app.world().resource::<PortalPassages>();
+    let passages=app.world().resource::<BodyGeometry>();
     let links=passages.links_in(None);
     assert_eq!(links.len(),2);
     assert_eq!(links[0].enter_step,links[1].exit_step);
@@ -439,7 +405,7 @@ fn passage_publication_keeps_the_recorded_motion_in_both_directions() {
 /// A body wider than the opening retains its host support.
 #[test]
 fn a_body_wider_than_the_opening_does_not_open_the_host() {
-    let p = PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), -Vec2::Y, HALF);
+    let p = PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), -Vec2::Y, HALF).unwrap();
     let half = Vec2::new(46.5, 30.0);
     let body = ae::Aabb::new(Vec2::new(500.0, 270.5), half);
     assert!(!crate::transit::body_opens(&p, body, body.center(), Vec2::Y * 30.0, 60.0));
@@ -456,7 +422,7 @@ fn a_carried_vector_is_mapped_atomically_for_both_body_storage_types() {
         let [enter, exit] = wall_pair(&mut app);
         let mut portal = app.world_mut().get_mut::<PlacedPortal>(exit).unwrap();
         let pos = portal.pos;
-        portal.place_at(pos, Vec2::ONE.normalize());
+        portal.place_at(pos, Vec2::ONE.normalize()).unwrap();
         drop(portal);
         let kin = BodyKinematics {
             pos: Vec2::new(19.0, 200.0), vel: -Vec2::X * 400.0,
@@ -466,7 +432,7 @@ fn a_carried_vector_is_mapped_atomically_for_both_body_storage_types() {
         let record = SweepSample { prev: kin.pos + Vec2::X * 10.0, vel: kin.vel, ..SweepSample::at_rest(kin, Vec2::Y) };
         let kernel = app.world_mut().spawn((kin, record, CarriedAcceleration(force))).id();
         let free = app.world_mut().spawn((
-            Probe { pos: kin.pos, vel: kin.vel, step: Some((record.prev, kin.pos)) }, CarriedAcceleration(force),
+            physical_body(kin.pos, kin.vel, Some((record.prev, kin.pos))), CarriedAcceleration(force),
         )).id();
         let map = ae::frame::Sim2::through(
             &app.world().get::<PlacedPortal>(enter).unwrap().aperture(),
@@ -475,7 +441,7 @@ fn a_carried_vector_is_mapped_atomically_for_both_body_storage_types() {
         app.update();
         for entity in [kernel, free] {
             let pos = if entity == kernel { app.world().get::<BodyKinematics>(entity).unwrap().pos }
-                else { app.world().get::<Probe>(entity).unwrap().pos };
+                else { app.world().get::<BodyKinematics>(entity).unwrap().pos };
             let actual = app.world().get::<CarriedAcceleration>(entity).unwrap().0;
             if refused {
                 assert_eq!(pos, kin.pos, "a refused payload moved its body");
@@ -496,15 +462,13 @@ fn a_carried_vector_is_mapped_atomically_for_both_body_storage_types() {
 fn an_approaching_body_prepares_both_charts_before_begin() {
     let mut app = App::new();
     app.init_resource::<crate::PortalCarves>();
-    app.add_systems(Update, (crate::publish_portal_carves, crate::publish_free_body_carves::<Probe>).chain());
+    app.add_systems(Update, crate::publish_portal_carves);
     wall_pair(&mut app);
     let kernel = app.world_mut().spawn(BodyKinematics {
         pos: Vec2::new(70.0, 200.0), vel: Vec2::new(-4000.0, 0.0),
         canonical_size: Vec2::splat(16.0), ..Default::default()
     }).id();
-    let free = app.world_mut().spawn(Probe {
-        pos: Vec2::new(70.0, 230.0), vel: Vec2::new(-4000.0, 0.0), step: None,
-    }).id();
+    let free = app.world_mut().spawn(physical_body(Vec2::new(70.0, 230.0), Vec2::new(-4000.0, 0.0), None)).id();
     let bystander = app.world_mut().spawn(BodyKinematics {
         pos: Vec2::new(600.0, 200.0), ..Default::default()
     }).id();
@@ -519,4 +483,43 @@ fn an_approaching_body_prepares_both_charts_before_begin() {
     for body in [kernel, free] {
         assert!(app.world().get::<PortalTransit>(body).is_none());
     }
+}
+
+#[test]
+fn authored_directions_define_valid_stationary_frames_at_every_sample() {
+    use ae::frame::{MapConvention, Sim2};
+    for normal in [Vec2::new(0.174, 0.985), Vec2::splat(f32::MAX), Vec2::new(f32::from_bits(1), 0.0)] {
+        let portal = PlacedPortal::fixed(BLUE, Vec2::new(400.0, 1123.2), normal, HALF).unwrap();
+        let other = PlacedPortal::fixed(ORANGE, Vec2::ZERO, Vec2::X, HALF).unwrap();
+        for time in [0.0, 0.5, 1.0] {
+            let sampled = portal.step.sample(portal.aperture(), time).unwrap();
+            let map = Sim2::through(&sampled, &other.aperture(), MapConvention::Reflection).unwrap();
+            assert!(map.point(portal.pos).unwrap().distance(other.pos) < 0.001);
+            assert!(sampled.frame.normal.distance(portal.normal) < 0.00001);
+        }
+    }
+}
+
+#[test]
+fn invalid_placement_preserves_the_live_pose_and_motion() {
+    use ae::frame::NumericFault;
+    let mut portal = PlacedPortal::fixed(BLUE, Vec2::new(3.0, 5.0), Vec2::X, HALF).unwrap();
+    portal.vel = Vec2::new(10.0, 20.0);
+    portal.spin = 2.0;
+    portal.step.turn = 0.5;
+    portal.step.displacement = Vec2::Y;
+    let before = portal.clone();
+    for (pos, normal) in [(Vec2::ZERO, Vec2::ZERO), (Vec2::splat(f32::NAN), Vec2::Y), (Vec2::ZERO, Vec2::splat(f32::INFINITY))] {
+        assert!(portal.place_at(pos, normal).is_err());
+        assert_eq!(portal.pos, before.pos);
+        assert_eq!(portal.normal, before.normal);
+        assert_eq!(portal.vel, before.vel);
+        assert_eq!(portal.spin, before.spin);
+        assert_eq!(portal.step, before.step);
+        assert_eq!(portal.pivot, before.pivot);
+    }
+    for length in [0.0, -1.0, f32::INFINITY, f32::NAN] {
+        assert!(PlacedPortal::fixed(BLUE, Vec2::ZERO, Vec2::X, length).is_err());
+    }
+    assert_eq!(PlacedPortal::fixed(BLUE, Vec2::ZERO, Vec2::ZERO, HALF).unwrap_err(), NumericFault::InvalidFrame);
 }

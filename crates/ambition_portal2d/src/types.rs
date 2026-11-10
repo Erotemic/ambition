@@ -94,14 +94,27 @@ impl PortalHost {
     }
 }
 
+fn placement_normal(pos: Vec2, normal: Vec2) -> Result<Vec2, ae::frame::NumericFault> {
+    use ae::frame::NumericFault;
+    if !pos.is_finite() || !normal.is_finite() { return Err(NumericFault::NonFinite); }
+    let normal = normal.as_dvec2();
+    if normal == bevy::math::DVec2::ZERO { return Err(NumericFault::InvalidFrame); }
+    Ok(normal.normalize().as_vec2())
+}
+
 impl PlacedPortal {
     /// A portal placed at a fixed pose, its opening `half_length` long each
     /// way along the face ([`PORTAL_OPENING_HALF`] is the standard) and the
     /// standard thickness across it. The host adapter then decides whether
-    /// it rides a face.
-    pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_length: f32) -> Self {
+    /// it rides a face. The direction must be finite and nonzero.
+    /// Invalid position, direction or length returns a numeric fault.
+    pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_length: f32) -> Result<Self, ae::frame::NumericFault> {
+        use ae::frame::NumericFault;
+        if !half_length.is_finite() { return Err(NumericFault::NonFinite); }
+        if half_length <= 0.0 { return Err(NumericFault::InvalidScale); }
+        let normal = placement_normal(pos, normal)?;
         let half_thickness = PORTAL_THICKNESS_HALF;
-        Self {
+        Ok(Self {
             channel,
             pos,
             normal,
@@ -113,18 +126,21 @@ impl PlacedPortal {
             spin: 0.0,
             pivot: pos,
             step: ambition_platformer2d_core::frame::ApertureStep::fixed(pos, normal),
-        }
+        })
     }
 
     /// Place it at a new pose, as its owner does (not its host): the tick
     /// starts there, so eviction sees a new plane and transit no motion.
-    pub fn place_at(&mut self, pos: Vec2, normal: Vec2) {
+    /// Invalid input retains the live pose and its recorded motion.
+    pub fn place_at(&mut self, pos: Vec2, normal: Vec2) -> Result<(), ae::frame::NumericFault> {
+        let normal = placement_normal(pos, normal)?;
         self.pos = pos;
-        self.normal = normal.normalize_or_zero();
+        self.normal = normal;
         self.step = ae::frame::ApertureStep::fixed(self.pos,self.normal);
         self.vel = Vec2::ZERO;
         self.spin = 0.0;
         self.pivot = pos;
+        Ok(())
     }
 
     /// Did its host move or turn it this tick?
@@ -454,7 +470,7 @@ mod overlap_tests {
     use crate::color::PortalChannelColor;
 
     fn at(x: f32, y: f32, normal: Vec2) -> PlacedPortal {
-        PlacedPortal::fixed(PortalChannelColor::Purple.channel(), Vec2::new(x, y), normal, 40.0)
+        PlacedPortal::fixed(PortalChannelColor::Purple.channel(), Vec2::new(x, y), normal, 40.0).unwrap()
     }
 
     #[test]

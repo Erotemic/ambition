@@ -122,7 +122,7 @@ CONSEQUENCE the game states. The world does nothing on its own.**
    game claimed read the default rather than a stranger's rules.
 
    ⚠ **AMENDED 2026-09-26: the scoped declaration is not death-specific.**
-   `DeclaredRules<T>` (`ambition_combat::scoped_rules`) holds any per-game rule
+   `DeclaredRules<T>` (`ambition_platformer2d_world::scoped_rules`) holds any per-game rule
    under the same scopes, and `GoverningRules<T>` resolves the active room's
    answer. The dormancy rule (how near an observer keeps a hostile thinking)
    was the second user: a global resource would have let a hosted Sanic set

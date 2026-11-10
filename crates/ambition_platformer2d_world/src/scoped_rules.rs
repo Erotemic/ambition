@@ -10,7 +10,8 @@
 //! The death rules and the dormancy rule use it. The next per-game rule is one
 //! more `T`, not one more registry.
 
-use bevy::prelude::*;
+use bevy_app::App;
+use bevy_ecs::prelude::*;
 
 /// The rooms that one declaration governs. The variants mirror the
 /// hosted-game mode scopes used for systems and entities.

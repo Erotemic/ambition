@@ -83,7 +83,7 @@ fn populate(sim: &mut Platformer2dSimHarness) {
             .0
             .expect("the sandbox session has a controlled subject");
         let mut bodies = world
-            .query_filtered::<Entity, With<ambition_platformer2d::engine_core::BodyKinematics>>();
+            .query_filtered::<Entity, (With<ambition_platformer2d::engine_core::BodyKinematics>, With<ambition_platformer2d::actor::BodyHealth>)>();
         let target = bodies
             .iter(world)
             .find(|body| *body != subject)

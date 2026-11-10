@@ -40,7 +40,7 @@ mod rooms_unit_tests {
     use ambition_platformer2d_world::rooms::*;
 
     fn zone(activation: LoadingZoneActivation) -> LoadingZone {
-        LoadingZone {
+        LoadingZone { presentation: Default::default(),
             id: "z".into(),
             name: "Zone".into(),
             activation,

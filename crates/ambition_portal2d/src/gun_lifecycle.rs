@@ -70,7 +70,7 @@ mod tests {
             Vec2::new(x, 300.0),
             Vec2::new(0.0, -1.0),
             crate::PORTAL_OPENING_HALF,
-        )
+        ).unwrap()
     }
 
     fn app() -> App {

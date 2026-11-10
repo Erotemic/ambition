@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_portal2d::{
-    clear_portals_on_reset, portal_fire_system, portal_transit_free_bodies, publish_free_body_carves,
+    clear_portals_on_reset, portal_fire_system,
     publish_portal_carves, PortalSet,
 };
 
@@ -31,6 +31,9 @@ pub struct AmbitionPortalAdaptersPlugin;
 
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<ambition_portal2d::PortalGunPlugin>() {
+            app.add_plugins(ambition_portal2d::PortalGunPlugin);
+        }
         let sim = app.sim_schedule();
         // The consequences of a transit for the seat (the input guards, the
         // trace and trail notices, the turn-around) and for what the body
@@ -200,43 +203,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
         );
 
-        // Thrown items travel through portal pairs by the machine every body
-        // uses: they open the portal they reach, straddle it and cross when
-        // their centre does. Portal core moves the `GroundItem` body itself.
-        app.add_systems(
-            sim,
-            publish_free_body_carves::<ambition_held_items::GroundItem>
-                // It adds holes only where a portal stands.
-                .run_if(bevy::prelude::any_with_component::<ambition_platformer2d::portal::PlacedPortal>)
-                .in_set(PortalSet::Carves)
-                .after(publish_portal_carves)
-                .before(bridge_portal_carves),
-        );
-        // A plane that closes under a thrown item pushes it clear, as it
-        // pushes a kernel body, before the history moves on.
-        app.add_systems(
-            sim,
-            ambition_portal2d::evict_free_straddlers_on_portal_change::<ambition_held_items::GroundItem>
-                .run_if(ambition_portal2d::portals_or_their_frames)
-                .in_set(PortalSet::Frame)
-                .before(ambition_portal2d::PortalHistoryAdvance),
-        );
-        // It goes through an opening whole, as a kernel body does.
-        app.add_systems(
-            sim,
-            ambition_portal2d::snag_free_straddlers::<ambition_held_items::GroundItem>
-                .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PlacedPortal>)
-                .in_set(PortalSet::Frame)
-                .after(ambition_portal2d::PortalHistoryAdvance),
-        );
-        app.add_systems(
-            sim,
-            portal_transit_free_bodies::<ambition_held_items::GroundItem>
-                .run_if(ambition_portal2d::portals_or_transits)
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .after(ambition_portal2d::reconcile_transited_bodies),
-        );
+
     }
 }
 

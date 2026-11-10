@@ -136,14 +136,13 @@ A source review of S1-S4 found these. Each has a test in `ambition_portal2d`
 - **A shot's leg ends at a portal.** The stepper resolved walls and bodies along the whole
   leg in the room the shot was leaving, and the transit took it a tick later. Contacts now
   stop where its centre enters a paired opening (`first_portal_crossing`).
-- **A held item is not a free body.** `FreePortalBody::Presence` says whether the body is in
-  the world. A held item opens, crosses and straddles nothing, and its straddle ends.
+- **A held item is not a free body.** Custody derives `BodyInStorage` before spatial reads. A held item opens, crosses and straddles nothing, and its straddle ends.
 - **A crossing that skipped `Begin` straddles the exit**, so it is drawn cut as every
   crossing is.
 - **A straddle ends when the last pair closes.** The transit returned early with no portal
   placed, so `PortalTransit` stayed and kept withholding wall verbs.
-- **A free body has a sweep** (`FreePortalBody::last_step`; a ground item records the step
-  it moved), **and a closing plane pushes it clear** (`evict_free_straddlers_on_portal_change`).
+- **Each body has a sweep** (`SweepSample`), **and a closing plane pushes it clear**
+  (`evict_straddlers_on_portal_change`).
 - **Closing planes are taken in a fixed order** (room, then channel), not hash-map order.
 - **Host depth is the host's.** Measured through moving blocks where they are; a portal on a
   bare line (a plank) has depth 0, so the rescue does not take a body under the plank.
@@ -165,8 +164,8 @@ would go through and part around, it snags on the ends, like a rope.
   along the plane goes back to the end. It is a no-worse rule: a box that already cut the plane
   past an end (its feet standing into a slope beside the opening) is held where it was, not
   pushed, so the kernel's feet rule on slopes does not jitter.
-- **Where:** `PortalSet::Frame`, after eviction and before transit, for kernel bodies
-  (`snag_straddlers`) and free bodies (`snag_free_straddlers`). A body is read whether or not it
+- **Where:** `PortalSet::Frame`, after eviction and before transit, for all independent bodies
+  (`snag_straddlers`). A body is read whether or not it
   straddles yet: one step can take it across the plane.
 - **Measured on E:** the robot sunk in the slope's opening and walking right is held at the end
   (x stays at 2974.9 while it holds right), and goes through only when it fits. Walking up the

@@ -241,7 +241,7 @@ fn the_rules_techniques_follow_the_driven_body() {
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::ActionSet;
     use ambition_characters::control::ActorControl;
-    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
     use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
     use bevy::prelude::*;
 
@@ -562,7 +562,7 @@ fn the_driven_body_wears_the_techniques_of_its_own_live_room() {
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::ActionSet;
     use ambition_characters::control::ActorControl;
-    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
     use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
     use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
     use bevy::prelude::*;
@@ -582,7 +582,7 @@ fn the_driven_body_wears_the_techniques_of_its_own_live_room() {
         );
         app.add_systems(Update, gate_body_control);
         let hall =
-            ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
+            ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
         let room = if stage { hall.next() } else { hall };
         let mut frame = ActorControlFrame::neutral();
         frame.melee_pressed = true;
@@ -733,7 +733,7 @@ fn two_driving_seats_resolve_their_own_room_techniques_and_release_independently
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::ActionSet;
     use ambition_characters::control::{ActorControl, DrivingParticipant, PlayerSlot};
-    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_platformer2d_world::scoped_rules::{DeclareRulesExt, RulesScope};
     use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
     use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
@@ -755,7 +755,7 @@ fn two_driving_seats_resolve_their_own_room_techniques_and_release_independently
             }]),
         );
     }
-    let hall = ambition_combat::governing_rules::test_fixtures::two_game_session(&mut app, true);
+    let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
     let mut spawn = |room| {
         app.world_mut()
             .spawn((

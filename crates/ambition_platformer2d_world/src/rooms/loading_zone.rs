@@ -53,9 +53,20 @@ impl LoadingZoneActivation {
 /// Both sides of a secret way carry it.
 pub const SECRET_ZONE_PREFIX: &str = "secret_";
 
+/// The authored appearance of one loading zone. Discovery remains separate.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LoadingZonePresentation {
+    #[default]
+    Default,
+    /// The scene supplies the picture. Draw no marker or nameplate.
+    SceneArt,
+}
+
 /// A non-colliding rectangular trigger that swaps the active room.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LoadingZone {
+    #[serde(default)]
+    pub presentation: LoadingZonePresentation,
     pub id: String,
     pub name: String,
     pub activation: LoadingZoneActivation,
@@ -63,6 +74,10 @@ pub struct LoadingZone {
 }
 
 impl LoadingZone {
+    pub fn shows_marker(&self) -> bool {
+        self.presentation == LoadingZonePresentation::Default && !self.is_secret()
+    }
+
     /// Whether the body's path reaches this opening. The body's center
     /// need not enter it: an opening can stand at the edge of the room.
     pub fn reached_by(&self, body: ae::Aabb, delta: ae::Vec2) -> bool {

@@ -771,6 +771,10 @@ mod tests {
         let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let mut schemas = ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::default();
+        #[cfg(feature = "portal")]
+        schemas.try_contribute(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+            ambition_portal2d::portal_gun_construction_registry().deterministic_dump()).unwrap();
         RoomConstructionPlan::prepare_spec(
             0,
             spec,
@@ -780,7 +784,7 @@ mod tests {
             SessionSpawnScope::UNSCOPED,
             features::ActorConstructionContext::new(&sprite_content, &recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()),
             )
-                .with_prepared(fixture_cast()),
+                .with_prepared(fixture_cast()).with_construction_schemas(&schemas),
         )
     }
 
@@ -869,7 +873,9 @@ mod tests {
                 half_extent: ae::Vec2::new(8.0, 6.0),
                 pair: 0,
             });
-        let plan = prepare(&sprite_content, spec).expect("portal-gun room plan");
+        let plan = prepare(&sprite_content, spec.clone()).expect("portal-gun room plan");
+        let repeated = prepare(&sprite_content, spec).expect("same portal-gun room plan");
+        assert_eq!(plan.id(), repeated.id());
         let gun = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("gun");
 
         assert!(

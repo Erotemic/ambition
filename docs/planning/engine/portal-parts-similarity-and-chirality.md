@@ -8,7 +8,20 @@ Physical root material and admitted righting are in `02cabae98`. Canonical
 strike material and physical footprint publication are in `fcb9f7280`.
 Canonical hurt material is in `a46d6847f`. The select-screen and asset-publication
 merge is `bb7d831dd`; the debug body-map repair is `13e3e9bfb`.
-Snapshot schema remains v434.
+Snapshot schema is v435. Sampled projectile contacts now retain the physical
+contact point, normal, time and target path. Native hurt pieces take part in
+these queries. A named recipient does not select its geometry again at reception.
+
+The sampled-contact checkpoint passes the core tests (872), portal runtime
+tests (266), app portal tests (36), Mockingbird tests (4), schema tests (4),
+Smash tests (73), workspace policy tests (35), and absence checks (53). The
+default app warning check passes. The broad Python suite fails 71 tests; its
+log is `target/portal-sampled-gate-repo-tooling.log`. Full workspace and feature
+union gates have not run for this checkpoint.
+
+The next acceptance target is the existing playable 80/40 slice: one asymmetric
+body, partial-body contact, shared render geometry, reverse travel and replay.
+Two simultaneous limbs and a third portal follow that slice.
 
 Owner-following strikes now keep canonical source shapes and use the accepted
 body material. Native partitions retain that source without a world-space

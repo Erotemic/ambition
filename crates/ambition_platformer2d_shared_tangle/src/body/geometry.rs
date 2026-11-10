@@ -239,41 +239,20 @@ impl BodyGeometry {
         self.pieces_from(volume, source, root, true, room)
     }
 
-    /// Partition canonical material that reaches from its source body.
-    pub fn body_pieces_reaching(
-        &self,
-        canonical: &CombatVolume,
-        body: Entity,
-        room: Option<LiveRoomInstance>,
-    ) -> Partition {
-        self.body_pieces_from(canonical, body, true, room)
+    /// Partition accepted body material that reaches from its owner.
+    pub fn body_pieces_reaching(&self, material: MaterialPrimitive<'_>, body: Entity, room: Option<LiveRoomInstance>) -> Partition {
+        self.body_pieces_from(material, body, true, room)
     }
 
-    /// Partition canonical body material without a reach wedge.
-    pub fn body_pieces(
-        &self,
-        canonical: &CombatVolume,
-        body: Entity,
-        room: Option<LiveRoomInstance>,
-    ) -> Partition {
-        self.body_pieces_from(canonical, body, false, room)
+    /// Partition accepted body material without a reach wedge.
+    pub fn body_pieces(&self, material: MaterialPrimitive<'_>, body: Entity, room: Option<LiveRoomInstance>) -> Partition {
+        self.body_pieces_from(material, body, false, room)
     }
 
-    fn body_pieces_from(
-        &self,
-        canonical: &CombatVolume,
-        body: Entity,
-        reaching: bool,
-        room: Option<LiveRoomInstance>,
-    ) -> Partition {
-        let map = self.body_material(body)?;
+    fn body_pieces_from(&self, material: MaterialPrimitive<'_>, body: Entity, reaching: bool, room: Option<LiveRoomInstance>) -> Partition {
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
-        let root = map.point(Vec2::ZERO).map_err(numeric)?;
-        self.cut_material(MaterialPrimitive { domain: canonical, to_world: map,
-            }, PartSource::Body(body), root,
-            reaching,
-            room,
-        )
+        let root = material.to_world.point(Vec2::ZERO).map_err(numeric)?;
+        self.cut_material(material, PartSource::Body(body), root, reaching, room)
     }
 
     fn body_material(&self, body: Entity) -> Result<Sim2, Refusal> {

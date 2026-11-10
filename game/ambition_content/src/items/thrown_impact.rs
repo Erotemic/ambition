@@ -57,6 +57,7 @@ pub fn thrown_items_strike(
             }
             struck_any = true;
             hits.write(HitEvent {
+                contact: None,
                 pieces: Vec::new(),
                 volume: kin.aabb().into(),
                 damage: impact.damage,

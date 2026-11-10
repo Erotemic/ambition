@@ -499,6 +499,7 @@ impl ContactAttack {
         let dir =
             ((target_body.center() - self.source_pos).dot(self.frame_side)).signum_or(self.facing);
         Some(HitEvent {
+            contact: None,
             pieces: Vec::new(),
             strike_sfx: None,
             volume: self.volume.into(),

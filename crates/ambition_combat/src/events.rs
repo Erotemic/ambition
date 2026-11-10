@@ -558,9 +558,26 @@ impl bevy::ecs::entity::MapEntities for PendingPlayerHitEvents {
     }
 }
 
+/// An accepted spatial contact. Reception still owns damage and guard policy.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HitContact {
+    pub time: f64,
+    pub point: ae::Vec2,
+    pub normal: ae::Vec2,
+    pub target_path: Vec<u32>,
+}
+
+impl From<&ae::frame::material_cast::SampledPieceHit> for HitContact {
+    fn from(hit: &ae::frame::material_cast::SampledPieceHit) -> Self {
+        Self { time: hit.toi, point: hit.point, normal: hit.normal, target_path: hit.target_path.clone() }
+    }
+}
+
 /// Canonical world-space hit message. `target` states the victim-resolution mode.
 #[derive(Message, Clone, Debug)]
 pub struct HitEvent {
+    /// An accepted contact for the named recipient. Area queries have none.
+    pub contact: Option<HitContact>,
     /// World-space volume the hit covers. For broadcast / orb-match
     /// hits this is the broadcast / orb volume; for resolved single-
     /// victim hits this is the volume at the impact location. A
@@ -620,6 +637,13 @@ pub struct HitEvent {
 }
 
 impl HitEvent {
+    /// Return a contact only for the recipient that the spatial query selected.
+    pub fn contact_for(&self, recipient: Entity) -> Option<&HitContact> {
+        match self.target {
+            HitTarget::Body(body) | HitTarget::Feature(body) if body == recipient => self.contact.as_ref(),
+            _ => None,
+        }
+    }
     /// Test the hit against material in its current physical chart.
     pub fn meets_piece(&self, part: &ae::frame::thread::VolumePiece) -> bool {
         self.pieces.iter().any(|piece| piece.meets(part))

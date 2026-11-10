@@ -82,6 +82,14 @@ pub struct DamageableVolumes {
     source: Option<HurtSource>,
 }
 
+/// One sampled hurt contact with its physical source and target-chart origin.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BodySweepContact {
+    pub hit: ae::frame::material_cast::SampledPieceHit,
+    pub source_volume: ae::CombatVolume,
+    pub source_in_target: ae::Vec2,
+}
+
 impl DamageableVolumes {
     pub fn published(&self) -> bool {
         self.source.is_some()
@@ -209,7 +217,7 @@ impl DamageableVolumes {
         for domain in self.domains() {
             match (geometry, self.space()) {
                 (Some(geometry), HurtSpace::Body) => {
-                    pieces.extend(geometry.body_pieces(domain, owner, room)?)
+                    pieces.extend(geometry.body_pieces(MaterialPrimitive { domain, to_world: map }, owner, room)?)
                 }
                 (Some(geometry), HurtSpace::World) => pieces.extend(geometry.pieces(
                     domain,
@@ -233,53 +241,34 @@ impl DamageableVolumes {
         Ok(pieces)
     }
 
-    /// Earliest contact of a moving box with the sampled source regions.
-    pub fn swept_box_hit(
+    /// Sweep the physical source body through the sampled hurt pieces.
+    pub fn swept_body_contact(
         &self,
+        owner: Entity,
         body: Option<&ae::BodyKinematics>,
-        start: ae::Vec2,
-        half: ae::Vec2,
+        geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        source: &ae::BodyKinematics,
         delta: ae::Vec2,
-    ) -> Result<Option<f32>, ae::frame::thread::Refusal> {
-        use ae::frame::material_cast::{InitialOverlap, MaterialCast};
-        use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason};
-        if self.domains().is_empty() {
-            return Ok(None);
-        }
-        let map = self.material(body)?;
-        let numeric = |fault| Refusal {
-            path: Vec::new(),
-            link: None,
-            reason: RefusalReason::Numeric(fault),
-        };
-        let root = map.point(ae::Vec2::ZERO).map_err(numeric)?;
-        let end = start + delta;
-        let obstacle = [
-            end - half,
-            end + ae::Vec2::new(half.x, -half.y),
-            end + half,
-            end + ae::Vec2::new(-half.x, half.y),
-        ];
-        let mut earliest: Option<f64> = None;
-        for domain in self.domains() {
-            let cast = MaterialCast::new(
-                MaterialPrimitive {
-                    domain,
-                    to_world: map,
-                },
-                root,
-                ae::Vec2::ZERO,
-                0.0..1.0,
-            )
-            .with_initial_overlap(InitialOverlap::Report);
-            let cells = cast.cells(None)?;
-            for part in cells.parts() {
-                if let Some(hit) = cells.against(part, &obstacle, delta)? {
-                    earliest = Some(earliest.map_or(hit.toi, |before| before.min(hit.toi)));
+    ) -> Result<Option<BodySweepContact>, ae::frame::thread::Refusal> {
+        use ae::frame::thread::{Refusal, RefusalReason};
+        let pieces = self.pieces(owner, body, geometry, room)?;
+        if pieces.is_empty() { return Ok(None); }
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        let domain = source.canonical_box().map_err(numeric)?;
+        let polygon = domain.polygon().expect("a canonical body box is a polygon");
+        let map = source.material_map().map_err(numeric)?;
+        let mut earliest: Option<BodySweepContact> = None;
+        for piece in &pieces {
+            if let Some(hit) = ae::frame::material_cast::sweep_polygon_against_piece(&polygon, map, delta, piece)? {
+                if earliest.as_ref().is_none_or(|before| hit.toi < before.hit.toi) {
+                    let source_volume = ae::frame::thread::map_volume(&domain, &hit.source_map).map_err(numeric)?;
+                    let source_in_target = hit.target_map.inverse().and_then(|map| map.point(hit.source_map.point(ae::Vec2::ZERO)?)).map_err(numeric)?;
+                    earliest = Some(BodySweepContact { hit, source_volume, source_in_target });
                 }
             }
         }
-        Ok(earliest.map(|time| time as f32))
+        Ok(earliest)
     }
 
     /// Coarse bounds for affordance and presentation readers.
@@ -350,6 +339,12 @@ mod hurt_material_tests {
     use super::*;
     use ae::frame::{BodyMaterial, thread::RefusalReason};
 
+    fn box_hit(hurt: &DamageableVolumes, body: Option<&ae::BodyKinematics>, start: ae::Vec2, half: ae::Vec2, delta: ae::Vec2)
+        -> Result<Option<f64>, ae::frame::thread::Refusal> {
+        let source = ae::BodyKinematics { pos: start, canonical_size: half * 2.0, ..Default::default() };
+        hurt.swept_body_contact(Entity::PLACEHOLDER, body, None, None, &source, delta).map(|hit| hit.map(|hit| hit.hit.toi))
+    }
+
     #[test]
     fn native_sweeps_reach_shaped_material_between_endpoints() {
         let shapes = [
@@ -388,8 +383,7 @@ mod hurt_material_tests {
                 let world = hurt.world_volumes(Some(&body)).unwrap();
                 assert!(!world[0].intersects_aabb(ae::Aabb::new(start, half)));
                 assert!(!world[0].intersects_aabb(ae::Aabb::new(start + delta, half)));
-                let time = hurt
-                    .swept_box_hit(Some(&body), start, half, delta)
+                let time = box_hit(&hurt, Some(&body), start, half, delta)
                     .unwrap()
                     .expect("the path crosses the material");
                 assert!(time > 0.0 && time < 1.0);
@@ -406,7 +400,7 @@ mod hurt_material_tests {
             ae::Vec2::new(0.0, 10.0),
         ])]);
         assert!(
-            hurt.swept_box_hit(
+            box_hit(&hurt,
                 None,
                 ae::Vec2::new(8.0, 8.0),
                 ae::Vec2::splat(0.25),
@@ -416,7 +410,7 @@ mod hurt_material_tests {
             .is_none()
         );
         assert!(
-            hurt.swept_box_hit(
+            box_hit(&hurt,
                 None,
                 ae::Vec2::new(2.0, 2.0),
                 ae::Vec2::splat(0.25),
@@ -474,4 +468,38 @@ mod hurt_material_tests {
                 .is_empty()
         );
     }
+    #[test]
+    fn sampled_sweeps_retain_the_clipped_far_side_cap_and_live_body_pose() {
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame, Sim2};
+        use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+        let owner = Entity::PLACEHOLDER;
+        let mut geometry = BodyGeometry::new(MapConvention::Reflection);
+        geometry.add_pair(None, (
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, ae::Vec2::NEG_Y), half_length: 40.0 },
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y), half_length: 80.0 },
+        ));
+        geometry.set_body_material(owner, Ok(Sim2::IDENTITY));
+        let body = ae::BodyKinematics {
+            pos: ae::Vec2::new(0.0, -5.0),
+            material: BodyMaterial::new(0.5, bevy::math::Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y)).unwrap(),
+            ..Default::default()
+        };
+        let mut hurt = DamageableVolumes::default();
+        hurt.publish_body(vec![ae::CombatVolume::circle(ae::Vec2::ZERO, 20.0)]);
+        for (point, expected) in [(ae::Vec2::new(500.0, -195.0), true), (ae::Vec2::new(515.0, -195.0), false), (ae::Vec2::new(500.0, -215.0), false)] {
+            let source = ae::BodyKinematics { pos: point, canonical_size: ae::Vec2::splat(0.5), ..Default::default() };
+            let hit = hurt.swept_body_contact(owner, Some(&body), Some(&geometry), None, &source, ae::Vec2::ZERO).unwrap();
+            assert_eq!(hit.is_some(), expected, "point {point:?}");
+            if let Some(hit) = hit { assert!(!hit.hit.target_path.is_empty()); }
+        }
+        let source = ae::BodyKinematics { pos: ae::Vec2::new(500.0, -175.0), canonical_size: ae::Vec2::ONE, ..Default::default() };
+        let delta = ae::Vec2::new(0.0, -30.0);
+        let contact = hurt.swept_body_contact(owner, Some(&body), Some(&geometry), None, &source, delta).unwrap().unwrap();
+        assert!(contact.hit.toi > 0.0 && contact.hit.toi < 1.0);
+        assert!(contact.hit.normal.dot(delta) < 0.0);
+        assert!(contact.hit.point.y >= -200.0 && contact.hit.point.y <= -190.0 + 1.0e-4);
+        assert!(contact.source_in_target.x.abs() < 1.0);
+        assert!(!contact.hit.target_path.is_empty());
+    }
+
 }

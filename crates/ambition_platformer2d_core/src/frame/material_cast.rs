@@ -16,6 +16,8 @@ mod curved;
 mod arcs;
 mod payload;
 mod source;
+mod sampled;
+pub use sampled::{SampledPieceHit, sweep_polygon_against_piece};
 pub(super) use source::{SourceMotion, rotation_delta};
 pub use cell::MaterialCell;
 

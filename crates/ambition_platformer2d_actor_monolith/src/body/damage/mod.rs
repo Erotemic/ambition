@@ -979,7 +979,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
             if feature.state().pogo_refresh {
                 continue;
             }
-            if !event.meets_aabb(aabb.aabb()) {
+            if feature_target.is_none() && !event.meets_aabb(aabb.aabb()) {
                 continue;
             }
             let broke = ambition_breakables::strike(
@@ -989,8 +989,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                 event.damage.max(1),
             );
             breakable_keys.push(format!("breakable:{}", id.as_str()));
-            let impact = event.impact_on(aabb.center, &ambition_platformer2d_core::CombatVolume::aabb(aabb.aabb()),
-            );
+            let impact = event.contact_for(entity).map_or_else(|| event.impact_on(aabb.center, &ambition_platformer2d_core::CombatVolume::aabb(aabb.aabb())), |contact| contact.point);
             // CM8 on a prop: a breakable has no `HurtFeedback` of its own (no
             // spray, no debris — breaking already has its own FX), so it only
             // borrows the ATTACK's half of the rule. An attack that authored a

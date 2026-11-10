@@ -137,7 +137,13 @@ impl PortalCarves {
     /// A root crossing changes its chart. Both host openings must be ready.
     fn open_pair(&mut self, room: PortalRoom, enter: &PlacedPortal, exit: &PlacedPortal, body: Entity) {
         for end in [enter, exit] {
-            self.open(room, pp::carve_face_with_depth(&end.aperture(), f32::INFINITY), body);
+            let mut aperture = end.aperture();
+            let lift = match &end.host {
+                crate::PortalHost::Face { lift, .. } | crate::PortalHost::Line { lift, .. } => *lift,
+                _ => 0.0,
+            };
+            if lift < 0.0 { aperture.frame.origin -= aperture.frame.normal * lift; }
+            self.open(room, pp::carve_face_with_depth(&aperture, f32::INFINITY), body);
         }
     }
 

@@ -434,13 +434,12 @@ fn a_body_in_sideways_gravity_opens_the_chest_its_own_box_touches() {
         let mut app = app();
         let center = ae::Vec2::new(64.0, 64.0);
         let body = player(&mut app, center, true);
-        let kin = *app
+        let mut kin = *app
             .world()
             .get::<BodyKinematics>(body)
             .expect("the player has a body");
-        app.world_mut()
-            .entity_mut(body)
-            .insert(ae::SweepSample::at_rest(kin, ae::Vec2::new(1.0, 0.0)));
+        kin.material = ae::frame::BodyMaterial::IDENTITY.turned(-std::f64::consts::FRAC_PI_2).unwrap();
+        app.world_mut().entity_mut(body).insert((kin, ae::SweepSample::at_rest(kin, ae::Vec2::X)));
         let c = chest(&mut app, "c1", center + offset);
         app.update();
         app.world().get::<Opened>(c).is_some()

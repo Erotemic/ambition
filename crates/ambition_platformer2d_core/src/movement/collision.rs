@@ -2,34 +2,11 @@ use crate::Vec2;
 use crate::collision_semantics::{
     Axis, AxisConstraintConflict, AxisRole, Contact, ContactKind, ContactSource, axis_role,
     block_face_contact, body_on_support_side, is_contact_range_snap, is_full_collision_surface,
-    is_solid_for_axis, moving_toward_feet, one_way_landing_from_previous_feet,
+    is_solid_for_axis, one_way_landing_from_previous_feet,
     snap_feet_to_surface, surface_supports_body_at_rest,
 };
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{Block, BlockKind, World};
-
-/// Apply a penetration snap/push to the body position only when it is a genuine
-/// bounded contact correction, never a pushout-teleport. Returns whether it was
-/// applied so callers can gate the matching velocity-zero / contact flags: a
-/// rejected (catastrophic) push leaves the body and its velocity untouched so it
-/// depenetrates out the near face over subsequent frames. See
-/// [`is_contact_range_snap`] — the engine's shared no-artificial-pushout guard.
-#[must_use]
-fn apply_bounded_resolution(
-    kinematics: &mut crate::body_clusters::BodyKinematics,
-    delta: Vec2,
-    block: Aabb,
-    normal: Vec2,
-) -> bool {
-    let Some(position) = face_contact_position(*kinematics, delta, block, normal) else {
-        return false;
-    };
-    if !is_contact_range_snap(position - kinematics.pos, kinematics.aabb()) {
-        return false;
-    }
-    kinematics.pos = position;
-    true
-}
 
 /// Round a contact position toward free space. A rounded box edge can hide
 /// penetration by the canonical material and prevent an exact aperture fit.
@@ -51,25 +28,6 @@ fn face_contact_position(
         match axis { Axis::X => position.x = rounded, Axis::Y => position.y = rounded }
     }
     Some(position)
-}
-
-fn one_way_landing_from_feet(
-    body: Aabb,
-    block: Aabb,
-    block_velocity: Vec2,
-    delta: Vec2,
-    gravity_dir: Vec2,
-    drop_through: bool,
-) -> bool {
-    one_way_landing_from_previous_feet(
-        body,
-        block,
-        block_velocity,
-        delta,
-        gravity_dir,
-        drop_through,
-        body.feet_coord(gravity_dir),
-    )
 }
 
 /// The outward normal of the SUPPORT face resolved on the gravity-role world
@@ -190,10 +148,6 @@ fn block_passable_during_climb_clusters(
         return false;
     }
     contact.region_aabb.strict_intersects(block.aabb)
-}
-
-fn sweep_fraction(time_of_impact: f32) -> f32 {
-    time_of_impact.clamp(0.0, 1.0)
 }
 
 /// `(min, max)` span of an AABB along one world axis.
@@ -323,8 +277,9 @@ pub(super) fn sweep_player_axis_clusters(
     drop_through: bool,
     gravity_dir: Vec2,
     contacts: &mut Vec<Contact>,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    refusal: &mut Option<crate::frame::thread::Refusal>,
 ) -> Option<AxisConstraintConflict> {
-    let role = axis_role(axis, gravity_dir);
     let delta = axis_vec(axis, delta_along);
     // ONE policy for both stages below. See [`BodyCollisionPolicy`] for what the
     // repair used to do without it.
@@ -347,163 +302,104 @@ pub(super) fn sweep_player_axis_clusters(
         );
     }
 
-    let start_body = kinematics.aabb();
-    if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
-        if !is_solid_for_axis(block.kind, axis, gravity_dir) {
-            return false;
-        }
-        if policy.passes_through(block) {
-            return false;
-        }
-        // An edge touch across the moving axis is not a blocking face.
-        let (body_min, body_max) = axis_span(start_body, axis.perpendicular());
-        let (block_min, block_max) = axis_span(block.aabb, axis.perpendicular());
-        if body_max <= block_min || body_min >= block_max {
-            return false;
-        }
-        if matches!(block.kind, BlockKind::OneWay) {
-            return one_way_landing_from_feet(
-                start_body,
-                block.aabb,
-                block.velocity,
-                delta,
-                gravity_dir,
-                drop_through,
-            );
-        }
-        // the MIRROR, and without it a `BonkOnly` block is solid from every
-        // side — which is the invisible floor it exists to stop being. It
-        // blocks a head coming up into it and nothing else.
-        if matches!(block.kind, BlockKind::BonkOnly) {
-            return crate::collision_semantics::bonk_strike_from_head(
-                start_body,
-                block.aabb,
-                delta,
-                gravity_dir,
-            );
-        }
-        if role == AxisRole::Gravity && body_is_nested_along(start_body, block.aabb, axis) {
-            return false;
-        }
-        if start_body.strict_intersects(block.aabb) {
-            return false;
-        }
-        true
-    }) {
-        let toi_fraction = sweep_fraction(hit.time_of_impact);
-        kinematics.pos += axis_vec(axis, delta_along * toi_fraction);
-        let body = kinematics.aabb();
-        // and the arm was never load-bearing. Its whole stated job was
-        // "not the feet-snap arm", which the condition below already refuses on
-        // its own terms: a `BonkOnly` hit exists only when a head is RISING into
-        // the block (`bonk_strike_from_head` is the sweep filter), so
-        // `moving_toward_feet` is false and the kind is not `OneWay`. Deleting
-        // the arm is what makes its comment true.
-        if matches!(hit.block.kind, BlockKind::OneWay)
-            || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
-        {
-            let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
-            let support_normal = support_face_normal(axis, gravity_dir);
-            let _ = apply_bounded_resolution(kinematics, snap, hit.block.aabb, support_normal);
-            // BEFORE the zero below destroys it — the whole reason the contact
-            // carries it (see `Contact::impact_speed`).
-            let impact = crate::collision_semantics::closing_speed(kinematics.vel, support_normal);
-            zero_axis_vel(kinematics, axis);
-            if role == AxisRole::Gravity {
-                ground.on_ground = true;
+    let query = (|| {
+        use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
+        let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
+        let domain = kinematics.canonical_box().map_err(numeric)?;
+        let cast = MaterialCast::new(MaterialPrimitive {
+            domain: &domain, to_world: kinematics.material_map().map_err(numeric)?,
+        }, kinematics.pos, delta, 0.0..1.0);
+        let cells = cast.cells(admission)?;
+        let result = world.first_material_contact(&cells, |collider, _, hit| {
+            let normal = hit.map.direction(hit.normal);
+            let relative = hit.map.vector(delta).map_err(numeric)? - collider.displacement();
+            if relative.dot(normal) >= -1.0e-7 { return Ok(false); }
+            let gravity_pass = axis_role(axis, gravity_dir) == AxisRole::Gravity;
+            Ok(match collider {
+                crate::world::MaterialCollider::Block(block) => {
+                    if policy.passes_through(block) { false }
+                    else { match block.kind {
+                        BlockKind::OneWay => gravity_pass && !drop_through && normal.dot(-gravity_dir) > 0.5,
+                        BlockKind::BonkOnly => normal.dot(gravity_dir) > 0.5,
+                        kind => is_full_collision_surface(kind),
+                    } }
+                }
+                crate::world::MaterialCollider::Chain { chain, segment, .. } => {
+                    chain.kind == crate::world::SurfaceKind::Solid && chain.closed
+                        || gravity_pass && !drop_through && normal.dot(chain.normal_at_time(segment, hit.world_time).map_err(numeric)?) > 0.5
+                }
+            })
+        });
+        result
+    })();
+    let hit = match query {
+        Ok(hit) => hit,
+        Err(reason) => { *refusal = Some(reason); return None; }
+    };
+    if let Some(hit) = hit {
+        let contact = hit.contact;
+        let step = delta.as_dvec2() * contact.toi;
+        let normal = contact.normal;
+        let position = kinematics.pos.as_dvec2() + step;
+        kinematics.pos = position.as_vec2();
+        for component in 0..2 {
+            if f64::from(normal[component]) * (f64::from(kinematics.pos[component]) - position[component]) < 0.0 {
+                kinematics.pos[component] = if normal[component] > 0.0 {
+                    kinematics.pos[component].next_up()
+                } else { kinematics.pos[component].next_down() };
             }
-            contacts.push(block_face_contact(
-                body,
-                hit.block,
-                support_normal,
-                toi_fraction,
-                ContactKind::Support,
-                impact,
-            ));
-        } else if role == AxisRole::Gravity {
-            let (push, push_normal) = axis_face_resolution(body, hit.block.aabb, axis);
-            if apply_bounded_resolution(kinematics, push, hit.block.aabb, push_normal) {
-                let impact = crate::collision_semantics::closing_speed(kinematics.vel, push_normal);
-                zero_axis_vel(kinematics, axis);
-                // The other end of the axis `on_ground` reports. Published so
-                // the floor game can decide a ceiling tech at the TOP of the
-                // next tick, one phase before contacts exist.
-                ground.head_contact = true;
-                contacts.push(block_face_contact(
-                    body,
-                    hit.block,
-                    push_normal,
-                    toi_fraction,
-                    ContactKind::Head,
-                    impact,
-                ));
-            }
-        } else {
-            let immediate_contact = hit.time_of_impact <= 1.0e-5;
-            let (body_min, body_max) = axis_span(body, axis);
-            let (block_min, block_max) = axis_span(hit.block.aabb, axis);
-            let overlap = (body_max.min(block_max) - body_min.max(block_min)).max(0.0);
-            let body_beyond_block = (body_min + body_max) * 0.5 > (block_min + block_max) * 0.5;
-            let moving_away_from_block = (body_beyond_block && delta_along > 0.0)
-                || (!body_beyond_block && delta_along < 0.0);
-            let grazing_overlap_moving_away =
-                immediate_contact && overlap > 0.0 && moving_away_from_block;
-            // Resolve the side penetration robustly via the shared helper: defer
-            // to the gravity pass when the perpendicular exit is shorter —
-            // crucially REGARDLESS of `immediate_contact`. A body sliding
-            // PARALLEL just under a wide thin block (its head grazing the far
-            // face) makes the swept cast return a spurious *non-immediate*
-            // grazing hit; an immediate-only guard let that fall through to a
-            // far-edge push, teleporting the body ~900px out of the room.
-            // `None` => not a side contact to resolve here, so keep the swept
-            // motion going.
-            let depen = resolve_side_penetration(
-                body,
-                hit.block.aabb,
-                axis,
-                axis_component(world.size, axis),
-            );
-            if grazing_overlap_moving_away || depen.is_none() {
-                kinematics.pos += axis_vec(axis, delta_along * (1.0 - toi_fraction));
-            } else {
-                let (d, normal_sign) = depen.expect("checked is_none above");
-                let side_normal = axis_vec(axis, normal_sign);
-                if !apply_bounded_resolution(kinematics, axis_vec(axis, d), hit.block.aabb, side_normal) {
+        }
+        if axis_component(normal, axis).abs() > 1.0 - 1.0e-6 {
+            let sign = axis_component(normal, axis).signum();
+            let support = match kinematics.projected_half_extent(normal.as_dvec2()) {
+                Ok(support) => support,
+                Err(fault) => {
+                    *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
+                        reason: crate::frame::thread::RefusalReason::Numeric(fault) });
                     return None;
                 }
-                // ⭐ THE WALL HIT, measured. This is the value nothing
-                // downstream could recover: the zero on the next line is what
-                // destroys it, and a body already stopped against a wall looks
-                // the same however hard it arrived.
-                let impact = crate::collision_semantics::closing_speed(kinematics.vel, side_normal);
-                zero_axis_vel(kinematics, axis);
-                apply_side_contact(wall, side_normal, gravity_dir);
-                contacts.push(block_face_contact(
-                    body,
-                    hit.block,
-                    side_normal,
-                    toi_fraction,
-                    ContactKind::Side,
-                    impact,
-                ));
+            };
+            let bound = f64::from(axis_component(contact.point, axis)) + f64::from(sign) * support;
+            let mut coordinate = bound as f32;
+            if f64::from(sign) * (f64::from(coordinate) - bound) < 0.0 {
+                coordinate = if sign > 0.0 { coordinate.next_up() } else { coordinate.next_down() };
+            }
+            if sign * (axis_component(kinematics.pos, axis) - coordinate) < 0.0 {
+                match axis { Axis::X => kinematics.pos.x = coordinate, Axis::Y => kinematics.pos.y = coordinate }
             }
         }
+        let physical_normal = contact.map.direction(normal);
+        let remaining_surface = hit.collider.displacement() * (1.0 - contact.toi) as f32;
+        let carry = physical_normal * remaining_surface.dot(physical_normal).max(0.0);
+        let carry = match contact.map.inverse().and_then(|inverse| inverse.vector(carry)) {
+            Ok(carry) => carry,
+            Err(fault) => {
+                *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
+                    reason: crate::frame::thread::RefusalReason::Numeric(fault) });
+                return None;
+            }
+        };
+        kinematics.pos += axis_vec(axis, axis_component(carry, axis));
+        let impact = crate::collision_semantics::closing_speed(kinematics.vel, normal);
+        zero_axis_vel(kinematics, axis);
+        let kind = if normal.dot(-gravity_dir) > 0.5 {
+            ground.on_ground = true;
+            ContactKind::Support
+        } else if normal.dot(gravity_dir) > 0.5 {
+            ground.head_contact = true;
+            ContactKind::Head
+        } else {
+            apply_side_contact(wall, normal, gravity_dir);
+            ContactKind::Side
+        };
+        let surface_velocity = hit.collider.displacement();
+        contacts.push(Contact { kind, point: contact.point, normal, toi: contact.toi as f32,
+            surface_velocity, impact_speed: impact, involuntary: false, source: hit.collider.source() });
     } else {
-        kinematics.pos += axis_vec(axis, delta_along);
+        kinematics.pos += delta;
     }
-
-    resolve_axis_repair(
-        world,
-        kinematics,
-        ground,
-        wall,
-        policy,
-        axis,
-        prev_feet_coord,
-        drop_through,
-        gravity_dir,
-        contacts,
-    )
+    resolve_axis_repair(world, kinematics, ground, wall, policy, axis,
+        prev_feet_coord, drop_through, gravity_dir, contacts)
 }
 
 /// One solid's CLAIM on the body's centre coordinate along the repaired axis.
@@ -602,10 +498,7 @@ fn resolve_axis_repair(
                 } else {
                     axis_face_resolution(aabb, block.aabb, axis)
                 };
-                // The no-artificial-pushout refusal, unchanged in meaning and in
-                // effect: `apply_bounded_resolution` asked exactly this of the
-                // same snap against a body whose half-extent does not depend on
-                // where its centre is. A refused block claims nothing.
+                // A distant face cannot supply a contact repair.
                 if !is_contact_range_snap(delta, aabb) {
                     continue;
                 }

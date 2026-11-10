@@ -27,16 +27,9 @@ pub struct PlacedPortal {
     pub normal: Vec2,
     /// The start pose and the host's published travel during this tick.
     pub step: ae::frame::ApertureStep,
-    /// The opening as its owner placed it: half its length along the face,
-    /// and half its thickness across it. The opening that transit, carve and
-    /// drawing use is [`Self::opening_half_length`]: a pair opens the
-    /// smaller of its two openings, and nothing writes that back here.
+    /// The authored half-length along the face and half-thickness across it.
     pub half_length: f32,
     pub half_thickness: f32,
-    /// The authored opening half-length of this portal's partner, or `None`
-    /// when it has no partner. `equalize_pair_apertures` derives it each
-    /// frame from the two authored lengths. It is not authored.
-    pub partner_opening_half: Option<f32>,
     /// The face this aperture rides, if any. A hosted portal closes when its
     /// face disappears.
     pub host: PortalHost,
@@ -120,7 +113,6 @@ impl PlacedPortal {
             normal,
             half_length,
             half_thickness,
-            partner_opening_half: None,
             host: PortalHost::Unattributed,
             vel: Vec2::ZERO,
             spin: 0.0,
@@ -227,15 +219,9 @@ impl PlacedPortal {
             pivot:self.pivot-self.step.displacement,..self.frame() }
     }
 
-    /// The half-length of the opening this frame: the authored one, made
-    /// shorter (centered) to the partner's when the partner's is smaller, so
-    /// the two ends of a pair are always one size. The thickness does not
-    /// change, so transit stays an isometry.
+    /// The full authored opening sets the pair's scale ratio.
     pub fn opening_half_length(&self) -> f32 {
-        match self.partner_opening_half {
-            Some(partner) => self.half_length.min(partner),
-            None => self.half_length,
-        }
+        self.half_length
     }
 
     /// The half-thickness of the opening across the face.
@@ -285,7 +271,7 @@ pub fn find_portal<'a>(
 
 /// The crate's one tie-break between portals, for every place that picks one
 /// of several and must pick the same one each time: [`find_portal`],
-/// `link::equalize_pair_apertures`, and the transit loops.
+/// the transit loops.
 ///
 /// Lowest position first. `Query` order is archetype order, which a rollback
 /// resimulation may not reproduce. One shared rule also keeps the sites from
@@ -303,7 +289,7 @@ pub fn stable_portal_order(a: &PlacedPortal, b: &PlacedPortal) -> std::cmp::Orde
 /// drawn face and the capture box both use these, so the warp happens at the
 /// visible face.
 pub const PORTAL_OPENING_HALF: f32 = 46.0;
-/// Standard through-surface half-thickness, exposed so the aperture-equalizer
+/// Standard through-surface half-thickness, exposed so aperture fixtures
 /// can rebuild a half-extent from a new along-length.
 pub(crate) const PORTAL_THICKNESS_HALF: f32 = 9.0;
 pub(crate) const PORTAL_MAX_RANGE: f32 = 6000.0;
@@ -367,7 +353,6 @@ mod find_portal_determinism_tests {
             normal: Vec2::new(0.0, 1.0),
             half_length: PORTAL_OPENING_HALF,
             half_thickness: PORTAL_THICKNESS_HALF,
-            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             spin: 0.0,
@@ -427,7 +412,6 @@ mod stable_order_tests {
             normal: Vec2::new(0.0, 1.0),
             half_length: PORTAL_OPENING_HALF,
             half_thickness: PORTAL_THICKNESS_HALF,
-            partner_opening_half: None,
             host: Default::default(),
             vel: Vec2::ZERO,
             spin: 0.0,

@@ -224,6 +224,7 @@ pub(super) fn apply_intent(
     platform_drop: bool,
     // In water: a swimming body always turns with its steer.
     in_water: bool,
+    frame: crate::MotionFrame,
 ) {
     let oos = tuning.abilities.shield.out_of_shield;
     let gate = OutOfShieldGate::read(shield.active, oos);
@@ -232,6 +233,9 @@ pub(super) fn apply_intent(
     // rule); in flight and in water it always turns.
     let can_turn = ground.on_ground || flight.fly_enabled || in_water || !tuning.locomotion.holds_facing_in_air;
     let local_stick = input.local_axis();
+    let physical_side = kinematics.material.orthogonal().x_axis;
+    let facing_intent = physical_side.dot(frame.side() * local_stick.x);
+
     // ⭐⭐ REVERSING OUT OF A COMMITTED RUN COSTS A TURNAROUND, and that is what
     // makes the initial dash's free reversal worth anything: inside the dash
     // you turn for nothing, out of a run you pay for it. Either half alone is
@@ -246,7 +250,7 @@ pub(super) fn apply_intent(
     // its velocity meanwhile is the ordinary run law's business; inventing a
     // skid here would be a second opinion about ground speed.
     let reversing =
-        can_turn && local_stick.x.abs() > 0.1 && local_stick.x.signum() != kinematics.facing;
+        can_turn && facing_intent.abs() > 0.1 && facing_intent.signum() != kinematics.facing;
     // ⛔⛔ ON THE EDGE OF THE REQUEST, not on the condition. A body that is
     // still running and still asking to reverse satisfies this every tick, so
     // arming on the condition re-arms the phase the instant it expires and the
@@ -304,8 +308,8 @@ pub(super) fn apply_intent(
     {
         state.turnaround_timer = tuning.locomotion.turnaround_time;
     }
-    if can_turn && local_stick.x.abs() > 0.1 && state.turnaround_timer <= 0.0 {
-        kinematics.facing = local_stick.x.signum();
+    if can_turn && facing_intent.abs() > 0.1 && state.turnaround_timer <= 0.0 {
+        kinematics.facing = facing_intent.signum();
     }
     // JUMP OUT OF SHIELD, the universal option — and the guard leaves with it.
     if input.jump_pressed() && abilities.abilities.jump && gate.permits(OutOfShieldAction::Jump) {
@@ -951,7 +955,7 @@ mod burst_maneuver_tests {
                 false,
                 // Nor water.
                 false,
-            );
+            crate::MotionFrame::from_direction(crate::Vec2::Y, 1200.0),);
             assert_eq!(
                 state.buffer_burst > 0.0,
                 expected != BurstManeuver::None,

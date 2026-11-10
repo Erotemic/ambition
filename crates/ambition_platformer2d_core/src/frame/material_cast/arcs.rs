@@ -1267,13 +1267,15 @@ pub(super) fn build(
                 .iter()
                 .map(|&i| curve.scene.links[i].key)
                 .collect();
-            Ok(MaterialCell {
-                path,
-                map,
-                travel: DVec2::ZERO,
-                planes: Vec::new(),
-                time: 0.0..curve.scene.until,
-                curve: Some(Arc::new(curve)),
+            let time = 0.0..curve.scene.until;
+            let affine = curve.affine_planes(&time)
+                .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+            let travel = curve.velocity(DVec2::ZERO, 0.0)
+                .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+            Ok(match affine {
+                Some(planes) => MaterialCell { path, map, travel, planes, time, curve: None },
+                None => MaterialCell { path, map, travel: DVec2::ZERO,
+                    planes: Vec::new(), time, curve: Some(Arc::new(curve)) },
             })
         })
         .collect()

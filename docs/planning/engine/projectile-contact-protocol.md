@@ -3,7 +3,7 @@
 **State:** A2 is built. A projectile selects one contact from its swept travel
 leg, compares targets and walls by one time of impact, and names its recipient
 once. Compound contacts (ruling Q96) are built. The open items are the
-moving-target limit of this slice and an optional file move (see
+moving-target and carried-source limits of this slice (see
 [Open work](#open-work)).
 
 **Scope:** the same-build deterministic simulation, in every live room. A shot
@@ -47,9 +47,7 @@ area event as an approximation to one touching projectile.
 
 An integration module can depend directly on these owners. No function-pointer
 registry is needed to ask a boss whether a shot arrived. Generic flight helpers
-live in `ambition_projectiles`. Combat contact orchestration stays in the
-monolith projectile region (`projectile/systems.rs`) until its inputs are
-independent of feature internals.
+live in `ambition_projectiles`. Combat contact orchestration lives in `ambition_projectile_combat`.
 
 ## Current shape
 
@@ -58,12 +56,12 @@ independent of feature internals.
 | Boss hurt geometry is computed once, by its publisher | Bosses join the damage-facing barrier `DamageFacingVolumesPublished` (after `Playback`, before `Resolve`). `apply_boss_hit` and the projectile stepper do not derive geometry and do not read `BossCatalog` | `a_boss_is_reached_only_through_its_published_volumes` (four states, including an anti-vacuity row) |
 | Breakable geometry | `CenteredAabb` plus broken state, both settled in `WorldPrep`. Breakables are not in the barrier, because a second publication would change nothing | — |
 | One travel leg | The pre-integration position is captured once. Nothing derives the start as `pos - vel * dt` | — |
-| One obstruction model | One `body_sweep` over the leg, with the shot's own box and its own `WorldHitPolicy` | `a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other`, `a_shot_clipping_a_block_corner_along_its_path_hits_it` |
-| Swept body contact | `ambition_combat::hitbox::swept_strike_reaches_victim`. Candidates are ordered by time of impact, not by distance to a centre | `a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick`, `a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit` |
-| Swept feature contact | `projectile_reaches_breakable` and `projectile_reaches_boss` return a `FeatureContact` (time, centre, entity). The boss sweep reuses `swept_strike_reaches_victim` | `a_fast_shot_breaks_a_thin_crate_it_crosses_within_one_tick` |
+| One obstruction model | One native material cast over the recorded leg, with the shot's canonical box and `WorldHitPolicy` | `a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other`, `a_shot_clipping_a_block_corner_along_its_path_hits_it` |
+| Swept body contact | `DamageableVolumes::swept_body_contact` casts canonical source material against native sampled hurt pieces. Candidates are ordered by time of impact | `a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick`, `a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit` |
+| Swept feature contact | `projectile_reaches_breakable` and `projectile_reaches_boss` return a `FeatureContact` with the accepted native contact and recipient | `a_fast_shot_breaks_a_thin_crate_it_crosses_within_one_tick` |
 | Bodies, features and walls compared together | The feature candidate is resolved beside the bodies. The earliest contact wins, whatever its family | `the_earliest_contact_wins_whether_it_is_a_body_or_a_crate`, `a_crate_behind_a_wall_is_not_broken_and_one_in_front_of_it_is`, `a_shot_does_not_damage_a_victim_standing_behind_a_wall` |
 | Total order | `FeatureContact::order_for_caller`: time, then position, then authored identity | `a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first`, `the_same_two_victims_with_identities_do_not` |
-| Contact box, not endpoint box | A targeted `HitEvent` carries the box at contact, nudged a hair inside. Knockback and impact point are measured from the contact | `the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint` |
+| Contact box, not endpoint box | A targeted `HitEvent` carries its exact physical volume and a `HitContact` with time, point, normal and target path. Knockback uses the target root chart | `the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint` |
 | Targeted feature delivery | `HitTarget::Feature(Entity)` names the boss or breakable the sweep chose. No projectile road constructs `UnresolvedFeatures`; melee and area callers keep it | `a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box`, `a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it` |
 | Receiver-neutral return lifetime | A returning shot survives a boss or breakable it hits, as it survives a body, and keeps the same per-leg ledger | `a_returning_shot_survives_the_crate_it_breaks_and_an_ordinary_one_does_not` |
 | Direct before splash | The direct request is emitted before its landing splash for every receiver family | `the_direct_request_precedes_its_landing_splash_for_a_feature_target` |
@@ -133,10 +131,10 @@ Get them from the movement/transit operation; never sweep through the gap. A
 reflected or bounced shot ends its current tick's travel after that response.
 Residual-time multi-bounce integration is a later explicit behavior change.
 
-Travel legs, broad-phase candidates and contact witnesses are tick-local
-scratch, recomputed after rollback. Return-leg hit memory, projectile identity,
-ownership and velocity are registered simulation state. Do not serialize
-transient spatial-query results as another authority.
+Travel legs and unselected candidates are scratch, recomputed after rollback.
+An accepted queued hit retains its contact until reception; the pending-hit
+checksum includes it. Return-leg hit memory, identity, ownership and velocity
+are registered simulation state. Do not add a second spatial cache.
 
 ## Candidate representation and ordering
 
@@ -319,8 +317,7 @@ receiver's state in its declared phase.
 | Item | Work | Trigger |
 | --- | --- | --- |
 | Moving-target CCD | A target that moves across a stationary shot between samples. Outside this slice | A content case that needs it, through the [collision plan](collision-and-ccd.md) |
-| Swept shaped parts | A swept primitive for rotated boxes, circles or hulls | The first publisher that emits a non-`Aabb` `CombatVolume` |
-| Contact module move | A `projectile/contacts.rs` module <!-- cite-ok: proposed module path --> in the same crate removes no authority and no dependency edge, so it is not taken | Do it in the same commit as a deletion it enables: a `pub(crate)` boundary, or flight state leaving for `ambition_projectiles` without the victim queries |
+| Carried-source and moving-target pairs | Sampled hurt shapes are native. Continuous source-part and moving-target pair queries remain open | A case that needs both trajectories |
 | A5 destructible owner | One owner for intact/broken/respawn state, hit and stand triggers, damage reduction, collision publication and one destruction transition, extracted from interaction/combat/features. A5 does not turn every world object into a breakable or merge falling chests/switches under a generic feature enum | See the [actor monolith frontier](actor-monolith-work-frontier.md) |
 
 ## Forbidden regressions
@@ -331,7 +328,7 @@ receiver's state in its declared phase.
   published `DamageableVolumes`.
 - A segment start derived as `pos - vel * dt`.
 - A centre ray as the obstruction test, or a second obstruction model beside the
-  shot's `body_sweep`.
+  shot's native material cast.
 - A "feature contact, else world" or "body, else feature" branch order in place
   of the time-of-impact comparison.
 - An epsilon tie comparator, or a tie that goes to an independent target over

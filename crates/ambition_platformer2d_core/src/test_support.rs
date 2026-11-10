@@ -207,6 +207,7 @@ pub(crate) fn update_player_simulation_with_clusters(
         tuning.params(),
         crate::movement::body_contact::BodyContactField::NONE,
         false,
+        None,
     );
     if events.reset.is_some() {
         reset_body_clusters(

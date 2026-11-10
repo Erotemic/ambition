@@ -1423,12 +1423,13 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
         crate::rendering::actors::character_render_basis(&spec, collision, Some(Vec2::new(61.0, 73.0)), Some(Vec2::ZERO)).1;
     assert_ne!(npc.0, player.0, "premise: the two conventions differ");
     for built_at in [npc, player] {
+        for physical_scale in [Vec3::new(0.5, 0.5, 1.0), Vec3::new(-0.5, 0.5, 1.0), Vec3::new(2.0, 2.0, 1.0)] {
         for flip in [false, true] {
             for turn in [0.0, std::f32::consts::FRAC_PI_2, 0.6] {
                 let (mut app, root) = app_direct(&sprite_content, sheet_with(&sprite_content, "mary_o_v2_tall", Some(flipbook.clone())), built_at);
                 app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
                 let root_place =
-                    Transform::from_translation(Vec3::new(40.0, -12.0, 3.0)).with_rotation(Quat::from_rotation_z(turn));
+                    Transform::from_translation(Vec3::new(40.0, -12.0, 3.0)).with_rotation(Quat::from_rotation_z(turn)).with_scale(physical_scale);
                 *app.world_mut().get_mut::<Transform>(root).unwrap() = root_place;
                 app.update();
                 let owner = owner(&app, root);
@@ -1454,6 +1455,7 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
                 }
             }
         }
+    }
     }
 }
 

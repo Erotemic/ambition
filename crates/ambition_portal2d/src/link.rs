@@ -1,4 +1,4 @@
-//! Explicit portal linking by id, plus the min-aperture equalizer.
+//! Explicit portal linking by id.
 //!
 //! Two portals with the same [`PortalLink`] in one live room are partners.
 //! This is preferred over pairing by complementary color.
@@ -14,12 +14,6 @@
 //! that another room's pair, a new pair or a moved end could change was a
 //! body that lost its portal in the middle of a crossing.
 //!
-//! [`equalize_pair_apertures`] derives the opening of each end from the two
-//! authored openings (the smaller, centered). It writes
-//! [`PlacedPortal::partner_opening_half`] and never the authored extent, so a
-//! partner that grows again gives the wider opening back. There is no
-//! scaling, so transit stays an isometry.
-
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
@@ -86,8 +80,6 @@ fn link_channel(index: u8) -> PortalChannel {
 /// reads the result. A host adapter that must publish portal frames before
 /// resolution needs this boundary inside `PortalSet::Pose`.
 ///
-/// It has one member. Adding `equalize_pair_apertures` would also force
-/// adapters to run before equalization, which no one requires.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalLinkResolution;
 
@@ -212,102 +204,5 @@ fn assign_room(groups: &mut BTreeMap<u64, Vec<Member>>, assigned: &mut Vec<(Enti
     }
 }
 
-/// Derive each linked portal's opening this frame: the smaller of its own
-/// authored opening and its partner's, centered. The transit map does not
-/// change. Runs after [`resolve_portal_links`].
-///
-/// It reads only authored extents and writes only
-/// [`PlacedPortal::partner_opening_half`], so the result does not depend on
-/// which end it does first, and an end whose partner grows opens wide again.
-pub fn equalize_pair_apertures(
-    mut portals: Query<(Entity, &mut PlacedPortal)>,
-    live: crate::rooms::PortalRooms,
-) {
-    // Choose the partner with `find_portal` among the portals of the same
-    // live room, the same rule transit uses, so the doorway is sized for the
-    // portal the body arrives at.
-    let by_room = crate::PortalsByRoom::collect(
-        portals.iter().map(|(entity, portal)| (entity, portal)),
-        &live,
-    );
-    for (entity, mut p) in portals.iter_mut() {
-        let partner = crate::find_portal(by_room.in_room(live.of(entity)), p.channel.partner())
-            .map(|partner| partner.half_length);
-        if p.partner_opening_half != partner {
-            p.partner_opening_half = partner;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-mod aperture_partner_tests {
-    use super::*;
-    use crate::color::PortalChannelColor;
-    use crate::types::PORTAL_THICKNESS_HALF;
-    use bevy::prelude::App;
-
-    fn portal(channel: PortalChannel, x: f32, opening: f32) -> PlacedPortal {
-        PlacedPortal {
-            channel,
-            pos: Vec2::new(x, 0.0),
-            normal: Vec2::new(0.0, 1.0),
-            half_length: opening,
-            half_thickness: PORTAL_THICKNESS_HALF,
-            partner_opening_half: None,
-            host: Default::default(),
-            vel: Vec2::ZERO,
-            spin: 0.0,
-            pivot: Vec2::ZERO,
-            step: ambition_platformer2d_core::frame::ApertureStep::fixed(Vec2::new(x, 0.0), Vec2::new(0.0, 1.0)),
-        }
-    }
-
-    fn equalized(order: &[PlacedPortal]) -> f32 {
-        let mut app = App::new();
-        for p in order {
-            app.world_mut().spawn(p.clone());
-        }
-        app.add_systems(bevy::prelude::Update, equalize_pair_apertures);
-        app.update();
-        let yellow = PortalChannelColor::Yellow.channel();
-        let mut q = app.world_mut().query::<&PlacedPortal>();
-        q.iter(app.world())
-            .find(|p| p.channel == yellow)
-            .expect("the yellow aperture")
-            .opening_half_extent()
-            .x
-    }
-
-    /// Two same-channel apertures (a contrived case). Equalization must pick
-    /// the same partner as `find_portal`, whatever the spawn order. The test
-    /// spawns the set in both orders. The purples have different openings, so
-    /// a wrong pick is visible.
-    #[test]
-    fn the_doorway_is_sized_against_the_same_partner_transit_would_choose() {
-        let purple = PortalChannelColor::Purple.channel();
-        let yellow = PortalChannelColor::Yellow.channel();
-        // Lowest `pos.x` wins, so the 10.0-wide one at x=100 is the partner and
-        // the wide one at x=900 must NOT be.
-        let near = portal(purple, 100.0, 10.0);
-        let far = portal(purple, 900.0, 90.0);
-        let gate = portal(yellow, 500.0, 50.0);
-
-        let forward = equalized(&[near.clone(), far.clone(), gate.clone()]);
-        let reversed = equalized(&[gate.clone(), far.clone(), near.clone()]);
-
-        assert_eq!(
-            forward, reversed,
-            "spawn order changed the yellow doorway ({forward} vs {reversed}) — \
-             the aperture pass is choosing a partner by iteration order"
-        );
-        assert_eq!(
-            forward, 10.0,
-            "the doorway was not sized against the partner `find_portal` \
-             returns (lowest pos), so transit and the aperture disagree about \
-             which purple is the pair"
-        );
-    }
-}

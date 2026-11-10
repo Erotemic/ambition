@@ -240,10 +240,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 435 -> 436: authored NPC life and visit state joins the merged snapshot.
 // 436 -> 437: a `Life` carries its claim on a thing and why its plan was made.
 // 437 -> 438: a talked-to life stops its plan, and a failed step replans.
-// 438 -> 439: `actor.life_ledger` (each character's life as its body last
-// lived it) joins the rollback state, and a returning life catches up.
-// 439 -> 440: the save (hashed in the checksum) keeps the NPC lives (save v6).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 440;
+// 438 -> 439: each character's last life joins the snapshot and catches up.
+// 439 -> 440: saved NPC lives and native portal body contacts join the merge.
+// 440 -> 441: distinguish the combined save and portal snapshot.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 441;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

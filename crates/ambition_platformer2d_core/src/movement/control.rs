@@ -28,7 +28,7 @@ pub fn handle_blink_clusters(
     // "Forward along facing" is a LOCAL-side direction; every world-space
     // default derived from it must go through the body frame (fable review
     // §B9 — the world-X fallback broke sideways gravity).
-    let facing_aim_offset = frame.side() * (tuning.abilities.blink_distance * kinematics.facing);
+    let facing_aim_offset = kinematics.material.orthogonal().x_axis * (tuning.abilities.blink_distance * kinematics.facing);
 
     if !abilities.abilities.blink {
         state.blink_hold_active = false;
@@ -76,7 +76,7 @@ pub fn handle_blink_clusters(
         // Quick blink direction in WORLD space, resolved through the MOVEMENT
         // frame mode at the seam (locomotion-framed). Zero stick → forward
         // along facing, which lives on the body's local side axis.
-        let fallback = frame.side() * kinematics.facing;
+        let fallback = kinematics.material.orthogonal().x_axis * kinematics.facing;
         let aim = input.blink_quick_dir.normalize_or(fallback);
         let precision = state.blink_aiming && abilities.abilities.precision_blink;
         let from = kinematics.pos;
@@ -134,7 +134,6 @@ pub fn handle_attacks_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     abilities: &crate::body_clusters::BodyAbilities,
     input: InputState,
-    frame: MotionFrame,
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
@@ -142,7 +141,7 @@ pub fn handle_attacks_clusters(
         return;
     }
     if input.attack_pressed {
-        kinematics.vel -= frame.side() * (kinematics.facing * tuning.abilities.slash_recoil);
+        kinematics.vel -= kinematics.material.orthogonal().x_axis * (kinematics.facing * tuning.abilities.slash_recoil);
         events.operations.push(MovementOp::Slash);
     }
 }

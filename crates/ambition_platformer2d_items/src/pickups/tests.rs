@@ -591,13 +591,12 @@ fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
 
     let center = ae::Vec2::new(64.0, 64.0);
     let player = player_at(&mut app, center);
-    let body = *app
+    let mut body = *app
         .world()
         .get::<BodyKinematics>(player)
         .expect("the player has a body");
-    app.world_mut()
-        .entity_mut(player)
-        .insert(ae::SweepSample::at_rest(body, ae::Vec2::new(1.0, 0.0)));
+    body.material = ae::frame::BodyMaterial::IDENTITY.turned(-std::f64::consts::FRAC_PI_2).unwrap();
+    app.world_mut().entity_mut(player).insert((body, ae::SweepSample::at_rest(body, ae::Vec2::X)));
     let past_its_end = health_pickup_at(
         &mut app,
         "hp_past_its_end",

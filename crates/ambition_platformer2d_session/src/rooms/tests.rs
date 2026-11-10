@@ -468,6 +468,7 @@ fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches
     let mut scratch =
         ae::BodyClusterScratch::new_with_abilities(ae::Vec2::new(100.0, 100.0), ae::AbilitySet::default());
     scratch.kinematics.canonical_size = size;
+    scratch.kinematics.material = ae::frame::BodyMaterial::IDENTITY.turned(-std::f64::consts::FRAC_PI_2).unwrap();
     scratch.base_size.base_size = size;
     let world = empty_world("sideways");
     let mut sample = ae::SweepSample::default();
@@ -526,7 +527,7 @@ fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches
 fn a_body_moved_past_its_record_in_sideways_gravity_crosses_the_zone_its_own_box_touches() {
     let size = ae::Vec2::new(48.0, 22.0);
     let stands_at = ae::Vec2::new(300.0, 200.0);
-    let body = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
+    let body = ambition_platformer2d_core::BodyKinematics { material: ae::frame::BodyMaterial::IDENTITY.turned(-std::f64::consts::FRAC_PI_2).unwrap(),
         pos: stands_at,
         vel: ae::Vec2::ZERO,
         canonical_size: size,

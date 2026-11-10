@@ -1,6 +1,9 @@
 # Portal capability and motion-admission boundary review — 2026-11-09
 
-Status: **Open for implementation**. This document is a standalone review and work order. It does not modify the shared task queue.
+Status: **P01–P06 and P08–P10 implemented; P07 acceptance remains open**.
+Code is committed in `4afbf6100` and `9e626f08b`. See the
+[capability and publication receipt](#capability-and-publication-packet) for tests,
+measurements and failures. This review does not modify the shared task queue.
 
 ## Purpose and evidence
 
@@ -267,7 +270,7 @@ Report (1) each P01–P10 ID as resolved, deferred, or confirmed not an issue wi
 
 ## Implementation receipts
 
-First packet: this commit. P03 and P04 are implemented. P01 has its body-owned
+First packet: `4afbf6100` (the first checkpoint). P03 and P04 are implemented. P01 has its body-owned
 API; body snapshot publication still needs its owner move. P02 uses explicit
 owner policies: flag and castle steps retry without progress; denied saddle
 poses dismount; denied captive poses use the capture release owner; petting
@@ -291,5 +294,227 @@ Validation commands and results:
 - App `pet`, `grab` and `gnu_ton_fight` selections: pass; GNU-ton has 39 passes.
 - `cargo test -j12 -p ambition_demo_smash_app`: 71 pass, six ignored.
 
-Logs use `target/portal-review-a-`. P05–P10 remain in progress. This receipt
+Logs use `target/portal-review-a-`. At that checkpoint, P05–P10 remained open. This receipt
 does not mark the full review or the portal implementation complete.
+
+### Capability and publication packet
+
+Code commit: `9e626f08b`. Map commits: `e7ad541` and merge `790e3ee`. The body domain now samples canonical body material before
+motion and after chart transfer. The portal publisher adds only aperture policy,
+links and occupancy. These are two publication epochs. The later sample must
+include this tick's accepted motion. `BodyKinematics::material` remains the
+canonical state; `BodyGeometry` is derived state and is rebuilt during replay.
+No second cache or incremental invalidation protocol was added.
+
+| Finding | Status | Change and guard |
+|---|---|---|
+| P01 | Resolved | `body::pose::BodyPoseAdmission` and `body::geometry` own admission and material sampling. Portal-free scaled and reflected pose tests pass. |
+| P02 | Resolved | Packet `4afbf6100` commits sequence state and relationships after admission. Owner refusal and recovery tests pass. |
+| P03 | Resolved | `MotionStepContext::admission` and `FrameEvents::motion_refusal` report generic motion failure. Typed aperture details and first-fault ordering remain. |
+| P04 | Resolved | Missing body material returns `MissingMaterial`. Explicit world sources retain their identity transform. |
+| P05 | Resolved | The two epochs have one body owner. The publication measurement below records their cost. Full rebuilds remain; no cache optimization is claimed. |
+| P06 | Resolved | Runtime selects `PortalSimulationPlugin`. Ambition selects the gun separately. Construction consumes the same generation-bound schema catalog used for content identity. Missing gun schemas refuse authored guns. Repeat plan IDs agree. |
+| P07 | Deferred | The two camera/walking failures and the standalone spark/wall case remain release gates in the existing portal plan. The relevant-source baseline and latest results are below. No PSIM slice is closed. |
+| P08 | Resolved | Each loading zone authors `Default` or `SceneArt`. The generic renderer owns this policy. Duplicate IDs in different rooms do not share visibility. Secret discovery and gate animation retain their owners. |
+| P09 | Resolved | Mary-O selects its actual facade features. Standalone normal, test, visible, desktop and web trees have no portal crate. Isolated compilation and tests are recorded below. |
+| P10 | Resolved | `PortalRooms` reads the existing per-game rules at the world owner. Publishers clear disabled-room links and occupancy. Physics, shots, held pairs and camera lists use room identity. Tests cover capability changes, equal coordinates in two rooms and a body transferred into a Mary-O room. |
+
+The caller policies are: flag and castle retry without clock or phase progress;
+mounts dismount at the last accepted pose; captives use the existing capture
+release owner; petting prepares both bodies and cancels on refusal; boss pose
+claims follow acceptance, and rejected release poses retain the hold. No client
+gets a portal bypass.
+
+The public rule paths are now `ambition_platformer2d_world::scoped_rules` and
+`ambition_platformer2d_world::governing_rules`. Combat has no forwarding modules
+or test-support bridge. These rules serve the world, combat and optional
+capabilities through one room model.
+
+The map tool authored the presentation field in twelve LDtk files. Semantic
+comparison after editor normalization shows only the enum, field definition and
+selected instance values. The editor also repaired existing Boolean defaults
+in intro and Mary-O. Geometry is unchanged. The Science sign and two NPC edits
+were excluded from the map commit.
+
+Eleven map validations pass. Sandbox retains the existing error for
+`scroll_lab_door`, which has no target or arriving zone. The Python repository
+suite also retains an unrelated failure in
+`test_the_shipped_ledger_and_page_agree`: the committed open-question page has
+zero Q headings, and its checker refuses zero. The run was stopped after this
+failure. No planning queue or question was changed to satisfy the checker.
+
+#### Publication measurement
+
+The ignored `passages::publication_measurements_tests::measure_body_geometry_publication`
+test uses two live rooms with per-game capability rules. The second room disables
+portals. Each publication time includes the body-owned material sample. Five
+warm-up passes precede 100 measured publications at each epoch. The consumer
+column is one batch over all bodies, averaged over ten batches. These are debug
+build measurements on this VM, not release or target-device frame costs.
+
+| Bodies | Pairs in enabled room | Before motion, us | After motion, us | Consumer batch, us | Material payload, bytes |
+|---:|---:|---:|---:|---:|---:|
+| 0 | 0 | 27.800 | 21.467 | 0.055 | 0 |
+| 0 | 8 | 34.128 | 23.341 | 0.033 | 0 |
+| 100 | 0 | 59.066 | 54.525 | 149.304 | 7,200 |
+| 100 | 8 | 72.221 | 63.897 | 321.626 | 7,200 |
+| 1,000 | 0 | 411.883 | 413.072 | 1435.263 | 72,000 |
+| 1,000 | 8 | 427.146 | 421.185 | 3282.461 | 72,000 |
+
+Payload bytes exclude tree nodes and vector capacity. Allocation counts were not
+measured. The two samples have different required input states. This measurement
+does not justify a shared mutable cache or a skipped second epoch. It does not
+cover deep recursive cuts, moving-host load, rendering or GPU cost.
+
+#### Portal acceptance that remains open
+
+The relevant-source baseline uses `f7ad6e564988061c9034e7e8a838adcce56b5c92`,
+the same authored lab and the source paths recorded in
+`target/portal-camera-baseline-status.json`. That run passes the floor/ceiling
+case and fails the same two walking/camera cases. It is a source comparison;
+it is not a claim that the entire old commit was validated in a clean checkout.
+
+The latest headless app run also fails:
+
+- `portal_translation_camera_continuity::c141_to_c140_preserves_screen_position_and_continues_right`:
+  the screen-space continuity assertion fails.
+- `portal_translation_camera_continuity::thin_wall_walk_keeps_apparent_player_position_smooth`:
+  the walk does not cross the pair.
+
+The assertions were retained. Their owner remains
+[the portal plan](../../docs/planning/engine/portal-parts-similarity-and-chirality.md).
+Root rebasing, remaining motion, moving-host admission, righting, native actor
+contacts, unequal apertures and full PSIM acceptance remain open there. This
+review does not create a second implementation queue.
+
+#### Verification and limits
+
+The target bind was active before builds. Cargo gates ran in sequence. Source
+files stayed fixed during each gate. Packet `4afbf6100` has the first admission
+and caller tests listed above.
+
+The capability packet has these results:
+
+- Owning library batch: world 181 passes and one ignored; construction 10;
+  publication 183; LDtk 81; renderer 522. The app library has 279 passes and one
+  ignored. Portal has 143 passes and one ignored; runtime has 264 passes.
+- Content portal selection: 64 passes. The full content library has 560 passes,
+  one failure and two ignored. Its failure names the unpublished
+  `history_afonso_letter` prop sheet.
+- App mixed-game selection: 17 passes, including actual host capability
+  declarations, room-local admission and body transfer into a Mary-O room.
+- App portal selection: 35 passes and the two P07 failures. The c141 assertion
+  reports delta `(-549.950, 29.325)`, length `550.731`, against tolerance `1.5`.
+  These values match the relevant-source baseline.
+- Broad app rollback selection before the baseline refresh: 82 passes, three
+  failures and six ignored. The baseline failure is the intended rename from
+  `PortalPassages` to `BodyGeometry` in the derived-resource row. No snapshot
+  encoding changed. The other two failures are resource-census tests. They
+  report `ambition_demo_smash::autoplay::SmashAutoplayDriver` and
+  `ambition_platformer2d::content::sprite_reload::SpriteSheetWatchPolicy`.
+  Their source files were not changed by this packet. No waiver was added.
+- Art-dependent app selections remain red: declared art has five passes and
+  three failures; registered character art has two passes and one failure.
+  The generated library lacks history character sheets, manifests and portraits.
+  This packet does not author or remove those assets.
+- Smash standalone: 71 passes, six ignored; its doctest target has no tests.
+- The enforced absence-contract check passes all 53 contracts. The interrupted
+  Python run has 525 passes, 15 skips and the unrelated open-question checker
+  failure described above. It is not a full Python-suite pass.
+
+The body/portal owner batch was compiled with:
+
+```sh
+cargo test -j12 -p ambition_app -p ambition_platformer2d_runtime \
+  -p ambition_portal2d -p ambition_content --lib --no-run --message-format=json
+```
+
+The emitted portal and runtime unit-test binaries ran in full. The emitted
+content binary ran with filter `portal`. The emitted portal binary also ran
+`--ignored --nocapture measure_body_geometry_publication`.
+
+Other exact commands:
+
+```sh
+cargo check -j12 -p ambition_app --tests
+cargo test -j12 -p ambition_app --test app_it -- a_game_governs_only_its_own_rooms
+cargo test -j12 -p ambition_app --test app_it -- portal
+cargo test -j12 -p ambition_app --test app_it -- rollback_
+cargo test -j12 -p ambition_app --test app_it -- declared_art_resolves
+cargo test -j12 -p ambition_app --test app_it -- registered_character_art
+cargo test -j12 -p ambition_demo_smash_app
+python3 scripts/checks/check_absence_contracts.py --check
+python3 -m pytest scripts/tests/ -q
+```
+
+Logs and status records use `target/portal-review-`. This is a focused review
+lane. It does not prove full workspace, Android, GPU capture, deep recursive
+partition load or complete PSIM acceptance.
+
+Mary-O validation is isolated from Ambition feature unification:
+
+```sh
+cargo test -j12 -p ambition_demo_mary_o -p ambition_demo_mary_o_app \
+  --features ambition_demo_mary_o_app/visible --no-fail-fast
+cargo check -j12 -p ambition_demo_mary_o_app \
+  --target wasm32-unknown-unknown --features web
+```
+
+The web check passes. The native run has 205 content passes and one ignored,
+ten app unit passes, and 139 visible integration passes with one failure and
+three ignored. The failed test is
+`her_spark_leaves_her_hand::a_spark_thrown_against_a_wall_does_not_pass_the_wall`.
+A spark born inside the left wall is seen beyond its far side. The assertion
+was retained. This is an open P07 contact-acceptance case. The common projectile
+collision resolver has no portal-feature branch and was not changed by this
+packet. This result does not establish that the full standalone game is green.
+
+All six standalone dependency-tree selections pass: content normal, app normal,
+app normal plus dev dependencies, visible, desktop and web. They contain no
+`ambition_portal2d`. A separate wasm-target tree also excludes it. Ambition's web
+composition now selects `portal_ldtk` explicitly; the generic web facade does
+not select it for portal-free games.
+
+Final correction gates pass:
+
+- `cargo test -j12 -p ambition_app -p ambition_portal2d --lib passages`:
+  one pass and one ignored measurement.
+- `cargo test -j12 -p ambition_app -p ambition_portal2d --lib measure_body_geometry_publication -- --ignored --nocapture`:
+  one measured test passes. The table above uses this final run.
+- `cargo check -j12 -p ambition_app --tests`: pass.
+- `cargo test -j12 -p ambition_app --test app_it -- rollback_schema_baseline`:
+  four pass after the intended derived-resource name refresh.
+- `cargo test -j12 -p ambition_workspace_policy`: 35 pass. The portal dependency
+  rule now names the world rule service. The timing probe is in a test file.
+  No determinism exception was added.
+
+The broad rollback selection was not repeated after the baseline text refresh.
+The resource-census failures remain open. No full rollback-suite pass is claimed.
+The policy, schema and app-check logs use `target/portal-review-correction-`.
+
+The map push required a merge with remote `18e40ee`. The merge keeps its Science
+layout and enemy data, then applies the four zone presentation values with fresh
+schema UIDs. The committed semantic diff from that remote file contains only
+presentation data. The working copy retains the original director sign and both
+local NPC records exactly, including their IIDs, without duplicates. The local
+identity delta stays unstaged. Science validation passes. The final content check
+passes after the merge:
+
+```sh
+cargo test -j12 -p ambition_app -p ambition_content --lib worlds::tests::every_shipped_enemy_placement_can_be_built
+```
+
+The unchanged library commands for the earlier owning batch were:
+
+```sh
+cargo test -j12 -p ambition_app -p ambition_platformer2d_world \
+  -p ambition_portal2d -p ambition_platformer2d_construction \
+  -p ambition_platformer2d_publication -p ambition_platformer2d_runtime \
+  -p ambition_render -p ambition_platformer2d_ldtk --lib --no-fail-fast
+```
+
+Documentation checks: intra-planning anchors pass (133 cross-file and 12
+same-file links). The strict citation check reports 27 unresolved references in
+other planning files. The link check reports 13 broken links in other planning
+files. Neither checker reports this updated portal plan. The shared queue and
+those other plans were not changed by this repair.

@@ -2,13 +2,14 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** IMPLEMENTATION RESUMED ON MAIN (Jon, 2026-11-09).
-The slot 1 work was merged. Main is the active checkout. Jon asked for a safe
-commit point before the pause. The native source-admission packet is committed as `9098b5d54`. The shared
-item-body packet is `821ce15c3`. Their affected checks pass.
-Jon asked to continue and finish the work. Preserve the merged
-slot 1 checkpoint, `portal-similarity-draft`. Feature acceptance remains open.
-See [Committed checkpoint](#committed-checkpoint) and [Draft status](#draft-status).
+**Work state:** REVIEW REPAIRS COMMITTED ON MAIN; FEATURE ACCEPTANCE OPEN
+(2026-11-09). The slot 1 work is merged. External pose admission and caller
+transactions are committed in `4afbf6100`. Capability selection, body publication,
+room isolation and authored zone presentation are committed in `9e626f08b`.
+The map merge is `790e3ee`. P07 remains open: c141 camera continuity, thin-wall
+walking and the standalone spark/wall contact test are red. No PSIM acceptance
+slice is closed by these review repairs. See the [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#capability-and-publication-packet).
+
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
 [portals are moving frames](portals-are-moving-frames.md), and
@@ -584,7 +585,19 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
-Motion-admission review, first packet: this commit. The body domain owns
+Capability and publication review repair: `9e626f08b`. The body domain samples
+material at two distinct epochs. Portal publishers add room-scoped restrictions
+and clear disabled-room state. Runtime selects simulation separately from the
+gun; construction uses the generation's schema catalog. The generic renderer
+reads authored zone presentation. Mary-O's standalone native, test, desktop and
+web dependency trees exclude the portal crate; its wasm web check passes.
+The app check, four schema tests, 35 policy tests and 17 mixed-game tests pass.
+Portal has 143 passes; runtime has 264. The receipt records the publication cost
+and all remaining failed gates. Do not combine the two material epochs without
+preserving their distinct input states. P07 and full PSIM acceptance remain open.
+
+
+Motion-admission review, first packet: `4afbf6100`. The body domain owns
 external pose admission and prepared group poses. Sequence progress, relationship
 release and boss holds now follow the admission result. A missing body material
 map returns a typed refusal. The old portal-named pose API is removed.

@@ -6,7 +6,8 @@
 (2026-11-10). P01–P06 and P08–P10 are repaired. P07 remains open for full
 feature acceptance. Physical root material and admitted righting are committed
 in `02cabae98`, with snapshot schema v432. Validation repairs are `4980e0a1b`.
-Upstream work is merged through `ef786ca79`.
+Upstream work is merged through `66900f4c6`. Main now uses schema v433 for
+stamped hand requests.
 
 The merged app portal selection passes 36 tests. The core has 869 passes and
 one ignored test. Workspace policy has 35 passes; Smash has 71 passes and six

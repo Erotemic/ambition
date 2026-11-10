@@ -669,7 +669,7 @@ change both sides together.
 
 ### Physical root material packet
 
-Code: `02cabae98`. Upstream merges: `2fe6b743d` and `ef786ca79`.
+Code: `02cabae98`. Upstream merges: `2fe6b743d`, `ef786ca79` and `66900f4c6`.
 Validation repairs: `4980e0a1b`. P07 remains open.
 
 `BodyMaterial` stores wide physical axes and scale in the current room chart.
@@ -713,6 +713,11 @@ integration tests; three are ignored. All 53 absence contracts hold. The portal
 plan's 19 citations and all planning anchors resolve. The global doc-link check
 reports three links to `engine/radiant-npc-planning.md` outside this packet.
 Logs use `target/portal-root-extra-`.
+
+The later stamped-hand merge uses schema v433. Its equip/stow replay test,
+both held-projectile portal tests, four live schema tests, the default-feature
+warning check and all 53 absence contracts pass. Logs use
+`target/portal-root-hand-merge-`.
 
 Full workspace libraries, feature unions, device/GPU tests and performance
 acceptance are not covered by this packet. No full PSIM slice is closed. Native body contacts, same-tick

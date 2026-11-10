@@ -306,7 +306,7 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
     configured = selected.manifest["producers"]
     bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:") or unit.split(":")[1] in configured}
     if bundles != accepted["bundles"]:
-        store.publish(bundles, accepted, replace=True, hashes=hashes,
+        store.publish(bundles, accepted, replace=True,
                       only_missing=any(arg in {"--only-missing", "--missing-only"} for arg in arguments),
                       refresh_units={"producer:music:registry"} if family == "music" else ())
     print(f"{family}: accepted {len(replacements)} bundle(s)")

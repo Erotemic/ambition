@@ -153,6 +153,32 @@ If a bundle is damaged, a requested file may fail; retain the previous usable
 selection or report the broken file. A high-stakes release runs a separate
 one-time audit before distribution.
 
+**Done 2026-11-10 (measured).** `Store.accept` copies each member once
+while hashing it (`copy_digest`), so the recorded digest is of the bytes the
+bundle holds; an existing bundle with the same key gets an existence check,
+not a re-read. `Store.publish` reads accepted manifests, checks ownership
+(`Two producers own`), checks only that a bundle it newly selects has its
+members, and keeps the lock, the merge of concurrent publications and the
+atomic write; its inert `hashes` parameter is gone. The deep check is the
+explicit `Store.audit()`. Measured with
+`scripts/measure/measure_publication_cost.py` (synthetic store, members of
+256 KiB, one new unit of 8 members; two runs each, the same both times):
+
+| step | before | after |
+|---|---|---|
+| accept one 2.1 MB unit | 6.29 MB read, 4.20 MB hashed, 59 stat calls, 15-17 ms | 2.10 MB read, 2.10 MB hashed, 19 stat calls, 9-10 ms |
+| publish onto 4 bundles (8.4 MB) | 10.5 MB read and hashed, 44 stat calls, 31-35 ms | 0.02 MB read, 12 stat calls, 3.3-3.8 ms |
+| publish onto 200 bundles (419 MB), no digest cache | 423 MB read and hashed, 1612 stat calls, 1123-1156 ms | 1.1 MB read (manifests), 12 stat calls, 59-67 ms |
+| the same, warm `Digests` cache | 1.8 MB read, 110-112 ms | (no cache taken) |
+| explicit `audit()`, 200 bundles | (inside every publish) | 423 MB read, 1096-1218 ms |
+
+Witnesses in the renderer's `tests/test_publication_store.py`: a focused
+publication reads no payload digest while an old member is damaged, and
+`audit` reports that member (a poison restoring the per-publish deep check
+reddened it); a newly selected bundle missing a member refuses and leaves the
+previous selection; accept records the digest of the bytes it copied. The
+existing concurrent-publication, failed-accept and stale-parent tests pass.
+
 **Scope caution:** the music publisher checks cue dependencies and renders
 per-cue units, while SFX currently produces an audio bank. It can refuse to
 *certify a new render* when required inputs are not current

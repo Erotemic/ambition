@@ -234,10 +234,16 @@ served games still run.
 **Owner:** renderer publication store and library producer scripts.
 Design: [asset library review, B](engine/asset-library-implementation-review.md#b-publication-works-but-checks-the-past-on-every-change).
 
-**Next action:** record a small and a many-bundle baseline of time, bytes read,
-hashes and stat calls. Accept new bytes in one copy/hash pass. Select from
-accepted manifests, check ownership conflicts, and keep the atomic swap.
-Move deep payload inspection to an explicit audit.
+**Done 2026-11-10 (measured):** accept is one copy-and-hash pass (a 2.1 MB
+unit: 6.3 MB read before, 2.1 MB after); publish selects from accepted
+manifests with ownership checks and the atomic swap, and checks only that a
+newly selected bundle has its members (onto 200 bundles: 1.1-1.2 s and 423
+MB read before, 59-67 ms and 1.1 MB after); deep payload inspection is the
+explicit `Store.audit()`
+([review, B](engine/asset-library-implementation-review.md#b-publication-works-but-checks-the-past-on-every-change)).
+
+**Next action:** none in this row. No release path calls `audit()` yet; the
+release asset contract is ASSET-PREVIEW's boundary.
 
 **Acceptance:** focused publication does not read or hash old payloads.
 Concurrent independent publications survive the merge; a failed producer

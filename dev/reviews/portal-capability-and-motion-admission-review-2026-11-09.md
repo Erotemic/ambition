@@ -950,3 +950,24 @@ asymmetric body after it clears the exit.
 tick through independent scaled paths. All three GNU-ton fist tests pass.
 That result does not close multi-path visual or lab acceptance. I–J remain
 deferred. Full P07 acceptance remains open.
+
+
+### Backed lab and simultaneous contact packet
+
+`0f64b41bf` adds the live J axe station and backing surfaces behind J and K
+mouths. A real strike hits through three pairs at quarter scale and odd
+reflection while a foot uses a separate pair. GGRS 4/10 and two-hop refusal
+checks pass. Physical occupancy now selects body rendering before root
+transit. Separate reaching cuts retain the near foot. Cleared targets no
+longer upload CPU zeroes and block changed clip meshes at impact.
+
+The packet passes 34 portal app tests, 128 presentation tests, 25 host tests,
+seven capture-tool tests, 73 Smash tests and 35 policy tests. Six Smash probes
+remain ignored. The app check and the clean impact film pass. The
+[PSIM receipt](../../docs/planning/engine/portal-parts-similarity-and-chirality.md)
+records the limits. Full PSIM acceptance remains open.
+
+
+After the final upstream merge, both J tests and the app check pass again.
+`8b278ec6b` updates the recorded headers to the upstream v442 notice-state
+schema without a peer-row change. All four schema checks pass.

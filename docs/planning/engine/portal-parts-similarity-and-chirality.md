@@ -3,7 +3,8 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** THE REQUESTED PLAYABLE 80/40 SLICE IS COMPLETE (`fddf6084a`).
-The final NPC save merge is `55d5a4292`; the combined snapshot schema is v441.
+The final NPC save merge is `55d5a4292`. The current rollback schema is v442
+after the upstream notice-state merge.
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
 Station H has two reachable wall openings with widths 80 and 40. Each keeps
@@ -32,12 +33,17 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 Full PSIM acceptance remains open: general remaining-time continuation,
 moving-target and carried-source projectile/hurt contact, other movement
 models, guard geometry, attachments, the bounded numeric law and fault effects,
-I–J lab stations, and device/GPU and performance gates. Two simultaneous limbs
+I's held-accessory film, and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
 `99d51bc9f`. Two active fists hit separate bodies in the same tick through
-independent scaled paths in `6ae7a653a`. Simultaneous-path capture and the
-remaining lab stations remain open.
+independent scaled paths in `6ae7a653a`.
+
+Station J is live in `0f64b41bf`. Its axe crosses three pairs at quarter scale
+while a foot uses another pair. The damage, refusal and replay checks pass.
+The impact film shows the body and far foot. Walls or platforms back all J
+mouths and both K mouths. I has a Reflection prompt at the existing wall pair.
+GNU-ton's simultaneous-limb capture and I's held-accessory film remain open.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -579,22 +585,23 @@ The portal lab must include playable examples of these mechanics (Jon,
 2026-11-08). Keep its existing stations and add labeled examples for unequal
 apertures, persistent scale, asymmetric handedness, two reflections, two
 simultaneous paths and a chained third path. Include bounded refusal examples.
+Place each mouth against a wall or platform where possible. Keep its entry
+side clear, so the player can identify the usable face.
 Use targeted LDtk tool edits. The original creation spec does not include all
 current stations. Use these examples for the render and seam-lab witnesses.
 Station H is live in `fddf6084a`. Its
 [station source](../../../tools/ambition_ldtk_tools/specs/portal_similarity_slice.yaml)
 adds seven entities. The
-[remaining station draft](../../../tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml)
-has the I–J prompt and simultaneous/three-link arrangement. It is deferred
-until after the vertical slice. It does not add H again.
+[station source](../../../tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml)
+adds I's Reflection prompt and J's axe station with four pairs. The J receipt
+below records its physical contact and render checks. It does not add H again.
 
 Station K is now authored in the live lab. It has a gun-sword beside a wall
 opening and a target two pixels beyond the paired exit. A shot must hit the
 target before its centre crosses the entry. The production projectile test
 uses this authored pair and target. The
 [station source](../../../tools/ambition_ldtk_tools/specs/portal_contact_lab.yaml)
-adds six entities and retains all existing stations. H is live; I–J remain
-deferred.
+adds eight entities, including backing walls, and retains all existing stations.
 The same production test also attaches K's exit to a translating host. It
 checks the physical impact during that tick, before the root transfers. This
 host is part of the test; the authored K station keeps its fixed exit.
@@ -823,9 +830,9 @@ results are in the `target/portal-prefix-*.log` files.
 K and L are live lab examples. The F/G label updates are committed; their
 semantic diff changes two text fields and no geometry. Both labels are visible
 in the reviewed `/tmp/portal-lab-moving-entries-wide.png` capture. The map tool
-also reports the existing `scroll_lab_door` validation error. H–J remain draft
-authoring in `portal_similarity_lab.yaml`; they are not live scale, chirality
-or multi-link acceptance examples.
+also reports the existing `scroll_lab_door` validation error. The later H and J
+receipts below replace the draft status for scale, chirality
+and multi-link acceptance examples.
 
 Continue persistent root material rebasing, remaining motion in the
 same tick, complete source admission and canonical consumer integration.
@@ -1075,4 +1082,45 @@ cargo test -p ambition_app --test app_it -- rollback_schema_baseline --test-thre
 The logs are `target/portal-slice-final-app.log` and
 `target/portal-slice-final-schema.log`. The offscreen image receipt above
 records the visible asymmetric body at half scale with reflected landmarks.
-I–J remain deferred. The full-plan acceptance listed above remains open.
+The later J receipt below records its live station. Full-plan acceptance remains open.
+
+
+### Backed lab and simultaneous paths — 2026-11-10
+
+`0f64b41bf` adds station J and backs its eight mouths and both K mouths with
+walls or platforms. The map commit is `7e3ea79` in `ambition_map_assets`.
+The semantic diff has 25 added entities, no tile or definition changes, and
+no changes to the other 79 levels. The existing `scroll_lab_door` validation
+error remains.
+
+J has a real axe pickup and an infinite target. The strike crosses three
+pairs at quarter scale with reflected material while a foot uses another
+pair. GGRS 4/10 replays the contact. A two-hop limit refuses the strike, keeps
+the body supported, and causes no target damage. F3 and `capture_scene` now
+expose the composed geometry budget.
+
+Body rendering now starts from physical occupancy before centre transit.
+Reaching swings keep their own cut rule. Cleared carry targets have no CPU
+pixels, so a new target cannot spend the upload budget on zeroes and defer
+changed clip meshes. The clean impact frame at tick 88 shows the body and the
+far foot. The film is under `target/portal-visual-j/final/`.
+
+This packet passes 34 portal app tests, 128 presentation tests, 25 host tests,
+seven capture-tool tests, 73 Smash tests and 35 policy tests. Six Smash probes
+remain ignored. The assembled app check passes. Logs use the prefix
+`target/portal-lab-final-`. Station I is a prompt at an existing wall pair;
+its held-accessory film and full PSIM acceptance remain open.
+
+
+The first upstream merge passes both J witnesses, all four schema checks and
+the assembled app check again. Planning links, anchors and the changed plan's
+strict citations pass. The global strict citation scan reports 26 unresolved
+references outside this plan on `71435aa51`; it is not a green repository-wide
+documentation gate.
+
+
+The final merge passes both J tests and the assembled app check.
+`8b278ec6b` aligns both recorded baseline headers with upstream runtime schema
+v442; their peer row set is unchanged. All four schema checks then pass.
+The final logs are `target/portal-lab-final-main-chain.log`,
+`target/portal-lab-v442-schema.log` and `target/portal-lab-final-main-check.log`.

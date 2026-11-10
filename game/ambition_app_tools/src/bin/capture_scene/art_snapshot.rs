@@ -14,8 +14,20 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     let mut views = Vec::new();
     let mut material_parts = Vec::new();
     let mut strikes = Vec::new();
+    let mut items = Vec::new();
     let mut portal_drawables = Vec::new();
     for entity in world.iter_entities() {
+        if let (Some(item), Some(body), Some(custody)) = (
+            entity.get::<engine::item::GroundItem>(),
+            entity.get::<engine::engine_core::BodyKinematics>(),
+            entity.get::<engine::item::ItemCustody>(),
+        ) {
+            items.push(json!({"entity": format!("{:?}", entity.id()),
+                "item_id": item.spec.id, "custody": format!("{custody:?}"),
+                "position": body.pos.to_array(), "canonical_size": body.canonical_size.to_array(),
+                "scale": body.material.scale(), "orthogonal": body.material.orthogonal().to_cols_array(),
+                "stored": entity.contains::<engine::engine_core::BodyInStorage>()}));
+        }
         if let Some(view) = entity.get::<engine::sim_view::camera_snapshot::CameraViewState>() {
             let frame = entity.get::<engine::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
                 .and_then(|resolved| resolved.frame());
@@ -139,6 +151,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         }
     }
     material_parts.sort_by_key(|row| row.to_string());
+    items.sort_by_key(|row| row.to_string());
     strikes.sort_by_key(|row| row.to_string());
     bodies.sort_by_key(|row| row.to_string());
     visuals.sort_by_key(|row| row.to_string());
@@ -158,7 +171,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "build": {"package": env!("CARGO_PKG_NAME"), "version": env!("CARGO_PKG_VERSION"), "revision": option_env!("AMBITION_BUILD_COMMIT")},
         "content_fingerprint": content,
         "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
-        "bodies": bodies, "visuals": visuals, "views": views, "music": music, "material_parts": material_parts, "strikes": strikes, "portal_drawables": portal_drawables})
+        "bodies": bodies, "items": items, "visuals": visuals, "views": views, "music": music, "material_parts": material_parts, "strikes": strikes, "portal_drawables": portal_drawables})
 }
 
 fn partition_snapshot(partition: engine::engine_core::frame::thread::Partition) -> serde_json::Value {

@@ -127,12 +127,17 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         boss.as_ref(),
         &attack,
     );
-    let hurtboxes = ambition_combat::body_geometry::damageable_volumes(&ctx);
+    // Canonical regions are relative to the body's position (placement is
+    // the body material's), so place them there to compare with the envelope.
+    let body = boss.as_ref().aabb();
+    let hurtboxes: Vec<_> = ambition_combat::body_geometry::canonical_damageable_volumes(&ctx)
+        .iter()
+        .map(|volume| volume.translated(body.center()))
+        .collect();
     assert!(
         !hurtboxes.is_empty(),
         "the giant should expose at least one damageable hurtbox at rest"
     );
-    let body = boss.as_ref().aabb();
     for hb in &hurtboxes {
         assert!(
             body.strict_intersects(hb.bounds()),

@@ -19,6 +19,15 @@ mod source;
 pub(super) use source::{SourceMotion, rotation_delta};
 pub use cell::MaterialCell;
 
+/// How a cast treats material already inside an obstacle at its start.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InitialOverlap {
+    /// Permit motion that separates an existing overlap.
+    AllowSeparation,
+    /// Report the occupied start even when motion separates it.
+    Report,
+}
+
 /// A primitive's recorded rigid motion in its owner's world chart.
 pub struct MaterialCast<'a> {
     pub(super) material: MaterialPrimitive<'a>,
@@ -28,6 +37,7 @@ pub struct MaterialCast<'a> {
     pub(super) time: std::ops::Range<f64>,
     pub(super) until: f64,
     pub(super) rotation: Option<source::Rotation>,
+    pub(super) initial_overlap: InitialOverlap,
 }
 
 /// One contact, with both the owner-chart and physical-world witnesses.
@@ -52,6 +62,7 @@ pub struct MaterialCastCells<'a> {
     parts: Vec<MaterialCell>,
     time: std::ops::Range<f64>,
     scene:Option<std::sync::Arc<arcs::Scene>>,
+    initial_overlap: InitialOverlap,
 }
 
 fn numeric(reason: NumericFault) -> Refusal {
@@ -75,7 +86,12 @@ fn numeric_at(part: &MaterialCell, reason: NumericFault) -> Refusal {
 impl<'a> MaterialCast<'a> {
     /// Record the original line and its world clock.
     pub fn new(material: super::thread::MaterialPrimitive<'a>, root: Vec2, delta: Vec2, time: std::ops::Range<f64>) -> Self {
-        Self { material, root, delta, time, until: 1.0, rotation: None }
+        Self { material, root, delta, time, until: 1.0, rotation: None, initial_overlap: InitialOverlap::AllowSeparation }
+    }
+
+    pub fn with_initial_overlap(mut self, initial_overlap: InitialOverlap) -> Self {
+        self.initial_overlap = initial_overlap;
+        self
     }
 
     /// Rotate the source about a translating pivot. Keep the full recorded turn.
@@ -161,6 +177,7 @@ impl<'a> MaterialCast<'a> {
             parts,
             time:self.time,
             scene,
+            initial_overlap: self.initial_overlap,
         })
     }
 }
@@ -217,7 +234,7 @@ impl MaterialCastCells<'_> {
         for point in &mut region { *point += motion * interval.start; }
         let duration = interval.end - interval.start;
         let contact = translation::cast(self.material.domain, DVec2::ZERO, &region, motion * duration,
-            part.planes.iter().map(|p| p.during(interval.clone())))
+            part.planes.iter().map(|p| p.during(interval.clone())), self.initial_overlap)
             .map_err(|fault| numeric_at(part, fault))?;
         let Some(contact) = contact else {
             return Ok(None);
@@ -272,7 +289,7 @@ impl MaterialCastCells<'_> {
                 continue;
             }
             let _ = curved::cast(self.material.domain, scope, obstacle, displacement,
-            turn, pivot, self.time.clone(), |contact| match self.contact(scope,contact) {
+            turn, pivot, self.time.clone(), self.initial_overlap, |contact| match self.contact(scope,contact) {
                 Ok(Some(hit)) if accepts(&hit)=>{
                     if selected.as_ref().is_none_or(|old|hit.toi<old.toi){selected=Some(hit);} true
                 },

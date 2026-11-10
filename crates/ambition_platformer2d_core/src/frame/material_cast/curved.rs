@@ -627,6 +627,7 @@ pub(super) fn cast(
     turn: f32,
     pivot: Vec2,
     time: Range<f64>,
+    initial_overlap: super::InitialOverlap,
     mut accepts: impl FnMut(CastHit) -> bool,
 ) -> Result<Option<CastHit>, RefusalReason> {
     let numeric = RefusalReason::Numeric;
@@ -674,6 +675,7 @@ pub(super) fn cast(
             &points,
             motion,
             cell.planes.iter().map(|p| p.during(cell.time.clone())),
+            initial_overlap,
         )
         .map_err(numeric)?;
         return Ok(contact
@@ -685,7 +687,7 @@ pub(super) fn cast(
     }
     let initial = rigid.region(cell.time.start).map_err(numeric)?;
     let initial_witness = witness(body, &initial);
-    let mut escaping = initial_witness
+    let mut escaping = initial_overlap == super::InitialOverlap::AllowSeparation && initial_witness
         .as_ref()
         .is_some_and(|hit| hit.gap <= 0.0 && hit.velocity.dot(hit.normal) < 0.0);
     let mut stack = vec![cell.time.clone()];
@@ -755,7 +757,8 @@ pub(super) fn cast(
         }
         if interval.start == cell.time.start && !escaping {
             if let Some(hit) = initial_witness.as_ref() {
-                if hit.gap <= 0.0 && hit.velocity.dot(hit.normal) >= 0.0 {
+                if hit.gap <= 0.0 && (hit.velocity.dot(hit.normal) >= 0.0
+                    || initial_overlap == super::InitialOverlap::Report && hit.gap < 0.0) {
                     let contact = CastHit {
                         time: interval.start,
                         normal: hit.normal,

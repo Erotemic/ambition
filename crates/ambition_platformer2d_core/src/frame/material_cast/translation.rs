@@ -1,6 +1,6 @@
 //! Contact with an obstacle and cell whose boundary lines translate.
 
-use super::{CastHit, CombatVolume, DVec2, MaterialPlane, clip, edges};
+use super::{CastHit, CombatVolume, DVec2, InitialOverlap, MaterialPlane, clip, edges};
 use crate::frame::NumericFault;
 
 /// `plane.inward.dot(point) >= plane.offset + rate * time`.
@@ -228,8 +228,9 @@ pub(super) fn cast(
     obstacle: &[DVec2],
     motion: DVec2,
     cell: impl ExactSizeIterator<Item = MovingPlane>,
+    initial_overlap: InitialOverlap,
 ) -> Result<Option<CastHit>, NumericFault> {
-    cast_region(body,delta,obstacle,motion,cell,true)
+    cast_region(body,delta,obstacle,motion,cell,true,initial_overlap)
 }
 
 /// The template bounds a closed feasible region, not a physical solid.
@@ -238,7 +239,7 @@ pub(super) fn cast_closure(
     obstacle: &[DVec2],
     cell: impl ExactSizeIterator<Item = MovingPlane>,
 ) -> Result<Option<CastHit>, NumericFault> {
-    cast_region(body,DVec2::ZERO,obstacle,DVec2::ZERO,cell,false)
+    cast_region(body,DVec2::ZERO,obstacle,DVec2::ZERO,cell,false,InitialOverlap::AllowSeparation)
 }
 
 fn cast_region(
@@ -248,8 +249,14 @@ fn cast_region(
     motion: DVec2,
     cell: impl ExactSizeIterator<Item = MovingPlane>,
     solid: bool,
+    initial_overlap: InitialOverlap,
 ) -> Result<Option<CastHit>, NumericFault> {
     if cell.len() == 0 {
+        if initial_overlap == InitialOverlap::Report {
+            if let Some(hit) = super::primitive_cast(body, DVec2::ZERO, obstacle) {
+                return Ok(Some(hit));
+            }
+        }
         return Ok(
             super::primitive_cast(body, delta - motion, obstacle).map(|mut hit| {
                 hit.point += motion * hit.time;
@@ -313,7 +320,7 @@ fn cast_region(
                     .then(a.delta.dot(hit.normal).total_cmp(&b.delta.dot(hit.normal)))
             })
             .map_or(DVec2::ZERO, |(point, _)| point.delta);
-        if (delta - velocity).dot(hit.normal) > 0.0 {
+        if initial_overlap == InitialOverlap::AllowSeparation && (delta - velocity).dot(hit.normal) > 0.0 {
             return Ok(None);
         }
     }
@@ -538,7 +545,7 @@ mod tests {
                 radius: 2.0,
             },
         ] {
-            let hit = cast(&body, DVec2::ZERO, &obstacle, DVec2::ZERO, cell.into_iter())
+            let hit = cast(&body, DVec2::ZERO, &obstacle, DVec2::ZERO, cell.into_iter(), InitialOverlap::AllowSeparation)
                 .unwrap()
                 .unwrap();
             assert!((hit.time - 1.0 / 3.0).abs() < 1.0e-12);
@@ -549,7 +556,7 @@ mod tests {
                     rate: p.rate + p.plane.inward.dot(boost),
                     ..p
                 });
-                let moved = cast(&body, boost, &obstacle, boost, boosted.into_iter())
+                let moved = cast(&body, boost, &obstacle, boost, boosted.into_iter(), InitialOverlap::AllowSeparation)
                     .unwrap()
                     .unwrap();
                 assert!((moved.time - hit.time).abs() < 1.0e-12);
@@ -585,6 +592,7 @@ mod tests {
                 &obstacle,
                 -side * 8.0,
                 cell.iter().copied().map(Into::into),
+                InitialOverlap::AllowSeparation,
             )
             .unwrap();
             assert!(
@@ -627,7 +635,8 @@ mod tests {
                     DVec2::ZERO,
                     &obstacle,
                     DVec2::new(-10.0, -10.0),
-                    cell.iter().copied().map(Into::into)
+                    cell.iter().copied().map(Into::into),
+                    InitialOverlap::AllowSeparation,
                 )
                 .unwrap()
                 .is_none()
@@ -705,7 +714,7 @@ mod tests {
                 if overlaps(0.0, 1.0e-8) {
                     continue;
                 }
-                let hit = cast(&body, delta, &obstacle, motion, cell.into_iter()).unwrap();
+                let hit = cast(&body, delta, &obstacle, motion, cell.into_iter(), InitialOverlap::AllowSeparation).unwrap();
                 let sampled = (1..=200)
                     .map(|step| f64::from(step) / 200.0)
                     .find(|time| overlaps(*time, -1.0e-6));

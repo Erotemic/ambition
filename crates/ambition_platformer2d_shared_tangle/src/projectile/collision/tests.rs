@@ -385,6 +385,31 @@ fn no_contact_returns_continue() {
 }
 
 #[test]
+fn an_overlapping_far_part_hits_before_the_shot_can_withdraw() {
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    use ae::frame::thread::{PieceBudget, PortalLink};
+    let links = PortalLink::both_ways(0, (
+        PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, -Vec2::X), half_length: 40.0 },
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 0.0), Vec2::X), half_length: 20.0 },
+    ));
+    let mut shot = straight_projectile(Vec2::new(-2.0, 0.0));
+    shot.kin.canonical_size = Vec2::splat(20.0);
+    shot.kin.vel = -Vec2::X * 200.0;
+    let before = shot.kin;
+    let mut after = before;
+    after.pos.x -= 20.0;
+    let world = world_with_block(ae::BlockKind::Solid, Vec2::new(102.0, 0.0), Vec2::new(1.0, 20.0));
+    let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+    let response = super::resolve_world_collision(before, after, shot.game, &world, Vec2::Y, 0.1,
+        0.0..1.0, ae::LinearTravel::Complete, Some(admission)).unwrap();
+    assert!(matches!(response.outcome, WorldHitOutcome::Expired { .. }));
+    assert_eq!(response.body.pos, before.pos);
+    let contact = response.contact.unwrap();
+    assert_eq!(contact.contact.toi, 0.0);
+    assert_eq!(contact.contact.path, vec![0]);
+}
+
+#[test]
 fn a_projectile_meets_the_far_wall_before_its_root_crosses() {
     use ae::frame::{MapConvention,PortalAperture,PortalFrame};
     use ae::frame::thread::{PieceBudget,PortalLink};
@@ -430,4 +455,21 @@ fn a_far_side_bounce_uses_relative_surface_motion_in_the_root_chart() {
     assert!((response.body.vel.y+26.5).abs()<0.001,"{response:?}");
     assert!(response.body.pos.y<0.0);
     assert_eq!(response.contact.unwrap().contact.path,vec![0]);
+}
+
+#[test]
+fn a_shot_born_inside_a_wall_hits_before_it_can_escape() {
+    let world = world_with_block(ae::BlockKind::Solid, Vec2::new(-16.0, 100.0), Vec2::new(16.0, 100.0));
+    for shape in [Vec2::splat(2.0), Vec2::new(12.0, 6.0)] {
+        let mut shot = straight_projectile(Vec2::new(-27.0, 100.0));
+        shot.kin.canonical_size = shape;
+        shot.kin.vel = Vec2::new(-300.0, 0.0);
+        let before = shot.kin;
+        let after = BodyKinematics { pos: before.pos + before.vel * 0.1, ..before };
+        let response = resolve_world_collision(before, after, shot.game, &world,
+            Vec2::Y, 0.1, 0.0..1.0, ae::LinearTravel::Complete, None).unwrap();
+        assert!(matches!(response.outcome, WorldHitOutcome::Expired { .. }));
+        assert_eq!(response.contact.unwrap().contact.toi, 0.0);
+        assert_eq!(response.body.pos, before.pos);
+    }
 }

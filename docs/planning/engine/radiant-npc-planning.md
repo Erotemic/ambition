@@ -355,6 +355,11 @@ A source review of the slices above found lifecycle gaps. Fixed:
   with a world object; NPCs have no object-use path yet. Witnesses:
   `two_scientists_take_turns_at_one_bench` (both lines heard, `talked` set),
   `npc_lives::tests` (the two refusals).
+- **Work every tick for nothing.** The ledger cloned every life's facts
+  each tick to compare them, and the save mirror wrote every row to RON
+  each tick before comparing. Now the ledger compares in place and clones a
+  row only when it changed, and the mirror serializes only on a tick the
+  ledger was written or the save was applied.
 
 ## Acceptance
 

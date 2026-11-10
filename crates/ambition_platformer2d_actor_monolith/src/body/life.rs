@@ -67,6 +67,7 @@ use ambition_htn::{Budget, Domain, Facts, PlanFailure, Step};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
+use bevy::ecs::change_detection::DetectChanges as _;
 use bevy::prelude::{Commands, Component, Entity, Query, Res, ResMut, Resource, Without};
 
 use super::visit::{Visit, VisitOutcome};
@@ -292,9 +293,16 @@ pub fn keep_life_ledger(mut ledger: ResMut<LifeLedger>, bodies: Query<(&Life, &W
         if life.returning {
             continue;
         }
-        let row = LedgerRow { facts: life.facts.clone(), planned_in: life.planned_in };
-        if ledger.rows.get(worn.id()) != Some(&row) {
-            ledger.rows.insert(worn.id().to_string(), row);
+        // Compared in place: a row is cloned, and the ledger written (so
+        // marked changed), only on a tick its life changed.
+        let same = ledger
+            .rows
+            .get(worn.id())
+            .is_some_and(|row| row.planned_in == life.planned_in && row.facts == life.facts);
+        if !same {
+            ledger
+                .rows
+                .insert(worn.id().to_string(), LedgerRow { facts: life.facts.clone(), planned_in: life.planned_in });
         }
     }
 }
@@ -776,13 +784,17 @@ fn persisted_lives(ledger: &LifeLedger) -> Vec<ambition_persistence::save_data::
 /// Mirror the ledger into the save when they differ, once the loaded save
 /// has been applied. (sim, the durable mirror; a composition with no save
 /// has nothing to mirror into)
+///
+/// It serializes only on a tick the ledger was written (by a life that
+/// changed, a restore or a rewind) or the save was just applied: a world of
+/// NPCs that did nothing new writes no RON.
 pub fn persist_lives_to_save(
     restored: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>>,
     ledger: Res<LifeLedger>,
     save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
 ) {
     let (Some(restored), Some(mut save)) = (restored, save) else { return };
-    if !restored.0 {
+    if !restored.0 || !(ledger.is_changed() || restored.is_changed()) {
         return;
     }
     let lives = persisted_lives(&ledger);

@@ -32,4 +32,6 @@
     // "that would give the player a fun false sense of security"): then his
     // head tears off and rises as the Inugami.
     slow_motion_finish: true,
+    // His conductor shows his name card with his roar (`ambition_content_modules::wolfenstein::stage_at`).
+    name_card: Conducted,
 )

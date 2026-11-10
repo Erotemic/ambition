@@ -134,6 +134,7 @@ mod mockingbird_fight;
 mod the_mockingbirds_sharks_flee;
 mod placed_actors_start_on_the_ground;
 mod trex_fight;
+mod every_boss_shows_its_name;
 mod hunny_fight;
 mod shock_warden_shield;
 mod inugami_fight;

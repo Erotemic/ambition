@@ -39,4 +39,6 @@
     // Its killing blow ends the whole fight: time hangs while it falls
     // (`ambition_boss_encounter::finish`).
     slow_motion_finish: true,
+    // Its conductor shows its name card at the end of its rise (`ambition_content_modules::inugami::rise_stage_at`).
+    name_card: Conducted,
 )

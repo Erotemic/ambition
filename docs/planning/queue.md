@@ -53,7 +53,7 @@ or updating their source. Check with
 
 **Owner:** [authority-model experiment](engine/hosted-world-networking-experiment.md) and [network topology](engine/network-topology-and-authority-research.md).
 
-**Next action:** NA-1 benchmark the working GGRS path; NA-2 construct a minimal player-hosted authoritative two-region/guest fixture using existing body/seat authorities; NA-3 exercise prediction, interest subscriptions, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
+**Next action:** NA-1 and a first NA-2 are measured (2026-11-10, [results](engine/hosted-world-networking-experiment.md#na-1-and-na-2-2026-11-10)): each GGRS peer spends about 4× the host's update per frame even without rollbacks, and room-scoped replication bytes depend on delta encoding. Next: split the GGRS per-frame cost; NA-2b a guest App that applies room-scoped snapshots; NA-3 guest prediction, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
 
 **Acceptance:** runnable headless comparison, byte and CPU measurements, stable guest input/reconciliation, region-scoped replication, persistent host-owned NPC facts, no service dependency, and an explicit per-game synchronization decision. Do not remove GGRS or rewrite working multiplayer merely from prose.
 
@@ -69,11 +69,11 @@ or updating their source. Check with
 
 ### BOSS-CINEMATIC-COVERAGE — give every boss a Wolfenstein-class name intro
 
-**Failure:** a generic boss name card and intro cutscene trigger exist, but name-card opacity is driven by individual `BossStage` requests (Wolfenstein/Inugami explicit), and the shared cutscene library does not provide every boss an intro. A roster-wide guarantee is absent.
+**Failure:** the roster-wide card landed 2026-11-10 (every boss shows its name after it wakes: the encounter's `BossNameCardCue` by default, its conductor's for Wolfenstein and the Inugami; see the [owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)). The card is still drawn for the primary live room's boss only, so a second local view in another boss's room shows none.
 
 **Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
 
-**Next action:** census instantiated boss IDs and intro pathways; add an encounter-owned default title-card beat that leaves unique conductor cinematics intact; correct view/room ownership for multiview and repeated boss attempts. Test all configured bosses rather than only Wolfenstein.
+**Next action:** give the card to a view, as the HUD is: each local view shows the card of the boss in its own room.
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 

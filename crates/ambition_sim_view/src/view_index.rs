@@ -1004,6 +1004,23 @@ impl BossRenderIndex {
     }
 }
 
+/// What a boss stages, with its name card: its conductor's, or the encounter's
+/// own beat ([`ambition_boss_encounter::BossNameCardCue`]), whichever has come
+/// in further. A boss with no conductor stages only its card.
+fn staged_with_its_card(
+    config: &ambition_boss_encounter::BossConfig,
+    status: &ambition_boss_encounter::BossEncounter,
+) -> ambition_boss_encounter::BossStage {
+    let encounter = &config.seed.encounter;
+    let own = status
+        .encounter
+        .as_ref()
+        .map_or(0.0, |phases| encounter.name_card.card(encounter.intro_seconds, phases));
+    let mut stage = status.stage;
+    stage.card = stage.card.max(own);
+    stage
+}
+
 /// Rebuild [`BossRenderIndex`] from the live boss clusters. Runs in the sim's
 /// `FeatureViewSync` set beside the other read-model rebuilds; a row that has not
 /// changed costs a compare and no allocation.
@@ -1017,11 +1034,12 @@ pub fn rebuild_boss_render_index(
         let awake = phase != ambition_boss_encounter::BossEncounterPhase::Dormant;
         let fighting = awake && phase != ambition_boss_encounter::BossEncounterPhase::Intro;
         let finish = ambition_boss_encounter::finish::finish_of(boss.config, boss.status);
+        let stage = staged_with_its_card(boss.config, boss.status);
         let fresh = |view: &BossRenderView| {
             view.name == boss.config.name
                 && view.behavior_id == boss.config.behavior.id
                 && view.title == boss.config.behavior.title
-                && view.stage == boss.status.stage
+                && view.stage == stage
                 && view.awake == awake
                 && view.fighting == fighting
                 && view.finish == finish
@@ -1038,7 +1056,7 @@ pub fn rebuild_boss_render_index(
                 name: boss.config.name.clone(),
                 behavior_id: boss.config.behavior.id.clone(),
                 title: boss.config.behavior.title.clone(),
-                stage: boss.status.stage,
+                stage,
                 awake,
                 fighting,
                 finish,

@@ -9,9 +9,9 @@ investigation](architecture-reassessment-and-composable-multiplayer.md). [ADR
 GGRS-selected sessions. A safe whole-session rebase must not be mistaken for the eventual
 general room-transfer protocol.
 **State:** OPEN at the transport/lifecycle frontier. Ephemeral rollback ownership
-and the local sync-test host are established. **Selected 2026-11-06 priority:**
+and the local sync-test host are established. The GGRS per-frame payload was compacted by
 [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame)
-owns the existing GGRS per-frame payload defect. Independent-island GGRS history
+(done 2026-11-10). Independent-island GGRS history
 partitioning is a [conditional track](../tracks.md#conditional-ggrs-island-rollback)
 waiting on the [authority experiment](hosted-world-networking-experiment.md);
 it is not selected implementation work yet. The host model below describes
@@ -267,12 +267,13 @@ product and network-service concerns.
 ## The input payload two peers exchange
 
 `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and `PeerInput` is a
-`ControlFrame` followed by the peer's verdict (168 bytes for each handle at wire
-identity 8: 72 bytes of controls and 96 bytes of preparation metadata).
-**This is now selected for reduction**, independently of island rollout; see
-[the compact-input work](island-rollback-and-compact-peer-input.md#net-input-width-reduce-serialized-per-frame-input-first).
-A reliable side-channel verdict alone is not a substitute for deterministic,
-frame-stamped admission on all peers. `ControlFrame` is `derived` (rebuilt from the input stream, not snapshotted), so the
+`ControlFrame` followed by an 8-byte `PeerVerdictToken` (80 bytes for each
+handle at wire identity 9; identity 8 carried a 96-byte verdict). The token
+holds digests of the operation and frozen plan, and a receiver compares it with
+the token of its own operation, never decoding a plan. Design, collision odds and
+measured link traffic are in [the compact-input result](island-rollback-and-compact-peer-input.md#result-2026-11-10).
+The short version: shrinking the input by 52% cut link bytes by 0.5% in steady
+play and 4% across crossings, because GGRS delta- and run-length-encodes inputs. `ControlFrame` is `derived` (rebuilt from the input stream, not snapshotted), so the
 rollback dump, the fingerprint and `rollback_codec_shape.txt` do not describe its
 fields. `INPUT_STREAM_VERSION` versions recorded replay files and exempts added
 fields by design; it does not cover the peer payload.

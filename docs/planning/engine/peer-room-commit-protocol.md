@@ -98,16 +98,17 @@ constructor and transaction.
 
 `PeerVerdict` identifies an operation by its recording frame, admitted intent
 checksum, and captured preparation checksum. The intent includes its checkpoint key. Replies for a replaced intent cannot prepare or
-fail its replacement, even when both use the same frame. The wire identity is
-8. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
+fail its replacement, even when both use the same frame. Guards: `verdicts_for_a_replaced_intent_do_not_prepare_or_fail_its_replacement`
 and `a_peer_waits_for_the_replacement_intent_even_when_its_frame_is_unchanged`.
 An older capture cannot prepare or fail its replacement. Guards:
 `verdicts_for_an_older_capture_do_not_prepare_or_fail_the_current_capture` and
 `the_same_intent_on_a_corrected_branch_needs_its_own_preparation`.
-Replies also carry both content identities and the frozen plan digest. Agreement
-requires stated content and equal plan data on every handle. The commit checks
-its local plan against that agreement. A mismatch publishes `Failed` through
-the input stream. Wire identity 8 carries 168 bytes, including the captured preparation checksum. Guards:
+Replies also carry a digest of both content identities and the frozen plan.
+Agreement requires every handle's token to equal the token of this peer's own
+operation and stated plan. The commit checks its local plan against that
+agreement. A mismatch publishes `Failed` through the input stream. At wire
+identity 9 the reply is an 8-byte token in an 80-byte input; see [the compact
+input](island-rollback-and-compact-peer-input.md#result-2026-11-10). Guards:
 `preparation_requires_the_same_content_and_frozen_plan` and
 `peers_refuse_different_room_plans_under_the_same_content_identity`.
 The host retains each offered plan and its exact captured preparation outside

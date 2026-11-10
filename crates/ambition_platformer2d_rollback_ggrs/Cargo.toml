@@ -22,6 +22,9 @@ ambition_input = { path = "../ambition_input" }
 ambition_load = { path = "../ambition_load" }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 bevy_ggrs = "0.22"
+# The loopback link counts the bytes GGRS's UDP socket would send: `ggrs`
+# encodes a `Message` with bincode 1, and depends on it already.
+bincode = "1.3"
 serde = { workspace = true }
 bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",
@@ -30,10 +33,6 @@ bevy = { version = "0.19.1", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-# `peer_input::the_bytes_two_peers_exchange` pins what `ggrs` puts on the wire,
-# and `ggrs` encodes the input with bincode 1 (see the same entry in
-# `ambition_platformer2d_core`).
-bincode = "1.3"
 
 [features]
 default = []

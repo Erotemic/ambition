@@ -120,7 +120,7 @@ fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
             intent.frame
         );
     }
-    verdicts.prepared_plan(operation).is_some()
+    verdicts.agreed(operation)
 }
 
 /// A PEER THAT COULD NOT PREPARE THE OPERATION ENDS IT ON EACH PEER.
@@ -165,7 +165,7 @@ pub fn end_an_operation_a_peer_could_not_prepare(
         .enumerate()
         .filter(|(_, (input, status))| {
             *status == bevy_ggrs::ggrs::InputStatus::Disconnected
-                || (input.verdict.operation == operation && input.verdict.said == PreparationVerdict::Failed)
+                || input.verdict.of(operation) == PreparationVerdict::Failed
         })
         .map(|(handle, _)| handle)
         .collect();
@@ -200,12 +200,24 @@ pub(crate) fn commit_peer_crossing(world: &mut World) {
         .filter(|operation| ordinary_crossing(operation)).cloned() else { return };
     let Some(preparation) = selected_preparation(world, &operation) else { return };
     let peer_operation = crate::PeerOperation::from(&preparation);
-    let Some(plan_identity) = world.get_resource::<bevy_ggrs::PlayerInputs<crate::AmbitionGgrsConfig>>()
-        .and_then(|inputs| crate::peer_input::agreed_plan(peer_operation,
-            inputs.iter().map(|(input, status)| (*status != bevy_ggrs::ggrs::InputStatus::Disconnected).then_some(input.verdict)))) else { return };
+    let Some(inputs) = world.get_resource::<bevy_ggrs::PlayerInputs<crate::AmbitionGgrsConfig>>() else { return };
+    let tokens: Vec<_> = inputs.iter()
+        .map(|(input, status)| (*status != bevy_ggrs::ggrs::InputStatus::Disconnected).then_some(input.verdict))
+        .collect();
+    // Every input naming the operation `Prepared` includes this host's own,
+    // which it writes only after retaining the plan it froze.
+    let each_says_prepared = !tokens.is_empty() && tokens.iter()
+        .all(|token| token.is_some_and(|token| token.of(peer_operation) == crate::PreparationVerdict::Prepared));
+    if !each_says_prepared {
+        return;
+    }
     let authorization = world.resource::<crate::room_promises::PromisedRoomPlans>()
         .get(&preparation).cloned().expect("a prepared input must retain its exact room plan through replay");
-    assert_eq!(authorization.peer_identity(), Some(plan_identity), "the retained plan differs from the input agreement");
+    let plan_identity = authorization.peer_identity().expect("a retained room plan states its content identity");
+    // The frame's inputs agree only by naming this host's frozen plan.
+    if !crate::peer_input::each_prepared(peer_operation, plan_identity, tokens) {
+        return;
+    }
     assert!(authorization.matches_world(world), "the retained room promise no longer matches its admission");
     let frame = world.resource::<crate::RollbackFrameCount>().0;
     let started = bevy::platform::time::Instant::now();
@@ -368,11 +380,11 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         AuthorizedPlan::Ready(authorization) => {
             if matches!(committer, Committer::BehindThePeerBarrier) {
                 let peer_operation = crate::PeerOperation::from(&authorization.preparation);
-                let Some(agreed) = world.get_resource::<crate::PeerVerdicts>()
-                    .and_then(|verdicts| verdicts.prepared_plan(peer_operation)) else {
-                    return;
-                };
-                if authorization.peer_identity() != Some(agreed) {
+                let agreed = authorization.peer_identity().is_some_and(|plan| {
+                    world.get_resource::<crate::PeerVerdicts>()
+                        .is_some_and(|verdicts| verdicts.each_prepared(peer_operation, plan))
+                });
+                if !agreed {
                     return;
                 }
             }
@@ -991,7 +1003,7 @@ mod tests {
             let mut verdicts = crate::PeerVerdicts::for_handles(2);
             let operation = capture_pending(&mut world);
             for (handle, said) in said.into_iter().enumerate() {
-                verdicts.record(handle, confirmed, PeerVerdict { operation, plan: test_plan_identity(), said });
+                verdicts.record(handle, confirmed, PeerVerdict { operation, plan: test_plan_identity(), said }.token());
             }
             world.insert_resource(verdicts);
             let boundary = ConfirmedFrameBoundary {
@@ -1021,7 +1033,7 @@ mod tests {
         for handle in 0..2 {
             verdicts.record(handle, 40, PeerVerdict {
                 operation: PeerOperation { recorded_on: old.frame, intent_checksum: old.checksum(), preparation_checksum: 0 }, plan: test_plan_identity(), said: PreparationVerdict::Prepared,
-            });
+            }.token());
         }
         world.insert_resource(verdicts);
         let boundary = ConfirmedFrameBoundary { current: 40, confirmed: 40, session: 1 };
@@ -1029,7 +1041,7 @@ mod tests {
         for handle in 0..2 {
             world.resource_mut::<crate::PeerVerdicts>().record(handle, 41, PeerVerdict {
                 operation: replacement, plan: test_plan_identity(), said: PreparationVerdict::Prepared,
-            });
+            }.token());
         }
         world.insert_resource(crate::RollbackFrameCount(41));
         let boundary = ConfirmedFrameBoundary { current: 41, confirmed: 41, session: 1 };

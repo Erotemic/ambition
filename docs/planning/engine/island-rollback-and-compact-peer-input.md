@@ -1,12 +1,12 @@
 # Simulation islands and compact peer input
 
-**Status:** current GGRS compact-input work is selected; independently rewindable GGRS islands are a **deferred implementation branch** until the [host-authority comparison](hosted-world-networking-experiment.md) selects a topology. The active-area/loading-zone physical boundary remains useful for either topology.
-**Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) determines the flagship model; [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) repairs the current GGRS hot path; [conditional SIMULATION-ISLANDS](../tracks.md#conditional-ggrs-island-rollback) retains ISL-1–ISL-4 for a customer that actually needs distributed GGRS histories.
+**Status:** compact GGRS input is done (NET-INPUT-WIDTH, 2026-11-10: 80 bytes per handle at wire identity 9); independently rewindable GGRS islands are a **deferred implementation branch** until the [host-authority comparison](hosted-world-networking-experiment.md) selects a topology. The active-area/loading-zone physical boundary remains useful for either topology.
+**Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs) determines the flagship model; [NET-INPUT-WIDTH](../queue.md#net-input-width--remove-idle-room-consensus-from-every-frame) (done) compacted the current GGRS hot path; [conditional SIMULATION-ISLANDS](../tracks.md#conditional-ggrs-island-rollback) retains ISL-1–ISL-4 for a customer that actually needs distributed GGRS histories.
 **Owners:** [netcode](netcode.md), [peer room commits](peer-room-commit-protocol.md), [open-world residency](open-world-runtime-and-residency.md), [simulation authority](simulation-authority-and-determinism.md), [multiplayer/multiview](multiplayer-and-multiview.md).
 
-## Why this work is selected
+## Why this work was selected, and what it measured
 
-`ambition_platformer2d_rollback_ggrs/src/peer_input.rs` currently serializes a fixed-width `PeerInput` of **168 bytes per player per frame** at wire identity 8: **72 bytes** of `ControlFrame` plus **96 bytes** of `PeerVerdict` (operation, two content identities, plan digest, verdict). The latter is paid even when no room operation is pending. This is the *serialized input payload*, not a measurement of complete datagrams or link utilization. GGRS 0.13's local-multi-input concatenation requires an equal byte width per player, but does not require 96 bytes of idle preparation data.
+Until 2026-11-10 `ambition_platformer2d_rollback_ggrs/src/peer_input.rs` serialized a fixed-width `PeerInput` of **168 bytes per player per frame** at wire identity 8: **72 bytes** of `ControlFrame` plus **96 bytes** of `PeerVerdict` (operation, two content identities, plan digest, verdict), paid even when no room operation was pending. Wire identity 9 replaces the verdict with an 8-byte `PeerVerdictToken`, so a `PeerInput` is **80 bytes**. See [the result below](#result-2026-11-10).
 
 Separately, multiple live rooms already have room-scoped spatial/collision behavior, but the selected GGRS path still snapshots/resimulates an **App-wide timeline**. November 4's ordinary peer-commit fix eliminated the old global *hold/rebase* for travel; it did **not** implement island-specific rollback or interest-scoped input exchange. Compact input is a near-term performance/correctness task **independent of** the larger rollback partition.
 
@@ -29,6 +29,24 @@ The `activeArea`/loading-zone distinction remains a useful physical-world bounda
 **NPI-3 — Wire migration and measurement.** Bump `CONTROL_FRAME_WIRE_IDENTITY` and update `check_absence_contracts.py`'s recorded shape, the pinned input bytes and the exact-content/session handshake together. Verify all `PreparationVerdict` states and two-local-player packing. The target for the *normal frame* is **at most 80 serialized bytes per player**, with 72 bytes possible if no permanent compact token is needed. Reject a change that merely compresses repeated hashes while leaving the hot-path scaling behavior intact. Measure end-to-end traffic and rollback latency; do not equate per-frame size with datagram size, retransmissions or bandwidth.
 
 **Acceptance:** nominal `PeerInput` no longer embeds the 96-byte `PeerVerdict`; fixed-width serialization still works across all handles, and source tests pin the new identity and bytes. Both peers agree on ordinary crossing application frames under delay, input correction, replacement, failure and concurrent preparation; plan/content mismatch refuses without duplicate arrival or custody. Checkpoint/rebuild barrier remains safe. Before/after input and transport byte measurements are recorded; no host rebuild/room hold is introduced solely by the optimization.
+
+### Result (2026-11-10)
+
+**Done at wire identity 9.** `PeerInput` is the 72-byte `ControlFrame` plus one 8-byte `PeerVerdictToken` per handle: **80 bytes**, pinned by `peer_input.rs`'s `the_bytes_a_peer_decodes_are_pinned` and `each_input_has_the_same_width`; `two_local_players_pack_and_divide_back` packs two handles into one GGRS payload and divides them back. `check_absence_contracts.py` records the identity-9 shape (`PeerInput::verdict: PeerVerdictToken`, `PeerVerdictToken::word: u64`).
+
+- **Why an in-band token, not a side channel.** Agreement must stay frame-stamped and replay-stable: a crossing applies on the frame whose inputs say every handle prepared, and a corrected input must cancel it. GGRS already gives that to anything in the input. A side channel would need its own deterministic admission, and the measurement below shows no bandwidth to win.
+- **Layout.** Bits 0..32 are a digest of the operation (recording frame, intent checksum, preparation checksum); 32..62 a digest of the frozen plan (both content identities and the plan data digest; zero unless `Prepared`, never zero when `Prepared`); 62..64 the verdict. `NotYet` is the zero word, so an idle input is 8 zero bytes.
+- **The receiver never decodes a plan.** It compares each handle's token with the token its *own* operation and plan would produce (`PeerVerdicts::agreed`, `each_prepared`). A stale or replaced operation is read as `NotYet` unless its 32-bit digest collides with the current one; two different plans for one operation agree only if their 30-bit digests collide (about one in 10⁹ per mismatch). A plan mismatch needs different content or a desynchronised construction in the first place; the session handshake already refuses peers whose full content identity differs (`peer_contract_mismatch_refuses_simulation_on_both_peers`).
+- **Kept.** The commit still `expect`s the exact retained plan through replay and checks the local plan against the agreed tokens; checkpoint/rebuild barriers read confirmed tokens only. All 35 `two_peers` agreement tests pass, including delay, correction, replacement, failure, concurrent preparation and `peers_refuse_different_room_plans_under_the_same_content_identity`.
+
+**Measured link traffic** (`two_peers::how_many_bytes_the_link_carries_a_frame`, ignored by default; run with `--ignored --nocapture`). `LoopbackTransport::sent()` counts every GGRS message and its bincode size. Bytes per simulated frame per peer, Alice / Bob:
+
+| Scene | Identity 8 (168-byte input) | Identity 9 (80-byte input) | Change |
+|---|---|---|---|
+| Steady play, 240 frames | 111.4 / 113.8 | 110.9 / 113.0 | −0.5% |
+| Two crossings, 220 frames | 152.5 / 155.4 | 146.1 / 149.9 | −4% |
+
+The input shrank by 52%, and the link traffic barely moved. GGRS XORs each input against the last acknowledged one and run-length encodes the result, so an unchanged verdict already cost almost nothing. The rest is about 3.9 messages a frame at about 28 bytes each; how much of that is headers, acknowledgements and quality reports was not split out. The crossing run also rolled back 405 times instead of 446; that was not investigated. **For NET-AUTHORITY-EXPERIMENT:** input width is not what drives this backend's bandwidth, so a comparison should measure message count and rollback work, not input bytes.
 
 ## SIMULATION-ISLANDS: independently rewindable active areas
 

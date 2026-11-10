@@ -30,4 +30,8 @@ where
         OWNER,
         "message.item_equip_requested",
     );
+    registrar.clear_message_on_rollback::<crate::ItemStowRequested>(
+        OWNER,
+        "message.item_stow_requested",
+    );
 }

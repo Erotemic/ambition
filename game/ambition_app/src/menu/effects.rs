@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::held_items::{empty_hand, equip_held_spec, held_spec_for_item, item_in_hand};
+use ambition_platformer2d::held_items::item_in_hand;
 use ambition_platformer2d::combat::held_items::HeldItem;
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::items::{EquippedItems, Inventory, Item, ItemCatalog, ItemCategory, OwnedItems};
@@ -71,35 +71,6 @@ pub fn status_for(items: &ItemCatalog, action: MenuAction) -> String {
     }
 }
 
-/// Body capabilities used by held-item actions from either menu backend.
-#[cfg(feature = "portal")]
-type HandBodies<'w, 's> = Query<
-    'w,
-    's,
-    (
-        Entity,
-        ambition_platformer2d::combat::hand::RepertoireQuery,
-        // Which portal pair this body owns, if it owns a gun at all. Read so a
-        // menu re-equip hands back the gun the player actually has rather than
-        // a fresh default one.
-        Option<&'static ambition_platformer2d::portal::OwnedPortalGunPair>,
-    ),
->;
-
-#[cfg(not(feature = "portal"))]
-type HandBodies<'w, 's> = Query<
-    'w,
-    's,
-    (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
->;
-
-/// Resolve the participant before checking the body's hand capabilities.
-#[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct MenuEffectBodies<'w, 's> {
-    drivers: Query<'w, 's, (Entity, &'static DrivingParticipant)>,
-    hands: HandBodies<'w, 's>,
-}
-
 /// Read the body controlled by a menu's participant, without a controller-kind filter.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct MenuBodySource<'w, 's> {
@@ -145,10 +116,10 @@ impl MenuBodySource<'_, '_> {
     pub(crate) fn items_changed(&self) -> bool { self.items.is_changed() }
 }
 
-/// Where a menu asks the simulation to use a consumable or to equip an
-/// ability. The simulation applies each request on one stamped tick
-/// (`apply_item_uses`, `apply_item_equips`), so the menu writes neither the
-/// bag nor the body.
+/// Where a menu asks the simulation to use a consumable, to equip an item or
+/// to stow what a hand holds. The simulation applies each request on one
+/// stamped tick (`apply_item_uses`, `apply_item_equips`,
+/// `apply_hand_requests`), so the menu writes neither the bag nor the body.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct MenuItemRequests<'w, 's> {
     uses: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
@@ -161,6 +132,39 @@ pub(crate) struct MenuItemRequests<'w, 's> {
         's,
         ambition_platformer2d::items::ItemEquipRequested,
     >,
+    stows: ambition_platformer2d::platformer::host_intents::HostIntentWriter<
+        'w,
+        's,
+        ambition_platformer2d::items::ItemStowRequested,
+    >,
+}
+
+/// TEST SEAM: a menu fixture runs no simulation, so this stands in for its
+/// tick. At the end of each frame it hands each new equip and stow request in
+/// the host-intent ledgers to the simulation's own applier
+/// (`ambition_held_items::apply_hand_requests`), so a test reads the hand the
+/// request leads to.
+#[cfg(test)]
+pub(crate) fn the_simulation_applies_hand_requests(app: &mut App) {
+    use ambition_platformer2d::items::{ItemEquipRequested, ItemStowRequested};
+    use ambition_platformer2d::platformer::host_intents::HostIntentLedger;
+    fn forward(
+        equips: Res<HostIntentLedger<ItemEquipRequested>>,
+        stows: Res<HostIntentLedger<ItemStowRequested>>,
+        mut seen: Local<(usize, usize)>,
+        mut equip: MessageWriter<ItemEquipRequested>,
+        mut stow: MessageWriter<ItemStowRequested>,
+    ) {
+        equip.write_batch(equips.payloads().skip(seen.0).copied());
+        stow.write_batch(stows.payloads().skip(seen.1).copied());
+        *seen = (equips.depth(), stows.depth());
+    }
+    app.add_message::<ItemEquipRequested>().add_message::<ItemStowRequested>();
+    app.add_systems(Last, (forward, ambition_platformer2d::held_items::apply_hand_requests).chain());
+    // A request is stamped for a live session; the one it would act on.
+    app.world_mut().spawn(ambition_platformer2d::platformer::lifecycle::SessionRoot(
+        ambition_platformer2d::platformer::lifecycle::SessionScopeId(1),
+    ));
 }
 
 /// TEST SEAM: the primary player's hand, read from a bare `World` (the fact
@@ -192,90 +196,34 @@ pub(crate) fn hand_of_primary_player(world: &mut World) -> Option<Item> {
     )
 }
 
-/// Decide and apply the effect of confirming `item` (equip / unequip / use /
-/// inspect). The ONE place both menu backends turn an item confirmation into ECS
-/// side effects — neither duplicates the portal/equip/heal logic. Returns the
-/// decided [`MenuAction`] so callers can surface its status.
+/// Decide the effect of confirming `item` (equip / unequip / use / inspect)
+/// and ask the simulation for it. The ONE place both menu backends turn an
+/// item confirmation into a request; neither writes a hand, a bag or a worn
+/// set. Returns the decided [`MenuAction`] so callers can surface its status.
 pub(crate) fn dispatch_item_confirm(
     owner: ambition_platformer2d::input::ParticipantId,
     item: Item,
     owned: &OwnedItems,
     body_source: &MenuBodySource<'_, '_>,
-    commands: &mut Commands,
-    players: &mut MenuEffectBodies<'_, '_>,
     requests: &mut MenuItemRequests<'_, '_>,
 ) -> MenuAction {
     let Some(body) = body_source.read(owner) else { return MenuAction::Inspect(item); };
     let items = body_source.items();
     let action = decide(items, item, &Inventory::new(owned, body.in_hand), body.equipped);
-    apply_menu_action(items, body.participant, action, commands, players, requests);
+    apply_menu_action(body.participant, action, requests);
     action
 }
 
-/// Turn a decided [`MenuAction`] into its ECS side effects.
-pub(crate) fn apply_menu_action(
-    items: &ItemCatalog,
-    participant: PlayerSlot,
-    action: MenuAction,
-    commands: &mut Commands,
-    players: &mut MenuEffectBodies<'_, '_>,
-    requests: &mut MenuItemRequests<'_, '_>,
-) {
-    let body = body_for_slot(&players.drivers, participant);
+/// Turn a decided [`MenuAction`] into the request the simulation applies.
+pub(crate) fn apply_menu_action(participant: PlayerSlot, action: MenuAction, requests: &mut MenuItemRequests<'_, '_>) {
     match action {
-        // An ability is worn by the simulation, on its own tick.
-        MenuAction::Equip(item) if items.category(item) == Some(ItemCategory::Ability) => {
+        // The simulation equips, on its own tick: an ability into the worn
+        // set, a weapon or the portal gun into the hand.
+        MenuAction::Equip(item) => {
             requests.equips.write(ambition_platformer2d::items::ItemEquipRequested { participant, item });
         }
-        MenuAction::Equip(item) => {
-            // The portal gun equips via its own component; other weapons via a
-            // HeldItemSpec. Bail early if the item is neither. With the portal
-            // mechanic compiled out, the Portal Gun roster slot still exists but
-            // has no equip path, so it behaves like an unwired weapon.
-            #[cfg(feature = "portal")]
-            let is_portal_gun = item == Item::PortalGun;
-            #[cfg(not(feature = "portal"))]
-            let is_portal_gun = false;
-            let held_spec = held_spec_for_item(items, item);
-            if !is_portal_gun && held_spec.is_none() {
-                return;
-            }
-            if let Some(parts) = body.and_then(|body| players.hands.get_mut(body).ok()) {
-                #[cfg(feature = "portal")]
-                let (player, mut repertoire, owned_pair) = parts;
-                #[cfg(not(feature = "portal"))]
-                let (player, mut repertoire) = parts;
-                // Clear whatever weapon is currently held (a held item OR the
-                // portal gun), then equip the new one. The hand is the only
-                // record of what is equipped (I1).
-                empty_hand(commands, player, &mut repertoire);
-                #[cfg(feature = "portal")]
-                if is_portal_gun {
-                    ambition_platformer2d::held_items::equip_portal_gun(
-                        commands,
-                        player,
-                        &mut repertoire,
-                        // The pair this body owns; 0 only if it never held one.
-                        owned_pair.map_or(0, |owned| owned.0),
-                    );
-                } else if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut repertoire, spec);
-                }
-                #[cfg(not(feature = "portal"))]
-                if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut repertoire, spec);
-                }
-            }
-        }
         MenuAction::Unequip(_item) => {
-            if let Some(parts) = body.and_then(|body| players.hands.get_mut(body).ok()) {
-                #[cfg(feature = "portal")]
-                let (player, mut repertoire, _owned_pair) = parts;
-                #[cfg(not(feature = "portal"))]
-                let (player, mut repertoire) = parts;
-                // Detach both possible weapon front-ends (held item + portal gun).
-                empty_hand(commands, player, &mut repertoire);
-            }
+            requests.stows.write(ambition_platformer2d::items::ItemStowRequested { participant });
         }
         MenuAction::UseConsumable(item @ (Item::HealthCell | Item::ManaCell)) => {
             requests.uses.write(ambition_platformer2d::items::ItemUseRequested { participant, item });
@@ -298,82 +246,36 @@ mod tests {
         decide(catalog(), item, &Inventory::new(owned, hand), EquippedItems::of(catalog(), hand, worn))
     }
 
-    #[derive(Resource)]
-    struct HeldAction(PlayerSlot, MenuAction);
-
-    fn apply_held_action(
-        action: Res<HeldAction>,
-        mut commands: Commands,
-        mut bodies: MenuEffectBodies,
-        mut requests: MenuItemRequests,
-    ) {
-        apply_menu_action(catalog(), action.0, action.1, &mut commands, &mut bodies, &mut requests);
-    }
-
-    fn held_action_app(participant: PlayerSlot) -> (App, [Entity; 2]) {
-        use ambition_platformer2d::characters::brain::{ActionSet, action_set::IdentityKit};
-        use ambition_platformer2d::combat::moveset::ActorMoveset;
+    /// THE MENU ASKS; IT DOES NOT TAKE. An equip and a stow from the menu are
+    /// stamped requests in the host-intent ledgers, for the participant that
+    /// asked, and no body changes until the simulation applies them
+    /// (`ambition_held_items::apply_hand_requests`, which owns the hand).
+    #[test]
+    fn a_menu_equip_or_stow_is_a_request_and_writes_no_hand() {
+        use ambition_platformer2d::items::{ItemEquipRequested, ItemStowRequested, ItemUseRequested};
         use ambition_platformer2d::platformer::host_intents::HostIntentLedger;
-        use ambition_platformer2d::items::{ItemUseRequested, ItemEquipRequested};
+        #[derive(Resource)]
+        struct Asked(PlayerSlot, MenuAction);
+        fn ask(asked: Res<Asked>, mut requests: MenuItemRequests) {
+            apply_menu_action(asked.0, asked.1, &mut requests);
+        }
         let mut app = App::new();
         app.init_resource::<HostIntentLedger<ItemUseRequested>>();
         app.init_resource::<HostIntentLedger<ItemEquipRequested>>();
-        app.insert_resource(HeldAction(participant, MenuAction::Equip(Item::GunSword)));
-        app.add_systems(Update, apply_held_action);
-        let bodies = [PlayerSlot(0), PlayerSlot(1)].map(|slot| {
-            app.world_mut().spawn((DrivingParticipant(slot), IdentityKit::default(),
-                ActionSet::default(), ActorMoveset::default())).id()
-        });
-        (app, bodies)
-    }
-
-    #[test]
-    fn held_item_actions_use_the_named_participants_body() {
-        for participant in [PlayerSlot(0), PlayerSlot(1)] {
-            let (mut app, bodies) = held_action_app(participant);
-            let subject = bodies[participant.0 as usize];
-            let other = bodies[1 - participant.0 as usize];
-            app.update();
-            assert_eq!(app.world().get::<HeldItem>(subject).unwrap().id(), "gun_sword");
-            assert!(app.world().get::<HeldItem>(other).is_none());
-            app.world_mut().resource_mut::<HeldAction>().1 = MenuAction::Unequip(Item::GunSword);
-            app.update();
-            assert!(app.world().get::<HeldItem>(subject).is_none());
-            assert!(app.world().get::<HeldItem>(other).is_none());
-        }
-    }
-
-    #[test]
-    fn a_missing_or_ambiguous_driver_cannot_change_another_hand() {
-        for ambiguous in [false, true] {
-            let (mut app, bodies) = held_action_app(PlayerSlot(1));
-            app.world_mut().entity_mut(bodies[1]).remove::<DrivingParticipant>();
-            if ambiguous {
-                app.world_mut().entity_mut(bodies[0]).insert(DrivingParticipant(PlayerSlot(1)));
-                app.world_mut().entity_mut(bodies[1]).insert(DrivingParticipant(PlayerSlot(1)));
-            }
-            app.update();
-            for body in bodies { assert!(app.world().get::<HeldItem>(body).is_none()); }
-        }
-    }
-
-    #[cfg(feature = "portal")]
-    #[test]
-    fn a_portal_gun_keeps_the_named_bodys_pair_when_equipped_again() {
-        use ambition_platformer2d::portal::{OwnedPortalGunPair, PortalGun};
-        let (mut app, bodies) = held_action_app(PlayerSlot(1));
-        app.world_mut().entity_mut(bodies[0]).insert(OwnedPortalGunPair(2));
-        app.world_mut().entity_mut(bodies[1]).insert(OwnedPortalGunPair(7));
-        app.world_mut().resource_mut::<HeldAction>().1 = MenuAction::Equip(Item::PortalGun);
+        app.init_resource::<HostIntentLedger<ItemStowRequested>>();
+        // One live session root: a request needs a session to be stamped for.
+        app.world_mut().spawn(ambition_platformer2d::platformer::lifecycle::SessionRoot(
+            ambition_platformer2d::platformer::lifecycle::SessionScopeId(1),
+        ));
+        let body = app.world_mut().spawn(DrivingParticipant(PlayerSlot(1))).id();
+        app.insert_resource(Asked(PlayerSlot(1), MenuAction::Equip(Item::GunSword)));
+        app.add_systems(Update, ask);
         app.update();
-        assert!(app.world().get::<PortalGun>(bodies[0]).is_none());
-        let gun = app.world().get::<PortalGun>(bodies[1]).unwrap();
-        assert!(gun.active);
-        assert_eq!(gun.pair(), 7);
-        app.world_mut().resource_mut::<HeldAction>().1 = MenuAction::Unequip(Item::PortalGun);
+        assert_eq!(app.world().resource::<HostIntentLedger<ItemEquipRequested>>().depth(), 1);
+        app.insert_resource(Asked(PlayerSlot(1), MenuAction::Unequip(Item::GunSword)));
         app.update();
-        assert!(app.world().get::<PortalGun>(bodies[1]).is_none());
-        assert_eq!(app.world().get::<OwnedPortalGunPair>(bodies[1]).unwrap().0, 7);
+        assert_eq!(app.world().resource::<HostIntentLedger<ItemStowRequested>>().depth(), 1);
+        assert!(app.world().get::<HeldItem>(body).is_none(), "the menu put nothing in the hand");
     }
 
     #[test]

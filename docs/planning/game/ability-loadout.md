@@ -135,10 +135,10 @@ tests (bounce, one-way landing, strike rules).
   throw's mint: it needs a record of bag grants since the checkpoint, as
   `BagSpendsSinceCheckpoint` records spends, or a checkpoint restore loses
   the bomb. Not built.
-- **The menu equips a held item from the host.** Abilities equip through
-  `ItemEquipRequested` on a sim tick; a held item (the bomb too) is still
-  put in the hand by `menu::effects::apply_menu_action`, outside the tick.
-  Move held equips and stows onto the sim road.
+- **Held equips and stows are on the sim road (done 2026-11-10).** A menu
+  writes `ItemEquipRequested` or `ItemStowRequested`; the hand's owner,
+  `ambition_held_items::apply_hand_requests`, applies them on the stamped
+  tick to the requesting participant's body. The menu writes no body.
 
 ## Open
 

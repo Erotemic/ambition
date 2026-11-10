@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::menu::ActiveMenuPages;
 
 use crate::menu::effects::{
-    dispatch_item_confirm, MenuAction, MenuBodySource, MenuEffectBodies, MenuItemRequests,
+    dispatch_item_confirm, MenuAction, MenuBodySource, MenuItemRequests,
 };
 use crate::menu::kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
@@ -43,7 +43,6 @@ pub(crate) fn dispatch_menu_action(
     quality_confirm: &mut VisualQualityConfirmState,
     close_menu: &mut bool,
     commands: &mut Commands,
-    players: &mut MenuEffectBodies,
     requests: &mut MenuItemRequests,
     sfx: &mut SfxWriter,
     system: &mut SystemMenuParams,
@@ -51,7 +50,7 @@ pub(crate) fn dispatch_menu_action(
     match action {
         MenuPageAction::Equip(item) | MenuPageAction::Use(item) => {
             let decided =
-                dispatch_item_confirm(owner, item, owned, body_source, commands, players, requests);
+                dispatch_item_confirm(owner, item, owned, body_source, requests);
             // Pick the confirm sound from the RESOLVED action so equip/unequip/use
             // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
             let id = match decided {
@@ -281,7 +280,6 @@ pub(crate) fn menu_action_activated(
     body_source: MenuBodySource,
     mut settings: ResMut<UserSettings>,
     mut commands: Commands,
-    mut players: MenuEffectBodies,
     mut requests: MenuItemRequests,
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
@@ -319,7 +317,6 @@ pub(crate) fn menu_action_activated(
             &mut quality_confirm,
             &mut close_menu,
             &mut commands,
-            &mut players,
             &mut requests,
             &mut sfx,
             &mut system,

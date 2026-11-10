@@ -8,14 +8,14 @@ crates/ambition_combat/src/snapshot_impls.rs	91	da05457754f4843c
 crates/ambition_cutscene/src/lib.rs	37	22979ceed6e33108
 crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd
 crates/ambition_match/src/snapshot_impls.rs	88	0fb6cd81f15b654d
-crates/ambition_platformer2d_core/src/frame/material.rs	5	51fd445b94b75240
+crates/ambition_platformer2d_core/src/frame/material.rs	4	877570678ce4ac8e
 crates/ambition_platformer2d_core/src/motion_codec.rs	502	87fdd8d76e82129c
 crates/ambition_platformer2d_core/src/snapshot.rs	17	075822b7876cabb6
-crates/ambition_platformer2d_core/src/snapshot_impls.rs	138	7e6234907c485b8b
+crates/ambition_platformer2d_core/src/snapshot_impls.rs	143	58d6e6a77473d6b4
 crates/ambition_platformer2d_session/src/participants.rs	4	bb0549f2fc7db2e9
 crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs	10	6f7d65341ad5b174
 crates/ambition_platformer2d_shared_tangle/src/lifecycle/round.rs	6	ebfd75dd6ce790b8
-crates/ambition_platformer2d_shared_tangle/src/snapshot_impls.rs	79	e3c223f1025574bb
+crates/ambition_platformer2d_shared_tangle/src/snapshot_impls.rs	77	7bb5f5364bba0440
 crates/ambition_platformer2d_world/src/rooms/rollback.rs	5	ea594d3817dc7cc8
 crates/ambition_platformer2d_world/src/snapshot_impls.rs	2	f571bd2cf345bda8
 crates/ambition_portal2d/src/extension.rs	4	a6f9c44535332e26

@@ -29,8 +29,10 @@
 //! reason is the life's `because`. The same failure twice in a row waits for
 //! the next hour, so a domain that ignores the fact does not plan every tick.
 //!
-//! **What it knows.** Its own facts, and the facts its row says it observes
-//! in the world, read when it plans: whether a thing is free (no other body
+//! **What it knows.** Its own facts; the facts its author owns (its hours),
+//! read from the book each time it plans and never kept as the body's own, so
+//! no fact a body carries holds an hour the book no longer states; and the
+//! facts its row says it observes in the world, read when it plans: whether a thing is free (no other body
 //! in the room holds it) and whether a character is present (in the room).
 //! When a step is done its effects become the body's facts, so the next plan
 //! starts from what the body did, not from what it planned. A step that
@@ -79,7 +81,11 @@ pub struct LifeBook {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LifeSpec {
     pub domain: String,
+    /// The facts a body starts with (what it has done: `ate`).
     pub facts: Facts,
+    /// The facts the author owns (its hours): written into the body's facts
+    /// each time it plans, from the book as it is then.
+    pub authored: Facts,
     /// Facts read from the world when the body plans, by fact name.
     pub observes: BTreeMap<String, Observation>,
 }
@@ -172,7 +178,7 @@ impl Life {
     pub fn new(spec: &LifeSpec) -> Self {
         Self {
             domain: spec.domain.clone(),
-            facts: spec.facts.clone(),
+            facts: spec.facts.iter().chain(&spec.authored).map(|(name, value)| (name.clone(), value.clone())).collect(),
             planned_in: None,
             steps: Vec::new(),
             doing: Doing::Idle,
@@ -267,7 +273,7 @@ struct Look<'a> {
     room: Option<LiveRoomInstance>,
     here: ae::Vec2,
     visit: Option<&'a Visit>,
-    observes: Option<&'a BTreeMap<String, Observation>>,
+    spec: Option<&'a LifeSpec>,
 }
 
 /// Plan when a plan is due, and carry the plan out one step at a time.
@@ -307,7 +313,7 @@ pub fn live_lives(
             room: rooms.of(body),
             here: kinematics.pos,
             visit,
-            observes: book.lives.get(&character).map(|spec| &spec.observes),
+            spec: book.lives.get(&character),
         };
         // A conversation holds the body (`interrupt_talked_to_lives` stopped
         // its plan): it waits.
@@ -316,8 +322,8 @@ pub fn live_lives(
         }
         let new_hour = life.planned_in != Some((clock.day, hour));
         let seen_change = life.doing == Doing::Idle
-            && look.observes.is_some_and(|observes| {
-                observes
+            && look.spec.is_some_and(|spec| {
+                spec.observes
                     .iter()
                     .any(|(name, observation)| life.facts.get(name) != Some(&facts.observe(body, look.room, observation)))
             });
@@ -391,8 +397,13 @@ fn replan(commands: &mut Commands, life: &mut Life, book: &LifeBook, facts: &mut
         commands.entity(look.body).remove::<Visit>();
     }
     life.facts.insert("hour".into(), Value::Int(hour));
-    for (name, observation) in look.observes.into_iter().flatten() {
-        life.facts.insert(name.clone(), facts.observe(look.body, look.room, observation));
+    if let Some(spec) = look.spec {
+        for (name, value) in &spec.authored {
+            life.facts.insert(name.clone(), value.clone());
+        }
+        for (name, observation) in &spec.observes {
+            life.facts.insert(name.clone(), facts.observe(look.body, look.room, observation));
+        }
     }
     life.revision = life.revision.wrapping_add(1);
     let Some(domain) = book.domains.get(&life.domain) else {

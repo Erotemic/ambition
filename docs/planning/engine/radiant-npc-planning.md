@@ -270,6 +270,27 @@ and he plans to read notes (because `NoRoute("workbench")`, with
 `unreachable:workbench`); with the bench sign removed from the room he plans
 to read notes (because `NoPlace("workbench")`, with `absent:workbench`).
 
+## Slice 6 (2026-11-10): an edited life in the running game
+
+The lives are pack content (`data/npc_lives.ron`), so a content reload
+publishes an edited book with no Rust build. Witness
+(`game/ambition_app/tests/a_life_edit_reaches_the_running_game.rs`, the
+shipped visible composition in the coil lab): as shipped, Nikobolt's plan at
+eleven is "a working day"; an edit moving his lunch to eleven, compiled into
+a candidate pack in memory and published by `request_reload`, makes his plan
+at eleven "lunch". The reload prepares the session again, so the lab and
+Nikobolt are built anew from the edited pack (measured: another entity).
+
+A life row now separates `authored` facts (the hours, read from the book
+each time the body plans and never kept as its own) from `facts` (what it
+starts with and changes: `ate`, `experiments`). Slice 5 needs that split: a
+body rebuilt with facts restored from a ledger must not carry an hour the
+book no longer states.
+
+Saving the file in a running build that reads its content off disk asks for
+the same reload: `content_watch` watches every source the pack declares, the
+lives file among them (not witnessed for this family on its own).
+
 ## Acceptance
 
 From the queue row: both scientists follow different authored schedules,

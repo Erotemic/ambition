@@ -82,10 +82,14 @@
         // Nikobolt keeps 8 to 18 and lunches at noon.
         "npc_science_nikobolt": (
             domain: "eureka_scientist_day",
-            facts: {
+            // The hours are authored: read from this file each time a scientist
+            // plans, never kept as the scientist's own facts.
+            authored: {
                 "arrive_hour": Int(8),
                 "lunch_hour": Int(12),
                 "leave_hour": Int(18),
+            },
+            facts: {
                 "at": Sym("lab"),
                 "ate": Bool(false),
                 "talked": Bool(false),
@@ -99,10 +103,12 @@
         // Coulomba keeps 10 to 20 and lunches at one.
         "npc_science_coulomba": (
             domain: "eureka_scientist_day",
-            facts: {
+            authored: {
                 "arrive_hour": Int(10),
                 "lunch_hour": Int(13),
                 "leave_hour": Int(20),
+            },
+            facts: {
                 "at": Sym("lab"),
                 "ate": Bool(false),
                 "talked": Bool(false),

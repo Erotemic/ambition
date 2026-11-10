@@ -30,7 +30,7 @@ pub fn life_book(lives: Option<&NpcLives>) -> LifeBook {
                         (name.clone(), observation)
                     })
                     .collect();
-                (character.clone(), LifeSpec { domain: row.domain.clone(), facts: row.facts.clone(), observes })
+                (character.clone(), LifeSpec { domain: row.domain.clone(), facts: row.facts.clone(), authored: row.authored.clone(), observes })
             })
             .collect(),
         holds: lives.holds.clone(),

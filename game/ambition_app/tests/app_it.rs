@@ -210,6 +210,7 @@ mod a_dog_sent_to_a_place;
 mod nikobolt_lives_his_day;
 mod two_scientists_share_one_bench;
 mod a_scientists_plan_is_interrupted;
+mod a_life_edit_reaches_the_running_game;
 mod nav_graph_census;
 mod walked_route_census;
 mod no_character_resolves_art_by_an_ambiguous_root;

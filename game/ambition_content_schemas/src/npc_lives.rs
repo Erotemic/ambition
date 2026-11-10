@@ -23,8 +23,13 @@ pub const NPC_LIVES_SCHEMA: &str = "npc_lives";
 #[serde(deny_unknown_fields)]
 pub struct LifeRow {
     pub domain: String,
+    /// The facts the character starts with (what it has done).
     #[serde(default)]
     pub facts: BTreeMap<String, Value>,
+    /// The facts the author owns (its hours): read from the book each time
+    /// the character plans, never kept as its own.
+    #[serde(default)]
+    pub authored: BTreeMap<String, Value>,
     #[serde(default)]
     pub observes: BTreeMap<String, Observation>,
 }
@@ -62,8 +67,13 @@ fn problems(lives: &NpcLives) -> Vec<String> {
         if !lives.domains.contains_key(&life.domain) {
             problems.push(format!("`lives.{character}` plans with `{}`, which no domain is", life.domain));
         }
-        if let Some(name) = life.observes.keys().find(|name| life.facts.contains_key(*name)) {
-            problems.push(format!("`lives.{character}` both keeps and observes `{name}`; an observation replaces the kept value"));
+        for (kind, names) in [("observes", life.observes.keys().collect::<Vec<_>>()), ("authors", life.authored.keys().collect())] {
+            if let Some(name) = names.iter().find(|name| life.facts.contains_key(**name)) {
+                problems.push(format!("`lives.{character}` both keeps and {kind} `{name}`; the {kind} value replaces the kept one"));
+            }
+        }
+        if let Some(name) = life.observes.keys().find(|name| life.authored.contains_key(*name)) {
+            problems.push(format!("`lives.{character}` both authors and observes `{name}`"));
         }
     }
     for (verb, hours) in &lives.holds {

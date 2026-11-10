@@ -314,7 +314,7 @@ No second cache or incremental invalidation protocol was added.
 | P04 | Resolved | Missing body material returns `MissingMaterial`. Explicit world sources retain their identity transform. |
 | P05 | Resolved | The two epochs have one body owner. The publication measurement below records their cost. Full rebuilds remain; no cache optimization is claimed. |
 | P06 | Resolved | Runtime selects `PortalSimulationPlugin`. Ambition selects the gun separately. Construction consumes the same generation-bound schema catalog used for content identity. Missing gun schemas refuse authored guns. Repeat plan IDs agree. |
-| P07 | Deferred | The two camera/walking failures and the standalone spark/wall case remain release gates in the existing portal plan. The relevant-source baseline and latest results are below. No PSIM slice is closed. |
+| P07 | Deferred | The two camera/walking failures remain release gates in the existing portal plan. The spark/wall case is fixed in `b2e8f750a`. The relevant-source baseline and latest results are below. No PSIM slice is closed. |
 | P08 | Resolved | Each loading zone authors `Default` or `SceneArt`. The generic renderer owns this policy. Duplicate IDs in different rooms do not share visibility. Secret discovery and gate animation retain their owners. |
 | P09 | Resolved | Mary-O selects its actual facade features. Standalone normal, test, visible, desktop and web trees have no portal crate. Isolated compilation and tests are recorded below. |
 | P10 | Resolved | `PortalRooms` reads the existing per-game rules at the world owner. Publishers clear disabled-room links and occupancy. Physics, shots, held pairs and camera lists use room identity. Tests cover capability changes, equal coordinates in two rooms and a body transferred into a Mary-O room. |
@@ -465,9 +465,9 @@ ten app unit passes, and 139 visible integration passes with one failure and
 three ignored. The failed test is
 `her_spark_leaves_her_hand::a_spark_thrown_against_a_wall_does_not_pass_the_wall`.
 A spark born inside the left wall is seen beyond its far side. The assertion
-was retained. This is an open P07 contact-acceptance case. The common projectile
-collision resolver has no portal-feature branch and was not changed by this
-packet. This result does not establish that the full standalone game is green.
+was retained. The later contact packet below fixes this case. The common
+projectile collision resolver has no portal-feature branch. This earlier run
+does not establish that the full standalone game is green.
 
 All six standalone dependency-tree selections pass: content normal, app normal,
 app normal plus dev dependencies, visible, desktop and web. They contain no
@@ -518,3 +518,40 @@ same-file links). The strict citation check reports 27 unresolved references in
 other planning files. The link check reports 13 broken links in other planning
 files. Neither checker reports this updated portal plan. The shared queue and
 those other plans were not changed by this repair.
+
+
+### Initial-overlap contact packet
+
+Code commit: `b2e8f750a`. Native casts now have an explicit initial-overlap
+policy. Projectile queries report occupied starts. Body escape queries permit
+separation. This fixes the Mary-O spark that could leave a wall without impact.
+The same policy applies to clipped material and turning obstacles. No game
+branch or approximate collider was added.
+
+Validation:
+
+- Core library: 858 passes, one ignored. Shared library: 357 passes.
+  Command: `cargo test -j12 -p ambition_platformer2d_core -p ambition_platformer2d_shared_tangle --lib --no-fail-fast`.
+- The added shared test `projectile::collision::tests::an_overlapping_far_part_hits_before_the_shot_can_withdraw`
+  passes separately. It checks initial overlap through a scaled pair.
+- The exact standalone Mary-O test
+  `her_spark_leaves_her_hand::a_spark_thrown_against_a_wall_does_not_pass_the_wall`
+  passes with `cargo test -j12 -p ambition_demo_mary_o_app --features visible --test mary_o_it -- her_spark_leaves_her_hand::a_spark_thrown_against_a_wall_does_not_pass_the_wall --exact`.
+- All 14 app tests selected by
+  `cargo test -j12 -p ambition_app --test app_it -- projectile_portal_transit`
+  pass. This includes the held-item transit tests.
+- `cargo check -j12 -p ambition_app` passes.
+
+Logs use `target/portal-goal-`. This lane does not prove a full standalone
+Mary-O run, workspace acceptance, rendered output or complete PSIM acceptance.
+
+The camera selection still has one pass and two failures. Its trace shows no
+motion refusal or reset. The wall-walk case passes its intended entry without
+transfer and later crosses the spinning shelf pair. The thin-wall case does
+not transfer. Both place the feet at an aperture end. The canonical half-height
+is `24.000001907348633`; its exact lower edge exceeds the aperture end by
+`1.9073486328125e-6`, while the float collision box rounds it to that end.
+Evidence is in `target/portal-goal-camera-probe.log` and
+`target/portal-goal-walking-fit-numeric.json`. Temporary trace code was removed;
+the original assertions remain. P07 and the native actor contact work remain
+open in the existing portal plan.

@@ -585,6 +585,16 @@ reduce physical correctness or add a separate controller path.
 
 ### Committed checkpoint
 
+Initial-overlap contact repair: `b2e8f750a`. A projectile born in a wall now
+reports contact before it can leave. Native casts have an explicit overlap
+policy; body escape queries still permit separation. Core has 858 passes and
+one ignored; shared has 357 passes plus the added scaled-part witness. The
+real Mary-O spark/wall test and all 14 app projectile transit tests pass. The
+assembled app check passes. The two walking failures still expose disagreement
+between rounded contact placement and exact canonical aperture fitting. Their
+assertions remain. P07 and full PSIM acceptance remain open.
+
+
 Capability and publication review repair: `9e626f08b`. The body domain samples
 material at two distinct epochs. Portal publishers add room-scoped restrictions
 and clear disabled-room state. Runtime selects simulation separately from the

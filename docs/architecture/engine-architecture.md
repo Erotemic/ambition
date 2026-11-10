@@ -287,9 +287,11 @@ Current shape:
   entities interact only when they are in one room.
 - **Presentation is per live room.** Each view frames its own player and draws
   the world of the room it frames.
-- **A room that is not live does not simulate.** A mechanic that must keep time
-  while its room is not live uses the session clock (for example, a respawn that
-  is due at a session tick).
+- **A room that is not live does not run full gameplay simulation.** Timers
+  and persisted world facts may advance by session time. An offscreen NPC life
+  can reconcile its authored schedule on reactivation without stepping every
+  intermediate frame; such catch-up must not be confused with full physical
+  simulation.
 - `SoleLiveRoom` reads are a named debt: they assume one live room.
 
 The owner is `docs/planning/engine/open-world-runtime-and-residency.md`.

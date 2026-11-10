@@ -1,22 +1,14 @@
 # Adding a capability (a custom mechanic)
 
-Operational recipe. `examples/capability_demo` is the **worked example** — a
-shockwave mechanic that does everything below and nothing else. Read it beside
-this page; it is deliberately small.
+`examples/capability_demo` is a complete worked example of an external
+shockwave capability. Read it beside this recipe.
 
-It lives OUTSIDE the engine's workspace on purpose. A capability that proves an
-outside author can write one is built the way an outsider builds it: its own
-lock, its own `[workspace]`, no feature unification from the engine. Two costs
-an outside author pays:
-
-* **`workspace = true` dependencies do not exist out there.** `ron` and `serde`
-  are declared with versions, like anyone else's manifest.
-* ⛔ **`[patch.crates-io]` is not inherited.** The engine pins a forked
-  `bevy_ggrs` rev. Any consumer that reaches `ambition_platformer2d_runtime` must
-  repeat the patch, or it resolves the released crate and fails to build.
-
-`scripts/run_tests.py` runs it explicitly, because leaving the workspace drops a
-crate from `cargo test --workspace` silently.
+The example intentionally lives outside the engine workspace. Its dependencies
+must declare versions rather than relying on `workspace = true`. An external
+consumer that depends on `ambition_platformer2d_runtime` must also account for
+the workspace's forked `bevy_ggrs` `[patch.crates-io]` entry; Cargo patches do
+not propagate to consumers. `scripts/run_tests.py` includes the example
+explicitly because `cargo test --workspace` does not.
 
 ## What a capability is
 
@@ -31,9 +23,9 @@ behaviour            your systems and components
 + causal facts       why it did what it did
 ```
 
-None of these requires editing a central enum, an engine crate, or the actor
-crate. If you find yourself doing that, the seam is missing — say so rather than
-working around it.
+A standalone mechanic should not need to edit central input enums or actor
+logic. If a needed extension point is absent, add it at the owning boundary
+rather than coupling the mechanic to an unrelated implementation.
 
 ## The integration, in full
 
@@ -50,23 +42,19 @@ impl GameModule for MyGame {
 }
 ```
 
-That is the whole wiring. The composition installs each one and **refuses** if
-two capabilities claim the same action id, or if declared rollback state was
-never registered.
+Composition installs the declared contributions and refuses conflicting
+action IDs or missing required rollback registrations.
 
-## The rule that runs through all of it
+## Composition and ownership
 
-> **A capability OFFERS. The composition INSTALLS. A conflict refuses.**
+The capability declares its contributions; the composing game installs them
+and resolves conflicts. Registries for content, semantic actions and rollback
+belong to composition, keeping the mechanic's dependency closure small.
 
-It holds for content schemas, semantic actions and rollback state alike, and it
-is why a capability's dependency closure stays small: the registries belong to
-whoever is composing, so a mechanic never has to link the thing that owns them.
-
-⚠ the one that catches people: **do not register your own rollback state.** The
-registration trait lives in `ambition_platformer2d_runtime`, and reaching for it drags the
-whole simulation into a mechanic that uses none of it. `capability_demo` links
-only a handful of crates, one of them `ambition_platformer2d_shared_tangle` for
-the schedule seam in §1.
+Declare required rollback state in the mechanic, but register the actual state
+with the composing module. The registration interface lives in
+`ambition_platformer2d_runtime`; importing it into an otherwise independent
+mechanic unnecessarily pulls in the simulation runtime.
 
 ## 1. Behaviour
 
@@ -89,18 +77,11 @@ impl Plugin for MyPlugin {
 }
 ```
 
-⛔ **Do not register into `Update`.** Two failures follow, and neither is visible
-in a bare-`App` test because `sim_schedule()` DEFAULTS to `Update`:
-
-* a **fixed-tick** host ages your cooldowns once per rendered frame, so your
-  timing follows the frame rate;
-* a **rollback** host replays the sim schedule, so your systems never
-  resimulate — a rewind restores your state without re-running what produced it.
-  Snapshotting does not save you here; the state comes back and the behaviour
-  does not.
-
-⚠ **do not name GGRS or `FixedUpdate` yourself.** `sim_schedule()` is the whole
-interface; the host has already chosen.
+Use the host-selected simulation schedule instead of registering gameplay
+systems directly in `Update`, `FixedUpdate`, or a GGRS schedule. Otherwise
+cooldowns can follow render frames, and rollback can restore state without
+replaying its producing systems. A bare `App` may not expose the mismatch
+because `sim_schedule()` defaults to `Update` there.
 
 Define your own components rather than borrowing the actor crate's —
 `capability_demo` has `PulseBody` and `PulseAffected` instead of using
@@ -121,11 +102,9 @@ let mut registry = ambition_platformer2d::content::engine_schemas();
 registry.register(my_mechanic::my_schema())?;
 ```
 
-⛔ **Then the lowered content must reach the RUNNING capability.** This is a
-separate step and the one that gets forgotten. A plugin that calls
-`init_resource::<Profiles>()` uses built-in defaults while the compiler accepts
-the authored values. A compiler that validates content the runtime ignores
-certifies the wrong thing.
+The lowered content must reach the running capability. For example, a plugin
+that only calls `init_resource::<Profiles>()` may use built-in defaults despite
+the compiler accepting authored values.
 
 Take the LOWERED artifact at mount time:
 
@@ -133,11 +112,9 @@ Take the LOWERED artifact at mount time:
 module.capability(my_mechanic::MyPlugin::from_prepared(&pack)?);
 ```
 
-⚠ consume the artifact `FacetOutcome::lower` produced — never re-read the
-authored file. A second parse is a second authority over the same bytes.
-⚠ and make "the pack prepared nothing" a REFUSAL. Falling back to defaults
-silently is the bug above wearing a different hat; a composition that meant the
-defaults can say so by mounting `MyPlugin::default()`.
+Consume the artifact returned by `FacetOutcome::lower` rather than parsing
+authored input again. If required content was not prepared, return an error;
+only use defaults when the composition explicitly requests them.
 
 ## 3. A semantic action
 
@@ -211,22 +188,17 @@ Leave the tick `0` — the host stamps it. Publish **refusals** too: *"I pressed
 and nothing happened"* is the question people bring to an inspector. See
 [`explaining-a-tick.md`](explaining-a-tick.md).
 
-## Testing it
+## Validation
 
-`cargo test -p my_mechanic` should cover the mechanic. Add one integration test
-that mounts it through the facade (`ambition_platformer2d` as a **dev**-dependency, so the
-capability's own closure is unaffected) — `capability_demo/tests/
-composed_through_the_sdk.rs` is the template.
+Build the capability and exercise its mechanic in the intended game.
+`examples/capability_demo/tests/composed_through_the_sdk.rs` shows how to
+verify the composition boundary without making the mechanic depend on the
+engine facade in production. Its tests use a bare Bevy `App` where sufficient.
 
-**Headlessly, against the real sim**: `Platformer2dSimHarness` (`ambition_sim_harness`)
-builds the actual app with rendering, audio and windowing stripped and the
-systems intact. The doctrine — drive the real sim, assert invariants rather than
-tuned values, treat replay tests as canaries not cages — is
-[`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md).
-
-⚠ **a capability's own tests do not need any of that.** `capability_demo` builds a
-bare `App`, adds its plugin, and steps it; a mechanic that needed the whole
-sandbox to be testable would be telling you its seams are wrong.
+Use `Platformer2dSimHarness` (`ambition_sim_harness`) when actual movement,
+rollback or runtime scheduling is necessary to establish behavior. Add tests
+selectively for important invariants or regressions; every capability does not
+need parallel bare-app, host-app and replay suites.
 
 ## Checking your closure
 

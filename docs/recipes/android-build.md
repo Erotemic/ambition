@@ -80,15 +80,14 @@ requests Gradle stack traces for packaging failures.
 - Missing audio/window/device capabilities may degrade presentation but cannot
   alter authoritative simulation.
 
-## Validate before device testing
+## Validate on the affected device
 
-```bash
-./run_tests.sh -p ambition_touch_input
-./run_tests.sh -p ambition_input
-./run_tests.sh -p ambition_content
-./build_for_android.sh --doctor
-```
+Use `./build_for_android.sh --doctor` for prerequisite failures. Build and run
+the selected profile on the relevant device or emulator, then exercise the
+changed input, packaging or presentation behavior. Run focused Rust tests for
+shared components when they would catch a specific regression; the touch,
+input and content suites are not mandatory for every APK build.
 
-For a failure, capture the exact script command, selected ABI/profile/features,
-`adb` serial, and filtered logcat output. Inspect the script and generated
-project rather than adding undocumented manual steps.
+For a failure, record the command, ABI/profile/features, device ID and filtered
+logcat output. Inspect the build script and generated project rather than
+maintaining a parallel manual build procedure.

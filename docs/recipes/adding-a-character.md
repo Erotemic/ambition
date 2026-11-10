@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-08-13
+last_verified: 2026-11-10
 related_docs:
   - docs/systems/actors-brains-and-character-content.md
   - docs/concepts/content-and-provider-boundaries.md
@@ -8,109 +8,66 @@ related_docs:
 
 # Add a character
 
-Adding a character should extend provider-owned authored content and the shared
-character-preparation path. It should not require a new actor species, enemy
-archetype or player-only construction branch.
+A character's reusable identity, body, abilities, actions, presentation, and
+behavior are resolved into one `PreparedCharacterDefinition`. Placement,
+disposition, encounter role, and control assignment remain contextual. Do not
+create a player/enemy-specific body-construction branch for a new character.
 
-## 1. Localize the current character sources
-
-Ambition uses more than one **authoring source**, but preparation produces one
-runtime character value. Start by locating the provider row/definition and a
-nearby character with similar needs:
+## 1. Find the provider's character sources
 
 ```bash
 python scripts/agent_query.py "CharacterDefinition character catalog prepared character"
 python scripts/agent_query.py tests "try_register_character PreparedCharacterDefinition"
 ```
 
-Important distinction:
+Ambition's `game/ambition_content/assets/data/character_catalog.ron` contains
+provider cast rows, including presentation, writing, and character composition
+fragments. Code-authored characters register `CharacterDefinition` values.
+Preparation folds the registered definitions and provider fragments into the
+single runtime value. Read a nearby character that uses the features you need.
 
-- `character_catalog.ron` still carries broad provider-owned cast metadata,
-  presentation/writing/default data and tool-facing rows;
-- `CharacterDefinition` carries/registers reusable character composition and
-  intrinsic body/kit facts;
-- preparation resolves/folds those inputs into `PreparedCharacterDefinition`,
-  which is what runtime body construction consumes.
+For a game that defines a character entirely in its catalog, a row specifying
+`locomotion` or `locomotion_preset` participates in character construction. A
+host-code character can register intrinsic facts separately. Avoid duplicating
+those same facts in an unrelated runtime lookup.
 
-The deleted enemy `ArchetypeSpec`/`CharacterRoster` body system is not part of <!-- cite-ok: names the deleted archetype system to say it is not the workflow -->
-the workflow.
+## 2. Author the intrinsic character
 
-## 2. Start from sprite/authoring metadata when appropriate
+Choose existing typed fields or presets where possible:
 
-For Ambition characters whose sprite target carries `ACTOR_METADATA`, the
-character-notes tool can seed the provider catalog row and writing metadata:
+- **Body:** shape, size, health, death behavior, hurt regions, locomotion, and
+  physical tuning.
+- **Actions:** moveset/action-set presets, abilities, ranged weapons, and
+  contact behavior.
+- **Autonomy:** an intrinsic profile or a shared named profile; a provoked
+  profile where needed.
+- **Presentation:** sheet/posed body, sizing, portrait, and other visual facts.
+- **Writing:** bark pools, fallback dialogue, and character descriptions.
+
+These are examples, not a parallel schema. Consult the actual catalog row and
+`CharacterDefinition` API for supported fields. For Ambition's human characters,
+`character_catalog.ron` documents the current standing-height convention; the
+standard default body is intentionally shorter than most people in that cast.
+
+A character's faction/hostility in one encounter, session seat, spawn point, and
+controller ownership are supplied by placement or ruleset, not fixed into the
+reusable character identity.
+
+If the character needs genuinely new shared behavior, extend the corresponding
+engine action/body vocabulary and make the authoring path express it.
+
+## 3. Prepare the art
+
+A sprite target with `ACTOR_METADATA` can seed authoring notes and the catalog
+row:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools:tools/ambition_sprite2d_renderer \
   python3 -m ambition_ldtk_tools.character_notes --splice --target <target>
 ```
 
-Treat the generated row as a starting point, not as the entire character body.
-Keep the required authoring metadata with the sprite target where that workflow
-owns it:
-
-- `authoring_description` — parody/source inspiration and transformation notes;
-- `gameplay_description` — intended role/mechanics;
-- suggested bark pools and `fallback_dialogue`.
-
-Do not hand-copy stale catalog snippets from old planning documents.
-
-## 3. Author/register the character composition
-
-Most of a character is its catalog row. A row can state its gait (`locomotion`,
-or a shared `locomotion_preset`), `max_health`, `contact_damage`,
-`death_traits`, its policy (an inline `autonomous_profile`, or a shared
-`named_autonomous_profile`), the policy it adopts when provoked
-(`provoked_profile`), its action set (the preset `default_action_set`
-names), ability grants, its feel (`axis_tuning`, or a shared
-`axis_tuning_preset`), a sheet-authored body (`posed_body`), what it rides and
-what rides it (`mount`), the hands it has as bodies of their own (`hands`), its `mass`, a `dream_seed`, the item it holds
-(`held_item`), the look of its shots (`ranged_vfx`), what it is hittable
-through per pose and per move (`hurtboxes`), the traits `practice_target`, `preserves_mirror_symmetry` and
-`unmirrored` (art with no left/right variant),
-and its lines (`fallback_dialogue`). A demo registers every row of its pack with one
-`PACK.cast(..).register(app)`; in Ambition, a row that states a gait is a
-character the game builds. Copy a nearby row rather than recreating an old
-archetype shape.
-
-**How tall.** A `Standard` body that states no `standing_height` is 48, the
-player robot's height, and the robot is a short character. A person states
-their own, in the scale at the top of Ambition's `character_catalog.ron` (the
-robot's 48 is 124 cm), with the centimetres meant in a comment on the row. The
-height sizes the picture and the collision body together. A row whose sheet
-publishes no body box can not take one (a test names such a row).
-
-A weapon with a charge, a muzzle, an aim or its own look is an action-set
-preset whose `ranged` is a whole `Weapon((..))` spec (see `officer_sidearm`
-and `polygon_cannon`). An Ambition character needs no Rust. A character a
-game builds in code (the robot lineage) registers a `CharacterDefinition`
-through the character-registration seam, and a fact it states outranks its
-row's.
-
-Author intrinsic facts on the character or referenced typed documents where
-appropriate:
-
-- body source/size and hurt geometry;
-- vitals/death traits;
-- locomotion and body abilities;
-- moveset/action repertoire;
-- autonomous profile where the character itself owns one;
-- contact behavior or other intrinsic capability;
-- sheet/presentation references; its lines are its row's barks and
-  `fallback_dialogue`.
-
-Placement hostility/disposition, session seat, participant assignment, spawn
-location, encounter role and ruleset are contextual and should stay outside the
-character identity.
-
-A character may intentionally delegate some authoring defaults to the provider
-catalog/source during preparation. The important invariant is that **runtime
-construction receives one resolved `PreparedCharacterDefinition` rather than
-choosing among parallel body authorities**.
-
-## 4. Generate and publish presentation
-
-Use the registered sprite target's supported generation/publish path:
+The authored sprite target owns its source and generation inputs. Publish the
+runtime art through the renderer's target commands:
 
 ```bash
 cd tools/ambition_sprite2d_renderer
@@ -120,33 +77,25 @@ python -m ambition_sprite2d_renderer sheet <target>
 python -m ambition_sprite2d_renderer publish <target>
 ```
 
-The generator/target source is authoritative for generated art. Choose the
-character-authoring family that best fits the design; do not introduce a rig or
-shared generator merely for uniformity.
+Treat generated notes as a draft. Keep generated binaries out of Git and do
+not require every character to use the same rig/art generator.
 
-## 5. Place the character through LDtk/provider content
+## 4. Place the character
 
-Use LDtk/editor tooling for spatial placement and author the stable character ID.
-Do not hand-edit `.ldtk` JSON. Per-instance placement/controller overrides should
-be explicit fields or rules, never inferred from geometry or from an obsolete
-archetype name.
+Use the LDtk editor or provider room-generation tools and reference its stable
+character ID. Keep controller, disposition, and per-instance overrides on the
+placement/ruleset. Do not hand-edit `.ldtk` JSON or modify generated world output
+without changing its source.
 
-For generated provider rooms such as the Hall, use their current generator rather
-than editing derived output by hand.
+## 5. Exercise the character
 
-## 6. Validate the preparation and construction path
+Prepare the provider and spawn the character through the actual game. Check its
+body scale, actions, control/AI behavior, art, and transition/respawn behavior
+as relevant to the change. Reuse a focused existing test for a significant
+construction defect; avoid reproducing the entire construction pipeline in a
+new test harness.
 
-Use focused tests located from the current source, then exercise the real
-provider/headless path. Verify:
-
-- the stable character identifier resolves during preparation;
-- the prepared definition is complete for the intended body;
-- placement/session/controller facts remain contextual;
-- human, AI and possession paths do not change the character's intrinsic kit;
-- art/dialogue/prompt consumers derive from resolved character/provider data
-  rather than becoming alternate identity authorities;
-- reset/room transition/restore can reconstruct the body; and
-- no reusable engine crate learns the character's proper name.
-
-For a genuinely new reusable behavior primitive, extend the shared engine/action
-vocabulary instead of hiding it in the character registration.
+See [actors and character content](../systems/actors-brains-and-character-content.md)
+for the ownership model and
+[extending brains and action sets](extending-brains-and-action-sets.md) for new
+reusable action capabilities.

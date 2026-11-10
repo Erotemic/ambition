@@ -55,17 +55,21 @@ that can be reset, snapshotted, and tested.
 
 ## Implementation loop
 
-1. Add the smallest reusable data/policy variant.
-2. Add pure tests for decision or resolution.
-3. Route the request through the canonical body/combat/projectile/interaction
-   seam—never a new character-specific executor.
-4. Register provider presets/data.
-5. Add an assembled test with at least two controller/body kinds when
-   unification is the invariant.
-6. Verify reset/snapshot/replay behavior.
+1. Add the smallest reusable data or policy variant the gameplay needs.
+2. Route the action through the existing body/combat/projectile/interaction
+   authority rather than creating a character-specific executor.
+3. Register the provider preset and play the behavior in an actual encounter.
+4. Check reset, restore, or replay when the new state participates in them.
+5. Retain a test only when it protects an important decision invariant or a
+   demonstrated cross-controller failure. Prefer extending an existing scenario
+   to adding another assembled-app test.
+
+For a targeted check, choose the owner that changed:
 
 ```bash
 ./run_tests.sh -p ambition_characters -k <new_policy>
 ./run_tests.sh -p ambition_platformer2d_actor_monolith -k <new_action>
-./run_tests.sh -k action_scheme
 ```
+
+The examples are alternatives, not a requirement to run both or the entire
+workspace suite. See `AGENTS.md` under **Avoid bullshit guardrails**.

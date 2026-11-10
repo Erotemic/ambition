@@ -32,50 +32,41 @@ Rust module-boundary work includes splitting large facade files into private chi
 - `include_str!` and `include_bytes!` paths are relative to the source file containing the macro.
 - Tests moved out of a module can strand attributes, fixtures, and helper visibility.
 
-## ⭐ Moving a module to ANOTHER CRATE adds four traps these invariants do not name
+## Additional concerns when moving code between crates
 
-The invariants above still hold across a crate move (the `include_str!` depth,
-stranded test helpers and sibling imports all apply). These four are additional,
-and all four are mechanical:
+The same module rules apply, but moving code between crates also changes
+visibility, imports and dependency ownership:
 
-- **`pub(in crate::some::path)` is CRATE-relative and silently wrong after the
-  move.** `pub(in crate::encounter)` compiled for years and became "could not
-  find `encounter` in the crate root" the moment the module had a new crate root.
-- **A blanket `super::` → `crate::` rewrite corrupts intra-file test modules.**
-  `mod tests { use super::*; }` means *this file's parent*, not the crate; the
-  substitution turns a working test import into `use crate::*` and the file stops
-  seeing its own private helpers. Rewrite the CROSS-module paths and leave
-  `use super::*` alone.
-- **The old crate's name inside the moved code is now an external crate.**
-  `ambition_encounter::Foo` becomes `crate::Foo` — but a naive replace also
-  rewrites the string inside `crate::crate::`, and doc comments and log TARGET
-  strings that merely MENTION a crate are not dependencies at all. Three
-  "impossible cycles" in this carve were a comment, an `include_str!` path and a
-  `log` target.
-- **A test that composes two plugins cannot live in the crate that can only name
-  one.** Cross-crate ordering guards belong in whichever crate depends on both —
-  usually the consumer — or the move makes the guard uncompilable and the
-  tempting fix is to delete the half that does not fit.
+- **`pub(in crate::some::path)` is crate-relative.** Update the visibility
+  scope to a valid owner in the destination crate.
+- **Rewrite imports according to what each path names.** A test module's
+  `use super::*` still refers to its enclosing module; a blanket `super::` to
+  `crate::` replacement breaks that relationship.
+- **Distinguish real imports from text and macro paths.** Former external
+  crate references may become `crate::` paths, but doc comments, log targets
+  and relative `include_str!` paths must be handled separately.
+- **Cross-crate integration tests belong in a consumer that depends on the
+  participating crates.** Do not invert the package graph just to retain a
+  test's old location.
 
-⚠ And the destination is a decision, not a detail: this carve's first attempt
-moved the module INTO `ambition_encounter`, and that crate's own policy rows
-refused it. **Read the destination crate's policy rows before writing the move
-down as a plan.**
+Check the destination crate's existing dependency and visibility boundaries
+before moving code into it.
 
 ## Edit protocol
 
-1. Search `dev/benchmark-candidates/` for module-split traps before editing.
-2. Move one coherent item group at a time.
-3. Re-check imports inside each child module locally; do not rely on parent imports.
-4. Keep facade re-exports intentional and stable.
-5. Run `cargo fmt` after structural moves; it catches stranded attributes and parse drift early.
+1. Identify the destination owner and public facade surface.
+2. Move one coherent item group at a time, keeping attributes and docs attached.
+3. Correct crate-relative imports, visibility, fixtures and asset includes.
+4. Keep facade re-exports intentional; remove obsolete forwarding paths.
+5. Format and compile the affected crates. Consult the related `dev/` journal
+   when the move resembles a known failure.
 
 ## Validation
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_platformer2d_actor_monolith
-cargo test -p ambition_platformer2d_actor_monolith --lib
+cargo check -p <destination-crate>
 ```
 
-Use narrower package/module tests while iterating, then run the package-level checks before handoff.
+Add a focused test run if behavior changed or a specific regression needs
+verification. A module move does not automatically warrant two full test lanes.

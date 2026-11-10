@@ -1,77 +1,74 @@
 # Camera zones and room visual profiles
 
-This document records the authored-room contract for presentation data that is
-spatial or room-scoped. The goal is to keep real gameplay rooms and the intro
-room declarative: LDtk tells the sandbox what camera / art mood a room wants,
-and runtime systems consume typed specs instead of inferring intent from names
-or music ids.
+LDtk owns authored camera zones and room presentation choices. Conversion
+lowers these fields into typed `CameraZoneSpec` and
+`RoomMetadata::visual_profile` values; simulation geometry does not depend on
+them.
 
-## A held look
+## Camera zones
 
-A body that stands with its head up, or crouches still, for
-`LOOK_DELAY_SECS` (0.8 s) leans its view that way, up to `LOOK_SHARE_OF_VIEW`
-(30%) of the view's height over `LOOK_RAMP_SECS` (0.5 s), and the view eases
-back when it lets go. The hold is the pose view's clock
-(`BodyPoseView::gaze_secs`); the resolver reads it through `camera_look` and
-leans along the subject's down, after the soft framing and before the room
-clamp (`crates/ambition_sim_view/src/camera_snapshot.rs`).
-
-## CameraZone entities
-
-`CameraZone` entities on the `Ambition` layer lower into
-`RoomSpec::camera_zones: Vec<CameraZoneSpec>`.
-
-Supported fields:
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `id` | string | Stable zone id. Falls back to the LDtk entity iid if empty. |
-| `name` | string | Display/debug name. |
-| `priority` | int | Higher priority wins when zones overlap. Defaults to `0`. |
-| `zoom` or `camera_zoom` | float | Requested camera zoom multiplier. Empty preserves the legacy `1.15` breath-out while inside the zone. |
-| `target_offset_x` | float | World-space camera target X offset. Defaults to `0`. |
-| `target_offset_y` | float | World-space camera target Y offset. Defaults to `0`. |
-| `easing_hz` | float | Optional camera target easing speed while active. Defaults to the normal camera easing rate. |
-| `cinematic_lock` or `lock_to_zone` | bool | When true, the camera targets the zone center instead of the player. |
-| `clamp_mode` | string | `room_bounds` (default), `zone_bounds`, or `none`. |
-
-When multiple zones overlap the player, the highest priority zone wins. Ties use
-larger zone area as the stable tie-breaker. `CameraViewState` exposes both the
-number of active zones and the winning zone id for HUD/debug readers.
-
-Room transitions also reset the presentation-only camera target on active-room
-change. This is a conservative mitigation for LDtk rooms connected by side doors
-but placed far apart in world coordinates: the camera snaps to the new room's
-first valid target instead of easing through unrelated space.
-
-## RoomVisualProfile level metadata
-
-LDtk level fields lower into `RoomMetadata::visual_profile`. These are optional;
-older rooms keep working with the legacy `biome` / `visual_theme` fallback.
-
-Supported level fields:
+Place a `CameraZone` entity on the `Ambition` layer. Conversion adds it to
+`RoomSpec::camera_zones`. The supported fields are:
 
 | Field | Meaning |
 | --- | --- |
-| `visual_profile` or `visual_profile_id` | Stable authored profile id, such as `intro_wakeup_room`. |
-| `parallax_theme` | Explicit generated parallax/background theme. Prefer this over inferring from `biome`, `music_track`, or `visual_theme`. |
-| `palette` | The named look of the room's architecture: `clean_corrupted` (one architecture in two states) or `debug_beautiful` (the collision truth as a drawing). The looks are in `game/ambition_content/src/presentation/room_look.rs`. No other value has a reader. |
-| `lighting_hint` | Lighting mood hint for future post-process or shader passes. |
-| `foreground_treatment` | Foreground/atmosphere treatment hint. |
+| `id`, `name` | Stable ID (LDtk iid when absent) and descriptive name |
+| `priority` | Higher priority wins overlapping zones; ties choose the larger zone |
+| `zoom` or `camera_zoom` | Zoom multiplier; when omitted, the zone's default is `1.15` |
+| `target_offset_x`, `target_offset_y` | Offset from the normal camera target in world units |
+| `easing_hz` | Optional easing-rate override |
+| `cinematic_lock` or `lock_to_zone` | Target the zone center instead of the followed subject |
+| `clamp_mode` | `room_bounds` (default), `zone_bounds`, or `none` |
+| `scroll_policy` | `free` (default) or `forward_only_x` (`no_backtrack` alias) |
 
-One more level field colours geometry, not the profile: `block_color`
-(`#RRGGBB` or `#RRGGBBAA`) is the colour of every block the level authors that
-has no colour of its own (`Block::art_color`). Conversion refuses a value that is
-not a colour. Mary-O's 1-2 cavern uses it. One `Solid` can say its own colour
-with its `color` field, which wins over the level's (Mary-O's vault masonry).
+`forward_only_x` keeps the camera's X target from moving backward while the
+zone remains active. Its high-water mark resets when the zone is left. It
+does not itself stop the player walking left; a game's level rules handle that.
+The implementation lives in
+`ambition_platformer2d_world::rooms::camera` and the LDtk entity converter.
 
-`ParallaxTheme::from_room_metadata` now checks `visual_profile.parallax_theme`
-first, then `visual_profile.id`, and only then falls back to the legacy loose
-metadata heuristic. New story rooms should set `parallax_theme` explicitly.
+`CameraViewState` exposes the selected zone and overlap count for debugging.
+On active-room changes, presentation resets the easing target instead of
+panning through the space separating LDtk room coordinates.
 
-## LDtk schema note
+## Room-level visual fields
 
-The runtime parser tolerates these fields even when older LDtk files do not yet
-have editor-visible field definitions. When updating the LDtk project schema,
-add the fields above to the `CameraZone` entity definition and level-field list
-so designers can edit them in the LDtk UI.
+The LDtk level's fields lower through
+`ambition_platformer2d_ldtk/src/conversion/level_fields.rs`:
+
+| Field | Meaning |
+| --- | --- |
+| `visual_profile` or `visual_profile_id` | Named presentation profile |
+| `parallax_theme` | Explicit theme for background layers, terrain skin, and motes |
+| `palette` | Named architectural look (`clean_corrupted` or `debug_beautiful`) |
+| `lighting_hint`, `foreground_treatment` | Optional presentation hints |
+| `sky_scroll` | Optional nonzero sky-scroll rate |
+| `block_color` | Default block colour (`#RRGGBB` or `#RRGGBBAA`); an individual block's `color` overrides it |
+
+**Scenery theme selection is explicit.**
+`ParallaxTheme::named_by_room_metadata` reads only
+`visual_profile.parallax_theme`. It does not infer a theme from `biome`,
+`visual_profile.id`, `music_track`, or `visual_theme`.
+`from_room_metadata` returns `default` when no theme is named. A room without an
+explicit theme can retain its own authored block art rather than acquiring
+another game's terrain dressing. See
+[parallax backgrounds](parallax-backgrounds.md).
+
+A named `palette` selects the room look independently of the parallax theme.
+For example, the two-state hub uses `palette=clean_corrupted` with
+`parallax_theme=hub_clean`. See [room looks](room-looks.md).
+
+## Camera look held by the player
+
+`ambition_sim_view::camera_snapshot` applies a held gaze in the subject's
+reference frame after framing and before room clamping. The current thresholds
+are `LOOK_DELAY_SECS` (0.8 s), `LOOK_RAMP_SECS` (0.5 s) and
+`LOOK_SHARE_OF_VIEW` (30% of visible height). The source owns those values;
+do not duplicate gaze-time state in camera presentation.
+
+## Authoring
+
+Use the LDtk editor or `ambition_ldtk_tools` to set the fields. When a field
+is absent from the LDtk project definitions, add its schema definition before
+setting a value. The loader's tolerance for optional fields does not make an
+undeclared editor field editable.

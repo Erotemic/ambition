@@ -1,64 +1,52 @@
 ---
 status: current
-last_verified: 2026-07-18
+related_docs:
+  - docs/concepts/ldtk-world-composition.md
+  - docs/recipes/ldtk-authoring.md
 ---
 
-# LDtk world composition and transactional room loading
+# LDtk world composition and room transitions
 
-This page records the current cross-crate implementation shape. The durable
-contract is in [`../concepts/ldtk-world-composition.md`](../concepts/ldtk-world-composition.md).
+The authored LDtk world is provider data. Loading and changing rooms use
+preflight and canonical construction rather than spawning a partial target
+world and repairing it afterward.
 
-## Pipeline
+## Flow and owners
 
-1. a provider owns one or more `.ldtk` payloads and a world manifest;
-2. `ambition_platformer2d_ldtk` imports LDtk layers/entities/fields into typed records;
-3. `ambition_platformer2d_world` owns reusable room specs, loading zones, collision/world
-   vocabulary, validation, and lowering contracts;
-4. provider/domain registrations supply content-specific lowering or staging;
-5. room preflight produces an immutable `RoomConstructionPlan` without mutating
-   the live room;
-6. `ambition_load` tracks required/degradable work and barrier readiness;
-7. the app/runtime room-transition coordinator authorizes one commit after the
-   plan and required assets are ready;
-8. canonical construction retires the old room and installs the target atomically;
-9. `ambition_load_presentation` may cover unresolved work but cannot authorize it.
+1. The provider supplies `.ldtk` worlds and a manifest.
+2. `ambition_platformer2d_ldtk` imports layers, entities, and fields into
+   typed world records.
+3. `ambition_platformer2d_world` owns room, loading-zone, and collision
+   vocabulary plus construction validation.
+4. Provider registrations lower specific authored objects into a
+   `RoomConstructionPlan` without mutating the live room.
+5. `ambition_load` tracks outstanding required/degradable work. The runtime
+   coordinator commits the target when its prerequisites are satisfied.
+6. Canonical construction retires the source room and installs the target;
+   `ambition_load_presentation` can display loading state but cannot grant
+   permission to commit.
 
-Some construction integration still lives in `ambition_platformer2d_actor_monolith` and app adapters
-while the decomposition continues. New code should strengthen the contracts
-above rather than create another loader/spawn path.
+Some construction integration still resides in
+`ambition_platformer2d_actor_monolith` and app adapters. Follow the
+existing canonical path for a new authored object.
 
-## Which way a zone goes
+## Loading-zone direction
 
-A zone's way is read off the room links (`RoomSet::way_of`): both ways, out
-only (its far side has no link back to this room), or in only (it has no
-link out: a place to arrive at). The renderer draws a zone that is not both
-ways tinted and signed over it, `ONE WAY: NO RETURN` or `NO EXIT`, and a
-door's nameplate says so too (Jon, 2026-11-09: a one-way door must be
-"EXTREMELY clear"). Nothing is authored for it: a link written one way is
-drawn as one.
+`RoomSet::way_of` derives whether a zone connects in both directions,
+outward only, or inward only from the authored room links. This is not a
+separate flag that authors must duplicate on the visual. Presentation makes
+one-way and arrival-only directions conspicuous, including door/nameplate
+labels; the source of truth remains the link graph.
 
-## Transition invariants
+## Transition behavior
 
-- repeated overlap with the same loading zone does not mint duplicate active
-  transactions;
-- a genuinely new target supersedes the prior transaction exactly;
-- the source room remains playable/authoritative until commit policy says
-  otherwise;
-- preflight and asset discovery do not leak target entities;
-- failures leave a valid source world and publish actionable load evidence;
-- hidden grace, cover, loading UI, and ready-hold are presentation policy;
-- readiness is contributor-neutral and headless observable;
-- restore/reset/hot reload converge on canonical lowering/construction.
+Repeated overlap with one zone must not launch duplicate transitions, and
+failure must leave the current playable room intact. Preflight must not leak
+target entities; arriving bodies must be placed safely using the destination
+geometry. Cover, loading UI, and grace/ready-hold effects are presentation
+policy rather than substitutes for the commit barrier.
 
-## Authoring and validation
-
-Use `ambition_ldtk_tools`; do not hand-edit LDtk JSON. See
-[`../recipes/ldtk-authoring.md`](../recipes/ldtk-authoring.md).
-
-```bash
-PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate game/ambition_content/assets/worlds/sandbox.ldtk
-./run_tests.sh -p ambition_platformer2d_ldtk
-./run_tests.sh -p ambition_platformer2d_world
-./run_tests.sh -k room_transition
-./run_tests.sh -k construction_plan
-```
+For authoring, use the LDtk editor and `ambition_ldtk_tools` rather than
+editing generated LDtk JSON by hand. See
+[LDtk authoring](../recipes/ldtk-authoring.md) and
+[transition spawn validation](transition-spawn-validation.md).

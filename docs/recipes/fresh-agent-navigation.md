@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-11-10
 related_docs:
   - docs/concepts/engine-mental-model.md
   - .agent/README.md
@@ -8,92 +8,45 @@ related_docs:
 
 # Fresh-agent navigation
 
-The generated `.agent/` tree is a commit-matched localization index. It is not a
-second source tree and should normally be queried, not read wholesale.
+The generated `.agent/` tree helps locate current source owners. Query it as a
+navigation index; treat the user's task, present code and authoritative docs as
+the sources of requirements and behavior.
 
-## Ten-minute protocol
-
-From the repository root:
-
-```bash
-sed -n '1,220p' README.md
-sed -n '1,260p' AGENTS.md
-sed -n '1,220p' .agent/README.md
-python scripts/agent_query.py overview
-python scripts/agent_query.py "<the user's exact task words>"
-```
-
-Then read:
-
-1. [`../concepts/engine-mental-model.md`](../concepts/engine-mental-model.md);
-2. [`../planning/vision.md`](../planning/vision.md) and the relevant track;
-3. one likely crate packet and its `MODULES.md`;
-4. one focused concept/system/recipe;
-5. the current source owner and narrowest tests.
-
-Do not begin by recursively reading `docs/`, `.agent/`, or a large crate.
-
-## Query progression
+## Start from the assigned checkout
 
 ```bash
-# Broad task packet: docs, files, symbols, ECS, tests.
-python scripts/agent_query.py "portal transition arrival"
-
-# Current package role and generated module packet.
-python scripts/agent_query.py crate ambition_portal2d
-
-# Durable or current prose mentioning an invariant.
-python scripts/agent_query.py docs "transactional room load"
-
-# Bevy ownership: resources, messages, systems, registrations, spawn evidence.
-python scripts/agent_query.py ecs "RoomScope"
-
-# Tests before implementation search.
-python scripts/agent_query.py tests "portal gravity"
+cat AGENTS.md
+python3 scripts/agent_query.py overview
+python3 scripts/agent_query.py "<task words>"
 ```
 
-If a query is noisy, use the most distinctive domain noun plus the observable
-behavior. Prefer `"action scheme prompt"` over `"input"`, and
-`"loading transaction commit"` over `"room"`.
+Read the relevant [engine mental model](../concepts/engine-mental-model.md),
+system or recipe guide, and the code that owns the requested behavior. Use
+active planning for unfinished work. Old journals and reviews explain earlier
+decisions but need not describe the current implementation.
 
-## Evidence order
-
-- Current user request: task intent.
-- Active planning/ADRs: intended direction.
-- Concepts: durable vocabulary and invariants.
-- Source/manifests/tests: implementation fact.
-- `.agent`: localization evidence generated from that source.
-- `dev/journals` and benchmark candidates: failure history and traps.
-- Git history/archive: why something changed, not present authority.
-
-Confirm generated hits in source before editing. A symbol in an index may still
-be an adapter, compatibility export, test-only item, or presentation consumer.
-
-## Before changing code
+For a narrower search:
 
 ```bash
-rg -n "<subsystem>|<symptom>" dev/journals dev/benchmark-candidates
-python scripts/agent_query.py tests "<invariant>"
-git log --oneline --all -- <likely paths>
+python3 scripts/agent_query.py crate ambition_input
+python3 scripts/agent_query.py ecs "RoomScope"
+python3 scripts/agent_query.py docs "transactional room load"
+python3 scripts/agent_query.py tests "portal gravity"
 ```
 
-Ask:
+Once you know the module, `rg` or `git log -- <paths>` may be faster. Verify
+whether a search hit is the owner, adapter, test fixture or consumer.
 
-- Which layer owns authority?
-- Is this named provider content or reusable capability?
-- Is there already a player/enemy, human/brain, runtime/headless, or
-  simulation/presentation fork to remove?
-- What lifecycle scope owns the state?
-- What is the narrowest property that proves the change?
+Work in the checkout assigned by the user. The repository's worktree policy
+applies even when other agents share the directory. Identify the responsible
+subsystem and implement the task without obligatory broad research or test runs.
 
-## After changing structure or docs
+When packaging a new agent source archive or after substantial structural
+changes, regenerate the `.agent` index:
 
 ```bash
-python scripts/checks/check_doc_links.py
-python scripts/generate_agent_index.py
-./run_tests.sh --list
+python3 scripts/generate_agent_index.py
 ```
 
-Run the focused tests returned by `agent_query.py`, then the broadest affordable
-headless suite. Generated `.agent` data should match the commit packaged for the
-next agent archive.
+Neither index generation nor broad verification is a default prerequisite for
+every documentation edit or small feature change.

@@ -1,6 +1,5 @@
 ---
 status: current
-last_verified: 2026-07-18
 related_docs:
   - docs/systems/actors-brains-and-character-content.md
   - docs/concepts/content-and-provider-boundaries.md
@@ -8,68 +7,45 @@ related_docs:
 
 # Factions and targeting
 
-Faction is reusable simulation vocabulary for relationship/targeting policy. A
-named game faction, its characters, dialogue, art, and music remain provider
-content.
+`crates/ambition_combat/src/targeting.rs` owns the relationship query used
+for combat decisions. Named factions and their narrative roles remain
+provider content.
 
-## Model
+## Relationships and damage
 
-An actor has stable identity and live affiliation data. Targeting and combat
-resolve an effective relationship from source, target, current control/brain or
-status, and provider/domain policy. “Player” is not itself a universal faction
-rule; possession, allies, confusion, summons, and multiplayer require explicit
-relationships.
+`FactionRelations` has **directed** `hostile` and `allied` tables. An alliance
+from A to B means A fights beside B; it does not automatically make B an
+ally of A. A body also has an effective faction that can change with its
+controller, as well as optional team and grudge information.
 
-## Ownership
+`combat_relation` resolves a source/victim pair as `Foe`, `Ally`, or
+`Neutral`. A grudge has precedence, then match teams, then the effective
+factions and their relations. **Target selection and damage authorization
+are distinct.** Neutral bodies are not automatically selected as enemies,
+but `damage_lands_between` can still allow a physical strike to hurt one.
+Damage to allies depends on `DamagePolicy` (including its participant
+policy), not solely on the hostility table. A same-faction or allied result
+is therefore not a blanket guarantee against every kind of damage.
 
-- Entity/character domains expose stable identity and affiliation components.
-- Combat owns target filtering and accepted hit relationships.
-- Brains/perception consume relationship queries when selecting intent.
-- Provider content owns named faction IDs, rosters, dialogue, reputation,
-  presentation, and game-specific relationship tables.
-- Persistence stores only durable provider-level facts; effective runtime
-  relationships are reconstructed.
+## Provocation and allied intervention
 
-## Allies, provocation and the rally
+The shared aggression systems can give a struck or challenged peaceful body
+an authored provoked brain and grudge without replacing its character kit.
+In a room marked `dangerous`, `body::rally_allies_to_the_fight` may enlist
+a nearby peaceful ally when a foe is actually fighting the faction that
+ally supports. Merely seeing a hostile actor is insufficient. The rally
+ends when the relevant fight ends, restoring the authored brain.
 
-- `FactionRelations` has two directed tables: `hostile` (who hunts whom) and
-  `allied` (who fights at whose side). `fights_beside(from, foe)` gives the
-  faction a `from` body fights for against `foe`.
-- An alliance changes damage too: a body does not hurt the faction it fights
-  beside (`combat_relation` resolves `Ally`). The table is directed, so the
-  side it fights for can still hit it.
-- Provocation: a struck peaceful body (past its strike threshold) or a
-  challenged body becomes `Hostile`, holds a grudge against its attacker, and
-  gets its character's provoked policy as its mind. Its kit does not change.
-- Rally (`body::rally_allies_to_the_fight`): a peaceful body with a kit and a
-  provoked policy, in a room authored `dangerous`, takes as its foe the nearest
-  body that is hostile to a faction it fights beside and that has come to blows
-  with that faction (a body of the faction struck it, or it swings at one now),
-  inside its provoked policy's `aggro_radius`. A foe that only watches the
-  player starts no rally, so the ally stays talkable at its post. It is the same flip
-  as a provocation, but the aggression mode stays `RetaliatesWhenHit`. When it
-  has no foe, or its foe fights nobody on its side any more, the rally ends the
-  grudge and restores its authored mind (`BrainCommand::restore_default`).
-- `RoomMetadata::dangerous` is the LDtk level bool `dangerous` (specs state it
-  as `dangerous: true`). Ambition sets it on its out-of-town rooms with
-  enemies, and declares `Npc` allied with `Player`
-  (`ambition_content::plugin`).
-- Test: `game/ambition_app/tests/npcs_fight_beside_you.rs`.
+Ambition authors the `dangerous` room field in LDtk and declares its NPC
+alliance in provider setup. For gameplay changes, inspect
+`crates/ambition_platformer2d_actor_monolith/src/body/rally.rs` and the
+related combat targeting policy rather than duplicating faction logic in a
+named NPC or boss.
 
-## Invariants
+## Extension guidance
 
-- No reusable rule branches on a named Ambition character/faction.
-- Human and brain control do not bypass the same targeting policy.
-- Friendly-fire, neutral, hostile, self, owner/summon, and temporary override
-  behavior is explicit.
-- Relationship changes are observable and snapshot/reset safe.
-- Presentation colors/icons do not determine affiliation.
-
-## Validation
-
-```bash
-python scripts/agent_query.py "faction targeting effective faction"
-python scripts/agent_query.py tests "friendly fire faction"
-./run_tests.sh -p ambition_combat -k faction
-./run_tests.sh -p ambition_content -k faction
-```
+Use the shared relation, team, grudge, and damage-policy interfaces for
+new roles such as possession, summons, allies, and local participants.
+Presentation labels and colors must not decide relationships. Exercise a
+real targeting/damage situation when changing the policy; broad unrelated
+combat suites need not run for a content-only faction change.

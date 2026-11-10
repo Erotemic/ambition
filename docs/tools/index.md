@@ -67,7 +67,7 @@ An agent-facing tool should have:
 - deterministic output where practical;
 - dry-run/output/backup modes for destructive authoring;
 - actionable diagnostics and nonzero failure exits;
-- tests for parsers/transforms and at least one end-to-end smoke path;
+- focused verification for nontrivial parsing, mutation, or publication behavior;
 - an explicit publish/install step before generated output becomes runtime input;
 - provider-qualified stable IDs rather than hard-coded engine content names.
 

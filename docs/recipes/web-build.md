@@ -124,13 +124,11 @@ rate is not a hardware performance measurement.
 
 ## Validate
 
-```bash
-./run_tests.sh -p ambition_asset_manager
-./run_tests.sh -p ambition_audio
-./run_tests.sh -p ambition_content
-./build_for_web.sh --doctor
-```
+Start with `./build_for_web.sh --doctor` when diagnosing toolchain or
+configuration problems. For a web change, build the affected game/profile and
+open it in a browser; verify startup, input and the behavior you changed.
 
-Then use [`web-audio-manual-test.md`](web-audio-manual-test.md) when audio or
-browser gesture/unlock behavior changed. Browser-only presentation/device issues
-should not be “fixed” in simulation code.
+Use [the browser audio check](web-audio-manual-test.md) for changes to audio
+or gesture handling. Run focused Rust tests when changing a shared loader,
+serialization contract or other behavior they actually exercise. Browser-only
+device/presentation defects should be fixed at the relevant boundary.

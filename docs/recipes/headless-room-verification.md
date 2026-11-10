@@ -1,18 +1,18 @@
 ---
 status: current
-last_verified: 2026-10-02
+last_verified: 2026-11-10
 related_docs:
   - docs/systems/headless-simulation.md
   - docs/concepts/testing-and-validation.md
 ---
 
-# Headless room verification
+# Verify a room or gameplay sequence
 
-Use the real provider/runtime construction path. A hand-built `World` that skips
-loading, lifecycle, control, or lowering can prove a unit invariant, but it does
-not prove the assembled game.
+Use the real provider and runtime path when the question concerns playable
+behavior. A hand-built ECS world can isolate a rule, but it cannot establish
+that room construction, control, lifecycle, and presentation work together.
 
-## Localize the existing seam
+## Find an existing entrypoint
 
 ```bash
 python scripts/agent_query.py "headless room load provider"
@@ -20,144 +20,56 @@ python scripts/agent_query.py tests "<room id or behavior>"
 python scripts/agent_query.py crate ambition_sim_harness
 ```
 
-Prefer extending an existing harness/helper over adding a second miniature app.
+Reuse an existing harness or scenario. Add a permanent test only for a
+consequential regression or acceptance requirement not already covered.
 
-## Verification ladder
+## Choose the evidence you need
 
-1. **Pure/domain test** — prove the narrow transformation or policy.
-2. **Owning-crate assembled test** — construct the smallest real plugin/domain
-   composition.
-3. **Provider/runtime test** — prepare the provider, load the room through the
-   transaction, step simulation, and observe stable read models/traces.
-4. **Geometry render** — inspect authored collision/entities without a GPU.
-5. **Visible smoke** — reserve for presentation feel that cannot be inferred
-   from authoritative state.
+| Question | Tool | What it establishes |
+|---|---|---|
+| Does a movement, combat, transition, or persistence result occur? | Provider/runtime headless scenario | Actual simulation and lifecycle behavior |
+| Where are the authored volumes and placements? | `render_room_geometry` | Spatial boxes without sprite art |
+| How does the scene look through the real renderer? | `capture_scene` | Sprites, effects, camera, and UI when enabled |
+| Is it readable and fun to control? | Play the game | Timing, feel, usability, and presentation together |
 
-## Commands
+A geometry render cannot answer an art question, and a screenshot does not
+prove what the simulation admitted. Use both when the question spans those
+boundaries. Avoid constructing a second approximation of the render pipeline to
+stand in for the real capture.
+
+## Useful commands
 
 ```bash
-python scripts/agent_query.py tests "<invariant>"
+# Select a relevant existing test, rather than running the whole suite.
 ./run_tests.sh -k <test_substring>
-./run_tests.sh -p <owning_package> -k <test_substring>
+
+# Inspect collision and room geometry (no rendered sprites).
 cargo run -p ambition_app_tools --bin render_room_geometry -- <ROOM_ID>
+
+# Capture actual presentation. The tool prints its full option vocabulary.
+cargo run -p ambition_app_tools --bin capture_scene -- --help
+cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> player /tmp/room.png
 ```
 
-`game/ambition_app` integration tests are aggregated through the current
-`app_it` test surface; do not invoke deleted historical test binaries. Let
-`./run_tests.sh` and `agent_query.py tests` choose the current package/test shape.
+`capture_scene` accepts `--route smash_gameplay --character <id>` for a fighter
+under Smash rules. A character spawned into an exploration room is not a Smash
+match. Use `--combat-overlay` when the hit and collision volumes must appear in
+the image; use `AMBITION_QUALITY_PROFILE=high` or `ultra` when judging art.
+`--screen-effect` explicitly enables post-processing in an isolated capture.
+`--press` can drive input, including `hold:` / `release:` gestures. Consult
+`--help` for timing, shooting, and specialized portal options.
 
-## What to assert
+For repeated deterministic frames, `--tick-per-frame`, `--frames`, and `--stride`
+are available. Capturing a full rendered sequence is more expensive than
+inspecting geometry; choose it when the result depends on actual presentation.
 
-Assert durable outcomes:
+## Acceptance observations
 
-- provider/session/room construction commits atomically;
-- expected stable IDs resolve and scoped entities exist;
-- the actor receives semantic control and uses the shared body/action path;
-- movement, interaction, hit, transition, or progression facts occur;
-- cleanup/reset removes the old scope and derived views converge;
-- gravity rotations or equivalent symmetries preserve the mechanic;
-- the test is non-vacuous (the target event/state was actually reached).
+In a gameplay scenario, first establish that the target situation occurred.
+Then inspect the outcome that motivated the task: the relevant actor or object,
+its spatial relationship, its gameplay effects, and what happens after cleanup,
+reset, or transition when applicable. Avoid pinning incidental frame numbers
+and coordinates as permanent contracts.
 
-Avoid pinning exact frame counts, velocities, coordinates, or visual assets unless
-they are the contract under test.
-
-## Seeing a picture, and which renderer to reach for
-
-Three paths exist and they are not interchangeable. Pick by WHAT YOU NEED TO SEE,
-not by cost. The geometry render draws boxes without art in under a second.
-`capture_scene` draws the real thing and takes minutes on a warm build without a
-GPU. A question about art cannot be answered by the fast one.
-
-### 1. Geometry — `render_room_geometry` (sub-second, no GPU)
-
-```bash
-cargo run -p ambition_app_tools --bin render_room_geometry -- <ROOM_ID> [OUT.png]
-cargo run -p ambition_app_tools --bin render_room_geometry           # lists every room
-```
-
-A pure pixel buffer — no wgpu, no windowing, no display. It draws collision and
-volume BOXES in world space, not sprite art, which is exactly the right
-instrument for "where is this thing" questions: room bounds, spawns, hurtbox vs
-body envelope, mid-air doors.
-
-**Reach for this first.** It is the answer to most questions that feel like they
-need a screenshot.
-
-### 2. The real render stack — `capture_scene`
-
-```bash
-cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WxH] \
-    [--warmup N] [--combat-overlay] [--screen-effect E] [--press KEYS] [--character ID] [--route ID]
-```
-
-This runs the actual presentation plugins, so it is the only path that shows
-sprite ART.
-
-To film a network gate, use `--dial-gate ZONE:ADDRESS[@TICK]`. The capture opens
-its terminal and sends the dial through the simulation's network. For example:
-
-```bash
-AMBITION_QUALITY_PROFILE=ultra cargo run -p ambition_app_tools --bin capture_scene -- \
-  central_hub_complex 1440,832 /tmp/gate.png 640x480 \
-  --dial-gate hub_public_gate_zone:TANGENT@120 --tick-per-frame \
-  --warmup 120 --frames 36 --stride 2
-```
-
-**Quality.** A capture tool takes its picture at the `low` visual quality
-profile unless `AMBITION_QUALITY_PROFILE` names another
-(`name_capture_quality_profile` in `crates/ambition_render/src/capture.rs`;
-`capture_scene`, the capture tool of each demo, and the Smash match shots call
-it). `low` is the lowest tier a player is expected to choose: the backdrop with
-two layers, sprites at half resolution, screen shaders at half strength. Name
-`high` or `ultra` to judge art. Do not look at the game through `potato`: it is
-the tier for a machine that can not run the game, with no backdrop and no
-screen shader, and it is what a machine with no GPU gets on a first run of the
-game itself.
-
-Two flags matter for combat work:
-
-- `--combat-overlay` puts the `DebugViewMode::Combat` preset in the shot. The
-  volumes are off by default, so without it a swing is photographable and its
-  hit polygon is not.
-- ⛔ **Photograph a Smash move on the Smash stage.** `--route smash_gameplay
-  --character <id>` seats a match of two of that character under the match
-  ruleset (stocks, damage percent). Without `--character` the route activates a
-  stage with nobody on it. The exploration form (`capture_scene <room> player
-  --character <id>`) puts the body under EXPLORATION rules, which is the wrong
-  game to judge a fighter's move in.
-- `--screen-effect crt,vignette` forces the fullscreen post-process on.
-  ⛔ Without it a post-process capture photographs nothing: every screen-shader
-  strength is zero by default, and a windowless host uses
-  `PersistenceRoot::isolated()` (a fresh temp directory), so a `settings.ron` in
-  the player's data directory does not reach it. The default `low` profile draws
-  the effect at half strength; name `high` or `ultra` for all of it. The tool
-  prints a refusal when the profile scales screen shaders to zero (`potato`).
-- `--press` drives input, and takes `hold:KEY` / `release:KEY` as well as taps.
-  Every tilt and aerial is *a direction held while attack is pressed*, so
-  `--press up,x` taps Up, releases it, and then attacks — resolving forward.
-  `--press hold:up,x,release:up` is an up-tilt; `z,wait:10,hold:down,x,release:down`
-  is a down-air. Presses restart the capture clock, so `--warmup N` after them
-  reads as N sim ticks into the move (the phase colour tells you whether you
-  landed in the active window: red is active).
-
-If `capture_scene` hangs for you, re-measure and report it with a number.
-
-### 3. Art against its own volume — composite it yourself
-
-When the question is specifically "does the drawn effect match the volume that
-hurts", neither of the above answers it: one draws boxes without art, the other
-draws art without finishing. Reproduce the runtime's mapping in a few lines of
-Python instead — read the sprite sheet and the manifest polygon, project the
-volume the way `CombatVolume::swing_shape` does, stretch the sprite into that
-quad, and draw both into one image.
-
-⚠ **A harness that models the pipeline minus one step is a confident wrong
-answer, not a weaker one.** A containment measurement built this way reported
-0.00% of the slash outside its polygon while a screenshot of the same frame
-plainly showed ink past the outline: it reproduced `swing_shape` and not the
-`SLASH_ART_MARGIN` applied one line later. Check any such harness against a
-picture before believing a number from it.
-
-### Finding this page
-
-`python scripts/agent_query.py "headless screenshot"` reaches it.
+The default is to implement and playtest. Retain a focused automated regression
+when the discovered defect is important and likely to recur.

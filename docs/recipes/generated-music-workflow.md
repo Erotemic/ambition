@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-11-10
 related_docs:
   - docs/concepts/generated-assets-audio.md
   - docs/tools/generated-audio-tools.md
@@ -59,14 +59,17 @@ The reusable audio crate owns App-local catalogs, state selection, loading,
 mixing, web unlock, and output. Simulation emits semantic music/SFX intent; it
 must not know filenames or renderer internals.
 
-## Validate
+## Check the result
+
+For a cue edit, render and listen to the affected sections, inspect its bundle
+report, and hear it in the owning room or encounter. Use the level audit when
+cue bindings or coverage changed:
 
 ```bash
-uv run --project tools/ambition_music_renderer pytest -q tools/ambition_music_renderer/tests
 uv run --project tools/ambition_music_renderer \
   python -m ambition_music_renderer audit levels --check
-./run_tests.sh -p ambition_audio
-./run_tests.sh -p ambition_content -k audio
 ```
 
-Use a manual browser check when web audio/device behavior changed.
+Run the renderer's tests when its code or format changes. Run focused audio or
+content tests when their loading, registration, or transition contracts change.
+Use a browser check only for web audio/device changes.

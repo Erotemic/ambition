@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-09
+last_verified: 2026-11-10
 ---
 
 # One file to give a player
@@ -52,8 +52,8 @@ Each build uses the `ship` profile (optimization level 3, link-time
 optimization across the whole program, symbols stripped, no debug info) and
 the `desktop_player` feature set of `ambition_app`: the visible game with no
 development tools, and with the worlds and the content data compiled in.
-The last step of a `ship` build is one long link-time optimization on one
-core. One build took 49 minutes on a 30-core machine (2026-10-09).
+The `ship` profile uses expensive whole-program link-time optimization.
+Packaging is a release task, not a routine validation step during feature work.
 
 ## What is in the file
 
@@ -103,23 +103,16 @@ mount namespace with `crates/` and `game/` empty).
 
 The Linux file is one file, and it is not a static program. A game that
 draws with the GPU loads the driver of the machine while it runs, and a
-static program cannot load a library. The file names these libraries in its
-header:
-
-```text
-libasound.so.2  libudev.so.1  libwayland-client.so.0
-libgcc_s.so.1   libm.so.6     libc.so.6
-```
-
-`--print-needs` prints that list for the file it built. While it runs, the
+static program cannot load a library. Check its actual linked dependencies with the package tool's `--print-needs`
+option; the list varies with the build host and target. While it runs, the
 game also loads the window system (X11 with `libxkbcommon`, or Wayland), and
 `libvulkan.so.1` with the GPU driver. A desktop Linux that runs other games
 has each of them.
 
-The C library sets which machines the file starts on. A file built on Ubuntu
-24.04 needs glibc 2.39 or newer (`objdump -T <file> | grep -o 'GLIBC_[0-9.]*'
-| sort -V | tail -1`), so it does not start on Ubuntu 22.04. Build on the
-oldest system the players have.
+The C library sets the minimum Linux runtime compatibility. Inspect the
+actual versioned glibc imports for a specific build (for example, with
+`objdump -T`) and build on an appropriately old system when supporting older
+distributions.
 
 ## What the Windows file needs from the machine
 
@@ -136,9 +129,7 @@ game writes its log there.
 - Saves and settings go to the data directory of the player's account
   (`%APPDATA%` on Windows, the XDG data directory on Linux), not beside the
   file.
-- `scripts/package/package_asset_guard.py compose` did not pass on the checkout that
-  wrote this page (2026-10-09). Its scan reads the section paths of
-  `audio/music_cues.ron` as paths from the asset root (they are paths from
-  the cue's `asset_root`), and `data/vanity_card.ron` names the frames of the
-  old full-frame card, which that checkout does not have. This script takes
-  the file set only (`collect_source_files`) and does not run that scan.
+- The single-executable packer gathers assets through
+  `package_asset_guard.collect_source_files`. The standalone `compose` command
+  performs additional checks; run it when changing asset packaging rather than
+  treating an old packaging diagnosis as current state.

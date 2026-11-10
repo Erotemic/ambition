@@ -380,15 +380,23 @@ fn a_rewound_room_hurts_its_enemy_again() {
     assert!(wrong.is_empty(), "the replay with a hurt enemy differs: {wrong:?}");
 }
 
-/// ISL-2d probe: a world write made in the window. Alice takes the coin in
+/// What one coin run reads: (wallet, grants since the checkpoint, the save's
+/// debug length) at frame N, after the pickup, and after the replay; and the
+/// wallet just after the restore.
+struct CoinRun {
+    at_n: (i32, usize, usize),
+    after_pickup: (i32, usize, usize),
+    restored_wallet: i32,
+    after_replay: (i32, usize, usize),
+}
+
+/// ISL-2d: a world write made in the window. Alice takes the coin in
 /// `basement_treasure` while Bob stays in the hub; the coin room rewinds to
 /// before the pickup and replays it. Her wallet is on her body and rewinds
 /// with the room; the grant record (`RewardGrantsSinceCheckpoint`) and the
-/// save belong to the world and do not. Prints what each says after the first
-/// run and after the replay.
-#[test]
-#[ignore = "probe: prints what a world write in a rewound window does; run with --ignored --nocapture"]
-fn probe_a_coin_taken_in_a_rewound_window() {
+/// save belong to the world. With `retract`, the rewind announces itself
+/// (`retract_room_writes`), as the room rollback host will.
+fn a_coin_taken_in_a_rewound_window(retract: bool) -> CoinRun {
     use crate::pickup_regrowth_across_rooms::{alices_balance, collect, COIN, COIN_ROOM, HUB};
     let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
         HUB,
@@ -413,13 +421,13 @@ fn probe_a_coin_taken_in_a_rewound_window() {
     let entities = of_room(sim.world_mut(), room);
     let mut saved = rows.save(sim.world(), &entities);
     let at_n = clock(sim.world());
-    let (balance_n, grants_n, save_n) = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
+    let at_n_reading = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
 
     collect(&mut sim, COIN);
     for _ in 0..10 {
         sim.app_mut().update();
     }
-    let (balance_1, grants_1, save_1) = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
+    let after_pickup = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
 
     let hidden = of_room(sim.world_mut(), bobs);
     for entity in &hidden {
@@ -428,7 +436,10 @@ fn probe_a_coin_taken_in_a_rewound_window() {
     let now = of_room(sim.world_mut(), room);
     rows.restore(sim.world_mut(), &mut saved, &now);
     set_clock(sim.world_mut(), at_n);
-    let balance_restored = alices_balance(&mut sim);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    let restored_wallet = alices_balance(&mut sim);
     collect(&mut sim, COIN);
     for _ in 0..10 {
         sim.app_mut().update();
@@ -436,10 +447,35 @@ fn probe_a_coin_taken_in_a_rewound_window() {
     for entity in &hidden {
         sim.world_mut().entity_mut(*entity).remove::<Disabled>();
     }
-    let (balance_2, grants_2, save_2) = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
-    println!("[coin] wallet: {balance_n} at N, {balance_1} after the pickup, {balance_restored} restored, {balance_2} after the replay");
-    println!("[coin] grants since the checkpoint: {grants_n} at N, {grants_1} after the pickup, {grants_2} after the replay");
-    println!("[coin] save (debug length): {save_n} at N, {save_1} after the pickup, {save_2} after the replay");
+    let after_replay = (alices_balance(&mut sim), grants(&sim), saved_flags(&sim));
     sim.world_mut().insert_resource(rows);
+    CoinRun { at_n: at_n_reading, after_pickup, restored_wallet, after_replay }
+}
+
+/// ISL-2d probe, the control: the same rewind with no retraction. Prints what
+/// each store says (measured 2026-11-10: the replay records a second grant).
+#[test]
+#[ignore = "probe: prints what a world write in a rewound window does; run with --ignored --nocapture"]
+fn probe_a_coin_taken_in_a_rewound_window() {
+    let run = a_coin_taken_in_a_rewound_window(false);
+    println!(
+        "[coin] wallet: {} at N, {} after the pickup, {} restored, {} after the replay",
+        run.at_n.0, run.after_pickup.0, run.restored_wallet, run.after_replay.0
+    );
+    println!("[coin] grants since the checkpoint: {} at N, {} after the pickup, {} after the replay", run.at_n.1, run.after_pickup.1, run.after_replay.1);
+    println!("[coin] save (debug length): {} at N, {} after the pickup, {} after the replay", run.at_n.2, run.after_pickup.2, run.after_replay.2);
+}
+
+/// ISL-2d (review 2026-11-10, finding 7): a room that rewinds takes back the
+/// grants it wrote after the tick it was saved at, so the replay's pickup is
+/// recorded once. Without the retraction (the probe above) it is recorded
+/// twice, and a death restore would take back two grants for one coin.
+#[test]
+fn a_rewound_room_takes_back_the_grant_its_replay_writes_again() {
+    let run = a_coin_taken_in_a_rewound_window(true);
+    assert_eq!(run.after_pickup.1, run.at_n.1 + 1, "premise: the pickup records one grant");
+    assert_eq!(run.restored_wallet, run.at_n.0, "premise: the restore gives back the wallet of frame N");
+    assert_eq!(run.after_replay.0, run.after_pickup.0, "the replay's wallet is not the first run's");
+    assert_eq!(run.after_replay.1, run.after_pickup.1, "the replayed pickup's grant is recorded twice");
 }
 

@@ -393,6 +393,10 @@ pub struct RewardGrant {
     /// The body that collected it.
     pub collector: SimId,
     pub granted: PickupGranted,
+    /// The room it was taken in and the tick: a rewind of that room to
+    /// before the tick takes the grant back (ISL-2d). `None` for a grant
+    /// written outside a live room.
+    pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
 }
 
 /// The grants of the mints collected and the boss reward chests opened since
@@ -412,6 +416,14 @@ impl RewardGrantsSinceCheckpoint {
     pub fn record(&mut self, grant: RewardGrant) {
         if !grant.granted.is_empty() {
             self.grants.push(grant);
+        }
+    }
+
+    /// `room` rewinds to `saved_at`: take out the grants it wrote after
+    /// that tick. Its replay records them again.
+    pub fn retract_room(&mut self, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, saved_at: u64) {
+        if self.grants.iter().any(|grant| grant.written.is_some_and(|written| written.retracted_by(room, saved_at))) {
+            self.grants.retain(|grant| !grant.written.is_some_and(|written| written.retracted_by(room, saved_at)));
         }
     }
 
@@ -666,6 +678,17 @@ pub struct ItemCheckpointHorizonPlugin;
 impl Plugin for ItemCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // A room rewound takes back the grants it wrote after the tick it
+        // was saved at (ISL-2d).
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.reward_grants_since_checkpoint",
+            |world, room, saved_at| {
+                if let Some(mut grants) = world.get_resource_mut::<RewardGrantsSinceCheckpoint>() {
+                    grants.retract_room(room, saved_at);
+                }
+            },
+        );
         // ⭐ THE BASELINES ARE THE SESSION ROOT'S (C03), like the lifecycle
         // pair: a new session is born with an empty checkpoint.
         require_on_session_root::<MintedItemBaseline>(app);

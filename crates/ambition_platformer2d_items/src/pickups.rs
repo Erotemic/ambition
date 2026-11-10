@@ -209,7 +209,12 @@ pub fn collect_ecs_pickups(
     // What a collected pickup gave: a retracted boss defeat takes back a
     // mint's, and a restore keeps a placed pickup's while one of the
     // participants in its room is spared (Q151).
-    mut reward_grants: Option<ResMut<crate::pickup::RewardGrantsSinceCheckpoint>>,
+    // And the tick it is taken on, with its room: a rewind of the room takes
+    // the grant back (ISL-2d).
+    (mut reward_grants, tick): (
+        Option<ResMut<crate::pickup::RewardGrantsSinceCheckpoint>>,
+        Option<Res<ambition_time::SimTick>>,
+    ),
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
@@ -287,6 +292,9 @@ pub fn collect_ecs_pickups(
                 source,
                 collector: collector.clone(),
                 granted,
+                written: rooms.of(entity).zip(tick.as_deref()).map(|(room, tick)| {
+                    ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
+                }),
             });
         }
         let pos = aabb.center;

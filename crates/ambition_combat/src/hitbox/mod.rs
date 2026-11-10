@@ -375,22 +375,6 @@ pub fn strike_reaches_victim(
             .any(|part| part.meets(&strike))
 }
 
-/// Earliest normalized contact of a moving box with sampled hurt material.
-/// Native source casts keep boxes, circles and convex regions exact.
-pub fn swept_strike_reaches_victim(
-    start: ambition_platformer2d_core::Vec2,
-    half: ambition_platformer2d_core::Vec2,
-    delta: ambition_platformer2d_core::Vec2,
-    victim_damageable: Option<&super::components::DamageableVolumes>,
-    victim_aabb: &super::components::CenteredAabb,
-    victim_pose: Option<&ae::BodyKinematics>,
-) -> Option<f32> {
-    resolve_hurt_material(victim_damageable, victim_pose, victim_aabb)
-        .swept_box_hit(victim_pose, start, half, delta)
-        .ok()
-        .flatten()
-}
-
 /// Shared query contract for a body that may receive a strike.
 ///
 /// `aabb` and `faction` are required. Optional components each have a defined absence semantic;
@@ -529,18 +513,16 @@ impl StrikeVictimItem<'_, '_> {
         strike_reaches_victim(world_volume, self.volumes, self.aabb, self.kinematics)
     }
 
-    /// When along a projectile's travel this body is first reached, if at all.
-    ///
-    /// The swept sibling of [`Self::reached_by`], for a caller that owns a
-    /// segment rather than a single sample — see
-    /// [`swept_strike_reaches_victim`] for what it sweeps and what it does not.
-    pub fn reached_along(
+    /// Contact of the physical source body with this victim's sampled material.
+    pub fn contact_along(
         &self,
-        start: ambition_platformer2d_core::Vec2,
-        half: ambition_platformer2d_core::Vec2,
-        delta: ambition_platformer2d_core::Vec2,
-    ) -> Option<f32> {
-        swept_strike_reaches_victim(start, half, delta, self.volumes, self.aabb, self.kinematics)
+        source: &ae::BodyKinematics,
+        delta: ae::Vec2,
+        geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Result<Option<super::components::BodySweepContact>, ae::frame::thread::Refusal> {
+        resolve_hurt_material(self.volumes, self.kinematics, self.aabb)
+            .swept_body_contact(self.entity, self.kinematics, geometry, room, source, delta)
     }
 
     /// The "away" axis in the VICTIM's local frame (§B11).
@@ -763,7 +745,12 @@ pub fn strike_pieces(
     let volume = hitbox.world_volume(owner)?;
     let owner_pos = owner.map_or(volume.center(), |owner| owner.pos);
     match passages {
-        Some(p) if carrier.is_some() => p.body_pieces_reaching(&hitbox.source_volume(), hitbox.owner, room),
+        Some(p) if carrier.is_some() => {
+            use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason};
+            let pose = owner.ok_or(Refusal { path: vec![], link: None, reason: RefusalReason::MissingMaterial })?;
+            let map = pose.material_map().map_err(|fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) })?;
+            p.body_pieces_reaching(MaterialPrimitive { domain: &hitbox.source_volume(), to_world: map }, hitbox.owner, room)
+        },
         Some(p) => p.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room),
         None => Ok(vec![ambition_platformer2d_core::frame::thread::VolumePiece::whole(volume)]),
     }
@@ -1354,6 +1341,7 @@ pub fn apply_hitbox_damage(
                     follow,
                 });
                 out.hit_events.write(HitEvent {
+                    contact: None,
                     pieces: Vec::new(),
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
@@ -1411,6 +1399,7 @@ pub fn apply_hitbox_damage(
             if !fixed || !feature_pulse.emitted {
                 if fixed { feature_pulse.emitted = true; }
                 out.hit_events.write(HitEvent {
+                    contact: None,
                     pieces: feature_pieces(),
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),

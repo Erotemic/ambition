@@ -1,22 +1,4 @@
-//! Where along a projectile's travel it first reaches a boss or a breakable.
-//!
-//! ⛔⛔ **THE DISCRETE PREDICATES ARE GONE, and their deletion is A2c's gate.**
-//! `ecs_hit_event_hits_actor`, `_boss` and `_breakable` answered "does this
-//! strike volume overlap something right now" — the right question for a melee
-//! hitbox that exists for a window of frames, and the wrong one for a projectile
-//! that crosses its whole target between two samples. Once contact became swept
-//! the projectile stepper stopped calling them, and `git grep` found no other
-//! production caller for any of the three; the contact protocol's own rule is to
-//! delete a predicate only once every caller has migrated, and every one had.
-//!
-//! ⚠ `ecs_hit_event_hits_actor` had no production caller even before that. It
-//! was reachable, tested, and unreached — which is why its four-state claim
-//! about `DamageableVolumes` moved onto `strike_reaches_victim`, the function
-//! that actually answers it for every consumer, rather than leaving with it.
-//!
-//! What remains is the swept pair the projectile road uses. Actors and BOSSES
-//! both answer from published `DamageableVolumes`; breakables answer from their
-//! coarse box, which is their current gameplay precision policy.
+//! Sampled hurt-material contacts for bosses and breakables.
 
 use ambition_breakables::BreakableFeature;
 use ambition_platformer2d_core::AabbExt;
@@ -34,23 +16,12 @@ fn breakable_is_eligible(feature: &BreakableFeature) -> bool {
         && !feature.state().pogo_refresh
 }
 
-/// The earliest point along a projectile's travel at which it reaches an
-/// eligible breakable, with that breakable's centre.
-///
-/// ⛔⛔ **THE SWEPT SIBLING, AND THE DISCRETE ONE IS NOT A SUBSTITUTE.** A shot
-/// crossing a crate between two samples has no endpoint that overlaps it, so the
-/// discrete predicate says the crate was never touched — the same defect the
-/// ordinary body branch had. The centre travels with the answer because the
-/// caller needs it: `time_of_impact` leaves the shot's box TANGENT, and every
-/// downstream overlap test is `strict_intersects`.
-///
-/// `may_touch` is the shot's own contact rule. It is asked before the nearest
-/// contact is chosen, so a target the shot may not touch never hides one
-/// behind it.
+/// Select the first eligible breakable contact from the physical body sweep.
 pub fn projectile_reaches_breakable(
-    start: ambition_platformer2d_core::Vec2,
-    half: ambition_platformer2d_core::Vec2,
+    source: &ambition_platformer2d_core::BodyKinematics,
     delta: ambition_platformer2d_core::Vec2,
+    geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     may_touch: impl Fn(Entity) -> bool,
     breakables: &Query<
         (Entity, &FeatureId, &CenteredAabb, &BreakableFeature),
@@ -61,8 +32,10 @@ pub fn projectile_reaches_breakable(
         .iter()
         .filter(|(entity, _, _, feature)| may_touch(*entity) && breakable_is_eligible(feature))
         .filter_map(|(entity, id, aabb, _)| {
-            swept_box_reaches(start, half, delta, aabb.aabb()).map(|time| FeatureContact {
-                time,
+            DamageableVolumes::world_box(aabb.aabb())
+                .swept_body_contact(entity, None, geometry, room, source, delta).ok().flatten()
+                .map(|hit| FeatureContact {
+                contact: hit,
                 target_center: aabb.aabb().center(),
                 target: entity,
                 target_id: id.as_str().to_string(),
@@ -71,19 +44,12 @@ pub fn projectile_reaches_breakable(
         .min_by(FeatureContact::order_for_caller)
 }
 
-/// Where along a projectile's travel it first reaches a feature, and which one.
-///
-/// ⭐ THE TARGET TRAVELS WITH THE ANSWER, and that is what makes a returning shot
-/// possible on this road. The feature branch used to despawn every shot that
-/// touched a boss or a breakable — a boomerang that clipped a crate simply never
-/// came back, while one that hit a body did — because it had no way to remember
-/// WHOM it had already hit on this leg. The ordinary body branch has kept a
-/// per-leg ledger the whole time.
+/// A fixed recipient and its accepted physical contact.
 #[derive(Clone, Debug)]
 pub struct FeatureContact {
-    /// Normalized time in `[0, 1]` along the travel leg.
-    pub time: f32,
-    /// The target's centre, for the caller's tangency nudge.
+    /// The native contact, including time, physical point and target path.
+    pub contact: ambition_combat::components::BodySweepContact,
+    /// The target's root position for deterministic tie ordering.
     pub target_center: ambition_platformer2d_core::Vec2,
     /// Which feature was reached.
     pub target: Entity,
@@ -103,42 +69,20 @@ impl FeatureContact {
     /// The total deterministic order the protocol specifies: time of impact,
     /// then the target's position, then its authored identity.
     pub fn order_for_caller(&self, other: &Self) -> std::cmp::Ordering {
-        self.time
-            .total_cmp(&other.time)
+        self.contact.hit.toi
+            .total_cmp(&other.contact.hit.toi)
             .then(self.target_center.x.total_cmp(&other.target_center.x))
             .then(self.target_center.y.total_cmp(&other.target_center.y))
             .then_with(|| self.target_id.cmp(&other.target_id))
     }
 }
 
-/// Earliest normalized time in `[0, 1]` at which a box swept from `start` by
-/// `delta` reaches `target`, with parity for the already-overlapping case.
-fn swept_box_reaches(
-    start: ambition_platformer2d_core::Vec2,
-    half: ambition_platformer2d_core::Vec2,
-    delta: ambition_platformer2d_core::Vec2,
-    target: ambition_platformer2d_core::Aabb,
-) -> Option<f32> {
-    let start_box = ambition_platformer2d_core::Aabb::new(start, half);
-    if start_box.strict_intersects(target) {
-        return Some(0.0);
-    }
-    start_box.sweep_hit(delta, target).map(|hit| hit.time_of_impact)
-}
-/// The earliest point along a projectile's travel at which it reaches a live
-/// boss's published geometry, with the part's centre.
-///
-/// The boss half of the ONE swept victim-geometry rule -- its breakable twin
-/// is [`projectile_reaches_breakable`]. It named `ecs_hit_event_hits_boss` as
-/// its sibling until that predicate was DELETED with the rest of the discrete
-/// family, which is the deletion this reference outlived. Reusing the one swept
-/// victim-geometry rule so a boss and an ordinary body answer the same way about
-/// published parts, coarse fallback (none, for a boss) and intangibility.
-/// `may_touch` is asked as for [`projectile_reaches_breakable`].
+/// Select the first live boss contact from its published hurt material.
 pub fn projectile_reaches_boss(
-    start: ambition_platformer2d_core::Vec2,
-    half: ambition_platformer2d_core::Vec2,
+    source: &ambition_platformer2d_core::BodyKinematics,
     delta: ambition_platformer2d_core::Vec2,
+    geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     may_touch: impl Fn(Entity) -> bool,
     bosses: &Query<
         (
@@ -160,16 +104,9 @@ pub fn projectile_reaches_boss(
                 && damageable.published()
         })
         .filter_map(|(entity, id, aabb, _, damageable, kin)| {
-            ambition_combat::hitbox::swept_strike_reaches_victim(
-                start,
-                half,
-                delta,
-                Some(damageable),
-                aabb,
-                kin,
-            )
-            .map(|time| FeatureContact {
-                time,
+            damageable.swept_body_contact(entity, kin, geometry, room, source, delta).ok().flatten()
+            .map(|hit| FeatureContact {
+                contact: hit,
                 target_center: aabb.aabb().center(),
                 target: entity,
                 target_id: id.as_str().to_string(),
@@ -297,7 +234,9 @@ mod tests {
                     ),
                     (With<FeatureSimEntity>, With<BossConfig>),
                 >| {
-                    projectile_reaches_boss(start, half, delta, |_| true, &bosses).is_some()
+                    projectile_reaches_boss(&ambition_platformer2d_core::BodyKinematics {
+                        pos: start, canonical_size: half * 2.0, ..Default::default()
+                    }, delta, None, None, |_| true, &bosses).is_some()
                 },
             )
             .expect("the boss contact ran")

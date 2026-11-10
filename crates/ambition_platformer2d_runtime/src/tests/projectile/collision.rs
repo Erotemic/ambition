@@ -3065,3 +3065,84 @@ fn a_returning_shot_still_meets_the_wall_after_its_feature_hit() {
     assert!(app.world().get::<BreakableFeature>(target).unwrap().broken());
     assert!(crate::projectile_tests::projectile_bodies(&mut app).is_empty(), "the wall ends this shot after the crate contact");
 }
+
+#[cfg(feature = "portal")]
+#[test]
+fn a_projectile_damages_a_bodys_far_side_hurt_cap_and_keeps_its_contact_chart() {
+    use ambition_combat::events::{HitEvent, HitTarget};
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    use ae::frame::{BodyMaterial, MapConvention, PortalAperture, PortalFrame};
+
+    #[derive(Resource, Default)]
+    struct Contacts(Vec<HitEvent>);
+    fn record(mut events: MessageReader<HitEvent>, mut contacts: ResMut<Contacts>) {
+        contacts.0.extend(events.read().cloned());
+    }
+
+    let mut app = open_lane_app();
+    app.init_resource::<Contacts>();
+    app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Startup, |mut commands: Commands,
+        sprites: Res<ambition_sprite_sheet::SpriteContent>,
+        catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+        ambition_platformer2d_actor_spawn::spawn_encounter_mob(
+            &sprites, &mut commands, &catalog, &Default::default(),
+            &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
+            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            "sampled_contact", ambition_encounter::mob_seed::EncounterMobSeed {
+                id: "far_cap".into(), character: Some("fixture_striker"),
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_striker".into()),
+                pos: ae::Vec2::new(200.0, 195.0), size: ae::Vec2::new(28.0, 46.0),
+            },
+        );
+    });
+    app.update();
+    let target = {
+        let world = app.world_mut();
+        world.query::<(Entity, &ActorIdentity)>().iter(world)
+            .find(|(_, identity)| identity.id() == "far_cap").unwrap().0
+    };
+    let body = ae::BodyKinematics {
+        pos: ae::Vec2::new(200.0, 195.0), canonical_size: ae::Vec2::new(28.0, 46.0),
+        material: BodyMaterial::new(0.5, Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y)).unwrap(),
+        ..Default::default()
+    };
+    let mut hurt = ambition_combat::components::DamageableVolumes::default();
+    hurt.publish_body(vec![ae::CombatVolume::circle(ae::Vec2::ZERO, 20.0)]);
+    app.world_mut().entity_mut(target).insert((body, ae::CenteredAabb::from_aabb(body.aabb()), hurt,
+        BodyHealth::new(ambition_characters::actor::Health::new(100))));
+    let mut geometry = BodyGeometry::new(MapConvention::Reflection);
+    geometry.add_pair(Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION), (
+        PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(200.0, 200.0), ae::Vec2::NEG_Y), half_length: 40.0 },
+        PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(700.0, 400.0), ae::Vec2::Y), half_length: 40.0 },
+    ));
+    app.insert_resource(geometry);
+    let owner = crate::projectile_tests::primary_player_entity(&mut app);
+    let shot = spawn_owned_shot(&mut app, owner, ae::Vec2::new(700.0, 420.0));
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(shot).unwrap();
+        kin.canonical_size = ae::Vec2::new(1.0, 3.0);
+        kin.material = BodyMaterial::new(1.5, Mat2::from_angle(0.31) * Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y)).unwrap();
+        kin.vel = ae::Vec2::new(0.0, -1200.0);
+    }
+    app.world_mut().get_mut::<ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration>(shot).unwrap().0 = ae::Vec2::ZERO;
+    advance_time(&mut app, 0.016);
+    app.update();
+    assert!(app.world().get::<BodyHealth>(target).unwrap().current() < 100, "contacts {:?}, shot {:?}", app.world().resource::<Contacts>().0, app.world().get::<ae::BodyKinematics>(shot));
+    let events = &app.world().resource::<Contacts>().0;
+    let hits: Vec<_> = events.iter().filter(|event| event.target == HitTarget::Body(target)).collect();
+    assert_eq!(hits.len(), 1);
+    let event = hits[0];
+    let contact = event.contact.as_ref().expect("the physical contact is retained");
+    assert!(contact.time > 0.0 && contact.time < 1.0);
+    assert!(!contact.target_path.is_empty());
+    assert!(contact.point.distance(ae::Vec2::new(700.0, 400.0)) < 20.0);
+    assert!(contact.normal.dot(ae::Vec2::NEG_Y) < 0.0);
+    let knockback = event.knockback.unwrap();
+    assert!(knockback.source_pos.distance(body.pos) < 30.0);
+    assert_eq!(knockback.impact_pos, contact.point);
+    let bounds = event.volume.bounds();
+    let margin = (bounds.max - bounds.min).min_element() * 0.01;
+    let empty_corner = ae::CombatVolume::circle(bounds.min + ae::Vec2::splat(margin), margin * 0.5);
+    assert!(!event.volume.intersects(&empty_corner));
+}

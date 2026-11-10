@@ -46,6 +46,14 @@ impl ProjectileCollisionWorld<'_, '_> {
         { let _ = (shot,room); None }
     }
 
+    /// The sampled body geometry for this room's target regions.
+    pub fn body_geometry(&self) -> Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry> {
+        #[cfg(feature = "portal")]
+        { self.passages.as_deref() }
+        #[cfg(not(feature = "portal"))]
+        { None }
+    }
+
     /// Admit the complete swept material before the projectile commits its step.
     #[cfg(feature = "portal")]
     pub fn admit_motion(

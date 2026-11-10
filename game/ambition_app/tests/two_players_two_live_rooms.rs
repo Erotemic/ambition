@@ -996,6 +996,7 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
     {
         use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
         sim.world_mut().write_message(HitEvent {
+            contact: None,
             pieces: Vec::new(),
             volume: ambition_platformer2d::engine_core::Aabb::new(
                 rope,
@@ -1520,6 +1521,7 @@ fn robot_strike_cues(
         victim
     };
     sim.world_mut().write_message(HitEvent {
+        contact: None,
         pieces: Vec::new(),
         volume: ambition_platformer2d::engine_core::Aabb::new(
             alice.1,
@@ -2582,6 +2584,7 @@ fn a_hazard_respawn_keeps_the_worlds_clock_while_another_room_is_live() {
                 .map(|(entity, kinematics, room)| (entity, kinematics.pos, room.map(|room| room.0)))
                 .expect("Alice's body is in the world");
             world.write_message(HitEvent {
+                contact: None,
                 pieces: Vec::new(),
                 volume: ambition_platformer2d::engine_core::Aabb::new(pos, ambition_platformer2d::engine_core::Vec2::splat(8.0)).into(),
                 damage: 1,
@@ -3424,6 +3427,7 @@ fn each_hit_s_effects_are_drawn_in_the_struck_body_s_own_live_room() {
                 .expect("Bob's body is in the world")
         };
         world.write_message(HitEvent {
+            contact: None,
             pieces: Vec::new(),
             volume: ambition_platformer2d::engine_core::Aabb::new(pos, ambition_platformer2d::engine_core::Vec2::splat(8.0)).into(),
             damage: 1,

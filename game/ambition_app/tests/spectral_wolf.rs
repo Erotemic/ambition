@@ -128,6 +128,7 @@ fn it_fades_between_its_bites_and_bursts_into_wisps() {
     {
         use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
         sim.world_mut().write_message(HitEvent {
+            contact: None,
             pieces: Vec::new(),
             strike_sfx: None,
             volume,

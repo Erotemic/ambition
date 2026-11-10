@@ -960,13 +960,12 @@ pub fn step_projectiles(
             down: ae::Vec2::ZERO,
         });
 
-        let travel_leg = attempted_delta;
         let blocked_at = world_response.contact.as_ref();
         // `true` when an independent blocker reaches this leg no later than the
         // candidate contact — strictly earlier, or at an exact tie, which the
         // protocol awards to the wall.
-        let wall_reaches_first = move |contact_time: f32| {
-            wall_reaches_first(blocked_at.map(|hit| hit.contact.toi), f64::from(contact_time))
+        let wall_reaches_first = move |contact_time: f64| {
+            wall_reaches_first(blocked_at.map(|hit| hit.contact.toi), contact_time)
         };
         // ⭐⭐ THE SAME QUESTION, ASKED ABOUT A TARGET THAT MAY OWN THE WALL.
         // Now that a live object's contributed surface is in this shot's world,
@@ -974,7 +973,7 @@ pub fn step_projectiles(
         // the hit on that ground is *"wall wins, therefore the crate is
         // invulnerable"*, which Q96 rejects by name. One contact: it damages
         // once AND takes the surface response below.
-        let wall_blocks_reaching = move |contact_time: f32, target_id: &str| {
+        let wall_blocks_reaching = move |contact_time: f64, target_id: &str| {
             wall_reaches_first(contact_time)
                 && !wall_is_the_targets_own_surface(
                     blocked_at.and_then(|hit| match hit.collider { ae::world::MaterialCollider::Block(block) => Some(block), _ => None }),
@@ -1063,7 +1062,6 @@ pub fn step_projectiles(
             // finite time, ordering by "whose centre is nearer the muzzle" can
             // disagree with "whom it reached first"; a big body slightly further
             // out is touched before a small one dead ahead.
-            let shot_half = kin.size() * 0.5;
             let leg = attempted_delta;
             // ⛔⛔ **THE FEATURE CANDIDATE IS RESOLVED HERE, BESIDE THE BODIES,
             // BECAUSE THEY ARE COMPETING FOR THE SAME CONTACT.** It used to be
@@ -1073,12 +1071,12 @@ pub fn step_projectiles(
             // 0.8. That is the family knowledge A2 exists to remove — the
             // protocol orders contacts within a projectile by finite time of
             // impact, and a family name is not a time.
-            let feature_half = shot_half;
             let feature_leg = leg;
             let feature_contact = super::feature_contact::projectile_reaches_breakable(
-                leg_start,
-                feature_half,
+                &before,
                 feature_leg,
+                collision.body_geometry(),
+                shot_room,
                 |target| {
                     shot_may_touch(owner_entity, &already_hit, target)
                         && collision.room_of(target) == shot_room
@@ -1087,9 +1085,10 @@ pub fn step_projectiles(
             )
             .into_iter()
             .chain(super::feature_contact::projectile_reaches_boss(
-                leg_start,
-                feature_half,
+                &before,
                 feature_leg,
+                collision.body_geometry(),
+                shot_room,
                 |target| {
                     shot_may_touch(owner_entity, &already_hit, target)
                         && collision.room_of(target) == shot_room
@@ -1105,23 +1104,22 @@ pub fn step_projectiles(
             // solid was broken through it, and a boss behind one was damaged
             // through it. Same rule as the bodies below, same single sweep, same
             // strict comparison.
-            .filter(|contact| f64::from(contact.time) <= travel_end)
-            .filter(|contact| !wall_blocks_reaching(contact.time, &contact.target_id))
+            .filter(|contact| contact.contact.hit.toi <= travel_end)
+            .filter(|contact| !wall_blocks_reaching(contact.contact.hit.toi, &contact.target_id))
             .min_by(super::feature_contact::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
                 .iter()
                 .filter(|victim| collision.room_of(victim.entity) == shot_room)
                 .filter_map(|victim| {
-                    victim
-                        .reached_along(leg_start, shot_half, leg)
-                        .filter(|toi| f64::from(*toi) <= travel_end)
-                        .map(|toi| (toi, victim))
+                    victim.contact_along(&before, leg, collision.body_geometry(), shot_room).ok().flatten()
+                        .filter(|hit| hit.hit.toi <= travel_end)
+                        .map(|hit| (hit, victim))
                 })
                 .collect();
             ordered.sort_by(|(at, a), (bt, b)| {
                 let (ax, ay) = (a.aabb.aabb().center().x, a.aabb.aabb().center().y);
                 let (bx, by) = (b.aabb.aabb().center().x, b.aabb.aabb().center().y);
-                at.total_cmp(bt)
+                at.hit.toi.total_cmp(&bt.hit.toi)
                     .then(ax.total_cmp(&bx))
                     .then(ay.total_cmp(&by))
                     // ⚠ THE KEY, NOT THE `Option`. `a.sim_id.cmp(&b.sim_id)`
@@ -1164,7 +1162,7 @@ pub fn step_projectiles(
                         let ((at, a), (bt, b)) = (&pair[0], &pair[1]);
                         a.sim_id.is_none()
                             && b.sim_id.is_none()
-                            && at == bt
+                            && at.hit.toi == bt.hit.toi
                             && a.aabb.aabb().center() == b.aabb.aabb().center()
                     })
                     .map(|pair| (pair[0].1.entity, pair[1].1.entity));
@@ -1178,7 +1176,7 @@ pub fn step_projectiles(
                 );
             }
 
-            for (contact_time, victim) in &ordered {
+            for (contact, victim) in &ordered {
                 // ⛔ THE EARLIEST CONTACT WINS, WHATEVER FAMILY IT IS IN.
                 // `ordered` ascends by time, so a feature reached strictly before
                 // this victim is reached strictly before every remaining one:
@@ -1207,8 +1205,8 @@ pub fn step_projectiles(
                 if feature_contact.as_ref().is_some_and(|feature| {
                     let victim_center = victim.aabb.aabb().center();
                     feature
-                        .time
-                        .total_cmp(contact_time)
+                        .contact.hit.toi
+                        .total_cmp(&contact.hit.toi)
                         .then(feature.target_center.x.total_cmp(&victim_center.x))
                         .then(feature.target_center.y.total_cmp(&victim_center.y))
                         .then_with(|| {
@@ -1257,7 +1255,7 @@ pub fn step_projectiles(
                 }
                 let victim_body = victim.aabb.aabb();
                 // An independent world surface wins an exact contact tie.
-                if wall_reaches_first(*contact_time) {
+                if wall_reaches_first(contact.hit.toi) {
                     continue;
                 }
                 // ⭐ CONTACT WAS ALREADY DECIDED, swept, when this list was built:
@@ -1342,42 +1340,17 @@ pub fn step_projectiles(
                 // CM8: vulnerability is no longer read here to MUTE feedback — the ONE
                 // victim-side reaction fires only on a landed hit, so a dodged / parried /
                 // i-framed hit is muted for free at consume time (`resolve_body_hit`).
-                // ⛔⛔ **THE WITNESS IS WHERE THE SHOT TOUCHED, NOT WHERE IT
-                // ENDED.** This event is applied LATER, by a system that tests
-                // `volume` against the victim's geometry again — so sending the
-                // endpoint box meant a shot that crossed its target within the
-                // tick named that target and then failed its own re-test, and no
-                // damage landed. Contact is swept now; the box travels with it.
-                //
-                // ⚠ It also makes the two directional facts honest. Knockback
-                // direction and the impact point were measured from the endpoint,
-                // which for a fast shot is already past the body it hit — the
-                // spray came from the wrong side.
-                // ⭐ A HAIR INSIDE, for the same reason the world sweep below
-                // nudges: `time_of_impact` puts the box TOUCHING, and every
-                // downstream overlap test is `strict_intersects`, which is false
-                // for a touch. Toward the victim's centre rather than along the
-                // leg, so a corner clip — where the leg direction is tangential —
-                // resolves too.
-                let contact_center = leg_start + leg * *contact_time;
-                let inward = (victim_body.center() - contact_center).normalize_or_zero();
-                let contact_center = contact_center + inward * 0.5;
-                let contact_box = ae::Aabb::new(contact_center, shot_half);
+                let contact_volume = contact.source_volume.clone();
+                let source_in_victim = contact.source_in_target;
                 let side = victim.knockback_side();
-                let knock_dir = (victim_body.center() - contact_center).dot(side).signum();
-                let knock_dir = if knock_dir.abs() < 0.001 {
-                    1.0
-                } else {
-                    knock_dir
-                };
-                let impact_pos = ae::Vec2::new(
-                    (victim_body.center().x + contact_center.x) * 0.5,
-                    (victim_body.center().y + contact_center.y) * 0.5,
-                );
+                let knock_dir = (victim_body.center() - source_in_victim).dot(side).signum();
+                let knock_dir = if knock_dir == 0.0 { 1.0 } else { knock_dir };
+                let impact_pos = contact.hit.point;
                 feature_damage.write(HitEvent {
+                    contact: Some(ambition_combat::events::HitContact::from(&contact.hit)),
                     pieces: Vec::new(),
                     strike_sfx: None,
-                    volume: contact_box.into(),
+                    volume: contact_volume,
                     damage: game.damage.max(1),
                     source: HitSource::Projectile,
                     // The firing actor (enemy / boss), when the shot was spawned
@@ -1410,7 +1383,7 @@ pub fn step_projectiles(
                         // WHERE THE SHOT WAS, not where it ended: the endpoint of
                         // a fast bolt is past the body it hit, and a knockback
                         // sourced there pushes the victim back toward the muzzle.
-                        source_pos: contact_center,
+                        source_pos: source_in_victim,
                         impact_pos,
                         launch_dir: None,
                         follow: None,
@@ -1430,7 +1403,7 @@ pub fn step_projectiles(
                     ));
                 }
                 already_hit.hit.insert(victim.entity);
-                struck_at = Some(leg_start + travel_leg * *contact_time);
+                struck_at = Some(contact.hit.point);
                 break;
             }
             // ⚠ TWO DIFFERENT REASONS TO STOP, kept apart on purpose. A parried
@@ -1472,15 +1445,11 @@ pub fn step_projectiles(
                     continue;
                 }
             } else if let Some(contact) = feature_contact.as_ref() {
-                let feature_contact_box = {
-                    let at = leg_start + feature_leg * contact.time;
-                    let inward = (contact.target_center - at).normalize_or_zero();
-                    ae::Aabb::new(at + inward * 0.5, feature_half)
-                };
                 let direct = HitEvent {
+                    contact: Some(ambition_combat::events::HitContact::from(&contact.contact.hit)),
                     pieces: Vec::new(),
                     strike_sfx: None,
-                    volume: feature_contact_box.into(),
+                    volume: contact.contact.source_volume.clone(),
                     damage: game.damage.max(1),
                     source: HitSource::Projectile,
                     attacker: owner_entity,
@@ -1517,7 +1486,7 @@ pub fn step_projectiles(
                     config.behavior.environmental_kill_only || status.guarded
                 });
                 if let Some(burst) = if turned { deflect_burst } else { hit_burst } {
-                    let at = feature_contact_box.center();
+                    let at = contact.contact.hit.point;
                     outcome_fx.write(said_by(burst.request(shot_room, at), bolt_source.as_ref()));
                 }
                 if game.splash_half_extent > 0.0 {
@@ -1529,7 +1498,7 @@ pub fn step_projectiles(
                         // gameplay rather than presentation. This branch has the
                         // contact's own time in hand, so there is nothing to
                         // reconstruct.
-                        leg_start + travel_leg * contact.time,
+                        contact.contact.hit.point,
                         game.damage.max(1),
                         game.splash_half_extent,
                         owner_entity,

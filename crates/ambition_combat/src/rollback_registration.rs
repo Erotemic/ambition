@@ -674,6 +674,17 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
             }
         }
         let event = &staged.event;
+        match &event.contact {
+            None => put_bool(&mut bytes, false),
+            Some(contact) => {
+                put_bool(&mut bytes, true);
+                put_u64(&mut bytes, contact.time.to_bits());
+                put_vec2(&mut bytes, contact.point);
+                put_vec2(&mut bytes, contact.normal);
+                put_u64(&mut bytes, contact.target_path.len() as u64);
+                for link in &contact.target_path { bytes.extend_from_slice(&link.to_le_bytes()); }
+            }
+        }
         let bounds = event.volume.bounds();
         put_vec2(&mut bytes, bounds.min);
         put_vec2(&mut bytes, bounds.max);
@@ -808,6 +819,7 @@ mod pending_hit_checksum_tests {
             attacker_id: attacker.map(SimId::placement),
             victim_id: victim.map(SimId::placement),
             event: HitEvent {
+                contact: None,
                 pieces: Vec::new(),
                 volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)).into(),
                 damage: 0,
@@ -951,4 +963,23 @@ mod pending_hit_checksum_tests {
              and a desync between them would report as agreement"
         );
     }
+    #[test]
+    fn a_pending_contacts_geometry_and_path_affect_its_checksum() {
+        let mut pending = staged(HitReaction::Strike);
+        let none = pending_player_hits_checksum(&pending);
+        let contact = crate::events::HitContact { time: 0.25, point: ae::Vec2::new(10.0, 20.0), normal: ae::Vec2::X, target_path: vec![2, 5] };
+        pending.0[0].event.contact = Some(contact.clone());
+        let baseline = pending_player_hits_checksum(&pending);
+        assert_ne!(none, baseline);
+        let mut changes = Vec::new();
+        let mut changed = contact.clone(); changed.time = 0.5; changes.push(changed);
+        let mut changed = contact.clone(); changed.point.x += 1.0; changes.push(changed);
+        let mut changed = contact.clone(); changed.normal = ae::Vec2::Y; changes.push(changed);
+        let mut changed = contact.clone(); changed.target_path.reverse(); changes.push(changed);
+        for changed in changes {
+            pending.0[0].event.contact = Some(changed);
+            assert_ne!(baseline, pending_player_hits_checksum(&pending));
+        }
+    }
+
 }

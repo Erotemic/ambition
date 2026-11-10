@@ -141,13 +141,12 @@ pub(crate) fn apply_boss_hit(
     if !health.alive() {
         return false;
     }
-    let Ok(hurt_parts) = damageable.pieces(
-        boss_entity,
-        Some(&*boss.kin),
-        writers.geometry.as_deref(),
-        room,
-    ) else {
-        return false;
+    let impact = if matches!(event.target, ambition_combat::events::HitTarget::Feature(recipient) if recipient == boss_entity) {
+        event.contact_for(boss_entity).map_or_else(|| event.volume.center(), |contact| contact.point)
+    } else {
+        let Ok(hurt_parts) = damageable.pieces(boss_entity, Some(&*boss.kin), writers.geometry.as_deref(), room) else { return false; };
+        let Some(part) = hurt_parts.iter().find(|part| event.meets_piece(part)) else { return false; };
+        event.impact_on_piece(part)
     };
     // A guarded hull (`ambition.boss.guard`, the Mockingbird out of reach)
     // turns blows the way a puzzle boss does: an honest clang, no HP.
@@ -163,8 +162,6 @@ pub(crate) fn apply_boss_hit(
         // so core never names a specific boss. Keep this before the
         // generic damage branch so harmless feedback cannot accidentally
         // route through `record_boss_damage`.
-        if let Some(hit_aabb) = hurt_parts.iter()
-            .find(|part| event.meets_piece(part))
         {
             // A guarded boss does not flash: a flash reads as a blow that
             // landed (Jon, 2026-10-21, of Wolfenstein's serum: "He should also
@@ -173,7 +170,6 @@ pub(crate) fn apply_boss_hit(
                 combat.hit_flash = 0.18;
             }
             combat.note_struck();
-            let impact = event.impact_on_piece(hit_aabb);
             // CM8: an honest strike clang + spark even though this puzzle boss
             // takes no HP from the hit.
             // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
@@ -195,18 +191,12 @@ pub(crate) fn apply_boss_hit(
             );
             return true;
         }
-        return false;
     }
     // The published parts already read `BossAttackState` and the live animation
     // sample — `refresh_boss_damageable_volumes` does that once, after
     // `Playback`, so GNU-ton's head-descent window and the standard whole-body
     // hurtbox agree because they are the SAME value rather than because two
     // derivations were written to match.
-    let Some(hit_aabb) = hurt_parts.iter()
-        .find(|part| event.meets_piece(part))
-    else {
-        return false;
-    };
     // Read before the hit can mark it struck: the bark below is debounced by
     // the recent-strike window (not by the flash, whose length is
     // presentation).
@@ -269,7 +259,6 @@ pub(crate) fn apply_boss_hit(
                 pos: boss.kin.pos,
             });
     }
-    let impact = event.impact_on_piece(hit_aabb);
     // CM8: THE one victim-side reaction (strike sound over the boss's own hurt
     // spray); the killed branch layers its death drama on top.
     // A13: attacker's cue vs victim's fallback, resolved before the borrows.

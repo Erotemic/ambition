@@ -43,8 +43,7 @@ const ONE_STRIKE: usize = 900;
 const AFTER_THE_STRIKE: usize = 60;
 
 /// A clockwork warden beside the player, already in phase 1: its volley is in
-/// phase 1's cycle, and the intro would only delay it. Set before any tick, so
-/// a sync-test session's snapshots all include it.
+/// phase 1's cycle. Rebase after setup so each replay starts in that phase.
 fn spawn_volley_warden(sim: &mut Platformer2dSimHarness) -> Entity {
     let (px, py) = {
         let world = sim.world_mut();
@@ -69,13 +68,16 @@ fn spawn_volley_warden(sim: &mut Platformer2dSimHarness) -> Entity {
             .map(|(e, _)| e)
             .expect("the spawned boss is present")
     };
-    let mut status = sim
-        .world_mut()
-        .get_mut::<ambition_platformer2d::boss_encounter::BossEncounter>(boss)
-        .expect("the boss has an encounter");
-    let phase = status.encounter.as_mut().expect("the encounter has a phase state");
-    phase.phase = ambition_platformer2d::characters::brain::BossEncounterPhase::Phase1;
-    phase.phase_elapsed = 0.0;
+    {
+        let mut status = sim
+            .world_mut()
+            .get_mut::<ambition_platformer2d::boss_encounter::BossEncounter>(boss)
+            .expect("the boss has an encounter");
+        let phase = status.encounter.as_mut().expect("the encounter has a phase state");
+        phase.phase = ambition_platformer2d::characters::brain::BossEncounterPhase::Phase1;
+        phase.phase_elapsed = 0.0;
+    }
+    sim.rebase_rollback_history().expect("the phase setup is the rollback baseline");
     boss
 }
 
@@ -172,8 +174,10 @@ fn the_warden_fires_one_volley_per_strike_through_the_extension_host() {
 
 #[test]
 fn a_rollback_replays_the_fan_and_its_strike_latch() {
+    // Live shots need a clear lane to witness the replayed emission.
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
+            .with_required_start_room("combat_calibration_lab")
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )
@@ -184,6 +188,7 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
             first_error = ambition_platformer2d::rollback::session_health(sim.world()).err();
         }
     });
+    assert_eq!(first_error, None, "the sync-test session stayed healthy");
     // ⭐ The premise: a sync test that never saw a fan certified nothing.
     assert!(
         !bursts.is_empty(),
@@ -193,7 +198,6 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
         bursts.iter().all(|&n| n == FAN),
         "each strike fires exactly one fan of {FAN} under rollback: {bursts:?}"
     );
-    assert_eq!(first_error, None, "the sync-test session stayed healthy");
 }
 
 /// ⭐ THE NO-RELINK ROAD, IN THE ASSEMBLED GAME. The module crate is built for

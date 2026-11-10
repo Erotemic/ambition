@@ -2,9 +2,10 @@
 //!
 //! The executor of `docs/planning/engine/radiant-npc-planning.md`. A body
 //! whose character has a row in the game's [`LifeBook`] gets a [`Life`]: its
-//! domain's name and its own facts. The executor plans from those facts (the
-//! planner, `ambition_htn`, reads nothing else), then carries the plan's
-//! steps out one at a time:
+//! domain's name and its own facts. The executor plans from those facts
+//! through the planning contract (`ambition_life_planning::LifePlanner`; the
+//! game's domains are `ambition_htn` ones, and the planner reads nothing
+//! else), then carries the plan's steps out one at a time:
 //!
 //! - `go_to <place>` is a [`Visit`] to the place named in the body's room, and
 //!   is done when the visit arrives. The room's own name is the room: a body
@@ -63,7 +64,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use ambition_characters::actor::WornCharacter;
-use ambition_htn::{Budget, Domain, Facts, PlanFailure, Step};
+use ambition_life_planning::{Facts, Refusal, Step};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
@@ -72,8 +73,10 @@ use bevy::prelude::{Commands, Component, Entity, Query, Res, ResMut, Resource, W
 
 use super::visit::{Visit, VisitOutcome};
 
-/// The planner's fact types, so a reader of a [`Life`] needs no second crate.
-pub use ambition_htn::Value;
+/// The planning contract's types, so a reader of a [`Life`] or a game
+/// publishing a [`LifeBook`] needs no second crate. The executor names no
+/// planning algorithm: a domain is any [`LifePlanner`] (an HTN is one).
+pub use ambition_life_planning::{LifePlanner, Value};
 
 /// The verb that sends a body to a place.
 pub const GO_TO: &str = "go_to";
@@ -91,7 +94,8 @@ pub const ENGINE_VERBS: [&str; 4] = [GO_TO, CLAIM, RELEASE, SAY];
 /// tick. Lives are keyed by the character id of the body that lives them.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct LifeBook {
-    pub domains: BTreeMap<String, Arc<Domain>>,
+    /// The planners lives plan with, by domain name.
+    pub domains: BTreeMap<String, Arc<dyn LifePlanner>>,
     pub lives: BTreeMap<String, LifeSpec>,
     /// How long a verb holds a body at its task (hours of the day).
     pub holds: BTreeMap<String, f32>,
@@ -581,12 +585,12 @@ fn catch_up(
             planned_day = this_day;
         }
         facts_to_plan_by(life, facts, look, (hour - back).rem_euclid(24), true);
-        let Ok(plan) = domain.plan(&life.facts, Budget::default()) else { continue };
-        for step in &plan.steps {
+        let Ok(plan) = domain.plan(&life.facts) else { continue };
+        for step in &plan {
             if step.action.verb == GO_TO {
                 last_place = step.action.target.clone();
             }
-            domain.apply_step(&step.task, &mut life.facts);
+            domain.step_done(&step.task, &mut life.facts);
         }
     }
     if i64::from(day) != planned_day {
@@ -615,14 +619,14 @@ fn replan(commands: &mut Commands, life: &mut Life, book: &LifeBook, facts: &mut
         stop(life, LifeStop::NoDomain(life.domain.clone()));
         return;
     };
-    match domain.plan(&life.facts, Budget::default()) {
-        Ok(plan) => {
-            life.steps = plan.steps;
+    match domain.plan(&life.facts) {
+        Ok(steps) => {
+            life.steps = steps;
             life.stopped = None;
             life.doing = if life.steps.is_empty() { Doing::Idle } else { Doing::Starting };
         }
-        Err(PlanFailure::NoPlan(_)) => stop(life, LifeStop::NoPlan),
-        Err(PlanFailure::OverBudget) => stop(life, LifeStop::OverBudget),
+        Err(Refusal::NoPlan(_)) => stop(life, LifeStop::NoPlan),
+        Err(Refusal::OverBudget) => stop(life, LifeStop::OverBudget),
     }
 }
 
@@ -639,7 +643,7 @@ fn finish_step(life: &mut Life, book: &LifeBook) {
     }
     let step = life.steps.remove(0);
     if let Some(domain) = book.domains.get(&life.domain) {
-        domain.apply_step(&step.task, &mut life.facts);
+        domain.step_done(&step.task, &mut life.facts);
     }
     life.doing = if life.steps.is_empty() { Doing::Idle } else { Doing::Starting };
 }

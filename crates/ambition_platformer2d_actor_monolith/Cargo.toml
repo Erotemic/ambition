@@ -300,7 +300,7 @@ ambition_projectiles = { path = "../ambition_projectiles" }
 # smoother), camera-ease, and feel modules on top. ADR 0010/0011. See
 # docs/planning/status.md (T1b).
 ambition_time = { path = "../ambition_time" }
-ambition_htn = { path = "../ambition_htn" }
+ambition_life_planning = { path = "../ambition_life_planning" }
 # ECS-native pure-logic core (geometry / movement / collision / player_state /
 # abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
 # body component). The build-time foundation; re-exported as `crate::engine_core`

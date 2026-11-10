@@ -346,6 +346,10 @@ Also read `docs/recipes/coordinator-and-worker-sessions.md`.
 
 Do not waste time testing the tests.
 
+Do not test compulsively. Not every check you run to verify a change becomes a
+permanent test in the full suite; marginal behaviour needs none. See
+`docs/concepts/testing-and-validation.md` (§Not every check belongs in the suite).
+
 Do not add process, policy, source-text, layout, or meta-test machinery unless it
 prevents a concrete, recurring, materially harmful failure that cannot be
 enforced more naturally through Rust types, APIs, crate boundaries, or behavioral

@@ -25,6 +25,9 @@ impl Plugin for AmbitionContentPlugin {
         // Ambition's own tuning (`data/ambition_rules.ron`).
         super::tuning::register(app);
 
+        // Its NPC lives (`data/npc_lives.ron`): the executor's book.
+        super::npc_lives::register(app);
+
         // What a thrown item does to the body it strikes (the coconut).
         super::items::thrown_impact::register(app);
 

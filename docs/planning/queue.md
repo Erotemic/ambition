@@ -65,7 +65,13 @@ or updating their source. Check with
 
 **Owner:** [Radiant NPC planner](engine/radiant-npc-planning.md), [agentic character runtime](engine/agentic-character-runtime.md).
 
-**Next action:** compare `bevy_htn` authoring and `bevy_bae` execution to a standalone HTN core with the same benchmark; choose an engine-independent typed planner boundary. Implement an exclusive workbench, goal/plan interruption, and offscreen persistence without bypassing world facts or typed actor actions.
+**Done 2026-11-10 (slice 1):** compared `bevy_htn` 0.0.1 (Bevy 0.15, text domains, reflected component state, random plan ids) and `bevy_bae` 0.1.0 (Bevy 0.18, Rust-bundle domains, `World` properties) with a standalone core, and chose the core: `crates/ambition_htn` (no Bevy; RON domain validated when read; facts in, an explained plan out; 4.9 us per plan on the scientists' benchmark day) ([result](engine/radiant-npc-planning.md#slice-1-result-2026-11-10-a-standalone-core)).
+
+**Done 2026-11-10 (slice 2, first part):** a body can be sent to a place: `Visit` (rollback state), answered by the navigation advisor and settled `Arrived` / `NoRoute`; the basement dog witnesses both and a sync test ([result](engine/radiant-npc-planning.md#slice-2-first-part-2026-11-10-a-body-sent-to-a-place)).
+
+**Done 2026-11-10 (slice 2):** the executor (`body::life`): a game's `LifeBook` (Ambition's pack file `data/npc_lives.ron`, schema `npc_lives`, republished by a content reload) gives a character a `Life` (rollback state); it plans on each new hour from its own facts, each `go_to` is a `Visit` to a place the room names (signs `workbench` and `lunch` in the coil lab), other verbs hold for their authored hours, and a step done makes its effects facts. Nikobolt works at the bench and lunches at noon; Coulomba (no life) is the control; the day resimulates under a sync test ([result](engine/radiant-npc-planning.md#slice-2-2026-11-10-nikobolt-lives-his-day)).
+
+**Next action:** slice 3, two NPCs and one exclusive workbench: Coulomba's life with her own hours, a typed claim on the bench in the simulation, and facts read from the world (`bench_free`, `partner_here`) rather than kept by the body. Then the exclusive workbench, goal/plan interruption, and offscreen persistence, without bypassing world facts or typed actor actions.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 
@@ -75,7 +81,9 @@ or updating their source. Check with
 
 **Owner:** [boss cinematic and GNU2 plan](game/boss-cinematics-gnu2-and-motion.md), [boss content](game/bosses.md).
 
-**Next action:** a rendered (GPU capture) witness of the card for two non-Wolfenstein bosses, and one of two views in two boss rooms. No skip input exists; if one is added, it advances the phase state and the card follows.
+**Rendered 2026-11-10:** a GPU capture witness draws the card for two non-Wolfenstein bosses (the T-rex and the Clockwork Warden), counted in the name's own rectangle against a capture before the wake ([owner](game/boss-cinematics-gnu2-and-motion.md#name-cards-boss-cinematic-coverage)).
+
+**Next action:** a rendered witness of two views in two boss rooms (covered at the node today). No skip input exists; if one is added, it advances the phase state and the card follows.
 
 **Acceptance:** each active boss gets a readable cinematic name/title reveal, at correct intro phase and view, with safe skip/replay/cleanup; bespoke intros still work without double presentation. Roster census and rendered witnesses cover multiple non-Wolfenstein fights.
 
@@ -486,11 +494,17 @@ under a two-seat sync test),
 The menu already answered to the seat that opened it (`SeatMenuFrames`, one
 menu per member). Open: a remote peer's leave (this is local seats only).
 
-**Next action:**
+**Slice 4 (presentation) is met by existing witnesses (checked 2026-11-10):**
+the join opens the two-player presentation (seat 1's own HUD on the shared
+view, `a_joined_seat_has_its_own_hud_on_the_shared_view`, drawn in the
+rendered host by `a_joined_seat_has_a_drawn_hud_in_the_rendered_host`); its own
+view opens when the two are apart and the adaptive merge closes it when they
+regroup (`a_joined_seat_gets_its_own_view_when_the_primary_leaves_its_room`,
+`a_second_view_opens_when_the_players_drift_apart_in_one_room_and_closes_when_they_regroup`);
+the leave brings the single-player presentation back (`a_seat_leaves_the_session`).
 
-4. **Presentation:** the join opens the two-player presentation; the adaptive
-   merge stays (Q162). Nice to have: a portal that Player 2 drops out of,
-   presentation only.
+**Next action:** none required. Nice to have: a portal that Player 2 drops
+out of, presentation only. Open: a remote peer's leave.
 
 **Acceptance:** the controller and multiplayer tests of the 2026-10-19
 assignment (section 11), each a simulation-level witness with a negative
@@ -508,6 +522,11 @@ shot allegiance, damage-box scope, and per-view diagnostics. Ordinary online
 peer crossings now commit on the shared input timeline **without a global hold
 or rebase**. Delayed-peer, corrected-combat, concurrent-loading, arrival-reset,
 rendered combat, and input-timing witnesses pass (latest `dc303e611`).
+
+**Verified 2026-11-10:** every gate 1-5 guard passes on the current tree,
+GPU captures included; the run found and fixed a panic when a camera retired
+in the frame Bevy's render debug overlay first saw it
+([verification](engine/peer-room-commit-protocol.md#verification-2026-11-10)).
 
 **Next action:** complete the broader **feature and tooling verification** for
 input-driven peer room commits. Reproduce a normal crossing and a failed or

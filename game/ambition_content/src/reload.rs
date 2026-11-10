@@ -789,6 +789,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         publish: publish_flag_chains,
     },
     PackDerivedFamily {
+        domain: ambition_content_schemas::npc_lives::NPC_LIVES_SCHEMA,
+        publish: crate::npc_lives::publish,
+    },
+    PackDerivedFamily {
         domain: ambition_projectiles::content_schema::MOTION_TECHNIQUES_SCHEMA,
         publish: publish_motion_techniques,
     },

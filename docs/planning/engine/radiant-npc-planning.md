@@ -1,6 +1,7 @@
 # Radiant NPC planning — authored lives on a replaceable planner
 
-**State:** OPEN. Nothing of the planner is built. This page owns the plan for
+**State:** OPEN. Slice 1 is done (2026-11-10): the core is chosen and built
+(`crates/ambition_htn`); nothing drives a body with it yet. This page owns the plan for
 [RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning).
 **Related:** [agentic character runtime](agentic-character-runtime.md) (the
 layering: facts → observations → goals → policy → typed action),
@@ -36,7 +37,7 @@ dialogue, `eureka_nikobolt` and `eureka_coulomba`).
 | Facts a plan can test | `world_facts`, `WorldFactConditionsPlugin`, `WorldMemory`, `PerceptionMemory` | [world facts](world-facts-observations-and-memory.md) |
 | A typed action to carry out | `ActionRequest` in `ActorActionMessage` | [agentic runtime](agentic-character-runtime.md#current-state) |
 | A policy seam | **closed**: `CharacterBrainTemplate` is a nine-variant enum; a new policy is about ten edits in two crates and cannot come from a game crate | [agentic runtime](agentic-character-runtime.md#current-state) |
-| An HTN library | none in `Cargo.lock` (`bevy_htn`, `bevy_bae` not present) | — |
+| An HTN library | `crates/ambition_htn` since 2026-11-10 (slice 1, below); no third-party one | — |
 
 So a planner here sits **above** errands and navigation: it picks the next
 task, and a task becomes an errand-like goal on the body that the existing
@@ -116,6 +117,101 @@ Rules the boundary keeps:
    chooses, NPC plans run where the world is authoritative. Under GGRS the
    plan state is rollback state already (slice 2's sync test); under a hosted
    world the guest receives the NPC's body and current task, not the planner.
+
+## Slice 1 result (2026-11-10): a standalone core
+
+The two published candidates were read at their sources (`bevy_htn` 0.0.1,
+`bevy_bae` 0.1.0); neither builds against this tree's Bevy 0.19, so each is
+judged by its design. The third candidate was built and measured.
+
+| | `bevy_htn` 0.0.1 | `bevy_bae` 0.1.0 | `ambition_htn` (built) |
+|---|---|---|---|
+| Bevy | 0.15, whole `bevy` | 0.18 (`bevy_ecs`, `bevy_app`, `bevy_reflect`) | none (`serde`, `ron`) |
+| Domain as data, no compile | yes: a pest-parsed `.htn` text asset | no: Rust bundles; conditions and operators are systems | yes: RON, validated when read |
+| Planner input | a `Reflect` `Component` state | properties on entities, read from the `World` | a `Facts` snapshot (`BTreeMap`) |
+| Determinism | plan ids from `rand::rng()` | depends on entity and system order | a pure function; ordered maps, no RNG or clock |
+| Explanation | the plan's task ids | debug logging | each step's method chain, and every method set aside with the first condition that failed |
+| Execution | `bevy_behave` trees as operators | operator systems | none: a step is an `Action` (verb, target) the executor turns into a goal on a body |
+| Planning time | not measured (does not build here) | not measured (does not build here) | 4.86-4.88 us per plan, release, the benchmark domain over 24 hours x 2 scientists |
+
+**Choice: `ambition_htn`.** It is the only candidate that meets the
+boundary above as written: facts in, plan out, no `World`, no Bevy type, the
+same plan on every peer. `bevy_htn`'s text authoring is the idea worth
+keeping, and the RON domain keeps it in the format the rest of the content
+uses. The executor contract is unchanged.
+
+The benchmark domain is `crates/ambition_htn/tests/data/eureka_scientists_day.ron`:
+one domain, each scientist's hours as their own facts, so Nikobolt (8-12-18)
+and Coulomba (10-13-20) keep different days. Witnesses
+(`tests/scientists_day.rs`): each follows their own hours; a taken bench is a
+different plan whose explanation names the method set aside and its failed
+condition (control: a free bench); the same facts give the same plan; a domain
+naming an undeclared task is refused by name; a domain that recurses forever
+stops at its budget. Run the measurement with
+`cargo test -p ambition_htn --release -- --ignored --nocapture`.
+
+What slice 1 does not settle: where a game's domain file lives and how it is
+reloaded (slice 6), and the executor's verbs (slice 2).
+
+## Slice 2, first part (2026-11-10): a body sent to a place
+
+The executor's `go_to` needs a goal that is a place, not an item. `Visit
+{ place, outcome }` (`body::visit`, rollback state, `actor.visit`) is the
+errand's sibling: the navigation advisor answers it with the same sight
+(`ErrandSight::At`, the feet point on the surface under the place, or
+`NoRoute` when no surface the body gets to is under it), a navigating brain
+goes there with the body's own movement, and `settle_visits` ends it
+`Arrived` when the advisor says the body stands at the brain's goal, or
+`NoRoute`. A pending errand comes before a visit. In-room only.
+
+Witnesses (`game/ambition_app/tests/a_dog_sent_to_a_place.rs`): the basement
+dog sent to a surface only its jump reaches arrives with its feet at the
+place, and without its jump refuses the same place where it stood; the visit,
+given from inside the timeline, resimulates to the same world under a sync
+test (4 frames of prediction, a check every 10).
+
+## Slice 2 (2026-11-10): Nikobolt lives his day
+
+The executor is `body::life` (engine; the actor crate). A game publishes a
+`LifeBook` (domains, a life per character id, and how long each verb holds a
+body); Ambition's is the pack file `data/npc_lives.ron` (schema `npc_lives`,
+owned by `ambition_content_schemas`, published at startup and again by a
+content reload, so an edited domain is the next plan's domain with no Rust
+build). A body whose character has a life gets a `Life` (rollback state,
+`actor.life`): its domain's name, its facts, the plan's remaining steps, what
+it is doing, a plan revision, and why the last plan stopped short.
+
+- **Plan on each new hour.** The `hour` fact is the whole hour of the
+  `DayClock`; the planner runs on the tick the hour changes, from the body's
+  facts. A plan that ends early waits for the next hour.
+- **`go_to <place>` is a `Visit`.** The place is what the body's room names:
+  the room's own name (the body is there), else the first authored thing of
+  that name: a sign, a placement, a prop, a door. A name the room lacks stops
+  the plan with `NoPlace`; a visit refused for want of a route, `NoRoute`.
+- **Any other verb holds** for the hours the book says (`holds`), or is done
+  the tick it starts.
+- **A step done makes its effects facts** (`Domain::apply_step`): the next
+  plan starts from what the body did.
+- **The brain goes only where it is sent.** `keeps_to_its_tasks` is a `Roam`
+  preset with no company and an endless rest, so the advisor's visit is the
+  only place it goes.
+
+The coil lab names its places with signs (generator
+`tools/ambition_ldtk_tools/specs/eureka/make_specs.py`): `workbench` ("COIL
+No. 27", at the bench) and `lunch` ("LUNCH. NAPKINS: 18", by the crate);
+home is out of `lab_door`.
+
+Witnesses (`game/ambition_app/tests/nikobolt_lives_his_day.rs`): from 11:30
+Nikobolt walks to the bench and does an experiment there (his facts count
+it and the bench is released); at noon a new plan sends him to the crate,
+where he eats; Coulomba, with no life, does not move (the control); and the
+same day under a sync test resimulates to the same world with the experiment
+done at the bench.
+
+Not yet: Coulomba's life and the one bench between them (slice 3), facts
+read from the world rather than kept by the body (`bench_free`,
+`partner_here`), a fact that turns over with the day (`ate`), and `say` as a
+spoken line.
 
 ## Acceptance
 

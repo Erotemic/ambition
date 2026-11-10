@@ -237,7 +237,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 432 -> 433: a menu's stow of a hand is a stamped request (`ItemStowRequested`).
 // 433 -> 434: a seat's leave is a stamped request (`ParticipantLeaveRequested`).
 // 434 -> 435: pending hits retain accepted material contact and target paths.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 435;
+// 435 -> 436: authored NPC life and visit state joins the merged snapshot.
+
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 436;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

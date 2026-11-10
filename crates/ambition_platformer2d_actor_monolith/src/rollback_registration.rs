@@ -138,6 +138,19 @@ where
         "actor.errand",
         |errand| errand.probe(),
     );
+    // Where a body was sent to go, and how that ended; probed the same way.
+    registrar.rollback_component_clone_probed::<crate::body::visit::Visit>(
+        OWNER,
+        "actor.visit",
+        |visit| visit.probe(),
+    );
+    // What a body is doing with its authored life: its facts, its plan and
+    // how far it is. A replay plans from the restored facts.
+    registrar.rollback_component_clone_probed::<crate::body::life::Life>(
+        OWNER,
+        "actor.life",
+        |life| life.probe(),
+    );
 
     // The pickup's ATTRACTION POLICY rides the same entity as the pickup, so a
     // rewind that recreates a dropped coin has to recreate whether it comes to

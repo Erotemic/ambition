@@ -52,8 +52,19 @@ every view reads the primary's room, red).
 - **Skip.** Boss intros have no skip input; the card has nothing to skip.
   If an intro skip is added, it should advance the phase state, and the card
   follows.
-- **A rendered witness.** The app_it witness reads the read model the
-  renderer reads, not pixels. `boss_stage::name_card_tests` cover the node.
+- **A rendered witness of two views.** One view per boss room is rendered
+  (below); two views in two boss rooms are covered at the node
+  (`each_view_shows_the_card_of_the_boss_in_its_room`), not yet in pixels.
+
+**Done, 2026-11-10: a rendered witness.**
+`a_boss_name_card_is_drawn::a_woken_bosss_name_card_is_drawn_in_its_rectangle`
+(app_it, GPU, `--include-ignored`) starts the shipped host in `trex_arena`
+and in `basement_boss`, captures a frame before the boss wakes, wakes it, and
+captures again once its card is all the way up. It counts the pixels of the
+name's colour inside the name's own drawn rectangle: 2,981 for the T-rex and
+11,994 for the Clockwork Warden with the card, 0 in each before it. The
+captures (`/tmp/ambition-boss-card-<room>.png`) show "T-REX" and "CLOCKWORK
+WARDEN" with the rule beneath.
 
 ## GNU2's finale (GNUTON-GNU2-FINALE)
 

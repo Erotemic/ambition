@@ -27,7 +27,6 @@
 | [`lifecycle`](src/lifecycle/mod.rs) | Lifecycle vocabulary for reusable platformer entities. |
 | [`markers`](src/markers.rs) | Content-free entity markers shared by reusable mechanics and presentation. |
 | [`math`](src/math.rs) | Pure portal-map vector math for platformer mechanics. |
-| [`orientation`](src/orientation.rs) | Actor orientation under gravity (the "which way is down" upright reflex). |
 | [`physics`](src/physics.rs) | Shared secondary-physics settings resource. |
 | [`prelude`](src/prelude.rs) | Convenience imports for reusable platformer-runtime call sites. |
 | [`projectile`](src/projectile/mod.rs) | Content-free projectile physics: authored specs, kinematic state, and world collision. |
@@ -45,7 +44,7 @@
 | [`world_log`](src/world_log.rs) | Coarse `[game-mode]` / `[world-event]` logging. |
 | [`worn_gear`](src/worn_gear.rs) | Provider-contributed declarations of worn gear: an item a body wears on an anchor of its art (a space helmet on its head). |
 
-_38 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

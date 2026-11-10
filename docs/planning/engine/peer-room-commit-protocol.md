@@ -284,6 +284,33 @@ that is still settling must not prevent a later admitted peer operation from
 being prepared or applied. Retire simulation state and retained plans only
 after the rollback horizon no longer needs them.
 
+## Verification 2026-11-10
+
+On `084d75545e` plus the fix below, every guard named above passes again
+after the strike, body-envelope and portal work that landed since
+`dc303e611`: 33 app_it cases (`rollback_room_transition`, all of `two_peers`,
+`ordinary_travel_refuses_dead_or_out_of_play_bodies_before_publication`,
+`a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room`,
+`a_second_crossing_prepares_while_the_first_destinations_frame_is_not_presentable`,
+`a_provoked_wounded_body_survives_the_real_rollback_window`), the session
+crate's `a_death_withdraws_its_crossing_on_the_current_rollback_frame`, and
+all 29 of `local_play_modes` with the GPU captures included (this VM has an
+adapter).
+
+The run found one defect. `another_participants_load_draws_beside_a_cover_that_is_still_settling`
+panicked: Bevy's `RenderDebugOverlayPlugin`, which `DefaultPlugins` adds
+when `bevy_dev_tools` and `bevy_pbr` are both present, queues an insert on
+every camera it has not seen, and a camera despawned by the room retirement
+in that frame made the command fail. Nothing in the game reads that overlay,
+and its F1/F2 keys are also the developer hotkeys', so the app's plugin set
+(`host_default_plugins` in `ambition_app::app::cli`) leaves it out. The demo
+hosts built by `install_windowed_foundation` still carry it; that crate's
+Bevy has no `bevy_dev_tools`, so it cannot name the plugin.
+
+Not done here: the rendered two-controller main-game playthrough the queue
+row asks for is a person at two pads, and the full feature run is
+[TEST-LANES](../queue.md#test-lanes--keep-required-test-lanes-executable)'.
+
 ## Implementation and behavior gates
 
 1. Exercise the shared room application inside a rollback schedule. Restore

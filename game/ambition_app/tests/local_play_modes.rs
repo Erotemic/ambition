@@ -350,10 +350,15 @@ fn gpu_app(name: &str) -> App {
 }
 
 fn gpu_app_sized(name: &str, size: UVec2) -> App {
+    gpu_capture(crate::shell_host_rendered::rendered_app_with(ambition_app::app::VisibleRenderMode::OffscreenGpu), name, size)
+}
+
+/// Send a rendered host's frames to a `size` texture that `capture_current_frame`
+/// writes to `/tmp/<name>`.
+pub(crate) fn gpu_capture(mut app: App, name: &str, size: UVec2) -> App {
     use ambition_platformer2d::render::capture::{
         CaptureProgress, CaptureSettings, CaptureCameraSet, CaptureTarget, install_capture_cameras, setup_capture_target,
     };
-    let mut app = crate::shell_host_rendered::rendered_app_with(ambition_app::app::VisibleRenderMode::OffscreenGpu);
     let output = std::env::temp_dir().join(name);
     app.insert_resource(CaptureSettings { output, size, include_ui: true });
     app.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(size.as_vec2()));
@@ -384,7 +389,7 @@ fn capture_frame(app: &mut App) {
     capture_current_frame(app);
 }
 
-fn capture_current_frame(app: &mut App) {
+pub(crate) fn capture_current_frame(app: &mut App) {
     use ambition_platformer2d::render::capture::{
         CaptureCameraSet, CaptureProgress, CaptureSettings, CaptureTarget, request_capture,
     };

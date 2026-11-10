@@ -299,10 +299,16 @@ def coil_lab():
         resident("npc_eureka_dmitri", "eureka_dmitri", 560, floor),
         # Nikobolt and Coulomba are together between the two gantries, clear
         # of the door, the bench, and the gravity-prototype lever.
-        resident("npc_science_nikobolt", "eureka_nikobolt", 750, floor, h=76),
+        # Nikobolt lives his authored day (`data/npc_lives.ron`): a brain that
+        # goes only where his plan sends him.
+        resident("npc_science_nikobolt", "eureka_nikobolt", 750, floor, brain="keeps_to_its_tasks", h=76),
         resident("npc_science_coulomba", "eureka_coulomba", 840, floor, h=68),
         sign("lab_sign_rules", 640, ceiling + 40, "DO NOT TOUCH THE COILS. The coils will touch you.", 520),
         sign("lab_sign_director", 1100, floor - 240, "N. TESSERACT, DIRECTOR: AT WORK", 320),
+        # The places of Nikobolt's day, by name: his plan's `go_to workbench`
+        # is the floor under this sign, at the bench; lunch is at the crate.
+        sign("workbench", 1072, floor - 24, "COIL No. 27", 140),
+        sign("lunch", 248, floor - 24, "LUNCH. NAPKINS: 18", 200),
         # The director's prototype (Jon, 2026-10-30: "a bit of chutzpah"): a
         # lever that turns the lab's gravity over, and its twin hanging from
         # the ceiling for whoever pressed it. The only door is on the floor.

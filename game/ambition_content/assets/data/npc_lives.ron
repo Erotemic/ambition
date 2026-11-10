@@ -1,0 +1,93 @@
+// Ambition's NPC lives (schema `npc_lives`): planning domains, the characters
+// that live by them with their own facts, and how long each verb holds a body
+// at its task. The engine's executor (`body::life`) plans each new hour of the
+// day from a character's facts and carries the plan out: `go_to` walks to the
+// place the room names (a sign's name, a door's id, or the room's own name),
+// and a step's effects become the character's facts once it is done.
+// Design: docs/planning/engine/radiant-npc-planning.md.
+(
+    domains: {
+        // A scientist's day in the Eureka coil lab. One domain; each scientist's
+        // hours are their own facts, so two can keep different days.
+        "eureka_scientist_day": (
+            root: "live_the_day",
+            compound: {
+                "live_the_day": [
+                    (name: "before work: stay home", when: [Lt("hour", Fact("arrive_hour"))], subtasks: ["be_home", "rest"]),
+                    (name: "after work: go home", when: [Ge("hour", Fact("leave_hour"))], subtasks: ["be_home", "rest"]),
+                    (
+                        name: "lunch",
+                        when: [Ge("hour", Fact("lunch_hour")), Eq("ate", Is(Bool(false)))],
+                        subtasks: ["go_to_lunch", "eat"],
+                    ),
+                    (name: "a working day", subtasks: ["be_at_lab", "work", "talk_if_due"]),
+                ],
+                "be_home": [
+                    (name: "already home", when: [Eq("at", Is(Sym("home")))], subtasks: []),
+                    (name: "walk home", subtasks: ["go_home"]),
+                ],
+                "be_at_lab": [
+                    (name: "already in the lab", when: [Eq("at", Is(Sym("lab")))], subtasks: []),
+                    (name: "walk to the lab", subtasks: ["go_to_lab"]),
+                ],
+                "work": [
+                    (
+                        name: "use the bench",
+                        when: [Eq("bench_free", Is(Bool(true)))],
+                        subtasks: ["go_to_bench", "claim_bench", "experiment", "release_bench"],
+                    ),
+                    (name: "read notes while the bench is taken", subtasks: ["read_notes"]),
+                ],
+                "talk_if_due": [
+                    (
+                        name: "talk shop with the partner",
+                        when: [Eq("talked", Is(Bool(false))), Eq("partner_here", Is(Bool(true)))],
+                        subtasks: ["talk"],
+                    ),
+                    (name: "nothing to say yet", subtasks: []),
+                ],
+            },
+            primitive: {
+                // Home is out of the lab door.
+                "go_home": (effects: [Set("at", Sym("home"))], action: (verb: "go_to", target: Some("lab_door"))),
+                "rest": (action: (verb: "rest")),
+                "go_to_lab": (effects: [Set("at", Sym("lab"))], action: (verb: "go_to", target: Some("eureka_coil_lab"))),
+                "go_to_lunch": (effects: [Set("at", Sym("lab"))], action: (verb: "go_to", target: Some("lunch"))),
+                "eat": (effects: [Set("ate", Bool(true))], action: (verb: "use", target: Some("lunch"))),
+                "go_to_bench": (action: (verb: "go_to", target: Some("workbench"))),
+                "claim_bench": (
+                    when: [Eq("bench_free", Is(Bool(true)))],
+                    effects: [Set("bench_free", Bool(false))],
+                    action: (verb: "claim", target: Some("workbench")),
+                ),
+                "experiment": (effects: [Add("experiments", 1)], action: (verb: "use", target: Some("workbench"))),
+                "release_bench": (effects: [Set("bench_free", Bool(true))], action: (verb: "release", target: Some("workbench"))),
+                "read_notes": (action: (verb: "use", target: Some("notes"))),
+                "talk": (effects: [Set("talked", Bool(true))], action: (verb: "say", target: Some("eureka_talk"))),
+            },
+        ),
+    },
+    lives: {
+        // Nikobolt keeps 8 to 18 and lunches at noon. Coulomba joins him in a
+        // later slice, with her own hours and the one bench between them.
+        "npc_science_nikobolt": (
+            domain: "eureka_scientist_day",
+            facts: {
+                "arrive_hour": Int(8),
+                "lunch_hour": Int(12),
+                "leave_hour": Int(18),
+                "at": Sym("lab"),
+                "bench_free": Bool(true),
+                "ate": Bool(false),
+                "talked": Bool(false),
+                "partner_here": Bool(false),
+                "experiments": Int(0),
+            },
+        ),
+    },
+    // A use (an experiment, a meal) takes a quarter of an hour of the day. A
+    // verb not named here is done the tick it starts.
+    holds: {
+        "use": 0.25,
+    },
+)

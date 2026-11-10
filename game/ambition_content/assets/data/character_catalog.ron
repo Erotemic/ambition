@@ -6342,10 +6342,12 @@
                 // The spit, telegraphed (Jon 2026-10-30: "telegraph, attack"): it
                 // coils with its jaws wide (its windup row), spits, and is open.
                 ranged_volley: Some((windup_s: 0.6, firing_s: 0.2, recovery_s: 1.0)),
+                // It raises its frill and screeches when it first sees you.
+                tactics: (notice_s: 0.4),
             )),
             max_health: Some(4),
             tags: ["enemy", "dinosaur"],
-            cues: (tell: Some("enemy.dilophosaurus.tell"), swing: Some("enemy.dilophosaurus.swing")),
+            cues: (notice: Some("enemy.dilophosaurus.notice"), tell: Some("enemy.dilophosaurus.tell"), swing: Some("enemy.dilophosaurus.swing")),
         barks: (
             on_hit: ["Kshhhh!", "NO CARRIER."],
             provoked: ["Connecting..."],

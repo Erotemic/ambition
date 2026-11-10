@@ -666,6 +666,46 @@ fn skirmisher_state_mode_tracks_engagement_phase() {
     assert!(out.fire.is_some(), "should fire after cooldown");
 }
 
+/// A skirmisher with a notice beat stands and faces a foe it has just seen for
+/// its `notice_s`, neither moving nor shooting, then fights; it notices again
+/// after it loses the foe. The control: one with no beat fights on first sight.
+#[test]
+fn a_skirmisher_notices_its_foe_before_it_moves_or_shoots() {
+    let fights_at_once = |cfg: SkirmisherCfg| {
+        let mut sm = StateMachineCfg::Skirmisher { cfg, state: SkirmisherState::default() };
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(&mut sm, &snap_at(0.0, 200.0), &mut out);
+        (out.fire.is_some() || out.velocity_target.x != 0.0 || out.locomotion.x != 0.0, crate::brain::Brain::StateMachine(sm).is_noticing())
+    };
+    assert_eq!(fights_at_once(SkirmisherCfg::RANGER_DEFAULT), (true, false), "control: with no beat it fights on first sight");
+
+    let cfg = SkirmisherCfg { notice_s: 0.3, ..SkirmisherCfg::RANGER_DEFAULT };
+    let mut sm = StateMachineCfg::Skirmisher { cfg, state: SkirmisherState::default() };
+    let s = snap_at(0.0, 200.0);
+    let (mut still, mut first_act) = (0, None);
+    for tick in 0..60 {
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(&mut sm, &s, &mut out);
+        let acts = out.fire.is_some() || out.velocity_target.x != 0.0 || out.locomotion.x != 0.0;
+        if acts {
+            first_act = Some(tick);
+            break;
+        }
+        // The tick its beat runs out on it still stands, as the flyer's does.
+        let noticing = crate::brain::Brain::StateMachine(sm.clone()).is_noticing();
+        assert!(noticing || tick + 1 >= (0.3 / s.dt).round() as i32, "tick {tick}: it stands without noticing");
+        still += 1;
+    }
+    let beat = (0.3 / s.dt).round() as i32;
+    assert!((still - beat).abs() <= 1, "it stood {still} ticks for a {beat}-tick notice (acted at {first_act:?})");
+
+    // Lost and found again: it notices again.
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_simple_state_machine(&mut sm, &snap_at(0.0, 5000.0), &mut out);
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert!(crate::brain::Brain::StateMachine(sm).is_noticing(), "it did not notice a foe it had lost and found");
+}
+
 #[test]
 fn skirmisher_holds_quiet_when_target_dead() {
     // Skirmisher with dead target inside aggro range must emit

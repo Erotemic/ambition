@@ -390,8 +390,12 @@ engagement already implements it.
 **Owner:** `ambition_characters::brain::state_machine`, combat brain emission,
 and authored character profiles. Design: [enemy patterns](game/enemy-patterns.md#not-yet).
 
-**Next action:** extend the existing first-sight/beat contract to skirmishers.
-Audit the named pirate and ninja profiles against fighter engagement; author
+**Done 2026-11-10:** skirmishers have the first-sight beat
+(`SkirmisherCfg::notice_s`, read from the profile's `tactics.notice_s`, through
+the shared `Brain::is_noticing` projection). The dilophosaurus is authored
+(0.4 s and its notice cue).
+
+**Next action:** audit the named pirate and ninja profiles against fighter engagement; author
 missing values rather than another fighter notice implementation.
 
 **Acceptance:** first sight produces one authored pose and cue before attack;

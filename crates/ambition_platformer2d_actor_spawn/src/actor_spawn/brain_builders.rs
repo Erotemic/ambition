@@ -367,6 +367,7 @@ fn skirmisher_brain_from_tuning(
             fire_cooldown_s,
             orbit_drift_rad_s,
             ranged_volley: profile.ranged_volley,
+            notice_s: profile.tactics.notice_s,
         },
         state: SkirmisherState {
             cooldown_remaining: initial_cooldown_s,

@@ -805,6 +805,9 @@ pub struct SkirmisherCfg {
     pub orbit_drift_rad_s: f32,
     /// Optional controller volley; the body's ranged action owns the shot cadence.
     pub ranged_volley: Option<super::RangedVolley>,
+    /// Seconds it stands, facing its foe, when it first sees it: its notice
+    /// ([`super::MeleeTactics::notice_s`]). 0 is none.
+    pub notice_s: f32,
 }
 
 impl SkirmisherCfg {
@@ -816,6 +819,7 @@ impl SkirmisherCfg {
         fire_cooldown_s: 0.8,
         orbit_drift_rad_s: 0.6,
         ranged_volley: None,
+        notice_s: 0.0,
     };
 }
 
@@ -849,6 +853,17 @@ pub struct SkirmisherState {
     pub orbit_phase: f32,
     /// The stage of the controller's ranged volley, if it has one.
     pub volley_phase: RangedVolleyPhase,
+    /// It has seen its foe; cleared when it loses it, so it notices again.
+    pub noticed: bool,
+    /// Seconds left of its notice ([`SkirmisherCfg::notice_s`]).
+    pub noticing: f32,
+}
+
+impl SkirmisherState {
+    /// It stands and looks at a foe it has just seen.
+    pub fn is_noticing(&self) -> bool {
+        self.noticing > 0.0
+    }
 }
 
 /// Advance a volley against a living target. Only this function owns its clock;
@@ -962,10 +977,23 @@ fn tick_skirmisher(
                 RangedVolleyPhase::Ready => {}
             }
         }
+        state.noticed = false;
+        state.noticing = 0.0;
         skirmisher_idle(cfg, state, snapshot, out);
         return;
     }
     state.mode = crate::actor::ai::CharacterAiMode::Chase;
+    // NOTICE: on first sight of its foe it stands where it is, facing it, a
+    // beat before it moves or shoots.
+    if !state.noticed {
+        state.noticed = true;
+        state.noticing = cfg.notice_s;
+    }
+    if state.noticing > 0.0 {
+        state.noticing = (state.noticing - snapshot.dt).max(0.0);
+        out.facing = snapshot.face_toward(to_target_local.x);
+        return;
+    }
     // Compute the actor's desired position offset from the target.
     // The horizontal component sweeps the full ±standoff range so
     // shark-riders fan out left and right of the player. The

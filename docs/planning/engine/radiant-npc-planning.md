@@ -279,8 +279,16 @@ built again in a room that comes back takes its life from its row and
 catches up by schedule arithmetic:
 
 - each whole hour it missed is planned and the steps' effects applied, with
-  no walking; an hour planned offscreen sees every thing free (no one held
-  anything while no one watched);
+  no walking. An exclusive thing is arbitrated by schedule, not simulated
+  (review 2026-11-10, finding 8): each thing has the hour to give, a plan
+  books the holds of its steps between its claim and its release, and the
+  bodies that catch up on one tick book in character-id order (the same on
+  every peer). A body sees the thing free while the hour has time left, and a
+  plan that would overrun the hour plans again with it taken
+  (`plan_an_hour_away`; unit test `bodies_away_share_a_thing_by_the_hours_it_has`).
+  The booking lasts the tick: bodies that come back on different ticks (one
+  room built again before another) do not see each other's hours away, which
+  the two scientists, one room, never meet;
 - the current hour is planned and its leading `go_to` steps are done at once;
 - the body is put at the last place its schedule sent it
   (`put_returning_lives`), and the rest of the plan runs live.

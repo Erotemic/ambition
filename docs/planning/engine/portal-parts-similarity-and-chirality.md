@@ -2,47 +2,36 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** REVIEW REPAIRS COMMITTED ON MAIN; FEATURE ACCEPTANCE OPEN
-(2026-11-10). P01–P06 and P08–P10 are repaired. P07 remains open.
-Physical root material and admitted righting are in `02cabae98`. Canonical
-strike material and physical footprint publication are in `fcb9f7280`.
-Canonical hurt material is in `a46d6847f`. The select-screen and asset-publication
-merge is `bb7d831dd`; the debug body-map repair is `13e3e9bfb`.
-Snapshot schema is v435. Sampled projectile contacts now retain the physical
-contact point, normal, time and target path. Native hurt pieces take part in
-these queries. A named recipient does not select its geometry again at reception.
+**Work state:** THE PLAYABLE 80/40 SLICE IS COMMITTED (`fddf6084a`).
+The NPC merge is `e54699b85`; the combined snapshot schema is v440.
+P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
-The sampled-contact checkpoint passes the core tests (872), portal runtime
-tests (266), app portal tests (36), Mockingbird tests (4), schema tests (4),
-Smash tests (73), workspace policy tests (35), and absence checks (53). The
-default app warning check passes. The broad Python suite fails 71 tests; its
-log is `target/portal-sampled-gate-repo-tooling.log`. Full workspace and feature
-union gates have not run for this checkpoint.
+Station H has two reachable wall openings with widths 80 and 40. Each keeps
+its authored aperture. The robot crosses at half scale and keeps its physical
+material after it clears the opening. Reflection mode keeps its handedness
+and held facing. The return crossing restores scale and parity. A javelin
+stands beside the pair. The existing F3 convention setting selects Reflection.
 
-The next acceptance target is the existing playable 80/40 slice: one asymmetric
-body, partial-body contact, shared render geometry, reverse travel and replay.
-Two simultaneous limbs and a third portal follow that slice.
+The real app witness checks exact far-side contact while the near-side feet
+stay supported, both crossings, persistent material, GGRS rewinds and a second
+bit-for-bit replay. The visible-app witness checks the robot's rendered linear
+transform against its accepted physical material after crossing. Both pass.
+The guards are in `portal_similarity_slice`. Core (872), portal (141), runtime
+(266), actor and renderer (523) libraries pass under the workspace feature
+union. The sideways-pose fixtures now set physical material; their owner tests
+pass. Post-merge app portal tests (38), schema tests (4), NPC tests (2), Smash
+tests and workspace policy pass. The assembled app warning check passes.
 
-Owner-following strikes now keep canonical source shapes and use the accepted
-body material. Native partitions retain that source without a world-space
-round trip. Actor, home-body and spawn footprints use the same physical pose.
-Body hurt regions now also keep canonical shapes. Circles and convex regions
-stay exact through partition and sampled-target sweep queries. Fixed world
-regions have an explicit source. Boss damage reads the same native hurt pieces.
-Scale, turn, parity, source precision and admitted-righting tests pass.
+The full workspace run is not green. Sanic reaches righting `WorkLimit`
+refusals without portals; its long soak was stopped. Fighter attack art and
+unpublished history-art checks also fail. The capability sentinel reports the
+new upstream HTN dependency. The review receipt records the scope and logs.
 
-On the hurt-material packet, the app portal selection passes 36 tests. GNU-ton
-passes 39, T-rex passes 27 and the Mockingbird projectile selection passes four.
-Standalone visible Mary-O passes 140; Smash passes 71. The app and Smash compile
-without warnings under their default features.
-See the [canonical hurt receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#canonical-hurt-material-packet)
-for the commands, scope and earlier validation receipts.
-
-No full PSIM acceptance slice is closed. Same-tick remaining motion, native body
-contacts, moving-target and portal projectile/hurt contact, guard geometry,
-attachments, production unequal apertures, the
-bounded numeric law and its fault effects, H–J lab examples, and the full
-workspace, feature-union, device/GPU and performance gates still need work.
+Full PSIM acceptance remains open: general remaining-time continuation,
+moving-target and carried-source projectile/hurt contact, other movement
+models, guard geometry, attachments, the bounded numeric law and fault effects,
+I–J lab stations, and device/GPU and performance gates. Two simultaneous limbs
+and a chained third portal follow the completed vertical slice.
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -586,19 +575,20 @@ apertures, persistent scale, asymmetric handedness, two reflections, two
 simultaneous paths and a chained third path. Include bounded refusal examples.
 Use targeted LDtk tool edits. The original creation spec does not include all
 current stations. Use these examples for the render and seam-lab witnesses.
-The [station draft](../../../tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml)
-adds an 80/40 pair, an asymmetric javelin, a two-reflection prompt and a
-simultaneous/three-link arrangement. Its authoring preview adds 17 entities
-and changes no existing geometry or station. Apply it with the production
-switch; the current minimum-aperture rule cannot demonstrate its scale labels.
+Station H is live in `fddf6084a`. Its
+[station source](../../../tools/ambition_ldtk_tools/specs/portal_similarity_slice.yaml)
+adds seven entities. The
+[remaining station draft](../../../tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml)
+has the I–J prompt and simultaneous/three-link arrangement. It is deferred
+until after the vertical slice. It does not add H again.
 
 Station K is now authored in the live lab. It has a gun-sword beside a wall
 opening and a target two pixels beyond the paired exit. A shot must hit the
 target before its centre crosses the entry. The production projectile test
 uses this authored pair and target. The
 [station source](../../../tools/ambition_ldtk_tools/specs/portal_contact_lab.yaml)
-adds six entities and retains all existing stations. H through J remain
-pending the production scale and handedness switch.
+adds six entities and retains all existing stations. H is live; I–J remain
+deferred.
 The same production test also attaches K's exit to a translating host. It
 checks the physical impact during that tick, before the root transfers. This
 host is part of the test; the authored K station keeps its fixed exit.

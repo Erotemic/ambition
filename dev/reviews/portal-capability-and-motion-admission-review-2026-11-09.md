@@ -314,7 +314,7 @@ No second cache or incremental invalidation protocol was added.
 | P04 | Resolved | Missing body material returns `MissingMaterial`. Explicit world sources retain their identity transform. |
 | P05 | Resolved | The two epochs have one body owner. The publication measurement below records their cost. Full rebuilds remain; no cache optimization is claimed. |
 | P06 | Resolved | Runtime selects `PortalSimulationPlugin`. Ambition selects the gun separately. Construction consumes the same generation-bound schema catalog used for content identity. Missing gun schemas refuse authored guns. Repeat plan IDs agree. |
-| P07 | Open | The two walking cases pass in `f634f1870`; the spark/wall case passes in `b2e8f750a`. Full PSIM acceptance remains open in the existing portal plan. Baseline and latest results are below. No PSIM slice is closed. |
+| P07 | Open for full PSIM | The 80/40 playable slice is in `fddf6084a`. `portal_similarity_slice` checks exact partial contact, persistent scale and reflection, reverse travel, replay and the shipped renderer. Other movement models and general continuation remain open. |
 | P08 | Resolved | Each loading zone authors `Default` or `SceneArt`. The generic renderer owns this policy. Duplicate IDs in different rooms do not share visibility. Secret discovery and gate animation retain their owners. |
 | P09 | Resolved | Mary-O selects its actual facade features. Standalone normal, test, visible, desktop and web trees have no portal crate. Isolated compilation and tests are recorded below. |
 | P10 | Resolved | `PortalRooms` reads the existing per-game rules at the world owner. Publishers clear disabled-room links and occupancy. Physics, shots, held pairs and camera lists use room identity. Tests cover capability changes, equal coordinates in two rooms and a body transferred into a Mary-O room. |
@@ -856,3 +856,33 @@ The portal plan's focused strict citation check, planning anchors and repository
 doc links pass. A global citation scan reports standing findings in other
 plans. The obsolete body-box API description in the actor-kernel plan is
 corrected here; this packet does not claim a clean global citation scan.
+
+
+### 80/40 playable slice
+
+Code: `fddf6084a`. Map station: `16f39fc`, merged with the scientist maps in
+`23068da`. Main merge: `e54699b85`; combined schema: v440.
+
+Each endpoint keeps its authored aperture. Native body parts meet room solids;
+the copied far-side solid path is removed. Host cuts keep foreground obstacles.
+Physical facing uses material axes through reflection. Straight contact cells
+stay straight beside a distant turning portal.
+
+`portal_similarity_slice` passes both app tests. Its robot stops with its far
+cap at the wall within 0.002 pixels while its near feet remain supported. It
+then shrinks, clears the opening, returns, and restores scale and parity. GGRS
+loads snapshots. A second run produces the same body bytes. The visible-app
+test compares the rendered asymmetric point with the physical material.
+
+The workspace feature-union libraries compile. Core passes 872, portal 141,
+runtime 266 and renderer 523. Actor tests pass. Five owners' sideways-pose
+fixtures now set physical material and pass. Logs use `target/portal-slice-`.
+Post-merge app portal tests (38), schema tests (4), NPC tests (2), Smash
+tests and workspace policy pass. The assembled app warning check passes.
+
+Full-workspace validation is not green. The fighter-art assertion still
+reports `air_back` at x = 7.655999. History art is not fully published in this
+checkout. Sanic reaches righting `WorkLimit` in a scene with no portals; the
+long soak was stopped and the remaining compiled libraries were run. The HTN
+crate added upstream enters the minimal consumer's closure. No footprint
+baseline waiver was added. These results do not close full P07 acceptance.

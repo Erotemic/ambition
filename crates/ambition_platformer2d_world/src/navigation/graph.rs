@@ -442,7 +442,7 @@ impl NavGraph {
                 return (None, index + 4);
             }
             // A body in an exit is in another room: the leg did not arrive.
-            let reach = body.kinematics.collision_box(None);
+            let reach = body.kinematics.aabb();
             if exits.iter().any(|exit| ae::AabbExt::strict_intersects(reach, *exit)) {
                 return (None, index + 4);
             }

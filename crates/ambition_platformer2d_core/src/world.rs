@@ -1648,12 +1648,24 @@ impl World {
         &'w self,
         cast: crate::frame::material_cast::MaterialCast<'_>,
         admission: Option<crate::frame::thread::MotionAdmission<'_>>,
-        mut accepts: F,
+        accepts: F,
     ) -> Result<Option<MaterialWorldHit<'w>>, crate::frame::thread::Refusal>
     where F: FnMut(MaterialCollider<'w>, &crate::frame::material_cast::MaterialCell, &crate::frame::material_cast::MaterialCastHit)
             -> Result<bool, crate::frame::thread::Refusal>,
     {
         let cells = cast.cells(admission)?;
+        self.first_material_contact(&cells, accepts)
+    }
+
+    /// Query an admitted material program without building its cells again.
+    pub fn first_material_contact<'w, F>(
+        &'w self,
+        cells: &crate::frame::material_cast::MaterialCastCells<'_>,
+        mut accepts: F,
+    ) -> Result<Option<MaterialWorldHit<'w>>, crate::frame::thread::Refusal>
+    where F: FnMut(MaterialCollider<'w>, &crate::frame::material_cast::MaterialCell, &crate::frame::material_cast::MaterialCastHit)
+            -> Result<bool, crate::frame::thread::Refusal>,
+    {
         let mut best: Option<MaterialWorldHit<'w>> = None;
         let mut refused: Option<(MaterialWorldHit<'w>, crate::frame::thread::Refusal)> = None;
         let mut consider = |hit: MaterialWorldHit<'w>, part: &crate::frame::material_cast::MaterialCell| {

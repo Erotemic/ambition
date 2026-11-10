@@ -4121,7 +4121,7 @@ fn party_follower_hits_an_exit_wall_and_can_cross_after_the_policy_changes() {
     }
     assert_eq!(where_they_are(&mut sim).1, Some(Some(first)));
     let body = sim.world().get::<ae::BodyKinematics>(bob).unwrap();
-    let contact_box = body.collision_box(sim.world().get::<ae::SweepSample>(bob));
+    let contact_box = body.aabb();
     assert!(contact_box.max.x <= wall_x - 8.0 + 0.1, "the follower crossed its exit wall: {body:?}, {contact_box:?}");
     configure_party(&mut sim, PartyTravelMode::Independent, 0);
     for _ in 0..180 {

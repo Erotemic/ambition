@@ -674,7 +674,7 @@ pub fn steer_mount_from_rider(
         if let (Some(room), Some(rider_kin)) = (room, rider_kin) {
             let down = mount_motion.map_or(ae::Vec2::new(0.0, 1.0), |motion| motion.basis().down);
             // The rider's collision box, turned to the DOWN of the pair.
-            let rider = rider_kin.aabb_oriented(down);
+            let rider = rider_kin.aabb();
             let solid = |block: &ae::Block| matches!(block.kind, ae::BlockKind::Solid);
             let inside = room.0.blocks.iter().any(|block| {
                 solid(block)

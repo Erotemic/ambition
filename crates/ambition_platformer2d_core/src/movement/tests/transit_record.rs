@@ -88,6 +88,9 @@ fn step_transit_step(
     let world = room(None);
     let mut scratch = BodyClusterScratch::new_with_abilities(start, AbilitySet::default());
     scratch.kinematics.canonical_size = BODY;
+    let basis = crate::AccelerationFrame::new(attached_to.map_or(frame.down(), |normal| -normal));
+    scratch.kinematics.material = crate::frame::BodyMaterial::new(1.0,
+        bevy_math::Mat2::from_cols(basis.side, basis.down)).unwrap();
     scratch.base_size.base_size = BODY;
     scratch.kinematics.facing = -1.0;
     let mut sample = SweepSample::default();
@@ -184,7 +187,7 @@ fn a_crawler_that_transits_off_a_wall_arrives_with_the_turn_it_had() {
         |_| {},
     );
     assert_eq!(halves.stepped, STEP_HALF, "premise: the slug on the wall lies along the wall");
-    assert_eq!(halves.next, BODY * 0.5, "premise: detached, the next step moves the level box");
+    assert_ne!(halves.next, BODY * 0.5, "detachment does not teleport physical orientation upright");
     assert_eq!(halves.collapsed.half, STEP_HALF, "a transit does not turn the body");
 }
 

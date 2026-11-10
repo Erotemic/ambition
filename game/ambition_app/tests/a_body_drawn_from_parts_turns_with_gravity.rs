@@ -1,6 +1,6 @@
 //! A body drawn from its parts turns with the gravity of its room.
 //!
-//! The simulation turns a body to stand along its gravity (`ActorRoll`), and
+//! The simulation turns a body to stand along its gravity through its physical material, and
 //! `sync_visuals` writes that turn on the body's own transform. A body drawn
 //! as one baked quad shows it, because the quad is drawn through that
 //! transform. A body drawn directly from its parts draws nothing on its own

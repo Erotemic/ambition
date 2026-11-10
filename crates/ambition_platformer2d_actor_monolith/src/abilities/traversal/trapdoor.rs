@@ -138,7 +138,7 @@ pub fn apply_authored_trapdoors(
             // placement that would embed — which is exactly the surfacing rule,
             // and is why this file borrows it rather than restating it.
             // The box she has: turned to the DOWN of her resolved frame.
-            let half = clusters.kinematics.half_oriented(gravity_dir);
+            let half = clusters.kinematics.half_extent();
             let from = clusters.kinematics.pos;
             let surfaced = match collision.solids(&world, room) {
                 Some(w) => super::teleport::ledge_assisted_arrival(

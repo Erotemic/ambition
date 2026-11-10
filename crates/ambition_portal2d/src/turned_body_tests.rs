@@ -6,13 +6,8 @@
 //! body too long for it crossed, a body that touched an opening cut no hole,
 //! and a closing portal pushed a body its plane did not touch.
 //!
-//! The core is a reader of every body and has no frame of one. The record of
-//! the last step ([`SweepSample`]) has the DOWN of the body, so each reader
-//! asks `BodyKinematics::collision_box(record)`.
-//!
-//! Each arm gives the body a record with DOWN `+x` and has a control with
-//! DOWN `+y`, so that it is the turn that changes the answer and not the
-//! record.
+//! The physical material owns the body axes. Each test compares an explicit
+//! sideways pose with an explicit level pose.
 
 use bevy::prelude::*;
 
@@ -69,7 +64,7 @@ fn x_after_the_blue(size: Vec2, down: Vec2, opening: f32) -> f32 {
     for channel in [BLUE, ORANGE] {
         app.world_mut().spawn(wall(channel, opening));
     }
-    let body = BodyKinematics { material: Default::default(),
+    let body = BodyKinematics { material: ambition_platformer2d_core::frame::BodyMaterial::new(1.0, Mat2::from_cols(Vec2::new(down.y, -down.x), down)).unwrap(),
         pos: Vec2::new(20.0, 200.0),
         vel: Vec2::new(-100.0, 0.0),
         canonical_size: size,
@@ -126,7 +121,7 @@ fn holes_cut(size: Vec2, down: Vec2) -> usize {
     for channel in [BLUE, ORANGE] {
         app.world_mut().spawn(wall(channel, STANDARD));
     }
-    let body = BodyKinematics { material: Default::default(),
+    let body = BodyKinematics { material: ambition_platformer2d_core::frame::BodyMaterial::new(1.0, Mat2::from_cols(Vec2::new(down.y, -down.x), down)).unwrap(),
         pos: Vec2::new(50.0, 200.0),
         vel: Vec2::ZERO,
         canonical_size: size,
@@ -165,7 +160,7 @@ fn after_the_floor_closes(size: Vec2, down: Vec2) -> Vec2 {
         .world_mut()
         .spawn(PlacedPortal::fixed(BLUE, Vec2::new(500.0, 300.0), normal, crate::PORTAL_OPENING_HALF).unwrap())
         .id();
-    let body = BodyKinematics { material: Default::default(),
+    let body = BodyKinematics { material: ambition_platformer2d_core::frame::BodyMaterial::new(1.0, Mat2::from_cols(Vec2::new(down.y, -down.x), down)).unwrap(),
         pos: Vec2::new(500.0, 285.0),
         vel: Vec2::ZERO,
         canonical_size: size,

@@ -16,7 +16,7 @@ use ambition_platformer2d::session::participants::SessionParticipants;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
-use ambition_platformer2d::engine_core::{AabbExt, BodyKinematics, ControlFrame, SweepSample};
+use ambition_platformer2d::engine_core::{AabbExt, BodyKinematics, ControlFrame};
 use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::sim_id::SimId;
@@ -151,9 +151,9 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
     );
     let at = place_of(&sim, body);
     let primary_box = sim.world().get::<BodyKinematics>(primary).unwrap()
-        .collision_box(sim.world().get::<SweepSample>(primary));
+        .aabb();
     let joined_box = sim.world().get::<BodyKinematics>(body).unwrap()
-        .collision_box(sim.world().get::<SweepSample>(body));
+        .aabb();
     assert!(
         !primary_box.strict_intersects(joined_box),
         "the joining body at {at:?} overlaps the primary at {primary_at:?}: {joined_box:?}, {primary_box:?}"

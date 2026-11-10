@@ -69,7 +69,6 @@ pub fn step_body(
         ae::movement::shift_frozen_body(
             ctx.world,
             clusters.kinematics,
-            ctx.frame.down(),
             ae::hit_response::smash_di_shift(
                 ctx.input.axes.vec(),
                 ctx.frame.down(),
@@ -92,7 +91,6 @@ pub fn step_body(
         ae::movement::shift_frozen_body(
             ctx.world,
             clusters.kinematics,
-            ctx.frame.down(),
             ae::hit_response::smash_di_shift(
                 ctx.input.axes.vec(),
                 ctx.frame.down(),

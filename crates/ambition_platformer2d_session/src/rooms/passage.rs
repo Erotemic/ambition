@@ -495,7 +495,6 @@ pub fn run_zone_passages(
         &mut ZonePassage,
         Option<&mut ControlHolds>,
         Option<&ae::PoseOwnedExternally>,
-        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         Option<&InRoomInstance>,
     )>,
 ) {
@@ -508,7 +507,7 @@ pub fn run_zone_passages(
     // The admitted operation keeps the slot. Ready passages use stable body
     // identity to choose the next operation, independent of ECS traversal.
     let next_crossing = pending_lifecycle.peek().is_none().then(|| {
-        bodies.iter().filter_map(|(entity, _, _, passage, _, _, _, stamp)| {
+        bodies.iter().filter_map(|(entity, _, _, passage, _, _, stamp)| {
             let here = stamp.map(|stamp| stamp.0);
             (passage.stage == PassageStage::Entering
                 && !passage.recorded
@@ -520,7 +519,7 @@ pub fn run_zone_passages(
                 .map(|crossing| (entity, &crossing.initiator.subject))
         }).min_by(|(_, left), (_, right)| left.cmp(right)).map(|(entity, _)| entity)
     }).flatten();
-    for (entity, clusters, mut model, mut passage, mut control_holds, pose_holds, frame, stamp) in &mut bodies {
+    for (entity, clusters, mut model, mut passage, mut control_holds, pose_holds, stamp) in &mut bodies {
         let here = stamp.map(|stamp| stamp.0);
         if passage.room.is_none() {
             passage.room = here;
@@ -597,7 +596,7 @@ pub fn run_zone_passages(
                     let Some(world) = room.solids_for(entity) else { continue; };
                     let shift = pos - clusters.kinematics.pos;
                     // A scene may hold control, but its walk-out cannot enter solids.
-                    ae::movement::shift_frozen_body(&world, clusters.kinematics, frame.down(), shift);
+                    ae::movement::shift_frozen_body(&world, clusters.kinematics, shift);
                     clusters.kinematics.pos
                 } else {
                     pos

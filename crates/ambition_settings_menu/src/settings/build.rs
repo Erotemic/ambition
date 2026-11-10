@@ -441,12 +441,6 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.pause_input_when_unfocused,
                 "Ignore gameplay + menu input while the window is in the background.",
             ),
-            toggle(
-                SettingsOptionId::PortalReverseFacing,
-                "Portal Reverses Facing",
-                g.portal_reverses_facing,
-                "Reverse facing when a portal turns the controlled body back along the same wall.",
-            ),
             {
                 use ambition_persistence::settings::gameplay::PartyTravelMode;
                 let independent = g.party_travel == PartyTravelMode::Independent && !g.party_return

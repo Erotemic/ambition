@@ -96,7 +96,7 @@ pub(super) fn platform_drop_requested(
             input.shield_held,
             super::collision::standing_on_one_way_aabb(
                 world,
-                kinematics.aabb_oriented(frame.down()),
+                kinematics.aabb(),
                 frame.down(),
             ),
         )
@@ -223,7 +223,7 @@ pub(super) fn integrate_velocity_clusters(
          conflicts: &mut Vec<crate::collision_semantics::AxisConstraintConflict>| {
             let prev_feet_coord = clusters
                 .kinematics
-                .aabb_oriented(frame.down())
+                .aabb()
                 .feet_coord(frame.down());
             let delta_along = match axis {
                 crate::collision_semantics::Axis::X => clusters.kinematics.vel.x,
@@ -244,7 +244,7 @@ pub(super) fn integrate_velocity_clusters(
             // and moved nothing in a real match (`bbbc5e46c`).
             let delta_along = if axis == side_axis && clusters.ground.on_ground {
                 super::body_contact::constrain_motion(
-                    clusters.kinematics.aabb_oriented(frame.down()),
+                    clusters.kinematics.aabb(),
                     delta_along,
                     matches!(axis, crate::collision_semantics::Axis::X),
                     // ONE WALK'S WORTH, and no more. A body standing in
@@ -287,7 +287,7 @@ pub(super) fn integrate_velocity_clusters(
         .then(|| {
             crate::walkable_lines::stood_on_line(
                 world,
-                clusters.kinematics.aabb_oriented(frame.down()),
+                clusters.kinematics.aabb(),
                 frame.down(),
             )
         })
@@ -299,7 +299,7 @@ pub(super) fn integrate_velocity_clusters(
     // and walks from there.
     if let Some(chain) = entry_line.map(|chain| &world.chains[chain]).filter(|chain| chain.moves()) {
         let g = frame.down();
-        let body = clusters.kinematics.aabb_oriented(g);
+        let body = clusters.kinematics.aabb();
         let feet_point = body.center() + g * (body.feet_coord(g) - body.center().dot(g));
         clusters.kinematics.pos += chain.carried(feet_point) - feet_point;
     }
@@ -334,7 +334,7 @@ pub(super) fn integrate_velocity_clusters(
     clusters.ground.head_contact = false;
     let feet_before_fall = clusters
         .kinematics
-        .aabb_oriented(frame.down())
+        .aabb()
         .feet_coord(frame.down());
     // The contacts from here on are the ones that put the body on the ground
     // this step; a body its balance does not hold takes back their support.
@@ -359,7 +359,7 @@ pub(super) fn integrate_velocity_clusters(
     if was_grounded && !clusters.ground.on_ground && state.drop_through_timer <= 0.0 {
         let g = frame.down();
         if clusters.kinematics.vel.dot(g) >= 0.0 {
-            let oriented = clusters.kinematics.aabb_oriented(g);
+            let oriented = clusters.kinematics.aabb();
             let receding = world.blocks.iter().find(|block| {
                 block.velocity.dot(g) > 0.0
                     && crate::collision_semantics::surface_supports_body_at_rest(
@@ -387,7 +387,7 @@ pub(super) fn integrate_velocity_clusters(
     // top only where it is higher.
     {
         let g = frame.down();
-        let body = clusters.kinematics.aabb_oriented(g);
+        let body = clusters.kinematics.aabb();
         let step = crate::walkable_lines::WalkStep {
             velocity: clusters.kinematics.vel,
             prev_feet: feet_before_fall,
@@ -424,7 +424,7 @@ pub(super) fn integrate_velocity_clusters(
                     }
                 }
                 crate::walkable_lines::LineStep::OntoBlock(index) => crate::collision_semantics::block_face_contact(
-                    clusters.kinematics.aabb_oriented(g),
+                    clusters.kinematics.aabb(),
                     &world.blocks[index],
                     -g,
                     0.0,
@@ -444,7 +444,7 @@ pub(super) fn integrate_velocity_clusters(
     // but a body's in a turning pair, finds none.
     {
         let g = frame.down();
-        let body = clusters.kinematics.aabb_oriented(g);
+        let body = clusters.kinematics.aabb();
         if let Some((moved, normal)) = crate::solid_lines::put_out_of_solid_lines(world, body) {
             clusters.kinematics.pos += moved;
             let into = clusters.kinematics.vel.dot(normal);
@@ -471,7 +471,7 @@ pub(super) fn integrate_velocity_clusters(
         let g = frame.down();
         match crate::collision_semantics::footing(
             world,
-            clusters.kinematics.aabb_oriented(g),
+            clusters.kinematics.aabb(),
             g,
             drop_through,
             balance,
@@ -490,7 +490,7 @@ pub(super) fn integrate_velocity_clusters(
                     crate::collision_semantics::Axis::X => push.x,
                     crate::collision_semantics::Axis::Y => push.y,
                 } * dt;
-                let prev_feet = clusters.kinematics.aabb_oriented(g).feet_coord(g);
+                let prev_feet = clusters.kinematics.aabb().feet_coord(g);
                 events.constraint_conflicts.extend(super::collision::sweep_player_axis_clusters(
                     world,
                     clusters.kinematics,
@@ -519,7 +519,7 @@ pub(super) fn integrate_velocity_clusters(
     // player feature, a property of standing on a moving solid.
     if clusters.ground.on_ground {
         let g = frame.down();
-        let oriented = clusters.kinematics.aabb_oriented(g);
+        let oriented = clusters.kinematics.aabb();
         if let Some(support) = crate::collision_semantics::supporting_block(
             world,
             oriented,
@@ -612,7 +612,7 @@ pub(super) fn integrate_velocity_clusters(
     if clusters.abilities.abilities.rebound && state.rebound_cooldown <= 0.0 {
         if let Some(impulse) = super::collision::touching_rebound_aabb(
             world,
-            clusters.kinematics.aabb_oriented(frame.down()),
+            clusters.kinematics.aabb(),
         ) {
             clusters.kinematics.vel = impulse;
             crate::body_clusters::refresh_movement_resources_clusters(
@@ -672,7 +672,7 @@ pub(super) fn integrate_velocity_clusters(
         && (teeters_by_balance
             || super::collision::teetering_at_edge(
                 world,
-                clusters.kinematics.aabb_oriented(frame.down()),
+                clusters.kinematics.aabb(),
                 frame,
                 clusters.kinematics.facing,
                 tuning.locomotion.teeter_margin,
@@ -1463,7 +1463,7 @@ fn stays_over_its_surface(
     let Some(dir) = step.try_normalize() else {
         return true;
     };
-    let body = kinematics.aabb_oriented(gravity_dir);
+    let body = kinematics.aabb();
     let half = body.half_size();
     let gravity_half = half.x * gravity_dir.x.abs() + half.y * gravity_dir.y.abs();
     let travel_half = half.x * dir.x.abs() + half.y * dir.y.abs();

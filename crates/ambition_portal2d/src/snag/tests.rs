@@ -124,7 +124,7 @@ fn a_kernel_body_half_past_an_end_is_held() {
     app.world_mut().spawn(floor());
     app.world_mut().spawn(exit());
     let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(30.0, 286.0), vel: Vec2::new(0.0, 600.0), canonical_size: BODY * 2.0, facing: 1.0 };
-    let record = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
+    let record = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(30.0, 278.0), curr: kin.pos, vel: kin.vel, half: BODY, down: Vec2::new(0.0, 1.0) };
     let body = app.world_mut().spawn((kin, record)).id();
     app.update();
     let kin = app.world().get::<BodyKinematics>(body).unwrap();
@@ -168,13 +168,11 @@ fn a_body_that_cuts_the_plane_past_an_end_is_not_taken() {
     let straddling = Some(PortalTransit { straddling: BLUE, crossed: false });
     let step = |x: f32| {
         transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(x, 302.0), canonical_size: BODY * 2.0, vel: Vec2::new(0.0, 100.0), ..Default::default() },
-            Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0], curr: Vec2::new(x, 302.0), material: Default::default(), half: Vec2::ZERO }),
+            Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0], curr: Vec2::new(x, 302.0), material: Default::default(), half: Vec2::ZERO }),
             straddling,
             None,
             &portals,
-            Vec2::new(0.0, 1.0),
-            &crate::PortalTuning::default(),
-        )
+            &crate::PortalTuning::default(),)
     };
     assert!(matches!(step(0.0), TransitStep::Transfer { .. }), "control: within the opening it is taken");
     assert!(matches!(step(28.0), TransitStep::Continue), "past the end it was taken: {:?}", step(28.0));

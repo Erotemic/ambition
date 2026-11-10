@@ -10,8 +10,18 @@ The map merge is `790e3ee`. The spark/wall repair is `b2e8f750a`; canonical
 block contact and static-cell repairs are `f634f1870`. All 37 app portal tests
 and all 140 active standalone Mary-O integration tests pass. Departure material
 records and rollback schema v430 are committed in `1293c397f`. Full ray-band
-contacts and schema v431 are committed in `7263366ed`. P07 remains open
-for full feature acceptance. No PSIM acceptance slice is closed by these repairs. See the [review receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#capability-and-publication-packet).
+contacts and schema v431 are committed in `7263366ed`. This checkpoint adds
+persistent physical root material, full material transfer and admitted righting.
+The body snapshot uses schema v432. Core, portal, host, item, view and renderer
+checks pass. All 37 app portal tests pass. Merged-tree replay and policy checks
+are pending. The existing character `air_back` geometry test also fails in an
+older test executable with the same result.
+
+P07 and all full PSIM acceptance slices remain open. Same-tick remaining motion,
+native body contacts, common combat/attachment maps, unequal apertures and the
+remaining lab examples still need work. See the
+[physical root receipt](../../../dev/reviews/portal-capability-and-motion-admission-review-2026-11-09.md#physical-root-material-packet).
+
 
 **Existing owners:** [portals: a body in two places](portals-a-body-in-two-places.md),
 [portal pair identity and aperture](portal-pair-identity-and-aperture.md),
@@ -291,7 +301,7 @@ Check the affected owners again after the optimization work ends.
 | Partition | `crates/ambition_platformer2d_core/src/frame/thread.rs`: `VolumePiece` stores a mapped volume, world bounds, an `Iso2`, and a path. Keep canonical source regions as authority. Replace both the whole-piece fallback and the fallback that omits through-material. |
 | Domain queries | `crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
 | Pair openings | `crates/ambition_portal2d/src/types.rs` and `crates/ambition_portal2d/src/link.rs`: `opening_half_length` takes the minimum through `partner_opening_half`. Remove that field and the equalizer when all consumers support the directed map. |
-| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. Persistent root rebase remains open. |
+| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. The root now carries physical material through the admitted map. Same-tick continuation remains open. |
 | World collision | `crates/ambition_platformer2d_shared_tangle/src/feature_overlay.rs` and `crates/ambition_platformer2d_world/src/collision.rs`: `PortalGlue` imports far-side geometry into the entry chart. Replace independent pair clipping with projections of canonical parts and the same validated maps. |
 | Body contact | `crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`: `snapshot_body_contact` publishes a whole owner box plus carried boxes, then maps foreign boxes back through one straddled link. Use clipped parts and map each constraint to its one owner. |
 | Transit consequences | `crates/ambition_platformer2d_runtime/src/portal_body.rs`: carried momentum and projectile acceleration reconstruct rigid maps from normals. Read the admitted transit map and velocity facts instead. |
@@ -329,12 +339,13 @@ units. Derive collision size and visual size through this map. Audit writers
 of `BodyKinematics::size` and `BodyBaseSize`; a crouch or morph must not erase
 portal scale. Remove mutable size copies when the same fact can be derived.
 
-The root map must state how physical orientation, gravity alignment, facing,
-and pose compose. `ActorRoll` currently owns visual righting. It must not be
-an independent writer of the orientation used for physical material. Keep
-pure visual motion as a presentation offset; if righting moves physical
-material, submit it through the same pose admission as other body motion.
-Turning the controller's facing must not reset material parity.
+`BodyMaterial` owns physical scale, room-chart axes and parity. Gravity is a
+movement reference. The body map does not derive its axes from gravity.
+`ActorRoll` and `SurfaceUpright` are removed. Righting emits a recorded source
+turn and uses native material admission. A solid can block the turn. A numeric
+or representation fault retains the previous accepted body and movement state.
+Canonical facing does not reset material parity. Combat and attachment readers
+still need the common material-map migration.
 
 **Rebase at the existing root crossing.** Let `R` map canonical material into
 the root chart and `P_i` map that chart into part `i`'s chart. The full part

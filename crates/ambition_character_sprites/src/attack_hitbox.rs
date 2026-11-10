@@ -26,7 +26,6 @@
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::catalog_join;
-use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::{FrameToBody, SheetRecord, SheetRegistry, frame_at};
 
 /// Baked sheets keyed by file root (not `record.target`), so the

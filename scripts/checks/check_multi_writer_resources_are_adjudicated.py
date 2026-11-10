@@ -518,7 +518,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_dev_tools/src/lib.rs",
         "crates/ambition_platformer2d_runtime/src/extension_composition.rs",
         "crates/ambition_portal2d/src/tuning.rs",
-        "game/ambition_content/src/portal/reorient_setting.rs",
     ),
     "RoomTransitionLoadState": (
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
@@ -749,7 +748,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "EditablePortalTuning": (
         "game/ambition_app/src/dev/portal_inspector.rs",
-        "game/ambition_content/src/portal/reorient_setting.rs",
     ),
     "FixedStepsTaken": (
         "game/ambition_app/src/app/cli.rs",
@@ -2907,32 +2905,9 @@ ADJUDICATED: dict[str, str] = {
         "with the watch's write removed."
     ),
     "EditablePortalTuning": (
-        "ONE FIELD HAS ONE AUTHOR, PROVED BY A CHANGE-GUARD RATHER THAN A "
-        "COMMENT. `sync_portal_reorient_from_settings` "
-        "(`game/ambition_content/src/portal/reorient_setting.rs:42`) "
-        "runs `if editable.reorient_facing != want { editable.reorient_facing "
-        "= want; pending.propose(...) }` (`:53-55`) — it does nothing while "
-        "the field already agrees with the persisted "
-        "`settings.gameplay.portal_reverses_facing`, and republishes that "
-        "persisted value the instant it does not, which is exactly what a "
-        "developer-panel edit of that one field produces. The panel's own "
-        "comment names the same relationship: \"THE MIRROR, NOT THE "
-        "AUTHORITY\" (`game/ambition_app/src/dev/portal_inspector.rs:77`). "
-        "So for `reorient_facing` specifically the gameplay setting is the "
-        "author and the panel edit is deterministically reverted on the next "
-        "pass — not a race, because only one side ever wins. The struct's "
-        "other fields ARE panel-authored and this system touches none of "
-        "them. `publish_editable_portal_tuning` "
-        "(`crates/ambition_portal2d/src/tuning.rs:177`) is the only writer of "
-        "the downstream `PortalTuning` authority itself. "
-        "⛔⛤ AN EARLIER DRAFT OF THIS ROW CLOSED THE QUESTION BY QUOTING THE "
-        "DOC BLOCK ABOVE THAT SYSTEM, which then said the field was authored "
-        "\"by the settings menu and by the developer panel alike\". That "
-        "sentence was FALSE for `reorient_facing` and was retracted in "
-        "`38f05f5f9`; it no longer exists in the tree. A comment asserting "
-        "resolution is not a measurement of one — the change-guard is. "
-        "Measured by CalculexAmbition, 2026-09-18; rewritten against the "
-        "current source before landing."
+        "The developer inspector authors the mirror. The admitted publisher "
+        "in ambition_portal2d::tuning is the only writer of PortalTuning. "
+        "The timeline owner admits each mechanical edit before publication."
     ),
     "ActiveSessionScope": (
         "THREE DISJOINT OPERATIONS, NEVER CONTENDING ON THE SAME WRITE. The "
@@ -3150,21 +3125,8 @@ ADJUDICATED: dict[str, str] = {
         "the contract at `:333`. A seventh `of::<>` site, `FixtureDomain` "
         "(`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:658`), "
         "sits under the `#[cfg(test)]` at `:610` and is not in this "
-        "population. The remaining writer, "
-        "`game/ambition_content/src/portal/reorient_setting.rs:55`, "
-        "deliberately reuses `PortalTuningDomain` alongside "
-        "`crates/ambition_portal2d/src/tuning.rs:168` — inserting the same "
-        "set element twice is still idempotent. The sole publisher, "
-        "`publish_editable_portal_tuning` "
-        "(`crates/ambition_portal2d/src/tuning.rs:176-195`), is the only "
-        "writer of the actual authority (`*active = editable.0`) and the "
-        "only caller of `.take()` for that domain. ⚠ The draft of this row "
-        "also quoted `transit_body_adapter.rs:103-105` (now `reorient_setting.rs`) as calling the shape "
-        "\"two authors of one authored value\"; that paragraph is correct "
-        "for the OTHER fields but was retracted for `reorient_facing` in "
-        "`38f05f5f9` — see the `EditablePortalTuning` row. The quote is "
-        "dropped here; the idempotent-insert argument does not need it. "
-        "Measured by CalculexAmbition, 2026-09-18.\n"
+        "population. Each domain publisher consumes its admitted proposal "
+        "before it writes the authority.\n"
         "    2026-10-08: a seventh production writer, `PlayerDamagePolicyDomain` "
         "(`crates/ambition_damage/src/lib.rs`, SETTINGS-ROLLBACK). Its own "
         "proposer and its own publisher, the only writer of `PlayerDamagePolicy`; "

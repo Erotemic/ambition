@@ -534,9 +534,8 @@ pub struct GroundItemFact {
     /// The live room of the thing this row draws (`LiveRooms::of`). The
     /// visual is placed by that room's geometry and stamped with it.
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    /// The item's turn (`ActorRoll`, render-space radians): a portal pair
-    /// that turns what it carries turns it.
-    pub roll: f32,
+    /// The item's physical material in its current room chart.
+    pub material: ae::frame::BodyMaterial,
     /// The seconds left on a lit fuse (a thrown bomb), or `None` for an item
     /// with no fuse. The visual flashes faster as the fuse burns down.
     pub fuse_left_s: Option<f32>,
@@ -557,7 +556,6 @@ pub fn rebuild_ground_items_view(
         &ambition_held_items::GroundItem,
         &ae::BodyKinematics,
         &ambition_held_items::ItemCustody,
-        Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
         Option<&ambition_abilities::ranged::bomb::BombFuse>,
     )>,
 ) {
@@ -565,14 +563,14 @@ pub fn rebuild_ground_items_view(
     view.0.extend(
         grounds
             .iter()
-            .filter(|(_, _, _, custody, _, _)| custody.in_world())
-            .map(|(item, ground, body, _, roll, fuse)| GroundItemFact {
+            .filter(|(_, _, _, custody, _)| custody.in_world())
+            .map(|(item, ground, body, _, fuse)| GroundItemFact {
                 item,
                 pos: body.pos,
-                half_extent: body.size() * 0.5,
+                half_extent: body.canonical_size * 0.5,
                 item_id: ground.spec.id.clone(),
                 room: live.of(item),
-                roll: roll.map_or(0.0, |roll| roll.angle),
+                material: body.material,
                 fuse_left_s: fuse.map(|fuse| fuse.timer),
             }),
     );

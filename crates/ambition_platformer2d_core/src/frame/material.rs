@@ -1,15 +1,15 @@
 //! The physical scale and orientation of canonical body material.
 
-use bevy_math::Mat2;
+use bevy_math::{DMat2, DVec2, Mat2};
 
 use super::{NumericFault, Sim2};
 use crate::Vec2;
 
-/// Material axes relative to the body's acceleration frame.
+/// Canonical material axes in the body's current room chart.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BodyMaterial {
-    scale: f32,
-    orthogonal: Mat2,
+    scale: f64,
+    orthogonal: DMat2,
 }
 
 impl Default for BodyMaterial {
@@ -17,56 +17,77 @@ impl Default for BodyMaterial {
 }
 
 impl BodyMaterial {
-    pub const IDENTITY: Self = Self { scale: 1.0, orthogonal: Mat2::IDENTITY };
+    pub const IDENTITY: Self = Self { scale: 1.0, orthogonal: DMat2::IDENTITY };
 
     pub fn new(scale: f32, orthogonal: Mat2) -> Result<Self, NumericFault> {
         let map = Sim2::new(scale, orthogonal, Vec2::ZERO)?;
-        Ok(Self { scale, orthogonal: map.orthogonal() })
+        Ok(Self::from_linear(map))
     }
 
-    pub fn scale(self) -> f32 { self.scale }
-    pub fn orthogonal(self) -> Mat2 { self.orthogonal }
+    pub fn scale(self) -> f32 { self.scale as f32 }
+    pub fn orthogonal(self) -> Mat2 { Mat2::from_cols(self.orthogonal.x_axis.as_vec2(), self.orthogonal.y_axis.as_vec2()) }
     pub fn reflected(self) -> bool { self.orthogonal.determinant() < 0.0 }
 
-    /// Build the map from canonical coordinates to the body's world chart.
-    pub fn at(self, center: Vec2, down: Vec2) -> Result<Sim2, NumericFault> {
-        let frame = crate::AccelerationFrame::new(down);
-        Sim2::new(self.scale, Mat2::from_cols(frame.side, frame.down) * self.orthogonal, center)
+    fn from_linear(map: Sim2) -> Self {
+        Self { scale: map.scale_wide(), orthogonal: DMat2::from_cols(
+            map.direction_wide(DVec2::X), map.direction_wide(DVec2::Y)) }
     }
 
-    /// The new base frame can differ from the frame at departure.
-    pub fn carried(self, map: Sim2, from_down: Vec2, to_down: Vec2) -> Result<Self, NumericFault> {
-        let from = crate::AccelerationFrame::new(from_down);
-        let to = crate::AccelerationFrame::new(to_down);
-        let from = Mat2::from_cols(from.side, from.down);
-        let to = Mat2::from_cols(to.side, to.down);
-        let composed = Sim2::new(self.scale, from * self.orthogonal, Vec2::ZERO)?
-            .then(Sim2::new(map.scale(), map.orthogonal(), Vec2::ZERO)?)?;
-        Self::new(composed.scale(), to.transpose() * composed.orthogonal())
+    /// Build the map from canonical coordinates into the current room chart.
+    pub fn at(self, center: Vec2) -> Result<Sim2, NumericFault> {
+        Sim2::from_wide_translation(self.scale, self.orthogonal, center.as_dvec2())
+    }
+
+    /// Carry physical scale, rotation and parity into another chart.
+    pub fn carried(self, map: Sim2) -> Result<Self, NumericFault> {
+        let linear = Sim2::from_wide_translation(map.scale_wide(),
+            DMat2::from_cols(map.direction_wide(DVec2::X), map.direction_wide(DVec2::Y)), DVec2::ZERO)?;
+        Ok(Self::from_linear(self.at(Vec2::ZERO)?.then(linear)?))
+    }
+
+    pub fn turned(self, angle: f64) -> Result<Self, NumericFault> {
+        if !angle.is_finite() { return Err(NumericFault::NonFinite); }
+        Ok(Self::from_linear(Sim2::from_wide_translation(self.scale,
+            super::rotation_at(angle) * self.orthogonal, DVec2::ZERO)?))
+    }
+
+    /// Turn the physical down axis toward a target without changing parity.
+    pub fn righting_turn(self, target_down: Vec2, max_step: f64) -> Result<f64, NumericFault> {
+        if !target_down.is_finite() || !max_step.is_finite() { return Err(NumericFault::NonFinite); }
+        if max_step < 0.0 { return Err(NumericFault::InvalidFrame); }
+        let target = target_down.as_dvec2().normalize_or_zero();
+        if target == DVec2::ZERO { return Ok(0.0); }
+        let down = self.orthogonal.y_axis;
+        Ok(down.perp_dot(target).atan2(down.dot(target)).clamp(-max_step, max_step))
+    }
+
+    /// Render-space rotation. Physical reflection is a separate projection.
+    pub fn render_angle(self) -> f32 {
+        self.orthogonal.y_axis.x.atan2(self.orthogonal.y_axis.y) as f32
     }
 
     /// The axis-aligned envelope is for broad phase queries.
-    pub fn half_extent(self, canonical_half: Vec2, down: Vec2) -> Vec2 {
-        let frame = crate::AccelerationFrame::new(down);
-        let basis = Mat2::from_cols(frame.side, frame.down) * self.orthogonal;
-        (basis.x_axis.abs() * canonical_half.x + basis.y_axis.abs() * canonical_half.y) * self.scale
+    pub fn half_extent(self, canonical_half: Vec2) -> Vec2 {
+        ((self.orthogonal.x_axis.abs() * f64::from(canonical_half.x)
+            + self.orthogonal.y_axis.abs() * f64::from(canonical_half.y)) * self.scale).as_vec2()
     }
+
 }
 
 impl crate::snapshot::SnapshotState for BodyMaterial {
     fn encode(&self, out: &mut Vec<u8>) {
-        use crate::snapshot::{put_f32, put_vec2};
-        put_f32(out, self.scale);
-        put_vec2(out, self.orthogonal.x_axis);
-        put_vec2(out, self.orthogonal.y_axis);
+        for value in [self.scale, self.orthogonal.x_axis.x, self.orthogonal.x_axis.y,
+            self.orthogonal.y_axis.x, self.orthogonal.y_axis.y] {
+            crate::snapshot::put_u64(out, value.to_bits());
+        }
     }
 
     fn decode(reader: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
-        let scale = reader.f32()?;
-        let orthogonal = Mat2::from_cols(reader.vec2()?, reader.vec2()?);
-        Sim2::new(scale, orthogonal, Vec2::ZERO).ok()?;
-        // Restore the admitted bits. Normalization can change signed zero
-        // or round an axis again and change the peer checksum.
+        let scale = f64::from_bits(reader.u64()?);
+        let orthogonal = DMat2::from_cols(
+            DVec2::new(f64::from_bits(reader.u64()?), f64::from_bits(reader.u64()?)),
+            DVec2::new(f64::from_bits(reader.u64()?), f64::from_bits(reader.u64()?)));
+        Sim2::from_wide_translation(scale, orthogonal, DVec2::ZERO).ok()?;
         Some(Self { scale, orthogonal })
     }
 }
@@ -78,21 +99,21 @@ mod tests {
     #[test]
     fn two_reflections_restore_parity_and_keep_scale() {
         let map = Sim2::new(2.0, Mat2::from_cols(-Vec2::X, Vec2::Y), Vec2::ZERO).unwrap();
-        let first = BodyMaterial::IDENTITY.carried(map, Vec2::Y, Vec2::X).unwrap();
+        let first = BodyMaterial::IDENTITY.carried(map).unwrap();
         assert!(first.reflected());
-        let second = first.carried(map, Vec2::X, Vec2::Y).unwrap();
+        let second = first.carried(map).unwrap();
         assert!(!second.reflected());
         assert_eq!(second.scale(), 4.0);
         assert_eq!(second.orthogonal(), Mat2::IDENTITY);
     }
 
     #[test]
-    fn changed_base_frame_keeps_the_world_map() {
+    fn a_carried_material_keeps_the_composed_world_map() {
         let material = BodyMaterial::new(3.0, Mat2::from_angle(0.37)).unwrap();
         let map = Sim2::new(0.5, Mat2::from_cols(Vec2::Y, Vec2::X), Vec2::new(700.0, 25.0)).unwrap();
-        let before = material.at(Vec2::new(20.0, 50.0), -Vec2::X).unwrap();
-        let after = material.carried(map, -Vec2::X, -Vec2::Y).unwrap()
-            .at(map.point(Vec2::new(20.0, 50.0)).unwrap(), -Vec2::Y).unwrap();
+        let before = material.at(Vec2::new(20.0, 50.0)).unwrap();
+        let after = material.carried(map).unwrap()
+            .at(map.point(Vec2::new(20.0, 50.0)).unwrap()).unwrap();
         for point in [Vec2::ZERO, Vec2::X, Vec2::new(-10.0, 20.0)] {
             assert!((map.point(before.point(point).unwrap()).unwrap() - after.point(point).unwrap()).length() < 1.0e-4);
         }
@@ -114,7 +135,7 @@ mod snapshot_tests {
         let bytes = encode_state(&body);
         assert_eq!(decode_state::<crate::BodyKinematics>(&bytes), Some(body));
         let mut invalid = bytes;
-        invalid[28..32].copy_from_slice(&0.0_f32.to_le_bytes());
+        invalid[28..36].copy_from_slice(&0.0_f64.to_le_bytes());
         assert!(decode_state::<crate::BodyKinematics>(&invalid).is_none());
     }
 

@@ -3,12 +3,27 @@
 use super::{MapConvention, NumericFault, PortalAperture, PortalFrame, Sim2};
 use crate::Vec2;
 
+/// Keep exact quarter turns exact. Other angles use the ordinary trigonometric map.
+pub(crate) fn rotation_at(angle: f64) -> bevy_math::DMat2 {
+    use bevy_math::{DMat2, DVec2};
+    let quarter = angle / std::f64::consts::FRAC_PI_2;
+    if quarter.abs() <= (1_u64 << 48) as f64 && quarter.fract() == 0.0
+        && quarter * std::f64::consts::FRAC_PI_2 == angle {
+        match (quarter as i64).rem_euclid(4) {
+            0 => DMat2::IDENTITY,
+            1 => DMat2::from_cols(DVec2::Y, -DVec2::X),
+            2 => -DMat2::IDENTITY,
+            _ => DMat2::from_cols(-DVec2::Y, DVec2::X),
+        }
+    } else { DMat2::from_angle(angle) }
+}
+
 /// Rotation from the published end pose at one tick time.
 pub(crate) fn rotation_ending_at(turn: f64, time: f64) -> bevy_math::DMat2 {
     if time == 1.0 {
         bevy_math::DMat2::IDENTITY
     } else {
-        bevy_math::DMat2::from_angle(turn * time) * bevy_math::DMat2::from_angle(-turn)
+        rotation_at(turn * time) * rotation_at(-turn)
     }
 }
 

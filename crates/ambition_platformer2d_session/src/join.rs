@@ -76,7 +76,7 @@ pub fn seat_a_joining_participant(sprite_content: Res<ambition_sprite_sheet::Spr
     let Some(walls) = collision.room(room).and_then(|room| room.solids()) else {
         return;
     };
-    let reference = kin.collision_box(sample);
+    let reference = kin.aabb();
     let frame = ae::AccelerationFrame::new(sample.map_or(ae::DEFAULT_GRAVITY_DIR, |sample| sample.down));
     let mut occupied: Vec<_> = bodies.iter()
         .filter(|(_, _, body_room, owner, depth)| {
@@ -84,7 +84,7 @@ pub fn seat_a_joining_participant(sprite_content: Res<ambition_sprite_sheet::Spr
                 && owner.is_none_or(|owner| owner.0 == session)
                 && depth.is_none_or(|depth| depth.is_playable())
         })
-        .map(|(kin, sample, ..)| kin.collision_box(sample))
+        .map(|(kin, _, ..)| kin.aabb())
         .collect();
     for seat in joining {
         let mut body = HomeBody {

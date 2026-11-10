@@ -157,8 +157,6 @@ struct UnattachedAtDecision {
     seen: std::collections::HashSet<Entity>,
     /// Brained bodies with no belief memory for their senses to update.
     memoryless: Vec<Entity>,
-    /// Brained bodies with no orientation to right themselves with.
-    rollless: Vec<Entity>,
 }
 
 fn record_unattached_at_decision(
@@ -167,7 +165,6 @@ fn record_unattached_at_decision(
         (
             Entity,
             Has<ambition_platformer2d::characters::perception::PerceptionMemory>,
-            Has<ambition_platformer2d::platformer::orientation::ActorRoll>,
         ),
         (
             With<ambition_platformer2d::characters::brain::Brain>,
@@ -177,13 +174,10 @@ fn record_unattached_at_decision(
         ),
     >,
 ) {
-    for (entity, has_memory, has_roll) in &brained {
+    for (entity, has_memory) in &brained {
         out.seen.insert(entity);
         if !has_memory {
             out.memoryless.push(entity);
-        }
-        if !has_roll {
-            out.rollless.push(entity);
         }
     }
 }
@@ -194,9 +188,8 @@ fn record_unattached_at_decision(
 /// the tick have run, so a body that waited for one would decide without it.
 /// Nothing is left to wait for. A body's senses and its dormancy are derived
 /// when it decides. Its belief memory is built with its brain (`Brain`
-/// requires it), and its roll with its movement frame (`ResolvedMotionFrame`
-/// requires it); the memory and roll arms check that the rebuilt bodies arrive
-/// with both.
+/// requires it). The physical orientation is part of `BodyKinematics`.
+/// The memory check covers rebuilt bodies at their first decision.
 #[test]
 fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -231,11 +224,5 @@ fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
         "{} brained bodies reached the decision pass with no belief memory: {:?}",
         record.memoryless.len(),
         &record.memoryless[..record.memoryless.len().min(5)]
-    );
-    assert!(
-        record.rollless.is_empty(),
-        "{} brained bodies reached the decision pass with no `ActorRoll`: {:?}",
-        record.rollless.len(),
-        &record.rollless[..record.rollless.len().min(5)]
     );
 }

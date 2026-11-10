@@ -75,7 +75,7 @@ pub(super) fn integrate_home_body(
     // is every body in Ambition today.
     contact_field: ae::BodyContactField<'_>,
     portal: Option<ae::frame::thread::MotionAdmission<'_>>,
-) -> Option<ae::Vec2> {
+) {
     let actor_control = actor_control.damped_by_move_motion(move_motion_scale);
     let input = engine_input_from_actor_control(
         actor_control,
@@ -164,16 +164,6 @@ pub(super) fn integrate_home_body(
         -result.surface_normal,
     );
 
-    // The ridden-surface presentation fact: a momentum rider plants its feet on
-    // the ground under it, so the caller publishes this tick's outward support
-    // normal as the body's visual up (`SurfaceUpright`). Axis bodies stay
-    // gravity-upright — a wall slide is not a stance change — and crawler
-    // enemies publish their own surface pose through the feature view.
-    (matches!(
-        motion_model,
-        ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(_)
-    ) && result.support.is_held())
-    .then_some(result.surface_normal)
 }
 
 /// The grounded braking read behind `BodyMotionFacts::skidding`: the rider is

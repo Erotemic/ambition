@@ -174,7 +174,6 @@ where
         OWNER,
         "entity.spawn_origin",
     );
-    registrar.rollback_component_canonical::<crate::orientation::ActorRoll>(OWNER, "actor.roll");
     registrar
         .rollback_component_clone::<crate::lifecycle::RoomVisual>(OWNER, "lifecycle.room_visual");
     registrar.rollback_component_clone::<crate::lifecycle::PlayerVisual>(
@@ -330,11 +329,6 @@ where
         OWNER,
         "derived.resolved_motion_frame",
         "published every tick from the live environment",
-    );
-    registrar.declare_rollback_derived_component::<crate::orientation::SurfaceUpright>(
-        OWNER,
-        "derived.surface_upright",
-        "republished from support facts every movement step",
     );
     registrar.require_rollback::<crate::frame_env::ForceZone>(OWNER, "entity:force_zone");
     registrar.rollback_component_canonical::<crate::frame_env::ForceZone>(

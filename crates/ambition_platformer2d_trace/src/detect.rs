@@ -39,7 +39,7 @@ pub fn detect_oob_scratch(
 /// so the recorder and the safe position have one definition of "inside a
 /// solid". A body that lies along sideways gravity is not its level box.
 pub(super) fn body_box(clusters: &ae::BodyClustersMut<'_>) -> ae::Aabb {
-    clusters.kinematics.collision_box(clusters.sweep.as_deref())
+    clusters.kinematics.aabb()
 }
 
 /// The OOB reason of a kernel body, from its clusters.

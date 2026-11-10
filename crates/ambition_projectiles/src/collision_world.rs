@@ -62,7 +62,7 @@ impl ProjectileCollisionWorld<'_, '_> {
             return Ok(());
         };
         if admission.links.is_empty() { return Ok(()); }
-        let map = before.material_map(ae::Vec2::ZERO).map_err(|reason| ae::frame::thread::Refusal {
+        let map = before.material_map().map_err(|reason| ae::frame::thread::Refusal {
             path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
         })?;
         let (delta, until) = travel.line(before.pos, after.pos).map_err(|reason| ae::frame::thread::Refusal {

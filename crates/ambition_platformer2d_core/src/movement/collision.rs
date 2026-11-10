@@ -17,15 +17,14 @@ use crate::world::{Block, BlockKind, World};
 #[must_use]
 fn apply_bounded_resolution(
     kinematics: &mut crate::body_clusters::BodyKinematics,
-    gravity_dir: Vec2,
     delta: Vec2,
     block: Aabb,
     normal: Vec2,
 ) -> bool {
-    let Some(position) = face_contact_position(*kinematics, gravity_dir, delta, block, normal) else {
+    let Some(position) = face_contact_position(*kinematics, delta, block, normal) else {
         return false;
     };
-    if !is_contact_range_snap(position - kinematics.pos, kinematics.aabb_oriented(gravity_dir)) {
+    if !is_contact_range_snap(position - kinematics.pos, kinematics.aabb()) {
         return false;
     }
     kinematics.pos = position;
@@ -35,11 +34,11 @@ fn apply_bounded_resolution(
 /// Round a contact position toward free space. A rounded box edge can hide
 /// penetration by the canonical material and prevent an exact aperture fit.
 fn face_contact_position(
-    body: crate::BodyKinematics, down: Vec2, delta: Vec2, block: Aabb, normal: Vec2,
+    body: crate::BodyKinematics, delta: Vec2, block: Aabb, normal: Vec2,
 ) -> Option<Vec2> {
     let axis = if normal.x != 0.0 { Axis::X } else { Axis::Y };
     let sign = axis_component(normal, axis);
-    let half = body.projected_half_extent(down, normal.as_dvec2()).ok()?;
+    let half = body.projected_half_extent(normal.as_dvec2()).ok()?;
     let face = axis_component(if sign > 0.0 { block.max } else { block.min }, axis);
     let bound = f64::from(face) + f64::from(sign) * half;
     let mut rounded = bound as f32;
@@ -348,7 +347,7 @@ pub(super) fn sweep_player_axis_clusters(
         );
     }
 
-    let start_body = kinematics.aabb_oriented(gravity_dir);
+    let start_body = kinematics.aabb();
     if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
         if !is_solid_for_axis(block.kind, axis, gravity_dir) {
             return false;
@@ -393,7 +392,7 @@ pub(super) fn sweep_player_axis_clusters(
     }) {
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos += axis_vec(axis, delta_along * toi_fraction);
-        let body = kinematics.aabb_oriented(gravity_dir);
+        let body = kinematics.aabb();
         // and the arm was never load-bearing. Its whole stated job was
         // "not the feet-snap arm", which the condition below already refuses on
         // its own terms: a `BonkOnly` hit exists only when a head is RISING into
@@ -405,7 +404,7 @@ pub(super) fn sweep_player_axis_clusters(
         {
             let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
             let support_normal = support_face_normal(axis, gravity_dir);
-            let _ = apply_bounded_resolution(kinematics, gravity_dir, snap, hit.block.aabb, support_normal);
+            let _ = apply_bounded_resolution(kinematics, snap, hit.block.aabb, support_normal);
             // BEFORE the zero below destroys it — the whole reason the contact
             // carries it (see `Contact::impact_speed`).
             let impact = crate::collision_semantics::closing_speed(kinematics.vel, support_normal);
@@ -423,7 +422,7 @@ pub(super) fn sweep_player_axis_clusters(
             ));
         } else if role == AxisRole::Gravity {
             let (push, push_normal) = axis_face_resolution(body, hit.block.aabb, axis);
-            if apply_bounded_resolution(kinematics, gravity_dir, push, hit.block.aabb, push_normal) {
+            if apply_bounded_resolution(kinematics, push, hit.block.aabb, push_normal) {
                 let impact = crate::collision_semantics::closing_speed(kinematics.vel, push_normal);
                 zero_axis_vel(kinematics, axis);
                 // The other end of the axis `on_ground` reports. Published so
@@ -469,7 +468,7 @@ pub(super) fn sweep_player_axis_clusters(
             } else {
                 let (d, normal_sign) = depen.expect("checked is_none above");
                 let side_normal = axis_vec(axis, normal_sign);
-                if !apply_bounded_resolution(kinematics, gravity_dir, axis_vec(axis, d), hit.block.aabb, side_normal) {
+                if !apply_bounded_resolution(kinematics, axis_vec(axis, d), hit.block.aabb, side_normal) {
                     return None;
                 }
                 // ⭐ THE WALL HIT, measured. This is the value nothing
@@ -547,7 +546,7 @@ fn resolve_axis_repair(
     contacts: &mut Vec<Contact>,
 ) -> Option<AxisConstraintConflict> {
     let role = axis_role(axis, gravity_dir);
-    let aabb = kinematics.aabb_oriented(gravity_dir);
+    let aabb = kinematics.aabb();
     let centre = axis_component(aabb.center(), axis);
     // The deepest claim in each direction: `toward_pos` demands the largest
     // minimum, `toward_neg` the smallest maximum.
@@ -648,7 +647,7 @@ fn resolve_axis_repair(
                 }
             }
         };
-        let Some(position) = face_contact_position(*kinematics, gravity_dir, claim.delta, block.aabb, claim.normal) else {
+        let Some(position) = face_contact_position(*kinematics, claim.delta, block.aabb, claim.normal) else {
             continue;
         };
         claim.bound = axis_component(position, axis);
@@ -900,9 +899,9 @@ mod tests {
                                 bevy_math::Mat2::from_cols(Vec2::X, Vec2::Y * parity)).unwrap(),
                             ..Default::default()
                         };
-                        let half = body.projected_half_extent(down, normal.as_dvec2()).unwrap();
+                        let half = body.projected_half_extent(normal.as_dvec2()).unwrap();
                         body.pos = block.center() + normal * (40.0 + half as f32);
-                        let result = face_contact_position(body, down, Vec2::ZERO, block, normal).unwrap();
+                        let result = face_contact_position(body, Vec2::ZERO, block, normal).unwrap();
                         let face = normal.as_dvec2().dot(block.center().as_dvec2()) + 40.0;
                         let edge = normal.as_dvec2().dot(result.as_dvec2()) - half;
                         assert!(edge >= face, "normal={normal}, down={down}, scale={scale}: {edge} < {face}");

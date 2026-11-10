@@ -47,12 +47,11 @@ pub fn body_snapshot(
     name: String,
     kind: &'static str,
     kin: ae::BodyKinematics,
-    last_step: Option<&ae::SweepSample>,
     world: &ae::World,
     margin: f32,
 ) -> BodyTraceSnapshot {
     // The box the body has: turned as its last step turned it.
-    let aabb = kin.collision_box(last_step);
+    let aabb = kin.aabb();
     let oob =
         detect_oob_from_kinematics(kin.pos, kin.vel, aabb, world, margin).map(|r| r.short_label());
     BodyTraceSnapshot {
@@ -110,7 +109,6 @@ pub fn record_actor_oob_frame_system(
         Entity,
         &ae::BodyKinematics,
         // The record of the body's last step: it has the DOWN of the body.
-        Option<&ae::SweepSample>,
         Option<&ActorIdentity>,
         Option<&ActorFaction>,
         Has<PlayerEntity>,
@@ -128,7 +126,7 @@ pub fn record_actor_oob_frame_system(
     let mut worlds: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
     // Sized as the last frame was: the body count barely moves tick to tick.
     let mut bodies = Vec::with_capacity(buffer.frames.back().map_or(0, |frame| frame.bodies.len()));
-    for (entity, kin, last_step, identity, faction, is_player) in &bodies_q {
+    for (entity, kin, identity, faction, is_player) in &bodies_q {
         let room = rooms.live().of(entity);
         let index = match worlds.iter().position(|(seen, ..)| *seen == room) {
             Some(index) => index,
@@ -153,7 +151,7 @@ pub fn record_actor_oob_frame_system(
             None => (format!("entity-{}", entity.index()), "<body>".to_string()),
         };
         let mut snapshot =
-            body_snapshot(id, name, body_kind(is_player, faction), *kin, last_step, world, OOB_MARGIN);
+            body_snapshot(id, name, body_kind(is_player, faction), *kin, world, OOB_MARGIN);
         snapshot.room = room.map(|room| room.ordinal());
         bodies.push(snapshot);
     }
@@ -257,7 +255,6 @@ mod tests {
             "Mockingbird".into(),
             "boss".into(),
             kin(ae::Vec2::new(430.0, 400.0)),
-            None,
             &world_960x768(),
             OOB_MARGIN,
         );
@@ -273,7 +270,6 @@ mod tests {
             "Mockingbird".into(),
             "boss".into(),
             kin(ae::Vec2::new(430.0, -400.0)),
-            None,
             &world_960x768(),
             OOB_MARGIN,
         );
@@ -288,7 +284,8 @@ mod tests {
     /// `offset` from its centre. `down` is the DOWN of its last step.
     fn beside_a_solid(offset: ae::Vec2, down: ae::Vec2) -> Option<String> {
         let at = ae::Vec2::new(480.0, 384.0);
-        let body = ae::BodyKinematics { material: Default::default(),
+        let body = ae::BodyKinematics { material: ae::frame::BodyMaterial::new(1.0, bevy::math::Mat2::from_cols(
+                ae::Vec2::new(down.y, -down.x), down)).unwrap(),
             pos: at,
             vel: ae::Vec2::ZERO,
             canonical_size: ae::Vec2::new(24.0, 40.0),
@@ -301,13 +298,11 @@ mod tests {
             ae::Vec2::ZERO,
             vec![ae::Block::solid("thin", solid.min, solid.max - solid.min)],
         );
-        let record = ae::SweepSample::at_rest(body, down);
         body_snapshot(
             "body".into(),
             "Body".into(),
             "body".into(),
             body,
-            Some(&record),
             &world,
             OOB_MARGIN,
         )

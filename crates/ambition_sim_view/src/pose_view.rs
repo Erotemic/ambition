@@ -320,8 +320,8 @@ pub struct BodyPoseView {
     /// `f32::INFINITY` when it is not on one. The first [`WALL_LAND_SECS`] of
     /// it are drawn as the landing on the wall.
     pub wall_secs: f32,
-    /// Aerial/gravity roll angle (radians) — the sprite rotation.
-    pub roll_angle: f32,
+    /// Physical material in the current room chart.
+    pub material: ambition_platformer2d_core::frame::BodyMaterial,
     /// `size.y / base_size.y`, clamped (0.1, 1.0] — the trimmed-sheet
     /// stance compaction the animator applies.
     pub stance_ratio_y: f32,
@@ -540,7 +540,7 @@ impl Default for BodyPoseView {
             wall_secs: f32::INFINITY,
             // A body with no pose yet is playing no move.
             clip: None,
-            roll_angle: 0.0,
+            material: Default::default(),
             stance_ratio_y: 1.0,
             squash: ambition_platformer2d_core::Vec2::ONE,
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
@@ -617,7 +617,6 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_combat::moveset::ActorMoveset>,
                 Option<&ambition_platformer2d_core::BodyBaseSize>,
                 Option<&BodyHealth>,
-                Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
                 Option<&ambition_projectiles::PlayerProjectileState>,
                 // The movement policy, for the body's own top speed (the
                 // sprint row).
@@ -717,7 +716,6 @@ pub fn rebuild_body_pose_views(
             moveset,
             base_size,
             health,
-            roll,
             projectile_state,
             model,
         ),
@@ -740,9 +738,9 @@ pub fn rebuild_body_pose_views(
     ) in &mut bodies
     {
         let gravity_dir = body_down(body_frame);
-        let base = base_size.map_or(kinematics.size(), |b| b.base_size);
+        let base = base_size.map_or(kinematics.canonical_size, |b| b.base_size);
         let stance_ratio_y = base_size
-            .map(|b| (kinematics.size().y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
+            .map(|b| (kinematics.canonical_size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
             .unwrap_or(1.0);
         let squash = squash_and_stretch(
             anim_facts.map_or(0.0, |f| f.land_anim_timer),
@@ -950,7 +948,7 @@ pub fn rebuild_body_pose_views(
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
-            size: kinematics.size(),
+            size: kinematics.canonical_size,
             base_size: base,
             facing: drawn_facing,
             turn_secs,
@@ -963,7 +961,7 @@ pub fn rebuild_body_pose_views(
             stop,
             climb_phase,
             wall_secs,
-            roll_angle: roll.map_or(0.0, |r| r.angle),
+            material: kinematics.material,
             stance_ratio_y,
             squash,
             gravity_dir,

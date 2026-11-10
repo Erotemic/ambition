@@ -49,7 +49,6 @@ fn same_wall_pair_app(who: Body) -> (App, Entity) {
     // turn-around as a facing flip rather than a roll.
     app.insert_resource(PortalTuning {
         convention: PortalConvention::Reflection,
-        reorient_facing: true,
         ..Default::default()
     });
     app.add_plugins(crate::PortalSchedulePlugin);
@@ -101,13 +100,14 @@ fn step_to_arrival(app: &mut App, body: Entity) -> BodyKinematics {
 /// player-population markers but not the seat; the possessed actor has the
 /// seat and none of the markers. Both carry their momentum out of the exit.
 #[test]
-fn only_the_driven_body_turns_around_through_a_same_wall_pair() {
-    for (who, facing) in [(Body::PossessedWithTheSeat, 1.0), (Body::HomeWithoutTheSeat, -1.0)] {
+fn every_body_keeps_its_facing_and_carries_its_physical_parity() {
+    for who in [Body::PossessedWithTheSeat, Body::HomeWithoutTheSeat] {
         let (mut app, body) = same_wall_pair_app(who);
         let kin = step_to_arrival(&mut app, body);
         assert!(kin.pos.y > 400.0, "{who:?} must transit to the orange portal, pos={:?}", kin.pos);
         assert!(kin.vel.x > 0.0, "{who:?} must carry its momentum out of the exit, vel={:?}", kin.vel);
-        assert_eq!(kin.facing, facing, "{who:?}: only the body the seat drives turns around");
+        assert_eq!(kin.facing, -1.0, "{who:?}: facing selects the authored pose");
+        assert!(kin.material.reflected(), "{who:?}: the physical map carries parity");
     }
 }
 

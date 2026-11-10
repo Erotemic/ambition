@@ -244,7 +244,6 @@ pub fn lower_held_forces<L: LowersIn>(
             Entity,
             &mut BodyKinematics,
             Option<&ResolvedMotionFrame>,
-            Option<&ambition_platformer2d_core::SweepSample>,
             Option<&ambition_platformer2d_shared_tangle::body::Mass>,
         ),
         Without<ambition_platformer2d_core::PoseOwnedExternally>,
@@ -259,8 +258,8 @@ pub fn lower_held_forces<L: LowersIn>(
         let area = ambition_platformer2d_core::Aabb::new((min + max) * 0.5, ((max - min) * 0.5).abs());
         let lift = field.lift.clamp(0.0, 1.0);
         let force = Vec2::from(field.force);
-        for (body, mut kin, frame, sample, mass) in &mut bodies {
-            if live.of(body) != room || !ambition_platformer2d_core::AabbExt::strict_intersects(kin.collision_box(sample), area) {
+        for (body, mut kin, frame, mass) in &mut bodies {
+            if live.of(body) != room || !ambition_platformer2d_core::AabbExt::strict_intersects(kin.aabb(), area) {
                 continue;
             }
             let gravity = frame.map_or(Vec2::ZERO, |f| f.get().gravity_acceleration());
@@ -620,7 +619,6 @@ pub fn lower_transits(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut bodies: Query<(
         ambition_platformer2d_core::BodyClusterQueryData,
-        &ResolvedMotionFrame,
         &mut ambition_platformer2d_core::movement::MotionModel,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
@@ -629,7 +627,7 @@ pub fn lower_transits(
 ) {
     use ambition_platformer2d_core as ae;
     for submitted in outbox.drain::<TransitPort>(&WIELDED_USE) {
-        let Ok((mut cluster_item, frame, mut model, room)) = bodies.get_mut(submitted.scope) else {
+        let Ok((mut cluster_item, mut model, room)) = bodies.get_mut(submitted.scope) else {
             continue;
         };
         let transit = submitted.value;
@@ -639,12 +637,7 @@ pub fn lower_transits(
             ambition_combat_port::Destination::To(at) => ae::Vec2::from(at),
             ambition_combat_port::Destination::Along { direction, distance } => {
                 let dir = ae::Vec2::from(direction);
-                // The box the body has: turned to the DOWN of its last step.
-                // For a body the axis arm moves that is the DOWN of its
-                // resolved frame; a crawler on a wall lies along the wall,
-                // and only the record of its step says so.
-                let down = ae::SweepSample::down_or(clusters.sweep.as_deref(), frame.down());
-                let half = clusters.kinematics.half_oriented(down);
+                let half = clusters.kinematics.half_extent();
                 match world.room(room).and_then(|room| room.solids()).as_ref() {
                     Some(w) => crate::traversal::blink::blink_target(&**w, from, dir, distance, half),
                     // No collision world (a minimal test app): the full distance.

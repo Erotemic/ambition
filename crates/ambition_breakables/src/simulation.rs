@@ -17,7 +17,6 @@ pub fn update_ecs_breakables(
         (
             Entity,
             &ambition_platformer2d_core::BodyKinematics,
-            Option<&ambition_platformer2d_core::SweepSample>,
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
@@ -78,9 +77,9 @@ pub fn update_ecs_breakables(
         // iterator today. OVERNIGHT-TODO #17.8 (iterate-all-players
         // "no targeting" B-bucket).
         let any_player_standing = breaks_on_stand
-            && player_body_q.iter().any(|(player, kin, last_step)| {
+            && player_body_q.iter().any(|(player, kin)| {
                 rooms.of(player) == room
-                    && player_is_standing_on(kin.collision_box(last_step), aabb.aabb())
+                    && player_is_standing_on(kin.aabb(), aabb.aabb())
             });
         if any_player_standing {
             stand_timer.0 += dt;

@@ -142,7 +142,7 @@ fn play_ambition(
     items: ambition_items::ItemCatalogRead,
     autopilot: Option<Res<Autopilot>>,
     rooms: Option<LiveRoomSpecs>,
-    players: Query<(Entity, &ae::BodyKinematics, Option<&ae::SweepSample>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>, &ambition_characters::control::DrivingParticipant, &ambition_platformer2d_shared_tangle::sim_id::SimId), With<PrimaryPlayer>>,
+    players: Query<(Entity, &ae::BodyKinematics, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>, &ambition_characters::control::DrivingParticipant, &ambition_platformer2d_shared_tangle::sim_id::SimId), With<PrimaryPlayer>>,
     cutscene: Option<Res<ambition_cutscene::ActiveCutscene>>,
     mut gates: GateTravel,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
@@ -156,7 +156,7 @@ fn play_ambition(
         Option<&ambition_boss_encounter::BossEncounter>,
         &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
 ) {
-    let Ok((entity, kin, sweep, in_room, driver, subject)) = players.single() else {
+    let Ok((entity, kin, in_room, driver, subject)) = players.single() else {
         *order = AutopilotOrder::Idle;
         return;
     };
@@ -315,7 +315,7 @@ fn play_ambition(
                 *order = AutopilotOrder::Idle;
                 return;
             };
-            let body = kin.collision_box(sweep);
+            let body = kin.aabb();
             if let Some(address) = &hop.dial {
                 let linked = gates.state.route_from(&zone.id).is_some_and(|link| link.address == address.as_slice());
                 if gates.state.terminals.get(&subject).map(String::as_str) == Some(&zone.id) {

@@ -887,7 +887,7 @@ pub fn step_projectiles(
         #[cfg(feature = "portal")]
         let (contact_end, travel_end, travel) = {
             let domain = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));
-            let map = match before.material_map(ae::Vec2::ZERO) {
+            let map = match before.material_map() {
                 Ok(map) => map,
                 Err(reason) => {
                     *game = candidate_game;
@@ -951,7 +951,7 @@ pub fn step_projectiles(
         // straddles the opening and the pair takes it when its centre
         // crosses. Its leg is its sweep, so a fast shot that crossed a plane
         // this tick is taken through it, not stopped on the wall behind.
-        commands.entity(proj_entity).insert(ae::SweepSample { material: before.material, travel, time: [0.0, 1.0],
+        commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel, time: [0.0, 1.0],
             prev: leg_start,
             curr: kin.pos,
             vel: kin.vel,
@@ -1575,9 +1575,9 @@ pub fn step_projectiles(
             ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.contact.toi }
         });
         game.bounces_remaining = world_response.bounces_remaining;
-        commands.entity(proj_entity).insert(ae::SweepSample { material: before.material, travel: recorded_travel, time: [0.0, 1.0],
+        commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel: recorded_travel, time: [0.0, 1.0],
             prev: leg_start, curr: kin.pos, vel: candidate.vel,
-            half: kin.half_oriented(ae::Vec2::ZERO), down: ae::Vec2::ZERO,
+            half: kin.half_extent(), down: ae::Vec2::ZERO,
         });
         match world_response.outcome {
             WorldHitOutcome::Bounced { pos } => {

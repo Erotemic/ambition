@@ -177,55 +177,40 @@ impl BodyKinematics {
     /// Dimensions in world units, before the material turn.
     pub fn size(self) -> Vec2 { self.canonical_size * self.material.scale() }
 
-    pub fn material_map(self, down: Vec2) -> Result<crate::frame::Sim2, crate::frame::NumericFault> {
-        self.material.at(self.pos, down)
+    pub fn material_map(self) -> Result<crate::frame::Sim2, crate::frame::NumericFault> {
+        self.material.at(self.pos)
+    }
+
+    /// The canonical body box, before its physical material transform.
+    pub fn canonical_box(self) -> Result<crate::CombatVolume, crate::frame::NumericFault> {
+        use crate::frame::NumericFault;
+        if !self.canonical_size.is_finite() { return Err(NumericFault::NonFinite); }
+        if self.canonical_size.min_element() <= 0.0 { return Err(NumericFault::InvalidScale); }
+        let half = self.canonical_size * 0.5;
+        if half.min_element() == 0.0 { return Err(NumericFault::Underflow); }
+        Ok(crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, half)))
     }
 
     /// Project the canonical box onto a world-space axis.
-    pub fn projected_half_extent(self, down: Vec2, axis: bevy_math::DVec2) -> Result<f64, crate::frame::NumericFault> {
+    pub fn projected_half_extent(self, axis: bevy_math::DVec2) -> Result<f64, crate::frame::NumericFault> {
         use crate::frame::NumericFault;
         if !axis.is_finite() || !self.canonical_size.is_finite() { return Err(NumericFault::NonFinite); }
         if self.canonical_size.min_element() <= 0.0 { return Err(NumericFault::InvalidScale); }
-        let map = self.material.at(self.pos, down)?;
+        let map = self.material.at(self.pos)?;
         let half = self.canonical_size.as_dvec2() * 0.5;
         Ok((map.direction_wide(bevy_math::DVec2::X).dot(axis).abs() * half.x
             + map.direction_wide(bevy_math::DVec2::Y).dot(axis).abs() * half.y) * map.scale_wide())
     }
 
-    /// The body's world-space AABB (centered on `pos`, half-extents `size/2`).
+    /// The envelope of the physical material in the current room chart.
     pub fn aabb(self) -> crate::Aabb {
-        self.aabb_oriented(Vec2::ZERO)
+        crate::Aabb::new(self.pos, self.half_extent())
     }
 
-    /// The body's AABB ORIENTED to its gravity/acceleration frame: width<->height
-    /// swap under sideways gravity (the body lies along the wall), so the collision
-    /// footprint matches the gravity-rotated sprite. Identity under down/up gravity,
-    /// so vertical-gravity play is byte-identical to [`Self::aabb`].
-    pub fn aabb_oriented(self, gravity_dir: crate::Vec2) -> crate::Aabb {
-        crate::Aabb::new(self.pos, self.half_oriented(gravity_dir))
+    pub fn half_extent(self) -> Vec2 {
+        self.material.half_extent(self.canonical_size * 0.5)
     }
 
-    /// The half-extents of [`Self::aabb_oriented`].
-    pub fn half_oriented(self, gravity_dir: crate::Vec2) -> crate::Vec2 {
-        self.material.half_extent(self.canonical_size * 0.5, gravity_dir)
-    }
-
-    /// The COLLISION box of the body where it is now, turned as its last step
-    /// turned it: the box a solid stops, at the body's present position and
-    /// with its present size. This is the box for a reader outside the kernel
-    /// that asks what the body touches (a door, a pickup, a chest, a reach).
-    ///
-    /// `last_step` is the body's record ([`SweepSample`]): it carries the DOWN
-    /// of the body, which a reader has no other statement of (a crawler on a
-    /// wall is not turned to its gravity). A body with no record has no turn,
-    /// and the answer is the level box ([`Self::aabb`]).
-    ///
-    /// It is NOT the published footprint (`CenteredAabb`), which is the
-    /// envelope of a body that has one (a boss is drawn larger than the box
-    /// that stops it). It is NOT a hurtbox: ask the body's damageable volumes.
-    pub fn collision_box(self, last_step: Option<&SweepSample>) -> crate::Aabb {
-        self.aabb_oriented(last_step.map_or(crate::Vec2::ZERO, |record| record.down))
-    }
 }
 
 /// The body is retained by an owner and has no independent world presence.
@@ -259,6 +244,13 @@ impl LinearTravel {
     }
 }
 
+/// A recorded turn about the body's translating root.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SourceTurn {
+    pub radians: f64,
+    pub duration: f64,
+}
+
 /// Canonical per-tick integration segment, captured entirely inside the
 /// simulation kernel from phase entry (`prev`) to phase exit (`curr`). Teleports
 /// outside the simulation phase therefore never become swept motion.
@@ -276,6 +268,7 @@ pub struct SweepSample {
     /// The world-tick interval of the original line. `travel` can end earlier.
     pub time: [f64; 2],
     pub travel: LinearTravel,
+    pub turn: Option<SourceTurn>,
     /// Material at departure. A later root rebase must not change this path.
     pub material: crate::frame::BodyMaterial,
     /// Position at simulation-phase entry (the TRUE segment start).
@@ -286,21 +279,15 @@ pub struct SweepSample {
     pub curr: Vec2,
     /// Velocity at `prev` (the motion that produced the path).
     pub vel: Vec2,
-    /// The half-extents of the box the step moved: the body's box turned to
-    /// the DOWN of the body in that step ([`BodyKinematics::half_oriented`]).
-    /// A body on a wall, or in sideways gravity, lies along its support, so
-    /// this is not always `size / 2`.
+    /// The world envelope at the end pose. Native casts use canonical material.
     pub half: Vec2,
-    /// The DOWN of the body in the step that wrote this record: the direction
-    /// `half` is turned to. A transit keeps it, because a transit moves the
-    /// body and does not turn it ([`crate::movement::reconcile_transit`]).
-    /// Zero for a body that no step has moved: such a body has its level box.
+    /// The resolved movement reference. This does not set the material axes.
     pub down: Vec2,
 }
 
 impl Default for SweepSample {
     fn default() -> Self {
-        Self { travel: LinearTravel::Complete, material: Default::default(), time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,
+        Self { turn: None, travel: LinearTravel::Complete, material: Default::default(), time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,
             vel: Vec2::ZERO, half: Vec2::ZERO, down: Vec2::ZERO }
     }
 }
@@ -312,11 +299,12 @@ impl SweepSample {
         Self {
             time: [0.0, 1.0],
             travel: LinearTravel::Complete,
+            turn: None,
             material: body.material,
             prev: body.pos,
             curr: body.pos,
             vel: Vec2::ZERO,
-            half: body.half_oriented(down),
+            half: body.half_extent(),
             down,
         }
     }
@@ -341,12 +329,17 @@ impl SweepSample {
         if self.time[0] < 0.0 || self.time[1] > 1.0 || self.time[0] > self.time[1] {
             return Err(numeric(crate::frame::NumericFault::InvalidFrame));
         }
-        let map = self.material.at(self.prev, self.down).map_err(numeric)?;
+        let map = self.material.at(self.prev).map_err(numeric)?;
         let (delta, until) = self.travel.line(self.prev, self.curr).map_err(numeric)?;
-        crate::frame::material_cast::MaterialCast::new(
+        let cast = crate::frame::material_cast::MaterialCast::new(
             crate::frame::thread::MaterialPrimitive { domain, to_world: map },
             self.prev, delta, self.time[0]..self.time[1],
-        ).prefix(until)
+        );
+        let cast = match self.turn {
+            Some(turn) => cast.rotating_about(self.prev, turn.radians, turn.duration)?,
+            None => cast,
+        };
+        cast.prefix(until)
     }
 
     /// The DOWN of a body, for a reader that has its frame and its record: the

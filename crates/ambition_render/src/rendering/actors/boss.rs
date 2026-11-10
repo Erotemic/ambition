@@ -183,18 +183,10 @@ pub fn animate_bosses(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
-        // Default art faces +x. A left-drawn sheet (the mockingbird) sets
-        // `authored_faces_left`, which inverts the flip. The gravity term
-        // matches the player and enemy path: zero under normal gravity, and
-        // under a flip it cancels the `ActorRoll` 180° mirror.
+        // Match the facing convention authored by the sheet.
         let flip = ambition_sprite_sheet::art_is_mirrored(
             animator.spec.authored_faces_left,
             state.facing,
-            // The boss's own resolved down, so a boss under flipped or
-            // sideways gravity flips like the player and enemies. It
-            // self-rights with `ActorRoll`, so its facing must be
-            // gravity-aware or the 180° roll mirrors it backwards.
-            view.gravity_dir,
         );
         sprite.flip_x = flip;
         // `render_of` is `None` for untrimmed sheets, which keep their spawn

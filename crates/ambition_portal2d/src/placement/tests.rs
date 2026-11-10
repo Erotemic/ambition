@@ -1,12 +1,11 @@
 use super::*;
 use crate::color::{PortalChannel, PortalChannelColor};
 
-fn transfer_step(center: Vec2, vel: Vec2, enter: PlacedPortal, exit: PlacedPortal,
-    down: Vec2, tuning: &PortalTuning) -> TransitStep {
+fn transfer_step(center: Vec2, vel: Vec2, enter: PlacedPortal, exit: PlacedPortal, tuning: &PortalTuning) -> TransitStep {
     super::transfer_step(PortalCrossing {
         root: ae::frame::RootCrossing { point: center, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
         exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
-    }, center, vel, down, tuning)
+    }, center, vel, tuning)
 }
 
 fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
@@ -48,15 +47,13 @@ fn a_moving_portal_scoops_a_stationary_body() {
     let portals = [enter, exit];
     let center = Vec2::new(100.0, 294.0); // stationary body, plane rose past it
     let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
+        Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
             prev: center,
             vel: Vec2::ZERO, curr: center, material: Default::default(), half: Vec2::ZERO }), // no body motion
         None,
         None,
         &portals,
-        Vec2::new(0.0, 1.0),
-        &PortalTuning::default(),
-    );
+        &PortalTuning::default(),);
     match step {
         TransitStep::Transfer { transfer, .. } => {
                 let pos = transfer.exit_pos;
@@ -93,13 +90,11 @@ fn a_turning_portal_scoops_a_still_body_and_gives_it_its_surface_speed() {
     // 30 px along the plank and 2 px above it at the start of the tick.
     let center = Vec2::new(130.0, 298.0);
     let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(8.0, 8.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: center, vel: Vec2::ZERO, curr: center, material: Default::default(), half: Vec2::ZERO }),
+        Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: center, vel: Vec2::ZERO, curr: center, material: Default::default(), half: Vec2::ZERO }),
         None,
         None,
         &portals,
-        Vec2::new(0.0, 1.0),
-        &PortalTuning::default(),
-    );
+        &PortalTuning::default(),);
     match step {
         TransitStep::Transfer { transfer, .. } => {
                 let vel = transfer.exit_vel;
@@ -130,15 +125,13 @@ fn a_body_co_moving_with_the_aperture_never_swept_transfers() {
     // same host: it moved by exactly the aperture's delta this frame.
     let center = Vec2::new(100.0, 240.0);
     let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 720.0), ..Default::default() },
-        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
+        Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
             prev: center - delta,
             vel: Vec2::new(0.0, 720.0), curr: center, material: Default::default(), half: Vec2::ZERO }),
         None,
         None,
         &portals,
-        Vec2::new(0.0, 1.0),
-        &PortalTuning::default(),
-    );
+        &PortalTuning::default(),);
     assert!(
         matches!(step, TransitStep::Idle),
         "co-moving body must not transit, got {step:?}"
@@ -172,9 +165,7 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
         Vec2::new(0.0, 180.0),
         enter.clone(),
         exit.clone(),
-        Vec2::new(0.0, 1.0),
-        &tuning,
-    ) {
+        &tuning,) {
         TransitStep::Transfer { transfer, .. } => transfer.exit_vel,
         other => panic!("expected Transfer, got {other:?}"),
     };
@@ -197,9 +188,7 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
         Vec2::new(0.0, 5.0),
         slow_enter,
         exit.clone(),
-        Vec2::new(0.0, 1.0),
-        &tuning,
-    ) {
+        &tuning,) {
         TransitStep::Transfer { transfer, .. } => transfer.exit_vel,
         other => panic!("expected Transfer, got {other:?}"),
     };
@@ -223,12 +212,10 @@ fn a_recorded_deep_crossing_transfers_even_on_cooldown() {
     // Body (24x40) entirely below the plane (top edge y=315 > 300) but
     // within the carve volume, still falling in, mid ping-pong cooldown.
     let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(100.0, 335.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 1600.0), ..Default::default() },
-        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(100.0, 275.0), vel: Vec2::new(0.0, 1600.0), time: [0.0, 1.0], curr: Vec2::new(100.0, 335.0), material: Default::default(), half: Vec2::ZERO }),
+        Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(100.0, 275.0), vel: Vec2::new(0.0, 1600.0), time: [0.0, 1.0], curr: Vec2::new(100.0, 335.0), material: Default::default(), half: Vec2::ZERO }),
         None,
-        Some(PURPLE), // cooldown latched — Begin blocked, only the rescue can act
-        &portals,
-        Vec2::new(0.0, 1.0), &PortalTuning::default(),
-    );
+        Some(PURPLE),
+        &portals, &PortalTuning::default(),);
     match step {
         TransitStep::Transfer { transfer, .. } => {
                 let pos = transfer.exit_pos;
@@ -260,9 +247,7 @@ fn begin_requires_the_front_side_of_the_plane() {
         Vec2::new(80.0, 0.0), ..Default::default() },
         None,
         None,
-        &portals,
-        Vec2::new(0.0, 1.0),
-    );
+        &portals,);
     assert!(
         !matches!(step, TransitStep::Begin { .. }),
         "no Begin from behind the plane, got {step:?}"
@@ -286,9 +271,7 @@ fn cooldown_is_pair_scoped() {
     let step = transit_step(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(900.0, 285.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 40.0), ..Default::default() },
         None,
         Some(PURPLE),
-        &portals,
-        Vec2::new(0.0, 1.0),
-    );
+        &portals,);
     assert!(
         matches!(step, TransitStep::Begin { channel, .. } if channel == TEAL),
         "a different pair must stay enterable during the cooldown, got {step:?}"
@@ -297,9 +280,7 @@ fn cooldown_is_pair_scoped() {
     let step = transit_step(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(500.0, 285.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 40.0), ..Default::default() },
         None,
         Some(PURPLE),
-        &portals,
-        Vec2::new(0.0, 1.0),
-    );
+        &portals,);
     assert!(
         matches!(step, TransitStep::Idle),
         "the crossed pair stays latched during the cooldown, got {step:?}"
@@ -337,7 +318,7 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
 
     let mut pos = Vec2::new(100.0, ceiling_y + 40.0);
     let mut vel = Vec2::new(0.0, 200.0);
-    let mut prev = ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: pos, vel, time: [0.0, 1.0], curr: pos, material: Default::default(), half: Vec2::ZERO };
+    let mut prev = ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: pos, vel, time: [0.0, 1.0], curr: pos, material: Default::default(), half: Vec2::ZERO };
     let mut transit: Option<PortalTransit> = None;
     let mut cooldown: Option<(PortalChannel, f32)> = None;
     let mut transfers = 0u32;
@@ -352,9 +333,7 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
             transit,
             cooldown.map(|(c, _)| c),
             &portals,
-            Vec2::new(0.0, 1.0),
-            &tuning,
-        );
+            &tuning,);
         match step {
             TransitStep::Begin { channel, .. } => {
                 transit = Some(PortalTransit {
@@ -393,7 +372,7 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
 
         // As in the live system: record post-step pos/vel, then integrate one
         // ballistic frame.
-        prev = ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: pos, vel, time: [0.0, 1.0], curr: pos, material: Default::default(), half: Vec2::ZERO };
+        prev = ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: pos, vel, time: [0.0, 1.0], curr: pos, material: Default::default(), half: Vec2::ZERO };
         vel.y += gravity * dt;
         pos.y += vel.y * dt;
         peak_step = peak_step.max(vel.y * dt);
@@ -425,8 +404,7 @@ fn a_discontinuity_without_a_matching_segment_does_not_cross() {
     let stale = ae::SweepSample { prev: Vec2::new(100.0, 250.0), curr: Vec2::new(100.0, 350.0),
         ..ae::SweepSample::at_rest(body, Vec2::Y) };
     for record in [None, Some(stale)] {
-        let step = transit_step_with_tuning(body, record, None, None, &portals,
-            Vec2::Y, &PortalTuning::default());
+        let step = transit_step_with_tuning(body, record, None, None, &portals, &PortalTuning::default());
         assert!(matches!(step, TransitStep::Idle),
             "a position change without a matching record must not cross: {step:?}");
     }
@@ -445,15 +423,13 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
     // This frame: stopped 110 px past the plane (beyond the 60 px carve, so
     // the rescue cannot see it) with zero velocity.
     let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(100.0, 410.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
+        Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(100.0, 210.0),
             vel: Vec2::new(0.0, 15000.0), curr: Vec2::new(100.0, 410.0), material: Default::default(), half: Vec2::ZERO }),
         None,
         Some(PURPLE), // even mid ping-pong cooldown
         &portals,
-        Vec2::new(0.0, 1.0),
-        &PortalTuning::default(),
-    );
+        &PortalTuning::default(),);
     match step {
         TransitStep::Transfer { transfer, .. } => {
                 let vel = transfer.exit_vel;
@@ -477,20 +453,17 @@ fn two_sessions_in_one_process_keep_their_own_portal_conventions() {
     // A pair whose two conventions genuinely disagree — same-facing walls.
     let enter = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
     let exit = wall_portal(YELLOW, Vec2::new(900.0, 450.0), Vec2::new(-1.0, 0.0));
-    let gravity_dir = Vec2::new(0.0, 1.0);
 
     let roll_under = |convention| match transfer_step(
         Vec2::new(495.0, 450.0),
         Vec2::new(-200.0, 0.0),
         enter.clone(),
         exit.clone(),
-        gravity_dir,
         &PortalTuning {
             convention,
             ..PortalTuning::default()
-        },
-    ) {
-        TransitStep::Transfer { roll_delta, .. } => roll_delta,
+        },) {
+        TransitStep::Transfer { transfer, .. } => transfer.map,
         other => panic!("expected Transfer, got {other:?}"),
     };
 
@@ -519,63 +492,16 @@ fn two_sessions_in_one_process_keep_their_own_portal_conventions() {
 #[test]
 fn a_transit_takes_its_convention_from_tuning() {
     use crate::tuning::PortalConvention;
-    use ambition_platformer2d_core::frame::MapConvention;
-
-    // Two walls that face the same way: `portal_transit_roll` maps
-    // `into_render = (-n_in.x, n_in.y)` against `out_render = (n_out.x,
-    // -n_out.y)`, so both facing -x gives `atan2(0, -1) = π` under Rotation,
-    // and Reflection's wall↔wall case gives 0.0. Two facing walls give 0
-    // under both, so they cannot tell the conventions apart.
-    //
-    // Call `transfer_step` directly; the crossing logic is not under test.
-    let enter = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
-    let exit = wall_portal(YELLOW, Vec2::new(900.0, 450.0), Vec2::new(-1.0, 0.0));
-    let gravity_dir = Vec2::new(0.0, 1.0);
-
-    let roll_under = |convention| match transfer_step(
-        Vec2::new(495.0, 450.0),
-        Vec2::new(-200.0, 0.0),
-        enter.clone(),
-        exit.clone(),
-        gravity_dir,
-        &PortalTuning {
-            convention,
-            ..PortalTuning::default()
-        },
-    ) {
-        TransitStep::Transfer { roll_delta, .. } => roll_delta,
-        other => panic!("expected Transfer, got {other:?}"),
+    let enter = wall_portal(PURPLE, Vec2::new(500.0, 450.0), -Vec2::X);
+    let exit = wall_portal(YELLOW, Vec2::new(900.0, 450.0), -Vec2::X);
+    let map_under = |convention| match transfer_step(Vec2::new(495.0, 450.0), -Vec2::X * 200.0,
+        enter.clone(), exit.clone(), &PortalTuning { convention, ..Default::default() }) {
+        TransitStep::Transfer { transfer, .. } => transfer.map,
+        other => panic!("expected transfer: {other:?}"),
     };
+    assert_eq!(map_under(PortalConvention::Reflection).vector(Vec2::Y).unwrap(), Vec2::Y);
+    assert_eq!(map_under(PortalConvention::Rotation).vector(Vec2::Y).unwrap(), -Vec2::Y);
 
-    let by_reflection = crate::somersault_roll_for_convention(
-        MapConvention::Reflection,
-        enter.normal,
-        exit.normal,
-        gravity_dir,
-    );
-    let by_rotation = crate::somersault_roll_for_convention(
-        MapConvention::Rotation,
-        enter.normal,
-        exit.normal,
-        gravity_dir,
-    );
-    assert_ne!(
-        by_reflection, by_rotation,
-        "the two conventions agree on this portal pair, so the fixture cannot \
-         distinguish them and this probe proves nothing"
-    );
-
-    assert_eq!(
-        roll_under(PortalConvention::Rotation),
-        by_rotation,
-        "a transit tuned to Rotation did not roll by Rotation — the convention \
-         reached it from somewhere other than its own tuning"
-    );
-    assert_eq!(
-        roll_under(PortalConvention::Reflection),
-        by_reflection,
-        "a transit tuned to Reflection did not follow its tuning either"
-    );
 }
 
 /// A portal on a slope of 30 degrees (its normal 30 degrees from up, toward
@@ -613,11 +539,10 @@ fn a_body_goes_through_a_portal_on_a_slope() {
     let exit = PlacedPortal::fixed(YELLOW, Vec2::new(900.0, 300.0), Vec2::new(-1.0, 0.0), crate::PORTAL_OPENING_HALF).unwrap();
     let portals = vec![enter.clone(), exit.clone()];
     let size = Vec2::new(28.0, 46.0);
-    let down = Vec2::new(0.0, 1.0);
     // Standing on the slope over the portal, moving into it.
     let mut center = enter.pos + enter.normal * 26.0;
     let vel = -enter.normal * 200.0;
-    let begin = transit_step(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: size, vel: vel, ..Default::default() }, None, None, &portals, down);
+    let begin = transit_step(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: size, vel: vel, ..Default::default() }, None, None, &portals);
     let TransitStep::Begin { channel, .. } = begin else {
         panic!("the body on the slanted face begins transit: {begin:?}");
     };
@@ -628,7 +553,7 @@ fn a_body_goes_through_a_portal_on_a_slope() {
         let previous = center;
         center += vel / 60.0;
         step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: size, vel: vel, ..Default::default() },
-            Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: previous, vel, time: [0.0, 1.0], curr: center, material: Default::default(), half: Vec2::ZERO }), transit, None, &portals, down, &PortalTuning::default());
+            Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: previous, vel, time: [0.0, 1.0], curr: center, material: Default::default(), half: Vec2::ZERO }), transit, None, &portals, &PortalTuning::default());
         if matches!(step, TransitStep::Transfer { .. }) {
             break;
         }
@@ -698,7 +623,7 @@ fn exit_assistance_does_not_rewrite_the_measured_entry_velocity() {
     assert_eq!(transfer.entry_vel, velocity);
     assert_eq!(transfer.mapped_vel, Vec2::new(85.0, 0.0));
     assert_eq!(transfer.exit_vel, Vec2::new(80.0 + tuning.min_exit_speed, 0.0));
-    assert_eq!(transfer.carried_run(Vec2::X, 0.0).unwrap(), transfer.exit_vel.x);
+    assert_eq!(transfer.carried_run(Vec2::X, Vec2::X, 0.0).unwrap(), transfer.exit_vel.x);
 }
 
 #[test]
@@ -709,7 +634,7 @@ fn an_unrepresentable_transfer_is_a_typed_refusal() {
     assert!(matches!(super::transfer_step(PortalCrossing {
             root: ae::frame::RootCrossing { point: Vec2::ZERO, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
             exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
-        }, Vec2::ZERO, Vec2::Y, Vec2::Y, &PortalTuning::default()),
+        }, Vec2::ZERO, Vec2::Y, &PortalTuning::default()),
         TransitStep::Refused { reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::NonFinite), channel: Some(PURPLE) }));
 }
 
@@ -723,8 +648,8 @@ fn a_full_turn_takes_a_still_root_at_the_crossing_pose() {
     let root = enter.pos + Vec2::new(20.0, -4.0);
     let portals = [enter.clone(), exit.clone()];
     let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: root, canonical_size: Vec2::splat(4.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: root, vel: Vec2::ZERO, time: [0.0, 1.0], curr: root, material: Default::default(), half: Vec2::ZERO }),
-        None, None, &portals, Vec2::Y, &PortalTuning::default());
+        Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: root, vel: Vec2::ZERO, time: [0.0, 1.0], curr: root, material: Default::default(), half: Vec2::ZERO }),
+        None, None, &portals, &PortalTuning::default());
     let TransitStep::Transfer { transfer, .. } = step else { panic!("{step:?}"); };
     assert!(transfer.crossing_time > 0.0 && transfer.crossing_time < 1.0);
     assert_eq!(transfer.crossing_point, root);
@@ -752,12 +677,12 @@ fn a_turned_material_box_fits_its_opening_even_when_its_envelope_does_not() {
                 material: ae::frame::BodyMaterial::new(scale, axes).unwrap(),
                 ..Default::default()
             };
-            assert!(!portal_fits(body.half_oriented(Vec2::ZERO) * 2.0, &portals[0]),
+            assert!(!portal_fits(body.half_extent() * 2.0, &portals[0]),
                 "the envelope must be wider than this opening");
             let step = transit_step_with_tuning(body,
-                Some(ae::SweepSample { down: Vec2::ZERO, travel: Default::default(), prev: normal * 100.0,
+                Some(ae::SweepSample { turn: None, down: Vec2::ZERO, travel: Default::default(), prev: normal * 100.0,
                     vel: body.vel, time: [0.0, 1.0], curr: body.pos, material: body.material, half: Vec2::ZERO }),
-                None, None, &portals, Vec2::Y, &PortalTuning::default());
+                None, None, &portals, &PortalTuning::default());
             assert!(matches!(step, TransitStep::Transfer { .. }),
                 "root fit must use canonical material: scale={scale}, reflected={reflected}, step={step:?}");
         }

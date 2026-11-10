@@ -237,7 +237,7 @@ pub(crate) fn draw_debug_overlay(
                         world,
                         clusters
                             .kinematics
-                            .collision_box(clusters.sweep)
+                            .aabb()
                             .translated(delta),
                         health,
                     );

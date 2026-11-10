@@ -134,7 +134,7 @@ pub fn pickup_portal_gun_system(
     // The controlled body attempts the pickup. The `Has` flags gate on its
     // state: it cannot grab a gun it holds, or while holding a ground item.
     mut bodies: Query<(
-        (&BodyKinematics, Option<&ae::SweepSample>),
+        &BodyKinematics,
         RepertoireQuery,
         Has<PortalGun>,
         Has<HeldItem>,
@@ -179,7 +179,7 @@ fn pick_up_one_portal_gun(
     player: bevy::prelude::Entity,
     commands: &mut Commands,
     bodies: &mut Query<(
-        (&BodyKinematics, Option<&ae::SweepSample>),
+        &BodyKinematics,
         RepertoireQuery,
         Has<PortalGun>,
         Has<HeldItem>,
@@ -191,14 +191,14 @@ fn pick_up_one_portal_gun(
     equipped: &mut MessageWriter<PortalGunEquipped>,
     sfx: &mut ambition_sfx::SfxWriter,
 ) {
-    let Ok(((kin, last_step), mut repertoire, has_gun, has_held)) = bodies.get_mut(player) else {
+    let Ok((kin, mut repertoire, has_gun, has_held)) = bodies.get_mut(player) else {
         return;
     };
     // Already holding the gun, or holding a ground item → no pickup.
     if has_gun || has_held {
         return;
     }
-    let player_aabb = kin.collision_box(last_step);
+    let player_aabb = kin.aabb();
     for (entity, pickup) in pickups {
         if pickup.arm_timer > 0.0 || claimed.contains(&entity) {
             continue;

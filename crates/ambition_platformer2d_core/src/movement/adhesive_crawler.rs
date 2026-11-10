@@ -492,7 +492,7 @@ fn fall_step(
     let gravity_axis = crate::collision_semantics::gravity_axis(g);
     let side_axis = gravity_axis.perpendicular();
     let mut sweep = |clusters: &mut BodyClustersMut<'_>, axis: Axis| {
-        let prev_feet_coord = clusters.kinematics.aabb_oriented(g).feet_coord(g);
+        let prev_feet_coord = clusters.kinematics.aabb().feet_coord(g);
         let delta_along = match axis {
             Axis::X => clusters.kinematics.vel.x,
             Axis::Y => clusters.kinematics.vel.y,

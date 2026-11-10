@@ -176,12 +176,12 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
         // it transits) turned to the DOWN of its last step. The next step
         // turns the body in the frame it arrives in.
         let down = sweep.down;
-        *sweep = SweepSample { travel: Default::default(), time: [0.0, 1.0],
+        *sweep = SweepSample { turn: None, travel: Default::default(), time: [0.0, 1.0],
             material: clusters.kinematics.material,
             prev: pos,
             curr: pos,
             vel: clusters.kinematics.vel,
-            half: clusters.kinematics.half_oriented(down),
+            half: clusters.kinematics.half_extent(),
             down,
         };
     }
@@ -269,18 +269,18 @@ pub fn prepare_body_pose(
     let mut candidate = match prior {
         Some(sample) if sample.time[0] != sample.time[1] => SweepSample {
             curr: desired.pos, vel: desired.vel, travel: crate::LinearTravel::Complete,
-            half: desired.half_oriented(sample.down), ..sample
+            half: desired.half_extent(), ..sample
         },
         Some(sample) => SweepSample { time: sample.time, ..SweepSample::at_tick_end(desired, sample.down) },
         None => SweepSample::at_tick_end(desired, Vec2::ZERO),
     };
-    let domain = crate::CombatVolume::aabb(crate::Aabb::new(Vec2::ZERO, desired.canonical_size * 0.5));
+    let domain = desired.canonical_box().map_err(numeric)?;
     let cast = candidate.material_cast(&domain)?;
     match admission {
         Some(admission) => admission.admit(cast, desired.vel, carried_vectors)?,
         None => cast.cells(None)?.admit_payloads(desired.vel, carried_vectors)?,
     }
-    candidate.half = desired.half_oriented(candidate.down);
+    candidate.half = desired.half_extent();
     Ok(PreparedBodyPose { body: desired, sweep: candidate })
 }
 
@@ -301,13 +301,12 @@ pub fn halt_body(kinematics: &mut crate::body_clusters::BodyKinematics) {
 pub fn shift_frozen_body(
     world: &crate::World,
     kinematics: &mut crate::body_clusters::BodyKinematics,
-    gravity_dir: Vec2,
     shift: Vec2,
 ) {
     if shift == Vec2::ZERO {
         return;
     }
-    let body = kinematics.aabb_oriented(gravity_dir);
+    let body = kinematics.aabb();
     // Only FULL solids stop a frozen nudge. One-way and bonk-only blocks are
     // directional by definition — a body standing on a platform may still SDI
     // sideways along it — and a blink wall is solid to a body that is not
@@ -380,7 +379,7 @@ mod tests {
         let mut kin = body_at(wall_near_face - 10.0 - 3.0);
         let before = kin.pos.x;
 
-        shift_frozen_body(&world, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(8.0, 0.0));
+        shift_frozen_body(&world, &mut kin, Vec2::new(8.0, 0.0));
 
         assert!(
             kin.pos.x > before,
@@ -403,7 +402,7 @@ mod tests {
         let world = walled_world(600.0, 4.0);
         let mut kin = body_at(600.0 - 10.0 - 1.0);
 
-        shift_frozen_body(&world, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(40.0, 0.0));
+        shift_frozen_body(&world, &mut kin, Vec2::new(40.0, 0.0));
 
         assert!(
             kin.pos.x + 10.0 <= 600.0,
@@ -422,7 +421,7 @@ mod tests {
         let mut kin = body_at(500.0);
 
         for _ in 0..60 {
-            shift_frozen_body(&world, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(3.0, 0.0));
+            shift_frozen_body(&world, &mut kin, Vec2::new(3.0, 0.0));
         }
 
         assert!(
@@ -444,11 +443,11 @@ mod tests {
     fn a_frozen_shift_sweeps_the_oriented_box() {
         let world = walled_world(600.0, 40.0);
         let mut kin = body_at(560.0);
-        let sideways = Vec2::new(1.0, 0.0);
+        kin.material = crate::frame::BodyMaterial::IDENTITY.turned(std::f64::consts::FRAC_PI_2).unwrap();
 
-        shift_frozen_body(&world, &mut kin, sideways, Vec2::new(30.0, 0.0));
+        shift_frozen_body(&world, &mut kin, Vec2::new(30.0, 0.0));
 
-        let half_width = kin.aabb_oriented(sideways).max.x - kin.pos.x;
+        let half_width = kin.aabb().max.x - kin.pos.x;
         assert!(
             kin.pos.x + half_width <= 600.0 + 1.0e-3,
             "the oriented body ({half_width} half-width) ended overlapping the \
@@ -465,7 +464,7 @@ mod tests {
             ..Default::default()
         };
         let open = crate::World::new("open", Vec2::splat(2000.0), Vec2::splat(100.0), Vec::new());
-        shift_frozen_body(&open, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(-2.0, 0.5));
+        shift_frozen_body(&open, &mut kin, Vec2::new(-2.0, 0.5));
         assert_eq!(kin.pos, Vec2::new(8.0, 20.5));
         assert_eq!(
             kin.vel,
@@ -495,7 +494,7 @@ mod tests {
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
         // The scratch body carries no sweep sample unless a test asks for one,
         // and a test that did not ask would pass over an absent fact.
-        let mut sample = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: incoming,
@@ -574,7 +573,7 @@ mod tests {
             BodyClusterScratch::new_with_abilities(Vec2::new(10.0, 10.0), AbilitySet::default());
         scratch.kinematics.vel = Vec2::new(-500.0, 220.0);
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
-        let mut sample = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: Vec2::new(-500.0, 220.0),
@@ -688,7 +687,7 @@ mod tests {
         let mut scratch =
             BodyClusterScratch::new_with_abilities(Vec2::new(50.0, 50.0), AbilitySet::default());
         scratch.ground.on_ground = true;
-        let mut sample = SweepSample { material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(40.0, 50.0),
             curr: Vec2::new(50.0, 50.0),
             vel: Vec2::ZERO,

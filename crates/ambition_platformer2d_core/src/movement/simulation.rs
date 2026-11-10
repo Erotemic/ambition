@@ -227,7 +227,7 @@ pub fn handle_jump_buffer_clusters(
         && ground.on_ground
         && crate::movement::collision::standing_on_one_way_aabb(
             world,
-            kinematics.aabb_oriented(frame.down()),
+            kinematics.aabb(),
             frame.down(),
         )
     {

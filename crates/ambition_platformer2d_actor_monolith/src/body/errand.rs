@@ -279,7 +279,7 @@ pub fn cross_on_errands(
             continue;
         };
         // The reach of the body is its collision box, as for a take.
-        if !cluster.kinematics.collision_box(cluster.sweep.as_deref()).strict_intersects(crossing.zone) {
+        if !cluster.kinematics.aabb().strict_intersects(crossing.zone) {
             continue;
         }
         if portals.as_deref().is_some_and(|portals| !portals.lets_through(phases, &crossing.zone_id)) {
@@ -332,7 +332,6 @@ pub fn settle_errands(
         Entity,
         &mut Errand,
         &ae::BodyKinematics,
-        Option<&ae::SweepSample>,
         ambition_combat::hand::RepertoireQuery,
     )>,
     mut grounds: Query<(
@@ -344,7 +343,7 @@ pub fn settle_errands(
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    for (body, mut errand, kinematics, last_step, mut repertoire) in &mut bodies {
+    for (body, mut errand, kinematics, mut repertoire) in &mut bodies {
         if errand.outcome != ErrandOutcome::Pending {
             continue;
         }
@@ -369,7 +368,7 @@ pub fn settle_errands(
             continue;
         }
         // The reach of the body is its collision box, as for a press.
-        let reach = kinematics.collision_box(last_step);
+        let reach = kinematics.aabb();
         for (item, id, ground, item_body, mut custody) in &mut grounds {
             if *id != errand.fetch || !custody.in_world() || rooms.of(item) != rooms.of(body) {
                 continue;

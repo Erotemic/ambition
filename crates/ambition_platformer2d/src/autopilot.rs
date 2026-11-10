@@ -304,7 +304,6 @@ type PlayerBody<'a> = (
     &'a ResolvedMotionFrame,
     Option<&'a InRoomInstance>,
     &'a ae::BodyFlightState,
-    Option<&'a ae::SweepSample>,
 );
 
 /// One frame of the autopilot: the order in, the seat's input out.
@@ -333,7 +332,7 @@ pub fn drive_autopilot(
         }
         AutopilotOrder::GoTo(goal) => goal,
     };
-    let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room, flight, sweep))) = players.single() else {
+    let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room, flight))) = players.single() else {
         script.0 = pilot.edges(LegInput::default());
         return;
     };
@@ -437,7 +436,7 @@ pub fn drive_autopilot(
             let (input, status) = match graph.flight.as_ref() {
                 None => (LegInput::default(), AutopilotStatus::NoGraph),
                 Some(_) if !flight.fly_enabled => (toggle_flight(&mut pilot.toggle_wait), AutopilotStatus::Going),
-                Some(map) => pilot.flight.step(map, graph, key, goal, kin, kin.collision_box(sweep).half_size()),
+                Some(map) => pilot.flight.step(map, graph, key, goal, kin, kin.aabb().half_size()),
             };
             pilot.status = status;
             script.0 = pilot.edges(input);

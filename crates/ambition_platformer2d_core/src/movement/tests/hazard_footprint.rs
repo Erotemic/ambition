@@ -114,6 +114,10 @@ impl Body {
     pub(super) fn step(self, world: &World, sampled: bool) -> Stepped {
         let mut scratch = BodyClusterScratch::new_with_abilities(self.pos, self.abilities);
         scratch.kinematics.canonical_size = BODY;
+        let down = self.attached_to.map_or(self.frame.down(), |normal| -normal);
+        let basis = crate::AccelerationFrame::new(down);
+        scratch.kinematics.material = crate::frame::BodyMaterial::new(1.0,
+            bevy_math::Mat2::from_cols(basis.side, basis.down)).unwrap();
         scratch.base_size.base_size = BODY;
         scratch.kinematics.vel = self.vel;
         scratch.kinematics.facing = -1.0;

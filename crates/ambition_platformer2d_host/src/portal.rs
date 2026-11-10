@@ -55,7 +55,7 @@ mod host_adapter {
         >,
         bodies: Query<(
             &BodyKinematics,
-            Option<&ambition_platformer2d_core::SweepSample>,
+
             Option<&ambition_portal2d::PortalBackside>,
             Option<&ambition_portal2d::PortalTransit>,
         )>,
@@ -79,7 +79,7 @@ mod host_adapter {
             let Some(body) = body else {
                 continue;
             };
-            let (Ok((kin, last_step, backside, transit)), Some(room)) = (bodies.get(body), rooms.room_of(body)) else {
+            let (Ok((kin, backside, transit)), Some(room)) = (bodies.get(body), rooms.room_of(body)) else {
                 continue;
             };
             let Some(world) = rooms.in_room(room) else {
@@ -88,10 +88,8 @@ mod host_adapter {
             let mut occluders = Vec::new();
             world.0.for_each_solid_aabb(false, &mut |aabb| occluders.push(aabb));
             // A second view of a room that has an eye is refused there.
-            // The way the body faces: its side, under the down of its last
-            // step, by its facing.
-            let down = last_step.map(|s| s.down).filter(|d| *d != Vec2::ZERO).unwrap_or(Vec2::new(0.0, 1.0));
-            let forward = Vec2::new(down.y, -down.x) * kin.facing.signum();
+            let Ok(material) = kin.material.at(Vec2::ZERO) else { continue; };
+            let forward = material.direction(Vec2::X) * kin.facing.signum();
             viewers.publish(PortalViewer {
                 present: true,
                 observer,
@@ -99,7 +97,7 @@ mod host_adapter {
                 forward,
                 // The box the body has: the line of sight is tested from its
                 // four corners.
-                half_size: kin.collision_box(last_step).half_size(),
+                half_size: kin.aabb().half_size(),
                 room: Some(room),
                 on_back_of: backside.map(|back| back.channel),
                 crossed_into: transit.filter(|t| t.crossed).map(|t| t.straddling),
@@ -187,15 +185,15 @@ mod host_adapter {
             (
                 Entity,
                 &BodyKinematics,
-                Option<&ambition_platformer2d_core::SweepSample>,
+
                 Option<&ambition_portal2d::PortalTransit>,
                 Has<PortalTransitView>,
             ),
             Or<(With<PortalSceneBody>, With<PortalAffordanceBody>)>,
         >,
     ) {
-        for (entity, kin, last_step, transit, shown_in_transit) in &bodies {
-            commands.entity(entity).try_insert(body_view(entity, kin, last_step));
+        for (entity, kin, transit, shown_in_transit) in &bodies {
+            commands.entity(entity).try_insert(body_view(entity, kin));
             // Whether it straddles a portal, for the piece builder.
             match transit {
                 Some(transit) => {
@@ -210,13 +208,13 @@ mod host_adapter {
     }
 
     /// The pose facts of one body, for [`PortalBodyView`].
-    fn body_view(body: Entity, kin: &BodyKinematics, last_step: Option<&ambition_platformer2d_core::SweepSample>) -> PortalBodyView {
+    fn body_view(body: Entity, kin: &BodyKinematics) -> PortalBodyView {
         use ambition_platformer2d_core::AabbExt;
         PortalBodyView {
             pos: kin.pos,
             // The box the body has, turned as its last step turned it: the box
             // the portal core transits.
-            size: kin.collision_box(last_step).half_size() * 2.0,
+            size: kin.aabb().half_size() * 2.0,
             facing: kin.facing,
             body,
         }
@@ -241,7 +239,7 @@ mod host_adapter {
             Entity,
             &ambition_combat::FeatureId,
             &BodyKinematics,
-            Option<&ambition_platformer2d_core::SweepSample>,
+
             &ambition_portal2d::PortalTransit,
         )>,
         visuals: Query<
@@ -264,10 +262,10 @@ mod host_adapter {
                 .iter()
                 .find(|(body, id, ..)| id.0 == feature.id && live.of(*body) == room);
             match body {
-                Some((body, _, kin, last_step, transit)) => {
+                Some((body, _, kin, transit)) => {
                     commands.entity(visual).try_insert((
                         PortalSceneBody,
-                        body_view(body, kin, last_step),
+                        body_view(body, kin),
                         PortalTransitView { straddling: transit.straddling },
                     ));
                 }
@@ -312,10 +310,10 @@ mod host_adapter {
             Entity,
             &ambition_characters::actor::Limb,
             &BodyKinematics,
-            Option<&ambition_platformer2d_core::SweepSample>,
+
             Option<&ambition_portal2d::PortalTransit>,
         )>,
-        hosts: Query<(&ambition_combat::FeatureId, &BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+        hosts: Query<(&ambition_combat::FeatureId, &BodyKinematics)>,
         hosts_in_transit: Query<(), With<ambition_portal2d::PortalTransit>>,
         portals: Query<(Entity, &ambition_portal2d::PlacedPortal)>,
         visuals: Query<
@@ -350,13 +348,13 @@ mod host_adapter {
             within: Option<(ambition_portal2d::PortalChannel, f32)>,
         }
         let mut carried: Vec<Carried> = Vec::new();
-        for (limb, of, kin, step, transit) in &limbs {
+        for (limb, of, kin, transit) in &limbs {
             let room = live.of(limb);
             let room_portals = by_room.in_room(room);
             if room_portals.is_empty() {
                 continue;
             }
-            let Ok((id, _, _)) = hosts.get(of.of) else {
+            let Ok((id, _)) = hosts.get(of.of) else {
                 continue;
             };
             // A host that goes through a pair itself (all of it, as a giant
@@ -365,7 +363,7 @@ mod host_adapter {
             let within = transit.filter(|_| !hosts_in_transit.contains(of.of)).and_then(|transit| {
                 let portal = ambition_portal2d::find_portal(room_portals, transit.straddling)?;
                 let frame = portal.aperture().frame;
-                let body = kin.collision_box(step);
+                let body = kin.aabb();
                 let corners = [body.min, body.max, Vec2::new(body.min.x, body.max.y), Vec2::new(body.max.x, body.min.y)];
                 let deepest = corners.iter().map(|c| -(*c - frame.origin).dot(frame.normal)).fold(0.0_f32, f32::max);
                 let thickness = body.half_size().x * frame.normal.x.abs() + body.half_size().y * frame.normal.y.abs();
@@ -420,7 +418,7 @@ mod host_adapter {
                     }
                     continue;
                 };
-                let Ok((_, kin, step)) = hosts.get(c.host) else {
+                let Ok((_, kin)) = hosts.get(c.host) else {
                     continue;
                 };
                 sent.push(c.slot.clone());
@@ -439,7 +437,7 @@ mod host_adapter {
                 }
                 commands.entity(twin).try_insert((
                     PortalSceneBody,
-                    body_view(c.host, kin, step),
+                    body_view(c.host, kin),
                     PortalTransitView { straddling },
                 ));
             }
@@ -486,12 +484,12 @@ mod host_adapter {
                 .max_by(|a, b| a.2.total_cmp(&b.2).then(b.1.cmp(&a.1)));
             match deepest {
                 Some((c, straddling, reach)) => {
-                    let Ok((_, kin, step)) = hosts.get(c.host) else {
+                    let Ok((_, kin)) = hosts.get(c.host) else {
                         continue;
                     };
                     commands.entity(visual).try_insert((
                         PortalSceneBody,
-                        body_view(c.host, kin, step),
+                        body_view(c.host, kin),
                         PortalTransitView { straddling },
                         ambition_portal2d_presentation::PortalHostReach(reach),
                     ));
@@ -517,7 +515,7 @@ mod host_adapter {
         mut commands: Commands,
         transits: Query<&ambition_portal2d::PortalTransit>,
         items: Res<ambition_sim_view::GroundItemsView>,
-        shots: Query<(&BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+        shots: Query<&BodyKinematics>,
         item_visuals: Query<(Entity, &ambition_render::rendering::GroundItemVisual, Has<PortalTransitView>)>,
         shot_visuals: Query<(Entity, &ambition_render::rendering::projectile_visuals::VisualProjectile, Has<PortalTransitView>)>,
     ) {
@@ -539,10 +537,10 @@ mod host_adapter {
         }
         for (visual, link, shown_in_transit) in &shot_visuals {
             match (shots.get(link.0), transits.get(link.0)) {
-                (Ok((kin, last_step)), Ok(transit)) => {
+                (Ok(kin), Ok(transit)) => {
                     commands.entity(visual).try_insert((
                         PortalSceneBody,
-                        body_view(link.0, kin, last_step),
+                        body_view(link.0, kin),
                         PortalTransitView { straddling: transit.straddling },
                     ));
                 }
@@ -1522,9 +1520,10 @@ mod tests {
             .world_mut()
             .spawn((tall, PortalSceneBody, SweepSample::at_rest(tall, Vec2::new(0.0, 1.0))))
             .id();
+        let turned = BodyKinematics { material: tall.material.turned(-std::f64::consts::FRAC_PI_2).unwrap(), ..tall };
         let lying = app
             .world_mut()
-            .spawn((tall, PortalSceneBody, SweepSample::at_rest(tall, Vec2::new(1.0, 0.0))))
+            .spawn((turned, PortalSceneBody, SweepSample::at_rest(turned, Vec2::new(1.0, 0.0))))
             .id();
         app.update();
         let size = |entity| app.world().get::<PortalBodyView>(entity).unwrap().size;
@@ -1541,7 +1540,6 @@ mod tests {
     /// the eyes is the order of the ids and not of the spawns. Returns each
     /// eye: its room, its place, its half, and the id of its observer's view.
     fn eyes_of(views: &[(u8, Option<&str>)]) -> Vec<(usize, Vec2, Vec2, Option<u8>)> {
-        use ambition_platformer2d_core::SweepSample;
         use ambition_platformer2d_shared_tangle::lifecycle::{
             insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
         };
@@ -1563,9 +1561,9 @@ mod tests {
         let bob = app
             .world_mut()
             .spawn((
-                tall(700.0),
+                BodyKinematics { material: ambition_platformer2d_core::frame::BodyMaterial::IDENTITY
+                    .turned(-std::f64::consts::FRAC_PI_2).unwrap(), ..tall(700.0) },
                 InRoomInstance(rooms[1]),
-                SweepSample::at_rest(tall(700.0), Vec2::new(1.0, 0.0)),
             ))
             .id();
         let named = |name: &str| match name {
@@ -1803,7 +1801,7 @@ mod tests {
                     &PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0).unwrap(),
                     &ambition_portal2d::PortalTuning::default(),
                 ).unwrap(),
-                facing_flip: false,
+
                 input_warp: false,
             });
         }

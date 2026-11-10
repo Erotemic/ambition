@@ -231,7 +231,7 @@ fn candidate_for(
         // so the half-extent is read from there.
         //
         // Rotation changes it too. The candidate is a world-space AABB, and a
-        // rotated non-square sprite (for example `ActorRoll`) overhangs its
+        // rotated non-square sprite (for example a physical material turn) overhangs its
         // unrotated rectangle at the corners.
         drawn_half: rotated_half_extent(posed.scale.truncate().abs() * 0.5, posed.rotation),
     }

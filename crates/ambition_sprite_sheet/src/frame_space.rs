@@ -34,15 +34,14 @@ use ambition_platformer2d_core as ae;
 /// It takes the flag, not a record, because the renderer gets the drawn facing
 /// from a `CharacterSheetSpec` and geometry gets it from a `SheetRecord`. Both
 /// must use this one decision.
-pub fn art_is_mirrored(authored_faces_left: bool, facing: f32, gravity_dir: ae::Vec2) -> bool {
-    ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(facing, gravity_dir)
-        ^ authored_faces_left
+pub fn art_is_mirrored(authored_faces_left: bool, facing: f32) -> bool {
+    (facing < 0.0) ^ authored_faces_left
 }
 
 impl SheetRecord {
     /// [`art_is_mirrored`] for this sheet.
-    pub fn art_is_mirrored(&self, facing: f32, gravity_dir: ae::Vec2) -> bool {
-        art_is_mirrored(self.authored_faces_left, facing, gravity_dir)
+    pub fn art_is_mirrored(&self, facing: f32) -> bool {
+        art_is_mirrored(self.authored_faces_left, facing)
     }
 
     /// The sign that maps an art-space `+x` offset to body-space forward.

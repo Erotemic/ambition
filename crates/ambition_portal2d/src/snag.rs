@@ -220,12 +220,12 @@ pub fn snag_straddlers(
         if all.is_empty() || crate::transit::pose_is_held(held) {
             continue;
         }
-        let body = kin.collision_box(sweep.as_deref());
+        let body = kin.aabb();
         for portal in openings_near(all, body.center(), body.half_size() * 2.0) {
             if backside.is_some_and(|back| back.of_pair(portal.channel)) {
                 continue;
             }
-            let body = kin.collision_box(sweep.as_deref());
+            let body = kin.aabb();
             // The step's start, when the record is of this step.
             let came_from = sweep
                 .as_deref()

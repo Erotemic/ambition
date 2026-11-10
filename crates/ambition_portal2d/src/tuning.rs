@@ -92,12 +92,6 @@ pub struct PortalTuning {
     /// While an actor is in a portal aperture, disable wall movement abilities
     /// so carved aperture edges cannot catch them.
     pub suppress_wall_abilities: bool,
-    /// Whether a same-wall turn-around transit re-orients the body's `facing`
-    /// (the facing-flip write in [`portal_transit`](crate::portal_transit)).
-    /// It is ANDed with whether the body reorients (a body in the player
-    /// population), so it can only suppress the flip. On by default; a host can
-    /// mirror its own gameplay setting into it.
-    pub reorient_facing: bool,
     /// How much of a body the portals carry while it is in two places.
     pub geometry: PortalGeometry,
 }
@@ -113,7 +107,6 @@ impl Default for PortalTuning {
             input_held_epsilon: 0.25,
             input_warp_keep_cos: 0.5,
             suppress_wall_abilities: true,
-            reorient_facing: true,
             geometry: PortalGeometry::SingleHop,
         }
     }

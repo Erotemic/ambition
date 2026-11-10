@@ -9,7 +9,6 @@ use crate::pieces as pp;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
-use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
 use ambition_platformer2d_shared_tangle::frame_env::{CarriedAcceleration, ResolvedMotionFrame};
 
 use super::color::PortalChannel;
@@ -201,9 +200,7 @@ pub fn portals_or_their_carves(portals: Query<(), With<PlacedPortal>>, carves: R
 
 pub fn publish_portal_carves(
     portals: Query<(Entity, &PlacedPortal)>,
-    // The record of a body's last step has its DOWN: the core has no frame
-    // of a body, and it asks the box the body has.
-    bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>, Option<&PortalBackside>), Without<ae::BodyInStorage>>,
+    bodies: Query<(Entity, &BodyKinematics, Option<&PortalBackside>), Without<ae::BodyInStorage>>,
     transits: Query<(Entity, &PortalTransit), Without<ae::BodyInStorage>>,
     live: crate::rooms::PortalRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
@@ -232,9 +229,9 @@ pub fn publish_portal_carves(
 
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (body_entity, kin, record, backside) in &bodies {
+    for (body_entity, kin, backside) in &bodies {
         let room = live.of(body_entity);
-        let body = kin.collision_box(record);
+        let body = kin.aabb();
         for p in by_room.in_room(room) {
             // A body on the back of a pair does not open it.
             if backside.is_some_and(|back| back.of_pair(p.channel)) {
@@ -335,9 +332,6 @@ pub struct PortalBodyTransited {
     /// The body that just transferred to a portal exit.
     pub body: Entity,
     pub transfer: super::placement::PortalTransfer,
-    /// True when this convention's orientation policy applies a separate
-    /// horizontal facing mirror.
-    pub facing_flip: bool,
     /// True when held horizontal movement maps to the opposite horizontal
     /// direction under the active portal convention.
     pub input_warp: bool,
@@ -374,7 +368,6 @@ pub fn portal_transit(
             Option<&mut ae::BodyFlightState>,
             Option<&ResolvedMotionFrame>,
             Option<&mut PortalTransit>,
-            Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
             Option<&ae::SweepSample>,
             Option<&PortalBackside>,
@@ -382,11 +375,7 @@ pub fn portal_transit(
             Has<ae::BodyInStorage>,
         ),
     >,
-    // `GravityCtx::dir_for(aabb)` owns "which way is down for this body":
-    // zones give a per-body lookup with a `BaseGravity` fallback. Do not
-    // re-implement it from `GravityField`, which mirrors the primary body.
-    // One param also keeps this system under Bevy's 16-param limit.
-    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
+    frame_env: ambition_platformer2d_shared_tangle::frame_env::FrameEnv,
     tuning: Res<PortalTuning>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
@@ -398,7 +387,7 @@ pub fn portal_transit(
     let tick = tick.map_or(0, |tick| tick.get());
     let by_room = PortalsByRoom::collect(&portals, &live);
 
-    for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, mut roll, cooldown, record, backside, held, stored) in &mut bodies {
+    for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, cooldown, record, backside, held, stored) in &mut bodies {
         if stored || !live.allows(entity) {
             commands.entity(entity).remove::<(PortalTransit, PortalBackside, PortalTransitCooldown)>();
             continue;
@@ -422,7 +411,7 @@ pub fn portal_transit(
         // a portal's front while it reaches into it, and its pieces carry the
         // consequences at the far end.
         if pose_is_held(held) {
-            let body = kin.collision_box(record);
+            let body = kin.aabb();
             let into = threaded_through(body, kin.pos, transit.as_deref().copied(), all);
             match (into, transit.as_deref()) {
                 (Some(channel), Some(t)) if t.straddling == channel => {}
@@ -436,12 +425,6 @@ pub fn portal_transit(
             }
             continue;
         }
-        // Per body, not once for all: `placement::wall_to_wall` classifies each
-        // aperture as wall or floor/ceiling relative to this body's down.
-        let gravity_dir = gravity.dir_for(room, ambition_platformer2d_core::Aabb::new(
-            kin.pos,
-            kin.size() * 0.5,
-        ));
         // Body latch (`PortalTransitCooldown`), ticked by
         // `tick_portal_cooldowns`, scoped to the pair just crossed.
         let cooldown_pair = cooldown.map(|c| c.pair);
@@ -456,9 +439,7 @@ pub fn portal_transit(
             transit.as_deref().copied(),
             cooldown_pair,
             &usable,
-            gravity_dir,
-            &tuning,
-        );
+            &tuning,);
         // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`,
         // read by `scripts/measure/portal_seam_lab.py`), as a free body's.
         bevy::log::debug!(
@@ -469,24 +450,28 @@ pub fn portal_transit(
             kin.vel.x,
             kin.vel.y
         );
-        let (mapped_acceleration, carried_run) = match step {
+        let (mapped_acceleration, carried_run, mapped_material) = match step {
             TransitStep::Transfer { transfer, .. } => {
                 let payload = (|| {
                     let acceleration = acceleration.as_deref()
                         .map(|acceleration| transfer.map.vector(acceleration.0)).transpose()?;
-                    let carried_run = flight.as_deref().zip(frame).map(|(flight, frame)| {
-                        transfer.carried_run(frame.basis().side, flight.carried_run)
+                    let material = kin.material.carried(transfer.map)?;
+                    let destination = BodyKinematics { pos: transfer.exit_pos, material, ..*kin };
+                    let destination_side = frame_env.reference_basis(destination.aabb(), room).side;
+                    let source_side = frame.map_or_else(|| frame_env.reference_basis(kin.aabb(), room).side, |frame| frame.basis().side);
+                    let carried_run = flight.as_deref().map(|flight| {
+                        transfer.carried_run(source_side, destination_side, flight.carried_run)
                     }).transpose()?;
-                    Ok::<_, ae::frame::NumericFault>((acceleration, carried_run))
+                    Ok::<_, ae::frame::NumericFault>((acceleration, carried_run, material))
                 })();
-                let Ok((mapped_acceleration, carried_run)) = payload else { continue; };
-                (mapped_acceleration, carried_run)
+                let Ok((mapped_acceleration, carried_run, material)) = payload else { continue; };
+                (mapped_acceleration, carried_run, Some(material))
             }
             TransitStep::Refused { .. } => continue,
-            _ => (None, None),
+            _ => (None, None, None),
         };
         let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
-        update_backside(&mut commands, entity, backside, crossing, all, kin.collision_box(record));
+        update_backside(&mut commands, entity, backside, crossing, all, kin.aabb());
         match step {
             TransitStep::Idle | TransitStep::Continue | TransitStep::Refused { .. } => {}
             TransitStep::Begin {
@@ -502,8 +487,6 @@ pub fn portal_transit(
             }
             TransitStep::Transfer {
                 transfer,
-                roll_delta,
-                facing_flip,
                 input_warp,
             } => {
                 if let Some((acceleration, mapped)) = acceleration.as_deref_mut().zip(mapped_acceleration) {
@@ -520,9 +503,7 @@ pub fn portal_transit(
                     log.record(entity, ClassBRemap::PortalTransit);
                 }
                 kin.vel = transfer.exit_vel;
-                if let Some(roll) = roll.as_deref_mut() {
-                    roll.angle += roll_delta;
-                }
+                if let Some(material) = mapped_material { kin.material = material; }
                 // Latch the cooldown for this pair to stop ping-pong.
                 commands.entity(entity).insert(PortalTransitCooldown {
                     remaining: tuning.teleport_cooldown_s,
@@ -538,7 +519,6 @@ pub fn portal_transit(
                 transited.write(PortalBodyTransited {
                     body: entity,
                     transfer,
-                    facing_flip,
                     input_warp,
                 });
                 bevy::log::info!(target: "ambition_platformer2d::portal", "transferred through the portal pair");

@@ -17,13 +17,7 @@ use crate::gravity::GravityCtx;
 /// Published only by [`FrameResolveSet`]; newly spawned bodies use the default
 /// until the next resolution pass.
 ///
-/// A body with a movement frame can be reoriented (by a portal, a gravity zone
-/// or a knockback), so it is built with the orientation it rights itself with:
-/// [`ActorRoll`](crate::orientation::ActorRoll) and the per-tick
-/// [`SurfaceUpright`](crate::orientation::SurfaceUpright) ride fact. A
-/// projectile has no movement frame and does not somersault upright.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
-#[require(crate::orientation::ActorRoll, crate::orientation::SurfaceUpright)]
 pub struct ResolvedMotionFrame {
     frame: MotionFrame,
 }
@@ -159,6 +153,12 @@ pub struct FrameEnv<'w, 's> {
 }
 
 impl FrameEnv<'_, '_> {
+    /// Resolve the control basis at a physical body pose.
+    pub fn reference_basis(&self, body: ambition_platformer2d_core::Aabb,
+        room: Option<crate::lifecycle::LiveRoomInstance>) -> AccelerationFrame {
+        AccelerationFrame::new(self.gravity.dir_for(room, body))
+    }
+
     /// Resolve one body's frame: THE composition rule.
     ///
     /// - The reference basis comes from the localized gravity direction the
@@ -176,15 +176,15 @@ impl FrameEnv<'_, '_> {
         gravity_response: f32,
         carried: CarriedAcceleration,
     ) -> MotionFrame {
-        let dir = self.gravity.dir_for(room, body);
-        let gravity_acceleration = dir * gravity_response.max(0.0);
+        let basis = self.reference_basis(body, room);
+        let gravity_acceleration = basis.down * gravity_response.max(0.0);
         let external_acceleration = self
             .forces
             .as_deref()
             .map(|forces| forces.accel_for(room, body))
             .unwrap_or(Vec2::ZERO);
         MotionFrame::with_accelerations(
-            AccelerationFrame::new(dir),
+            basis,
             gravity_acceleration,
             external_acceleration,
         ).with_carried_acceleration(carried.0)

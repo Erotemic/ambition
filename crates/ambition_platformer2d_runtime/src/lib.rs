@@ -124,7 +124,7 @@ pub use player_schedule::PlayerSchedulePlugin;
 pub use portal_schedule::PortalSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_seat::{
-    guard_the_driven_body_after_portal_transit, turn_the_driven_body_around_after_portal_transit,
+    guard_the_driven_body_after_portal_transit,
     warp_portal_input,
 };
 pub use progression_schedule::ProgressionSchedulePlugin;

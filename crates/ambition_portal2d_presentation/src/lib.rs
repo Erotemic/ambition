@@ -255,7 +255,7 @@ impl PortalPlacement {
 /// decomposition draws (in Ambition, the player's sprite entity, and the
 /// sprite of each other body while it is in transit). The entity must also
 /// carry a [`PortalBodyView`] plus `Sprite` + `Visibility`;
-/// [`PortalTransitView`] / `ActorRoll` are read when present.
+/// [`PortalTransitView`] is read when present.
 #[derive(Component)]
 pub struct PortalSceneBody;
 

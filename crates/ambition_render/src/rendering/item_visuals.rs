@@ -314,8 +314,9 @@ pub fn sync_ground_item_visuals(
         // A lit fuse swells the item on each flash.
         let flash = ground.fuse_left_s.map_or(0.0, fuse_flash);
         let transform = Transform::from_translation(translation)
-            .with_rotation(Quat::from_rotation_z(ground.roll))
-            .with_scale(Vec3::splat(1.0 + FUSE_FLASH_SWELL * flash));
+            .with_rotation(Quat::from_rotation_z(ground.material.render_angle()))
+            .with_scale(Vec3::new(if ground.material.reflected() { -1.0 } else { 1.0 }, 1.0, 1.0)
+                * (ground.material.scale() * (1.0 + FUSE_FLASH_SWELL * flash)));
         wanted.push((ground, room, transform, false));
     }
     for (entity, link, drawn, mut transform, mut sprite) in &mut visuals {
@@ -1136,7 +1137,7 @@ mod tests {
             half_extent: ambition_platformer2d_core::Vec2::new(8.0, 8.0),
             item_id: "key".to_string(),
             room: Some(LiveRoomInstance::ACTIVATION),
-            roll: 0.0,
+            material: Default::default(),
             fuse_left_s: None,
         };
         app.insert_resource(GroundItemsView(vec![row(100.0)]));

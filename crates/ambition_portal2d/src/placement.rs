@@ -64,57 +64,6 @@ pub fn raycast_through_portals_tuned(
     )
 }
 
-pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
-    // Approach direction (-n_in) and exit direction (n_out), each flipped into
-    // render space; the body turns by the signed angle between them.
-    let into_render = Vec2::new(-n_in.x, n_in.y);
-    let out_render = Vec2::new(n_out.x, -n_out.y);
-    let dot = into_render.dot(out_render);
-    let cross = into_render.x * out_render.y - into_render.y * out_render.x;
-    cross.atan2(dot)
-}
-
-fn wall_to_wall(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
-    let g = gravity_dir.normalize_or_zero();
-    let in_wall = n_in.normalize_or_zero().dot(g).abs() < 0.5;
-    let out_wall = n_out.normalize_or_zero().dot(g).abs() < 0.5;
-    in_wall && out_wall
-}
-
-/// Convention-aware somersault policy.
-///
-/// Rotation convention (det +1): the body rolls by the render-space rotation
-/// of the map. Reflection convention (det -1) cannot be a roll alone:
-/// wall↔wall crossings stay upright and the mirror comes from
-/// [`portal_facing_flips_for_convention`].
-pub fn somersault_roll_for_convention(
-    convention: MapConvention,
-    n_in: Vec2,
-    n_out: Vec2,
-    gravity_dir: Vec2,
-) -> f32 {
-    if convention == MapConvention::Reflection && wall_to_wall(n_in, n_out, gravity_dir) {
-        return 0.0;
-    }
-    portal_transit_roll(n_in, n_out)
-}
-
-/// Whether the body's horizontal facing flips through this portal pair.
-///
-/// Only under the reflection convention: wall↔wall roll is suppressed to keep
-/// actors upright, so the facing flip supplies the mirror. Under the rotation
-/// convention, roll carries the facing.
-pub fn portal_facing_flips_for_convention(
-    convention: MapConvention,
-    n_in: Vec2,
-    n_out: Vec2,
-    gravity_dir: Vec2,
-) -> bool {
-    convention == MapConvention::Reflection
-        && wall_to_wall(n_in, n_out, gravity_dir)
-        && portal_transit_roll(n_in, n_out).abs() > std::f32::consts::FRAC_PI_2
-}
-
 /// Whether held horizontal input is mapped through the portal for a short
 /// time after a transfer. True only when the map sends screen-horizontal to
 /// the opposite horizontal direction. Floor↔wall turns map horizontal to
@@ -138,10 +87,10 @@ pub fn portal_fits(size: Vec2, portal: &PlacedPortal) -> bool {
 }
 
 /// Project the canonical box onto the opening's tangent.
-fn material_fits(body: ae::BodyKinematics, down: Vec2, portal: &PlacedPortal) -> Result<bool, ae::frame::NumericFault> {
+fn material_fits(body: ae::BodyKinematics, portal: &PlacedPortal) -> Result<bool, ae::frame::NumericFault> {
     let normal = portal.normal.as_dvec2().normalize();
     let tangent = bevy::math::DVec2::new(-normal.y, normal.x);
-    Ok(body.projected_half_extent(down, tangent)? <= f64::from(portal.aperture().half_length))
+    Ok(body.projected_half_extent(tangent)? <= f64::from(portal.aperture().half_length))
 }
 
 /// Margin (px) added to a portal's thin face so a body resting on the surface
@@ -249,8 +198,6 @@ pub enum TransitStep {
     /// Commit the checked root crossing and its input policy.
     Transfer {
         transfer: PortalTransfer,
-        roll_delta: f32,
-        facing_flip: bool,
         input_warp: bool,
     },
     /// Leave the current body unchanged when the map cannot be represented.
@@ -284,15 +231,16 @@ pub struct PortalTransfer {
 
 impl PortalTransfer {
     /// Keep controller motion separate from motion supplied by the world.
-    pub fn carried_run(self, side: Vec2, previous: f32) -> Result<f32, ae::frame::NumericFault> {
+    pub fn carried_run(self, source_side: Vec2, destination_side: Vec2, previous: f32) -> Result<f32, ae::frame::NumericFault> {
         use ae::frame::NumericFault;
-        if !side.is_finite() || !previous.is_finite() {
+        if !source_side.is_finite() || !destination_side.is_finite() || !previous.is_finite() {
             return Err(NumericFault::NonFinite);
         }
-        let side = side.as_dvec2();
-        let controller = self.entry_vel.as_dvec2().dot(side) - f64::from(previous);
-        let mapped_side = self.map.orthogonal().as_dmat2() * side * f64::from(self.map.scale());
-        let carried = self.exit_vel.as_dvec2().dot(side) - controller * mapped_side.dot(side);
+        if (source_side.length_squared() - 1.0).abs() > 2.0e-5
+            || (destination_side.length_squared() - 1.0).abs() > 2.0e-5 { return Err(NumericFault::InvalidFrame); }
+        let controller = self.entry_vel.as_dvec2().dot(source_side.as_dvec2()) - f64::from(previous);
+        let mapped = self.map.vector_from_wide(source_side.as_dvec2() * controller)?;
+        let carried = (self.exit_vel.as_dvec2() - mapped.as_dvec2()).dot(destination_side.as_dvec2());
         let narrowed = carried as f32;
         if !narrowed.is_finite() { return Err(NumericFault::Overflow); }
         if carried != 0.0 && narrowed == 0.0 { return Err(NumericFault::Underflow); }
@@ -363,8 +311,7 @@ pub struct CrossingRefusal {
 }
 
 fn transfer_step(
-    crossing: PortalCrossing, center: Vec2, vel: Vec2, gravity_dir: Vec2, tuning: &PortalTuning,
-) -> TransitStep {
+    crossing: PortalCrossing, center: Vec2, vel: Vec2, tuning: &PortalTuning,) -> TransitStep {
     let enter = crossing.root.aperture;
     let exit = crossing.exit;
     let mut transfer = match PortalTransfer::from_apertures(crossing.root.point, vel,
@@ -386,33 +333,26 @@ fn transfer_step(
     let convention = tuning.convention.map_convention();
     TransitStep::Transfer {
         transfer,
-        roll_delta: somersault_roll_for_convention(convention, enter.frame.normal, exit.frame.normal, gravity_dir),
-        facing_flip: portal_facing_flips_for_convention(convention, enter.frame.normal, exit.frame.normal, gravity_dir),
         input_warp: portal_input_warp_flips_horizontal_for_convention(convention, enter.frame.normal, exit.frame.normal),
     }
 }
 
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown_pair`
 /// is the body's post-jump latch, scoped to the pair it just crossed
-/// ([`super::types::PortalTransitCooldown`]); `gravity_dir` selects whether a
-/// transit tumbles or just turns around. This form updates overlap state.
+/// ([`super::types::PortalTransitCooldown`]). This form updates overlap state.
 /// It has no recorded travel and cannot transfer a root.
 pub fn transit_step(
     body: ae::BodyKinematics,
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
-    portals: &[PlacedPortal],
-    gravity_dir: Vec2,
-) -> TransitStep {
+    portals: &[PlacedPortal],) -> TransitStep {
     transit_step_with_tuning(
         body,
         None,
         transit,
         cooldown_pair,
         portals,
-        gravity_dir,
-        &PortalTuning::default(),
-    )
+        &PortalTuning::default(),)
 }
 
 /// The first crossing of an axis-aligned body over a complete world tick.
@@ -456,11 +396,13 @@ pub fn first_portal_crossing_through(
 
 fn swept_crossing_step(
     sweep: ae::SweepSample, body: ae::BodyKinematics,
-    portals: &[PlacedPortal], gravity_dir: Vec2, tuning: &PortalTuning,
-) -> Option<TransitStep> {
+    portals: &[PlacedPortal], tuning: &PortalTuning,) -> Option<TransitStep> {
     let center = body.pos;
     let vel = body.vel;
-    let domain = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, body.canonical_size * 0.5));
+    let domain = match body.canonical_box() {
+        Ok(domain) => domain,
+        Err(reason) => return Some(TransitStep::Refused { channel: None, reason: ae::frame::thread::RefusalReason::Numeric(reason) }),
+    };
     let cast = match sweep.material_cast(&domain) {
         Ok(cast) => cast,
         Err(refusal) => return Some(TransitStep::Refused { channel: None, reason: refusal.reason }),
@@ -471,7 +413,7 @@ fn swept_crossing_step(
             let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
                 vel
             } else { sweep.vel };
-            Some(transfer_step(hit, center, carried, gravity_dir, tuning))
+            Some(transfer_step(hit, center, carried, tuning))
         }
         Ok(None) => None,
         Err(refusal) => Some(TransitStep::Refused { channel: Some(refusal.channel), reason: refusal.reason }),
@@ -487,20 +429,17 @@ pub fn transit_step_with_tuning(
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],
-    gravity_dir: Vec2,
-    tuning: &PortalTuning,
-) -> TransitStep {
+    tuning: &PortalTuning,) -> TransitStep {
     let center = kinematics.pos;
     let vel = kinematics.vel;
     let sweep = sweep.filter(|sample| sample.ending_at(center).is_some());
-    let down = sweep.map_or(Vec2::ZERO, |sweep| sweep.down);
-    let body = kinematics.aabb_oriented(down);
+    let body = kinematics.aabb();
     // Resolve `(straddled, its linked exit)` for a color — both must be placed.
     let pair_for = |c: PortalChannel| -> Option<(PlacedPortal, PlacedPortal)> {
         Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
     };
     if let Some(sweep) = sweep {
-        if let Some(step) = swept_crossing_step(sweep, kinematics, portals, gravity_dir, tuning) {
+        if let Some(step) = swept_crossing_step(sweep, kinematics, portals, tuning) {
             return step;
         }
     }
@@ -517,7 +456,7 @@ pub fn transit_step_with_tuning(
                 if find_portal(portals, enter.channel.partner()).is_none() {
                     continue;
                 }
-                let fits = match material_fits(kinematics, down, enter) {
+                let fits = match material_fits(kinematics, enter) {
                     Ok(fits) => fits,
                     Err(reason) => return TransitStep::Refused { channel: Some(enter.channel), reason: ae::frame::thread::RefusalReason::Numeric(reason) },
                 };

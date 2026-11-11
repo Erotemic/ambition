@@ -26,6 +26,10 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
 use bevy::app::AppExit;
 #[path = "capture_scene/art_snapshot.rs"]
 mod art_snapshot;
+#[path = "capture_scene/portal_fixture.rs"]
+mod portal_fixture;
+#[path = "capture_scene/target_dump.rs"]
+mod target_dump;
 use bevy::camera::{ImageRenderTarget, RenderTarget};
 use bevy::ecs::system::SystemParam;
 use bevy::input::touch::{TouchInput, TouchPhase};
@@ -39,6 +43,8 @@ use bevy::render::render_resource::{TextureFormat, TextureUsages};
 #[derive(Resource, Clone, Debug)]
 struct SceneCaptureConfig {
     art_snapshot: bool,
+    /// Read back private RGBA camera targets on this tick.
+    dump_targets_at: Option<u64>,
     room_id: String,
     focus: ae::Vec2,
     output: PathBuf,
@@ -121,6 +127,8 @@ struct SceneCaptureConfig {
     /// (`--portal-shot TICK:X,Y:DX,DY[:b]`), so a portal that is placed
     /// and a portal that is replaced can be filmed.
     portal_shots: Vec<PortalShotAt>,
+    /// Fixed diagnostic apertures, installed on their requested tick.
+    portal_placements: Vec<portal_fixture::PortalAt>,
     /// Shots to fire, each on its sim tick (`--shot`), so the look of a
     /// projectile is photographed with no body that fires it.
     shots: Vec<ShotAt>,
@@ -380,6 +388,10 @@ OPTIONS:
                         A button the hold before did not have down is pressed
                         on TICK and held after it. Repeat for a sequence; the
                         last hold that started applies
+    --dump-targets-at TICK
+                        save private RGBA camera targets beside the output
+    --portal-at TICK:INDEX:X,Y:NX,NY:HALF_LENGTH
+                        stage a fixed aperture; even/odd indices form pairs
     --portal-shot TICK:X,Y:DX,DY[:b]
                         fire a portal shot on sim tick TICK from world X,Y
                         along DX,DY: end A of the capture's own pair, or end
@@ -1407,7 +1419,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
     );
     if !app.world().resource::<SceneCaptureConfig>().gate_dials.is_empty() {
         app.add_systems(sim, dial_gates.before(ambition_platformer2d::session::rooms::gate_network::run_gate_network));
@@ -1441,6 +1453,10 @@ fn install_room_capture(app: &mut App) {
             hide_the_front_parallax.before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
     }
+    app.add_systems(PostUpdate, target_dump::prepare_readback
+        .after(ambition_platformer2d::portal_presentation::carry_through_pairs)
+        .before(bevy::asset::AssetEventSystems));
+    app.add_systems(Last, target_dump::dump_targets);
     app.init_resource::<PendingArtSnapshot>().add_systems(Last, write_art_snapshot);
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
@@ -1635,6 +1651,7 @@ impl SceneCaptureConfig {
         // One shot every frame by default.
         let mut frames: usize = 1;
         let mut art_snapshot = false;
+        let mut dump_targets_at = None;
         let mut stride: u32 = 1;
         let mut fit_room = false;
         let mut character: Option<String> = None;
@@ -1650,6 +1667,7 @@ impl SceneCaptureConfig {
         let mut hour: Option<(f32, u64)> = None;
         let mut wears: Vec<(String, String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
+        let mut portal_placements = Vec::new();
         let mut shots: Vec<ShotAt> = Vec::new();
         let mut items: Vec<ItemAt> = Vec::new();
         let mut portal_effect_off = false;
@@ -1939,6 +1957,16 @@ impl SceneCaptureConfig {
                     player_holds.push((HeldControls::parse(names)?, tick));
                     2
                 }
+                "--dump-targets-at" => {
+                    dump_targets_at = Some(args.get(i+1).ok_or("--dump-targets-at requires a tick")?
+                        .parse().map_err(|_|"--dump-targets-at requires a tick")?);
+                    2
+                }
+                "--portal-at" => {
+                    portal_placements.push(portal_fixture::PortalAt::parse(
+                        args.get(i + 1).ok_or("--portal-at requires an aperture")?)?);
+                    2
+                }
                 "--portal-shot" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--portal-shot requires TICK:X,Y:DX,DY[:b]".to_string());
@@ -2209,6 +2237,7 @@ impl SceneCaptureConfig {
             let size = size.unwrap_or(UVec2::new(1280, 720));
             return Ok(Self {
                 art_snapshot,
+                dump_targets_at,
                 room_id: String::new(),
                 focus: ae::Vec2::ZERO,
                 output,
@@ -2235,6 +2264,7 @@ impl SceneCaptureConfig {
                 seam: None,
                 player_holds: Vec::new(),
                 portal_shots: Vec::new(),
+                portal_placements: Vec::new(),
                 shots: Vec::new(),
                 items: Vec::new(),
                 portal_effect_off: false,
@@ -2293,6 +2323,7 @@ impl SceneCaptureConfig {
             .unwrap_or(UVec2::new(1280, 720));
         Ok(Self {
             art_snapshot,
+            dump_targets_at,
             room_id,
             focus,
             output,
@@ -2328,6 +2359,7 @@ impl SceneCaptureConfig {
             seam,
             player_holds,
             portal_shots,
+            portal_placements,
             shots,
             items,
             portal_effect_off,

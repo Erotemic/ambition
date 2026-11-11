@@ -13,23 +13,17 @@
 
 use bevy::prelude::*;
 
-/// Declare every body in a live room that holds a portal as read as one image
-/// (`ComposedBodyDemand`). A portal's clipped pieces — the transit's two
-/// halves (`sync_portal_body_pieces`) and what a far pane leaves uncovered
-/// (`composite_far_side_bodies`) — are cut from the body's root sprite, which a
-/// part-drawn body has only while it is composited. By room, not by crossing:
-/// both readers decide late in the frame whether a body is cut, and a body cut
-/// on the frame it was first declared would have no image for that frame.
+/// Declare an image for every animated picture in a portal room.
+/// A generated limb picture has the same image readers as its host.
+/// Declare demand before drawing; a late declaration leaves no image for
+/// the clipping pass on that frame.
 pub fn declare_portal_body_demand(
     frames: ambition_portal2d_presentation::PortalFrames,
     portals: Query<Entity, With<ambition_portal2d_presentation::PlacedPortal>>,
     bodies: Query<
         Entity,
         (
-            Or<(
-                With<crate::rendering::primitives::FeatureVisual>,
-                With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
-            )>,
+            With<ambition_sprite_sheet::character::CharacterAnimator>,
             Without<bevy::prelude::ChildOf>,
         ),
     >,

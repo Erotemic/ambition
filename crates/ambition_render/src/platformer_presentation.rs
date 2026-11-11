@@ -160,6 +160,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_systems(
             Update,
             crate::rendering::portal_compositing::declare_portal_body_demand
+                .after(crate::rendering::actors::rigged::follow_limb_twins)
                 .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                 .run_if(bevy::prelude::any_with_component::<
                     ambition_portal2d_presentation::PlacedPortal,

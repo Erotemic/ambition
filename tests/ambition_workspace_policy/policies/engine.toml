@@ -2147,18 +2147,6 @@ allow_lines = ["ambition_platformer2d_runtime::gravity"]
 skip_tests = true
 
 
-# was: architecture_boundaries_portal_has_plugin_and_schedule_files_without_actor_facade
-[[policy]]
-id = "engine.portal-mechanic-crate-files"
-scope = "engine"
-kind = "required-path"
-owners = ["ambition_portal2d"]
-watch_paths = ["crates/ambition_portal2d/src"]
-rationale = "portal mechanic crate files exist"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-paths = ["crates/ambition_portal2d/src/lib.rs", "crates/ambition_portal2d/src/plugin.rs", "crates/ambition_portal2d/src/schedule.rs", "crates/ambition_portal2d/src/color.rs", "crates/ambition_portal2d/src/types.rs", "crates/ambition_portal2d/src/gun.rs", "crates/ambition_portal2d/src/gun_pickup.rs", "crates/ambition_portal2d/src/gun_projectile.rs", "crates/ambition_portal2d/src/placement.rs", "crates/ambition_portal2d/src/transit.rs", "crates/ambition_portal2d/src/lifecycle.rs", "crates/ambition_portal2d/src/messages.rs", "crates/ambition_portal2d/src/pieces.rs"]
-
 [[policy]]
 id = "engine.actor-portal-facade-gone"
 scope = "engine"

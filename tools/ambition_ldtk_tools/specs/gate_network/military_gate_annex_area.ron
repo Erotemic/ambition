@@ -24,7 +24,7 @@
         ( type: "Prop", px: [632, 96], size: [288, 288], fields: ( name: "Military Gate (Annex) Ring", kind: "triangle_gate_ring" ) ),
         ( type: "Prop", px: [632, 96], size: [288, 288], fields: ( name: "Military Gate (Annex) Portal", kind: "triangle_gate_portal" ) ),
         ( type: "LoadingZone", px: [704, 96], size: [144, 288], fields: ( id: "military_gate_zone", name: "the military gate", activation: "Door", target_room: "", target_zone: "", bidirectional: false ) ),
-        ( type: "Prop", px: [932, 328], size: [64, 56], fields: ( name: "Military Gate (Annex) Dialer", kind: "gate_dialer" ) ),
+        ( type: "Prop", px: [932, 328], size: [64, 56], fields: ( name: "Military Gate (Annex) Dialer", kind: "gate_dialer_triangle" ) ),
         ( type: "Switch", px: [952, 340], size: [24, 32], fields: ( id: "military_gate_terminal", name: "Military Gate (Annex) terminal", prompt: "Dial the gate", target_encounter: "", action: "GateTerminal" ) ),
         ( type: "Prop", px: [560, 288], size: [64, 96], fields: ( name: "annex_gate_power_cabinet", kind: "gate_power_cabinet" ) ),
         ( type: "DebugLabel", px: [608, 124], size: [360, 24], fields: ( name: "annex_gate_sign", category: "Room", text: "MILITARY GATE: priority band, use is logged" ) ),

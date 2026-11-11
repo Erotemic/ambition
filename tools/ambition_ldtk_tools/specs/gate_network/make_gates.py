@@ -412,10 +412,11 @@ edits:
 
 
 #: Terminals for the receive-only rings, east of each ring on its floor:
-#: (world, level, label, terminal id, dialer x, floor).
+#: (world, level, label, terminal id, dialer x, floor, ring shape). The
+#: rookery's ring is the Jungle's round one.
 RECEIVER_TERMINALS = [
-    (DINOSAUR, "primeval_rookery", "Rookery Survey Gate", "rookery_gate_terminal", 380, 480),
-    (SCIENCE, "gnu_ton_works_approach", "Trail Survey Gate", "trail_survey_gate_terminal", 972, 352),
+    (DINOSAUR, "primeval_rookery", "Rookery Survey Gate", "rookery_gate_terminal", 380, 480, "round"),
+    (SCIENCE, "gnu_ton_works_approach", "Trail Survey Gate", "trail_survey_gate_terminal", 972, 352, "triangle"),
 ]
 
 
@@ -461,7 +462,7 @@ def main(argv) -> int:
     print(spec.relative_to(TOOLS))
     for path, text in district_interfaces().items():
         path.write_text(text)
-        print(path.relative_to(TOOLS))
+        print(path.relative_to(TOOLS.parents[1]))
     annex = HERE / f"{ANNEX}_area.ron"
     annex.write_text(annex_spec())
     print(annex.relative_to(TOOLS))
@@ -515,9 +516,9 @@ def main(argv) -> int:
             return 1
     if apply_yaml(hub_stack_door_yaml(), "hub_stack_door.yaml", ["entity", "set-field"], SANDBOX):
         return 1
-    for world, level_id, label, terminal_id, x, floor in RECEIVER_TERMINALS:
+    for world, level_id, label, terminal_id, x, floor, shape in RECEIVER_TERMINALS:
         if terminal_id not in json.dumps(level_of(world, level_id)):
-            if apply_yaml(gates.as_yaml(level_id, gates.terminal(label, terminal_id, x, floor), f"{label}'s terminal."),
+            if apply_yaml(gates.as_yaml(level_id, gates.terminal(label, terminal_id, x, floor, shape), f"{label}'s terminal."),
                           f"{terminal_id}.yaml", ["entity", "add"], world):
                 return 1
     if level_of(SANDBOX, ANNEX) is None:

@@ -594,8 +594,10 @@
     "cut_rope_piano": (frame_sample_inset: 2),
     // The interdimensional gate: its ring and its portal surface.
     // The fittings of a gate of the gate network: the dialer beside each
-    // ring, its power, the traffic board, the bags for organic travellers.
+    // ring (its dial has the shape of its ring: round or triangle), its
+    // power, the traffic board, the bags for organic travellers.
     "gate_dialer": (),
+    "gate_dialer_triangle": (),
     "gate_power_cabinet": (),
     "gate_traffic_board": (),
     "gate_transit_bags": (),

@@ -95,6 +95,7 @@ links to.
 - [`game/world-detail-24h.md`](game/world-detail-24h.md) — completed world-detail run and remaining revalidation.
 - [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
   skins, foregrounds and motes for each biome; the rules of the art lane.
+- [`game/collision-guided-environmental-composition.md`](game/collision-guided-environmental-composition.md) — making platforms read as branches, ledges and masonry: art beyond clean collision (the spectral-wing pilot).
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
 - [`game/boss-cinematics-gnu2-and-motion.md`](game/boss-cinematics-gnu2-and-motion.md) — roster-wide cinematic intros, real GNU2 portal finale and measured GNU mount/part-motion repair.
 - [`game/chargen-species-knobs-and-2d-overlays.md`](game/chargen-species-knobs-and-2d-overlays.md) — species parameters and per-view overlay art.

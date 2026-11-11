@@ -298,6 +298,35 @@ snapshot.
   corpse but not that beat; a presentation event (the kill, by `SimId`)
   would carry it.
 
+**The kill as a presentation event (2026-11-11),** probe
+`probe_what_a_kill_on_the_host_shows_a_guest` (same file, ignored): the
+death probe's run with two gated guests. Both apply the body rows, healths
+and beats; one is also sent each frame's `CameraShakeRequest`s, read off the
+host's message channel (a shake is one of the presentation effects a
+simulation makes and presentation reads, `for_each_presentation_effect`), and
+the other, the control, is not.
+
+| Host's shakes (rooms) | Sounds, visuals the host made | First shake after the kill: host, guest, control | Frames a view's shake differs from the host's 3 frames earlier: guest, control | Link a frame |
+|---|---|---|---|---|
+| 3 (`None`, room 0) | 5, 6 | frame 15, 17, never | 1, 223 | 0.11 bytes |
+
+- **Forwarding the host's presentation effects shows the kill:** the guest
+  shakes with the host, and without them it never does. A room travels as
+  its `LiveRoomInstance` number; host and guest booted the same room, so it
+  named the same room on both. A guest whose room numbers differ from the
+  host's needs them mapped, as bodies are by `SimId`.
+- **The one differing frame is the host's own lag:** the host writes the
+  kill's shake on frame 14 and applies it on its next update (the applier
+  runs before the simulation that writes it), while the guest writes the
+  forwarded shake before its update. So the guest shakes two frames after
+  the host, not three.
+- **The channel is cheap:** three shakes, five sounds and six visuals in
+  240 frames. The kill needs no field of its own; the same channel would
+  carry sounds and visuals, which a gated guest makes none of either.
+- **Not measured:** a headless App has no shake decay (`tick_camera_shake`
+  is the windowed host's), so a shake here never ends and "shaking" counts
+  frames since the first one. Sounds and visuals were counted, not sent.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -314,8 +343,12 @@ snapshot.
    (2026-11-11): taking the simulation's 557 systems out of a booted guest
    saves 0.24–0.46 ms of about 2.1; the other 1.7–1.9 ms is 335 systems of
    composition and presentation (other games' demos, the conversation, the
-   shell). Next: a guest composed of its own game only; other kinds' spawn
-   rows; send only the guest's room; the kill as a presentation event.
+   shell). The kill as a presentation event (2026-11-11): forwarding the
+   host's camera shakes makes the guest shake with it (the control never
+   does), at 0.11 bytes a frame; sounds and visuals would ride the same
+   channel. Next: a guest composed of its own game only; other kinds' spawn
+   rows; send only the guest's room; sounds and visuals sent, with room
+   numbers mapped.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

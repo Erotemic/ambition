@@ -720,3 +720,147 @@ fn probe_what_a_death_on_the_host_does_to_a_guest() {
     assert!(entered.is_some(), "premise: the enemy reached the host's snapshot");
     assert!(died.is_some(), "premise: Alice's shots killed the enemy");
 }
+
+/// What one camera shake costs on the link: its amplitude (an `f32`) and its
+/// room (a `u32`, or none).
+const SHAKE_FIELD: u64 = 4 + 1 + 4;
+
+/// The largest shake any view of `sim` holds now.
+fn shaking(sim: &mut Platformer2dSimHarness) -> f32 {
+    let shake = sim.world_mut().resource::<ambition_platformer2d::platformer::camera_ease::CameraShakeState>();
+    shake.rooms.values().copied().fold(shake.amplitude_px, f32::max)
+}
+
+/// NA-2b, the kill as a presentation event: the death probe's run, with two
+/// guests. Both apply the body rows, healths and beats; one is also sent
+/// each frame's camera shakes (the presentation effects a gated guest never
+/// makes: `for_each_presentation_effect`), and the other, the control, is
+/// not. Prints when the host, the guest and the control first shake after
+/// the kill, the frames each guest's shake differs from the host's shake
+/// [`LATENCY`] frames earlier, and how many of the other presentation
+/// effects (sounds, visuals) the host made: what the same channel would carry.
+#[test]
+#[ignore = "measurement: prints what a guest needs to show a kill's shake; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_kill_on_the_host_shows_a_guest() {
+    use ambition_platformer2d::platformer::camera_ease::CameraShakeRequest;
+    use bevy::ecs::message::{MessageCursor, Messages};
+    const ENEMY: &str = "na2b_kill_probe";
+    let mut host = booted(ROOM);
+    let mut guest = booted(ROOM);
+    let mut control = booted(ROOM);
+    simulate_nothing(&mut guest);
+    simulate_nothing(&mut control);
+    let mut shakes = MessageCursor::<CameraShakeRequest>::default();
+    let mut sounds = MessageCursor::<ambition_platformer2d::sfx::OwnedSfxMessage>::default();
+    let mut visuals = MessageCursor::<ambition_platformer2d::vfx::VfxInRoom>::default();
+    type Sent = (i32, BTreeMap<SimId, [f32; 5]>, BTreeMap<SimId, i32>, BTreeMap<SimId, (Beat, bool)>, Vec<CameraShakeRequest>);
+    let mut in_flight: VecDeque<Sent> = VecDeque::new();
+    let (mut died, mut enemy_id) = (None::<i32>, None::<SimId>);
+    let mut host_shakes: Vec<f32> = Vec::new();
+    let (mut first_host, mut first_guest, mut first_control) = (None::<i32>, None::<i32>, None::<i32>);
+    let (mut guest_differs, mut control_differs, mut shake_count, mut sound_count, mut visual_count) = (0, 0, 0u64, 0u64, 0u64);
+    let mut rooms_named = BTreeSet::new();
+    for frame in 1..=FRAMES {
+        if frame == 5 {
+            let at = {
+                let world = host.world_mut();
+                world
+                    .query_filtered::<&BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                    .single(world)
+                    .expect("Alice has a body")
+                    .pos
+            };
+            host.spawn_enemy_character_at(
+                ENEMY,
+                "Target",
+                (at.x + 72.0, at.y),
+                (12.0, 16.0),
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+                "npc_puppy_slug",
+            );
+        }
+        alice_fires_often(&mut host, frame);
+        host.drive_seat(0, Default::default());
+        host.drive_seat(1, Default::default());
+        host.app_mut().update();
+        {
+            let world = host.world_mut();
+            let found = world
+                .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&SimId>, Option<&mut Health>)>()
+                .iter_mut(world)
+                .find(|(feature, ..)| feature.0 == ENEMY)
+                .map(|(_, id, health)| {
+                    if let Some(mut health) = health {
+                        if health.health.current > 1 {
+                            health.health.current = 1;
+                        }
+                        if health.health.current <= 0 {
+                            died.get_or_insert(frame);
+                        }
+                    }
+                    id.cloned()
+                });
+            if let Some(Some(id)) = found {
+                enemy_id.get_or_insert(id);
+            }
+        }
+        let made: Vec<CameraShakeRequest> = {
+            let world = host.world();
+            let made: Vec<CameraShakeRequest> = shakes.read(world.resource::<Messages<CameraShakeRequest>>()).copied().collect();
+            sound_count += sounds.read(world.resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>()).count() as u64;
+            visual_count += visuals.read(world.resource::<Messages<ambition_platformer2d::vfx::VfxInRoom>>()).count() as u64;
+            made
+        };
+        shake_count += made.len() as u64;
+        rooms_named.extend(made.iter().map(|shake| shake.room));
+        let host_shake = shaking(&mut host);
+        host_shakes.push(host_shake);
+        if died.is_some() && host_shake > 0.0 {
+            first_host.get_or_insert(frame);
+        }
+        let rows = bodies(&mut host, None);
+        let lives = healths(&mut host);
+        let drawn = beats(&mut host);
+        in_flight.push_back((frame, rows, lives, drawn, made));
+        if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+            let (_, rows, lives, drawn, made) = in_flight.pop_front().expect("a snapshot arrived");
+            for sim in [&mut guest, &mut control] {
+                apply_all(sim, &rows);
+                apply_healths(sim, &lives);
+                apply_beats(sim, &drawn);
+            }
+            for shake in made {
+                guest.world_mut().write_message(shake);
+            }
+        }
+        guest.app_mut().update();
+        control.app_mut().update();
+        let (now_guest, now_control) = (shaking(&mut guest), shaking(&mut control));
+        if died.is_some() && now_guest > 0.0 {
+            first_guest.get_or_insert(frame);
+        }
+        if died.is_some() && now_control > 0.0 {
+            first_control.get_or_insert(frame);
+        }
+        if frame > LATENCY {
+            let then = host_shakes[(frame - LATENCY - 1) as usize];
+            if (now_guest - then).abs() > 1e-3 {
+                guest_differs += 1;
+            }
+            if (now_control - then).abs() > 1e-3 {
+                control_differs += 1;
+            }
+        }
+    }
+    let shaken = host_shakes.iter().filter(|amplitude| **amplitude > 0.0).count();
+    println!("[kill] {ROOM}: {FRAMES} frames, a snapshot {LATENCY} frames late; the enemy {enemy_id:?} dead from frame {died:?}");
+    println!(
+        "[kill]   the host made {shake_count} shakes (rooms {rooms_named:?}), {sound_count} sounds and {visual_count} visuals; it shook on {shaken} frames"
+    );
+    println!("[kill]   after the kill first shaking: host frame {first_host:?}, guest {first_guest:?}, control {first_control:?}");
+    println!(
+        "[kill]   frames a view's shake differs from the host's {LATENCY} frames earlier: guest {guest_differs}, control {control_differs}; the shakes cost {:.3} link bytes a frame",
+        (shake_count * SHAKE_FIELD) as f64 / FRAMES as f64
+    );
+    assert!(died.is_some(), "premise: Alice's shots killed the enemy");
+}

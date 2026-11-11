@@ -22,10 +22,10 @@ use ambition_time::{ClockDomain, ClockObserver, ClockState};
 /// different rooms are independent (ruling 2026-10-19), as a conversation is
 /// not modal there either. So with several live rooms neither the impact hold
 /// nor Player 1's hitlag freezes the shared clock: the struck room's own
-/// bodies hold instead (`ImpactHitstop::rooms`, read through `RoomFreeze`).
+/// bodies hold instead (`RoomPace::held_until`, read through `RoomFreeze`).
 /// And bullet time slows Player 1's room, not every room: the shared clock
-/// runs at 1 and Player 1's room eases toward the bullet scale in
-/// `RoomClockScales`, at the shared clock's ramp rates (ISL-1b,
+/// runs at 1 and Player 1's room eases toward the bullet scale in its root's
+/// `RoomPace::clock_scale`, at the shared clock's ramp rates (ISL-1b,
 /// `docs/planning/engine/island-rollback-and-compact-peer-input.md`).
 pub fn emit_primary_observer_time_intent(
     drivers: Query<(Entity, &DrivingParticipant)>,
@@ -43,10 +43,19 @@ pub fn emit_primary_observer_time_intent(
         ),
     >,
     mut writer: MessageWriter<ClockScaleRequest>,
-    // Each room's eased scale while several rooms are live, the room of
-    // Player 1's body, and the real seconds the ramp is measured in.
-    (room_scales, rooms_of, world_time): (
-        Option<ResMut<ambition_combat::impact_hitstop::RoomClockScales>>,
+    // Each live room's root and pace, the room of Player 1's body, and the
+    // real seconds the ramp is measured in. A room hidden for another room's
+    // replay keeps its pace: that replay is not its time.
+    (mut roots, mut commands, rooms_of, world_time): (
+        Query<
+            (
+                Entity,
+                &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+                Option<&mut ambition_combat::impact_hitstop::RoomPace>,
+            ),
+            With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+        >,
+        Commands,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
         Option<Res<ambition_time::WorldTime>>,
     ),
@@ -72,9 +81,7 @@ pub fn emit_primary_observer_time_intent(
     // No unique observed body means no retained body may hold the world clock.
     let Some((facts, combat)) = observed else {
         // Nor any room's: every room eases home.
-        if let Some(mut room_scales) = room_scales.filter(|scales| !scales.rooms.is_empty()) {
-            room_scales.rooms = ease_room_clocks(&room_scales.rooms, None, &feel, wall_dt);
-        }
+        ease_room_clocks(&mut roots, &mut commands, None, &feel, wall_dt);
         writer.write(ClockScaleRequest {
             domain: ClockDomain::SimClock,
             scale: 1.0,
@@ -104,13 +111,8 @@ pub fn emit_primary_observer_time_intent(
     };
     // Several live rooms: the scale is Player 1's room's, and the shared
     // clock runs at 1.
-    if let Some(mut room_scales) = room_scales {
-        let room = (!one_room).then(|| observed_body.and_then(|body| rooms_of.of(body))).flatten();
-        let eased = ease_room_clocks(&room_scales.rooms, room.map(|room| (room, scale)), &feel, wall_dt);
-        if eased != room_scales.rooms {
-            room_scales.rooms = eased;
-        }
-    }
+    let room = (!one_room).then(|| observed_body.and_then(|body| rooms_of.of(body))).flatten();
+    ease_room_clocks(&mut roots, &mut commands, room.map(|room| (room, scale)), &feel, wall_dt);
     let (scale, reason) = if one_room { (scale, reason) } else { (1.0, "room_clock") };
     writer.write(ClockScaleRequest {
         domain: ClockDomain::SimClock,
@@ -121,28 +123,41 @@ pub fn emit_primary_observer_time_intent(
 }
 
 /// Each room's clock this tick: the `wanted` room eases toward its scale, and
-/// every other room toward `1.0`, at the shared clock's ramp rates; a room at
-/// `1.0` is forgotten. With no room wanted (one live room, or no Player 1),
-/// every room eases home.
+/// every other room toward `1.0`, at the shared clock's ramp rates. With no
+/// room wanted (one live room, or no Player 1), every room eases home. A room
+/// at its pace is not written, so a quiet frame changes nothing.
 fn ease_room_clocks(
-    rooms: &std::collections::BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32>,
+    roots: &mut Query<
+        (
+            Entity,
+            &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            Option<&mut ambition_combat::impact_hitstop::RoomPace>,
+        ),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+    commands: &mut Commands,
     wanted: Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32)>,
     feel: &Platformer2dFeelTuningMonolith,
     frame_dt: f32,
-) -> std::collections::BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32> {
-    let mut eased = std::collections::BTreeMap::new();
-    let current = rooms.iter().map(|(room, scale)| (*room, *scale)).chain(
-        wanted.filter(|(room, _)| !rooms.contains_key(room)).map(|(room, _)| (room, 1.0)),
-    );
-    for (room, now) in current {
-        let target = wanted.filter(|(at, _)| *at == room).map_or(1.0, |(_, scale)| scale);
+) {
+    for (root, room, pace) in roots.iter_mut() {
+        let now = pace.as_deref().map_or(1.0, |pace| pace.clock_scale);
+        let target = wanted.filter(|(at, _)| at == room).map_or(1.0, |(_, scale)| scale);
+        if now == target {
+            continue;
+        }
         let rate = if target < now { feel.time_ramp_down_rate } else { feel.time_ramp_up_rate };
         let next = crate::sim_clock::move_toward(now, target, rate * frame_dt);
-        if next != 1.0 {
-            eased.insert(room, next);
+        match pace {
+            Some(mut pace) => pace.clock_scale = next,
+            None => {
+                commands.entity(root).insert(ambition_combat::impact_hitstop::RoomPace {
+                    clock_scale: next,
+                    ..Default::default()
+                });
+            }
         }
     }
-    eased
 }
 
 /// Smooth [`ClockState::time_scale`] toward

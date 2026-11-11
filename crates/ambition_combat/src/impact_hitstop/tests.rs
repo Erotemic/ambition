@@ -272,8 +272,10 @@ fn a_body_runs_at_its_own_rooms_pace() {
         (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2), LiveRoomInstance::from_ordinal(3));
     let mut app = App::new();
     app.insert_resource(ambition_time::SimTick(10));
-    app.insert_resource(ImpactHitstop { until_tick: None, rooms: [(held, 20)].into() });
-    app.insert_resource(RoomClockScales { rooms: [(slowed, 0.25), (held, 0.5)].into() });
+    use ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot;
+    app.world_mut().spawn((RoomInstanceRoot, held, RoomPace { held_until: 20, clock_scale: 0.5 }));
+    app.world_mut().spawn((RoomInstanceRoot, slowed, RoomPace { held_until: 0, clock_scale: 0.25 }));
+    app.world_mut().spawn((RoomInstanceRoot, plain));
     let bodies: Vec<_> = [held, slowed, plain].map(|room| app.world_mut().spawn(InRoomInstance(room)).id()).into();
     let paces = app
         .world_mut()

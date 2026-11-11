@@ -253,7 +253,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 448 -> 449: a live holder's hours are booked for the time held.
 // 449 -> 450: the impact freeze keeps each held room's expiry.
 // 450 -> 451: each live room's eased clock scale joins the snapshot.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 451;
+// 451 -> 452: a room's hold and clock scale move onto its root, so a room
+// rewind restores them.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 452;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

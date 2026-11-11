@@ -175,10 +175,14 @@ pub fn interact_ecs_actors_and_switches(
     // the system is at Bevy's parameter ceiling.
     // The live rooms with their specs: a door the body stands in is nearer
     // than a body to talk to, or not.
-    (mut switch_activated, rooms, seats): (
+    // And the tick and the quest-cause log, which date a talk in the talker's
+    // room (ISL-2d).
+    (mut switch_activated, rooms, seats, tick, mut quest_causes): (
         MessageWriter<SwitchActivated>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<&ambition_characters::control::DrivingParticipant>,
+        Option<Res<ambition_time::SimTick>>,
+        Option<ResMut<ambition_combat::events::QuestCausesInRooms>>,
     ),
     mut vfx: VfxWriter,
 ) {
@@ -310,20 +314,26 @@ pub fn interact_ecs_actors_and_switches(
                 );
                 next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
             }
-            quest_advance.write(QuestAdvanceRequested::new(
-                ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
-            ));
-            // A conversation's writes are not one room's: they wait on the
-            // one-conversation coupling (ISL-1b), so they carry no room.
+            // The talk is the talker's room's act, at this tick: a rewind of
+            // that room takes back its flags and the quest step it moved, and
+            // the replay talks again (ISL-2d). What the conversation then
+            // grants or sells is the conversation's (the one-conversation
+            // coupling, ISL-1b), not this.
+            let written = subject_room
+                .zip(tick.as_deref())
+                .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 });
+            let event = ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone());
+            let cause = written.zip(quest_causes.as_deref_mut()).map(|(written, causes)| causes.record(written, event.label()));
+            quest_advance.write(QuestAdvanceRequested(event, cause));
             set_flag.write(SetFlagRequested {
                 id: "met_any_hub_npc".into(),
                 on: true,
-                written: None,
+                written,
             });
             set_flag.write(SetFlagRequested {
                 id: ambition_persistence::save_data::npc_talked_flag(dialogue_id),
                 on: true,
-                written: None,
+                written,
             });
             vfx.for_room(live_rooms.of(actor_entity)).write(VfxMessage::Burst {
                 pos: aabb.center,

@@ -281,14 +281,13 @@ fn observer_time_requests_follow_the_seat_instead_of_its_home_body() {
 
 /// ISL-1b: with two live rooms, Player 1's bullet time slows Player 1's room
 /// and not the other, and the shared clock runs at 1. When the aim ends the
-/// room eases home and is forgotten.
+/// room eases home.
 #[test]
 fn bullet_time_slows_only_player_ones_room_while_two_rooms_are_live() {
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
     let mut app = App::new();
     app.init_resource::<Platformer2dFeelTuningMonolith>();
-    app.init_resource::<ambition_combat::impact_hitstop::RoomClockScales>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<ClockScaleRequest>();
     app.add_systems(Update, emit_primary_observer_time_intent);
@@ -309,14 +308,26 @@ fn bullet_time_slows_only_player_ones_room_while_two_rooms_are_live() {
     }
     let request = app.world_mut().resource_mut::<Messages<ClockScaleRequest>>().drain().last().unwrap();
     assert_eq!((request.scale, request.reason), (1.0, "room_clock"), "bullet time scaled the shared clock with two rooms live");
-    let scales = app.world().resource::<ambition_combat::impact_hitstop::RoomClockScales>().rooms.clone();
     let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
-    assert_eq!(scales.get(&here).copied(), Some(bullet), "Player 1's room did not reach the bullet scale");
-    assert!(!scales.contains_key(&there), "the other room was slowed: {scales:?}");
+    assert_eq!(pace_of(&mut app, here), bullet, "Player 1's room did not reach the bullet scale");
+    assert_eq!(pace_of(&mut app, there), 1.0, "the other room was slowed");
 
     app.world_mut().entity_mut(player).insert(ambition_platformer2d_core::BodyMotionFacts::default());
     for _ in 0..60 {
         app.update();
     }
-    assert!(app.world().resource::<ambition_combat::impact_hitstop::RoomClockScales>().rooms.is_empty(), "the room did not ease home");
+    assert_eq!(pace_of(&mut app, here), 1.0, "the room did not ease home");
+}
+
+/// The clock scale on `room`'s root (`1.0` with no pace).
+fn pace_of(app: &mut App, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> f32 {
+    let mut roots = app.world_mut().query::<(
+        &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        Option<&ambition_combat::impact_hitstop::RoomPace>,
+    )>();
+    roots
+        .iter(app.world())
+        .find(|(at, _)| **at == room)
+        .map(|(_, pace)| pace.map_or(1.0, |pace| pace.clock_scale))
+        .expect("the room has a root")
 }

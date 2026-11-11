@@ -346,6 +346,13 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // so a step that arrived this tick is done this tick.
         app.init_resource::<crate::body::life::LifeBook>();
         app.init_resource::<crate::body::life::LifeLedger>();
+        // A rewound room takes back the bookings its lives made after the
+        // tick it was saved at (ISL-2c).
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.life_ledger_bookings",
+            crate::body::life::retract_room_bookings,
+        );
         app.add_systems(
             Update,
             crate::body::life::forget_life_ledger_on_activation

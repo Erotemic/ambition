@@ -8,6 +8,42 @@ fn box_at(center: Vec2, half: Vec2) -> Vec<Vec2> {
 }
 
 #[test]
+fn non_finite_collider_input_refuses_before_a_portal_cut() {
+    let aperture = |x, normal| PortalAperture {
+        frame: PortalFrame::fixed(Vec2::new(x, 0.0), normal), half_length: 10.0,
+    };
+    let links = [PortalLink::new(aperture(1.0, Vec2::NEG_X), aperture(100.0, Vec2::X), 1)];
+    let shape = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(2.0)));
+    let cells = MaterialCast::new(MaterialPrimitive::world(&shape), Vec2::ZERO,
+        Vec2::new(2.0, 0.0), 0.0..1.0).cells(Some(MotionAdmission {
+            links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection,
+        })).unwrap();
+    let part = cells.parts().iter().find(|part| !part.world_planes.is_empty()).unwrap();
+    for bad_motion in [true, false] {
+        let mut obstacle = box_at(Vec2::ZERO, Vec2::ONE);
+        let displacement = if bad_motion { Vec2::new(f32::NAN, 0.0) }
+            else { obstacle[0].x = f32::NAN; Vec2::ZERO };
+        let result = cells.against(part, &obstacle, displacement);
+        assert!(matches!(result, Err(Refusal {
+            reason: RefusalReason::Numeric(NumericFault::NonFinite), ..
+        })), "bad_motion={bad_motion}: {result:?}");
+    }
+}
+
+#[test]
+fn non_finite_collider_motion_keeps_an_unknown_world_candidate() {
+    let mut block = crate::Block::solid("unknown motion", Vec2::new(10_000.0, 0.0), Vec2::ONE);
+    block.velocity.x = f32::NAN;
+    let world = crate::World::new("unknown motion", Vec2::splat(20_000.0), Vec2::ZERO, vec![block]);
+    let shape = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::ONE));
+    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), Vec2::ZERO,
+        Vec2::new(10.0, 0.0), 0.0..1.0);
+    let result = world.first_material_sweep(cast, None, |_, _, _| Ok(true));
+    assert!(matches!(result,
+        Err(Refusal { reason: RefusalReason::Numeric(NumericFault::NonFinite), .. })), "{result:?}");
+}
+
+#[test]
 fn a_finite_cross_section_sweeps_its_full_width_without_padding() {
     let section = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(0.0, 2.0)));
     for angle in [0.0, 0.37, std::f32::consts::FRAC_PI_2] {

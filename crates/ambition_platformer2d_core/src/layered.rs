@@ -16,6 +16,9 @@ use std::sync::{Arc, OnceLock};
 
 use crate::{Aabb, Vec2};
 
+/// An unknown envelope retains every candidate for exact contact.
+pub(crate) const UNBOUNDED: Aabb = Aabb { min: Vec2::NEG_INFINITY, max: Vec2::INFINITY };
+
 /// A shared base list, a set of its entries hidden, and entries added.
 #[derive(Clone)]
 pub struct Layered<T> {
@@ -390,10 +393,12 @@ fn touches(a: Aabb, b: Aabb) -> bool {
 
 /// The box around `points`.
 pub fn bounds_of(points: &[Vec2]) -> Aabb {
+    if points.is_empty() { return Aabb::new(Vec2::ZERO, Vec2::ZERO); }
+    if points.iter().any(|point| !point.is_finite()) { return UNBOUNDED; }
     let (lo, hi) = points
         .iter()
         .fold((Vec2::splat(f32::MAX), Vec2::splat(f32::MIN)), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
-    Aabb::new((lo + hi) * 0.5, ((hi - lo) * 0.5).max(Vec2::ZERO))
+    Aabb { min: lo, max: hi }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -524,6 +529,17 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Layered<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_thin_line_keeps_its_far_endpoint_in_the_index() {
+        let end = Vec2::new(16_777_218.0, 0.0);
+        let lines: Layered<crate::SurfaceChain> = vec![crate::SurfaceChain::open(
+            "thin line", vec![Vec2::new(16_777_216.0, 0.0), end],
+        )].into();
+        let found = lines.indexed_swept_near(Aabb { min: end, max: end });
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].0, 0);
+    }
 
     #[test]
     fn a_layer_hides_and_adds_without_touching_the_shared_base() {

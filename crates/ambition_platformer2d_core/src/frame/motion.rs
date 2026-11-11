@@ -83,16 +83,40 @@ pub struct ApertureStep {
     pub turn: f32,
 }
 
+/// A host step with validated geometry. Samples still validate their clock.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct PreparedApertureStep {
+    step: ApertureStep,
+    end: PortalAperture,
+}
+
+impl PreparedApertureStep {
+    pub(super) fn sample_wide(self, time: f64) -> Result<WideAperture, NumericFault> {
+        if !time.is_finite() { return Err(NumericFault::NonFinite); }
+        if !(0.0..=1.0).contains(&time) { return Err(NumericFault::InvalidFrame); }
+        Ok(self.step.sample_validated_wide(self.end, time))
+    }
+}
+
 impl ApertureStep {
+    pub(super) fn prepare_wide(self, end: PortalAperture) -> Result<PreparedApertureStep, NumericFault> {
+        self.validate(end, 1.0)?;
+        Ok(PreparedApertureStep { step: self, end })
+    }
+
     pub(super) fn sample_wide(
         self,
         end: PortalAperture,
         time: f64,
     ) -> Result<WideAperture, NumericFault> {
         self.validate(end, time)?;
+        Ok(self.sample_validated_wide(end, time))
+    }
+
+    fn sample_validated_wide(self, end: PortalAperture, time: f64) -> WideAperture {
         let rotation = rotation_ending_at(f64::from(self.turn), time);
         let pivot = end.frame.pivot.as_dvec2() - self.displacement.as_dvec2() * (1.0 - time);
-        Ok(WideAperture {
+        WideAperture {
             origin: pivot + rotation * (end.frame.origin.as_dvec2() - end.frame.pivot.as_dvec2()),
             normal: rotation * end.frame.normal.as_dvec2().normalize(),
             pivot,
@@ -100,7 +124,7 @@ impl ApertureStep {
             turn: f64::from(self.turn),
             half: f64::from(end.half_length),
             phase_error: f64::from(self.turn).abs() * time.abs() * f64::EPSILON * 8.0,
-        })
+        }
     }
     pub fn fixed(origin: Vec2, normal: Vec2) -> Self {
         Self {

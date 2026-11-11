@@ -230,9 +230,13 @@ pub(crate) fn material_lines(
     let map = body.material_map().and_then(|map| map.shifted(start.as_dvec2())).map_err(numeric)?;
     let cells = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world: map },
         body.pos + start, delta, time..time).cells(admission)?;
+    let bounds = cells.swept_bounds().reduce(|a, b| Aabb {
+        min: a.min.min(b.min), max: a.max.max(b.max),
+    });
+    let Some(bounds) = bounds else { return Ok(Vec::new()); };
     let min_up = WALK_SLOPE_LIMIT_DEG.to_radians().cos();
     let mut found = Vec::new();
-    for (ci, chain) in world.chains.iter().enumerate() {
+    for (ci, chain) in world.chains.indexed_swept_near(bounds) {
         let mut best: Option<LineSupport> = None;
         for si in 0..chain.segment_count() {
             let (a, b) = chain.segment(si);
@@ -489,6 +493,25 @@ mod tests {
     /// A ramp up to the right at 27 degrees (rise 1 in 2).
     fn ramp() -> World {
         world_with(vec![Vec2::new(0.0, 200.0), Vec2::new(100.0, 200.0), Vec2::new(300.0, 100.0), Vec2::new(400.0, 100.0)])
+    }
+
+    #[test]
+    fn unknown_line_motion_refuses_support_until_it_has_a_finite_envelope() {
+        let mut world = world_with(vec![Vec2::new(-100.0, 200.0), Vec2::new(100.0, 200.0)]);
+        let mut remote = SurfaceChain::open("remote line", vec![Vec2::new(10_000.0, 200.0), Vec2::new(10_100.0, 200.0)]);
+        remote.velocity.x = f32::NAN;
+        world.chains.push(remote);
+        let body = body_at(Vec2::new(0.0, 200.0));
+        assert!(matches!(material_lines(&world, &body, DOWN, 1.0, 1.0, 1.0, None),
+            Err(crate::frame::thread::Refusal {
+                reason: crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::NonFinite), ..
+            })));
+        world.chains[1].velocity = Vec2::ZERO;
+        // A pivot does not change a linear envelope.
+        world.chains[1].pivot = Vec2::splat(f32::NAN);
+        let support = material_lines(&world, &body, DOWN, 1.0, 1.0, 1.0, None).unwrap();
+        assert_eq!(support.len(), 1);
+        assert_eq!(support[0].chain, 0);
     }
 
     #[test]

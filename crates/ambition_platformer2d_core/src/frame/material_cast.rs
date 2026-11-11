@@ -122,7 +122,7 @@ impl<'a> MaterialCast<'a> {
         let spin = if turn == 0.0 { 0.0 } else { turn / duration };
         if !spin.is_finite() { return Err(numeric(NumericFault::Overflow)); }
         if turn != 0.0 && spin == 0.0 { return Err(numeric(NumericFault::Underflow)); }
-        self.rotation = Some(source::Rotation { pivot: pivot.as_dvec2(), turn, spin });
+        self.rotation = (turn != 0.0).then_some(source::Rotation { pivot: pivot.as_dvec2(), turn, spin });
         Ok(self)
     }
 
@@ -286,19 +286,9 @@ impl MaterialCastCells<'_> {
             .map
             .inverse()
             .map_err(|reason| numeric_at(part, reason))?;
-        let mut region = obstacle
-            .iter()
-            .map(|point| {
-                if !point.is_finite() {
-                    return Err(NumericFault::NonFinite);
-                }
-                Ok(inverse.point_wide(point.as_dvec2()))
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|reason| numeric_at(part, reason))?;
-        if !displacement.is_finite() {
-            return Err(numeric_at(part, NumericFault::NonFinite));
-        }
+        // The caller checks collider input before this projection.
+        let mut region = obstacle.iter().map(|point| inverse.point_wide(point.as_dvec2()))
+            .collect::<Vec<_>>();
         let full_motion=inverse.direction_wide(displacement.as_dvec2())*inverse.scale_wide();
         for point in &mut region { *point-=full_motion*(1.0-self.time.start); }
         let motion=full_motion*(self.time.end-self.time.start)
@@ -333,7 +323,9 @@ impl MaterialCastCells<'_> {
         &self, part: &MaterialCell, obstacle: &[Vec2], displacement: Vec2,
         turn: f32, pivot: Vec2, mut accepts:impl FnMut(&MaterialCastHit)->bool,
     ) -> Result<Option<MaterialCastHit>, Refusal> {
-        if !turn.is_finite() || !pivot.is_finite() {
+        // A carve requires finite collider input to prove separation.
+        if !turn.is_finite() || !pivot.is_finite() || !displacement.is_finite()
+            || obstacle.iter().any(|point| !point.is_finite()) {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
         if turn == 0.0 && obstacle.len() >= 3 && !self.solid_may_occupy(part, obstacle, displacement) {

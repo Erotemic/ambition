@@ -10,10 +10,13 @@ model and transactional movement authority.
 | R2: portal scale changed dimensionless knockback | Fixed in `741212079`. `FeelScale` keeps its value; `LaunchSpeed` uses the material chart conversion. |
 | R3: material sweeps use root-AABB penetration repair | Fixed in `5f07fbb17`. Movement, rest repair, initial support, line settling and platform support use admitted material. |
 | R4: independent bodies share one capture root and depth | Fixed in `ae8f2b07a`. Each drawable family keeps its root, capture and depth order. |
-| R5: movement and lookup costs need measurement | Open. A simulation baseline is measured; the historical control and optimized/displayed-host costs remain open. Body lookup and room-link reuse are fixed in `ae8f2b07a`. |
+| R5: movement and lookup costs need measurement | Open. Optimized historical and current simulation samples are measured. The current Hall costs about twice the historical snapshot. Source-cell reuse is fixed in `a87a5936e`; displayed-host and device costs remain open. Body lookup and room-link reuse are fixed in `ae8f2b07a`. |
 | R6: capture density and capacity are fixed | Fixed in `1d551594b`. Density follows the viewport; a byte budget reduces resolution and then selects material proxies. Device performance remains unmeasured. |
 | R7: a failed limb correction can retain the proposed pose | Fixed in `482dcfc5b`; prefix admission is fixed in `670e4683c`. Sweep and admit the proposal against physical room solids before one commit. Refusal retains the accepted pose and hold. |
 | R8: straddler lookup searches other rooms | Fixed in `b499e5090`. Publication resolves the link in the owning room. |
+
+The [R5 cost receipt](../ambition_dev_measurements/summaries/portal-native-motion-cost-20261111.md)
+records commands, source and input hashes, census, samples and limits.
 
 R1 has a real-app recipient refusal/resume witness. It checks retained pose,
 zero travel, no hit, lifetime progress and successful contact after admission.

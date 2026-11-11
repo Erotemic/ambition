@@ -1475,3 +1475,16 @@ General actor and support-carry continuation, moving targets, terminal effect
 timing, other births, full held geometry and the other PSIM gates remain
 open. R5 remains open; the receipt records an uncontrolled timing lead.
 Do not replay consumed free-flight history or restore root-AABB collision.
+
+
+### Native motion cost — 2026-11-11
+
+`a87a5936e` builds loose-item source cells once per flight leg and reuses
+them across recipients. Exact contact, typed refusal and contact order stay
+with the canonical solver. The [cost receipt](../../../dev/ambition_dev_measurements/summaries/portal-native-motion-cost-20261111.md)
+records a lab instruction estimate 18.65% below its matched baseline, the
+historical control, census and limits. Owner, all four slice/replay checks,
+Smash, room-freeze and default warning checks pass after the room-clock merge.
+R5 remains open: the current Hall costs about twice the historical snapshot;
+displayed-host, device and full PSIM acceptance remain open. Do not add a
+second collision authority to hide native material cost.

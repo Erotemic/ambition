@@ -115,8 +115,6 @@ pub use tuning::{
     SPOT_DODGE_TIME, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 
-#[cfg(test)]
-use collision::body_is_side_contact;
 
 /// Frame-explicit axis-swept control phase — kernel-private. The current
 /// acceleration frame is supplied by the environment, never read from or
@@ -427,25 +425,26 @@ enum SimPhaseReach {
 /// moving support for the length of a hitlag is under it when the hitlag
 /// ends, and falls through it (a giant's shoulder that lifts while the
 /// player's blow freezes the player).
-fn carry_frozen_rider(world: &World, clusters: &mut crate::body_clusters::BodyClustersMut<'_>, frame: MotionFrame) {
-    use crate::{AabbExt, Vec2};
+fn carry_frozen_rider(world: &World, clusters: &mut crate::body_clusters::BodyClustersMut<'_>, frame: MotionFrame,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<(), crate::frame::thread::Refusal> {
+    use crate::Vec2;
     if !clusters.ground.on_ground {
-        return;
+        return Ok(());
     }
     let g = frame.down();
-    let body = clusters.kinematics.aabb();
-    let delta = if let Some(line) = crate::walkable_lines::stood_on_line(world, body, g) {
-        let chain = &world.chains[line.chain];
-        let feet_point = body.center() + g * (body.feet_coord(g) - body.center().dot(g));
-        chain.carried(feet_point) - feet_point
-    } else if let Some(block) = crate::collision_semantics::supporting_block(world, body, g, false) {
-        block.velocity
+    let delta = if let Some(line) = crate::walkable_lines::stood_on_material_line(world, clusters.kinematics, g, admission)? {
+        line.carry
+    } else if let Some((_, contact)) = crate::walkable_lines::material_block_support(world,
+        clusters.kinematics, g, crate::collision_semantics::CONTACT_SLOP, false, 0.0, admission)? {
+        contact.surface_velocity
     } else {
         Vec2::ZERO
     };
     if delta != Vec2::ZERO {
         authority::carry_body(clusters.kinematics, clusters.sweep.as_deref_mut(), delta);
     }
+    Ok(())
 }
 
 fn update_body_simulation_inner(
@@ -463,7 +462,9 @@ fn update_body_simulation_inner(
 ) -> (FrameEvents, SimPhaseReach) {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
-        carry_frozen_rider(world, clusters, frame);
+        if let Err(reason) = carry_frozen_rider(world, clusters, frame, admission) {
+            events.motion_refusal = Some(reason);
+        }
         return (events, SimPhaseReach::ShortCircuited);
     }
     let dt = raw_dt.min(1.0 / 30.0);
@@ -814,7 +815,10 @@ pub(crate) fn update_body_with_frame_clusters(
     let state = &mut axis.state;
     // A body may be freshly constructed, or the control phase may perform a discrete transit
     // (blink) that invalidates the departure contact.
-    let entry_baseline = kernel::establish_axis_ground_contact_baseline(world, clusters, frame);
+    let entry_baseline = match kernel::establish_axis_ground_contact_baseline(world, clusters, frame, admission) {
+        Ok(baseline) => baseline,
+        Err(reason) => return FrameEvents { motion_refusal: Some(reason), ..Default::default() },
+    };
     let control_dt = if input.control_dt > 0.0 {
         input.control_dt
     } else {
@@ -833,7 +837,10 @@ pub(crate) fn update_body_with_frame_clusters(
     let baseline = if clusters.ground.contact_initialized {
         entry_baseline
     } else {
-        kernel::establish_axis_ground_contact_baseline(world, clusters, frame)
+        match kernel::establish_axis_ground_contact_baseline(world, clusters, frame, admission) {
+            Ok(baseline) => baseline,
+            Err(reason) => return FrameEvents { motion_refusal: Some(reason), ..Default::default() },
+        }
     }
     .with_impact_velocity(clusters.kinematics.vel, frame)
     // BEFORE the simulation half, which is where `tick_knockdown` clears the

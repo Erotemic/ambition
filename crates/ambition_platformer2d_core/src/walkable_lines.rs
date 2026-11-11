@@ -27,7 +27,7 @@
 //! it is, as for a box top. Nothing here is rollback state.
 
 use crate::collision_semantics::ONE_WAY_CROSSING_SLOP;
-use crate::world::{BlockKind, Boarding, World};
+use crate::world::{Boarding, World};
 use crate::{Aabb, AabbExt, Vec2};
 
 /// The steepest line a walker stands on, from the body's floor.
@@ -57,6 +57,8 @@ pub struct LineSupport {
     pub ends: [Vec2; 2],
     /// The chain's own per-frame motion.
     pub velocity: Vec2,
+    /// The support motion in the body chart.
+    pub carry: Vec2,
 }
 
 /// The axis across the floor for gravity `down`.
@@ -138,6 +140,7 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
                     normal,
                     ends: [p0, p1],
                     velocity: chain.velocity,
+                    carry: chain.carried(point) - point,
                 });
             }
         }
@@ -214,6 +217,66 @@ pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec
     spans
 }
 
+/// Find line support with the same admitted material used by movement.
+pub(crate) fn material_lines(
+    world: &World, body: &crate::BodyKinematics, down: Vec2, above: f32, below: f32,
+    time: f64, admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<Vec<LineSupport>, crate::frame::thread::Refusal> {
+    use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
+    let numeric = |reason| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(reason) };
+    if world.chains.is_empty() || down == Vec2::ZERO { return Ok(Vec::new()); }
+    let domain = body.canonical_box().map_err(numeric)?;
+    let start = -down * above;
+    let delta = down * (above + below);
+    let map = body.material_map().and_then(|map| map.shifted(start.as_dvec2())).map_err(numeric)?;
+    let cells = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world: map },
+        body.pos + start, delta, time..time).cells(admission)?;
+    let min_up = WALK_SLOPE_LIMIT_DEG.to_radians().cos();
+    let mut found = Vec::new();
+    for (ci, chain) in world.chains.iter().enumerate() {
+        let mut best: Option<LineSupport> = None;
+        for si in 0..chain.segment_count() {
+            let (a, b) = chain.segment(si);
+            let face = chain.normal_at_time(si, time).map_err(numeric)?;
+            for part in cells.parts() {
+                let Some(hit) = cells.against_rigid_where(part, &[a, b], chain.velocity, chain.turn, chain.pivot,
+                    |hit| hit.normal.dot(-down) >= min_up && hit.map.direction(hit.normal).dot(face) > 0.5)? else { continue; };
+                let physical_point = chain.pivot.as_dvec2() + crate::frame::rotation_ending_at(f64::from(chain.turn), time)
+                    * (a.as_dvec2() - chain.pivot.as_dvec2()) - chain.velocity.as_dvec2() * (1.0 - time);
+                let edge = b.as_dvec2() - a.as_dvec2();
+                let outward = crate::frame::rotation_ending_at(f64::from(chain.turn), time)
+                    * bevy_math::DVec2::new(edge.y, -edge.x).normalize();
+                if hit.toi == 0.0 && !cells.in_front_of(part, 0.0, physical_point, outward)? { continue; }
+                let inverse = hit.map.inverse().map_err(numeric)?;
+                let at = |point: Vec2| -> Result<Vec2, crate::frame::NumericFault> {
+                    let point = chain.pivot.as_dvec2() + crate::frame::rotation_ending_at(f64::from(chain.turn), time)
+                        * (point.as_dvec2() - chain.pivot.as_dvec2()) - chain.velocity.as_dvec2() * (1.0 - time);
+                    inverse.point_from_wide(point)
+                };
+                let ends = [at(a).map_err(numeric)?, at(b).map_err(numeric)?];
+                let correction = -above + (above + below) * hit.toi as f32;
+                let line = LineSupport { chain: ci, segment: si,
+                    feet_coord: body.aabb().feet_coord(down) + correction,
+                    point: hit.point, normal: hit.normal, ends,
+                    velocity: inverse.vector(chain.velocity).map_err(numeric)?,
+                    carry: inverse.vector(chain.carried(hit.world_point) - hit.world_point).map_err(numeric)?,
+                };
+                if best.is_none_or(|known| line.feet_coord < known.feet_coord) { best = Some(line); }
+            }
+        }
+        found.extend(best);
+    }
+    Ok(found)
+}
+
+pub(crate) fn stood_on_material_line(
+    world: &World, body: &crate::BodyKinematics, down: Vec2,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<Option<LineSupport>, crate::frame::thread::Refusal> {
+    Ok(material_lines(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP, 0.0, admission)?
+        .into_iter().min_by(|a,b| a.feet_coord.total_cmp(&b.feet_coord)))
+}
+
 /// How far a line may be above the feet of a body that stands on it: the
 /// feet are put exactly on the line, so this is rounding.
 const ON_LINE_EPSILON: f32 = 0.05;
@@ -226,7 +289,7 @@ pub fn walk_allowance(travel: f32) -> f32 {
 }
 
 /// What a step did on a line.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LineStep {
     /// The body came down onto the line, or walked up onto it.
     Landed(LineSupport),
@@ -235,7 +298,7 @@ pub enum LineStep {
     Held(LineSupport),
     /// The body walked off the end of the line it stood on onto the top of
     /// this block (an index into [`World::blocks`]) a little below.
-    OntoBlock(usize),
+    OntoBlock(crate::collision_semantics::Contact),
 }
 
 /// What a walking body did in the step that is about to be settled.
@@ -263,13 +326,16 @@ pub struct WalkStep {
 /// it reached one this step. Returns the delta to add to its position, and
 /// what happened. A line that would put the box into a solid block is
 /// refused.
-pub fn settle_on_line(world: &World, body: Aabb, down: Vec2, step: WalkStep) -> Option<(Vec2, LineStep)> {
+pub fn settle_on_line(world: &World, kinematics: &crate::BodyKinematics, down: Vec2, step: WalkStep,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<Option<(Vec2, LineStep)>, crate::frame::thread::Refusal> {
+    let body = kinematics.aabb();
     if step.drop_through || world.chains.is_empty() {
-        return None;
+        return Ok(None);
     }
     // Rising: a line is passed from below.
     if step.velocity.dot(down) < 0.0 {
-        return None;
+        return Ok(None);
     }
     let feet = body.feet_coord(down);
     let side = across(down);
@@ -282,7 +348,7 @@ pub fn settle_on_line(world: &World, body: Aabb, down: Vec2, step: WalkStep) -> 
     // Below the feet: only a body that stood is held down onto it.
     let held = step.was_grounded && !step.supported_by_block;
     let below = if held { allowance } else { 0.0 };
-    let candidates = lines_under_feet(world, body, down, above, below);
+    let candidates = material_lines(world, kinematics, down, above, below, 1.0, admission)?;
     let highest = |lines: &mut dyn Iterator<Item = LineSupport>| lines.min_by(|a, b| a.feet_coord.total_cmp(&b.feet_coord));
     // A line ahead: under the span it does not fall toward the way the body
     // goes (a ramp rising ahead, or flat), so the body walks onto it rather
@@ -325,45 +391,71 @@ pub fn settle_on_line(world: &World, body: Aabb, down: Vec2, step: WalkStep) -> 
         }
     };
     let Some(line) = chosen else {
-        return off_the_line(world, body, down, step, allowance);
+        if step.entry_line.is_some() && step.was_grounded && !step.supported_by_block {
+            return Ok(material_block_support(world, kinematics, down, allowance, false, 1.0, admission)?
+                .map(|(delta, contact)| (delta, LineStep::OntoBlock(contact))));
+        }
+        return Ok(None);
     };
     if line.feet_coord > feet && !held {
-        return None;
+        return Ok(None);
     }
     if step.supported_by_block && line.feet_coord >= feet {
-        return None;
+        return Ok(None);
     }
     let delta = down * (line.feet_coord - feet);
-    let moved = Aabb::new(body.center() + delta, body.half_size());
-    let into_solid = world.blocks.iter().any(|block| {
-        matches!(block.kind, BlockKind::Solid) && moved.strict_intersects(block.aabb) && !body.strict_intersects(block.aabb)
-    });
-    if into_solid {
-        return None;
-    }
+    use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
+    let numeric = |reason| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(reason) };
+    let domain = kinematics.canonical_box().map_err(numeric)?;
+    let cells = MaterialCast::new(MaterialPrimitive { domain: &domain,
+        to_world: kinematics.material_map().map_err(numeric)? }, kinematics.pos, delta, 1.0..1.0).cells(admission)?;
+    let obstruction = world.first_material_contact(&cells, |collider, _, _| Ok(match collider {
+        crate::world::MaterialCollider::Block(block) => crate::collision_semantics::is_full_collision_surface(block.kind),
+        crate::world::MaterialCollider::Chain { chain, .. } => chain.closed && chain.kind == crate::world::SurfaceKind::Solid,
+    }))?;
+    if obstruction.is_some_and(|hit| hit.contact.toi < 1.0) { return Ok(None); }
+    cells.admit_payloads(kinematics.vel, &[])?;
     let outcome = if step.was_grounded { LineStep::Held(line) } else { LineStep::Landed(line) };
-    Some((delta, outcome))
+    Ok(Some((delta, outcome)))
 }
 
-/// A body that stood on a line and walked off its end is held onto the top
-/// of a block a little below (the floor at the foot of a ramp), as it is
-/// held onto a line: no tick in the air. A body on a block keeps the rule of
-/// blocks: static geometry does not take it down a step.
-fn off_the_line(world: &World, body: Aabb, down: Vec2, step: WalkStep, allowance: f32) -> Option<(Vec2, LineStep)> {
-    if step.entry_line.is_none() || !step.was_grounded || step.supported_by_block {
-        return None;
-    }
-    let feet = body.feet_coord(down);
-    let (index, top) = world
-        .blocks
-        .iter()
-        .enumerate()
-        .filter(|(_, block)| matches!(block.kind, BlockKind::Solid | BlockKind::OneWay))
-        .filter(|(_, block)| crate::collision_semantics::perpendicular_overlap(body, block.aabb, down))
-        .map(|(index, block)| (index, block.aabb.head_coord(down)))
-        .filter(|(_, top)| *top >= feet && *top <= feet + allowance)
-        .min_by(|a, b| a.1.total_cmp(&b.1))?;
-    Some((down * (top - feet), LineStep::OntoBlock(index)))
+/// Follow an admitted block support within the locomotion policy's reach.
+pub(crate) fn material_block_support(
+    world: &World, body: &crate::BodyKinematics, down: Vec2, reach: f32, moving_only: bool, time: f64,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<Option<(Vec2, crate::collision_semantics::Contact)>, crate::frame::thread::Refusal> {
+    use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
+    let numeric = |reason| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(reason) };
+    let domain = body.canonical_box().map_err(numeric)?;
+    let delta = down * reach;
+    let cells = MaterialCast::new(MaterialPrimitive { domain: &domain,
+        to_world: body.material_map().map_err(numeric)? }, body.pos, delta, time..time).cells(admission)?;
+    let hit = world.first_material_contact(&cells, |collider, part, hit| {
+        let crate::world::MaterialCollider::Block(block) = collider else { return Ok(false); };
+        if !crate::collision_semantics::is_support_surface(block.kind) || hit.normal.dot(-down) < 0.5 { return Ok(false); }
+        let velocity = hit.map.inverse().and_then(|map| map.vector(block.velocity)).map_err(numeric)?;
+        if moving_only && velocity.dot(down) <= 0.0 { return Ok(false); }
+        if hit.toi == 0.0 {
+            let physical = hit.map.direction(hit.normal);
+            let normal = if physical.x.abs() > physical.y.abs() {
+                Vec2::X * physical.x.signum()
+            } else { Vec2::Y * physical.y.signum() };
+            let point = bevy_math::DVec2::new(
+                f64::from(if normal.x > 0.0 { block.aabb.max.x } else { block.aabb.min.x }),
+                f64::from(if normal.y > 0.0 { block.aabb.max.y } else { block.aabb.min.y }),
+            ) - block.velocity.as_dvec2() * (1.0 - time);
+            if !cells.in_front_of(part, 0.0, point, normal.as_dvec2())? { return Ok(false); }
+        }
+        Ok(true)
+    })?;
+    let Some(hit) = hit else { return Ok(None); };
+    cells.admit_payloads(body.vel, &[])?;
+    let surface_velocity = hit.contact.map.inverse().and_then(|map| map.vector(hit.collider.displacement())).map_err(numeric)?;
+    Ok(Some((delta * hit.contact.toi as f32, crate::collision_semantics::Contact {
+        kind: crate::collision_semantics::ContactKind::Support, point: hit.contact.point,
+        normal: hit.contact.normal, toi: 0.0, surface_velocity, impact_speed: 0.0,
+        involuntary: false, source: hit.collider.source(),
+    })))
 }
 
 #[cfg(test)]
@@ -392,8 +484,8 @@ mod tests {
         }
     }
 
-    fn body_at(feet: Vec2) -> Aabb {
-        Aabb::new(feet - Vec2::new(0.0, 23.0), Vec2::new(14.0, 23.0))
+    fn body_at(feet: Vec2) -> crate::BodyKinematics {
+        crate::BodyKinematics { pos: feet - Vec2::new(0.0, 23.0), canonical_size: Vec2::new(28.0, 46.0), ..Default::default() }
     }
 
     /// A ramp up to the right at 27 degrees (rise 1 in 2).
@@ -405,7 +497,7 @@ mod tests {
     fn the_feet_rest_on_the_highest_point_of_the_line_under_the_box() {
         let world = ramp();
         // Centred at x 200 the box spans 186..214; the line is highest at 214.
-        let line = standing_on_line(&world, body_at(Vec2::new(200.0, 143.0)), DOWN).expect("on the ramp");
+        let line = standing_on_line(&world, body_at(Vec2::new(200.0, 143.0)).aabb(), DOWN).expect("on the ramp");
         assert!((line.feet_coord - 143.0).abs() < 1.0e-3, "{line:?}");
         assert!((line.point.x - 214.0).abs() < 1.0e-3);
     }
@@ -414,10 +506,10 @@ mod tests {
     fn a_line_is_passed_from_below_and_a_steep_one_is_not_ground() {
         let world = ramp();
         let under = body_at(Vec2::new(200.0, 170.0));
-        let rising = settle_on_line(&world, under, DOWN, step(Vec2::new(0.0, -100.0), 175.0, 0.0, false));
+        let rising = settle_on_line(&world, &under, DOWN, step(Vec2::new(0.0, -100.0), 175.0, 0.0, false), None).unwrap();
         assert!(rising.is_none(), "a rising body passes the line");
         let wall = world_with(vec![Vec2::new(0.0, 300.0), Vec2::new(20.0, 100.0)]);
-        assert!(line_under_feet(&wall, body_at(Vec2::new(10.0, 200.0)), DOWN, 500.0, 500.0).is_none());
+        assert!(line_under_feet(&wall, body_at(Vec2::new(10.0, 200.0)).aabb(), DOWN, 500.0, 500.0).is_none());
     }
 
     #[test]
@@ -429,18 +521,18 @@ mod tests {
         let line_feet = 200.0 - (x + 14.0 - 100.0) / 2.0;
         let body = body_at(Vec2::new(x, line_feet - 3.0 + 0.6));
         let walked = WalkStep { entry_line: Some(0), ..step(Vec2::new(-360.0, 36.0), line_feet - 3.0, -6.0, true) };
-        let (delta, outcome) = settle_on_line(&world, body, DOWN, walked).expect("held on the line");
+        let (delta, outcome) = settle_on_line(&world, &body, DOWN, walked, None).unwrap().expect("held on the line");
         assert!(matches!(outcome, LineStep::Held(_)), "{outcome:?}");
-        assert!((body.feet_coord(DOWN) + delta.y - line_feet).abs() < 1.0e-3);
+        assert!((body.aabb().feet_coord(DOWN) + delta.y - line_feet).abs() < 1.0e-3);
     }
 
     #[test]
     fn a_falling_body_lands_on_the_line_however_fast_it_falls() {
         let world = ramp();
         let body = body_at(Vec2::new(200.0, 400.0));
-        let (delta, outcome) = settle_on_line(&world, body, DOWN, step(Vec2::new(0.0, 3000.0), 40.0, 0.0, false)).expect("landed");
+        let (delta, outcome) = settle_on_line(&world, &body, DOWN, step(Vec2::new(0.0, 3000.0), 40.0, 0.0, false), None).unwrap().expect("landed");
         assert!(matches!(outcome, LineStep::Landed(_)));
-        assert!((body.feet_coord(DOWN) + delta.y - 143.0).abs() < 1.0e-3);
+        assert!((body.aabb().feet_coord(DOWN) + delta.y - 143.0).abs() < 1.0e-3);
     }
 
     #[test]
@@ -448,7 +540,7 @@ mod tests {
         let world = ramp();
         let body = body_at(Vec2::new(200.0, 146.0));
         let drop = WalkStep { drop_through: true, entry_line: Some(0), ..step(Vec2::new(0.0, 30.0), 143.0, 0.0, true) };
-        assert!(settle_on_line(&world, body, DOWN, drop).is_none());
+        assert!(settle_on_line(&world, &body, DOWN, drop, None).unwrap().is_none());
     }
 }
 

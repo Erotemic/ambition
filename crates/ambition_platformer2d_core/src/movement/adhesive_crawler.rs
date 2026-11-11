@@ -475,7 +475,7 @@ fn fall_step(
     dt: f32,
     contacts: &mut Vec<Contact>,
     conflicts: &mut Vec<AxisConstraintConflict>,
-    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    mut admission: Option<crate::frame::thread::MotionAdmission<'_>>,
     refusal: &mut Option<crate::frame::thread::Refusal>,
 ) {
     clusters.ground.on_ground = false;
@@ -518,7 +518,7 @@ fn fall_step(
             false,
             g,
             contacts,
-            admission,
+            &mut admission,
             refusal,
         ));
     };

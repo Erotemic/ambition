@@ -120,3 +120,22 @@ reduce that inverse path before checking its traversal budget.
 A finite cross-section needs no artificial thickness. Native point and segment
 domains must keep their closed contact set. Build their planes from the convex
 boundary; repeated box vertices do not give a segment a polygon winding.
+
+
+An admitted material map can have a small orthogonality error. A coincident
+host face can gain a thin solid region when its vertices and the portal cut
+are projected separately into canonical axes. Keep physical cut constraints
+with the cell. A cut fixed relative to a translating obstacle can prove that
+the obstacle has no solid area in that cell before inverse projection. Do
+not apply this area rule to intrinsic points or line segments.
+
+A source that fits an opening stays in its front spatial cell before first
+touch. Keep that boundary through the topology event, even when the temporal
+program can represent the earlier material as a whole primitive. Otherwise
+separate rounded contact and topology times can give the old cell a false
+host contact. An event-time epsilon does not fix this ownership error.
+
+Repair gravity penetration before transverse motion with canonical material.
+Keep velocity and contact state during that correction. A rounded root pose
+can put canonical feet slightly inside a floor. A transverse sweep from that
+pose can otherwise lose speed to an unrelated floor overlap.

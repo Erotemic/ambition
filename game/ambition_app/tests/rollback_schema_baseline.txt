@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v455
+ggrs-rollback-schema-v456
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -162,6 +162,7 @@ content.sanic_scattered_ring	component-clone	ScatteredRing	bevy_ggrs clone snaps
 content.sanic_spent_monitors	resource-clone-custom-checksum	SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
 content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.swallow_fetch	component-clone-custom-checksum	FetchFlight	bevy_ggrs clone snapshot + goal, phase, elapsed
+cutscene.changes_in_rooms	resource-canonical	CutscenesInRooms	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.last_room	component-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.skip_hold	resource-canonical	CutsceneSkipHold	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection

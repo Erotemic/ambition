@@ -806,7 +806,13 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    `SetFlagRequested`, dated in the room it plays for, so a rewind of that
    room takes them back with the quest steps they moved (a world cutscene's
    stay undated). Witness: `a_room_cutscene_dates_its_flags_in_its_room`.
-   Still open: the playback itself does not rewind with its room.
+   **Its playback (2026-11-11, ISL-1b):** `CutscenesInRooms` (rollback
+   state, `cutscene.changes_in_rooms`, schema 456) logs each tick's change to
+   the playing cutscene (its playback, its room, the skip hold) under the
+   room it plays for, with the state it replaced; a room's retractor puts
+   back what it had at the save, as for the conversation. Witness:
+   `a_rewound_room_puts_back_its_cutscene` (read straight after the rewind),
+   with an ignored control.
 
    The last message on the list, `QuestAdvanceRequested` with no cause, now
    has one writer: `RoomEntered`, a crossing, which spans two rooms and

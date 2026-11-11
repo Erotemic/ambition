@@ -226,3 +226,319 @@ fn probe_where_a_gated_guest_spends_its_update() {
         println!("[guest-split]   App::update {:.2} ms an update ({sub_apps} sub-app(s))", times.mean_ms());
     }
 }
+
+/// A shot the guest built from a spawn row, which it removes when the host's
+/// snapshot no longer names it.
+#[derive(bevy::prelude::Component)]
+struct ReplicatedShot;
+
+/// One spawn row: the shot's network id, its kind, the half extent it is
+/// drawn at and a visual index. The body row (position, velocity, facing)
+/// rides beside it as for any body.
+const SPAWN_RECORD: u64 = 4 + 1 + 8 + 2;
+/// One despawn row: the network id.
+const DESPAWN_RECORD: u64 = 4;
+/// One body row, as `hosted_world`'s.
+const BODY_ROW: u64 = 4 + 8 + 8 + 4;
+
+/// Alice fires a short shot to her right every twelve frames from frame 10
+/// to 200: shots spawn and end all through the run.
+fn alice_fires_often(sim: &mut Platformer2dSimHarness, frame: i32) {
+    use ambition_platformer2d::projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+    if !(10..=200).contains(&frame) || frame % 12 != 10 % 12 {
+        return;
+    }
+    let world = sim.world_mut();
+    let (alice, at) = world
+        .query_filtered::<(bevy::prelude::Entity, &BodyKinematics), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .map(|(entity, body)| (entity, body.pos))
+        .expect("Alice has a body");
+    world.write_message(ProjectileSpawnRequest::open(
+        alice,
+        ProjectileSpawn {
+            origin: at + bevy::math::Vec2::new(24.0, 0.0),
+            dir: bevy::math::Vec2::new(1.0, 0.0),
+            speed: 240.0,
+            damage: 1,
+            max_lifetime: 0.4,
+            half_extent: bevy::math::Vec2::new(6.0, 6.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            bounces: 0,
+            bounce_on_world_contact: false,
+            boomerang_return_s: None,
+            splash_half_extent: 0.0,
+        },
+        ProjectileStart::StepThisTick,
+    ));
+}
+
+/// The host's shots in flight, by id.
+fn shot_ids(sim: &mut Platformer2dSimHarness) -> BTreeSet<SimId> {
+    let world = sim.world_mut();
+    world
+        .query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>()
+        .iter(world)
+        .cloned()
+        .collect()
+}
+
+/// What one snapshot did to the guest.
+#[derive(Default)]
+struct Applied {
+    spawned: u64,
+    despawned: u64,
+    /// Ids on one side only after the snapshot was applied.
+    unmatched: usize,
+}
+
+/// Apply `rows` to the guest, building the shots it does not hold (`shots`
+/// names them) and removing the replicated shots the rows no longer name.
+fn apply_with_spawns(
+    guest: &mut Platformer2dSimHarness,
+    rows: &BTreeMap<SimId, [f32; 5]>,
+    shots: &BTreeSet<SimId>,
+) -> Applied {
+    let mut applied = Applied::default();
+    let missing = apply(guest, rows);
+    let world = guest.world_mut();
+    for id in missing.iter().filter(|id| shots.contains(*id)) {
+        let row = rows[id];
+        let mut body = BodyKinematics::default();
+        body.pos = bevy::math::Vec2::new(row[0], row[1]);
+        body.vel = bevy::math::Vec2::new(row[2], row[3]);
+        body.facing = row[4];
+        world.spawn((id.clone(), body, ReplicatedShot));
+        applied.spawned += 1;
+    }
+    let ended: Vec<bevy::prelude::Entity> = world
+        .query_filtered::<(bevy::prelude::Entity, &SimId), bevy::prelude::With<ReplicatedShot>>()
+        .iter(world)
+        .filter(|(_, id)| !rows.contains_key(*id))
+        .map(|(entity, _)| entity)
+        .collect();
+    for entity in ended {
+        world.despawn(entity);
+        applied.despawned += 1;
+    }
+    let held: BTreeSet<SimId> =
+        world.query_filtered::<&SimId, bevy::prelude::With<BodyKinematics>>().iter(world).cloned().collect();
+    let sent: BTreeSet<SimId> = rows.keys().cloned().collect();
+    applied.unmatched = held.symmetric_difference(&sent).count();
+    applied
+}
+
+/// NA-2b with spawns: Alice fires a short shot every twelve frames, so shots
+/// spawn and end all through the run. The guest builds each shot the host's
+/// snapshot names and it does not hold, from a spawn row, and removes each
+/// replicated shot the snapshot no longer names. Prints the spawns and
+/// despawns, the most shots in flight, what applying costs, the frames the
+/// guest's ids differ from the snapshot's after applying it, and the link
+/// bytes a frame (body rows, spawn rows, despawn rows).
+#[test]
+#[ignore = "measurement: prints what replicating spawned shots to a guest costs; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_guest_needs_to_draw_shots() {
+    let mut host = booted(ROOM);
+    let mut guest = booted(ROOM);
+    simulate_nothing(&mut guest);
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>, BTreeSet<SimId>)> = VecDeque::new();
+    let (mut spawned, mut despawned, mut unmatched_frames, mut most_shots) = (0u64, 0u64, 0, 0usize);
+    let (mut body_bytes, mut applied) = (0u64, 0u32);
+    let mut apply_time = std::time::Duration::ZERO;
+    for frame in 1..=FRAMES {
+        alice_fires_often(&mut host, frame);
+        host.drive_seat(0, Default::default());
+        host.drive_seat(1, Default::default());
+        host.app_mut().update();
+        let shots = shot_ids(&mut host);
+        most_shots = most_shots.max(shots.len());
+        in_flight.push_back((frame, bodies(&mut host, None), shots));
+        if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+            let (_, rows, shots) = in_flight.pop_front().expect("a snapshot arrived");
+            let started = std::time::Instant::now();
+            let done = apply_with_spawns(&mut guest, &rows, &shots);
+            apply_time += started.elapsed();
+            applied += 1;
+            spawned += done.spawned;
+            despawned += done.despawned;
+            body_bytes += rows.len() as u64 * BODY_ROW;
+            if done.unmatched > 0 {
+                unmatched_frames += 1;
+            }
+        }
+        guest.app_mut().update();
+    }
+    let link = body_bytes + spawned * SPAWN_RECORD + despawned * DESPAWN_RECORD;
+    println!("[shots] {ROOM}: {FRAMES} frames, a snapshot {LATENCY} frames late, {applied} applied");
+    println!("[shots]   shots spawned on the guest {spawned}, despawned {despawned}; most in flight at once {most_shots}");
+    println!(
+        "[shots]   applying a snapshot {:.3} ms; frames whose ids differ after applying {unmatched_frames}",
+        apply_time.as_secs_f64() * 1e3 / f64::from(applied.max(1))
+    );
+    println!(
+        "[shots]   link {:.1} bytes a frame: body rows {:.1}, spawn rows {:.2}, despawn rows {:.2}",
+        link as f64 / f64::from(applied.max(1)),
+        body_bytes as f64 / f64::from(applied.max(1)),
+        (spawned * SPAWN_RECORD) as f64 / f64::from(applied.max(1)),
+        (despawned * DESPAWN_RECORD) as f64 / f64::from(applied.max(1)),
+    );
+    assert!(spawned > 0, "premise: the host fired shots the guest had to build");
+}
+
+/// A body the guest built from a spawn row (any kind).
+#[derive(bevy::prelude::Component)]
+struct ReplicatedBody;
+
+/// What one snapshot did to the guest, by the general rule: every body the
+/// snapshot names and the guest does not hold is built, and every body the
+/// guest holds and the snapshot no longer names is removed, whoever built it.
+#[derive(Default)]
+struct AppliedAll {
+    built: Vec<SimId>,
+    removed_built: Vec<SimId>,
+    removed_booted: Vec<SimId>,
+    unmatched: usize,
+}
+
+fn apply_all(guest: &mut Platformer2dSimHarness, rows: &BTreeMap<SimId, [f32; 5]>) -> AppliedAll {
+    let mut applied = AppliedAll::default();
+    let missing = apply(guest, rows);
+    let world = guest.world_mut();
+    for id in missing {
+        let row = rows[&id];
+        let mut body = BodyKinematics::default();
+        body.pos = bevy::math::Vec2::new(row[0], row[1]);
+        body.vel = bevy::math::Vec2::new(row[2], row[3]);
+        body.facing = row[4];
+        world.spawn((id.clone(), body, ReplicatedBody));
+        applied.built.push(id);
+    }
+    let gone: Vec<(bevy::prelude::Entity, SimId, bool)> = world
+        .query_filtered::<(bevy::prelude::Entity, &SimId, bevy::prelude::Has<ReplicatedBody>), bevy::prelude::With<BodyKinematics>>()
+        .iter(world)
+        .filter(|(_, id, _)| !rows.contains_key(*id))
+        .map(|(entity, id, built)| (entity, id.clone(), built))
+        .collect();
+    for (entity, id, built) in gone {
+        world.despawn(entity);
+        if built {
+            applied.removed_built.push(id);
+        } else {
+            applied.removed_booted.push(id);
+        }
+    }
+    let held: BTreeSet<SimId> =
+        world.query_filtered::<&SimId, bevy::prelude::With<BodyKinematics>>().iter(world).cloned().collect();
+    let sent: BTreeSet<SimId> = rows.keys().cloned().collect();
+    applied.unmatched = held.symmetric_difference(&sent).count();
+    applied
+}
+
+/// NA-2b with a death: an enemy is spawned beside Alice on the host at frame
+/// 5 with one point of health, and her shots kill it. The guest applies each
+/// late snapshot by the general rule (build what it does not hold, remove what
+/// is no longer named). Prints when the enemy's id entered and left the
+/// host's snapshot, what the guest built and removed, and the frames its ids
+/// differ from the snapshot's after applying it.
+#[test]
+#[ignore = "measurement: prints what a death on the host does to a guest; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_death_on_the_host_does_to_a_guest() {
+    const ENEMY: &str = "na2b_death_probe";
+    let mut host = booted(ROOM);
+    let mut guest = booted(ROOM);
+    simulate_nothing(&mut guest);
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>)> = VecDeque::new();
+    let (mut built, mut removed_built, mut removed_booted, mut unmatched_frames) = (Vec::new(), Vec::new(), Vec::new(), 0);
+    let (mut enemy_id, mut entered, mut left, mut died) = (None::<SimId>, None, None, None);
+    for frame in 1..=FRAMES {
+        if frame == 5 {
+            let at = {
+                let world = host.world_mut();
+                world
+                    .query_filtered::<&BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                    .single(world)
+                    .expect("Alice has a body")
+                    .pos
+            };
+            host.spawn_enemy_character_at(
+                ENEMY,
+                "Target",
+                (at.x + 72.0, at.y),
+                (12.0, 16.0),
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+                "npc_puppy_slug",
+            );
+        }
+        alice_fires_often(&mut host, frame);
+        host.drive_seat(0, Default::default());
+        host.drive_seat(1, Default::default());
+        host.app_mut().update();
+        {
+            let world = host.world_mut();
+            let found = world
+                .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&SimId>, Option<&mut ambition_platformer2d::characters::actor::BodyHealth>)>()
+                .iter_mut(world)
+                .find(|(feature, ..)| feature.0 == ENEMY)
+                .map(|(_, id, health)| {
+                    if let Some(mut health) = health {
+                        if health.health.current > 1 {
+                            health.health.current = 1;
+                        }
+                        if health.health.current <= 0 {
+                            died.get_or_insert(frame);
+                        }
+                    }
+                    id.cloned()
+                });
+            if let Some(Some(id)) = found {
+                enemy_id.get_or_insert(id);
+            }
+        }
+        let rows = bodies(&mut host, None);
+        if let Some(id) = &enemy_id {
+            if rows.contains_key(id) {
+                entered.get_or_insert(frame);
+            } else if entered.is_some() {
+                left.get_or_insert(frame);
+            }
+        }
+        in_flight.push_back((frame, rows));
+        if in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATENCY) {
+            let (_, rows) = in_flight.pop_front().expect("a snapshot arrived");
+            let done = apply_all(&mut guest, &rows);
+            built.extend(done.built);
+            removed_built.extend(done.removed_built);
+            removed_booted.extend(done.removed_booted);
+            if done.unmatched > 0 {
+                unmatched_frames += 1;
+            }
+        }
+        guest.app_mut().update();
+    }
+    println!("[death] {ROOM}: {FRAMES} frames, a snapshot {LATENCY} frames late");
+    println!(
+        "[death]   the enemy {enemy_id:?}: in the host's snapshot from frame {entered:?}, dead from frame {died:?}, gone from frame {left:?}"
+    );
+    let shots = |ids: &Vec<SimId>| ids.iter().filter(|id| Some(*id) != enemy_id.as_ref()).count();
+    let enemy = |ids: &Vec<SimId>| ids.iter().any(|id| Some(id) == enemy_id.as_ref());
+    println!(
+        "[death]   the guest built {} (the enemy: {}, others: {}); removed {} it built (the enemy: {}) and {} it booted with {removed_booted:?}",
+        built.len(),
+        enemy(&built),
+        shots(&built),
+        removed_built.len(),
+        enemy(&removed_built),
+        removed_booted.len(),
+    );
+    println!("[death]   frames whose ids differ after applying {unmatched_frames}");
+    let world = host.world_mut();
+    let last = world
+        .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&ambition_platformer2d::characters::actor::BodyHealth>, Option<&BodyKinematics>)>()
+        .iter(world)
+        .find(|(feature, ..)| feature.0 == ENEMY)
+        .map(|(_, health, body)| (health.map(|health| health.health.current), body.map(|body| body.pos)));
+    println!("[death]   the enemy at the end on the host (health, position): {last:?}");
+    assert!(entered.is_some(), "premise: the enemy reached the host's snapshot");
+    assert!(died.is_some(), "premise: Alice's shots killed the enemy");
+}

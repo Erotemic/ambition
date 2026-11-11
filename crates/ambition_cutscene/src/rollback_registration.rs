@@ -33,6 +33,13 @@ where
         OWNER,
         "cutscene.last_room",
     );
+    // The cutscene's changes dated in their rooms (ISL-1b): what a room's
+    // rewind puts the cutscene back from. Optional for the same reason as the
+    // playback.
+    registrar.rollback_resource_optional_canonical::<crate::CutscenesInRooms>(
+        OWNER,
+        "cutscene.changes_in_rooms",
+    );
     // The skip is a hold accumulated inside the timeline, so a rewind must put
     // the partial hold back with the cutscene it belongs to.
     registrar.rollback_resource_optional_canonical::<crate::CutsceneSkipHold>(

@@ -5,7 +5,7 @@
 //! fresh session loaded from the save file.
 //!
 //! The rooms are the sandbox's test bed
-//! (`tools/ambition_ldtk_tools/specs/breakable_wall_lab/make_specs.py`): a
+//! (`game/ambition_map_assets/ambition_content/generators/breakable_wall_lab/make_specs.py`): a
 //! corridor 160 high shut by the wall, and the room behind it.
 
 use ambition_platformer2d::breakables::BreakableFeature;

@@ -124,7 +124,7 @@ focused Jungle integration fixture. Do not change the interdimensional gates.
 
 ### MG-1 — Magical sky and region loop
 
-**Owner:** `tools/ambition_ldtk_tools/specs/magical/make_specs.py`,
+**Owner:** `game/ambition_map_assets/ambition_content/generators/magical/make_specs.py`,
 existing garden/square/hollow/void `.ron` rooms, plus newly authored sky
 rooms. Add a *playable* sky layer and at least two distinct ways to ascend or
 descend, so the ground, high route and hollow/void are connected without a

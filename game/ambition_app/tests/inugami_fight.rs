@@ -219,7 +219,7 @@ fn when_wolfenstein_falls_his_head_rises_as_the_inugami_and_fights() {
 const NAME: &str = "Inugami Wolfenstein";
 
 /// The east end of the throne room's final hall, at the west end of the room
-/// (`specs/castle_godwin/make_specs.py`, `FINAL_W`).
+/// (`game/ambition_map_assets/ambition_content/generators/castle_godwin/make_specs.py`, `FINAL_W`).
 const FINAL_HALL_EAST: f32 = 1600.0;
 /// The top of the final hall's floor.
 const FINAL_HALL_FLOOR: f32 = 2624.0;

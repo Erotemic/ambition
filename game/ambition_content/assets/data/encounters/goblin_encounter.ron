@@ -57,7 +57,7 @@
             ],
         ),
     ],
-    // Castle Godwin of the Evil dimension (`tools/ambition_ldtk_tools/specs/castle_godwin/`):
+    // Castle Godwin of the Evil dimension (`game/ambition_map_assets/ambition_content/generators/castle_godwin/`):
     // the muster of the great hall. `make_specs.py` prints these places.
     "castle_godwin_muster": [
         (
@@ -96,7 +96,7 @@
             ],
         ),
     ],
-    // The Noodly Temple (`tools/ambition_ldtk_tools/specs/noodly_temple/`).
+    // The Noodly Temple (`game/ambition_map_assets/ambition_content/generators/noodly_temple/`).
     // Each of its two fights shuts its room and opens a grille at its end
     // (`encounter.cleared`). Coordinates are in the room; the floor of each
     // room is y=608.

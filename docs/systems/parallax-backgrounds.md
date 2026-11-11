@@ -103,7 +103,7 @@ assume them correct for rotated-world rooms.
 ## Inspecting a theme
 
 The `hall_of_biomes` sandbox area contains comparable theme exhibits, authored
-by `tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py`. Change its
+by `game/ambition_map_assets/ambition_content/generators/hall_of_biomes/make_specs.py`. Change its
 `BIOMES` table when introducing a new exhibit. Inspect a targeted room through
 `capture_scene` or the running game; see
 [headless room verification](../recipes/headless-room-verification.md).

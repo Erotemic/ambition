@@ -22,7 +22,7 @@ scripted fallback, or later an LLM-backed policy) without touching the actor
 and world crates?
 
 **First customer:** Nikobolt and Coulomba Tesseract, who share the Eureka coil
-lab (`tools/ambition_ldtk_tools/specs/eureka/eureka_coil_lab.ron`; both are
+lab (`game/ambition_map_assets/ambition_content/generators/eureka/eureka_coil_lab.ron`; both are
 placed there today with `brain_override: "stand_still"` and their own
 dialogue, `eureka_nikobolt` and `eureka_coulomba`).
 
@@ -198,7 +198,7 @@ it is doing, a plan revision, and why the last plan stopped short.
   only place it goes.
 
 The coil lab names its places with signs (generator
-`tools/ambition_ldtk_tools/specs/eureka/make_specs.py`): `workbench` ("COIL
+`game/ambition_map_assets/ambition_content/generators/eureka/make_specs.py`): `workbench` ("COIL
 No. 27", at the bench) and `lunch` ("LUNCH. NAPKINS: 18", by the crate);
 home is out of `lab_door`.
 

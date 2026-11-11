@@ -1,5 +1,5 @@
 //! The Magical dimension (Mary-O's), its first region
-//! (`tools/ambition_ldtk_tools/specs/magical/make_specs.py`; Jon, 2026-10-30:
+//! (`game/ambition_map_assets/ambition_content/generators/magical/make_specs.py`; Jon, 2026-10-30:
 //! "start authoring the maryo-dimension for the ambition game"). The player
 //! walks it by keys: a loop from Starlight Square down its old well, along the
 //! Starless Hollow, up through the gate garden's hatch and east to the square

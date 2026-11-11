@@ -32,7 +32,7 @@ statement.
 | world file | `art.ldtk` (`data/worlds.ron`: `world.art_ldtk`) |
 | biome / theme | `art`; the cliffs are `art_sketchbook`, the caverns `art_inkfall` |
 | gate address | `EASEL`, the ring of the Painter's Plaza (`data/gate_network.ron`) |
-| generator | `tools/ambition_ldtk_tools/specs/art_dimension/make_specs.py` |
+| generator | `game/ambition_map_assets/ambition_content/generators/art_dimension/make_specs.py` |
 | dialogue | `dialogue/sandbox/art.yarn` |
 | encounters | `art_gallery_vigil`, `art_audition` (`data/encounters/goblin_encounter.ron`) |
 | test | `game/ambition_app/tests/the_art_dimension.rs` |

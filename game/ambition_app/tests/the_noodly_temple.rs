@@ -1,7 +1,7 @@
 //! The Noodly Temple: a level of keys and doors, with the Flying Spaghetti
 //! Monster in its last room.
 //!
-//! Seven rooms round one hall (`tools/ambition_ldtk_tools/specs/noodly_temple/`).
+//! Seven rooms round one hall (`game/ambition_map_assets/ambition_content/generators/noodly_temple/`).
 //! `check_temple.py` there walks a model of the level and proves that it can
 //! be finished. This asks the game itself what the model takes as given: that
 //! a key that is taken opens its doors and no other, that one wheel opens one

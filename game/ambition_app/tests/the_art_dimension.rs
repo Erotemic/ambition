@@ -1,6 +1,6 @@
 //! The Art dimension: its gate is EASEL.
 //!
-//! Fifteen rooms (`tools/ambition_ldtk_tools/specs/art_dimension/`): the
+//! Fifteen rooms (`game/ambition_map_assets/ambition_content/generators/art_dimension/`): the
 //! plaza with the ring, the sketchbook cliffs over it, the sculpture garden
 //! east of it, the inkfall caverns under both, the unfinished gallery by a
 //! door in the garden, and four quarters for the arts that are not paint:

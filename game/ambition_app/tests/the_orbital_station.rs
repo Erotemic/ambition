@@ -1,5 +1,5 @@
 //! The orbital station of the Science dimension (gate address GALACTIC;
-//! `tools/ambition_ldtk_tools/specs/orbital_station/`): its decks walked with
+//! `game/ambition_map_assets/ambition_content/generators/orbital_station/`): its decks walked with
 //! the robot's own inputs, the gates its errand opens, the tram over the open
 //! spoke, and the damaged spur.
 

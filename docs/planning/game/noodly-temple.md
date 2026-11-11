@@ -12,7 +12,7 @@ that the character can pick up and use as a weapon."
 
 Seven rooms round one hall, from a door in the central hub ("to the Noodly
 Temple"). The rooms are written by
-`tools/ambition_ldtk_tools/specs/noodly_temple/make_specs.py`. Change the
+`game/ambition_map_assets/ambition_content/generators/noodly_temple/make_specs.py`. Change the
 script and run it with `--apply`; do not change the rooms in the map.
 
 | Room | Behind | What it asks | What it gives |
@@ -113,7 +113,7 @@ with a `GroundItem` (`held_item: "pool_noodle"`).
 
 ## The check
 
-`python specs/noodly_temple/check_temple.py` (from `tools/ambition_ldtk_tools`)
+`python game/ambition_map_assets/ambition_content/generators/noodly_temple/check_temple.py` (from `tools/ambition_ldtk_tools`)
 walks a model of the level. It fails when the monster, a key or a room can
 not be reached, and when the player can be in a place from which the door of
 the hub can not be reached again. Run it after each change of the rooms.

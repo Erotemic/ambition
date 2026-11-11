@@ -1,5 +1,5 @@
 //! The Wreckers' Reef: out of the Pirate Port, east of the docks
-//! (`tools/ambition_ldtk_tools/specs/pirate_port/make_specs.py`).
+//! (`game/ambition_map_assets/ambition_content/generators/pirate_port/make_specs.py`).
 //!
 //! Jon (2026-10-30): "out of town zones with enemies", joined by side exits.
 //! The player starts on the reef's shore, walks by keys west onto the docks,

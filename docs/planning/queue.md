@@ -502,11 +502,21 @@ room of every world but two History rooms, HAND-EDITED by e7ad541's
 per-zone loading-zone presentation after History generated them (the guard
 refuses to overwrite them).
 
-**Next action:** move each generator to
-`generators/<dimension>/` as History
-did (its specs to the temp folder; `district_kit` stays in tools). Apply each
-once so its rooms are recorded. Hand-written one-off specs (`*_area.ron`,
-`*.yaml` edits) that already ran become LDtk-owned and are deleted.
+**Generators moved (2026-11-10):** the 14 room-making generators live in
+`game/ambition_map_assets/ambition_content/generators/<generator>/` beside
+their worlds, as History's does; their area specs go to a temp folder and are
+no longer committed; `district_kit`, `district_scenery` and the gate network
+(`gates.py`, `make_gates.py`, which writes the three districts'
+`gate_interface.yaml` into their generators' folders) stay in tools as shared
+code. Each moved generator writes the same specs as before it moved (compared
+with the lenient art box this VM needs: its art publication is missing, so a
+generator here cannot `--apply`).
+
+**Next action:** delete the hand-written one-off specs at the top of
+`tools/ambition_ldtk_tools/specs/` (`*_area.ron`, `*.yaml` edits, `gnu_ton/`,
+`pirate_sky/`): every room they made is LDtk-owned. Keep the few still read
+(`hall_of_characters_area.ron`, `symmetry_room_area.ron`,
+`intro_raid_corridor_area.ron`; grep for the rest first).
 
 **Acceptance:** `tools/ambition_ldtk_tools/specs/` holds only shared code and
 checks; `level ownership status` names an owner for every room of every world.

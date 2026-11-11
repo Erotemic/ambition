@@ -4,11 +4,12 @@
 also edit their rooms in place after `area create` (they paint ladders, add
 entities), so that replay calls a room the generator still makes "changed".
 This runs the whole generator instead: its `--apply`, on the live worlds,
-with the specs it last wrote (committed beside it). It fingerprints every
-level before and after, then puts the worlds and specs back from git.
+with the specs it last wrote when it keeps them beside it (a generator in the
+map submodule makes them again; its rooms are the levels of those specs). It fingerprints every
+level before and after, then puts the worlds (and kept specs) back from git.
 
     uv run --project tools/ambition_ldtk_tools python -m ambition_ldtk_tools.generator_survey \
-        tools/ambition_ldtk_tools/specs/<dimension>/make_specs.py [--settle]
+        game/ambition_map_assets/ambition_content/generators/<generator>/make_specs.py [--settle]
 
 `--settle` then records each room the run left as it was as generated, and
 adopts (LDtk-owned) each room of the generator's that the run changed (it was
@@ -59,31 +60,34 @@ def _git(cwd: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True).stdout
 
 
+def _folders(generator: Path) -> list[Path]:
+    """What a run writes that the survey puts back: the worlds, and the
+    generator's folder when it keeps its specs there."""
+    return [_worlds(), *([generator.parent] if any(generator.parent.glob("*.ron")) else [])]
+
+
 def _dirty(generator: Path) -> str:
-    worlds = _worlds()
-    return _git(worlds, "status", "--porcelain", ".") + _git(generator.parent, "status", "--porcelain", ".")
+    return "".join(_git(folder, "status", "--porcelain", ".") for folder in _folders(generator))
 
 
 def _restore(generator: Path) -> None:
-    for folder in (_worlds(), generator.parent):
+    for folder in _folders(generator):
         _git(folder, "checkout", "--", ".")
         _git(folder, "clean", "-fdq", ".")
 
 
-def _levels_of(folder: Path) -> set[str]:
-    ids = set()
-    for spec in folder.glob("*.ron"):
-        m = re.search(r'level_id:\s*"?([A-Za-z0-9_]+)', spec.read_text())
-        if m:
-            ids.add(m.group(1))
-    return ids
+def _level_id(spec_text: str) -> str | None:
+    m = re.search(r'level_id:\s*"?([A-Za-z0-9_]+)', spec_text)
+    return m.group(1) if m else None
 
 
-def _run(generator: Path) -> tuple[int, str]:
-    """Run `generator --apply` in this process with its committed specs."""
+def _run(generator: Path) -> tuple[int, str, set[str]]:
+    """Run `generator --apply` in this process, with its committed specs if
+    it keeps them. Returns its exit, its output, and the levels of the specs
+    it wrote or kept (its own rooms)."""
     # As `python <generator>` would have it: its own folder first, then the
     # shared generator code beside it.
-    sys.path[:0] = [str(generator.parent), str(generator.parent.parent)]
+    sys.path[:0] = [str(generator.parent), str(generator.parent.parent), str(PACKAGE_ROOT / "specs")]
     import district_scenery
 
     body_box = district_scenery.body_box
@@ -96,10 +100,15 @@ def _run(generator: Path) -> tuple[int, str]:
 
     district_scenery.body_box = lenient_body_box
     write_text = Path.write_text
+    own: set[str] = set()
 
     def keep_committed_specs(self, *args, **kwargs):
-        if self.suffix == ".ron" and self.resolve().parent == generator.parent and self.exists():
-            return len(args[0]) if args else 0
+        if self.suffix == ".ron":
+            committed = self.resolve().parent == generator.parent and self.exists()
+            if level_id := _level_id(self.read_text() if committed else str(args[0]) if args else ""):
+                own.add(level_id)
+            if committed:
+                return len(args[0]) if args else 0
         return write_text(self, *args, **kwargs)
 
     out = io.StringIO()
@@ -118,7 +127,7 @@ def _run(generator: Path) -> tuple[int, str]:
         district_scenery.body_box = body_box
         sys.argv = argv
         os.chdir(cwd)
-    return code, out.getvalue()
+    return code, out.getvalue(), own
 
 
 def survey(generator: Path) -> dict[str, list[tuple[str, str]]]:
@@ -128,7 +137,6 @@ def survey(generator: Path) -> dict[str, list[tuple[str, str]]]:
     generator = generator.resolve()
     if dirty := _dirty(generator):
         raise SystemExit(f"refused: the worlds or the generator's folder are not clean in git:\n{dirty}")
-    own = _levels_of(generator.parent)
     before = _snapshot()
     try:
         # The ownership guard refuses a run over an edited or adopted room
@@ -137,7 +145,7 @@ def survey(generator: Path) -> dict[str, list[tuple[str, str]]]:
         # (restored with the worlds); settling keeps an adopted room adopted.
         for record in _worlds().glob("*.generated.json"):
             record.unlink()
-        code, out = _run(generator)
+        code, out, own = _run(generator)
         after = _snapshot()
     finally:
         _restore(generator)

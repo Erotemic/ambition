@@ -8,7 +8,7 @@ model and transactional movement authority.
 | --- | --- |
 | R1: projectile recipient refusals became misses | Fixed in `741212079`; candidate scope is fixed in `670e4683c`. All recipient queries complete before motion or hits commit. Refusal retains the pose, retires travel and advances lifetime. |
 | R2: portal scale changed dimensionless knockback | Fixed in `741212079`. `FeelScale` keeps its value; `LaunchSpeed` uses the material chart conversion. |
-| R3: material sweeps use root-AABB penetration repair | Open. Prove the stationary partial-body case and use material contact for repair. |
+| R3: material sweeps use root-AABB penetration repair | Fixed in `5f07fbb17`. Movement, rest repair, initial support, line settling and platform support use admitted material. |
 | R4: independent bodies share one capture root and depth | Open. Keep each body's geometric and depth semantics. |
 | R5: movement and lookup costs need measurement | Open. Measure portal-free gameplay, body-to-visual lookup and repeated room-link construction. |
 | R6: capture density and capacity are fixed | Open. Measure viewport and capture costs before changing resource policy. |
@@ -29,7 +29,7 @@ The assembled app check passes. Logs use `target/portal-review-1-2-`,
 
 Do not convert a refused contact query to a miss. Do not apply a length
 conversion to a dimensionless combat multiplier. Full PSIM acceptance and the
-five remaining review findings remain open.
+remaining review findings remain open.
 
 R7 replaces the runtime correction pass with prepared translation admission.
 The core guard checks near-side, half-scale, double-scale and chained stops.
@@ -76,21 +76,28 @@ gate files: `target/portal-p1-p2-gates.json`,
 `target/portal-p1-p2-merged-gates.json`. This lane does not cover the full
 workspace, GPU, device or performance requirements.
 
-R3 remains open. Draft `4ea13076a` is published on
-`agent/portal-r3-native-contacts-4ea13076`. It replaces the earlier repair
-draft. Material contact now owns polygon repair and initial support sampling.
-Physical cell cuts prevent false floor contact after chart projection.
-The source chart stays admitted through the movement transaction.
+R3 fix: `5f07fbb17`. Axis movement and stationary repair use the same material
+cells and physical room solids. Line settling and platform support keep that
+geometry. Physical cut constraints reject empty host regions before canonical
+projection. A source that fits an opening retains its front spatial cell before
+first touch. Keep a source crossing admitted until the movement transaction
+ends and transit rebases it.
 
-All 35 portal app cases pass before the last support-sampling change. These
-include the H slice, rendering, reverse transit, rewind, floor bounce and
-camera continuity. After that change, all 877 existing core cases pass.
-Evidence uses `target/portal-r3-physical-front-app.log` and
-`target/portal-r3-native-baseline-core.log`.
+The guards check stationary far-side support and repair, initial contact,
+ground-line openings at rest and during transit, source-chart retention,
+canonical floor rounding and rotated host boundaries. The real-app slice
+also pauses a partial body before both crossings and deterministic rewind.
+Do not restore a root-AABB repair or support-placement pass after these queries.
 
-A new ground-line host guard fails: the slope-settling pass can stop admitted
-material on the full source line. Evidence is
-`target/portal-r3-line-host-before.log`. Do not merge this draft until line
-support uses admitted material and the focused app and architecture gates pass.
-The draft is a recovery point, not an accepted R3 fix. R4, R5, R6 and R8 also
-remain open. Full PSIM acceptance remains open.
+Validation passes 878 core, 595 actor, 178 world, 35 portal app, 73 Smash and
+35 policy tests, plus the assembled app check. One core probe and six Smash
+probes are ignored. Evidence is `target/portal-r3-acceptance-gates.json` and
+`target/portal-r3-acceptance-*.log`. This lane does not prove the full workspace,
+other movement models, device/GPU or performance requirements. R4, R5, R6
+and R8 remain open. Full PSIM acceptance remains open.
+
+After upstream merge `a40680fd4`, both 80/40 slice cases and both chained-lab
+cases pass again. The app and core all-target warning check passes under
+their default features. Evidence is `target/portal-r3-merged-gates.json` and
+`target/portal-r3-merged-*.log`. Non-default feature-only code is not covered
+by that warning check.

@@ -1140,25 +1140,22 @@ stand-in may keep an incomplete kit.)
 
 ### PORTAL-SIMILARITY — canonical parts and scaled mirror portals
 
-**Failure / customer:** linked apertures currently collapse to their smaller
-size so transit can remain an isometry; the N-piece partitioner and several
-consumers still use rigid maps or specialized presentation/collision paths.
-A GNU-ton multi-portal limb and a body partially crossing unequal apertures
-need correct scaling, reflection and physically consistent clipping.
+**Failure / customer:** unequal apertures and reflected bodies need one
+physical material model for partial contact, combat and presentation. The
+playable 80/40 slice and chained-limb witnesses pass. Full PSIM acceptance
+remains open.
 
 **Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
 
-**Next action:** continue implementation and testing on main (Jon, 2026-11-08).
-Jon released main and requested the tested slot 1 work to be merged. All VM
-CPUs are available. Finish live root transit, exact contact projections and
-source admission for every mover. Follow the owner's
+**Next action:** continue implementation and testing on main. Native material
+repair and support are fixed in `5f07fbb17`. Resolve independent capture roots
+and depth, room-scoped straddler lookup, portal-free runtime cost and capture
+budgets. Complete the remaining motion, geometry, numeric-fault and device
+requirements in the owner's
 [implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
 and [draft status](engine/portal-parts-similarity-and-chirality.md#draft-status).
-PSIM-1A and PSIM-1B: prove canonical-material partition invariants,
-add bounded similarity composition/parity, and make budget refusal stop the
-source motion before extending transit, combat and presentation. Reuse the
-existing `frame::thread` worklist. This is local to one live simulation room;
-cross-island live portals are not an implicit dependency.
+This is local to one live simulation room; cross-island live portals are not
+an implicit dependency.
 
 **Acceptance:** all five PSIM slices have production-path and deterministic
 witnesses; authored mismatched apertures scale correctly in both directions;

@@ -139,3 +139,14 @@ Repair gravity penetration before transverse motion with canonical material.
 Keep velocity and contact state during that correction. A rounded root pose
 can put canonical feet slightly inside a floor. A transverse sweep from that
 pose can otherwise lose speed to an unrelated floor overlap.
+
+A support probe can start with a line inside the body. A contact at probe
+time zero does not prove support. Check that the admitted material is in
+front of the physical support plane. Keep the plane point and normal in
+wide precision until this check ends. Apply boarding rules to the resulting
+support candidates, not to a root bounding box.
+
+Read a moving support at tick start when finding its previous rider. Map
+its physical contact and displacement back through the body's occupied
+part. Use the admitted support for carry and slope corrections. A later
+root-box query can select another surface or put a body back on an opening.

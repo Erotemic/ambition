@@ -46,16 +46,15 @@ pub struct LineSupport {
     /// The chain (an index into [`World::chains`]) and its segment.
     pub chain: usize,
     pub segment: usize,
-    /// Where the feet go: the line's highest point under the span, as a
-    /// coordinate along gravity (`p · down`; smaller is higher).
+    /// The feet coordinate after support placement in the body chart.
     pub feet_coord: f32,
     /// The point under the span the feet rest on.
     pub point: Vec2,
     /// The segment's outward normal.
     pub normal: Vec2,
-    /// The two ends of the part of the segment under the span.
+    /// Two points on the support segment in the body chart.
     pub ends: [Vec2; 2],
-    /// The chain's own per-frame motion.
+    /// The support displacement in the body chart.
     pub velocity: Vec2,
     /// The support motion in the body chart.
     pub carry: Vec2,
@@ -296,8 +295,7 @@ pub enum LineStep {
     /// The body stood on the line and is still on it (it walked down it, or
     /// over a crest).
     Held(LineSupport),
-    /// The body walked off the end of the line it stood on onto the top of
-    /// this block (an index into [`World::blocks`]) a little below.
+    /// The body followed a block support after it left its line.
     OntoBlock(crate::collision_semantics::Contact),
 }
 

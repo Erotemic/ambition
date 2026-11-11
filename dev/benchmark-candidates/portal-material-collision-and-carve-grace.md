@@ -235,3 +235,10 @@ A refused object release must not enter a quantity-mint path.
 A spec id does not identify an occurrence. A nearby authored prop can take a
 pickup press before an injected copy does. Use the authored occurrence and
 its stable identity in an acceptance witness.
+
+
+A rig point has a canonical feet offset. Map that offset and point through
+physical material together. Gravity and the root AABB cannot reconstruct the
+point after scale or reflection. Keep a missing landmark separate from a
+failed map. Resolve a required hand before firing state changes; a muzzle
+that does not use a hand must not query it.

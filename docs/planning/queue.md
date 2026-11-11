@@ -974,11 +974,15 @@ writer (or its departed one), `SeatMenuFrames` has a new verdict (the per-seat
 menu pipeline replaced the tool-only one), and `MapMenuState`'s baseline
 follows the file its verdict already named. The guard is green, and so is
 `check_session_authority_none_arms` (fifteen rows written, two stale ones
-gone, one read made required). Still red: four other guards
-are red on their own findings (`check_host_configuration_has_no_session_writer`:
-`FactionRelations`; `check_level_box_readers`; `check_presence_filtered_state_is_rollback_registered`:
-`ActorGlow`, `PresentationCover`; `check_session_root_construction_is_declared`: two
-undeclared constructions and one gone).
+gone, one read made required). Then the other three: the session-root
+declarations follow the per-room rules fixture to its new crate and name the
+menu's `#[cfg(test)]` hand seam; `FactionRelations` is composed and installed
+by Ambition's content plugin rather than written through `resource_mut`
+(the guard now sees a typed `insert_resource::<T>` install); `ActorGlow` and
+`PresentationCover` are waived as presentation (render-crate `Update`
+filters only). Still red: `check_level_box_readers`, whose baseline has
+drifted far (86 reads found, 40 classified, many baseline lines gone): it
+needs its own pass.
 
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn

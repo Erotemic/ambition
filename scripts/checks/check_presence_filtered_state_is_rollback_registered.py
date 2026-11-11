@@ -137,6 +137,17 @@ WAIVERS = {
     "CharacterAnimator": "sprite-sheet animator state, rebuilt from the sim's pose view",
     "PlayerTrail": "the avatar's visual trail",
     "LightEmitter2d": "a relativity2d render signal",
+    "ActorGlow": (
+        "an actor's light, on its visual entity; filtered only by the render "
+        "crate's `grant_player_glows` and `sync_actor_glows` (`Update`, "
+        "`rendering/actor_glow.rs`), never in the sim schedule (2026-11-10)"
+    ),
+    "PresentationCover": (
+        "a UI region's opaque cover; filtered only by the render crate's "
+        "coverage param (`rendering/presentation_coverage.rs`) and "
+        "`animate_room_transition_covers` (`Update`), never in the sim "
+        "schedule (2026-11-10)"
+    ),
     # Avian debris, 2026-10-04. Avian is a cosmetic physics engine here:
     # Ambition's own bodies collide in `GgrsSchedule` and are never avian bodies.
     "PhysicsDebris": (

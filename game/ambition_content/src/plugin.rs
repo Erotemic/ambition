@@ -136,10 +136,15 @@ impl Plugin for AmbitionContentPlugin {
         // strikes still lands, and provokes as before.
         {
             use ambition_characters::actor::ActorFaction;
-            app.init_resource::<ambition_combat::targeting::FactionRelations>();
-            app.world_mut()
-                .resource_mut::<ambition_combat::targeting::FactionRelations>()
-                .set_allied(ActorFaction::Npc, ActorFaction::Player, true);
+            // Host configuration: composed here and installed, never written
+            // in a session (`check_host_configuration_has_no_session_writer`).
+            let mut relations = app
+                .world()
+                .get_resource::<ambition_combat::targeting::FactionRelations>()
+                .cloned()
+                .unwrap_or_default();
+            relations.set_allied(ActorFaction::Npc, ActorFaction::Player, true);
+            app.insert_resource::<ambition_combat::targeting::FactionRelations>(relations);
         }
 
         // Ambition's doors and gates play a passage: the door opens and you walk

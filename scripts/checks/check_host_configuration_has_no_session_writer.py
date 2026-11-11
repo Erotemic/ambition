@@ -71,12 +71,17 @@ from test_paths import strip_test_modules  # noqa: E402
 CONFIGURATION: dict[str, tuple[str, tuple[str, ...]]] = {
     "FactionRelations": (
         "the table of which faction selects which as a foe; each perception "
-        "and target-selection road reads it, and its only value in production "
-        "is the default (measured 2026-10-04: equal on each tick of a session "
-        "that followed another one and of a fresh host)",
+        "and target-selection road reads it. Its values are composer-time: the "
+        "combat domain's default, and Ambition's content plugin, which at build "
+        "time allies NPCs with the player (2026-10-30: an NPC in a dangerous "
+        "room joins your fight). No system writes it in a session (measured "
+        "2026-10-04: equal on each tick of a session that followed another one "
+        "and of a fresh host)",
         (
             # `init_targeting_resources`: the combat domain's default.
             "crates/ambition_combat/src/targeting.rs",
+            # `AmbitionContentPlugin::build`: `set_allied(Npc, Player)`, once.
+            "game/ambition_content/src/plugin.rs",
         ),
     ),
     "FriendlyFire": (
@@ -116,6 +121,8 @@ def _install(ty: str) -> re.Pattern[str]:
     return re.compile(
         rf"\binit_resource::<\s*{_PATH}{ty}\s*>"
         rf"|\binsert_resource\(\s*{_PATH}{ty}\b"
+        # A value composed first and installed by name (`insert_resource::<T>(v)`).
+        rf"|\binsert_resource::<\s*{_PATH}{ty}\s*>"
     )
 
 

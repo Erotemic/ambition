@@ -215,7 +215,7 @@ mod tests {
         let requests = ambition_characters::brain::action_set::resolve(
             &action_set,
             &spam_fire(0),
-            ae::Vec2::ZERO,
+            &ae::BodyKinematics::default(),
         );
         assert_eq!(requests.len(), 1);
         assert!(matches!(requests[0], ActionRequest::Ranged { .. }));

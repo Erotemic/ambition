@@ -50,7 +50,7 @@ pub fn emit_brain_action_messages(
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
     for (entity, control, action_set, kin, moveset, charges) in &actors {
-        for request in action_set::resolve(action_set, &control.0, kin.pos) {
+        for request in action_set::resolve(action_set, &control.0, kin) {
             // A body whose ranged shot is a moveset `"ranged"` move fires through the
             // move's timed event (`MoveEventKind::Ranged`), not this flat
             // `frame.fire → Ranged` path — skip the flat emission so it doesn't fire

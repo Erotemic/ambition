@@ -181,7 +181,9 @@ pub fn tick_controlled_brains(
             subject: None,
             actor_pos: kin.pos,
             actor_vel: kin.vel,
-            actor_facing: kin.facing,
+            actor_facing: motion_model.map_or_else(
+                || kin.material.project_facing(kin.facing, resolved_frame.basis().side),
+                |model| model.project_facing(kin.material, kin.facing, resolved_frame.basis().side)),
             // The player brain faces by the stick, never by `face_toward`.
             actor_half_width: kin.size().x * 0.5,
             control_down,

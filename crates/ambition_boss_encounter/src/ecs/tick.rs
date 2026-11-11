@@ -523,7 +523,7 @@ pub fn tick_boss_brains_system(
             let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
             snapshot.actor_pos = boss.kin.pos;
             snapshot.actor_vel = boss.kin.vel;
-            snapshot.actor_facing = boss.kin.facing;
+            snapshot.actor_facing = boss.kin.material.project_facing(boss.kin.facing, ae::Vec2::X);
             snapshot.actor_aerial = true;
             snapshot.max_run_speed = ae::MAX_RUN_SPEED;
             snapshot.dt = dt;
@@ -609,7 +609,7 @@ pub fn tick_boss_brains_system(
                     // Situation buckets and `OnHitTaken`. The brain remembers
                     // its own last HP, so a hit is a drop in this pool; there
                     // is no per-tick damage channel.
-                    actor_facing: boss.kin.facing,
+                    actor_facing: boss.kin.material.project_facing(boss.kin.facing, ae::Vec2::X),
                     // The body that turns: its own box, or its mount's when the
                     // turn MIRRORS the mount. A scholar that turned by his own
                     // 68 px spun a mirroring 440 px mount under him whenever

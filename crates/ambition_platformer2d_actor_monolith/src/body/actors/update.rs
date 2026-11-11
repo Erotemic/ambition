@@ -621,6 +621,7 @@ pub fn tick_actor_brains(
                     };
                     let mut snapshot = build_enemy_brain_snapshot(
                         &body,
+                        motion_model,
                         target_pos,
                         target_alive,
                         crowding,
@@ -991,17 +992,17 @@ pub(crate) fn publish_actor_decision_frames(
 
 /// Anti-clump route steering for the adhesive crawler: does a same-kind
 /// neighbor sit directly ahead along the crawl tangent (derived from the
-/// published support normal + facing)? Pure, so the reversal rule is
+/// published support normal and route direction)? Pure, so the reversal rule is
 /// unit-testable without the phase context.
 pub(crate) fn crawler_neighbor_blocks(
     pos: ae::Vec2,
     size: ae::Vec2,
-    facing: f32,
+    route_direction: f32,
     surface_normal: ae::Vec2,
     neighbor: ae::Vec2,
 ) -> bool {
     let n = surface_normal;
-    let tangent = ae::Vec2::new(-n.y * facing, n.x * facing);
+    let tangent = ae::Vec2::new(-n.y * route_direction, n.x * route_direction);
     let delta = neighbor - pos;
     let along = delta.dot(tangent);
     let perp = delta.dot(n);
@@ -1098,7 +1099,7 @@ fn integrate_actor_body(
     // The move motion lock scales steering INTENT magnitude only — and it is
     // `ActorControlFrame`'s own rule now, because the HOME road applies the
     // identical one and two copies would drift.
-    let brain_frame = brain_frame.damped_by_move_motion(move_motion_scale);
+    let mut brain_frame = brain_frame.damped_by_move_motion(move_motion_scale);
     // The same animation fact that a charging player publishes: the body
     // displays a held aim pose before the first shot, not a false muzzle flash.
     if let Some(anim) = anim.as_deref_mut() {
@@ -1118,18 +1119,17 @@ fn integrate_actor_body(
     // same-kind neighbor blocks the path ahead (anti-clump). The kernel only
     // moves; the ECS resolves steering intent.
     if matches!(motion_model, MotionModel::AdhesiveCrawler(_)) {
+        let route_facing = motion_model.project_facing(em.kin.material, em.kin.facing, motion_frame.side());
         if let Some(neighbor) = steering.neighbor_by_entity.get(&actor_entity).copied() {
             if crawler_neighbor_blocks(
                 em.kin.pos,
                 em.kin.size(),
-                em.kin.facing,
+                route_facing,
                 em.surface.surface_normal,
                 neighbor,
             ) {
-                // Steering is controller intent: flip the crawl direction. The
-                // kernel owns velocity (the attached crawl rewrites it each
-                // tick from the new facing).
-                em.kin.facing = -em.kin.facing;
+                // Submit the route turn to the same admitted movement step.
+                brain_frame.facing = -route_facing;
             }
         }
     }
@@ -2337,6 +2337,7 @@ pub(crate) fn movement_law_of(
 #[allow(clippy::too_many_arguments)]
 fn build_enemy_brain_snapshot(
     body: &ambition_body_seed::clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
+    model: &ae::MotionModel,
     target_pos: ae::Vec2,
     target_alive: bool,
     crowding: Option<ambition_characters::brain::smash::CrowdingSignal>,
@@ -2386,7 +2387,7 @@ fn build_enemy_brain_snapshot(
     ambition_characters::brain::BrainSnapshot {
         actor_pos: body.kin.pos,
         actor_vel: body.kin.vel,
-        actor_facing: body.kin.facing,
+        actor_facing: model.project_facing(body.kin.material, body.kin.facing, ae::AccelerationFrame::new(gravity_dir).side),
         // Its own box; `tick_actor_brains` widens it to a mount's.
         actor_half_width: body.kin.size().x * 0.5,
         control_down: gravity_dir,

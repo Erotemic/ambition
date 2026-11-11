@@ -208,6 +208,7 @@ pub(super) fn apply_intent(
     state: &mut AxisManeuverState,
     abilities: &BodyAbilities,
     input: InputState,
+    facing_intent: f32,
     tuning: AxisSweptParams,
     // THE GUARD, because starting an action out of one is a spend. WHICH
     // actions a raised one lets out is [`OutOfShieldGate`], owned here and read
@@ -231,10 +232,12 @@ pub(super) fn apply_intent(
     // A body turns to the way it steers, in the air too, unless its game locks
     // the facing in the air (`holds_facing_in_air`, a platform fighter's
     // rule); in flight and in water it always turns.
-    let can_turn = ground.on_ground || flight.fly_enabled || in_water || !tuning.locomotion.holds_facing_in_air;
+    let can_turn = state.ledge_grab.is_none()
+        && (ground.on_ground || flight.fly_enabled || in_water || !tuning.locomotion.holds_facing_in_air);
     let local_stick = input.local_axis();
     let physical_side = kinematics.material.orthogonal().x_axis;
-    let facing_intent = physical_side.dot(frame.side() * local_stick.x);
+    let facing_intent = if facing_intent.abs() > 0.001 { facing_intent }
+        else { physical_side.dot(frame.side() * local_stick.x) };
 
     // ⭐⭐ REVERSING OUT OF A COMMITTED RUN COSTS A TURNAROUND, and that is what
     // makes the initial dash's free reversal worth anything: inside the dash
@@ -947,6 +950,7 @@ mod burst_maneuver_tests {
                 &mut state,
                 &abilities,
                 input,
+                0.0,
                 tuning,
                 // Guard down: this case is about which BURST a body owns.
                 &mut crate::body_clusters::BodyShieldState::default(),

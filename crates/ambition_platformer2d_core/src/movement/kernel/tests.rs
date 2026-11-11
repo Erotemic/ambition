@@ -2007,3 +2007,112 @@ fn a_still_body_refuses_a_portal_that_only_intersects_during_its_turn() {
     assert_eq!(*clusters.kinematics, before);
     assert_eq!(result.events.motion_refusal.unwrap().reason, RefusalReason::HopLimit);
 }
+
+#[test]
+fn control_facing_uses_physical_material_and_keeps_a_neutral_request() {
+    let world = empty_world();
+    let frame = MotionFrame::from_direction(Vec2::Y, 0.0);
+    for reflected in [false, true] {
+        for scale in [0.5, 2.0] {
+            let axes = bevy_math::Mat2::from_angle(0.6) * if reflected {
+                bevy_math::Mat2::from_cols(-Vec2::X, Vec2::Y)
+            } else { bevy_math::Mat2::IDENTITY };
+            let material = crate::frame::BodyMaterial::new(scale, axes).unwrap();
+            for model in [MotionModel::axis_swept(AxisSweptParams::default()),
+                MotionModel::surface_momentum(MomentumParams::default())] {
+                for request in [-1.0, 0.0, 1.0] {
+                    let mut model = model.clone();
+                    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::default());
+                    scratch.kinematics.material = material;
+                    scratch.kinematics.facing = -1.0;
+                    let result = step_motion(&mut model, &mut scratch.as_mut(), MotionStepContext {
+                        world: &world, admission: None, input: InputState::default(), frame,
+                        facing_intent: request, dt: 0.0, contact: crate::BodyContactField::NONE,
+                        pose_owned_externally: false, recovery_commitment_outstanding: false,
+                    });
+                    assert!(result.events.motion_refusal.is_none());
+                    assert_eq!(scratch.kinematics.material, material);
+                    if request == 0.0 { assert_eq!(scratch.kinematics.facing, -1.0); }
+                    else {
+                        let physical_front = scratch.kinematics.material.orthogonal().x_axis * scratch.kinematics.facing;
+                        assert!(physical_front.dot(frame.side()) * request > 0.0);
+                    }
+                    let control_facing = model.project_facing(material, scratch.kinematics.facing, frame.side());
+                    assert_eq!(model.project_facing(material, control_facing, frame.side()), scratch.kinematics.facing);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn an_explicit_facing_request_obeys_the_axis_air_turn_lock() {
+    let world = floor_world();
+    for grounded in [false, true] {
+        let mut params = AxisSweptParams::default();
+        params.locomotion.holds_facing_in_air = true;
+        let mut model = MotionModel::axis_swept(params);
+        let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(200.0, 100.0), AbilitySet::default());
+        scratch.kinematics.material = crate::frame::BodyMaterial::new(0.5,
+            bevy_math::Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap();
+        scratch.kinematics.facing = 1.0;
+        scratch.ground.on_ground = grounded;
+        scratch.ground.contact_initialized = true;
+        if grounded { scratch.kinematics.pos.y = 400.0 - scratch.kinematics.half_extent().y; }
+        let result = step_motion(&mut model, &mut scratch.as_mut(), MotionStepContext {
+            world: &world, admission: None, input: InputState::default(),
+            frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 1.0, dt: 0.0,
+            contact: crate::BodyContactField::NONE, pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
+        });
+        assert!(result.events.motion_refusal.is_none());
+        assert_eq!(scratch.kinematics.facing, if grounded { -1.0 } else { 1.0 });
+    }
+}
+
+#[test]
+fn a_reflected_crawler_faces_its_route_on_blocks_and_turned_chains() {
+    for on_chain in [false, true] {
+        let rotation = bevy_math::Mat2::from_angle(if on_chain { 0.6 } else { 0.0 });
+        let tangent = rotation * Vec2::X;
+        let normal = rotation * -Vec2::Y;
+        let world = if on_chain {
+            World::new("crawler_material", Vec2::splat(2000.0), Vec2::ZERO, Vec::new())
+                .with_chains(vec![SurfaceChain::open("slope", vec![Vec2::new(0.0, 400.0),
+                    Vec2::new(0.0, 400.0) + tangent * 1000.0])])
+        } else { floor_world() };
+        for scale in [0.5, 2.0] {
+            for reflected in [false, true] {
+                for route in [-1.0, 1.0] {
+                    let axes = rotation * if reflected { bevy_math::Mat2::from_cols(-Vec2::X, Vec2::Y) }
+                        else { bevy_math::Mat2::IDENTITY };
+                    let material = crate::frame::BodyMaterial::new(scale, axes).unwrap();
+                    let start = Vec2::new(0.0, 400.0) + tangent * 200.0 + normal * (6.0 * scale);
+                    let mut scratch = BodyClusterScratch::new_with_abilities(start, AbilitySet::default());
+                    scratch.kinematics.material = material;
+                    scratch.kinematics.canonical_size = Vec2::new(36.0, 12.0);
+                    scratch.base_size.base_size = scratch.kinematics.canonical_size;
+                    let mut model = MotionModel::adhesive_crawler(CrawlerParams::default());
+                    let MotionModel::AdhesiveCrawler(crawler) = &mut model else { unreachable!() };
+                    crawler.state = if on_chain { CrawlerState::attached_to_chain(0, 200.0) }
+                        else { CrawlerState::attached(normal) };
+                    let result = step_motion(&mut model, &mut scratch.as_mut(), MotionStepContext {
+                        world: &world, admission: None, input: InputState { axes: LocalAxes::new(route, 0.0), ..Default::default() },
+                        frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: route, dt: DT,
+                        contact: crate::BodyContactField::NONE, pose_owned_externally: false,
+                        recovery_commitment_outstanding: false,
+                    });
+                    assert!(result.events.motion_refusal.is_none(), "chain={on_chain} scale={scale} reflected={reflected} route={route}: {:?}", result.events.motion_refusal);
+                    let body = scratch.kinematics;
+                    assert!(body.vel.dot(tangent) * route > 0.0);
+                    assert!((body.pos - start).dot(tangent) * route > 0.0);
+                    let front = body.material.orthogonal().x_axis * body.facing;
+                    assert!(front.dot(body.vel) > 0.0, "the physical front follows the admitted route");
+                    assert_eq!(body.material.reflected(), reflected);
+                    assert_eq!(body.material.scale(), scale);
+                    assert_eq!(model.project_facing(body.material, body.facing, Vec2::X), route);
+                }
+            }
+        }
+    }
+}

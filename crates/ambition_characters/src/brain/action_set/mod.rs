@@ -1717,12 +1717,14 @@ impl ActionRequest {
 /// action requests using the actor's `ActionSet`. Pure function;
 /// no Bevy, no side effects. Most ticks emit zero or one request;
 /// multi-request ticks are the boss-pattern case (e.g. a phase that
-/// simultaneously fires and lunges).
+/// simultaneously fires and lunges). The accepted body supplies origin and
+/// material facing; a controller request does not establish a physical pose.
 pub fn resolve(
     actions: &ActionSet,
     frame: &crate::actor::control::ActorControlFrame,
-    origin: ae::Vec2,
+    body: &ae::BodyKinematics,
 ) -> Vec<ActionRequest> {
+    let origin = body.pos;
     let mut out = Vec::with_capacity(2);
     // A melee swing is triggered by the attack button OR the DEDICATED POGO button:
     // pogo is the air-down variant of the same swing (the moveset resolves it to the
@@ -1736,7 +1738,7 @@ pub fn resolve(
             out.push(ActionRequest::Melee {
                 spec,
                 origin,
-                facing: frame.facing,
+                facing: body.facing,
                 attack_axis: frame.attack_axis,
             });
         }

@@ -158,6 +158,7 @@ pub(crate) fn update_player_control_with_tuning_scratch(
         &mut clusters,
         &mut axis.state,
         input,
+        0.0,
         control_dt,
         tuning.frame(),
         tuning.params(),

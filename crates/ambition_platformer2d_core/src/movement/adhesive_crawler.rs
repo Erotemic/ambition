@@ -22,6 +22,11 @@ use crate::geometry::AabbExt;
 use crate::world::{Block, World};
 use crate::{Aabb, MotionFrame, Vec2};
 
+/// Convert between material facing and direction along the oriented surface.
+pub(super) fn route_facing(material: crate::frame::BodyMaterial, facing: f32) -> f32 {
+    if material.reflected() { -facing } else { facing }
+}
+
 /// Authored parameters of the adhesive-crawler policy. Like every policy
 /// parameter type, this contains no live-environment fields: detached-fall
 /// acceleration comes from the per-tick frame.
@@ -242,7 +247,7 @@ pub(super) fn step_crawler(
     }
 
     let n = normal;
-    let facing = clusters.kinematics.facing;
+    let facing = route_facing(clusters.kinematics.material, clusters.kinematics.facing);
     let speed = motion.params.crawl_speed;
     let step_len = speed * dt;
     let tangent = Vec2::new(-n.y * facing, n.x * facing);
@@ -353,7 +358,7 @@ fn crawl_chain(
         fall_step(motion, world, clusters, frame, dt, contacts, conflicts, admission, refusal);
         return;
     };
-    let facing = clusters.kinematics.facing;
+    let facing = route_facing(clusters.kinematics.material, clusters.kinematics.facing);
     let speed = if crawling { motion.params.crawl_speed } else { 0.0 };
     let next_s = s + facing * speed * dt;
     let total = surface.total_length();

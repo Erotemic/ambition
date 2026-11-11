@@ -224,15 +224,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             portal,
         );
 
-        // A body on a ledge faces the ledge: the ledge tick set that facing,
-        // and the control frame may not turn it away while the hand holds.
-        if frame.facing.abs() > 0.001 && !motion_model.holds_a_ledge() {
-            self.kin.facing = frame.facing.signum();
-        }
-
-        // Facing is committed only from the control frame. Collision publishes
-        // semantic contacts through body state; autonomous brains may turn on a
-        // later tick, while human/fighter controllers retain their chosen facing.
 
         (frame, move_events)
     }

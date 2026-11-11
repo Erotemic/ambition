@@ -463,7 +463,11 @@ conversation, ISL-1b).
 **Next:** the room rollback host that calls `retract_room_writes` in
 production (today the witnesses and the ISL-2e probe host
 `room_rollback_host.rs` call it after each restore), and the room attribution
-of `QuestAdvanceRequested` (the pickup's `ItemCollected`).
+of `QuestAdvanceRequested` (the pickup's `ItemCollected`: one shipped step;
+the pickup itself is already put back untaken by the occurrence ledger, so
+only that step stays moved after a rewind. The message has 31 references and
+no room; carrying a cause means a new field there, or a room-attributed quest
+message beside it, and a log of room causes like `FlagWritesInRooms`).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 

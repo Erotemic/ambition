@@ -2,7 +2,7 @@
 //! ability. Blink is a precise 150px teleport (15+ ... well, 5 unit tests in
 //! blink.rs); this proves the LDtk content (GroundItem held_item="blink" + low
 //! ceiling + hazard gaps) wires up to it: grab the ability, then blink across two
-//! ~120px death gaps in a corridor too low to jump. Driven through the public
+//! 112px death gaps in a corridor too low to jump. Driven through the public
 //! action/observation API; asserts only on player position.
 //!
 //! Sequence: walk onto the ability (Attack to grab) → for each gap, walk to its
@@ -68,8 +68,10 @@ fn blink_run_blinks_across_the_death_gaps() {
     }); // Attack while overlapping = grab
     sim.step(base());
 
-    // Gap 1: near edge ≈ x300; blink should land on the mid floor x[420,620].
-    walk_to_then_blink(&mut sim, 275.0);
+    // Gap 1: hazard x[288,400]. A body 30 wide stops short of it at x 273,
+    // and a blink carries 150, so it blinks from x 266 onto the mid floor
+    // x[400,608].
+    walk_to_then_blink(&mut sim, 266.0);
     let after1 = sim.observation();
     assert!(
         after1.player_pos.0 > 360.0 && after1.resets == 0,
@@ -79,11 +81,11 @@ fn blink_run_blinks_across_the_death_gaps() {
         after1.resets,
     );
 
-    // Gap 2: near edge ≈ x620; blink should land on the end floor x[740,1008].
-    walk_to_then_blink(&mut sim, 595.0);
+    // Gap 2: hazard x[608,720]; from x 586 onto the end floor x[720,1008].
+    walk_to_then_blink(&mut sim, 586.0);
     let after2 = sim.observation();
     assert!(
-        after2.player_pos.0 > 740.0 && after2.resets == 0,
+        after2.player_pos.0 > 720.0 && after2.resets == 0,
         "should have blinked across gap 2 to the end floor (x={}, resets={})",
         after2.player_pos.0,
         after2.resets,

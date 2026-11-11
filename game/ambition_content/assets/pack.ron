@@ -152,6 +152,8 @@
         (path: "data/flag_chains.ron", schema: "flag_chains", version: 1),
         // Its NPC lives: planning domains and who lives by them.
         (path: "data/npc_lives.ron", schema: "npc_lives", version: 1),
+        // Its areas: the card shown on entering each, and the rooms it holds.
+        (path: "data/area_cards.ron", schema: "area_cards", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.

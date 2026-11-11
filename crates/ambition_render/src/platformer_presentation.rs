@@ -212,6 +212,13 @@ impl Plugin for SessionRoomVisualsPlugin {
                 .run_if(crate::rendering::boss_stage::bosses_are_shown_or_were)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
         );
+        // The card of the area a view's subject has just entered.
+        app.add_systems(
+            Update,
+            crate::rendering::area_card::show_area_card
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists)
+                .run_if(resource_exists::<crate::rendering::area_card::AreaCards>),
+        );
         // A boss's slow-motion finish: the picture drained but the boss, and
         // cinema bars (`ambition_boss_encounter::finish`).
         crate::rendering::boss_finish::install(app);

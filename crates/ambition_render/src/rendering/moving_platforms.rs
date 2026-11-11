@@ -135,10 +135,19 @@ fn is_hidden(platform: &MovingPlatformState) -> bool {
     platform.visual.as_deref() == Some(HIDDEN_PLATFORM_VISUAL)
 }
 
-/// Where a sheet-drawn platform's picture stands: its top centre.
-fn sheet_point(platform: &MovingPlatformState) -> ae::Vec2 {
-    ae::Vec2::new(platform.pos.x, platform.pos.y - platform.size.y * 0.5)
+/// Where a sheet-drawn platform's picture stands: the top centre of the
+/// platform drawn at `at`.
+fn sheet_point(platform: &MovingPlatformState, at: ae::Vec2) -> ae::Vec2 {
+    ae::Vec2::new(at.x, at.y - platform.size.y * 0.5)
 }
+
+/// Each platform drawn where it is this frame, between its ticks, as a body
+/// is (`ambition_sim_view::PresentedPose`). A rider and the camera that
+/// follows it are drawn at presented poses that move every frame; a platform
+/// drawn at its tick position stepped against them, and the Mockingbird's
+/// shark lift vibrated under its rider (Jon, 2026-11-11).
+#[derive(Default)]
+pub struct PresentedPlatforms(std::collections::HashMap<(LiveRoomInstance, usize), ambition_sim_view::PresentedPose>);
 
 /// Whether the sheet is drawn flipped: it faces the way the platform flies
 /// THROUGH THE AIR. `air_x` is how fast the room's air moves (its sky's
@@ -218,6 +227,12 @@ pub fn sync_moving_platform_visuals(
     looks: Option<Res<PlatformLooks>>,
     assets: Option<Res<GameAssets>>,
     time: Option<Res<Time>>,
+    (tick, phase, framing, mut presented): (
+        Option<Res<ambition_time::SimTick>>,
+        Option<Res<ambition_sim_view::PresentationPhase>>,
+        Option<Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
+        Local<PresentedPlatforms>,
+    ),
 ) {
     // Per live room: its geometry, its platforms and its sky speed.
     let live: Vec<(LiveRoomInstance, &ae::World, &[MovingPlatformState], f32)> = rooms
@@ -231,6 +246,31 @@ pub fn sync_moving_platform_visuals(
         })
         .collect();
     let dt = time.map_or(0.0, |time| time.delta_secs());
+    let (tick, phase) = (tick.map_or(0, |tick| tick.0), phase.map_or(0.0, |phase| phase.get()));
+    let interpolate = framing.is_some_and(|framing| framing.interpolate_poses);
+    presented.0.retain(|(room, index), _| {
+        live.iter().any(|(at, _, platforms, _)| at == room && *index < platforms.len())
+    });
+    let drawn_at: Vec<Vec<ae::Vec2>> = live
+        .iter()
+        .map(|(room, _, platforms, _)| {
+            platforms
+                .iter()
+                .enumerate()
+                .map(|(index, platform)| {
+                    // A platform that moves more than its own size in a tick
+                    // jumped (a loop wrapping round): drawn as a jump.
+                    let leap = platform.size.max_element() * 3.0;
+                    let pose = presented
+                        .0
+                        .entry((*room, index))
+                        .or_insert_with(|| ambition_sim_view::PresentedPose::at(platform.pos, tick));
+                    pose.follow(platform.pos, tick, leap, phase, interpolate);
+                    pose.presented()
+                })
+                .collect()
+        })
+        .collect();
     // The sheet a platform is drawn as, when its look is registered and its
     // art has loaded; otherwise it is drawn plain until they are.
     let (looks, assets) = (looks.as_deref(), assets.as_deref());
@@ -264,7 +304,7 @@ pub fn sync_moving_platform_visuals(
         drawn[slot][visual.index][usize::from(visual.front)] = true;
         match (sheet.zip(layer), animator) {
             (Some(((_, look, _), (row, z))), Some(mut animator)) => {
-                transform.translation = world_to_bevy(world, sheet_point(platform), z);
+                transform.translation = world_to_bevy(world, sheet_point(platform, drawn_at[slot][visual.index]), z);
                 // A loop: no move plays a platform's row, so nothing ends it.
                 animator.request_loop([row], ambition_sprite_sheet::character::CharacterAnim::Walk);
                 // `&mut` through the `Mut` marks the components already.
@@ -278,7 +318,7 @@ pub fn sync_moving_platform_visuals(
                 );
             }
             _ => {
-                transform.translation = world_to_bevy(world, platform.pos, BACK_LAYER_Z);
+                transform.translation = world_to_bevy(world, drawn_at[slot][visual.index], BACK_LAYER_Z);
                 // A plank turns; world +y is down and Bevy's is up, so the
                 // turn is mirrored.
                 transform.rotation = Quat::from_rotation_z(-platform.angle());
@@ -321,7 +361,7 @@ pub fn sync_moving_platform_visuals(
                             sprite,
                             anchor,
                             animator,
-                            Transform::from_translation(world_to_bevy(world, sheet_point(platform), z)),
+                            Transform::from_translation(world_to_bevy(world, sheet_point(platform, drawn_at[slot][index]), z)),
                             Name::new(format!("Moving platform {index}: {} ({kind}{layer})", platform.name)),
                             MovingPlatformVisual { room, index, sheet: Some(kind.to_string()), front },
                             RoomVisual,
@@ -342,7 +382,7 @@ pub fn sync_moving_platform_visuals(
                     ),
                     Transform::from_translation(world_to_bevy(
                         world,
-                        platform.pos,
+                        drawn_at[slot][index],
                         BACK_LAYER_Z,
                     ))
                     .with_rotation(Quat::from_rotation_z(-platform.angle())),
@@ -408,6 +448,32 @@ mod tests {
             .collect();
         rows.sort_by_key(|(index, _)| *index);
         rows
+    }
+
+    /// A platform is drawn where it is this frame, between its ticks, as a
+    /// body is: half a tick on, it is drawn half a tick's travel on. Drawn at
+    /// its tick position, it stepped once a tick under a rider drawn smoothly
+    /// (the Mockingbird's shark lift vibrated, Jon 2026-11-11).
+    #[test]
+    fn a_moving_platform_is_drawn_between_its_ticks() {
+        let mut app = app_with_platforms(vec![platform("lift", 100.0)]);
+        app.insert_resource(ambition_time::SimTick(1));
+        app.init_resource::<ambition_sim_view::PresentationPhase>();
+        app.update();
+        let mut sets = app.world_mut().query::<&mut MovingPlatformSet>();
+        sets.iter_mut(app.world_mut()).next().expect("the fixture room has platforms").0[0].pos.y -= 10.0;
+        app.insert_resource(ambition_time::SimTick(2));
+        app.world_mut().resource_mut::<ambition_sim_view::PresentationPhase>().set(0.0);
+        app.update();
+        let at_the_tick = visuals(&mut app)[0].1;
+        app.world_mut().resource_mut::<ambition_sim_view::PresentationPhase>().set(0.5);
+        app.update();
+        let half_a_tick_on = visuals(&mut app)[0].1;
+        // World +y is down, Bevy's is up: rising 10 px a tick is +10 in Bevy.
+        assert!(
+            (half_a_tick_on.y - at_the_tick.y - 5.0).abs() < 1e-3,
+            "half a tick on, the platform is drawn where its tick put it ({at_the_tick:?} -> {half_a_tick_on:?})"
+        );
     }
 
     /// A platform gets its visual without the room construction transaction

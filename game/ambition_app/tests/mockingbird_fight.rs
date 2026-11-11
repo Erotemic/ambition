@@ -665,3 +665,71 @@ fn its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing() {
         "the bird's path changed when its brain's frame was blanked, so the brain moves it"
     );
 }
+
+/// Jon, 2026-11-11: "Shark up to the mockingbird is jumpy / vibrates instead
+/// of a smooth upward translation." A rider stands on the shore shark while
+/// it carries it up: each tick it stands on the shark (grounded), its feet at
+/// the shark's top, so it rises with it and does not bounce on it.
+///
+/// RED, measured 2026-11-11: of 122 carried ticks, one (the shark's top at
+/// 485, tick 69) carries the rider twice (10 px, then 0 the next tick); every
+/// other tick its feet are within 6.2e-5 px of the top. The steady stutter
+/// was the platform drawn at its tick position under a rider drawn between
+/// ticks (`a_moving_platform_is_drawn_between_its_ticks`); this hitch is the
+/// kernel's, filed in `docs/planning/queue.md`.
+#[test]
+#[ignore = "known red: one double carry on the shore shark (queue: kernel lift double carry)"]
+fn a_rider_rises_with_the_shore_shark_without_bouncing() {
+    let mut sim = boot(SHORE);
+    untouchable_player(&mut sim, true);
+    let (lift, pos) = platforms(&mut sim)
+        .into_iter()
+        .find(|(_, _, visual, ferry)| visual.is_some() && !ferry)
+        .map(|(id, pos, ..)| (id, pos))
+        .expect("the shore has its shark");
+    let (kin, _) = player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(pos.x, pos.y - 11.0 - kin.size().y * 0.5 - 1.0));
+    let lift_of = |sim: &mut Platformer2dSimHarness| {
+        let set = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<MovingPlatformSet>(sim.world())
+            .expect("the room has platforms");
+        let shark = set.0.iter().find(|p| p.id == lift).expect("the shark").clone();
+        (shark.pos.y - shark.size.y * 0.5, shark.lift_stage())
+    };
+    let mut rows = Vec::new();
+    for _ in 0..60 * 3 {
+        sim.step(AgentAction::default());
+        if active_room(&mut sim) != SHORE {
+            break;
+        }
+        let (top, stage) = lift_of(&mut sim);
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<(&ae::BodyKinematics, &ae::BodyGroundState), PrimaryPlayerOnly>();
+        let (kin, ground) = q.iter(world).next().expect("the player");
+        let feet = kin.pos.y + kin.size().y * 0.5;
+        let row = (stage, top, top - feet, ground.on_ground, kin.vel.y);
+        let live = world
+            .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>()
+            .iter(world)
+            .count();
+        let tick = world.resource::<ambition_platformer2d::time::SimTick>().0;
+        eprintln!("tick {tick}, {live} live room(s): {row:?}");
+        rows.push(row);
+    }
+    let carried: Vec<_> = rows
+        .iter()
+        .filter(|(stage, ..)| *stage == Some(ambition_platformer2d::world::platforms::LiftStage::Carrying))
+        .collect();
+    eprintln!("carried ticks: {}", carried.len());
+    for (at, row) in carried.iter().enumerate() {
+        if row.2.abs() > 0.5 || !row.3 {
+            eprintln!("  tick {at}: {row:?}");
+        }
+    }
+    assert!(carried.len() > 10, "premise: the shark carried the rider ({} ticks)", carried.len());
+    let gaps: Vec<f32> = carried.iter().map(|(_, _, gap, ..)| *gap).collect();
+    let (low, high) = gaps.iter().fold((f32::MAX, f32::MIN), |(lo, hi), gap| (lo.min(*gap), hi.max(*gap)));
+    assert!(
+        carried.iter().all(|(_, _, _, grounded, _)| *grounded) && high - low < 0.5,
+        "the rider bounced on the rising shark: its feet were {low:.2}..{high:.2} px above its top"
+    );
+}

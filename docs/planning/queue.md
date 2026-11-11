@@ -1029,6 +1029,26 @@ makes it clearable again; the test stays red until then. Also red in the same la
 `smash_ride::a_saddled_body_advances_its_clocks_and_none_of_its_displacement`
 ("the match seats a first fighter", the Smash start).
 
+**Kernel lift double carry (found 2026-11-11, Jon's "the shark up to the
+Mockingbird vibrates"):** `mockingbird_fight::a_rider_rises_with_the_shore_shark_without_bouncing`
+(ignored, known red) rides the shore shark (`mockingbird_arena_lift`, 300
+px/s, a one-way lift). Of 122 carried ticks, one carries the rider twice: at
+the shark's top 485 (tick 69) its feet go 490 to 480 and stay at 480 the
+next tick. Every other tick they are within 6.2e-5 px of the top, and the
+gap's f32 step changes at 535 and 510, so the second carry is a rounding
+edge between the gravity axis' repair and its sweep's carry, not a
+geometry contact (the shaft is clear). Not fixed: the collision kernel's
+material casts. The steady stutter Jon saw was the platform's picture,
+drawn at its tick position under a rider drawn between ticks: fixed
+(`a_moving_platform_is_drawn_between_its_ticks`).
+
+**Red with portal LDtk compiled out (2026-11-11, portal agent's area):**
+`ambition_content` lib `intro::tests::each_intro_room_says_its_cutscene_in_data_and_the_library_has_it`:
+"level 'central_hub_basement' PortalGunSpawn ... the portal LDtk converter
+is compiled out (enable the `portal_ldtk` cargo feature)". The shipped
+worlds no longer compose for a crate built without `portal_ldtk`. Reported,
+not fixed (portals are the portal agent's).
+
 **Red at 392defdb08 (where the test was last written) and every later
 commit checked (2026-11-11, checked out with the current map submodule and
 re-run):** `companion_dog::the_dog_climbs_to_a_player_who_stands_far_away_on_the_upper_deck`

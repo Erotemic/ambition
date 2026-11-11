@@ -1329,36 +1329,10 @@ pub fn step_projectiles(
                     && (candidate_game.returns(*acceleration) || selected_body.is_none() && feature_contact.is_none());
                 let prepared=(|| -> Result<_,ae::frame::thread::Refusal> {
                     let Some(crossing)=root_crossing.filter(|_|reaches_root) else {return Ok(None);};
-                    let numeric=|fault|ae::frame::thread::Refusal {path:vec![],link:None,
-                        reason:ae::frame::thread::RefusalReason::Numeric(fault)};
-                    let policy=admission.ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
-                    let portals=portals_by_room.in_room(shot_room);
-                    let enter=ambition_portal2d::find_portal(portals,crossing.entry_channel)
-                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
-                    let exit=ambition_portal2d::find_portal(portals,crossing.exit_channel)
-                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
-                    let forward=policy.links.iter().find(|link|link.enter==enter.aperture() && link.exit==exit.aperture())
-                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
-                    let reverse=policy.links.iter().find(|link|link.enter==exit.aperture() && link.exit==enter.aperture())
-                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
-                    if root_count>=policy.budget.max_hops {
-                        return Err(ae::frame::thread::Refusal {path:vec![],link:Some(forward.key),
-                            reason:ae::frame::thread::RefusalReason::HopLimit});
-                    }
-                    let transfer=ambition_portal2d::PortalTransfer::at_crossing(crossing,candidate.pos,candidate.vel,&portal_tuning)
-                        .map_err(numeric)?;
-                    let input_warp=ambition_portal2d::portal_input_warp_flips_horizontal_for_convention(
-                        policy.convention,transfer.enter.frame.normal,transfer.exit.frame.normal);
-                    let prepared=ambition_portal2d::PreparedPortalTransfer::new(candidate,Some(acceleration.0),transfer,input_warp)
-                        .map_err(numeric)?;
-                    let body=*prepared.body();
-                    let domain=body.canonical_box().map_err(numeric)?;
-                    let cast=ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
-                        domain:&domain,to_world:body.material_map().map_err(numeric)?,
-                    },body.pos,ae::Vec2::ZERO,crossing.root.world_time..crossing.root.world_time);
-                    ae::frame::thread::MotionAdmission {first:Some(reverse.key),..policy}.admit(cast,body.vel,
-                        &[prepared.acceleration().unwrap()])?;
-                    Ok(Some((prepared,crossing.root.world_time,reverse.key)))
+                    let (prepared, reverse)=ambition_portal2d::prepare_body_crossing(
+                        candidate, Some(acceleration.0), crossing, portals_by_room.in_room(shot_room),
+                        admission, root_count, &portal_tuning)?;
+                    Ok(Some((prepared,crossing.root.world_time,reverse)))
                 })();
                 prepared_crossing=match prepared {
                     Ok(prepared)=>prepared,

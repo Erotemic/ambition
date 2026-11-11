@@ -1216,8 +1216,8 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
 
 /// An item with an `ItemBody` thrown at a wall bounces off it, falls, bounces
 /// on the floor, and settles ON the floor. Each strike is published with its
-/// speed into the surface. The control is an item with no body: it stops dead
-/// at the wall and publishes no surface strike.
+/// speed into the surface. An item without rebound stops at the wall, then
+/// falls to the floor.
 #[test]
 fn an_item_with_a_body_bounces_off_a_wall_and_the_floor_and_settles() {
     #[derive(Default, Debug)]
@@ -1286,10 +1286,10 @@ fn an_item_with_a_body_bounces_off_a_wall_and_the_floor_and_settles() {
     );
 
     let dead = fly(None);
-    assert_eq!(dead.wall_strike, None, "an item with no body publishes no surface strike");
-    assert!(!dead.came_back, "an item with no body stops dead: {dead:?}");
-    let (_, at) = dead.settled_at.expect("control: it settles where it stopped");
-    assert!(at.y < 340.0, "control: it stopped dead at the wall, in the air: {at:?}");
+    assert_eq!(dead.wall_strike, Some(600.0), "all loose items publish surface impacts");
+    assert!(!dead.came_back, "an item without rebound does not reverse: {dead:?}");
+    let (_, at) = dead.settled_at.expect("the item reaches support");
+    assert!((at.y + PICKUP_HALF - 380.0).abs() < 0.01, "the item rests on the floor: {at:?}");
 }
 
 /// A bouncing item falls through a one-way platform from below and lands on
@@ -1434,7 +1434,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
     app.add_systems(Update, ground_item_physics);
 
     // Just clear of the wall, thrown at it hard enough that one step lands
-    // inside — the whole point is that it settles on its FIRST stepped tick.
+    // inside. The first stepped tick must publish the impact.
     let thrown = Vec2::new(900.0, 0.0);
     let item = app
         .world_mut()
@@ -1443,16 +1443,16 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
 
     app.update();
 
-    let settled = app
+    let strike = app
         .world()
-        .get::<SettledItem>(item)
-        .expect("one step at 900 px/s into a wall 10px away must be blocked");
+        .get::<ItemStruckSurface>(item)
+        .expect("one step at 900 px/s reaches the wall");
     assert!(
-        settled.impact_speed >= 900.0,
-        "the settle reported {} px/s for an item thrown at {} — the speed was \
+        strike.impact_speed >= 900.0,
+        "the impact reported {} px/s for an item thrown at {} — the speed was \
          read after the collision zeroed it, or from a tick that predates the \
          throw",
-        settled.impact_speed,
+        strike.impact_speed,
         thrown.x,
     );
     assert_eq!(
@@ -1686,7 +1686,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
 /// The strike sweep took `vel * dt` — the step the item WANTED — while the wall
 /// test parked it in place, so an item stopped by a wall swept straight through
 /// it and struck (and, for a bomb, detonated on) a body standing behind it. The
-/// traveled path of a parked item is nothing.
+/// strike must use the accepted path up to the wall.
 #[test]
 fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
     // 100px per tick: from x=200 the unblocked step ends at 300, whose 36px box
@@ -1733,7 +1733,7 @@ fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
         app.update();
         (
             app.world().get::<ItemStruckBody>(item).is_some(),
-            app.world().get::<SettledItem>(item).is_some(),
+            app.world().get::<BodyKinematics>(item).unwrap().pos.x < 250.0 - PICKUP_HALF + 0.01,
         )
     };
 

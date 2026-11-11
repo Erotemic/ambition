@@ -1227,6 +1227,29 @@ pub enum MaterialCollider<'a> {
 }
 
 impl MaterialCollider<'_> {
+    /// Prove that the full source stays outside this obstacle after contact.
+    /// Curved or rotating shapes retain the continuous solver's result.
+    pub fn clears_material_contact(self, cell: &crate::frame::material_cast::MaterialCell,
+        polygon: &[Vec2], hit: &crate::frame::material_cast::MaterialCastHit, time_span: f64,
+    ) -> Result<bool, crate::frame::NumericFault> {
+        match self {
+            Self::Block(block) => {
+                let a = block.aabb;
+                cell.clears_obstacle(polygon, &[a.min, Vec2::new(a.max.x, a.min.y), a.max,
+                    Vec2::new(a.min.x, a.max.y)], block.velocity, hit, time_span)
+            }
+            Self::Chain { chain, segment, .. } if chain.turn == 0.0 => {
+                if chain.closed && chain.kind == SurfaceKind::Solid {
+                    cell.clears_obstacle(polygon, &chain.points, chain.velocity, hit, time_span)
+                } else {
+                    let (a, b) = chain.segment(segment);
+                    cell.clears_obstacle(polygon, &[a, b], chain.velocity, hit, time_span)
+                }
+            }
+            _ => Ok(false),
+        }
+    }
+
     pub(crate) fn cmp_identity(self, other: Self) -> std::cmp::Ordering {
         match (self, other) {
             (MaterialCollider::Block(a),MaterialCollider::Block(b)) => a.id.cmp(&b.id)
@@ -1702,6 +1725,34 @@ impl World {
     {
         let cells = cast.cells(admission)?;
         self.first_material_contact(&cells, accepts)
+    }
+
+    /// Find an admitted solid stop before a refused part of the proposal.
+    /// Without an earlier contact, retain the complete query's refusal.
+    pub fn first_material_sweep_prefix<'w, F>(
+        &'w self, cast: crate::frame::material_cast::MaterialCast<'_>, until: f64,
+        admission: Option<crate::frame::thread::MotionAdmission<'_>>, accepts: F,
+    ) -> Result<Option<MaterialWorldHit<'w>>, crate::frame::thread::Refusal>
+    where F: Copy + FnMut(MaterialCollider<'w>, &crate::frame::material_cast::MaterialCell,
+        &crate::frame::material_cast::MaterialCastHit) -> Result<bool, crate::frame::thread::Refusal>,
+    {
+        match self.first_material_sweep(cast.clone().prefix(until)?, admission, accepts) {
+            Ok(contact) => Ok(contact),
+            Err(refusal) => {
+                cast.clone().prefix(0.0)?.cells(admission)?;
+                let (mut valid, mut refused) = (0.0, until);
+                for _ in 0..128 {
+                    let middle = valid + (refused - valid) * 0.5;
+                    if middle == valid || middle == refused { break; }
+                    match self.first_material_sweep(cast.clone().prefix(middle)?, admission, accepts) {
+                        Ok(Some(hit)) => return Ok(Some(hit)),
+                        Ok(None) => valid = middle,
+                        Err(_) => refused = middle,
+                    }
+                }
+                Err(refusal)
+            }
+        }
     }
 
     /// Query an admitted material program without building its cells again.

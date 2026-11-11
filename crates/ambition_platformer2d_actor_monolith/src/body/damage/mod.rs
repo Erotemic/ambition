@@ -98,6 +98,8 @@ pub struct FeatureHitWriters<'w, 's> {
     pub geometry:
         Option<Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     pub set_flag: MessageWriter<'w, SetFlagRequested>,
+    /// The tick a flag a death sets is written on (ISL-2d).
+    pub tick: Option<Res<'w, ambition_time::SimTick>>,
     pub actor_stimuli: MessageWriter<'w, ActorStimulus>,
     pub sfx: SfxWriter<'w>,
     pub vfx: VfxWriter<'w>,

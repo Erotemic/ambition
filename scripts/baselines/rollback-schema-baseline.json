@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v444",
+    "version": "ggrs-rollback-schema-v445",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -119,6 +119,7 @@
       "resource.clock_state\tresource-canonical\tClockState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.custody_baseline\tcomponent-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
       "resource.day_clock\tresource-canonical\tDayClock\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+      "resource.flag_writes_in_rooms\tresource-clone-custom-checksum\tFlagWritesInRooms\tbevy_ggrs clone snapshot + the save-flag writes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
       "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
       "resource.gate_network_state\tresource-clone-custom-checksum\tGateNetworkState\tbevy_ggrs clone snapshot + actor terminal uses, links, reports and recent addresses",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",

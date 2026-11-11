@@ -134,6 +134,9 @@ fn with_room_rollback(scene: &Scene) -> RoomRollbackRun {
             ambition_platformer2d::platformer::lifecycle::clear_channels_for_a_rewind(host.world_mut());
         }
         set_clock(host.world_mut(), at);
+        // The world stores the room wrote after `arrived` take its writes
+        // back; the replay writes again what it writes again (ISL-2d).
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(host.world_mut(), room, at.0 .0);
         run.restore += started.elapsed();
         for frame in arrived..now {
             // Frames after `arrived` have no arrived input yet: predict it.

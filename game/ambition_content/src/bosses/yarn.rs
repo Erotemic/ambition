@@ -36,6 +36,7 @@ pub fn cmd_watch_cut_rope_video(
     narrative.write(SetFlagRequested {
         id: "smirking_behemoth_video_suggested".into(),
         on: true,
+        written: None,
     });
 }
 

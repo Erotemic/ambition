@@ -341,6 +341,15 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // The restore's acceptance pins the owned rows into the ledger it
         // restores, and its admission takes the dying participant out.
         app.init_resource::<ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>();
+        // The save flags rooms wrote: a rewound room puts back those it
+        // wrote after the tick it was saved at, and the quest steps they
+        // moved (ISL-2d).
+        app.init_resource::<ambition_combat::events::FlagWritesInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.flag_writes_in_rooms",
+            crate::effect_bus::retract_room_flag_writes,
+        );
         // The cells used from the bag: a rewound room puts back those its
         // bodies used after the tick it was saved at (ISL-2d).
         app.init_resource::<ambition_platformer2d_items::narrative::BagUsesInRooms>();

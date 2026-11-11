@@ -3,19 +3,79 @@
 use ambition_combat::events::{GameplaySfxRequested, SetFlagRequested};
 use ambition_encounter::switches::SwitchActivated;
 use ambition_persistence::quest::QuestAdvanceRequested;
-use bevy::prelude::{MessageReader, ResMut};
+use bevy::prelude::{MessageReader, Res, ResMut};
 
 /// Save writes first so quest conditions that read flags see them this same
 /// frame. `on == true` also mirrors into `QuestAdvanceEvent::FlagSet`, matching
 /// the former monolithic router behavior.
+///
+/// A write from a room is logged with what it replaced
+/// ([`ambition_combat::events::FlagWritesInRooms`]), and its quest advance is
+/// caused by it, so a rewind of that room takes both back (ISL-2d). Without
+/// the log (a bare fixture) the writes are only applied.
 pub fn apply_flag_effects(
     mut effects: MessageReader<SetFlagRequested>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
+    mut log: Option<ResMut<ambition_combat::events::FlagWritesInRooms>>,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
+    let now = tick.map_or(0, |tick| tick.0);
     for effect in effects.read() {
-        ambition_persistence::quest::write_flag(&mut save, &mut quests, effect.id.clone(), effect.on);
+        let mut cause = None;
+        if let Some(log) = log.as_deref_mut().filter(|log| log.keeps(&effect.id, effect.written.is_some())) {
+            let write = ambition_combat::events::FlagWrite {
+                id: effect.id.clone(),
+                on: effect.on,
+                replaced: save.data().flag(&effect.id),
+                written: effect.written,
+                applied_at: now,
+            };
+            cause = write.quest_cause();
+            for old in log.record(write) {
+                if let Some(old) = old.quest_cause() {
+                    quests.forget_cause(&old);
+                }
+            }
+        }
+        ambition_persistence::quest::write_flag_caused_by(&mut save, &mut quests, effect.id.clone(), effect.on, cause);
     }
+}
+
+/// `room` rewinds to `saved_at`: put back the flags it wrote after that tick,
+/// and the quest steps they moved, except where a later write to the flag
+/// stands (ISL-2d).
+pub fn retract_room_flag_writes(
+    world: &mut bevy::prelude::World,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    saved_at: u64,
+) {
+    let Some(taken) = world
+        .get_resource_mut::<ambition_combat::events::FlagWritesInRooms>()
+        .map(|mut log| log.retract_room(room, saved_at))
+        .filter(|taken| !taken.is_empty())
+    else {
+        return;
+    };
+    world.resource_scope(|world, mut save: bevy::prelude::Mut<ambition_persistence::save::AmbitionGameSave>| {
+        let mut quests = world.resource_mut::<ambition_persistence::quest::QuestRegistry>();
+        for (write, superseded) in taken {
+            let cause = write.quest_cause();
+            if superseded {
+                if let Some(cause) = cause {
+                    quests.forget_cause(&cause);
+                }
+                continue;
+            }
+            save.data_mut().set_flag(write.id, write.replaced);
+            let Some(cause) = cause else { continue };
+            for quest in quests.retract_caused_by(&cause) {
+                if let Some(state) = quests.get(&quest) {
+                    save.data_mut().set_quest(&quest, state.progression, state.step);
+                }
+            }
+        }
+    });
 }
 
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
@@ -79,6 +139,7 @@ mod tests {
         let flag = SetFlagRequested {
             id: "flag".into(),
             on: true,
+            written: None,
         };
         let quest = QuestAdvanceRequested(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked("guide".into()),

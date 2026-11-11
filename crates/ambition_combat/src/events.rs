@@ -83,6 +83,105 @@ pub enum ActorStimulus {
 pub struct SetFlagRequested {
     pub id: String,
     pub on: bool,
+    /// The room and tick a body's act in a room set it from, when it was one
+    /// (a pickup, a chest, a death): a rewind of that room takes the write
+    /// back ([`FlagWritesInRooms`]). `None` for a conversation, a cutscene, an
+    /// authored command, and anything else no one room owns.
+    pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+}
+
+/// One flag write in [`FlagWritesInRooms`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FlagWrite {
+    pub id: String,
+    pub on: bool,
+    /// What the flag was before.
+    pub replaced: bool,
+    /// The room it came from, as [`SetFlagRequested::written`].
+    pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+    /// The tick it was applied on, which bounds the log.
+    pub applied_at: u64,
+}
+
+impl FlagWrite {
+    /// The quest cause of a write from a room: retracting it puts back the
+    /// quest steps the flag moved.
+    pub fn quest_cause(&self) -> Option<String> {
+        let written = self.written?;
+        Some(format!("flag {} from room {} at tick {}", self.id, written.room.ordinal(), written.tick))
+    }
+}
+
+/// The save-flag writes rooms made within the rewind horizon, in the order
+/// they were applied (SIMULATION-ISLANDS ISL-2d). The save is shared by
+/// rooms, so a rewind of one room puts back only its own writes, each to what
+/// it replaced, and not where a later write to the same flag still stands. A
+/// write no room owns is kept too, while the flag has a room's write in the
+/// log, for that reason; it is never taken back.
+///
+/// Rollback state with a real value: a write changes it on a tick.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct FlagWritesInRooms {
+    writes: Vec<FlagWrite>,
+}
+
+impl FlagWritesInRooms {
+    /// Whether a write of `id` with `written` belongs in the log.
+    pub fn keeps(&self, id: &str, written: bool) -> bool {
+        written || self.writes.iter().any(|write| write.id == id && write.written.is_some())
+    }
+
+    /// Add `write`, and drop the writes no rewind can reach any longer;
+    /// those are returned, so their quest causes can be forgotten.
+    pub fn record(&mut self, write: FlagWrite) -> Vec<FlagWrite> {
+        let horizon = ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS;
+        let now = write.applied_at;
+        let (old, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.writes)
+            .into_iter()
+            .partition(|kept| kept.applied_at.saturating_add(horizon) < now);
+        self.writes = kept;
+        self.writes.push(write);
+        old
+    }
+
+    /// `room` rewinds to `saved_at`: take out the writes it made after that
+    /// tick, newest first, each with whether a later write to the same flag
+    /// still stands (then the flag keeps that write's value).
+    pub fn retract_room(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) -> Vec<(FlagWrite, bool)> {
+        let mut taken = Vec::new();
+        for at in (0..self.writes.len()).rev() {
+            if !self.writes[at].written.is_some_and(|written| written.retracted_by(room, saved_at)) {
+                continue;
+            }
+            let write = self.writes.remove(at);
+            let superseded = self.writes[at..].iter().any(|later| later.id == write.id);
+            taken.push((write, superseded));
+        }
+        taken
+    }
+
+    /// Entity-free value projection.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.writes.len() as u64);
+        for write in &self.writes {
+            put_str(&mut bytes, &write.id);
+            put_bool(&mut bytes, write.on);
+            put_bool(&mut bytes, write.replaced);
+            put_bool(&mut bytes, write.written.is_some());
+            if let Some(written) = write.written {
+                put_u64(&mut bytes, u64::from(written.room.ordinal()));
+                put_u64(&mut bytes, written.tick);
+            }
+            put_u64(&mut bytes, write.applied_at);
+        }
+        checksum_bytes(&bytes)
+    }
 }
 
 

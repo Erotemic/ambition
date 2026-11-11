@@ -128,10 +128,12 @@ pub fn cycle(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
     world.write_message(ambition_combat::events::SetFlagRequested {
         id: pure,
         on: next == RoomLookState::Pure,
+        written: None,
     });
     world.write_message(ambition_combat::events::SetFlagRequested {
         id: corrupt,
         on: next == RoomLookState::Corrupt,
+        written: None,
     });
     CommandOutcome::Done
 }

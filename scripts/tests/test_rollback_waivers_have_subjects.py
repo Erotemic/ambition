@@ -138,7 +138,8 @@ def test_every_shipped_qualified_subject_has_a_live_module():
     qualified = [
         n
         for subs in rows.values()
-        for n in subs
+        for row in subs
+        for n in guard.subject_paths(row)
         if "::" in n and not n.endswith("::") and not n.endswith("<")
     ]
     assert len(qualified) >= 100, f"only {len(qualified)} qualified subjects parsed"
@@ -182,7 +183,8 @@ def test_every_shipped_qualified_subject_is_declared_in_the_module_it_names():
     qualified = [
         n
         for needles in guard.waiver_rows().values()
-        for n in needles
+        for row in needles
+        for n in guard.subject_paths(row)
         if not n.endswith("::") and not n.endswith("<") and "::" in n
     ]
     assert len(qualified) >= 100, f"population collapsed to {len(qualified)}"

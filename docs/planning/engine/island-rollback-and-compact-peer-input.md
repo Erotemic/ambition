@@ -309,6 +309,39 @@ together. `LifeLedger` needs nothing: it is rewritten from the restored
 bodies on the next tick. The save sections follow their ledgers (the
 mirrors run after them).
 
+**The census, second pass (2026-11-10): the population, not the
+spelling.** The first pass followed the "since the checkpoint" stores and
+missed the bag. This one starts from every world resource registered for
+rollback (58 types, `rollback_resource_*::<T>`) and every session-root
+component (14, `require_on_session_root::<T>`), and asks which a room's
+gameplay writes:
+
+| store | written from a room by | the key | retraction it needs |
+| --- | --- | --- | --- |
+| `OwnedItems` (the shared bag) | pickups and chests (grants), throws (spends), narrative and conditions | an item kind, SHARED: Alice and Bob add to one count | the inverse of each write (subtract its delta) |
+| `QuestRegistry` | encounters, flag and quest effects, room entry (queued, drained each frame) | a quest, shared by rooms | the prior state only if no other room advanced that quest in the window |
+| the save's flags | `SetFlagRequested` (pickups, chests, talk) | a flag, set-only, shareable | as the quests: a flag another room also set in the window stays set |
+| `PossessionState` | possession | a participant (one room) | the prior value |
+| `GateNetworkState` | the gate network | a body, a dialing endpoint | none alone: a link joins two rooms, an ISL-1b coupling |
+| `BrokenBricks`, `SpentPowerBlocks`, `SpentMonitors` | the Mary-O and Sanic demos | a feature (one room) | the prior value, if those demos get room rollback |
+
+Not records a room keeps: `ProjectileSeqCounter` (a replay draws new ids;
+they must be unique and ordered, not equal, and
+`a_rewound_room_fires_its_shots_again` passes), `SwitchActivationQueue`
+(drained on the next tick), the clocks (shared: the witnesses set them),
+the checkpoint baselines (written at a commit), the Smash match state (one
+rollback domain), the portals (the portal owner's), and the conversation,
+the cutscene and the bullet-time scale (ISL-1b couplings).
+
+⭐ **TWO KINDS OF KEYED STORE.** A key one room owns (an occurrence, a
+feature, a participant) can be put back to the value it had: nothing else
+writes it in the window. A key several rooms share (a count in the shared
+bag, a quest, a flag) cannot: an item Bob picks up in the hub during Alice's
+window would be erased by restoring her room's prior count of it (a coin
+would not: the wallet is on the body). A shared key needs the
+inverse of each write, which a count has (its delta) and a quest stage and a
+set-only flag do not, unless the store keeps who set it.
+
 **The first keyed customer (2026-11-10):** `ConsumedSinceCheckpoint` is
 the undo log of the occurrence ledger's terminal rows. Each record written
 from a live room (`record_consumed_pickups`, `record_ended_occurrences`,
@@ -329,9 +362,11 @@ the log is forgotten with the records at a committed checkpoint, so a window
 cannot reach across one, and it is not in the value checksum (as the grants'
 stamps are not): it changes no value until a rewind uses it.
 
-**Next:** `BagSpendsSinceCheckpoint` (append, as the grants);
-`BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed, each with the
-value it replaced). Still open too: the room rollback host that calls
+**Next:** the shared bag (`OwnedItems`, each write's delta inverted) with
+`BagSpendsSinceCheckpoint` (append, as the grants); then
+`BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed by placement and
+by feature, one room each: the value replaced); the quests and flags last,
+since they need the decision above. Still open too: the room rollback host that calls
 `retract_room_writes` (today only the tests do).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world

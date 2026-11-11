@@ -422,8 +422,9 @@ rollback host must not rewind further. Witness:
 for a set-only flag: the store keeps who set it. `SetFlagRequested` carries
 `written: Option<RoomWrite>`, filled by the room-level producers (a story-flag
 pickup or chest reward through `grant_pickup`, a chest's looted flag, an
-enemy's death flag in `actor_hit.rs`) and `None` for the rest (a conversation's
-talk flags wait on ISL-1b; a cutscene, an authored command, the intro chain
+enemy's death flag in `actor_hit.rs`, and since 2026-11-11 a talk's flags,
+a switch's quest flags and an authored `world.set_flag` asked in a room) and
+`None` for the rest (a cutscene, a conversation's own grants, the intro chain
 and the room look are no one room's). `apply_flag_effects` logs each room's
 write in `FlagWritesInRooms` (rollback state, `resource.flag_writes_in_rooms`,
 bounded by the rewind horizon) with the value it replaced, and queues the
@@ -456,7 +457,7 @@ quest steps, newest first, unless a later clear of the same encounter stands.
 Witness `a_rewound_room_puts_back_the_wave_clear_its_replay_does_not_make`
 (the goblin wave's `Completed`, written as the reducer would, with Alice in
 `goblin_encounter` and Bob in the hub), with an ignored control; units in
-`room_writes.rs`. `NpcTalked` is a conversation's (ISL-1b).
+`room_writes.rs`. `NpcTalked` is the talker's room's (below).
 
 **A pickup's `ItemCollected` (2026-11-11):** `QuestAdvanceRequested` now
 carries the cause its event is queued under (`None` for an event nothing
@@ -543,9 +544,9 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    scoped to the connect's room, which waits for a room clock (body motion
    reads the shared `sim_dt`). Independent room rollback does not ship until
    that freeze is back in the struck room. **Back in the struck room
-   (2026-11-11), without a room clock:** `ImpactHitstop::rooms` keeps the
-   expiry of each room a connect landed in (by the victim's room), beside the
-   shared expiry, and `RoomFreeze` answers a body's pace: `0.0` while its
+   (2026-11-11), without a room clock:** each room a connect lands in (by
+   the victim's room) keeps the hold's expiry in `RoomPace::held_until` on
+   its root, beside the shared expiry, and `RoomFreeze` answers a body's pace: `0.0` while its
    room is held. The readers that carry a fight's feel multiply the `dt` they
    give that body by it:
    - body motion (`integrate_sim_bodies`, players and actors);
@@ -560,10 +561,27 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    ran in every room before; a held room is a few ticks long. Witness:
    `an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room` (Alice,
    driven, stands still for the hold while Bob walks on, and moves again when
-   it runs out). Schema 450 (the checksum folds each held room). Still open: projectile ids
-   sequenced per room (deferred to the state transfer; see ISL-2c above), a clock scale per room (Player 1's bullet-time slows
-   Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
-   about a hundred non-test sites), one conversation and one cutscene per participant or room.
+   it runs out). Schema 450 (the checksum folds each held room). **And the
+   clock scale per room (2026-11-11):** with several live rooms, Player 1's
+   bullet time (a blink aim or a blink hold) no longer scales the shared
+   clock. `emit_primary_observer_time_intent` asks the shared clock for 1
+   (`room_clock`) and eases Player 1's room toward the bullet scale in
+   `RoomPace::clock_scale` on its root, at the shared clock's ramp rates;
+   every other room eases home. `RoomFreeze` multiplies the room's scale into
+   the same readers as the freeze. **On the root, not in a resource (schema
+   452):** the first cut kept both in global resources keyed by room (schemas
+   450, 451), and `a_rewound_room_hurts_its_enemy_again` went red: a room
+   rewound to before a hit kept the hit's later hold, and its replay ran
+   frozen. The room snapshot restores every rollback component of the room's
+   entities, its root included, so `RoomPace` (registered as
+   `combat.room_pace`) rewinds with its room. Witnesses:
+   `bullet_time_slows_only_player_ones_room_while_two_rooms_are_live` and
+   `a_body_runs_at_its_own_rooms_pace`. The same ~90 other `sim_dt` reads
+   keep the shared pace, as for the freeze. Still open: projectile ids
+   sequenced per room (deferred to the state transfer; see ISL-2c above), the
+   remaining `sim_dt` reads under a room's pace (the fight's readers carry it;
+   the day clock, encounter timers, cutscene and trails do not), one
+   conversation and one cutscene per participant or room.
 
    **The 91 message rows, by what they carry (2026-11-11,**
    `scripts/measure/message_rows_by_room_carrier.py`**):** 13 carry their room
@@ -724,10 +742,19 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    moved. The driver no longer writes the save at all. Witness:
    `a_switch_dates_the_flags_it_turns_on_in_its_own_room`.
 
-   One message on the list remains: `QuestAdvanceRequested` events with no
-   cause. Its writers today: a talk (`NpcTalked`, the one conversation's) and
-   `RoomEntered` (a crossing, which spans two rooms and belongs to hosted
-   authority, not to one room's rollback). Neither is one room's act, so the
+   **A talk (2026-11-11, ISL-2d):** pressing interact on an NPC is the
+   talker's room's act, done in the simulation. `interact_ecs_actors_and_switches`
+   now dates its two flags (`met_any_hub_npc`, the dialogue's talked flag) in
+   the talker's room at that tick and queues `NpcTalked` under a recorded
+   cause, so a rewind of that room takes them back and the replay talks
+   again. What the conversation then grants or sells (`ItemGrantRequested`,
+   `ShopTransactionRequested`, from the Yarn runner through the narrative
+   ledger) stays the one conversation's (ISL-1b). Witness:
+   `a_talk_is_dated_in_the_talkers_room`.
+
+   The last message on the list, `QuestAdvanceRequested` with no cause, now
+   has one writer: `RoomEntered`, a crossing, which spans two rooms and
+   belongs to hosted authority, not to one room's rollback. So the
    room-dropping list is empty.
 
 ## Order, exclusions and integration

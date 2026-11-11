@@ -92,8 +92,17 @@ where
     registrar.rollback_resource_clone_checksum::<crate::impact_hitstop::ImpactHitstop>(
         OWNER,
         "resource.impact_hitstop",
-        "the freeze's expiry tick, which decides the sim clock, and each held room's",
+        "the freeze's expiry tick, which decides the sim clock",
         impact_hitstop_checksum,
+    );
+    // A live room's own pace on its root (ISL-1b): it scales the `dt` the
+    // room's bodies integrate with, as the shared clock does, so a rewind
+    // (of the session, or of the room alone) must restore it.
+    registrar.rollback_component_clone_checksum::<crate::impact_hitstop::RoomPace>(
+        OWNER,
+        "combat.room_pace",
+        "a live room's impact hold expiry and eased clock scale",
+        room_pace_checksum,
     );
     registrar.rollback_resource_clone_checksum::<crate::events::PendingPlayerHitEvents>(
         OWNER,
@@ -651,12 +660,13 @@ fn impact_hitstop_checksum(hold: &crate::impact_hitstop::ImpactHitstop) -> u64 {
     // `None` and `Some(0)` are different states and must not share a digest.
     put_u64(&mut bytes, u64::from(hold.until_tick.is_some()));
     put_u64(&mut bytes, hold.until_tick.unwrap_or(0));
-    // Each held room and its expiry, in room order (a `BTreeMap`).
-    put_u64(&mut bytes, hold.rooms.len() as u64);
-    for (room, until) in &hold.rooms {
-        put_u64(&mut bytes, u64::from(room.ordinal()));
-        put_u64(&mut bytes, *until);
-    }
+    checksum_bytes(&bytes)
+}
+
+fn room_pace_checksum(pace: &crate::impact_hitstop::RoomPace) -> u64 {
+    let mut bytes = Vec::new();
+    put_u64(&mut bytes, pace.held_until);
+    put_u64(&mut bytes, u64::from(pace.clock_scale.to_bits()));
     checksum_bytes(&bytes)
 }
 

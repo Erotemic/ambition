@@ -838,3 +838,41 @@ fn a_facing_gated_person_is_not_talked_to_from_behind() {
         "(behind the body, in front of it): a conversation opened"
     );
 }
+
+/// ISL-2d: a talk is its talker's room's act. Its flags are dated in that
+/// room at this tick, and its `NpcTalked` step is queued under a cause the
+/// room's rewind can take back.
+#[test]
+fn a_talk_is_dated_in_the_talkers_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot, RoomWrite};
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let center = ae::Vec2::new(100.0, 100.0);
+    let mut app = dialogue_app(&["hall_first", "hall_second"]);
+    app.insert_resource(ambition_time::SimTick(7));
+    app.init_resource::<ambition_combat::events::QuestCausesInRooms>();
+    for (room, dialogue) in rooms.into_iter().zip(["hall_first", "hall_second"]) {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+        let npc = spawn_pedestal(&mut app, center, "player_robot_v3", dialogue);
+        app.world_mut().entity_mut(npc).insert(InRoomInstance(room));
+    }
+    let player = spawn_interaction_player_wearing(&mut app, center, "goblin");
+    app.world_mut().entity_mut(player).insert(InRoomInstance(rooms[1]));
+    app.add_systems(Update, interact_ecs_actors_and_switches);
+    app.update();
+
+    let dated = Some(RoomWrite { room: rooms[1], tick: 7 });
+    let flags: Vec<_> = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<SetFlagRequested>>()
+        .iter_current_update_messages()
+        .map(|flag| flag.written)
+        .collect();
+    assert!(!flags.is_empty() && flags.iter().all(|written| *written == dated), "the talk's flags were not dated in the talker's room: {flags:?}");
+    let caused: Vec<_> = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<QuestAdvanceRequested>>()
+        .iter_current_update_messages()
+        .map(|request| request.1.is_some())
+        .collect();
+    assert_eq!(caused, [true], "the talk's quest step has no cause a rewind can take back");
+}

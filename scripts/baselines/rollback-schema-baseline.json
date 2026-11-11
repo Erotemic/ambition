@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v450",
+    "version": "ggrs-rollback-schema-v452",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -69,6 +69,7 @@
       "combat.fixed_strike_feature_pulse\tcomponent-canonical\tFixedStrikeFeaturePulse",
       "combat.held_damage_boxes\tcomponent-clone-cursor\tHeldDamageBoxes",
       "combat.hitbox_on_hit\tcomponent-clone-custom-checksum\tHitboxOnHit\tbevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection",
+      "combat.room_pace\tcomponent-clone-custom-checksum\tRoomPace\tbevy_ggrs clone snapshot + a live room's impact hold expiry and eased clock scale",
       "combat.stale_moves\tcomponent-canonical\tBodyStaleMoves",
       "combat.strike_cause\tcomponent-canonical\tHitSource",
       "component.boss_anim_frame\tcomponent-clone-cursor\tBossAnimFrame",
@@ -124,7 +125,7 @@
       "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
       "resource.gate_network_state\tresource-clone-custom-checksum\tGateNetworkState\tbevy_ggrs clone snapshot + actor terminal uses, links, reports and recent addresses",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
-      "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock, and each held room's",
+      "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",
       "resource.minted_item_baseline\tcomponent-clone-custom-checksum\tMintedItemBaseline\tbevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection",
       "resource.occurrence_baseline\tcomponent-clone-custom-checksum\tOccurrenceBaseline\tbevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection",

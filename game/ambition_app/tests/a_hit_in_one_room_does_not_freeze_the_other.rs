@@ -5,7 +5,7 @@
 //! `switch_lab`, a hold from Alice's fight stopped Bob's room too. Now, with
 //! several live rooms, the hold does not stop the clock: Bob walks on. The
 //! control: with one live room the same hold still stops it. And the struck
-//! room still freezes (`ImpactHitstop::rooms`, read through `RoomFreeze`):
+//! room still freezes (its root's `RoomPace`, read through `RoomFreeze`):
 //! Alice, driven, does not move while her room is held.
 
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
@@ -88,10 +88,17 @@ fn an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room() {
         bodies(sim, Some(room)).values().map(|body| [body[0], body[1]]).collect()
     };
     let now = sim.world().resource::<SimTick>().0;
-    sim.world_mut()
-        .resource_mut::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()
-        .rooms
-        .insert(hub, now + 30);
+    let root = {
+        let world = sim.world_mut();
+        // The room's root is the one entity carrying its `LiveRoomInstance`.
+        let mut roots =
+            world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance)>();
+        roots.iter(world).find(|(_, room)| **room == hub).map(|(root, _)| root).expect("the hub has a root")
+    };
+    sim.world_mut().entity_mut(root).insert(ambition_platformer2d::combat::impact_hitstop::RoomPace {
+        held_until: now + 30,
+        clock_scale: 1.0,
+    });
     let (hub_before, lab_before) = (at(&mut sim, hub), at(&mut sim, lab));
     for _ in 0..20 {
         sim.drive_seat(0, ControlFrame { axis_x: -1.0, ..Default::default() });

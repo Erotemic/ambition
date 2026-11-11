@@ -45,15 +45,9 @@ use bevy::prelude::*;
 /// touched every tick for no reason; an expiry is written once per connect and
 /// read thereafter, and two overlapping hits combine with `max` rather than
 /// with an accumulation rule somebody has to remember.
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ImpactHitstop {
     pub until_tick: Option<u64>,
-    /// The same expiry for each live room a connect landed in (ISL-1b). With
-    /// one live room the shared expiry stops the shared clock; with several
-    /// it does not, and the struck room's own bodies hold instead
-    /// ([`RoomFreeze`]), so a fight in one room freezes as it would alone
-    /// while the other room plays on.
-    pub rooms: std::collections::BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, u64>,
 }
 
 impl ImpactHitstop {
@@ -61,36 +55,69 @@ impl ImpactHitstop {
     pub fn is_freezing(&self, now: ambition_time::SimTick) -> bool {
         self.until_tick.is_some_and(|until| now.0 < until)
     }
+}
 
-    /// Is live room `room` held on this tick? `None`, a body in no room, is
-    /// never held by a room's freeze.
-    pub fn is_freezing_in(
-        &self,
-        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        now: ambition_time::SimTick,
-    ) -> bool {
-        room.and_then(|room| self.rooms.get(&room)).is_some_and(|until| now.0 < *until)
+type Room = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+
+/// One live room's own pace (ISL-1b), on the room's root entity: the tick a
+/// connect's hold of the room ends on, and the room's eased clock scale.
+///
+/// With one live room the shared clock carries both (the impact hold stops
+/// it, bullet time scales it). With several it carries neither, and each
+/// room's pace is read from here instead, so a hit in Alice's room freezes
+/// Alice's room and Player 1's bullet time slows Player 1's room only.
+///
+/// ⭐ ON THE ROOT, NOT IN A RESOURCE. A room rewinds alone: the room snapshot
+/// saves and restores every rollback component of the room's entities, its
+/// root included, so a rewound room gets back the pace it had at the save. In
+/// a resource keyed by room, a hold written after the save outlived the
+/// rewind, and the replay ran frozen (`a_rewound_room_hurts_its_enemy_again`).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct RoomPace {
+    /// The tick the room's impact hold ends on; held while `now < held_until`.
+    pub held_until: u64,
+    /// The room's eased clock scale; `1.0` is the shared pace.
+    pub clock_scale: f32,
+}
+
+impl Default for RoomPace {
+    fn default() -> Self {
+        Self { held_until: 0, clock_scale: 1.0 }
     }
 }
 
-/// The pace of one body's room this tick: `0.0` while a connect holds its
-/// room, else `1.0`. A reader multiplies the sim `dt` it gives that body by
-/// it. With one live room the shared clock is already stopped, so the
-/// product is the same; with several, only the struck room stops.
+impl RoomPace {
+    /// The room's pace on tick `now`: `0.0` while held, else its clock scale.
+    pub fn at(&self, now: ambition_time::SimTick) -> f32 {
+        if now.0 < self.held_until {
+            0.0
+        } else {
+            self.clock_scale
+        }
+    }
+}
+
+/// The pace of one body's room this tick ([`RoomPace`], `1.0` for a room with
+/// none). A reader multiplies the sim `dt` it gives that body by it. With one
+/// live room the shared clock already carries the hold and the scale, so the
+/// product is the same; with several, only the room's own bodies change pace.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct RoomFreeze<'w, 's> {
-    hold: Option<Res<'w, ImpactHitstop>>,
+    paces: Query<'w, 's, (&'static Room, &'static RoomPace), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
     tick: Option<Res<'w, ambition_time::SimTick>>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
 }
 
 impl RoomFreeze<'_, '_> {
     /// The pace of live room `room`.
-    pub fn scale_in(&self, room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> f32 {
-        match (self.hold.as_deref(), self.tick.as_deref()) {
-            (Some(hold), Some(tick)) if hold.is_freezing_in(room, *tick) => 0.0,
-            _ => 1.0,
-        }
+    pub fn scale_in(&self, room: Option<Room>) -> f32 {
+        let (Some(room), Some(tick)) = (room, self.tick.as_deref()) else {
+            return 1.0;
+        };
+        self.paces
+            .iter()
+            .find(|(at, _)| **at == room)
+            .map_or(1.0, |(_, pace)| pace.at(*tick))
     }
 
     /// The live rooms this pace is read against.
@@ -99,13 +126,13 @@ impl RoomFreeze<'_, '_> {
     }
 
     /// The live room `entity` is in ([`LiveRooms::of`](ambition_platformer2d_shared_tangle::lifecycle::LiveRooms::of)).
-    pub fn of(&self, entity: Entity) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    pub fn of(&self, entity: Entity) -> Option<Room> {
         self.live.of(entity)
     }
 
     /// The pace of the room `entity` is in.
     pub fn scale_of(&self, entity: Entity) -> f32 {
-        if self.hold.as_deref().is_none_or(|hold| hold.rooms.is_empty()) {
+        if self.paces.is_empty() {
             return 1.0;
         }
         self.scale_in(self.live.of(entity))
@@ -160,6 +187,11 @@ pub fn request_impact_hitstop_on_resolved_hits(
     room_rules: crate::rules::CombatTuningOf,
     tick: Option<Res<ambition_time::SimTick>>,
     mut hold: ResMut<ImpactHitstop>,
+    // Each live room's root and its pace: a connect holds the victim's room.
+    (mut roots, mut commands): (
+        Query<(Entity, &Room, Option<&mut RoomPace>), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
+        Commands,
+    ),
 ) {
     let (Some(feel), Some(tick)) = (feel, tick) else {
         // A headless fixture that installed no feel route still runs this
@@ -169,7 +201,7 @@ pub fn request_impact_hitstop_on_resolved_hits(
     };
     let mut wanted = 0.0f32;
     // The hold of each struck room, by the victim's room.
-    let mut in_rooms: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32)> = Vec::new();
+    let mut in_rooms: Vec<(Room, f32)> = Vec::new();
     for hit in hits.read() {
         if !is_a_connect(&hit.source) {
             continue;
@@ -191,19 +223,23 @@ pub fn request_impact_hitstop_on_resolved_hits(
         }
     }
     let until_after = |seconds: f32| tick.0 + (seconds * TICKS_PER_SECOND).round().max(0.0) as u64;
-    // A held room whose hold ran out is forgotten, but only on a tick that
-    // holds a room: that is the same on a resimulated frame. Whether this
-    // system runs at all is not (a message from the previous update can let it
-    // run on the first pass, and a rollback clears that buffer), so a prune
-    // on every run made the map differ after a rewind.
-    if !in_rooms.is_empty() {
-        hold.rooms.retain(|_, until| *until > tick.0);
-    }
     for (room, seconds) in in_rooms {
-        if seconds > 0.0 {
-            let until = until_after(seconds);
-            let held = hold.rooms.entry(room).or_insert(until);
-            *held = (*held).max(until);
+        if seconds <= 0.0 {
+            continue;
+        }
+        let until = until_after(seconds);
+        let Some((root, _, pace)) = roots.iter_mut().find(|(_, at, _)| **at == room) else {
+            continue;
+        };
+        match pace {
+            Some(mut pace) => {
+                if pace.held_until < until {
+                    pace.held_until = until;
+                }
+            }
+            None => {
+                commands.entity(root).insert(RoomPace { held_until: until, ..RoomPace::default() });
+            }
         }
     }
     if wanted <= 0.0 {

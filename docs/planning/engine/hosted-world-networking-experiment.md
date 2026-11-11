@@ -182,6 +182,32 @@ schedule run in `MainScheduleOrder`'s order and timed, and 120 more through
   sink only) is the measurement that would say how much of the 2 ms is the
   gated simulation and how much is presentation.
 
+**Without the gated systems (2026-11-11),** the same probe: after the gated
+measurement, the twelve phases' systems are taken out of the sim schedule
+(`Schedule::remove_systems_in_set`, keeping the phase sets and their order),
+the nearest a booted App comes to having been composed without them. Then
+30 warm updates and 120 timed through `App::update`. Three runs:
+
+| Room | Gated | Without the 557 | Saved |
+|---|---|---|---|
+| `switch_lab` | 2.13 / 2.07 / 2.01 ms | 1.89 / 1.67 / 1.64 ms | 0.24–0.40 ms |
+| `central_hub_complex` | 2.23 / 2.22 / 2.20 ms | 1.77 / 1.84 / 1.89 ms | 0.31–0.46 ms |
+
+- **The gated simulation is under a fifth of the guest's update.** Taking
+  its 557 systems out also takes out 138 of `bevy_ecs`'s automatic sync
+  points (1,030 systems become 335, and no `bevy_ecs` system is left among
+  them), and saves 0.24–0.46 ms of about 2.1.
+- **The rest, about 1.7–1.9 ms, is 335 systems that are not simulation:**
+  the conversation (39), the game shell (31), the runtime (24), content
+  (19), the Mary-O and Smash demos (18 and 17: other games' systems in an
+  Ambition guest), load presentation (16), the session (15) and a tail.
+  About 5 µs a system whatever it does.
+- ⇒ **The lever for a cheap guest is the composition, not the
+  simulation.** Composing a guest without the simulation plugins buys at
+  most the 0.4 ms above; a guest that installs only its own game (not the
+  hub's other demos), and a conversation and shell that cost nothing while
+  idle, is where the other 1.8 ms is.
+
 ### NA-2b, spawns and despawns by `SimId` (2026-11-11)
 
 Probe `probe_what_a_guest_needs_to_draw_shots` (same file, ignored). The
@@ -284,9 +310,12 @@ snapshot.
    `SimId`, 2 bytes a body; the guest's enemy is defeated one snapshot after
    the host's, with no disagreement. The death beat in the row (2026-11-11):
    3 bytes a body; the guest draws the corpse as the host does (without it,
-   never), but not the kill's shake and hold. Next: a guest composed without
-   the simulation plugins; other kinds' spawn rows; send only the guest's
-   room; the kill as a presentation event.
+   never), but not the kill's shake and hold. Without the gated systems
+   (2026-11-11): taking the simulation's 557 systems out of a booted guest
+   saves 0.24–0.46 ms of about 2.1; the other 1.7–1.9 ms is 335 systems of
+   composition and presentation (other games' demos, the conversation, the
+   shell). Next: a guest composed of its own game only; other kinds' spawn
+   rows; send only the guest's room; the kill as a presentation event.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

@@ -12,7 +12,9 @@
 //! - the guest's update cost and the cost of applying a snapshot;
 //! - the host ids the guest does not hold (what a spawn by `SimId` would have
 //!   to build) and the guest ids the host does not hold;
-//! - whether a gated guest moved a body on its own.
+//! - whether a gated guest moved a body on its own;
+//! - where a gated guest spends its update, and what it costs without the
+//!   gated systems.
 //!
 //! A measurement, not a contract. The owner is
 //! `docs/planning/engine/hosted-world-networking-experiment.md`.
@@ -224,6 +226,45 @@ fn probe_where_a_gated_guest_spends_its_update() {
         }
         let sub_apps = guest.app_mut().sub_apps().iter().count();
         println!("[guest-split]   App::update {:.2} ms an update ({sub_apps} sub-app(s))", times.mean_ms());
+        // The same guest with the gated phases' systems taken out of the sim
+        // schedule: the nearest a booted App comes to having been composed
+        // without them. The phase sets stay, so their order is kept.
+        let removed: usize = guest.world_mut().resource_scope(|world, mut schedules: bevy::prelude::Mut<Schedules>| {
+            let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
+            GATED
+                .iter()
+                .map(|phase| {
+                    schedule
+                        .remove_systems_in_set(*phase, world, bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSystemsOnly)
+                        .unwrap_or(0)
+                })
+                .sum()
+        });
+        for _ in 0..WARM {
+            guest.app_mut().update();
+        }
+        let left: BTreeMap<String, usize> = guest.world_mut().resource_scope(|_, schedules: bevy::prelude::Mut<Schedules>| {
+            let mut left = BTreeMap::new();
+            if let Ok(systems) = schedules.get(sim).expect("the sim schedule exists").systems() {
+                for (_, system) in systems {
+                    let name = system.name().to_string();
+                    *left.entry(name.trim_start_matches('<').split("::").next().unwrap_or("?").to_string()).or_default() += 1;
+                }
+            }
+            left
+        });
+        let mut left: Vec<_> = left.into_iter().collect();
+        left.sort_by(|a, b| b.1.cmp(&a.1));
+        println!("[guest-split]   left after removing, by crate: {:?}", &left[..left.len().min(12)]);
+        let mut without = UpdateTimes::default();
+        for _ in 0..MEASURED {
+            without.time(&mut guest);
+        }
+        println!(
+            "[guest-split]   without the gated phases' {removed} systems ({} left in the sim schedule): App::update {:.2} ms an update",
+            count(guest.world_mut(), sim),
+            without.mean_ms()
+        );
     }
 }
 

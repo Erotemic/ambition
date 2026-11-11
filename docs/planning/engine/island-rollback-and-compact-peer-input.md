@@ -279,13 +279,44 @@ its retractor drops the room's later grants. Witness:
 after the replay); the probe, now the control, still measures two without
 the retraction.
 
-**Still open before room rollback ships:** the save's pickup flags (an
-overwrite: the retractor must put back the value it replaced, which matters
-only when a replay no longer takes the pickup); a census of the other world
-stores a room writes (the occurrence ledger's taken rows, consumed-since-
-checkpoint, quest advances, the NPC life ledger), each registering a
-retractor; and the room rollback host that calls `retract_room_writes`
-(today only the tests do).
+**Census of the world stores a room writes (2026-11-10, read from the
+writers):** two shapes, and they need different retractions.
+
+| store | where | written by | shape |
+| --- | --- | --- | --- |
+| `RewardGrantsSinceCheckpoint` | items | pickups, chests | append (`Vec`): a replay duplicates. **Retracted** (above). |
+| `BagSpendsSinceCheckpoint` | held items | bag spends | append (`Vec`): a replay duplicates, as the grants did |
+| `ConsumedSinceCheckpoint` | items | pickups' consume and end, chests, breakables' spend | keyed by occurrence |
+| `AuthoredOccurrences` | shared tangle | the same steps (`consume`, `end`, `spend`) and custody | keyed rows (whereabouts) |
+| `BossDefeatsSinceCheckpoint` | boss encounter | a defeat | keyed by placement; "a later defeat replaces the earlier" |
+| `WorldTimeSchedule` | world returns (session world) | regrowth, breakable returns | keyed by (room, feature): `record` / `forget` |
+| the save's pickup and life sections | persistence | `persist_*_to_save` mirrors | keyed overwrite |
+| `LifeLedger` | actor monolith | `keep_life_ledger` | keyed by character, rewritten from the live lives each tick |
+
+An append store needs only "drop the room's rows written after the saved
+tick" (the grants' retractor). A keyed store does not duplicate under an
+identical replay, but a room rewinds because its input was late, so the
+replay usually DIFFERS: a coin taken in the mispredicted future and not in
+the corrected one stays consumed in `ConsumedSinceCheckpoint` and in
+`AuthoredOccurrences` (and the corrected room, whose snapshot brought the
+coin back, then disagrees with the ledger). Dropping the row is wrong when
+the window overwrote an older value (a boss defeated before the window and
+again in it), so a keyed store needs an undo log: each write in a room
+records (room, tick, key, the value it replaced), and retracting a window
+restores those values newest first. `ConsumedSinceCheckpoint` and
+`AuthoredOccurrences` are written in the same steps and must be retracted
+together. `LifeLedger` needs nothing: it is rewritten from the restored
+bodies on the next tick. The save sections follow their ledgers (the
+mirrors run after them).
+
+**Next:** a generic keyed undo log beside `RoomWrite` (a store keeps
+`Vec<(RoomWrite, K, Option<V>)>` and registers one retractor that replays
+it backwards), first on `ConsumedSinceCheckpoint` + `AuthoredOccurrences`
+with a divergent-replay witness (the coin taken in the window and not in the
+replay); then `BagSpendsSinceCheckpoint` (append, as the grants);
+`BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed). Still open
+too: the room rollback host that calls `retract_room_writes` (today only the
+tests do).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 

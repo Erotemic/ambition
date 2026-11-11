@@ -3,8 +3,6 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** THE REQUESTED PLAYABLE 80/40 SLICE IS COMPLETE (`fddf6084a`).
-The current rollback schema is v445 after the upstream room rollback
-change `2fac6d3f8`.
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
 Station H has two reachable wall openings with widths 80 and 40. Each keeps
@@ -1211,3 +1209,12 @@ After upstream room-rollback merge `dfdfa5f3b`, all four schema guards pass
 with v445. The app, portal presentation and renderer all-target warning check
 passes under default features. Evidence is `target/portal-r6-merged-gates.json`
 and its warning and schema logs. Non-default feature-only code is not covered.
+
+R5 has a current-engine simulation measurement: two mirror matches and one
+mixed four-fighter match each complete 1,800 ticks with 100% sampled live-cast
+coverage. The warmed native sample attributes 2.14% inclusive user-CPU samples
+to material-cell construction. This is an unoptimized workspace build with
+the windowless assembled host. It does not establish a regression or justify
+a second collision authority. The historical control and optimized/displayed
+host costs remain open. See the
+[cost receipt](../../../dev/ambition_dev_measurements/summaries/portal-free-material-cost-20261110.md).

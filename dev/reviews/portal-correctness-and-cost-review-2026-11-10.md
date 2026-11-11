@@ -10,7 +10,7 @@ model and transactional movement authority.
 | R2: portal scale changed dimensionless knockback | Fixed in `741212079`. `FeelScale` keeps its value; `LaunchSpeed` uses the material chart conversion. |
 | R3: material sweeps use root-AABB penetration repair | Fixed in `5f07fbb17`. Movement, rest repair, initial support, line settling and platform support use admitted material. |
 | R4: independent bodies share one capture root and depth | Fixed in `ae8f2b07a`. Each drawable family keeps its root, capture and depth order. |
-| R5: movement and lookup costs need measurement | Open. Measure portal-free gameplay, body-to-visual lookup and repeated room-link construction. |
+| R5: movement and lookup costs need measurement | Open. Current-engine simulation cost is measured; the historical control and optimized/displayed-host costs remain open. Body lookup and room-link reuse are fixed in `ae8f2b07a`. |
 | R6: capture density and capacity are fixed | Fixed in `1d551594b`. Density follows the viewport; a byte budget reduces resolution and then selects material proxies. Device performance remains unmeasured. |
 | R7: a failed limb correction can retain the proposed pose | Fixed in `482dcfc5b`; prefix admission is fixed in `670e4683c`. Sweep and admit the proposal against physical room solids before one commit. Refusal retains the accepted pose and hold. |
 | R8: straddler lookup searches other rooms | Fixed in `b499e5090`. Publication resolves the link in the owning room. |
@@ -168,3 +168,15 @@ After upstream room-rollback merge `dfdfa5f3b`, all four schema guards pass
 with v445. The app, portal presentation and renderer all-target warning check
 passes under default features. Evidence is `target/portal-r6-merged-gates.json`
 and its warning and schema logs. Non-default feature-only code is not covered.
+
+R5 current-engine measurement: three unprofiled four-fighter runs reach exactly
+1,800 ticks with 100% sampled live-cast coverage. Mirror runs average 15.01
+and 15.32 ms/tick; mixed-v1 averages 16.57 ms/tick. A warmed native sample
+finds 4.40% inclusive user-CPU samples in body movement and 2.14% in
+`MaterialCast::cells`. These shares overlap and do not measure wall-time cost.
+The development build uses the assembled windowless host with GGRS. It does
+not measure displayed frames. Do not introduce a separate AABB solver from
+these numbers. The historical control, optimized/displayed-host comparison
+and lookup scaling measurements remain open. Commands, machine, limits and
+evidence are in the
+[current cost receipt](../ambition_dev_measurements/summaries/portal-free-material-cost-20261110.md).

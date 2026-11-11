@@ -972,11 +972,12 @@ Then the next layer: thirteen adjudicated resources had gained or lost a
 writer since their verdicts; each verdict carries a dated addendum for its new
 writer (or its departed one), `SeatMenuFrames` has a new verdict (the per-seat
 menu pipeline replaced the tool-only one), and `MapMenuState`'s baseline
-follows the file its verdict already named. The guard is green. Still red: five other guards
+follows the file its verdict already named. The guard is green, and so is
+`check_session_authority_none_arms` (fifteen rows written, two stale ones
+gone, one read made required). Still red: four other guards
 are red on their own findings (`check_host_configuration_has_no_session_writer`:
 `FactionRelations`; `check_level_box_readers`; `check_presence_filtered_state_is_rollback_registered`:
-`ActorGlow`, `PresentationCover`; `check_session_authority_none_arms`: six
-optional reads; `check_session_root_construction_is_declared`: two
+`ActorGlow`, `PresentationCover`; `check_session_root_construction_is_declared`: two
 undeclared constructions and one gone).
 
 **Uncleared verification (2026-11-04):** the last full feature run recorded

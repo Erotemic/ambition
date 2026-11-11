@@ -683,11 +683,8 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.reward_grants_since_checkpoint",
-            |world, room, saved_at| {
-                if let Some(mut grants) = world.get_resource_mut::<RewardGrantsSinceCheckpoint>() {
-                    grants.retract_room(room, saved_at);
-                }
-            },
+            // This plugin installs the record (below), so it is always there.
+            |world, room, saved_at| world.resource_mut::<RewardGrantsSinceCheckpoint>().retract_room(room, saved_at),
         );
         // ⭐ THE BASELINES ARE THE SESSION ROOT'S (C03), like the lifecycle
         // pair: a new session is born with an empty checkpoint.

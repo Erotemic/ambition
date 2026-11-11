@@ -86,3 +86,24 @@ fn first_use_inserts_and_allows_then_armed_use_is_blocked() {
         "first use allowed, second (still armed) blocked",
     );
 }
+
+/// ISL-1b: a cooldown runs at its body's room's pace: held while a connect
+/// holds the room, and at full pace in the other room.
+#[test]
+fn a_cooldown_waits_while_its_room_is_held() {
+    use ambition_combat::impact_hitstop::RoomPace;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let (held, free) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
+    app.insert_resource(ambition_time::SimTick(10));
+    app.world_mut().spawn((RoomInstanceRoot, held, RoomPace { held_until: 100, clock_scale: 1.0 }));
+    app.world_mut().spawn((RoomInstanceRoot, free));
+    let in_held = app.world_mut().spawn((AbilityCooldown { remaining: 0.5 }, InRoomInstance(held))).id();
+    let in_free = app.world_mut().spawn((AbilityCooldown { remaining: 0.5 }, InRoomInstance(free))).id();
+    app.add_systems(Update, tick_ability_cooldown);
+    app.update();
+    let left = |body| app.world().get::<AbilityCooldown>(body).unwrap().remaining;
+    assert_eq!(left(in_held), 0.5, "a cooldown ran while its room was held");
+    assert!((left(in_free) - 0.4).abs() < 1e-6, "a cooldown in the other room did not run: {}", left(in_free));
+}

@@ -123,15 +123,17 @@ pub fn tick_gravity_grenade_fuses(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: ambition_vfx::vfx::VfxWriter,
-    // The well and the burst are in the grenade's own live room.
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // The well and the burst are in the grenade's own live room, and its
+    // fuse burns at that room's pace (ISL-1b).
+    freeze: ambition_combat::impact_hitstop::RoomFreeze,
 ) {
+    let rooms = freeze.live();
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
     for (entity, ground, mut fuse, owner, grenade_id, mut counter) in &mut grenades {
-        fuse.timer -= dt;
+        fuse.timer -= dt * freeze.scale_of(entity);
         if fuse.timer > 0.0 {
             continue;
         }

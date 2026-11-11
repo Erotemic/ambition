@@ -18,7 +18,7 @@ use crate::rooms::{insert_room_set, RoomSet, RoomSpec};
 #[derive(Resource, Default)]
 struct Bell(Vec<String>);
 
-fn ring(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+fn ring(world: &mut World, args: &[AuthoredArg], _room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     let Some(note) = args[0].as_name() else {
         return CommandOutcome::refused("not a name");
     };

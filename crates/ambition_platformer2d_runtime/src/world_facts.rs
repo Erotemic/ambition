@@ -151,7 +151,7 @@ pub fn set_flag_descriptor() -> CommandDescriptor {
 /// a different road than the same effect takes from a chest, a pickup or an
 /// interaction — which is the second-authority shape this contract exists to
 /// remove.
-pub fn set_flag(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+pub fn set_flag(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     let Some(flag) = args[0].as_name() else {
         return CommandOutcome::refused("`flag` must be a name");
     };
@@ -166,10 +166,21 @@ pub fn set_flag(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
              would ever apply the fact",
         );
     }
+    // Asked in a room (a switch, a room's `while_live` line): the room's write,
+    // which a rewind of that room takes back (ISL-2d). Only a write that
+    // changes the flag is dated, so a line asked on every tick does not log
+    // one write a tick.
+    let changes = world
+        .get_resource::<ambition_persistence::save::AmbitionGameSave>()
+        .is_none_or(|save| save.data().flag(flag) != on);
+    let written = room
+        .filter(|_| changes)
+        .zip(world.get_resource::<ambition_time::SimTick>().map(|tick| tick.0))
+        .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick });
     world.write_message(ambition_combat::events::SetFlagRequested {
         id: flag.to_string(),
         on,
-        written: None,
+        written,
     });
     CommandOutcome::Done
 }

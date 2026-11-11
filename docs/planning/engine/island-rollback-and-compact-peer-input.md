@@ -682,6 +682,36 @@ but not its cost); world writes in the window (ISL-2d); bytes.
      is the one-conversation item's. It replays the controlled subject's
      room, which is the talker's room only while the primary is the talker.
 
+   **Authored commands (2026-11-11):** `RunAuthoredCommand` carries the live
+   room it was asked in (`in_room`), and every `CommandRunner` is handed it.
+   - A switch's verb is asked in the switch's room.
+   - A room's `while_live` line is now asked once per live instance, in that
+     instance (it used to be asked once per room id).
+   - The conversation's verbs are no room's (`None`).
+   - `encounter.signal` and `encounter.start` resolve only the occurrence in
+     the asking room. Before, they refused whenever two live rooms each held
+     the encounter.
+   - `world.set_flag`, asked in a room, dates its write in that room, so a
+     rewind of that room takes it back (ISL-2d). It dates only a write that
+     changes the flag, so a line asked every tick logs nothing.
+
+   Witness: `a_signal_asked_in_a_room_reaches_that_room_s_occurrence_of_two`
+   (poisoned by dropping the room filter: refused).
+
+   **A switch's quest flags (2026-11-11, ISL-2d):** `drive_wave_encounters`
+   wrote `test_switch_toggled` and the switch's `switch_<id>_used` straight
+   into the save, so a rewound room's switch press kept them. They now go
+   through `SetFlagRequested`, dated in the switch's room (only a write that
+   changes the flag), so the flag log retracts them and the quest steps they
+   moved. The driver no longer writes the save at all. Witness:
+   `a_switch_dates_the_flags_it_turns_on_in_its_own_room`.
+
+   One message on the list remains: `QuestAdvanceRequested` events with no
+   cause. Its writers today: a talk (`NpcTalked`, the one conversation's) and
+   `RoomEntered` (a crossing, which spans two rooms and belongs to hosted
+   authority, not to one room's rollback). Neither is one room's act, so the
+   room-dropping list is empty.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

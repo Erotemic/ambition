@@ -30,7 +30,7 @@ const LOUDLY: ParamSpec = ParamSpec {
     summary: "whether it is shouted",
 };
 
-fn spread(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+fn spread(world: &mut World, args: &[AuthoredArg], _room: Option<crate::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     let Some(about) = args[0].as_reference() else {
         return CommandOutcome::refused("argument was not a reference");
     };

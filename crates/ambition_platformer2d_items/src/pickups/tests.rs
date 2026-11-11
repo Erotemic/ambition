@@ -578,7 +578,7 @@ fn a_restore_takes_the_dying_participant_out_of_each_consumed_record() {
 /// A 28 by 46 body in sideways gravity lies along the gravity: its collision
 /// box is 46 wide and 28 tall. A pickup past its end is in that box and not in
 /// its level box; a pickup beside it is in its level box only. The collector
-/// asks the box the body's last step turned (`BodyKinematics::collision_box`).
+/// asks the body's turned box (`BodyKinematics::aabb`, from its material).
 #[test]
 fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
     let mut app = App::new();

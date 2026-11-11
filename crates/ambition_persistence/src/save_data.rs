@@ -401,6 +401,21 @@ pub struct AmbitionGameSaveData {
     /// a load catches up from what it had done. See [`PersistedLife`].
     #[serde(default)]
     pub(crate) lives: Vec<PersistedLife>,
+    /// The day clock as of its last hour, so a session started from the save
+    /// goes on at the hour the saved lives planned in. See
+    /// [`PersistedDayClock`].
+    #[serde(default)]
+    pub(crate) day_clock: Option<PersistedDayClock>,
+}
+
+/// The day clock (`ambition_time::DayClock`): the day, from 1, and the whole
+/// sim seconds since its midnight. Whole seconds, for the reason
+/// [`PersistedWhereabouts::Placed`] keeps integer pixels: a float removes the
+/// `Eq` derive, and the clock is written once an hour, not every tick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedDayClock {
+    pub day: u32,
+    pub seconds: u32,
 }
 
 /// One character's life as its body last lived it (`body::life::LifeLedger`):
@@ -429,13 +444,13 @@ pub struct PersistedModuleRecord {
 }
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
-/// v5 adds `module_records`. v6 adds `lives`.
+/// v5 adds `module_records`. v6 adds `lives`. v7 adds `day_clock`.
 ///
 /// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
 /// with an empty list, which is the correct reading. The bump makes a v5 file
 /// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
 /// the records it cannot read.
-pub const CURRENT_SAVE_VERSION: u32 = 6;
+pub const CURRENT_SAVE_VERSION: u32 = 7;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -499,6 +514,7 @@ impl AmbitionGameSaveData {
             minted_items: Arc::default(),
             module_records: Vec::new(),
             lives: Vec::new(),
+            day_clock: None,
         }
     }
 
@@ -688,6 +704,16 @@ impl AmbitionGameSaveData {
         self.lives = lives;
     }
 
+    /// The day clock the save keeps, if any.
+    pub fn day_clock(&self) -> Option<PersistedDayClock> {
+        self.day_clock
+    }
+
+    /// Replace the day clock.
+    pub fn set_day_clock(&mut self, day_clock: Option<PersistedDayClock>) {
+        self.day_clock = day_clock;
+    }
+
     /// Which durable fact families differ between two saves, by name.
     ///
     /// The exhaustive destructure of both sides is the guard. Do not replace it
@@ -711,6 +737,7 @@ impl AmbitionGameSaveData {
             minted_items,
             module_records,
             lives,
+            day_clock,
         } = self;
         let Self {
             version: _,
@@ -729,6 +756,7 @@ impl AmbitionGameSaveData {
             minted_items: o_minted_items,
             module_records: o_module_records,
             lives: o_lives,
+            day_clock: o_day_clock,
         } = other;
         let mut differ = Vec::new();
         let mut check = |name: &'static str, same: bool| {
@@ -751,6 +779,7 @@ impl AmbitionGameSaveData {
         check("minted_items", minted_items == o_minted_items);
         check("module_records", module_records == o_module_records);
         check("lives", lives == o_lives);
+        check("day_clock", day_clock == o_day_clock);
         differ
     }
 
@@ -861,6 +890,9 @@ impl AmbitionGameSaveData {
                 // v5 → v6: additive; no lives is correct for a v5 file (each
                 // body starts its life from the book).
                 5 => {}
+                // v6 → v7: additive; no clock is correct for a v6 file (the
+                // session's clock starts at the cycle's start hour).
+                6 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -892,6 +924,7 @@ impl AmbitionGameSaveData {
             minted_items,
             module_records,
             lives,
+            day_clock,
         } = self;
         encounters.clear();
         switches.clear();
@@ -908,6 +941,7 @@ impl AmbitionGameSaveData {
         *minted_items = Arc::default();
         module_records.clear();
         lives.clear();
+        *day_clock = None;
     }
 }
 
@@ -945,6 +979,7 @@ mod tests {
                     record: vec![2],
                 }])
             }),
+            (vec!["day_clock"], |d| d.set_day_clock(Some(PersistedDayClock { day: 2, seconds: 30 }))),
             (vec!["lives"], |d| {
                 d.set_lives(vec![PersistedLife {
                     character: "c".into(),
@@ -1018,6 +1053,7 @@ mod tests {
             "minted_items",
             "module_records",
             "lives",
+            "day_clock",
         ]
         .into_iter()
         .collect();
@@ -1403,6 +1439,7 @@ mod tests {
             minted_items,
             module_records,
             lives,
+            day_clock,
         } = &data;
 
         // Anti-vacuity: a fresh save must hold no durable facts.
@@ -1418,7 +1455,8 @@ mod tests {
                 && custody.is_empty()
                 && minted_items.is_empty()
                 && module_records.is_empty()
-                && lives.is_empty(),
+                && lives.is_empty()
+                && day_clock.is_none(),
             "a new save carries no durable world facts to retract"
         );
         assert!(

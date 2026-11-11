@@ -107,7 +107,7 @@ or updating their source. Check with
 
 **Done 2026-11-10 (review findings 2, 3, 4, 6, 8):** `daily` facts start each day again (day-2 lunch witnessed); `say` speaks a line and a verb neither the executor nor `holds` knows is refused when the book is read; the save is written only when a life changed; the executor plans through the `ambition_life_planning::LifePlanner` contract (the HTN is one planner); offscreen hours book an exclusive thing by the hours its holders' steps take, in character-id order ([offscreen](engine/radiant-npc-planning.md#slice-5-first-part-2026-11-10-offscreen-and-re-entry)).
 
-**Next action:** slice 7 waits on the [authority experiment](engine/hosted-world-networking-experiment.md)'s choice. Open: the clock in the save; offscreen bookings shared across bodies that come back on different ticks.
+**Next action:** slice 7 waits on the [authority experiment](engine/hosted-world-networking-experiment.md)'s choice. Done 2026-11-10: the day clock is in the save (v7), so a session from a save goes on at the hour its lives planned in. Open: offscreen bookings shared across bodies that come back on different ticks.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 
@@ -980,12 +980,18 @@ menu's `#[cfg(test)]` hand seam; `FactionRelations` is composed and installed
 by Ambition's content plugin rather than written through `resource_mut`
 (the guard now sees a typed `insert_resource::<T>` install); `ActorGlow` and
 `PresentationCover` are waived as presentation (render-crate `Update`
-filters only). Still red: `check_level_box_readers`. Its 27 gone
-baseline lines are deleted (the code they named was rewritten, mostly into
-`kin.aabb()`), leaving 13 classified; 73 reads are unclassified, largely
-the same sites under the new spelling, and each needs the guard's question
-asked of it (is the level box right there, or should it ask
-`collision_box(last_step)`?) — its own pass, with turned gravity in mind.
+filters only). `check_level_box_readers` was red with 73 unclassified
+`kin.aabb()` reads; its premise had gone (2026-11-10): since the body
+material, `BodyKinematics::aabb()` is the material's envelope
+(`material.half_extent(canonical_size * 0.5)`), which righting turns toward
+the body's DOWN, so it IS the turned box the guard asked readers to use, and
+`collision_box(last_step)` no longer exists. The guard is re-aimed at the
+level box's present spelling, a world box built from the unturned half
+(`Aabb::new(<not the origin>, ..canonical_size * 0.5)`); that population is
+zero, so its baseline is empty and the check is green. Evidence that `aabb()`
+is turned: `a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches`
+(items) turns a body's material a quarter and collects a pickup only the
+turned box touches.
 
 **Red app tests seen in a focused lane (2026-11-10, on ae2e0e8bab, before and
 after the ISL-2d bag slice):** `gnu_ton_fight::with_its_arms_on_a_blow_launches_him_and_the_third_blow_throws`

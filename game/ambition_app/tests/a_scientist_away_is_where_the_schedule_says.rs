@@ -126,15 +126,32 @@ fn a_saved_life_comes_back_in_a_session_started_from_the_save() {
 
     use ambition_app::rl_sim::AmbitionSim;
     let mut loaded = ambition_app::Platformer2dSimHarness::new_with_options(
-        crate::common::fixed_60hz_room_options(LAB).with_save(save),
+        crate::common::fixed_60hz_room_options(LAB).with_save(save.clone()),
     )
     .expect("the lab boots from the save");
     loaded.step_n(base(), 60);
     let (life, _) = life_of(&mut loaded, NIKOBOLT);
     assert_eq!(experiments(&life), 1, "the session started from the save built Nikobolt without his experiment: {life:?}");
+    // And the clock goes on at the saved hour, the one his life planned in,
+    // not at the cycle's start hour.
+    let saved_clock = save.day_clock().expect("the save keeps the day clock");
+    assert!(saved_clock.day == 1 && saved_clock.seconds > 0, "premise: a clock of day 1: {saved_clock:?}");
+    let saved_hour = {
+        let cycle = *sim.world().resource::<DayCycle>();
+        DayClock { day: saved_clock.day, seconds: saved_clock.seconds as f32 }.hour(&cycle)
+    };
+    assert!((9.0..10.5).contains(&saved_hour), "premise: the save's clock is at the experiment's hour: {saved_hour}");
+    assert!((hour(&loaded) - saved_hour).abs() < 0.5, "the session from the save is at {} o'clock, not the saved {saved_hour}", hour(&loaded));
 
     let mut fresh = fixed_60hz_room_sim(LAB);
     fresh.step_n(base(), 60);
     let (life, _) = life_of(&mut fresh, NIKOBOLT);
     assert_eq!(experiments(&life), 0, "control: a session without the save built Nikobolt with an experiment");
+    assert!((hour(&fresh) - saved_hour).abs() > 1.0, "control: a session without the save is at the saved hour too");
+}
+
+/// The hour of `sim`'s day clock.
+fn hour(sim: &ambition_app::Platformer2dSimHarness) -> f32 {
+    let world = sim.world();
+    world.resource::<DayClock>().hour(world.resource::<DayCycle>())
 }

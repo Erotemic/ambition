@@ -318,8 +318,18 @@ family, `persist_lives_to_save` mirrors it once a loaded save is applied,
 `restore_lives_from_save` puts it back on the tick the loaded save is applied
 (and gives a life that attached before the restore its saved row, so a fresh
 life is not written over the saved one), and a New Game clears it. A death
-keeps it, as it keeps flags and quests. The clock is not in the save: a
-session started from it plans from its own start hour, with the saved facts.
+keeps it, as it keeps flags and quests.
+
+**The clock in the save (2026-11-10, save version 7):** the save keeps the
+day clock (`day_clock`: the day and whole seconds), written once an hour by
+`persist_day_clock_to_save` (not each tick, so the save is not marked
+changed every frame) and put back by `restore_day_clock_from_save` before the
+lives are, on the tick a loaded save is applied. A session started from the
+save goes on at the hour its lives planned in. Before, it went on at the
+cycle's start hour with the saved facts, so a life planned in at 9:30 met an
+8:00 clock. The witness below also asserts the hour: the save's clock reads
+9.5, the session from it is within half an hour of it, and the control
+session is at its start hour; with the restore disabled it read 8.02.
 
 Witness (same file): Nikobolt's experiment at 9:30 is in the save; a session
 started from that save builds him with it (1 experiment); a session started

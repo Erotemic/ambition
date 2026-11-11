@@ -1,26 +1,34 @@
 #!/usr/bin/env python3
-"""Ratchet the readers that ask a body's LEVEL box outside the movement kernel.
+"""Ratchet the readers that build a body's LEVEL box outside the movement kernel.
 
-A body that is not square has one box, turned to its DOWN: the published
-footprint (`CenteredAabb`), or `BodyKinematics::collision_box(last_step)` for
-the collision box. `BodyKinematics::aabb()` and `size * 0.5` are the level box.
-A reader that asks the level box is right in normal gravity and wrong in a
-room whose gravity is turned (LEVEL-BOX-READERS, `docs/planning/queue.md`).
+A body that is not square has one box, turned to its DOWN. Since the body
+material (2026-11), `BodyKinematics::aabb()` IS that box: the envelope of the
+material in the room chart (`material.half_extent(canonical_size * 0.5)`),
+which righting turns toward the body's DOWN. The level box, the one that is
+right in normal gravity and wrong in a room whose gravity is turned
+(LEVEL-BOX-READERS, `docs/planning/queue.md`), is now spelled with the
+unturned half: `canonical_size * 0.5` laid at a world position.
+
+The first form of this check searched `kin.aabb()` and `kin.size * 0.5`. The
+material made the first the right box and removed the second, so it flagged
+80 correct reads (measured 2026-11-10); it was re-aimed at the new spelling,
+whose population was then zero.
 
 This check runs one search over the Rust sources and compares each line it
-finds with a baseline (`scripts/baselines/level-box-readers.json`). Each line
-of the baseline is classified: it is a legitimate read with its reason (a
-shot has no frame, the centre only, a game with no turned gravity), or it is a
-read still to convert. The check fails when:
+finds with a baseline (`scripts/baselines/level-box-readers.json`). A half on
+the body's own axes, laid at the origin (`Aabb::new(Vec2::ZERO, ..)`, a
+material cast's domain, a body-frame volume), is not a level box and is not
+searched. The check fails when:
 
 - the search finds a line that is not in the baseline: a NEW level-box read.
-  Convert it to the rule, or classify it in the baseline with its reason;
+  Ask `aabb()` (or the published footprint), or classify it in the baseline
+  with its reason;
 - the baseline has a line the search no longer finds: delete it. The counts
   may only fall, and a stale line would let a new read hide behind it.
 
 What this check can NOT show: that no reader asks the level box. It finds the
-spellings in `SEARCH` and no other. A reader that builds the box another way
-(`Aabb::new(pos, half)` from a local, a destructured `size`) is not found.
+spelling in `SEARCH` and no other: a box built on two lines, or from a local
+copy of the half, is not found.
 
 Usage::
 
@@ -41,7 +49,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 BASELINE = REPO / "scripts" / "baselines" / "level-box-readers.json"
 
 #: The search. A line of Rust that matches is a read of a body's level box.
-SEARCH = r"(kinematics|kin|body)\.aabb\(\)|(kinematics|kin)\.size \* 0\.5|(kinematics|kin)\.size / 2"
+SEARCH = r"Aabb::new\(\s*(?!(ae::|ambition_platformer2d_core::|bevy_math::|bevy::math::)?Vec2::ZERO)[^,;]+,\s*[^;]*canonical_size\s*(\*\s*0\.5|/\s*2)"
 PATTERN = re.compile(SEARCH)
 
 #: Where the sources are, under the repository root.
@@ -167,7 +175,7 @@ def main(argv: list[str] | None = None, repo: Path = REPO, baseline_path: Path =
         for line in new:
             print(f"    {line['file']}:{line['line']}: {line['code']}")
         print(
-            "⇒ ask the rule (`BodyKinematics::collision_box(last_step)`, or the published footprint), or add the\n"
+            "⇒ ask `BodyKinematics::aabb()` (the material's box, turned) or the published footprint, or add the\n"
             f"  line to {baseline_path.relative_to(repo) if baseline_path.is_relative_to(repo) else baseline_path} with the class that says why the level box is right there."
         )
     if stale:

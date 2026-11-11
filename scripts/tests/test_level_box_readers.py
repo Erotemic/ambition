@@ -29,8 +29,8 @@ REPO = Path(
 SCRIPT = REPO / "scripts/checks/check_level_box_readers.py"
 
 #: One production line that reads the level box.
-READ = "    let reach = kinematics.aabb();"
-CONVERTED = "    let reach = kinematics.collision_box(last_step);"
+READ = "    let reach = Aabb::new(kinematics.pos, kinematics.canonical_size * 0.5);"
+CONVERTED = "    let reach = kinematics.aabb();"
 
 
 def load():
@@ -75,7 +75,7 @@ def test_a_new_level_box_read_is_red_and_names_its_line(rig):
     write("crates/scratch/src/reach.rs", f"fn reach() {{\n    let a = 1;\n{READ}\n}}\n")
     code, out = check()
     assert code == 1
-    assert "crates/scratch/src/reach.rs:3: let reach = kinematics.aabb();" in out
+    assert "crates/scratch/src/reach.rs:3: let reach = Aabb::new(kinematics.pos, kinematics.canonical_size * 0.5);" in out
     assert "does not classify" in out
 
 
@@ -94,15 +94,18 @@ def test_the_same_tree_is_green_when_the_read_is_classified_or_converted(rig):
 def test_each_spelling_of_the_search_is_found(rig):
     module, write, _ = rig
     spellings = [
-        "let a = kinematics.aabb();",
-        "let a = kin.aabb();",
-        "let a = body.aabb();",
-        "let half = kinematics.size * 0.5;",
-        "let half = kin.size * 0.5;",
-        "let half = kinematics.size / 2.0;",
-        "let half = kin.size / 2.0;",
+        "let a = Aabb::new(kinematics.pos, kinematics.canonical_size * 0.5);",
+        "let a = ae::Aabb::new(kin.pos, kin.canonical_size / 2.0);",
+        "let a = Aabb::new(body.pos + lift, body.canonical_size*0.5);",
     ]
-    write("game/scratch/src/lib.rs", "fn f() {\n" + "\n".join(spellings) + "\n}\n")
+    # The turned box, and a half on the body's own axes laid at the origin
+    # (a material cast's domain), are not level boxes.
+    not_reads = [
+        "let a = kinematics.aabb();",
+        "let d = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));",
+        "let d = Aabb::new(Vec2::ZERO, kin.canonical_size * 0.5);",
+    ]
+    write("game/scratch/src/lib.rs", "fn f() {\n" + "\n".join(spellings + not_reads) + "\n}\n")
     found = module.find(_root(write))
     assert [line["code"] for line in found] == spellings
 
@@ -149,7 +152,7 @@ def test_a_baseline_line_the_search_no_longer_finds_is_red(rig):
     code, out = check([entry("crates/scratch/src/shot.rs"), entry("crates/scratch/src/reach.rs")])
     assert code == 1
     assert "no longer finds" in out
-    assert "crates/scratch/src/reach.rs: let reach = kinematics.aabb();" in out
+    assert "crates/scratch/src/reach.rs: let reach = Aabb::new(kinematics.pos, kinematics.canonical_size * 0.5);" in out
     assert "crates/scratch/src/shot.rs" not in out.split("no longer finds")[1]
 
 
@@ -176,7 +179,7 @@ def test_test_code_and_comments_are_not_counted(rig):
     write(
         "crates/scratch/src/inline.rs",
         "fn production() {}\n"
-        "// A shot asks kinematics.aabb() and that is right.\n"
+        "// A shot asks Aabb::new(kinematics.pos, kinematics.canonical_size * 0.5) and that is right.\n"
         "#[cfg(test)]\n"
         "mod tests {\n"
         "    fn t() {\n"
@@ -224,10 +227,13 @@ def test_the_check_prints_the_search_it_ran(rig):
     assert module.SEARCH in out
 
 
-def test_the_repository_is_classified_and_the_search_is_not_empty():
+def test_the_repository_is_classified():
+    """The repository's population is zero since the search was re-aimed
+    (2026-11-10): `aabb()` is the turned box. That the search still finds its
+    spelling is the scratch arms' (`test_each_spelling_of_the_search_is_found`),
+    so a zero here is a fact about the code, not a broken search."""
     module = load()
     found = module.find()
-    assert found, "the search finds no level-box read: the search is broken, or the baseline must be deleted"
     baseline = module.load_baseline()
     new, stale, errors = module.compare(found, baseline)
     assert not errors, errors

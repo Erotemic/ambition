@@ -223,3 +223,15 @@ through the recorded portal frames at the response position. Use the guarded
 body's mapped velocity as the response baseline so a common boost cancels.
 Prepare both launches before changing a body, move or guard state. A contact
 chart does not make an approximate contact position or time exact.
+
+
+A stored item's last world material is not its holder's coordinate frame.
+Record the holder material at pickup and derive the later material change
+from that basis. Select a released root from the native partition; a hand can
+cross before its holder. The object's own budget applies at release. Prepare
+all releases before hand, custody, stock, identity or membership changes.
+A refused object release must not enter a quantity-mint path.
+
+A spec id does not identify an occurrence. A nearby authored prop can take a
+pickup press before an injected copy does. Use the authored occurrence and
+its stable identity in an acceptance witness.

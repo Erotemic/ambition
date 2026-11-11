@@ -231,3 +231,9 @@ the later response. Both H directions bounce before root transit and clear the
 contact next tick. Owner and app checks pass after merge `eff565e6d`. The
 [world response receipt](../ambition_dev_measurements/summaries/portal-world-response-admission-20261111.md)
 records the full verification scope. Full PSIM acceptance remains open.
+
+
+Timing merge `a0568d91b` passes 434 owner, 38 runtime projectile, 19 projectile
+app, both H slice and both room-freeze cases. The slice includes reverse travel
+and rewind/replay. The assembled app and default warning checks pass. These
+results are recorded in the world response receipt; full PSIM remains open.

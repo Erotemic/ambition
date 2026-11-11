@@ -1302,3 +1302,10 @@ pose, budget and combat writes. The
 [world response receipt](../../../dev/ambition_dev_measurements/summaries/portal-world-response-admission-20261111.md)
 records the passed gates and merge `eff565e6d`. General continuation, moving
 targets, the remaining response acceptance and full PSIM acceptance stay open.
+
+
+After timing merge `a0568d91b`, 434 owner, 38 runtime projectile and 19 projectile
+app cases pass. Both H slice cases pass, including reverse travel and
+rewind/replay. Both room-freeze cases, the assembled app and default warning
+checks pass. The world response receipt records the stage boundaries. Full
+PSIM acceptance remains open.

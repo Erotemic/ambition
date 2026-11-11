@@ -88,7 +88,43 @@ def is_test_path(path: Path, source: str | None = None) -> bool:
             source = path.read_text(encoding="utf-8")
         except OSError:
             return False
-    return file_is_test_only(source)
+    return file_is_test_only(source) or declared_test_only(path)
+
+
+#: `#[cfg(PREDICATE)]`, other attributes and comments, an optional visibility,
+#: then `mod NAME;`: a module FILE whose parent compiles it only under that cfg.
+_MOD_DECL = r"#\[cfg\((?P<predicate>[^\]]*)\)\]\s*(?:(?://[^\n]*\n|#\[[^\]]*\])\s*)*(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+{name}\s*;"
+
+
+def declared_test_only(path: Path) -> bool:
+    """Is `path` a module file its parent declares test-only?
+
+    ⛔ The third way a file is test code, which neither its name nor its own
+    first line says: `lib.rs` holds `#[cfg(test)] mod camera_scenarios;`, and
+    `camera_scenarios.rs` reads like production. A census that missed it
+    counted a test's `resource_mut` as a second in-session writer. The parent
+    is `mod.rs`, `lib.rs` or `main.rs` beside the file, or `<dir>.rs` beside
+    its folder (for `foo/mod.rs`, one level up); the predicate is evaluated by
+    [`cfg_requires_test`], so `any(test, feature = ..)` still ships.
+    """
+    if path.stem in ("lib", "main"):
+        return False
+    if path.stem == "mod":
+        name, folder = path.parent.name, path.parent.parent
+    else:
+        name, folder = path.stem, path.parent
+    parents = [folder / "mod.rs", folder / "lib.rs", folder / "main.rs", folder.with_suffix(".rs")]
+    declaration = re.compile(_MOD_DECL.format(name=re.escape(name)))
+    for parent in parents:
+        if parent == path or not parent.is_file():
+            continue
+        try:
+            text = parent.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if any(cfg_requires_test(m.group("predicate")) for m in declaration.finditer(text)):
+            return True
+    return False
 
 
 #: `#[cfg(` — the start of an attribute whose predicate this module EVALUATES

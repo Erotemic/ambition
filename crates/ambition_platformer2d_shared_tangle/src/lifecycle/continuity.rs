@@ -215,6 +215,12 @@ pub struct AuthoredOccurrences {
     /// chest) stay for the run. Rollback and save state: the snapshot clones
     /// it, the peer checksum and the file carry it.
     mints: Arc<BTreeSet<SimId>>,
+    /// The runtime mints that entered from a live room, with the room and the
+    /// tick (ISL-2d): a rewind of that room to before the tick takes them out
+    /// again ([`Self::retract_room_mints`]), since its replay mints again what
+    /// it makes again. Bookkeeping for a rewind, not a fact of the world: not
+    /// compared, hashed or saved, and forgotten at a commit and at an adoption.
+    entered: Arc<Vec<(super::RoomWrite, SimId)>>,
 }
 
 /// Equal rows, with the same allocation first: a snapshot and the live ledger
@@ -332,6 +338,10 @@ impl AuthoredOccurrences {
     /// ledger from outside is to state every row: a `From<AuthoredOccurrences>`
     /// would let a caller clone one authority into another and call it a load.
     pub fn adopt_rows(&mut self, rows: BTreeMap<SimId, OccurrenceWhereabouts>) {
+        // An adopted ledger is no room's writes.
+        if !self.entered.is_empty() {
+            self.entered = Arc::default();
+        }
         if *self.rows != rows {
             self.custody = Arc::new(
                 rows.iter()
@@ -388,6 +398,40 @@ impl AuthoredOccurrences {
         }
     }
 
+    /// Remember the room and tick each of these mints entered from (its mark:
+    /// the first tick it was seen), so a rewind of that room can take it out.
+    pub fn note_mints_entered(&mut self, entered: impl IntoIterator<Item = (super::RoomWrite, SimId)>) {
+        let mut entered = entered.into_iter().peekable();
+        if entered.peek().is_some() {
+            Arc::make_mut(&mut self.entered).extend(entered);
+        }
+    }
+
+    /// `room` rewinds to `saved_at`: the mints it made after that tick never
+    /// happened, so their rows, custody and marks go ([`Self::retract`]).
+    /// Returns their ids.
+    ///
+    /// ⚠ After the terminal rows are put back: a mint made and ended in the
+    /// window has its `Placed` row again by then, and leaves with it.
+    pub fn retract_room_mints(&mut self, room: super::LiveRoomInstance, saved_at: u64) -> BTreeSet<SimId> {
+        if !self.entered.iter().any(|(written, _)| written.retracted_by(room, saved_at)) {
+            return BTreeSet::new();
+        }
+        let (taken, kept): (Vec<_>, Vec<_>) =
+            self.entered.iter().cloned().partition(|(written, _)| written.retracted_by(room, saved_at));
+        self.entered = Arc::new(kept);
+        let ids: BTreeSet<SimId> = taken.into_iter().map(|(_, sim_id)| sim_id).collect();
+        self.retract(&ids);
+        // A mark with no row: `retract` takes only the ids that have one.
+        if ids.iter().any(|sim_id| self.mints.contains(sim_id)) {
+            let mints = Arc::make_mut(&mut self.mints);
+            for sim_id in &ids {
+                mints.remove(sim_id);
+            }
+        }
+        ids
+    }
+
     /// Forget the rows of runtime mints that ended before a checkpoint committed
     /// (the caller runs this at the commit, before the baseline is captured).
     ///
@@ -399,6 +443,10 @@ impl AuthoredOccurrences {
     /// A mark with no row (its occurrence left the ledger another way) goes too.
     /// Returns the rows it dropped.
     pub fn compact_ended_mints(&mut self) -> usize {
+        // The commit makes what the rooms wrote part of the baseline.
+        if !self.entered.is_empty() {
+            self.entered = Arc::default();
+        }
         let ended: Vec<SimId> = self
             .mints
             .iter()
@@ -715,6 +763,30 @@ impl AuthoredOccurrences {
             }
         }
         held
+    }
+
+    /// Put `sim_id`'s row back to `row` (`None`: no row), as it was before a
+    /// write a room rewind takes back (ISL-2d). The undo of [`Self::consume`],
+    /// [`Self::spend`] and [`Self::end`], keeping the derived indexes. The
+    /// mint mark is provenance, not a row, and is left as it is.
+    pub fn restore_row(&mut self, sim_id: &SimId, row: Option<OccurrenceWhereabouts>) {
+        if self.rows.get(sim_id) == row.as_ref() {
+            return;
+        }
+        let in_custody = matches!(row, Some(OccurrenceWhereabouts::InCustody));
+        let old = match &row {
+            Some(row) => Arc::make_mut(&mut self.rows).insert(sim_id.clone(), row.clone()),
+            None => Arc::make_mut(&mut self.rows).remove(sim_id),
+        };
+        self.reindex_placed(sim_id, old.as_ref(), row.as_ref());
+        if in_custody != self.custody.contains(sim_id) {
+            let custody = Arc::make_mut(&mut self.custody);
+            if in_custody {
+                custody.insert(sim_id.clone());
+            } else {
+                custody.remove(sim_id);
+            }
+        }
     }
 
     pub fn is_empty(&self) -> bool {

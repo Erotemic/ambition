@@ -55,9 +55,16 @@ from rust_source import code_only  # noqa: E402
 #: did not grow, it MOVED — which this guard reported as one undeclared entry
 #: and one declared-but-gone, the shape a move always takes here.
 DECLARED: dict[str, str] = {
-    "crates/ambition_combat/src/governing_rules/test_fixtures.rs": (
-        "test-support fixture for per-room rule readers; each witness supplies "
-        "a fresh App and calls two_game_session once. No runtime plugin installs it"
+    "crates/ambition_platformer2d_world/src/governing_rules/test_fixtures.rs": (
+        "test-support fixture for per-room rule readers (moved here from "
+        "ambition_combat with the rule readers); each witness supplies a fresh "
+        "App and calls two_game_session once. No runtime plugin installs it"
+    ),
+    "game/ambition_app/src/menu/effects.rs": (
+        "a `#[cfg(test)]` seam, `the_simulation_applies_hand_requests`: a menu "
+        "fixture runs no simulation, so it spawns the one root a stamped hand "
+        "request acts on in that fixture's own App, which has no other. It is "
+        "not compiled outside tests"
     ),
     "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs": (
         "the A10 candidate-admission path, and the ONE moment a candidate stops "

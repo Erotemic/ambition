@@ -263,18 +263,19 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_menu/src/map/systems.rs",
+        "crates/ambition_persistence/src/npc_provocation.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_persistence/src/save.rs",
-        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/life.rs",
         "crates/ambition_platformer2d_items/src/encounter_rewards.rs",
-        "crates/ambition_persistence/src/npc_provocation.rs",
         "crates/ambition_platformer2d_items/src/persist.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_runtime/src/cutscene.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
+        "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_session/src/reset/mod.rs",
         "crates/ambition_platformer2d_session/src/rooms/gate_network.rs",
-        "crates/ambition_platformer2d_runtime/src/cutscene.rs",
-        "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
         "crates/ambition_shrine/src/lib.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
@@ -372,6 +373,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_render/src/quality.rs",
         "crates/ambition_sim_harness/src/runtime.rs",
         "game/ambition_app/src/dev/fps_overlay.rs",
+        "game/ambition_app/src/menu/dispatch.rs",
         "game/ambition_app/src/menu/grid_backend.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
@@ -385,15 +387,16 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_persistence/src/save.rs",
     ),
     "PendingLifecycleCommit": (
-        "crates/ambition_platformer2d_session/src/checkpoint.rs",
-        "crates/ambition_platformer2d_session/src/death.rs",
-        "crates/ambition_platformer2d_session/src/teardown.rs",
-        "crates/ambition_platformer2d_session/src/rooms/passage.rs",
-        "crates/ambition_platformer2d_session/src/rooms/systems.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_departure.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
+        "crates/ambition_platformer2d_session/src/checkpoint.rs",
+        "crates/ambition_platformer2d_session/src/death.rs",
+        "crates/ambition_platformer2d_session/src/party_travel.rs",
+        "crates/ambition_platformer2d_session/src/rooms/passage.rs",
+        "crates/ambition_platformer2d_session/src/rooms/systems.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "QuestRegistry": (
         "crates/ambition_boss_encounter/src/life_switch.rs",
@@ -425,6 +428,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_sim_harness/src/runtime.rs",
     ),
     "DeveloperTools": (
+        "crates/ambition_dev_tools/src/lib.rs",
         "crates/ambition_dev_tools/src/persistence.rs",
         "game/ambition_app/src/app/dev_runtime.rs",
         "game/ambition_app/src/dev/mod.rs",
@@ -464,6 +468,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "ConsumedSinceCheckpoint": (
+        "crates/ambition_breakables/src/returns.rs",
         "crates/ambition_platformer2d_items/src/chests.rs",
         "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
@@ -480,12 +485,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
     "AuthoredOccurrences": (
+        "crates/ambition_breakables/src/returns.rs",
         "crates/ambition_held_items/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/errand.rs",
         "crates/ambition_platformer2d_construction/src/whereabouts.rs",
         "crates/ambition_platformer2d_items/src/chests.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/body/errand.rs",
-        "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_items/src/pickups.rs",
+        "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
@@ -546,18 +553,17 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "MainScheduleOrder": (
         "crates/ambition_dev_tools/src/runtime_census.rs",
         "crates/ambition_render/src/ui_fonts.rs",
+        "game/ambition_app_tools/src/bin/support/frame_wait.rs",
     ),
     "MapMenuState": (
         "crates/ambition_menu/src/map/input.rs",
         "crates/ambition_menu/src/map/pointer.rs",
         "crates/ambition_menu/src/map/systems.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app/src/menu/lifecycle.rs",
     ),
     "MenuControlFrame": (
         "crates/ambition_platformer2d_runtime/src/input.rs",
         "crates/ambition_touch_input/src/menu_bridge.rs",
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
     "SessionSeatingSource": (
         "crates/ambition_game_shell/src/route_seating.rs",
@@ -585,7 +591,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "YarnContentBindings": (
         "crates/ambition_conversation/src/dialog.rs",
-        "crates/ambition_conversation/src/dialog/yarn_harness.rs",
         "game/ambition_content/src/bosses/mod.rs",
         "game/ambition_content/src/plugin.rs",
     ),
@@ -629,17 +634,13 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_trace/src/systems.rs",
         "crates/ambition_projectile_combat/src/systems.rs",
     ),
-    "KaleidoscopeCursor": (
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app/pointer.rs",
-    ),
     "LocalSessionOwnership": (
         "crates/ambition_platformer2d/src/rollback.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
         "game/ambition_app/src/app/dev_runtime.rs",
     ),
     "MusicPlaybackState": (
+        "crates/ambition_audio/src/library.rs",
         "crates/ambition_audio/src/music/director/mod.rs",
         "crates/ambition_platformer2d_audio/src/plugin.rs",
     ),
@@ -713,9 +714,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/rooms/systems.rs",
     ),
     "GateNetworkState": (
-        "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_session/src/rooms/gate_network.rs",
         "crates/ambition_platformer2d_session/src/rooms/systems.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
     "CutRopeHeavyObjectCycle": (
         "game/ambition_content/src/bosses/cut_rope/arena.rs",
@@ -757,18 +759,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
 
-    "KaleidoscopeOpenState": (
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-        "game/ambition_menu_kaleidoscope/src/lib.rs",
-    ),
-    "KaleidoscopeScroll": (
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app/scroll.rs",
-    ),
-    "KaleidoscopeSystemNav": (
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-    ),
     "LeaveRequested": (
         "game/ambition_demo_smash/src/lib.rs",
         "game/ambition_demo_smash/src/select_screen.rs",
@@ -848,6 +838,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "SeatMenuFrames": (
         "crates/ambition_platformer2d_runtime/src/input.rs",
+        "crates/ambition_touch_input/src/menu_bridge.rs",
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app/src/menu/lifecycle.rs",
         "game/ambition_demo_smash_app/src/tools/select_walkthrough.rs",
     ),
     "SelectPage": (
@@ -898,10 +892,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/versus.rs",
         "game/ambition_app/src/app/versus_rules.rs",
     ),
-    "VisualQualityConfirmState": (
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-    ),
     "WorldlineHistoryView2d": (
         "crates/ambition_relativity2d/src/telemetry.rs",
         "game/ambition_demo_twintrack/src/lib.rs",
@@ -916,6 +906,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "AutopilotOrder": (
         "game/ambition_content/src/autoplay.rs",
+        "game/ambition_content/src/reload.rs",
         "game/ambition_demo_mary_o/src/autoplay.rs",
     ),
     "DeclaredPoseWarps": (
@@ -941,6 +932,39 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ShieldRingsView": (
         "crates/ambition_sim_view/src/pose_view.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "AudioPlaybackConditions": (
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
+        "game/ambition_app/src/host/platform/android.rs",
+    ),
+    "BodyGeometry": (
+        "crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs",
+        "crates/ambition_portal2d/src/passages.rs",
+    ),
+    "EditableAbilitySet": (
+        "crates/ambition_dev_tools/src/lib.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "LocalSeatClaims": (
+        "crates/ambition_input/src/local_seats.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "PlayerGlowCatalog": (
+        "crates/ambition_platformer2d_provider/src/authoring.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "PromisedRoomPlans": (
+        "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/room_promises.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
+    ),
+    "SfxLoopPlayback": (
+        "crates/ambition_audio/src/sfx_loops.rs",
+        "crates/ambition_audio/src/spatial.rs",
+    ),
+    "SfxOneShots": (
+        "crates/ambition_audio/src/bank_asset.rs",
+        "crates/ambition_audio/src/spatial.rs",
     ),
 }
 
@@ -990,6 +1014,10 @@ ADJUDICATED: dict[str, str] = {
         "one policy runs; both are in `AutoplayPolicy`, which runs before "
         "`AutopilotDrive`, the one reader. A third game's policy is the same "
         "shape."
+        "⭐ 2026-11-10: `publish_autoplay_profiles` "
+        "(`ambition_content/src/reload.rs`) writes `Idle` once, when a content "
+        "reload withdraws the profile that is running. It is the reload "
+        "stopping a policy that no longer exists, not a third policy."
     ),
     "ScriptedControls": (
         "CORRECT — TWO ROADS THAT NO APP INSTALLS TOGETHER. `drive_autopilot` "
@@ -1157,6 +1185,11 @@ ADJUDICATED: dict[str, str] = {
         "Q120 propose/admit/project split — propose in `PreUpdate`, and the sim "
         "reads only `ActivePlayerBodyProfile`. Measured by CalculexAmbition, "
         "2026-09-18; the `shared_targets` and per-`[[bin]]` halves re-run here."
+        "⭐ 2026-11-10: `census.shared_targets` is still EMPTY over seven writer "
+        "files. The new one, `propose_editable_abilities` "
+        "(`ambition_dev_tools/src/lib.rs`), touches only "
+        "`god_blink_experiences`, for the current experience, mirroring the "
+        "editable set's unrestricted blink."
     ),
     "DeveloperRuntimeState": (
         "THREE CONTENDED FIELDS OF FOUR, AND EACH IS A KNOWN SHAPE RATHER THAN "
@@ -1227,6 +1260,13 @@ ADJUDICATED: dict[str, str] = {
         "files the census already names. Compare `UserSettings`, where the same "
         "`&mut` shape DOES hide a whole crate. Measured by CalculexAmbition, "
         "2026-09-18; the helper's call sites re-derived here."
+        "⭐ 2026-11-10: `start_default_music_when_ready` "
+        "(`ambition_audio/src/library.rs`) starts the default track once "
+        "(`DefaultMusicStarted`) through `begin_track`, and also sets "
+        "`instance` directly; `census.shared_targets` names `active_track`, "
+        "which it READS (to choose the track) and the director writes. ⚠ So "
+        "\"the only two mutators\" above is no longer the whole road: `instance` "
+        "has a direct write."
     ),
     "UserSettings": (
         "NINE WRITER FILES THAT ARE ALL SURFACES, AND THE OWNER IS A CRATE THIS "
@@ -1255,6 +1295,10 @@ ADJUDICATED: dict[str, str] = {
         "are inside `#[cfg(test)]` modules, confirmed by re-running the census's "
         "own `strip_test_modules` over each file rather than by reading the "
         "grep. Measured by CalculexAmbition, 2026-09-18."
+        "⭐ 2026-11-10: one more surface. `menu_action_activated` "
+        "(`menu/dispatch.rs`) applies a settings action from the menu's action "
+        "path; the settings themselves are still applied through the owner "
+        "crate, as above."
     ),
     "AudioLibrary": (
         "THE `&mut` IS A LAZY HANDLE CACHE, NOT AN AUTHORITY — AND THAT IS A "
@@ -1307,6 +1351,10 @@ ADJUDICATED: dict[str, str] = {
         "consume navigation edges under mutually exclusive backend gates. "
         "`menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app` "
         "checks the system order in the assembled app."
+        "⭐ 2026-11-10: the two menu backends no longer write it "
+        "(`grid_backend.rs`, `kaleidoscope_app.rs`): their navigation now reads "
+        "per-seat frames (`SeatMenuFrames`). What is left is the device "
+        "population and the touch fold above."
     ),
     "ActiveUiCues": (
         "THREE PUBLISHERS OF DISJOINT CUES, EACH FOR A SURFACE THE OTHER TWO DO "
@@ -1324,33 +1372,6 @@ ADJUDICATED: dict[str, str] = {
         "no gameplay session at all. ⇒ Adjudicated on the partition, not on the "
         "absence of a collision — a partition is a fact a reader can re-check."
     ),
-    "KaleidoscopeCursor": (
-        "CORRECT NOW, AND IT WAS NOT WHEN THIS ROW WAS OPENED — the one member "
-        "of the two-backends family whose writers were not all gated. The "
-        "cursor is SHARED: `grid_backend.rs` says the *\"shared cursor and drill "
-        "state stay on `KaleidoscopeCursor` / `KaleidoscopeSystemNav`\"*, and "
-        "both backends move it. Grid writers are "
-        "`.run_if(grid_backend_active)`; a grid hover writes no cursor (hover "
-        "is a presentation state, Q70). Cube writers are gated by "
-        "`kaleidoscope_menu_visible`, and its press/release observers carry the "
-        "body test.\n"
-        "    ⛔⛤ `kaleidoscope_pointer_move` CARRIED NEITHER, and that was a "
-        "live defect rather than a census artifact: these observers are "
-        "installed whenever the cube feature is COMPILED — not when the cube is "
-        "SELECTED — and a grid menu control carries the same "
-        "`AmbitionMenuControl<MenuPageAction>` its query matches, so with the "
-        "flat backend active a mouse move over a GRID row reached the shared "
-        "cursor and wrote `owner = Pointer` while the grid's own hover (since "
-        "deleted, Q70) wrote `owner = Keyboard`. Gated 2026-09-18, below the drag-cancel so "
-        "a touch/pen drag still cancels a tap. Held by "
-        "`a_pointer_move_with_the_cube_closed_does_not_move_the_shared_cursor` "
-        "(`menu/kaleidoscope_app/lunex_kaleidoscope_app_tests.rs`), poison-"
-        "verified: remove the gate and the arm fails.\n"
-        "    ⭐ THE CENSUS FOUND IT BY LOCALITY, NOT BY SUSPICION. Six of this "
-        "backend's seven writers carry the check whether or not they also have a "
-        "`run_if` — a double gate that is the house style — so the missing one "
-        "stood out only once all seven were listed side by side."
-    ),
     "RadioStationState": (
         "CORRECT — ONE SETTER ROAD AND ONE CONTEXT RESET, and the road was "
         "followed to its only caller rather than inferred from the file. The "
@@ -1367,23 +1388,6 @@ ADJUDICATED: dict[str, str] = {
         "the same human road from the same menu file: the radio's Off row "
         "(`SystemOptionId::RadioOff`, 2026-10-23) stops the station and the "
         "level or situation music plays again."
-    ),
-    "KaleidoscopeOpenState": (
-        "CORRECT — TWO FIELDS, TWO OWNERS, AND THE SPLIT IS THE WHOLE TYPE. "
-        "`pub amount: f32` and `pub target: f32`. The HOST writes the target: "
-        "`gate_kaleidoscope_menu` (`ambition_app/src/menu/kaleidoscope_app.rs`) "
-        "assigns `open_state.target = 1.0` while the cube backend is selected and "
-        "the overlay is open, `0.0` otherwise, and touches nothing else. The "
-        "LIBRARY writes the amount: `animate_cube_ring` "
-        "(`ambition_menu_kaleidoscope/src/lib.rs`) eases `amount` toward that "
-        "target every frame and reads the target to decide the rate — opening "
-        "keeps the gentle ease, closing multiplies by `close_speed_scale`. "
-        "⇒ A request and its easing, not two opinions about one number.\n"
-        "    ⭐ AND THE HOST COMPARES BEFORE WRITING, for a reason worth "
-        "carrying: `gate_kaleidoscope_menu` runs every frame with no run "
-        "condition *\"(it has to — it detects the open EDGE)\"*, so an "
-        "unconditional `ResMut` write would mark this resource changed on every "
-        "frame of the game's life for a value that moves twice per menu visit."
     ),
     "MusicIntent": (
         "CORRECT ABOUT THE WRITERS, AND THE OTHER QUESTION ABOUT THE SAME SYSTEM "
@@ -1447,51 +1451,6 @@ ADJUDICATED: dict[str, str] = {
     # bodies instead. A writer that carries neither is the way this verdict
     # fails, which is why `KaleidoscopeCursor` is a separate row.
 
-    "KaleidoscopeSystemNav": (
-        "`route_menu_lifecycle` resets navigation when a surface opens. "
-        "Grid and Cube navigation and action dispatch use the effective "
-        "backend selector, so only one presentation handles a frame. "
-        "The shared navigation state still requires menu-instance ownership."
-    ),
-    "VisualQualityConfirmState": (
-        "CORRECT — the same selector. On the cube side the three gated writers "
-        "above; on the grid side `grid_menu_tab_activated` plus the "
-        "`MenuDispatchParams` bundle, which is how the census names a mutable "
-        "reach it cannot attribute to one system. ⚠ THE BUNDLE IS THE REASON "
-        "THIS ROW IS NOT INTERESTING AND THE REASON IT COULD HAVE BEEN: a bundle "
-        "grants its `ResMut` to every system that takes it, and the mutator "
-        "guard has already found five menu systems holding "
-        "`ResMut<NewGameResetRequested>` through `SystemMenuParams` that cannot "
-        "reach the write at all. ⇒ So this was followed to the expressions, and "
-        "the first answer was wrong: the confirm state is NOT written only "
-        "through `dispatch_menu_action`. That road owns the ARM and the SPEND — "
-        "`step_from`, `take_confirmed`, `cancel` (`menu/dispatch.rs`) — and each "
-        "backend ALSO calls `quality_confirm.cancel()` directly at its own "
-        "navigation points, five sites in `grid_backend.rs` and one in "
-        "`kaleidoscope_app.rs`. ⭐ That is still one authority: `cancel` writes "
-        "the ABSENCE of a pending confirmation and is idempotent, so a backend "
-        "leaving the screen cannot disagree with the road that armed it — but "
-        "the census's two files are two files for a second reason the gate "
-        "argument alone does not cover."
-    ),
-    "KaleidoscopeScroll": (
-        "CORRECT — AN OVERRIDE AND ITS RELEASE, one field, one backend. The type "
-        "is `system_window_start: Option<usize>` and its doc states the contract: "
-        "*\"explicit System scroll-window start, or `None` to follow the "
-        "cursor\"*. The pointer road SETS the override — `kaleidoscope_scroll_wheel` "
-        "and `kaleidoscope_apply_scroll_drag` "
-        "(`ambition_app/src/menu/kaleidoscope_app/scroll.rs`) — and the keyboard "
-        "road RELEASES it: `kaleidoscope_focus_nav` "
-        "(`ambition_app/src/menu/kaleidoscope_app.rs`) assigns "
-        "`scroll.system_window_start = None` when `dx != 0 || dy != 0 || "
-        "menu.select`, so *\"the window snaps to follow the cursor again\"*. "
-        "⇒ `None` is not a competing value, it is the absence of one; whichever "
-        "input last acted owns the window, which is the arbitration this field "
-        "exists to express. ⛔ All three are cube-only AND each re-checks "
-        "`backend.effective() == LunexKaleidoscope` in its own body on top of its "
-        "`run_if` — a double gate that is the house style for this backend's "
-        "writers, and the reason a missing one stands out."
-    ),
     # ── two SURFACES, one SETTING ────────────────────────────────────────────
     #
     # ⭐ THE ARGUMENT IS ONLY SAFE WHILE NOTHING DERIVES THE VALUE. A control is
@@ -2006,6 +1965,10 @@ ADJUDICATED: dict[str, str] = {
         "`spent_owned_by`), to pin the rows a spared participant owns. Every writer but the teardown runs in "
         "the simulation schedule, and the type is rollback state with a value "
         "checksum (`feature.consumed_since_checkpoint`)."
+        "⭐ 2026-11-10: a third recorder of disjoint rows. "
+        "`record_spent_breakables` (`ambition_breakables/src/returns.rs`) calls "
+        "`record_spent` for a spent Persistent breakable's own sim id, with the "
+        "participants in its live room; no pickup row is written there."
     ),
     "AuthoredOccurrences": (
         "CORRECT — SEVEN WRITER FILES ONTO SIX `&mut self` METHODS, AND THE ENTRY "
@@ -2105,6 +2068,18 @@ ADJUDICATED: dict[str, str] = {
         "the first, and anything that gains one must stop carrying "
         "`SpawnedThisAttempt`, because \"the attempt reclaims it\" and \"the durable "
         "world remembers it\" are contradictory answers about one object."
+        "⭐ 2026-11-10: `record_spent_breakables` "
+        "(`ambition_breakables/src/returns.rs`) is a further writer file, and "
+        "it changes the rows only through `spend`, for a Persistent authored "
+        "breakable that broke and has no whereabouts row: the entry rule still "
+        "lives inside the type."
+        "⭐ 2026-11-10 (ISL-2d): the room-write retractor that "
+        "`ambition_platformer2d_runtime/src/world_schedule.rs` registers for "
+        "`ConsumedSinceCheckpoint` takes the seventh method, `restore_row(id, "
+        "row)`: when a room rewinds it puts back the row each terminal write "
+        "(`consume`, `spend`, `end`) of that room replaced after the saved tick, "
+        "from the undo log the writers stamp. It is the undo of those writers, "
+        "not a new source of rows: it writes only what one of them replaced."
     ),
     "WorldlineHistoryView2d": (
         "CORRECT — A TELEMETRY VIEW WITH ONE PUBLISHER, ONE PRUNER AND ONE DEPTH "
@@ -2301,6 +2276,11 @@ ADJUDICATED: dict[str, str] = {
         "validity never reads it (`resolve_dial`, rule 4 of "
         "`docs/planning/game/gate-network.md`), so no ambiguity in it can reach a "
         "decision of the simulation."
+        "⭐ 2026-11-10: `persist_lives_to_save` (`body/life.rs`) joins the "
+        "`persist_*_to_save` mirrors. It writes only the save's lives section "
+        "(`set_lives`) and returns at once unless the life ledger or a restore "
+        "changed (review 2026-11-10, finding 4); it adds no second writer of "
+        "any other section."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "
@@ -2417,6 +2397,9 @@ ADJUDICATED: dict[str, str] = {
         "the network at the session edge, the shape of `GatePortalPhases`; "
         "REASONED, not poisoned: no test starts a session after one that held "
         "a live link."
+        "⭐ 2026-11-10: the fourth file is a tool. `dial_gates` in the "
+        "`capture_scene` binary dials the configured gates on the configured "
+        "ticks for a capture; no shipped game runs it."
     ),
     "CutRopeHeavyObjectCycle": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
@@ -2565,6 +2548,10 @@ ADJUDICATED: dict[str, str] = {
         "until a `RoomReplayAdmitted` arrives (witnessed by "
         "`a_refused_replay_is_asked_again_until_one_is_admitted`). So a refusal "
         "costs one tick of dwell and nothing else, unlike the door's press."
+        "⭐ 2026-11-10: `request_party_return` (`session/src/party_travel.rs`) "
+        "is a further armer and honours the ladder like the others: it returns "
+        "while the slot holds anything (`peek`) and arms only through `record`, "
+        "keeping its `admitted()` answer."
     ),
     "CutsceneLibrary": (
         "CORRECT — ONE MAP, AND EACH PROVIDER WRITES THE ROWS OF ITS OWN IDS. "
@@ -2819,15 +2806,19 @@ ADJUDICATED: dict[str, str] = {
         "by CalculexAmbition, 2026-09-18."
     ),
     "SeatMenuFrames": (
-        "A STANDALONE `[[bin]]` SIMULATING THE DEVICE STAGE HEADLESSLY. "
-        "`game/ambition_demo_smash_app/src/tools/select_walkthrough.rs` has "
-        "its own `fn main` and builds its own headless app, writing this "
-        "resource directly (`app.world_mut().resource_mut::<SeatMenuFrames>()`, "
-        "around `:132`/`:143`) to simulate what the real device stage, "
-        "`populate_seat_menu_frames` — same "
-        "`crates/ambition_platformer2d_runtime/src/input.rs` "
-        "file — would have produced. Never runs alongside the shipped game. "
-        "Measured by CalculexAmbition, 2026-09-18."
+        "THE PER-SEAT MENU PIPELINE, STAGED (2026-11-10; the old verdict named "
+        "only a standalone tool). `populate_seat_menu_frames` "
+        "(`platformer2d_runtime/src/input.rs`) writes each seat's frame from "
+        "its devices; `fold_touch_gestures` (`touch_input/src/menu_bridge.rs`) "
+        "adds touch input between population and consumption; "
+        "`route_menu_lifecycle` (`menu/lifecycle.rs`) consumes the lifecycle "
+        "edges before backend navigation; `grid_menu_nav` (`grid_backend.rs`) "
+        "and `kaleidoscope_focus_nav` (`kaleidoscope_app.rs`) consume "
+        "navigation edges under mutually exclusive backend gates; each reaches "
+        "a seat's frame through `for_seat_mut`, the census's one shared target. "
+        "`select_walkthrough` (a Smash tool `[[bin]]`) writes it in its own "
+        "headless app to stand in for the device stage. One stage per role, in "
+        "order, per seat."
     ),
     "ShellRouter": (
         "`cancel_pending` IS A METHOD, NOT A RAW FIELD — THE CENSUS FIELD-"
@@ -3443,6 +3434,9 @@ ADJUDICATED: dict[str, str] = {
         "builds its OWN `App::new()` for tests and extends the list at "
         "`:42` inside that separate, throwaway App instance. Measured by "
         "CalculexAmbition, 2026-09-18."
+        "⭐ 2026-11-10: `yarn_harness.rs` is no longer counted: `lib.rs` "
+        "declares it `#[cfg(test)] mod`, which `is_test_path` now reads. Three "
+        "production files push installers."
     ),
     "Warmup": (
         "THREE UNRELATED, FILE-PRIVATE TYPES THAT MERELY SHARE A NAME. "
@@ -3643,6 +3637,82 @@ ADJUDICATED: dict[str, str] = {
         "`a_schedule_another_plugin_inserted_keeps_its_place_in_either_install_order` "
         "in runtime_census.rs runs both orders. Neither writer runs after "
         "startup, and the resource is not rollback state."
+        "⭐ 2026-11-10: a third build-time edit, in a tool. "
+        "`frame_wait::install` (`ambition_app_tools` support) puts `BeforeMain` "
+        "first and `AfterMain` last, inserting and appending without moving the "
+        "other plugins' schedules."
+    ),
+    "AudioPlaybackConditions": (
+        "DISJOINT FIELDS. `publish_audio_readiness` "
+        "(`ambition_platformer2d_audio/src/plugin.rs`) writes "
+        "`initial_presentation_ready` and `music_context_required`; "
+        "`apply_android_suspend_to_audio` (the Android host) writes "
+        "`device_suspended` and pauses or resumes the instances. Neither writes "
+        "the other's field, so the struct is three facts with two owners, not "
+        "one fact with two. MEASURED 2026-11-10 from `write_sites`."
+    ),
+    "BodyGeometry": (
+        "DISJOINT FIELDS. The portal crate's `publish_portal_apertures` and "
+        "`publish_portal_passages` (`ambition_portal2d/src/passages.rs`) write "
+        "the convention, the default and per-body piece budgets, each room's "
+        "links and the straddlers (`reset_apertures`, `set_body_budget`, "
+        "`clear_straddlers`, `add_straddler`); the shared tangle's "
+        "`publish_body_geometry_before_motion` / `_after_motion` write only "
+        "`materials` (`clear_materials`, `set_body_material`). No method either "
+        "side calls touches the other's fields. MEASURED 2026-11-10 from "
+        "`write_sites`."
+    ),
+    "EditableAbilitySet": (
+        "ONE EDITOR PLUS THE SESSION EDGE. The developer menu "
+        "(`SystemMenuParams` in `menu/kaleidoscope_app.rs`) edits the set when "
+        "a person toggles an ability; `reset_editable_abilities_on_activation` "
+        "(`ambition_dev_tools`) returns it to its default when a session "
+        "activates. The reset happens at the edge, before any edit of the new "
+        "session, so the two never write one frame's value. MEASURED 2026-11-10 "
+        "from `write_sites`."
+    ),
+    "LocalSeatClaims": (
+        "A KEYED REGISTRY, ONE FILLER AND ONE TAKER. `claim_local_seats` "
+        "(`ambition_input/src/local_seats.rs`) claims a controller for a "
+        "participant when it joins; the menu's `request_leave` "
+        "(`SystemMenuParams`, LOCAL-PLAY-MODES slice 3) releases the leaving "
+        "participant's claim, so the pad can join again. Each acts on the "
+        "participant it is about; nothing else adds or removes a claim. "
+        "MEASURED 2026-11-10 from `write_sites`."
+    ),
+    "PlayerGlowCatalog": (
+        "COMPOSITION PLUS A CAPTURE TOOL. `register` "
+        "(`ambition_platformer2d_provider/src/authoring.rs`) fills the catalog "
+        "when a route is composed; the only other writer is `force_player_glow` "
+        "in the `capture_scene` binary, a capture tool's option that sets the "
+        "active route's glow for a picture. No shipped game runs it. MEASURED "
+        "2026-11-10 from `write_sites`."
+    ),
+    "PromisedRoomPlans": (
+        "ONE CRATE'S HOST STATE, STAGES OF ONE LIFECYCLE. `pub(crate)` in "
+        "`ambition_platformer2d_rollback_ggrs`: `decide_this_peers_verdict` "
+        "(`lifecycle_commit.rs`) retains the plan a verdict authorised, "
+        "`publish_local_inputs` (`session.rs`) records the frame a verdict was "
+        "advertised for, and `collect_after_save` / `collect_without_snapshots` "
+        "(`room_promises.rs`) drop the plans below the saved floor; "
+        "`session.rs` also inserts it empty when a session starts. Retain, "
+        "advertise, collect: no two stages write the same plan's fact. MEASURED "
+        "2026-11-10 from `write_sites`."
+    ),
+    "SfxLoopPlayback": (
+        "A PLAYER AND ITS MIXER. `audio_play_sfx_loops` (`sfx_loops.rs`) "
+        "starts, holds and fades the loops; `update_sfx_attenuation` "
+        "(`spatial.rs`) updates each held and fading voice's attenuation each "
+        "frame and drops a voice whose instance has ended. The mixer adds "
+        "nothing and its removal is of a voice that is already over. MEASURED "
+        "2026-11-10 from `write_sites`."
+    ),
+    "SfxOneShots": (
+        "A PLAYER AND ITS MIXER, as `SfxLoopPlayback`. "
+        "`audio_play_sfx_messages` (`bank_asset.rs`) starts each one-shot; "
+        "`update_sfx_attenuation` (`spatial.rs`) keeps its attenuation current "
+        "and drops it when its instance has ended. MEASURED 2026-11-10 from "
+        "`write_sites`."
     ),
 }
 

@@ -100,6 +100,17 @@ def _without_thread_locals(text: str) -> str:
 #: that the sharing is harmless. Read the uses before adding one.
 ADJUDICATED: dict[tuple[str, str], str] = {
     (
+        "crates/ambition_platformer2d_session/src/data.rs",
+        "TEST_FIXTURE_MUSIC_REGISTRY",
+    ): "an immutable fixture: the game's authored music registry, read once "
+    "from content and only ever borrowed (`&'static`), so an arm cannot change "
+    "what another reads. Seen since 2026-11-10, when `is_test_path` learned "
+    "that `lib.rs`'s `#[cfg(test)] mod data;` makes this file test code",
+    (
+        "crates/ambition_platformer2d_session/src/data.rs",
+        "TEST_FIXTURE_SFX_REGISTRY",
+    ): "an immutable fixture, as `TEST_FIXTURE_MUSIC_REGISTRY` beside it",
+    (
         "crates/ambition_sprite_sheet/src/test_support.rs",
         "CONTENT",
     ): "an immutable shared-library fixture; each caller gets a cloned handle, "

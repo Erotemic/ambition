@@ -419,12 +419,21 @@ impl RewardGrantsSinceCheckpoint {
         }
     }
 
-    /// `room` rewinds to `saved_at`: take out the grants it wrote after
-    /// that tick. Its replay records them again.
-    pub fn retract_room(&mut self, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, saved_at: u64) {
-        if self.grants.iter().any(|grant| grant.written.is_some_and(|written| written.retracted_by(room, saved_at))) {
-            self.grants.retain(|grant| !grant.written.is_some_and(|written| written.retracted_by(room, saved_at)));
+    /// `room` rewinds to `saved_at`: take out the grants it wrote after that
+    /// tick, and return them, so what they put in the bag comes out. Its
+    /// replay records again what it takes again.
+    pub fn retract_room(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) -> Vec<RewardGrant> {
+        let retracted = |grant: &RewardGrant| grant.written.is_some_and(|written| written.retracted_by(room, saved_at));
+        if !self.grants.iter().any(retracted) {
+            return Vec::new();
         }
+        let (taken, kept) = std::mem::take(&mut self.grants).into_iter().partition(retracted);
+        self.grants = kept;
+        taken
     }
 
     /// Take out the grants of the mints of `bosses` and of the reward chests
@@ -679,13 +688,34 @@ impl Plugin for ItemCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         // A room rewound takes back the grants it wrote after the tick it
-        // was saved at (ISL-2d).
+        // was saved at, and the throws it spent from the bag (ISL-2d). The
+        // bag is shared: Bob's pickup in another room in the window stays,
+        // so the room's own writes are inverted, not the bag restored. The
+        // coins are not: the wallet is on the collector's body, which the
+        // room's snapshot rewound.
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.reward_grants_since_checkpoint",
+            // This plugin installs the record (below), so it is always there.
             |world, room, saved_at| {
-                if let Some(mut grants) = world.get_resource_mut::<RewardGrantsSinceCheckpoint>() {
-                    grants.retract_room(room, saved_at);
+                let taken = world.resource_mut::<RewardGrantsSinceCheckpoint>().retract_room(room, saved_at);
+                if let Some(mut bag) = world.get_resource_mut::<ambition_items::OwnedItems>() {
+                    for (item, n) in taken.into_iter().filter_map(|grant| grant.granted.item) {
+                        bag.take(item, n);
+                    }
+                }
+            },
+        );
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.bag_spends_since_checkpoint",
+            // This plugin installs the record (below), so it is always there.
+            |world, room, saved_at| {
+                let taken = world.resource_mut::<ambition_held_items::BagSpendsSinceCheckpoint>().retract_room(room, saved_at);
+                if let Some(mut bag) = world.get_resource_mut::<ambition_items::OwnedItems>() {
+                    for spend in taken {
+                        bag.put_back(spend.item, 1);
+                    }
                 }
             },
         );

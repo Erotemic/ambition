@@ -586,6 +586,14 @@ impl OwnedItems {
         catalog.stack(item).is_some_and(|stack| self.stored(item) < stack)
     }
 
+    /// Put back `n` that [`Self::take`] removed, with no stack limit: the
+    /// exact inverse of a take, for a room rewind that takes the take back
+    /// (ISL-2d). A grant is not an inverse: it stops at the stack.
+    pub fn put_back(&mut self, item: Item, n: u32) {
+        let slot = &mut self.counts[item.index()];
+        *slot = slot.saturating_add(n);
+    }
+
     /// Remove up to `n`; returns how many were actually removed.
     pub fn take(&mut self, item: Item, n: u32) -> u32 {
         let slot = &mut self.counts[item.index()];

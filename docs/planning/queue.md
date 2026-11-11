@@ -75,7 +75,7 @@ or updating their source. Check with
 
 **Done 2026-11-10 (ISL-2c, shots):** a room restore despawns what was spawned after the save and re-creates what is gone (references remapped); in the rewind witness Alice's shots fired in the window are fired again by the replay and end where they did.
 
-**Measured 2026-11-10 (ISL-2d):** a coin taken in a rewound window pays the wallet once (it is on the body and rewinds) but is recorded twice in the world's grant record; the chosen design (world records stamped with room and tick, retracted on a room rewind) is built with the room rollback host ([result](engine/island-rollback-and-compact-peer-input.md#isl-2d-measured-2026-11-10-a-world-write-in-a-rewound-window)).
+**Measured 2026-11-10 (ISL-2d):** a coin taken in a rewound window pays the wallet once (it is on the body and rewinds) but is recorded twice in the world's grant record; the chosen design (world records stamped with room and tick, retracted on a room rewind) is built for the grant record (an append store) and for the consumed-occurrence record with the occurrence ledger (keyed: an undo log of the rows each write replaced, witnessed by a heart taken only in the mispredicted window), and for the shared bag (each write inverted: a throw only in the window is put back, and its mint leaves the occurrence ledger); boss defeats, the world-time schedule, the narrative bag writes, quests and flags are next, and the room rollback host will call it ([result](engine/island-rollback-and-compact-peer-input.md#isl-2d-measured-2026-11-10-a-world-write-in-a-rewound-window)).
 
 **Measured 2026-11-10 (ISL-2e):** a hosted world that predicts its guest and rewinds only his room on a late input ends where an on-time run ends, at 9.4–16.3 ms of host update a frame (the late-applying host: 8.4–9.9; each GGRS peer: 33–48) ([result](engine/island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
 
@@ -325,7 +325,7 @@ Deck and static web release packages still pass their final asset contracts.
 
 **Owner:** [geometry observability and F1](engine/geometry-observability-and-f1.md), under the [inspection/workbench program](engine/inspection-diagnostics-and-workbench.md).
 
-**Next action:** GOBS-0 is done (2026-11-10, [census and lab](engine/geometry-observability-and-f1.md#gobs-0-result-2026-11-10-census-and-the-first-lab)): F1's blocks layer draws 8 of the 18 solids a body meets in `basement_breakables`, and the lab found a broken platform's lingering pogo orb (fixed). GOBS-1's first slice landed 2026-11-10 (the `ambition_geometry_observation` registry, collision and combat providers, F1's Observed Geometry layer reading the same `observe_all` as headless; still open: the `inspect geometry` command and per-provider selection); GOBS-2 render effective per-body collision and contact decisions; GOBS-3 cover combat, interaction, triggers, navigation and portal pieces; GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
+**Next action:** GOBS-0 is done (2026-11-10, [census and lab](engine/geometry-observability-and-f1.md#gobs-0-result-2026-11-10-census-and-the-first-lab)): F1's blocks layer draws 8 of the 18 solids a body meets in `basement_breakables`, and the lab found a broken platform's lingering pogo orb (fixed). GOBS-1's first slice landed 2026-11-10 (the `ambition_geometry_observation` registry, collision and combat providers, F1's Observed Geometry layer reading the same `observe_all` as headless; and the headless `inspect_geometry` binary with provider selection; still open: per-provider selection in F1); GOBS-2 render effective per-body collision and contact decisions; GOBS-3 cover combat, interaction, triggers, navigation and portal pieces; GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
 
 **Acceptance:** a single representative two-room lab exposes actual collision/hit/hurt/interaction/portal/navigation geometry with source identity, state and why-not reasons; a new provider becomes discoverable in F1 and headless inspection without modifying a central game-specific draw switch; overlays are room- and view-correct, off by default, and do no per-frame diagnostic work when disabled. Tests distinguish absent, filtered, intangible and unsupported geometry. Do not confuse an authored block outline with a subject's effective collision world.
 
@@ -955,6 +955,46 @@ commit before it):**
   no rendered music on this VM; the Mary-O route never activates a body.
 - `ambition_platformer2d` lib, two tests in `game_assets::sheets::tests`: no
   published art on this VM.
+
+**Red source guards (2026-11-10, measured on main):** five checks were red on
+other agents' drift. Repaired here: `is_test_path` did not know a file its
+parent declares `#[cfg(test)] mod name;` (34 files, among them
+`camera_scenarios.rs`, whose scenario App counted as a second in-session
+writer of `ControlledSubject`); five adjudicated Kaleidoscope/visual-quality
+resources no longer have a writer (their verdicts are gone); `body_seed`'s
+borrowed `BodyGeometry<'a>` view collided by name with the shared-tangle
+resource (renamed `BodySizes`). The eight NEW
+multi-writer resources it then named are adjudicated (`AudioPlaybackConditions`,
+`BodyGeometry`, `EditableAbilitySet`, `LocalSeatClaims`, `PlayerGlowCatalog`,
+`PromisedRoomPlans`, `SfxLoopPlayback`, `SfxOneShots`: disjoint fields, a
+keyed registry, an editor plus the session edge, a player and its mixer).
+Then the next layer: thirteen adjudicated resources had gained or lost a
+writer since their verdicts; each verdict carries a dated addendum for its new
+writer (or its departed one), `SeatMenuFrames` has a new verdict (the per-seat
+menu pipeline replaced the tool-only one), and `MapMenuState`'s baseline
+follows the file its verdict already named. The guard is green, and so is
+`check_session_authority_none_arms` (fifteen rows written, two stale ones
+gone, one read made required). Then the other three: the session-root
+declarations follow the per-room rules fixture to its new crate and name the
+menu's `#[cfg(test)]` hand seam; `FactionRelations` is composed and installed
+by Ambition's content plugin rather than written through `resource_mut`
+(the guard now sees a typed `insert_resource::<T>` install); `ActorGlow` and
+`PresentationCover` are waived as presentation (render-crate `Update`
+filters only). Still red: `check_level_box_readers`. Its 27 gone
+baseline lines are deleted (the code they named was rewritten, mostly into
+`kin.aabb()`), leaving 13 classified; 73 reads are unclassified, largely
+the same sites under the new spelling, and each needs the guard's question
+asked of it (is the level box right there, or should it ask
+`collision_box(last_step)`?) — its own pass, with turned gravity in mind.
+
+**Red app tests seen in a focused lane (2026-11-10, on ae2e0e8bab, before and
+after the ISL-2d bag slice):** `gnu_ton_fight::with_its_arms_on_a_blow_launches_him_and_the_third_blow_throws`
+and `gnu_ton_fight::thrown_off_the_back_he_comes_back_and_he_goes_to_a_player_at_its_far_end`
+("no blow landed"; the file's last commits are the portal owner's limb-sweep
+work, so they are reported to it, not fixed here), and
+`two_seats_two_items::two_local_seats_each_pick_up_their_own_bomb` ("the
+match seats this fighter": a Smash match, which on this VM waits for
+unrendered music).
 
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn

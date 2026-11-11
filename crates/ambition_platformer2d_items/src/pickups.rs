@@ -441,6 +441,7 @@ pub fn record_consumed_pickups(
         ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
     >,
     mut since: ResMut<ConsumedSinceCheckpoint>,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let Some(mut occurrences) = occurrences else {
         return;
@@ -470,6 +471,8 @@ pub fn record_consumed_pickups(
                 sim_id.clone(),
                 rooms.rooms().spec(definition).id.clone(),
                 ambition_world_returns::owners_beside(*entity, rooms.live(), &participants),
+                // The filter above took only ids with no row.
+                ConsumedWrite::from_room(rooms.live().of(*entity), tick.as_deref(), None),
             );
         }
     }
@@ -503,6 +506,7 @@ pub fn record_ended_occurrences(
         ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
     >,
     mut since: ResMut<ConsumedSinceCheckpoint>,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let (Some(rooms), Some(mut occurrences)) = (rooms, occurrences) else {
         return;
@@ -532,7 +536,13 @@ pub fn record_ended_occurrences(
             .collect();
         owners.sort();
         owners.dedup();
-        since.record(sim_id.clone(), id.clone(), owners);
+        let replaced = occurrences.whereabouts(sim_id).cloned();
+        since.record(
+            sim_id.clone(),
+            id.clone(),
+            owners,
+            ConsumedWrite::from_room(Some(*room), tick.as_deref(), replaced),
+        );
     }
     occurrences.end(ended.into_iter().map(|(sim_id, ..)| sim_id));
 }
@@ -554,13 +564,58 @@ pub fn record_ended_occurrences(
 /// back, so its room builds the pickup again.
 ///
 /// Rollback state with a real value: a collection writes it on a tick.
+///
+/// ⭐ IT IS ALSO THE UNDO LOG OF THE OCCURRENCE LEDGER'S TERMINAL ROWS
+/// (ISL-2d). Each record written from a live room keeps the room, the tick,
+/// and what the record and the ledger row held before, and a rewind of that
+/// room ([`Self::retract_room`]) puts both back, newest first. A dropped row
+/// is not enough: a room rewinds because its input was late, so its replay
+/// usually differs, and a pickup taken only in the mispredicted future must
+/// be untaken in the corrected one; an ended occurrence goes back to the
+/// `Placed` row it replaced.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConsumedSinceCheckpoint {
     records: std::collections::BTreeMap<
         ambition_platformer2d_shared_tangle::sim_id::SimId,
         ConsumedRecord,
     >,
+    undo: Vec<ConsumedUndo>,
 }
+
+/// A terminal write from a live room: where and when, and the ledger row it
+/// replaced (`None` for a consumed pickup or a spent chest, which had no
+/// row; the `Placed` row of an ended occurrence).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConsumedWrite {
+    pub at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite,
+    pub replaced: Option<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts>,
+}
+
+impl ConsumedWrite {
+    /// A write at `at`, from `room` on `tick` when both are known.
+    pub fn from_room(
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        tick: Option<&ambition_time::SimTick>,
+        replaced: Option<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts>,
+    ) -> Option<Self> {
+        room.zip(tick).map(|(room, tick)| Self {
+            at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 },
+            replaced,
+        })
+    }
+}
+
+/// What one record's write replaced.
+#[derive(Clone, Debug, PartialEq)]
+struct ConsumedUndo {
+    occurrence: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    write: ConsumedWrite,
+    record: Option<ConsumedRecord>,
+}
+
+// The ledger rows hold `Vec2`s, so no derived `Eq`; the rows the undo log
+// keeps are compared exactly, as the ledger compares them.
+impl Eq for ConsumedUndo {}
 
 /// One occurrence that ended since the checkpoint.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -574,39 +629,66 @@ struct ConsumedRecord {
 }
 
 impl ConsumedSinceCheckpoint {
-    /// Remember that `occurrence` was consumed in room `room`, owned by `owners`.
+    /// Remember that `occurrence` was consumed in room `room`, owned by
+    /// `owners`. `write` (from a live room) makes it retractable.
     pub fn record(
         &mut self,
         occurrence: ambition_platformer2d_shared_tangle::sim_id::SimId,
         room: String,
         owners: Vec<ambition_characters::control::PlayerSlot>,
+        write: Option<ConsumedWrite>,
     ) {
-        self.records.insert(
-            occurrence,
-            ConsumedRecord {
-                room,
-                owners,
-                spent: false,
-            },
-        );
+        self.insert(occurrence, ConsumedRecord { room, owners, spent: false }, write);
     }
 
     /// Remember that `occurrence` was spent in room `room` (a chest opened),
-    /// owned by `owners`.
+    /// owned by `owners`. `write` (from a live room) makes it retractable.
     pub fn record_spent(
         &mut self,
         occurrence: ambition_platformer2d_shared_tangle::sim_id::SimId,
         room: String,
         owners: Vec<ambition_characters::control::PlayerSlot>,
+        write: Option<ConsumedWrite>,
     ) {
-        self.records.insert(
-            occurrence,
-            ConsumedRecord {
-                room,
-                owners,
-                spent: true,
-            },
-        );
+        self.insert(occurrence, ConsumedRecord { room, owners, spent: true }, write);
+    }
+
+    fn insert(
+        &mut self,
+        occurrence: ambition_platformer2d_shared_tangle::sim_id::SimId,
+        record: ConsumedRecord,
+        write: Option<ConsumedWrite>,
+    ) {
+        let replaced = self.records.insert(occurrence.clone(), record);
+        if let Some(write) = write {
+            self.undo.push(ConsumedUndo { occurrence, write, record: replaced });
+        }
+    }
+
+    /// `room` rewinds to `saved_at`: put back the records it wrote after that
+    /// tick, and the ledger rows they replaced, newest first. Its replay
+    /// writes again what it does again.
+    pub fn retract_room(
+        &mut self,
+        mut occurrences: Option<&mut ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) {
+        if !self.undo.iter().any(|undo| undo.write.at.retracted_by(room, saved_at)) {
+            return;
+        }
+        let (taken, kept): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.undo).into_iter().partition(|undo| undo.write.at.retracted_by(room, saved_at));
+        self.undo = kept;
+        for undo in taken.into_iter().rev() {
+            match undo.record {
+                Some(record) => self.records.insert(undo.occurrence.clone(), record),
+                None => self.records.remove(&undo.occurrence),
+            };
+            if let Some(occurrences) = occurrences.as_deref_mut() {
+                occurrences.restore_row(&undo.occurrence, undo.write.replaced);
+            }
+        }
     }
 
     /// Whose horizons own the consumption of `occurrence`, if it is recorded.
@@ -661,12 +743,19 @@ impl ConsumedSinceCheckpoint {
             record.owners.retain(|owner| kept.contains(owner));
         }
         self.records.retain(|_, record| !record.owners.is_empty());
+        // A forgotten record's row is the restored ledger's now.
+        let records = &self.records;
+        self.undo.retain(|undo| records.contains_key(&undo.occurrence));
     }
 
-    /// Forget every record.
+    /// Forget every record, and the undo log with them: the checkpoint
+    /// commits what they wrote.
     pub fn forget_all(&mut self) {
         if !self.records.is_empty() {
             self.records.clear();
+        }
+        if !self.undo.is_empty() {
+            self.undo.clear();
         }
     }
 

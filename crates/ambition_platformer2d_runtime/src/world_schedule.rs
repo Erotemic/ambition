@@ -326,7 +326,28 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // Q151: who owns each one-time pickup consumed since the checkpoint.
         // The restore's acceptance pins the owned rows into the ledger it
         // restores, and its admission takes the dying participant out.
-        app.init_resource::<ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>()
+        app.init_resource::<ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>();
+        // A room rewound puts back the terminal rows it wrote after the tick
+        // it was saved at, in both stores, and then takes out the mints it
+        // made (ISL-2d). In that order, in one retractor: a mint made and
+        // ended in the window gets its `Placed` row back first, then leaves.
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.authored_occurrences",
+            |world, room, saved_at| {
+                world.resource_scope(|world, mut since: Mut<ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>| {
+                    let occurrences =
+                        world.get_resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>();
+                    since.retract_room(occurrences.map(Mut::into_inner), room, saved_at);
+                });
+                if let Some(mut occurrences) =
+                    world.get_resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>()
+                {
+                    occurrences.retract_room_mints(room, saved_at);
+                }
+            },
+        );
+        app
             .add_systems(
                 sim,
                 ambition_platformer2d_items::pickups::forget_consumed_pickups_at_checkpoint

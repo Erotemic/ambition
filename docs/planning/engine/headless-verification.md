@@ -17,7 +17,8 @@ windowing removed, and the actual systems intact.
   ambition_app_tools`, which `./run_headless.sh` invokes): `headless`
   (fixed-tick run and trace dump), `trace_replay` (replay a trace and detect
   divergence), `rl_random_walker` and `rl_smoke` (policy fuzzing),
-  `capture_scene` (state to PNG), `room_census` and focused probes.
+  `capture_scene` (state to PNG), `room_census`, `inspect_geometry` (each
+  geometry provider's answer for a room, as JSON) and focused probes.
   `game/ambition_app/src/bin/` holds only the game binary.
 - **Integration tests** are one aggregated target, `app_it`
   (`game/ambition_app/tests/app_it.rs`, `autotests = false`). The sibling

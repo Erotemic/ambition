@@ -279,12 +279,117 @@ its retractor drops the room's later grants. Witness:
 after the replay); the probe, now the control, still measures two without
 the retraction.
 
-**Still open before room rollback ships:** the save's pickup flags (an
-overwrite: the retractor must put back the value it replaced, which matters
-only when a replay no longer takes the pickup); a census of the other world
-stores a room writes (the occurrence ledger's taken rows, consumed-since-
-checkpoint, quest advances, the NPC life ledger), each registering a
-retractor; and the room rollback host that calls `retract_room_writes`
+**Census of the world stores a room writes (2026-11-10, read from the
+writers):** two shapes, and they need different retractions.
+
+| store | where | written by | shape |
+| --- | --- | --- | --- |
+| `RewardGrantsSinceCheckpoint` | items | pickups, chests | append (`Vec`): a replay duplicates. **Retracted** (above). |
+| `BagSpendsSinceCheckpoint` | held items | bag spends | append (`Vec`): a replay duplicates, as the grants did |
+| `ConsumedSinceCheckpoint` | items | pickups' consume and end, chests, breakables' spend | keyed by occurrence |
+| `AuthoredOccurrences` | shared tangle | the same steps (`consume`, `end`, `spend`) and custody | keyed rows (whereabouts) |
+| `BossDefeatsSinceCheckpoint` | boss encounter | a defeat | keyed by placement; "a later defeat replaces the earlier" |
+| `WorldTimeSchedule` | world returns (session world) | regrowth, breakable returns | keyed by (room, feature): `record` / `forget` |
+| the save's pickup and life sections | persistence | `persist_*_to_save` mirrors | keyed overwrite |
+| `LifeLedger` | actor monolith | `keep_life_ledger` | keyed by character, rewritten from the live lives each tick |
+
+An append store needs only "drop the room's rows written after the saved
+tick" (the grants' retractor). A keyed store does not duplicate under an
+identical replay, but a room rewinds because its input was late, so the
+replay usually DIFFERS: a coin taken in the mispredicted future and not in
+the corrected one stays consumed in `ConsumedSinceCheckpoint` and in
+`AuthoredOccurrences` (and the corrected room, whose snapshot brought the
+coin back, then disagrees with the ledger). Dropping the row is wrong when
+the window overwrote an older value (a boss defeated before the window and
+again in it), so a keyed store needs an undo log: each write in a room
+records (room, tick, key, the value it replaced), and retracting a window
+restores those values newest first. `ConsumedSinceCheckpoint` and
+`AuthoredOccurrences` are written in the same steps and must be retracted
+together. `LifeLedger` needs nothing: it is rewritten from the restored
+bodies on the next tick. The save sections follow their ledgers (the
+mirrors run after them).
+
+**The census, second pass (2026-11-10): the population, not the
+spelling.** The first pass followed the "since the checkpoint" stores and
+missed the bag. This one starts from every world resource registered for
+rollback (58 types, `rollback_resource_*::<T>`) and every session-root
+component (14, `require_on_session_root::<T>`), and asks which a room's
+gameplay writes:
+
+| store | written from a room by | the key | retraction it needs |
+| --- | --- | --- | --- |
+| `OwnedItems` (the shared bag) | pickups and chests (grants), throws (spends), narrative and conditions | an item kind, SHARED: Alice and Bob add to one count | the inverse of each write (subtract its delta) |
+| `QuestRegistry` | encounters, flag and quest effects, room entry (queued, drained each frame) | a quest, shared by rooms | the prior state only if no other room advanced that quest in the window |
+| the save's flags | `SetFlagRequested` (pickups, chests, talk) | a flag, set-only, shareable | as the quests: a flag another room also set in the window stays set |
+| `PossessionState` | possession | a participant (one room) | the prior value |
+| `GateNetworkState` | the gate network | a body, a dialing endpoint | none alone: a link joins two rooms, an ISL-1b coupling |
+| `BrokenBricks`, `SpentPowerBlocks`, `SpentMonitors` | the Mary-O and Sanic demos | a feature (one room) | the prior value, if those demos get room rollback |
+
+Not records a room keeps: `ProjectileSeqCounter` (a replay draws new ids;
+they must be unique and ordered, not equal, and
+`a_rewound_room_fires_its_shots_again` passes), `SwitchActivationQueue`
+(drained on the next tick), the clocks (shared: the witnesses set them),
+the checkpoint baselines (written at a commit), the Smash match state (one
+rollback domain), the portals (the portal owner's), and the conversation,
+the cutscene and the bullet-time scale (ISL-1b couplings).
+
+⭐ **TWO KINDS OF KEYED STORE.** A key one room owns (an occurrence, a
+feature, a participant) can be put back to the value it had: nothing else
+writes it in the window. A key several rooms share (a count in the shared
+bag, a quest, a flag) cannot: an item Bob picks up in the hub during Alice's
+window would be erased by restoring her room's prior count of it (a coin
+would not: the wallet is on the body). A shared key needs the
+inverse of each write, which a count has (its delta) and a quest stage and a
+set-only flag do not, unless the store keeps who set it.
+
+**The first keyed customer (2026-11-10):** `ConsumedSinceCheckpoint` is
+the undo log of the occurrence ledger's terminal rows. Each record written
+from a live room (`record_consumed_pickups`, `record_ended_occurrences`,
+`open_ecs_chests`, `record_spent_breakables`) carries a `ConsumedWrite`: the
+room and tick, and the ledger row it replaced (none for a taken pickup or an
+opened chest; the `Placed` row of an ended occurrence). Its retractor
+(registered in `ambition_platformer2d_runtime/src/world_schedule.rs`) puts
+the record and the row back, newest first (`AuthoredOccurrences::restore_row`
+keeps the derived indexes). The witness is
+`a_rewound_room_untakes_the_heart_its_replay_does_not_take`
+(`game/ambition_app/tests/a_room_rewinds_alone.rs`): Alice takes the
+one-time heart in `basement_breakables` while Bob holds the hub, the room
+rewinds, and the replay does not take it; both stores forget it. Its control
+(ignored) keeps both rows; the arithmetic (an ended occurrence is `Placed`
+again, a write before the save or from another room stays) is
+`a_rewind_puts_back_the_rows_its_room_wrote_after_the_save` (items). Limits:
+the log is forgotten with the records at a committed checkpoint, so a window
+cannot reach across one, and it is not in the value checksum (as the grants'
+stamps are not): it changes no value until a rewind uses it.
+
+**The shared bag (2026-11-10):** the room's own writes are inverted, not
+the bag restored. A grant's record already held the quantity it added
+(`PickupGranted::item`), so the grants' retractor takes it back out of the
+bag; the coins stay, because the wallet is on the collector's body and the
+room's snapshot rewound it. A throw's spend (`BagSpend`) now carries its room
+write, and its retractor puts the quantity back (`OwnedItems::put_back`, the
+uncapped inverse of `take`). The probe found a third write: the throw MINTS an
+object, and the ledger admitted its `Placed` row in the window; after the
+rewind the replay saw that row with no object and wrote it `Consumed`, so a
+mint that never happened was remembered ended. The ledger now notes each mint
+with the room and tick it entered from (`note_mints_entered`, at its mark in
+`record_placed_ground_items`), and one retractor
+(`resource.authored_occurrences`) first puts back the terminal rows, then
+takes out the room's mints (`retract_room_mints`), in that order so a mint
+made and ended in the window leaves. The witness is
+`a_rewound_room_puts_back_the_throw_its_replay_does_not_make` (Alice throws
+a gun sword in `basement_breakables` while Bob holds the hub; the replay does
+not throw); with the mint retraction poisoned it reads `(1, 0, ["slot:0/0
+Consumed"])`, and its ignored control keeps the bag spent.
+
+Still unretracted bag writes: the narrative grants and the cell uses
+(`ambition_platformer2d_items/src/narrative.rs`) and the conditions' take
+(`conditions.rs`); each needs its write stamped and inverted the same way.
+
+**Next:** `BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed by
+placement and by feature, one room each: the value replaced); the narrative
+bag writes; the quests and flags last, since they need the decision above.
+Still open too: the room rollback host that calls `retract_room_writes`
 (today only the tests do).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world

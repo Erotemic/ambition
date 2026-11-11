@@ -526,13 +526,14 @@ fn a_restore_takes_the_dying_participant_out_of_each_consumed_record() {
     app.add_systems(Update, disown_consumed_pickups_on_restore);
     {
         let mut since = app.world_mut().resource_mut::<ConsumedSinceCheckpoint>();
-        since.record(SimId::placement("alices"), "x".into(), vec![PlayerSlot(0)]);
+        since.record(SimId::placement("alices"), "x".into(), vec![PlayerSlot(0)], None);
         since.record(
             SimId::placement("shared"),
             "x".into(),
             vec![PlayerSlot(0), PlayerSlot(1)],
+            None,
         );
-        since.record(SimId::placement("bobs"), "y".into(), vec![PlayerSlot(1)]);
+        since.record(SimId::placement("bobs"), "y".into(), vec![PlayerSlot(1)], None);
     }
     // Control: a replay that is not a checkpoint restore keeps every owner.
     app.world_mut().write_message(
@@ -650,4 +651,46 @@ fn a_collected_pickup_reports_its_id_to_the_quests() {
         vec![ambition_persistence::quest::QuestAdvanceEvent::ItemCollected("hp_near".into())],
         "the quest events of one update: the collected pickup only"
     );
+}
+
+/// ISL-2d: a room's rewind puts back what its terminal writes after the save
+/// replaced, newest first, in both stores: a consumed pickup has no row
+/// again, and an ended occurrence is `Placed` where it lay. A write before
+/// the save, and a write from another room, stay.
+#[test]
+fn a_rewind_puts_back_the_rows_its_room_wrote_after_the_save() {
+    use ambition_characters::control::PlayerSlot;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, LiveRoomInstance, OccurrenceWhereabouts,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let write = |room, tick: u64, replaced| {
+        ConsumedWrite::from_room(Some(room), Some(&ambition_time::SimTick(tick)), replaced)
+    };
+    let placed = OccurrenceWhereabouts::Placed { room: "x".into(), at: ae::Vec2::new(3.0, 4.0) };
+    let (before, taken, ended, elsewhere) = (
+        SimId::placement("before"),
+        SimId::placement("taken"),
+        SimId::placement("ended"),
+        SimId::placement("elsewhere"),
+    );
+    let mut ledger = AuthoredOccurrences::default();
+    let mut since = ConsumedSinceCheckpoint::default();
+    assert!(ledger.admit_crossing(ended.clone(), "x", ae::Vec2::new(3.0, 4.0)), "premise: the bomb lies in x");
+    for (id, tick, room) in [(&before, 4, here), (&taken, 6, here), (&elsewhere, 7, there)] {
+        since.record(id.clone(), "x".into(), vec![PlayerSlot(0)], write(room, tick, None));
+        ledger.consume([id.clone()]);
+    }
+    since.record(ended.clone(), "x".into(), vec![PlayerSlot(0)], write(here, 8, Some(placed.clone())));
+    ledger.end([ended.clone()]);
+
+    since.retract_room(Some(&mut ledger), here, 5);
+
+    let rows = |id: &SimId| (ledger.whereabouts(id).cloned(), since.owners(id).is_some());
+    assert_eq!(rows(&before), (Some(OccurrenceWhereabouts::Consumed), true), "a write before the save went");
+    assert_eq!(rows(&taken), (None, false), "the pickup taken after the save is still taken");
+    assert_eq!(rows(&ended), (Some(placed), false), "the ended bomb does not lie where it ended");
+    assert_eq!(ledger.placed_in("x").collect::<Vec<_>>(), vec![&ended], "the placed index");
+    assert_eq!(rows(&elsewhere), (Some(OccurrenceWhereabouts::Consumed), true), "another room's write went");
 }

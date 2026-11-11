@@ -594,6 +594,15 @@ WAIVERS: dict[str, str] = {
         "system in a plain `Update` slot could run after `Providers`, on a "
         "frame that GGRS has saved, and this entry would then be false."
     ),
+    "forget_life_ledger_on_activation": (
+        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
+        "`reset_session_scoped_resources_on_activation` states. The actor "
+        "monolith's body plugin registers it in `SessionScopeSet::Activate`, "
+        "and it writes only on a `SessionScopeActivated`: a new session's "
+        "lives start from the book, not from the last session's `LifeLedger`. "
+        "\u26d4 THE RESIDUAL: the claim is the SET, not the schedule; see "
+        "`forget_portal_frames_on_activation`."
+    ),
     "restart_heavy_object_cycle_on_activation": (
         "THE WRITE PRECEDES THE TIMELINE, by the chain that "
         "`reset_session_scoped_resources_on_activation` states. "

@@ -66,6 +66,7 @@ pub fn record_spent_breakables(
     participants: Query<(Entity, &DrivingParticipant)>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     spent_since: Option<ResMut<ambition_platformer2d_items::pickups::ConsumedSinceCheckpoint>>,
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let Some(mut occurrences) = occurrences else {
         return;
@@ -97,6 +98,12 @@ pub fn record_spent_breakables(
                 sim_id.clone(),
                 rooms.rooms().spec(definition).id.clone(),
                 owners_beside(*entity, rooms.live(), &participants),
+                // The filter above took only ids with no row.
+                ambition_platformer2d_items::pickups::ConsumedWrite::from_room(
+                    rooms.live().of(*entity),
+                    tick.as_deref(),
+                    None,
+                ),
             );
         }
     }

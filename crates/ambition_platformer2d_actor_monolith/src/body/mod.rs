@@ -349,6 +349,7 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         app.add_systems(
             Update,
             crate::body::life::forget_life_ledger_on_activation
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
                 .run_if(on_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>),
         );
         app.add_systems(

@@ -801,6 +801,7 @@ fn a_confirmed_restore_materializes_banked_custody_before_the_new_baseline() {
             consumed.clone(),
             ROOM.to_string(),
             vec![ambition_platformer2d::characters::control::PlayerSlot::PRIMARY],
+            None,
         );
     commit_a_checkpoint(&mut sim);
     assert!(

@@ -17,6 +17,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 from lib.test_paths import (  # noqa: E402
     TEST_DIR_PARTS,
     TEST_FILE_NAMES,
+    declared_test_only,
     file_is_test_only,
     is_test_path,
 )
@@ -352,3 +353,28 @@ def test_a_shipping_test_support_module_is_left_standing() -> None:
     kept = strip_test_modules(src)
     assert "helper" in kept, "this module SHIPS under the feature; cutting it hides real code"
     assert "fn prod()" in kept and "fn tail()" in kept
+
+
+def test_a_file_its_parent_declares_test_only_is_test_code(tmp_path: Path) -> None:
+    """The third way: `lib.rs` says `#[cfg(test)] mod scenarios;` and the file
+    itself reads like production. `any(test, ..)` still ships, and a sibling
+    the parent compiles always is production."""
+    src = tmp_path / "src"
+    (src / "nested").mkdir(parents=True)
+    (src / "lib.rs").write_text(
+        "#[cfg(test)]\nmod scenarios;\n"
+        "#[cfg(all(test, feature = \"x\"))]\n/// docs\npub(crate) mod gated;\n"
+        "#[cfg(any(test, feature = \"test-support\"))]\nmod shipped;\n"
+        "mod nested;\nmod plain;\n"
+    )
+    (src / "nested.rs").write_text("#[cfg(test)]\nmod inner;\n")
+    for name in ("scenarios", "gated", "shipped", "plain"):
+        (src / f"{name}.rs").write_text("pub fn f() {}\n")
+    (src / "nested" / "inner.rs").write_text("pub fn f() {}\n")
+    assert declared_test_only(src / "scenarios.rs")
+    assert declared_test_only(src / "gated.rs")
+    assert declared_test_only(src / "nested" / "inner.rs")
+    assert not declared_test_only(src / "shipped.rs")
+    assert not declared_test_only(src / "plain.rs")
+    assert not declared_test_only(src / "lib.rs")
+    assert is_test_path(src / "scenarios.rs") and not is_test_path(src / "plain.rs")

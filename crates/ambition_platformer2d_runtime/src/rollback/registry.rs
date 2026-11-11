@@ -262,7 +262,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // bag.
 // 455 -> 456: the cutscene's changes are logged in their rooms for a room's
 // rewind.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 456;
+// 456 -> 457: the cutscene log writes each script once, in a table its
+// states name by place.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 457;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

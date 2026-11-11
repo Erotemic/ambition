@@ -844,7 +844,13 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    room it plays for, with the state it replaced; a room's retractor puts
    back what it had at the save, as for the conversation. Witness:
    `a_rewound_room_puts_back_its_cutscene` (read straight after the rewind),
-   with an ignored control.
+   with an ignored control. **Without a script per tick (review 2026-11-11,
+   P2):** each logged state held its own copy of the authored script, cloned
+   every tick the cutscene advanced and written once per change. The
+   runtime's script is now shared (`Arc`), and the log's codec writes each
+   distinct script once in a table its states name by place (schema 457).
+   Witness: `the_room_cutscene_log_keeps_one_copy_of_each_script` (poisoned:
+   twenty copies for twenty ticks).
 
    The last message on the list, `QuestAdvanceRequested` with no cause, now
    has one writer: `RoomEntered`, a crossing, which spans two rooms and

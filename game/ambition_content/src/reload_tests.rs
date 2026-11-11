@@ -4204,7 +4204,7 @@ fn a_cutscene_publication_replaces_only_the_rows_the_pack_owns() {
         .resource::<ambition_cutscene::ActiveCutscene>()
         .runtime
         .as_ref()
-        .map(|runtime| runtime.script.clone());
+        .map(|runtime| (*runtime.script).clone());
     assert_eq!(running, before, "⛔ A PLAYING CUTSCENE WAS CHANGED UNDER THE PLAYER");
 }
 

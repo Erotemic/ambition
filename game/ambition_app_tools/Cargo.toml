@@ -131,6 +131,13 @@ name = "room_census"
 path = "src/bin/room_census.rs"
 bench = false
 
+# Inspect geometry: what each installed geometry provider says a room holds
+# (GOBS-1), as JSON; the answer F1's Observed Geometry layer draws.
+[[bin]]
+name = "inspect_geometry"
+path = "src/bin/inspect_geometry.rs"
+bench = false
+
 # Extension inspect: the procedural extension host's ports, entries, code,
 # generation and per-body records, as text (fast-iteration I7 item 5).
 [[bin]]

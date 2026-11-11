@@ -146,9 +146,19 @@ role; inactive faint and crossed). Witness:
 the catalog, F1's feed and the headless answer, with equal geometry; the
 layer off asks nothing).
 
-**Still open in GOBS-1:** a headless `inspect geometry` command on the
-repository's agent-query entry point (step 3), per-provider selection in F1
-(GOBS-4 overlaps), and labels.
+**Headless inspection (2026-11-10):** `inspect_geometry`
+(`game/ambition_app_tools`): `--list` prints the catalog; `--room R` boots a
+room, steps `--ticks` frames and writes `observe_all`'s JSON (to `--out FILE`
+alone; stdout also carries the host's `[live-reload]` lines), for Player 1 as
+the subject or the room's own view with `--no-subject`. `--provider` selects
+by name or by prefix (`collision.`); an unknown name is refused with the
+installed list. In `basement_breakables` the composed walls answer the 18
+solids GOBS-0 counted; `collision.for_subject` with no subject answers
+`needs_subject`. It is a binary beside `room_census`, not an `agent_query`
+command: `agent_query.py` reads the source tree and runs no game.
+
+**Still open in GOBS-1:** per-provider selection in F1 (GOBS-4 overlaps), and
+labels.
 
 1. Build a minimal neutral observation descriptor and query/filter schema (room, view, selected subject, category, time). Start by adapting `CombatGeometryView` and one real `CollisionWorld` query, proving that the interface works for both preexisting snapshots and parameterized queries.
 2. Register providers compositionally; derive a provider registry/read-only catalog from installed adapters rather than creating an authoritative ECS-wide geometry database.

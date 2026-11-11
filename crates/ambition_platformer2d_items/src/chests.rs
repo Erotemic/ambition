@@ -173,7 +173,7 @@ pub fn open_ecs_chests(
                 subject,
                 INTERACT_ANIM_HOLD_SECS,
             );
-            banner.show(format!("opened {}", name.0.as_str()), 2.6);
+            banner.show_in(rooms.of(entity), format!("opened {}", name.0.as_str()), 2.6);
             // THE CHEST DOES NOT KNOW HOW TO GRANT ANYTHING, and that is
             // the point: its reward is a `PickupKind`, and there is exactly one
             // authority that turns one of those into health, money, an ability

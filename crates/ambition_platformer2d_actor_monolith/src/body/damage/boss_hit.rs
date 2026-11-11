@@ -278,7 +278,7 @@ pub(crate) fn apply_boss_hit(
         victim_source.as_ref(),
     );
     if killed {
-        banner.show(format!("defeated boss {}", boss.config.name), 2.6);
+        banner.show_in(room, format!("defeated boss {}", boss.config.name), 2.6);
         writers.vfx.for_room(room).write(VfxMessage::Burst {
             pos: boss.kin.pos,
             count: 16,

@@ -592,7 +592,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
             // tested rather than inferred from the order of an `if`-chain"* — and the chain went on
             // inferring it. Asking the decision makes the extraction load-bearing instead of
             // decorative.
-            banner.show(format!("{} fell out of the world", em.identity.name), 2.2);
+            banner.show_in(room, format!("{} fell out of the world", em.identity.name), 2.2);
         } else if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to
             // flip. ONE death path, matched on the ONE authored policy (ADR 0022).
@@ -600,9 +600,9 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 kill_disposition(&event.source, em.config.tuning.respawn)
             {
                 em.status.respawn_timer = respawn_s;
-                banner.show(format!("{} dropped; respawning", em.identity.name), 2.6);
+                banner.show_in(room, format!("{} dropped; respawning", em.identity.name), 2.6);
             } else {
-                banner.show(format!("defeated {}", em.identity.name), 2.6);
+                banner.show_in(room, format!("defeated {}", em.identity.name), 2.6);
                 // Whose death this loot fell out of. Resolved once for both
                 // drops below: each states it as its provenance, and without it
                 // no render family claims the pickup.

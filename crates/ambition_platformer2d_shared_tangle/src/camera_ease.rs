@@ -506,12 +506,17 @@ impl Default for FinishZoomTuning {
 /// Strongest-kick-wins and non-stacking, exactly like [`CameraShakeState`] and
 /// for the same reason — several requests released together by the quarantine
 /// settle on the strongest rather than multiplying into an unreadable close-up.
-#[derive(Resource, Clone, Copy, Debug, Default)]
+#[derive(Resource, Clone, Debug, Default)]
 pub struct FinishZoomState {
-    /// 0.0 = no zoom, 1.0 = fully in. Not a scale: see [`Self::scale_factor`].
+    /// 0.0 = no zoom, 1.0 = fully in, for every view. Not a scale: see
+    /// [`Self::scale_factor`].
     pub closeness: f32,
     /// Seconds of hold left before the release begins.
     pub hold_secs_left: f32,
+    /// Each live room's zoom, for the views that frame it (ISL-1b): its
+    /// closeness and hold left. A boss falling in one room does not pull in
+    /// the view of another.
+    pub rooms: std::collections::BTreeMap<crate::lifecycle::LiveRoomInstance, (f32, f32)>,
 }
 
 impl FinishZoomState {
@@ -522,6 +527,49 @@ impl FinishZoomState {
             self.closeness = target;
             self.hold_secs_left = tuning.hold_secs.max(0.0);
         }
+    }
+
+    /// [`Self::kick`] the views of `room`, or every view with `None`.
+    pub fn kick_in(&mut self, room: Option<crate::lifecycle::LiveRoomInstance>, closeness: f32, tuning: FinishZoomTuning) {
+        let Some(room) = room else {
+            self.kick(closeness, tuning);
+            return;
+        };
+        let target = closeness.clamp(0.0, 1.0);
+        let held = self.rooms.entry(room).or_insert((0.0, 0.0));
+        if target > held.0 {
+            *held = (target, tuning.hold_secs.max(0.0));
+        }
+    }
+
+    /// [`Self::scale_factor`] for a view of `room`: the closer of every
+    /// view's zoom and the room's own.
+    pub fn scale_factor_in(&self, room: Option<crate::lifecycle::LiveRoomInstance>, tuning: FinishZoomTuning) -> f32 {
+        let own = room.and_then(|room| self.rooms.get(&room)).map_or(0.0, |(closeness, _)| *closeness);
+        let close = self.closeness.max(own).clamp(0.0, 1.0) * tuning.max_close_fraction.clamp(0.0, 0.9);
+        1.0 - close
+    }
+
+    /// Spend `dt` of every zoom's hold, then release it; a room at rest is
+    /// forgotten.
+    pub fn settle(&mut self, dt: f32, tuning: FinishZoomTuning) {
+        let settle = |(closeness, hold): (f32, f32)| {
+            if hold > 0.0 {
+                (closeness, (hold - dt).max(0.0))
+            } else {
+                ((closeness - tuning.release_per_s * dt).max(0.0), 0.0)
+            }
+        };
+        (self.closeness, self.hold_secs_left) = settle((self.closeness, self.hold_secs_left));
+        for held in self.rooms.values_mut() {
+            *held = settle(*held);
+        }
+        self.rooms.retain(|_, (closeness, hold)| *closeness > 0.0 || *hold > 0.0);
+    }
+
+    /// Whether any zoom, shared or a room's, is held or releasing.
+    pub fn is_active(&self) -> bool {
+        self.hold_secs_left > 0.0 || self.closeness > 0.0 || !self.rooms.is_empty()
     }
 
     /// The multiplier to apply to the presented orthographic scale.
@@ -545,6 +593,8 @@ impl FinishZoomState {
 pub struct FinishZoomRequest {
     /// 0.0..=1.0. `1.0` is the full pull described by [`FinishZoomTuning`].
     pub closeness: f32,
+    /// The live room whose views pull in; `None` pulls in every view.
+    pub room: Option<crate::lifecycle::LiveRoomInstance>,
 }
 
 /// Apply released [`FinishZoomRequest`]s to the live state.
@@ -557,7 +607,7 @@ pub fn apply_finish_zoom_requests(
     mut zoom: bevy::prelude::ResMut<FinishZoomState>,
 ) {
     for request in requests.read() {
-        zoom.kick(request.closeness, *tuning);
+        zoom.kick_in(request.room, request.closeness, *tuning);
     }
 }
 
@@ -582,13 +632,14 @@ pub fn rest_the_camera_on_activation(
     }
     // The seed is a counter of frames, not a motion: it keeps its value.
     shake.amplitude_px = 0.0;
+    shake.rooms.clear();
     *zoom = FinishZoomState::default();
 }
 
 /// Run condition of [`tick_finish_zoom`]: a zoom is held or releasing. At
 /// rest the tick has nothing to do, and it wrote the state each frame.
 pub fn finish_zoom_is_active(zoom: bevy::prelude::Res<FinishZoomState>) -> bool {
-    zoom.hold_secs_left > 0.0 || zoom.closeness > 0.0
+    zoom.is_active()
 }
 
 /// Hold, then release. Runs beside [`tick_camera_shake`] while
@@ -598,12 +649,7 @@ pub fn tick_finish_zoom(
     tuning: bevy::prelude::Res<FinishZoomTuning>,
     mut zoom: bevy::prelude::ResMut<FinishZoomState>,
 ) {
-    let dt = time.delta_secs();
-    if zoom.hold_secs_left > 0.0 {
-        zoom.hold_secs_left = (zoom.hold_secs_left - dt).max(0.0);
-        return;
-    }
-    zoom.closeness = (zoom.closeness - tuning.release_per_s * dt).max(0.0);
+    zoom.settle(time.delta_secs(), *tuning);
 }
 
 #[cfg(test)]

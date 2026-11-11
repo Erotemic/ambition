@@ -285,7 +285,8 @@ pub fn interact_ecs_actors_and_switches(
 
             acting.consume_interact(subject);
             pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
-            banner.show(
+            banner.show_in(
+                subject_room,
                 crate::body::npcs::npc_message(interactable, &identity.name, false),
                 2.6,
             );
@@ -344,7 +345,7 @@ pub fn interact_ecs_actors_and_switches(
             }
             acting.consume_interact(subject);
             pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
-            banner.show(format!("activated {}", name.0.as_str()), 2.6);
+            banner.show_in(room, format!("activated {}", name.0.as_str()), 2.6);
             switch_activated.write(SwitchActivated {
                 subject: subject_id.map(|id| ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(id.clone(), subject_room)),
                 activation: switch.activation.clone(),

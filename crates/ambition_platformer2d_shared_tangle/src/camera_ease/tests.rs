@@ -406,3 +406,27 @@ fn a_room_s_kick_shakes_only_that_room_s_views() {
     assert_eq!((shake.amplitude_in(Some(here)), shake.amplitude_in(Some(there))), (0.0, 0.0));
     assert!(shake.rooms.is_empty(), "a room at rest is forgotten");
 }
+
+#[test]
+fn a_room_s_finish_zoom_pulls_in_only_that_room_s_views() {
+    use crate::lifecycle::LiveRoomInstance;
+    let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let tuning = FinishZoomTuning::default();
+    let mut zoom = FinishZoomState::default();
+    zoom.kick_in(Some(here), 1.0, tuning);
+    assert!(zoom.scale_factor_in(Some(here), tuning) < 1.0);
+    assert_eq!(zoom.scale_factor_in(Some(there), tuning), 1.0, "the other room's view pulled in");
+    assert_eq!(zoom.scale_factor_in(None, tuning), 1.0);
+    zoom.kick_in(None, 0.5, tuning);
+    assert_eq!(
+        zoom.scale_factor_in(Some(there), tuning),
+        zoom.scale_factor(tuning),
+        "a zoom with no room pulls in every view"
+    );
+    assert!(zoom.scale_factor_in(Some(here), tuning) < zoom.scale_factor_in(Some(there), tuning), "the closer of the two");
+    assert!(zoom.is_active());
+    zoom.settle(tuning.hold_secs + 100.0, tuning);
+    zoom.settle(100.0, tuning);
+    assert!(!zoom.is_active(), "every zoom released: {zoom:?}");
+    assert!(zoom.rooms.is_empty(), "a room at rest is forgotten");
+}

@@ -192,11 +192,10 @@ pub(super) fn update_hud(
     let player_invuln = hud_combat.damage_invuln_timer;
     let player_hitstop = hud_combat.hitstop_timer;
 
-    let feature_banner = if progression.banner.visible() {
-        let text = &progression.banner.text;
-        format!("\nFEATURE: {text}")
-    } else {
-        String::new()
+    // The banner of the primary seat's room, or the one every player sees.
+    let feature_banner = match progression.banner.visible_in(room.room()) {
+        Some(text) => format!("\nFEATURE: {text}"),
+        None => String::new(),
     };
     // Cutscene UI lives in the dedicated overlay
     // (`ambition_platformer2d::render::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel

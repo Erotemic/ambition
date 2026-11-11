@@ -2804,7 +2804,7 @@ fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
             return;
         }
         shakes.write(CameraShakeRequest { amplitude_px: 6.0, room: None });
-        zooms.write(FinishZoomRequest { closeness: 1.0 });
+        zooms.write(FinishZoomRequest { closeness: 1.0, room: None });
         effects.write(VfxInRoom {
             room: Some(LiveRoomInstance::ACTIVATION),
             vfx: VfxMessage::CoinPop { pos: MARK },

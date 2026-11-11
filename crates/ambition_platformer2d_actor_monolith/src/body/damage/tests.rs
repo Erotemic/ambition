@@ -936,7 +936,7 @@ fn capture_hostile_turns(
     mut banner: bevy::prelude::ResMut<GameplayBanner>,
     mut cap: bevy::prelude::ResMut<CapturedHostileTurns>,
 ) {
-    if banner.text.ends_with("turns hostile") {
+    if banner.shown().any(|text| text.ends_with("turns hostile")) {
         cap.0 += 1;
     }
     banner.clear();

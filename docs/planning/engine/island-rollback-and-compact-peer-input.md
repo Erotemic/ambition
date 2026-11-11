@@ -588,8 +588,33 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    phase change, a conducted boss's port, a bomb, and a hard landing.
    Witnesses: `a_hit_shakes_only_the_views_of_its_own_room` (combat) and
    `a_room_s_kick_shakes_only_that_room_s_views` (the state);
-   `hit_shakes_the_camera` reads any view's shake (`loudest`). Nine of the
-   ten remain.
+   `hit_shakes_the_camera` reads any view's shake (`loudest`).
+
+   **The finish zoom (2026-11-11):** `FinishZoomRequest` carries its room the
+   same way, and `FinishZoomState` keeps each room's closeness and hold;
+   a camera scales by `scale_factor_in` the room its view frames. A
+   finishing blow and a boss's defeat name their room; a decided match
+   zooms every view (`None`), since the match is not one room's. The
+   finishing blow's cast freeze still reaches every fighter: Smash runs
+   one match in one room. Witness:
+   `a_room_s_finish_zoom_pulls_in_only_that_room_s_views`. A session
+   replaced by `rest_the_camera_on_activation` now forgets every room's
+   shake and zoom, not only the shared ones.
+
+   **The banner (2026-11-11):** `GameplayBanner` keeps each live room's
+   banner beside the one every player sees (`show_in`, `visible_in`), and
+   `GameplayBannerRequested` carries its room (`in_room`). Its one reader,
+   the inspector HUD, shows the banner of the primary seat's room. In a
+   networked session a peer's process runs every live room, so a chest opened
+   in Alice's room had announced itself in Bob's HUD. The room's acts name
+   their room: pickups, chests, breakables (a break, a collapse, a respawn),
+   a body's defeat and fall, a boss's phase and defeat, an encounter script's
+   banner, a wave's clear, the symmetry attunement, the cut-rope flattening,
+   a talk, a switch, a provocation, a blocked or armoured hit. Two stay
+   every player's: a quest payout (the quest book is the session's) and the
+   sandbox reset. Witness: `a_room_s_banner_shows_only_in_that_room`; tests
+   that asked "was a banner shown" read `shown()`, every room's, so a room's
+   banner cannot slip past them. Seven of the ten remain.
 
 ## Order, exclusions and integration
 

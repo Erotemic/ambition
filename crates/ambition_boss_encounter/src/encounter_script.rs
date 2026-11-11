@@ -130,7 +130,7 @@ pub fn tick_encounter_scripts(
                         }
                     }
                 }
-                EncounterEffect::Banner { text, secs } => banner.show(text.clone(), *secs),
+                EncounterEffect::Banner { text, secs } => banner.show_in(room, text.clone(), *secs),
                 EncounterEffect::SetMusic(track) => match track {
                     Some(track) => music.claim_priority(room, source.clone(), track.clone(), now),
                     None => music.release_priority(room, source.clone()),

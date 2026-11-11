@@ -39,6 +39,8 @@ pub(super) fn publish_events(
     event: &BossPhaseEvent,
     cutscene_queue: Option<&mut CutsceneTriggerQueue>,
     banner: &mut ambition_combat::GameplayBanner,
+    // The boss's live room: its players see the banner, no one else's.
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) {
     // Only the exposed phase change carries banner/cutscene; the brief
     // `TransitionLockStarted` tell has no presentation of its own.
@@ -61,10 +63,10 @@ pub(super) fn publish_events(
         BossEncounterPhase::Death => "DEFEATED".to_string(),
         BossEncounterPhase::Dormant => String::new(),
     };
-    banner.show(text, 1.4);
+    banner.show_in(room, text, 1.4);
     // The victory banner replaces the "DEFEATED" phase banner on a kill.
     if matches!(to, BossEncounterPhase::Death) {
-        banner.show(format!("{} DEFEATED", bill.name.to_uppercase()), 3.5);
+        banner.show_in(room, format!("{} DEFEATED", bill.name.to_uppercase()), 3.5);
     }
 }
 
@@ -82,12 +84,12 @@ mod tests {
         let mut queue = CutsceneTriggerQueue::default();
         let mut banner = ambition_combat::GameplayBanner::default();
         let bill = BossBillName { name: "Warden", title: None };
-        publish_events("warden", &bill, &intro, Some(&mut queue), &mut banner);
-        publish_events("warden", &bill, &phase1, Some(&mut queue), &mut banner);
+        publish_events("warden", &bill, &intro, Some(&mut queue), &mut banner, None);
+        publish_events("warden", &bill, &phase1, Some(&mut queue), &mut banner, None);
         assert_eq!(queue.0, vec!["boss_intro_warden".to_string()], "the intro's request, and not phase 1's");
 
         let mut banner = ambition_combat::GameplayBanner::default();
-        publish_events("warden", &bill, &intro, None, &mut banner);
+        publish_events("warden", &bill, &intro, None, &mut banner, None);
         assert_eq!(banner.text, "BOSS APPROACHES — Warden", "with no queue the intro still shows its banner");
     }
 }

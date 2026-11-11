@@ -1178,6 +1178,11 @@ pub enum MeleePreset {
         damage: i32,
         reach_px: f32,
     },
+    /// A fuse, then the body ends itself in its own death blast.
+    Detonate {
+        fuse_s: f32,
+        reach_px: f32,
+    },
 }
 
 /// Mirrors `brain::action_set::RangedActionSpec`. The four short forms are a

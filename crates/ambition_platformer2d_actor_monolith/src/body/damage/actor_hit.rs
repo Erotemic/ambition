@@ -27,6 +27,10 @@ use super::*;
 /// reads as a knock, not a launch.
 const CLING_DETACH_POP_SPEED: f32 = 180.0;
 
+/// How hard a death blast shakes the view: a little under a bomb's 9 px, as
+/// its blast is a little smaller.
+const DEATH_BLAST_SHAKE_PX: f32 = 7.0;
+
 /// What a kill does to the dead body's own lifecycle.
 ///
 /// A decision, extracted so it can be stated and tested rather than inferred
@@ -629,13 +633,29 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                         actor_entity,
                         em.kin.pos,
                     );
-                    writers.vfx.write_in(room, VfxMessage::Effect {
-                        pos: em.kin.pos,
-                        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
-                        scale: 0.85,
-                        pose: ambition_vfx::FxPose::UPRIGHT,
-                    },
-                    );
+                    // Drawn as big as the area it hurts, the way a bomb's
+                    // blast is (its 80 px blast draws a 2.2 burst): one small
+                    // burst over a 128 px blast read as no explosion at all.
+                    // Its sound is the character's death cue.
+                    let mut room_vfx = writers.vfx.for_room(room);
+                    for (fx, scale) in [
+                        (ambition_vfx::fx::ids::CLASSIC_BURST, 1.75),
+                        (ambition_vfx::fx::ids::SMOKE_BURST, 1.45),
+                        (ambition_vfx::fx::ids::SHOCKWAVE, 1.3),
+                    ] {
+                        room_vfx.write(VfxMessage::Effect {
+                            pos: em.kin.pos,
+                            fx,
+                            scale,
+                            pose: ambition_vfx::FxPose::UPRIGHT,
+                        });
+                    }
+                    if let Some(shake) = writers.shake.as_mut() {
+                        shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
+                            amplitude_px: DEATH_BLAST_SHAKE_PX,
+                            room,
+                        });
+                    }
                 }
                 // A spirit bursts into shots that run the floor out of it.
                 if let (Some(burst), Some(projectiles)) = (caps.bursts_into.as_ref(), writers.projectiles.as_mut()) {

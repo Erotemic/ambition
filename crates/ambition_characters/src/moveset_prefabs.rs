@@ -114,6 +114,29 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
             volume.vfx = None;
         }
     }
+    // A detonation is a fuse, not a swing: it plants for the fuse (the swell
+    // is its tell, and a foe who reads it walks away) and then ends the body.
+    // No volume and no swing sound: the blast and its sound are the death's.
+    if let Some(detonate) = spec.detonate() {
+        for window in &mut attack.windows {
+            window.volumes.clear();
+        }
+        attack.events = vec![
+            MoveEvent {
+                at_s: 0.0,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, 0.0),
+                    mode: ambition_entity_catalog::ImpulseMode::Set,
+                },
+            },
+            MoveEvent { at_s: 0.0, kind: MoveEventKind::HoldVelocity { seconds: detonate.fuse_s } },
+            MoveEvent {
+                at_s: detonate.fuse_s,
+                kind: MoveEventKind::Effect(EffectRef::new(ambition_entity_catalog::detonate::DETONATE)),
+            },
+        ];
+        return attack;
+    }
     // A Lunge steps forward while it winds up: the authored distance over the
     // authored windup, as a set side speed the body holds for exactly the
     // windup. `Set`, so a body that arrived walking steps the authored
@@ -1011,11 +1034,18 @@ pub fn equip_equipment_row(
 /// first one did.
 pub fn voice_moveset(cues: &crate::actor::character_catalog::CharacterCues, moveset: &mut MovesetContract) {
     for mv in &mut moveset.moves {
+        // A detonation is a strike with no volume: its fuse gets the tell, and
+        // it has no swing (its sound is its death's).
+        let detonation = mv.events.iter().find_map(|event| match &event.kind {
+            MoveEventKind::Effect(effect) if effect.key == ambition_entity_catalog::detonate::DETONATE => Some(event.at_s),
+            _ => None,
+        });
         let Some(hit_s) = mv
             .windows
             .iter()
             .find(|window| window.tag == WindowTag::Active && !window.volumes.is_empty())
             .map(|window| window.start_s)
+            .or(detonation)
         else {
             continue;
         };
@@ -1031,7 +1061,7 @@ pub fn voice_moveset(cues: &crate::actor::character_catalog::CharacterCues, move
                 mv.events.push(MoveEvent { at_s: 0.0, kind: MoveEventKind::Sfx { cue: tell.clone() } });
             }
         }
-        if let Some(swing) = &cues.swing {
+        if let (Some(swing), None) = (&cues.swing, detonation) {
             let whoosh = mv.events.iter_mut().find(|event| {
                 at_strike(event.at_s) && matches!(&event.kind, MoveEventKind::Sfx { cue } if cue == SWING_SFX_CUE)
             });

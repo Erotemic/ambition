@@ -4,7 +4,7 @@ use crate::actor::character_catalog::{
     ActionSetPreset, MeleePreset, MoveStylePreset, RangedPreset, SpecialPreset,
 };
 use crate::brain::action_set::{
-    ActionSet, BiteSpec, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec, RangedActionSpec,
+    ActionSet, BiteSpec, DetonateSpec, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec, RangedActionSpec,
     SlamSpec, SpecialActionSpec, SwipeSpec,
 };
 
@@ -107,6 +107,9 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
             damage,
             reach_px,
         }),
+        MeleePreset::Detonate { fuse_s, reach_px } => {
+            MeleeActionSpec::Detonate(DetonateSpec { fuse_s, reach_px })
+        }
     }
 }
 

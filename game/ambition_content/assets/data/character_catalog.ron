@@ -289,13 +289,21 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.30, active_s: 0.08, recover_s: 0.34, damage: 1, reach_px: 30.0)),
         ),
+        // A half's snap: its mandibles are smaller and quicker.
+        "dividing_mite_half_swipe": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.24, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 24.0)),
+        ),
         "dividing_mite_swipe": (
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.30, active_s: 0.10, recover_s: 0.34, damage: 1, reach_px: 30.0)),
         ),
-        "exploding_mite_swipe": (
+        // It does not swing: in reach of its foe it plants, swells for the
+        // fuse, and goes off. The blast is its death trait, so a mite killed
+        // before the fuse ends goes off just the same.
+        "exploding_mite_fuse": (
             move_style: Walk,
-            melee: Some(Swipe(windup_s: 0.22, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 26.0)),
+            melee: Some(Detonate(fuse_s: 0.9, reach_px: 40.0)),
         ),
         // A hammer is slow and it hurts.
         "brute_hammer": (
@@ -3548,12 +3556,14 @@
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
-            default_action_set: "exploding_mite_swipe",
-            // THE BODY: fast and fragile, and it detonates at the corpse, so a
-            // point-blank kill is punished.
-            death_traits: Some((explodes_on_death: true, corpse: Some(Vanish))),
+            default_action_set: "exploding_mite_fuse",
+            // THE BODY: fast and fragile. It runs at its foe and detonates, and
+            // it detonates at the corpse too, so a point-blank kill is punished.
+            death_traits: Some((explodes_on_death: true, death_sound: Some("vfx.explosion.classic_burst"), corpse: Some(Vanish))),
             locomotion: Some((run_speed: 245.0, move_style: Walk)),
-            contact_damage: Some((strength: 0.60, amount: 1)),
+            // No contact damage: its threat is the blast. A touch that hurt
+            // gave its foe the post-hit grace that the blast then landed in,
+            // so a mite that reached you never hurt you with the blast.
             autonomous_profile: Some((
                 template: Smash,
                 aggro_radius: 460.0,
@@ -3561,7 +3571,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "robot"],
-            cues: (tell: Some("enemy.exploding_mite.tell"), swing: Some("enemy.exploding_mite.swing")),
+            cues: (tell: Some("enemy.exploding_mite.tell")),
         barks: (
             on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
             provoked: ["FINAL PROTOCOL!"],
@@ -3588,10 +3598,11 @@
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "dividing_mite_swipe",
-            // THE BODY: four hit points, slower and tankier, and two Puppy Slugs on
-            // death. The mite names its own offspring: a reusable platformer has no
-            // business knowing what an Ambition mite becomes.
-            death_traits: Some((divides_into: Some("npc_puppy_slug"), corpse: Some(Vanish))),
+            // THE BODY: four hit points, slower and tankier, and on death it splits
+            // into its own two halves (Jon 2026-11-11: "the 2 parts of itself, not
+            // 2 puppy slugs"). The mite names its own offspring: a reusable
+            // platformer has no business knowing what an Ambition mite becomes.
+            death_traits: Some((divides_into: Some("npc_dividing_mite_half"), corpse: Some(Vanish))),
             locomotion: Some((run_speed: 130.0, move_style: Walk)),
             contact_damage: Some((strength: 0.70, amount: 1)),
             autonomous_profile: Some((
@@ -3608,6 +3619,35 @@
             hall: ["One of me. For now. Math is patient about that.", "Don't cut me. The paperwork doubles instantly."],
         ),
         hall_dialogue_id: Some("hall_npc_dividing_mite"),
+        ),
+        // One half of a Dividing Mite, what one splits into: one lobe of the
+        // parent's cell on eight short legs, the size of one of its lobes.
+        "npc_dividing_mite_half": (
+            display_name: "Mite Half",
+            manifest: "sprites/dividing_mite_half_v2_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Crawler,
+            // One lobe stands as tall as the parent's two do.
+            standing_height: Some(24.0),
+            composition: None,
+            default_action_set: "dividing_mite_half_swipe",
+            // THE BODY: half the parent's pool and quicker on its feet. It does
+            // not split again.
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 175.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.60, amount: 1)),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 380.0,
+                attack_range: 45.0,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "robot"],
+            cues: (tell: Some("enemy.dividing_mite.tell"), swing: Some("enemy.dividing_mite.swing")),
+        barks: (
+            on_hit: ["Half the mite, twice the spite!", "Still dividing!"],
+            provoked: ["We were one. Now we are a pair."],
+        ),
         ),
         "npc_hand_saint": (
             display_name: "Hand Saint",

@@ -45,21 +45,20 @@ const SPLIT_OFFSET_X: f32 = 30.0;
 /// Half-size of a split offspring.
 const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 
-/// A `DividingMite` splits into two offspring on death — one to each side —
-/// through the runtime-minion spawner. The children do not divide, so the split
-/// is exactly one level deep: no runaway recursion, just "kill the slow parent,
-/// then handle two quick children."
+/// How long a split offspring cannot be hurt, from its birth: longer than any
+/// strike's live window, so the blow that split its parent, still live, does
+/// not kill the halves it made.
+const SPLIT_GRACE_S: f32 = 0.45;
+
+/// A dividing body splits into two offspring on death — one to each side —
+/// through the runtime-minion spawner. What it splits into is the parent's own
+/// `divides_into` (a Dividing Mite into its two halves). The offspring do not
+/// divide, so the split is exactly one level deep: kill the slow parent, then
+/// handle two quick children.
 ///
-/// THE CHILDREN ARE PUPPY SLUGS. Skitters are Puppy Slug."*
-///
-/// the repo had already answered this once: the proving grounds' placement
-/// literally named `pg_skitter` is cast as `npc_puppy_slug` today. The split was
-/// the site that had not caught up.
-///
-/// an engine module still names an Ambition creature, and that is AC5.4's
-/// remainder rather than this line's. What a character splits into is a CONTENT
-/// fact and belongs on the parent's definition; casting it correctly first is
-/// what makes moving it a move rather than a decision.
+/// Each child is born in its post-hit grace ([`SPLIT_GRACE_S`]): the strike
+/// that killed the parent is still live where the children appear, and a new
+/// body is not on its list of bodies already struck.
 pub(super) fn spawn_split_offspring(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -81,7 +80,7 @@ pub(super) fn spawn_split_offspring(sprite_content: &ambition_sprite_sheet::Spri
         }
     };
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
-        ambition_platformer2d_actor_spawn::spawn_runtime_minion(&sprite_content,
+        let child = ambition_platformer2d_actor_spawn::spawn_runtime_minion(&sprite_content,
             commands,
             character_catalog,
             authored_sheets,
@@ -95,5 +94,11 @@ pub(super) fn spawn_split_offspring(sprite_content: &ambition_sprite_sheet::Spri
             ambition_characters::actor::ActorFaction::Enemy,
             ambition_combat::components::ActorAggression::hostile(),
         );
+        // Queued after the spawn's own commands, so it finds the built body.
+        commands.entity(child).queue(|mut child: EntityWorldMut| {
+            if let Some(mut combat) = child.get_mut::<ambition_characters::actor::BodyCombat>() {
+                combat.damage_invuln_timer = combat.damage_invuln_timer.max(SPLIT_GRACE_S);
+            }
+        });
     }
 }

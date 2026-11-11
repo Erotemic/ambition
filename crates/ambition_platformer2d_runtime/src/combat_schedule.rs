@@ -532,6 +532,20 @@ impl Plugin for CombatSchedulePlugin {
         );
         install_technique(
             app,
+            ambition_entity_catalog::detonate::DETONATE,
+            TechniqueOffer {
+                owner: "ambition_combat::detonate",
+                params: TechniqueParams::None,
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
+            },
+            ambition_combat::detonate::apply_authored_detonations
+                .run_if(a_technique_is_pressed)
+                .in_set(CombatSet::Materialize)
+                .in_set(GameplayGated),
+        );
+        install_technique(
+            app,
             ambition_entity_catalog::smash_trapdoor::TRAPDOOR,
             TechniqueOffer {
                 owner: "ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor",

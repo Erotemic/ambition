@@ -669,6 +669,10 @@ pub enum MeleeActionSpec {
     /// and its own sounds, and the item turns through the swing in the hand
     /// (`moveset_prefabs::ITEM_SWING_CLIP`).
     Batter(BatterSpec),
+    /// A fuse, then the body ends itself (`ambition_entity_catalog::detonate`):
+    /// it plants and swells for the fuse, and its own death traits make the
+    /// blast. The move carries no hit volume; the blast is the death's.
+    Detonate(DetonateSpec),
 }
 
 /// How a shot FLIES once it leaves the barrel — the authored physics of a
@@ -1269,6 +1273,7 @@ impl MeleeActionSpec {
             Self::Bite(s) => s.windup_s + s.active_s + s.recover_s,
             Self::PunchWeak(s) => s.windup_s + s.active_s + s.recover_s,
             Self::Batter(s) => s.windup_s + s.active_s + s.recover_s,
+            Self::Detonate(s) => s.fuse_s + DetonateSpec::ACTIVE_S,
         }
     }
 
@@ -1282,6 +1287,8 @@ impl MeleeActionSpec {
             Self::Bite(s) => s.damage,
             Self::PunchWeak(s) => s.damage,
             Self::Batter(s) => s.damage,
+            // The blast's damage is the body's death trait, not the move's.
+            Self::Detonate(_) => 0,
         }
     }
 
@@ -1295,6 +1302,7 @@ impl MeleeActionSpec {
             Self::Bite(s) => s.reach_px,
             Self::PunchWeak(s) => s.reach_px,
             Self::Batter(s) => s.reach_px,
+            Self::Detonate(s) => s.reach_px,
         }
     }
 
@@ -1313,6 +1321,7 @@ impl MeleeActionSpec {
             Self::Bite(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
             Self::PunchWeak(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
             Self::Batter(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+            Self::Detonate(s) => (s.fuse_s, DetonateSpec::ACTIVE_S, 0.0, 0, s.reach_px),
         }
     }
 
@@ -1324,12 +1333,20 @@ impl MeleeActionSpec {
         }
     }
 
+    /// The fuse before the body ends itself, when this is a detonation.
+    pub fn detonate(self) -> Option<DetonateSpec> {
+        match self {
+            Self::Detonate(spec) => Some(spec),
+            _ => None,
+        }
+    }
+
     /// How far forward the body rushes over its strike, when the swing authors
     /// a rush (a charging Lunge).
     pub fn strike_rush_px(self) -> Option<f32> {
         match self {
             Self::Lunge(s) => Some(s.rush_px),
-            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) => None,
+            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) | Self::Detonate(_) => None,
         }
     }
 
@@ -1338,7 +1355,7 @@ impl MeleeActionSpec {
     pub fn strike_leap_speed(self) -> f32 {
         match self {
             Self::Lunge(s) => s.leap_speed,
-            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) => 0.0,
+            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) | Self::Detonate(_) => 0.0,
         }
     }
 
@@ -1347,7 +1364,7 @@ impl MeleeActionSpec {
     pub fn windup_step_px(self) -> Option<f32> {
         match self {
             Self::Lunge(s) => Some(s.step_px),
-            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) => None,
+            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) | Self::Detonate(_) => None,
         }
     }
 }
@@ -1489,6 +1506,20 @@ pub struct BiteSpec {
     pub recover_s: f32,
     pub damage: i32,
     pub reach_px: f32,
+}
+
+/// A lit fuse: the body plants for `fuse_s`, then ends itself in its own
+/// death blast. `reach_px` is how close it wants its foe before it lights.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct DetonateSpec {
+    pub fuse_s: f32,
+    pub reach_px: f32,
+}
+
+impl DetonateSpec {
+    /// The one frame the move outlives its detonation by, so the event at the
+    /// end of the fuse is inside the move.
+    pub const ACTIVE_S: f32 = 0.05;
 }
 
 /// Light reactive punch — a reactive counter-jab (not used by passive targets).
@@ -1708,6 +1739,7 @@ impl ActionRequest {
                 MeleeActionSpec::Bite(_) => "melee_bite",
                 MeleeActionSpec::PunchWeak(_) => "melee_punch_weak",
                 MeleeActionSpec::Batter(_) => "melee_batter",
+                MeleeActionSpec::Detonate(_) => "melee_detonate",
             },
             Self::Ranged { spec, .. } => match spec.style {
                 RangedStyle::Rock => "ranged_rock",

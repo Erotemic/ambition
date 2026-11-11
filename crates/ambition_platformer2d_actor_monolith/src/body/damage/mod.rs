@@ -104,6 +104,9 @@ pub struct FeatureHitWriters<'w, 's> {
     pub sfx: SfxWriter<'w>,
     pub vfx: VfxWriter<'w>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
+    /// The shake of a death blast. `Option`: a composition with no camera
+    /// shakes nothing.
+    pub shake: Option<MessageWriter<'w, ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>>,
     /// The shots a body bursts into when it dies (`CombatCapabilities::bursts_into`).
     /// `Option`: a composition with no projectiles bursts into nothing.
     pub projectiles: Option<MessageWriter<'w, ambition_projectiles::ProjectileSpawnRequest>>,

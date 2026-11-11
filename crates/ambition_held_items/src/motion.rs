@@ -148,12 +148,18 @@ pub fn ground_item_physics(
             let record = if settled { flight.legs.last().map(|leg| leg.sample)
                 .unwrap_or_else(|| ae::SweepSample::at_tick_end(flight.body, down)) }
                 else { ae::SweepSample::at_tick_end(flight.body, down) };
-            let mut contacts = Vec::new();
-            for recipient in recipients.iter().filter(|recipient| recipient.entity != entity && recipient.room == room) {
-                for leg in &flight.legs {
-                    let policy = admission.map(|policy| MotionAdmission { first: leg.first, ..policy });
-                    let domain = leg.body.canonical_box().map_err(numeric)?;
-                    let cells = leg.sample.material_cast(&domain)?.cells(policy)?;
+            let targets: Vec<_> = recipients.iter().filter(|recipient|
+                recipient.entity != entity && recipient.room == room).collect();
+            let mut contacts: Vec<(f64, &Recipient, f32)> = Vec::new();
+            for leg in &flight.legs {
+                if targets.iter().all(|target| contacts.iter().any(|(_, hit, _)| hit.entity == target.entity)) {
+                    break;
+                }
+                let policy = admission.map(|policy| MotionAdmission { first: leg.first, ..policy });
+                let domain = leg.body.canonical_box().map_err(numeric)?;
+                let cells = leg.sample.material_cast(&domain)?.cells(policy)?;
+                for &recipient in &targets {
+                    if contacts.iter().any(|(_, hit, _)| hit.entity == recipient.entity) { continue; }
                     let hit = recipient.hurt.swept_body_contact(recipient.entity, recipient.body.as_ref(),
                         geometry, room, &cells)?;
                     let Some(hit) = hit else { continue; };
@@ -162,7 +168,6 @@ pub fn ground_item_physics(
                     if hit.hit.toi == 0.0 { continue; }
                     let physical = cells.contact_velocity_frame(&hit.hit)?.to_physical(leg.sample.vel).map_err(numeric)?;
                     contacts.push((hit.hit.world_time, recipient, speed(physical.as_dvec2())?));
-                    break;
                 }
             }
             contacts.sort_by(|(at, a, _), (bt, b, _)| at.total_cmp(bt)

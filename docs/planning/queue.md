@@ -517,15 +517,20 @@ generator here cannot `--apply`).
 made is LDtk-owned, and the code and docs that cited one for a number now
 name the room. The dog example moved to `specs/examples/`.
 
-**Next action:** what is left in `tools/ambition_ldtk_tools/specs/` besides
-shared code (`district_kit`, `district_scenery`, `scenery_overlay`,
-`check_flat_map`, the gate network) and the tool's examples:
-`hall_of_characters_area.ron` and its order (written by the package's
-`generate_hall_of_characters.py`), `symmetry_room_area.ron`
-(`gen_symmetry_room.py`), `intro_raid_corridor_area.ron` (the fixture of
-`test_spec_brains_resolve.py`), and the portal labs' specs (the portal
-peer's). Move the two generators beside their worlds; give the guard its own
-fixture; leave the portal specs to their owner.
+**What stays in tools (2026-11-10):** besides shared code
+(`district_kit`, `district_scenery`, `scenery_overlay`, `check_flat_map`,
+the gate network) and the tool's examples: the hall of characters' spec and
+order, written by the package's catalog-driven `generate_hall_of_characters.py`
+(its room reproduces and is recorded as generated, so the hall can be made
+again when the catalog grows; its test checks the committed spec is current);
+`intro_raid_corridor_area.ron`, the fixture of `test_spec_brains_resolve.py`;
+and the portal labs' specs (the portal peer's). The symmetry room DIFFERS from
+its spec and is LDtk-owned; `gen_symmetry_room.py` and its spec were deleted
+(last at `83b5cdfa78`).
+
+**Next action:** none required by the acceptance below beyond the portal
+peer's specs; a generator's next `--apply` on a machine with the art
+publication is the check that each moved generator still makes its rooms.
 
 **Acceptance:** `tools/ambition_ldtk_tools/specs/` holds only shared code and
 checks; `level ownership status` names an owner for every room of every world.

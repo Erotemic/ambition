@@ -227,7 +227,7 @@ Not the cause: an LDtk version change (all worlds are `jsonVersion` 1.5.3,
   --prune-unused-tilesets`, `asset editor-art --in-place`), so sprite-sheet size
   changes reach the maps;
 - the whole-world generators (`author_*_ldtk.py`,
-  `generate_hall_of_characters.py`, `gen_symmetry_room.py`).
+  `generate_hall_of_characters.py`).
 
 Find the writer of each rewrite before you fix one: run each writer twice on
 an unchanged input and diff the second run.

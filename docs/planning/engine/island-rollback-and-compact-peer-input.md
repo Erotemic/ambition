@@ -791,8 +791,12 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    the device road the claim gates, and the harness resolves no seat
    contexts. Still one cutscene at a time: a second
    room's entry cutscene queued while one plays is dropped by the drain, as
-   before; and the cutscene does not yet rewind with its room (its flags and
-   seen flag are written straight to the save, undated).
+   before. **Its flags (2026-11-11, ISL-2d):** a cutscene's `SetFlag` beats
+   and its seen flag were written straight to the save; they now go through
+   `SetFlagRequested`, dated in the room it plays for, so a rewind of that
+   room takes them back with the quest steps they moved (a world cutscene's
+   stay undated). Witness: `a_room_cutscene_dates_its_flags_in_its_room`.
+   Still open: the playback itself does not rewind with its room.
 
    The last message on the list, `QuestAdvanceRequested` with no cause, now
    has one writer: `RoomEntered`, a crossing, which spans two rooms and

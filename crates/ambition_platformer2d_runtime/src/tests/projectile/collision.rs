@@ -100,16 +100,18 @@ fn a_shot_does_not_reach_a_body_in_another_live_room() {
     assert_eq!(health, max, "a shot hit a body in another live room");
 }
 
-/// The portal transit every body crosses by, after the stepper, as the
-/// schedule runs them: the stepper records the shot's leg and the transit
-/// takes the shot through a plane its centre crossed.
+/// Publish body geometry and apertures before motion, then settle portal state.
 #[cfg(feature = "portal")]
 fn with_the_portal_transit(app: &mut App) {
     app.init_resource::<ambition_portal2d::PortalTuning>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
-    app.add_systems(
-        Update,
+    app.add_systems(Update,(
+        ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_before_motion,
+        ambition_portal2d::publish_portal_apertures,
+    ).chain().before(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Update,
         ambition_portal2d::portal_transit.after(ambition_projectile_combat::step_projectiles),
     );
 }

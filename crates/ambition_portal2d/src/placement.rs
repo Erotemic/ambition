@@ -310,30 +310,32 @@ pub struct CrossingRefusal {
     pub reason: ae::frame::thread::RefusalReason,
 }
 
+impl PortalTransfer {
+    /// Sample one root transfer at its accepted crossing time.
+    pub fn at_crossing(crossing: PortalCrossing, center: Vec2, velocity: Vec2,
+        tuning: &PortalTuning,
+    ) -> Result<Self, ae::frame::NumericFault> {
+        let mut transfer=Self::from_apertures(crossing.root.point,velocity,
+            crossing.entry_channel,crossing.exit_channel,crossing.root.aperture,crossing.exit,tuning)?;
+        transfer.crossing_time=crossing.root.world_time;
+        transfer.crossing_point=crossing.root.point;
+        transfer.entry_pos=center;
+        transfer.exit_pos=transfer.map.point(center)?;
+        Ok(transfer)
+    }
+}
+
 fn transfer_step(
     crossing: PortalCrossing, center: Vec2, vel: Vec2, tuning: &PortalTuning,) -> TransitStep {
-    let enter = crossing.root.aperture;
-    let exit = crossing.exit;
-    let mut transfer = match PortalTransfer::from_apertures(crossing.root.point, vel,
-        crossing.entry_channel, crossing.exit_channel, enter, exit, tuning) {
-        Ok(transfer) => transfer,
-        Err(reason) => return TransitStep::Refused {
-            channel: Some(crossing.entry_channel), reason: ae::frame::thread::RefusalReason::Numeric(reason),
-        },
+    let transfer=match PortalTransfer::at_crossing(crossing,center,vel,tuning) {
+        Ok(transfer)=>transfer,
+        Err(reason)=>return TransitStep::Refused {channel:Some(crossing.entry_channel),
+            reason:ae::frame::thread::RefusalReason::Numeric(reason)},
     };
-    transfer.crossing_time = crossing.root.world_time;
-    transfer.crossing_point = crossing.root.point;
-    transfer.entry_pos = center;
-    transfer.exit_pos = match transfer.map.point(center) {
-        Ok(point) => point,
-        Err(reason) => return TransitStep::Refused {
-            channel: Some(crossing.entry_channel), reason: ae::frame::thread::RefusalReason::Numeric(reason),
-        },
-    };
-    let convention = tuning.convention.map_convention();
     TransitStep::Transfer {
         transfer,
-        input_warp: portal_input_warp_flips_horizontal_for_convention(convention, enter.frame.normal, exit.frame.normal),
+        input_warp: portal_input_warp_flips_horizontal_for_convention(tuning.convention.map_convention(),
+            transfer.enter.frame.normal,transfer.exit.frame.normal),
     }
 }
 

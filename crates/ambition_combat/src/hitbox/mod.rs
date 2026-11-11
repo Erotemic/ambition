@@ -703,18 +703,18 @@ fn turned_aside(
     strike: &[ae::frame::thread::VolumePiece],
     source: ae::Vec2,
     guards: &[CutGuard],
-    down: ae::Vec2,
-) -> Option<(u8, ae::Vec2)> {
-    guards.iter().find_map(|(guard, guard_pieces)| {
-        strike.iter().find_map(|sp| {
-            let gp = guard_pieces.iter().find(|gp| sp.meets(gp))?;
-            // Where the strike comes from, in the guard's chart.
-            let source = gp.uncarry(sp.carry(source).ok()?).ok()?;
-            guard
-                .covers(source, down)
-                .then(|| (guard.guard, midpoint(sp.center(), gp.center())))
-        })
-    })
+) -> Result<Option<(u8, ae::Vec2)>, ae::frame::thread::Refusal> {
+    let numeric = |fault| ae::frame::thread::Refusal { path: Vec::new(), link: None,
+        reason: ae::frame::thread::RefusalReason::Numeric(fault) };
+    for (guard, guard_pieces) in guards {
+        for sp in strike {
+            for gp in guard_pieces.iter().filter(|gp| sp.meets(gp)) {
+                let source = gp.uncarry(sp.carry(source).map_err(numeric)?).map_err(numeric)?;
+                if guard.covers(source)? { return Ok(Some((guard.guard, midpoint(sp.center(), gp.center())))); }
+            }
+        }
+    }
+    Ok(None)
 }
 
 /// Where a hit comes from: a placed volume's own centre, a carried one's
@@ -851,7 +851,6 @@ pub fn apply_hitbox_damage(
     // a composition with no portals: every volume is whole.
     passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) {
-    use ambition_platformer2d_core::frame::thread::VolumePiece;
     // Each victim's pieces, cut once a tick.
     let mut victim_pieces: std::collections::BTreeMap<Entity, ae::frame::thread::Partition> = std::collections::BTreeMap::new();
     // Each victim's guards, cut once a tick.
@@ -1066,10 +1065,18 @@ pub fn apply_hitbox_damage(
                         return VictimReach::Anywhere;
                     }
                     let hurt = victim.hurt_pieces(None, victim_room).into_iter().flatten().map(|piece| piece.world_volume().bounds());
-                    let guarded = turning
-                        .get(victim.entity)
-                        .into_iter()
-                        .flat_map(|turning| turning.pieces.iter().map(|guard| guard.volume));
+                    let guarded: Result<Option<ae::Aabb>, ae::frame::thread::Refusal> = turning
+                        .get(victim.entity).into_iter().flat_map(|turning| &turning.pieces)
+                        .try_fold(None, |bounds: Option<ae::Aabb>, guard| {
+                            let next = guard.world_volume()?.bounds();
+                            Ok(Some(bounds.map_or(next, |bounds| ae::Aabb {
+                                min: bounds.min.min(next.min), max: bounds.max.max(next.max),
+                            })))
+                        });
+                    let guarded = match guarded {
+                        Ok(bounds) => bounds,
+                        Err(_) => return VictimReach::Anywhere,
+                    };
                     hurt.chain(guarded)
                         .reduce(|a, b| ae::Aabb { min: a.min.min(b.min), max: a.max.max(b.max) })
                         .map_or(VictimReach::Nowhere, VictimReach::Within)
@@ -1097,11 +1104,7 @@ pub fn apply_hitbox_damage(
                                 .pieces
                                 .iter()
                                 .map(|guard| {
-                                    let volume = ae::CombatVolume::aabb(guard.volume);
-                                    let cut = match threaded {
-                                        Some(passages) => passages.pieces(&volume, PartSource::Body(victim.entity), victim.aabb.center, victim_room),
-                                        None => Ok(vec![VolumePiece::whole(volume)]),
-                                    };
+                                    let cut = guard.pieces(threaded, victim.entity, victim_room);
                                     cut.map(|pieces| (*guard, pieces))
                                 })
                                 .collect()
@@ -1109,7 +1112,6 @@ pub fn apply_hitbox_damage(
                     )
                 });
                 let Ok(guards_here) = guards_here else { continue; };
-                let down = victim.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
                 // ⭐ A GUARD IS ASKED BEFORE THE BODY. A strike that meets a
                 // guard from a side it covers is turned aside and reaches
                 // nothing behind it, whether or not it also reaches the body:
@@ -1121,10 +1123,10 @@ pub fn apply_hitbox_damage(
                 // first breaks through a guard by its contract, and the second
                 // only pushes.
                 let turned = if hitbox.meets_guard() {
-                    turned_aside(&pieces, spatial_source, guards_here, down)
-                } else {
-                    None
-                };
+                    match turned_aside(&pieces, spatial_source, guards_here) {
+                        Ok(turned) => turned, Err(_) => continue,
+                    }
+                } else { None };
                 // The piece of the strike that reaches a piece of the victim.
                 let reach = pieces
                     .iter()
@@ -1152,14 +1154,16 @@ pub fn apply_hitbox_damage(
                 // swing deflected and landed. A sibling that the guard turns
                 // aside has reached this body as surely as one that hits it.
                 if let Some(me) = ranked.iter().find(|ranked| ranked.entity == hitbox_entity) {
-                    let outranked = ranked.iter().any(|sibling| {
-                        sibling.owner == hitbox.owner
-                            && sibling.rank < me.rank
-                            && !sibling.exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity))
-                            && (sibling.pieces.iter().any(|sp| hurt.iter().any(|vp| sp.meets(vp)))
-                                || (sibling.meets_guard
-                                    && turned_aside(&sibling.pieces, sibling.source, guards_here, down).is_some()))
+                    let outranked = ranked.iter().try_fold(false, |outranked, sibling| {
+                        if outranked { return Ok(true); }
+                        if sibling.owner != hitbox.owner || sibling.rank >= me.rank
+                            || sibling.exclusions.is_some_and(|excluded| excluded.bodies.contains(&victim.entity)) {
+                            return Ok(false);
+                        }
+                        if sibling.pieces.iter().any(|sp| hurt.iter().any(|vp| sp.meets(vp))) { return Ok(true); }
+                        Ok(sibling.meets_guard && turned_aside(&sibling.pieces, sibling.source, guards_here)?.is_some())
                     });
+                    let Ok::<_, ae::frame::thread::Refusal>(outranked) = outranked else { continue; };
                     if outranked {
                         continue;
                     }

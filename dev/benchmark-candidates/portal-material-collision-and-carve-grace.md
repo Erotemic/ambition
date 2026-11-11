@@ -181,3 +181,22 @@ retires that later response. A reached rebound must fit every occupied material
 chart before any pose, bounce budget or combat write. Root finiteness alone
 does not prove carried velocity is representable. The numeric check and the
 next-tick separation witness serve different invariants; keep both.
+
+
+For motion after a root crossing, advance age and apply forces once before
+the leg loop. Each leg needs its own departure material and interval in the
+original tick clock. A contact query's local time is not the tick time.
+Prepare the crossing only after earlier terminal contacts have been selected.
+Commit through the common portal operation, then spend the unused time from
+the admitted exit pose and velocity. Do not reset a projectile's contact
+budget at each root. A refused later leg must retain the last admitted root
+and retire its sweep.
+
+
+A guard is canonical body material. Gravity alone does not give its accepted
+turn or parity. Keep the authored region, including the canonical feet
+offset, and project it with the body map. Partition that region directly.
+Test front and top coverage after mapping the strike source back through
+the contact path and root material. An AABB corner can be outside the guard;
+use that corner to check exact shape contact. Keep numerical refusals through
+coverage and ranked sibling selection.

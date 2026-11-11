@@ -343,6 +343,52 @@ pub struct PortalBodyTransited {
     pub input_warp: bool,
 }
 
+/// A root pose and its carried acceleration, checked before one commit.
+#[derive(Clone,Copy,Debug)]
+pub struct PreparedPortalTransfer {
+    body: BodyKinematics,
+    acceleration: Option<Vec2>,
+    transfer: super::placement::PortalTransfer,
+    input_warp: bool,
+}
+
+impl PreparedPortalTransfer {
+    pub fn new(body:BodyKinematics, acceleration:Option<Vec2>,
+        transfer:super::placement::PortalTransfer, input_warp:bool,
+    ) -> Result<Self,ae::frame::NumericFault> {
+        if !transfer.exit_pos.is_finite() || !transfer.exit_vel.is_finite() {
+            return Err(ae::frame::NumericFault::NonFinite);
+        }
+        let body=BodyKinematics {pos:transfer.exit_pos,vel:transfer.exit_vel,
+            material:body.material.carried(transfer.map)?,..body};
+        ae::frame::thread::map_volume(&body.canonical_box()?,&body.material_map()?)?;
+        let acceleration=acceleration.map(|value|transfer.map.vector(value)).transpose()?;
+        Ok(Self {body,acceleration,transfer,input_warp})
+    }
+
+    pub fn body(&self) -> &BodyKinematics { &self.body }
+    pub fn acceleration(&self) -> Option<Vec2> { self.acceleration }
+}
+
+/// Commit the same root state and event for every motion owner.
+pub fn commit_body_transfer(
+    commands:&mut Commands, entity:Entity, body:&mut BodyKinematics,
+    acceleration:Option<&mut CarriedAcceleration>, transit:Option<&mut PortalTransit>,
+    prepared:PreparedPortalTransfer, cooldown:f32,
+) {
+    if let Some((acceleration,mapped))=acceleration.zip(prepared.acceleration) {acceleration.0=mapped;}
+    *body=prepared.body;
+    commands.entity(entity).remove::<PortalBackside>().insert(PortalTransitCooldown {
+        remaining:cooldown,pair:prepared.transfer.exit_channel,
+    });
+    set_crossed(commands,entity,transit,prepared.transfer.exit_channel);
+    let event=PortalBodyTransited {body:entity,transfer:prepared.transfer,input_warp:prepared.input_warp};
+    commands.queue(move |world:&mut bevy::prelude::World| {
+        if let Some(mut log)=world.get_resource_mut::<ClassBRemapLog>() {log.record(entity,ClassBRemap::PortalTransit);}
+        world.write_message(event);
+    });
+}
+
 /// The generic transit algorithm: drive every body through a portal aperture
 /// with [`transit_step`]. The movement integrator sinks the body into the
 /// carved opening. It transfers when the centroid crosses (with rotated
@@ -384,9 +430,6 @@ pub fn portal_transit(
     frame_env: ambition_platformer2d_shared_tangle::frame_env::FrameEnv,
     tuning: Res<PortalTuning>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
-    mut transited: MessageWriter<PortalBodyTransited>,
-    // Optional: a minimal test app may not have it. Diagnostic only.
-    mut class_b: Option<ResMut<ClassBRemapLog>>,
     // The measurement trace names its tick; a minimal app may not count.
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
@@ -456,28 +499,23 @@ pub fn portal_transit(
             kin.vel.x,
             kin.vel.y
         );
-        let (mapped_acceleration, carried_run, mapped_material) = match step {
-            TransitStep::Transfer { transfer, .. } => {
-                let payload = (|| {
-                    let acceleration = acceleration.as_deref()
-                        .map(|acceleration| transfer.map.vector(acceleration.0)).transpose()?;
-                    let material = kin.material.carried(transfer.map)?;
-                    let destination = BodyKinematics { pos: transfer.exit_pos, material, ..*kin };
-                    let destination_side = frame_env.reference_basis(destination.aabb(), room).side;
-                    let source_side = frame.map_or_else(|| frame_env.reference_basis(kin.aabb(), room).side, |frame| frame.basis().side);
-                    let carried_run = flight.as_deref().map(|flight| {
-                        transfer.carried_run(source_side, destination_side, flight.carried_run)
-                    }).transpose()?;
-                    Ok::<_, ae::frame::NumericFault>((acceleration, carried_run, material))
+        let (prepared,carried_run)=match step {
+            TransitStep::Transfer {transfer,input_warp}=>{
+                let payload=(|| {
+                    let prepared=PreparedPortalTransfer::new(*kin,acceleration.as_deref().map(|a|a.0),transfer,input_warp)?;
+                    let destination_side=frame_env.reference_basis(prepared.body.aabb(),room).side;
+                    let source_side=frame.map_or_else(||frame_env.reference_basis(kin.aabb(),room).side,|frame|frame.basis().side);
+                    let run=flight.as_deref().map(|flight|transfer.carried_run(source_side,destination_side,flight.carried_run)).transpose()?;
+                    Ok::<_,ae::frame::NumericFault>((prepared,run))
                 })();
-                let Ok((mapped_acceleration, carried_run, material)) = payload else { continue; };
-                (mapped_acceleration, carried_run, Some(material))
+                let Ok((prepared,run))=payload else {continue;};
+                (Some(prepared),run)
             }
-            TransitStep::Refused { .. } => continue,
-            _ => (None, None, None),
+            TransitStep::Refused {..}=>continue,
+            _=>(None,None),
         };
-        let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
-        update_backside(&mut commands, entity, backside, crossing, all, kin.aabb());
+        let crossing=transit.is_some() || !matches!(step,TransitStep::Idle);
+        if prepared.is_none() {update_backside(&mut commands,entity,backside,crossing,all,kin.aabb());}
         match step {
             TransitStep::Idle | TransitStep::Continue | TransitStep::Refused { .. } => {}
             TransitStep::Begin {
@@ -491,43 +529,11 @@ pub fn portal_transit(
                 // An Ambition audio adapter plays the enter cue.
                 entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
             }
-            TransitStep::Transfer {
-                transfer,
-                input_warp,
-            } => {
-                if let Some((acceleration, mapped)) = acceleration.as_deref_mut().zip(mapped_acceleration) {
-                    acceleration.0 = mapped;
-                }
-                if let Some((flight, carried_run)) = flight.as_deref_mut().zip(carried_run) {
-                    flight.carried_run = carried_run;
-                }
-                kin.pos = transfer.exit_pos;
-                // Class-B transit authority (`docs/concepts/movement-collision.md`),
-                // recorded when the position is written. The CC3 oracle uses it
-                // to tell an aperture warp from a clip through solid geometry.
-                if let Some(log) = class_b.as_mut() {
-                    log.record(entity, ClassBRemap::PortalTransit);
-                }
-                kin.vel = transfer.exit_vel;
-                if let Some(material) = mapped_material { kin.material = material; }
-                // Latch the cooldown for this pair to stop ping-pong.
-                commands.entity(entity).insert(PortalTransitCooldown {
-                    remaining: tuning.teleport_cooldown_s,
-                    pair: transfer.exit_channel,
-                });
-                // The body straddles the exit now, however it got here: a
-                // rescue or a swept crossing that skipped `Begin` is drawn cut
-                // at the exit as a straddle is, until it clears.
-                set_crossed(&mut commands, entity, transit.as_deref_mut(), transfer.exit_channel);
-                // Ambition adapters read this event for the exit cue (at
-                // `exit_pos`), the trace message, and the player input bits
-                // (`PortalEmission`, `PortalInputWarp`).
-                transited.write(PortalBodyTransited {
-                    body: entity,
-                    transfer,
-                    input_warp,
-                });
-                bevy::log::info!(target: "ambition_platformer2d::portal", "transferred through the portal pair");
+            TransitStep::Transfer {..} => {
+                if let Some((flight,run))=flight.as_deref_mut().zip(carried_run) {flight.carried_run=run;}
+                commit_body_transfer(&mut commands,entity,&mut kin,acceleration.as_deref_mut(),
+                    transit.as_deref_mut(),prepared.unwrap(),tuning.teleport_cooldown_s);
+                bevy::log::info!(target:"ambition_platformer2d::portal","transferred through the portal pair");
             }
             TransitStep::Clear => {
                 commands.entity(entity).remove::<PortalTransit>();

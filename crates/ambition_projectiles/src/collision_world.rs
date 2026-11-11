@@ -24,6 +24,8 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     #[cfg(feature = "portal")]
     portals: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
     #[cfg(feature = "portal")]
+    tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
+    #[cfg(feature = "portal")]
     passages: Option<Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     /// The pair each shot is on the back of: it does not take the shot, so
     /// the shot's leg does not end at it (`first_portal_crossing`).
@@ -54,36 +56,9 @@ impl ProjectileCollisionWorld<'_, '_> {
         { None }
     }
 
-    /// Admit the complete swept material before the projectile commits its step.
     #[cfg(feature = "portal")]
-    pub fn admit_motion(
-        &self,
-        shot: Entity,
-        room: Option<LiveRoomInstance>,
-        before: ae::BodyKinematics,
-        after: ae::BodyKinematics,
-        time: std::ops::Range<f64>,
-        travel: ae::LinearTravel,
-        acceleration: ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
-    ) -> Result<(), ae::frame::thread::Refusal> {
-        let Some(admission) = self.motion_for(shot, room) else {
-            return Ok(());
-        };
-        if admission.links.is_empty() { return Ok(()); }
-        let map = before.material_map().map_err(|reason| ae::frame::thread::Refusal {
-            path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
-        })?;
-        let (delta, until) = travel.line(before.pos, after.pos).map_err(|reason| ae::frame::thread::Refusal {
-            path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::Numeric(reason),
-        })?;
-        let domain = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));
-        let source = ae::frame::material_cast::MaterialCast::new(
-            ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
-            before.pos,
-            delta,
-            time,
-        ).prefix(until)?;
-        admission.admit(source, after.vel, &[acceleration.0])
+    pub fn portal_tuning(&self) -> ambition_portal2d::PortalTuning {
+        self.tuning.as_deref().copied().unwrap_or_default()
     }
 
     /// The pair `shot` is on the back of, if any.

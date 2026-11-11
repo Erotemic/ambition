@@ -8,7 +8,8 @@ const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
 fn shield(faces: GuardFaces, facing: f32, open_above: bool) -> GuardPiece {
     GuardPiece {
         guard: 0,
-        volume: ae::Aabb {
+        material: Ok(ae::frame::Sim2::IDENTITY),
+        domain: ae::Aabb {
             min: ae::Vec2::new(10.0, 20.0),
             max: ae::Vec2::new(30.0, 100.0),
         },
@@ -27,19 +28,21 @@ fn a_guard_covers_its_front_and_not_its_back_or_over_its_top() {
     let ahead = ae::Vec2::new(60.0, 60.0);
     let behind = ae::Vec2::new(-20.0, 60.0);
     let above = ae::Vec2::new(60.0, 0.0);
-    assert!(front.covers(ahead, DOWN), "a strike from the front is turned");
-    assert!(!front.covers(behind, DOWN), "a strike from behind gets past");
-    assert!(!front.covers(above, DOWN), "a strike from above its top goes over it");
-    assert!(shield(GuardFaces::Front, 1.0, false).covers(above, DOWN), "a guard closed above turns it");
+    assert!(front.covers(ahead).unwrap(), "a strike from the front is turned");
+    assert!(!front.covers(behind).unwrap(), "a strike from behind gets past");
+    assert!(!front.covers(above).unwrap(), "a strike from above its top goes over it");
+    assert!(shield(GuardFaces::Front, 1.0, false).covers(above).unwrap(), "a guard closed above turns it");
     // Facing the other way, its front is the other side.
-    assert!(shield(GuardFaces::Front, -1.0, true).covers(behind, DOWN));
-    assert!(!shield(GuardFaces::Front, -1.0, true).covers(ahead, DOWN));
+    assert!(shield(GuardFaces::Front, -1.0, true).covers(behind).unwrap());
+    assert!(!shield(GuardFaces::Front, -1.0, true).covers(ahead).unwrap());
     let around = shield(GuardFaces::Around, 1.0, true);
-    assert!(around.covers(ahead, DOWN) && around.covers(behind, DOWN));
-    // Under gravity that points up, "above" is the other way.
-    let up = ae::Vec2::new(0.0, -1.0);
-    assert!(!shield(GuardFaces::Around, 1.0, true).covers(ae::Vec2::new(20.0, 120.0), up));
-    assert!(shield(GuardFaces::Around, 1.0, true).covers(ae::Vec2::new(20.0, 60.0), up));
+    assert!(around.covers(ahead).unwrap() && around.covers(behind).unwrap());
+    let inverted = GuardPiece {
+        material: Ok(ae::frame::Sim2::new(1.0, -bevy::math::Mat2::IDENTITY, ae::Vec2::new(40.0, 120.0)).unwrap()),
+        ..around
+    };
+    assert!(!inverted.covers(ae::Vec2::new(20.0, 120.0)).unwrap());
+    assert!(inverted.covers(ae::Vec2::new(20.0, 60.0)).unwrap());
 }
 
 fn spec(breaks: Option<GuardBreak>) -> GuardSpec {

@@ -73,7 +73,7 @@ pub use placement::{
 };
 pub use passages::{linked_pairs, publish_portal_apertures, publish_portal_passages};
 pub use transit::{
-    portal_transit, portals_or_transits, publish_portal_carves,
+    portal_transit, portals_or_transits, publish_portal_carves, commit_body_transfer, PreparedPortalTransfer,
     reconcile_transited_bodies,
     tick_portal_cooldowns, BodyTeleported, PortalBodyTransited, PortalCarves, PortalHole,
     PortalBackside, PortalEmission, PortalInputWarp, PortalTransit,

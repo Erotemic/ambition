@@ -11,6 +11,8 @@ use crate::Vec2;
 #[derive(Clone, Debug, PartialEq)]
 pub struct SampledPieceHit {
     pub toi: f64,
+    /// Contact time in the world tick, independent of the current motion leg.
+    pub world_time: f64,
     pub point: Vec2,
     /// Direction from the sampled target into the moving polygon.
     pub normal: Vec2,
@@ -83,6 +85,7 @@ impl MaterialCastCells<'_> {
             let point=super::curved::intersection(target.source(),&region).unwrap_or(hit.point);
             let contact = SampledPieceHit {
                 toi: time,
+                world_time: self.time.start+(self.time.end-self.time.start)*time,
                 point: target.transform().point_from_wide(point).map_err(numeric)?,
                 normal: -target.transform().direction(hit.normal.as_vec2()).normalize_or_zero(),
                 source_path: part.path.clone(),

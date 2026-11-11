@@ -773,6 +773,7 @@ pub struct HostileWieldedItemsView(pub Vec<HostileWieldedItemFact>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostileWieldedItemFact {
+    pub pos: ae::Vec2,
     pub support: Option<SupportedCarryFact>,
     pub item_id: String,
     pub hand_world: ae::Vec2,
@@ -830,6 +831,7 @@ pub fn rebuild_hostile_wielded_items_view(
             + held_item_world_aim(control.map(|control| &control.0), kin.facing, basis)
                 * wielder_height;
         view.0.push(HostileWieldedItemFact {
+            pos: kin.pos,
             support: supported_carry_fact(&positions, &landmarks, &features, entity, down),
             item_id: held_item.id().to_owned(),
             hand_world,

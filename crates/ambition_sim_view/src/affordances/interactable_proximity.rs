@@ -165,8 +165,8 @@ pub fn update_nearest_interactable(
     }
 }
 
-/// What ONE body's press reaches, in the priority order the buffered
-/// interact systems fire in. `door` is the distance to the door the body
+/// What ONE body's press reaches, in the order the buffered interact systems
+/// fire in. `door` is the distance to the door the body
 /// stands in, if any: a door the press is for takes it from a body to talk
 /// to ([`InteractReach::a_door_keeps_the_press`]), and the prompt then names
 /// what else the press reaches.
@@ -181,33 +181,37 @@ fn variant_in_reach(
     chests: &Chests,
     switches: &Switches,
 ) -> InteractVariant {
-    // Talkable actors first — `Talk` is the most common contextual swap and the
-    // one players need feedback on while approaching dialog. A talkable actor
-    // carries `ActorInteraction`; a provoked one keeps it but flips to
-    // `Hostile`, so the disposition gate drops it out of the prompt.
-    for (entity, aabb, disposition, _interaction, health, out_of_play, plane, requires_facing) in actors {
-        // A hostile actor drops out of the Talk prompt; a dead one is an
-        // intangible corpse and offers no prompt.
-        if disposition.is_hostile()
-            || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
-        {
-            continue;
-        }
-        if reach.can_talk_to(rooms.of(entity), aabb, requires_facing)
-            && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
-        {
-            return InteractVariant::Talk;
-        }
+    // The order the press fires in: the nearer of a body to talk to and a
+    // switch (`InteractReach::preference`, as `interact_ecs_actors_and_switches`
+    // ranks them), then a chest, whose system takes only a press nothing else
+    // took. A talkable actor carries `ActorInteraction`; a provoked one keeps
+    // it but flips to `Hostile`, so the disposition gate drops it out, and a
+    // dead one is an intangible corpse.
+    let talker = actors
+        .iter()
+        .filter(|(entity, aabb, disposition, _interaction, health, out_of_play, plane, requires_facing)| {
+            !disposition.is_hostile()
+                && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
+                && reach.can_talk_to(rooms.of(*entity), aabb, *requires_facing)
+                && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
+        })
+        .map(|(_, aabb, ..)| reach.preference(aabb.center))
+        .min_by(f32::total_cmp);
+    let switch = switches
+        .iter()
+        .filter(|(entity, aabb, requires_facing)| reach.touches(rooms.of(*entity), aabb, *requires_facing))
+        .map(|(_, aabb, _)| reach.preference(aabb.center))
+        .min_by(f32::total_cmp);
+    match (talker, switch) {
+        (Some(talker), Some(switch)) if switch < talker => return InteractVariant::Activate,
+        (Some(_), _) => return InteractVariant::Talk,
+        (None, Some(_)) => return InteractVariant::Activate,
+        (None, None) => {}
     }
     for (entity, aabb, opened, falling) in chests {
         // A chest has no facing gate: its spec has no `requires_facing`.
         if opened.is_none() && !falling && reach.touches(rooms.of(entity), aabb, false) {
             return InteractVariant::Open;
-        }
-    }
-    for (entity, aabb, requires_facing) in switches {
-        if reach.touches(rooms.of(entity), aabb, requires_facing) {
-            return InteractVariant::Activate;
         }
     }
     InteractVariant::None

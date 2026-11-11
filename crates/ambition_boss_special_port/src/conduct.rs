@@ -366,6 +366,38 @@ impl Port for BossGuardPort {
     }
 }
 
+/// The request port marker for the least health a boss's hits can leave it.
+///
+/// * **Value** — [`BossHealthFloor`]: `floor` is the health no hit takes it
+///   below (`0`: none, a lethal hit kills). A conductor that stages a finish
+///   (a last stand, a finishing cutscene) holds its boss at `1`, plays it,
+///   and drops the floor for the blow that ends it. Holds until changed.
+/// * **Owner** — `ambition_boss_encounter::extension`
+///   (`BossEncounter::health_floor`).
+/// * **Scope** — the boss the invocation ran for. A scope that is not a boss
+///   is refused.
+/// * **Time** — `boss_conduct`, this tick: before combat reads it.
+pub struct BossHealthFloorPort;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BossHealthFloor {
+    pub floor: i32,
+}
+
+impl Port for BossHealthFloorPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.health_floor", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = BossHealthFloor;
+
+    fn encode(v: &BossHealthFloor, out: &mut Vec<u8>) {
+        wire::put_i32(out, v.floor);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<BossHealthFloor, WireError> {
+        Ok(BossHealthFloor { floor: r.i32()? })
+    }
+}
+
 /// The request port marker for a boss's size.
 ///
 /// Port card:

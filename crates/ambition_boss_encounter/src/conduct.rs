@@ -774,6 +774,18 @@ pub fn lower_boss_guards(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<
     }
 }
 
+/// Lower `ambition.boss.health_floor` into the boss's `BossEncounter::health_floor`.
+pub fn lower_boss_health_floors(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<&mut BossEncounter>) {
+    for submitted in outbox.drain::<ambition_boss_special_port::BossHealthFloorPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
+        if let Ok(mut status) = bosses.get_mut(submitted.scope) {
+            let floor = submitted.value.floor.max(0);
+            if status.health_floor != floor {
+                status.health_floor = floor;
+            }
+        }
+    }
+}
+
 /// Lower `ambition.boss.scale`: build each boss at the scale its conductor
 /// states ([`crate::BossMut::rescale`]). A scope that is not a boss is refused.
 pub fn lower_boss_scales(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,

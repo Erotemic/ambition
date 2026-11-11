@@ -79,7 +79,7 @@ or updating their source. Check with
 
 **Measured 2026-11-10 (ISL-2e):** a hosted world that predicts its guest and rewinds only his room on a late input ends where an on-time run ends, at 9.4–16.3 ms of host update a frame (the late-applying host: 8.4–9.9; each GGRS peer: 33–48) ([result](engine/island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
 
-**Next action:** make the room rollback host production code once the hosted world has a production input path (NA-2b's guest App and transport; until then the rewind has no caller but tests): per-room input history, prediction, a rewind on a late input, the shared clock and message channels, the world-write retraction of ISL-2d. Meanwhile: ISL-2c (the hit on an NPC is done: `a_rewound_room_hurts_its_enemy_again`; an NPC life's ledger writes are done 2026-11-11: the rows mirror the rewound life, and the bookings a room's bodies add are taken back by its rewind); ISL-1b, the remaining couplings, each with a witness that an event in one room leaves the other unchanged: the cutscene's playback under a room rewind, and the conversation's grants and sales (done 2026-11-11: a room's cutscene holds only its own room's players, `ActiveCutscene::room`, and dates its flags in its room; bullet time slows Player 1's room only, a room's hold and clock scale rewind with the room on its root's `RoomPace`, and a room's rewind puts back the conversation it had, `ConversationsInRooms`).
+**Next action:** make the room rollback host production code once the hosted world has a production input path (NA-2b's guest App and transport; until then the rewind has no caller but tests): per-room input history, prediction, a rewind on a late input, the shared clock and message channels, the world-write retraction of ISL-2d. Meanwhile: ISL-2c (the hit on an NPC is done: `a_rewound_room_hurts_its_enemy_again`; an NPC life's ledger writes are done 2026-11-11: the rows mirror the rewound life, and the bookings a room's bodies add are taken back by its rewind); ISL-1b, the remaining couplings, each with a witness that an event in one room leaves the other unchanged: the cutscene's playback under a room rewind (done 2026-11-11: a conversation's grants and sales are its seat's, paid from that body's wallet and dated in its room; a room's cutscene holds only its own room's players, `ActiveCutscene::room`, and dates its flags in its room; bullet time slows Player 1's room only, a room's hold and clock scale rewind with the room on its root's `RoomPace`, and a room's rewind puts back the conversation it had, `ConversationsInRooms`).
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
 
@@ -1028,6 +1028,13 @@ re-run):** `companion_dog::the_dog_climbs_to_a_player_who_stands_far_away_on_the
 ("rose 0 px"). Older than the ISL-1b work. Not classified: the checkouts kept
 today's map submodule, so a map change under an older test is the first
 suspect.
+
+**Red at 13ca8d5c34 and every later commit checked (2026-11-11, checked out
+and re-run):**
+`death_restores_the_checkpoint::a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers`
+fails its control ("Bob holds the gun-sword Alice put down, next door":
+`(0, 0, 1, "Placed")`, the sword still placed). Older than the ISL-1b
+work; not classified.
 
 **Red guard reported to the portal owner (2026-11-11):**
 `check_session_authority_none_arms.py` is red on

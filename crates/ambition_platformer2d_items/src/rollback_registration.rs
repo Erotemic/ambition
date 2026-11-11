@@ -14,7 +14,7 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
     registrar.rollback_resource_clone_checksum::<crate::narrative::BagUsesInRooms>(
         OWNER,
         "item.bag_uses_in_rooms",
-        "the cells bodies used from the shared bag within the rewind horizon, with the room and tick of each, which a room rewind puts back (ISL-2d)",
+        "the cells bodies used from the shared bag, and what a room's conversation added to it or sold from it, within the rewind horizon, with the room and tick of each, which a room rewind takes back (ISL-2d)",
         crate::narrative::BagUsesInRooms::checksum,
     );
     registrar.rollback_component_clone::<crate::pickups::PickupCollectLock>(

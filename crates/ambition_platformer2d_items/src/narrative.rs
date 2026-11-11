@@ -20,14 +20,44 @@ use ambition_characters::actor::BodyWallet;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_items::{shop::ShopTransactionRequested, ItemGrantRequested, OwnedItems};
 
+/// The room a narrative request is the act of, and the tick: its seat's
+/// body's room (ISL-2d). `None` when no seat is named, or its body is in no
+/// room, or there is no log to keep it in.
+fn narrative_write(
+    participant: Option<PlayerSlot>,
+    drivers: &Query<(Entity, &DrivingParticipant)>,
+    rooms: &Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    tick: Option<&ambition_time::SimTick>,
+) -> Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite> {
+    let body = driven_body(participant?, drivers)?;
+    let room = rooms.get(body).ok()?.0;
+    Some(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick?.0 })
+}
+
 /// Grant what a conversation gave. (sim)
+///
+/// Dated in the room of the seat whose conversation gave it, so a rewind of
+/// that room takes the grant back (ISL-2d) and its replay gives it again.
 pub fn apply_item_grants(
     mut requests: MessageReader<ItemGrantRequested>,
     mut owned: ResMut<OwnedItems>,
     items: ambition_items::ItemCatalogRead,
+    (drivers, rooms, tick, mut log): (
+        Query<(Entity, &DrivingParticipant)>,
+        Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<Res<ambition_time::SimTick>>,
+        Option<ResMut<BagUsesInRooms>>,
+    ),
 ) {
     for request in requests.read() {
+        let before = owned.count(request.item);
         owned.grant(items.get(), request.item, request.count);
+        let gained = owned.count(request.item) - before;
+        if let (Some(written), Some(log)) =
+            (narrative_write(request.participant, &drivers, &rooms, tick.as_deref()), log.as_deref_mut())
+        {
+            log.record_gain(written, request.item, gained);
+        }
         info!(
             target: "crate::narrative",
             "give_item: granted {}x {:?}", request.count, request.item,
@@ -37,22 +67,45 @@ pub fn apply_item_grants(
 
 /// Run what a merchant conversation agreed to. (sim)
 ///
-/// The wallet is the PRIMARY player's, which is what a merchant node means: a
-/// price quoted in a text box is quoted to the person reading it.
+/// The wallet is the one of the seat whose conversation it is (its input
+/// owner): a price quoted in a text box is quoted to the person reading it.
+/// A request that names no seat is the primary player's. What the bag gains
+/// or gives up is dated in that body's room (ISL-2d); the wallet is on the
+/// body, so a rewind of its room puts the wallet back with it.
 pub fn apply_shop_transactions(
     mut requests: MessageReader<ShopTransactionRequested>,
     mut owned: ResMut<OwnedItems>,
-    mut wallets: Query<
-        &mut BodyWallet,
-        With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-    >,
+    mut wallets: Query<&mut BodyWallet>,
+    primary: Query<Entity, (With<BodyWallet>, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>)>,
     items: ambition_items::ItemCatalogRead,
+    (drivers, rooms, tick, mut log): (
+        Query<(Entity, &DrivingParticipant)>,
+        Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<Res<ambition_time::SimTick>>,
+        Option<ResMut<BagUsesInRooms>>,
+    ),
 ) {
-    let Ok(mut wallet) = wallets.single_mut() else {
-        return;
-    };
     for request in requests.read() {
+        let payer = match request.participant {
+            Some(participant) => driven_body(participant, &drivers),
+            None => primary.single().ok(),
+        };
+        let Some(mut wallet) = payer.and_then(|payer| wallets.get_mut(payer).ok()) else {
+            continue;
+        };
+        let before = owned.count(request.item);
         let outcome = request.apply(&mut wallet, &mut owned, items.get());
+        let after = owned.count(request.item);
+        if let (Some(written), Some(log)) =
+            (narrative_write(request.participant, &drivers, &rooms, tick.as_deref()), log.as_deref_mut())
+        {
+            if after > before {
+                log.record_gain(written, request.item, after - before);
+            }
+            for _ in after..before {
+                log.record(written, request.item);
+            }
+        }
         info!(
             target: "crate::narrative",
             "{:?} {:?} @ {} -> {outcome:?} (balance now {})",
@@ -69,13 +122,16 @@ pub const MANA_CELL_RESTORE: f32 = 40.0;
 /// The cells bodies used from the shared bag, with the room each body was in
 /// and the tick (ISL-2d): a rewind of that room puts each back in the bag,
 /// since the use's effect is on the body, which the room's snapshot rewound,
-/// and its replay uses again what it uses again. Kept within the rewind
-/// horizon ([`ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS`]).
+/// and its replay uses again what it uses again. And what a conversation in
+/// a room added to the bag (a grant, a purchase), which the rewind takes
+/// back; a sale's item is a use. Kept within the rewind horizon
+/// ([`ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS`]).
 ///
 /// Rollback state with a real value: a use writes it on a tick.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct BagUsesInRooms {
     uses: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, ambition_items::Item)>,
+    gains: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, ambition_items::Item, u32)>,
 }
 
 impl BagUsesInRooms {
@@ -83,6 +139,19 @@ impl BagUsesInRooms {
     pub fn record(&mut self, at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, item: ambition_items::Item) {
         self.uses.retain(|(written, _)| !written.beyond_the_horizon(at.tick));
         self.uses.push((at, item));
+    }
+
+    /// Remember `count` of `item` a room's conversation added to the bag.
+    pub fn record_gain(
+        &mut self,
+        at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite,
+        item: ambition_items::Item,
+        count: u32,
+    ) {
+        self.gains.retain(|(written, ..)| !written.beyond_the_horizon(at.tick));
+        if count > 0 {
+            self.gains.push((at, item, count));
+        }
     }
 
     /// `room` rewinds to `saved_at`: take out the uses it made after that tick
@@ -101,6 +170,22 @@ impl BagUsesInRooms {
         taken.into_iter().map(|(_, item)| item).collect()
     }
 
+    /// `room` rewinds to `saved_at`: take out what its conversations added
+    /// after that tick, and return it, so it leaves the bag.
+    pub fn retract_room_gains(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) -> Vec<(ambition_items::Item, u32)> {
+        if !self.gains.iter().any(|(written, ..)| written.retracted_by(room, saved_at)) {
+            return Vec::new();
+        }
+        let (taken, kept): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.gains).into_iter().partition(|(written, ..)| written.retracted_by(room, saved_at));
+        self.gains = kept;
+        taken.into_iter().map(|(_, item, count)| (item, count)).collect()
+    }
+
     /// Entity-free value projection.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u64};
@@ -110,6 +195,13 @@ impl BagUsesInRooms {
             put_u64(&mut bytes, u64::from(written.room.ordinal()));
             put_u64(&mut bytes, written.tick);
             put_u64(&mut bytes, item.index() as u64);
+        }
+        put_u64(&mut bytes, self.gains.len() as u64);
+        for (written, item, count) in &self.gains {
+            put_u64(&mut bytes, u64::from(written.room.ordinal()));
+            put_u64(&mut bytes, written.tick);
+            put_u64(&mut bytes, item.index() as u64);
+            put_u64(&mut bytes, u64::from(*count));
         }
         checksum_bytes(&bytes)
     }
@@ -253,6 +345,7 @@ mod tests {
         app.add_systems(Update, apply_item_grants);
 
         app.world_mut().write_message(ItemGrantRequested {
+            participant: None,
             item: Item::HealthCell,
             count: 2,
         });
@@ -279,6 +372,7 @@ mod tests {
         ));
 
         app.world_mut().write_message(ShopTransactionRequested {
+            participant: None,
             item: Item::HealthCell,
             price: 10,
             side: ShopSide::Buy,
@@ -298,6 +392,7 @@ mod tests {
 
         // the poison: a price the player cannot meet must move neither.
         app.world_mut().write_message(ShopTransactionRequested {
+            participant: None,
             item: Item::HealthCell,
             price: 5_000,
             side: ShopSide::Buy,
@@ -308,6 +403,61 @@ mod tests {
             1,
             "an unaffordable purchase handed over the goods anyway"
         );
+    }
+
+    /// A sale in Bob's conversation pays Bob's wallet, not Player 1's; and
+    /// with the rooms logged, the bag's changes are dated in his room, so a
+    /// rewind of it takes back the purchase and puts back the sold item
+    /// (ISL-2d).
+    #[test]
+    fn a_merchant_deals_with_the_seat_whose_conversation_it_is() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let (alices, bobs) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+        let mut app = App::new();
+        app.insert_resource(ambition_items::test_item_catalog().clone());
+        app.insert_resource(ambition_time::SimTick(7));
+        let mut owned = OwnedItems::default();
+        owned.grant(ambition_items::test_item_catalog(), Item::ManaCell, 1);
+        app.insert_resource(owned);
+        app.init_resource::<BagUsesInRooms>();
+        app.add_message::<ShopTransactionRequested>();
+        app.add_systems(Update, apply_shop_transactions);
+        let alice = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+                BodyWallet { balance: 30 },
+                DrivingParticipant(PlayerSlot(0)),
+                InRoomInstance(alices),
+            ))
+            .id();
+        let bob = app
+            .world_mut()
+            .spawn((BodyWallet { balance: 30 }, DrivingParticipant(PlayerSlot(1)), InRoomInstance(bobs)))
+            .id();
+        // Two prices, so the two sides cannot cancel on the wrong wallet.
+        for (item, price, side) in [(Item::HealthCell, 10, ShopSide::Buy), (Item::ManaCell, 4, ShopSide::Sell)] {
+            app.world_mut().write_message(ShopTransactionRequested {
+                participant: Some(PlayerSlot(1)),
+                item,
+                price,
+                side,
+            });
+        }
+        app.update();
+        let balance = |app: &App, body| app.world().get::<BodyWallet>(body).map(|wallet| wallet.balance);
+        assert_eq!(balance(&app, alice), Some(30), "Player 1 paid for Bob's purchase");
+        assert_eq!(balance(&app, bob), Some(24), "Bob's wallet did not pay 10 and take 4");
+        let bag = |app: &App| {
+            let owned = app.world().resource::<OwnedItems>();
+            (owned.count(Item::HealthCell), owned.count(Item::ManaCell))
+        };
+        assert_eq!(bag(&app), (1, 0), "premise: the purchase and the sale moved the bag");
+
+        let mut log = app.world_mut().resource_mut::<BagUsesInRooms>();
+        assert!(log.retract_room(alices, 6).is_empty() && log.retract_room_gains(alices, 6).is_empty(), "Alice's room took Bob's deal back");
+        assert_eq!(log.retract_room(bobs, 6), [Item::ManaCell], "Bob's room did not put back the item he sold");
+        assert_eq!(log.retract_room_gains(bobs, 6), [(Item::HealthCell, 1)], "Bob's room did not take back what he bought");
     }
 
     #[test]

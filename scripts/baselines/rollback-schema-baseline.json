@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v454",
+    "version": "ggrs-rollback-schema-v455",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -99,7 +99,7 @@
       "feature.consumed_since_checkpoint\tresource-clone-custom-checksum\tConsumedSinceCheckpoint\tbevy_ggrs clone snapshot + the one-time pickups consumed and the authored chests opened since the last checkpoint, with their room and whose horizons own each (Q151)",
       "feature.world_time_schedule\tcomponent-clone-custom-checksum\tWorldTimeSchedule\tbevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
       "frame_env.force_zone\tcomponent-canonical\tForceZone",
-      "item.bag_uses_in_rooms\tresource-clone-custom-checksum\tBagUsesInRooms\tbevy_ggrs clone snapshot + the cells bodies used from the shared bag within the rewind horizon, with the room and tick of each, which a room rewind puts back (ISL-2d)",
+      "item.bag_uses_in_rooms\tresource-clone-custom-checksum\tBagUsesInRooms\tbevy_ggrs clone snapshot + the cells bodies used from the shared bag, and what a room's conversation added to it or sold from it, within the rewind horizon, with the room and tick of each, which a room rewind takes back (ISL-2d)",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "portal.held_pairs\tcomponent-clone-cursor\tHeldPortalPairs",

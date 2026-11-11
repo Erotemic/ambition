@@ -388,9 +388,9 @@ tick in `BagUsesInRooms` (rollback state, `item.bag_uses_in_rooms`, bounded by
 the rewind horizon) and put back by its retractor; witness
 `a_rewound_room_puts_back_the_cell_its_replay_does_not_use`, with an ignored
 control. A **conversation's grant** and a **shop transaction**
-(`apply_item_grants`, `apply_shop_transactions`) are consequences of the one
-conversation, an ISL-1b coupling, not of a room: they wait for the
-conversation to be a room's. The census's "conditions' take" was a test's
+(`apply_item_grants`, `apply_shop_transactions`) waited for the
+conversation to be a room's; done 2026-11-11 (see "Its grants and sales"
+under ISL-1b below). The census's "conditions' take" was a test's
 (`conditions.rs`'s test module), not a writer.
 
 **Boss defeats (2026-11-10):** each defeat record carries the tick it fell
@@ -771,10 +771,20 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    the text box is one; two at once need a box per view. A participant
    despawned and re-created by the room restore comes back as a new entity,
    which the restored conversation does not name, so the continuity rule
-   ends it. The conversation's grants and sales (`ItemGrantRequested`,
-   `ShopTransactionRequested`) come from the Yarn runner, which is
-   presentation and does not rewind; dating them in the conversation's room
-   is the next step.
+   ends it. **Its grants and sales (2026-11-11, ISL-2d):**
+   `ItemGrantRequested` and `ShopTransactionRequested` now name the seat
+   whose conversation made them (its input owner, filled when the Yarn
+   command runs). A sale is paid from that seat's body's wallet (it was
+   always Player 1's, so Bob buying from a merchant in his room spent
+   Alice's coins), and the bag's change is dated in that body's room in
+   `BagUsesInRooms` (a purchase or grant as a gain, a sale's item as a use;
+   schema 455), so a rewind of the room takes it back. The wallet is on the
+   body and rewinds with the room. Witnesses:
+   `a_merchant_deals_with_the_seat_whose_conversation_it_is` (red with the
+   payer poisoned back to Player 1, after a first cut whose buy and sell at
+   one price cancelled on either wallet) and
+   `a_rewound_room_takes_back_the_grant_its_conversation_gave`, with an
+   ignored control.
 
    **The one cutscene (2026-11-11, ISL-1b):** a playing cutscene captured
    every participant's input, so a room's entry cutscene (or a boss's intro)

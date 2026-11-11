@@ -278,6 +278,7 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
     // Granted through the channel `<<give_item>>` uses, then mirrored into the
     // save by the shipped `persist_inventory_to_save`.
     sim.world_mut().write_message(ItemGrantRequested {
+        participant: None,
         item: COUNTED_ITEM,
         count: 1,
     });
@@ -536,6 +537,7 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
 
     // ── the entitlement, conferred with NO object behind it ──────────────────
     sim.world_mut().write_message(ItemGrantRequested {
+        participant: None,
         item: COUNTED_ITEM,
         count: 1,
     });
@@ -619,6 +621,7 @@ fn a_load_then_a_death_keeps_what_the_file_remembered() {
     // Something the file remembers, through the channel the game uses.
     sim.world_mut()
         .write_message(ambition_platformer2d::item::ItemGrantRequested {
+            participant: None,
             item: COUNTED_ITEM,
             count: 1,
         });

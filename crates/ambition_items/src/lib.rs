@@ -499,6 +499,10 @@ pub fn ability_in_effect(
 pub struct ItemGrantRequested {
     pub item: Item,
     pub count: u32,
+    /// The seat whose conversation gave it (its input owner): the grant is
+    /// that seat's body's room's act, which a rewind of the room takes back
+    /// (ISL-2d). `None` for a grant no seat's conversation made.
+    pub participant: Option<ambition_characters::control::PlayerSlot>,
 }
 
 /// Simulation request to equip an owned item on a participant's body: an

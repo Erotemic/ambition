@@ -360,17 +360,23 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             crate::effect_bus::retract_room_quest_causes,
         );
         // The cells used from the bag: a rewound room puts back those its
-        // bodies used after the tick it was saved at (ISL-2d).
+        // bodies used after the tick it was saved at, and takes out what its
+        // conversations added to it (ISL-2d).
         app.init_resource::<ambition_platformer2d_items::narrative::BagUsesInRooms>();
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.bag_uses_in_rooms",
             |world, room, saved_at| {
                 // Installed above, with this retractor.
-                let items = world.resource_mut::<ambition_platformer2d_items::narrative::BagUsesInRooms>().retract_room(room, saved_at);
+                let mut log = world.resource_mut::<ambition_platformer2d_items::narrative::BagUsesInRooms>();
+                let (items, gains) = (log.retract_room(room, saved_at), log.retract_room_gains(room, saved_at));
                 if let Some(mut bag) = world.get_resource_mut::<ambition_items::OwnedItems>() {
                     for item in items {
                         bag.put_back(item, 1);
+                    }
+                    // What a conversation in the room added leaves again.
+                    for (item, count) in gains {
+                        bag.take(item, count);
                     }
                 }
             },

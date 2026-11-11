@@ -258,7 +258,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 452 -> 453: the conversation's changes are logged in their rooms for a
 // room's rewind.
 // 453 -> 454: a playing cutscene keeps the room it plays for.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 454;
+// 454 -> 455: the bag log keeps what a room's conversation added to the
+// bag.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 455;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

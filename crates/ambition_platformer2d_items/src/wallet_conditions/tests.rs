@@ -157,6 +157,7 @@ fn the_question_and_the_transaction_agree_on_every_authored_price() {
         let mut wallet = BodyWallet { balance: 25 };
         let mut owned = OwnedItems::default();
         let outcome = ShopTransactionRequested {
+            participant: None,
             item: Item::HealthCell,
             price: coins,
             side: ShopSide::Buy,

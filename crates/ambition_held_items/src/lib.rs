@@ -42,8 +42,6 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms};
-#[cfg(feature = "portal")]
-use ambition_portal2d::{OwnedPortalGunPair, PortalGun};
 
 /// The pressed-collectible domain's plugin: the schedule it owns and the
 /// systems that fill it. See the module doc for what the kernel keeps.
@@ -186,19 +184,6 @@ impl Plugin for HeldItemSimulationPlugin {
                     .chain()
                     .in_set(HeldItemStep::Residency),
             ),
-        );
-
-        // Portal-gun ground pickups: arm the LDtk-authored pickup here; the
-        // Ambition inventory grant (`pickup_portal_gun_system`) is registered
-        // by the content layer (`AmbitionPortalAdaptersPlugin`), ordered
-        // `.after(arm_portal_pickups)` inside this same set so the chain edge
-        // is preserved without this generic crate naming content.
-        #[cfg(feature = "portal")]
-        app.add_systems(
-            sim,
-            ambition_portal2d::arm_portal_pickups
-                .in_set(ambition_portal2d::PortalPickupArming)
-                .in_set(ItemPickupSet::CoreHeldItems),
         );
     }
 }
@@ -1357,9 +1342,9 @@ pub fn take_ground_item(
     commands.entity(item).insert((resting, ae::SweepSample::at_tick_end(resting, Vec2::ZERO)));
 }
 
-/// Empty a body's hand of whatever it holds — a held item, the portal gun, or
-/// both — as ONE transition, so the repertoire is folded once for the hand it is
-/// left with rather than once per queued removal.
+/// Empty a body's hand of whatever it holds as ONE transition, so the
+/// repertoire is folded once for the hand it is left with rather than once per
+/// queued removal.
 pub fn empty_hand(
     commands: &mut Commands,
     player: Entity,
@@ -1367,32 +1352,24 @@ pub fn empty_hand(
 ) {
     repertoire.refold(ambition_characters::repertoire::Hand::Empty);
     commands.entity(player).remove::<(HeldItem, SupportedCarry)>();
-    #[cfg(feature = "portal")]
-    commands.entity(player).remove::<PortalGun>();
 }
 
 /// The catalog [`Item`](ambition_items::Item) a body's hand holds, if the
 /// hand holds something the catalog has a row for: a [`HeldItem`] whose id
 /// maps through `ItemCatalog::item_by_held_item_id` (the pirates' `gun_sword_heavy` maps
-/// to nothing and reads as an empty hand, as it always did), or an active
-/// [`PortalGun`], which equips through its own component and carries no
-/// held-item id. The ONE projection every menu-side "is it equipped" reads.
+/// to nothing and reads as an empty hand, as it always did). The ONE
+/// projection every menu-side "is it equipped" reads.
 pub fn item_in_hand(
     catalog: &ambition_items::ItemCatalog,
     held: Option<&HeldItem>,
-    #[cfg(feature = "portal")] portal_gun: Option<&PortalGun>,
 ) -> Option<ambition_items::Item> {
-    #[cfg(feature = "portal")]
-    if portal_gun.is_some_and(|gun| gun.active) {
-        return Some(ambition_items::Item::PortalGun);
-    }
     held.and_then(|held| catalog.item_by_held_item_id(held.id()))
 }
 
 /// Put what a menu asked for in the participant's hand, or empty it. (sim)
 ///
 /// The hand's own applier of [`ambition_items::ItemEquipRequested`] (for a
-/// weapon or the portal gun; an ability is worn by
+/// held item; an ability is worn by
 /// `ambition_platformer2d_items::narrative::apply_item_equips`) and of
 /// [`ambition_items::ItemStowRequested`]. Each request acts on the one body
 /// its participant drives, on the tick it is stamped for, so a rewind across
@@ -1406,8 +1383,7 @@ pub fn apply_hand_requests(
     owned: Res<ambition_items::OwnedItems>,
     items: ambition_items::ItemCatalogRead,
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
-    #[cfg(feature = "portal")] mut hands: Query<(RepertoireQuery, Option<&OwnedPortalGunPair>)>,
-    #[cfg(not(feature = "portal"))] mut hands: Query<RepertoireQuery>,
+    mut hands: Query<RepertoireQuery>,
     kinematics: Query<&BodyKinematics>,
     supports: Query<&SupportedCarry>,
     mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody, &HeldMaterialBasis)>,
@@ -1421,11 +1397,7 @@ pub fn apply_hand_requests(
         wanted.insert(stow.participant, None);
     }
     for equip in equips.read() {
-        #[cfg(feature = "portal")]
-        let is_gun = equip.item == ambition_items::Item::PortalGun;
-        #[cfg(not(feature = "portal"))]
-        let is_gun = false;
-        if !is_gun && held_spec_for_item(catalog, equip.item).is_none() {
+        if held_spec_for_item(catalog, equip.item).is_none() {
             // An ability, or nothing a hand holds: not this applier's.
             continue;
         }
@@ -1441,9 +1413,6 @@ pub fn apply_hand_requests(
             warn!("a hand request of {participant:?} was refused: it drives no one body");
             continue;
         };
-        #[cfg(feature = "portal")]
-        let Ok((mut repertoire, owned_pair)) = hands.get_mut(body) else { continue };
-        #[cfg(not(feature = "portal"))]
         let Ok(mut repertoire) = hands.get_mut(body) else { continue };
         if item.and_then(|item| held_spec_for_item(catalog, item)).is_some_and(|spec|
             repertoire.held.is_some_and(|held| held.id() == spec.id.as_str())) { continue; }
@@ -1473,18 +1442,8 @@ pub fn apply_hand_requests(
         }
         // The hand holds one thing: empty it, then take the new one.
         empty_hand(&mut commands, body, &mut repertoire);
-        match item {
-            #[cfg(feature = "portal")]
-            Some(ambition_items::Item::PortalGun) => {
-                // The pair this body owns; 0 only if it never held one.
-                equip_portal_gun(&mut commands, body, &mut repertoire, owned_pair.map_or(0, |owned| owned.0));
-            }
-            Some(item) => {
-                if let Some(spec) = held_spec_for_item(catalog, item) {
-                    equip_held_spec(&mut commands, body, &mut repertoire, spec);
-                }
-            }
-            None => {}
+        if let Some(spec) = item.and_then(|item| held_spec_for_item(catalog, item)) {
+            equip_held_spec(&mut commands, body, &mut repertoire, spec);
         }
     }
 }
@@ -1503,45 +1462,6 @@ pub fn unequip_held(
 ) {
     repertoire.refold_with_held(None);
     commands.entity(player).remove::<(HeldItem, SupportedCarry)>();
-}
-
-/// TAKE custody of the portal gun — the portal-gun twin of
-/// [`equip_held_spec`]. Attach an active [`PortalGun`] and re-derive the
-/// repertoire for a hand holding it, which has no melee swing, so `Attack` fires
-/// portals.
-///
-/// The gun equips through its own component rather than a `HeldItemSpec`, which
-/// is why it needs a twin at all; [`item_in_hand`] reads the active gun as
-/// `Item::PortalGun`, which deliberately carries no `held_item_id`.
-#[cfg(feature = "portal")]
-/// `pair` is the portal pair the equipped gun will own for as long as it is
-/// held — see [`PortalGun`]. It comes from the pickup the player took, so which
-/// two colors the gun offers is a property of THAT gun rather than a global.
-pub fn equip_portal_gun(
-    commands: &mut Commands,
-    player: Entity,
-    repertoire: &mut RepertoireQueryItem<'_, '_>,
-    pair: u8,
-) {
-    repertoire.refold(ambition_characters::repertoire::Hand::PortalGun);
-    // Both facts, because they outlive each other differently: the gun in the
-    // hand, and the pair this body owns even after the hand is emptied.
-    commands
-        .entity(player)
-        .insert((PortalGun::for_pair(pair), OwnedPortalGunPair(pair)));
-}
-
-/// RELEASE custody of the portal gun — the portal-gun twin of
-/// [`unequip_held`]. Detach [`PortalGun`] and re-derive the repertoire for what
-/// the hand holds without it.
-#[cfg(feature = "portal")]
-pub fn unequip_portal_gun(
-    commands: &mut Commands,
-    player: Entity,
-    repertoire: &mut RepertoireQueryItem<'_, '_>,
-) {
-    repertoire.refold_with_gun(false);
-    commands.entity(player).remove::<PortalGun>();
 }
 
 /// EVERY BODY WHOSE PRESSES ARE SOMEBODY'S — the population a press-gated item
@@ -1632,8 +1552,6 @@ pub fn pickup_held_item_system(
     mut commands: Commands,
     driven: DrivenBodies,
     mut bodies: Query<(&mut ActorControl, &BodyKinematics, RepertoireQuery)>,
-    // Holding the portal gun blocks a pickup (portal builds only).
-    #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     mut grounds: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
     // A body picks up only an item in its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
@@ -1642,12 +1560,8 @@ pub fn pickup_held_item_system(
         let Ok((mut control, kin, mut repertoire)) = bodies.get_mut(player) else {
             continue;
         };
-        // One item at a time: already holding a physical item, or the portal gun.
+        // One item at a time.
         if repertoire.held.is_some() {
-            continue;
-        }
-        #[cfg(feature = "portal")]
-        if portal_guns.get(player).is_ok() {
             continue;
         }
         // Gameplay authority is the body's brain-resolved `ActorControl`.

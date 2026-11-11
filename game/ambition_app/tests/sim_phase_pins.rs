@@ -200,7 +200,6 @@ const WRITES_CONTROL_AFTER_THE_GATE: &[(&str, &str)] = &[
     // makes no new intent.
     ("pickup_held_item_system", "spends a press"),
     ("throw_held_item_system", "spends a press"),
-    ("drop_portal_gun_system", "spends a press"),
     ("resolve_portal_fire_intent", "spends a press"),
     // It is the body execution that consumes the frame.
     ("integrate_sim_bodies", "integrates"),

@@ -14,10 +14,6 @@ use std::collections::BTreeSet;
 mod continuity;
 mod capability_lanes;
 mod gravity_construction;
-#[cfg(feature = "portal")]
-mod portal_construction;
-
-
 mod content_staging;
 pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
@@ -46,7 +42,6 @@ pub enum RoomFeatureConstructionError {
         room: String,
         id: String,
     },
-    UnavailableCapability { room: String, capability: &'static str },
     /// One typed construction lane could not be resolved into a valid plan.
     Construction(ambition_platformer2d_shared_tangle::construction::ConstructionError),
     /// Actor-lane parameters could not be resolved from content — for example
@@ -57,7 +52,6 @@ pub enum RoomFeatureConstructionError {
 impl std::fmt::Display for RoomFeatureConstructionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnavailableCapability { room, capability } => write!(f, "room `{room}` requires unavailable capability `{capability}`"),
             Self::Placement(error) => error.fmt(f),
             Self::ContentStaging(error) => error.fmt(f),
             Self::DuplicateAuthoritativeId { room, id } => write!(
@@ -534,12 +528,6 @@ impl RoomFeatureConstructionPlan {
         // replaced.
         construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
-        #[cfg(not(feature = "portal"))]
-        if !room.portal_gun_spawns.is_empty() {
-            return Err(RoomFeatureConstructionError::UnavailableCapability {
-                room: room.id.clone(), capability: "portal gun",
-            });
-        }
         let paths = room_spec_paths(room);
         // ⭐ THE MEASUREMENT QUOTA IS SPENT HERE, AT PLAN TIME. A refused NPC
         // used to be refused by its lowering interpreter, after the plan had
@@ -971,11 +959,6 @@ impl RoomFeatureConstructionPlan {
     /// itself against the shared baseline. A lane accessor exists so a test can
     /// prove an identity lives in one lane and not another — which is a claim
     /// only a test makes, and the reason these were dead code in every build.
-    #[cfg(all(test, feature = "portal"))]
-    pub fn portal_construction(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
-        self.capability_lanes.portal()
-    }
-
     #[cfg(test)]
     pub fn gravity_construction(
         &self,

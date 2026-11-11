@@ -194,8 +194,7 @@ impl ItemCatalog {
 
     /// For [`ItemCategory::Held`] items, the `HeldItem` id whose `ActionSet` the
     /// player gains on equip. `None` for non-equippables and for weapons whose
-    /// held-item wiring is not built yet. PortalGun equips through its own
-    /// `PortalGun` component (handled by the menu), so its row says `None`.
+    /// held-item wiring is not built yet.
     pub fn held_item_id(&self, item: Item) -> Option<&str> {
         self.meta(item)?.held_item_id.as_deref()
     }
@@ -376,7 +375,7 @@ impl Item {
 ///
 /// `counts` is authoritative only for entitlements with no world object. Held
 /// item instances remain authoritative on the object/custody side — a body's
-/// `HeldItem` / `PortalGun` IS the record that it wields something — and
+/// `HeldItem` IS the record that it wields something — and
 /// [`Inventory`] projects the two populations together for a reader that wants
 /// one answer. Persistence writes stored quantities through
 /// [`Self::to_persisted`] and never serializes that projection as a second
@@ -400,7 +399,7 @@ impl Default for OwnedItems {
 /// What ONE body can be said to have: its bag plus the item in its hand.
 ///
 /// The bag is process-wide (an entitlement ledger); the hand is the body's own
-/// `HeldItem` / `PortalGun`, projected to a catalog [`Item`] by whoever built
+/// `HeldItem`, projected to a catalog [`Item`] by whoever built
 /// this view. `max` rather than `+` because these are two readings of one
 /// possession, never two possessions: a weapon picked up off the floor has no
 /// stored quantity at all — the object is the record that you have it.

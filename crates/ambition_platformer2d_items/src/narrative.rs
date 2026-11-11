@@ -285,9 +285,9 @@ pub fn apply_item_equips(
 ) {
     let mut rows = std::collections::BTreeMap::<PlayerSlot, (Entity, Vec<_>)>::new();
     for request in requests.read() {
-        // A weapon or the portal gun goes into the hand, which is
+        // A held item goes into the hand, which is
         // `ambition_held_items::apply_hand_requests`'s.
-        if items.get().held_item_id(request.item).is_some() || request.item == ambition_items::Item::PortalGun {
+        if items.get().held_item_id(request.item).is_some() {
             continue;
         }
         let Some(body) = driven_body(request.participant, &drivers) else { continue; };

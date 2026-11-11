@@ -779,7 +779,9 @@ pub fn sync_held_item_visual(
         // the direction it fires. Melee and thrown items only flip with
         // facing. Aim is the subject's resolved frame (falls back to facing),
         // so a possessed body's item follows its own aim.
-        let (rotation, flip_x, flip_y) = if held.ranged {
+        // An item whose art says it aims (the portal gun) is turned the same way.
+        let aims = held.ranged || entry.as_ref().is_some_and(|entry| entry.aims);
+        let (rotation, flip_x, flip_y) = if aims {
             let aim = if held.aim.length_squared() > 1e-4 {
                 held.aim.normalize()
             } else {

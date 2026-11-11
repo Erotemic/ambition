@@ -402,7 +402,7 @@ pub fn commit_body_transfer(
 /// other body. Who drives a body is control authority, which this core does not
 /// know.
 ///
-/// Transit does not need the [`PortalGun`](super::gun::PortalGun). The
+/// Transit does not need the [`PortalGenerator`](super::generator::PortalGenerator). The
 /// anti-ping-pong cooldown is on the body ([`PortalTransitCooldown`]).
 ///
 /// ⭐ A body transits only through a pair of its own live room (OW1), so a

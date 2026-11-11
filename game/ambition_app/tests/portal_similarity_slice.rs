@@ -193,7 +193,7 @@ fn a_carried_javelin_leaves_the_scaled_holder_with_its_physical_material() {
         assert!(custody.held_by(holder), "pickup premise: {custody:?}, holder={holder:?}, body={:?}, item={:?}, hand={:?}, gun={:?}, driven={:?}",
             world.get::<BodyKinematics>(holder), world.get::<BodyKinematics>(item),
             world.get::<ambition_platformer2d::combat::held_items::HeldItem>(holder).map(|held| held.id()),
-            world.get::<ambition_platformer2d::portal::PortalGun>(holder),
+            world.get::<ambition_platformer2d::portal::PortalGenerator>(holder),
             world.get_resource::<ambition_platformer2d::platformer::markers::ControlledSubject>());
         let mut dropped = false;
         let mut released = 0;

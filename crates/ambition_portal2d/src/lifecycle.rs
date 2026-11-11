@@ -32,7 +32,7 @@ pub fn clear_portals_on_reset(
     }
 }
 
-// Gun-owned portal cleanup is in `gun_lifecycle.rs`.
+// Generator-owned portal cleanup is in `generator_lifecycle.rs`.
 
 #[cfg(test)]
 mod reset_tests {

@@ -290,7 +290,10 @@ name. The rows that are mutably borrowed in production are:
 `actor.animation_facts`, `actor.render_size`, `boss.death_animation`,
 `entity.transform` (republished every frame), `feature.hazard`,
 `item.ground_item`, `player.blink_camera_state`, `portal.emission`,
-`portal.gun_pickup`, `portal.placed`, `portal.shot`.
+`portal.placed`, `portal.shot`. (`portal.gun_pickup` left on 2026-11-11: the
+portal gun lies in the world as an ordinary `item.ground_item`. The census
+re-run that day printed 22 rows; `actor.life_ledger`, new the same day, is
+not classified here yet.)
 
 The remaining sharp rows (`actor.interaction`, `actor.spawn_baseline`,
 `actor.sprite_offset`, `actor.sprite_posed_body`, `boss.capability`,
@@ -302,10 +305,10 @@ written": a `&mut` census cannot see replacement by re-insertion.
 
 **Two-host arm.** `two_local_histories_agree_about_the_sharp_unchecksummed_rows`
 (`game/ambition_app/tests/shell_host_lifecycle.rs`) asserts that each of these
-eleven rows does not feed the peer checksum, then compares their probe census
+ten rows does not feed the peer checksum, then compares their probe census
 between a host that reached the shipped Ambition route first and one that reached
-it third, at every tick of the window, in five rooms. All eleven carry state and
-agree. ⛔ Until 2026-10-03 that census was a carrier count: all eleven are
+it third, at every tick of the window, in five rooms. All ten carry state and
+agree. ⛔ Until 2026-10-03 that census was a carrier count: all of them were
 registered with a presence probe, whose census returns `xor: 0`, so the arm
 compared how many carriers each row had and never a value. The arm now gives
 each a value probe first (`strengthen_the_sharp_rows` in
@@ -317,10 +320,10 @@ arm prints the per-room split:
 
 | room | sharp rows it carries |
 |---|---|
-| `<authored>` (what pressing launch reaches) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `item.ground_item`, `player.blink_camera_state`, `portal.gun_pickup` |
+| `<authored>` (what pressing launch reaches) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `item.ground_item`, `player.blink_camera_state` |
 | `portal_lab` (driven into the authored aperture) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `player.blink_camera_state`, `portal.emission`, `portal.placed` |
 | `basement_hazards` | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `feature.hazard`, `player.blink_camera_state` |
-| `portal_bridge` (driven, with the gun) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `player.blink_camera_state`, `portal.gun_pickup`, `portal.placed`, `portal.shot` |
+| `portal_bridge` (driven, with the gun) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `item.ground_item`, `player.blink_camera_state`, `portal.placed`, `portal.shot` |
 | `basement_boss` | `actor.animation_facts`, `actor.render_size`, `boss.death_animation`, `entity.transform`, `player.blink_camera_state` |
 
 `item.ground_item`, `portal.emission` and `boss.death_animation` have one carrier

@@ -189,8 +189,6 @@ impl LdtkProject {
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
         let mut ground_items: Vec<ambition_platformer2d_world::rooms::GroundItemSpec> = Vec::new();
-        let mut portal_gun_spawns: Vec<ambition_platformer2d_world::rooms::PortalGunSpawnSpec> =
-            Vec::new();
         let mut shrines: Vec<ambition_platformer2d_world::rooms::ShrineSpec> = Vec::new();
         let mut gravity_zones: Vec<ambition_platformer2d_world::rooms::GravityZoneSpec> =
             Vec::new();
@@ -304,7 +302,6 @@ impl LdtkProject {
                         kinematic_paths.extend(emission.kinematic_paths);
                         props.extend(emission.props);
                         ground_items.extend(emission.ground_items);
-                        portal_gun_spawns.extend(emission.portal_gun_spawns);
                         shrines.extend(emission.shrines);
                         gravity_zones.extend(emission.gravity_zones);
                         enemy_spawns.extend(emission.enemy_spawns);
@@ -490,7 +487,6 @@ impl LdtkProject {
             moving_platforms: resolved_moving_platforms,
             props,
             ground_items,
-            portal_gun_spawns,
             shrines,
             gravity_zones,
             enemy_spawns,
@@ -553,11 +549,9 @@ pub struct RoomEmission {
     /// [`PropSpec`].
     pub props: Vec<PropSpec>,
     /// LDtk-authored ground held-items emitted by this entity. Most emit
-    /// zero; `GroundItem` emits one. See [`ambition_platformer2d_world::rooms::GroundItemSpec`].
+    /// zero; `GroundItem` and `PortalGunSpawn` emit one. See
+    /// [`ambition_platformer2d_world::rooms::GroundItemSpec`].
     pub ground_items: Vec<ambition_platformer2d_world::rooms::GroundItemSpec>,
-    /// LDtk-authored portal-gun pickups. Most emit zero; `PortalGunSpawn` emits
-    /// one. See [`ambition_platformer2d_world::rooms::PortalGunSpawnSpec`].
-    pub portal_gun_spawns: Vec<ambition_platformer2d_world::rooms::PortalGunSpawnSpec>,
     /// LDtk-authored heal/save shrines. Most emit zero; `ShrineSpawn` emits one.
     pub shrines: Vec<ambition_platformer2d_world::rooms::ShrineSpec>,
     /// LDtk-authored localized-gravity zones. Most emit zero; `GravityZone` emits
@@ -671,14 +665,6 @@ impl RoomEmission {
     pub fn ground_item(spec: ambition_platformer2d_world::rooms::GroundItemSpec) -> Self {
         Self {
             ground_items: vec![spec],
-            ..Self::default()
-        }
-    }
-
-    #[cfg(feature = "portal_ldtk")]
-    pub fn portal_gun_spawn(spec: ambition_platformer2d_world::rooms::PortalGunSpawnSpec) -> Self {
-        Self {
-            portal_gun_spawns: vec![spec],
             ..Self::default()
         }
     }
@@ -988,9 +974,10 @@ fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter>
         map.insert("NpcSpawn", convert_npc_spawn);
         map.insert("PickupSpawn", convert_pickup_spawn);
         map.insert("GroundItem", convert_ground_item);
-        // Under `portal_ldtk` these are the real converters. Otherwise they are
-        // converters that fail with an error; they do not drop the entity.
+        // The portal gun is an ordinary ground item, in any build.
         map.insert("PortalGunSpawn", convert_portal_gun_spawn);
+        // Under `portal_ldtk` this is the real converter. Otherwise it is a
+        // converter that fails with an error; it does not drop the entity.
         map.insert("Portal", convert_portal);
         map.insert("ShrineSpawn", convert_shrine);
         map.insert("GravityZone", convert_gravity_zone);

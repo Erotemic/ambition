@@ -10,9 +10,8 @@ description = "The PRESSED collectible: a GroundItem in the world, an empty hand
 crate-type = ["rlib"]
 
 [features]
-# The portal gun is a held item with its own crate; a composition without
-# portals pays nothing for it.
-portal = ["dep:ambition_portal2d", "ambition_combat/portal"]
+# Item presence is prepared before the portal carves, which cut through it.
+portal = ["dep:ambition_portal2d"]
 
 [dependencies]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }

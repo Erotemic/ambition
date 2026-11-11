@@ -137,7 +137,7 @@
         display_name: "Portal Gun",
         description: "Fire a linked blue/orange portal pair. Carries momentum.",
         category: Held,
-        held_item_id: None,
+        held_item_id: Some("portal_gun"),
         dialog_id: "portalgun",
         icon: Some("sprites/props/portal_gun_blue.png"),
     ),

@@ -43,15 +43,7 @@ pub fn replacement_mechanics() -> &'static ambition_platformer2d_construction::m
     static MECHANICS: std::sync::OnceLock<ambition_platformer2d_construction::mechanics::SessionMechanics,
     > =
         std::sync::OnceLock::new();
-    MECHANICS.get_or_init(|| {
-        let mut mechanics = ambition_platformer2d_construction::mechanics::SessionMechanics::default();
-        #[cfg(feature = "portal")]
-        mechanics.construction_schemas.try_contribute(
-            ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-            ambition_portal2d::portal_gun_construction_registry().deterministic_dump(),
-        ).unwrap();
-        mechanics
-    })
+    MECHANICS.get_or_init(ambition_platformer2d_construction::mechanics::SessionMechanics::default)
 }
 
 /// The cast [`replacement_mechanics`] was frozen with, `'static` for the same

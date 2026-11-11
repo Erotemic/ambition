@@ -25,10 +25,11 @@ pub(crate) fn entries(pack: &ambition_content_pack::PreparedContentPack) -> Vec<
     rows.iter()
         .map(|(id, art)| {
             let entry = HeldItemArtEntry::new(id.clone(), art.path.clone(), Vec2::new(art.size.0, art.size.1));
-            match art.grip {
+            let entry = match art.grip {
                 Some(grip) => entry.gripped_at(grip),
                 None => entry,
-            }
+            };
+            if art.aims { entry.aiming() } else { entry }
         })
         .collect()
 }

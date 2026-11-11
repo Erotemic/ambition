@@ -82,20 +82,16 @@ fn an_item_not_owned_and_an_ability_are_not_put_in_a_hand() {
     assert!(app.world().get::<HeldItem>(bodies[0]).is_none(), "an ability is worn, not held");
 }
 
-#[cfg(feature = "portal")]
+/// The portal gun is an ordinary held item: the menu puts `portal_gun` in the
+/// hand of the body that asked, as it does the gun-sword.
 #[test]
-fn a_portal_gun_keeps_the_named_bodys_pair_when_equipped_again() {
+fn the_portal_gun_equips_as_an_ordinary_held_item() {
     let (mut app, bodies) = hands_app();
-    app.world_mut().entity_mut(bodies[0]).insert(OwnedPortalGunPair(2));
-    app.world_mut().entity_mut(bodies[1]).insert(OwnedPortalGunPair(7));
     equip(&mut app, PlayerSlot(1), Item::PortalGun);
-    assert!(app.world().get::<PortalGun>(bodies[0]).is_none());
-    let gun = app.world().get::<PortalGun>(bodies[1]).expect("the gun is in the hand");
-    assert!(gun.active);
-    assert_eq!(gun.pair(), 7);
+    assert!(app.world().get::<HeldItem>(bodies[0]).is_none());
+    assert_eq!(app.world().get::<HeldItem>(bodies[1]).map(|held| held.id()), Some("portal_gun"));
     stow(&mut app, PlayerSlot(1));
-    assert!(app.world().get::<PortalGun>(bodies[1]).is_none());
-    assert_eq!(app.world().get::<OwnedPortalGunPair>(bodies[1]).map(|pair| pair.0), Some(7));
+    assert!(app.world().get::<HeldItem>(bodies[1]).is_none());
 }
 
 #[test]

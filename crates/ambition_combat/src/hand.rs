@@ -21,25 +21,10 @@ use ambition_characters::repertoire::{effective_repertoire, Hand};
 use crate::held_items::HeldItem;
 use crate::moveset::ActorMoveset;
 
-#[cfg(feature = "portal")]
-pub use ambition_portal2d::PortalGun;
-
-/// What occupies a body's hand. An active portal gun outranks a held item, the
-/// same precedence the inventory's "what is equipped" projection reads.
-pub fn hand<'a>(held: Option<&'a HeldItem>, gun_active: bool) -> Hand<'a> {
-    if gun_active {
-        Hand::PortalGun
-    } else {
-        held.map_or(Hand::Empty, |held| Hand::Holding(&held.spec))
-    }
+/// What occupies a body's hand: the item it holds, if any.
+pub fn hand(held: Option<&HeldItem>) -> Hand<'_> {
+    held.map_or(Hand::Empty, |held| Hand::Holding(&held.spec))
 }
-
-/// The portal-gun half of a hand, as a query member: absent from a composition
-/// without portals.
-#[cfg(feature = "portal")]
-pub type GunSlot = Option<&'static PortalGun>;
-#[cfg(not(feature = "portal"))]
-pub type GunSlot = ();
 
 /// A body's repertoire inputs — identity, worn equipment and the hand as it is
 /// now — and its two derived outputs, borrowed together so that writing one
@@ -50,7 +35,6 @@ pub struct RepertoireQuery {
     pub identity: &'static IdentityKit,
     pub worn: Option<&'static WornEquipment>,
     pub held: Option<&'static HeldItem>,
-    pub gun: GunSlot,
     pub action_set: &'static mut ActionSet,
     pub moveset: &'static mut ActorMoveset,
 }
@@ -69,25 +53,10 @@ impl RepertoireQueryItem<'_, '_> {
         self.refold_with_held(held);
     }
 
-    /// Re-derive for a hand whose held item is about to become `held`, with the
-    /// portal gun as it is. Used where the change is still a queued command.
+    /// Re-derive for a hand whose held item is about to become `held`. Used
+    /// where the change is still a queued command.
     pub fn refold_with_held(&mut self, held: Option<&HeldItem>) {
-        let gun_active = self.gun_active();
-        self.refold(hand(held, gun_active));
-    }
-
-    /// Re-derive for a hand whose portal gun is about to be `active` (or gone),
-    /// with the held item as it is.
-    pub fn refold_with_gun(&mut self, active: bool) {
-        let held = self.held;
-        self.refold(hand(held, active));
-    }
-
-    fn gun_active(&self) -> bool {
-        #[cfg(feature = "portal")]
-        return self.gun.is_some_and(|gun| gun.active);
-        #[cfg(not(feature = "portal"))]
-        false
+        self.refold(hand(held));
     }
 }
 
@@ -97,15 +66,7 @@ pub fn refold_in_world_with_held(world: &mut World, body: Entity, held: Option<&
     let Some(identity) = world.get::<IdentityKit>(body) else {
         return false;
     };
-    #[cfg(feature = "portal")]
-    let gun_active = world.get::<PortalGun>(body).is_some_and(|gun| gun.active);
-    #[cfg(not(feature = "portal"))]
-    let gun_active = false;
-    let rebuilt = effective_repertoire(
-        identity,
-        world.get::<WornEquipment>(body),
-        hand(held, gun_active),
-    );
+    let rebuilt = effective_repertoire(identity, world.get::<WornEquipment>(body), hand(held));
     let mut entity = world.entity_mut(body);
     if !entity.contains::<ActionSet>() || !entity.contains::<ActorMoveset>() {
         return false;
@@ -121,14 +82,6 @@ pub fn refold_in_world_with_held(world: &mut World, body: Entity, held: Option<&
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EffectiveRepertoireReconciled;
 
-#[cfg(feature = "portal")]
-type HandInputChanged = Or<(
-    Changed<WornEquipment>,
-    Changed<IdentityKit>,
-    Changed<HeldItem>,
-    Changed<PortalGun>,
-)>;
-#[cfg(not(feature = "portal"))]
 type HandInputChanged = Or<(Changed<WornEquipment>, Changed<IdentityKit>, Changed<HeldItem>)>;
 
 /// Re-fold a body whose identity, worn equipment or hand changed in place.

@@ -27,6 +27,10 @@ pub struct AuthoredHeldItemArt {
     /// points out of the hand, and turns about the grip when it is swung.
     #[serde(default)]
     pub grip: Option<f32>,
+    /// It points where its holder aims, as a ranged weapon does, though it
+    /// grants no ranged verb (the portal gun). Absent: no.
+    #[serde(default)]
+    pub aims: bool,
 }
 
 /// A game's held item art, by held item id.
@@ -72,7 +76,7 @@ mod tests {
     use super::*;
 
     fn row(size: (f32, f32), grip: Option<f32>) -> AuthoredHeldItemArt {
-        AuthoredHeldItemArt { path: "sprites/props/axe.png".into(), size, grip }
+        AuthoredHeldItemArt { path: "sprites/props/axe.png".into(), size, grip, aims: false }
     }
 
     #[test]

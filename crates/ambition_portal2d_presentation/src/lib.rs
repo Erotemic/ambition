@@ -1,12 +1,11 @@
 //! Default renderer for the headless [`ambition_portal2d`] mechanic.
 //!
-//! Provides placed-portal visuals, mid-transit body pieces, disorientation
-//! indicators, through-portal view windows, and a sequestered compatibility
-//! module for Ambition's portal-gun sprites. Each visual is placed in the live
-//! room of the thing it draws ([`PortalFrames`]). Hosts sync the
-//! crate-owned seams ([`PortalSceneBody`],
-//! [`PortalAffordanceBody`], [`PortalBodyView`], [`PortalGunArt`],
-//! [`PortalAimHint`]) and may replace any visual by disabling that
+//! Provides placed-portal visuals, shots in flight, mid-transit body pieces,
+//! disorientation indicators and through-portal view windows. Each visual is
+//! placed in the live room of the thing it draws ([`PortalFrames`]). Hosts
+//! sync the crate-owned seams ([`PortalSceneBody`],
+//! [`PortalAffordanceBody`], [`PortalBodyView`]) and may replace any visual by
+//! disabling that
 //! [`PortalPresentationPlugin`] flag and registering an alternative system.
 //!
 //! Depends only on `bevy`, `ambition_platformer2d_core`,
@@ -24,7 +23,7 @@ mod far_side;
 mod clip_material;
 mod effects;
 mod glow;
-mod gun_visuals;
+mod shot_visuals;
 mod limb_seams;
 mod plugin;
 mod source_visibility;
@@ -69,7 +68,6 @@ pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use glow::{
     dress_held_light_lines, opening_length, sync_portal_glows, sync_portal_light_lines, HeldLightLineOf, PortalGlow, PortalGlowMaterial, PortalGlowStyle, PortalLightLine, APPEAR_S, DISSOLVE_S, ROOM_SETTLE_S,
 };
-pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use limb_seams::{
     eased_between, lay_light_lines_on_limb_seams, laid_on, LightLineOnLimb, LimbSeam, LimbSeams, LAY_REACH, LAY_S, LIMB_LINE_MARGIN,
     OVER_LIMB_Z,
@@ -355,26 +353,3 @@ pub struct PortalTransitView {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct PortalHostReach(pub f32);
 
-/// Host seam: the loaded portal-gun art (blue / orange mode sprites). The
-/// crate defines the resource; the HOST loads it — asset paths are content.
-/// Absent resource → the held gun doesn't draw and the ground pickup falls
-/// back to a marker quad.
-#[derive(Resource)]
-pub struct PortalGunArt {
-    pub blue: Handle<Image>,
-    pub orange: Handle<Image>,
-}
-
-/// Host seam: content-agnostic aim hint for the held-gun presentation — the
-/// resolved world-space direction the barrel should point (the same aim the
-/// host's input adapter resolves for `FirePortalGun`). The host writes it each
-/// frame; [`sync_portal_mode_indicator`] reads it, so portal presentation
-/// never imports a host input type. Zero / unset aim falls back to facing.
-///
-/// Initialised by [`PortalPresentationPlugin`] (it is render-only state, so it
-/// lives here rather than in the headless mechanic's plugin).
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct PortalAimHint {
-    /// Resolved aim direction (need not be normalized; zero falls back to facing).
-    pub aim: Vec2,
-}

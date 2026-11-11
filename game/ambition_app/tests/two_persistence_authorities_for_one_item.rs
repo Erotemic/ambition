@@ -124,22 +124,7 @@ fn hand_item(sim: &mut Platformer2dSimHarness) -> Option<Item> {
         .ok()
         .flatten()
         .cloned();
-    #[cfg(feature = "portal")]
-    let gun = world
-        .query_filtered::<
-            Option<&ambition_platformer2d::portal::PortalGun>,
-            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
-        >()
-        .single(world)
-        .ok()
-        .flatten()
-        .cloned();
-    ambition_platformer2d::held_items::item_in_hand(
-        ambition_platformer2d::items::item_catalog(world),
-        held.as_ref(),
-        #[cfg(feature = "portal")]
-        gun.as_ref(),
-    )
+    ambition_platformer2d::held_items::item_in_hand(ambition_platformer2d::items::item_catalog(world), held.as_ref())
 }
 
 /// Count serialized into `AmbitionGameSave`, read independently of the live `OwnedItems` mirror.

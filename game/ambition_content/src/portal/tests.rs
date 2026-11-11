@@ -90,7 +90,7 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             BodyBaseSize {
                 base_size: Vec2::new(24.0, 40.0),
             },
-            PortalGun::default(),
+            PortalGenerator::default(),
             ActionSet::default(),
             // Every production body carries an intent frame, and
             // `resolve_portal_fire_intent` spends the Attack press on it when
@@ -119,7 +119,7 @@ fn set_control(app: &mut App, attack: bool, interact: bool) {
     cf.interact_pressed = interact;
 }
 
-/// Emit a `FirePortalGun` intent for the primary player, resolving aim the same
+/// Emit a `FirePortalGenerator` intent for the primary player, resolving aim the same
 /// way the input adapter does (facing-ahead, since these tests set no stick).
 fn fire_portal(app: &mut App) {
     // The gesture names its body now, so the fixture has to name one too — the
@@ -133,7 +133,7 @@ fn fire_portal(app: &mut App) {
             .next()
             .map_or((Entity::PLACEHOLDER, 1.0), |(entity, k)| (entity, k.facing))
     };
-    app.world_mut().write_message(FirePortalGun {
+    app.world_mut().write_message(FirePortalGenerator {
         aim: Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0),
         body,
     });
@@ -720,7 +720,7 @@ fn a_gunless_player_transits_an_authored_pair() {
             BodyBaseSize {
                 base_size: Vec2::new(24.0, 40.0),
             },
-            // No PortalGun on purpose.
+            // No PortalGenerator on purpose.
         ))
         .id();
     // Frame 1 begins transit (standing on the purple floor portal).
@@ -1069,8 +1069,8 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     );
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ControlFrame::default());
-    app.add_message::<FirePortalGun>();
-    // The `FirePortalGun` gesture is resolved into the generic `PortalFireIntent`
+    app.add_message::<FirePortalGenerator>();
+    // The `FirePortalGenerator` gesture is resolved into the generic `PortalFireIntent`
     // by the Ambition resolver (Phase 2 Seam 3) before the core fire system reads
     // it; the RoomGeometry-reading shot stepper is the Ambition world-seam adapter
     // (Phase 2 Seam 2). Portal core keeps the pure `step_portal_shot` helper.

@@ -1,14 +1,9 @@
-//! Shield+Attack, when a portal adapter and a held item both want it.
-//!
-//! So a body holding a laser sword lost the press to an action that was then refused, and the axe
-//! could not be thrown at all.
-//!
-//!  the fix is the rule, not an ordering: an action spends the input edge where it COMMITS,
-//! never in a producer whose consumer may reject it.
+//! `Shield + Attack` on a body holding the portal gun, with the portal
+//! adapters installed: the gun is an ordinary held item, so the held-item
+//! throw puts it down, and the portal adapters take no part in that press.
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::HeldItemSpec;
 use ambition_characters::control::ActorControl;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_combat::held_items::HeldItem;
@@ -16,160 +11,81 @@ use ambition_held_items::{throw_held_item_system, GroundItem};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-use ambition_portal2d::{
-    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun,
-};
+use ambition_portal2d::{FirePortalGenerator, PortalGenerator, TogglePortalGenerator};
 
 use super::input_adapter::portal_input_adapter_system;
-use super::inventory_adapter::drop_portal_gun_system;
+use super::inventory_adapter::reconcile_portal_generators;
 
-/// What the body was carrying when it pressed Shield+Attack.
-#[derive(Clone, Copy)]
-enum Carrying {
-    Item,
-    Gun,
-    /// The pathological case: both. The item's throw wins, by the drop's own
-    /// stated precedence.
-    Both,
-}
-
-struct Outcome {
-    holds_item: bool,
-    holds_gun: bool,
-    ground_items: usize,
-    press_survived: bool,
-}
-
-/// Press Shield+Attack once, with the portal adapters AND the held-item throw
-/// composed exactly as the app composes them.
-fn press_shield_attack(carrying: Carrying) -> Outcome {
+/// `Shield + Attack` puts the gun down where any kept item goes: the body
+/// stops being a generator, the gun lies in the world as one (so its pair's
+/// portals stay open), and no shot is fired.
+#[test]
+fn shield_attack_puts_the_portal_gun_down_like_any_item() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<FirePortalGun>();
-    app.add_message::<TogglePortalGun>();
-    app.add_message::<DropPortalGun>();
-    app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
-    app.add_message::<PickUpPortalGun>();
+    app.add_message::<FirePortalGenerator>();
+    app.add_message::<TogglePortalGenerator>();
     app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
     app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityZones>();
 
-    // The device gesture, on the slot the body's brain reads.
+    // The device gesture, on the slot the body's brain reads...
     let mut slots = SlotControls::default();
     let mut frame = ambition_platformer2d_core::ControlFrame::default();
     frame.attack_pressed = true;
     frame.shield_held = true;
     slots.set(PlayerSlot::PRIMARY, frame);
     app.insert_resource(slots);
-
     // ...and the same press on the brain-resolved frame the body acts on.
     let mut control = ActorControl::default();
     control.0.melee_pressed = true;
     control.0.shield_held = true;
 
-    let mut body = app.world_mut().spawn((
-        PlayerEntity,
-        PrimaryPlayer,
-        DrivingParticipant(PlayerSlot::PRIMARY),
-        BodyKinematics { material: Default::default(),
-            pos: Vec2::new(100.0, 100.0),
-            vel: Vec2::ZERO,
-            canonical_size: Vec2::new(24.0, 40.0),
-            facing: 1.0,
-        },
-        ambition_platformer2d_core::BodyBaseSize {
-            base_size: Vec2::new(24.0, 40.0),
-        },
-        ambition_characters::brain::ActionSet::default(),
-        ambition_characters::brain::action_set::IdentityKit::default(),
-        ambition_combat::moveset::ActorMoveset::default(),
-        control,
-    ));
-    if matches!(carrying, Carrying::Item | Carrying::Both) {
-        body.insert(HeldItem::new(HeldItemSpec {
-            id: "laser_sword".into(),
-            ..Default::default()
-        }));
-    }
-    if matches!(carrying, Carrying::Gun | Carrying::Both) {
-        body.insert(PortalGun {
-            active: true,
-            ..PortalGun::default()
-        });
-    }
-    let body = body.id();
+    let gun = ambition_characters::brain::held_item_by_id("portal_gun").expect("the portal gun is a held item");
+    let body = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
+            BodyKinematics { material: Default::default(),
+                pos: Vec2::new(100.0, 100.0),
+                vel: Vec2::ZERO,
+                canonical_size: Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            ambition_platformer2d_core::BodyBaseSize {
+                base_size: Vec2::new(24.0, 40.0),
+            },
+            ambition_characters::brain::ActionSet::default(),
+            ambition_characters::brain::action_set::IdentityKit::default(),
+            ambition_combat::moveset::ActorMoveset::default(),
+            control,
+            HeldItem::new(gun),
+            PortalGenerator::default(),
+        ))
+        .id();
     app.insert_resource(ControlledSubject(Some(body)));
-
-    // The production composition: the adapter produces intents, the drop and the
-    // throw each answer the ones they own.
     app.add_systems(
         Update,
-        (
-            portal_input_adapter_system,
-            drop_portal_gun_system,
-            throw_held_item_system,
-        )
-            .chain(),
+        (portal_input_adapter_system, throw_held_item_system, reconcile_portal_generators).chain(),
     );
     app.update();
 
-    let ground_items = {
-        let mut q = app.world_mut().query::<&GroundItem>();
-        q.iter(app.world()).count()
-    };
     let entity = app.world().entity(body);
-    Outcome {
-        holds_item: entity.contains::<HeldItem>(),
-        holds_gun: entity.contains::<PortalGun>(),
-        ground_items,
-        press_survived: entity.get::<ActorControl>().unwrap().0.melee_pressed,
-    }
-}
-
-#[test]
-fn shield_attack_throws_a_held_item_with_the_portal_adapter_installed() {
-    let outcome = press_shield_attack(Carrying::Item);
-    assert!(
-        !outcome.holds_item,
-        "⛔ Shield+Attack did not throw the held item. The portal input adapter \
-         emitted a drop intent for a gun this body does not have and spent the \
-         Attack press doing it, so the throw saw melee_pressed == false"
-    );
-    assert_eq!(
-        outcome.ground_items, 1,
-        "the thrown item must land in the world as a ground item"
-    );
-    assert!(
-        !outcome.press_survived,
-        "the throw is this press's action, so it must spend the edge exactly once"
-    );
-}
-
-/// The portal gun still drops, and still spends the press. Moving the
-/// consumption to the commit site must not have taken the behaviour with it.
-#[test]
-fn shield_attack_drops_the_portal_gun_when_that_is_all_the_body_holds() {
-    let outcome = press_shield_attack(Carrying::Gun);
-    assert!(!outcome.holds_gun, "Shield+Attack drops the portal gun");
-    assert!(
-        !outcome.press_survived,
-        "the drop answered the press, so the wearer's jab must not answer it too"
-    );
-}
-
-/// Both in hand: the ITEM's throw wins, which is the precedence
-/// `drop_portal_gun_system`'s `Without<HeldItem>` filter already declared and
-/// its comment already stated. Pinned here because nothing enforced it across
-/// the two systems.
-#[test]
-fn a_body_holding_both_throws_the_item_and_keeps_the_gun() {
-    let outcome = press_shield_attack(Carrying::Both);
-    assert!(!outcome.holds_item, "the throwable takes precedence");
-    assert_eq!(outcome.ground_items, 1, "the item reaches the ground");
-    assert!(
-        outcome.holds_gun,
-        "the gun is NOT dropped in the same press — the drop is refused while a \
-         throwable is in hand, and refusing must not also consume the gesture"
-    );
+    assert!(!entity.contains::<HeldItem>(), "Shield + Attack did not put the gun down");
+    assert!(!entity.contains::<PortalGenerator>(), "the emptied hand still opens portals");
+    let lying: Vec<bool> = app
+        .world_mut()
+        .query::<(&GroundItem, Has<PortalGenerator>)>()
+        .iter(app.world())
+        .map(|(item, generator)| {
+            assert_eq!(item.spec.id, "portal_gun");
+            generator
+        })
+        .collect();
+    assert_eq!(lying, vec![true], "the gun lies in the world, and is a generator there");
+    let fired = app.world().resource::<Messages<FirePortalGenerator>>().iter_current_update_messages().count();
+    assert_eq!(fired, 0, "Shield + Attack is the put-down, not a shot");
 }
 
 /// Seat one's portal toggle is decided by SEAT ONE's surroundings.
@@ -192,11 +108,8 @@ fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
     fn toggles_for(near_zero: bool, near_one: bool) -> Vec<Entity> {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<FirePortalGun>();
-        app.add_message::<TogglePortalGun>();
-        app.add_message::<DropPortalGun>();
-        app.insert_resource(crate::tuning::AmbitionTuning(crate::tuning::shipped()));
-        app.add_message::<PickUpPortalGun>();
+        app.add_message::<FirePortalGenerator>();
+        app.add_message::<TogglePortalGenerator>();
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
         app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityZones>();
 
@@ -224,10 +137,7 @@ fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
                     },
                     ambition_characters::brain::ActionSet::default(),
                     ActorControl::default(),
-                    PortalGun {
-                        active: true,
-                        ..PortalGun::default()
-                    },
+                    PortalGenerator::default(),
                 ))
                 .id()
         };
@@ -255,7 +165,7 @@ fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
         app.update();
 
         let world = app.world_mut();
-        let messages = world.resource::<Messages<TogglePortalGun>>();
+        let messages = world.resource::<Messages<TogglePortalGenerator>>();
         let mut cursor = messages.get_cursor();
         cursor.read(messages).map(|t| t.body).collect()
     }

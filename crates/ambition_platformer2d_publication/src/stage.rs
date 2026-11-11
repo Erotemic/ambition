@@ -771,10 +771,7 @@ mod tests {
         let recipes = ambition_platformer2d_construction::engine_construction_registry();
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
-        let mut schemas = ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::default();
-        #[cfg(feature = "portal")]
-        schemas.try_contribute(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-            ambition_portal2d::portal_gun_construction_registry().deterministic_dump()).unwrap();
+        let schemas = ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::default();
         RoomConstructionPlan::prepare_spec(
             0,
             spec,
@@ -858,78 +855,6 @@ mod tests {
         assert_eq!(first.features.construction().payload_bytes().unwrap(), other.features.construction().payload_bytes().unwrap());
         assert_ne!(first.features.construction_payload_bytes().unwrap(), other.features.construction_payload_bytes().unwrap());
         assert_ne!(first.id(), other.id());
-    }
-
-    #[cfg(feature = "portal")]
-    #[test]
-    fn portal_gun_is_a_capability_owned_construction_lane() {
-    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-        let mut spec = empty_spec("portal-lane");
-        spec.portal_gun_spawns
-            .push(ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
-                id: "gun".to_string(),
-                name: "Aperture Device".to_string(),
-                pos: ae::Vec2::new(120.0, 80.0),
-                half_extent: ae::Vec2::new(8.0, 6.0),
-                pair: 0,
-            });
-        let plan = prepare(&sprite_content, spec.clone()).expect("portal-gun room plan");
-        let repeated = prepare(&sprite_content, spec).expect("same portal-gun room plan");
-        assert_eq!(plan.id(), repeated.id());
-        let gun = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("gun");
-
-        assert!(
-            plan.features.construction().get(&gun).is_none(),
-            "portal-gun vocabulary must not re-enter ActorConstructionParams",
-        );
-        assert!(
-            plan.features.portal_construction().get(&gun).is_some(),
-            "the portal capability owns the authored pickup row",
-        );
-        assert_eq!(
-            plan.features.portal_construction().lane().as_str(),
-            ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-        );
-
-        let mut app = bevy::prelude::App::new();
-        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        // ⛔ THE COMPOSITION PRODUCTION BUILDS. Room construction builds
-        // every root hidden, and `transaction::open` REFUSES a world that cannot
-        // hide one rather than validating candidates in plain sight — so a bare
-        // `App` here is a fixture that never reaches the subject.
-        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
-            app.world_mut(),
-        );
-        {
-            let mut commands = app.world_mut().commands();
-            plan.spawn_contents(
-                &mut commands,
-                transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-                crate::CommitFactsSource::TheWorldAtTheCommit,
-            );
-        }
-        app.world_mut().flush();
-
-        let entity = {
-            let mut query = app.world_mut().query::<(
-                bevy::prelude::Entity,
-                &ambition_platformer2d_shared_tangle::sim_id::SimId,
-            )>();
-            query
-                .iter(app.world())
-                .find_map(|(entity, id)| (id == &gun).then_some(entity))
-                .expect("constructed portal-gun root")
-        };
-        assert!(app
-            .world()
-            .get::<ambition_portal2d::PortalGunPickup>(entity)
-            .is_some());
-        assert!(
-            app.world()
-                .resource::<crate::LastConstructionVerification>()
-                .published,
-            "all typed construction lanes must verify before RoomLoaded",
-        );
     }
 
     /// Prepare a room with the selected cast and local content epoch.

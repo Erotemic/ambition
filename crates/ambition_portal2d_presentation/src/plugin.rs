@@ -8,7 +8,6 @@
 use bevy::prelude::*;
 
 use crate::far_side;
-use crate::gun_visuals;
 use crate::source_visibility;
 #[cfg(feature = "effect_view_cones")]
 use crate::view_cones;
@@ -16,7 +15,7 @@ use crate::visuals;
 #[cfg(feature = "effect_view_cones")]
 use crate::PortalDebugOverlay;
 use crate::{
-    PortalAimHint, PortalCameraContinuityConfig, PortalCameraContinuityHostView,
+    PortalCameraContinuityConfig, PortalCameraContinuityHostView,
     PortalCameraContinuitySelection, PortalEffectSelection,
 };
 
@@ -49,9 +48,6 @@ pub struct PortalPresentationPlugin {
     /// With this off, far-side bodies draw over panes: a pane draws at
     /// [`crate::PORTAL_WINDOW_Z`] (`9.5`) and every actor above it.
     pub far_side_compositing: bool,
-    /// The held portal-gun sprite aimed by [`PortalAimHint`]
-    /// ([`gun_visuals::sync_portal_mode_indicator`]).
-    pub gun_indicator: bool,
     /// The input-warp disorientation glyph
     /// ([`visuals::sync_portal_disorientation_indicator`]).
     pub disorientation: bool,
@@ -69,7 +65,6 @@ impl Default for PortalPresentationPlugin {
             portal_quads: true,
             body_pieces: true,
             far_side_compositing: true,
-            gun_indicator: true,
             disorientation: true,
             view_cones: true,
         }
@@ -88,10 +83,6 @@ impl Plugin for PortalPresentationPlugin {
                 ),
             ),
         );
-        // Crate-owned seam resources. `PortalAimHint` is render-only state, so
-        // it is initialised HERE, not by the headless mechanic's plugin; the
-        // host's input adapter writes it each frame.
-        app.init_resource::<PortalAimHint>();
         app.init_resource::<crate::PortalGlowStyle>().register_type::<crate::PortalGlowStyle>();
         // The live effect choice (view cones / off), cycled from the host's
         // developer menu for in-session A/B profiling.
@@ -172,12 +163,6 @@ impl Plugin for PortalPresentationPlugin {
                 .in_set(PortalPresentationSet)
                 .after(far_side::composite_far_side_bodies),
         );
-        if self.gun_indicator {
-            app.add_systems(
-                Update,
-                gun_visuals::sync_portal_mode_indicator.in_set(PortalPresentationSet),
-            );
-        }
         if self.disorientation {
             app.add_systems(
                 Update,

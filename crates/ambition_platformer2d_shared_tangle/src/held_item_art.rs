@@ -49,6 +49,9 @@ pub struct HeldItemArtEntry {
     /// item with a grip points out of the hand, and it turns about the grip
     /// when it is swung.
     pub grip: Option<f32>,
+    /// It points where its holder aims, as a ranged weapon does, though it
+    /// grants no ranged verb.
+    pub aims: bool,
 }
 
 impl HeldItemArtEntry {
@@ -59,7 +62,14 @@ impl HeldItemArtEntry {
             asset_path: asset_path.into(),
             size,
             grip: None,
+            aims: false,
         }
+    }
+
+    /// This item points where its holder aims.
+    pub fn aiming(mut self) -> Self {
+        self.aims = true;
+        self
     }
 
     /// The hand holds this item at `grip` of its length from its near end.

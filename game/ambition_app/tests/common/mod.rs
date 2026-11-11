@@ -668,7 +668,6 @@ pub fn strengthen_the_sharp_rows(world: &mut bevy::prelude::World) -> Vec<&'stat
         p::combat::hazard_runtime::HazardFeature,
         p::platformer::camera_ease::PlayerBlinkCameraState,
         p::portal::PortalEmission,
-        p::portal::PortalGunPickup,
         p::portal::PortalShot,
         bevy::prelude::Transform,
     );

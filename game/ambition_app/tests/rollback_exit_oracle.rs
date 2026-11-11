@@ -661,12 +661,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "channel -> aperture geometry; holds no entity handle (checked 2026-07-27)",
         ),
         (
-            "ambition_portal2d::gun::PortalGun",
+            "ambition_portal2d::generator::PortalGenerator",
             "an active flag and the next channel colour; holds no entity handle",
-        ),
-        (
-            "ambition_portal2d::gun_pickup::PortalGunPickup",
-            "position, half-extent and an arm timer; holds no entity handle",
         ),
         (
             "ambition_portal2d::gun_projectile::PortalShot",

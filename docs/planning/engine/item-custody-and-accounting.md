@@ -50,8 +50,8 @@ particular physical manifestation being indestructible.
 | Durable whereabouts | `AuthoredOccurrences` and `OccurrenceWhereabouts` (`shared_tangle/src/lifecycle/continuity.rs`) |
 | The starter roster | one insert, in `AmbitionContentPlugin` (`game/ambition_content/src/plugin.rs`) |
 
-- **The hand is the record.** `item_in_hand` projects a body's `HeldItem` or
-  active `PortalGun` to a catalog `Item`. The menu reads the primary player's
+- **The hand is the record.** `item_in_hand` projects a body's `HeldItem` to
+  a catalog `Item`. The menu reads the primary player's
   hand. `Inventory` answers count, has and is-equipped over the bag and the
   hand. There is no process-global "equipped" mirror.
 - **`GroundItem` is sealed.** It is `#[non_exhaustive]` with two constructors,
@@ -73,10 +73,14 @@ particular physical manifestation being indestructible.
   `republish_placements` refuses an id whose row is not `InCustody` or
   `Placed`, and returns the refusals `#[must_use]`. Position is kept at integer
   pixels.
-- **The portal gun is an entitlement.** Pickup grants `OwnedItems` and equips
-  the body. A drop spawns a fresh `PortalGunPickup` token and never revokes
-  the grant. The other catalog items take the occurrence road. Q45 is ruled:
-  entitlement behavior is acceptable during engine development.
+- **The portal gun is an ordinary held item** (`portal_gun`, 2026-11-11). It
+  lies in a room as a `GroundItem` (an LDtk `PortalGunSpawn` lowers to one),
+  takes the occurrence road like the axe, and is put down with
+  `Shield + Attack`. The portal crate knows only `PortalGenerator`: the
+  portal adapter (`game/ambition_content/src/portal/inventory_adapter.rs`)
+  makes whatever holds the gun a generator, and the gun lying in the world
+  one too, so its pair's portals stay open. Q45 (entitlement behavior is
+  acceptable during engine development) still covers the starter bag.
 - **Seat-keyed entitlement.** A placed mine (`game/ambition_demo_smash/src/mine.rs`)
   keys detonation to a seat (`PlacedMine { owner_seat }`) while the object is
   an ordinary `GroundItem`. An opponent can hold it while it remains the
@@ -140,7 +144,7 @@ Each item lifetime, its owner and its phase. Paths: `AM` is
 | Authored room baseline | `construct_authored_ground_item` (`AM/construction/mod.rs`), planned by the room feature plan (`AM/features/ecs/spawn/mod.rs`) | Plan in `Update` (room-transition load); built at the commit, `RoomTransitionSet::Apply` | `GroundItem`, `SettledItem`, `ItemCustody::InWorld`; no occurrence row until first carried | H, once moved |
 | Runtime mints | Producers: `throw_held_item_system` (`HI`), `drop_held_weapon` (`AM/features/ecs/damage_drops.rs`); admission `record_placed_ground_items` (`HI`); baseline `capture_minted_item_baseline` | `HeldItemStep::Throw`; `ResidencyStep::Record`; `CheckpointCapture` | `AuthoredOccurrences` (mint flag), `MintedItemBaseline`, `BagSpendsSinceCheckpoint` | M, and H's mint flag |
 | Inventory | `OwnedItems` (`ambition_items`); capture, checkpoint restore and mirror in `minted_horizon.rs` and `persist.rs` | `CheckpointCapture`, `CheckpointDomainApply`, `DomainMirror`, `DurableRestoreSet::Domains` | `OwnedItems`, `OwnedItemsBaseline`, the primary `BodyWallet` | I |
-| Equipment | Sim: `pickup_held_item_system` / `equip_held_spec`, `return_released_items` (`HI`). Menu: `apply_menu_action` (`game/ambition_app/src/menu/effects.rs`) | Pickup and Release steps; the menu in `Update` | `HeldItem`/`PortalGun`, `ItemCustody::Held`, `InCustodyOf{Restored}` | H custody rows, for a hand backed by a ground item |
+| Equipment | Sim: `pickup_held_item_system` / `equip_held_spec`, `return_released_items` (`HI`). Menu: `apply_menu_action` (`game/ambition_app/src/menu/effects.rs`) | Pickup and Release steps; the menu in `Update` | `HeldItem`, `ItemCustody::Held`, `InCustodyOf{Restored}` | H custody rows, for a hand backed by a ground item |
 | Stock loss | `spend_fighter_stocks` (`crates/ambition_combat/src/stocks.rs`); elimination despawn in Smash | `FighterStocksSpent` | Stocks, health, markers; no item or bag state | none |
 | Same-room replay | `apply_committed_checkpoint_restore` (`AM/session/checkpoint.rs`): `restore_owned_items_to_checkpoint`, then `restore_custody_to_checkpoint`; `retract_mints_of_retracted_boss_defeats`; `retire_the_previous_attempt` | `CheckpointRestore`, `CheckpointDomainApply`, `ContentRoomReplayResetSet` / `ReplayContent`, `RoomReset` | `OwnedItems`, wallet, `ItemCustody`, `HeldItem`, `AuthoredOccurrences`, grants and spends | H, M, I at the next mirror |
 | Room exit | The commit's resident sweep (`RT/room_transition/commit.rs`); ledger producers in `HI` and `ST/lifecycle/continuity.rs`; `record_bodies_away_from_home` | `RoomTransitionSet::Apply`; residency steps | Residents despawned; carried items cross with their holder; Placed/InCustody rows | reads M at a door crossing |
@@ -205,7 +209,7 @@ and rollback. A source guard that forbids an import is supplemental.
 - What is the policy for unique-item destruction, recovery and reset?
 - What is authoritative or predicted for item custody in online multiplayer?
 - "Unique" names two properties. `ItemCategory::is_unique()` is a stacking
-  property (all non-consumables clamp at 1). The portal gun's uniqueness is a
+  property (all non-consumables clamp at 1). An entitlement's uniqueness is a
   lifecycle property (acquired once, never revoked). Do not classify items in
   terms of the one word.
 - Q141 is ruled: durability is per-item and authored, and a runtime-spawned

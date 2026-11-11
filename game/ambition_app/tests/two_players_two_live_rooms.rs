@@ -1635,13 +1635,16 @@ fn a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in() {
             .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
             .single(world)
             .expect("Alice's body is in the world");
-        world.entity_mut(alice).insert(ambition_platformer2d::portal::PortalGun {
-            active: true,
-            ..ambition_platformer2d::portal::PortalGun::default()
-        });
+        // The gun in her hand, and the generator its adapter would give her.
+        world.entity_mut(alice).insert((
+            ambition_platformer2d::combat::held_items::HeldItem::new(
+                ambition_platformer2d::characters::brain::held_item_by_id("portal_gun").expect("the portal gun is a held item"),
+            ),
+            ambition_platformer2d::portal::PortalGenerator::default(),
+        ));
         alice
     };
-    sim.world_mut().write_message(ambition_platformer2d::portal::FirePortalGun {
+    sim.world_mut().write_message(ambition_platformer2d::portal::FirePortalGenerator {
         aim: bevy::math::Vec2::new(0.0, -1.0),
         body: alice,
     });

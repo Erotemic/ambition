@@ -1,11 +1,9 @@
 //! Plugin that installs the Ambition portal adapters.
 //!
-//! Registers the input adapter (ControlFrame → portal intents) and the
-//! inventory drop adapter into the portal subsystem's schedule sets so the
-//! reusable portal core consumes intents the same frame they are produced. The
-//! pickup adapter is registered alongside the held-item simulation (in
-//! `ambition_platformer2d_items::pickup`) because it must run last in that set, after the core
-//! fire system, so picking up the gun doesn't also fire on the same press.
+//! Registers the input adapter (ControlFrame → portal intents) into the portal
+//! subsystem's schedule sets, so the reusable portal core consumes intents the
+//! same frame they are produced, and the adapter that makes whatever holds the
+//! portal gun a portal generator.
 
 use bevy::prelude::*;
 
@@ -19,19 +17,19 @@ use super::ability_adapter::withhold_wall_verbs_during_transit;
 use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
-use super::inventory_adapter::{drop_portal_gun_system, pickup_portal_gun_system};
+use super::inventory_adapter::reconcile_portal_generators;
 use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Installs the Ambition-specific portal input/inventory adapters.
+/// Installs the Ambition-specific portal adapters.
 pub struct AmbitionPortalAdaptersPlugin;
 
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
-        if !app.is_plugin_added::<ambition_portal2d::PortalGunPlugin>() {
-            app.add_plugins(ambition_portal2d::PortalGunPlugin);
+        if !app.is_plugin_added::<ambition_portal2d::PortalGeneratorPlugin>() {
+            app.add_plugins(ambition_portal2d::PortalGeneratorPlugin);
         }
         let sim = app.sim_schedule();
         // The consequences of a transit for the seat (the input guards, the
@@ -138,52 +136,30 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation),
         );
 
-        // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent` (origin from the
-        // player's body, dir from the aim, channel from the held gun) the core fire system
+        // Resolve the `FirePortalGenerator` gesture → the generic `PortalFireIntent` (origin from the
+        // player's body, dir from the aim, channel from the generator) the core fire system
         // consumes (Phase 2 Seam 3).
         app.add_systems(
             sim,
             resolve_portal_fire_intent
-                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::FirePortalGun>)
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::FirePortalGenerator>)
                 .in_set(GameplayGated)
                 .in_set(PortalSet::InputAdapter)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
                 .after(portal_input_adapter_system),
         );
 
-        // Portal-gun ground pickups: the Ambition inventory grant on Attack.
-        // Ordered `.after(arm_portal_pickups)` (registered by
-        // `ambition_platformer2d_items::pickup` in `ItemPickupSet::CoreHeldItems`) so the
-        // arm → grant chain edge is identical to the old inline `.chain()`,
-        // and after `portal_fire` (via the set order) so grabbing the gun
-        // does not also fire on the same Attack press.
+        // Whatever holds the portal gun is a portal generator, and a gun lying
+        // in the world is one. After the hand changes for the tick (a pickup or
+        // a put-down in `CoreHeldItems`). One run moves the generator from the
+        // hand to the gun put down, so the orphan cleanup, on either side of
+        // it, sees the pair alive.
         app.add_systems(
             sim,
-            pickup_portal_gun_system
-                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::PickUpPortalGun>)
-                .in_set(GameplayGated)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
-                .after(ambition_portal2d::PortalPickupArming),
+            reconcile_portal_generators
+                .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation),
         );
-
-        // The drop consumer touches Ambition item state (the body's hand and
-        // repertoire), so it lives in the content adapter. It reads DropPortalGun, so order it
-        // with the rest of the portal weapon systems.
-        app.add_systems(
-            sim,
-            drop_portal_gun_system
-                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::DropPortalGun>)
-                .in_set(GameplayGated)
-                // `PortalSet::WeaponAndProjectiles` is wired
-                // `.in_set(PlayerSimulation)` in `wire_portal_schedule`, so the
-                // parent placement is already implied — a direct
-                // `.in_set(PlayerSimulation)` would be a redundant hierarchy edge.
-                .in_set(PortalSet::WeaponAndProjectiles),
-        );
-
-
-
-
     }
 }
 

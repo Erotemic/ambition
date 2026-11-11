@@ -29,9 +29,6 @@ pub enum Hand<'a> {
     #[default]
     Empty,
     Holding(&'a HeldItemSpec),
-    /// The portal gun equips through its own component and names no verbs of
-    /// its own; it occupies the hand, so the body's melee goes with it.
-    PortalGun,
 }
 
 /// The pair a body's live repertoire consists of.
@@ -65,7 +62,6 @@ pub fn effective_repertoire(
             action_set.melee = spec.melee;
             action_set.ranged = spec.ranged.clone();
         }
-        Hand::PortalGun => action_set.melee = None,
     }
     // A FOLD WITH NOTHING TO FOLD IS THE BASELINE, and saying so is load-bearing
     // rather than an optimisation. `build_actor_moveset` DERIVES a swing from a

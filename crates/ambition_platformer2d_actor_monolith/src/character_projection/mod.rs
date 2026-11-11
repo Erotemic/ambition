@@ -68,7 +68,6 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
     // Which way a retracted sprite body's feet face, for standing it back in
     // the box it displaced — the body's own frame, as the pose pass reads it.
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    #[cfg(feature = "portal")] guns: Query<&ambition_portal2d::PortalGun>,
 ) {
     let Some(registry) = cast.get() else {
         return;
@@ -132,13 +131,7 @@ pub fn project_prepared_character_definitions(sprite_content: bevy::prelude::Res
             // `MatchRules::body_over`, which is the only place the two are
             // weighed against each other.
             prepared.movement_tuning,
-            ambition_combat::hand::hand(held.get(entity).ok(), {
-                #[cfg(feature = "portal")]
-                let active = guns.get(entity).is_ok_and(|gun| gun.active);
-                #[cfg(not(feature = "portal"))]
-                let active = false;
-                active
-            }),
+            ambition_combat::hand::hand(held.get(entity).ok()),
         );
     }
 }

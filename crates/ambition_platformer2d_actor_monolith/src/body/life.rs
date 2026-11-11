@@ -178,6 +178,11 @@ pub struct Life {
     /// Where the body is to be put, once (the last place its schedule sent it
     /// while it was away).
     pub put_at: Option<ae::Vec2>,
+    /// The thing this body has held since when (seconds of the clock since
+    /// day 0), not yet booked: the time is booked when the hold ends, and at
+    /// each turn of the hour, so a body catching up an hour away finds it
+    /// taken for as long as this one held it ([`book_the_hold`]).
+    pub held: Option<(String, f64)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -256,6 +261,7 @@ impl Life {
             because: None,
             returning: false,
             put_at: None,
+            held: None,
         }
     }
 
@@ -385,6 +391,50 @@ fn booked_from(bookings: &BTreeMap<(String, String, i64), f32>) -> BTreeMap<(Opt
     bookings.iter().map(|((place, thing, at), hours)| ((Some(place.clone()), thing.clone(), *at), *hours)).collect()
 }
 
+/// Book the time a live body has held a thing: `held` is what it held and
+/// since when, `claim` what it holds now, `now` the clock (seconds since day
+/// 0). The time is booked when the hold ends (the claim let go or changed),
+/// and up to the hour's start when the hour turns, so the ledger is written
+/// at those moments and not every tick. A body catching up an hour away then
+/// finds the thing taken for as long as this one held it, not for the whole
+/// hour.
+fn book_the_hold(
+    held: &mut Option<(String, f64)>,
+    claim: Option<&str>,
+    place: Option<&str>,
+    now: f64,
+    day_length_s: f64,
+    booked: &mut BTreeMap<(Option<String>, String, i64), f32>,
+) {
+    if day_length_s <= 0.0 {
+        return;
+    }
+    let hour_s = day_length_s / 24.0;
+    let hour_of = |at: f64| (at / hour_s).floor() as i64;
+    if let Some((thing, since)) = held.clone() {
+        let ended = claim != Some(thing.as_str());
+        if ended || hour_of(since) < hour_of(now) {
+            let until = if ended { now } else { hour_of(now) as f64 * hour_s };
+            if let Some(place) = place {
+                let mut hour = hour_of(since);
+                while (hour as f64) * hour_s < until {
+                    let from = since.max(hour as f64 * hour_s);
+                    let to = until.min((hour + 1) as f64 * hour_s);
+                    if to > from {
+                        *booked.entry((Some(place.to_string()), thing.clone(), hour)).or_insert(0.0) +=
+                            ((to - from) / hour_s) as f32;
+                    }
+                    hour += 1;
+                }
+            }
+            *held = (!ended).then(|| (thing, until));
+        }
+    }
+    if held.is_none() {
+        *held = claim.map(|thing| (thing.to_string(), now));
+    }
+}
+
 /// The bookings the ledger keeps after a tick at hour `now` (day * 24 +
 /// hour): those of a place, and of an hour a catch-up can still reach.
 fn bookings_to_keep(facts: &RoomFacts, now: i64) -> BTreeMap<(String, String, i64), f32> {
@@ -480,6 +530,10 @@ pub fn live_lives(
             visit,
             spec: book.lives.get(&character),
         };
+        // What this body held since its last turn, booked for the bodies
+        // that catch up an hour away.
+        let claim = life.claim.clone();
+        book_the_hold(&mut life.held, claim.as_deref(), look.place.as_deref(), now, f64::from(cycle.day_length_s), &mut facts.booked);
         if life.returning {
             catch_up(&mut commands, &mut life, &book, &mut facts, &look, &specs, clock.day, hour);
             life.returning = false;
@@ -1170,6 +1224,37 @@ mod tests {
         // Told, and it claims anyway: no plan.
         assert_eq!(plan(&Greedy, &observing, &book, &mut facts), None);
         assert_eq!(facts.booked(None, "bench", 9), 1.0);
+    }
+
+    /// A live hold is booked for the time held: at the end of the hold, and
+    /// up to the hour's start when the hour turns, never twice; a hold with
+    /// no place is not booked; a change of claim books the first thing and
+    /// starts the second.
+    #[test]
+    fn a_live_hold_is_booked_for_the_time_it_held() {
+        // A day of 2400 s: an hour is 100 s.
+        let day = 2400.0;
+        let mut booked = BTreeMap::new();
+        let mut held = None;
+        book_the_hold(&mut held, Some("bench"), Some("tavern"), 925.0, day, &mut booked);
+        assert_eq!(held, Some(("bench".to_string(), 925.0)), "a claim starts a hold");
+        book_the_hold(&mut held, Some("bench"), Some("tavern"), 980.0, day, &mut booked);
+        assert!(booked.is_empty(), "nothing is booked inside the hour");
+        book_the_hold(&mut held, Some("bench"), Some("tavern"), 1030.0, day, &mut booked);
+        let key = |hour: i64| (Some("tavern".to_string()), "bench".to_string(), hour);
+        assert_eq!(booked.get(&key(9)).copied(), Some(0.75), "the turn books the hour's held part");
+        assert_eq!(held, Some(("bench".to_string(), 1000.0)), "and the hold goes on from the hour's start");
+        book_the_hold(&mut held, Some("stool"), Some("tavern"), 1050.0, day, &mut booked);
+        assert_eq!(booked.get(&key(10)).copied(), Some(0.5), "a change of claim books the first thing");
+        assert_eq!(held, Some(("stool".to_string(), 1050.0)), "and starts the second");
+        book_the_hold(&mut held, None, Some("tavern"), 1060.0, day, &mut booked);
+        assert!(held.is_none());
+        let stool = booked.get(&(Some("tavern".to_string()), "stool".to_string(), 10)).copied().unwrap_or(0.0);
+        assert!((stool - 0.1).abs() < 1e-5, "the end of the hold books it: {stool}");
+        let mut nowhere = BTreeMap::new();
+        let mut held = Some(("bench".to_string(), 0.0));
+        book_the_hold(&mut held, None, None, 50.0, day, &mut nowhere);
+        assert!(nowhere.is_empty() && held.is_none(), "a hold with no place is let go unbooked");
     }
 
     /// The bookings go to the save and come back as they were: a body that

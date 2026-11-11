@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v447",
+    "version": "ggrs-rollback-schema-v448",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -135,6 +135,7 @@
       "resource.pending_player_hit_events\tresource-clone-custom-checksum\tPendingPlayerHitEvents\tbevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection",
       "resource.placement_continuity\tresource-clone-custom-checksum\tAuthoredOccurrences\tbevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)",
       "resource.projectile_seq_counter\tresource-canonical\tProjectileSeqCounter\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+      "resource.quest_causes_in_rooms\tresource-clone-custom-checksum\tQuestCausesInRooms\tbevy_ggrs clone snapshot + the quest events rooms queued within the rewind horizon, with the cause each is queued under, which a room rewind retracts (ISL-2d)",
       "resource.quest_last_room\tcomponent-clone-custom-checksum\tLastQuestRoom\tbevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked",
       "resource.quest_registry\tresource-clone-custom-checksum\tQuestRegistry\tbevy_ggrs clone snapshot + quest identity, progression, pending-advance and caused-advance checksum projection",
       "resource.requested_clock_scale\tresource-canonical\tRequestedClockScale\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",

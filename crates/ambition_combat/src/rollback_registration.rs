@@ -22,6 +22,12 @@ where
         "the save-flag writes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
         crate::events::FlagWritesInRooms::checksum,
     );
+    registrar.rollback_resource_clone_checksum::<crate::events::QuestCausesInRooms>(
+        OWNER,
+        "resource.quest_causes_in_rooms",
+        "the quest events rooms queued within the rewind horizon, with the cause each is queued under, which a room rewind retracts (ISL-2d)",
+        crate::events::QuestCausesInRooms::checksum,
+    );
     registrar
         .rollback_component_clone_probed::<crate::hurtbox_resolution::BodyPoseClock>(
             OWNER,

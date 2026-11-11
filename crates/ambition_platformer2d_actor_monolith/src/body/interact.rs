@@ -309,7 +309,7 @@ pub fn interact_ecs_actors_and_switches(
                 );
                 next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
             }
-            quest_advance.write(QuestAdvanceRequested(
+            quest_advance.write(QuestAdvanceRequested::new(
                 ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
             ));
             // A conversation's writes are not one room's: they wait on the

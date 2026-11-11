@@ -350,6 +350,15 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             "resource.flag_writes_in_rooms",
             crate::effect_bus::retract_room_flag_writes,
         );
+        // The quest events rooms queued (a pickup's `ItemCollected`): a
+        // rewound room retracts those it queued after the tick it was saved
+        // at (ISL-2d).
+        app.init_resource::<ambition_combat::events::QuestCausesInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.quest_causes_in_rooms",
+            crate::effect_bus::retract_room_quest_causes,
+        );
         // The cells used from the bag: a rewound room puts back those its
         // bodies used after the tick it was saved at (ISL-2d).
         app.init_resource::<ambition_platformer2d_items::narrative::BagUsesInRooms>();

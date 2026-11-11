@@ -112,6 +112,78 @@ impl FlagWrite {
     }
 }
 
+/// The quest events rooms queued within the rewind horizon (a pickup's
+/// `ItemCollected`), each with its room and tick, its quest cause, and the
+/// event's label, in the order queued (SIMULATION-ISLANDS ISL-2d). A rewind of
+/// the room retracts each cause, and not where a later event with the same
+/// label stands: that one would have moved the step had this one not.
+///
+/// Rollback state with a real value: a pickup changes it on a tick.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct QuestCausesInRooms {
+    causes: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, String, String)>,
+}
+
+impl QuestCausesInRooms {
+    /// The cause an event with `label` queued from `written` is queued under.
+    pub fn cause_of(written: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, label: &str) -> String {
+        format!("quest event {label} from room {} at tick {}", written.room.ordinal(), written.tick)
+    }
+
+    /// Log an event with `label` queued from `written`, and return its cause.
+    pub fn record(&mut self, written: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, label: String) -> String {
+        let cause = Self::cause_of(written, &label);
+        self.causes.push((written, cause.clone(), label));
+        cause
+    }
+
+    /// Drop the causes no rewind can reach at tick `now`, and return them, so
+    /// the quest registry can forget them.
+    pub fn prune(&mut self, now: u64) -> Vec<String> {
+        if !self.causes.iter().any(|(at, ..)| at.beyond_the_horizon(now)) {
+            return Vec::new();
+        }
+        let (old, kept): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.causes).into_iter().partition(|(at, ..)| at.beyond_the_horizon(now));
+        self.causes = kept;
+        old.into_iter().map(|(_, cause, _)| cause).collect()
+    }
+
+    /// `room` rewinds to `saved_at`: take out the causes it logged after that
+    /// tick, newest first, each with whether a later event with the same
+    /// label still stands.
+    pub fn retract_room(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) -> Vec<(String, bool)> {
+        let mut taken = Vec::new();
+        for at in (0..self.causes.len()).rev() {
+            if !self.causes[at].0.retracted_by(room, saved_at) {
+                continue;
+            }
+            let (_, cause, label) = self.causes.remove(at);
+            let superseded = self.causes[at..].iter().any(|(_, _, later)| *later == label);
+            taken.push((cause, superseded));
+        }
+        taken
+    }
+
+    /// Entity-free value projection.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.causes.len() as u64);
+        for (written, cause, label) in &self.causes {
+            put_u64(&mut bytes, u64::from(written.room.ordinal()));
+            put_u64(&mut bytes, written.tick);
+            put_str(&mut bytes, cause);
+            put_str(&mut bytes, label);
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
 /// The save-flag writes rooms made within the rewind horizon, in the order
 /// they were applied (SIMULATION-ISLANDS ISL-2d). The save is shared by
 /// rooms, so a rewind of one room puts back only its own writes, each to what

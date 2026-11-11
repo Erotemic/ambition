@@ -451,9 +451,19 @@ mod tests {
     }
 }
 
-/// Feed a structured quest event into `QuestRegistry`.
+/// Feed a structured quest event into `QuestRegistry`: the event, and the
+/// cause it is queued under when a later retraction may take it back
+/// ([`QuestRegistry::push_event_caused_by`]); `None` for an event nothing
+/// retracts.
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
-pub struct QuestAdvanceRequested(pub QuestAdvanceEvent);
+pub struct QuestAdvanceRequested(pub QuestAdvanceEvent, pub Option<String>);
+
+impl QuestAdvanceRequested {
+    /// An event nothing retracts.
+    pub fn new(event: QuestAdvanceEvent) -> Self {
+        Self(event, None)
+    }
+}
 
 /// Set a saved flag and report an enabled flag to quest progression.
 pub fn write_flag(

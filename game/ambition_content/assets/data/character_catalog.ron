@@ -3274,13 +3274,10 @@
             manifest: "sprites/gradient_sentinel_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
-            // Its MEASURED height under the ONE spawn box every level places it
-            // with, authored 2026-08-28 (D129). This row had no default, so its
-            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
-            // rectangle and the sheet's publishing padding, neither of which is a
-            // claim about how tall anybody is. Same output today; the point is
-            // that changing it is now one number.
-            standing_height: Some(75.9),
+            // Its size in its fight, its primary context (Jon, 2026-11-11): the
+            // boss's arena spawn box (150x145, the Overflow's) x its sheet's collision_scale over the
+            // frame, applied to this row's idle body.
+            standing_height: Some(203.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3396,11 +3393,10 @@
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
-            // Its BODY's height: the sheet's body is its BELL (2026-09-27; the
-            // noodles hang below it and are not body), and the whole creature
-            // draws about four bells tall. 32 keeps the Hall's FSM the size it
-            // was when its body was measured as the whole drawing (86.9).
-            standing_height: Some(32.0),
+            // Its size in its fight, its primary context (Jon, 2026-11-11): the
+            // boss's arena spawn box (168x150) x its sheet's collision_scale over the
+            // frame, applied to this row's idle body.
+            standing_height: Some(79.1),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -3754,13 +3750,10 @@
             manifest: "sprites/mockingbird_boss_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
-            // Its MEASURED height under the ONE spawn box every level places it
-            // with, authored 2026-08-28 (D129). This row had no default, so its
-            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
-            // rectangle and the sheet's publishing padding, neither of which is a
-            // claim about how tall anybody is. Same output today; the point is
-            // that changing it is now one number.
-            standing_height: Some(92.2),
+            // Its size in its fight, its primary context (Jon, 2026-11-11): the
+            // boss's arena spawn box (130x130) x its sheet's collision_scale over the
+            // frame, applied to this row's idle body.
+            standing_height: Some(151.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -4101,13 +4094,10 @@
             manifest: "sprites/trex_enemy_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
-            // Its MEASURED height under the ONE spawn box every level places it
-            // with, authored 2026-08-28 (D129). This row had no default, so its
-            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
-            // rectangle and the sheet's publishing padding, neither of which is a
-            // claim about how tall anybody is. Same output today; the point is
-            // that changing it is now one number.
-            standing_height: Some(70.5),
+            // Its size in its fight, its primary context (Jon, 2026-11-11): the
+            // boss's arena spawn box (140x112) x its sheet's collision_scale over the
+            // frame, applied to this row's idle body.
+            standing_height: Some(165.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -4575,13 +4565,10 @@
             manifest: "sprites/smirking_behemoth_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
-            // Its MEASURED height under the ONE spawn box every level places it
-            // with, authored 2026-08-28 (D129). This row had no default, so its
-            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
-            // rectangle and the sheet's publishing padding, neither of which is a
-            // claim about how tall anybody is. Same output today; the point is
-            // that changing it is now one number.
-            standing_height: Some(110.8),
+            // Its size in its fight, its primary context (Jon, 2026-11-11): the
+            // boss's arena spawn box (240x288) x its sheet's collision_scale over the
+            // frame, applied to this row's idle body.
+            standing_height: Some(266.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -5605,13 +5592,10 @@
             manifest: "sprites/hunny_horror_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
-            // Its MEASURED height under the ONE spawn box every level places it
-            // with, authored 2026-08-28 (D129). This row had no default, so its
-            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
-            // rectangle and the sheet's publishing padding, neither of which is a
-            // claim about how tall anybody is. Same output today; the point is
-            // that changing it is now one number.
-            standing_height: Some(154.8),
+            // Its size in its fight, its primary context (Jon, 2026-11-11): the
+            // boss's arena spawn box (110x180) x its sheet's collision_scale over the
+            // frame, applied to this row's idle body.
+            standing_height: Some(194.3),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -9258,8 +9242,10 @@
             manifest: "sprites/wolfenstein_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
-            // 240 cm.
-            standing_height: Some(93.0),
+            // Its size in its fight, its primary context (Jon, 2026-11-11): the
+            // boss's arena spawn box (84x140) x its sheet's collision_scale over the
+            // frame, applied to this row's idle body.
+            standing_height: Some(142.8),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

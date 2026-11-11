@@ -630,7 +630,7 @@ mod tests {
                 .of(
                     world.get::<ItemCustody>(nut).unwrap(),
                     world.get::<ae::BodyKinematics>(nut).unwrap(),
-                );
+                ).expect("held position is valid");
             assert_eq!(actual, ae::Vec2::new(400.0, 238.0));
             assert_eq!(
                 world.get::<ambition_platformer2d::engine_core::BodyKinematics>(nut).unwrap().pos,

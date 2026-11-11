@@ -452,9 +452,12 @@ pub fn advance_pet_beats(
                 // of the petted body's front when it publishes no head.
                 let head = petted_head(&landmarks, petted)
                     .map(|head| {
-                        ambition_combat::body_landmarks::feet_of(&petted_kin, frame.down)
-                            + ambition_combat::body_rig::BodyRigPose::to_body(head, petted_kin.facing, frame.down)
+                        landmarks.place_rig_point(petted, head, &petted_kin)
                     });
+                let head = match head.transpose() {
+                    Ok(head) => head,
+                    Err(fault) => { warn!(?fault, "pet head map refused"); continue; }
+                };
                 vfx.for_room(rooms.of(petter)).write(VfxMessage::Hearts {
                     // The top of the petted body's front: toward the petter on
                     // the side axis, and against its DOWN.

@@ -165,7 +165,7 @@ fn ask(
     bodies: Query<&BodyKinematics>,
 ) -> Option<Vec2> {
     let pose = LandmarkPose::Clip { chain, phase: 0.5 };
-    landmarks.in_world(body, landmark, pose, bodies.get(body).ok()?, Vec2::new(0.0, 1.0))
+    landmarks.in_world(body, landmark, pose, bodies.get(body).ok()?).expect("landmark material is valid")
 }
 
 /// The hand and the head of a pet in progress, each two ways: from the

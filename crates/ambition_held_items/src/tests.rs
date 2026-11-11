@@ -2101,10 +2101,16 @@ fn a_held_thing_is_in_the_answered_hand_else_at_the_fixed_hand() {
     kin.canonical_size = Vec2::new(20.0, 48.0);
     kin.facing = -1.0;
     let answered = Vec2::new(96.0, 216.0);
-    assert_eq!(hand_or_fixed(Some(answered), &kin, Vec2::Y), answered);
-    let fixed = hand_or_fixed(None, &kin, Vec2::Y);
+    assert_eq!(hand_or_fixed(Ok(Some(answered)), &kin).unwrap(), answered);
+    let fixed = hand_or_fixed(Ok(None), &kin).unwrap();
     assert_eq!(fixed, ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size().y));
     assert_ne!(fixed, kin.pos);
+    kin.material = ae::frame::BodyMaterial::new(0.5,
+        bevy::math::Mat2::from_cols(-Vec2::Y, -Vec2::X)).unwrap();
+    let scaled = hand_or_fixed(Ok(None), &kin).unwrap();
+    assert!(scaled.distance(Vec2::new(101.2, 204.32)) < 1e-4);
+    assert_eq!(hand_or_fixed(Err(ae::frame::NumericFault::Precision), &kin),
+        Err(ae::frame::NumericFault::Precision));
 }
 
 /// Where the body of the reach arms is. Its box is 24x40.

@@ -152,34 +152,23 @@ fn the_scale_is_the_posed_bodys_own_or_its_quad_over_the_frame_height() {
 }
 
 #[test]
-fn the_feet_are_the_middle_of_the_face_toward_down() {
-    let kin = ae::BodyKinematics {
+fn rig_points_use_canonical_feet_facing_scale_rotation_and_reflection() {
+    let mut kin = ae::BodyKinematics {
         pos: Vec2::new(100.0, 200.0),
-        canonical_size: Vec2::new(30.0, 48.0),
+        canonical_size: Vec2::new(20.0, 48.0),
         ..Default::default()
     };
-    assert_eq!(feet_of(&kin, Vec2::new(0.0, 1.0)), Vec2::new(100.0, 224.0));
-    assert_eq!(feet_of(&kin, Vec2::new(0.0, -1.0)), Vec2::new(100.0, 176.0));
-}
-
-/// A rig-space point is placed from the body's feet, mirrored by its facing
-/// and turned with its DOWN.
-#[test]
-fn a_rig_point_is_placed_from_the_feet_mirrored_and_turned() {
-    let down = Vec2::new(0.0, 1.0);
-    let body = |facing: f32| {
-        let mut kin = ae::BodyKinematics::default();
-        kin.pos = Vec2::new(100.0, 200.0);
-        kin.canonical_size = Vec2::new(20.0, 48.0);
-        kin.facing = facing;
-        kin
-    };
-    // The body centre is 24 above its feet; the point is 10 ahead of and 30
-    // above the feet.
     let point = Vec2::new(10.0, -30.0);
-    assert_eq!(rig_point_in_world(point, &body(1.0), down), Vec2::new(110.0, 194.0));
-    assert_eq!(rig_point_in_world(point, &body(-1.0), down), Vec2::new(90.0, 194.0));
-    assert_eq!(rig_point_in_world(point, &body(1.0), -down), Vec2::new(90.0, 206.0));
+    assert_eq!(rig_point_in_world(point, None, &kin).unwrap(), Vec2::new(110.0, 194.0));
+    kin.facing = -1.0;
+    assert_eq!(rig_point_in_world(point, None, &kin).unwrap(), Vec2::new(90.0, 194.0));
+    kin.material = ae::frame::BodyMaterial::new(0.5,
+        bevy::math::Mat2::from_cols(-Vec2::Y, -Vec2::X)).unwrap();
+    let feet = crate::body_rig::RigFeetOffset(Vec2::new(-3.0, 26.0));
+    // Canonical (-7, -4) maps to (2, 3.5) in this reflected quarter turn.
+    assert_eq!(rig_point_in_world(point, Some(&feet), &kin).unwrap(), Vec2::new(102.0, 203.5));
+    assert_eq!(rig_point_in_world(Vec2::splat(f32::NAN), Some(&feet), &kin),
+        Err(ae::frame::NumericFault::NonFinite));
 }
 
 /// A rig and a package table are two sources of one answer, so they keep one

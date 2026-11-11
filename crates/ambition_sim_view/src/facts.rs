@@ -236,6 +236,8 @@ pub struct HeldItemView(pub Vec<HeldItemFact>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HeldItemFact {
+    /// The simulation hand in the holder's root chart.
+    pub hand_world: ae::Vec2,
     pub support: Option<SupportedCarryFact>,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
@@ -267,14 +269,14 @@ fn supported_carry_fact(
     features: &Query<&ambition_combat::components::FeatureId>,
     body: Entity,
     down: ae::Vec2,
-) -> Option<SupportedCarryFact> {
-    let geometry = positions.supported_geometry(body, down)?;
+) -> Result<Option<SupportedCarryFact>, ae::frame::NumericFault> {
+    let Some(geometry) = positions.supported_geometry(body, down)? else { return Ok(None); };
     let holders = geometry.bodies.map(|body| ItemHolder {
         body,
         feature: features.get(body).ok().map(|feature| feature.as_str().to_owned()),
         hand: landmarks.stated_gesture_hand(body),
     });
-    Some(SupportedCarryFact { geometry, holders })
+    Ok(Some(SupportedCarryFact { geometry, holders }))
 }
 
 /// Who holds an item, as the presentation finds the body's drawn pose.
@@ -379,15 +381,23 @@ pub fn rebuild_held_item_view(
         .filter(|(_, _, _, _, _, _, disposition, health, _, _)| {
             drawn_in_the_hand(disposition.copied(), health.map(|health| health.alive()))
         })
-        .map(|(body, kin, held, control, motion_frame, id, _, _, playback, feature)| {
+        .filter_map(|(body, kin, held, control, motion_frame, id, _, _, playback, feature)| {
             let basis = motion_frame.map_or_else(
                 || ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
                 |frame| frame.basis(),
             );
-            (
+            let resolved = supported_carry_fact(&positions, &landmarks, &features, body, basis.down)
+                .and_then(|support| ambition_held_items::holding_hand_world(&landmarks, body, kin)
+                    .map(|hand| (support, hand)));
+            let (support, hand_world) = match resolved {
+                Ok(resolved) => resolved,
+                Err(fault) => { warn!(?fault, "held item view map refused"); return None; }
+            };
+            Some((
                 id.clone(),
                 HeldItemFact {
-                    support: supported_carry_fact(&positions, &landmarks, &features, body, basis.down),
+                    support,
+                    hand_world,
                     pos: kin.pos,
                     size: kin.size(),
                     facing: kin.facing,
@@ -402,7 +412,7 @@ pub fn rebuild_held_item_view(
                         hand: landmarks.stated_gesture_hand(body),
                     },
                 },
-            )
+            ))
         },
         )
         .collect();
@@ -825,14 +835,20 @@ pub fn rebuild_hostile_wielded_items_view(
         }
         let wielder_height = kin.size().y;
         let down = motion_frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-        let hand_world = ambition_held_items::holding_hand_world(&landmarks, entity, kin, down);
+        let resolved = supported_carry_fact(&positions, &landmarks, &features, entity, down)
+            .and_then(|support| ambition_held_items::holding_hand_world(&landmarks, entity, kin)
+                .map(|hand| (support, hand)));
+        let (support, hand_world) = match resolved {
+            Ok(resolved) => resolved,
+            Err(fault) => { warn!(?fault, "wielded item view map refused"); continue; }
+        };
         let basis = ae::AccelerationFrame::new(down);
         let aim_world = hand_world
             + held_item_world_aim(control.map(|control| &control.0), kin.facing, basis)
                 * wielder_height;
         view.0.push(HostileWieldedItemFact {
             pos: kin.pos,
-            support: supported_carry_fact(&positions, &landmarks, &features, entity, down),
+            support,
             item_id: held_item.id().to_owned(),
             hand_world,
             aim_world,

@@ -717,13 +717,12 @@ pub fn sync_held_item_visual(
     // One visual per driven holder. The view is ordered by `SimId`, so the
     // draw order is the same every run.
     let in_hand = held_view.0.iter().map(|held| {
-        let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
         InHand {
             root: held.pos,
             supported: held.support.is_some(),
             item_id: held.item_id.as_str(),
             // In the hand: just in front, at hand height (y-down, so small +y).
-            hand: held.support.as_ref().map_or(held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06), |support| support.geometry.anchor),
+            hand: held.support.as_ref().map_or(held.hand_world, |support| support.geometry.anchor),
             facing: held.facing,
             ranged: held.ranged,
             aim: held.aim,
@@ -1186,6 +1185,7 @@ mod tests {
             ambition_platformer2d_core::Vec2::new(16.0, 16.0),
             Vec::new(),
         ));
+        let expected_hand = ambition_platformer2d_core::config::world_to_bevy(&geometry.0, Vec2::new(50.0, 50.0), 12.0);
         let mut app = App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         let mut active = ActiveSessionScope::default();
@@ -1194,6 +1194,7 @@ mod tests {
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry);
         let body = app.world_mut().spawn_empty().id();
         let row = |facing: f32| ambition_sim_view::HeldItemFact {
+            hand_world: Vec2::new(50.0, 50.0),
             support: None,
             pos: ambition_platformer2d_core::Vec2::new(100.0, 200.0),
             size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
@@ -1218,6 +1219,8 @@ mod tests {
         };
         let first = visual(&mut app);
         assert_eq!(first.len(), 1, "one held item, one visual");
+        assert_eq!(app.world().get::<Transform>(first[0].0).unwrap().translation, expected_hand,
+            "the renderer uses the simulation hand when the art has no hand");
         app.update();
         assert_eq!(visual(&mut app), first, "a held item keeps its visual and writes nothing");
         app.world_mut().resource_mut::<HeldItemView>().0 = vec![row(-1.0)];

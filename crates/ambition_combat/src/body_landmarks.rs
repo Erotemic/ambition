@@ -137,6 +137,7 @@ pub struct BodyLandmarks<'w, 's> {
             (Option<&'static BodyRig>, Option<&'static BodyRigPose>),
             Option<&'static crate::moveset::MovePlayback>,
             Option<&'static BodyPoseClock>,
+            Option<&'static crate::body_rig::RigFeetOffset>,
         ),
     >,
 }
@@ -146,7 +147,7 @@ impl BodyLandmarks<'_, '_> {
     /// way it faces, +y down, in world units. `None` when the body has no rig
     /// attachment and no published point of that name in that pose.
     pub fn in_rig_space(&self, body: Entity, landmark: Landmark, pose: LandmarkPose<'_>) -> Option<Vec2> {
-        let (worn, posed, render_size, (rig, resolved), playback, clock) = self.bodies.get(body).ok()?;
+        let (worn, posed, render_size, (rig, resolved), playback, clock, _) = self.bodies.get(body).ok()?;
         if let Some(point) = rig.and_then(|rig| rig_landmark(landmark, pose, rig.0.as_ref(), resolved)) {
             return Some(point);
         }
@@ -194,7 +195,7 @@ impl BodyLandmarks<'_, '_> {
         part: ambition_characters::actor::PartBox,
         inset_px: f32,
     ) -> Option<(bevy::math::Rect, String)> {
-        let (worn, posed, render_size, _, playback, clock) = self.bodies.get(body).ok()?;
+        let (worn, posed, render_size, _, playback, clock, _) = self.bodies.get(body).ok()?;
         let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
         let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
         let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
@@ -214,42 +215,49 @@ impl BodyLandmarks<'_, '_> {
         ))
     }
 
-    /// `landmark` of `body` in the world, for a body at `kin` whose unit DOWN
-    /// is `down`. `kin` is the body's own kinematics, which the caller holds.
+    /// Place a canonical rig point through the body's accepted material map.
+    pub fn place_rig_point(
+        &self,
+        body: Entity,
+        point: Vec2,
+        kin: &ae::BodyKinematics,
+    ) -> Result<Vec2, ae::frame::NumericFault> {
+        let feet = self.bodies.get(body).ok().and_then(|(.., feet)| feet);
+        rig_point_in_world(point, feet, kin)
+    }
+
+    /// A landmark in the root chart. A missing landmark is not a failed map.
     pub fn in_world(
         &self,
         body: Entity,
         landmark: Landmark,
         pose: LandmarkPose<'_>,
         kin: &ae::BodyKinematics,
-        down: Vec2,
-    ) -> Option<Vec2> {
-        let point = self.in_rig_space(body, landmark, pose)?;
-        Some(rig_point_in_world(point, kin, down))
+    ) -> Result<Option<Vec2>, ae::frame::NumericFault> {
+        self.in_rig_space(body, landmark, pose)
+            .map(|point| self.place_rig_point(body, point, kin)).transpose()
     }
 
-    /// The gesture hand of `body` in the world: [`Self::gesture_hand`], placed
-    /// as [`Self::in_world`] places a landmark.
+    /// The gesture hand in the root chart, with the same map as the body.
     pub fn gesture_hand_in_world(
         &self,
         body: Entity,
         pose: LandmarkPose<'_>,
         kin: &ae::BodyKinematics,
-        down: Vec2,
-    ) -> Option<Vec2> {
-        Some(rig_point_in_world(self.gesture_hand(body, pose)?, kin, down))
+    ) -> Result<Option<Vec2>, ae::frame::NumericFault> {
+        self.gesture_hand(body, pose)
+            .map(|point| self.place_rig_point(body, point, kin)).transpose()
     }
 }
 
-/// A rig-space point of a body in the world: placed from the body's feet,
-/// mirrored by its facing and turned with its DOWN.
-pub fn rig_point_in_world(point: Vec2, kin: &ae::BodyKinematics, down: Vec2) -> Vec2 {
-    feet_of(kin, down) + BodyRigPose::to_body(point, kin.facing, down)
-}
-
-/// A body's feet: the middle of the face of its box that is toward `down`.
-pub fn feet_of(kin: &ae::BodyKinematics, down: Vec2) -> Vec2 {
-    kin.pos + down * (kin.size().y * 0.5)
+/// Map a feet-relative rig point with canonical facing and physical material.
+pub fn rig_point_in_world(
+    point: Vec2,
+    feet: Option<&crate::body_rig::RigFeetOffset>,
+    kin: &ae::BodyKinematics,
+) -> Result<Vec2, ae::frame::NumericFault> {
+    let canonical = crate::body_rig::rig_feet_from_centre(feet, Some(kin)) + point;
+    kin.material_map()?.point(BodyRigPose::to_body(canonical, kin.facing, Vec2::Y))
 }
 
 #[cfg(test)]

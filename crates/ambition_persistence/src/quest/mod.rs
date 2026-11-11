@@ -462,8 +462,25 @@ pub fn write_flag(
     id: String,
     on: bool,
 ) {
+    write_flag_caused_by(save, quests, id, on, None);
+}
+
+/// [`write_flag`], with the quest advance queued under `cause` when there is
+/// one, so that retracting the cause puts back the steps the flag moved
+/// ([`crate::quest::QuestRegistry::retract_caused_by`]).
+pub fn write_flag_caused_by(
+    save: &mut crate::save::AmbitionGameSave,
+    quests: &mut crate::quest::QuestRegistry,
+    id: String,
+    on: bool,
+    cause: Option<String>,
+) {
     if on {
-        quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(id.clone()));
+        let event = crate::quest::QuestAdvanceEvent::FlagSet(id.clone());
+        match cause {
+            Some(cause) => quests.push_event_caused_by(event, cause),
+            None => quests.push_event(event),
+        }
     }
     save.data_mut().set_flag(id, on);
 }

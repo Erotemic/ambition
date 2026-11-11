@@ -752,6 +752,7 @@ fn record_flags(
             requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
                 id: id.clone(),
                 on: true,
+                written: None,
             });
             eprintln!("capture_scene: recorded the flag {id} on tick {on_tick}");
         }

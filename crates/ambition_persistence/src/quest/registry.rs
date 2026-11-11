@@ -217,6 +217,17 @@ impl QuestRegistry {
         put_back
     }
 
+    /// Forget `cause`: what it did stands, and can no longer be retracted.
+    /// An event of it not drained yet still applies, uncaused.
+    pub fn forget_cause(&mut self, cause: &str) {
+        for pending in &mut self.pending_events {
+            if pending.cause.as_deref() == Some(cause) {
+                pending.cause = None;
+            }
+        }
+        self.caused_advances.remove(cause);
+    }
+
     pub fn quest_log_lines(&self) -> Vec<String> {
         self.quests
             .values()

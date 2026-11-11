@@ -293,9 +293,15 @@ catches up by schedule arithmetic:
   `a_plan_that_would_overrun_a_thing_is_never_booked`). It counts hours, not
   intervals: two quarter-hour uses fit in an hour without deciding which came
   first, so it bounds the sum of uses and is not a timetable.
-  The booking lasts the tick: bodies that come back on different ticks (one
-  room built again before another) do not see each other's hours away, which
-  the two scientists, one room, never meet;
+  The booking outlives the tick (2026-11-10): the ledger keeps it
+  (`LifeLedger::bookings`, by the room's definition id, since a rebuild
+  changes the live instance), so a body that comes back on a later tick
+  books against the hours the earlier ones took
+  (`a_body_back_on_a_later_tick_books_against_the_earlier_ones`, whose control
+  with no ledger double-books). Hours older than the longest catch-up (a
+  week) are forgotten. Not yet: the bookings are not in the save, and a
+  thing held by a body that was live (not away) in an hour another body
+  catches up is not booked for it;
 - the current hour is planned and its leading `go_to` steps are done at once;
 - the body is put at the last place its schedule sent it
   (`put_returning_lives`), and the rest of the plan runs live.

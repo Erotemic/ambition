@@ -11,6 +11,12 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         "the one-time pickups consumed and the authored chests opened since the last checkpoint, with their room and whose horizons own each (Q151)",
         crate::pickups::ConsumedSinceCheckpoint::checksum,
     );
+    registrar.rollback_resource_clone_checksum::<crate::narrative::BagUsesInRooms>(
+        OWNER,
+        "item.bag_uses_in_rooms",
+        "the cells bodies used from the shared bag within the rewind horizon, with the room and tick of each, which a room rewind puts back (ISL-2d)",
+        crate::narrative::BagUsesInRooms::checksum,
+    );
     registrar.rollback_component_clone::<crate::pickups::PickupCollectLock>(
         OWNER,
         "feature.pickup_collect_lock",

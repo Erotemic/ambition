@@ -169,6 +169,7 @@ pub fn set_flag(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
     world.write_message(ambition_combat::events::SetFlagRequested {
         id: flag.to_string(),
         on,
+        written: None,
     });
     CommandOutcome::Done
 }

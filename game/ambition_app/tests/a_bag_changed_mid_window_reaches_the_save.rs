@@ -969,6 +969,7 @@ fn request_the_flag_once(
         requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
             id: WITNESS_FLAG.to_string(),
             on: true,
+            written: None,
         });
     }
 }
@@ -1008,6 +1009,7 @@ fn derive_the_flag_from_the_save(
         requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
             id: WITNESS_FLAG.to_string(),
             on: true,
+            written: None,
         });
     }
 }
@@ -1033,6 +1035,7 @@ fn prime_the_save_once(
         requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
             id: PRIMER_FLAG.to_string(),
             on: true,
+            written: None,
         });
     }
 }

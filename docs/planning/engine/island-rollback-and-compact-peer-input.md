@@ -320,7 +320,7 @@ gameplay writes:
 | --- | --- | --- | --- |
 | `OwnedItems` (the shared bag) | pickups and chests (grants), throws (spends), narrative and conditions | an item kind, SHARED: Alice and Bob add to one count | the inverse of each write (subtract its delta) |
 | `QuestRegistry` | encounters, flag and quest effects, room entry (queued, drained each frame) | a quest, shared by rooms | the prior state only if no other room advanced that quest in the window |
-| the save's flags | `SetFlagRequested` (pickups, chests, talk) | a flag, set-only, shareable | as the quests: a flag another room also set in the window stays set |
+| the save's flags | `SetFlagRequested` (pickups, chests, deaths, talk) | a flag, set-only, shareable | as the quests: a flag another room also set in the window stays set (done: `FlagWritesInRooms`) |
 | `PossessionState` | possession | a participant (one room) | the prior value |
 | `GateNetworkState` | the gate network | a body, a dialing endpoint | none alone: a link joins two rooms, an ISL-1b coupling |
 | `BrokenBricks`, `SpentPowerBlocks`, `SpentMonitors` | the Mary-O and Sanic demos | a feature (one room) | the prior value, if those demos get room rollback |
@@ -382,9 +382,16 @@ a gun sword in `basement_breakables` while Bob holds the hub; the replay does
 not throw); with the mint retraction poisoned it reads `(1, 0, ["slot:0/0
 Consumed"])`, and its ignored control keeps the bag spent.
 
-Still unretracted bag writes: the narrative grants and the cell uses
-(`ambition_platformer2d_items/src/narrative.rs`) and the conditions' take
-(`conditions.rs`); each needs its write stamped and inverted the same way.
+The other bag writers, read 2026-11-10: a body's **cell use**
+(`apply_item_uses`) is a room write, now recorded with the body's room and
+tick in `BagUsesInRooms` (rollback state, `item.bag_uses_in_rooms`, bounded by
+the rewind horizon) and put back by its retractor; witness
+`a_rewound_room_puts_back_the_cell_its_replay_does_not_use`, with an ignored
+control. A **conversation's grant** and a **shop transaction**
+(`apply_item_grants`, `apply_shop_transactions`) are consequences of the one
+conversation, an ISL-1b coupling, not of a room: they wait for the
+conversation to be a room's. The census's "conditions' take" was a test's
+(`conditions.rs`'s test module), not a writer.
 
 **Boss defeats (2026-11-10):** each defeat record carries the tick it fell
 on, and a room's rewind takes back the defeats that fell there after the
@@ -411,9 +418,33 @@ rollback host must not rewind further. Witness:
 `a_rewound_room_keeps_the_regrowth_time_of_its_replay`; unit:
 `a_rewind_puts_back_the_records_its_room_wrote_and_forgot` (and the horizon).
 
-**Next:** the narrative bag writes; the quests and flags last, since they need the decision above.
-Still open too: the room rollback host that calls `retract_room_writes`
-(today only the tests do).
+**Flags and the quest steps they move (2026-11-10):** the decision above,
+for a set-only flag: the store keeps who set it. `SetFlagRequested` carries
+`written: Option<RoomWrite>`, filled by the room-level producers (a story-flag
+pickup or chest reward through `grant_pickup`, a chest's looted flag, an
+enemy's death flag in `actor_hit.rs`) and `None` for the rest (a conversation's
+talk flags wait on ISL-1b; a cutscene, an authored command, the intro chain
+and the room look are no one room's). `apply_flag_effects` logs each room's
+write in `FlagWritesInRooms` (rollback state, `resource.flag_writes_in_rooms`,
+bounded by the rewind horizon) with the value it replaced, and queues the
+flag's quest advance CAUSED by it (`write_flag_caused_by`, the boss road's
+`push_event_caused_by`). A write no room owns is logged too while the flag has
+a room's write in the log. The retractor
+(`effect_bus::retract_room_flag_writes`) takes the room's writes back newest
+first: the flag gets its prior value and `retract_caused_by` puts back the
+quest steps, unless a later write to the same flag still stands, which keeps
+both. A cause that leaves the horizon is forgotten
+(`QuestRegistry::forget_cause`). Witness:
+`a_rewound_room_puts_back_the_flag_and_quest_step_its_replay_does_not_set`
+(the one-time heart made a story flag, a quest waiting on it); its ignored
+control keeps both. Still open: `QuestAdvanceRequested` (an item collected, an
+NPC talked) carries no room, so a quest step moved by an event that is not a
+flag is not taken back yet.
+
+**Next:** the room rollback host that calls `retract_room_writes` in
+production (today the witnesses and the ISL-2e probe host
+`room_rollback_host.rs` call it after each restore), and the room attribution
+of `QuestAdvanceRequested`.
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 

@@ -15,7 +15,14 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
-{    registrar
+{
+    registrar.rollback_resource_clone_checksum::<crate::events::FlagWritesInRooms>(
+        OWNER,
+        "resource.flag_writes_in_rooms",
+        "the save-flag writes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)",
+        crate::events::FlagWritesInRooms::checksum,
+    );
+    registrar
         .rollback_component_clone_probed::<crate::hurtbox_resolution::BodyPoseClock>(
             OWNER,
             "actor.body_pose_clock",

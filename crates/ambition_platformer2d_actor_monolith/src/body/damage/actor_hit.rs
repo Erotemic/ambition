@@ -711,7 +711,12 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 if !em.identity.id.starts_with("encounter:") {
                     let flag_id = enemy_death_flag(em.config.tuning.respawn, &em.identity.id);
                     if let Some(id) = flag_id {
-                        writers.set_flag.write(SetFlagRequested { id, on: true });
+                        // From the dead body's room, at this tick: a rewind
+                        // of the room takes the death back (ISL-2d).
+                        let written = room.zip(writers.tick.as_deref()).map(|(room, tick)| {
+                            ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
+                        });
+                        writers.set_flag.write(SetFlagRequested { id, on: true, written });
                     }
                 }
             }

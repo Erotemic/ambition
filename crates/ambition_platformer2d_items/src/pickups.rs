@@ -265,6 +265,12 @@ pub fn collect_ecs_pickups(
                 .insert(ambition_world_returns::RespawnTimer(seconds));
         }
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
+        // The room and tick of the take: what it writes to a world store
+        // goes back when the room rewinds before it (ISL-2d).
+        let written = rooms
+            .of(entity)
+            .zip(tick.as_deref())
+            .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 });
         let granted = grant_pickup(
             &pickup.pickup.kind,
             collector_entity,
@@ -273,6 +279,7 @@ pub fn collect_ecs_pickups(
             &mut set_flag,
             owned.as_deref_mut(),
             items.get(),
+            written,
         );
         if let (Ok(collector), Some(reward_grants)) =
             (sim_ids.get(collector_entity), reward_grants.as_deref_mut())
@@ -292,9 +299,7 @@ pub fn collect_ecs_pickups(
                 source,
                 collector: collector.clone(),
                 granted,
-                written: rooms.of(entity).zip(tick.as_deref()).map(|(room, tick)| {
-                    ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
-                }),
+                written,
             });
         }
         let pos = aabb.center;
@@ -347,6 +352,8 @@ pub fn grant_pickup(
     set_flag: &mut MessageWriter<SetFlagRequested>,
     mut owned: Option<&mut ambition_items::OwnedItems>,
     items: &ambition_items::ItemCatalog,
+    // The room and tick of the grant, which a flag it sets carries.
+    written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
 ) -> crate::pickup::PickupGranted {
     let mut granted = crate::pickup::PickupGranted::default();
     match kind {
@@ -385,6 +392,7 @@ pub fn grant_pickup(
             set_flag.write(SetFlagRequested {
                 id: flag.clone(),
                 on: true,
+                written,
             });
         }
         // A PAYLOAD THIS CANNOT SPEND IS A LOUD FAILURE, NOT A NO-OP. `PickupKind::Custom` is

@@ -312,13 +312,17 @@ pub fn interact_ecs_actors_and_switches(
             quest_advance.write(QuestAdvanceRequested(
                 ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
             ));
+            // A conversation's writes are not one room's: they wait on the
+            // one-conversation coupling (ISL-1b), so they carry no room.
             set_flag.write(SetFlagRequested {
                 id: "met_any_hub_npc".into(),
                 on: true,
+                written: None,
             });
             set_flag.write(SetFlagRequested {
                 id: ambition_persistence::save_data::npc_talked_flag(dialogue_id),
                 on: true,
+                written: None,
             });
             vfx.for_room(live_rooms.of(actor_entity)).write(VfxMessage::Burst {
                 pos: aabb.center,

@@ -132,6 +132,14 @@ pub enum Observation {
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct LifeLedger {
     pub rows: BTreeMap<String, LedgerRow>,
+    /// The hours offscreen catch-ups have booked each thing for, by (room
+    /// definition id, thing, day * 24 + hour): a body that comes back on a
+    /// later tick, or into a room built again, books against what the bodies
+    /// before it booked ([`plan_an_hour_away`]). By the room's definition,
+    /// not its live instance, which a rebuild changes. Hours older than the
+    /// longest catch-up are forgotten. Not in the save: a session from a save
+    /// starts with none.
+    pub bookings: BTreeMap<(String, String, i64), f32>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -316,8 +324,9 @@ pub fn forget_life_ledger_on_activation(
     mut activated: bevy::prelude::MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
     mut ledger: ResMut<LifeLedger>,
 ) {
-    if activated.read().count() > 0 && !ledger.rows.is_empty() {
+    if activated.read().count() > 0 && (!ledger.rows.is_empty() || !ledger.bookings.is_empty()) {
         ledger.rows.clear();
+        ledger.bookings.clear();
     }
 }
 
@@ -366,8 +375,26 @@ struct RoomFacts {
     /// Lines spoken this tick: the room, where the bubble goes, the line.
     said: Vec<(Option<LiveRoomInstance>, ae::Vec2, String)>,
     /// The hours an hour away (day * 24 + hour) already has each thing held,
-    /// by the bodies that caught up before this one on this tick.
-    booked: BTreeMap<(Option<LiveRoomInstance>, String, i64), f32>,
+    /// by the bodies that caught up before this one, on this tick or an
+    /// earlier one ([`LifeLedger::bookings`]), by the room's definition id.
+    booked: BTreeMap<(Option<String>, String, i64), f32>,
+}
+
+/// A tick's bookings, from the ledger's.
+fn booked_from(bookings: &BTreeMap<(String, String, i64), f32>) -> BTreeMap<(Option<String>, String, i64), f32> {
+    bookings.iter().map(|((place, thing, at), hours)| ((Some(place.clone()), thing.clone(), *at), *hours)).collect()
+}
+
+/// The bookings the ledger keeps after a tick at hour `now` (day * 24 +
+/// hour): those of a place, and of an hour a catch-up can still reach.
+fn bookings_to_keep(facts: &RoomFacts, now: i64) -> BTreeMap<(String, String, i64), f32> {
+    let oldest = now - CATCH_UP_HOURS - 1;
+    facts
+        .booked
+        .iter()
+        .filter(|((_, _, at), _)| *at >= oldest)
+        .filter_map(|((place, thing, at), hours)| Some(((place.clone()?, thing.clone(), *at), *hours)))
+        .collect()
 }
 
 impl RoomFacts {
@@ -380,8 +407,8 @@ impl RoomFacts {
         }
     }
 
-    fn booked(&self, room: Option<LiveRoomInstance>, thing: &str, at: i64) -> f32 {
-        self.booked.get(&(room, thing.to_string(), at)).copied().unwrap_or(0.0)
+    fn booked(&self, place: Option<&str>, thing: &str, at: i64) -> f32 {
+        self.booked.get(&(place.map(str::to_string), thing.to_string(), at)).copied().unwrap_or(0.0)
     }
 
     fn release(&mut self, body: Entity, room: Option<LiveRoomInstance>, life: &mut Life) {
@@ -398,6 +425,9 @@ impl RoomFacts {
 struct Look<'a> {
     body: Entity,
     room: Option<LiveRoomInstance>,
+    /// The id of the room's definition: the place an offscreen booking is
+    /// kept under.
+    place: Option<String>,
     here: ae::Vec2,
     /// Where a speech bubble over the body goes.
     speaks_at: ae::Vec2,
@@ -418,6 +448,7 @@ pub fn live_lives(
     characters: Query<(Entity, &WornCharacter)>,
     mut bodies: Query<(Entity, &mut Life, &WornCharacter, &ae::BodyKinematics, Option<&Visit>)>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
+    mut ledger: ResMut<LifeLedger>,
 ) {
     // No day, no hours to live by.
     let Some(cycle) = cycle else { return };
@@ -433,7 +464,7 @@ pub fn live_lives(
             .collect(),
         present: characters.iter().map(|(body, worn)| (rooms.of(body), worn.id().to_string())).collect(),
         said: Vec::new(),
-        booked: BTreeMap::new(),
+        booked: booked_from(&ledger.bookings),
     };
     let mut order: Vec<(String, Entity)> =
         bodies.iter().map(|(body, _, worn, ..)| (worn.id().to_string(), body)).collect();
@@ -443,6 +474,7 @@ pub fn live_lives(
         let look = Look {
             body,
             room: rooms.of(body),
+            place: specs.spec_of(body).map(|room| room.id.clone()),
             here: kinematics.pos,
             speaks_at: kinematics.pos + ae::Vec2::new(0.0, -kinematics.size().y * 0.72 - 16.0),
             visit,
@@ -500,6 +532,12 @@ pub fn live_lives(
             let _ = carry_out(&mut commands, &mut life, &book, &cycle, now, &specs, &mut facts, &look);
         }
     }
+    // The bookings this tick's catch-ups made, kept for the bodies that come
+    // back later; hours no catch-up can reach any longer are forgotten.
+    let bookings = bookings_to_keep(&facts, i64::from(clock.day) * 24 + hour);
+    if ledger.bookings != bookings {
+        ledger.bookings = bookings;
+    }
     // What was said: a speech bubble over the speaker, in its room.
     for (room, at, line) in facts.said {
         vfx.write_in(room, ambition_vfx::vfx::VfxMessage::SpeechBubble { pos: at, text: line });
@@ -547,7 +585,7 @@ fn facts_to_plan_by(life: &mut Life, facts: &RoomFacts, look: &Look, hour: i64, 
         }
         for (name, observation) in &spec.observes {
             let seen = match (observation, offscreen) {
-                (Observation::Free(thing), Some(at)) => Value::Bool(facts.booked(look.room, thing, at) < 1.0),
+                (Observation::Free(thing), Some(at)) => Value::Bool(facts.booked(look.place.as_deref(), thing, at) < 1.0),
                 (observation, _) => facts.observe(look.body, look.room, observation),
             };
             life.facts.insert(name.clone(), seen);
@@ -668,11 +706,11 @@ fn plan_an_hour_away(
         let held = held_by(&plan, book);
         let over = held
             .iter()
-            .find(|(thing, hours)| facts.booked(look.room, thing, at) + **hours > 1.0 + f32::EPSILON)
+            .find(|(thing, hours)| facts.booked(look.place.as_deref(), thing, at) + **hours > 1.0 + f32::EPSILON)
             .map(|(thing, _)| thing.clone());
         let Some(thing) = over else {
             for (thing, hours) in held {
-                *facts.booked.entry((look.room, thing, at)).or_default() += hours;
+                *facts.booked.entry((look.place.clone(), thing, at)).or_default() += hours;
             }
             return Some(plan);
         };
@@ -982,8 +1020,9 @@ pub fn start_lives_fresh(
     fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
     mut ledger: ResMut<LifeLedger>,
 ) {
-    if fresh.is_some() && !ledger.rows.is_empty() {
+    if fresh.is_some() && (!ledger.rows.is_empty() || !ledger.bookings.is_empty()) {
         ledger.rows.clear();
+        ledger.bookings.clear();
     }
 }
 
@@ -1035,6 +1074,7 @@ mod tests {
         let look = Look {
             body: Entity::PLACEHOLDER,
             room: None,
+            place: None,
             here: ae::Vec2::ZERO,
             speaks_at: ae::Vec2::ZERO,
             visit: None,
@@ -1086,6 +1126,7 @@ mod tests {
             let look = Look {
                 body: Entity::PLACEHOLDER,
                 room: None,
+                place: None,
                 here: ae::Vec2::ZERO,
                 speaks_at: ae::Vec2::ZERO,
                 visit: None,
@@ -1099,5 +1140,45 @@ mod tests {
         // Told, and it claims anyway: no plan.
         assert_eq!(plan(&Greedy, &observing, &book, &mut facts), None);
         assert_eq!(facts.booked(None, "bench", 9), 1.0);
+    }
+
+    /// RADIANT: a body that comes back on a later tick books against what
+    /// the bodies before it booked. The first catches up the bench's nine
+    /// o'clock on one tick; the ledger keeps the booking; the second, on a
+    /// later tick, finds the bench taken. The control, with no ledger, is
+    /// the double booking this prevents.
+    #[test]
+    fn a_body_back_on_a_later_tick_books_against_the_earlier_ones() {
+        let book = LifeBook { holds: [("use".to_string(), 1.0)].into(), ..Default::default() };
+        let spec = spec();
+        let look = Look {
+            body: Entity::PLACEHOLDER,
+            room: None,
+            place: Some("coil_lab".into()),
+            here: ae::Vec2::ZERO,
+            speaks_at: ae::Vec2::ZERO,
+            visit: None,
+            spec: Some(&spec),
+        };
+        let at = 24 + 9;
+        let catch_up_on_a_tick = |bookings: &BTreeMap<(String, String, i64), f32>| {
+            let mut facts =
+                RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: booked_from(bookings) };
+            let plan = plan_an_hour_away(&Bench, &mut Life::new(&spec), &book, &mut facts, &look, at).expect("a plan");
+            (plan[0].task.clone(), bookings_to_keep(&facts, at + 1))
+        };
+        let (first, kept) = catch_up_on_a_tick(&BTreeMap::new());
+        assert_eq!(first, "claim", "premise: the first body has the bench");
+        assert_eq!(kept.get(&("coil_lab".to_string(), "bench".to_string(), at)), Some(&1.0), "the ledger keeps the booking");
+        let (second, _) = catch_up_on_a_tick(&kept);
+        assert_eq!(second, "read", "the body back later claimed a bench its hour had given away");
+        let (control, _) = catch_up_on_a_tick(&BTreeMap::new());
+        assert_eq!(control, "claim", "control: with no ledger the second body double-books");
+        // An hour no catch-up can reach is forgotten.
+        assert!(bookings_to_keep(
+            &RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: booked_from(&kept) },
+            at + CATCH_UP_HOURS + 2
+        )
+        .is_empty());
     }
 }

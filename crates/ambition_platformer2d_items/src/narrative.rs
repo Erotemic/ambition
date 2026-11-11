@@ -66,11 +66,61 @@ pub const HEALTH_CELL_HEAL: i32 = 4;
 /// How much Mana one Mana Cell restores.
 pub const MANA_CELL_RESTORE: f32 = 40.0;
 
+/// The cells bodies used from the shared bag, with the room each body was in
+/// and the tick (ISL-2d): a rewind of that room puts each back in the bag,
+/// since the use's effect is on the body, which the room's snapshot rewound,
+/// and its replay uses again what it uses again. Kept within the rewind
+/// horizon ([`ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS`]).
+///
+/// Rollback state with a real value: a use writes it on a tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct BagUsesInRooms {
+    uses: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, ambition_items::Item)>,
+}
+
+impl BagUsesInRooms {
+    /// Remember a use of one `item` from a room.
+    pub fn record(&mut self, at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, item: ambition_items::Item) {
+        self.uses.retain(|(written, _)| !written.beyond_the_horizon(at.tick));
+        self.uses.push((at, item));
+    }
+
+    /// `room` rewinds to `saved_at`: take out the uses it made after that tick
+    /// and return their items, so they go back in the bag.
+    pub fn retract_room(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) -> Vec<ambition_items::Item> {
+        if !self.uses.iter().any(|(written, _)| written.retracted_by(room, saved_at)) {
+            return Vec::new();
+        }
+        let (taken, kept): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.uses).into_iter().partition(|(written, _)| written.retracted_by(room, saved_at));
+        self.uses = kept;
+        taken.into_iter().map(|(_, item)| item).collect()
+    }
+
+    /// Entity-free value projection.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.uses.len() as u64);
+        for (written, item) in &self.uses {
+            put_u64(&mut bytes, u64::from(written.room.ordinal()));
+            put_u64(&mut bytes, written.tick);
+            put_u64(&mut bytes, item.index() as u64);
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
 /// Use what a menu asked to use. (sim)
 ///
 /// The item is spent and its effect applied on one tick, so the bag and the
 /// body cannot disagree after a rewind. A body that holds no Mana keeps its
 /// Mana Cell: there is nothing for the cell to restore.
+#[allow(clippy::too_many_arguments)]
 pub fn apply_item_uses(
     mut requests: MessageReader<ambition_items::ItemUseRequested>,
     mut owned: ResMut<OwnedItems>,
@@ -78,13 +128,26 @@ pub fn apply_item_uses(
     drivers: Query<(Entity, &DrivingParticipant)>,
     health: Query<(), With<ambition_characters::actor::BodyHealth>>,
     mut banks: Query<&mut ambition_platformer2d_core::resources::ActorResources>,
+    // Each use, with the user's room and the tick: a rewind of that room
+    // puts the item back (ISL-2d).
+    (rooms, tick, mut uses): (
+        Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<Res<ambition_time::SimTick>>,
+        Option<ResMut<BagUsesInRooms>>,
+    ),
 ) {
     use ambition_items::Item;
     for request in requests.read() {
         let Some(body) = driven_body(request.participant, &drivers) else { continue; };
+        let mut used = |item: Item| {
+            if let (Ok(room), Some(tick), Some(uses)) = (rooms.get(body), tick.as_deref(), uses.as_deref_mut()) {
+                uses.record(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: room.0, tick: tick.0 }, item);
+            }
+        };
         match request.item {
             Item::HealthCell => {
                 if health.contains(body) && owned.take(Item::HealthCell, 1) > 0 {
+                    used(Item::HealthCell);
                     heals.write(ambition_damage::healing::BodyHealRequested::new(HEALTH_CELL_HEAL, body));
                 }
             }
@@ -94,6 +157,7 @@ pub fn apply_item_uses(
                 };
                 if let Some(mana) = bank.level_of_mut(&ambition_abilities::mana::MANA) {
                     if owned.take(Item::ManaCell, 1) > 0 {
+                        used(Item::ManaCell);
                         mana.refill(MANA_CELL_RESTORE);
                     }
                 }

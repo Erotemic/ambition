@@ -179,6 +179,12 @@ pub fn open_ecs_chests(
             // authority that turns one of those into health, money, an ability
             // or a story flag. Teaching the chest a second copy would be four
             // payload kinds to keep in agreement forever.
+            // The room and tick of the opening: what it writes to a world
+            // store goes back when the room rewinds before it (ISL-2d).
+            let written = rooms
+                .of(entity)
+                .zip(tick.as_deref())
+                .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 });
             if let Some(reward) = chest.reward() {
                 let granted = crate::pickups::grant_pickup(
                     reward,
@@ -188,6 +194,7 @@ pub fn open_ecs_chests(
                     &mut set_flag,
                     owned.as_deref_mut(),
                     items.get(),
+                    written,
                 );
                 if let (Ok(collector), Some(reward_grants)) =
                     (sim_ids.get(subject), reward_grants.as_deref_mut())
@@ -208,9 +215,7 @@ pub fn open_ecs_chests(
                         source,
                         collector: collector.clone(),
                         granted,
-                        written: rooms.of(entity).zip(tick.as_deref()).map(|(room, tick)| {
-                            ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
-                        }),
+                        written,
                     });
                 }
             }
@@ -235,6 +240,7 @@ pub fn open_ecs_chests(
                     // only until somebody edits the helper.
                     id: ambition_encounter::encounter_reward_looted_flag(encounter_id),
                     on: true,
+                    written,
                 });
             }
             break;

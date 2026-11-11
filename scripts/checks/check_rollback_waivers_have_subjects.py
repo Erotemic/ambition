@@ -225,67 +225,84 @@ def subjectless() -> tuple[dict[str, list[str]], dict[str, int]]:
     dead: dict[str, list[str]] = {}
     for table, needles in rows.items():
         for needle in needles:
-            if needle.endswith("::"):
-                # A module family: some module path must END with this one's
-                # segments. `::world_flow::room_transition_loading::` is alive
-                # iff a file makes `..::world_flow::room_transition_loading` a
-                # module.
-                want = needle.strip(":")
-                if want and any(
-                    m == want or m.endswith(f"::{want}") for m in modules
-                ):
-                    continue
-                # ⛤ A FOURTH SCOPE: an EXTERNAL crate's module family. `bevy_asset::`
-                # and `bevy_state::` waive types this workspace never declares, and a
-                # workspace-only corpus calls them dead. `Cargo.lock` is the right
-                # authority for "this crate is in the build".
-                head = want.split("::", 1)[0]
-                if head and f'name = "{head}"' in _lockfile():
-                    continue
-            elif needle.endswith("<"):
-                # A generic's prefix: its leaf is a declared type.
-                leaf = needle.rstrip("<").rsplit("::", 1)[-1]
-                if leaf in names:
-                    continue
-            elif "::" not in needle and needle.islower():
-                # ⛤ A THIRD SCOPE MY FIRST RULE DID NOT MODEL: a bare
-                # lower-case entry is a CRATE-prefix waiver, which
-                # `RESOURCE_WAIVED`'s own doc block mentions ("crate-prefix
-                # waivers from `WAIVED` apply here too"). There is exactly one
-                # — `ambition_menu` — and reading it as a type path made this
-                # check's first run report a dead row for a live crate.
-                if (REPO / "crates" / needle).is_dir() or (REPO / "game" / needle).is_dir():
-                    continue
-            else:
-                # ⛔⛤ **THE LEAF WAS THE WHOLE TEST UNTIL 2026-09-18, AND A DEAD
-                # MODULE PATH STAYED GREEN.** `a::dead::path::LiveType` passed
-                # because `LiveType` is declared SOMEWHERE, so a waiver could
-                # keep pointing at a module that had been carved away and this
-                # check would never say so — exactly the rot it exists to find,
-                # one path segment up from where it was looking. Found by
-                # review.
-                prefix, _, leaf = needle.rpartition("::")
-                if leaf in names and subject_is_declared_in_module(
-                    prefix, leaf, by_module
-                ):
-                    continue
-                # ⚠ THE TWO HALVES FAIL DIFFERENTLY AND WANT DIFFERENT REPAIRS,
-                # so the row says which one broke rather than making the reader
-                # re-derive it. "Declared, but not here" is a re-export or a
-                # moved type; "declared nowhere" is a deleted one.
-                if leaf in names and module_is_live(prefix, modules):
-                    reason = (
-                        f"`{leaf}` is declared in the tree but NOT in the live module "
-                        f"`{prefix.strip(':')}` this row names"
-                    )
-                    dead.setdefault(table, []).append((needle, reason))
-                    continue
-            dead.setdefault(table, []).append((needle, ""))
+            reasons = [_dead_reason(part, names, modules, by_module) for part in subject_paths(needle)]
+            reasons = [reason for reason in reasons if reason is not None]
+            if reasons:
+                dead.setdefault(table, []).append((needle, reasons[0]))
     sizes = {
         "waiver rows": sum(len(v) for v in rows.values()),
         "declared type names": len(names),
     }
     return dead, sizes
+
+
+def subject_paths(needle: str) -> list[str]:
+    """The paths a row names. A full generic path, `a::Journal<b::Commit>`,
+    names two, the outer type and its argument, and both must be alive: split
+    at its last `::` whole, its leaf read `Commit>` and the row was called dead
+    while both types were declared."""
+    if needle.endswith(">") and "<" in needle:
+        outer, _, argument = needle[:-1].partition("<")
+        return [outer, argument]
+    return [needle]
+
+
+def _dead_reason(needle: str, names: set[str], modules: set[str], by_module: dict[str, set[str]]) -> str | None:
+    """None when `needle` names a live subject; otherwise why it does not."""
+    if needle.endswith("::"):
+        # A module family: some module path must END with this one's
+        # segments. `::world_flow::room_transition_loading::` is alive
+        # iff a file makes `..::world_flow::room_transition_loading` a
+        # module.
+        want = needle.strip(":")
+        if want and any(
+            m == want or m.endswith(f"::{want}") for m in modules
+        ):
+            return None
+        # ⛤ A FOURTH SCOPE: an EXTERNAL crate's module family. `bevy_asset::`
+        # and `bevy_state::` waive types this workspace never declares, and a
+        # workspace-only corpus calls them dead. `Cargo.lock` is the right
+        # authority for "this crate is in the build".
+        head = want.split("::", 1)[0]
+        if head and f'name = "{head}"' in _lockfile():
+            return None
+    elif needle.endswith("<"):
+        # A generic's prefix: its leaf is a declared type.
+        leaf = needle.rstrip("<").rsplit("::", 1)[-1]
+        if leaf in names:
+            return None
+    elif "::" not in needle and needle.islower():
+        # ⛤ A THIRD SCOPE MY FIRST RULE DID NOT MODEL: a bare
+        # lower-case entry is a CRATE-prefix waiver, which
+        # `RESOURCE_WAIVED`'s own doc block mentions ("crate-prefix
+        # waivers from `WAIVED` apply here too"). There is exactly one
+        # — `ambition_menu` — and reading it as a type path made this
+        # check's first run report a dead row for a live crate.
+        if (REPO / "crates" / needle).is_dir() or (REPO / "game" / needle).is_dir():
+            return None
+    else:
+        # ⛔⛤ **THE LEAF WAS THE WHOLE TEST UNTIL 2026-09-18, AND A DEAD
+        # MODULE PATH STAYED GREEN.** `a::dead::path::LiveType` passed
+        # because `LiveType` is declared SOMEWHERE, so a waiver could
+        # keep pointing at a module that had been carved away and this
+        # check would never say so — exactly the rot it exists to find,
+        # one path segment up from where it was looking. Found by
+        # review.
+        prefix, _, leaf = needle.rpartition("::")
+        if leaf in names and subject_is_declared_in_module(
+            prefix, leaf, by_module
+        ):
+            return None
+        # ⚠ THE TWO HALVES FAIL DIFFERENTLY AND WANT DIFFERENT REPAIRS,
+        # so the row says which one broke rather than making the reader
+        # re-derive it. "Declared, but not here" is a re-export or a
+        # moved type; "declared nowhere" is a deleted one.
+        if leaf in names and module_is_live(prefix, modules):
+            return (
+                f"`{leaf}` is declared in the tree but NOT in the live module "
+                f"`{prefix.strip(':')}` this row names"
+            )
+    return ""
 
 
 def main() -> int:

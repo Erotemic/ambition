@@ -1046,6 +1046,14 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
+        "ambition_geometry_observation::GeometryObservers",
+        "a registry of geometry observers (GOBS-1), filled when the app is built and only read afterwards (F1 and headless inspection run each observer on demand): composition, not simulation state, so there is nothing for a rewind to restore",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::lifecycle::room_writes::RoomWriteRetractors",
+        "the room-write retractors (ISL-2d), registered when the app is built and only read when a room rewinds: composition, not simulation state; the records they retract are each registered with their own store",
+    ),
+    (
         "ambition_demo_smash::autoplay::SmashAutoplayDriver",
         "host profiling controller: Update selects the roster, requests a shell route and checks the capture premise; replay uses the admitted session and committed inputs without this controller. Restoring its stage would repeat a host request",
     ),

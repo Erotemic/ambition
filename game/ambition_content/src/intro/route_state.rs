@@ -34,6 +34,7 @@ pub fn emit_intro_flag_chains(
             effects.write(SetFlagRequested {
                 id: chain.set.clone(),
                 on: true,
+                written: None,
             });
         }
     }

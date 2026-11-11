@@ -63,7 +63,7 @@ pub(crate) fn of_room(world: &mut World, room: LiveRoomInstance) -> Vec<Entity> 
 /// session's elapsed seconds (`GameplayElapsed`, on the session root, which a
 /// brain's timers read).
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Clock(SimTick, WorldTime, DayClock, ClockState, GameplayElapsed);
+pub(crate) struct Clock(pub(crate) SimTick, WorldTime, DayClock, ClockState, GameplayElapsed);
 
 pub(crate) fn clock(world: &World) -> Clock {
     Clock(
@@ -887,4 +887,194 @@ fn without_the_retraction_the_window_s_regrowth_time_stays() {
     let (due, window, _) = a_regrowth_taken_at_another_time_in_the_replay(false);
     let due = due.expect("a regrowth is scheduled");
     assert!((due - window - 4.0).abs() < 0.1, "the window's due time went without the retraction: {due} for a take at {window}");
+}
+
+/// ISL-2d, a cell used from the shared bag: Alice (in `basement_breakables`,
+/// Bob in the hub) uses a health cell in the window. The room rewinds to
+/// before it and replays without the use. Returns the bag's health cells at
+/// N, after the use, and after the replay.
+fn a_cell_used_only_before_the_rewind(retract: bool) -> [u32; 3] {
+    use crate::pickup_regrowth_across_rooms::{HUB, ROOM as CELL_ROOM};
+    use ambition_platformer2d::item::{Item, OwnedItems};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        CELL_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    let cells = |sim: &Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::HealthCell);
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_cells = cells(&sim);
+
+    sim.world_mut().write_message(ambition_platformer2d::items::ItemUseRequested {
+        participant: ambition_platformer2d::characters::control::PlayerSlot(0),
+        item: Item::HealthCell,
+    });
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    let after_use = cells(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = cells(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_cells, after_use, after_replay]
+}
+
+/// ISL-2d: a room that rewinds puts back in the bag the cells its bodies
+/// used after the tick it was saved at.
+#[test]
+fn a_rewound_room_puts_back_the_cell_its_replay_does_not_use() {
+    let [at_n, after_use, after_replay] = a_cell_used_only_before_the_rewind(true);
+    assert_eq!(after_use + 1, at_n, "premise: the use spends one cell (at N {at_n}, after {after_use})");
+    assert_eq!(after_replay, at_n, "the replay did not use the cell, and the bag says it did");
+}
+
+/// The control: without the retraction the cell stays spent. Run it beside
+/// the witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_cell_stays_spent() {
+    let [_, after_use, after_replay] = a_cell_used_only_before_the_rewind(false);
+    assert_eq!(after_replay, after_use, "the cell came back without the retraction");
+}
+
+/// Not a shipped flag: the world sets no flag of this name.
+const WITNESS_FLAG: &str = "isl2d_a_room_rewinds_alone_flag";
+/// A quest whose first step waits on [`WITNESS_FLAG`].
+const WITNESS_QUEST: &str = "isl2d_a_room_rewinds_alone_quest";
+
+/// What the save and the quests say of the witness flag: (the flag, the
+/// quest's step, the save's record of it).
+type FlagReading = (bool, u8, u8);
+
+/// ISL-2d, the save's flags and the quests they move: Alice (in
+/// `basement_breakables`, Bob in the hub) takes a story-flag pickup in the
+/// window, which sets a flag and moves a quest's step on. The room rewinds to
+/// before the take and replays WITHOUT it. Returns the readings at N, after
+/// the take, and after the replay.
+fn a_flag_set_only_before_the_rewind(retract: bool) -> [FlagReading; 3] {
+    use crate::pickup_regrowth_across_rooms::{collect, HUB, PLAIN, ROOM as FLAG_ROOM};
+    use ambition_platformer2d::persistence::quest::{QuestRegistry, QuestSpec, QuestStepCondition, QuestStepSpec};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        FLAG_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    // The one-time heart becomes a story flag, and a quest waits on it.
+    {
+        let world = sim.world_mut();
+        let mut pickups = world.query::<(
+            &ambition_platformer2d::combat::components::FeatureName,
+            &mut ambition_platformer2d::item_runtime::pickups::PickupFeature,
+        )>();
+        let (_, mut pickup) = pickups
+            .iter_mut(world)
+            .find(|(name, _)| name.0.as_str() == PLAIN)
+            .expect("the room authors the one-time heart");
+        pickup.pickup.kind = ambition_platformer2d::interaction::PickupKind::StoryFlag { flag: WITNESS_FLAG.into() };
+        let mut quests = world.resource_mut::<QuestRegistry>();
+        quests.ensure(QuestSpec::new(
+            WITNESS_QUEST,
+            "Witness",
+            "a quest a room's flag moves",
+            vec![
+                QuestStepSpec::new("Take it.", QuestStepCondition::FlagSet(WITNESS_FLAG.into())),
+                QuestStepSpec::new("Then nothing.", QuestStepCondition::FlagSet("isl2d_never_set".into())),
+            ],
+        ));
+        quests.start(WITNESS_QUEST);
+    }
+    let read = |sim: &Platformer2dSimHarness| -> FlagReading {
+        let world = sim.world();
+        let save = world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
+        (
+            save.data().flag(WITNESS_FLAG),
+            world.resource::<QuestRegistry>().get(WITNESS_QUEST).expect("ensured above").step,
+            save.data().quest(WITNESS_QUEST).1,
+        )
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_reading = read(&sim);
+
+    collect(&mut sim, PLAIN);
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let after_take = read(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    // The replay: Alice stands still, away from the pickup.
+    for _ in 0..20 {
+        sim.app_mut().update();
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = read(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_reading, after_take, after_replay]
+}
+
+/// ISL-2d: a room that rewinds puts back the save flags it wrote after the
+/// tick it was saved at, and the quest steps those flags moved.
+#[test]
+fn a_rewound_room_puts_back_the_flag_and_quest_step_its_replay_does_not_set() {
+    let [at_n, after_take, after_replay] = a_flag_set_only_before_the_rewind(true);
+    assert!(!at_n.0 && at_n.1 == 0, "premise: the flag is clear and the quest at its first step at N ({at_n:?})");
+    assert!(after_take.0 && after_take.1 == 1, "premise: the take sets the flag and moves the quest ({after_take:?})");
+    assert_eq!(after_take.2, 1, "premise: the save records the quest's step");
+    assert_eq!(after_replay, (false, 0, 0), "the replay did not take the pickup, and the save says it did");
+}
+
+/// The control: without the retraction the flag and the step stay. Run it
+/// beside the witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_flag_stays_set() {
+    let [_, after_take, after_replay] = a_flag_set_only_before_the_rewind(false);
+    assert_eq!(after_replay, after_take, "the flag went without the retraction");
 }

@@ -11,6 +11,8 @@ pub fn regenerate_driven_mana(
     mut banks: Query<&mut ambition_platformer2d_core::resources::ActorResources>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     policy: Option<Res<ManaRegen>>,
+    // Each body refills at its room's pace (ISL-1b).
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -34,7 +36,7 @@ pub fn regenerate_driven_mana(
             .ok()
             .and_then(|bank| bank.into_inner().level_of_mut(&super::MANA))
         {
-            mana.refill(per_second * dt);
+            mana.refill(per_second * dt * freeze.scale_of(subject));
         }
     }
 }

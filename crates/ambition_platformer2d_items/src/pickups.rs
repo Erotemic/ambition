@@ -106,8 +106,9 @@ pub fn magnetize_pickups(
         ),
         TouchCollectorFilter,
     >,
-    // A pickup is drawn only toward a body in its own live room (OW1 cut 4).
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // A pickup is drawn only toward a body in its own live room (OW1 cut 4),
+    // at that room's pace (ISL-1b).
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     mut pickups: Query<
         (Entity, &mut CenteredAabb, &PickupMagnet),
         (
@@ -119,8 +120,10 @@ pub fn magnetize_pickups(
         ),
     >,
 ) {
-    let dt = time.sim_dt();
+    let rooms = freeze.live();
+    let shared_dt = time.sim_dt();
     for (pickup, mut aabb, magnet) in &mut pickups {
+        let dt = shared_dt * freeze.scale_of(pickup);
         let room = rooms.of(pickup);
         // NEAREST collector, not the first one the query yields: iteration order
         // is not a gameplay fact, and on a couch "whoever the query happened to

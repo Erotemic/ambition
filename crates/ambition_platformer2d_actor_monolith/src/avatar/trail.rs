@@ -588,11 +588,13 @@ pub fn update_player_trail(
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    let dt = world_time.sim_dt();
+    let shared_dt = world_time.sim_dt();
     let emission_enabled = enabled.as_ref().is_some_and(|enabled| enabled.enabled);
     let breaks: Vec<TrailContinuityBreak> = continuity_breaks.read().copied().collect();
     for (entity, kin, mut trail) in &mut players {
+        let dt = shared_dt * freeze.scale_of(entity);
         let world_surfaces = world.of(entity).map(|geometry| &geometry.0);
         trail.collapse_self_loops_step(dt);
         let anchor = trail_anchor(kin);

@@ -11,7 +11,7 @@ pub fn advance_body_reactions(
     time: Res<WorldTime>,
     mut bodies: Query<(bevy::prelude::Entity, &mut BodyCombat, Option<&ProperTimeScale>), With<BodyKinematics>>,
     // A connect's room holds its bodies' recovery too (ISL-1b).
-    freeze: ambition_combat::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     for (entity, mut combat, scale) in &mut bodies {
         combat.decay_reaction_timers(

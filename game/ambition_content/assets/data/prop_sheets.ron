@@ -681,9 +681,10 @@
     "math_hotel_lobby_room": (),
     "math_hotel_corridor_room": (),
     "math_hotel_lift_shaft": (),
-    // The haunted wing uses the selected hotel prop sheets.
+    // The haunted wing uses the selected hotel prop sheets. Its wallpaper is
+    // the wall of each room: its marble ledges stand in front of it.
     "hylbert_spectral_gap": (),
-    "hylbert_wallpaper_panel": (),
+    "hylbert_wallpaper_panel": (backdrop: true),
     "hylbert_room_door": (),
     "hylbert_wall_sconce": (),
     "hylbert_chandelier": (),

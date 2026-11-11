@@ -38,12 +38,15 @@ pub fn update_ecs_breakables(
     // A player stands only on a breakable of its own live room: two live
     // rooms can hold one at the same position. The effects of a breakable are
     // drawn in its own live room.
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // At each breakable's room's pace (ISL-1b).
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     // Sim clock: breakable respawn / stand-to-break should freeze in
     // bullet-time alongside the player and enemies (ADR 0010).
-    let dt = world_time.sim_dt();
+    let rooms = freeze.live();
+    let shared_dt = world_time.sim_dt();
     for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
+        let dt = shared_dt * freeze.scale_of(entity);
         let room = rooms.of(entity);
         let mut vfx = vfx.for_room(room);
         if feature.broken() {

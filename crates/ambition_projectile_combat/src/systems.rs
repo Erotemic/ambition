@@ -780,7 +780,7 @@ pub fn step_projectiles(
         Query<(&BossConfig, &ambition_boss_encounter::BossEncounter)>,
         ambition_combat::damage_box::DamageBoxSpawner,
         // A connect's room holds its shots too (ISL-1b).
-        ambition_combat::impact_hitstop::RoomFreeze,
+        ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     ),
 ) {
     let dt = world_time.sim_dt();

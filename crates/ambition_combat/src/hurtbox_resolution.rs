@@ -320,7 +320,7 @@ pub fn resolve_body_hurtboxes(
 pub fn advance_body_pose_clocks(
     world_time: Res<ambition_time::WorldTime>,
     // A connect's room holds its bodies' pose clocks too (ISL-1b).
-    freeze: crate::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     mut bodies: Query<(
         Entity,
         (

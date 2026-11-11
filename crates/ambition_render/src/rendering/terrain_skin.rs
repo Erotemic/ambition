@@ -32,7 +32,11 @@
 //!
 //! The sizes below are in world units and are the sizes the art is drawn to
 //! (`tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/terrain/skins.py`).
-//! Change the two together.
+//! Change the two together. The structural roles
+//! ([`RoomDressingPart::ROLES`]: a pillar, what hangs below a platform, the
+//! end of a ledge) are the exception: each is laid at the size of its own
+//! picture, so one theme's underhang can be an arcade and another's the
+//! foliage under a branch.
 //!
 //! A block with art of its own (`EntityArt`) and a lock wall keep their art.
 
@@ -43,7 +47,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_sprite_sheet::game_assets::{
-    GameAssets, ParallaxTheme, RoomDressingPart, DECOR_CELL_PX, DECOR_VARIANTS, IVY_VARIANTS, PILLAR_MAX_WIDTH,
+    GameAssets, ParallaxTheme, RoomDressingPart, DECOR_CELL_PX, DECOR_VARIANTS, LEDGE_END_VARIANTS, PILLAR_MAX_WIDTH,
     PILLAR_MIN_HEIGHT,
 };
 
@@ -371,18 +375,18 @@ fn pieces_of(image: &Handle<Image>, min: Vec2, size: Vec2, period: Vec2, z: f32)
 /// at the back, the decor at the front.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SkinLayer {
-    /// A banner below a platform, behind its arcade.
-    Banner,
-    /// The arcade below a platform. It is behind each block: a floor covers
+    /// What hangs in a bay below a platform, behind its underhang.
+    Pendant,
+    /// What hangs below a platform. It is behind each block: a floor covers
     /// the foot of what hangs over it.
-    Arch,
-    /// The ivy that hangs below a platform, in front of its arcade.
-    IvyStrands,
+    Underhang,
+    /// What trails below the end of a platform, in front of its underhang.
+    Trailing,
     /// The fill of a block, the field of a blink wall or a hazard, a one-way
     /// platform.
     Fill,
-    /// The emblem on a large wall face.
-    Emblem,
+    /// The motif on a large wall face.
+    Motif,
     /// The shade on a left or right edge.
     Side,
     /// The underside of a bottom edge, and the line of a blink wall or the
@@ -390,8 +394,8 @@ pub enum SkinLayer {
     Under,
     /// The cap of a top edge.
     Cap,
-    /// The ivy on a top corner.
-    Ivy,
+    /// The treatment of an open top corner.
+    LedgeEnd,
     /// The pool of light of a thing of the decor.
     DecorGlow,
     /// A thing of the decor.
@@ -402,15 +406,15 @@ impl SkinLayer {
     /// How far in front of its block the layer is drawn.
     pub fn z(self) -> f32 {
         match self {
-            SkinLayer::Banner => -0.012,
-            SkinLayer::Arch => -0.01,
-            SkinLayer::IvyStrands => -0.008,
+            SkinLayer::Pendant => -0.012,
+            SkinLayer::Underhang => -0.01,
+            SkinLayer::Trailing => -0.008,
             SkinLayer::Fill => 0.005,
-            SkinLayer::Emblem => 0.007,
+            SkinLayer::Motif => 0.007,
             SkinLayer::Side => 0.01,
             SkinLayer::Under => 0.02,
             SkinLayer::Cap => 0.03,
-            SkinLayer::Ivy => 0.032,
+            SkinLayer::LedgeEnd => 0.032,
             SkinLayer::DecorGlow => 0.035,
             SkinLayer::Decor => 0.04,
         }
@@ -493,13 +497,19 @@ pub enum BlockSkin {
     OwnFill(RoomDressingPart),
 }
 
-/// Which pictures the theme of a room has.
+/// Which pictures the theme of a room has, and the size of each structural
+/// role's picture in world units: the size the role is laid at. The size of
+/// a part that is not a role is not read.
 pub trait SkinParts {
-    fn has(&self, part: RoomDressingPart) -> bool;
+    fn size(&self, part: RoomDressingPart) -> Option<Vec2>;
+
+    fn has(&self, part: RoomDressingPart) -> bool {
+        self.size(part).is_some()
+    }
 }
 
-impl<F: Fn(RoomDressingPart) -> bool> SkinParts for F {
-    fn has(&self, part: RoomDressingPart) -> bool {
+impl<F: Fn(RoomDressingPart) -> Option<Vec2>> SkinParts for F {
+    fn size(&self, part: RoomDressingPart) -> Option<Vec2> {
         self(part)
     }
 }
@@ -633,9 +643,10 @@ pub fn lay_block_skin(
                 return BlockSkin::Untouched;
             }
             // A pillar is one thing, with its own light on its sides.
-            let pillar = parts.has(RoomDressingPart::Pillar) && is_pillar(surface.size);
-            let skin = if pillar {
-                pillar_quads(owner, surface, out);
+            let pillar_picture = parts.size(RoomDressingPart::Pillar).filter(|_| is_pillar(surface.size));
+            let pillar = pillar_picture.is_some();
+            let skin = if let Some(picture) = pillar_picture {
+                pillar_quads(owner, surface, picture, out);
                 BlockSkin::Laid
             } else {
                 fill(RoomDressingPart::Fill, Vec2::splat(SKIN_PERIOD), out)
@@ -693,9 +704,9 @@ pub fn lay_block_skin(
                 }
             }
             lay_ornaments(owner, surface, others, &top_spans, keep_out, parts, out);
-            if parts.has(RoomDressingPart::Emblem) && !pillar {
-                for centre in emblems_on(surface, keep_out) {
-                    out.push(SkinQuad::at_scale(owner, RoomDressingPart::Emblem, SkinLayer::Emblem, centre, EMBLEM_SIZE, Vec2::ZERO));
+            if let Some(motif) = parts.size(RoomDressingPart::Motif).filter(|_| !pillar) {
+                for centre in motifs_on(surface, motif, keep_out) {
+                    out.push(SkinQuad::at_scale(owner, RoomDressingPart::Motif, SkinLayer::Motif, centre, motif, Vec2::ZERO));
                 }
             }
             if parts.has(RoomDressingPart::Decor) {
@@ -731,52 +742,56 @@ pub fn lay_block_skin(
     }
 }
 
-// The ornaments: what a theme's architecture has once for each block, and not
-// in a pattern that repeats. The sizes are the sizes the art is drawn to
-// (`terrain/ornaments.py` of the sprite renderer). Change the two together.
+// The structural roles ([`RoomDressingPart::ROLES`]): what a block has once
+// for its shape, and not in a pattern that repeats. Each is laid at the size
+// of its own picture. What is fixed here is which blocks have each, where it
+// goes, and the proportions of a picture the game reads (where the ends of a
+// bay of the underhang are, where the corner is in a ledge end), each as a
+// fraction of the picture. A theme draws to those (the hub's are
+// `terrain/ornaments.py` of the sprite renderer).
 
-/// The size of the pillar picture. It repeats down from the top of a pillar.
-const PILLAR_SIZE: Vec2 = Vec2::new(48.0, 224.0);
 /// The right part of the pillar picture that a narrower pillar keeps at its
-/// right side: its shaded edge.
-const PILLAR_EDGE: f32 = 8.0;
-/// The size of one bay of the arcade, and of the bracket at each end of it,
-/// which keeps its size when the bay is longer or shorter.
-const ARCH_SIZE: Vec2 = Vec2::new(150.0, 48.0);
-const ARCH_BRACKET: f32 = 18.0;
-/// A bay this long or longer can have a banner.
-const BANNER_MIN_BAY: f32 = 110.0;
-const BANNER_SIZE: Vec2 = Vec2::new(28.0, 80.0);
-/// The size of one square of the ivy picture, and where the corner of the
-/// block is in it: the clump reaches past the end of the block and over its
-/// top.
-const IVY_SIZE: Vec2 = Vec2::new(64.0, 52.0);
-const IVY_CORNER: Vec2 = Vec2::new(11.0, 8.0);
-/// A block this wide or wider can have ivy, and is a platform when it is
-/// [`PLATFORM_MAX_HEIGHT`] high or less.
-const IVY_MIN_WIDTH: f32 = 96.0;
+/// right side (its shaded edge), as a fraction of the picture's width.
+const PILLAR_EDGE: f32 = 1.0 / 6.0;
+/// Each end of a bay of the underhang, as a fraction of its picture's width.
+/// The ends keep their size when the bay is longer or shorter.
+const UNDERHANG_END: f32 = 0.12;
+/// How far below the platform the middle of a bay of the underhang is, as a
+/// fraction of its picture's height: a medallion hangs from it.
+const UNDERHANG_CROWN: f32 = 0.125;
+/// A bay this long or longer, as a fraction of the underhang picture's
+/// width, can have a pendant.
+const PENDANT_MIN_BAY: f32 = 110.0 / 150.0;
+/// Where the corner of the block is in a square of the ledge end, as a
+/// fraction of the square: the treatment reaches past the end of the block
+/// and over its top.
+const LEDGE_END_CORNER: Vec2 = Vec2::new(11.0 / 64.0, 8.0 / 52.0);
+/// A block this wide or wider can have a ledge end, and is a platform when
+/// it is [`PLATFORM_MAX_HEIGHT`] high or less.
+const LEDGE_END_MIN_WIDTH: f32 = 96.0;
 const PLATFORM_MAX_HEIGHT: f32 = 40.0;
-/// The size of one square of the strands below the end of a platform.
-const STRANDS_SIZE: Vec2 = Vec2::new(40.0, 120.0);
-/// The size of the emblem picture, the distance between two emblems on one
-/// face, the least size of a face that has one, and how far its middle is
-/// from each edge of the face at least.
-const EMBLEM_SIZE: Vec2 = Vec2::new(76.0, 108.0);
-const EMBLEM_PERIOD: f32 = 320.0;
-const EMBLEM_MIN_FACE: f32 = 150.0;
-const EMBLEM_MARGIN: f32 = 62.0;
-/// The size of the emblem as a medallion in a bay of the arcade, as a
-/// fraction of its size on a wall, and how far below the platform the crown
-/// of an arch is (`arch_part` in `ornaments.py`: the soffit is 6 deep).
+/// The distance between two motifs on one face, and the least size of a
+/// face that has one.
+const MOTIF_PERIOD: f32 = 320.0;
+const MOTIF_MIN_FACE: f32 = 150.0;
+/// How far the edge of a motif stays inside its face: from each side, and
+/// from the bottom (below the cap it stays 16 more).
+const MOTIF_CLEARANCE: Vec2 = Vec2::new(24.0, 8.0);
+/// The size of the motif as a medallion in a bay of the underhang, as a
+/// fraction of its size on a wall.
 const MEDALLION_SCALE: f32 = 0.5;
-const ARCH_CROWN: f32 = 6.0;
+
+/// A strip of [`LEDGE_END_VARIANTS`] squares: the size of one.
+fn square_of(strip: Vec2) -> Vec2 {
+    Vec2::new(strip.x / LEDGE_END_VARIANTS as f32, strip.y)
+}
 
 fn is_pillar(size: Vec2) -> bool {
     size.x <= PILLAR_MAX_WIDTH && size.y > PILLAR_MIN_HEIGHT
 }
 
 fn is_platform(size: Vec2) -> bool {
-    size.y <= PLATFORM_MAX_HEIGHT && size.x >= IVY_MIN_WIDTH
+    size.y <= PLATFORM_MAX_HEIGHT && size.x >= LEDGE_END_MIN_WIDTH
 }
 
 /// A number for a block, the same for each state of a two-state theme: the
@@ -790,18 +805,19 @@ fn clear_of(keep_out: Option<&TerrainKeepOut>, min: Vec2, max: Vec2) -> bool {
     keep_out.is_none_or(|keep_out| !keep_out.0.iter().any(|(a, b)| a.x < max.x && b.x > min.x && a.y < max.y && b.y > min.y))
 }
 
-/// The quads of a pillar: the picture from its left side, and its shaded
-/// right edge at the right side of a pillar narrower than the picture. It
-/// repeats down from the top of the block.
-fn pillar_quads(owner: Entity, surface: &TerrainSurface, out: &mut Vec<SkinQuad>) {
+/// The quads of a pillar: the picture (`picture` in world units) from its
+/// left side, and its shaded right edge at the right side of a pillar
+/// narrower than the picture. It repeats down from the top of the block.
+fn pillar_quads(owner: Entity, surface: &TerrainSurface, picture: Vec2, out: &mut Vec<SkinQuad>) {
     let (min, size) = (surface.min, surface.size);
+    let edge = picture.x * PILLAR_EDGE;
     // (start in the picture, start in the block, width)
-    let across: Vec<(f32, f32, f32)> = if size.x >= PILLAR_SIZE.x || size.x < PILLAR_EDGE * 2.0 {
-        vec![(0.0, 0.0, size.x.min(PILLAR_SIZE.x))]
+    let across: Vec<(f32, f32, f32)> = if size.x >= picture.x || size.x < edge * 2.0 {
+        vec![(0.0, 0.0, size.x.min(picture.x))]
     } else {
-        vec![(0.0, 0.0, size.x - PILLAR_EDGE), (PILLAR_SIZE.x - PILLAR_EDGE, size.x - PILLAR_EDGE, PILLAR_EDGE)]
+        vec![(0.0, 0.0, size.x - edge), (picture.x - edge, size.x - edge, edge)]
     };
-    for (y0, y1, oy) in anchored_pieces(0.0, size.y, PILLAR_SIZE.y) {
+    for (y0, y1, oy) in anchored_pieces(0.0, size.y, picture.y) {
         for &(tx, x0, w) in &across {
             out.push(SkinQuad::at_scale(
                 owner,
@@ -822,9 +838,9 @@ fn strip_quad(owner: Entity, part: RoomDressingPart, layer: SkinLayer, centre: V
     quad
 }
 
-/// The ornaments of one solid block or one-way platform: the arcade below a
-/// platform, a banner or a medallion in each long bay of it, and the ivy on
-/// its top corners with what hangs below them.
+/// The structural roles of one solid block or one-way platform: what hangs
+/// below a platform, a pendant or a medallion in each long bay of it, and the
+/// treatment of its open top corners with what trails below them.
 fn lay_ornaments(
     owner: Entity,
     surface: &TerrainSurface,
@@ -836,56 +852,65 @@ fn lay_ornaments(
 ) {
     let (min, max, size) = (surface.min, surface.max(), surface.size);
     let seed = block_seed(surface);
-    // An arcade hangs from a platform whose whole underside is open.
+    // What hangs below a platform hangs from one whose whole underside is open.
     let bottom = open_edge_spans(surface, Edge::Bottom, others);
     let open_below = matches!(bottom.as_slice(), [(a, b)] if *a <= min.x + CONTACT && *b >= max.x - CONTACT);
     let platform = is_platform(size) && open_below;
-    if platform && parts.has(RoomDressingPart::Arch) {
-        let bays = (size.x / ARCH_SIZE.x).round().max(1.0);
+    if let Some(underhang) = parts.size(RoomDressingPart::Underhang).filter(|_| platform) {
+        let bays = (size.x / underhang.x).round().max(1.0);
         let bay = size.x / bays;
-        let y = max.y + ARCH_SIZE.y * 0.5;
-        let middle = ARCH_SIZE.x - ARCH_BRACKET * 2.0;
+        let y = max.y + underhang.y * 0.5;
+        let end = underhang.x * UNDERHANG_END;
+        let middle = underhang.x - end * 2.0;
         for i in 0..bays as u32 {
             let x0 = min.x + i as f32 * bay;
             // (start in the picture, width in the picture, start in the bay,
             // width in the bay)
             for (tx, tw, bx, bw) in [
-                (0.0, ARCH_BRACKET, 0.0, ARCH_BRACKET),
-                (ARCH_BRACKET, middle, ARCH_BRACKET, bay - ARCH_BRACKET * 2.0),
-                (ARCH_SIZE.x - ARCH_BRACKET, ARCH_BRACKET, bay - ARCH_BRACKET, ARCH_BRACKET),
+                (0.0, end, 0.0, end),
+                (end, middle, end, bay - end * 2.0),
+                (underhang.x - end, end, bay - end, end),
             ] {
                 let mut quad = SkinQuad::at_scale(
                     owner,
-                    RoomDressingPart::Arch,
-                    SkinLayer::Arch,
+                    RoomDressingPart::Underhang,
+                    SkinLayer::Underhang,
                     Vec2::new(x0 + bx + bw * 0.5, y),
-                    Vec2::new(tw, ARCH_SIZE.y),
+                    Vec2::new(tw, underhang.y),
                     Vec2::new(tx, 0.0),
                 );
                 quad.size.x = bw;
                 out.push(quad);
             }
-            if bay < BANNER_MIN_BAY {
+            if bay < underhang.x * PENDANT_MIN_BAY {
                 continue;
             }
-            let banner = dice(seed.wrapping_add(i.wrapping_mul(2_654_435_761)).wrapping_add(660)) < 0.55;
-            if banner && parts.has(RoomDressingPart::Banner) {
-                let centre = Vec2::new(x0 + bay * 0.5, max.y + BANNER_SIZE.y * 0.5);
-                out.push(SkinQuad::at_scale(owner, RoomDressingPart::Banner, SkinLayer::Banner, centre, BANNER_SIZE, Vec2::ZERO));
-            } else if !banner && parts.has(RoomDressingPart::Emblem) {
-                // A bay with no banner has the emblem as a medallion, hung
-                // from the crown of its arch by its upright line.
-                let size = EMBLEM_SIZE * MEDALLION_SCALE;
-                let centre = Vec2::new(x0 + bay * 0.5, max.y + ARCH_CROWN + size.y * 0.5);
-                let mut quad = SkinQuad::at_scale(owner, RoomDressingPart::Emblem, SkinLayer::Banner, centre, EMBLEM_SIZE, Vec2::ZERO);
-                quad.size = size;
-                out.push(quad);
+            let pendant = dice(seed.wrapping_add(i.wrapping_mul(2_654_435_761)).wrapping_add(660)) < 0.55;
+            match (pendant, parts.size(RoomDressingPart::Pendant), parts.size(RoomDressingPart::Motif)) {
+                (true, Some(picture), _) => {
+                    let centre = Vec2::new(x0 + bay * 0.5, max.y + picture.y * 0.5);
+                    out.push(SkinQuad::at_scale(owner, RoomDressingPart::Pendant, SkinLayer::Pendant, centre, picture, Vec2::ZERO));
+                }
+                (false, _, Some(motif)) => {
+                    // A bay with no pendant has the motif as a medallion,
+                    // hung from the middle of the bay.
+                    let size = motif * MEDALLION_SCALE;
+                    let centre = Vec2::new(x0 + bay * 0.5, max.y + underhang.y * UNDERHANG_CROWN + size.y * 0.5);
+                    let mut quad = SkinQuad::at_scale(owner, RoomDressingPart::Motif, SkinLayer::Pendant, centre, motif, Vec2::ZERO);
+                    quad.size = size;
+                    out.push(quad);
+                }
+                _ => {}
             }
         }
     }
-    if size.x < IVY_MIN_WIDTH || !parts.has(RoomDressingPart::Ivy) {
+    let Some(ledge_end) = parts.size(RoomDressingPart::LedgeEnd).map(square_of) else {
+        return;
+    };
+    if size.x < LEDGE_END_MIN_WIDTH {
         return;
     }
+    let corner_in_square = ledge_end * LEDGE_END_CORNER;
     let left_open = open_edge_spans(surface, Edge::Left, others);
     let right_open = open_edge_spans(surface, Edge::Right, others);
     for right in [false, true] {
@@ -893,47 +918,49 @@ fn lay_ornaments(
             continue;
         }
         // The corner is open: the top at that end, and the side at its top.
-        let reach = IVY_SIZE.x - IVY_CORNER.x;
+        let reach = ledge_end.x - corner_in_square.x;
         let top_open = top_spans.iter().any(|&(a, b)| if right { b >= max.x - CONTACT && b - a >= reach } else { a <= min.x + CONTACT && b - a >= reach });
         let side_open = (if right { &right_open } else { &left_open }).first().is_some_and(|&(a, _)| a <= min.y + CONTACT);
         if !top_open || !side_open {
             continue;
         }
-        let variant = ((dice(seed.wrapping_add(701 + right as u32 * 13)) * IVY_VARIANTS as f32) as u32).min(IVY_VARIANTS - 1);
-        let from_corner = IVY_SIZE * 0.5 - IVY_CORNER;
+        let variant = ((dice(seed.wrapping_add(701 + right as u32 * 13)) * LEDGE_END_VARIANTS as f32) as u32).min(LEDGE_END_VARIANTS - 1);
+        let from_corner = ledge_end * 0.5 - corner_in_square;
         let corner = Vec2::new(if right { max.x } else { min.x }, min.y);
         let centre = corner + Vec2::new(if right { -from_corner.x } else { from_corner.x }, from_corner.y);
-        if !clear_of(keep_out, centre - IVY_SIZE * 0.5, centre + IVY_SIZE * 0.5) {
+        if !clear_of(keep_out, centre - ledge_end * 0.5, centre + ledge_end * 0.5) {
             continue;
         }
-        out.push(strip_quad(owner, RoomDressingPart::Ivy, SkinLayer::Ivy, centre, IVY_SIZE, variant, right));
-        if platform && parts.has(RoomDressingPart::IvyStrands) {
-            let x = if right { max.x - STRANDS_SIZE.x * 0.5 } else { min.x + STRANDS_SIZE.x * 0.5 };
-            let centre = Vec2::new(x, max.y + STRANDS_SIZE.y * 0.5);
-            out.push(strip_quad(owner, RoomDressingPart::IvyStrands, SkinLayer::IvyStrands, centre, STRANDS_SIZE, variant, right));
+        out.push(strip_quad(owner, RoomDressingPart::LedgeEnd, SkinLayer::LedgeEnd, centre, ledge_end, variant, right));
+        if let Some(trailing) = parts.size(RoomDressingPart::Trailing).map(square_of).filter(|_| platform) {
+            let x = if right { max.x - trailing.x * 0.5 } else { min.x + trailing.x * 0.5 };
+            let centre = Vec2::new(x, max.y + trailing.y * 0.5);
+            out.push(strip_quad(owner, RoomDressingPart::Trailing, SkinLayer::Trailing, centre, trailing, variant, right));
         }
     }
 }
 
-/// The middles of the emblems on the face of a large solid block: one each
-/// [`EMBLEM_PERIOD`] from the middle of the face, each whole on the face, below
-/// its cap, and clear of each thing of the play.
-fn emblems_on(surface: &TerrainSurface, keep_out: Option<&TerrainKeepOut>) -> Vec<Vec2> {
+/// The middles of the motifs (each `motif` in world units) on the face of a
+/// large solid block: one each [`MOTIF_PERIOD`] from the middle of the face,
+/// each whole on the face, below its cap, and clear of each thing of the
+/// play.
+fn motifs_on(surface: &TerrainSurface, motif: Vec2, keep_out: Option<&TerrainKeepOut>) -> Vec<Vec2> {
     let (min, size) = (surface.min, surface.size);
-    if size.x < EMBLEM_MIN_FACE || size.y < EMBLEM_MIN_FACE {
+    if size.x < MOTIF_MIN_FACE || size.y < MOTIF_MIN_FACE {
         return Vec::new();
     }
-    let along = |length: f32, margin_lo: f32| {
-        let reach = ((length * 0.5) / EMBLEM_PERIOD).ceil() as i32;
+    let margin = motif * 0.5 + MOTIF_CLEARANCE;
+    let along = |length: f32, margin_lo: f32, margin_hi: f32| {
+        let reach = ((length * 0.5) / MOTIF_PERIOD).ceil() as i32;
         (-reach..=reach)
-            .map(move |k| length * 0.5 + k as f32 * EMBLEM_PERIOD)
-            .filter(move |at| *at >= margin_lo && *at <= length - EMBLEM_MARGIN)
+            .map(move |k| length * 0.5 + k as f32 * MOTIF_PERIOD)
+            .filter(move |at| *at >= margin_lo && *at <= length - margin_hi)
     };
     let mut out = Vec::new();
-    for x in along(size.x, EMBLEM_MARGIN) {
-        for y in along(size.y, EMBLEM_MARGIN + 16.0) {
+    for x in along(size.x, margin.x, margin.x) {
+        for y in along(size.y, margin.y + 16.0, margin.y) {
             let centre = min + Vec2::new(x, y);
-            if clear_of(keep_out, centre - EMBLEM_SIZE * 0.5, centre + EMBLEM_SIZE * 0.5) {
+            if clear_of(keep_out, centre - motif * 0.5, centre + motif * 0.5) {
                 out.push(centre);
             }
         }
@@ -1265,7 +1292,25 @@ pub fn lay_room_terrain(
             .filter(|(_, surface, _, block_room, ..)| surface.theme == terrain.blocks_of && stamp(*block_room) == room)
             .map(|(entity, surface, _, _, with_art, ..)| (entity, *surface, with_art))
             .collect();
-        let parts = |part| skins.get(theme, part).is_some();
+        // Each structural role is laid at the size of its picture: a room
+        // whose role pictures are not here yet waits.
+        let mut role_sizes: std::collections::HashMap<RoomDressingPart, Vec2> = std::collections::HashMap::new();
+        let mut roles_waiting = false;
+        for &part in RoomDressingPart::ROLES {
+            if let Some(handle) = skins.get(theme, part) {
+                match images.get(handle) {
+                    Some(image) => {
+                        role_sizes.insert(part, image.size().as_vec2() / SKIN_PX_PER_UNIT);
+                    }
+                    None => roles_waiting = true,
+                }
+            }
+        }
+        if roles_waiting {
+            continue;
+        }
+        // A part that is not a role is not laid by its size.
+        let parts = |part| skins.get(theme, part).map(|_| role_sizes.get(&part).copied().unwrap_or(Vec2::ZERO));
         let (block_skins, quads) = lay_room_skin(&laid, Some(&*keep_out), spacing, &parts);
         // Each picture the quads show must be loaded: its size places the
         // quads in it. A room whose pictures are not here yet waits.
@@ -1714,19 +1759,26 @@ mod tests {
         assert!(anchored_pieces(5.0, 5.0, 64.0).is_empty());
     }
 
-    /// Every picture of a skin but the ornaments, or none.
-    fn every_part(part: RoomDressingPart) -> bool {
-        !is_ornament(part)
+    /// Every picture of a skin but the structural roles, or none.
+    fn every_part(part: RoomDressingPart) -> Option<Vec2> {
+        (!RoomDressingPart::ROLES.contains(&part)).then_some(Vec2::splat(SKIN_PERIOD))
     }
 
-    fn is_ornament(part: RoomDressingPart) -> bool {
+    /// Every picture, each role at the size the hub draws it.
+    fn with_ornaments(part: RoomDressingPart) -> Option<Vec2> {
         use RoomDressingPart::*;
-        matches!(part, Pillar | Arch | Banner | Ivy | IvyStrands | Emblem)
+        Some(match part {
+            Pillar => Vec2::new(48.0, 224.0),
+            Underhang => Vec2::new(150.0, 48.0),
+            Pendant => Vec2::new(28.0, 80.0),
+            LedgeEnd => Vec2::new(64.0 * 3.0, 52.0),
+            Trailing => Vec2::new(40.0 * 3.0, 120.0),
+            Motif => MOTIF,
+            _ => Vec2::splat(SKIN_PERIOD),
+        })
     }
 
-    fn with_ornaments(_: RoomDressingPart) -> bool {
-        true
-    }
+    const MOTIF: Vec2 = Vec2::new(76.0, 108.0);
 
     /// A tall narrow block is a pillar: the pillar picture covers it in
     /// place of the fill, and it has no side shade (the pillar has its own).
@@ -1745,42 +1797,43 @@ mod tests {
         }
     }
 
-    /// A platform whose underside is open has an arcade along all of it,
-    /// in whole bays. One that lies on a floor has none.
+    /// A platform whose underside is open has an underhang along all of it,
+    /// in whole bays of its picture's width. One that lies on a floor has
+    /// none.
     #[test]
-    fn an_arcade_hangs_below_a_platform_with_an_open_underside() {
+    fn an_underhang_hangs_below_a_platform_with_an_open_underside() {
         let platform = surface(TerrainSurfaceKind::OneWay, 64.0, 200.0, 400.0, 16.0);
         let (_, quads) = lay(&[platform], &with_ornaments);
-        let arches: Vec<&SkinQuad> = quads.iter().filter(|quad| quad.part == RoomDressingPart::Arch).collect();
-        let width: f32 = arches.iter().map(|quad| quad.size.x).sum();
-        assert!((width - 400.0).abs() < 1e-3, "the arcade is {width} long");
-        // 400 is near three bays of 150: three brackets of each end.
-        assert_eq!(arches.len(), 9);
-        assert!(arches.iter().all(|quad| quad.centre.y - ARCH_SIZE.y * 0.5 == 216.0), "it hangs from the bottom of the platform");
+        let bays: Vec<&SkinQuad> = quads.iter().filter(|quad| quad.part == RoomDressingPart::Underhang).collect();
+        let width: f32 = bays.iter().map(|quad| quad.size.x).sum();
+        assert!((width - 400.0).abs() < 1e-3, "the underhang is {width} long");
+        // 400 is near three bays of 150: three pieces to a bay.
+        assert_eq!(bays.len(), 9);
+        assert!(bays.iter().all(|quad| quad.centre.y - 48.0 * 0.5 == 216.0), "it hangs from the bottom of the platform");
 
         let floor = surface(TerrainSurfaceKind::Solid, 0.0, 216.0, 600.0, 64.0);
         let (_, quads) = lay(&[platform, floor], &with_ornaments);
-        assert!(!quads.iter().any(|quad| quad.owner == owner(0) && quad.part == RoomDressingPart::Arch));
+        assert!(!quads.iter().any(|quad| quad.owner == owner(0) && quad.part == RoomDressingPart::Underhang));
     }
 
-    /// An emblem is whole on its face and clear of each thing of the play;
+    /// A motif is whole on its face and clear of each thing of the play;
     /// a small face has none.
     #[test]
-    fn an_emblem_is_whole_on_a_large_face_and_clear_of_the_play() {
+    fn a_motif_is_whole_on_a_large_face_and_clear_of_the_play() {
         let wall = surface(TerrainSurfaceKind::Solid, 0.0, 0.0, 700.0, 400.0);
-        let centres = emblems_on(&wall, None);
+        let centres = motifs_on(&wall, MOTIF, None);
         assert!(!centres.is_empty());
         for centre in &centres {
-            let (lo, hi) = (*centre - EMBLEM_SIZE * 0.5, *centre + EMBLEM_SIZE * 0.5);
-            assert!(lo.cmpge(wall.min).all() && hi.cmple(wall.max()).all(), "an emblem at {centre} is cut by the edge");
+            let (lo, hi) = (*centre - MOTIF * 0.5, *centre + MOTIF * 0.5);
+            assert!(lo.cmpge(wall.min).all() && hi.cmple(wall.max()).all(), "a motif at {centre} is cut by the edge");
         }
         let door = TerrainKeepOut(vec![(centres[0] - Vec2::splat(10.0), centres[0] + Vec2::splat(10.0))]);
-        assert_eq!(emblems_on(&wall, Some(&door)).len(), centres.len() - 1);
-        assert!(emblems_on(&surface(TerrainSurfaceKind::Solid, 0.0, 0.0, 140.0, 400.0), None).is_empty());
+        assert_eq!(motifs_on(&wall, MOTIF, Some(&door)).len(), centres.len() - 1);
+        assert!(motifs_on(&surface(TerrainSurfaceKind::Solid, 0.0, 0.0, 140.0, 400.0), MOTIF, None).is_empty());
     }
 
-    fn no_part(_: RoomDressingPart) -> bool {
-        false
+    fn no_part(_: RoomDressingPart) -> Option<Vec2> {
+        None
     }
 
     /// The blocks of a test room, each its own owner, with no art and no decor.
@@ -1958,7 +2011,7 @@ mod tests {
         let mut assets = GameAssets::default();
         if asked_for {
             // A theme with a skin and no ornaments, as each one but the hub.
-            for &part in RoomDressingPart::ALL.iter().filter(|part| every_part(**part)) {
+            for &part in RoomDressingPart::ALL.iter().filter(|part| every_part(**part).is_some()) {
                 let image = images.add(Image::new_fill(
                     bevy::render::render_resource::Extent3d { width: 128, height: 128, depth_or_array_layers: 1 },
                     bevy::render::render_resource::TextureDimension::D2,

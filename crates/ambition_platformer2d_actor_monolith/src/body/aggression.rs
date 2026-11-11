@@ -264,10 +264,11 @@ pub fn tick_pending_challenges(
     mut commands: Commands,
     mut pending: Query<(Entity, &mut PendingChallenge)>,
     mut stimuli: MessageWriter<ActorStimulus>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
     for (entity, mut pc) in &mut pending {
-        pc.grace -= dt;
+        pc.grace -= dt * freeze.scale_of(entity);
         if pc.grace <= 0.0 {
             stimuli.write(ActorStimulus::Challenged {
                 actor: entity,

@@ -150,12 +150,15 @@ impl DeathInterlude {
 pub fn tick_death_interlude(
     time: Res<ambition_time::WorldTime>,
     mut windows: Query<(
+        Entity,
         &mut DeathInterlude,
         Option<&mut ambition_characters::actor::BodyAnimFacts>,
     )>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    let dt = time.sim_dt();
-    for (mut window, anim) in &mut windows {
+    let shared_dt = time.sim_dt();
+    for (body, mut window, anim) in &mut windows {
+        let dt = shared_dt * freeze.scale_of(body);
         if window.remaining > 0.0 {
             window.remaining = (window.remaining - dt).max(0.0);
         }

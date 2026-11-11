@@ -145,7 +145,7 @@ pub fn tick_bomb_fuses(
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
     // The blast is in the bomb's live room. It has no attacker to ask. Its
     // fuse burns at that room's pace (ISL-1b).
-    freeze: ambition_combat::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let rooms = freeze.live();
     let dt = time.sim_dt();

@@ -327,7 +327,7 @@ pub fn tick_guard_states(
     world_time: Res<ambition_time::WorldTime>,
     mut states: Query<(Entity, &mut GuardState, Option<&ambition_time::ProperTimeScale>)>,
     // A connect's room holds its bodies' guards too (ISL-1b).
-    freeze: crate::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     for (entity, mut state, scale) in &mut states {
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(entity);

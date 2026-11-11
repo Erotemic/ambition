@@ -30,8 +30,8 @@ pub fn advance_death_beats(
     // A death row plays at its room's pace, and a kill holds its own room
     // (ISL-1b): with several live rooms the shared hold stops no clock.
     mut paces: bevy::ecs::system::ParamSet<(
-        ambition_combat::impact_hitstop::RoomFreeze,
-        ambition_combat::impact_hitstop::RoomHolds,
+        ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
+        ambition_platformer2d_shared_tangle::lifecycle::RoomHolds,
     )>,
 ) {
     // Sim clock: a death row slows with bullet time, as the body did.

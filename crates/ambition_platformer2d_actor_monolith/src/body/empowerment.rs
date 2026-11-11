@@ -118,9 +118,11 @@ pub fn run_empowerments(
         ),
         Or<(With<Empowered>, With<WornCharacter>)>,
     >,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    let dt = time.sim_dt();
+    let shared_dt = time.sim_dt();
     for (body, grant, worn, mut health) in &mut bodies {
+        let dt = shared_dt * freeze.scale_of(body);
         let mut live_grant = None;
         if let Some(mut empowered) = grant {
             // A HELD empowerment has no clock to run: it is live until its

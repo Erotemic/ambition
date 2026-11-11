@@ -2,6 +2,7 @@ use super::*;
 use crate::feel::Platformer2dFeelTuningMonolith;
 use crate::hitbox::ResolvedBodyHit;
 use ambition_time::SimTick;
+use ambition_platformer2d_shared_tangle::lifecycle::{RoomFreeze, RoomPace};
 
 fn app() -> App {
     let mut app = App::new();

@@ -662,10 +662,11 @@ pub fn tick_capture_holds(
         Option<&mut ambition_platformer2d_core::BodyGroundState>,
         Option<&mut ambition_characters::control::ControlHolds>,
     )>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = time.sim_dt();
     for (victim, _, mut state, ground, holds) in &mut captives {
-        state.held_for += dt;
+        state.held_for += dt * freeze.scale_of(victim);
         if !state.escaped() {
             continue;
         }

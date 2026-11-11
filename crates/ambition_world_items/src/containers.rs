@@ -33,11 +33,14 @@ pub fn update_ecs_falling_chests(
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut chests: Query<(Entity, &mut CenteredAabb, &mut FallingChest), With<ChestFeature>>,
+    // At each chest's room's pace (ISL-1b).
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     // Sim clock: bullet-time / pause / hitstop must freeze a falling
     // chest mid-arc the same way they freeze the player. ADR 0010.
-    let dt = world_time.sim_dt();
+    let shared_dt = world_time.sim_dt();
     for (entity, mut aabb, mut falling) in &mut chests {
+        let dt = shared_dt * freeze.scale_of(entity);
         let Some(world) = rooms.of(entity) else {
             continue;
         };

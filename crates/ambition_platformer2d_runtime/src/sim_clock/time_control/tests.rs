@@ -369,7 +369,7 @@ fn the_slow_down_passes_between_the_clocks_when_the_room_count_changes() {
 fn pace_of(app: &mut App, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> f32 {
     let mut roots = app.world_mut().query::<(
         &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
-        Option<&ambition_combat::impact_hitstop::RoomPace>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::RoomPace>,
     )>();
     roots
         .iter(app.world())

@@ -1008,6 +1008,8 @@ pub fn board_reserved_mounts(
     )>,
     riders: Query<&ambition_platformer2d_core::BodyKinematics>,
     mut refused: MessageWriter<RideRefused>,
+    // A reservation runs out at its mount's room's pace (ISL-1b).
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = time.sim_dt();
     // ⛔⛔ ONE OUTCOME PER RESERVATION PER TICK, DECIDED IN ONE PASS. The first
@@ -1029,7 +1031,7 @@ pub fn board_reserved_mounts(
     }
     let mut decided: Vec<(Entity, Outcome)> = Vec::new();
     for (mount, mut reservation, kin) in &mut reserved {
-        reservation.expires_in -= dt;
+        reservation.expires_in -= dt * freeze.scale_of(mount);
         let Ok(rider_kin) = riders.get(reservation.rider) else {
             // A rider with no body has not arrived and never will.
             decided.push((mount, Outcome::RiderGone(reservation.rider)));
@@ -1214,6 +1216,8 @@ pub fn tick_ride_leases(
     time: bevy::prelude::Res<ambition_time::WorldTime>,
     mut leases: Query<(Entity, &mut RideLease)>,
     mut dismounts: MessageWriter<DismountRequested>,
+    // A lease runs at its rider's room's pace (ISL-1b).
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = time.sim_dt();
     // Collected and sorted so two leases expiring on one tick ask in a stable
@@ -1224,7 +1228,7 @@ pub fn tick_ride_leases(
         if lease.remaining <= 0.0 {
             continue;
         }
-        lease.remaining -= dt;
+        lease.remaining -= dt * freeze.scale_of(rider);
         if lease.remaining <= 0.0 {
             lease.remaining = 0.0;
             expired.push(rider);

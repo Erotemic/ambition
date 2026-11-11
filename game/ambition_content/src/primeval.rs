@@ -132,6 +132,7 @@ fn swallows_carry_coconuts(
     rooms: LiveRooms,
     time: Res<ambition_time::WorldTime>,
     tuning: Res<crate::tuning::AmbitionTuning>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let fetch = &tuning.0.swallow_fetch;
     let dt = time.sim_dt();
@@ -246,7 +247,7 @@ fn swallows_carry_coconuts(
         if busy.contains(&birds[i].entity) || !birds[i].available || birds[i].held.is_some() {
             continue;
         }
-        birds[i].flight.elapsed += dt;
+        birds[i].flight.elapsed += dt * freeze.scale_of(birds[i].entity);
         if birds[i].flight.phase == FetchPhase::Depart {
             if birds[i].flight.elapsed < fetch.retry_seconds {
                 continue;

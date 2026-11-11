@@ -260,7 +260,7 @@ pub fn tick_actor_brains(
     // The live room each actor is in: it perceives that room's walls, bodies
     // and shots and no other live room's (OW1 cuts 3d and 4). And its pace: a
     // connect's room holds its brains too (ISL-1b).
-    rooms: ambition_combat::impact_hitstop::RoomFreeze,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     // Cross-body liveness/crowding was observed in the preceding phase. The
     // decision loop reads the resulting values and does not rescan the actor
     // population itself.
@@ -1392,7 +1392,7 @@ pub fn integrate_sim_bodies(
     mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
     // The sim clock, and the pace of each body's room: a connect holds its
     // own room's bodies while another room plays on (ISL-1b).
-    (world_time, freeze): (Res<WorldTime>, ambition_combat::impact_hitstop::RoomFreeze),
+    (world_time, freeze): (Res<WorldTime>, ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze),
     // The one composer of the collision world: the room, its moving platforms
     // and the feature overlay, as every other simulated collider reads it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,

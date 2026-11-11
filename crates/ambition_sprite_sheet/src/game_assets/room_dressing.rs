@@ -79,27 +79,37 @@ pub enum RoomDressingPart {
     /// one for each thing. The square of a thing that gives no light is
     /// empty.
     DecorGlow,
+    // The structural roles below are what a block's shape asks for, not
+    // what a theme draws there: an underhang is an arcade in one theme, the
+    // foliage under a branch in another, corbels in a third. The game lays
+    // each by the size of its picture ([`Self::ROLES`]).
     /// The fill of a pillar: a solid block [`PILLAR_MAX_WIDTH`] wide or less
     /// and more than [`PILLAR_MIN_HEIGHT`] high. It repeats down from the top
     /// of the block.
     Pillar,
-    /// One bay of the arcade below a platform: the brackets at its ends keep
-    /// their size, and the span between them is as long as the bay.
-    Arch,
-    /// A banner that hangs in the middle of a bay of the arcade.
-    Banner,
-    /// The ivy on a top corner of a block: a strip of [`IVY_VARIANTS`]
-    /// squares, each for a left corner (a right one is mirrored).
-    Ivy,
-    /// What hangs below the end of a platform whose corner has ivy: a strip
-    /// of [`IVY_VARIANTS`], each for a left end.
-    IvyStrands,
-    /// A sigil in the middle of a large wall face.
-    Emblem,
+    /// One bay of what hangs below a platform whose underside is open (an
+    /// arcade, corbels, the foliage under a branch): the ends of the bay
+    /// keep their size, and the span between them is as long as the bay.
+    Underhang,
+    /// What hangs in the middle of a long bay of the underhang (a banner, a
+    /// lantern, a cluster of cones).
+    Pendant,
+    /// The treatment of an open top corner of a block (a clump of ivy, a
+    /// carved scroll, the broken end of a branch): a strip of
+    /// [`LEDGE_END_VARIANTS`] squares, each for a left corner (a right one is
+    /// mirrored).
+    LedgeEnd,
+    /// What trails below the end of a platform whose corner has a
+    /// [`Self::LedgeEnd`] (strands of ivy, roots, a chain): a strip of
+    /// [`LEDGE_END_VARIANTS`] squares, each for a left end.
+    Trailing,
+    /// A motif in the middle of a large wall face (a sigil, a crest).
+    Motif,
 }
 
-/// How many squares the ivy pictures of a theme have, side by side.
-pub const IVY_VARIANTS: u32 = 3;
+/// How many squares the [`RoomDressingPart::LedgeEnd`] and
+/// [`RoomDressingPart::Trailing`] pictures of a theme have, side by side.
+pub const LEDGE_END_VARIANTS: u32 = 3;
 /// The widest block that is a pillar, in world units.
 pub const PILLAR_MAX_WIDTH: f32 = 48.0;
 /// A pillar is higher than this, in world units.
@@ -119,8 +129,12 @@ impl RoomDressingPart {
         &[Self::Fill, Self::BreakableBrick, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
             Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface, Self::WaterBackdrop,
             Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge, Self::HazardFill, Self::HazardEdge,
-            Self::DecorGlow, Self::Pillar, Self::Arch, Self::Banner, Self::Ivy, Self::IvyStrands,
-            Self::Emblem];
+            Self::DecorGlow, Self::Pillar, Self::Underhang, Self::Pendant, Self::LedgeEnd, Self::Trailing,
+            Self::Motif];
+
+    /// The structural roles: the parts the game lays by the size of their
+    /// picture, so a theme draws each at the size it wants.
+    pub const ROLES: &'static [Self] = &[Self::Pillar, Self::Underhang, Self::Pendant, Self::LedgeEnd, Self::Trailing, Self::Motif];
 
     pub const fn key(self) -> &'static str {
         match self {
@@ -146,11 +160,11 @@ impl RoomDressingPart {
             Self::HazardEdge => "hazard_edge",
             Self::DecorGlow => "decor_glow",
             Self::Pillar => "pillar",
-            Self::Arch => "arch",
-            Self::Banner => "banner",
-            Self::Ivy => "ivy",
-            Self::IvyStrands => "ivy_strands",
-            Self::Emblem => "emblem",
+            Self::Underhang => "underhang",
+            Self::Pendant => "pendant",
+            Self::LedgeEnd => "ledge_end",
+            Self::Trailing => "trailing",
+            Self::Motif => "motif",
         }
     }
 

@@ -12,13 +12,15 @@ use super::*;
 pub fn advance_body_anim_overlay_clocks(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<(
+        Entity,
         &ambition_platformer2d_core::BodyMotionFacts,
         &mut ambition_characters::actor::BodyAnimFacts,
     )>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
-    for (facts, mut anim) in &mut bodies {
-        ambition_characters::actor::advance_body_anim_overlays(facts.dashing, &mut anim, dt);
+    for (body, facts, mut anim) in &mut bodies {
+        ambition_characters::actor::advance_body_anim_overlays(facts.dashing, &mut anim, dt * freeze.scale_of(body));
     }
 }
 

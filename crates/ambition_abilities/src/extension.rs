@@ -248,12 +248,14 @@ pub fn lower_held_forces<L: LowersIn>(
         ),
         Without<ambition_platformer2d_core::PoseOwnedExternally>,
     >,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     use ambition_platformer2d_core::Vec2;
-    let dt = time.sim_dt();
+    let shared_dt = time.sim_dt();
     for submitted in outbox.drain::<ambition_combat_port::HeldForcePort>(&L::PHASE) {
         let field = submitted.value;
         let room = live.of(submitted.scope);
+        let dt = shared_dt * freeze.scale_in(room);
         let (min, max) = (Vec2::from(field.min), Vec2::from(field.max));
         let area = ambition_platformer2d_core::Aabb::new((min + max) * 0.5, ((max - min) * 0.5).abs());
         let lift = field.lift.clamp(0.0, 1.0);

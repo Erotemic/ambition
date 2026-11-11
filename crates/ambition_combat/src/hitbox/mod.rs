@@ -1476,7 +1476,7 @@ pub fn tick_and_despawn_hitboxes(
     mut hitboxes: Query<(Entity, &mut HitboxLifetime), With<Hitbox>>,
     // A strike's window runs at its room's pace: a held room keeps it open
     // (ISL-1b).
-    freeze: crate::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
     for (entity, mut lifetime) in &mut hitboxes {

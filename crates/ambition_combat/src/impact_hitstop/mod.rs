@@ -97,6 +97,41 @@ impl RoomPace {
     }
 }
 
+/// The live rooms' roots, to hold a room: the writer's half of [`RoomPace`].
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct RoomHolds<'w, 's> {
+    roots: Query<'w, 's, (Entity, &'static Room, Option<&'static mut RoomPace>), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
+    commands: Commands<'w, 's>,
+}
+
+impl RoomHolds<'_, '_> {
+    /// Hold each room until its tick, keeping a later hold it already has.
+    /// Several holds of one room this tick keep the latest, also for a room
+    /// whose root has no pace yet.
+    pub fn hold_until(&mut self, holds: impl IntoIterator<Item = (Room, u64)>) {
+        let mut latest = std::collections::BTreeMap::<Room, u64>::new();
+        for (room, until) in holds {
+            let held = latest.entry(room).or_insert(until);
+            *held = (*held).max(until);
+        }
+        for (room, until) in latest {
+            let Some((root, _, pace)) = self.roots.iter_mut().find(|(_, at, _)| **at == room) else {
+                continue;
+            };
+            match pace {
+                Some(mut pace) => {
+                    if pace.held_until < until {
+                        pace.held_until = until;
+                    }
+                }
+                None => {
+                    self.commands.entity(root).insert(RoomPace { held_until: until, ..RoomPace::default() });
+                }
+            }
+        }
+    }
+}
+
 /// The pace of one body's room this tick ([`RoomPace`], `1.0` for a room with
 /// none). A reader multiplies the sim `dt` it gives that body by it. With one
 /// live room the shared clock already carries the hold and the scale, so the
@@ -187,11 +222,8 @@ pub fn request_impact_hitstop_on_resolved_hits(
     room_rules: crate::rules::CombatTuningOf,
     tick: Option<Res<ambition_time::SimTick>>,
     mut hold: ResMut<ImpactHitstop>,
-    // Each live room's root and its pace: a connect holds the victim's room.
-    (mut roots, mut commands): (
-        Query<(Entity, &Room, Option<&mut RoomPace>), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
-        Commands,
-    ),
+    // A connect holds the victim's room.
+    mut holds: RoomHolds,
 ) {
     let (Some(feel), Some(tick)) = (feel, tick) else {
         // A headless fixture that installed no feel route still runs this
@@ -223,25 +255,7 @@ pub fn request_impact_hitstop_on_resolved_hits(
         }
     }
     let until_after = |seconds: f32| tick.0 + (seconds * TICKS_PER_SECOND).round().max(0.0) as u64;
-    for (room, seconds) in in_rooms {
-        if seconds <= 0.0 {
-            continue;
-        }
-        let until = until_after(seconds);
-        let Some((root, _, pace)) = roots.iter_mut().find(|(_, at, _)| **at == room) else {
-            continue;
-        };
-        match pace {
-            Some(mut pace) => {
-                if pace.held_until < until {
-                    pace.held_until = until;
-                }
-            }
-            None => {
-                commands.entity(root).insert(RoomPace { held_until: until, ..RoomPace::default() });
-            }
-        }
-    }
+    holds.hold_until(in_rooms.into_iter().filter(|(_, seconds)| *seconds > 0.0).map(|(room, seconds)| (room, until_after(seconds))));
     if wanted <= 0.0 {
         return;
     }

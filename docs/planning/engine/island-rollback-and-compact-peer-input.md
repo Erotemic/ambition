@@ -562,6 +562,14 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    and its fuse does not burn, during the hold. Witness:
    `a_cooldown_waits_while_its_room_is_held`.
 
+   **And a kill's beat (2026-11-11):** the death beat (`kill_beat` in a
+   room's rules, 0.083 s in Ambition's) wrote only the shared hold, which
+   stops no clock while two rooms are live, so a kill there had no freeze.
+   It now holds each room a kill lands in through `RoomHolds` (the same
+   writer a connect uses), and a dying body's beat runs at its room's pace.
+   Witness: `a_kill_in_the_hub_holds_the_hub_and_not_bobs_room` (poisoned:
+   with the room hold dropped, the hub has no hold).
+
    With one live room the shared clock is already stopped, so nothing
    changes there. The other ~80 `sim_dt` reads (day clock, encounter timers,
    room departure, cutscene, trails, demos) still run in a held room, as they

@@ -591,7 +591,18 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    entities, its root included, so `RoomPace` (registered as
    `combat.room_pace`) rewinds with its room. Witnesses:
    `bullet_time_slows_only_player_ones_room_while_two_rooms_are_live` and
-   `a_body_runs_at_its_own_rooms_pace`. The same ~90 other `sim_dt` reads
+   `a_body_runs_at_its_own_rooms_pace`. **One clock at a time (review
+   2026-11-11, P2):** when a second room unloaded during bullet time, the
+   shared clock took the slow-down back while the room's own scale eased
+   home, and the readers applied both (0.25 on each ran the room at
+   0.0625). `RoomFreeze` now applies a room's scale only while more than
+   one room is live (`rooms_keep_their_own_clocks`, counting a room hidden
+   for another's replay), and when the count changes the emit system hands
+   the slow-down from one clock to the other where it stands, each easing on
+   from there. Witnesses:
+   `the_only_live_room_runs_at_the_shared_clock_not_its_own_scale_too` and
+   `the_slow_down_passes_between_the_clocks_when_the_room_count_changes`
+   (each poisoned). The same ~90 other `sim_dt` reads
    keep the shared pace, as for the freeze. Still open: projectile ids
    sequenced per room (deferred to the state transfer; see ISL-2c above), the
    remaining `sim_dt` reads under a room's pace (the fight's readers carry it;

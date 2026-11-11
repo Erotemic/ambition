@@ -46,7 +46,7 @@ pub fn emit_primary_observer_time_intent(
     // Each live room's root and pace, the room of Player 1's body, and the
     // real seconds the ramp is measured in. A room hidden for another room's
     // replay keeps its pace: that replay is not its time.
-    (mut roots, mut commands, rooms_of, world_time): (
+    (mut roots, mut commands, rooms_of, world_time, mut clock): (
         Query<
             (
                 Entity,
@@ -58,10 +58,17 @@ pub fn emit_primary_observer_time_intent(
         Commands,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
         Option<Res<ambition_time::WorldTime>>,
+        Option<ResMut<ClockState>>,
     ),
 ) {
     let wall_dt = world_time.as_deref().map_or(0.0, ambition_time::WorldTime::wall_dt);
-    let one_room = live_rooms.iter().count() <= 1;
+    let one_room = !ambition_combat::impact_hitstop::rooms_keep_their_own_clocks(live_rooms.iter().count());
+    // A root with no pace yet takes the handed scale as its start.
+    let seed = clock.as_deref_mut().and_then(|clock| {
+        let observed_room = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
+            .and_then(|body| rooms_of.of(body));
+        hand_over_the_slow_down(clock, &mut roots, one_room, observed_room)
+    });
     // The match hold expires on SimTick, which advances during a freeze.
     if let (true, Some(impact), Some(tick)) = (one_room, impact, tick) {
         if impact.is_freezing(*tick) {
@@ -81,7 +88,7 @@ pub fn emit_primary_observer_time_intent(
     // No unique observed body means no retained body may hold the world clock.
     let Some((facts, combat)) = observed else {
         // Nor any room's: every room eases home.
-        ease_room_clocks(&mut roots, &mut commands, None, &feel, wall_dt);
+        ease_room_clocks(&mut roots, &mut commands, None, seed, &feel, wall_dt);
         writer.write(ClockScaleRequest {
             domain: ClockDomain::SimClock,
             scale: 1.0,
@@ -112,7 +119,7 @@ pub fn emit_primary_observer_time_intent(
     // Several live rooms: the scale is Player 1's room's, and the shared
     // clock runs at 1.
     let room = (!one_room).then(|| observed_body.and_then(|body| rooms_of.of(body))).flatten();
-    ease_room_clocks(&mut roots, &mut commands, room.map(|room| (room, scale)), &feel, wall_dt);
+    ease_room_clocks(&mut roots, &mut commands, room.map(|room| (room, scale)), seed, &feel, wall_dt);
     let (scale, reason) = if one_room { (scale, reason) } else { (1.0, "room_clock") };
     writer.write(ClockScaleRequest {
         domain: ClockDomain::SimClock,
@@ -120,6 +127,59 @@ pub fn emit_primary_observer_time_intent(
         requester,
         reason,
     });
+}
+
+/// ONE CLOCK CARRIES A SLOW-DOWN AT A TIME (review 2026-11-11, P2). With one
+/// live room the shared clock carries it; with several, Player 1's room's
+/// own `RoomPace::clock_scale`. When the count changes, the slow-down passes
+/// from one clock to the other where it stands, and each eases on from
+/// there. Easing one out while the other eased in applied both for the
+/// ramp: 0.25 on each ran a room at 0.0625.
+///
+/// A stopped shared clock (an impact freeze) is not a slow-down, and is left.
+fn hand_over_the_slow_down(
+    clock: &mut ClockState,
+    roots: &mut Query<
+        (
+            Entity,
+            &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            Option<&mut ambition_combat::impact_hitstop::RoomPace>,
+        ),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+    one_room: bool,
+    observed_room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32)> {
+    if clock.time_scale == 0.0 {
+        return None;
+    }
+    if one_room {
+        // Several rooms became one: the rooms hand their scale to the shared clock.
+        for (_, _, pace) in roots.iter_mut() {
+            let Some(mut pace) = pace else { continue };
+            if pace.clock_scale != 1.0 {
+                clock.time_scale = clock.time_scale.min(pace.clock_scale);
+                pace.clock_scale = 1.0;
+            }
+        }
+        return None;
+    }
+    if clock.time_scale >= 1.0 {
+        return None;
+    }
+    // One room became several: the shared clock hands its scale to Player
+    // 1's room. With no room to hand it to, the clock eases home alone.
+    let (_, _, pace) = roots.iter_mut().find(|(_, room, _)| Some(**room) == observed_room)?;
+    let handed = clock.time_scale;
+    clock.time_scale = 1.0;
+    match pace {
+        Some(mut pace) => {
+            pace.clock_scale = pace.clock_scale.min(handed);
+            None
+        }
+        // Inserted by the ease below, which inserts the root's pace.
+        None => observed_room.map(|room| (room, handed)),
+    }
 }
 
 /// Each room's clock this tick: the `wanted` room eases toward its scale, and
@@ -137,13 +197,16 @@ fn ease_room_clocks(
     >,
     commands: &mut Commands,
     wanted: Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32)>,
+    seed: Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32)>,
     feel: &Platformer2dFeelTuningMonolith,
     frame_dt: f32,
 ) {
     for (root, room, pace) in roots.iter_mut() {
-        let now = pace.as_deref().map_or(1.0, |pace| pace.clock_scale);
+        let unpaced = seed.filter(|(at, _)| at == room).map_or(1.0, |(_, scale)| scale);
+        let now = pace.as_deref().map_or(unpaced, |pace| pace.clock_scale);
         let target = wanted.filter(|(at, _)| at == room).map_or(1.0, |(_, scale)| scale);
-        if now == target {
+        // A root with no pace is at 1, unless it was handed a scale.
+        if now == target && (pace.is_some() || now == 1.0) {
             continue;
         }
         let rate = if target < now { feel.time_ramp_down_rate } else { feel.time_ramp_up_rate };

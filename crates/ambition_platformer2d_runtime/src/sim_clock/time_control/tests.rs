@@ -319,6 +319,52 @@ fn bullet_time_slows_only_player_ones_room_while_two_rooms_are_live() {
     assert_eq!(pace_of(&mut app, here), 1.0, "the room did not ease home");
 }
 
+/// Review 2026-11-11 (P2): one clock carries a slow-down at a time. When a
+/// second room unloads during Player 1's bullet time, the room's scale passes
+/// to the shared clock and the room's goes home at once; when a second room
+/// loads, the shared clock's passes to Player 1's room. Neither clock eases
+/// out while the other eases in.
+#[test]
+fn the_slow_down_passes_between_the_clocks_when_the_room_count_changes() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let mut app = App::new();
+    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.insert_resource(ClockState::default());
+    app.add_message::<ClockScaleRequest>();
+    app.add_systems(Update, emit_primary_observer_time_intent);
+    app.world_mut().spawn((RoomInstanceRoot, here));
+    let other = app.world_mut().spawn((RoomInstanceRoot, there)).id();
+    app.world_mut().spawn((
+        DrivingParticipant(PlayerSlot::PRIMARY),
+        ambition_platformer2d_core::BodyMotionFacts { blink_aiming: true, ..Default::default() },
+        BodyCombat::default(),
+        InRoomInstance(here),
+    ));
+    for _ in 0..30 {
+        app.update();
+    }
+    let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
+    assert_eq!((pace_of(&mut app, here), app.world().resource::<ClockState>().time_scale), (bullet, 1.0));
+
+    app.world_mut().despawn(other);
+    app.update();
+    assert_eq!(
+        (pace_of(&mut app, here), app.world().resource::<ClockState>().time_scale),
+        (1.0, bullet),
+        "two rooms became one and the slow-down did not pass to the shared clock where it stood"
+    );
+
+    app.world_mut().spawn((RoomInstanceRoot, there));
+    app.update();
+    assert_eq!(
+        (pace_of(&mut app, here), app.world().resource::<ClockState>().time_scale),
+        (bullet, 1.0),
+        "one room became two and the slow-down did not pass to Player 1's room where it stood"
+    );
+}
+
 /// The clock scale on `room`'s root (`1.0` with no pace).
 fn pace_of(app: &mut App, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> f32 {
     let mut roots = app.world_mut().query::<(

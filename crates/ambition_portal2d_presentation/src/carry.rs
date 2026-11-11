@@ -324,6 +324,7 @@ pub fn carry_through_pairs(
             &Transform,
             &Visibility,
             Option<&ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
         ),
         (
             Or<(With<Sprite>, With<Mesh2d>, With<Text2d>)>,
@@ -424,7 +425,7 @@ pub fn carry_through_pairs(
             });
         }
         // Every other drawable, by its own geometry.
-        for (drawable, aabb, sprite, at, shown, reaches_from) in &free {
+        for (drawable, aabb, sprite, at, shown, reaches_from, owner) in &free {
             if *shown == Visibility::Hidden || !on_the_world(families.layers.get(drawable).ok()) {
                 continue;
             }
@@ -456,7 +457,7 @@ pub fn carry_through_pairs(
             let Some(links) = links_by_room.get(&Some(placement.room)) else { continue; };
             let budget = passages
                 .as_deref()
-                .map_or(PieceBudget::SINGLE_HOP, |passages| passages.budget_for(None, Some(placement.room)));
+                .map_or(PieceBudget::SINGLE_HOP, |passages| passages.budget_for(owner.map(|owner| owner.0), Some(placement.room)));
             let corners = vec![min, Vec2::new(max.x, min.y), max, Vec2::new(min.x, max.y)];
             let cut = match reaches_from {
                 Some(_) => partition_reaching(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), root, &links, None, budget, convention),

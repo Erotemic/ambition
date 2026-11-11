@@ -65,7 +65,9 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                         Some(geometry), hit, world.get::<engine::engine_core::BodyKinematics>(hit.owner), room))}));
             }
         }
-        if entity.contains::<engine::portal_presentation::PortalSceneBody>()
+        if entity.contains::<Sprite>()
+            || entity.contains::<engine::platformer::camera_layers::MainCamera>()
+            || entity.contains::<engine::portal_presentation::PortalSceneBody>()
             || entity.contains::<engine::portal_presentation::PortalBodyPiece>()
             || entity.contains::<engine::portal_presentation::PortalCarried>()
             || entity.contains::<engine::portal_presentation::PortalCarryCamera>()

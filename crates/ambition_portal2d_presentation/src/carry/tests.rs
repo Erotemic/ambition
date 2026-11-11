@@ -510,3 +510,41 @@ fn a_material_proxy_keeps_physical_scale_and_persistent_reflection() {
     assert!((area - 32.0*48.0*0.25).abs() < 0.01, "{area}");
     assert!(flips.contains(&true) && flips.contains(&false), "root reflection and reflected transit must both apply: {flips:?}");
 }
+
+#[test]
+fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget() {
+    use ambition_platformer2d_shared_tangle::{body::geometry::ReachesFrom, lifecycle::PresentationOf};
+    let mut app = test_app();
+    add_pair(&mut app, authored_entry(), 500.0, 800.0);
+    let budget = PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED };
+    let owner = app.world_mut().spawn((MaterialBudget(budget), ae::BodyKinematics {
+        pos: Vec2::new(480.0, 300.0), ..Default::default()
+    })).id();
+    let visual = app.world_mut().spawn((
+        Sprite::from_color(Color::WHITE, Vec2::new(58.0, 7.0)),
+        bevy::sprite::Anchor::default(), Visibility::Visible,
+        Transform::from_translation(PortalWorldFrame { size: WORLD }.to_render(Vec2::new(508.0, 300.0), 20.0)),
+        ReachesFrom(Vec2::new(480.0, 300.0)), PresentationOf(owner),
+    )).id();
+    for _ in 0..3 { app.update(); }
+    assert!(!outcome(&mut app, visual).active_capture, "the holder's refusal must constrain its reach");
+    app.world_mut().entity_mut(owner).insert(MaterialBudget(PieceBudget::SINGLE_HOP));
+    for _ in 0..3 { app.update(); }
+    let cut = outcome(&mut app, visual);
+    assert!(cut.active_capture && !cut.on_world);
+    assert_eq!(cut.pieces.len(), 2);
+    let mut near = 0;
+    let mut far = 0;
+    for piece in cut.pieces {
+        let transform = Transform { translation: piece.at, rotation: piece.rotation, scale: piece.scale };
+        let points: Vec<_> = piece.positions.iter().map(|p| transform.transform_point(Vec3::from_array(*p))).collect();
+        if piece.at.z > crate::PORTAL_WINDOW_Z {
+            near += 1;
+            assert!(points.iter().all(|p| p.x <= 0.001), "the tip cannot draw behind the source face");
+        } else {
+            far += 1;
+            assert!(points.iter().all(|p| p.x >= 300.0 - 0.001), "the tip comes out of the exit face");
+        }
+    }
+    assert_eq!((near,far), (1,1));
+}

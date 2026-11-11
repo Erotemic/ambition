@@ -205,6 +205,7 @@ mod tests {
         assert!(!run(&mut world), "no views: asleep");
         world.insert_resource(HeldItemView::default());
         world.insert_resource(HostileWieldedItemsView(vec![ambition_sim_view::HostileWieldedItemFact {
+            pos: ae::Vec2::ZERO,
             support: None,
             item_id: "gun_sword".into(),
             hand_world: ae::Vec2::ZERO,

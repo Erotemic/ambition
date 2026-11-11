@@ -16,6 +16,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::HostileWieldedItemsView;
+use ambition_platformer2d_shared_tangle::{body::geometry::ReachesFrom, lifecycle::PresentationOf};
 
 /// Presentation-only description of one wielded item's over-hand sprite.
 #[derive(Clone, Debug, PartialEq)]
@@ -162,7 +163,7 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
     wielded_items: Res<HostileWieldedItemsView>,
     // The hand of the pose each wielder draws (`posed_hand`).
     hands: super::posed_hand::PosedHands,
-    mut existing: Query<(Entity, &mut Sprite, &mut Anchor, &mut Transform), With<WieldedItemVisual>>,
+    mut existing: Query<(Entity, &mut Sprite, &mut Anchor, &mut Transform, &mut ReachesFrom), With<WieldedItemVisual>>,
     mut textures: Local<BTreeMap<String, Handle<Image>>>,
     mut drawn: Local<Vec<(DrawnKey, Entity)>>,
 ) {
@@ -241,7 +242,8 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
             .map(|at| drawn.swap_remove(at).1)
             .filter(|entity| existing.contains(*entity));
         if let Some(entity) = reused {
-            if let Ok((_, mut drawn_sprite, mut drawn_anchor, mut drawn_transform)) = existing.get_mut(entity) {
+            if let Ok((_, mut drawn_sprite, mut drawn_anchor, mut drawn_transform, mut root)) = existing.get_mut(entity) {
+                root.set_if_neq(ReachesFrom(fact.pos));
                 // Write only a change: each write marks the component changed.
                 if drawn_sprite.image != sprite.image
                     || drawn_sprite.custom_size != sprite.custom_size
@@ -263,7 +265,7 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
         let entity = commands
             .spawn_session_scoped(
                 session_scope.in_room(Some(room)),
-                (sprite, anchor, transform, WieldedItemVisual, Name::new(spec.entity_name.clone())),
+                (sprite, anchor, transform, ReachesFrom(fact.pos), PresentationOf(fact.holder.body), WieldedItemVisual, Name::new(spec.entity_name.clone())),
             )
             .id();
         kept.push((key, entity));

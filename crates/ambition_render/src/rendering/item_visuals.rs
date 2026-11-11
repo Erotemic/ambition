@@ -11,6 +11,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::world_item_art::WorldItemSprite;
 use ambition_sim_view::{GroundItemsView, HeldItemView};
+use ambition_platformer2d_shared_tangle::{body::geometry::ReachesFrom, lifecycle::PresentationOf};
 use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::prelude::*;
@@ -635,6 +636,7 @@ pub fn item_swing_angle(swing: Option<ambition_sim_view::ItemSwingFact>) -> f32 
 
 /// One item to draw in a hand, from either view of the holders.
 struct InHand<'a> {
+    root: Vec2,
     supported: bool,
     item_id: &'a str,
     /// The hand when the body's art has none: a fixed place on its box.
@@ -694,7 +696,7 @@ pub fn sync_held_item_visual(
     wielded_catalog: Option<Res<super::wielded_item_visuals::WieldedItemVisualCatalog>>,
     // The hand of the pose each holder draws (`posed_hand`).
     hands: super::posed_hand::PosedHands,
-    mut visuals: Query<(Entity, &HeldItemDrawn, &mut Transform, &mut Sprite), With<HeldItemVisual>>,
+    mut visuals: Query<(Entity, &HeldItemDrawn, &mut Transform, &mut Sprite, &mut ReachesFrom), With<HeldItemVisual>>,
     mut reported: Local<ReportedOnce>,
 ) {
     let Some(session_scope) =
@@ -717,6 +719,7 @@ pub fn sync_held_item_visual(
     let in_hand = held_view.0.iter().map(|held| {
         let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
         InHand {
+            root: held.pos,
             supported: held.support.is_some(),
             item_id: held.item_id.as_str(),
             // In the hand: just in front, at hand height (y-down, so small +y).
@@ -736,6 +739,7 @@ pub fn sync_held_item_visual(
         .map(|fact| {
             let aim = fact.aim_world - fact.hand_world;
             InHand {
+                root: fact.pos,
                 supported: fact.support.is_some(),
                 item_id: fact.item_id.as_str(),
                 hand: fact.support.as_ref().map_or(fact.hand_world, |support| support.geometry.anchor),
@@ -819,7 +823,7 @@ pub fn sync_held_item_visual(
         let transform = Transform::from_translation(translation).with_rotation(rotation);
         wanted.push((held, room, transform, flip_x, flip_y, false));
     }
-    for (entity, drawn, mut transform, mut sprite) in &mut visuals {
+    for (entity, drawn, mut transform, mut sprite, mut root) in &mut visuals {
         let kept = (!art_replaced)
             .then(|| {
                 wanted.iter_mut().find(|(held, room, .., taken)| {
@@ -828,7 +832,8 @@ pub fn sync_held_item_visual(
             })
             .flatten();
         match kept {
-            Some((_, _, wanted_transform, flip_x, flip_y, taken)) => {
+            Some((held, _, wanted_transform, flip_x, flip_y, taken)) => {
+                root.set_if_neq(ReachesFrom(held.root));
                 *taken = true;
                 transform.set_if_neq(*wanted_transform);
                 if (sprite.flip_x, sprite.flip_y) != (*flip_x, *flip_y) {
@@ -872,6 +877,8 @@ pub fn sync_held_item_visual(
             session_scope.in_room(Some(room)),
             (
                 HeldItemVisual,
+                ReachesFrom(held.root),
+                PresentationOf(held.holder.body),
                 HeldItemDrawn {
                     holder: held.holder.body,
                     room,

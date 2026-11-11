@@ -180,3 +180,13 @@ these numbers. The historical control, optimized/displayed-host comparison
 and lookup scaling measurements remain open. Commands, machine, limits and
 evidence are in the
 [current cost receipt](../ambition_dev_measurements/summaries/portal-free-material-cost-20261110.md).
+
+The station I acceptance film found a held-picture root defect.
+`04a1625b1` supplies the holder root and ownership on both held-picture paths.
+The common carry keeps the owner's material budget. A source-wall tip now
+clips at the entry and appears at the exit. The owned-reach guard checks both
+mesh bounds and a refused hop limit. The two-reflection films pass at zero
+and ninety degrees with equal physics and held transforms at 138 common
+ticks. The [accessory receipt](../ambition_dev_measurements/summaries/portal-held-accessory-20261111.md)
+records commands, 791 active owner passes, 35 policy passes and the remaining
+attachment, GNU-ton and full PSIM requirements.

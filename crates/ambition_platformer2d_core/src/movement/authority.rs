@@ -367,7 +367,27 @@ pub fn prepare_body_translation(
     let cast = MaterialCast::new(MaterialPrimitive {
         domain: &domain, to_world: kinematics.material_map().map_err(numeric)?,
     }, kinematics.pos, delta, 0.0..1.0);
-    let accepts = |collider, _: &crate::frame::material_cast::MaterialCell, _: &crate::frame::material_cast::MaterialCastHit| {
+    let polygon = domain.polygon().expect("a canonical box is a polygon");
+    let accepts = |collider: crate::world::MaterialCollider<'_>, cell: &crate::frame::material_cast::MaterialCell, hit: &crate::frame::material_cast::MaterialCastHit| {
+        // A tangent contact does not block a full linear shape that stays
+        // outside the obstacle. Curved contacts keep the continuous solver's result.
+        let clears = match collider {
+            crate::world::MaterialCollider::Block(block) => {
+                let a = block.aabb;
+                cell.clears_obstacle(&polygon, &[a.min, Vec2::new(a.max.x, a.min.y), a.max, Vec2::new(a.min.x, a.max.y)],
+                    block.velocity, hit).map_err(numeric)?
+            }
+            crate::world::MaterialCollider::Chain { chain, segment, .. } if chain.turn == 0.0 => {
+                if chain.closed && chain.kind == crate::world::SurfaceKind::Solid {
+                    cell.clears_obstacle(&polygon, &chain.points, chain.velocity, hit).map_err(numeric)?
+                } else {
+                    let (a, b) = chain.segment(segment);
+                    cell.clears_obstacle(&polygon, &[a, b], chain.velocity, hit).map_err(numeric)?
+                }
+            }
+            _ => false,
+        };
+        if clears { return Ok(false); }
         Ok(match collider {
             crate::world::MaterialCollider::Block(block) => crate::collision_semantics::is_full_collision_surface(block.kind),
             crate::world::MaterialCollider::Chain { chain, .. } => chain.kind == crate::world::SurfaceKind::Solid,

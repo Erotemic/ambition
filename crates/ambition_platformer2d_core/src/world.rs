@@ -1251,6 +1251,22 @@ impl MaterialCollider<'_> {
         match self { Self::Block(block) => block.velocity, Self::Chain { chain, .. } => chain.velocity }
     }
 
+    /// Pull this surface's physical velocity into the cast body's root chart.
+    pub fn velocity_in_root(self, contact: &crate::frame::material_cast::MaterialCastHit,
+        dt: f32, admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    ) -> Result<Vec2, crate::frame::thread::Refusal> {
+        let numeric = |reason| {
+            let mut path = contact.path.clone();
+            let link = path.pop();
+            crate::frame::thread::Refusal { path, link, reason: crate::frame::thread::RefusalReason::Numeric(reason) }
+        };
+        let velocity = self.velocity_at(contact.world_point, dt, contact.world_time).map_err(numeric)?;
+        match admission {
+            Some(admission) => admission.uncarry_velocity(&contact.path, contact.world_point, velocity, contact.world_time),
+            None => Ok(velocity),
+        }
+    }
+
     /// Surface speed at the physical contact point, in world units per second.
     pub fn velocity_at(self, point: Vec2, dt: f32, time: f64) -> Result<Vec2, crate::frame::NumericFault> {
         use crate::frame::{NumericFault, Sim2};
@@ -1644,6 +1660,34 @@ impl World {
             }
         }
         best
+    }
+
+    /// Find support under occupied body material at a fixed world-tick time.
+    /// The probe follows root gravity; carried pieces keep their physical maps.
+    pub fn material_support<'w>(&'w self, body: crate::BodyKinematics, down: Vec2,
+        reach: f32, time: f64, admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    ) -> Result<Option<MaterialWorldHit<'w>>, crate::frame::thread::Refusal> {
+        use crate::frame::{NumericFault, Sim2, material_cast::{InitialOverlap, MaterialCast},
+            thread::{MaterialPrimitive, Refusal, RefusalReason}};
+        let numeric = |reason| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(reason) };
+        if !down.is_finite() || !reach.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
+        if reach <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
+        let down = down.as_dvec2().try_normalize().ok_or_else(|| numeric(NumericFault::InvalidFrame))?;
+        let delta = Sim2::IDENTITY.vector_from_wide(down * f64::from(reach)).map_err(numeric)?;
+        let domain = body.canonical_box().map_err(numeric)?;
+        let cast = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world: body.material_map().map_err(numeric)? },
+            body.pos, delta, time..time).with_initial_overlap(InitialOverlap::Report);
+        self.first_material_sweep(cast, admission, |collider, _, hit| {
+            if hit.normal.as_dvec2().dot(-down) <= 0.5 { return Ok(false); }
+            Ok(match collider {
+                MaterialCollider::Block(block) => crate::collision_semantics::is_support_surface(block.kind),
+                MaterialCollider::Chain { chain, segment, .. } => match chain.kind {
+                    SurfaceKind::Solid => true,
+                    SurfaceKind::Ground => hit.map.direction(hit.normal)
+                        .dot(chain.normal_at_time(segment, hit.world_time).map_err(numeric)?) > 0.5,
+                },
+            })
+        })
     }
 
     /// Cast the actual material through its spatial cells against room geometry.

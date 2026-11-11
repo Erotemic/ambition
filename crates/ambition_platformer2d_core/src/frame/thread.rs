@@ -82,9 +82,9 @@ impl From<HalfPlane> for MaterialPlane {
 }
 
 impl MaterialPlane {
-    fn side(self, point: DVec2) -> f64 { point.dot(self.inward) - self.offset }
+    pub(in crate::frame) fn side(self, point: DVec2) -> f64 { point.dot(self.inward) - self.offset }
 
-    fn error_at(self, point: DVec2) -> f64 {
+    pub(in crate::frame) fn error_at(self, point: DVec2) -> f64 {
         (point.abs().dot(self.inward.abs()) + self.offset.abs()) * f64::EPSILON * 8.0
     }
 

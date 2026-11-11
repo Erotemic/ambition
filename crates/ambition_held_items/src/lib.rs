@@ -524,77 +524,57 @@ pub struct ItemStruckSurface {
     pub impact_speed: f32,
 }
 
-/// Wake a settled item whose support has gone away.
-///
-/// ⛔⛔ SETTLING WAS PERMANENT. `ground_item_physics` skips `Without<SettledItem>`
-/// and the marker was only removed by CUSTODY transitions (released from a hand,
-/// thrown), so an item that landed on a MOVING PLATFORM — which the composited
-/// collision world lets it do, deliberately — stayed fixed in WORLD SPACE when
-/// the platform moved on. A platform that disappears leaves the same hovering
-/// item.
-///
-/// ⭐ THE PROBE IS THE ONE `ground_item_physics` ALREADY USES, against the same
-/// composited world, so "what counts as support" has one definition rather than
-/// two that can disagree.
-///
-/// ⭐⭐ AND A SUPPORTED ONE RIDES, with no support IDENTITY and no local offset.
-/// `Block::velocity` is the block's own PER-FRAME DISPLACEMENT and the sweep
-/// already carries *"any body resting on the block"* by it, *"uniform across
-/// every body, with no per-actor wiring"* — and the probe below already finds
-/// the block, so the fact is at the site.
-///
-/// ⛔ THE PROBE ASKS WHERE THE BLOCK WAS. It runs after the platform has moved,
-/// so testing against its NEW footprint would drop an item off any platform
-/// moving faster than the probe's one-pixel band. `translated(-velocity)` is the
-/// same correction `ledge_grab::runtime` makes, and it is the identity for
-/// static geometry.
-///
-/// ⛔ AND `velocity` IS NOT DRAG. A conveyor belt has zero displacement and a
-/// non-zero drag, and its own doc says so — an item on a belt stays put, which
-/// is right: nothing is carrying it.
-///
-/// Each item rests on the solids of its own live room (OW1 cut 7p). This read
-/// the sole live room, so while two rooms were live it did not run: a settled
-/// item stayed put when its platform moved away.
+/// Carry supported material with its surface, or wake it when support leaves.
+/// A refused support query keeps the accepted body and its settled state.
 pub fn carry_or_wake_settled_items(
     mut commands: Commands,
-    world: ambition_platformer2d_world::collision::CollisionWorld,
+    time: Res<ambition_time::WorldTime>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     live: LiveRooms,
+    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
+    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     mut settled: Query<(Entity, &mut BodyKinematics, &mut ae::SweepSample, &ItemCustody, Has<ItemStruckSurface>), (With<SettledItem>, With<GroundItem>)>,
 ) {
-    let solids = SolidsByRoom::build(&world, settled.iter().map(|(entity, ..)| live.of(entity)));
+    let dt = time.sim_dt();
+    if dt <= 0.0 { return; }
+    let solids = SolidsByRoom::build(&collision, settled.iter().map(|(entity, ..)| live.of(entity)));
     for (entity, mut item, mut sweep, custody, struck_surface) in &mut settled {
-        // The strike of the tick it settled on is over: the physics step,
-        // which republishes it, does not step a settled item.
-        if struck_surface {
-            commands.entity(entity).remove::<ItemStruckSurface>();
-        }
-        if !custody.in_world() {
-            continue;
-        }
+        if struck_surface { commands.entity(entity).remove::<ItemStruckSurface>(); }
+        if !custody.in_world() { continue; }
         let before = *item;
-        *sweep = ae::SweepSample::at_rest(before, Vec2::ZERO);
-        let Some(world) = solids.met_by(&world, live.of(entity), entity) else {
-            continue;
-        };
-        // A thin band just past the item's own footprint: what it would rest ON.
-        let probe = ae::Aabb::new(
-            item.pos + Vec2::new(0.0, 1.0),
-            item.half_extent() + Vec2::new(0.0, 1.0),
-        );
-        let support = world.blocks.iter().find(|block| {
-            ae::collision_semantics::is_support_surface(block.kind)
-                && probe.strict_intersects(block.aabb.translated(-block.velocity))
-        });
-        match support {
-            None => {
+        *sweep = ae::SweepSample::at_tick_end(before, Vec2::ZERO);
+        let room = live.of(entity);
+        let Some(world) = solids.raw(room) else { continue; };
+        let down = gravity.dir_for(room, item.aabb());
+        let admission = geometry.as_deref().and_then(|geometry| geometry.motion_for(entity, room));
+        let prepared = (|| -> Result<Option<ae::movement::PreparedBodyPose>, ae::frame::thread::Refusal> {
+            let numeric = |reason| ae::frame::thread::Refusal { path: vec![], link: None,
+                reason: ae::frame::thread::RefusalReason::Numeric(reason) };
+            let reach = before.material.at(Vec2::ZERO).and_then(|map| map.length(2.0)).map_err(numeric)?;
+            // The platform snapshot is at tick end. Query its previous pose.
+            let Some(hit) = world.material_support(before, down, reach, 0.0, admission)? else { return Ok(None); };
+            let velocity = hit.collider.velocity_in_root(&hit.contact, dt, admission)?;
+            let pos = ae::frame::Sim2::IDENTITY.point_from_wide(before.pos.as_dvec2()
+                + velocity.as_dvec2() * f64::from(dt)).map_err(numeric)?;
+            let desired = BodyKinematics { pos, ..before };
+            let prior = ae::SweepSample::at_rest(before, down);
+            ae::movement::prepare_body_translation(world, &before, Some(&prior), desired, admission, &[]).map(Some)
+        })();
+        match prepared {
+            Ok(Some(prepared)) => {
+                let mut accepted = before;
+                let mut record = ae::SweepSample::at_rest(before, down);
+                prepared.commit(&mut accepted, Some(&mut record));
+                item.set_if_neq(accepted);
+                *sweep = record;
+            }
+            Ok(None) => {
+                *sweep = ae::SweepSample::at_rest(before, down);
                 commands.entity(entity).remove::<SettledItem>();
             }
-            Some(block) => {
-                if block.velocity != Vec2::ZERO {
-                    item.pos += block.velocity;
-                    sweep.curr = item.pos;
-                }
+            Err(refusal) => {
+                *sweep = ae::SweepSample::at_tick_end(before, down);
+                bevy::log::trace!(?entity, ?refusal, "item support refused");
             }
         }
     }

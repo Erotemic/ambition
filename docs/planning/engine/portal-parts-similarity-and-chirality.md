@@ -1446,3 +1446,17 @@ records all four slice checks and the owner, runtime, Smash, policy and
 warning checks. Other spawn paths, sub-frame birth timing, full held
 geometry, free-item collision, effect units and the other PSIM gates remain
 open. Do not admit a birth after spending its firing resource.
+
+
+### Native settled-item support — 2026-11-11
+
+`fcccb3b32` replaces the settled root-AABB probe with native material support
+and admitted carry. False corner support wakes the item; far-side scaled
+support carries it. A refused query keeps its pose and settled state. The
+linear translation proof permits tangent carry without discarding curved
+contacts. The [support receipt](../../../dev/ambition_dev_measurements/summaries/portal-item-support-20261111.md)
+records owner, slice, chain, Smash and warning checks. Merge `2317b79cb` passes
+app, held, schema 459 and all four slice checks. `01a3c3bf3` removes the old
+gun-file layout assertion; policy passes. Dynamic item sweep/bounce, R5 cost
+measurement and the other full PSIM gates remain open. Do not interpret a
+refused support query as lost support.

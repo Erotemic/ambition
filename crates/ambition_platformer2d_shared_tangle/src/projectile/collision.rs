@@ -66,21 +66,6 @@ fn at_contact(contact: &MaterialCastHit, reason: NumericFault) -> Refusal {
     }
 }
 
-fn surface_velocity(
-    collider: MaterialCollider<'_>,
-    contact: &MaterialCastHit,
-    dt: f32,
-    admission: Option<MotionAdmission<'_>>,
-) -> Result<Vec2, Refusal> {
-    let velocity = collider
-        .velocity_at(contact.world_point, dt, contact.world_time)
-        .map_err(|reason| at_contact(contact, reason))?;
-    match admission {
-        Some(admission) => admission.uncarry_velocity(&contact.path, contact.world_point, velocity, contact.world_time),
-        None => Ok(velocity),
-    }
-}
-
 /// Cast a translated body during `time`, an interval of the world tick.
 /// Blocks use their published displacement. Return the selected collider
 /// and a checked candidate response. Query failure and response failure stay
@@ -156,7 +141,7 @@ pub fn query_world_collision<'w>(
             }
         };
         if one_way && game.world_hit == WorldHitPolicy::Bouncing {
-            let surface = surface_velocity(collider, hit, dt, admission)?;
+            let surface = collider.velocity_in_root(hit, dt, admission)?;
             let approach = (after.vel.as_dvec2() - surface.as_dvec2()).dot(hit.normal.as_dvec2());
             return Ok(game.bounces_remaining > 0 && hit.normal.dot(down) < -0.5 && approach < 0.0);
         }
@@ -171,7 +156,7 @@ pub fn query_world_collision<'w>(
         let Some(hit) = contact.as_ref() else {
             return Ok(result);
         };
-        let surface = surface_velocity(hit.collider, &hit.contact, dt, admission)?;
+        let surface = hit.collider.velocity_in_root(&hit.contact, dt, admission)?;
         let normal = hit.contact.normal.as_dvec2();
         let relative = after.vel.as_dvec2() - surface.as_dvec2();
         let normal_speed = relative.dot(normal);

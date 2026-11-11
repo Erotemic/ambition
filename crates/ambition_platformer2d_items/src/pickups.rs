@@ -211,9 +211,12 @@ pub fn collect_ecs_pickups(
     // participants in its room is spared (Q151).
     // And the tick it is taken on, with its room: a rewind of the room takes
     // the grant back (ISL-2d).
-    (mut reward_grants, tick): (
+    // And the quest causes of the takes from a room: a rewind of the room
+    // retracts the quest steps they moved (ISL-2d).
+    (mut reward_grants, tick, mut quest_causes): (
         Option<ResMut<crate::pickup::RewardGrantsSinceCheckpoint>>,
         Option<Res<ambition_time::SimTick>>,
+        Option<ResMut<ambition_combat::events::QuestCausesInRooms>>,
     ),
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
 ) {
@@ -252,9 +255,15 @@ pub fn collect_ecs_pickups(
             continue;
         };
         commands.entity(entity).insert(Collected);
-        quest_advance.write(ambition_persistence::quest::QuestAdvanceRequested(
-            ambition_persistence::quest::QuestAdvanceEvent::ItemCollected(pickup.pickup.id.clone()),
-        ));
+        // The room and tick of the take: what it writes to a world store
+        // goes back when the room rewinds before it (ISL-2d).
+        let written = rooms
+            .of(entity)
+            .zip(tick.as_deref())
+            .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 });
+        let event = ambition_persistence::quest::QuestAdvanceEvent::ItemCollected(pickup.pickup.id.clone());
+        let cause = written.zip(quest_causes.as_deref_mut()).map(|(written, causes)| causes.record(written, event.label()));
+        quest_advance.write(ambition_persistence::quest::QuestAdvanceRequested(event, cause));
         // Q152: a pickup authored to regrow counts its regrowth down, as a
         // broken breakable counts its respawn (`world_time_schedule`).
         if let ambition_entity_catalog::placements::HazardRespawn::AfterSeconds(seconds) =
@@ -265,12 +274,6 @@ pub fn collect_ecs_pickups(
                 .insert(ambition_world_returns::RespawnTimer(seconds));
         }
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
-        // The room and tick of the take: what it writes to a world store
-        // goes back when the room rewinds before it (ISL-2d).
-        let written = rooms
-            .of(entity)
-            .zip(tick.as_deref())
-            .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 });
         let granted = grant_pickup(
             &pickup.pickup.kind,
             collector_entity,

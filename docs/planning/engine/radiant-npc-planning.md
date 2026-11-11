@@ -299,9 +299,19 @@ catches up by schedule arithmetic:
   books against the hours the earlier ones took
   (`a_body_back_on_a_later_tick_books_against_the_earlier_ones`, whose control
   with no ledger double-books). Hours older than the longest catch-up (a
-  week) are forgotten. Not yet: the bookings are not in the save, and a
-  thing held by a body that was live (not away) in an hour another body
-  catches up is not booked for it;
+  week) are forgotten. The bookings are in the save (2026-11-10, save v8,
+  `PersistedBooking`, hours in thousandths so the save keeps `Eq`): they
+  ride the lives' mirror and restore, so a body catching up after a load
+  books against the hours the saved lives took
+  (`the_bookings_come_back_from_the_save_as_they_went`). A live holder's hours are booked too (2026-11-11): a body that held a
+  thing while live has that time booked for the bodies that catch up an hour
+  away, measured as the time held (not the whole hour: a five-minute sit
+  books a twelfth of it). `Life::held` keeps the thing and since when; the
+  time is booked when the claim ends or changes, and up to the hour's start
+  when the hour turns, so the ledger (and its save mirror) is written at
+  those moments, not every tick (`book_the_hold`,
+  `a_live_hold_is_booked_for_the_time_it_held`). A hold whose body leaves
+  the room or is despawned before it ends is not booked;
 - the current hour is planned and its leading `go_to` steps are done at once;
 - the body is put at the last place its schedule sent it
   (`put_returning_lives`), and the rest of the plan runs live.

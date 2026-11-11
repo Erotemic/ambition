@@ -1191,3 +1191,110 @@ fn without_the_retraction_the_wave_stays_cleared() {
     let [_, after_clear, after_replay] = a_wave_cleared_only_before_the_rewind(false);
     assert_eq!(after_replay, after_clear, "the clear went without the retraction");
 }
+
+/// A quest whose first step waits on the one-time heart's collection.
+const COLLECT_QUEST: &str = "isl2d_a_room_rewinds_alone_collect_quest";
+
+/// ISL-2d, a quest event that is not a flag: Alice (in `basement_breakables`,
+/// Bob in the hub) takes the one-time heart in the window, which queues its
+/// `ItemCollected` and moves a quest's step on. The room rewinds to before
+/// the take and replays WITHOUT it. Returns the quest's step, and the save's
+/// record of it, at N, after the take, and after the replay.
+fn an_item_collected_only_before_the_rewind(retract: bool) -> [(u8, u8); 3] {
+    use crate::pickup_regrowth_across_rooms::{collect, HUB, PLAIN, ROOM as HEART_ROOM};
+    use ambition_platformer2d::persistence::quest::{QuestRegistry, QuestSpec, QuestStepCondition, QuestStepSpec};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        HEART_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    {
+        let world = sim.world_mut();
+        let id = world
+            .query::<(
+                &ambition_platformer2d::combat::components::FeatureName,
+                &ambition_platformer2d::item_runtime::pickups::PickupFeature,
+            )>()
+            .iter(world)
+            .find(|(name, _)| name.0.as_str() == PLAIN)
+            .map(|(_, pickup)| pickup.pickup.id.clone())
+            .expect("the room authors the one-time heart");
+        let mut quests = world.resource_mut::<QuestRegistry>();
+        quests.ensure(QuestSpec::new(
+            COLLECT_QUEST,
+            "Witness",
+            "a quest a room's pickup moves",
+            vec![
+                QuestStepSpec::new("Take it.", QuestStepCondition::ItemCollected(id)),
+                QuestStepSpec::new("Then nothing.", QuestStepCondition::FlagSet("isl2d_never_set".into())),
+            ],
+        ));
+        quests.start(COLLECT_QUEST);
+    }
+    let read = |sim: &Platformer2dSimHarness| -> (u8, u8) {
+        let world = sim.world();
+        (
+            world.resource::<QuestRegistry>().get(COLLECT_QUEST).expect("ensured above").step,
+            world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data().quest(COLLECT_QUEST).1,
+        )
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_reading = read(&sim);
+
+    collect(&mut sim, PLAIN);
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let after_take = read(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    // The replay: Alice stands still, away from the heart.
+    for _ in 0..20 {
+        sim.app_mut().update();
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = read(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_reading, after_take, after_replay]
+}
+
+/// ISL-2d: a room that rewinds retracts the quest steps its pickups' events
+/// moved after the tick it was saved at.
+#[test]
+fn a_rewound_room_puts_back_the_quest_step_of_the_pickup_its_replay_does_not_take() {
+    let [at_n, after_take, after_replay] = an_item_collected_only_before_the_rewind(true);
+    assert_eq!(at_n.0, 0, "premise: the quest is at its first step at N");
+    assert_eq!(after_take, (1, 1), "premise: the take moves the quest, and the save records it");
+    assert_eq!(after_replay, (0, 0), "the replay did not take the heart, and the quest says it did");
+}
+
+/// The control: without the retraction the step stays. Run it beside the
+/// witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_collected_step_stays() {
+    let [_, after_take, after_replay] = an_item_collected_only_before_the_rewind(false);
+    assert_eq!(after_replay, after_take, "the step went without the retraction");
+}

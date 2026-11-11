@@ -403,6 +403,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/life_switch.rs",
         "crates/ambition_boss_encounter/src/retraction.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_encounter_features/src/room_writes.rs",
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
@@ -478,6 +479,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "BagUsesInRooms": (
         "crates/ambition_platformer2d_items/src/narrative.rs",
         "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
+    ),
+    "EncounterClearsInRooms": (
+        "crates/ambition_encounter_features/src/room_writes.rs",
+        "crates/ambition_encounter_features/src/systems.rs",
+    ),
+    "QuestCausesInRooms": (
+        "crates/ambition_platformer2d_items/src/pickups.rs",
+        "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
     ),
     "BagSpendsSinceCheckpoint": (
         "crates/ambition_held_items/src/lib.rs",
@@ -1847,6 +1856,16 @@ ADJUDICATED: dict[str, str] = {
         "(`boss_replay_retraction.rs`, `registry.rs` tests). The content payout "
         "(`grant_quest_completion_rewards`) follows the quest back, through "
         "`OwnedItems::take`."
+        "\n    ⛤ AND A ROOM'S REWIND, THROUGH THE SAME ROAD — 2026-11-11 (ISL-2d). "
+        "`retract_room_encounter_clears` (`ambition_encounter_features/src/"
+        "room_writes.rs`), `retract_room_flag_writes` and "
+        "`retract_room_quest_causes` (`effect_bus.rs`) each call "
+        "`retract_caused_by` for the causes a rewound room queued after the saved "
+        "tick (a wave clear, a flag write, a pickup's `ItemCollected`), or "
+        "`forget_cause` where a later write of the same kind stands. Same road, "
+        "same guard on `after`, so they write no value the drain did not write "
+        "first. Witnesses in `a_room_rewinds_alone.rs`; the flag arm was "
+        "poison-verified."
     ),
     "OwnedItems": (
         "ROUTED — TEN WRITER FILES COLLAPSE TO A HANDFUL OF IMPLEMENTATIONS, AND "
@@ -1934,6 +1953,26 @@ ADJUDICATED: dict[str, str] = {
         "Every writer runs in the simulation schedule or the checkpoint apply, "
         "and the type is rollback state with a value checksum "
         "(`boss.defeats_since_checkpoint`)."
+    ),
+    "EncounterClearsInRooms": (
+        "CORRECT — ONE RECORDER AND ITS RETRACTOR (ISL-2d, 2026-11-11). The list "
+        "is private (`ambition_encounter_features/src/room_writes.rs`): `record` "
+        "is called only by `apply_wave_encounter_effects` (`systems.rs`) when a "
+        "wave clears in a room, with its room, tick and the switches' prior "
+        "values; `retract_room` only by `retract_room_encounter_clears`, the "
+        "retractor registered beside it, at a room's rewind. Rollback state with "
+        "a value checksum (`resource.encounter_clears_in_rooms`)."
+    ),
+    "QuestCausesInRooms": (
+        "CORRECT — ONE RECORDER, ITS PRUNER AND ITS RETRACTOR (ISL-2d, "
+        "2026-11-11). The list is private (`ambition_combat/src/events.rs`): "
+        "`record` is called only by `collect_ecs_pickups` (`pickups.rs`), with "
+        "the take's room and tick; `prune` (the causes past the rewind horizon) "
+        "only by `apply_quest_effects` and `retract_room` only by "
+        "`retract_room_quest_causes` (both `effect_bus.rs`). The pruner drops "
+        "only what no rewind can reach, so the recorder and it cannot disagree "
+        "about a live entry. Rollback state with a value checksum "
+        "(`resource.quest_causes_in_rooms`)."
     ),
     "BagUsesInRooms": (
         "CORRECT — ONE RECORDER AND ITS RETRACTOR (ISL-2d, 2026-11-10). The list "
@@ -2078,9 +2117,10 @@ ADJUDICATED: dict[str, str] = {
         "row in custody and a terminal row are refused (`#[must_use]`). The "
         "crossing writes it, not `record_placed_bodies`, because only the "
         "crossing knows the move happened: a `Placed` row in another room is a "
-        "stale duplicate to that producer. Witness: "
-        "`a_dog_that_went_next_door_is_not_built_again_at_home` (with the write "
-        "removed, the rebuilt hub has a second dog).\n"
+        "stale duplicate to that producer. Its witness (with the write "
+        "removed, the rebuilt hub had a second dog) was deleted in 392defdb08, "
+        "when the dog tests were cut to one build per question; NO ARM WITNESSES "
+        "THIS WRITE NOW (2026-11-11).\n"
         "    ⛔⛤ AND THE REGISTRATION HISTORY IS THE OPPOSITE OF A FIX TO REACH "
         "FOR. This was `declare_rollback_derived_resource` — in no snapshot — "
         "while `adopt_rows` was already a non-rederived producer, which its own "
@@ -2926,9 +2966,10 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_dev_tools/src/dev_tools/editable.rs`), and only "
         "after the timeline owner admits the proposal. Measured 2026-10-01 by "
         "ToothbrushAmbition2: a grep for a mutable `ActiveMovementTuning` "
-        "outside tests finds only that publisher, and "
-        "`a_movement_tuning_saved_while_the_game_runs_is_played` fails at 630 "
-        "with the watch's write removed."
+        "outside tests finds only that publisher; the arm that failed at 630 "
+        "with the watch's write removed was deleted in aa950100df (the reload "
+        "tests cut to one game per path), so the watch's write has no witness "
+        "now (2026-11-11)."
     ),
     "ActiveSessionScope": (
         "THREE DISJOINT OPERATIONS, NEVER CONTENDING ON THE SAME WRITE. The "
@@ -3512,9 +3553,8 @@ ADJUDICATED: dict[str, str] = {
         "`finalize_unpresented_room_transition_failure_system`) are installed "
         "as ONE `.chain()` in `Update` "
         "(`crates/ambition_platformer2d_runtime/src/room_transition/mod.rs:70-86`), "
-        "whose membership is asserted by "
-        "`the_readiness_chain_still_carries_the_checkpoint_terminalization` "
-        "(`loading.rs`); `commit.rs`'s pair sits in the sim schedule's "
+        "whose membership was asserted by a probe "
+        "2f3af86653 removed as obsolete (2026-11-04); `commit.rs`'s pair sits in the sim schedule's "
         "`RoomTransitionSet::Apply` chain (`mod.rs:88-105`); and the "
         "presentation trio is chained in `Update` "
         "(`crates/ambition_platformer2d/src/world_flow/room_transition_presentation.rs:239-257`). "
@@ -3522,8 +3562,9 @@ ADJUDICATED: dict[str, str] = {
         "2026-09-18 by asking Bevy's own `conflicting_systems()` about the "
         "shipped app — 16 unordered pairs write this resource, held as a "
         "ratchet by "
-        "`room_transition_load_state_writers_are_ordered_against_each_other_in_the_shipped_app` "
-        "(`game/ambition_app/tests/update_schedule_census.rs`) with a "
+        "an arm of `game/ambition_app/tests/update_schedule_census.rs` that "
+        "2f3af86653 removed (it now reports the conflicts without the September "
+        "count), with a "
         "positive control "
         "(`the_room_transition_conflict_detector_reports_an_unordered_pair`) "
         "and a negative one "

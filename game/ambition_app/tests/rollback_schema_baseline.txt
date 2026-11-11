@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v446
+ggrs-rollback-schema-v449
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -513,6 +513,7 @@ resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.quest_causes_in_rooms	resource-clone-custom-checksum	QuestCausesInRooms	bevy_ggrs clone snapshot + the quest events rooms queued within the rewind horizon, with the cause each is queued under, which a room rewind retracts (ISL-2d)
 resource.quest_last_room	component-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked
 resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression, pending-advance and caused-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

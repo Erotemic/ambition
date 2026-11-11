@@ -244,7 +244,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 439 -> 440: saved NPC lives and native portal body contacts join the merge.
 // 440 -> 441: distinguish the combined save and portal snapshot.
 // 441 -> 442: a skirmisher's brain cursor carries its notice beat.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 446;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 449;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

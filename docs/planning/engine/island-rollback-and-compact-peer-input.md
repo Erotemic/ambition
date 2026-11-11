@@ -456,14 +456,23 @@ quest steps, newest first, unless a later clear of the same encounter stands.
 Witness `a_rewound_room_puts_back_the_wave_clear_its_replay_does_not_make`
 (the goblin wave's `Completed`, written as the reducer would, with Alice in
 `goblin_encounter` and Bob in the hub), with an ignored control; units in
-`room_writes.rs`. Still open: `ItemCollected` (one step, from a pickup through
-`QuestAdvanceRequested`, which carries no room), and `NpcTalked` (a
-conversation, ISL-1b).
+`room_writes.rs`. `NpcTalked` is a conversation's (ISL-1b).
+
+**A pickup's `ItemCollected` (2026-11-11):** `QuestAdvanceRequested` now
+carries the cause its event is queued under (`None` for an event nothing
+retracts; `QuestAdvanceRequested::new`). The pickup stamps a cause naming
+its room and tick and logs it in `QuestCausesInRooms` (rollback state
+`resource.quest_causes_in_rooms`); `apply_quest_effects` queues the event
+under it and forgets the causes past the rewind horizon. The retractor
+(`retract_room_quest_causes`) retracts the room's causes newest first, except
+where a later event with the same label stands. Witness
+`a_rewound_room_puts_back_the_quest_step_of_the_pickup_its_replay_does_not_take`,
+with an ignored control. Every shipped quest event a room's act queues is now
+taken back by that room's rewind: flags, boss defeats, wave clears, pickups.
 
 **Next:** the room rollback host that calls `retract_room_writes` in
 production (today the witnesses and the ISL-2e probe host
-`room_rollback_host.rs` call it after each restore), and the room attribution
-of `QuestAdvanceRequested` (the pickup's `ItemCollected`).
+`room_rollback_host.rs` call it after each restore).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 

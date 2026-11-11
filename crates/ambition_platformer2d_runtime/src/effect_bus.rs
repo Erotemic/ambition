@@ -79,13 +79,60 @@ pub fn retract_room_flag_writes(
 }
 
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
+///
+/// A caused event is queued under its cause, so a room rewind can retract it
+/// ([`ambition_combat::events::QuestCausesInRooms`]); the causes no rewind
+/// can reach any longer are forgotten here.
 pub fn apply_quest_effects(
     mut effects: MessageReader<QuestAdvanceRequested>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
+    (causes, tick): (
+        Option<ResMut<ambition_combat::events::QuestCausesInRooms>>,
+        Option<Res<ambition_time::SimTick>>,
+    ),
 ) {
-    for effect in effects.read() {
-        quests.push_event(effect.0.clone());
+    if let (Some(mut causes), Some(tick)) = (causes, tick) {
+        for old in causes.prune(tick.0) {
+            quests.forget_cause(&old);
+        }
     }
+    for effect in effects.read() {
+        match &effect.1 {
+            Some(cause) => quests.push_event_caused_by(effect.0.clone(), cause.clone()),
+            None => quests.push_event(effect.0.clone()),
+        }
+    }
+}
+
+/// `room` rewinds to `saved_at`: put back the quest steps the events it
+/// queued after that tick moved, except where a later event of the same
+/// kind still stands (ISL-2d, [`ambition_combat::events::QuestCausesInRooms`]).
+pub fn retract_room_quest_causes(
+    world: &mut bevy::prelude::World,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    saved_at: u64,
+) {
+    let Some(taken) = world
+        .get_resource_mut::<ambition_combat::events::QuestCausesInRooms>()
+        .map(|mut causes| causes.retract_room(room, saved_at))
+        .filter(|taken| !taken.is_empty())
+    else {
+        return;
+    };
+    world.resource_scope(|world, mut save: bevy::prelude::Mut<ambition_persistence::save::AmbitionGameSave>| {
+        let mut quests = world.resource_mut::<ambition_persistence::quest::QuestRegistry>();
+        for (cause, superseded) in taken {
+            if superseded {
+                quests.forget_cause(&cause);
+                continue;
+            }
+            for quest in quests.retract_caused_by(&cause) {
+                if let Some(state) = quests.get(&quest) {
+                    save.data_mut().set_quest(&quest, state.progression, state.step);
+                }
+            }
+        }
+    });
 }
 
 /// Switch activations are gameplay events too. The activation is already
@@ -141,7 +188,7 @@ mod tests {
             on: true,
             written: None,
         };
-        let quest = QuestAdvanceRequested(
+        let quest = QuestAdvanceRequested::new(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked("guide".into()),
         );
         let switch = SwitchActivated {

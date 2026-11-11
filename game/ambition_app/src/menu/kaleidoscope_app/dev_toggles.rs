@@ -87,6 +87,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     values.push(DevSnapshot::toggle(D::CameraFrame, dev.show_camera_frame));
     values.push(DevSnapshot::toggle(D::Navigation, dev.show_navigation));
     values.push(DevSnapshot::toggle(D::ObservedGeometry, dev.show_observed_geometry));
+    values.push(DevSnapshot::cycle(D::ObservedGeometryProvider, dev.observed_geometry_label()));
     values.push(DevSnapshot::toggle(D::OverviewCamera, dev.overview_camera));
     values.push(DevSnapshot::cycle(
         D::DebugViewMode,
@@ -175,6 +176,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         D::CameraFrame => dev.show_camera_frame = !dev.show_camera_frame,
         D::Navigation => dev.show_navigation = !dev.show_navigation,
         D::ObservedGeometry => dev.show_observed_geometry = !dev.show_observed_geometry,
+        D::ObservedGeometryProvider => dev.cycle_observed_geometry_provider(dir),
         D::OverviewCamera => dev.overview_camera = !dev.overview_camera,
         D::DebugViewMode => {
             dev.debug_view_mode = if dir < 0 {

@@ -90,7 +90,32 @@ fn f1_and_headless_inspection_read_one_observation() {
     assert!(!answer("combat.volumes").is_empty(), "the player has hurt volumes");
     assert!(to_json(&headless).contains("\"provider\": \"test.third_party\""));
 
+    // GOBS-1: F1 draws one observer at a time. The collector published the
+    // installed names; the menu's cycle steps from all to the first one.
+    let first = {
+        let mut tools = sim.world_mut().resource_mut::<DeveloperTools>();
+        assert_eq!(tools.observed_geometry_providers, catalog_names(&headless), "the cycle steps through the installed observers");
+        tools.cycle_observed_geometry_provider(1);
+        tools.observed_geometry_only.clone().expect("one step from all selects one observer")
+    };
+    collect_observed_geometry(sim.world_mut());
+    let drawn: Vec<String> =
+        sim.world().resource::<ObservedGeometryFrame>().in_room(room).iter().map(|layer| layer.provider.to_string()).collect();
+    assert_eq!(drawn, vec![first.clone()], "F1 drew other observers than the selected one");
+    sim.world_mut().resource_mut::<DeveloperTools>().cycle_observed_geometry_provider(-1);
+    collect_observed_geometry(sim.world_mut());
+    assert_eq!(
+        sim.world().resource::<ObservedGeometryFrame>().in_room(room).len(),
+        headless.len(),
+        "a step back from the first observer draws them all again"
+    );
+
     layer_on(&mut sim, false);
     collect_observed_geometry(sim.world_mut());
     assert!(sim.world().resource::<ObservedGeometryFrame>().rooms.is_empty(), "with the layer off, nothing is asked");
+}
+
+/// The providers a full observation answered, in its order.
+fn catalog_names(layers: &[ambition_platformer2d::geometry_observation::ObservedLayer]) -> Vec<String> {
+    layers.iter().map(|layer| layer.provider.to_string()).collect()
 }

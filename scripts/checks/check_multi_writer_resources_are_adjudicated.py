@@ -430,6 +430,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "DeveloperTools": (
         "crates/ambition_dev_tools/src/lib.rs",
         "crates/ambition_dev_tools/src/persistence.rs",
+        "crates/ambition_render/src/rendering/observed_geometry.rs",
         "game/ambition_app/src/app/dev_runtime.rs",
         "game/ambition_app/src/dev/mod.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
@@ -1190,6 +1191,12 @@ ADJUDICATED: dict[str, str] = {
         "(`ambition_dev_tools/src/lib.rs`), touches only "
         "`god_blink_experiences`, for the current experience, mirroring the "
         "editable set's unrestricted blink."
+        " ⭐ 2026-11-10 (GOBS-1): `collect_observed_geometry` "
+        "(`ambition_render/src/rendering/observed_geometry.rs`) writes only "
+        "`observed_geometry_providers`, the installed observers' names that the "
+        "menu's cycle steps through, and only when they changed. No other file "
+        "writes that field, it is `serde(skip)` (not a setting), and the "
+        "selection itself (`observed_geometry_only`) is the menu's alone."
     ),
     "DeveloperRuntimeState": (
         "THREE CONTENDED FIELDS OF FOUR, AND EACH IS A KNOWN SHAPE RATHER THAN "

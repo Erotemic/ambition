@@ -49,6 +49,14 @@ pub struct DeveloperTools {
     /// player meets them, the authored blocks they replace, and the combat
     /// volumes. Nothing is asked for while it is off.
     pub show_observed_geometry: bool,
+    /// The one geometry observer F1 draws, or every one (`None`), GOBS-1.
+    /// A name the installed observers no longer have draws nothing.
+    pub observed_geometry_only: Option<String>,
+    /// The installed observers' names, which the cycle steps through:
+    /// published by F1's collector while the layer is on. Not a setting.
+    #[serde(skip)]
+    #[reflect(ignore)]
+    pub observed_geometry_providers: Vec<String>,
     pub show_rebound_vectors: bool,
     /// Toggle a zoomed-out camera for inspecting large or stitched active areas.
     pub overview_camera: bool,
@@ -118,6 +126,8 @@ impl Default for DeveloperTools {
             show_camera_frame: false,
             show_navigation: false,
             show_observed_geometry: false,
+            observed_geometry_only: None,
+            observed_geometry_providers: Vec::new(),
             show_rebound_vectors: false,
             overview_camera: false,
             overview_camera_scale: 2.35,
@@ -137,6 +147,25 @@ impl Default for DeveloperTools {
 }
 
 impl DeveloperTools {
+    /// Step the observed-geometry selection: every observer, then each
+    /// installed one in turn (`dir < 0` steps back).
+    pub fn cycle_observed_geometry_provider(&mut self, dir: i32) {
+        let choices: Vec<Option<&String>> =
+            std::iter::once(None).chain(self.observed_geometry_providers.iter().map(Some)).collect();
+        let at = choices.iter().position(|choice| choice.map(String::as_str) == self.observed_geometry_only.as_deref());
+        let next = match (at, dir < 0) {
+            (None, _) => 0,
+            (Some(at), false) => (at + 1) % choices.len(),
+            (Some(at), true) => (at + choices.len() - 1) % choices.len(),
+        };
+        self.observed_geometry_only = choices[next].cloned();
+    }
+
+    /// The observed-geometry selection, as the menu row shows it.
+    pub fn observed_geometry_label(&self) -> String {
+        self.observed_geometry_only.clone().unwrap_or_else(|| "all".to_string())
+    }
+
     pub fn apply_debug_view_mode(&mut self, mode: DebugViewMode, apply_art_recommendation: bool) {
         self.debug_view_mode = mode;
         match mode {

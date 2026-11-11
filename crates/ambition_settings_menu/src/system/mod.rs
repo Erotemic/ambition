@@ -40,6 +40,9 @@ pub enum DevToggleId {
     CameraFrame,
     Navigation,
     ObservedGeometry,
+    // Which observer the layer draws: every one, or one (a cycle over the
+    // installed observers, GOBS-1).
+    ObservedGeometryProvider,
     // Camera.
     OverviewCamera,
     // Profiles (cycles).
@@ -75,7 +78,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `DeveloperRuntimeState` / `WorldSourceHotReload` (not `DeveloperTools`). Physical
     /// keyboard chords are owned by the central developer-hotkey registry.
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
         Self::MenuBackend,
@@ -94,6 +97,7 @@ impl DevToggleId {
         Self::CameraFrame,
         Self::Navigation,
         Self::ObservedGeometry,
+        Self::ObservedGeometryProvider,
         Self::OverviewCamera,
         Self::DebugViewMode,
         Self::DebugArtMode,
@@ -122,6 +126,7 @@ impl DevToggleId {
             Self::CameraFrame => "Camera Frame",
             Self::Navigation => "Navigation Graph",
             Self::ObservedGeometry => "Observed Geometry",
+            Self::ObservedGeometryProvider => "Geometry Observer",
             Self::OverviewCamera => "Overview Camera",
             Self::DebugViewMode => "View Mode",
             Self::DebugArtMode => "Art Mode",
@@ -153,6 +158,9 @@ impl DevToggleId {
             Self::Navigation => "Draw where each navigating body can stand, and its hops and drops.",
             Self::ObservedGeometry => {
                 "Draw what each geometry observer reports: the walls a body meets, what they replaced, combat volumes."
+            }
+            Self::ObservedGeometryProvider => {
+                "Draw every geometry observer, or one: step through those installed (with the layer on)."
             }
             Self::OverviewCamera => "Zoom out to inspect large or stitched areas.",
             Self::DebugViewMode => "Cycle the debug view preset.",
@@ -192,6 +200,8 @@ impl DevToggleId {
                 | Self::PortalCamera
                 // Gravity cycles the ambient direction (down/left/up/right).
                 | Self::Gravity
+                // The observers the geometry layer draws: all, or one.
+                | Self::ObservedGeometryProvider
         )
     }
 }

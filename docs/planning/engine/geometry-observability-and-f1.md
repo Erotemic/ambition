@@ -157,8 +157,17 @@ solids GOBS-0 counted; `collision.for_subject` with no subject answers
 `needs_subject`. It is a binary beside `room_census`, not an `agent_query`
 command: `agent_query.py` reads the source tree and runs no game.
 
-**Still open in GOBS-1:** per-provider selection in F1 (GOBS-4 overlaps), and
-labels.
+**Per-provider selection in F1 (2026-11-10):** the Developer page's
+**Geometry Observer** row cycles the layer between every observer and each
+installed one in turn (`DeveloperTools::observed_geometry_only`). The names
+come from the registry: F1's collector publishes them
+(`observed_geometry_providers`, not a setting) while the layer is on, so a
+new provider joins the cycle with no edit to the menu. Witnessed in
+`f1_and_headless_inspection_read_one_observation`: one step draws only the
+first observer, a step back draws them all. Presets (several at once, a
+prefix like the headless `collision.`) are GOBS-4's.
+
+**Still open in GOBS-1:** labels.
 
 1. Build a minimal neutral observation descriptor and query/filter schema (room, view, selected subject, category, time). Start by adapting `CombatGeometryView` and one real `CollisionWorld` query, proving that the interface works for both preexisting snapshots and parameterized queries.
 2. Register providers compositionally; derive a provider registry/read-only catalog from installed adapters rather than creating an authoritative ECS-wide geometry database.

@@ -545,8 +545,39 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    that freeze is back in the struck room. Still open: projectile ids
    sequenced per room (deferred to the state transfer; see ISL-2c above), a clock scale per room (Player 1's bullet-time slows
    Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
-   about a hundred non-test sites), one conversation and one cutscene per participant or room. Then
-   classify the 91 message rows by writer and reader room.
+   about a hundred non-test sites), one conversation and one cutscene per participant or room.
+
+   **The 91 message rows, by what they carry (2026-11-11,**
+   `scripts/measure/message_rows_by_room_carrier.py`**):** 13 carry their room
+   (the encounter's four, `HitEvent`, `VfxInRoom`, `DebrisBurstMessage`,
+   `FxRequest`, `FireworksRequest`, `KnockoutBeatRequested`,
+   `SwitchActivated`, `RoomReplayAdmitted`, `SetFlagRequested` by its
+   `RoomWrite`); 51 carry an entity, a peer id or a participant, from which
+   the room is derivable; 27 carry neither. The 27, read one by one:
+   - **one per world by meaning (7):** `NewGameRequested`,
+     `CheckpointCommitted`, `ResetToCheckpoint`, `StocksMatchDecided`,
+     `SuddenDeathBegan` (the match's), `NpcProvocationChanged` (a durable
+     world fact), `RoomLoaded` (a load, not a room's act);
+   - **the portal owner's (4):** `ClearPortals`, `PortalBodyEntered`,
+     `PortalShotFired`, `TogglePortalGunsActive`;
+   - **the one conversation's, ISL-1b (3):** `ConversationEnded`,
+     `ItemGrantRequested`, `ShopTransactionRequested`;
+   - **the clock's, ISL-1b (2):** `ClockScaleRequest`, `ClockResetRequest`
+     (a domain and a requester, no room: the scale coupling);
+   - **staging, not a room's act (1):** `SpawnActorRequest` (the harness and
+     publication staging write it; it spawns session-scoped);
+   - **a room's act that drops its room (10), the coupling list:**
+     `CameraShakeRequest` and `FinishZoomRequest` (every view shakes or
+     zooms for one room's hit), `GameplayBannerRequested` (one banner for
+     every player), `GameplaySfxRequested` (a position with no room) and
+     `OwnedSfxMessage` (an owner context, no room), `AmbientGravityRequest`
+     (a cycle with no room), `RoomReplayRequested` and
+     `CutRopeRoomReplayRequested` ("the" room), `RunAuthoredCommand` (its
+     `AuthoredAsk` names a kind and subject, no room), and
+     `QuestAdvanceRequested` (its cause names a room as text, 2026-11-11; an
+     uncaused event does not).
+   The ten are the ISL-1b work list for messages, beside the clock scale,
+   the conversation and the cutscene.
 
 ## Order, exclusions and integration
 

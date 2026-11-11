@@ -261,3 +261,23 @@ fn a_connect_that_earned_no_hitlag_arms_no_match_freeze() {
          nothing about gusts"
     );
 }
+
+/// ISL-1b: a body's pace is its room's: a held room's is 0, a room on a
+/// slowed clock runs at that clock's scale, and any other room at 1.
+#[test]
+fn a_body_runs_at_its_own_rooms_pace() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use bevy::ecs::system::RunSystemOnce as _;
+    let (held, slowed, plain) =
+        (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2), LiveRoomInstance::from_ordinal(3));
+    let mut app = App::new();
+    app.insert_resource(ambition_time::SimTick(10));
+    app.insert_resource(ImpactHitstop { until_tick: None, rooms: [(held, 20)].into() });
+    app.insert_resource(RoomClockScales { rooms: [(slowed, 0.25), (held, 0.5)].into() });
+    let bodies: Vec<_> = [held, slowed, plain].map(|room| app.world_mut().spawn(InRoomInstance(room)).id()).into();
+    let paces = app
+        .world_mut()
+        .run_system_once(move |freeze: RoomFreeze| bodies.iter().map(|body| freeze.scale_of(*body)).collect::<Vec<_>>())
+        .expect("the param resolves");
+    assert_eq!(paces, [0.0, 0.25, 1.0], "a freeze wins over a slowed clock; another room runs at 1");
+}

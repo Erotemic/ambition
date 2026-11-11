@@ -1010,6 +1010,15 @@ stashed and re-run): `smash_ride::a_shark_summoned_into_a_save_that_remembers_a_
 `smash_cpus_damage_each_other::the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick`
 (the match never seated two bodies): the Sanic and Smash starts on this VM.
 
+**Red at f18c6f4875 and every later commit checked (2026-11-11, checked out
+and re-run):** `blink_run_reachability::blink_run_blinks_across_the_death_gaps`
+("should have blinked across gap 1 onto the mid floor", one reset). Not
+classified yet: no art or music is read by that room's assertion, so it may be
+a real defect older than this work. Also red in the same lane, environmental:
+`director_teleport_blink` (three) and
+`smash_ride::a_saddled_body_advances_its_clocks_and_none_of_its_displacement`
+("the match seats a first fighter", the Smash start).
+
 **Red guard reported to the portal owner (2026-11-11):**
 `check_session_authority_none_arms.py` is red on
 `game/ambition_app_tools/src/bin/capture_scene/portal_fixture.rs::place_portals`

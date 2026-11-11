@@ -95,6 +95,15 @@ where
         "the freeze's expiry tick, which decides the sim clock, and each held room's",
         impact_hitstop_checksum,
     );
+    // Each room's eased clock scale while several rooms are live (ISL-1b): it
+    // scales the `dt` a room's bodies integrate with, exactly as the shared
+    // clock does, so a rewind must restore it.
+    registrar.rollback_resource_clone_checksum::<crate::impact_hitstop::RoomClockScales>(
+        OWNER,
+        "resource.room_clock_scales",
+        "each live room's eased clock scale while several rooms are live",
+        room_clock_scales_checksum,
+    );
     registrar.rollback_resource_clone_checksum::<crate::events::PendingPlayerHitEvents>(
         OWNER,
         "resource.pending_player_hit_events",
@@ -656,6 +665,16 @@ fn impact_hitstop_checksum(hold: &crate::impact_hitstop::ImpactHitstop) -> u64 {
     for (room, until) in &hold.rooms {
         put_u64(&mut bytes, u64::from(room.ordinal()));
         put_u64(&mut bytes, *until);
+    }
+    checksum_bytes(&bytes)
+}
+
+fn room_clock_scales_checksum(scales: &crate::impact_hitstop::RoomClockScales) -> u64 {
+    let mut bytes = Vec::new();
+    put_u64(&mut bytes, scales.rooms.len() as u64);
+    for (room, scale) in &scales.rooms {
+        put_u64(&mut bytes, u64::from(room.ordinal()));
+        put_u64(&mut bytes, u64::from(scale.to_bits()));
     }
     checksum_bytes(&bytes)
 }

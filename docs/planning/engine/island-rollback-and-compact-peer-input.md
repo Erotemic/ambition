@@ -560,10 +560,22 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    ran in every room before; a held room is a few ticks long. Witness:
    `an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room` (Alice,
    driven, stands still for the hold while Bob walks on, and moves again when
-   it runs out). Schema 450 (the checksum folds each held room). Still open: projectile ids
-   sequenced per room (deferred to the state transfer; see ISL-2c above), a clock scale per room (Player 1's bullet-time slows
-   Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
-   about a hundred non-test sites), one conversation and one cutscene per participant or room.
+   it runs out). Schema 450 (the checksum folds each held room). **And the
+   clock scale per room (2026-11-11):** with several live rooms, Player 1's
+   bullet time (a blink aim or a blink hold) no longer scales the shared
+   clock. `emit_primary_observer_time_intent` asks the shared clock for 1
+   (`room_clock`) and eases Player 1's room toward the bullet scale in
+   `RoomClockScales` at the shared clock's ramp rates; every other room
+   eases home and is forgotten at 1. `RoomFreeze` multiplies the room's
+   scale into the same readers as the freeze. The scale is rollback state
+   (schema 451). Witnesses:
+   `bullet_time_slows_only_player_ones_room_while_two_rooms_are_live` and
+   `a_body_runs_at_its_own_rooms_pace`. The same ~90 other `sim_dt` reads
+   keep the shared pace, as for the freeze. Still open: projectile ids
+   sequenced per room (deferred to the state transfer; see ISL-2c above), the
+   remaining `sim_dt` reads under a room's pace (the fight's readers carry it;
+   the day clock, encounter timers, cutscene and trails do not), one
+   conversation and one cutscene per participant or room.
 
    **The 91 message rows, by what they carry (2026-11-11,**
    `scripts/measure/message_rows_by_room_carrier.py`**):** 13 carry their room

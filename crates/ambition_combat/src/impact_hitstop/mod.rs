@@ -73,13 +73,24 @@ impl ImpactHitstop {
     }
 }
 
+/// The live pace of each room whose clock is not at `1.0` while several
+/// rooms are live (ISL-1b): Player 1's bullet time slows Player 1's room, not
+/// every room. Eased toward its target at the shared clock's ramp rates, so it
+/// is state a rewind must restore. With one live room the shared clock carries
+/// the scale and this is empty.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct RoomClockScales {
+    pub rooms: std::collections::BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32>,
+}
+
 /// The pace of one body's room this tick: `0.0` while a connect holds its
-/// room, else `1.0`. A reader multiplies the sim `dt` it gives that body by
+/// room, else its room's clock scale ([`RoomClockScales`], `1.0` for most). A reader multiplies the sim `dt` it gives that body by
 /// it. With one live room the shared clock is already stopped, so the
 /// product is the same; with several, only the struck room stops.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct RoomFreeze<'w, 's> {
     hold: Option<Res<'w, ImpactHitstop>>,
+    scales: Option<Res<'w, RoomClockScales>>,
     tick: Option<Res<'w, ambition_time::SimTick>>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
 }
@@ -89,7 +100,9 @@ impl RoomFreeze<'_, '_> {
     pub fn scale_in(&self, room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> f32 {
         match (self.hold.as_deref(), self.tick.as_deref()) {
             (Some(hold), Some(tick)) if hold.is_freezing_in(room, *tick) => 0.0,
-            _ => 1.0,
+            _ => room
+                .and_then(|room| self.scales.as_deref()?.rooms.get(&room).copied())
+                .unwrap_or(1.0),
         }
     }
 
@@ -105,7 +118,9 @@ impl RoomFreeze<'_, '_> {
 
     /// The pace of the room `entity` is in.
     pub fn scale_of(&self, entity: Entity) -> f32 {
-        if self.hold.as_deref().is_none_or(|hold| hold.rooms.is_empty()) {
+        if self.hold.as_deref().is_none_or(|hold| hold.rooms.is_empty())
+            && self.scales.as_deref().is_none_or(|scales| scales.rooms.is_empty())
+        {
             return 1.0;
         }
         self.scale_in(self.live.of(entity))

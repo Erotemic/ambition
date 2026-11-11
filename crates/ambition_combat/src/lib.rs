@@ -716,6 +716,7 @@ pub fn install_settle_presentation_systems(
     // and geometry is enough for it, the freeze needs the hit's RESULT, and the two
     // roads that produce one resolve on different frames.
     app.init_resource::<impact_hitstop::ImpactHitstop>();
+    app.init_resource::<impact_hitstop::RoomClockScales>();
     app.add_systems(
         schedule,
         impact_hitstop::request_impact_hitstop_on_resolved_hits

@@ -3,8 +3,8 @@
 **State:** A2 is built. A projectile selects one contact from its swept travel
 leg, compares targets and walls by one time of impact, and names its recipient
 once. Compound contacts (ruling Q96) are built. The open items are the
-moving-target and carried-source limits of this slice (see
-[Open work](#open-work)).
+moving-target limits of this slice (see [Open work](#open-work)). Carried
+source material is cast continuously against sampled hurt material.
 
 **Scope:** the same-build deterministic simulation, in every live room. A shot
 flies in its own live room (`ProjectileCollisionWorld::shot_room`: its own
@@ -75,10 +75,12 @@ hitbox and incorrect for a shot that crosses its target between two samples. Do
 not add them back. The `DamageableVolumes` claim is held on
 `strike_reaches_victim`, which every consumer calls.
 
-Swept contact is exact for boxes. Every publisher emits `CombatVolume::Aabb`. A
-rotated box, circle or hull has no swept primitive here, so a shaped part is
-tested at the endpoint only. It is under-swept, never over-reported. The limit
-is stated at the function.
+Projectile contact uses the admitted canonical source cells against native
+sampled hurt material. Circles stay analytic. Affine cells keep source and
+target cuts in the same query. Curved source cells use bounded interval
+exclusion. Unknown numerical or partition results remain typed refusals;
+they are not accepted misses. Each physical source cell keeps its own
+conservative bounds. Only possible recipients need detailed admission.
 
 ## One published target geometry
 
@@ -220,12 +222,21 @@ A direct contact fixes its recipient before damage. At contact time:
 1. Reject ineligible factions, dead/retired targets, intentional intangible
    shapes and targets already excluded by this projectile's current leg policy.
 2. Select the earliest reachable target/surface under the rules above.
-3. Resolve a guard's immediate projectile catch through the mutable
-   interception operation. Its result determines reflection/absorption now.
+3. Prepare the selected guard response at the actual contact prefix. Admit
+   any surviving response over all occupied source material before the catch,
+   heal, ownership or trajectory write. Commit reflection or absorption once.
 4. For an ordinary accepted contact, enqueue exactly one **targeted** attack
    request with its witness and attribution. Apply the flight disposition now.
 5. In Combat Resolve, the selected receiver applies current reception policy and
    produces the final damage/block/no-damage outcome. No geometry/family rescan.
+
+A parry maps velocity into the physical contact chart through the existing
+material payload law. This includes portal translation and spin. It applies
+the response there, then maps it back into the source chart. Its cue uses the
+physical witness. On refusal, keep the pose, guard, owner and hit ledger;
+advance the projectile clock and retire the old sweep. Reflection ends the
+step. The guard is
+`a_portal_carried_tip_is_parried_at_its_physical_contact_before_root_transit`.
 
 Exactly one receiver owns a recipient. A missing or multiple claim is a
 diagnostic, not a broadcast fallback.
@@ -317,7 +328,6 @@ receiver's state in its declared phase.
 | Item | Work | Trigger |
 | --- | --- | --- |
 | Moving-target CCD | A target that moves across a stationary shot between samples. Outside this slice | A content case that needs it, through the [collision plan](collision-and-ccd.md) |
-| Carried-source and moving-target pairs | Sampled hurt shapes are native. Continuous source-part and moving-target pair queries remain open | A case that needs both trajectories |
 | A5 destructible owner | One owner for intact/broken/respawn state, hit and stand triggers, damage reduction, collision publication and one destruction transition, extracted from interaction/combat/features. A5 does not turn every world object into a breakable or merge falling chests/switches under a generic feature enum | See the [actor monolith frontier](actor-monolith-work-frontier.md) |
 
 ## Forbidden regressions

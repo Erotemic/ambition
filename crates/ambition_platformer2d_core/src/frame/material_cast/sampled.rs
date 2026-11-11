@@ -20,6 +20,7 @@ pub struct SampledPieceHit {
     pub target_map: Sim2,
     /// Accepted source material at contact on the original sweep.
     pub source_map: Sim2,
+    pub(super) source_point: bevy_math::DVec2,
 }
 
 impl MaterialCastCells<'_> {
@@ -88,6 +89,8 @@ impl MaterialCastCells<'_> {
                 target_path: target.path.clone(),
                 target_map: target.path_transform().map_err(numeric)?,
                 source_map: part.at(time).map_err(numeric)?,
+                source_point: part.at(time).and_then(|map|map.inverse()).map_err(numeric)?
+                    .point_wide(target.transform().point_wide(point)),
             };
             if first.as_ref().is_none_or(|old| contact.toi.total_cmp(&old.toi)
                 .then(contact.source_path.cmp(&old.source_path)).is_lt()) { first=Some(contact); }
@@ -140,6 +143,33 @@ mod tests {
         let ghost = VolumePiece::whole(CombatVolume::circle(Vec2::new(0.0,1.0),0.5));
         assert!(make().cells(None).unwrap().against_piece(&ghost).unwrap().is_some());
         assert!(cells.against_piece(&ghost).unwrap().is_none());
+    }
+
+    #[test]
+    fn contact_velocity_keeps_surface_motion_and_admits_the_whole_response() {
+        use crate::frame::{MapConvention,PortalAperture,PortalFrame};
+        use crate::frame::thread::{MotionAdmission,PieceBudget,PortalLink};
+        let entry=PortalAperture {frame:PortalFrame {velocity:Vec2::new(10.0,5.0),spin:1.0,
+            ..PortalFrame::fixed(Vec2::ZERO,-Vec2::Y)},half_length:40.0};
+        let exit=PortalAperture {frame:PortalFrame {velocity:Vec2::new(30.0,-20.0),spin:2.0,
+            ..PortalFrame::fixed(Vec2::new(500.0,-200.0),Vec2::Y)},half_length:80.0};
+        let links=[PortalLink::new(entry,exit,0),PortalLink::new(exit,entry,1)];
+        let domain=CombatVolume::aabb(Aabb::new(Vec2::ZERO,Vec2::splat(4.0)));
+        let root=Vec2::new(0.0,-2.0);
+        let cells=super::super::MaterialCast::new(MaterialPrimitive {domain:&domain,
+            to_world:Sim2::new(1.0,Mat2::IDENTITY,root).unwrap()},root,Vec2::ZERO,1.0..1.0)
+            .cells(Some(MotionAdmission {links:&links,first:Some(0),budget:PieceBudget::COMPOSED,
+                convention:MapConvention::Reflection})).unwrap();
+        let target=VolumePiece::whole(CombatVolume::circle(Vec2::new(500.0,-198.0),0.5));
+        let hit=cells.against_piece(&target).unwrap().unwrap();
+        let frame=cells.contact_velocity_frame(&hit).unwrap();
+        let physical=frame.to_physical(Vec2::new(4.0,8.0)).unwrap();
+        assert!(physical.distance(Vec2::new(36.0,-14.0))<0.0001,"{physical:?}");
+        let returned=frame.to_source(-physical*1.3).unwrap();
+        assert!(returned.distance(Vec2::new(45.4,24.1))<0.0001,"{returned:?}");
+        cells.admit_payloads_at(hit.toi,returned,&[]).unwrap();
+        assert!(matches!(cells.admit_payloads_at(hit.toi,Vec2::new(1.8e38,0.0),&[]).unwrap_err().reason,
+            RefusalReason::Numeric(NumericFault::Overflow)));
     }
 
     #[test]

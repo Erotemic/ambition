@@ -167,3 +167,10 @@ each recipient. Body eligibility must precede its geometric validation.
 Prepare unit-bearing payloads with the contact before commit. A length map
 converts `LaunchSpeed`; it does not convert dimensionless `FeelScale`.
 `a91231348` and `4825f1f1c` have the source, controls and real actor witness.
+
+A carried contact response needs the full velocity map at its physical point.
+Use the existing material payload law. Portal translation and spin contribute
+an affine offset. Apply the response in that physical chart, then invert the
+whole velocity map. Admit the returned payload over every occupied source cell
+before guard, reward or ownership writes. Keep the source root prefix and the
+physical cue position as separate facts.

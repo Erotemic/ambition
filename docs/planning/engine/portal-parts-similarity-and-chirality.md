@@ -29,7 +29,7 @@ unpublished history-art checks also fail. The capability sentinel reports the
 new upstream HTN dependency. The review receipt records the scope and logs.
 
 Full PSIM acceptance remains open: general remaining-time continuation,
-complete projectile/hurt contact, including moving targets and surviving
+complete projectile/hurt contact, including moving targets and other surviving
 contact responses, other movement models, guard geometry, attachments, the
 bounded numeric law and fault effects, and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
@@ -1277,3 +1277,15 @@ and 35 policy cases pass. The slice includes reverse and rewind/replay. App and
 default all-target warning checks pass. The merged app and projectile cases
 pass again. See the [contact receipt](../../../dev/ambition_dev_measurements/summaries/portal-carried-projectile-contact-20261111.md)
 for commands, staged validation and limits. Full PSIM acceptance remains open.
+
+### Carried projectile interception — 2026-11-11
+
+`d795c9268` fixes parry position, velocity and cue placement for a carried tip.
+The response uses the accepted contact prefix and the existing material
+payload law before one commit. The H app guard checks reflection and absorption
+at both 80/40 ratios before root transit. The moving-surface core guard checks
+translation, spin and response overflow. Keep cues at the physical witness and
+admit the response before guard rewards or ownership writes. The
+[interception receipt](../../../dev/ambition_dev_measurements/summaries/portal-carried-projectile-interception-20261111.md)
+records the passed gates and audio merge `fec049833`. Moving targets, other
+responses, general continuation and full PSIM acceptance remain open.

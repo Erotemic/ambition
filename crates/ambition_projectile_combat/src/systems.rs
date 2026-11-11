@@ -40,10 +40,12 @@ const PARRY_HEAL: i32 = 1;
 /// the parrier's authority. Presentation source stays with the original shot,
 /// while the parry clang uses the parrier's source: combat ownership and a
 /// projectile's voice are separate facts.
-fn reflect_parried_shot(
+fn commit_parried_shot(
     commands: &mut Commands,
     proj_entity: Entity,
     kin: &mut BodyKinematics,
+    response: &super::intercept::PreparedInterception,
+    impact: ae::Vec2,
     parrier: Entity,
     parrier_allegiance: AttackAllegiance,
     parrier_source: Option<&ambition_sfx::PresentationSourceId>,
@@ -51,37 +53,20 @@ fn reflect_parried_shot(
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     sfx: &mut SfxWriter,
     vfx: &mut VfxWriter,
-) {
-    // ⭐ THE DOMAIN OPERATION, not this function's own edit. A parry is one
-    // interception among several the game will grow — a reflector, an absorber —
-    // and each would otherwise decide for itself which of the six ownership axes
-    // travel together. See `super::intercept`.
-    // ⚠ THE SURVIVAL ANSWER IS DELIBERATELY DISCARDED HERE, and saying so is the
-    // point of `#[must_use]`. A `Reflect` cannot destroy the shot -- it re-owns
-    // it and turns it around -- so there is nothing to terminate. The caller's
-    // `reflected = true; break;` already handles the step. ⇒ If this ever passes
-    // an interception that CAN consume, this line must start reading the answer.
-    let _survives_by_construction = super::intercept::intercept_projectile(
-        commands,
-        proj_entity,
-        kin,
-        parrier,
-        parrier_allegiance,
-        &super::intercept::ProjectileInterception::Reflect {
-            speed_scale: PROJECTILE_REFLECT_SPEED_SCALE,
-        },
+) -> bool {
+    let survived=super::intercept::intercept_projectile(
+        commands,proj_entity,kin,parrier,parrier_allegiance,response,
     );
-    // ⛔ THE CUES STAY HERE, and that is the split. A parry CLANGS; a reflector
-    // would hum and an absorber swallow, and a domain operation that played one
-    // of those would make the other two wrong.
+    if !survived { return false; }
     sfx.in_space(ambition_vfx::sfx_space(room)).write_for_body(
         parrier_source,
         SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
-            emitter: (kin.pos).into(),
+            emitter: impact.into(),
         },
     );
-    vfx.write_in(room, VfxMessage::Impact { pos: kin.pos, blow: ambition_vfx::ImpactBlow::PLAIN });
+    vfx.write_in(room, VfxMessage::Impact { pos: impact, blow: ambition_vfx::ImpactBlow::PLAIN });
+    true
 }
 /// Per-body charge/motion-recognition/fire input for charge-capable bodies.
 /// Emits [`ProjectileSpawnRequest`]; [`step_projectiles`] owns flight.
@@ -1028,9 +1013,6 @@ pub fn step_projectiles(
             // centred there, so a wrong centre hits different recipients —
             // possibly on the far side of geometry that lies after the contact.
             let mut struck_at: Option<ae::Vec2> = None;
-            let mut reflected = false;
-            // Absorbed: the shot is spent and every later road must be skipped.
-            let mut consumed = false;
             // ⛔⛔ NEAREST FIRST, AND IT USED TO BE QUERY ORDER. This loop `break`s
             // on the first row that qualifies, and `&victims` is a Bevy query —
             // archetype order, which is not a promise and is not reproduced by a
@@ -1216,52 +1198,9 @@ pub fn step_projectiles(
                 );
             }
 
-            if rearm_hits {
-                already_hit.hit.clear();
-                candidate_game.hits_cleared_on_leg = next_leg;
-            }
-            *kin = candidate;
-            *game = candidate_game;
-
-            // A shot crosses a portal as every body does (`portal_transit`): it
-            // straddles the opening and the pair takes it when its centre
-            // crosses. Its leg is its sweep, so a fast shot that crossed a plane
-            // this tick is taken through it, not stopped on the wall behind.
-            commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel, time: [0.0, 1.0],
-                prev: leg_start,
-                curr: kin.pos,
-                vel: kin.vel,
-                half: kin.size() * 0.5,
-                down: ae::Vec2::ZERO,
-            });
-
-            for (contact, victim, magnitude) in &ordered {
-                // ⛔ THE EARLIEST CONTACT WINS, WHATEVER FAMILY IT IS IN.
-                // `ordered` ascends by time, so a feature reached strictly before
-                // this victim is reached strictly before every remaining one:
-                // stop, and let the feature branch below own the contact.
-                //
-                // ⛔⛔ **AND A TIE USED TO GO TO THE BODY FOR NO REASON BUT
-                // THIS LOOP OWNING THE EQUALITY CASE.** `feature.time <
-                // contact - EPSILON` is family knowledge wearing a comparison:
-                // at an exact tie the body won because the body branch runs
-                // first, which is the same "a family name is not a time" defect
-                // this block was written to remove, one level down. It is also
-                // the epsilon comparator the protocol forbids.
-                //
-                // ⇒ ONE ORDER ACROSS BOTH FAMILIES, and it is the order each
-                // family already sorts itself by: finite time of impact, then
-                // the target's position, then its stable authored identity.
-                // Neither family is privileged; a coincident body and feature
-                // are separated by identity, never by which loop got there
-                // first. (The WORLD is privileged, deliberately and only at an
-                // exact tie — see `wall_reaches_first` — because the protocol
-                // says an independent blocker beats an unrelated hurt target.)
-                //
-                // ⚠ `Option<&str>` for the body because a body may carry no
-                // `SimId`; that is the same key the body-vs-body sort above
-                // already uses, so the two agree by construction.
-                if feature_contact.as_ref().is_some_and(|feature| {
+            let selected_body=ordered.into_iter()
+                .find(|(contact,_,_)|!wall_reaches_first(contact.hit.toi))
+                .filter(|(contact,victim,_)|!(feature_contact.as_ref().is_some_and(|feature| {
                     let victim_center = victim.aabb.aabb().center();
                     feature
                         .contact.hit.toi
@@ -1280,93 +1219,71 @@ pub fn step_projectiles(
                             )
                         })
                         .is_lt()
-                }) {
-                    break;
+                })));
+            // Admit the response before movement, guard rewards or ownership change.
+            let interception=(|| -> Result<Option<super::intercept::PreparedInterception>,ae::frame::thread::Refusal> {
+                let Some((contact,victim,_))=selected_body.as_ref() else {return Ok(None);};
+                let Ok(guard)=guards.get(victim.entity) else {return Ok(None);};
+                if !guard.parrying() {return Ok(None);}
+                let absorbs=guard.absorbs_projectiles();
+                let request=if absorbs {super::intercept::ProjectileInterception::Consume}
+                    else {super::intercept::ProjectileInterception::Reflect {speed_scale:PROJECTILE_REFLECT_SPEED_SCALE}};
+                let frame=if absorbs {ae::frame::material_cast::ContactVelocityFrame::IDENTITY}
+                    else {source_cells.contact_velocity_frame(&contact.hit)?};
+                let numeric=|fault| ae::frame::thread::Refusal {path:contact.hit.source_path.clone(),link:None,
+                    reason:ae::frame::thread::RefusalReason::Numeric(fault)};
+                let mut stopped=candidate;
+                stopped.pos=ae::frame::Sim2::IDENTITY.point_from_wide(
+                    leg_start.as_dvec2()+attempted_delta.as_dvec2()*contact.hit.toi).map_err(numeric)?;
+                let response=request.prepare(stopped,frame).map_err(numeric)?;
+                if !absorbs {source_cells.admit_payloads_at(contact.hit.toi,response.body().vel,&[acceleration.0])?;}
+                Ok(Some(response))
+            })();
+            let interception=match interception {
+                Ok(response)=>response,
+                Err(refusal)=>{
+                    *game=candidate_game;
+                    commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before,ae::Vec2::ZERO));
+                    bevy::log::debug!(target:"ambition_portal::refusal",body=?proj_entity,?refusal,
+                        "projectile interception refused before commit");
+                    continue 'projectiles;
                 }
-                let victim_body = victim.aabb.aabb();
-                // An independent world surface wins an exact contact tie.
-                if wall_reaches_first(contact.hit.toi) {
-                    continue;
+            };
+
+            if rearm_hits {
+                already_hit.hit.clear();
+                candidate_game.hits_cleared_on_leg = next_leg;
+            }
+            *game = candidate_game;
+            if let Some(response)=interception {
+                let (contact,victim,_)=selected_body.as_ref().unwrap();
+                guards.get_mut(victim.entity).unwrap().catch_parry();
+                heals.write(ambition_damage::healing::BodyHealRequested::new(PARRY_HEAL,victim.entity));
+                if commit_parried_shot(&mut commands,proj_entity,&mut kin,&response,contact.hit.point,
+                    victim.entity,AttackAllegiance::from_body(*victim.faction,victim.team,victim.driver),
+                    victim.voice.map(ambition_sfx::BodyPresentationSource::id),shot_room,&mut sfx,&mut vfx) {
+                    commands.entity(proj_entity).insert(ae::SweepSample {turn:None,material:before.material,
+                        travel:ae::LinearTravel::Prefix {delta:attempted_delta,until:contact.hit.toi},time:[0.0,1.0],
+                        prev:leg_start,curr:kin.pos,vel:kin.vel,half:kin.half_extent(),down:ae::Vec2::ZERO});
                 }
-                // ⭐ CONTACT WAS ALREADY DECIDED, swept, when this list was built:
-                // a victim that is here was reached somewhere along the leg. The
-                // endpoint test that used to stand here asked a different and
-                // weaker question and is gone rather than duplicated.
-                // Parry: a timed shield RE-OWNS the shot to the parrier (its firer
-                // faction becomes the parrier's next tick → it routes as that
-                // body's own shot, back at its foes) and reverses + boosts its
-                // velocity. Shared by every body; only the HEAL is player reward
-                // policy. A body with no shield state simply cannot parry.
-                // The SAME catch the melee strike seam resolves, from the
-                // other route a strike arrives on: one fact, both roads.
-                // ⭐ AND WHAT THE CATCH DOES, which is a MODE on the same
-                // window rather than a second one. `parrying()` decides whether
-                // the shot is caught; `absorbs_projectiles()` decides whether it
-                // goes back or goes away. An absorber stance arms both.
-                let (parried, absorbs) = guards
-                    .get_mut(victim.entity)
-                    .map(|mut shield| {
-                        let caught = shield.parrying();
-                        if caught {
-                            shield.catch_parry();
-                        }
-                        (caught, shield.absorbs_projectiles())
-                    })
-                    .unwrap_or((false, false));
-                if parried && absorbs {
-                    // ⛔ THE SAME DOMAIN OPERATION, a different response — which
-                    // is the whole reason `intercept_projectile` exists rather
-                    // than each interception editing the shot's components. The
-                    // cue stays here: an absorber swallows where a parry clangs.
-                    let survived = super::intercept::intercept_projectile(
-                        &mut commands,
-                        proj_entity,
-                        &mut kin,
-                        victim.entity,
-                        AttackAllegiance::from_body(*victim.faction, victim.team, victim.driver),
-                        &super::intercept::ProjectileInterception::Consume,
-                    );
-                    heals.write(ambition_damage::healing::BodyHealRequested::new(PARRY_HEAL, victim.entity));
-                    // ⛔⛔ A SWALLOWED SHOT IS GONE, AND THIS USED TO `continue`
-                    // THE VICTIM LOOP. `intercept_projectile` returns whether the
-                    // projectile SURVIVED precisely so a caller can tell "it is
-                    // going back" from "it is gone" -- and the answer was
-                    // discarded here. The despawn is a DEFERRED command, so the
-                    // entity is still live for the rest of this tick: the shot
-                    // could be swallowed by the nearest absorber, carry on to a
-                    // second body, and -- setting neither `struck` nor
-                    // `reflected` -- fall through to boss/breakable/world
-                    // resolution as well. One shot, several consequences, after
-                    // being absorbed.
-                    //
-                    // ⭐ THE RETURN VALUE DECIDES, not a match on the variant.
-                    // Duplicating "Consume destroys it" here would be a second
-                    // authority for a fact the operation already answers, and the
-                    // day a third interception is added it is the copy that goes
-                    // stale.
-                    if !survived {
-                        consumed = true;
-                        break;
-                    }
-                    continue;
-                }
-                if parried {
-                    reflect_parried_shot(
-                        &mut commands,
-                        proj_entity,
-                        &mut kin,
-                        victim.entity,
-                        // Reflection captures the parrier's current faction, team and control.
-                        AttackAllegiance::from_body(*victim.faction, victim.team, victim.driver),
-                        victim.voice.map(ambition_sfx::BodyPresentationSource::id),
-                        shot_room,
-                        &mut sfx,
-                        &mut vfx,
-                    );
-                    heals.write(ambition_damage::healing::BodyHealRequested::new(PARRY_HEAL, victim.entity));
-                    reflected = true;
-                    break;
-                }
+                continue 'projectiles;
+            }
+            *kin = candidate;
+
+            // A shot crosses a portal as every body does (`portal_transit`): it
+            // straddles the opening and the pair takes it when its centre
+            // crosses. Its leg is its sweep, so a fast shot that crossed a plane
+            // this tick is taken through it, not stopped on the wall behind.
+            commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel, time: [0.0, 1.0],
+                prev: leg_start,
+                curr: kin.pos,
+                vel: kin.vel,
+                half: kin.size() * 0.5,
+                down: ae::Vec2::ZERO,
+            });
+
+            if let Some((contact,victim,magnitude))=&selected_body {
+                let victim_body=victim.aabb.aabb();
                 // CM8: vulnerability is no longer read here to MUTE feedback — the ONE
                 // victim-side reaction fires only on a landed hit, so a dodged / parried /
                 // i-framed hit is muted for free at consume time (`resolve_body_hit`).
@@ -1419,14 +1336,6 @@ pub fn step_projectiles(
                 }
                 already_hit.hit.insert(victim.entity);
                 struck_at = Some(contact.hit.point);
-                break;
-            }
-            // ⚠ TWO DIFFERENT REASONS TO STOP, kept apart on purpose. A parried
-            // shot SURVIVES as the parrier's bolt and is deliberately left in
-            // flight; an absorbed one is GONE and is not traced as a hit, because
-            // it did not hit anything. Both skip every road below.
-            if consumed || reflected {
-                continue;
             }
             if let Some(impact) = struck_at {
                 trace.push_event(
@@ -1624,10 +1533,15 @@ mod parry_tests {
     ) {
         let parrier_source = sources.get(parrier.0).ok().map(|s| s.id().clone());
         for (proj, mut kin) in &mut shots {
-            reflect_parried_shot(
+            let response=super::super::intercept::ProjectileInterception::Reflect {speed_scale:PROJECTILE_REFLECT_SPEED_SCALE}
+                .prepare(*kin,ae::frame::material_cast::ContactVelocityFrame::IDENTITY).unwrap();
+            let impact=kin.pos;
+            commit_parried_shot(
                 &mut commands,
                 proj,
                 &mut kin,
+                &response,
+                impact,
                 parrier.0,
                 AttackAllegiance {
                     driver: None,

@@ -1,25 +1,7 @@
-//! INTERCEPTING A SHOT IN FLIGHT, as one named operation.
+//! Prepare and commit one projectile interception.
 //!
-//! ⭐⭐ THIS IS NOT A NEW MECHANIC — IT IS PARRY'S EXISTING ONE, GIVEN A NAME.
-//! `reflect_parried_shot` already re-owned a projectile, rewrote its allegiance
-//! and reversed its velocity, and that is almost exactly what a reflector, an
-//! absorber and a redirect all do. The reason to lift it out is that every
-//! future interception would otherwise be written against the projectile's
-//! components directly, and each one would decide for itself which of the axes
-//! below travel together.
-//!
-//! ⛔⛔ SIX AXES, AND THEY ARE INDEPENDENT. A reflected shot changes who owns it
-//! for damage, whose side it is on, and where it is going. It does NOT change
-//! what it looks like, who it is attributed to in a kill feed, or who is steering
-//! it — a reflected guided missile is the case that proves "owner" cannot mean
-//! all six at once. This operation touches exactly three: combat owner,
-//! allegiance, trajectory. Presentation provenance stays with the original shot,
-//! which is why the parry clang uses the PARRIER's voice while the bolt keeps its
-//! own.
-//!
-//! ⛔ AND IT EMITS NO CUES. The caller owns those: a parry clangs, a reflector
-//! hums, an absorber swallows, and a domain operation that played one of those
-//! would make the other two wrong.
+//! Combat owner, allegiance and trajectory change together. Presentation and
+//! control stay with the shot. The caller owns contact cues and rewards.
 
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_projectiles::entity::ProjectileOwner;
@@ -43,6 +25,37 @@ pub enum ProjectileInterception {
     /// the same interception and three different consequences, and the
     /// consequence belongs to whoever authored the move.
     Consume,
+}
+
+/// A checked response, ready for one body and ownership commit.
+#[derive(Clone,Debug)]
+pub struct PreparedInterception {
+    body: BodyKinematics,
+    reflects: bool,
+}
+
+impl PreparedInterception {
+    pub fn body(&self) -> &BodyKinematics { &self.body }
+}
+
+impl ProjectileInterception {
+    /// Resolve the response in the physical contact chart before any write.
+    pub fn prepare(&self, mut body: BodyKinematics,
+        frame: ambition_platformer2d_core::frame::material_cast::ContactVelocityFrame,
+    ) -> Result<PreparedInterception,ambition_platformer2d_core::frame::NumericFault> {
+        use ambition_platformer2d_core::frame::{NumericFault,Sim2};
+        match self {
+            Self::Reflect {speed_scale} => {
+                if !speed_scale.is_finite() {return Err(NumericFault::NonFinite);}
+                if *speed_scale<0.0 {return Err(NumericFault::InvalidScale);}
+                let physical=frame.to_physical(body.vel)?;
+                let reflected=Sim2::IDENTITY.vector_from_wide(-physical.as_dvec2()*f64::from(*speed_scale))?;
+                body.vel=frame.to_source(reflected)?;
+                Ok(PreparedInterception {body,reflects:true})
+            }
+            Self::Consume => Ok(PreparedInterception {body,reflects:false}),
+        }
+    }
 }
 
 /// Apply `response` to a caught projectile, under `interceptor`'s authority.
@@ -69,10 +82,10 @@ pub fn intercept_projectile(
     kin: &mut BodyKinematics,
     interceptor: Entity,
     interceptor_allegiance: AttackAllegiance,
-    response: &ProjectileInterception,
+    response: &PreparedInterception,
 ) -> bool {
-    match response {
-        ProjectileInterception::Reflect { speed_scale } => {
+    match response.reflects {
+        true => {
             // ⭐ OWNER AND ALLEGIANCE CHANGE TOGETHER, always. They answer two
             // different questions — who is credited, and whose side it is on —
             // and a shot whose owner moved without its allegiance is one that
@@ -105,10 +118,10 @@ pub fn intercept_projectile(
                 // The interceptor's weapon did not fire it either, so it
                 // counts against neither weapon's `max_live`.
                 .remove::<ambition_projectiles::WeaponShot>();
-            kin.vel = -kin.vel * *speed_scale;
+            *kin = response.body;
             true
         }
-        ProjectileInterception::Consume => {
+        false => {
             commands.entity(projectile).despawn();
             false
         }
@@ -162,13 +175,15 @@ mod tests {
                 vel: ambition_platformer2d_core::Vec2::new(100.0, 0.0),
                 ..Default::default()
             };
+            let response=ProjectileInterception::Reflect {speed_scale:1.3}
+                .prepare(kin,ambition_platformer2d_core::frame::material_cast::ContactVelocityFrame::IDENTITY).unwrap();
             let out = intercept_projectile(
                 &mut commands,
                 shot,
                 &mut kin,
                 interceptor,
                 mine.clone(),
-                &ProjectileInterception::Reflect { speed_scale: 1.3 },
+                &response,
             );
             assert!(
                 kin.vel.x < 0.0,
@@ -231,13 +246,15 @@ mod tests {
         };
         {
             let mut commands = app.world_mut().commands();
+            let response=ProjectileInterception::Reflect {speed_scale:1.3}
+                .prepare(kin,ambition_platformer2d_core::frame::material_cast::ContactVelocityFrame::IDENTITY).unwrap();
             let _ = intercept_projectile(
                 &mut commands,
                 shot,
                 &mut kin,
                 interceptor,
                 allegiance(ActorFaction::Player),
-                &ProjectileInterception::Reflect { speed_scale: 1.3 },
+                &response,
             );
         }
         app.world_mut().flush();
@@ -267,7 +284,8 @@ mod tests {
                 &mut kin,
                 interceptor,
                 allegiance(ActorFaction::Player),
-                &ProjectileInterception::Consume,
+                &ProjectileInterception::Consume.prepare(BodyKinematics::default(),
+                    ambition_platformer2d_core::frame::material_cast::ContactVelocityFrame::IDENTITY).unwrap(),
             )
         };
         app.world_mut().flush();

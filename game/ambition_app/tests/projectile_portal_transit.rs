@@ -229,6 +229,11 @@ fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
 }
 
 #[test]
+fn a_projectile_bounces_on_its_far_material_and_retires_the_contact() {
+    for reverse in [false,true] {far_side_contact(ContactMotion::Bounce(reverse));}
+}
+
+#[test]
 fn a_projectile_damages_a_body_with_its_scaled_tip_before_root_transit() {
     for reverse in [false,true] {
         for launch in [false,true] {scaled_tip_contact(reverse,TipResponse::Damage {launch});}
@@ -404,7 +409,7 @@ fn a_projectile_keeps_the_opening_when_its_tip_first_arrives_at_tick_end() {
     far_side_contact(ContactMotion::Endpoint);
 }
 
-enum ContactMotion { Fixed, Wall, Exit, TurningWall, TurningExit, TurningExitBody, Endpoint }
+enum ContactMotion { Fixed, Bounce(bool), Wall, Exit, TurningWall, TurningExit, TurningExitBody, Endpoint }
 
 #[test]
 fn the_authored_moving_exit_hits_its_target_before_the_shots_root_transfers() {
@@ -506,13 +511,28 @@ fn far_side_contact(motion:ContactMotion) {
     let (enter, exit) = {
         let world = sim.world_mut();
         let mut pair: Vec<_> = world.query::<(&PlacedPortal, &PortalLink)>().iter(world)
-            .filter(|(_, link)| link.0 == link_hash("portal_lab_k_contact"))
+            .filter(|(portal, link)| if matches!(motion,ContactMotion::Bounce(_)) {
+                portal.pos==Vec2::new(1904.0,856.0) || portal.pos==Vec2::new(2448.0,876.0)
+            } else {link.0 == link_hash("portal_lab_k_contact")})
             .map(|(portal, _)| portal.clone()).collect();
-        assert_eq!(pair.len(), 2, "station K must load both linked endpoints");
+        assert_eq!(pair.len(), 2, "the contact station must load both linked endpoints");
         pair.sort_by(|a, b| a.pos.x.total_cmp(&b.pos.x));
+        if matches!(motion,ContactMotion::Bounce(true)) {pair.reverse();}
         (pair.remove(0), pair.remove(0))
     };
     let tangent = Vec2::new(-exit.normal.y, exit.normal.x);
+    if matches!(motion,ContactMotion::Bounce(_)) {
+        let room=*sim.world().get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(owner).unwrap();
+        assert_eq!(exit.half_length/enter.half_length,if matches!(motion,ContactMotion::Bounce(true)) {2.0} else {0.5});
+        let wall=Aabb::new(exit.pos+exit.normal*202.0,
+            exit.normal.abs()*200.0+tangent.abs()*40.0);
+        let world=sim.world_mut();
+        world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks.push(
+            ambition_platformer2d::engine_core::Block::solid("H bounce support",wall.min,wall.max-wall.min));
+        world.spawn((room,ambition_platformer2d::world::GravityZone {
+            aabb:Aabb::new(enter.pos,Vec2::splat(100.0)),dir:-enter.normal,
+        }));
+    }
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
         origin: enter.pos + enter.normal * if matches!(motion,ContactMotion::Endpoint) {45.0} else {40.0},
         dir: -enter.normal,
@@ -522,8 +542,8 @@ fn far_side_contact(motion:ContactMotion) {
         half_extent: Vec2::splat(5.0),
         gravity: 0.0,
         visual_id: "far_contact_gauge".into(),
-        bounces: 0,
-        bounce_on_world_contact: false,
+        bounces: if matches!(motion,ContactMotion::Bounce(_)) {2} else {0},
+        bounce_on_world_contact: matches!(motion,ContactMotion::Bounce(_)),
         splash_half_extent: 0.0,
         boomerang_return_s: None,
     }, ProjectileStart::StepNextTick));
@@ -534,6 +554,11 @@ fn far_side_contact(motion:ContactMotion) {
             .find(|(_, by, visual)| by.0 == owner && visual.0 == "far_contact_gauge")
             .map(|(entity, _, _)| entity).expect("the production materializer creates the shot")
     };
+    if matches!(motion,ContactMotion::Bounce(_)) {
+        sim.world_mut().get_mut::<ambition_platformer2d::projectiles::ProjectileGameplay>(shot).unwrap().rebound=
+            ambition_platformer2d::projectiles::Rebound {restitution:0.5,min_speed:0.0};
+    }
+    let initial_material=sim.world().get::<BodyKinematics>(shot).unwrap().material;
     let mut transited = false;
     let mut impact = false;
     let mut expired = false;
@@ -603,6 +628,24 @@ fn far_side_contact(motion:ContactMotion) {
         history.push(sim.world().get::<BodyKinematics>(shot).copied());
         transited |= sim.world().resource::<Messages<PortalBodyTransited>>()
             .iter_current_update_messages().any(|event| event.body == shot);
+        if matches!(motion,ContactMotion::Bounce(_)) && sim.world().get::<ambition_platformer2d::projectiles::ProjectileGameplay>(shot)
+            .is_some_and(|game|game.bounces_remaining==1) {
+            let bounced=*sim.world().get::<BodyKinematics>(shot).unwrap();
+            assert!(!transited);
+            assert_eq!(bounced.material,initial_material);
+            assert!((bounced.pos-enter.pos).dot(enter.normal)>0.0,"{bounced:?}");
+            assert!(bounced.vel.distance(enter.normal*300.0)<0.01,"{bounced:?}");
+            assert!(sim.world().resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>()
+                .iter_current_update_messages().any(|event|matches!(event.request,
+                    ambition_platformer2d::sfx::SfxMessage::Hit {pos}
+                        if ((pos-exit.pos).dot(exit.normal)-2.0).abs()<0.01)),
+                "the bounce cue belongs at the far contact");
+            sim.step(base());
+            let next=sim.world().get::<BodyKinematics>(shot).expect("the rebound must clear its contact on the next tick");
+            assert!((next.pos-bounced.pos).dot(enter.normal)>0.0,"{next:?}");
+            assert_eq!(sim.world().get::<ambition_platformer2d::projectiles::ProjectileGameplay>(shot).unwrap().bounces_remaining,1);
+            return;
+        }
         if let Some(target)=hurt_body {
             impact|=sim.world().resource::<Messages<ambition_platformer2d::combat::HitEvent>>()
                 .iter_current_update_messages().any(|event|event.target==ambition_platformer2d::combat::HitTarget::Body(target)
@@ -618,7 +661,7 @@ fn far_side_contact(motion:ContactMotion) {
                     let offset = pos-exit.pos;
                     match motion {
                         ContactMotion::Wall=>(2.0..=2.2).contains(&offset.dot(exit.normal)) && (offset.dot(tangent)+5.0).abs()<0.01,
-                        ContactMotion::Fixed|ContactMotion::Endpoint=>(offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01,
+                        ContactMotion::Fixed|ContactMotion::Bounce(_)|ContactMotion::Endpoint=>(offset.dot(exit.normal)-2.0).abs() < 0.01 && offset.dot(tangent).abs() <= 5.01,
                         ContactMotion::Exit=>(offset.dot(exit.normal)-10.0).abs() < 0.05 && offset.dot(tangent).abs()<=5.01,
                         ContactMotion::TurningWall=>(-0.01..=5.01).contains(&offset.dot(exit.normal)) && offset.dot(tangent).abs()<=5.01,
                         ContactMotion::TurningExit|ContactMotion::TurningExitBody=>(-5.01..=5.01).contains(&offset.dot(exit.normal))
@@ -632,6 +675,7 @@ fn far_side_contact(motion:ContactMotion) {
             break;
         }
     }
+    assert!(!matches!(motion,ContactMotion::Bounce(_)),"the shot did not produce a rebound: {history:?}");
     if matches!(motion,ContactMotion::Endpoint) {
         assert!(history.iter().flatten().any(|body| ((body.pos-enter.pos).dot(enter.normal)-5.0).abs()<0.01),
             "the leading tip must reach the opening at tick end without a false wall hit: {history:?}");

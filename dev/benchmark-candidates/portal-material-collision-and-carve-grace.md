@@ -174,3 +174,10 @@ an affine offset. Apply the response in that physical chart, then invert the
 whole velocity map. Admit the returned payload over every occupied source cell
 before guard, reward or ownership writes. Keep the source root prefix and the
 physical cue position as separate facts.
+
+A world contact and its response need separate typed results. The contact can
+order a leg even when the rebound refuses. An earlier terminal target outcome
+retires that later response. A reached rebound must fit every occupied material
+chart before any pose, bounce budget or combat write. Root finiteness alone
+does not prove carried velocity is representable. The numeric check and the
+next-tick separation witness serve different invariants; keep both.

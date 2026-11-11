@@ -1289,3 +1289,23 @@ admit the response before guard rewards or ownership writes. The
 [interception receipt](../../../dev/ambition_dev_measurements/summaries/portal-carried-projectile-interception-20261111.md)
 records the passed gates and audio merge `fec049833`. Moving targets, other
 responses, general continuation and full PSIM acceptance remain open.
+
+### World response admission — 2026-11-11
+
+`10f8eaf95` rejects a rebound that fits the root chart but overflows carried
+material. Contact and response have separate typed results. An earlier terminal
+target outcome retires the later rebound; a reached refusal keeps body and
+combat writes uncommitted while lifetime advances. Guards cover 2x overflow,
+the 0.5x control, an earlier hit or parry, and an H bounce through both 80/40
+directions that clears contact on the next tick. Keep response admission before
+pose, budget and combat writes. The
+[world response receipt](../../../dev/ambition_dev_measurements/summaries/portal-world-response-admission-20261111.md)
+records the passed gates and merge `eff565e6d`. General continuation, moving
+targets, the remaining response acceptance and full PSIM acceptance stay open.
+
+
+After timing merge `a0568d91b`, 434 owner, 38 runtime projectile and 19 projectile
+app cases pass. Both H slice cases pass, including reverse travel and
+rewind/replay. Both room-freeze cases, the assembled app and default warning
+checks pass. The world response receipt records the stage boundaries. Full
+PSIM acceptance remains open.

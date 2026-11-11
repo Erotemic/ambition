@@ -10,7 +10,7 @@ pub use body::{
     InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileHits, Rebound,
 };
 pub use collision::{
-    resolve_world_collision, ProjectileWorldCollision, WorldHitOutcome, WorldHitPolicy,
+    query_world_collision, ProjectileWorldContact, ProjectileWorldResponse, WorldHitOutcome, WorldHitPolicy,
 };
 // Authored spawn intent is owned by `ambition_projectile_spec`, below this physics layer.
 pub use ambition_projectile_spec::ProjectileSpawn;

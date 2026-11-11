@@ -2348,3 +2348,55 @@ fn a_refused_release_keeps_the_object_and_hand_and_does_not_mint() {
     app.update();
     assert!(app.world().get::<ItemCustody>(item).unwrap().in_world());
 }
+
+
+#[test]
+fn a_settled_rotated_item_wakes_when_only_its_aabb_corner_has_support() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    let mut app = App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+        ae::RoomGeometry(ae::World::new("corner", Vec2::splat(800.0), Vec2::ZERO,
+            vec![ae::Block::solid("false corner support", Vec2::new(90.0, 110.0), Vec2::new(3.0, 10.0))])));
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.add_systems(Update, carry_or_wake_settled_items);
+    let item = app.world_mut().spawn((GroundItem::released(axe_spec(), Vec2::splat(100.0), Vec2::ZERO, Vec2::new(12.0, 2.0)),
+        SettledItem::default(), InRoomInstance(LiveRoomInstance::ACTIVATION))).id();
+    app.world_mut().get_mut::<BodyKinematics>(item).unwrap().material = ae::frame::BodyMaterial::new(
+        1.0, bevy::math::Mat2::from_angle(std::f32::consts::FRAC_PI_4)).unwrap();
+    app.update();
+    assert!(app.world().get::<SettledItem>(item).is_none());
+    assert_eq!(app.world().get::<BodyKinematics>(item).unwrap().pos, Vec2::splat(100.0));
+}
+
+#[test]
+fn a_settled_item_rides_far_side_support_and_keeps_its_pose_on_refusal() {
+    use ambition_platformer2d_shared_tangle::{body::geometry::BodyGeometry,
+        lifecycle::{InRoomInstance, LiveRoomInstance}};
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame, thread::PieceBudget};
+    let mut app = App::new();
+    let room = LiveRoomInstance::ACTIVATION;
+    let mut platform = ae::Block::solid("far support", Vec2::new(502.0, 104.0), Vec2::new(10.0, 8.0));
+    platform.velocity = Vec2::new(2.0, 0.0);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+        ae::RoomGeometry(ae::World::new("far support", Vec2::splat(800.0), Vec2::ZERO, vec![platform])));
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.add_systems(Update, carry_or_wake_settled_items);
+    let item = app.world_mut().spawn((GroundItem::released(axe_spec(), Vec2::new(140.0, 100.0), Vec2::ZERO, Vec2::new(16.0, 8.0)),
+        SettledItem::default(), InRoomInstance(room))).id();
+    let before = *app.world().get::<BodyKinematics>(item).unwrap();
+    let mut geometry = BodyGeometry::new(MapConvention::Rotation);
+    geometry.add_pair(Some(room), (
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(150.0, 100.0), -Vec2::X), half_length: 40.0 },
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 100.0), Vec2::X), half_length: 20.0 }));
+    geometry.set_body_budget(item, PieceBudget { max_pieces: 0, ..PieceBudget::COMPOSED });
+    app.insert_resource(geometry);
+    app.update();
+    assert_eq!(*app.world().get::<BodyKinematics>(item).unwrap(), before);
+    assert!(app.world().get::<SettledItem>(item).is_some());
+    app.world_mut().resource_mut::<BodyGeometry>().set_body_budget(item, PieceBudget::COMPOSED);
+    app.update();
+    let after = app.world().get::<BodyKinematics>(item).unwrap();
+    assert_eq!(after.pos, Vec2::new(144.0, 100.0));
+    assert_eq!(after.material, before.material);
+    assert!(app.world().get::<SettledItem>(item).is_some());
+}

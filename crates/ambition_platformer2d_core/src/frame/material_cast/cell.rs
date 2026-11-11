@@ -28,6 +28,28 @@ impl MaterialCell {
         }
     }
 
+    /// Prove that full linear shapes remain separated after this contact.
+    /// Their clipped subsets cannot create a collision when this proof holds.
+    /// The source parameter covers the full world tick.
+    pub(crate) fn clears_obstacle(&self, polygon: &[crate::Vec2], obstacle: &[crate::Vec2],
+        displacement: crate::Vec2, hit: &super::MaterialCastHit,
+    ) -> Result<bool, NumericFault> {
+        if self.curve.is_some() { return Ok(false); }
+        let map = self.at(hit.toi)?;
+        let body: Vec<_> = polygon.iter().map(|point| map.point_wide(point.as_dvec2())).collect();
+        let obstacle: Vec<_> = obstacle.iter().map(|point| point.as_dvec2()
+            - displacement.as_dvec2() * (1.0 - hit.world_time)).collect();
+        if body.iter().chain(&obstacle).any(|point| !point.is_finite()) { return Err(NumericFault::NonFinite); }
+        let relative = self.travel - displacement.as_dvec2();
+        let stays_outside = |points: &[DVec2], boundary: &[DVec2], velocity: DVec2| {
+            super::translation::boundary(boundary).into_iter().any(|plane| {
+                velocity.dot(plane.inward) <= 0.0
+                    && points.iter().all(|point| plane.side(*point) <= plane.error_at(*point))
+            })
+        };
+        Ok(stays_outside(&body, &obstacle, relative) || stays_outside(&obstacle, &body, -relative))
+    }
+
     pub(super) fn velocity(&self, point: DVec2, time: f64) -> Result<DVec2, NumericFault> {
         match &self.curve {
             Some(curve) => curve.velocity(point, time),

@@ -968,13 +968,11 @@ multi-writer resources it then named are adjudicated (`AudioPlaybackConditions`,
 `BodyGeometry`, `EditableAbilitySet`, `LocalSeatClaims`, `PlayerGlowCatalog`,
 `PromisedRoomPlans`, `SfxLoopPlayback`, `SfxOneShots`: disjoint fields, a
 keyed registry, an editor plus the session edge, a player and its mixer).
-Still red: the same guard's next layer, thirteen adjudicated resources that
-GAINED a writer since their verdicts (`AmbitionGameSave`,
-`AuthoredOccurrences`, `AutopilotOrder`, `ConsumedSinceCheckpoint`,
-`DeveloperTools`, `GateNetworkState`, `MainScheduleOrder`,
-`MusicPlaybackState`, `PendingLifecycleCommit`, `SeatMenuFrames`,
-`UserSettings`, `MenuControlFrame`, `YarnContentBindings`): each verdict is
-to be re-read against its new writer; and four other guards
+Then the next layer: thirteen adjudicated resources had gained or lost a
+writer since their verdicts; each verdict carries a dated addendum for its new
+writer (or its departed one), `SeatMenuFrames` has a new verdict (the per-seat
+menu pipeline replaced the tool-only one), and `MapMenuState`'s baseline
+follows the file its verdict already named. The guard is green. Still red: five other guards
 are red on their own findings (`check_host_configuration_has_no_session_writer`:
 `FactionRelations`; `check_level_box_readers`; `check_presence_filtered_state_is_rollback_registered`:
 `ActorGlow`, `PresentationCover`; `check_session_authority_none_arms`: six

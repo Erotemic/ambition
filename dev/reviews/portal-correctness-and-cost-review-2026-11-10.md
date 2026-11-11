@@ -258,3 +258,15 @@ and warning checks pass. The
 [guard receipt](../ambition_dev_measurements/summaries/portal-guard-material-20261111.md)
 records scope. Deflect motion response, autonomous facing, physical attachment
 release and full PSIM acceptance remain open.
+
+
+`e5a0e4ac1` fixes the reflected-facing error exposed by the guard witness.
+Brain snapshots and kernel requests use explicit control/material projection.
+The actor write after the kernel is removed, and Axis requests use its turn
+rules. The real Warden case keeps its brain active. Reflected crawler control
+and travel share the route parity map; the existing curved cast uses a tighter
+signed-plane envelope for its angled-chain contact. Typed refusals remain.
+Owner, app and replay checks pass after room-state merge `09f0afbc4`. The
+[facing receipt](../ambition_dev_measurements/summaries/portal-material-facing-20261111.md)
+records the broad source checks, merged integration checks and focused Sanic
+loop result. Full workspace, device, performance and PSIM acceptance remain open.

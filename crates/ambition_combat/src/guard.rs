@@ -24,48 +24,56 @@ use ambition_characters::actor::{BodyCombat, GuardFaces, GuardSpec, WornCharacte
 use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d_core as ae;
 
-use crate::body_landmarks::{rig_point_in_world, BodyLandmarks};
+use crate::body_landmarks::BodyLandmarks;
+use ae::frame::thread::{MaterialPrimitive, Partition, Refusal, RefusalReason, VolumePiece};
 
 /// One guard of a body where it is this tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GuardPiece {
     /// Its index in the body's authored guards.
     pub guard: u8,
-    /// Where it is, in the world.
-    pub volume: ae::Aabb,
+    /// The exact region in canonical body coordinates.
+    pub domain: ae::Aabb,
+    /// The accepted body material map, or its numerical refusal.
+    pub material: Result<ae::frame::Sim2, ae::frame::NumericFault>,
     /// The sides it covers.
     pub faces: GuardFaces,
-    /// The way the body faces: `+1` or `-1` along its frame's right.
+    /// The body's facing along its canonical x axis.
     pub facing: f32,
     /// A strike from above its top goes over it.
     pub open_above: bool,
 }
 
 impl GuardPiece {
-    /// Does it cover a strike that comes from `source`, for a body whose unit
-    /// DOWN is `down`?
-    pub fn covers(&self, source: ae::Vec2, down: ae::Vec2) -> bool {
-        let corners = [
-            self.volume.min,
-            ae::Vec2::new(self.volume.max.x, self.volume.min.y),
-            ae::Vec2::new(self.volume.min.x, self.volume.max.y),
-            self.volume.max,
-        ];
-        if self.open_above {
-            // Over the top: the source is further up than any of the guard.
-            let top = corners.iter().map(|corner| corner.dot(down)).fold(f32::INFINITY, f32::min);
-            if source.dot(down) < top {
-                return false;
-            }
+    fn numeric(fault: ae::frame::NumericFault) -> Refusal {
+        Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) }
+    }
+
+    pub fn world_volume(&self) -> Result<ae::CombatVolume, Refusal> {
+        ae::frame::thread::map_volume(&ae::CombatVolume::aabb(self.domain),
+            &self.material.map_err(Self::numeric)?).map_err(Self::numeric)
+    }
+
+    /// Use the same canonical region for contact and portal partition.
+    pub fn pieces(&self, passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+        body: Entity, room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Partition {
+        let domain = ae::CombatVolume::aabb(self.domain);
+        let material = MaterialPrimitive { domain: &domain, to_world: self.material.map_err(Self::numeric)? };
+        match passages {
+            Some(passages) => passages.body_pieces(material, body, room),
+            None => Ok(vec![VolumePiece::from_material(material).map_err(Self::numeric)?]),
         }
-        match self.faces {
+    }
+
+    /// Test coverage in the guard's canonical axes after undoing its root map.
+    pub fn covers(&self, source: ae::Vec2) -> Result<bool, Refusal> {
+        let source = self.material.and_then(|map| map.inverse()?.point(source)).map_err(Self::numeric)?;
+        if self.open_above && source.y < self.domain.min.y { return Ok(false); }
+        Ok(match self.faces {
             GuardFaces::Around => true,
-            GuardFaces::Front => {
-                let right = ae::Vec2::new(down.y, -down.x);
-                let middle = (self.volume.min + self.volume.max) * 0.5;
-                (source - middle).dot(right) * self.facing > 0.0
-            }
-        }
+            GuardFaces::Front => (source.x - (self.domain.min.x + self.domain.max.x) * 0.5) * self.facing > 0.0,
+        })
     }
 }
 
@@ -158,13 +166,13 @@ pub fn publish_guard_volumes(
         Entity,
         &WornCharacter,
         &ae::BodyKinematics,
-        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        Option<&crate::body_rig::RigFeetOffset>,
         Option<&ambition_characters::actor::BodyHealth>,
         Option<&GuardState>,
         Option<&mut GuardVolumes>,
     )>,
 ) {
-    for (body, worn, kin, frame, health, state, volumes) in &mut bodies {
+    for (body, worn, kin, feet, health, state, volumes) in &mut bodies {
         let guards = guards_of(characters.as_deref(), Some(worn));
         if guards.is_empty() {
             if let Some(mut volumes) = volumes.filter(|volumes| !volumes.pieces.is_empty()) {
@@ -172,7 +180,7 @@ pub fn publish_guard_volumes(
             }
             continue;
         }
-        let down = frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+        let feet = crate::body_rig::rig_feet_from_centre(feet, Some(kin));
         let up = health.is_none_or(|health| health.alive()) && !state.is_some_and(GuardState::broken);
         let mut pieces = Vec::with_capacity(guards.len());
         for (index, spec) in guards.iter().enumerate().filter(|_| up) {
@@ -183,12 +191,13 @@ pub fn publish_guard_volumes(
                 continue;
             }
             let corners = [rect.min, ae::Vec2::new(rect.max.x, rect.min.y), ae::Vec2::new(rect.min.x, rect.max.y), rect.max]
-                .map(|corner| rig_point_in_world(corner, kin, down));
+                .map(|corner| crate::body_rig::BodyRigPose::to_body(feet + corner, kin.facing, ae::Vec2::Y));
             let min = corners.iter().copied().reduce(ae::Vec2::min).unwrap_or(kin.pos);
             let max = corners.iter().copied().reduce(ae::Vec2::max).unwrap_or(kin.pos);
             pieces.push(GuardPiece {
                 guard: index as u8,
-                volume: ae::Aabb { min, max },
+                domain: ae::Aabb { min, max },
+                material: kin.material_map(),
                 faces: spec.faces,
                 facing: if kin.facing < 0.0 { -1.0 } else { 1.0 },
                 open_above: spec.open_above,

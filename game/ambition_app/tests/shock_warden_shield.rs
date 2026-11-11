@@ -66,7 +66,7 @@ fn warden(sim: &mut Platformer2dSimHarness) -> Warden {
     Warden {
         kin: kin.clone(),
         hp: health.current(),
-        guards: guards.map_or_else(Vec::new, |guards| guards.pieces.iter().map(|piece| piece.volume).collect()),
+        guards: guards.map_or_else(Vec::new, |guards| guards.pieces.iter().map(|piece| piece.world_volume().unwrap().bounds()).collect()),
         state: state.copied().unwrap_or_default(),
         bashing: playback.is_some_and(|playback| playback.spec.id == "shock_warden_shield_bash"),
     }
@@ -208,4 +208,68 @@ fn a_broken_guard_stays_broken_across_a_change_of_form() {
     let w = warden(&mut sim);
     assert!(!w.state.broken() && !w.guards.is_empty(), "the stagger is over and his shield did not come up: {w:?}");
     assert_eq!(w.state.deflects, 7, "the count of deflects is the body's: {w:?}");
+}
+
+#[test]
+fn his_guard_uses_physical_material_for_shape_and_front_coverage() {
+    use ambition_platformer2d::combat::guard::DeflectedBodyHit;
+    use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, HitSide};
+    let mut sim = a_warden_beside_you();
+    let (defender, attacker) = {
+        let world = sim.world_mut();
+        let defender = world.query::<(Entity, &FeatureId)>().iter(world)
+            .find(|(_, id)| id.as_str() == WARDEN).unwrap().0;
+        let attacker = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+        (defender, attacker)
+    };
+    // Keep the authored guard pose fixed during contact.
+    sim.world_mut().entity_mut(defender)
+        .remove::<ambition_platformer2d::characters::brain::Brain>()
+        .insert(ambition_platformer2d::characters::control::ActorControl::default());
+    sim.world_mut().entity_mut(defender).insert(ae::PoseOwnedExternally::only(ae::PoseHold::Path));
+    sim.world_mut().entity_mut(attacker).insert(ae::PoseOwnedExternally::only(ae::PoseHold::Path));
+    for (scale, reflected) in [(0.5, true), (2.0, false)] {
+        let axes = Mat2::from_angle(0.6) * if reflected { Mat2::from_cols(-Vec2::X, Vec2::Y) } else { Mat2::IDENTITY };
+        {
+            let mut body = sim.world_mut().get_mut::<ae::BodyKinematics>(defender).unwrap();
+            body.pos = Vec2::new(1200.0, 150.0);
+            body.vel = Vec2::ZERO;
+            body.material = ae::frame::BodyMaterial::new(scale, axes).unwrap();
+        }
+        sim.world_mut().entity_mut(defender).insert(GuardState::default());
+        sim.rebase_rollback_history().unwrap();
+        sim.step(AgentAction::default());
+        let body = *sim.world().get::<ae::BodyKinematics>(defender).unwrap();
+        let guard = sim.world().get::<GuardVolumes>(defender).unwrap().pieces[0];
+        assert_eq!(guard.material.unwrap(), body.material_map().unwrap());
+        let shape = guard.world_volume().unwrap();
+        let centre = guard.material.unwrap().point((guard.domain.min + guard.domain.max) * 0.5).unwrap();
+        let bounds = shape.bounds();
+        let corner = ae::CombatVolume::Circle { center: bounds.min + Vec2::splat(0.001), radius: 0.0001 };
+        assert!(!shape.intersects(&corner), "the turned shield does not fill its broad-phase box");
+        let front = guard.material.unwrap().point((guard.domain.min + guard.domain.max) * 0.5
+            + Vec2::X * guard.facing * 100.0).unwrap();
+        assert!(guard.covers(front).unwrap());
+        let behind = guard.material.unwrap().point((guard.domain.min + guard.domain.max) * 0.5
+            - Vec2::X * guard.facing * 100.0).unwrap();
+        assert!(!guard.covers(behind).unwrap());
+        place_player(&mut sim, front);
+        let hp = sim.world().get::<BodyHealth>(defender).unwrap().current();
+        let local_offset = sim.world().get::<ae::BodyKinematics>(attacker).unwrap().material_map().unwrap()
+            .inverse().unwrap().point(centre).unwrap();
+        let hit = sim.world_mut().spawn((Hitbox { owner: attacker, source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner { local_offset }, half_extent: Vec2::splat(0.01),
+            shape: None, facing: 1.0, damage: 1,
+            knockback: HitboxKnockback::LaunchSpeed { base: 0.0, growth: None }, launch_dir: None,
+            reaction: None, guard: Default::default(), frame_down: Vec2::Y, strike_sfx: None },
+            HitboxLifetime { remaining_s: 0.1 }, HitboxHits::default())).id();
+        let mut deflects = bevy::ecs::message::MessageCursor::<DeflectedBodyHit>::default();
+        sim.rebase_rollback_history().unwrap();
+        sim.step(AgentAction::default());
+        assert!(deflects.read(sim.world().resource::<Messages<DeflectedBodyHit>>())
+            .any(|event| event.defender == defender && event.hitbox == hit), "the real contact path must turn the strike: scale={scale} reflected={reflected} guard={guard:?}, after={:?}",
+            sim.world().get::<GuardVolumes>(defender));
+        assert_eq!(sim.world().get::<BodyHealth>(defender).unwrap().current(), hp);
+        sim.world_mut().despawn(hit);
+    }
 }

@@ -2325,7 +2325,8 @@ mod strike_rank {
                     .into_iter()
                     .map(|volume| crate::guard::GuardPiece {
                         guard: 0,
-                        volume,
+                        material: Ok(ae::frame::Sim2::IDENTITY),
+                        domain: volume,
                         faces: ambition_characters::actor::GuardFaces::Around,
                         facing: 1.0,
                         open_above: false,
@@ -3446,7 +3447,8 @@ fn profile_strike_resolution_with_guards() {
         let x = b as f32 * 83.0 + 400.0 + far;
         let piece = |dx: f32| crate::guard::GuardPiece {
             guard: 0,
-            volume: ae::Aabb::new(ae::Vec2::new(x + dx, 100.0), ae::Vec2::new(4.0, 20.0)),
+            material: Ok(ae::frame::Sim2::IDENTITY),
+            domain: ae::Aabb::new(ae::Vec2::new(x + dx, 100.0), ae::Vec2::new(4.0, 20.0)),
             faces: ambition_characters::actor::GuardFaces::Front,
             facing: -1.0,
             open_above: false,
@@ -3760,5 +3762,51 @@ fn a_chained_half_scale_strike_keeps_its_launch_after_the_source_rebases() {
             velocities.push(velocity);
         }
         assert_eq!(velocities[0], velocities[1]);
+    }
+}
+
+#[test]
+fn a_guard_keeps_its_exact_material_and_coverage_through_a_scaled_portal() {
+    use ae::frame::{PortalFrame, MapConvention, PortalAperture, Sim2};
+    use ae::frame::thread::VolumePiece;
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    let body = dummy_entity();
+    for ratio in [0.5, 2.0] {
+        for reflected in [false, true] {
+            let turn = bevy::math::Mat2::from_angle(0.6);
+            let axes = if reflected { turn * bevy::math::Mat2::from_cols(-ae::Vec2::X, ae::Vec2::Y) } else { turn };
+            let material = Sim2::new(ratio, axes, ae::Vec2::new(100.0, 80.0)).unwrap();
+            let guard = crate::guard::GuardPiece { guard: 0,
+                domain: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 30.0)),
+                material: Ok(material), faces: ambition_characters::actor::GuardFaces::Front,
+                facing: 1.0, open_above: true };
+            let entry = PortalAperture { frame: PortalFrame::fixed(material.point(ae::Vec2::new(4.0, 0.0)).unwrap(),
+                material.direction(-ae::Vec2::X)), half_length: if ratio == 0.5 { 80.0 } else { 40.0 } };
+            let exit = PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, 80.0), ae::Vec2::X),
+                half_length: if ratio == 0.5 { 40.0 } else { 80.0 } };
+            let mut geometry = BodyGeometry::new(MapConvention::Reflection);
+            geometry.add_pair(None, (entry, exit));
+            let pieces = guard.pieces(Some(&geometry), body, None).unwrap();
+            let far = pieces.iter().find(|piece| !piece.path.is_empty()).expect("part of the guard crosses");
+            let guard_pieces = [(guard, pieces.clone())];
+            let point = material.point(ae::Vec2::new(6.0, 0.0)).unwrap();
+            let carried = far.carry(point).unwrap();
+            let strike = [VolumePiece::whole(ae::CombatVolume::Circle { center: carried, radius: 0.01 })];
+            let source = far.carry(material.point(ae::Vec2::new(20.0, 0.0)).unwrap()).unwrap();
+            assert!(turned_aside(&strike, source, &guard_pieces).unwrap().is_some());
+            let behind = far.carry(material.point(ae::Vec2::new(-20.0, 0.0)).unwrap()).unwrap();
+            assert!(turned_aside(&strike, behind, &guard_pieces).unwrap().is_none());
+            let above = far.carry(material.point(ae::Vec2::new(20.0, -40.0)).unwrap()).unwrap();
+            assert!(turned_aside(&strike, above, &guard_pieces).unwrap().is_none());
+
+            let whole = guard.pieces(None, body, None).unwrap();
+            let bounds = guard.world_volume().unwrap().bounds();
+            let corner = ae::CombatVolume::Circle { center: bounds.min + ae::Vec2::splat(0.01), radius: 0.001 };
+            assert!(!VolumePiece::whole(corner).meets(&whole[0]), "the bound's empty corner is not a guard");
+            let invalid = crate::guard::GuardPiece { material: Err(ae::frame::NumericFault::Overflow), ..guard };
+            assert!(matches!(invalid.pieces(None, body, None), Err(ae::frame::thread::Refusal {
+                reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::Overflow), .. })));
+            assert!(invalid.covers(source).is_err());
+        }
     }
 }

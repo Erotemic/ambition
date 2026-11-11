@@ -175,6 +175,42 @@ fn alone(budget: PieceBudget, y: f32) -> Outcome {
 }
 
 #[test]
+fn independent_bodies_keep_their_geometry_and_depth_on_the_same_link() {
+    let scene = |indices: &[usize]| {
+        let mut app = warm_app();
+        let mut visuals = Vec::new();
+        for &index in indices {
+            let visual = spawn_body(&mut app, PieceBudget::COMPOSED, 280.0 + index as f32 * 40.0, authored_entry());
+            app.world_mut().get_mut::<Transform>(visual).unwrap().translation.z = 20.0 + index as f32 * 4.0;
+            visuals.push(visual);
+        }
+        app.update();
+        app.update();
+        visuals.into_iter().map(|visual| outcome(&mut app, visual)).collect::<Vec<_>>()
+    };
+    for order in [[0,1], [1,0]] {
+        let actual = scene(&order);
+        let exit_depth = |outcome: &Outcome| outcome.pieces.iter()
+            .find(|piece| piece.at.z < crate::PORTAL_WINDOW_Z).expect("a carried part").at.z;
+        let first = order.iter().position(|index| *index == 0).unwrap();
+        let second = order.iter().position(|index| *index == 1).unwrap();
+        assert!(exit_depth(&actual[first]) < exit_depth(&actual[second]), "source depth order must survive transit");
+        let geometry = |mut outcome: Outcome| {
+            for piece in &mut outcome.pieces {
+                if piece.at.z < crate::PORTAL_WINDOW_Z { piece.at.z = crate::PORTAL_EXIT_COPY_Z; }
+            }
+            outcome
+        };
+        for (index, actual) in order.into_iter().zip(actual) {
+            let expected = scene(&[index]).remove(0);
+            assert!(actual.active_capture && !actual.on_world);
+            assert!(actual.pieces.iter().any(|piece| piece.at.z == 20.0 + index as f32 * 4.0));
+            assert_eq!(geometry(actual), geometry(expected), "actor {index}: another root must not change its material");
+        }
+    }
+}
+
+#[test]
 fn each_body_keeps_its_piece_policy_with_another_body_on_the_same_link() {
     let blocked = alone(PieceBudget { max_hops: 0, ..PieceBudget::SINGLE_HOP }, 280.0);
     let single = alone(PieceBudget::SINGLE_HOP, 280.0);

@@ -244,13 +244,15 @@ mod host_adapter {
             }
             return;
         }
+        let mut by_identity = std::collections::BTreeMap::new();
+        for (body, id, kin, transit) in &bodies {
+            by_identity.entry((live.of(body), id.as_str())).or_insert((body, kin, transit));
+        }
         for (visual, feature, shown_in_transit) in &visuals {
             let room = live.of(visual);
-            let body = bodies
-                .iter()
-                .find(|(body, id, ..)| id.0 == feature.id && live.of(*body) == room);
+            let body = by_identity.get(&(room, feature.id.as_str())).copied();
             match body {
-                Some((body, _, kin, transit)) => {
+                Some((body, kin, transit)) => {
                     commands.entity(visual).try_insert((PortalSceneBody, body_view(body, kin)));
                     if let Some(transit) = transit {
                         commands.entity(visual).try_insert(PortalTransitView { straddling: transit.straddling });

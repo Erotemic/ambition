@@ -274,6 +274,13 @@ pub struct InstalledPortCodecs {
     pub(crate) request_decoders: Arc<HashMap<PortKey, DecodeFn>>,
 }
 
+/// The pace of an invocation's scope: the factor its entry's `dt` is scaled
+/// by. The host knows nothing of where a scope is; a composition whose
+/// clocks run at different paces (one room held while another plays)
+/// installs this, and without it every scope runs at the shared clock.
+#[derive(Resource)]
+pub struct ScopePace(pub Box<dyn FnMut(&mut World, Entity) -> f32 + Send + Sync>);
+
 /// What an invocation staged, after the host's checks.
 type Staged = (Vec<(SchemaKey, Record)>, Vec<(PortKey, Box<dyn Any + Send + Sync>)>);
 
@@ -301,7 +308,16 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         // default of zero would hide that.
         let tick = world.resource::<SimTick>().get();
         // The same authority: gameplay time is `WorldTime`, rollback-canonical.
+        // Each invocation's scope runs at its own pace (`ScopePace`).
         let dt = world.resource::<ambition_time::WorldTime>().sim_dt();
+        let paces: Vec<f32> = match world.remove_resource::<ScopePace>() {
+            Some(mut pace) => {
+                let paces = pending.iter().map(|invocation| (pace.0)(world, invocation.scope)).collect();
+                world.insert_resource(pace);
+                paces
+            }
+            None => vec![1.0; pending.len()],
+        };
         // The one session store, when there is exactly one. Read once: no
         // entry spawns or removes a session.
         let homes = homes.get_or_insert_with(|| world.query_filtered());
@@ -314,9 +330,10 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         for entry in admitted.entries_in(&phase) {
             let descriptor = &entry.descriptor;
             let path: Arc<str> = Arc::from(entry.path.as_str());
-            for invocation in pending.iter().filter(|p| {
+            for (invocation, pace) in pending.iter().zip(&paces).filter(|(p, _)| {
                 p.port == descriptor.trigger.port && p.selector == descriptor.trigger.selector
             }) {
+                let dt = dt * pace;
                 if world.get_entity(invocation.scope).is_err() {
                     continue;
                 }

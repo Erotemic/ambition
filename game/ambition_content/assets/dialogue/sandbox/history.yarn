@@ -333,10 +333,13 @@ Lucy: (She looks up at you, then at your feet. She stands up very straight, to s
 -> Hello.
     Lucy: (She tilts her head. She has seen a lot of visitors. Three point two million years of them, counting the scientists.)
 -> Are you the first person?
+    <<present_speaker "npc_history_mary_leaky">>
     Mary Leaky: She is not a person like us. She is an Australopithecus. But she walked on two legs, like us, more than three million years ago. She is family. A very old cousin.
 -> What is she doing here?
+    <<present_speaker "npc_history_mary_leaky">>
     Mary Leaky: Visiting. She lived three million years before anyone in this valley. Clio lets the old ones come to the atlas as guests, so you can meet them. Do not tell her she is early.
 -> Why "Lucy"?
+    <<present_speaker "npc_history_mary_leaky">>
     Mary Leaky: The team that found her bones played a song all night in the camp. The song had a Lucy in it. In Ethiopia she has another name: Dinkinesh. It means "you are marvellous".
 -> Goodbye.
     Lucy: (She waves. Or she reaches for a fig. It is hard to tell.)

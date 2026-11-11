@@ -7,7 +7,8 @@ A dialed ring's zone names no target: the gate network's live link decides
 where it leads (`game/ambition_content/assets/data/gate_network.ron`). Its
 portal is commanded by the network (`gate_portals.ron`, `Dialed`). The
 terminal is a `GateTerminal` switch on the face of a dialer pedestal (the
-`gate_dialer` prop): a press opens the terminal panel.
+`gate_dialer_triangle` prop beside a triangle ring, `gate_dialer` beside a
+round one): a press opens the terminal panel.
 
 Sizes, in world units: the ring and its portal are 288 x 288 and stand on the
 floor; the zone is the middle 144 x 288 of the ring. The dialer is 64 x 56;
@@ -26,6 +27,13 @@ RING = 288
 RING_SHAPES = {
     "triangle": ("triangle_gate_ring", "triangle_gate_portal"),
     "round": ("gate_ring", "gate_portal"),
+}
+#: A ring's shape: the prop kind of its dialer, whose dial has the ring's
+#: shape (Jon, 2026-11-11: "the dial devices need a corresponding version
+#: based on the shape of the gate").
+DIALER_KINDS = {
+    "triangle": "gate_dialer_triangle",
+    "round": "gate_dialer",
 }
 ZONE_W = 144
 DIALER_W, DIALER_H = 64, 56
@@ -69,11 +77,12 @@ def ring(label: str, zone: str, x: int, floor: int, name: str, shape: str = "tri
     ]
 
 
-def terminal(label: str, terminal_id: str, x: int, floor: int) -> list[tuple]:
+def terminal(label: str, terminal_id: str, x: int, floor: int, shape: str = "triangle") -> list[tuple]:
     """A dialer pedestal on `floor` with its left edge at `x`, and the
-    terminal switch on its face."""
+    terminal switch on its face. `shape` is the shape of its ring, a key of
+    `DIALER_KINDS`."""
     return [
-        ("Prop", x, floor - DIALER_H, DIALER_W, DIALER_H, dict(name=f"{label} Dialer", kind="gate_dialer")),
+        ("Prop", x, floor - DIALER_H, DIALER_W, DIALER_H, dict(name=f"{label} Dialer", kind=DIALER_KINDS[shape])),
         ("Switch", x + (DIALER_W - SWITCH_W) // 2, floor - SWITCH_H - 12, SWITCH_W, SWITCH_H,
          dict(id=terminal_id, name=f"{label} terminal", prompt="Dial the gate", target_encounter="", action="GateTerminal")),
     ]

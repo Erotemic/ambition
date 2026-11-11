@@ -739,6 +739,9 @@ pub fn apply_wave_encounter_effects(
 ///   [`SpawnedCleanup::DespawnOnEnd`](ambition_encounter::SpawnedCleanup)
 ///   (and their relation records leave the list — the entities left the
 ///   world); an authored `Keep` policy hands them to the room instead.
+/// - A cleared encounter leaves its dead where they fell: a body killed in
+///   the fight stays as its corpse rule says. Only a failed or reset
+///   attempt clears its dead, because the retry spawns the wave again.
 ///
 /// Cleanup never asks what KIND of encounter ended — the relations + policy
 /// carry everything. Resolution uses the cached `member.entity`, falling back
@@ -764,20 +767,26 @@ pub fn apply_encounter_cleanup(
     // still cleans up correctly even if the encounter ends before a
     // specialized adapter re-heals the cache.
     sim_entities: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
+    // A dead body is left where it fell when the fight was won.
+    healths: Query<&ambition_characters::actor::BodyHealth>,
 ) {
-    let mut ended: Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)> =
+    // Each ended occurrence, and whether it was won (no fail or reset with it).
+    let mut ended: Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, bool)> =
         Vec::new();
     for msg in events_in.read() {
-        let occurrence = (msg.encounter.clone(), msg.room);
-        if matches!(
+        let won = matches!(msg.event, EncounterEvent::Completed);
+        if !matches!(
             msg.event,
             EncounterEvent::Completed | EncounterEvent::Failed | EncounterEvent::Reset
-        ) && !ended.contains(&occurrence)
-        {
-            ended.push(occurrence);
+        ) {
+            continue;
+        }
+        match ended.iter_mut().find(|(id, room, _)| *id == msg.encounter && *room == msg.room) {
+            Some((_, _, cleared)) => *cleared &= won,
+            None => ended.push((msg.encounter.clone(), msg.room, won)),
         }
     }
-    for (encounter_id, room) in ended {
+    for (encounter_id, room, won) in ended {
         let room = ambition_encounter::occurrence::message_room(&live, room);
         let Some((_, _, mut participants, policy)) = encounters
             .iter_mut()
@@ -809,7 +818,8 @@ pub fn apply_encounter_cleanup(
                         .find(|(entity, sim)| **sim == wanted && live.of(*entity) == room)
                         .map(|(entity, _)| entity)
                 });
-                if let Some(entity) = entity {
+                let fell = |entity: Entity| healths.get(entity).is_ok_and(|health| !health.alive());
+                if let Some(entity) = entity.filter(|entity| !(won && fell(*entity))) {
                     if let Ok(mut entity_commands) = commands.get_entity(entity) {
                         entity_commands.despawn();
                     }

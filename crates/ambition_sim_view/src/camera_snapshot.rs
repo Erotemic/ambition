@@ -1456,7 +1456,10 @@ pub fn resolve_camera_observation(
     //
     // A `Local` for the same reason `last_camera_room` is one: it is this
     // system's own record of what it last presented, not simulation state.
-    mut last_subject_placement: bevy::prelude::Local<Option<(bevy::prelude::Entity, ae::Vec2)>>,
+    // And the velocity it carried then: a body that stopped dead at the end of
+    // a short move (a ledge grab zeroes it on the tick it pulls the body to
+    // the lip) travelled with the speed it had going in.
+    mut last_subject_placement: bevy::prelude::Local<Option<(bevy::prelude::Entity, ae::Vec2, ae::Vec2)>>,
     // THE CAST FRAMING'S PRESENTED STATE, as one param.
     //
     //  `Local`s rather than fields on `CameraEaseState`, and for the same
@@ -1754,16 +1757,20 @@ pub fn resolve_camera_observation(
     let subject_placed = match *last_subject_placement {
         // A DIFFERENT subject is not a teleport — possession and view changes
         // hand the camera a new body, and the room/blink terms cover the rest.
-        Some((was, _)) if was != followed => false,
-        Some((_, was_at)) => !crate::presented_pose::travelled_under_own_power(
+        Some((was, ..)) if was != followed => false,
+        // The faster of the velocities either side of the tick: a ledge grab
+        // pulls the body up to 30 units to the lip and zeroes its velocity
+        // on the same tick, which the velocity after alone read as a teleport
+        // and snapped the view.
+        Some((_, was_at, was_moving)) => !crate::presented_pose::travelled_under_own_power(
             was_at,
             subject_sim_pos,
-            player_body.vel,
+            if was_moving.length_squared() > player_body.vel.length_squared() { was_moving } else { player_body.vel },
             1,
         ),
         None => false,
     };
-    *last_subject_placement = Some((followed, subject_sim_pos));
+    *last_subject_placement = Some((followed, subject_sim_pos, player_body.vel));
     let blink_snap = blink_cam.camera_snap_timer > 0.0;
 
     let focus = CameraFocus2d {

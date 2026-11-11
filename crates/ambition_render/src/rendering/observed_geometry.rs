@@ -9,7 +9,9 @@
 //!
 //! Colour says what gameplay does with a piece (its first role); an inactive
 //! piece (a broken platform's block, a gate open for the player) is drawn
-//! faint with a cross through it.
+//! faint with a cross through it. With one observer selected, each piece is
+//! labelled too ([`observation_labels`]): its key, its roles, and why it is
+//! inactive. With every observer drawn the labels would bury the room.
 
 use ambition_dev_tools::DeveloperRuntimeState;
 use ambition_dev_tools::dev_tools::DeveloperTools;
@@ -144,5 +146,89 @@ pub fn draw_observed_layers(gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
                 ObservedState::Inactive { .. } => outline(gizmos, world, &observation.shape, with_alpha(color, 0.3), true),
             }
         }
+    }
+}
+
+/// A label for one observed piece, in room pixels (y down).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObservedLabel {
+    pub at: ae::Vec2,
+    pub text: String,
+    pub color: Color,
+}
+
+/// The labels of `layers` (one room's): for each piece, its key and roles,
+/// and the owner's reason when it is inactive, at the piece's top-left
+/// corner (a box), its middle (a segment) or its centre (a circle).
+pub fn observation_labels(layers: &[ObservedLayer]) -> Vec<ObservedLabel> {
+    const INSET: f32 = 3.0;
+    let mut labels = Vec::new();
+    for layer in layers {
+        let ObserverAnswer::Observed { geometry } = &layer.answer else {
+            continue;
+        };
+        for observation in geometry {
+            let at = match &observation.shape {
+                ObservedShape::Aabb { min, .. } => ae::Vec2::new(min[0] + INSET, min[1] + INSET),
+                ObservedShape::Segment { a, b } => ae::Vec2::new((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5),
+                ObservedShape::Circle { center, .. } => ae::Vec2::new(center[0], center[1]),
+                ObservedShape::Polygon { points } => {
+                    let Some(first) = points.first() else { continue };
+                    ae::Vec2::new(first[0], first[1])
+                }
+            };
+            let roles: Vec<&str> = observation.roles.iter().map(|role| role.as_ref()).collect();
+            let mut text = format!("{} [{}]", observation.key, roles.join(", "));
+            let mut color = role_color(observation);
+            if let ObservedState::Inactive { reason } = &observation.state {
+                text.push_str(&format!(" off: {reason}"));
+                color = with_alpha(color, 0.6);
+            }
+            labels.push(ObservedLabel { at, text, color });
+        }
+    }
+    labels
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_geometry_observation::GeometryObservation;
+
+    /// Each piece is labelled with its key and roles at its anchor, and an
+    /// inactive one says why; a provider that observed nothing adds none.
+    #[test]
+    fn each_observed_piece_is_labelled_with_its_key_roles_and_reason() {
+        let layers = vec![
+            ObservedLayer {
+                provider: "collision.composed",
+                answer: ObserverAnswer::Observed {
+                    geometry: vec![
+                        GeometryObservation {
+                            key: "floor".into(),
+                            roles: vec!["solid".into()],
+                            shape: ObservedShape::aabb([10.0, 20.0], [50.0, 30.0]),
+                            state: ObservedState::Active,
+                        },
+                        GeometryObservation {
+                            key: "gate".into(),
+                            roles: vec!["barrier".into(), "one_way".into()],
+                            shape: ObservedShape::Segment { a: [0.0, 0.0], b: [10.0, 4.0] },
+                            state: ObservedState::Inactive { reason: "open".into() },
+                        },
+                    ],
+                },
+            },
+            ObservedLayer { provider: "combat.volumes", answer: ObserverAnswer::NeedsSubject },
+        ];
+        let labels = observation_labels(&layers);
+        let read: Vec<(ae::Vec2, &str)> = labels.iter().map(|label| (label.at, label.text.as_str())).collect();
+        assert_eq!(
+            read,
+            vec![
+                (ae::Vec2::new(13.0, 23.0), "floor [solid]"),
+                (ae::Vec2::new(5.0, 2.0), "gate [barrier, one_way] off: open"),
+            ]
+        );
     }
 }

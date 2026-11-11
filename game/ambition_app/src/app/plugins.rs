@@ -440,6 +440,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     #[cfg(feature = "portal_render")]
     let overlay = (
         debug_overlay::draw_debug_overlay,
+        debug_overlay::label_observed_geometry,
         // Labels use the same frame and room as their shapes.
         debug_overlay::render_debug_overlay_labels,
     )
@@ -449,6 +450,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
         debug_overlay::draw_debug_overlay,
+        debug_overlay::label_observed_geometry,
         debug_overlay::render_debug_overlay_labels,
     )
         .chain()

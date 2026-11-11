@@ -167,7 +167,18 @@ new provider joins the cycle with no edit to the menu. Witnessed in
 first observer, a step back draws them all. Presets (several at once, a
 prefix like the headless `collision.`) are GOBS-4's.
 
-**Still open in GOBS-1:** labels.
+**Labels (2026-11-10):** with one observer selected on that row, each piece
+is labelled at its anchor (a box's top-left corner, a segment's middle, a
+circle's centre) with its key, its roles and, when inactive, the owner's
+reason (`observation_labels` in `ambition_render`'s `observed_geometry.rs`,
+drawn through the overlay's label sink by `label_observed_geometry` in the
+app's `debug_overlay.rs`). With every observer drawn there are no labels: they
+would bury the room. Unit:
+`each_observed_piece_is_labelled_with_its_key_roles_and_reason`; the app
+wiring has no test of its own (the label sink is the app crate's, and the one
+harness that reads it boots a visible app).
+
+**GOBS-1 is done.** Contact normals and hover detail are GOBS-4's.
 
 1. Build a minimal neutral observation descriptor and query/filter schema (room, view, selected subject, category, time). Start by adapting `CombatGeometryView` and one real `CollisionWorld` query, proving that the interface works for both preexisting snapshots and parameterized queries.
 2. Register providers compositionally; derive a provider registry/read-only catalog from installed adapters rather than creating an authoritative ECS-wide geometry database.

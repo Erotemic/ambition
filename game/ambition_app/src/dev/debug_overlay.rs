@@ -74,6 +74,26 @@ pub(crate) fn render_debug_overlay_labels(
     drawings.finish();
 }
 
+/// Label the observed geometry (GOBS-1) when the Geometry Observer row has
+/// one observer selected: with every observer drawn, the labels would bury
+/// the room. Runs after the overlay, which clears the labels, and before
+/// they are drawn.
+pub(crate) fn label_observed_geometry(
+    developer_tools: Res<DeveloperTools>,
+    frame: Option<Res<ambition_platformer2d::render::rendering::observed_geometry::ObservedGeometryFrame>>,
+    mut overlay_labels: ResMut<DebugOverlayLabels>,
+) {
+    let Some(frame) = frame else { return };
+    if developer_tools.observed_geometry_only.is_none() {
+        return;
+    }
+    for (room, layers) in &frame.rooms {
+        for label in ambition_platformer2d::render::rendering::observed_geometry::observation_labels(layers) {
+            overlay_labels.0.push(DebugLabel { room: *room, world_pos: label.at, text: label.text, color: label.color });
+        }
+    }
+}
+
 #[cfg(not(feature = "input"))]
 pub(crate) fn draw_debug_overlay() {}
 

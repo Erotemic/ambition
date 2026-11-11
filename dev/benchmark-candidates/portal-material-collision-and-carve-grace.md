@@ -150,3 +150,20 @@ Read a moving support at tick start when finding its previous rider. Map
 its physical contact and displacement back through the body's occupied
 part. Use the admitted support for carry and slope corrections. A later
 root-box query can select another surface or put a body back on an opening.
+
+
+## Projectile recipients need the admitted source
+
+A full root box includes material that the portal has cut away. It also omits
+carried material. Sweep the admitted source cells against the sampled target,
+with both sets of cuts. Keep target circles analytic. Source-map curves need
+an interval proof; matching endpoint poses do not prove a miss.
+
+Keep separate bounds for separate cells. Their combined box can cover empty
+space between portal ends and admit an unrelated invalid recipient. Reuse the
+bounds that material admission already validates. Do not rebuild them for
+each recipient. Body eligibility must precede its geometric validation.
+
+Prepare unit-bearing payloads with the contact before commit. A length map
+converts `LaunchSpeed`; it does not convert dimensionless `FeelScale`.
+`a91231348` and `4825f1f1c` have the source, controls and real actor witness.

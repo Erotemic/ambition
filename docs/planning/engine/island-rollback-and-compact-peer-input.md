@@ -511,9 +511,22 @@ but not its cost); world writes in the window (ISL-2d); bytes.
 ### Next (ISL-2c and ISL-1b)
 
 1. **ISL-2c — the witness under load.** A hit on an NPC: done
-   (`a_rewound_room_hurts_its_enemy_again`). Still open: an NPC life that
-   writes the ledger (committed-world writes are refused or deferred during a
-   replay), and a connect (hitstop: ISL-1b below). A failure of the witness
+   (`a_rewound_room_hurts_its_enemy_again`). **An NPC life that writes the
+   ledger (2026-11-11):** a life's row in `LifeLedger` is a mirror of its
+   `Life` (`keep_life_ledger` compares and writes each tick), which the
+   room's snapshot rewinds, so the row heals by itself. The bookings do not:
+   they are shared by rooms and summed, so a hold or a catch-up booked in the
+   window would be booked again by the replay. Each booking a body adds from
+   a live room is now logged with the room and tick
+   (`LifeLedger::room_bookings`, horizon-bounded), and the retractor
+   (`retract_room_bookings`, `resource.life_ledger_bookings`) subtracts the
+   rewound room's additions after the saved tick. Witness
+   `a_rewound_room_books_its_replayed_hold_once` (`eureka_coil_lab` from five
+   past ten: the room saved while a scientist holds the bench, the hold ends
+   and is booked in the window, the replay holds again); its ignored control
+   books the hold twice. Unit:
+   `a_rewound_room_takes_back_the_bookings_its_bodies_made`. Still open: a
+   connect (hitstop: ISL-1b below). A failure of the witness
    names the state that could not be kept to one room. These run as probes or
    one suite witness each, not a matrix.
 2. **ISL-1b — remove the couplings.** One change per coupling resource, each

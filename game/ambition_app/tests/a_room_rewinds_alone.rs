@@ -1298,3 +1298,105 @@ fn without_the_retraction_the_collected_step_stays() {
     let [_, after_take, after_replay] = an_item_collected_only_before_the_rewind(false);
     assert_eq!(after_replay, after_take, "the step went without the retraction");
 }
+
+/// What the life ledger has booked of the lab's bench, summed over hours.
+fn bench_hours(world: &World) -> f32 {
+    world
+        .resource::<ambition_platformer2d::actors::body::life::LifeLedger>()
+        .bookings
+        .iter()
+        .filter(|((_, thing, _), _)| thing == "workbench")
+        .map(|(_, hours)| *hours)
+        .sum()
+}
+
+/// ISL-2c, an NPC life that writes the ledger: in `eureka_coil_lab` from
+/// five past ten, the room is saved while a scientist holds the bench; the
+/// hold ends in the window and is booked in the ledger. The room rewinds to
+/// the save and replays the same hold. Returns the bench's booked hours at
+/// N, after the window, and after the replay.
+fn a_hold_booked_in_a_rewound_window(retract: bool) -> [f32; 3] {
+    use ambition_platformer2d::actors::body::life::Life;
+    use ambition_platformer2d::time::DayCycle;
+    let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("eureka_coil_lab")).expect("the lab boots");
+    sim.step(crate::common::base());
+    {
+        let world = sim.world_mut();
+        let cycle = *world.resource::<DayCycle>();
+        *world.resource_mut::<DayClock>() = DayClock::at_hour(&cycle, 10.05);
+    }
+    let holder = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(Entity, &Life, &InRoomInstance)>()
+            .iter(world)
+            .find(|(_, life, _)| life.claim.as_deref() == Some("workbench"))
+            .map(|(body, _, room)| (body, room.0))
+    };
+    let mut held = None;
+    for _ in 0..20_000 {
+        sim.step(crate::common::base());
+        held = holder(&mut sim);
+        if held.is_some() {
+            break;
+        }
+    }
+    let (body, room) = held.expect("premise: a scientist takes the bench");
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_hours = bench_hours(sim.world());
+
+    // The window: until the hold ends and is booked.
+    let mut window = 0;
+    while bench_hours(sim.world()) <= at_n_hours + 1e-4 && window < 20_000 {
+        sim.step(crate::common::base());
+        window += 1;
+    }
+    let after_window = bench_hours(sim.world());
+    assert!(
+        sim.world().get::<Life>(body).is_some_and(|life| life.claim.as_deref() != Some("workbench")) || window < 20_000,
+        "premise: the hold ends in the window"
+    );
+
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    // The replay: the same ticks, the same hold.
+    for _ in 0..window {
+        sim.step(crate::common::base());
+    }
+    let after_replay = bench_hours(sim.world());
+    sim.world_mut().insert_resource(rows);
+    [at_n_hours, after_window, after_replay]
+}
+
+/// ISL-2c: a room that rewinds takes back the bookings its lives made after
+/// the tick it was saved at, so the replayed hold is booked once.
+#[test]
+fn a_rewound_room_books_its_replayed_hold_once() {
+    let [at_n, after_window, after_replay] = a_hold_booked_in_a_rewound_window(true);
+    assert!(after_window > at_n, "premise: the hold is booked in the window ({at_n} -> {after_window})");
+    assert!(
+        (after_replay - after_window).abs() < 1e-3,
+        "the replay booked the hold again on top of the window's: {at_n} -> {after_window} -> {after_replay}"
+    );
+}
+
+/// The control: without the retraction the replayed hold is booked twice.
+/// Run it beside the witness when the retraction changes; it is not a suite
+/// member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_replayed_hold_is_booked_twice() {
+    let [at_n, after_window, after_replay] = a_hold_booked_in_a_rewound_window(false);
+    assert!(
+        after_replay - at_n > (after_window - at_n) * 1.5,
+        "the hold was booked once without the retraction: {at_n} -> {after_window} -> {after_replay}"
+    );
+}

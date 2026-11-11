@@ -30,7 +30,7 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 
 Full PSIM acceptance remains open: general remaining-time continuation,
 complete projectile/hurt contact, including moving targets and other surviving
-contact responses, other movement models, guard geometry, attachments, the
+contact responses, other movement models, remaining guard consumers, attachments, the
 bounded numeric law and fault effects, and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
@@ -1327,3 +1327,17 @@ budget outside the leg loop. The
 [continuation receipt](../../../dev/ambition_dev_measurements/summaries/portal-projectile-root-continuation-20261111.md)
 records commands and scope. General kernel and other free-body continuation,
 moving-target hurt CCD and full PSIM acceptance remain open.
+
+### Authored guard material — 2026-11-11
+
+`065676df3` replaces gravity-only guard placement and world AABB contact with
+a canonical region under the accepted body material. Contact and front/top
+coverage use that same region through portal cuts. Numerical refusals prevent
+recipient writes. The local guard checks both aperture ratios, root parities
+and an empty bound corner. The real Warden checks a half-scale reflected
+guard and a double-scale turned guard through the publisher and resolver.
+Keep bounds in the broad phase. The
+[guard receipt](../../../dev/ambition_dev_measurements/summaries/portal-guard-material-20261111.md)
+records all passed gates and a deliberate AABB failure. Deflect response,
+autonomous facing under material reflection, held-item placement/release,
+general movement continuation and full PSIM acceptance remain open.

@@ -246,3 +246,15 @@ directions, L's moving exit, J's three roots and hop refusal pass. Owner,
 runtime, app, reverse/replay and warning checks pass after merge `b0e5bd404`.
 The [continuation receipt](../ambition_dev_measurements/summaries/portal-projectile-root-continuation-20261111.md)
 records scope. General movement continuation and full PSIM acceptance stay open.
+
+
+`065676df3` keeps authored guard regions in canonical body coordinates.
+Exact material supplies contact, portal cuts and front/top coverage; world
+bounds supply only the broad phase. Typed refusals prevent recipient writes.
+Both aperture ratios and root parities pass in the local guard check. The
+real Warden publisher and resolver pass for reflected half scale and turned
+double scale. Combat, Warden, projectile, reverse/replay, Smash, app compile
+and warning checks pass. The
+[guard receipt](../ambition_dev_measurements/summaries/portal-guard-material-20261111.md)
+records scope. Deflect motion response, autonomous facing, physical attachment
+release and full PSIM acceptance remain open.

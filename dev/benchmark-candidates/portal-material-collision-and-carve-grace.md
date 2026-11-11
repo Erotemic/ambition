@@ -191,3 +191,12 @@ Commit through the common portal operation, then spend the unused time from
 the admitted exit pose and velocity. Do not reset a projectile's contact
 budget at each root. A refused later leg must retain the last admitted root
 and retire its sweep.
+
+
+A guard is canonical body material. Gravity alone does not give its accepted
+turn or parity. Keep the authored region, including the canonical feet
+offset, and project it with the body map. Partition that region directly.
+Test front and top coverage after mapping the strike source back through
+the contact path and root material. An AABB corner can be outside the guard;
+use that corner to check exact shape contact. Keep numerical refusals through
+coverage and ranked sibling selection.

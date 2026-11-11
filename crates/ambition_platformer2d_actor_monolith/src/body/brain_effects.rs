@@ -208,6 +208,13 @@ pub fn spawn_projectiles_from_brain_actions(
         if health.is_some_and(|h| !h.alive()) {
             continue;
         }
+        let discharge = spec.discharge.clone().unwrap_or_default();
+        let hand_world = if matches!(discharge.muzzle, ambition_characters::brain::action_set::Muzzle::Hand { .. }) {
+            match ambition_held_items::holding_hand_world(&landmarks, msg.actor, &kin) {
+                Ok(hand) => hand,
+                Err(fault) => { warn!(?fault, "hand muzzle map refused"); continue; }
+            }
+        } else { kin.pos };
         // Body-side fire-rate enforcement for an ATTEMPT (invariant I3): a
         // controller emits `fire` every in-band tick and never rate-limits
         // itself, so the body accepts a shot only when the weapon is off
@@ -254,7 +261,6 @@ pub fn spawn_projectiles_from_brain_actions(
         // art, same discharge, same hand"*. See
         // `ambition_characters::brain::action_set::Discharge`; this site no
         // longer knows any weapon's name.
-        let discharge = spec.discharge.clone().unwrap_or_default();
         // The projectile's APPEARANCE is an OPEN visual id the render layer
         // resolves through the content catalog — never the owner-id string.
         // Precedence: the ACTION's own authored visual (a drawn weapon and an
@@ -284,8 +290,6 @@ pub fn spawn_projectiles_from_brain_actions(
             .unwrap_or(ae::Vec2::new(0.0, -1.0))
             .normalize_or(ae::Vec2::new(0.0, -1.0));
         let frame = ae::AccelerationFrame::new(gravity_dir);
-        let hand_world =
-            ambition_held_items::holding_hand_world(&landmarks, msg.actor, &kin, gravity_dir);
         // WHERE THE SHOT LEAVES, before its direction is known: a hand muzzle
         // is pushed along the shot from the hand, so the hand is its pivot;
         // every other muzzle does not depend on the direction.

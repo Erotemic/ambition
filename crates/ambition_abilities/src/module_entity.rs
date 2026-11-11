@@ -382,7 +382,10 @@ pub fn follow_module_items(
     where_it_is: ambition_held_items::ItemWorldPos,
 ) {
     for (mut entity, item, custody) in &mut entities {
-        let at = where_it_is.of(custody, item);
+        let at = match where_it_is.of(custody, item) {
+            Ok(at) => at,
+            Err(fault) => { warn!(?fault, "module item position refused"); continue; }
+        };
         if entity.pos != at {
             entity.pos = at;
         }

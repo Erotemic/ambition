@@ -292,7 +292,7 @@ pub struct ItemWorldPos<'w, 's> {
 /// It is the hand the body's rig or its art puts there
 /// ([`BodyLandmarks::gesture_hand`], ruling Q41). A body that publishes no
 /// hand, or states no art scale, answers with the fixed hand offset
-/// ([`ambition_mount::rider_hand_world_pos_in_frame`]): the named fallback.
+/// ([`ambition_mount::rider_hand_world_pos`]), mapped by physical material.
 ///
 /// ONE answer for three readers, so that they agree: the muzzle of a weapon
 /// that fires from the hand, the place of a held item, and the prop the
@@ -303,57 +303,60 @@ pub fn holding_hand_world(
     landmarks: &ambition_combat::body_landmarks::BodyLandmarks,
     body: Entity,
     kin: &ae::BodyKinematics,
-    down: Vec2,
-) -> Vec2 {
+) -> Result<Vec2, ae::frame::NumericFault> {
     use ambition_combat::body_landmarks::LandmarkPose;
-    hand_or_fixed(landmarks.gesture_hand_in_world(body, LandmarkPose::ThisTick, kin, down), kin, down)
+    hand_or_fixed(landmarks.gesture_hand_in_world(body, LandmarkPose::ThisTick, kin), kin)
 }
 
-/// `hand`, else the fixed hand offset of a body at `kin`.
-fn hand_or_fixed(hand: Option<Vec2>, kin: &ae::BodyKinematics, down: Vec2) -> Vec2 {
-    hand.unwrap_or_else(|| ambition_mount::rider_hand_world_pos_in_frame(kin.pos, kin.facing, kin.size().y, down))
+/// Use the fixed canonical hand only when the body has no landmark.
+fn hand_or_fixed(
+    hand: Result<Option<Vec2>, ae::frame::NumericFault>,
+    kin: &ae::BodyKinematics,
+) -> Result<Vec2, ae::frame::NumericFault> {
+    match hand? {
+        Some(hand) => Ok(hand),
+        None => kin.material_map()?.point(ambition_mount::rider_hand_world_pos(
+            Vec2::ZERO, kin.facing, kin.canonical_size.y)),
+    }
 }
 
 impl ItemWorldPos<'_, '_> {
     /// The shared load position, when both bodies are present.
-    pub fn supported_anchor(&self, holder: Entity, down: Vec2) -> Option<Vec2> {
-        self.supported_geometry(holder, down).map(|geometry| geometry.anchor)
+    pub fn supported_anchor(&self, holder: Entity, down: Vec2) -> Result<Option<Vec2>, ae::frame::NumericFault> {
+        Ok(self.supported_geometry(holder, down)?.map(|geometry| geometry.anchor))
     }
 
-    pub fn supported_geometry(&self, holder: Entity, down: Vec2) -> Option<SupportedCarryGeometry> {
-        let link = self.supports.get(holder).ok()?;
-        if self.rooms.of(holder) != self.rooms.of(link.supporter) { return None; }
-        let primary = self.holders.get(holder).ok()?;
-        let supporter = self.holders.get(link.supporter).ok()?;
-        Some(SupportedCarryGeometry {
+    pub fn supported_geometry(&self, holder: Entity, down: Vec2) -> Result<Option<SupportedCarryGeometry>, ae::frame::NumericFault> {
+        let Ok(link) = self.supports.get(holder) else { return Ok(None); };
+        if self.rooms.of(holder) != self.rooms.of(link.supporter) { return Ok(None); }
+        let (Ok(primary), Ok(supporter)) = (self.holders.get(holder), self.holders.get(link.supporter)) else { return Ok(None); };
+        Ok(Some(SupportedCarryGeometry {
             bodies: [holder, link.supporter],
             anchor: SupportedCarry::anchor(primary, supporter, down),
-            attachments: [self.support_attachment(holder, primary, down), self.support_attachment(link.supporter, supporter, down)],
-        })
+            attachments: [self.support_attachment(holder, primary)?, self.support_attachment(link.supporter, supporter)?],
+        }))
     }
 
-    fn support_attachment(&self, body: Entity, kin: &BodyKinematics, down: Vec2) -> Vec2 {
+    fn support_attachment(&self, body: Entity, kin: &BodyKinematics) -> Result<Vec2, ae::frame::NumericFault> {
         use ambition_characters::actor::Landmark;
-        use ambition_combat::body_landmarks::{feet_of, LandmarkPose};
-        [Landmark::FootNear, Landmark::FootFar].into_iter()
-            .find_map(|foot| self.landmarks.in_world(body, foot, LandmarkPose::ThisTick, kin, down))
-            .unwrap_or_else(|| feet_of(kin, down))
+        use ambition_combat::body_landmarks::LandmarkPose;
+        for foot in [Landmark::FootNear, Landmark::FootFar] {
+            if let Some(point) = self.landmarks.in_world(body, foot, LandmarkPose::ThisTick, kin)? { return Ok(point); }
+        }
+        self.landmarks.place_rig_point(body, Vec2::ZERO, kin)
     }
 
-    /// Where this item is right now.
-    ///
-    /// Falls back to the retained body position when the holder cannot be read — a holder
-    /// that despawned this tick is a stale relationship, and the item's last
-    /// world position is a better answer than the origin.
-    pub fn of(&self, custody: &ItemCustody, body: &BodyKinematics) -> Vec2 {
+    /// The item's root-chart position. A stale holder uses the retained body.
+    pub fn of(&self, custody: &ItemCustody, body: &BodyKinematics) -> Result<Vec2, ae::frame::NumericFault> {
         match custody {
-            ItemCustody::InWorld => body.pos,
-            ItemCustody::Held { holder } => self
-                .holders
-                .get(*holder)
-                .map(|kin| self.supported_anchor(*holder, Vec2::Y)
-                    .unwrap_or_else(|| holding_hand_world(&self.landmarks, *holder, kin, Vec2::Y)))
-                .unwrap_or(body.pos),
+            ItemCustody::InWorld => Ok(body.pos),
+            ItemCustody::Held { holder } => match self.holders.get(*holder) {
+                Ok(kin) => match self.supported_anchor(*holder, Vec2::Y)? {
+                    Some(anchor) => Ok(anchor),
+                    None => holding_hand_world(&self.landmarks, *holder, kin),
+                },
+                Err(_) => Ok(body.pos),
+            },
         }
     }
 }

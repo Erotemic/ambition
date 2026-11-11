@@ -171,11 +171,10 @@ impl BodyGeometry {
             .map_or_else(|| self.budget_in(room), |(_, budget)| *budget)
     }
 
-    pub fn add_straddler(&mut self, body: Entity, front: PortalAperture, back: PortalAperture) {
+    pub fn add_straddler(&mut self, body: Entity, room: Option<LiveRoomInstance>, front: PortalAperture, back: PortalAperture) {
         let link = self
-            .rooms
+            .links_in(room)
             .iter()
-            .flat_map(|r| &r.links)
             .find(|link| link.enter == front && link.exit == back)
             .copied()
             .unwrap_or(PortalLink::new(front,back,u32::MAX));
@@ -313,6 +312,24 @@ mod tests {
     use ambition_platformer2d_core::frame::PortalFrame;
     use ambition_platformer2d_core::frame::thread::VolumePiece;
 
+    #[test]
+    fn a_straddler_uses_its_rooms_link_when_other_apertures_are_identical() {
+        let front = PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, -Vec2::Y), half_length: 40.0 };
+        let back = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, -200.0), Vec2::Y), half_length: 40.0 };
+        let (a, b) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::from_ordinal(1));
+        let body = Entity::from_raw_u32(1).unwrap();
+        let mut passages = BodyGeometry::default();
+        passages.add_pair(Some(a), (front, back));
+        let other_front = PortalAperture { frame: PortalFrame::fixed(Vec2::splat(1000.0), -Vec2::Y), ..front };
+        let other_back = PortalAperture { frame: PortalFrame::fixed(Vec2::splat(1500.0), Vec2::Y), ..back };
+        passages.add_pair(Some(b), (other_front, other_back));
+        passages.add_pair(Some(b), (front, back));
+        passages.add_straddler(body, Some(b), front, back);
+        let expected = passages.links_in(Some(b))[2];
+        assert_eq!(passages.straddled_by(body), Some(expected));
+        assert_eq!(passages.motion_for(body, Some(b)).unwrap().first, Some(expected.key));
+    }
+
     /// A volume is cut only by its own room's pairs and the pair its own
     /// carrier straddles: a body in transit elsewhere cuts nothing of it. And
     /// where the predicate says no, the pieces are whole.
@@ -325,7 +342,7 @@ mod tests {
         let mut passages = BodyGeometry::default();
         for body in [traveller, other] { passages.set_body_material(body, Ok(Sim2::IDENTITY)); }
         passages.add_pair(Some(there), (floor, ceiling));
-        passages.add_straddler(traveller, floor, ceiling);
+        passages.add_straddler(traveller, Some(there), floor, ceiling);
 
         assert!(passages.cuts_in(Some(there), None), "a room with a pair");
         assert!(passages.cuts_in(Some(here), Some(traveller)), "the carrier straddles a pair");

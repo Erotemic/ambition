@@ -107,7 +107,7 @@ fn write_straddlers(
         let all = by_room.in_room(room);
         if let (Some(front), Some(back)) = (
             find_portal(all, transit.straddling), find_portal(all, transit.straddling.partner()),
-        ) { passages.add_straddler(body, front.aperture(), back.aperture()); }
+        ) { passages.add_straddler(body, room, front.aperture(), back.aperture()); }
     }
 }
 

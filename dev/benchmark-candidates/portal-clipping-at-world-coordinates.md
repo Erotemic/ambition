@@ -49,3 +49,10 @@ pieces and no increase in images, materials or meshes.
 Run the core `frame::thread::tests` and presentation `carry::tests`. Use the
 full portal lab for timing: a small isolated pair can produce false pieces
 without a large timing change.
+
+Independent bodies can meet one opening with different roots, policies and
+drawing depths. Keep each drawable family's partition separate. A shared
+capture must preserve these owners before pixels blend. Combining their
+bounds and choosing one root cannot represent both material domains.
+Retain source depth order inside the exit-copy band as well as on the source
+side. The same depth value for every exit loses that order.

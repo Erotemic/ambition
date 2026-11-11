@@ -3,8 +3,8 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** THE REQUESTED PLAYABLE 80/40 SLICE IS COMPLETE (`fddf6084a`).
-The final NPC save merge is `55d5a4292`. The current rollback schema is v442
-after the upstream notice-state merge.
+The current rollback schema is v443 after the upstream day-clock save
+change `1ec4e9bb3`.
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
 Station H has two reachable wall openings with widths 80 and 40. Each keeps
@@ -45,11 +45,13 @@ The impact film shows the body and far foot. Walls or platforms back all J
 mouths and both K mouths. I has a Reflection prompt at the existing wall pair.
 GNU-ton's simultaneous-limb capture and I's held-accessory film remain open.
 
-The November 10 review has three fixes: projectile refusals and dimensionless
-knockback in `741212079`, and proposed limb admission in `482dcfc5b`.
+The November 10 review corrections include projectile refusals and
+dimensionless knockback in `741212079`, and proposed limb admission in
+`482dcfc5b`.
 Stationary material repair and support now use admitted material in
-`5f07fbb17`. Independent capture ownership, runtime cost, capture budgets and
-room-scoped straddler lookup remain open. See the
+`5f07fbb17`. Independent captures and depth order are fixed in `ae8f2b07a`.
+Room-scoped straddler lookup is fixed in `b499e5090`. Runtime cost and capture
+resource policy remain open. See the
 [review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
 for guards and verification scope.
 
@@ -1151,9 +1153,36 @@ a partial body before reverse transit and deterministic rewind.
 The packet passes 878 core, 595 actor, 178 world, 35 portal app, 73 Smash and
 35 policy tests, plus the assembled app check. One core probe and six Smash
 probes are ignored. Do not restore a root-AABB correction pass after native
-material queries. R4, R5, R6 and R8 remain open. Full PSIM acceptance remains
-open, including other movement models and general remaining-time continuation.
+material queries. R5 and R6 remain open. Full PSIM acceptance remains open,
+including other movement models and general remaining-time continuation.
 
 After upstream merge `a40680fd4`, both 80/40 slice cases and both chained-lab
 cases pass again. The app and core all-target warning check passes under
 their default features. See `target/portal-r3-merged-gates.json`.
+
+### Independent captures and room identity — 2026-11-10
+
+`ae8f2b07a` gives each drawable family its own root, capture and depth order.
+Its two-body guard compares the same policy and link with isolated geometry
+in both spawn orders. `b499e5090` resolves straddler links in the owning room;
+identical aperture poses in another room cannot select its key or motion law.
+
+All 1,483 active owner cases, 35 portal app cases and 35 policy cases pass.
+Four owner probes are ignored. The assembled app check and capture tools build
+pass. The close Vulkan llvmpipe film in `target/portal-r4-visible/close/` shows
+a robot and javelin in the same 80/40 pair on separate captures. The robot
+clears at persistent half scale and reflected parity. Evidence is
+`target/portal-r4-visible/witness.json` and `target/portal-r4-r8-gates.json`.
+
+Do not merge independent roots or drawing depths to share a capture.
+Do not resolve a straddler by searching other rooms. R5 still needs runtime
+measurements; R6 still needs adaptive capture resolution, resource limits
+and an explicit overflow policy. Device/GPU and full PSIM acceptance remain
+open.
+
+The app, portal presentation and host all-target warning check passes under
+their default features. Its log is `target/portal-r4-r8-warnings.log`.
+
+After the upstream day-clock save merge, the assembled app check and all four
+schema guards pass with v443. Evidence is
+`target/portal-r4-r8-merged-gates.json`.

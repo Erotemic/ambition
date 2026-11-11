@@ -22,7 +22,7 @@
 //! * A drawable that is part of another's picture ([`PortalDrawnWith`], and
 //!   each child) goes with that one.
 //!
-//! Each pair a drawable goes through has a carry camera. The source stays on
+//! Each drawable family has its own root, depth and carry camera. The source stays on
 //! its world layers while the capture or its pieces are prepared. Once ready,
 //! it is taken off the world's layers and put on that camera's
 //! layer only ([`CarriedLayers`], given back at the start of the next frame),
@@ -123,9 +123,6 @@ const WARM_SLOTS: usize = 2;
 /// The clipped quads made before the first need: the pieces of two carries
 /// through a pair each (here, two beside, through) and one more.
 const WARM_QUADS: usize = 10;
-/// How near (world px) two drawables' roots are to be one root: a swing's
-/// owner and the body it is.
-const ROOT_SLACK: f32 = 1.0;
 /// The largest texture side of a carry, in texels.
 const MAX_SIDE: u32 = 2048;
 /// The camera order of the carries: after the impostor cameras (a carried
@@ -149,7 +146,7 @@ pub fn give_back_carried_layers(mut commands: Commands, mut carried: Query<(Enti
     }
 }
 
-/// What goes through one pair, in one live room, this frame.
+/// One drawable family and its own material root in one live room.
 struct Carry {
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     frame: PortalWorldFrame,
@@ -321,6 +318,9 @@ pub fn carry_through_pairs(
     let by_room = frames.portals_by_room(portals.iter());
     let any_portal = by_room.rooms().any(|(_, list)| !list.is_empty())
         && selection.is_none_or(|selection| selection.enabled);
+    let links_by_room: std::collections::BTreeMap<_,_> = if any_portal {
+        by_room.rooms().map(|(room, portals)| (room, room_links(portals))).collect()
+    } else { Default::default() };
     let mut carried_now: Vec<Entity> = Vec::new();
     pool.0.begin(|entity| quads.contains(entity));
     let (Some(images), Some(meshes), Some(materials)) =
@@ -356,7 +356,7 @@ pub fn carry_through_pairs(
                 continue;
             };
             let all = by_room.in_room(Some(placement.room));
-            let links = room_links(all);
+            let Some(links) = links_by_room.get(&Some(placement.room)) else { continue; };
             if links.is_empty() { continue; }
             let active = if reach.is_some() {
                 transit.and_then(|transit| find_portal(all, transit.straddling))
@@ -390,31 +390,20 @@ pub fn carry_through_pairs(
             let (min, max) = aabb.map_or((view.pos - view.size * 0.5, view.pos + view.size * 0.5), |aabb| {
                 engine_bounds(&placement.frame, aabb, at)
             });
-            let carry = carries
-                .iter_mut()
-                .find(|c| c.room == placement.room && c.link == link.key && c.budget == budget && c.reach.is_none() && reach.is_none());
-            match carry {
-                Some(carry) => {
-                    carry.drawables.push(visual);
-                    carry.min = carry.min.min(min);
-                    carry.max = carry.max.max(max);
-                    carry.traced.push((view.body, view.pos, straddled.channel));
-                }
-                None => carries.push(Carry {
-                    room: placement.room,
-                    frame: placement.frame,
-                    link: link.key,
-                    root: view.pos,
-                    reaching: false,
-                    budget,
-                    reach,
-                    drawables: vec![visual],
-                    min,
-                    max,
-                    z: at.translation.z,
-                    traced: vec![(view.body, view.pos, straddled.channel)],
-                }),
-            }
+            carries.push(Carry {
+                room: placement.room,
+                frame: placement.frame,
+                link: link.key,
+                root: view.pos,
+                reaching: false,
+                budget,
+                reach,
+                drawables: vec![visual],
+                min,
+                max,
+                z: at.translation.z,
+                traced: vec![(view.body, view.pos, straddled.channel)],
+            });
         }
         // Every other drawable, by its own geometry.
         for (drawable, aabb, sprite, at, shown, reaches_from) in &free {
@@ -446,7 +435,7 @@ pub fn carry_through_pairs(
                 || ae::config::bevy_size_to_world(placement.frame.size, at.translation.truncate()),
                 |from| from.0,
             );
-            let links = room_links(all);
+            let Some(links) = links_by_room.get(&Some(placement.room)) else { continue; };
             let budget = passages
                 .as_deref()
                 .map_or(PieceBudget::SINGLE_HOP, |passages| passages.budget_for(None, Some(placement.room)));
@@ -461,50 +450,36 @@ pub fn carry_through_pairs(
             };
             let link = through.path[0];
             let z = at.translation.z;
-            // A carry is cut by one rule. Square-on drawables share one; a
-            // swing shares only with other reaching drawables from its root.
-            // A body's material uses square-on cuts, including at an edge.
-            let reaching = reaches_from.is_some();
-            let shares = |c: &Carry| {
-                c.room == placement.room
-                    && c.link == link
-                    && c.budget == budget
-                    && c.reach.is_none()
-                    && if reaching { c.root.distance(root) <= ROOT_SLACK && c.reaching } else { !c.reaching }
-            };
-            match carries.iter_mut().find(|c| shares(c)) {
-                Some(carry) => {
-                    carry.drawables.push(drawable);
-                    carry.min = carry.min.min(min);
-                    carry.max = carry.max.max(max);
-                    carry.z = carry.z.max(z);
-                    if reaching {
-                        carry.reaching = true;
-                        carry.root = root;
-                    }
-                }
-                None => carries.push(Carry {
-                    room: placement.room,
-                    frame: placement.frame,
-                    link,
-                    root,
-                    reaching,
-                    budget,
-                    reach: None,
-                    drawables: vec![drawable],
-                    min,
-                    max,
-                    z,
-                    traced: Vec::new(),
-                }),
-            }
+            carries.push(Carry {
+                room: placement.room,
+                frame: placement.frame,
+                link,
+                root,
+                reaching: reaches_from.is_some(),
+                budget,
+                reach: None,
+                drawables: vec![drawable],
+                min,
+                max,
+                z,
+                traced: Vec::new(),
+            });
         }
     }
 
+    // Independent roots keep their source depth order within the exit band.
+    carries.sort_by(|a,b| a.room.cmp(&b.room).then(a.z.total_cmp(&b.z))
+        .then(a.drawables[0].cmp(&b.drawables[0])));
+    let depths: Vec<_> = carries.iter().take(PORTAL_CARRY_LAYERS).map(|carry| (carry.room, carry.z)).collect();
     // Each carry: its slot, its camera, its members' layers, its pieces.
     let mut used = vec![false; atlas.slots.len()];
     let fresh_quads_before = pool.0.made();
     for carry in carries.iter_mut().take(PORTAL_CARRY_LAYERS) {
+        let room_depths = depths.iter().filter(|(room,_)| *room == carry.room);
+        let count = room_depths.clone().count();
+        let below = room_depths.filter(|(_,z)| *z < carry.z).count();
+        let exit_z = crate::PORTAL_EXIT_COPY_Z + (crate::PORTAL_WINDOW_Z - crate::PORTAL_EXIT_COPY_Z)
+            * (below + 1) as f32 / (count + 1) as f32;
         let slot = match used.iter().position(|taken| !taken) {
             Some(slot) => slot,
             None => {
@@ -517,14 +492,15 @@ pub fn carry_through_pairs(
             }
         };
         used[slot] = true;
-        let all = by_room.in_room(Some(carry.room));
-        let mut links = room_links(all);
-        if let Some(depth) = carry.reach {
-            links.retain(|link| link.key == carry.link);
-            if let Some(link) = links.first_mut() {
-                link.depth = Some(depth);
+        let Some(room_links) = links_by_room.get(&Some(carry.room)) else { continue; };
+        let links = match carry.reach {
+            Some(depth) => {
+                let mut links: Vec<_> = room_links.iter().filter(|link| link.key == carry.link).copied().collect();
+                if let Some(link) = links.first_mut() { link.depth = Some(depth); }
+                std::borrow::Cow::Owned(links)
             }
-        }
+            None => std::borrow::Cow::Borrowed(room_links.as_slice()),
+        };
         let budget = carry.budget;
         // What the camera sees: a square of the slot's span about what is
         // carried (larger than the span is cut at its edge).
@@ -592,7 +568,7 @@ pub fn carry_through_pairs(
                 let copy = ambition_portal2d::copy_transform_of(&path_map);
                 let Ok(mapped_middle) = piece.carry(middle) else { continue; };
                 let base = Transform {
-                    translation: carry.frame.to_render(mapped_middle, crate::PORTAL_EXIT_COPY_Z),
+                    translation: carry.frame.to_render(mapped_middle, exit_z),
                     rotation: Quat::from_rotation_z(copy.rolled(0.0)),
                     scale: Vec3::splat(copy.scale),
                 };

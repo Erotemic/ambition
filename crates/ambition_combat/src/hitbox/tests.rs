@@ -3241,7 +3241,7 @@ fn a_body_half_through_a_portal_is_hit_at_its_far_end() {
     let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -100.0));
     // Sunk 15 into the floor's opening: 15 of it is under the ceiling.
     let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
-    passages.add_straddler(victim, floor, ceiling);
+    passages.add_straddler(victim, None, floor, ceiling);
     app.insert_resource(passages);
     // A box under the ceiling, in front of it, where the victim's feet are.
     strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, -90.0) }, ae::Vec2::splat(5.0));
@@ -3322,7 +3322,7 @@ fn a_ranked_sibling_is_placed_by_its_own_anchor() {
         // Its bottom 15 under the floor's opening. An enemy's move: a
         // player's volume placed in the world hurts no body.
         let owner = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
-        passages.add_straddler(owner, floor, ceiling);
+        passages.add_straddler(owner, None, floor, ceiling);
         app.insert_resource(passages);
         let victim = hazard_victim(&mut app, ActorFaction::Player, at);
         for (volume, anchor) in [(0, first), (1, second)] {
@@ -3346,7 +3346,7 @@ fn a_refused_body_partition_is_not_hit_at_its_far_end() {
     let mut app = portal_strike_app(None);
     let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(500.0, -100.0));
     let victim = hazard_victim(&mut app, ActorFaction::Enemy, ae::Vec2::new(0.0, -5.0));
-    passages.add_straddler(victim, floor, ceiling);
+    passages.add_straddler(victim, None, floor, ceiling);
     passages.set_body_budget(victim, ae::frame::thread::PieceBudget { max_hops: 0, ..ae::frame::thread::PieceBudget::COMPOSED });
     app.insert_resource(passages);
     strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, -90.0) }, ae::Vec2::splat(5.0));

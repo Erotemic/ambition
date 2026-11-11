@@ -110,7 +110,8 @@ pub struct PortalObservationSet;
 /// dominance with hysteresis (`view_cones::mesh::pane_z`) rather than radial
 /// distance.
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
-/// The exit-side body slice z (just below [`PORTAL_WINDOW_Z`]).
+/// The lower edge of the exit-slice depth band below [`PORTAL_WINDOW_Z`].
+/// Carried families retain their source depth order inside this band.
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
 /// The z of a portal's frame, which is its line of light (`glow`) and its
 /// label: under the exit slice and under the window.

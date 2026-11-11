@@ -19,7 +19,7 @@ mod arcs;
 mod payload;
 mod source;
 mod sampled;
-pub use sampled::{SampledPieceHit, sweep_polygon_against_piece};
+pub use sampled::SampledPieceHit;
 pub(super) use source::{SourceMotion, rotation_delta};
 pub use cell::MaterialCell;
 
@@ -65,6 +65,7 @@ pub struct MaterialCastCells<'a> {
     source: SourceMotion,
     until: f64,
     parts: Vec<MaterialCell>,
+    bounds: Vec<Option<Aabb>>,
     time: std::ops::Range<f64>,
     scene:Option<std::sync::Arc<arcs::Scene>>,
     initial_overlap: InitialOverlap,
@@ -204,18 +205,20 @@ impl<'a> MaterialCast<'a> {
             vec![MaterialCell { world_planes: Vec::new(), path: vec![], curve:None,map: self.material.to_world,
                 travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..self.until }]
         };
+        let mut bounds=Vec::with_capacity(parts.len());
         for cell in &parts {
             for time in [cell.time.start, cell.time.end] {
                 super::thread::map_volume(self.material.domain, &cell.at(time)
                     .map_err(|e| numeric_at(cell, e))?).map_err(|e| numeric_at(cell, e))?;
             }
-            cell.bounds(bounds, DVec2::ZERO).map_err(|e| numeric_at(cell, e))?;
+            bounds.push(cell.bounds(self.material.domain.bounds(), DVec2::ZERO).map_err(|e| numeric_at(cell, e))?);
         }
         Ok(MaterialCastCells {
             material: self.material,
             source,
             until: self.until,
             parts,
+            bounds,
             time:self.time,
             scene,
             initial_overlap: self.initial_overlap,
@@ -224,8 +227,22 @@ impl<'a> MaterialCast<'a> {
 }
 
 impl MaterialCastCells<'_> {
+    /// Canonical source material shared by all cells.
+    pub fn domain(&self) -> &CombatVolume {
+        self.material.domain
+    }
+
     pub fn parts(&self) -> &[MaterialCell] {
         &self.parts
+    }
+
+    /// Separate physical envelopes for recipient broad phase.
+    pub fn swept_bounds(&self) -> impl Iterator<Item=Aabb> + '_ {
+        self.bounds.iter().flatten().copied()
+    }
+
+    pub(crate) fn bounded_parts(&self) -> impl Iterator<Item=(&MaterialCell,Option<Aabb>)> {
+        self.parts.iter().zip(self.bounds.iter().copied())
     }
 
     /// Broad phase bounds in each part's physical chart.

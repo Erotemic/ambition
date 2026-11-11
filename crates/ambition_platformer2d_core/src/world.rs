@@ -1678,8 +1678,8 @@ impl World {
                 Err(reason) => { if refused.as_ref().is_none_or(|(first,_)| hit.precedes(first)) { refused=Some((hit,reason)); } true },
             }
         };
-        for part in cells.parts() {
-            let Some(bounds) = cells.bounds(part)? else { continue; };
+        for (part,bounds) in cells.bounded_parts() {
+            let Some(bounds) = bounds else { continue; };
             for block in self.blocks.swept_near(bounds) {
                 let collider = MaterialCollider::Block(block);
                 let a = block.aabb;
@@ -1730,8 +1730,8 @@ impl World {
         &'w self, cells: &crate::frame::material_cast::MaterialCastCells<'_>, direction: Vec2,
     ) -> Result<Vec<(MaterialCollider<'w>, crate::frame::material_cast::PolygonAxisContact)>, crate::frame::thread::Refusal> {
         let mut contacts = Vec::new();
-        for part in cells.parts() {
-            let Some(bounds) = cells.bounds(part)? else { continue; };
+        for (part,bounds) in cells.bounded_parts() {
+            let Some(bounds) = bounds else { continue; };
             for block in self.blocks.swept_near(bounds) {
                 let a = block.aabb;
                 let polygon = [a.min, Vec2::new(a.max.x, a.min.y), a.max, Vec2::new(a.min.x, a.max.y)];

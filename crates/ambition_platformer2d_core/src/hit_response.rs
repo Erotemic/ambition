@@ -32,6 +32,14 @@ pub enum HitKnockbackMagnitude {
 }
 
 impl HitKnockbackMagnitude {
+    /// Convert speed units. Keep a dimensionless multiplier unchanged.
+    pub fn in_chart(self, map: crate::frame::Sim2) -> Result<Self, crate::frame::NumericFault> {
+        match self {
+            Self::FeelScale(_) => Ok(self),
+            Self::LaunchSpeed(value) => map.length(value).map(Self::LaunchSpeed),
+        }
+    }
+
     /// The same launch, harder. Multiplies whichever way this magnitude is
     /// expressed, so a caller scaling a hit does not have to know which.
     pub fn scaled(self, scale: f32) -> Self {

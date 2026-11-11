@@ -29,9 +29,9 @@ unpublished history-art checks also fail. The capability sentinel reports the
 new upstream HTN dependency. The review receipt records the scope and logs.
 
 Full PSIM acceptance remains open: general remaining-time continuation,
-moving-target and carried-source projectile/hurt contact, other movement
-models, guard geometry, attachments, the bounded numeric law and fault effects,
-and device/GPU and performance gates. Two simultaneous limbs
+complete projectile/hurt contact, including moving targets and surviving
+contact responses, other movement models, guard geometry, attachments, the
+bounded numeric law and fault effects, and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
 `99d51bc9f`. Two active fists hit separate bodies in the same tick through
@@ -1212,7 +1212,7 @@ with v445. The app, portal presentation and renderer all-target warning check
 passes under default features. Evidence is `target/portal-r6-merged-gates.json`
 and its warning and schema logs. Non-default feature-only code is not covered.
 
-R5 has a current-engine simulation measurement: two mirror matches and one
+R5 has a simulation baseline: two mirror matches and one
 mixed four-fighter match each complete 1,800 ticks with 100% sampled live-cast
 coverage. The warmed native sample attributes 2.14% inclusive user-CPU samples
 to material-cell construction. This is an unoptimized workspace build with
@@ -1260,3 +1260,20 @@ cases pass. App and default all-target warning checks pass after the merge.
 The [render receipt](../../../dev/ambition_dev_measurements/summaries/portal-gnu-limb-render-20261111.md)
 records commands and limits. This is a diagnostic scene. Full PSIM acceptance,
 hardware GPU, mobile and performance requirements remain open.
+
+
+### Carried projectile contact and payload units — 2026-11-11
+
+`a91231348` replaces the full root-box damage sweep with admitted source cells.
+`4825f1f1c` prepares launch units before commit and checks body eligibility
+before geometry. Source bounds stay separate; an invalid body in the space
+between portal ends cannot refuse the shot. World and recipient queries reuse
+admitted bounds. Do not convert a contact refusal to a miss or scale `FeelScale`.
+
+The real actor loses one HP before root transit through both 80/40 directions.
+Launch speed follows the chart ratio. A spinning exit reaches sampled hurt
+material between matching poses. All 1,730 owner, 17 projectile app, two slice
+and 35 policy cases pass. The slice includes reverse and rewind/replay. App and
+default all-target warning checks pass. The merged app and projectile cases
+pass again. See the [contact receipt](../../../dev/ambition_dev_measurements/summaries/portal-carried-projectile-contact-20261111.md)
+for commands, staged validation and limits. Full PSIM acceptance remains open.

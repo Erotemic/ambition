@@ -18,8 +18,7 @@ fn breakable_is_eligible(feature: &BreakableFeature) -> bool {
 
 /// Select the first eligible breakable contact from the physical body sweep.
 pub fn projectile_reaches_breakable(
-    source: &ambition_platformer2d_core::BodyKinematics,
-    delta: ambition_platformer2d_core::Vec2,
+    cells: &ambition_platformer2d_core::frame::material_cast::MaterialCastCells<'_>,
     geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     may_touch: impl Fn(Entity) -> bool,
@@ -34,7 +33,7 @@ pub fn projectile_reaches_breakable(
         .filter(|(entity, _, _, feature)| may_touch(*entity) && breakable_is_eligible(feature))
     {
         if let Some(hit) = DamageableVolumes::world_box(aabb.aabb())
-            .swept_body_contact(entity, None, geometry, room, source, delta)? {
+            .swept_body_contact(entity, None, geometry, room, cells)? {
             let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
@@ -84,8 +83,7 @@ impl FeatureContact {
 
 /// Select the first live boss contact from its published hurt material.
 pub fn projectile_reaches_boss(
-    source: &ambition_platformer2d_core::BodyKinematics,
-    delta: ambition_platformer2d_core::Vec2,
+    cells: &ambition_platformer2d_core::frame::material_cast::MaterialCastCells<'_>,
     geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     may_touch: impl Fn(Entity) -> bool,
@@ -110,7 +108,7 @@ pub fn projectile_reaches_boss(
                 && damageable.published()
         })
     {
-        if let Some(hit) = damageable.swept_body_contact(entity, kin, geometry, room, source, delta)? {
+        if let Some(hit) = damageable.swept_body_contact(entity, kin, geometry, room, cells)? {
             let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
@@ -244,9 +242,15 @@ mod tests {
                     ),
                     (With<FeatureSimEntity>, With<BossConfig>),
                 >| {
-                    projectile_reaches_boss(&ambition_platformer2d_core::BodyKinematics {
-                        pos: start, canonical_size: half * 2.0, ..Default::default()
-                    }, delta, None, None, |_| true, &bosses).expect("valid boss geometry").is_some()
+                    let source=ambition_platformer2d_core::BodyKinematics {
+                        pos:start,canonical_size:half*2.0,..Default::default() };
+                    let domain=source.canonical_box().unwrap();
+                    let cells=ambition_platformer2d_core::frame::material_cast::MaterialCast::new(
+                        ambition_platformer2d_core::frame::thread::MaterialPrimitive {
+                            domain:&domain,to_world:source.material_map().unwrap() },start,delta,0.0..1.0)
+                        .with_initial_overlap(ambition_platformer2d_core::frame::material_cast::InitialOverlap::Report)
+                        .cells(None).unwrap();
+                    projectile_reaches_boss(&cells, None, None, |_| true, &bosses).expect("valid boss geometry").is_some()
                 },
             )
             .expect("the boss contact ran")

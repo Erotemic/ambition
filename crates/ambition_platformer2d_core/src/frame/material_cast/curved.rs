@@ -8,7 +8,7 @@ use super::{CastHit, CombatVolume, DVec2, MaterialCell, MaterialPlane, NumericFa
 use crate::frame::thread::RefusalReason;
 use crate::{Vec2, frame::Sim2};
 
-const MAX_INTERVALS: usize = 16_384;
+pub(super) const MAX_INTERVALS: usize = 16_384;
 
 #[derive(Clone, Copy)]
 struct Vertex {
@@ -633,6 +633,13 @@ fn witness(body: &CombatVolume, region: &[Vertex]) -> Option<Witness> {
         normal,
         point,
         velocity,
+    })
+}
+
+pub(super) fn static_contact(body: &CombatVolume, region: &[DVec2], rounding: f64) -> Option<CastHit> {
+    let region=region.iter().map(|point| Vertex {point:*point,velocity:DVec2::ZERO}).collect::<Vec<_>>();
+    witness(body,&region).filter(|hit|hit.gap<=rounding).map(|hit| CastHit {
+        time:0.0,point:hit.point,normal:hit.normal,
     })
 }
 

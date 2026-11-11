@@ -1407,3 +1407,16 @@ The combined cutscene/item schema is 458 (`dbc086852`); app, schema, javelin
 and absence checks pass. The later presentation merge `df6e93285` passes the
 app check. Held pose/render, durable material history, free-item motion and
 collision, and the other full PSIM and device/performance gates remain open.
+
+
+### Material landmarks — 2026-11-11
+
+`5db057506` places rig and package landmarks with canonical feet, facing and
+physical material. A map fault cannot select the missing-hand fallback. The
+held renderer reads the simulation hand when the art has none. Hand muzzles
+resolve the hand before firing state changes; other muzzles do not query it.
+The [landmark receipt](../../../dev/ambition_dev_measurements/summaries/portal-material-landmarks-20261111.md)
+records owner, app, pet, slice, Smash, policy and warning checks. Merge
+`f0af28d7c` passes the app check. Portal-path attachment admission, full held
+shape/scale/orientation, charge-shot placement and the other PSIM gates remain
+open. Do not restore a gravity/AABB landmark placement path.

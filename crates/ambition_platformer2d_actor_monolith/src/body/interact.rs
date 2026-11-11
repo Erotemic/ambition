@@ -227,9 +227,34 @@ pub fn interact_ecs_actors_and_switches(
             dialogue.speaker_id(subject, interactions.get(subject).ok(), identities.get(subject).ok(),
             )
         });
+        // THE NEAREST THING IN REACH TAKES THE PRESS: a person standing at a
+        // terminal no longer hides it. Each candidate is ranked by its
+        // distance from the front of the body (`InteractReach::preference`),
+        // so the player chooses by where they stand and which way they face;
+        // the prompt (`update_nearest_interactable`) ranks the same way.
+        let mut talkers: Vec<(f32, Entity)> = actors
+            .iter()
+            .filter(|(entity, aabb, disposition, _, _, health, (out_of_play, plane, requires_facing, aggression))| {
+                !disposition.refuses_talk(*aggression)
+                    && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
+                    && reach.can_talk_to(live_rooms.of(*entity), aabb, *requires_facing)
+                    && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(subject_kin.pos))
+            })
+            .map(|(entity, aabb, ..)| (reach.preference(aabb.center), entity))
+            .collect();
+        // Stable: equal distances keep the query's order.
+        talkers.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut touched: Vec<(f32, Entity)> = switches
+            .iter()
+            .filter(|(entity, _, aabb, _, requires_facing)| reach.touches(live_rooms.of(*entity), aabb, *requires_facing))
+            .map(|(entity, _, aabb, ..)| (reach.preference(aabb.center), entity))
+            .collect();
+        touched.sort_by(|a, b| a.0.total_cmp(&b.0));
+        if touched.first().is_some_and(|(switch, _)| talkers.first().is_none_or(|(talker, _)| switch < talker)) {
+            talkers.clear();
+        }
         for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing, aggression),
-        ) in
-            &actors
+        ) in talkers.iter().filter_map(|(_, entity)| actors.get(*entity).ok())
         {
             let (Some(speaker_id), Some(dialogue)) = (speaker_id.as_deref(), dialogue.as_mut()) else {
                 break;
@@ -348,7 +373,7 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        for (switch_entity, name, aabb, switch, requires_facing) in &switches {
+        for (switch_entity, name, aabb, switch, requires_facing) in touched.iter().filter_map(|(_, entity)| switches.get(*entity).ok()) {
             let room = live_rooms.of(switch_entity);
             if !reach.touches(room, aabb, requires_facing) {
                 continue;

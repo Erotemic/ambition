@@ -94,6 +94,16 @@ impl InteractReach {
             && self.passes_the_facing_gate(aabb.center, requires_facing)
     }
 
+    /// How far a target at `center` is from the point the body reaches with:
+    /// the front of its box, the way it faces. When several things are in
+    /// reach (a person standing at a terminal), the press is for the one with
+    /// the least, so the player chooses by where they stand and which way they
+    /// face, and the prompt names the same one.
+    pub fn preference(&self, center: ambition_platformer2d_core::Vec2) -> f32 {
+        let front = self.pos + self.side * (self.facing.signum() * self.reach.half_size().x);
+        center.distance(front)
+    }
+
     /// One press can be for a door or for a body to talk to: the nearer of
     /// the two takes it, and a tie goes to the door. `door` is the distance
     /// to the door the body stands in, `talker` the distance to the body.

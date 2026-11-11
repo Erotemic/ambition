@@ -288,6 +288,39 @@ pub fn tick_active_cutscene(
         .unwrap_or_default();
 }
 
+/// Log this tick's change to the playing cutscene in the room it plays for.
+pub fn log_cutscene_changes_in_rooms(
+    active: Res<ActiveCutscene>,
+    skip_hold: Res<ambition_cutscene::CutsceneSkipHold>,
+    mut log: ResMut<ambition_cutscene::CutscenesInRooms>,
+    tick: Option<Res<ambition_time::SimTick>>,
+) {
+    log.observe(
+        ambition_cutscene::CutsceneState::of(&active, &skip_hold),
+        tick.map_or(0, |tick| tick.0),
+        ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS,
+    );
+}
+
+/// The room retractor: put back the cutscene `room` had at `saved_at`.
+fn retract_room_cutscenes(
+    world: &mut World,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    saved_at: u64,
+) {
+    let Some(put_back) = world
+        .get_resource_mut::<ambition_cutscene::CutscenesInRooms>()
+        .and_then(|mut log| log.retract_room(room.ordinal(), saved_at))
+    else {
+        return;
+    };
+    world.resource_scope(|world, mut active: Mut<ActiveCutscene>| {
+        if let Some(mut skip_hold) = world.get_resource_mut::<ambition_cutscene::CutsceneSkipHold>() {
+            put_back.restore(&mut active, &mut skip_hold);
+        }
+    });
+}
+
 /// Module-local Bevy plugin: schedules the cutscene chain
 /// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
 /// `tick_active_cutscene`) into [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Cutscene`].
@@ -312,6 +345,20 @@ impl Plugin for CutsceneSchedulePlugin {
         // The skip hold, accumulated by `tick_active_cutscene` from the seat's
         // `cancel_held`. See `CutsceneSkipHold`.
         app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
+        // The cutscene's changes, dated in their room, so a room that rewinds
+        // puts back the cutscene it had (ISL-1b). Logged at the tail of the
+        // tick, after the playback and anything else that writes it.
+        app.init_resource::<ambition_cutscene::CutscenesInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "cutscene.changes_in_rooms",
+            retract_room_cutscenes,
+        );
+        app.add_systems(
+            sim,
+            log_cutscene_changes_in_rooms
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
+        );
         app.add_systems(
             sim,
             (

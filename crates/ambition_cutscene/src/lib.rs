@@ -400,6 +400,82 @@ impl CutsceneSkipHold {
     }
 }
 
+/// What a room's rewind puts back of the playing cutscene: its playback, the
+/// room it plays for (ordinal) and the skip hold (ISL-1b).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CutsceneState {
+    pub runtime: Option<CutsceneRuntime>,
+    pub room: Option<u32>,
+    pub skip_hold: f32,
+}
+
+impl CutsceneState {
+    /// The state the live resources hold now.
+    pub fn of(active: &ActiveCutscene, skip_hold: &CutsceneSkipHold) -> Self {
+        Self { runtime: active.runtime.clone(), room: active.room, skip_hold: skip_hold.seconds }
+    }
+
+    /// Put this state back into the live resources, its picture with it.
+    pub fn restore(self, active: &mut ActiveCutscene, skip_hold: &mut CutsceneSkipHold) {
+        active.presentation = self.runtime.as_ref().map(CutsceneRuntime::presentation).unwrap_or_default();
+        active.runtime = self.runtime;
+        active.room = self.room;
+        skip_hold.seconds = self.skip_hold;
+    }
+}
+
+/// The playing cutscene's changes a room made within the rewind horizon,
+/// oldest first: the room (ordinal) and tick of each, and the state it
+/// replaced (SIMULATION-ISLANDS ISL-1b). A room rewinds alone, and the
+/// cutscene is one world value: a room's rewind puts back the cutscene it had
+/// at the save, as it puts back its conversation. A cutscene of the whole
+/// world is seen and not logged.
+///
+/// Rollback state with a real value: a playing cutscene changes it each tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct CutscenesInRooms {
+    seen: CutsceneState,
+    changes: Vec<(u32, u64, CutsceneState)>,
+}
+
+impl CutscenesInRooms {
+    /// The cutscene is `now` on tick `tick`: log the change, if it is one, in
+    /// the room the cutscene plays (or played) for, and drop the changes older
+    /// than `horizon` ticks.
+    pub fn observe(&mut self, now: CutsceneState, tick: u64, horizon: u64) {
+        if self.seen == now {
+            return;
+        }
+        let replaced = std::mem::replace(&mut self.seen, now);
+        if let Some(room) = self.seen.room.or(replaced.room) {
+            self.changes.push((room, tick, replaced));
+        }
+        self.changes.retain(|(_, at, _)| at.saturating_add(horizon) >= tick);
+    }
+
+    /// The room `room` rewinds to `saved_at`: take out its changes after that
+    /// tick, newest first, and return the state to put back. `None` when
+    /// nothing goes back (no change of the room's, or a later change of
+    /// another room's stands).
+    pub fn retract_room(&mut self, room: u32, saved_at: u64) -> Option<CutsceneState> {
+        let mut put_back = None;
+        for at in (0..self.changes.len()).rev() {
+            let (by, tick, _) = &self.changes[at];
+            if *by != room || *tick <= saved_at {
+                continue;
+            }
+            let (_, _, replaced) = self.changes.remove(at);
+            if at == self.changes.len() {
+                put_back = Some(replaced);
+            }
+        }
+        if let Some(state) = &put_back {
+            self.seen = state.clone();
+        }
+        put_back
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Runtime registries (content-free). The authored scripts/bindings live in a
 // game's content crate; these are the reusable resources that hold them and the
@@ -934,6 +1010,41 @@ mod snapshot {
         }
     }
 
+    impl CutsceneState {
+        fn encode(&self, out: &mut Vec<u8>) {
+            // The playback and its room, in `ActiveCutscene`'s encoding.
+            ActiveCutscene { runtime: self.runtime.clone(), room: self.room, ..ActiveCutscene::default() }.encode(out);
+            put_f32(out, self.skip_hold);
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            let active = ActiveCutscene::decode(reader)?;
+            Some(Self { runtime: active.runtime, room: active.room, skip_hold: reader.f32()? })
+        }
+    }
+
+    impl SnapshotState for CutscenesInRooms {
+        fn encode(&self, out: &mut Vec<u8>) {
+            self.seen.encode(out);
+            put_u32(out, self.changes.len() as u32);
+            for (room, tick, replaced) in &self.changes {
+                put_u32(out, *room);
+                ambition_platformer2d_core::snapshot::put_u64(out, *tick);
+                replaced.encode(out);
+            }
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            let seen = CutsceneState::decode(reader)?;
+            let count = reader.u32()? as usize;
+            let mut changes = Vec::with_capacity(count.min(1024));
+            for _ in 0..count {
+                changes.push((reader.u32()?, reader.u64()?, CutsceneState::decode(reader)?));
+            }
+            Some(Self { seen, changes })
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -1004,6 +1115,26 @@ mod snapshot {
                 };
                 assert_eq!(round_trip(&before).room, room, "the cutscene's room did not survive the wire");
             }
+        }
+
+        /// The log of a room's cutscene changes survives the wire.
+        #[test]
+        fn the_room_cutscene_log_survives_the_wire() {
+            let playing = CutsceneState {
+                runtime: Some(CutsceneRuntime::new(CutsceneScript::new(
+                    "logged",
+                    vec![CutsceneBeat::Wait { seconds: 2.0 }],
+                ))),
+                room: Some(4),
+                skip_hold: 0.5,
+            };
+            let mut log = CutscenesInRooms::default();
+            log.observe(playing.clone(), 10, 600);
+            log.observe(CutsceneState { skip_hold: 0.75, ..playing }, 11, 600);
+            let mut bytes = Vec::new();
+            log.encode(&mut bytes);
+            let after = CutscenesInRooms::decode(&mut Reader::new(&bytes)).expect("the log decodes");
+            assert_eq!(after, log, "the cutscene log did not survive the wire");
         }
 
         /// A rollback into the MIDDLE of a beat restores its picture.

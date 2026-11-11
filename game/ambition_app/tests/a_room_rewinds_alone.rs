@@ -1595,3 +1595,76 @@ fn without_the_retraction_the_conversation_keeps_the_window_s_change() {
     assert_eq!(after_rewind.0, after_leaving.0, "the ended conversation came back without the retraction");
     assert!(!after_replay.0, "the ended conversation came back in the replay without the retraction");
 }
+
+/// ISL-1b, the one cutscene: a cutscene plays for Alice's hub (Bob in
+/// `switch_lab`) at N and runs on through the window. The hub rewinds to N.
+/// Returns how far the cutscene had played at N, after the window, and
+/// straight after the rewind (before a replayed frame).
+fn a_cutscene_played_on_in_a_rewound_window(retract: bool) -> [Option<f32>; 3] {
+    use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat, CutsceneRuntime, CutsceneScript};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    {
+        let mut active = sim.world_mut().resource_mut::<ActiveCutscene>();
+        active.runtime = Some(CutsceneRuntime::new(CutsceneScript::new(
+            "isl1b_rewind_probe",
+            vec![CutsceneBeat::Wait { seconds: 30.0 }],
+        )));
+        active.room = Some(room.ordinal());
+    }
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    let played = |sim: &Platformer2dSimHarness| {
+        sim.world().resource::<ActiveCutscene>().runtime.as_ref().map(|runtime| runtime.elapsed)
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_played = played(&sim);
+
+    for _ in 0..30 {
+        sim.step(crate::common::base());
+    }
+    let after_window = played(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    let after_rewind = played(&sim);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    sim.world_mut().insert_resource(rows);
+    [at_n_played, after_window, after_rewind]
+}
+
+/// ISL-1b: a room that rewinds puts its cutscene back where it had played to
+/// at the save.
+#[test]
+fn a_rewound_room_puts_back_its_cutscene() {
+    let [at_n, after_window, after_rewind] = a_cutscene_played_on_in_a_rewound_window(true);
+    assert!(at_n.is_some_and(|played| played > 0.0), "premise: the cutscene plays at N ({at_n:?})");
+    assert!(after_window > at_n, "premise: the cutscene plays on through the window ({at_n:?} -> {after_window:?})");
+    assert_eq!(after_rewind, at_n, "the rewound room kept the window's cutscene");
+}
+
+/// The control: without the retraction the cutscene keeps the window's
+/// progress.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_cutscene_keeps_the_window_s_progress() {
+    let [_, after_window, after_rewind] = a_cutscene_played_on_in_a_rewound_window(false);
+    assert_eq!(after_rewind, after_window, "the cutscene went back without the retraction");
+}

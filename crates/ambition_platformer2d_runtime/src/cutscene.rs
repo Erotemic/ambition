@@ -213,12 +213,13 @@ pub fn tick_active_cutscene(
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     // The seats and the rooms of the bodies they drive: a room's cutscene
     // is skipped and dismissed by a seat in its room. And the flag channel
-    // and the tick its flags are dated on.
-    (drivers, rooms, mut requests, tick): (
+    // and the tick its flags are dated on. And its room's pace.
+    (drivers, rooms, mut requests, tick, freeze): (
         Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
         Option<ResMut<Messages<ambition_combat::events::SetFlagRequested>>>,
         Option<Res<ambition_time::SimTick>>,
+        ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     ),
 ) {
     let written = active.room.zip(tick.as_deref()).map(|(room, tick)| {
@@ -229,7 +230,10 @@ pub fn tick_active_cutscene(
     });
     let slot = cutscene_seat(&active, &drivers, &rooms);
     let seat = controls.get(slot);
-    let dt = time.sim_dt();
+    // A room's cutscene plays at its room's pace: a kill's hold or a slow-down
+    // in another room does not stretch it.
+    let dt = time.sim_dt()
+        * freeze.scale_in(active.room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal));
 
     let Some(runtime) = active.runtime.as_mut() else {
         // A partial hold belongs to the cutscene that accumulated it.

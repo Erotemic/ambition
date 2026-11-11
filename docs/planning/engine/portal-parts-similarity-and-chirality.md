@@ -42,7 +42,8 @@ while a foot uses another pair. The damage, refusal and replay checks pass.
 The impact film shows the body and far foot. Walls or platforms back all J
 mouths and both K mouths. I has a Reflection prompt at the existing wall pair.
 I's held-javelin film passes two reflections in zero- and ninety-degree views
-after `04a1625b1`. GNU-ton's simultaneous-limb capture remains open.
+after `04a1625b1`. GNU-ton's staged simultaneous-limb GPU film passes after
+`9d6f9da4f`. Full PSIM acceptance remains open.
 
 The November 10 review corrections include projectile refusals and
 dimensionless knockback in `741212079`, and proposed limb admission in
@@ -1241,4 +1242,21 @@ ignored. Tool tests, tool build, app check and the default-feature all-target
 warning check pass. The app check passes after the upstream observer merge.
 See the [accessory receipt](../../../dev/ambition_dev_measurements/summaries/portal-held-accessory-20261111.md)
 for commands and limits. Full PSIM acceptance, physical attachment scale and
-release behavior, and GNU-ton's simultaneous-limb film remain open.
+release behavior remain open.
+
+
+### GNU-ton independent limb pictures — 2026-11-11
+
+`9d6f9da4f` gives generated limb pictures their own physical roots and declares
+image demand for every animated root in a portal room. Cached body images
+wait for their own source images and GPU passes before they rest. Guards cover
+an unclassified picture and delayed GPU readiness. Do not use a host root for
+a limb cut or treat CPU pose equality as proof of a finished image.
+
+The staged 40-frame GPU film retains the giant and both carried fists. The
+left path has three cuts at half scale; the right has one at double scale.
+All 524 renderer, 25 host, seven tool, three native GNU-ton and 35 policy
+cases pass. App and default all-target warning checks pass after the merge.
+The [render receipt](../../../dev/ambition_dev_measurements/summaries/portal-gnu-limb-render-20261111.md)
+records commands and limits. This is a diagnostic scene. Full PSIM acceptance,
+hardware GPU, mobile and performance requirements remain open.

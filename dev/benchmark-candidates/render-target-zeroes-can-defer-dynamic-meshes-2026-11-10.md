@@ -28,3 +28,17 @@ AMBITION_QUALITY_PROFILE=low target/debug/capture_scene portal_lab 2450,800 \
   --portal-effect off --portal-convention reflection --portal-budget 4,32,12 \
   --art-snapshot
 ```
+
+
+## Cached body images must wait for their GPU passes
+
+An unchanged CPU pose does not prove that a cached image has rendered.
+A new finishing quad can wait for its mesh, material or pipeline while the
+source image already has pixels. If both cameras then rest, the finished
+image can stay transparent indefinitely.
+
+`9d6f9da4f` keeps the image active until its source images and its own GPU
+passes are ready. It then restores normal caching. The GNU-ton readback has
+pixels in both targets, with all six image cameras at rest at the inspected
+tick. Compare source and finishing targets before changing the physical cut.
+A source-target image alone cannot prove that the final picture is present.

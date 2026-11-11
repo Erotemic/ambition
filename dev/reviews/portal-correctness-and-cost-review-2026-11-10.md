@@ -189,4 +189,14 @@ mesh bounds and a refused hop limit. The two-reflection films pass at zero
 and ninety degrees with equal physics and held transforms at 138 common
 ticks. The [accessory receipt](../ambition_dev_measurements/summaries/portal-held-accessory-20261111.md)
 records commands, 791 active owner passes, 35 policy passes and the remaining
-attachment, GNU-ton and full PSIM requirements.
+physical attachment and full PSIM requirements.
+
+
+The GNU-ton render witness is fixed in `9d6f9da4f`. Each generated limb
+picture uses its own physical root. Every animated root in a portal room
+receives image demand. Cached images wait for their own source images and
+GPU passes before they rest. The staged film retains the giant and both
+independent fist paths. Owner tests and merged native contact/replay checks
+pass. The [render receipt](../ambition_dev_measurements/summaries/portal-gnu-limb-render-20261111.md)
+records the command, guards and GPU target descriptors. Device performance
+and full PSIM acceptance remain open.

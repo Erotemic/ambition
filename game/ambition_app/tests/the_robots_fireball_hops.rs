@@ -196,7 +196,7 @@ fn a_fireball_hops_low_and_even_and_hurts_a_standing_body_along_its_range() {
 /// the robot's charge is drawn where its shot appears.
 #[test]
 fn the_charge_hangs_where_the_shot_is_born() {
-    let (charge, born, _) = charge_and_birth();
+    let (charge, born, _) = charge_and_birth(Default::default());
     assert!(
         (charge - born).length() < 0.5,
         "the charge hangs at {charge:?} from the body's centre; the shot is born at {born:?}",
@@ -205,9 +205,26 @@ fn the_charge_hangs_where_the_shot_is_born() {
 
 /// While the button is held: where the charge hangs, from the body's centre.
 /// Let go: where the shot is born, from the body's centre. And the body.
-fn charge_and_birth() -> (Vec2, Vec2, BodyKinematics) {
+#[test]
+fn a_scaled_reflected_charge_and_its_shot_use_the_same_physical_hand() {
+    let material = ambition_platformer2d::engine_core::frame::BodyMaterial::new(0.5,
+        bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap();
+    let (charge, born, body) = charge_and_birth(material);
+    assert_eq!(body.material, material);
+    assert!((charge - born).length() < 0.5);
+    assert!(born.x < 0.0, "neutral aim must follow reflected facing: {born:?}");
+}
+
+fn charge_and_birth(material: ambition_platformer2d::engine_core::frame::BodyMaterial) -> (Vec2, Vec2, BodyKinematics) {
     let mut sim = lab();
     let owner = my_entity(&mut sim);
+    let mut initial = me(&mut sim);
+    let feet_y = initial.pos.y + initial.half_extent().y;
+    initial.material = material;
+    initial.pos.y = feet_y - initial.half_extent().y;
+    sim.world_mut().entity_mut(owner).insert((initial,
+        ambition_platformer2d::engine_core::SweepSample::at_rest(initial, Vec2::Y)));
+    sim.rebase_rollback_history().unwrap();
     sim.step(AgentAction { projectile: true, projectile_held: true, ..base() });
     sim.step_n(AgentAction { projectile_held: true, ..base() }, 4);
     let body = me(&mut sim);
@@ -235,7 +252,7 @@ fn charge_and_birth() -> (Vec2, Vec2, BodyKinematics) {
 fn probe_the_hand_the_charge_and_the_birth_in_sheet_pixels() {
     let sprite_content = ambition_platformer2d::sprite_sheet::test_support::shared_sprites();
     use crate::a_pet_hand_meets_the_contact_point::drawn_at;
-    let (charge, born, body) = charge_and_birth();
+    let (charge, born, body) = charge_and_birth(Default::default());
     let mut sim = lab();
     let owner = my_entity(&mut sim);
     let sheet = sim

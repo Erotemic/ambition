@@ -924,26 +924,23 @@ pub fn rebuild_body_pose_views(
             .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold)));
         // The charge hangs where its shot will be born: the fireball of this
         // tier, aimed as the stick aims now.
-        let charge_offset = charge_tier.map(|tier| {
+        let charge_offset = charge_tier.and_then(|tier| {
             use ambition_projectiles::ProjectileKind::Fireball;
             let half_extent = Fireball
                 .charged_spec(Fireball.spec(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::X, 1.0), tier)
                 .half_extent;
-            let facing = if kinematics.facing.abs() < f32::EPSILON { 1.0 } else { kinematics.facing.signum() };
             let aim = control.map_or(ambition_platformer2d_core::Vec2::ZERO, |control| control.0.aim.vec());
             let basis = body_frame.map_or_else(
                 || ambition_platformer2d_core::AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR),
                 |f| f.basis(),
             );
-            ambition_combat::shot_birth::charge_shot_birth(
-                &landmarks,
-                entity,
-                kinematics,
-                |local| basis.to_world(local),
-                gravity_dir,
-                ambition_combat::shot_birth::local_fire_dir(aim, facing),
-                half_extent,
-            ) - kinematics.pos
+            let birth = ambition_combat::shot_birth::world_fire_dir(kinematics, basis.to_world(aim))
+                .and_then(|direction| ambition_combat::shot_birth::charge_shot_birth(
+                    &landmarks, entity, kinematics, direction, half_extent));
+            match birth {
+                Ok(origin) => Some(origin - kinematics.pos),
+                Err(fault) => { bevy::log::warn!(?fault, "charge visual birth refused"); None }
+            }
         });
         let next = BodyPoseView {
             pos: kinematics.pos,

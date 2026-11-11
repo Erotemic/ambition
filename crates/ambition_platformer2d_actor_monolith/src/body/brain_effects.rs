@@ -215,45 +215,6 @@ pub fn spawn_projectiles_from_brain_actions(
                 Err(fault) => { warn!(?fault, "hand muzzle map refused"); continue; }
             }
         } else { kin.pos };
-        // Body-side fire-rate enforcement for an ATTEMPT (invariant I3): a
-        // controller emits `fire` every in-band tick and never rate-limits
-        // itself, so the body accepts a shot only when the weapon is off
-        // cooldown. A blocked attempt spawns nothing, and that is honest — the
-        // controller was told nothing and the player was shown nothing.
-        //
-        // ⭐⭐ A COMMITTED MOVE IS NOT AN ATTEMPT. Its recharge was spent where
-        // the move was ACCEPTED (`moveset::start_move`), a quarter of a second
-        // and one whole windup animation ago. Asking again here is what made an
-        // accepted Charge Shot play its charge and fire nothing — 22 of 28
-        // authored ranged events in the duel arena, measured 2026-08-23.
-        //
-        // ⛔ SO THE FLOOR DID NOT GO AWAY; IT MOVED UPSTREAM, and it is authored
-        // now (`RangedActionSpec::refire_s`) rather than being one constant in
-        // this file that every character in the game was silently balanced
-        // around.
-        //
-        // The live-shot limit is the same kind of gate and is asked with it. A
-        // committed move asked it where the move was accepted.
-        if commitment == RangedCommitment::Attempt {
-            let live = weapon_shots.iter().filter(|owner| owner.0 == msg.actor).count();
-            let readiness = ambition_combat::WeaponReadiness::of(&*refire, Some(&spec), live);
-            if !readiness.ready() || !refire.try_fire(spec.refire_s).accepted() {
-                // ⭐ THE REFUSAL IS A FACT (`Q33`): before, a refused press and
-                // no press looked the same to everything downstream.
-                refused.write(ambition_combat::RangedFireRefused {
-                    actor: msg.actor,
-                    readiness,
-                });
-                continue;
-            }
-        }
-        // The shot is committed — arm the firing body's Shoot overlay pose (the
-        // actor analogue of the player's post-fire pulse in `projectile::systems`).
-        // The pick reads `shoot_anim_timer`; the pose shows for whatever body owns
-        // a Shoot row, autonomous or possessed (§A9 follow-up).
-        if let Ok(mut anim) = anim_facts.get_mut(msg.actor) {
-            anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
-        }
         // ⭐⭐ HOW THIS SHOT LEAVES THE WEAPON, ASKED OF THE WEAPON. These four
         // choices — the look, the muzzle, the cue, the kick — were decided here
         // by `held_item_id == Some("gun_sword")`, so the Pirate Admiral's side-B
@@ -380,10 +341,54 @@ pub fn spawn_projectiles_from_brain_actions(
         // is tall: the shot is born clear of the ground it stands on.
         let spawn_origin = match discharge.muzzle {
             ambition_characters::brain::action_set::Muzzle::Hand { .. } => {
-                ambition_combat::shot_birth::clear_of_the_feet(spawn_origin, kin.pos, kin.size().y, gravity_dir, flight.half_extent)
+                let prepared = landmarks.place_rig_point(msg.actor, ae::Vec2::ZERO, &kin)
+                    .and_then(|feet| ambition_combat::shot_birth::clear_of_the_feet(spawn_origin, &kin, feet, flight.half_extent));
+                match prepared {
+                    Ok(origin) => origin,
+                    Err(fault) => { warn!(?fault, "hand muzzle clearance refused"); continue; }
+                }
             }
             _ => spawn_origin,
         };
+        // Body-side fire-rate enforcement for an ATTEMPT (invariant I3): a
+        // controller emits `fire` every in-band tick and never rate-limits
+        // itself, so the body accepts a shot only when the weapon is off
+        // cooldown. A blocked attempt spawns nothing, and that is honest — the
+        // controller was told nothing and the player was shown nothing.
+        //
+        // ⭐⭐ A COMMITTED MOVE IS NOT AN ATTEMPT. Its recharge was spent where
+        // the move was ACCEPTED (`moveset::start_move`), a quarter of a second
+        // and one whole windup animation ago. Asking again here is what made an
+        // accepted Charge Shot play its charge and fire nothing — 22 of 28
+        // authored ranged events in the duel arena, measured 2026-08-23.
+        //
+        // ⛔ SO THE FLOOR DID NOT GO AWAY; IT MOVED UPSTREAM, and it is authored
+        // now (`RangedActionSpec::refire_s`) rather than being one constant in
+        // this file that every character in the game was silently balanced
+        // around.
+        //
+        // The live-shot limit is the same kind of gate and is asked with it. A
+        // committed move asked it where the move was accepted.
+        if commitment == RangedCommitment::Attempt {
+            let live = weapon_shots.iter().filter(|owner| owner.0 == msg.actor).count();
+            let readiness = ambition_combat::WeaponReadiness::of(&*refire, Some(&spec), live);
+            if !readiness.ready() || !refire.try_fire(spec.refire_s).accepted() {
+                // ⭐ THE REFUSAL IS A FACT (`Q33`): before, a refused press and
+                // no press looked the same to everything downstream.
+                refused.write(ambition_combat::RangedFireRefused {
+                    actor: msg.actor,
+                    readiness,
+                });
+                continue;
+            }
+        }
+        // The shot is committed — arm the firing body's Shoot overlay pose (the
+        // actor analogue of the player's post-fire pulse in `projectile::systems`).
+        // The pick reads `shoot_anim_timer`; the pose shows for whatever body owns
+        // a Shoot row, autonomous or possessed (§A9 follow-up).
+        if let Ok(mut anim) = anim_facts.get_mut(msg.actor) {
+            anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
+        }
         let spawn = ProjectileSpawn {
             origin: spawn_origin,
             dir: world_dir,

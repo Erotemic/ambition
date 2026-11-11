@@ -64,10 +64,28 @@ pub fn collect_observed_geometry(world: &mut World) {
         .iter(world)
         .map(|(body, room)| (body, room.0))
         .collect();
+    // The installed observers' names, for the menu's cycle; written only when
+    // they changed, so the tools are not marked changed every frame.
+    let installed: Vec<String> = world
+        .get_resource::<ambition_geometry_observation::GeometryObservers>()
+        .map(|observers| observers.catalog().map(|info| info.name.to_string()).collect())
+        .unwrap_or_default();
+    let (only, stale) = {
+        let tools = world.resource::<DeveloperTools>();
+        (tools.observed_geometry_only.clone(), tools.observed_geometry_providers != installed)
+    };
+    if stale {
+        world.resource_mut::<DeveloperTools>().observed_geometry_providers = installed;
+    }
     let mut rooms = Vec::new();
     for (root, room) in roots {
         let subject = players.iter().find(|(_, at)| *at == room).map(|(body, _)| *body);
-        rooms.push((room, observe_all(world, ObservationQuery { room: Some(root), subject }, |_| true)));
+        rooms.push((
+            room,
+            observe_all(world, ObservationQuery { room: Some(root), subject }, |provider| {
+                only.as_deref().is_none_or(|only| only == provider)
+            }),
+        ));
     }
     world.get_resource_or_insert_with(ObservedGeometryFrame::default).rooms = rooms;
 }

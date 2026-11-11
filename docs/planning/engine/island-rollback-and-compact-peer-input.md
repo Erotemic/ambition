@@ -610,7 +610,13 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    participant or room. The room-local `sim_dt` reads follow their room's
    pace (2026-11-11): the fight's, trails, encounter waves and, since then,
    a room's cutscene (`tick_active_cutscene` reads `RoomFreeze` for its
-   room). The day clock is the world's and keeps the shared pace.
+   room). The day clock is the world's and keeps the shared pace. A module
+   entry's `dt` follows its scope's room (2026-11-11: the extension host
+   takes a `ScopePace` hook, which the runtime fills from `RoomFreeze`; the
+   host itself knows no rooms). The clocks that stay shared, by ruling: the
+   match clock (the session's), banners (presentation), room transitions,
+   passages and the departure watchdog (a trip spans two rooms), and the
+   gate network (a link joins two rooms, an ISL-1b coupling).
 
    **The 91 message rows, by what they carry (2026-11-11,**
    `scripts/measure/message_rows_by_room_carrier.py`**):** 13 carry their room

@@ -98,6 +98,16 @@ impl Plugin for ExtensionCompositionPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_plugins(ExtensionHostPlugin::new(sim));
+        // A module's clock is its scope's room's: a kill's hold or a slow-down
+        // in one live room does not run another room's modules slow.
+        app.insert_resource(ambition_extension_host::ScopePace(Box::new({
+            let mut freeze: Option<
+                bevy::ecs::system::SystemState<ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze<'static, 'static>>,
+            > = None;
+            move |world: &mut World, scope: Entity| {
+                freeze.get_or_insert_with(|| bevy::ecs::system::SystemState::new(world)).get(world).map_or(1.0, |freeze| freeze.scale_of(scope))
+            }
+        })));
         // The session root holds the session-attached module records: they
         // retire with the session, and a new session starts from initial
         // records.

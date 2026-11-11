@@ -964,10 +964,13 @@ pub fn lower_lightning_auras(
 pub fn lower_camera_shakes(
     mut outbox: ResMut<ExtensionOutbox>,
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for submitted in outbox.drain::<ambition_combat_port::CameraShakePort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
+        // The views of the boss's room shake (ISL-1b).
         shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
             amplitude_px: submitted.value.amplitude_px,
+            room: rooms.of(submitted.scope),
         });
     }
 }

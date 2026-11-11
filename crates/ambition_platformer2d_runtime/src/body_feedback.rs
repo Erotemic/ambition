@@ -55,7 +55,7 @@ pub(crate) fn emit_body_movement_feedback(
         if followed {
             if let (Some(shake), Some(tuning)) = (shake.as_deref_mut(), shake_tuning.as_deref()) {
                 let amplitude = hard_fall_shake_amplitude(events.ground_contact.landing_impact_speed());
-                if amplitude > 0.0 { shake.kick(amplitude, *tuning); }
+                if amplitude > 0.0 { shake.kick_in(room.map(|room| room.0), amplitude, *tuning); }
             }
         }
     }

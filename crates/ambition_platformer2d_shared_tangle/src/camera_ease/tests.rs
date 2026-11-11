@@ -385,3 +385,24 @@ fn a_finishing_zoom_releases_and_then_rests_unwritten() {
         "a zoom at rest was written"
     );
 }
+
+/// ISL-1b: a kick that names a room shakes only the views of that room; a
+/// kick that names none shakes every view; and each settles to rest.
+#[test]
+fn a_room_s_kick_shakes_only_that_room_s_views() {
+    use crate::lifecycle::LiveRoomInstance;
+    let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let tuning = CameraShakeTuning::default();
+    let mut shake = CameraShakeState::default();
+    shake.kick_in(Some(here), 6.0, tuning);
+    assert_eq!(shake.amplitude_in(Some(here)), 6.0);
+    assert_eq!(shake.amplitude_in(Some(there)), 0.0, "the other room's view shook");
+    assert_eq!(shake.offset_in(Some(there)), ae::Vec2::ZERO);
+    assert_ne!(shake.offset_in(Some(here)), ae::Vec2::ZERO);
+    shake.kick_in(None, 2.0, tuning);
+    assert_eq!(shake.amplitude_in(Some(there)), 2.0, "a kick with no room shakes every view");
+    assert_eq!(shake.amplitude_in(Some(here)), 6.0, "the louder of the two");
+    shake.decay(10.0);
+    assert_eq!((shake.amplitude_in(Some(here)), shake.amplitude_in(Some(there))), (0.0, 0.0));
+    assert!(shake.rooms.is_empty(), "a room at rest is forgotten");
+}

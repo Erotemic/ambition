@@ -208,6 +208,7 @@ pub fn tick_bomb_fuses(
         }
         shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
             amplitude_px: BOMB_SHAKE_PX,
+            room,
         });
         commands.entity(entity).despawn();
     }

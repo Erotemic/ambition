@@ -569,6 +569,7 @@ pub fn boss_phase_transition_feedback(
             );
             shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
                 amplitude_px: BOSS_DEFEAT_SHAKE_PX,
+                room: rooms.of(entity),
             },
             );
             for cue in ["boss.generic.defeat", "cutscene.dramatic_chord.defeat"] {
@@ -595,6 +596,7 @@ pub fn boss_phase_transition_feedback(
             shake.write(
                 ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
                     amplitude_px: BOSS_PHASE_SHAKE_PX,
+                    room: rooms.of(entity),
                 },
             );
             sfx.write(ambition_sfx::SfxMessage::Play {

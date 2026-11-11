@@ -579,6 +579,18 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    The ten are the ISL-1b work list for messages, beside the clock scale,
    the conversation and the cutscene.
 
+   **The camera shake (2026-11-11):** `CameraShakeRequest` carries the room
+   whose views shake (`None` shakes every view), and `CameraShakeState`
+   keeps each room's shake beside the shared one; a camera reads
+   `offset_in` the room its view frames. Every writer names its room: the
+   hardest landed hit and the loudest kill of each room
+   (`shake_camera_on_landed_hits`, `advance_death_beats`), a boss's defeat and
+   phase change, a conducted boss's port, a bomb, and a hard landing.
+   Witnesses: `a_hit_shakes_only_the_views_of_its_own_room` (combat) and
+   `a_room_s_kick_shakes_only_that_room_s_views` (the state);
+   `hit_shakes_the_camera` reads any view's shake (`loudest`). Nine of the
+   ten remain.
+
 ## Order, exclusions and integration
 
 1. Ship **NET-INPUT-WIDTH independently**. Do not make packet savings wait for the entire island runtime; preserve the working global GGRS session until island rollback is genuinely proven.

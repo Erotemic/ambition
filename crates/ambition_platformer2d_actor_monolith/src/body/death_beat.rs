@@ -20,6 +20,7 @@ pub fn advance_death_beats(
         &ambition_characters::actor::BodyHealth,
         &mut DeathBeat,
         Option<&ambition_combat::CombatCapabilities>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     // The kill's own beat, as the game of the body's room states it.
     beats: ambition_platformer2d_world::governing_rules::RulesOf<ambition_combat::KillBeat>,
@@ -30,7 +31,10 @@ pub fn advance_death_beats(
     // Sim clock: a death row slows with bullet time, as the body did.
     let dt = world_time.sim_dt();
     let mut beat_of_kills: Option<ambition_combat::KillBeat> = None;
-    for (entity, health, mut beat, caps) in &mut bodies {
+    // The loudest kill of each live room shakes that room's views (ISL-1b).
+    let mut shake_of_rooms: std::collections::BTreeMap<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, f32> =
+        std::collections::BTreeMap::new();
+    for (entity, health, mut beat, caps, room) in &mut bodies {
         let was_dead = beat.since_s.is_some();
         beat.advance(health.alive(), dt, || {
             caps.and_then(|caps| caps.corpse)
@@ -39,6 +43,8 @@ pub fn advance_death_beats(
         });
         if !was_dead && beat.since_s.is_some() {
             if let Some(kill) = beats.of(entity).copied() {
+                let held = shake_of_rooms.entry(room.map(|room| room.0)).or_insert(0.0);
+                *held = held.max(kill.shake_px);
                 beat_of_kills = Some(beat_of_kills.map_or(kill, |held| ambition_combat::KillBeat {
                     freeze_s: held.freeze_s.max(kill.freeze_s),
                     shake_px: held.shake_px.max(kill.shake_px),
@@ -54,8 +60,10 @@ pub fn advance_death_beats(
             let until = tick.0 + (kill.freeze_s * TICKS_PER_SECOND).round().max(0.0) as u64;
             hold.until_tick = Some(hold.until_tick.map_or(until, |held| held.max(until)));
         }
-        if kill.shake_px > 0.0 {
-            shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest { amplitude_px: kill.shake_px });
+        for (room, amplitude_px) in shake_of_rooms {
+            if amplitude_px > 0.0 {
+                shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest { amplitude_px, room });
+            }
         }
     }
 }

@@ -1420,3 +1420,15 @@ records owner, app, pet, slice, Smash, policy and warning checks. Merge
 `f0af28d7c` passes the app check. Portal-path attachment admission, full held
 shape/scale/orientation, charge-shot placement and the other PSIM gates remain
 open. Do not restore a gravity/AABB landmark placement path.
+
+
+### Physical charge births — 2026-11-11
+
+`b8788d097` maps charge births through physical hands and canonical box
+geometry. Neutral aim follows physical facing. Hand and charge shots share
+physical feet-plane clearance. A refused birth spends no meter or cooldown
+and emits no shot. The [birth receipt](../../../dev/ambition_dev_measurements/summaries/portal-charge-birth-20261111.md)
+records owner, real-app, runtime, Smash, policy and warning checks. Merge
+`ef56f8599` passes the app check. Aperture-path birth admission, full held
+geometry, free-item collision and the other PSIM gates remain open. Do not
+use gravity or a root AABB to reconstruct the physical firing hand.

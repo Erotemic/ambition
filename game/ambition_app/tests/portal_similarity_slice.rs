@@ -147,3 +147,82 @@ fn the_shipped_renderer_keeps_the_crossed_robots_physical_scale_and_reflection()
     }
     assert!(samples > 20, "the rendered body must stay small and reflected after crossing");
 }
+
+#[test]
+fn a_carried_javelin_leaves_the_scaled_holder_with_its_physical_material() {
+    use ambition_platformer2d::item::{GroundItem, ItemCustody};
+    use ambition_platformer2d::observation::SimId;
+    fn run_held() -> Vec<Vec<u8>> {
+        let mut sim = slice();
+        let (holder, mut initial) = body(&mut sim);
+        {
+            use bevy::ecs::system::SystemState;
+            use ambition_platformer2d::combat::hand::RepertoireQuery;
+            let world = sim.world_mut();
+            let mut state = SystemState::<(Commands, Query<RepertoireQuery>)>::new(world);
+            {
+                let (mut commands, mut bodies) = state.get_mut(world).unwrap();
+                ambition_platformer2d::held_items::empty_hand(&mut commands, holder, &mut bodies.get_mut(holder).unwrap());
+            }
+            state.apply(world);
+        }
+        initial.material = ae::frame::BodyMaterial::new(0.75, Mat2::IDENTITY).unwrap();
+        initial.pos.y = 896.0 - initial.half_extent().y;
+        sim.world_mut().entity_mut(holder).insert((initial, ae::SweepSample::at_rest(initial, ae::Vec2::Y)));
+        {
+            let world = sim.world_mut();
+            world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks.retain(|b| b.name != "slice far contact");
+        }
+        let (item, id, mut item_body) = {
+            let world = sim.world_mut();
+            world.query::<(Entity, &GroundItem, &SimId, &BodyKinematics)>().iter(world)
+                .find(|(_, item, _, kin)| item.spec.id == "javelin" && (1800.0..1900.0).contains(&kin.pos.x))
+                .map(|(entity, _, id, kin)| (entity, id.clone(), *kin)).expect("station H has its authored javelin")
+        };
+        let item_size = item_body.canonical_size;
+        item_body.pos = initial.pos;
+        item_body.vel = ae::Vec2::ZERO;
+        item_body.material = ae::frame::BodyMaterial::new(1.25, Mat2::from_angle(0.2)).unwrap();
+        sim.world_mut().entity_mut(item).insert((item_body, ae::SweepSample::at_rest(item_body, ae::Vec2::Y)));
+        sim.rebase_rollback_history().unwrap();
+        sim.step_frame(ae::ControlFrame { attack_pressed: true, ..Default::default() });
+        for _ in 0..6 { sim.step_frame(ae::ControlFrame::default()); }
+        let (holder, _) = body(&mut sim);
+        let world = sim.world_mut();
+        let custody = world.query::<(&ItemCustody, &SimId)>().iter(world).find(|(_, candidate)| **candidate == id).unwrap().0;
+        assert!(custody.held_by(holder), "pickup premise: {custody:?}, holder={holder:?}, body={:?}, item={:?}, hand={:?}, gun={:?}, driven={:?}",
+            world.get::<BodyKinematics>(holder), world.get::<BodyKinematics>(item),
+            world.get::<ambition_platformer2d::combat::held_items::HeldItem>(holder).map(|held| held.id()),
+            world.get::<ambition_platformer2d::portal::PortalGun>(holder),
+            world.get_resource::<ambition_platformer2d::platformer::markers::ControlledSubject>());
+        let mut dropped = false;
+        let mut released = 0;
+        let mut trace = Vec::new();
+        for _ in 0..130 {
+            let (_, pose) = body(&mut sim);
+            if !dropped && pose.material.scale() == 0.375 && pose.pos.x + pose.half_extent().x < 2448.0 {
+                sim.step_frame(ae::ControlFrame { grab_pressed: true, ..Default::default() });
+                dropped = true;
+            } else {
+                sim.step(AgentAction { move_x: if dropped { 0.0 } else { 1.0 }, ..crate::common::base() });
+            }
+            sim.rollback_health().unwrap();
+            let world = sim.world_mut();
+            let (item, kin, custody) = world.query::<(Entity, &BodyKinematics, &ItemCustody, &SimId)>().iter(world)
+                .find(|(_, _, _, candidate)| **candidate == id).map(|(entity, kin, custody, _)| (entity, *kin, *custody)).unwrap();
+            if custody.in_world() {
+                assert!(dropped, "custody must end only after the drop request");
+                assert_eq!(kin.material.scale(), 0.625);
+                assert!(kin.material.reflected());
+                assert_eq!(kin.canonical_size, item_size);
+                assert!(world.get::<ae::BodyInStorage>(item).is_none());
+                released += 1;
+            }
+            trace.push(ae::snapshot::encode_state(&kin));
+        }
+        assert!(released > 10, "the item must remain a scaled, reflected free body");
+        assert!(sim.rollback_execution_stats().unwrap().load_runs > 0);
+        trace
+    }
+    assert_eq!(run_held(), run_held());
+}

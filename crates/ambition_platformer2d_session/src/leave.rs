@@ -41,8 +41,9 @@ pub fn retire_leaving_participants(
         (Entity, &DrivingParticipant, &BodyKinematics, Option<&SessionScopedEntity>),
         With<PlayerEntity>,
     >,
-    mut items: Query<(Entity, &BodyKinematics, &mut ItemCustody), (With<GroundItem>, Without<PlayerEntity>)>,
+    mut items: Query<(Entity, &BodyKinematics, &mut ItemCustody, &ambition_held_items::HeldMaterialBasis), (With<GroundItem>, Without<PlayerEntity>)>,
     supported: Query<(Entity, &SupportedCarry)>,
+    release_world: ambition_held_items::ItemReleaseWorld,
 ) {
     let leaving: Vec<PlayerSlot> = requests.read().map(|request| request.participant).collect();
     if leaving.is_empty() {
@@ -55,21 +56,38 @@ pub fn retire_leaving_participants(
         return;
     };
     for seat in leaving {
-        if seat == PlayerSlot(0) || !members.remove(seat) {
+        if seat == PlayerSlot(0) || !members.contains(seat) {
             info!(target: "ambition_platformer2d::session", "seat {} cannot leave: it is the primary or not a member", seat.0);
             continue;
         }
-        let retiring: Vec<(Entity, Vec2)> = bodies
+        let retiring: Vec<(Entity, BodyKinematics)> = bodies
             .iter()
             .filter(|(_, driver, _, scope)| driver.0 == seat && scope.is_some_and(|scope| scope.0 == session))
-            .map(|(body, _, kin, _)| (body, kin.pos))
+            .map(|(body, _, kin, _)| (body, *kin))
             .collect();
-        for &(body, at) in &retiring {
-            for (item, kin, mut custody) in &mut items {
-                if custody.held_by(body) {
-                    ambition_held_items::put_down(&mut commands, item, kin, &mut custody, at);
+        let prepared = (|| {
+            let mut releases = Vec::new();
+            for &(body, holder) in &retiring {
+                for (item, kin, custody, basis) in &items {
+                    if custody.held_by(body) {
+                        releases.push((item, release_world.prepare_release(body, Some(item), &holder, kin, *basis, holder.pos,
+                            ambition_platformer2d_core::Vec2::ZERO)?));
+                    }
                 }
             }
+            Ok::<_, ambition_platformer2d_core::frame::thread::Refusal>(releases)
+        })();
+        let releases = match prepared {
+            Ok(releases) => releases,
+            Err(refusal) => { warn!(?refusal, "participant leave refused"); continue; }
+        };
+        for (item, prepared) in releases {
+            if let Ok((_, _, mut custody, _)) = items.get_mut(item) {
+                prepared.put_down(&mut commands, item, &mut custody);
+            }
+        }
+        members.remove(seat);
+        for &(body, _) in &retiring {
             // A body that helped carry another's load stops helping; the
             // holder keeps the load.
             for (holder, carry) in &supported {

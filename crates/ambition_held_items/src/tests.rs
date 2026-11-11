@@ -836,6 +836,15 @@ fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
         .entity_mut(player)
         .insert((HeldItem::new(axe_spec()), SimId::player_slot(0)));
 
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    use ae::frame::{MapConvention, thread::PieceBudget};
+    app.insert_resource(BodyGeometry::new(MapConvention::Reflection).with_default_budget(
+        PieceBudget { max_pieces: 0, ..PieceBudget::COMPOSED }));
+    set_control(&mut app, player, true, true);
+    app.update();
+    assert!(app.world().get::<HeldItem>(player).is_some());
+    assert_eq!(app.world_mut().query::<&GroundItem>().iter(app.world()).count(), 0);
+    app.world_mut().resource_mut::<BodyGeometry>().reset_apertures(MapConvention::Reflection, PieceBudget::COMPOSED);
     set_control(&mut app, player, true, true);
     app.update();
 
@@ -2241,12 +2250,18 @@ fn pickup_and_release_keep_the_items_material_and_replace_its_world_presence() {
     app.update();
     assert!(app.world().get::<ae::BodyInStorage>(item).is_some());
     assert_eq!(app.world().get::<BodyKinematics>(item).unwrap().material, material);
-    app.world_mut().get_mut::<BodyKinematics>(holder).unwrap().pos.x = 250.0;
+    let holder_material = ae::frame::BodyMaterial::new(0.5, bevy::math::Mat2::from_angle(0.35)
+        * bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap();
+    {
+        let mut holder = app.world_mut().get_mut::<BodyKinematics>(holder).unwrap();
+        holder.pos.x = 250.0;
+        holder.material = holder_material;
+    }
     set_control(&mut app, holder, true, true);
     app.update();
     assert!(app.world().get::<ae::BodyInStorage>(item).is_none());
     let released = app.world().get::<BodyKinematics>(item).unwrap();
-    assert_eq!(released.material, material);
+    assert_eq!(released.material, material.carried(holder_material.at(Vec2::ZERO).unwrap()).unwrap());
     assert_eq!(released.canonical_size, Vec2::splat(16.0));
     assert!(released.pos.x > 200.0);
     assert_eq!(app.world().get::<ae::SweepSample>(item).unwrap().time, [1.0, 1.0]);
@@ -2258,4 +2273,72 @@ fn an_item_impact_caps_large_finite_momentum_without_losing_its_direction() {
     rebound_item(&mut body, 0.5, 100.0);
     assert!(body.vel.is_finite() && body.vel.x < 0.0 && body.vel.y < 0.0);
     assert!((body.vel.length() - 100.0).abs() < 1.0e-4);
+}
+
+
+#[test]
+fn a_hand_releases_in_the_far_chart_before_the_holders_root_crosses() {
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(Update, (pickup_held_item_system, throw_held_item_system, project_item_body_presence).chain());
+    let holder = spawn_player(&mut app, Vec2::new(140.0, 100.0));
+    let item = app.world_mut().spawn(GroundItem::at_rest(axe_spec(), Vec2::new(140.0, 100.0), Vec2::splat(3.0))).id();
+    set_control(&mut app, holder, true, false);
+    app.update();
+    let mut geometry = BodyGeometry::new(MapConvention::Reflection);
+    geometry.add_pair(None, (
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(150.0, 100.0), -Vec2::X), half_length: 80.0 },
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 100.0), Vec2::X), half_length: 40.0 },
+    ));
+    let map = geometry.links_in(None)[0].map(MapConvention::Reflection).unwrap();
+    app.insert_resource(geometry);
+    set_control(&mut app, holder, true, true);
+    app.update();
+    let body = *app.world().get::<BodyKinematics>(item).unwrap();
+    assert!(app.world().get::<ItemCustody>(item).unwrap().in_world());
+    assert!(app.world().get::<HeldItem>(holder).is_none());
+    assert!(app.world().get::<ae::BodyInStorage>(item).is_none());
+    assert_eq!(app.world().get::<BodyKinematics>(holder).unwrap().material, ae::frame::BodyMaterial::IDENTITY);
+    assert_eq!(app.world().get::<BodyKinematics>(holder).unwrap().pos.x, 140.0);
+    assert_eq!(body.pos, map.point(Vec2::new(140.0 + THROW_AHEAD, 100.0)).unwrap());
+    assert_eq!(body.material, ae::frame::BodyMaterial::IDENTITY.carried(map).unwrap());
+    assert_eq!(body.vel, map.vector(THROW_FORWARD).unwrap());
+    assert_eq!(body.canonical_size, Vec2::splat(6.0));
+    assert_eq!(app.world().get::<ae::SweepSample>(item).unwrap().time, [1.0, 1.0]);
+}
+
+#[test]
+fn a_refused_release_keeps_the_object_and_hand_and_does_not_mint() {
+    use ae::frame::MapConvention;
+    use ae::frame::thread::PieceBudget;
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(Update, (pickup_held_item_system, throw_held_item_system, project_item_body_presence).chain());
+    let holder = spawn_player(&mut app, Vec2::splat(100.0));
+    let item = app.world_mut().spawn(GroundItem::at_rest(axe_spec(), Vec2::splat(100.0), Vec2::splat(3.0))).id();
+    set_control(&mut app, holder, true, false);
+    app.update();
+    let before = *app.world().get::<BodyKinematics>(item).unwrap();
+    let mut geometry = BodyGeometry::new(MapConvention::Reflection);
+    geometry.set_body_budget(item, PieceBudget { max_pieces: 0, ..PieceBudget::COMPOSED });
+    app.insert_resource(geometry);
+    set_control(&mut app, holder, true, true);
+    app.update();
+    assert_eq!(*app.world().get::<BodyKinematics>(item).unwrap(), before);
+    assert!(app.world().get::<ItemCustody>(item).unwrap().held_by(holder));
+    assert!(app.world().get::<HeldItem>(holder).is_some());
+    assert!(app.world().get::<ReleasedAs>(item).is_none());
+    assert!(app.world().get::<ae::BodyInStorage>(item).is_some());
+    assert_eq!(app.world_mut().query::<&GroundItem>().iter(app.world()).count(), 1);
+    {
+        let mut geometry = app.world_mut().resource_mut::<BodyGeometry>();
+        geometry.set_body_budget(item, PieceBudget::COMPOSED);
+        geometry.set_body_budget(holder, PieceBudget { max_pieces: 0, ..PieceBudget::COMPOSED });
+    }
+    set_control(&mut app, holder, true, true);
+    app.update();
+    assert!(app.world().get::<ItemCustody>(item).unwrap().in_world());
 }

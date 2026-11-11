@@ -222,6 +222,8 @@ pub fn restore_custody_to_checkpoint(
                 equip_held_spec(&mut commands, holder, &mut repertoire, spec);
                 if let Ok((_, _, _, mut custody)) = items.get_mut(entity) {
                     *custody = ItemCustody::Held { holder };
+                    commands.entity(entity).insert(ambition_held_items::HeldMaterialBasis(
+                        item_bodies.get(holder).map_or(ae::frame::BodyMaterial::IDENTITY, |body| body.material)));
                     // A carried item is not in flight — the same zeroing the
                     // pickup does, and for the same fuse-arming reason.
                     if let Ok(body) = item_bodies.get(entity) {
@@ -416,6 +418,7 @@ pub fn restore_custody_to_checkpoint(
                 Name::new(name),
                 GroundItem::at_rest(held.clone(), pos, half_extent),
                 ItemCustody::Held { holder },
+                ambition_held_items::HeldMaterialBasis(item_bodies.get(holder).map_or(ae::frame::BodyMaterial::IDENTITY, |body| body.material)),
             ),
         );
         // The object is in its holder's live room. A carried object gets that

@@ -271,6 +271,13 @@ impl VolumePiece {
         Ok(rebased)
     }
 
+    /// Test only the canonical cut boundaries, with their projection error.
+    pub fn source_bounds_contain(&self, point: Vec2) -> Result<bool, NumericFault> {
+        if !point.is_finite() { return Err(NumericFault::NonFinite); }
+        let point = point.as_dvec2();
+        Ok(self.source_bounds.iter().all(|plane| plane.side(point) >= -plane.error_at(point)))
+    }
+
     pub fn source(&self) -> &CombatVolume { &self.source }
     pub fn source_bounds(&self) -> &[MaterialPlane] { &self.source_bounds }
     pub fn transform(&self) -> Sim2 { self.to_piece }
@@ -655,6 +662,19 @@ pub struct MotionAdmission<'a> {
 }
 
 impl MotionAdmission<'_> {
+    /// Carry physical velocity through the recorded contact path.
+    pub fn carry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2, time: f64) -> Result<Vec2, Refusal> {
+        for (index, key) in path.iter().copied().enumerate() {
+            let refusal = |fault| Refusal { path: path[..index].to_vec(), link: Some(key), reason: RefusalReason::Numeric(fault) };
+            let link = self.links.iter().find(|link| link.key == key)
+                .ok_or_else(|| refusal(NumericFault::InvalidFrame))?.snapshot_at(time).map_err(refusal)?;
+            let map = link.map(self.convention).map_err(refusal)?;
+            velocity = map.velocity(&link.enter.frame, &link.exit.frame, point, velocity).map_err(refusal)?;
+            point = map.point(point).map_err(refusal)?;
+        }
+        Ok(velocity)
+    }
+
     /// Pull physical surface motion back through the contact path.
     pub fn uncarry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2, time: f64) -> Result<Vec2, Refusal> {
         for index in (0..path.len()).rev() {

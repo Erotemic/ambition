@@ -6,7 +6,7 @@ use ambition_platformer2d_core::ControlFrame;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_core::{self as ae};
-use ambition_platformer2d_shared_tangle::gravity::{gravity_upright_angle, GravityField};
+use ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 

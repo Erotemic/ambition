@@ -241,6 +241,15 @@ impl PreparedBodyPose {
     }
 }
 
+/// Admit a body that enters world simulation without an earlier world path.
+pub fn prepare_body_materialization(
+    desired: crate::BodyKinematics,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<PreparedBodyPose, crate::frame::thread::Refusal> {
+    let sample = SweepSample::at_tick_end(desired, Vec2::ZERO);
+    prepare_body_pose(&desired, Some(&sample), desired, admission, &[])
+}
+
 /// Validate a complete external pose without changing its body or history.
 pub fn prepare_body_pose(
     kinematics: &crate::body_clusters::BodyKinematics,

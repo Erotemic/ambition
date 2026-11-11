@@ -215,6 +215,10 @@ Use the narrowest command that actually covers the change. Full matrix:
 
 ### Generated assets
 
+**Do not commit binary files to any repository or submodule.** This includes
+WebP images and all other binary asset formats. Keep binary assets outside
+Git tracking. Commit text sources, generation recipes, and metadata only.
+
 Large runtime assets are generated from small authored sources and are intentionally git-ignored.
 
 Build generated runtime content with:

@@ -987,6 +987,15 @@ the same sites under the new spelling, and each needs the guard's question
 asked of it (is the level box right there, or should it ask
 `collision_box(last_step)`?) — its own pass, with turned gravity in mind.
 
+**Red app tests seen in a focused lane (2026-11-10, on ae2e0e8bab, before and
+after the ISL-2d bag slice):** `gnu_ton_fight::with_its_arms_on_a_blow_launches_him_and_the_third_blow_throws`
+and `gnu_ton_fight::thrown_off_the_back_he_comes_back_and_he_goes_to_a_player_at_its_far_end`
+("no blow landed"; the file's last commits are the portal owner's limb-sweep
+work, so they are reported to it, not fixed here), and
+`two_seats_two_items::two_local_seats_each_pick_up_their_own_bomb` ("the
+match seats this fighter": a Smash match, which on this VM waits for
+unrendered music).
+
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn
 owner cases (14) passed after repairs; **those focused passes do not clear the

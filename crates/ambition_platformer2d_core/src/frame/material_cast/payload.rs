@@ -121,7 +121,7 @@ impl MaterialCastCells<'_> {
     }
 
     /// Geometry and payloads use the same cells, portal paths and world clock.
-    pub(crate) fn admit_payloads(&self, velocity: Vec2, carried: &[Vec2]) -> Result<(), Refusal> {
+    pub fn admit_payloads(&self, velocity: Vec2, carried: &[Vec2]) -> Result<(), Refusal> {
         if !velocity.is_finite() || carried.iter().any(|vector| !vector.is_finite()) {
             return Err(super::numeric(NumericFault::NonFinite));
         }

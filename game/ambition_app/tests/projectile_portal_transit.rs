@@ -236,7 +236,7 @@ fn a_projectile_bounces_on_its_far_material_and_retires_the_contact() {
 #[test]
 fn a_projectile_damages_a_body_with_its_scaled_tip_before_root_transit() {
     for reverse in [false,true] {
-        for launch in [false,true] {scaled_tip_contact(reverse,TipResponse::Damage {launch});}
+        for launch in [false,true] {scaled_tip_contact(reverse,TipResponse::Damage {launch,after_transit:false});}
     }
 }
 
@@ -247,8 +247,203 @@ fn a_portal_carried_tip_is_parried_at_its_physical_contact_before_root_transit()
     }
 }
 
+#[test]
+fn a_projectile_hits_a_recipient_in_the_remaining_time_after_root_crossing() {
+    for reverse in [false,true] {
+        for launch in [false,true] {scaled_tip_contact(reverse,TipResponse::Damage {launch,after_transit:true});}
+    }
+}
+
+#[test]
+fn a_projectile_spends_remaining_time_once_after_a_scaled_root_crossing() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    use ambition_platformer2d::portal::{link_hash,PlacedPortal,PortalBodyTransited,PortalLink};
+    use ambition_platformer2d::projectiles::{ProjectileGameplay,ProjectileSpawn,ProjectileSpawnRequest,ProjectileStart,ProjectileVisualId};
+    for (reverse,moving) in [(false,false),(true,false),(false,true)] {
+        let mut sim=fixed_60hz_room_sim("portal_lab");
+        sim.step(base());
+        let (owner,mut pair)={
+            let world=sim.world_mut();
+            let owner=world.query_filtered::<Entity,PrimaryPlayerOnly>().single(world).unwrap();
+            let pair=world.query::<(&PlacedPortal,&PortalLink)>().iter(world)
+                .filter(|(p,link)|if moving {link.0==link_hash("portal_lab_l_motion")}
+                    else {p.pos==Vec2::new(1904.0,856.0) || p.pos==Vec2::new(2448.0,876.0)})
+                .map(|(p,_)|p.clone()).collect::<Vec<_>>();
+            (owner,pair)
+        };
+        assert_eq!(pair.len(),2);
+        if moving {pair.sort_by(|a,b|b.pos.y.total_cmp(&a.pos.y));}
+        else {pair.sort_by(|a,b|a.pos.x.total_cmp(&b.pos.x));}
+        if reverse {pair.reverse();}
+        let (entry,exit)=(&pair[0],&pair[1]);
+        sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+            origin:entry.pos+entry.normal*6.0,dir:-entry.normal,speed:1200.0,
+            damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
+            visual_id:"remaining_time_gauge".into(),bounces:0,bounce_on_world_contact:false,
+            splash_half_extent:0.0,boomerang_return_s:None,
+        },ProjectileStart::StepNextTick));
+        sim.step(base());
+        let shot={
+            let world=sim.world_mut();
+            world.query::<(Entity,&ProjectileVisualId)>().iter(world)
+                .find(|(_,visual)|visual.0=="remaining_time_gauge").unwrap().0
+        };
+        let acceleration=Vec2::new(-entry.normal.y,entry.normal.x)*60.0;
+        sim.world_mut().get_mut::<ambition_platformer2d::platformer::frame_env::CarriedAcceleration>(shot).unwrap().0=acceleration;
+        let before=*sim.world().get::<ae::BodyKinematics>(shot).unwrap();
+        let age=sim.world().get::<ProjectileGameplay>(shot).unwrap().age;
+        sim.step(base());
+        let events=sim.world().resource::<Messages<PortalBodyTransited>>().iter_current_update_messages()
+            .filter(|event|event.body==shot).collect::<Vec<_>>();
+        assert_eq!(events.len(),1);
+        let transfer=events[0].transfer;
+        if moving {assert!(transfer.exit.frame.velocity.length()>100.0,"{transfer:?}");}
+        let after=sim.world().get::<ae::BodyKinematics>(shot).expect("the free exit leaves the shot alive");
+        let expected=transfer.exit_pos.as_dvec2()+transfer.exit_vel.as_dvec2()*((1.0-transfer.crossing_time)/60.0);
+        assert!(after.pos.as_dvec2().distance(expected)<0.001,"{after:?}, expected={expected:?}");
+        assert_eq!(after.vel,transfer.exit_vel,"the force kick is not repeated");
+        assert_eq!(after.material,before.material.carried(transfer.map).unwrap());
+        assert_eq!(after.material.scale(),exit.half_length/entry.half_length);
+        assert_eq!(sim.world().get::<ambition_platformer2d::platformer::frame_env::CarriedAcceleration>(shot).unwrap().0,
+            transfer.map.vector(acceleration).unwrap());
+        assert!((sim.world().get::<ProjectileGameplay>(shot).unwrap().age-age-1.0/60.0).abs()<0.000001);
+        let record=sim.world().get::<ae::SweepSample>(shot).unwrap();
+        assert_eq!(record.material,after.material);
+        assert_eq!(record.time,[transfer.crossing_time,1.0]);
+        assert_eq!(record.prev,transfer.exit_pos);
+        assert_eq!(record.curr,after.pos);
+    }
+}
+
+#[test]
+fn a_projectile_continues_through_the_authored_chain_with_one_tick_clock() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::characters::actor::ActorFaction;
+    use ambition_platformer2d::portal::{link_hash,PlacedPortal,PortalBodyTransited,PortalLink};
+    use ambition_platformer2d::projectiles::{ProjectileGameplay,ProjectileSpawn,ProjectileSpawnRequest,ProjectileStart,ProjectileVisualId};
+    for hops in [2,4] {
+        let mut sim=fixed_60hz_room_sim("portal_lab");
+        sim.step(base());
+        let (entry,exit,owner)={
+            let world=sim.world_mut();
+            let entry=world.query::<(&PlacedPortal,&PortalLink)>().iter(world)
+                .filter(|(_,link)|link.0==link_hash("portal_lab_j_first"))
+                .map(|(portal,_)|portal.clone()).min_by(|a,b|a.pos.x.total_cmp(&b.pos.x)).unwrap();
+            let exit=world.query::<(&PlacedPortal,&PortalLink)>().iter(world)
+                .find(|(portal,link)|link.0==link_hash("portal_lab_j_third") && portal.normal.x>0.5).unwrap().0.clone();
+            let owner=world.query::<(Entity,&ae::BodyKinematics,&ActorFaction)>().iter(world)
+                .filter(|(_,_,faction)|**faction==ActorFaction::Enemy)
+                .min_by(|(_,a,_),(_,b,_)|a.pos.distance_squared(exit.pos).total_cmp(&b.pos.distance_squared(exit.pos)))
+                .map(|(entity,body,_)| {assert!(body.pos.distance(exit.pos)<60.0);entity}).unwrap();
+            (entry,exit,owner)
+        };
+        sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+            origin:entry.pos+entry.normal*6.0,dir:-entry.normal,speed:1440.0,
+            damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
+            visual_id:"chain_time_gauge".into(),bounces:0,bounce_on_world_contact:false,
+            splash_half_extent:0.0,boomerang_return_s:None,
+        },ProjectileStart::StepNextTick));
+        sim.step(base());
+        let shot={
+            let world=sim.world_mut();
+            world.query::<(Entity,&ProjectileVisualId)>().iter(world)
+                .find(|(_,visual)|visual.0=="chain_time_gauge").unwrap().0
+        };
+        sim.world_mut().entity_mut(shot).insert(ambition_platformer2d::platformer::body::geometry::MaterialBudget(
+            ae::frame::thread::PieceBudget {max_hops:hops,..ae::frame::thread::PieceBudget::COMPOSED}));
+        let before=*sim.world().get::<ae::BodyKinematics>(shot).unwrap();
+        let age=sim.world().get::<ProjectileGameplay>(shot).unwrap().age;
+        sim.step(base());
+        let events=sim.world().resource::<Messages<PortalBodyTransited>>().iter_current_update_messages()
+            .filter(|event|event.body==shot).collect::<Vec<_>>();
+        assert_eq!(events.len(),if hops==2 {2} else {3},"{events:?}");
+        assert!(events.windows(2).all(|pair|pair[0].transfer.crossing_time<pair[1].transfer.crossing_time));
+        let last=events.last().unwrap().transfer;
+        let after=sim.world().get::<ae::BodyKinematics>(shot).expect("the chain keeps the shot admitted");
+        let expected=events.iter().fold(before.material,|material,event|material.carried(event.transfer.map).unwrap());
+        assert_eq!(after.material,expected);
+        assert_eq!(after.vel,last.exit_vel);
+        assert!((sim.world().get::<ProjectileGameplay>(shot).unwrap().age-age-1.0/60.0).abs()<0.000001);
+        let record=sim.world().get::<ae::SweepSample>(shot).unwrap();
+        if hops==2 {
+            assert_eq!(after.pos,last.exit_pos,"a refused third hop retains the second admitted root");
+            assert_eq!(record.delta(),Vec2::ZERO);
+        } else {
+            assert_eq!(after.material.scale(),0.25);
+            assert!((after.pos-exit.pos).dot(exit.normal)>0.0);
+            let end=last.exit_pos.as_dvec2()+last.exit_vel.as_dvec2()*((1.0-last.crossing_time)/60.0);
+            assert!(after.pos.as_dvec2().distance(end)<0.001,"{after:?}, end={end:?}");
+            assert_eq!(record.time,[last.crossing_time,1.0]);
+        }
+    }
+}
+
+#[test]
+fn a_returning_projectile_keeps_one_contact_budget_across_root_legs() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::characters::actor::{BodyHealth,BodyCombat,Health};
+    use ambition_platformer2d::combat::{HitEvent,HitTarget,components::FeatureId};
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    use ambition_platformer2d::portal::{PlacedPortal,PortalBodyTransited};
+    use ambition_platformer2d::projectiles::{ProjectileGameplay,ProjectileSpawn,ProjectileSpawnRequest,ProjectileStart,ProjectileVisualId};
+    let mut sim=fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    let (owner,mut pair)={
+        let world=sim.world_mut();
+        let owner=world.query_filtered::<Entity,PrimaryPlayerOnly>().single(world).unwrap();
+        let pair=world.query::<&PlacedPortal>().iter(world)
+            .filter(|p|p.pos==Vec2::new(1904.0,856.0) || p.pos==Vec2::new(2448.0,876.0))
+            .cloned().collect::<Vec<_>>();
+        (owner,pair)
+    };
+    pair.sort_by(|a,b|a.pos.x.total_cmp(&b.pos.x));
+    let (entry,exit)=(&pair[0],&pair[1]);
+    let mut recipients=Vec::new();
+    for (id,pos) in [("return_before_root",entry.pos+entry.normal*0.5),("return_after_root",exit.pos+exit.normal*4.0)] {
+        sim.spawn_enemy_character_at(id,id,(pos.x,pos.y),(1.0,1.0),
+            ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,"npc_raptor_stalker");
+        let target={
+            let world=sim.world_mut();
+            world.query::<(Entity,&FeatureId)>().iter(world).find(|(_,name)|name.as_str()==id).unwrap().0
+        };
+        let mut body=*sim.world().get::<ae::BodyKinematics>(target).unwrap();
+        body.pos=pos;
+        body.material=ae::frame::BodyMaterial::new(0.01,bevy::math::Mat2::IDENTITY).unwrap();
+        body.vel=Vec2::ZERO;
+        sim.world_mut().entity_mut(target).insert((body,BodyHealth::new(Health::new(100)),
+            BodyCombat::default(),ae::PoseOwnedExternally::only(ae::PoseHold::Conductor)));
+        recipients.push(target);
+    }
+    sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+        origin:entry.pos+entry.normal*6.0,dir:-entry.normal,speed:1200.0,
+        damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
+        visual_id:"return_contact_budget".into(),bounces:0,bounce_on_world_contact:false,
+        splash_half_extent:0.0,boomerang_return_s:Some(1.0),
+    },ProjectileStart::StepNextTick));
+    sim.step(base());
+    let shot={
+        let world=sim.world_mut();
+        world.query::<(Entity,&ProjectileVisualId)>().iter(world)
+            .find(|(_,visual)|visual.0=="return_contact_budget").unwrap().0
+    };
+    sim.step(base());
+    let after=sim.world().get::<ae::BodyKinematics>(shot).expect("a returning shot survives its accepted contact");
+    assert!((after.pos-exit.pos).dot(exit.normal)>5.0,"the shot must continue past the second recipient: {after:?}");
+    assert_eq!(sim.world().get::<BodyHealth>(recipients[0]).unwrap().current(),99);
+    assert_eq!(sim.world().get::<BodyHealth>(recipients[1]).unwrap().current(),100);
+    let hits=sim.world().resource::<Messages<HitEvent>>().iter_current_update_messages()
+        .filter(|event|matches!(event.target,HitTarget::Body(entity) if recipients.contains(&entity))).collect::<Vec<_>>();
+    assert_eq!(hits.len(),1,"root rebasing does not reset the tick's contact budget");
+    let roots=sim.world().resource::<Messages<PortalBodyTransited>>().iter_current_update_messages()
+        .filter(|event|event.body==shot).collect::<Vec<_>>();
+    assert_eq!(roots.len(),1);
+    assert!(hits[0].contact.as_ref().unwrap().time<roots[0].transfer.crossing_time);
+    assert!((sim.world().get::<ProjectileGameplay>(shot).unwrap().age-1.0/60.0).abs()<0.000001);
+}
+
 #[derive(Clone,Copy)]
-enum TipResponse { Damage {launch:bool}, Parry {absorb:bool} }
+enum TipResponse { Damage {launch:bool,after_transit:bool}, Parry {absorb:bool} }
 
 fn scaled_tip_contact(reverse:bool,response:TipResponse) {
     use ambition_platformer2d::engine_core as ae;
@@ -257,7 +452,8 @@ fn scaled_tip_contact(reverse:bool,response:TipResponse) {
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
     use ambition_platformer2d::portal::{PlacedPortal, PortalBodyTransited};
     use ambition_platformer2d::projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
-    let launch=matches!(response,TipResponse::Damage {launch:true});
+    let launch=matches!(response,TipResponse::Damage {launch:true,..});
+    let after_transit=matches!(response,TipResponse::Damage {after_transit:true,..});
 
     let mut sim=fixed_60hz_room_sim("portal_lab");
     sim.step(base());
@@ -286,7 +482,7 @@ fn scaled_tip_contact(reverse:bool,response:TipResponse) {
     let mut target_body=*sim.world().get::<ae::BodyKinematics>(target).unwrap();
     target_body.material=ae::frame::BodyMaterial::new(0.01,bevy::math::Mat2::IDENTITY).unwrap();
     let half=target_body.half_extent();
-    let center=exit.pos+exit.normal*(half.dot(exit.normal.abs())+0.5*ratio);
+    let center=exit.pos+exit.normal*(half.dot(exit.normal.abs())+if after_transit {8.0*ratio} else {0.5*ratio});
     target_body.pos=center;
     target_body.vel=Vec2::ZERO;
     let weight=sim.world().get::<ambition_platformer2d::combat::components::CombatTuning>(target)
@@ -302,7 +498,7 @@ fn scaled_tip_contact(reverse:bool,response:TipResponse) {
             absorb_window_timer:if absorb {0.2} else {0.0},..Default::default()});
     }
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
-        origin:entry.pos+entry.normal*10.0,dir:-entry.normal,speed:600.0,
+        origin:entry.pos+entry.normal*if after_transit {6.0} else {10.0},dir:-entry.normal,speed:if after_transit {1200.0} else {600.0},
         damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
         visual_id:"scaled_tip_gauge".into(),bounces:0,bounce_on_world_contact:false,
         splash_half_extent:0.0,boomerang_return_s:None,
@@ -315,14 +511,18 @@ fn scaled_tip_contact(reverse:bool,response:TipResponse) {
             .find(|(_,visual)|visual.0=="scaled_tip_gauge").unwrap().0
     };
     let mut transited=false;
+    let mut crossings=Vec::new();
+    let mut steps=0;
     let initial=*sim.world().get::<ae::BodyKinematics>(shot).unwrap();
     let mut contacts=Vec::new();
     let mut intercepted=false;
     let mut cue=None;
     for _ in 0..4 {
         sim.step(base());
-        transited|=sim.world().resource::<Messages<PortalBodyTransited>>()
-            .iter_current_update_messages().any(|event|event.body==shot);
+        steps+=1;
+        crossings.extend(sim.world().resource::<Messages<PortalBodyTransited>>()
+            .iter_current_update_messages().filter(|event|event.body==shot).map(|event|event.transfer));
+        transited=!crossings.is_empty();
         contacts.extend(sim.world().resource::<Messages<HitEvent>>().iter_current_update_messages()
             .filter(|event|event.target==HitTarget::Body(target)).filter_map(|event|event.contact.clone()
                 .map(|contact|(contact,event.knockback.as_ref().unwrap().magnitude))));
@@ -359,7 +559,13 @@ fn scaled_tip_contact(reverse:bool,response:TipResponse) {
         return;
     }
     assert_eq!(contacts.len(),1,"the carried tip must name one recipient: reverse={reverse}");
-    assert!(!transited,"contact precedes the root crossing: reverse={reverse}");
+    assert_eq!(transited,after_transit,"root and contact order: reverse={reverse}");
+    if after_transit {
+        assert_eq!(steps,1,"the unused time must reach the recipient in the same tick");
+        assert_eq!(crossings.len(),1,"the root must transfer once");
+        assert!((crossings[0].crossing_time-0.3).abs()<0.0001,"{:?}",crossings[0]);
+        assert!(contacts[0].0.time>crossings[0].crossing_time,"the contact time is global within the tick");
+    }
     let (contact,magnitude)=&contacts[0];
     use ambition_platformer2d::combat::HitKnockbackMagnitude;
     let expected=if launch {

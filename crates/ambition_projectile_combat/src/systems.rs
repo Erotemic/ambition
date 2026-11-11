@@ -636,7 +636,7 @@ pub fn step_projectiles(
             Entity,
             &mut BodyKinematics,
             &mut ProjectileGameplay,
-            &ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
+            &mut ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration,
             Option<&ProjectileOwner>,
             // `None` is reserved for a genuinely ownerless/environmental volley.
             Option<&AttackAllegiance>,
@@ -737,6 +737,8 @@ pub fn step_projectiles(
     // The pairs a shot's leg can enter, by live room.
     #[cfg(feature = "portal")]
     let portals_by_room = collision.portals_by_room();
+    #[cfg(feature = "portal")]
+    let portal_tuning = collision.portal_tuning();
     let tick = trace.current_tick();
 
     // Collect + sort by the GLOBAL spawn sequence (a single deterministic order
@@ -775,6 +777,8 @@ pub fn step_projectiles(
         let launch = launch.copied();
         // Named kind when the shot uses the named vocabulary; open-visual
         // volleys deliberately remain kind-less.
+        #[cfg(feature="portal")]
+        let mut acceleration=acceleration;
         let kind = kind.copied();
         // Open visual id (every spawned shot carries one; empty reads as the
         // generic look). Drives the detonation FX pick via the content-owned
@@ -841,27 +845,46 @@ pub fn step_projectiles(
         // and the segment silently describes space the shot never crossed, on the
         // road that decides who it damages. The pre-integration position is right
         // here; taking it costs a copy and removes the coincidence.
-        let leg_start = kin.pos;
-        let before = *kin;
-        let mut candidate = before;
-        let mut candidate_game = *game;
-        if !candidate_game.tick(&mut candidate, *acceleration, dt, gravity_dir) {
-            if let Some(burst) = expiry_burst {
-                outcome_fx.write(said_by(burst.request(shot_room, kin.pos), bolt_source.as_ref(),
-                ));
-            } else {
-                trace.push_event(ProjectileTraceEvent::Expired { kind }.into_trace_event(tick));
-            }
+        let mut integrated=*kin;
+        let mut aged_game=*game;
+        if !aged_game.tick(&mut integrated,*acceleration,dt,gravity_dir) {
+            if let Some(burst)=expiry_burst {
+                outcome_fx.write(said_by(burst.request(shot_room,kin.pos),bolt_source.as_ref()));
+            } else {trace.push_event(ProjectileTraceEvent::Expired {kind}.into_trace_event(tick));}
             commands.entity(proj_entity).despawn();
-            continue;
+            continue 'projectiles;
         }
-
+        #[cfg(feature="portal")]
+        let (mut leg_time,mut root_count,mut first_override)=(0.0,0,None);
+        #[cfg(not(feature="portal"))]
+        let leg_time=0.0;
+        #[cfg(feature="portal")]
+        let mut leg_candidate=integrated;
+        #[cfg(not(feature="portal"))]
+        let leg_candidate=integrated;
+        #[cfg(feature="portal")]
+        let mut hit_this_tick=false;
+        #[cfg(not(feature="portal"))]
+        let hit_this_tick=false;
+        loop {
+        let before=*kin;
+        let leg_start=before.pos;
+        let mut candidate=leg_candidate;
+        let mut candidate_game=*game;
+        candidate_game.age=aged_game.age;
+        let gravity_dir=gravity.dir_for(shot_room,before.aabb());
+        let admission=collision.motion_for(proj_entity,shot_room);
+        #[cfg(feature="portal")]
+        let admission=admission.map(|mut policy| {
+            if let Some(first)=first_override {policy.first=Some(first);}
+            policy
+        });
         let attempted_delta = candidate.pos - leg_start;
 
         // A root event ends this leg. Keep the original line and its closed
         // prefix so transit does not reconstruct time from a projected endpoint.
         #[cfg(feature = "portal")]
-        let (contact_end, travel_end, travel) = {
+        let (contact_end, travel_end, travel, root_crossing) = {
             let domain = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, before.canonical_size * 0.5));
             let map = match before.material_map() {
                 Ok(map) => map,
@@ -870,46 +893,61 @@ pub fn step_projectiles(
                     commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
                     bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?reason,
                         "projectile root map refused before commit");
-                    continue;
+                    continue 'projectiles;
                 }
             };
             let cast = ae::frame::material_cast::MaterialCast::new(
                 ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: map },
                 leg_start,
                 attempted_delta,
-                0.0..1.0,
+                leg_time..1.0,
             );
             match ambition_portal2d::first_portal_crossing_through(&cast,
-                portals_by_room.in_room(shot_room), collision.backside_of(proj_entity), 1.0) {
-                Ok(Some(hit)) => (hit.root.point, hit.root.world_time,
-                    ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.root.toi }),
-                Ok(None) => (candidate.pos, 1.0, ae::LinearTravel::Complete),
+                portals_by_room.in_room(shot_room), if root_count==0 {collision.backside_of(proj_entity)} else {None}, 1.0) {
+                Ok(Some(hit)) => (hit.root.point, hit.root.toi,
+                    ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.root.toi },Some(hit)),
+                Ok(None) => (candidate.pos, 1.0, ae::LinearTravel::Complete,None),
                 Err(refusal) => {
                     *game = candidate_game;
                     commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
                     bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
                         "projectile root crossing refused before commit");
-                    continue;
+                    continue 'projectiles;
                 }
             }
         };
         #[cfg(not(feature = "portal"))]
         let (contact_end,travel_end,travel) = (candidate.pos,1.0,ae::LinearTravel::Complete);
 
-        #[cfg(feature = "portal")]
-        if let Err(refusal) = collision.admit_motion(proj_entity, shot_room, before, BodyKinematics { pos: contact_end, ..candidate }, 0.0..1.0, travel, *acceleration) {
-            // Refused motion does not stop the projectile's lifetime.
-            *game = candidate_game;
-            commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
-            bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
-                "projectile motion refused before commit");
-            continue;
-        }
+        // Wall and recipient contacts use the same admitted source material.
+        // Build it once for this leg, before any recipient can commit a hit.
+        let source_domain = before.canonical_box();
+        let source_cells = source_domain.as_ref().map_err(|fault| ae::frame::thread::Refusal {
+            path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(*fault),
+        }).and_then(|domain| {
+            let map=before.material_map().map_err(|fault| ae::frame::thread::Refusal {
+                path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(fault),
+            })?;
+            ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
+                domain,to_world:map },before.pos,attempted_delta,leg_time..1.0)
+                .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report)
+                .prefix(travel_end)?.cells(admission)
+        }).and_then(|cells| {cells.admit_payloads(candidate.vel,&[acceleration.0])?;Ok(cells)});
+        let source_cells=match source_cells {
+            Ok(cells)=>cells,
+            Err(refusal)=>{
+                *game=candidate_game;
+                commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before,ae::Vec2::ZERO));
+                bevy::log::debug!(target:"ambition_portal::refusal",body=?proj_entity,?refusal,
+                    "projectile source contact refused before commit");
+                continue 'projectiles;
+            }
+        };
 
         candidate.pos = contact_end;
         let world_contact = match query_world_collision(
-            before, candidate, candidate_game, collision_world, gravity_dir, dt,0.0..1.0, travel,
-            collision.motion_for(proj_entity, shot_room),
+            before, candidate, candidate_game, collision_world, gravity_dir, dt,leg_time..1.0, travel,
+            admission,
         ) {
             Ok(response) => response,
             Err(refusal) => {
@@ -917,11 +955,13 @@ pub fn step_projectiles(
                 commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before, ae::Vec2::ZERO));
                 bevy::log::debug!(target: "ambition_portal::refusal", body = ?proj_entity, ?refusal,
                     "projectile contact refused before commit");
-                continue;
+                continue 'projectiles;
             }
         };
         let blocked_at = world_contact.contact.as_ref();
         let world_response;
+        #[cfg(feature="portal")]
+        let prepared_crossing;
         // `true` when an independent blocker reaches this leg no later than the
         // candidate contact — strictly earlier, or at an exact tie, which the
         // protocol awards to the wall.
@@ -940,31 +980,6 @@ pub fn step_projectiles(
                     blocked_at.and_then(|hit| match hit.collider { ae::world::MaterialCollider::Block(block) => Some(block), _ => None }),
                     Some(target_id),
                 )
-        };
-
-        // Wall and recipient contacts use the same admitted source material.
-        // Build it once for this leg, before any recipient can commit a hit.
-        let source_domain = before.canonical_box();
-        let source_cells = source_domain.as_ref().map_err(|fault| ae::frame::thread::Refusal {
-            path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(*fault),
-        }).and_then(|domain| {
-            let map=before.material_map().map_err(|fault| ae::frame::thread::Refusal {
-                path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(fault),
-            })?;
-            ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
-                domain,to_world:map },before.pos,attempted_delta,0.0..1.0)
-                .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report)
-                .prefix(travel_end)?.cells(collision.motion_for(proj_entity,shot_room))
-        });
-        let source_cells=match source_cells {
-            Ok(cells)=>cells,
-            Err(refusal)=>{
-                *game=candidate_game;
-                commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before,ae::Vec2::ZERO));
-                bevy::log::debug!(target:"ambition_portal::refusal",body=?proj_entity,?refusal,
-                    "projectile source contact refused before commit");
-                continue;
-            }
         };
 
         // Damage routed by the FIRER's real faction (the owner's), not a label on
@@ -1006,7 +1021,7 @@ pub fn step_projectiles(
             // already passed through.
             let next_leg = candidate_game.leg(candidate.vel, *acceleration);
             let rearm_hits = next_leg != candidate_game.hits_cleared_on_leg;
-            let may_touch = |target| Some(target) != owner_entity
+            let may_touch = |target| !hit_this_tick && Some(target) != owner_entity
                 && (rearm_hits || !already_hit.hit.contains(&target));
             // ⛔⛔ **WHERE IT WAS STRUCK, NOT WHERE THE TICK ENDED.** This was a
             // bare `bool`, and the splash below then used `kin.pos` — the
@@ -1254,6 +1269,55 @@ pub fn step_projectiles(
                 }
             };
 
+            #[cfg(feature="portal")]
+            {
+                let reaches_root=interception.is_none() && world_contact.contact.is_none()
+                    && (candidate_game.returns(*acceleration) || selected_body.is_none() && feature_contact.is_none());
+                let prepared=(|| -> Result<_,ae::frame::thread::Refusal> {
+                    let Some(crossing)=root_crossing.filter(|_|reaches_root) else {return Ok(None);};
+                    let numeric=|fault|ae::frame::thread::Refusal {path:vec![],link:None,
+                        reason:ae::frame::thread::RefusalReason::Numeric(fault)};
+                    let policy=admission.ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+                    let portals=portals_by_room.in_room(shot_room);
+                    let enter=ambition_portal2d::find_portal(portals,crossing.entry_channel)
+                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+                    let exit=ambition_portal2d::find_portal(portals,crossing.exit_channel)
+                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+                    let forward=policy.links.iter().find(|link|link.enter==enter.aperture() && link.exit==exit.aperture())
+                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+                    let reverse=policy.links.iter().find(|link|link.enter==exit.aperture() && link.exit==enter.aperture())
+                        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+                    if root_count>=policy.budget.max_hops {
+                        return Err(ae::frame::thread::Refusal {path:vec![],link:Some(forward.key),
+                            reason:ae::frame::thread::RefusalReason::HopLimit});
+                    }
+                    let transfer=ambition_portal2d::PortalTransfer::at_crossing(crossing,candidate.pos,candidate.vel,&portal_tuning)
+                        .map_err(numeric)?;
+                    let input_warp=ambition_portal2d::portal_input_warp_flips_horizontal_for_convention(
+                        policy.convention,transfer.enter.frame.normal,transfer.exit.frame.normal);
+                    let prepared=ambition_portal2d::PreparedPortalTransfer::new(candidate,Some(acceleration.0),transfer,input_warp)
+                        .map_err(numeric)?;
+                    let body=*prepared.body();
+                    let domain=body.canonical_box().map_err(numeric)?;
+                    let cast=ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
+                        domain:&domain,to_world:body.material_map().map_err(numeric)?,
+                    },body.pos,ae::Vec2::ZERO,crossing.root.world_time..crossing.root.world_time);
+                    ae::frame::thread::MotionAdmission {first:Some(reverse.key),..policy}.admit(cast,body.vel,
+                        &[prepared.acceleration().unwrap()])?;
+                    Ok(Some((prepared,crossing.root.world_time,reverse.key)))
+                })();
+                prepared_crossing=match prepared {
+                    Ok(prepared)=>prepared,
+                    Err(refusal)=>{
+                        *game=candidate_game;
+                        commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before,ae::Vec2::ZERO));
+                        bevy::log::debug!(target:"ambition_portal::refusal",body=?proj_entity,?refusal,
+                            "projectile root transfer refused before commit");
+                        continue 'projectiles;
+                    }
+                };
+            }
+
             // A terminal target response does not reach the later world response.
             world_response=if interception.is_none() && (candidate_game.returns(*acceleration)
                 || selected_body.is_none() && feature_contact.is_none()) {
@@ -1282,7 +1346,7 @@ pub fn step_projectiles(
                     victim.entity,AttackAllegiance::from_body(*victim.faction,victim.team,victim.driver),
                     victim.voice.map(ambition_sfx::BodyPresentationSource::id),shot_room,&mut sfx,&mut vfx) {
                     commands.entity(proj_entity).insert(ae::SweepSample {turn:None,material:before.material,
-                        travel:ae::LinearTravel::Prefix {delta:attempted_delta,until:contact.hit.toi},time:[0.0,1.0],
+                        travel:ae::LinearTravel::Prefix {delta:attempted_delta,until:contact.hit.toi},time:[leg_time,1.0],
                         prev:leg_start,curr:kin.pos,vel:kin.vel,half:kin.half_extent(),down:ae::Vec2::ZERO});
                 }
                 continue 'projectiles;
@@ -1293,7 +1357,7 @@ pub fn step_projectiles(
             // straddles the opening and the pair takes it when its centre
             // crosses. Its leg is its sweep, so a fast shot that crossed a plane
             // this tick is taken through it, not stopped on the wall behind.
-            commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel, time: [0.0, 1.0],
+            commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel, time: [leg_time, 1.0],
                 prev: leg_start,
                 curr: kin.pos,
                 vel: kin.vel,
@@ -1355,6 +1419,8 @@ pub fn step_projectiles(
                 }
                 already_hit.hit.insert(victim.entity);
                 struck_at = Some(contact.hit.point);
+                #[cfg(feature="portal")]
+                {hit_this_tick=true;}
             }
             if let Some(impact) = struck_at {
                 trace.push_event(
@@ -1385,7 +1451,7 @@ pub fn step_projectiles(
                         );
                     }
                     commands.entity(proj_entity).despawn();
-                    continue;
+                    continue 'projectiles;
                 }
             } else if let Some(contact) = feature_contact.as_ref() {
                 let direct = HitEvent {
@@ -1476,9 +1542,11 @@ pub fn step_projectiles(
                 // as many ticks as it takes to pass through, so it must remember
                 // WHOM on this leg — exactly the ledger the body branch keeps.
                 already_hit.hit.insert(contact.target);
+                #[cfg(feature="portal")]
+                {hit_this_tick=true;}
                 if !game.returns(*acceleration) {
                     commands.entity(proj_entity).despawn();
-                    continue;
+                    continue 'projectiles;
                 }
             }
         }
@@ -1489,13 +1557,14 @@ pub fn step_projectiles(
             ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.contact.toi }
         });
         game.bounces_remaining = world_response.bounces_remaining;
-        commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel: recorded_travel, time: [0.0, 1.0],
+        commands.entity(proj_entity).insert(ae::SweepSample { turn: None, material: before.material, travel: recorded_travel, time: [leg_time, 1.0],
             prev: leg_start, curr: kin.pos, vel: candidate.vel,
             half: kin.half_extent(), down: ae::Vec2::ZERO,
         });
         match world_response.outcome {
             WorldHitOutcome::Bounced { pos } => {
                 sfx.in_space(ambition_vfx::sfx_space(shot_room)).write_for_body(bolt_source.as_ref(), SfxMessage::Hit { pos });
+                continue 'projectiles;
             }
             WorldHitOutcome::Expired { pos } => {
                 if game.splash_half_extent > 0.0 {
@@ -1529,8 +1598,34 @@ pub fn step_projectiles(
                     }
                 }
                 commands.entity(proj_entity).despawn();
+                continue 'projectiles;
             }
-            WorldHitOutcome::Continue => {}
+            WorldHitOutcome::Continue => {
+                #[cfg(feature="portal")]
+                if let Some((prepared,time,first))=prepared_crossing {
+                    ambition_portal2d::commit_body_transfer(&mut commands,proj_entity,&mut kin,
+                        Some(&mut acceleration),None,prepared,portal_tuning.teleport_cooldown_s);
+                    commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(*kin,ae::Vec2::ZERO));
+                    root_count+=1;
+                    first_override=Some(first);
+                    leg_time=time;
+                    if leg_time<1.0 {
+                        leg_candidate=*kin;
+                        match ae::frame::Sim2::IDENTITY.point_from_wide(kin.pos.as_dvec2()
+                            +kin.vel.as_dvec2()*(f64::from(dt)*(1.0-leg_time))) {
+                            Ok(point)=>leg_candidate.pos=point,
+                            Err(reason)=>{
+                                bevy::log::debug!(target:"ambition_portal::refusal",body=?proj_entity,?reason,
+                                    "projectile remaining translation refused");
+                                continue 'projectiles;
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+        }
+        break;
         }
     }
 }

@@ -816,7 +816,7 @@ pub struct HitContact {
 
 impl From<&ae::frame::material_cast::SampledPieceHit> for HitContact {
     fn from(hit: &ae::frame::material_cast::SampledPieceHit) -> Self {
-        Self { time: hit.toi, point: hit.point, normal: hit.normal, target_path: hit.target_path.clone() }
+        Self { time: hit.world_time, point: hit.point, normal: hit.normal, target_path: hit.target_path.clone() }
     }
 }
 

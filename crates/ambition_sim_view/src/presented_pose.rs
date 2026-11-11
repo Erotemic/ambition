@@ -135,6 +135,11 @@ pub fn hitlag_jitter(frozen: bool, strength: f32, tick: u64, side: Vec2) -> Vec2
 }
 
 impl PresentedPose {
+    /// A pose with no history, at `pos` on tick `tick`.
+    pub fn at(pos: Vec2, tick: u64) -> Self {
+        Self::new(pos, tick)
+    }
+
     fn new(pos: Vec2, tick: u64) -> Self {
         Self {
             previous: pos,
@@ -223,6 +228,22 @@ impl PresentedPose {
         self.current = pos;
         self.tick = tick;
         self.warped = true;
+    }
+
+    /// Follow a point that is not a body's (a moving platform): take its tick
+    /// position when the tick changed, and resample it for this frame's
+    /// phase, as a feature row is ([`advance_presented_feature_poses`]). A
+    /// move of more than `leap` per tick is a jump, drawn as one, and so is a
+    /// move on the same tick (a restore).
+    pub fn follow(&mut self, pos: Vec2, tick: u64, leap: f32, phase: f32, interpolate: bool) {
+        if self.tick != tick {
+            let spanned = tick.saturating_sub(self.tick).clamp(1, u32::MAX as u64) as f32;
+            let continuous = self.current.distance(pos) <= leap.max(TRAVEL_FLOOR_PX) * spanned;
+            self.push(pos, tick, continuous, Vec2::ZERO);
+        } else if self.current != pos {
+            *self = Self::new(pos, tick);
+        }
+        self.resample(phase, interpolate);
     }
 
     /// Where to draw the body `phase` of a tick on: a tick AHEAD of the last

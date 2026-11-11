@@ -256,9 +256,19 @@ fn run_bench(max_ticks: u32, start_room: Option<String>) -> i32 {
             return 1;
         }
     };
+    let start_tick = sim.world().resource::<ambition_platformer2d::time::SimTick>().0;
+    let mut portal_query = sim.world_mut().query::<&ambition_platformer2d::portal::PlacedPortal>();
+    let mut max_portals = portal_query.iter(sim.world()).count();
+    let mut active_steps = 0;
     for _ in 0..max_ticks {
         sim.step(ambition_app::AgentAction::default());
+        max_portals = max_portals.max(portal_query.iter(sim.world()).count());
+        active_steps += usize::from(sim.world().resource::<ambition_platformer2d::time::WorldTime>().sim_dt() > 0.0);
     }
+    let sim_ticks = sim.world().resource::<ambition_platformer2d::time::SimTick>().0 - start_tick;
+    let world = sim.world_mut();
+    let bodies = world.query::<&ambition_platformer2d::actor::BodyKinematics>().iter(world).count();
+    println!("headless bench state: sim_ticks={sim_ticks} active_steps={active_steps} bodies={bodies} max_portals={max_portals}");
     println!("headless bench completed: {max_ticks} ticks");
     0
 }

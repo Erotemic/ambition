@@ -203,8 +203,26 @@ names (a 4-byte despawn row). One run, 240 frames:
 - **Spawns cost little on the link:** about 1.3 bytes a frame here, against
   85 for the body rows that carry the shots' motion. The body rows are the
   cost; delta encoding (NA-1/NA-2) is where the bytes are.
-- **Not yet exercised:** a death (a body despawned and rebuilt), spawn rows
-  for other kinds (items, debris), and sending only the guest's room.
+- **Not yet exercised:** spawn rows for other kinds (items, debris), and
+  sending only the guest's room.
+
+**A death (2026-11-11),** probe `probe_what_a_death_on_the_host_does_to_a_guest`
+(same file, ignored): an enemy (`npc_puppy_slug`, passive) is spawned beside
+Alice on the host at frame 5 with one point of health, and her shots kill it.
+The guest applies each late snapshot by the general rule: build every body
+the snapshot names and it does not hold (from a spawn row), remove every
+body it holds and the snapshot no longer names, whoever built it.
+
+- The enemy entered the host's snapshot at frame 5 and the guest built it
+  from a spawn row; the guest also built and removed the 16 shots, removed
+  none of the bodies it booted with, and its ids equalled the host's after
+  every snapshot.
+- **A death is a row change, not a despawn.** The enemy died at frame 18
+  (health 0) and its body stayed in the host's world, with its id and its
+  motion, to the end of the run (240 frames). The body row (position,
+  velocity, facing) says nothing of it, so the guest drew a living enemy.
+  The body row needs the defeat (health, or a defeated flag and pose) before
+  a guest can show a death; a despawn row is for what leaves the world.
 
 ## Next
 
@@ -212,8 +230,10 @@ names (a 4-byte despawn row). One run, 240 frames:
    spawns; the gated update is split (2026-11-11): 2.2 ms alone, nearly all
    `Update`'s 1,030 gated systems. Shots spawned and ended by `SimId`
    (2026-11-11): the guest's ids equal the host's after every snapshot, at
-   about 1.3 bytes a frame of spawn and despawn rows. Next: a guest composed
-   without the simulation plugins; a death and other kinds' spawn rows; send
+   about 1.3 bytes a frame of spawn and despawn rows. A death is a row
+   change: the killed enemy's body stays in the host's world, so the body
+   row must carry the defeat. Next: the defeat in the body row; a guest
+   composed without the simulation plugins; other kinds' spawn rows; send
    only the guest's room.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,

@@ -309,14 +309,30 @@ together. `LifeLedger` needs nothing: it is rewritten from the restored
 bodies on the next tick. The save sections follow their ledgers (the
 mirrors run after them).
 
-**Next:** a generic keyed undo log beside `RoomWrite` (a store keeps
-`Vec<(RoomWrite, K, Option<V>)>` and registers one retractor that replays
-it backwards), first on `ConsumedSinceCheckpoint` + `AuthoredOccurrences`
-with a divergent-replay witness (the coin taken in the window and not in the
-replay); then `BagSpendsSinceCheckpoint` (append, as the grants);
-`BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed). Still open
-too: the room rollback host that calls `retract_room_writes` (today only the
-tests do).
+**The first keyed customer (2026-11-10):** `ConsumedSinceCheckpoint` is
+the undo log of the occurrence ledger's terminal rows. Each record written
+from a live room (`record_consumed_pickups`, `record_ended_occurrences`,
+`open_ecs_chests`, `record_spent_breakables`) carries a `ConsumedWrite`: the
+room and tick, and the ledger row it replaced (none for a taken pickup or an
+opened chest; the `Placed` row of an ended occurrence). Its retractor
+(registered in `ambition_platformer2d_runtime/src/world_schedule.rs`) puts
+the record and the row back, newest first (`AuthoredOccurrences::restore_row`
+keeps the derived indexes). The witness is
+`a_rewound_room_untakes_the_heart_its_replay_does_not_take`
+(`game/ambition_app/tests/a_room_rewinds_alone.rs`): Alice takes the
+one-time heart in `basement_breakables` while Bob holds the hub, the room
+rewinds, and the replay does not take it; both stores forget it. Its control
+(ignored) keeps both rows; the arithmetic (an ended occurrence is `Placed`
+again, a write before the save or from another room stays) is
+`a_rewind_puts_back_the_rows_its_room_wrote_after_the_save` (items). Limits:
+the log is forgotten with the records at a committed checkpoint, so a window
+cannot reach across one, and it is not in the value checksum (as the grants'
+stamps are not): it changes no value until a rewind uses it.
+
+**Next:** `BagSpendsSinceCheckpoint` (append, as the grants);
+`BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed, each with the
+value it replaced). Still open too: the room rollback host that calls
+`retract_room_writes` (today only the tests do).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 

@@ -22,11 +22,11 @@ use ambition_platformer2d::time::GameplayElapsed;
 use crate::breakable_respawn_across_rooms::cross_to;
 use crate::common::{base, fixed_60hz_room_sim};
 
-const ROOM: &str = "basement_breakables";
+pub(crate) const ROOM: &str = "basement_breakables";
 pub(crate) const HUB: &str = "central_hub_complex";
 const HEART: &str = "regrowing heart";
 /// The heart beside it, authored `Never`: gone for the run once taken (Q154).
-const PLAIN: &str = "one-time heart";
+pub(crate) const PLAIN: &str = "one-time heart";
 const REGROW_S: f32 = 4.0;
 
 fn now(sim: &Platformer2dSimHarness) -> f32 {

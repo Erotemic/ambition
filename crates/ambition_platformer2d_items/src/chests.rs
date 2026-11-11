@@ -161,6 +161,8 @@ pub fn open_ecs_chests(
                             chest_sim_id.clone(),
                             room,
                             ambition_world_returns::owners_beside(entity, &rooms, &participants),
+                            // `spend` wrote, so the chest had no row.
+                            crate::pickups::ConsumedWrite::from_room(rooms.of(entity), tick.as_deref(), None),
                         );
                     }
                 }

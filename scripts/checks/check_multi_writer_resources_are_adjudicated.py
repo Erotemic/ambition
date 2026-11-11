@@ -492,6 +492,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_items/src/chests.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_items/src/pickups.rs",
+        "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
         "crates/ambition_platformer2d_session/src/durable_horizon.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
@@ -2072,6 +2073,13 @@ ADJUDICATED: dict[str, str] = {
         "it changes the rows only through `spend`, for a Persistent authored "
         "breakable that broke and has no whereabouts row: the entry rule still "
         "lives inside the type."
+        "⭐ 2026-11-10 (ISL-2d): the room-write retractor that "
+        "`ambition_platformer2d_runtime/src/world_schedule.rs` registers for "
+        "`ConsumedSinceCheckpoint` takes the seventh method, `restore_row(id, "
+        "row)`: when a room rewinds it puts back the row each terminal write "
+        "(`consume`, `spend`, `end`) of that room replaced after the saved tick, "
+        "from the undo log the writers stamp. It is the undo of those writers, "
+        "not a new source of rows: it writes only what one of them replaced."
     ),
     "WorldlineHistoryView2d": (
         "CORRECT — A TELEMETRY VIEW WITH ONE PUBLISHER, ONE PRUNER AND ONE DEPTH "

@@ -717,6 +717,30 @@ impl AuthoredOccurrences {
         held
     }
 
+    /// Put `sim_id`'s row back to `row` (`None`: no row), as it was before a
+    /// write a room rewind takes back (ISL-2d). The undo of [`Self::consume`],
+    /// [`Self::spend`] and [`Self::end`], keeping the derived indexes. The
+    /// mint mark is provenance, not a row, and is left as it is.
+    pub fn restore_row(&mut self, sim_id: &SimId, row: Option<OccurrenceWhereabouts>) {
+        if self.rows.get(sim_id) == row.as_ref() {
+            return;
+        }
+        let in_custody = matches!(row, Some(OccurrenceWhereabouts::InCustody));
+        let old = match &row {
+            Some(row) => Arc::make_mut(&mut self.rows).insert(sim_id.clone(), row.clone()),
+            None => Arc::make_mut(&mut self.rows).remove(sim_id),
+        };
+        self.reindex_placed(sim_id, old.as_ref(), row.as_ref());
+        if in_custody != self.custody.contains(sim_id) {
+            let custody = Arc::make_mut(&mut self.custody);
+            if in_custody {
+                custody.insert(sim_id.clone());
+            } else {
+                custody.remove(sim_id);
+            }
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()
     }

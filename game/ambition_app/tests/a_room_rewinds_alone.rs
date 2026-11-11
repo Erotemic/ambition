@@ -479,3 +479,104 @@ fn a_rewound_room_takes_back_the_grant_its_replay_writes_again() {
     assert_eq!(run.after_replay.1, run.after_pickup.1, "the replayed pickup's grant is recorded twice");
 }
 
+/// What the ledgers say of the one-time heart: (its occurrence row, whether
+/// the record of consumptions since the checkpoint names it).
+type HeartRows = (Option<String>, bool);
+
+/// ISL-2d, a keyed store: Alice takes the one-time heart (authored `Never`)
+/// in `basement_breakables` while Bob stays in the hub, so the occurrence
+/// ledger writes it `Consumed` and the record of consumptions names it. The
+/// room rewinds to before the pickup and replays WITHOUT taking it: the
+/// corrected input differs, as a late input's does. Returns the rows at N,
+/// after the pickup, and after the replay.
+fn a_heart_taken_only_before_the_rewind(retract: bool) -> [HeartRows; 3] {
+    use crate::pickup_regrowth_across_rooms::{collect, HUB, PLAIN, ROOM as HEART_ROOM};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        HEART_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    let heart = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::FeatureName, &SimId)>()
+            .iter(world)
+            .find(|(name, _)| name.0.as_str() == PLAIN)
+            .map(|(_, sim_id)| sim_id.clone())
+            .expect("the room authors the one-time heart")
+    };
+    let read = |sim: &Platformer2dSimHarness| -> HeartRows {
+        let world = sim.world();
+        (
+            world
+                .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+                .whereabouts(&heart)
+                .map(|row| format!("{row:?}")),
+            world
+                .resource::<ambition_platformer2d::item_runtime::pickups::ConsumedSinceCheckpoint>()
+                .owners(&heart)
+                .is_some(),
+        )
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_rows = read(&sim);
+
+    collect(&mut sim, PLAIN);
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let after_pickup = read(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    // The replay: Alice stands still, away from the heart.
+    for _ in 0..20 {
+        sim.app_mut().update();
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = read(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_rows, after_pickup, after_replay]
+}
+
+/// ISL-2d: a room that rewinds puts back the terminal rows it wrote after the
+/// tick it was saved at, so a pickup taken only in the mispredicted future is
+/// not remembered taken. Its control is the same run without the retraction.
+#[test]
+fn a_rewound_room_untakes_the_heart_its_replay_does_not_take() {
+    let [at_n, after_pickup, after_replay] = a_heart_taken_only_before_the_rewind(true);
+    assert_eq!(at_n, (None, false), "premise: the heart is untaken at N");
+    assert_eq!(after_pickup, (Some("Consumed".into()), true), "premise: the pickup writes both ledgers");
+    assert_eq!(after_replay, (None, false), "the replay did not take the heart, and the ledgers still say it did");
+}
+
+/// The control: without the retraction the rows written in the window stay,
+/// although the replay did not take the heart. Run it beside the witness when
+/// the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_untaken_heart_stays_taken() {
+    let [_, _, after_replay] = a_heart_taken_only_before_the_rewind(false);
+    assert_eq!(after_replay, (Some("Consumed".into()), true), "the rows went without the retraction");
+}

@@ -6,7 +6,7 @@
 //! plus the complete world-space acceleration for the body tick. It never lives
 //! inside a model spec and is never rebuilt by an individual solver.
 
-use crate::collision_semantics::{supporting_block, Contact, ContactKind};
+use crate::collision_semantics::{Contact, ContactKind};
 use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
 
 use super::adhesive_crawler;
@@ -402,11 +402,11 @@ pub(super) fn establish_axis_ground_contact_baseline(
     world: &World,
     clusters: &mut BodyClustersMut<'_>,
     frame: MotionFrame,
-) -> GroundContactBaseline {
-    let body = clusters.kinematics.aabb();
-    let sampled_grounded = supporting_block(world, body, frame.down(), false).is_some()
-        || crate::walkable_lines::stood_on_line(world, body, frame.down()).is_some();
-    establish_ground_contact_baseline_from_sample(clusters, sampled_grounded, frame)
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<GroundContactBaseline, crate::frame::thread::Refusal> {
+    let sampled_grounded = if clusters.ground.contact_initialized { false }
+        else { super::collision::material_support_at_rest(world, clusters, frame.down(), admission)? };
+    Ok(establish_ground_contact_baseline_from_sample(clusters, sampled_grounded, frame))
 }
 
 /// Hand a pending launch to whichever model owns this body's velocity.

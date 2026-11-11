@@ -131,6 +131,7 @@ pub(super) fn integrate_velocity_clusters(
     events: &mut FrameEvents,
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) {
+    let mut admission = admission;
     use crate::player_state::BodyMode;
 
     let climbing = clusters.body_mode.body_mode == BodyMode::Climbing
@@ -277,7 +278,7 @@ pub(super) fn integrate_velocity_clusters(
                 drop_through,
                 frame.down(),
                 contacts,
-                admission,
+                &mut admission,
                 &mut refusal,
             ));
         };
@@ -440,27 +441,6 @@ pub(super) fn integrate_velocity_clusters(
         }
     }
 
-    // A SOLID OUTLINE IS SOLID. What a portal pair carries of a block it
-    // turns is that block's true shape (`SurfaceKind::Solid`), which a box
-    // cannot be: a body that ends its sweeps in one is put out the shortest
-    // way and loses the speed it had into it; put out upward, it stands
-    // (`crate::solid_lines`). A world with no outline, which is every world
-    // but a body's in a turning pair, finds none.
-    {
-        let g = frame.down();
-        let body = clusters.kinematics.aabb();
-        if let Some((moved, normal)) = crate::solid_lines::put_out_of_solid_lines(world, body) {
-            clusters.kinematics.pos += moved;
-            let into = clusters.kinematics.vel.dot(normal);
-            if into < 0.0 {
-                clusters.kinematics.vel -= normal * into;
-            }
-            if normal.dot(-g) >= crate::walkable_lines::WALK_SLOPE_LIMIT_DEG.to_radians().cos() {
-                clusters.ground.on_ground = true;
-            }
-        }
-    }
-
     // ⛔ A BODY WITH A BALANCE STANDS BY ITS CENTRE (`crate::Balance`). After
     // every pass that may put it on the ground (the sweeps and their repair,
     // the receding snap, the lines, the solid outlines) and before the carry,
@@ -508,7 +488,7 @@ pub(super) fn integrate_velocity_clusters(
                     drop_through,
                     g,
                     &mut events.contacts,
-                    admission,
+                    &mut admission,
                     &mut refusal,
                 ));
             }

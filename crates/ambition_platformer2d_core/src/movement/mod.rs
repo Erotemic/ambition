@@ -115,8 +115,6 @@ pub use tuning::{
     SPOT_DODGE_TIME, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 
-#[cfg(test)]
-use collision::body_is_side_contact;
 
 /// Frame-explicit axis-swept control phase — kernel-private. The current
 /// acceleration frame is supplied by the environment, never read from or
@@ -814,7 +812,10 @@ pub(crate) fn update_body_with_frame_clusters(
     let state = &mut axis.state;
     // A body may be freshly constructed, or the control phase may perform a discrete transit
     // (blink) that invalidates the departure contact.
-    let entry_baseline = kernel::establish_axis_ground_contact_baseline(world, clusters, frame);
+    let entry_baseline = match kernel::establish_axis_ground_contact_baseline(world, clusters, frame, admission) {
+        Ok(baseline) => baseline,
+        Err(reason) => return FrameEvents { motion_refusal: Some(reason), ..Default::default() },
+    };
     let control_dt = if input.control_dt > 0.0 {
         input.control_dt
     } else {
@@ -833,7 +834,10 @@ pub(crate) fn update_body_with_frame_clusters(
     let baseline = if clusters.ground.contact_initialized {
         entry_baseline
     } else {
-        kernel::establish_axis_ground_contact_baseline(world, clusters, frame)
+        match kernel::establish_axis_ground_contact_baseline(world, clusters, frame, admission) {
+            Ok(baseline) => baseline,
+            Err(reason) => return FrameEvents { motion_refusal: Some(reason), ..Default::default() },
+        }
     }
     .with_impact_velocity(clusters.kinematics.vel, frame)
     // BEFORE the simulation half, which is where `tick_knockdown` clears the

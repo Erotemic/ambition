@@ -63,23 +63,39 @@ struct Link {
     depth: Option<f64>,
 }
 impl Link {
+    fn plane_specs(&self) -> impl Iterator<Item = (DVec2, f64)> + '_ {
+        [(-self.normal, -self.normal.dot(self.origin)),
+            (self.tangent, self.tangent.dot(self.origin) - self.half),
+            (-self.tangent, -self.tangent.dot(self.origin) - self.half)]
+            .into_iter().chain(self.depth.map(|depth| (self.normal, self.normal.dot(self.origin) - depth)))
+    }
+
     fn planes(&self, cell: &MaterialCell) -> Vec<MovingPlane> {
-        let pull = |inward: DVec2, offset: f64| MovingPlane {
+        self.plane_specs().map(|(inward, offset)| MovingPlane {
             plane: MaterialPlane {
                 inward: cell.map.inverse_direction_wide(inward),
                 offset: (offset - inward.dot(cell.map.translation())) / cell.map.scale_wide(),
             },
             rate: inward.dot(self.shift - cell.travel) / cell.map.scale_wide(),
-        };
-        let mut planes = vec![
-            pull(-self.normal, -self.normal.dot(self.origin)),
-            pull(self.tangent, self.tangent.dot(self.origin) - self.half),
-            pull(-self.tangent, -self.tangent.dot(self.origin) - self.half),
-        ];
-        if let Some(depth) = self.depth {
-            planes.push(pull(self.normal, self.normal.dot(self.origin) - depth));
-        }
-        planes
+        }).collect()
+    }
+
+    fn fits_column(&self, body: &crate::CombatVolume, cell: &MaterialCell) -> bool {
+        let bounds = body.bounds();
+        let min = crate::Vec2::new(bounds.min.x.next_down(), bounds.min.y.next_down());
+        let max = crate::Vec2::new(bounds.max.x.next_up(), bounds.max.y.next_up());
+        let corners = [min, crate::Vec2::new(max.x, min.y), max, crate::Vec2::new(min.x, max.y)];
+        corners.into_iter().all(|point| [cell.time.start, cell.time.end].into_iter().all(|time| {
+            let relative = cell.map.point_wide(point.as_dvec2()) - self.origin
+                + (cell.travel - self.shift) * time;
+            relative.dot(self.tangent).abs() <= self.half
+        }))
+    }
+
+    fn world_planes(&self) -> Vec<MovingPlane> {
+        self.plane_specs().map(|(inward, offset)| MovingPlane {
+            plane: MaterialPlane { inward, offset }, rate: inward.dot(self.shift),
+        }).collect()
     }
 }
 
@@ -205,6 +221,7 @@ pub(super) fn build(
     let first = Work {
         cell: MaterialCell {
             path: vec![],
+            world_planes: vec![],
             curve:None,
             map: cast.material.to_world,
             travel: cast.delta.as_dvec2(),
@@ -343,6 +360,18 @@ pub(super) fn build(
             }
         }
         let Some((i, planes, active)) = next else {
+            let mut cell = cell;
+            // A fitted source remains in the entry's front cell before first
+            // touch. Keep that spatial boundary through the topology event.
+            for (index, link) in links.iter().enumerate() {
+                if cut.contains(&link.key) { continue; }
+                let rank = ranks[index];
+                if forced != Some(link.key) && rank.at(cell.time.start).min(rank.at(cell.time.end)) <= 0.0 { continue; }
+                if link.fits_column(cast.material.domain, &cell) {
+                    cell.planes.push(flip(link.planes(&cell)[0]));
+                    cell.world_planes.push(flip(link.world_planes()[0]));
+                }
+            }
             out.push(cell);
             continue;
         };
@@ -370,36 +399,30 @@ pub(super) fn build(
             return Err(fail(Some(link.key), RefusalReason::ScaleLimit));
         }
         let numeric = |e| fail(Some(link.key), RefusalReason::Numeric(e));
-        let mut candidates = vec![
-            vec![flip(planes[0])],
-            vec![planes[0], flip(planes[1])],
-            vec![planes[0], flip(planes[2])],
+        let candidates: [&[(usize, bool)]; 4] = [
+            &[(0, true)], &[(0, false), (1, true)], &[(0, false), (2, true)],
+            &[(1, false), (2, false), (3, true)],
         ];
-        if planes.len() == 4 {
-            candidates.push(vec![planes[1], planes[2], flip(planes[3])]);
-        }
+        let world_planes = link.world_planes();
         let mut children = Vec::new();
         let mut stay_cut = cut;
         stay_cut.push(link.key);
-        for more in candidates {
+        for cuts in candidates.iter().take(if planes.len() == 4 { 4 } else { 3 }) {
             let mut stay = cell.clone();
-            stay.planes.extend(more);
-            if let Some(time) =
-                super::temporal::closure(cast.material.domain, &stay.planes, stay.time.clone())
-                    .map_err(numeric)?
-            {
+            stay.planes.extend(cuts.iter().map(|&(index, inverse)| if inverse { flip(planes[index]) } else { planes[index] }));
+            stay.world_planes.extend(cuts.iter().map(|&(index, inverse)| if inverse { flip(world_planes[index]) } else { world_planes[index] }));
+            if let Some(time) = super::temporal::closure(cast.material.domain, &stay.planes, stay.time.clone()).map_err(numeric)? {
                 stay.time = time;
-                children.push(Work {
-                    cell: stay,
-                    root,
-                    forced: None,
-                    cut: stay_cut.clone(),
-                });
+                children.push(Work { cell: stay, root, forced: None, cut: stay_cut.clone() });
             }
         }
         let mut carried = cell.clone();
         carried.time = active;
         carried.planes.extend(planes);
+        carried.world_planes.extend(world_planes);
+        carried.world_planes = carried.world_planes.into_iter()
+            .map(|plane| super::carry_plane(plane, link.map, link.travel))
+            .collect::<Result<Vec<_>, _>>().map_err(numeric)?;
         carried.path.push(link.key);
         carried.map = cell.map.then(link.map).map_err(numeric)?;
         carried.travel = link.map.direction_wide(cell.travel) * link.map.scale_wide() + link.travel;

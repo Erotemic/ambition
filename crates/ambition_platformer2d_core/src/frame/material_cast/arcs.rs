@@ -526,6 +526,58 @@ impl CurveCell {
         self.scene.pull(state, aperture, n, aperture.half, half)
     }
 
+    fn world_planes(&self, time: &Range<f64>) -> Result<Vec<super::translation::MovingPlane>, NumericFault> {
+        if self.path.iter().any(|&index| {
+            let link = self.scene.links[index];
+            link.enter_step.turn != 0.0 || link.exit_step.turn != 0.0
+        }) { return Ok(Vec::new()); }
+        let (middle, half) = crate::frame::interval_center(time);
+        let (states, poses) = self.scene.states(&self.path, middle, half)?;
+        let origin = (0..self.scene.links.len()).map(|i| self.scene.pose(i, 0.0))
+            .collect::<Result<Vec<_>, _>>()?;
+        let suffix = |stage: usize| -> Result<(Sim2, DVec2), NumericFault> {
+            let (mut map, mut travel) = (Sim2::IDENTITY, DVec2::ZERO);
+            for &index in &self.path[stage..] {
+                let pose = origin[index];
+                travel = pose.map.direction_wide(travel) * pose.map.scale_wide() + pose.velocity;
+                map = map.then(pose.map)?;
+            }
+            Ok((map, travel))
+        };
+        let mut out = Vec::new();
+        for &clause in &self.clauses {
+            let link = self.scene.links[clause.link];
+            if link.enter_step.turn != 0.0 { continue; }
+            // Stay(0) can omit its cut when the reference is not eligible.
+            if matches!(clause.kind, Kind::Stay(0))
+                && self.scene.condition(clause, states[clause.stage], &poses, half) != Truth::Yes { continue; }
+            let pose = origin[clause.link];
+            let (map, travel) = suffix(clause.stage)?;
+            for (inward, constant) in selected_planes(clause.kind, pose.enter.normal,
+                pose.enter.tangent(), pose.enter.half, link.depth.map(f64::from)) {
+                let plane = super::translation::MovingPlane {
+                    plane: MaterialPlane { inward, offset: inward.dot(pose.enter.origin) + constant },
+                    rate: inward.dot(pose.enter.origin_velocity()),
+                };
+                out.push(super::carry_plane(plane, map, travel)?);
+            }
+        }
+        let state = *states.last().unwrap();
+        for &hole in &self.holes {
+            let link = self.scene.links[hole.link];
+            if (if hole.exit { link.exit_step.turn } else { link.enter_step.turn }) != 0.0 { continue; }
+            if hole.side == 0 && self.hole_condition(hole, state, &poses, half) != Truth::Yes { continue; }
+            let pose = origin[hole.link];
+            let aperture = if hole.exit { pose.exit } else { pose.enter };
+            let inward = aperture.tangent() * if hole.side == 0 { -1.0 } else { 1.0 };
+            out.push(super::translation::MovingPlane {
+                plane: MaterialPlane { inward, offset: inward.dot(aperture.origin) + aperture.half },
+                rate: inward.dot(aperture.origin_velocity()),
+            });
+        }
+        Ok(out)
+    }
+
     fn affine_planes(
         &self,
         time: &Range<f64>,
@@ -647,14 +699,16 @@ impl CurveCell {
                 let affine = curve
                     .affine_planes(&cell.time)
                     .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+                let world_planes = curve.world_planes(&cell.time)
+                    .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
                 Ok(match affine {
                     Some(planes) => MaterialCell {
-                        planes,
+                        planes, world_planes,
                         curve: None,
                         ..cell.clone()
                     },
                     None => MaterialCell {
-                        curve: Some(Arc::new(curve)),
+                        world_planes, curve: Some(Arc::new(curve)),
                         ..cell.clone()
                     },
                 })
@@ -1272,9 +1326,11 @@ pub(super) fn build(
                 .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
             let travel = curve.velocity(DVec2::ZERO, 0.0)
                 .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+            let world_planes = curve.world_planes(&time)
+                .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
             Ok(match affine {
-                Some(planes) => MaterialCell { path, map, travel, planes, time, curve: None },
-                None => MaterialCell { path, map, travel: DVec2::ZERO,
+                Some(planes) => MaterialCell { path, map, travel, planes, world_planes, time, curve: None },
+                None => MaterialCell { path, map, world_planes, travel: DVec2::ZERO,
                     planes: Vec::new(), time, curve: Some(Arc::new(curve)) },
             })
         })

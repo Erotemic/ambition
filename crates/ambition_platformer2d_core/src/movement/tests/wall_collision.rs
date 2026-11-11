@@ -1,6 +1,5 @@
 //! One-way platforms, wall-jump catapult guards, wall-cling y-sweep
-//! teleport guards, top-corner landing, and the `body_is_side_contact`
-//! predicate that the y-sweep / vertical resolver share.
+//! teleport guards and top-corner landing.
 
 use super::super::*;
 use super::{step_scratch, test_world};
@@ -9,7 +8,7 @@ use crate::geometry::AabbExt;
 #[allow(unused_imports)]
 use crate::test_support::*;
 use crate::world::Block;
-use crate::{Aabb, AbilitySet, Vec2, World};
+use crate::{AbilitySet, Vec2, World};
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> BodyClusterScratch {
     BodyClusterScratch::new_with_abilities(spawn, abilities)
@@ -439,54 +438,6 @@ fn descending_onto_top_corner_of_tall_block_lands_normally() {
     );
 }
 
-/// Direct unit test of `body_is_side_contact`. Both `sweep_player_y`
-/// and `resolve_vertical` consult it to avoid the wall-cling teleport
-/// class.
-#[test]
-fn body_is_side_contact_classifies_walls_vs_floors() {
-    // Player about to land on a wide floor.
-    let body = Aabb::new(Vec2::new(50.0, 100.0), Vec2::new(14.0, 23.0));
-    let floor = Aabb::new(Vec2::new(80.0, 125.0), Vec2::new(60.0, 6.0));
-    assert!(
-        !body_is_side_contact(body, floor),
-        "player about to land on a wide floor must NOT be classified as a side contact"
-    );
-
-    // Tall left wall, body fully alongside it.
-    let wall = Aabb::new(Vec2::new(18.0, 450.0), Vec2::new(18.0, 450.0));
-    let body_alongside_edge = Aabb::new(Vec2::new(36.0 + 14.0, 450.0), Vec2::new(14.0, 23.0));
-    assert!(
-        body_is_side_contact(body_alongside_edge, wall),
-        "body alongside a tall wall (edge-touching on x) must be a side contact"
-    );
-
-    // Same wall, body penetrating by 1 px on x.
-    let body_inside_wall = Aabb::new(Vec2::new(36.0 + 14.0 - 1.0, 450.0), Vec2::new(14.0, 23.0));
-    assert!(
-        body_is_side_contact(body_inside_wall, wall),
-        "body penetrating a tall wall on x is still a side contact"
-    );
-
-    // Player landing on the top corner of a tall block (small x overlap).
-    let pillar = Aabb::new(Vec2::new(900.0, 800.0), Vec2::new(40.0, 200.0));
-    let body_landing_on_pillar = Aabb::new(
-        Vec2::new(900.0 - 40.0 + 5.0, 600.0 - 23.0 + 1.0),
-        Vec2::new(14.0, 23.0),
-    );
-    assert!(
-        !body_is_side_contact(body_landing_on_pillar, pillar),
-        "descending onto the top edge of a tall block (slight x overlap, body.top above block.top) must NOT be classified as a side contact"
-    );
-
-    // Player jumping up into a thick ceiling block.
-    let ceiling = Aabb::new(Vec2::new(900.0, 200.0), Vec2::new(400.0, 100.0));
-    let body_under_ceiling = Aabb::new(Vec2::new(900.0, 300.0 + 23.0 - 1.0), Vec2::new(14.0, 23.0));
-    assert!(
-        !body_is_side_contact(body_under_ceiling, ceiling),
-        "rising into a thick ceiling (body.bottom poking past block.bottom) must NOT be classified as a side contact"
-    );
-}
-
 /// The old overlap-depth de-penetration heuristic ejected a deeply-penetrating body hundreds of px
 /// in X -- out the ceiling's far edge, into the border wall / past the world -- which the OOB
 /// detector flagged as "inside solid" / "outside world (y)" in the fly-into-ceiling traces.
@@ -695,7 +646,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         false,
         gravity_dir,
         &mut Vec::new(),
-    None, &mut None,);
+    &mut None, &mut None,);
     let after = scratch.kinematics.pos;
     assert!(
         after.x < 1100.0,
@@ -1179,7 +1130,7 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
                 false,
                 gravity_dir,
                 &mut Vec::new(),
-            None, &mut None,)
+            &mut None, &mut None,)
         };
     let from_ceiling_first = conflict(vec![ceiling(), platform()])
         .expect("a 32px gap cannot hold a 48px body — the axis must report no feasible position");
@@ -1291,7 +1242,7 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
                 false,
                 gravity_dir,
                 &mut Vec::new(),
-            None, &mut None,)
+            &mut None, &mut None,)
         };
     assert_eq!(
         conflict(vec![floor(), step()]),
@@ -1566,4 +1517,162 @@ fn a_jump_beside_stacked_wall_blocks_is_not_a_ceiling_hit() {
             }
         }
     }
+}
+
+#[test]
+fn stationary_material_uses_far_side_support_and_repair() {
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame,
+        thread::{MotionAdmission, PieceBudget, PortalLink}};
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), -Vec2::Y), half_length: 40.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 100.0), Vec2::Y), half_length: 40.0 };
+    let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
+    let world = World::new("stationary material", Vec2::splat(2000.0), Vec2::ZERO, vec![
+        Block::solid("source floor", Vec2::new(0.0, 300.0), Vec2::new(400.0, 40.0)),
+        Block::solid("far shelf", Vec2::new(550.0, 106.0), Vec2::new(100.0, 20.0)),
+    ]);
+    for penetration in [0.0, 2.0] {
+        let mut body = scratch_with(AbilitySet::sandbox_all(), Vec2::new(100.0, 290.0 + penetration));
+        body.kinematics.canonical_size = Vec2::splat(32.0);
+        body.kinematics.vel = Vec2::ZERO;
+        let mut contacts = Vec::new();
+        let mut refusal = None;
+        let conflict = super::super::collision::sweep_player_axis_clusters(&world,
+            &mut body.kinematics, &mut body.ground, &mut body.wall, &body.body_mode,
+            &body.env_contact, crate::collision_semantics::Axis::Y, 0.0, 306.0, false,
+            Vec2::Y, &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(0),
+                budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }), &mut refusal);
+        assert!(refusal.is_none(), "{refusal:?}");
+        assert!(conflict.is_none(), "{conflict:?}");
+        assert_eq!(body.kinematics.pos, Vec2::new(100.0, 290.0), "penetration {penetration}");
+        assert!(body.ground.on_ground);
+        assert!(contacts.iter().any(|contact| contact.kind == crate::collision_semantics::ContactKind::Support
+            && contact.point.y == 306.0));
+        body.ground.invalidate();
+        let (_, mut clusters) = body.parts();
+        let baseline = super::super::kernel::establish_axis_ground_contact_baseline(&world, &mut clusters,
+            crate::MotionFrame::from_direction(Vec2::Y, 900.0), Some(MotionAdmission { links: &links, first: Some(0),
+                budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection })).unwrap();
+        assert!(matches!(baseline.transition_to(true), crate::GroundContactTransition::InitializedGrounded),
+            "a fresh body on far-side support must not report another landing");
+    }
+}
+
+#[test]
+fn an_axis_crossing_keeps_its_source_chart_until_rebase() {
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame,
+        thread::{MotionAdmission, PieceBudget, PortalLink}};
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 100.0), -Vec2::X), half_length: 40.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 100.0), Vec2::X), half_length: 40.0 };
+    let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
+    let world = World::new("root crossing", Vec2::splat(2000.0), Vec2::ZERO, vec![
+        Block::solid("entry back", Vec2::new(100.0, 0.0), Vec2::new(16.0, 200.0)),
+        Block::solid("exit back", Vec2::new(584.0, 0.0), Vec2::new(16.0, 200.0)),
+    ]);
+    let mut body = scratch_with(AbilitySet::sandbox_all(), Vec2::new(80.0, 100.0));
+    body.kinematics.canonical_size = Vec2::splat(16.0);
+    body.kinematics.vel = Vec2::X * 50.0;
+    let mut refusal = None;
+    let mut admission = Some(MotionAdmission { links: &links, first: None,
+        budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection });
+    super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
+        &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
+        crate::collision_semantics::Axis::X, 50.0, 108.0, false, Vec2::Y,
+        &mut Vec::new(), &mut admission, &mut refusal);
+    assert!(refusal.is_none(), "{refusal:?}");
+    assert_eq!(body.kinematics.pos, Vec2::new(130.0, 100.0));
+}
+
+#[test]
+fn transverse_motion_keeps_its_speed_after_canonical_floor_repair() {
+    let world = World::new("rounded floor", Vec2::splat(2000.0), Vec2::ZERO, vec![
+        Block::solid("floor", Vec2::new(0.0, 896.0), Vec2::new(2000.0, 40.0)),
+    ]);
+    for sign in [-1.0, 1.0] {
+        let mut body = scratch_with(AbilitySet::sandbox_all(), Vec2::new(1000.0, 872.0));
+        body.kinematics.canonical_size = Vec2::new(30.065935, 48.000004);
+        body.kinematics.vel = Vec2::X * (600.0 * sign);
+        let mut refusal = None;
+        super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
+            &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
+            crate::collision_semantics::Axis::X, 10.0 * sign, 896.0, false, Vec2::Y,
+            &mut Vec::new(), &mut None, &mut refusal);
+        assert!(refusal.is_none(), "{refusal:?}");
+        assert_eq!(body.kinematics.pos.x, 1000.0 + 10.0 * sign);
+        assert_eq!(body.kinematics.vel.x, 600.0 * sign);
+        assert!(f64::from(body.kinematics.pos.y) + f64::from(body.kinematics.canonical_size.y) * 0.5 <= 896.0);
+    }
+}
+
+#[test]
+fn portal_host_boundaries_do_not_gain_solid_area_after_chart_projection() {
+    use crate::frame::{BodyMaterial, MapConvention, PortalAperture, PortalFrame,
+        thread::{MotionAdmission, PieceBudget, PortalLink}};
+    let a = PortalAperture { frame: PortalFrame::fixed(Vec2::new(300.0, 896.0), -Vec2::Y), half_length: 46.0 };
+    let b = PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 896.0), -Vec2::Y), half_length: 46.0 };
+    let mut remote = PortalLink::new(
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(1500.0, 300.0), -Vec2::X), half_length: 40.0 },
+        PortalAperture { frame: PortalFrame::fixed(Vec2::new(1800.0, 200.0), Vec2::X), half_length: 40.0 }, 2);
+    remote.enter_step = crate::frame::ApertureStep::ending_at(remote.enter.frame, Vec2::ZERO, 0.25);
+    let links = [PortalLink::new(a, b, 0), PortalLink::new(b, a, 1), remote];
+    let world = World::new("floor boundary", Vec2::splat(2000.0), Vec2::ZERO, vec![
+        Block::solid("floor", Vec2::new(0.0, 896.0), Vec2::new(2816.0, 64.0)),
+    ]);
+    let values: [f64; 5] = [1.0, 0.41614693139425274, -0.9092973834181797, 0.9092973834181797, 0.41614693139425274];
+    let bytes: Vec<u8> = values.into_iter().flat_map(f64::to_le_bytes).collect();
+    let mut material: BodyMaterial = crate::snapshot::decode_state(&bytes).unwrap();
+    for turn in 0..24 {
+      for y in [871.25006, 878.75006, 879.37506, 883.12506, 886.87506, 890.62506] {
+        let mut body = scratch_with(AbilitySet::sandbox_all(), Vec2::new(607.25, y));
+        body.kinematics.canonical_size = Vec2::new(30.065935, 48.000004);
+        body.kinematics.material = material;
+        let before = body.kinematics;
+        let mut contacts = Vec::new();
+        let mut refusal = None;
+        super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
+            &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
+            crate::collision_semantics::Axis::Y, 0.0, 920.0, false, Vec2::Y,
+            &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(1),
+                budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation }), &mut refusal);
+        assert!(refusal.is_none(), "{refusal:?}");
+        assert!(!body.ground.on_ground, "turn {turn}, y {y}: {contacts:?}");
+        assert_eq!(body.kinematics, before);
+        let domain = body.kinematics.canonical_box().unwrap();
+        let cast = crate::frame::material_cast::MaterialCast::new(crate::frame::thread::MaterialPrimitive {
+            domain: &domain, to_world: body.kinematics.material_map().unwrap(),
+        }, body.kinematics.pos, Vec2::Y * 0.625, 0.0..1.0);
+        for link_count in [2, 3] {
+            let cells = cast.clone().cells(Some(MotionAdmission { links: &links[..link_count], first: Some(1),
+                budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation })).unwrap();
+            let hit = world.first_material_contact(&cells, |_, _, _| Ok(true)).unwrap();
+            assert!(hit.is_none(), "links {link_count}, turn {turn}, y {y}: {hit:?}; cells {:?}", cells.parts());
+        }
+      }
+      material = material.turned(8.0 * f64::from(1.0_f32 / 60.0)).unwrap();
+    }
+}
+
+#[test]
+fn an_axis_body_can_cross_a_portal_in_a_ground_line() {
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame,
+        thread::{MotionAdmission, PieceBudget, PortalLink}};
+    let a = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), -Vec2::Y), half_length: 40.0 };
+    let b = PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 100.0), Vec2::Y), half_length: 40.0 };
+    let links = [PortalLink::new(a, b, 0), PortalLink::new(b, a, 1)];
+    let mut world = World::new("line host", Vec2::splat(2000.0), Vec2::ZERO, vec![]);
+    world.chains.push(crate::SurfaceChain::open("floor", vec![Vec2::new(0.0, 300.0), Vec2::new(400.0, 300.0)]));
+    let mut body = scratch_with(AbilitySet::default(), Vec2::new(100.0, 260.0));
+    body.kinematics.canonical_size = Vec2::splat(32.0);
+    for _ in 0..30 {
+        let (model, mut clusters) = body.parts();
+        let result = step_motion(model, &mut clusters, MotionStepContext {
+            admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+                convention: MapConvention::Reflection }), world: &world,
+            input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 900.0),
+            facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
+            pose_owned_externally: false, recovery_commitment_outstanding: false,
+        });
+        assert!(result.events.motion_refusal.is_none(), "{:?}", result.events.motion_refusal);
+        if body.kinematics.pos.y >= 300.0 { return; }
+    }
+    panic!("the line host stopped admitted material: {:?}", body.kinematics);
 }

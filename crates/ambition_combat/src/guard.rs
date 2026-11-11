@@ -179,7 +179,7 @@ impl DeflectChart {
     }
 }
 
-/// The contact chart and both root charts, retained from exact guard contact.
+/// The contact chart and both root charts, retained from the meeting pieces.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DeflectContact {
     pub point: ae::Vec2,
@@ -240,7 +240,7 @@ pub struct DeflectedBodyHit {
     pub hitbox: Entity,
     /// Which of the defender's guards turned it.
     pub guard: u8,
-    /// The exact contact and its chart conversions.
+    /// The contact position and its chart conversions.
     pub contact: DeflectContact,
     /// The strike's damage, for a guard that breaks under a heavy one.
     pub damage: i32,

@@ -270,3 +270,13 @@ Owner, app and replay checks pass after room-state merge `09f0afbc4`. The
 [facing receipt](../ambition_dev_measurements/summaries/portal-material-facing-20261111.md)
 records the broad source checks, merged integration checks and focused Sanic
 loop result. Full workspace, device, performance and PSIM acceptance remain open.
+
+
+`16d3d2ff6` carries the meeting strike and guard charts into deflect response.
+Guard speed units follow canonical material; response is relative to the
+guarded body and returns through each path's velocity map. Both launches are
+prepared before state changes. Owner, Warden, reverse/replay, Smash, policy
+and warnings pass. App, Warden and schemas pass after merge `10b07aef7`.
+The [guard receipt](../ambition_dev_measurements/summaries/portal-guard-material-20261111.md)
+keeps the midpoint position estimate, swept-contact work and broader open
+scope explicit.

@@ -30,7 +30,7 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 
 Full PSIM acceptance remains open: general remaining-time continuation,
 complete projectile/hurt contact, including moving targets and other surviving
-contact responses, other movement models, remaining guard consumers, attachments, the
+contact responses, other movement models, swept guard contact and response, attachments, the
 bounded numeric law and fault effects, and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
@@ -1374,3 +1374,19 @@ actor (600), Smash (73 active) and the assembled app check pass. The
 [facing receipt](../../../dev/ambition_dev_measurements/summaries/portal-material-facing-20261111.md)
 records scope. This closes these contact-facing writes; the open physical
 integration and acceptance work listed above remains open.
+
+
+### Guard response charts — 2026-11-11
+
+`16d3d2ff6` retains the strike and guard charts for deflect response. Both
+launches use the guard's contact-frame velocity and canonical speed units,
+then return to their own root frames. Durations do not scale. Both launches
+are prepared before body, move or guard state changes. Do not infer a carried
+guard response from root positions in different charts. Source owner, app,
+reverse/replay, Smash, policy and warning checks pass. After merge `10b07aef7`,
+the app, Warden and schema checks pass. The
+[guard receipt](../../../dev/ambition_dev_measurements/summaries/portal-guard-material-20261111.md)
+records scope. The overlap midpoint estimate stays in place; swept contact
+time/point and root-epoch reception remain open. General motion continuation,
+other motion models, attachments, numeric fault effects, device/performance
+and full PSIM acceptance remain open.

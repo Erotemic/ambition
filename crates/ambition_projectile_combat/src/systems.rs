@@ -72,6 +72,7 @@ fn commit_parried_shot(
 /// Emits [`ProjectileSpawnRequest`]; [`step_projectiles`] owns flight.
 #[allow(clippy::too_many_arguments)]
 pub fn charge_projectile_input(
+    births: ambition_projectiles::ProjectileBirth,
     world_time: Res<ambition_time::WorldTime>,
     // Per-BODY projectile state lives on the charge-capable body itself. Iterates
     // every such body so co-op / possession builds get one independent charge timer.
@@ -180,6 +181,7 @@ pub fn charge_projectile_input(
         let mut firing = Firing {
             owner: body_entity,
             origin_of: &origin_of,
+            admit: &|body| births.prepare(body_entity, kin.pos, body),
             flight: fireball_flight.of(body_entity).copied(),
             local_dir,
             to_world: &to_world,
@@ -305,6 +307,7 @@ pub fn charge_projectile_input(
 struct Firing<'a, 's, 'r> {
     owner: Entity,
     origin_of: &'a dyn Fn(ambition_projectiles::ProjectileKind, u8) -> Result<ae::Vec2, ae::frame::NumericFault>,
+    admit: &'a dyn Fn(ambition_projectiles::ProjectileBody) -> Result<ambition_projectiles::ProjectileBody, ae::frame::thread::Refusal>,
     /// How the fireball flies in the firer's room; `None` flies the kind's own.
     flight: Option<ambition_projectiles::FireballFlight>,
     /// The aim in the firer's frame, and that frame's way to the world.
@@ -330,9 +333,14 @@ impl Firing<'_, '_, '_> {
     ) -> FireOutcome {
         let origin = match (self.origin_of)(kind, charge_tier) {
             Ok(origin) => origin,
-            Err(fault) => { warn!(?fault, "charge birth refused"); return FireOutcome::Geometry(fault); }
+            Err(fault) => {
+                let refusal = ae::frame::thread::Refusal { path: Vec::new(), link: None,
+                    reason: ae::frame::thread::RefusalReason::Numeric(fault) };
+                warn!(?refusal, "charge birth refused"); return FireOutcome::Geometry(refusal);
+            }
         };
-        match state.spawner.try_spawn(kind, origin, self.direction, self.damage_mult) {
+        let mut proposed_spawner = state.spawner;
+        match proposed_spawner.try_spawn(kind, origin, self.direction, self.damage_mult) {
             Ok(spec) => {
                 let flight = self.flight.filter(|_| kind == ambition_projectiles::ProjectileKind::Fireball);
                 let spec = match flight {
@@ -344,6 +352,11 @@ impl Firing<'_, '_, '_> {
                 if let Some(flight) = flight {
                     body.game.rebound = flight.rebound();
                 }
+                let body = match (self.admit)(body) {
+                    Ok(body) => body,
+                    Err(refusal) => { warn!(?refusal, "projectile materialization refused"); return FireOutcome::Geometry(refusal); }
+                };
+                state.spawner = proposed_spawner;
                 self.spawn.write(
                     ProjectileSpawnRequest::named(
                         self.owner,
@@ -422,10 +435,10 @@ fn said_by(
 }
 
 /// What one attempt to fire did.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum FireOutcome {
     Fired,
-    Geometry(ae::frame::NumericFault),
+    Geometry(ae::frame::thread::Refusal),
     /// The spawner is cooling down. The caller decides whether the shot waits.
     Cooldown,
     /// The meter cannot pay for the shot.
@@ -512,11 +525,21 @@ mod birth_tests {
             let origin = |_, _| Err(ae::frame::NumericFault::Precision);
             let to_world = |vector| vector;
             let mut firing = Firing { owner: Entity::PLACEHOLDER, origin_of: &origin,
-                flight: None, local_dir: ae::Vec2::X, to_world: &to_world,
+                admit: &Ok, flight: None, local_dir: ae::Vec2::X, to_world: &to_world,
                 direction: ae::Vec2::X, damage_mult: 1.0, spawn: &mut spawn,
                 refused: &mut refused, fired: 0 };
             assert_eq!(firing.fire(&mut state, &mut events, ambition_projectiles::ProjectileKind::Fireball, 0),
-                FireOutcome::Geometry(ae::frame::NumericFault::Precision));
+                FireOutcome::Geometry(ae::frame::thread::Refusal { path: Vec::new(), link: None,
+                    reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::Precision) }));
+            assert_eq!(firing.fired, 0);
+            let partition_refusal = ae::frame::thread::Refusal { path: vec![7], link: Some(7),
+                reason: ae::frame::thread::RefusalReason::PieceLimit };
+            let admit = |_| Err(partition_refusal.clone());
+            let origin = |_, _| Ok(ae::Vec2::ZERO);
+            firing.origin_of = &origin;
+            firing.admit = &admit;
+            assert_eq!(firing.fire(&mut state, &mut events, ambition_projectiles::ProjectileKind::Fireball, 0),
+                FireOutcome::Geometry(partition_refusal.clone()));
             assert_eq!(firing.fired, 0);
         }
         assert_eq!(state.spawner, before);

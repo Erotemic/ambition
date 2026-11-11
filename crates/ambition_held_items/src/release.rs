@@ -24,32 +24,16 @@ impl ItemReleaseWorld<'_, '_> {
     pub fn prepare_release(&self, holder: Entity, item: Option<Entity>, kin: &BodyKinematics, stored: &BodyKinematics,
         basis: HeldMaterialBasis, pos: Vec2, vel: Vec2,
     ) -> Result<PreparedItemRelease, ae::frame::thread::Refusal> {
-        use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason, partition};
+        use ae::frame::thread::{Refusal, RefusalReason};
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
         let delta = basis.0.at(Vec2::ZERO).and_then(|map| map.inverse())
             .and_then(|map| map.then(kin.material.at(Vec2::ZERO)?)).map_err(numeric)?;
-        let mut desired = BodyKinematics { pos, vel, material: stored.material.carried(delta).map_err(numeric)?, ..*stored };
+        let desired = BodyKinematics { pos, vel, material: stored.material.carried(delta).map_err(numeric)?, ..*stored };
         let room = self.rooms.of(holder);
         let admission = self.geometry.as_deref().and_then(|geometry| geometry.motion_for(holder, room)
             .map(|admission| ae::frame::thread::MotionAdmission { budget: geometry.budget_for(item, room), ..admission }));
-        if let Some(admission) = admission {
-            let domain = desired.canonical_box().map_err(numeric)?;
-            let parts = partition(MaterialPrimitive { domain: &domain, to_world: desired.material_map().map_err(numeric)? },
-                kin.pos, admission.links, admission.first, admission.budget, admission.convention)?;
-            let mut root = None;
-            for piece in &parts {
-                if piece.source_bounds_contain(Vec2::ZERO).map_err(numeric)?
-                    && root.as_ref().is_none_or(|old: &&ae::frame::thread::VolumePiece|
-                        (piece.path.len(), &piece.path) < (old.path.len(), &old.path)) { root = Some(piece); }
-            }
-            let piece = root.ok_or_else(|| numeric(ae::frame::NumericFault::InvalidFrame))?;
-            let map = piece.path_transform().map_err(numeric)?;
-            desired.vel = admission.carry_velocity(&piece.path, desired.pos, desired.vel, 1.0)?;
-            desired.pos = map.point(desired.pos).map_err(numeric)?;
-            desired.material = desired.material.carried(map).map_err(numeric)?;
-        }
         let mut result = desired;
-        ae::movement::prepare_body_materialization(desired, admission.map(|admission| ae::frame::thread::MotionAdmission { first: None, ..admission }))?.commit(&mut result, None);
+        ae::movement::prepare_body_materialization(desired, kin.pos, admission, [])?.commit(&mut result, None);
         Ok(PreparedItemRelease { body: result })
     }
 }

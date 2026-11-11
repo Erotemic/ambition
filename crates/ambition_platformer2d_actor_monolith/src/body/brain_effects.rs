@@ -90,6 +90,7 @@ pub fn muzzle_world_pos(
 }
 
 pub fn spawn_projectiles_from_brain_actions(
+    births: ambition_projectiles::ProjectileBirth,
     mut messages: MessageReader<ActorActionMessage>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
@@ -350,6 +351,32 @@ pub fn spawn_projectiles_from_brain_actions(
             }
             _ => spawn_origin,
         };
+        let spawn = ProjectileSpawn {
+            origin: spawn_origin,
+            dir: world_dir,
+            speed: spec.speed(),
+            damage: spec.damage(),
+            max_lifetime: flight.max_lifetime,
+            half_extent: flight.half_extent,
+            gravity: flight.gravity,
+            visual_id,
+            bounces: flight.bounces,
+            bounce_on_world_contact: flight.bounce_on_world_contact,
+            splash_half_extent: flight.splash_half_extent,
+            boomerang_return_s: flight.boomerang_return_s,
+        };
+        let mut request = ProjectileSpawnRequest::open(msg.actor, spawn, ProjectileStart::StepThisTick)
+            .from_weapon()
+            // The weapon's growing launch, at the charge this shot was released
+            // with (`RangedActionSpec::at_charge` scaled it).
+            .with_launch(spec.launch.map(|launch| ambition_projectiles::ProjectileLaunch {
+                base: launch.base,
+                growth: launch.growth,
+            }));
+        request.projectile.body = match births.prepare(msg.actor, kin.pos, request.projectile.body) {
+            Ok(body) => body,
+            Err(refusal) => { warn!(?refusal, "body projectile birth refused"); continue; }
+        };
         // Body-side fire-rate enforcement for an ATTEMPT (invariant I3): a
         // controller emits `fire` every in-band tick and never rate-limits
         // itself, so the body accepts a shot only when the weapon is off
@@ -389,24 +416,10 @@ pub fn spawn_projectiles_from_brain_actions(
         if let Ok(mut anim) = anim_facts.get_mut(msg.actor) {
             anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
         }
-        let spawn = ProjectileSpawn {
-            origin: spawn_origin,
-            dir: world_dir,
-            speed: spec.speed(),
-            damage: spec.damage(),
-            max_lifetime: flight.max_lifetime,
-            half_extent: flight.half_extent,
-            gravity: flight.gravity,
-            visual_id,
-            bounces: flight.bounces,
-            bounce_on_world_contact: flight.bounce_on_world_contact,
-            splash_half_extent: flight.splash_half_extent,
-            boomerang_return_s: flight.boomerang_return_s,
-        };
         if let Some(cue) = discharge.fire_sfx.as_deref() {
             sfx.in_space(ambition_vfx::sfx_space(rooms.of(msg.actor))).write(SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(cue),
-                emitter: (spawn.origin).into(),
+                emitter: request.projectile.body.kin.pos.into(),
             });
         }
         // ⭐ A SHOT THAT A MOVE FIRES NAMES THE USE THAT FIRED IT. The
@@ -414,14 +427,6 @@ pub fn spawn_projectiles_from_brain_actions(
         // playback of the owner here gets the move that plays now. That is the
         // defect this value prevents. Every other road leaves the value empty.
         // Empty is the correct answer for a gun or a bomb.
-        let request = ProjectileSpawnRequest::open(msg.actor, spawn, ProjectileStart::StepThisTick)
-            .from_weapon()
-            // The weapon's growing launch, at the charge this shot was released
-            // with (`RangedActionSpec::at_charge` scaled it).
-            .with_launch(spec.launch.map(|launch| ambition_projectiles::ProjectileLaunch {
-                base: launch.base,
-                growth: launch.growth,
-            }));
         let request = match commitment {
             RangedCommitment::CommittedMove { instance } => request.fired_by_move(instance),
             RangedCommitment::Attempt => request,

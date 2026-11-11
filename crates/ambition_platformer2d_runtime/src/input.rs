@@ -366,13 +366,21 @@ pub fn declare_in_session_input_contexts(
     // error.
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     mut participants: Query<(&InputParticipant, &mut ParticipantContexts)>,
+    // A room's cutscene holds the participants whose bodies are in its room
+    // (ISL-1b): the seat's body, and its live room.
+    drivers: Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let owner = conversation
         .as_deref()
         .and_then(ambition_conversation::ActiveConversation::input_owner);
-    let in_cutscene = cutscene.is_playing();
     for (participant, mut contexts) in &mut participants {
         let in_dialogue = owner.is_some_and(|owner| owner.accepts(participant.id));
+        let in_cutscene = cutscene.is_playing() && {
+            let slot = ambition_characters::control::PlayerSlot(participant.id.slot());
+            let body = drivers.iter().find(|(driver, _)| driver.0 == slot).map(|(_, body)| body);
+            cutscene.holds(body.and_then(|body| rooms.of(body)).map(|room| room.ordinal()))
+        };
         // Touch the component only when a claim actually moves, so a quiet
         // frame is not a change-detection event for every reader downstream.
         if contexts.is_declared(DIALOGUE_CONTEXT) != in_dialogue {
@@ -2318,5 +2326,53 @@ mod binding_scope_tests {
                 "channel {channel:?} still hears the keyboard in an all-pad match"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod room_cutscene_tests {
+    use super::declare_in_session_input_contexts;
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_input::{InputParticipant, ParticipantContexts, ParticipantId, CUTSCENE_CONTEXT};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use bevy::prelude::*;
+
+    /// Which seats a cutscene playing for `room` holds, with Alice's body (seat
+    /// 0) in room 1 and Bob's (seat 1) in room 2.
+    fn held_seats(room: Option<u32>) -> Vec<u8> {
+        let (alices, bobs) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+        let mut app = App::new();
+        app.insert_resource(ambition_cutscene::ActiveCutscene {
+            runtime: Some(ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript::new(
+                "probe",
+                vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 30.0 }],
+            ))),
+            room,
+            ..Default::default()
+        });
+        for (slot, at) in [(0u8, alices), (1, bobs)] {
+            app.world_mut().spawn((RoomInstanceRoot, at));
+            app.world_mut().spawn((InputParticipant { id: ParticipantId(slot) }, ParticipantContexts::default()));
+            app.world_mut().spawn((DrivingParticipant(PlayerSlot(slot)), InRoomInstance(at)));
+        }
+        app.add_systems(Update, declare_in_session_input_contexts);
+        app.update();
+        let mut seats = app.world_mut().query::<(&InputParticipant, &ParticipantContexts)>();
+        let mut held: Vec<u8> = seats
+            .iter(app.world())
+            .filter(|(_, contexts)| contexts.is_declared(CUTSCENE_CONTEXT))
+            .map(|(participant, _)| participant.id.0)
+            .collect();
+        held.sort();
+        held
+    }
+
+    /// ISL-1b: a room's cutscene holds the seats whose bodies are in its room,
+    /// and a cutscene of the whole world holds every seat.
+    #[test]
+    fn a_room_cutscene_holds_only_the_seats_in_its_room() {
+        assert_eq!(held_seats(Some(1)), [0], "a cutscene in Alice's room held another seat, or not hers");
+        assert_eq!(held_seats(Some(2)), [1], "a cutscene in Bob's room held another seat, or not his");
+        assert_eq!(held_seats(None), [0, 1], "a world cutscene did not hold every seat");
     }
 }

@@ -255,7 +255,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 450 -> 451: each live room's eased clock scale joins the snapshot.
 // 451 -> 452: a room's hold and clock scale move onto its root, so a room
 // rewind restores them.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 452;
+// 452 -> 453: the conversation's changes are logged in their rooms for a
+// room's rewind.
+// 453 -> 454: a playing cutscene keeps the room it plays for.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 454;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

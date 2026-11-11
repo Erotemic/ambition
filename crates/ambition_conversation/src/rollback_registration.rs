@@ -33,6 +33,18 @@ where
         OWNER,
         "map.resource.active_conversation",
     );
+    // The conversation's changes dated in their rooms (ISL-1b): the log is
+    // what a room's rewind puts the conversation back from.
+    registrar.rollback_resource_clone_entity_set_probed::<crate::ConversationsInRooms>(
+        OWNER,
+        "resource.conversations_in_rooms",
+        crate::ConversationsInRooms::referenced_entities,
+        crate::ConversationsInRooms::checksum,
+    );
+    registrar.rollback_resource_map_entities::<crate::ConversationsInRooms>(
+        OWNER,
+        "map.resource.conversations_in_rooms",
+    );
     registrar.clear_message_on_rollback::<crate::ConversationEnded>(
         OWNER,
         "message.conversation_ended",

@@ -33,6 +33,21 @@ impl Plugin for ConversationPlugin {
 
         // Conversation authority is simulation state; its UI projection is presentation state.
         app.init_resource::<ActiveConversation>();
+        // The conversation's changes, dated in their room, so a room that
+        // rewinds puts back the conversation it had (ISL-1b). Logged at the
+        // tail of the tick, after every writer, and not only where dialogue
+        // is a capability: a room crossing closes a conversation too.
+        app.init_resource::<super::rooms::ConversationsInRooms>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.conversations_in_rooms",
+            super::rooms::retract_room_conversations,
+        );
+        app.add_systems(
+            sim,
+            super::rooms::log_conversation_changes_in_rooms
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
+        );
         app.init_resource::<crate::NarrativeMusicRequest>();
         // This domain owns the cut-bark channel even though another domain consumes it.
         app.add_message::<ConversationCutBark>();

@@ -31,19 +31,20 @@ pub fn auto_trigger_room_cutscenes(
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ambition_cutscene::LastCutsceneRoom>,
 ) {
-    let mut live: Vec<(String, Option<String>)> = rooms
+    // Each live room's id, its entry cutscene, and the room it plays for.
+    let mut live: Vec<(String, Option<String>, u32)> = rooms
         .live_rooms()
-        .map(|(_, definition)| {
+        .map(|(instance, definition)| {
             let spec = rooms.rooms().spec(definition);
-            (spec.id.clone(), spec.metadata.entry_cutscene.clone())
+            (spec.id.clone(), spec.metadata.entry_cutscene.clone(), instance.ordinal())
         })
         .collect();
     if live.is_empty() {
         return;
     }
     live.sort();
-    live.dedup();
-    let ids: Vec<String> = live.iter().map(|(id, _)| id.clone()).collect();
+    live.dedup_by(|a, b| a.0 == b.0);
+    let ids: Vec<String> = live.iter().map(|(id, ..)| id.clone()).collect();
     // Read through the immutable deref: on every frame but a change there is
     // nothing to write, and a `DerefMut` would mark the resource changed.
     if last_rooms.0 == ids {
@@ -51,9 +52,9 @@ pub fn auto_trigger_room_cutscenes(
     }
     // In sorted room order, so a resimulation queues the same cutscenes in
     // the same order.
-    for (_, cutscene) in live.iter().filter(|(id, _)| !last_rooms.0.contains(id)) {
+    for (_, cutscene, room) in live.iter().filter(|(id, ..)| !last_rooms.0.contains(id)) {
         if let Some(cutscene) = cutscene {
-            queue.request(cutscene);
+            queue.request_in(cutscene, *room);
         }
     }
     last_rooms.0 = ids;
@@ -72,8 +73,8 @@ pub fn drain_cutscene_triggers(
         return;
     }
     let pending = std::mem::take(&mut queue.0);
-    for id in pending {
-        let Some(script) = library.get(&id) else {
+    for trigger in pending {
+        let Some(script) = library.get(&trigger.id) else {
             continue;
         };
         if let Some(seen) = script.seen_flag.as_ref() {
@@ -86,6 +87,7 @@ pub fn drain_cutscene_triggers(
         // and is snapshotted in the same frame is not blank.
         active.presentation = runtime.presentation();
         active.runtime = Some(runtime);
+        active.room = trigger.room;
         break;
     }
 }
@@ -117,6 +119,7 @@ fn end_cutscene(
     }
     active.runtime = None;
     active.presentation = Default::default();
+    active.room = None;
 }
 
 /// Run condition of [`tick_active_cutscene`]: a cutscene plays, or a skip
@@ -155,14 +158,41 @@ pub fn a_cutscene_plays_or_its_hold_remains(
 /// given. A replay and a peer receive the same frame, so a rewind across the
 /// press re-delivers it. The primary seat owns the shell controls, as it owns
 /// `MenuControlFrame`.
+/// The seat that answers the playing cutscene: for a room's cutscene, the
+/// lowest seat driving a body in that room (so Player 1 in another room does
+/// not skip it, ISL-1b); otherwise, and when no seat is in the room, the
+/// primary seat.
+fn cutscene_seat(
+    active: &ActiveCutscene,
+    drivers: &Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+    rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) -> ambition_characters::control::PlayerSlot {
+    let Some(room) = active.room else {
+        return ambition_characters::control::PlayerSlot::PRIMARY;
+    };
+    drivers
+        .iter()
+        .filter(|(_, body)| rooms.of(*body).map(|at| at.ordinal()) == Some(room))
+        .map(|(driver, _)| driver.0)
+        .min()
+        .unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY)
+}
+
 pub fn tick_active_cutscene(
     time: Res<ambition_time::WorldTime>,
     controls: Res<ambition_characters::control::SlotControls>,
     mut active: ResMut<ActiveCutscene>,
     mut skip_hold: ResMut<ambition_cutscene::CutsceneSkipHold>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    // The seats and the rooms of the bodies they drive: a room's cutscene
+    // is skipped and dismissed by a seat in its room.
+    (drivers, rooms): (
+        Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    ),
 ) {
-    let seat = controls.get(ambition_characters::control::PlayerSlot::PRIMARY);
+    let slot = cutscene_seat(&active, &drivers, &rooms);
+    let seat = controls.get(slot);
     let dt = time.sim_dt();
 
     let Some(runtime) = active.runtime.as_mut() else {
@@ -282,6 +312,7 @@ mod tests {
     #[test]
     fn ending_a_cutscene_records_that_it_was_seen() {
         let mut active = ActiveCutscene {
+            room: None,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(
                 ambition_cutscene::CutsceneScript {
                     id: "probe".to_string(),
@@ -312,6 +343,7 @@ mod tests {
     #[test]
     fn a_cutscene_with_no_seen_flag_records_nothing() {
         let mut active = ActiveCutscene {
+            room: None,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(
                 ambition_cutscene::CutsceneScript {
                     id: "unnamed".to_string(),
@@ -343,6 +375,7 @@ mod tests {
         app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.insert_resource(ActiveCutscene {
+            room: None,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript {
                 id: "probe".to_string(),
                 beats: Vec::new(),
@@ -371,7 +404,9 @@ mod tests {
         let mut queue = CutsceneTriggerQueue::default();
         queue.request("a");
         queue.request("b");
-        assert_eq!(queue.0, vec!["a".to_string(), "b".to_string()]);
+        queue.request_in("c", 7);
+        let queued: Vec<_> = queue.0.iter().map(|trigger| (trigger.id.as_str(), trigger.room)).collect();
+        assert_eq!(queued, [("a", None), ("b", None), ("c", Some(7))]);
     }
 
     /// ⭐ **THE CUTSCENE ROOM MEMORY IS THE SESSION'S, AND SO IS THE QUEST ONE

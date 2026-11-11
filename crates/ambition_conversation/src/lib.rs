@@ -33,6 +33,7 @@ mod ledger;
 mod music;
 mod opening;
 mod plugin;
+mod rooms;
 mod rules;
 mod ui_bridge;
 
@@ -48,6 +49,7 @@ pub use ledger::{
 pub use music::NarrativeMusicRequest;
 pub use opening::{character_id_of, npc_talk_dialogue_id, DialogueDispatch};
 pub use plugin::ConversationPlugin;
+pub use rooms::{log_conversation_changes_in_rooms, retract_room_conversations, ConversationsInRooms};
 pub use rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};
 pub use ui_bridge::{
     close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,

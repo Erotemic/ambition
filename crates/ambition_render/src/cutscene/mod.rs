@@ -323,6 +323,7 @@ mod tests {
         let mut runtime = CutsceneRuntime::new(script);
         let _ = runtime.tick(elapsed, false);
         let mut active = ActiveCutscene {
+            room: None,
             presentation: runtime.presentation(),
             runtime: Some(runtime),
         };
@@ -378,6 +379,7 @@ mod tests {
         let runtime = CutsceneRuntime::new(script);
         let mut app = App::new();
         app.insert_resource(ActiveCutscene {
+            room: None,
             presentation: runtime.presentation(),
             runtime: Some(runtime),
         })

@@ -99,7 +99,7 @@ fn playing(sim: &mut Platformer2dSimHarness) -> Option<String> {
 fn queued(sim: &mut Platformer2dSimHarness) -> Vec<String> {
     sim.world()
         .get_resource::<ambition_platformer2d::cutscene::CutsceneTriggerQueue>()
-        .map(|queue| queue.0.clone())
+        .map(|queue| queue.0.iter().map(|trigger| trigger.id.clone()).collect())
         .unwrap_or_default()
 }
 

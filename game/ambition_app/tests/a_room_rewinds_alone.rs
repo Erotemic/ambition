@@ -1400,3 +1400,121 @@ fn without_the_retraction_the_replayed_hold_is_booked_twice() {
         "the hold was booked once without the retraction: {at_n} -> {after_window} -> {after_replay}"
     );
 }
+
+/// What the world says of Alice's talk with the hub's dog: (a conversation is
+/// live, the save's `met_any_hub_npc` flag).
+type TalkReading = (bool, bool);
+
+/// What Alice does in the window, and in the replay of it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Talk {
+    /// She talks to the dog in the window; the replay stands still.
+    OpensInTheWindow,
+    /// She talks before the save and walks away in the window, which breaks
+    /// the conversation; the replay stands still beside the dog.
+    EndsInTheWindow,
+}
+
+/// ISL-1b, the one conversation: Alice (in the hub, Bob in `switch_lab`)
+/// changes the conversation in the window, and the hub rewinds to before it
+/// and replays without the change. Returns the readings at N, after the
+/// window, straight after the rewind (before a replayed frame, so the
+/// continuity rule cannot stand in for the retraction), and after the replay.
+fn a_talk_changed_only_before_the_rewind(talk: Talk, retract: bool) -> [TalkReading; 4] {
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    let read = |sim: &Platformer2dSimHarness| -> TalkReading {
+        let world = sim.world();
+        (
+            world
+                .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+                .is_some_and(|conversation| conversation.is_live()),
+            world
+                .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+                .data()
+                .flag("met_any_hub_npc"),
+        )
+    };
+    if talk == Talk::EndsInTheWindow {
+        assert!(crate::two_players_two_live_rooms::alice_talks_to_the_dog(&mut sim), "premise: Alice talks to the dog");
+    }
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_reading = read(&sim);
+
+    sim.world_mut().insert_resource(rows);
+    match talk {
+        Talk::OpensInTheWindow => {
+            assert!(crate::two_players_two_live_rooms::alice_talks_to_the_dog(&mut sim), "premise: Alice talks to the dog");
+        }
+        Talk::EndsInTheWindow => {
+            for _ in 0..60 {
+                sim.step(ambition_app::AgentAction { move_x: -1.0, left_pressed: true, ..crate::common::base() });
+            }
+        }
+    }
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let after_window = read(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    let after_rewind = read(&sim);
+    // The replay: Alice stands where she stood at N and presses nothing.
+    for _ in 0..20 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = read(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_reading, after_window, after_rewind, after_replay]
+}
+
+/// ISL-1b: a room that rewinds to before a talk its replay does not make
+/// takes the conversation back at the rewind, with the flag the talk wrote.
+#[test]
+fn a_rewound_room_takes_back_the_conversation_its_replay_does_not_open() {
+    let [at_n, after_talk, after_rewind, after_replay] = a_talk_changed_only_before_the_rewind(Talk::OpensInTheWindow, true);
+    assert_eq!(at_n, (false, false), "premise: no conversation and no hub talk at N");
+    assert_eq!(after_talk, (true, true), "premise: the talk opens a conversation and sets the flag");
+    assert_eq!(after_rewind, (false, false), "the rewind left the window's conversation open");
+    assert_eq!(after_replay, (false, false), "the replay did not talk, and the world says it did");
+}
+
+/// ISL-1b: a room that rewinds to before a conversation ended, and replays
+/// without leaving, is still talking.
+#[test]
+fn a_rewound_room_puts_back_the_conversation_its_replay_does_not_leave() {
+    let [at_n, after_leaving, after_rewind, after_replay] = a_talk_changed_only_before_the_rewind(Talk::EndsInTheWindow, true);
+    assert_eq!(at_n, (true, true), "premise: Alice is talking to the dog at N");
+    assert_eq!(after_leaving.0, false, "premise: walking away breaks the conversation");
+    assert_eq!(after_rewind.0, true, "the rewind did not put back the conversation it had at N");
+    assert_eq!(after_replay.0, true, "the replay stood beside the dog, and the conversation is over");
+}
+
+/// The control: without the retraction the window's changes stand at the
+/// rewind (the opened talk is open, the ended one ended). Run it beside the
+/// witnesses when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witnesses above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_conversation_keeps_the_window_s_change() {
+    let [_, after_talk, after_rewind, _] = a_talk_changed_only_before_the_rewind(Talk::OpensInTheWindow, false);
+    assert_eq!(after_rewind, after_talk, "the opened conversation went without the retraction");
+    let [_, after_leaving, after_rewind, after_replay] = a_talk_changed_only_before_the_rewind(Talk::EndsInTheWindow, false);
+    assert_eq!(after_rewind.0, after_leaving.0, "the ended conversation came back without the retraction");
+    assert!(!after_replay.0, "the ended conversation came back in the replay without the retraction");
+}

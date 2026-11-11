@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v452
+ggrs-rollback-schema-v454
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -339,6 +339,7 @@ map.portal.held_portal_of	entity-mapping	HeldPortalOf	bevy_ggrs LoadWorld entity
 map.projectile_hits	entity-mapping	ProjectileHits	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_owner	entity-mapping	ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
 map.resource.active_conversation	resource-entity-mapping	ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
+map.resource.conversations_in_rooms	resource-entity-mapping	ConversationsInRooms	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.pending_player_hit_events	resource-entity-mapping	PendingPlayerHitEvents	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.possession_state	resource-entity-mapping	PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
 map.riding_on	entity-mapping	RidingOn	bevy_ggrs LoadWorld entity-reference remapping
@@ -491,6 +492,7 @@ resource.bag_spends_since_checkpoint	resource-clone-custom-checksum	BagSpendsSin
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.conversations_in_rooms	resource-clone	ConversationsInRooms	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.custody_baseline	component-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
 resource.day_clock	resource-canonical	DayClock	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.encounter_clears_in_rooms	resource-clone-custom-checksum	EncounterClearsInRooms	bevy_ggrs clone snapshot + the wave encounters rooms cleared within the rewind horizon, with the switches each greened and what they were, which a room rewind puts back (ISL-2d)

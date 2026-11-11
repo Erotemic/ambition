@@ -1506,3 +1506,8 @@ all 21 active rollback coverage cases pass. R5 displayed-host/device cost,
 general actor continuation, moving targets, durable material history and the
 other full PSIM gates remain open. Do not certify separation from unknown
 motion or add a second collision authority.
+
+Merge `803247457` retains nearest interaction and the conductor health floor.
+App, boss-owner, boss-port and all four schema checks pass with schema 460.
+The interaction library compiles and has no tests. This narrow merge lane
+does not repeat the earlier portal suite.

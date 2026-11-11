@@ -71,6 +71,7 @@ pub mod smash_tether;
 pub mod smash_time_dilation;
 pub mod smash_trapdoor;
 pub mod smash_vitality;
+pub mod detonate;
 
 
 use std::collections::{BTreeMap, HashSet};

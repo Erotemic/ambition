@@ -114,6 +114,29 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
             volume.vfx = None;
         }
     }
+    // A detonation is a fuse, not a swing: it plants for the fuse (the swell
+    // is its tell, and a foe who reads it walks away) and then ends the body.
+    // No volume and no swing sound: the blast and its sound are the death's.
+    if let Some(detonate) = spec.detonate() {
+        for window in &mut attack.windows {
+            window.volumes.clear();
+        }
+        attack.events = vec![
+            MoveEvent {
+                at_s: 0.0,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, 0.0),
+                    mode: ambition_entity_catalog::ImpulseMode::Set,
+                },
+            },
+            MoveEvent { at_s: 0.0, kind: MoveEventKind::HoldVelocity { seconds: detonate.fuse_s } },
+            MoveEvent {
+                at_s: detonate.fuse_s,
+                kind: MoveEventKind::Effect(EffectRef::new(ambition_entity_catalog::detonate::DETONATE)),
+            },
+        ];
+        return attack;
+    }
     // A Lunge steps forward while it winds up: the authored distance over the
     // authored windup, as a set side speed the body holds for exactly the
     // windup. `Set`, so a body that arrived walking steps the authored
@@ -1011,11 +1034,18 @@ pub fn equip_equipment_row(
 /// first one did.
 pub fn voice_moveset(cues: &crate::actor::character_catalog::CharacterCues, moveset: &mut MovesetContract) {
     for mv in &mut moveset.moves {
+        // A detonation is a strike with no volume: its fuse gets the tell, and
+        // it has no swing (its sound is its death's).
+        let detonation = mv.events.iter().find_map(|event| match &event.kind {
+            MoveEventKind::Effect(effect) if effect.key == ambition_entity_catalog::detonate::DETONATE => Some(event.at_s),
+            _ => None,
+        });
         let Some(hit_s) = mv
             .windows
             .iter()
             .find(|window| window.tag == WindowTag::Active && !window.volumes.is_empty())
             .map(|window| window.start_s)
+            .or(detonation)
         else {
             continue;
         };
@@ -1031,7 +1061,7 @@ pub fn voice_moveset(cues: &crate::actor::character_catalog::CharacterCues, move
                 mv.events.push(MoveEvent { at_s: 0.0, kind: MoveEventKind::Sfx { cue: tell.clone() } });
             }
         }
-        if let Some(swing) = &cues.swing {
+        if let (Some(swing), None) = (&cues.swing, detonation) {
             let whoosh = mv.events.iter_mut().find(|event| {
                 at_strike(event.at_s) && matches!(&event.kind, MoveEventKind::Sfx { cue } if cue == SWING_SFX_CUE)
             });
@@ -1106,5 +1136,27 @@ mod voice_tests {
         assert_eq!(cues_of, vec!["own.whoosh".to_string(), "own.tell".to_string()]);
         assert!(moveset.moves[0].windows.iter().flat_map(|w| &w.volumes).all(|v| v.hit_sfx.as_deref() == Some("own.hit")));
         assert_eq!(moveset.moves[1], before);
+    }
+
+    /// A detonation plants for its fuse and ends the body at the fuse's end:
+    /// no volume of its own (the blast is the death's), and the tell over the
+    /// fuse with no swing after it.
+    #[test]
+    fn a_detonation_is_a_fuse_with_a_tell_and_no_swing() {
+        use crate::brain::action_set::DetonateSpec;
+        let fuse_s = 0.9;
+        let mv = attack_move_from_melee(&MeleeActionSpec::Detonate(DetonateSpec { fuse_s, reach_px: 40.0 }));
+        assert!(mv.windows.iter().all(|w| w.volumes.is_empty()), "a detonation hits nothing itself");
+        let detonations: Vec<f32> = mv
+            .events
+            .iter()
+            .filter(|e| matches!(&e.kind, MoveEventKind::Effect(effect) if effect.key == ambition_entity_catalog::detonate::DETONATE))
+            .map(|e| e.at_s)
+            .collect();
+        assert_eq!(detonations, vec![fuse_s]);
+        assert!(mv.duration_s > fuse_s, "the detonation is inside the move");
+        let mut moveset = MovesetContract { verbs: Default::default(), moves: vec![mv] };
+        voice_moveset(&cues(), &mut moveset);
+        assert_eq!(sounds(&moveset.moves[0]), vec![(0.0, "enemy.raptor.tell".to_string())]);
     }
 }

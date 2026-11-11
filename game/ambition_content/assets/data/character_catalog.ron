@@ -293,9 +293,12 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.30, active_s: 0.10, recover_s: 0.34, damage: 1, reach_px: 30.0)),
         ),
-        "exploding_mite_swipe": (
+        // It does not swing: in reach of its foe it plants, swells for the
+        // fuse, and goes off. The blast is its death trait, so a mite killed
+        // before the fuse ends goes off just the same.
+        "exploding_mite_fuse": (
             move_style: Walk,
-            melee: Some(Swipe(windup_s: 0.22, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 26.0)),
+            melee: Some(Detonate(fuse_s: 0.9, reach_px: 40.0)),
         ),
         // A hammer is slow and it hurts.
         "brute_hammer": (
@@ -3548,12 +3551,14 @@
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
-            default_action_set: "exploding_mite_swipe",
-            // THE BODY: fast and fragile, and it detonates at the corpse, so a
-            // point-blank kill is punished.
-            death_traits: Some((explodes_on_death: true, corpse: Some(Vanish))),
+            default_action_set: "exploding_mite_fuse",
+            // THE BODY: fast and fragile. It runs at its foe and detonates, and
+            // it detonates at the corpse too, so a point-blank kill is punished.
+            death_traits: Some((explodes_on_death: true, death_sound: Some("vfx.explosion.classic_burst"), corpse: Some(Vanish))),
             locomotion: Some((run_speed: 245.0, move_style: Walk)),
-            contact_damage: Some((strength: 0.60, amount: 1)),
+            // No contact damage: its threat is the blast. A touch that hurt
+            // gave its foe the post-hit grace that the blast then landed in,
+            // so a mite that reached you never hurt you with the blast.
             autonomous_profile: Some((
                 template: Smash,
                 aggro_radius: 460.0,
@@ -3561,7 +3566,7 @@
             )),
             max_health: Some(2),
             tags: ["enemy", "robot"],
-            cues: (tell: Some("enemy.exploding_mite.tell"), swing: Some("enemy.exploding_mite.swing")),
+            cues: (tell: Some("enemy.exploding_mite.tell")),
         barks: (
             on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
             provoked: ["FINAL PROTOCOL!"],

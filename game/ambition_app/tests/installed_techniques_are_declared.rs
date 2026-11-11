@@ -49,6 +49,7 @@ fn the_shipped_composition_declares_the_techniques_it_installs() {
     for expected in [
         ambition_platformer2d::entity_catalog::smash_teleport::TELEPORT,
         ambition_platformer2d::entity_catalog::smash_vitality::VITALITY,
+        ambition_platformer2d::entity_catalog::detonate::DETONATE,
         ambition_platformer2d::entity_catalog::smash_trapdoor::TRAPDOOR,
         ambition_platformer2d::entity_catalog::smash_flyline::FLYLINE,
         ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,

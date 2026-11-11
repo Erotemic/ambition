@@ -82,6 +82,7 @@ mod a_move_keeps_its_occurrence_across_a_rewind;
 mod a_ledge_trump_survives_a_rewind;
 mod a_replayed_room_is_built_whole;
 mod a_hostile_body_is_drawn_at_its_built_quad;
+mod an_exploding_mite_goes_off;
 mod a_recharacterize_request_crosses_a_rewind;
 mod a_room_cutscene_starts_under_a_rewind;
 mod which_hashed_entry_moves_when_the_bag_does;

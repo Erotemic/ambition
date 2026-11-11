@@ -260,8 +260,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 453 -> 454: a playing cutscene keeps the room it plays for.
 // 454 -> 455: the bag log keeps what a room's conversation added to the
 // bag.
-// Held pickup material is canonical rollback state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 457;
+// The item material basis and room cutscene log are canonical rollback state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 458;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

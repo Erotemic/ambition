@@ -591,7 +591,18 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    entities, its root included, so `RoomPace` (registered as
    `combat.room_pace`) rewinds with its room. Witnesses:
    `bullet_time_slows_only_player_ones_room_while_two_rooms_are_live` and
-   `a_body_runs_at_its_own_rooms_pace`. The same ~90 other `sim_dt` reads
+   `a_body_runs_at_its_own_rooms_pace`. **One clock at a time (review
+   2026-11-11, P2):** when a second room unloaded during bullet time, the
+   shared clock took the slow-down back while the room's own scale eased
+   home, and the readers applied both (0.25 on each ran the room at
+   0.0625). `RoomFreeze` now applies a room's scale only while more than
+   one room is live (`rooms_keep_their_own_clocks`, counting a room hidden
+   for another's replay), and when the count changes the emit system hands
+   the slow-down from one clock to the other where it stands, each easing on
+   from there. Witnesses:
+   `the_only_live_room_runs_at_the_shared_clock_not_its_own_scale_too` and
+   `the_slow_down_passes_between_the_clocks_when_the_room_count_changes`
+   (each poisoned). The same ~90 other `sim_dt` reads
    keep the shared pace, as for the freeze. Still open: projectile ids
    sequenced per room (deferred to the state transfer; see ISL-2c above), the
    remaining `sim_dt` reads under a room's pace (the fight's readers carry it;
@@ -815,8 +826,14 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    every room). The app harness cannot show it: a driven seat's frame skips
    the device road the claim gates, and the harness resolves no seat
    contexts. Still one cutscene at a time: a second
-   room's entry cutscene queued while one plays is dropped by the drain, as
-   before. **Its flags (2026-11-11, ISL-2d):** a cutscene's `SetFlag` beats
+   room's entry cutscene waits in the queue until the first ends, then
+   plays. **The drain dropped it (review 2026-11-11, P1):** it took the
+   whole queue and started the first, so two rooms entered on one tick lost
+   the second room's cutscene for good (each room is announced once). It
+   now takes only the trigger it starts, and a trigger already waiting is
+   not queued twice (the queue is not rollback state, so a replay asks
+   again). Witness: `a_second_rooms_cutscene_waits_its_turn` (poisoned: the
+   second is dropped). **Its flags (2026-11-11, ISL-2d):** a cutscene's `SetFlag` beats
    and its seen flag were written straight to the save; they now go through
    `SetFlagRequested`, dated in the room it plays for, so a rewind of that
    room takes them back with the quest steps they moved (a world cutscene's
@@ -827,7 +844,13 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    room it plays for, with the state it replaced; a room's retractor puts
    back what it had at the save, as for the conversation. Witness:
    `a_rewound_room_puts_back_its_cutscene` (read straight after the rewind),
-   with an ignored control.
+   with an ignored control. **Without a script per tick (review 2026-11-11,
+   P2):** each logged state held its own copy of the authored script, cloned
+   every tick the cutscene advanced and written once per change. The
+   runtime's script is now shared (`Arc`), and the log's codec writes each
+   distinct script once in a table its states name by place (schema 457).
+   Witness: `the_room_cutscene_log_keeps_one_copy_of_each_script` (poisoned:
+   twenty copies for twenty ticks).
 
    The last message on the list, `QuestAdvanceRequested` with no cause, now
    has one writer: `RoomEntered`, a crossing, which spans two rooms and

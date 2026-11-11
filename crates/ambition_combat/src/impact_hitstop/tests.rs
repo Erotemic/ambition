@@ -283,3 +283,21 @@ fn a_body_runs_at_its_own_rooms_pace() {
         .expect("the param resolves");
     assert_eq!(paces, [0.0, 0.25, 1.0], "a freeze wins over a slowed clock; another room runs at 1");
 }
+
+/// Review 2026-11-11 (P2): with one live room the shared clock carries the
+/// slow-down, so the room's own scale is not applied as well (0.25 on each
+/// ran the room at 0.0625). A hold still stops it.
+#[test]
+fn the_only_live_room_runs_at_the_shared_clock_not_its_own_scale_too() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use bevy::ecs::system::RunSystemOnce as _;
+    let room = LiveRoomInstance::from_ordinal(1);
+    let mut app = App::new();
+    app.insert_resource(ambition_time::SimTick(10));
+    let root = app.world_mut().spawn((RoomInstanceRoot, room, RoomPace { held_until: 0, clock_scale: 0.25 })).id();
+    let body = app.world_mut().spawn(InRoomInstance(room)).id();
+    let pace = |app: &mut App| app.world_mut().run_system_once(move |freeze: RoomFreeze| freeze.scale_of(body)).expect("the param resolves");
+    assert_eq!(pace(&mut app), 1.0, "the only live room applied its own scale beside the shared clock's");
+    app.world_mut().entity_mut(root).insert(RoomPace { held_until: 20, clock_scale: 0.25 });
+    assert_eq!(pace(&mut app), 0.0, "a held room ran");
+}

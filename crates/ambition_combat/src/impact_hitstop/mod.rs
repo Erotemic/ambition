@@ -97,6 +97,15 @@ impl RoomPace {
     }
 }
 
+/// Whether the rooms' own clock scales are the clock: more than one room is
+/// live. With one, the shared clock carries the slow-down and a room's scale
+/// is not applied, so no effect is applied by both (review 2026-11-11, P2:
+/// with 0.25 on each, a room ran at 0.0625). A room hidden for another
+/// room's replay (`Disabled`) counts, as the clock's writer counts it.
+pub fn rooms_keep_their_own_clocks(live_roots: usize) -> bool {
+    live_roots > 1
+}
+
 /// The live rooms' roots, to hold a room: the writer's half of [`RoomPace`].
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct RoomHolds<'w, 's> {
@@ -134,11 +143,22 @@ impl RoomHolds<'_, '_> {
 
 /// The pace of one body's room this tick ([`RoomPace`], `1.0` for a room with
 /// none). A reader multiplies the sim `dt` it gives that body by it. With one
-/// live room the shared clock already carries the hold and the scale, so the
-/// product is the same; with several, only the room's own bodies change pace.
+/// live room the shared clock carries the hold and the scale, and a room's
+/// own scale is not applied ([`rooms_keep_their_own_clocks`]); with several,
+/// only the room's own bodies change pace.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct RoomFreeze<'w, 's> {
     paces: Query<'w, 's, (&'static Room, &'static RoomPace), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
+    // Every live room's root, one hidden for another's replay included.
+    roots: Query<
+        'w,
+        's,
+        (),
+        (
+            With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+            bevy::ecs::query::Allow<bevy::ecs::entity_disabling::Disabled>,
+        ),
+    >,
     tick: Option<Res<'w, ambition_time::SimTick>>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
 }
@@ -149,10 +169,17 @@ impl RoomFreeze<'_, '_> {
         let (Some(room), Some(tick)) = (room, self.tick.as_deref()) else {
             return 1.0;
         };
-        self.paces
-            .iter()
-            .find(|(at, _)| **at == room)
-            .map_or(1.0, |(_, pace)| pace.at(*tick))
+        let Some((_, pace)) = self.paces.iter().find(|(at, _)| **at == room) else {
+            return 1.0;
+        };
+        let pace = pace.at(*tick);
+        // A hold is the same stop on either clock; a scale is the shared
+        // clock's while one room is live.
+        if pace == 0.0 || rooms_keep_their_own_clocks(self.roots.iter().count()) {
+            pace
+        } else {
+            1.0
+        }
     }
 
     /// The live rooms this pace is read against.

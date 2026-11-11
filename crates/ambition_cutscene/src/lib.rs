@@ -212,7 +212,10 @@ impl CutsceneScript {
 /// caller to apply (set flags, banners, dialogue lines).
 #[derive(Clone, Debug, PartialEq)]
 pub struct CutsceneRuntime {
-    pub script: CutsceneScript,
+    /// Shared, not owned: the rollback log of a room's cutscene
+    /// ([`CutscenesInRooms`]) keeps a state for each tick it changes, and the
+    /// script does not change while it plays.
+    pub script: std::sync::Arc<CutsceneScript>,
     pub beat_index: usize,
     /// Seconds elapsed within the current beat.
     pub elapsed: f32,
@@ -223,7 +226,7 @@ pub struct CutsceneRuntime {
 impl CutsceneRuntime {
     pub fn new(script: CutsceneScript) -> Self {
         Self {
-            script,
+            script: std::sync::Arc::new(script),
             beat_index: 0,
             elapsed: 0.0,
             finished: false,
@@ -575,12 +578,22 @@ pub struct CutsceneTrigger {
 impl CutsceneTriggerQueue {
     /// Queue a cutscene of the whole world.
     pub fn request(&mut self, id: impl Into<String>) {
-        self.0.push(CutsceneTrigger { id: id.into(), room: None });
+        self.push(CutsceneTrigger { id: id.into(), room: None });
     }
 
     /// Queue a cutscene that plays for the live room with ordinal `room`.
     pub fn request_in(&mut self, id: impl Into<String>, room: u32) {
-        self.0.push(CutsceneTrigger { id: id.into(), room: Some(room) });
+        self.push(CutsceneTrigger { id: id.into(), room: Some(room) });
+    }
+
+    /// A trigger already waiting is not queued twice. The queue is not
+    /// rollback state and keeps what waits behind a playing cutscene, so a
+    /// replay that asks again for a trigger still waiting would otherwise
+    /// play it twice.
+    fn push(&mut self, trigger: CutsceneTrigger) {
+        if !self.0.contains(&trigger) {
+            self.0.push(trigger);
+        }
     }
 }
 
@@ -996,7 +1009,7 @@ mod snapshot {
             }
             let script = CutsceneScript::decode(reader)?;
             let runtime = CutsceneRuntime {
-                script,
+                script: std::sync::Arc::new(script),
                 beat_index: reader.u32()? as usize,
                 elapsed: reader.f32()?,
                 finished: reader.bool()?,
@@ -1011,35 +1024,94 @@ mod snapshot {
     }
 
     impl CutsceneState {
-        fn encode(&self, out: &mut Vec<u8>) {
-            // The playback and its room, in `ActiveCutscene`'s encoding.
-            ActiveCutscene { runtime: self.runtime.clone(), room: self.room, ..ActiveCutscene::default() }.encode(out);
+        /// The playback by its script's place in the log's table, its room
+        /// and the skip hold.
+        fn encode(&self, script: Option<u32>, out: &mut Vec<u8>) {
+            match (&self.runtime, script) {
+                (Some(runtime), Some(script)) => {
+                    put_bool(out, true);
+                    put_u32(out, script);
+                    put_u32(out, runtime.beat_index as u32);
+                    put_f32(out, runtime.elapsed);
+                    put_bool(out, runtime.finished);
+                }
+                _ => put_bool(out, false),
+            }
+            match self.room {
+                Some(room) => {
+                    put_bool(out, true);
+                    put_u32(out, room);
+                }
+                None => put_bool(out, false),
+            }
             put_f32(out, self.skip_hold);
         }
 
-        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-            let active = ActiveCutscene::decode(reader)?;
-            Some(Self { runtime: active.runtime, room: active.room, skip_hold: reader.f32()? })
+        fn decode(reader: &mut Reader<'_>, scripts: &[std::sync::Arc<CutsceneScript>]) -> Option<Self> {
+            let runtime = if reader.bool()? {
+                Some(CutsceneRuntime {
+                    script: scripts.get(reader.u32()? as usize)?.clone(),
+                    beat_index: reader.u32()? as usize,
+                    elapsed: reader.f32()?,
+                    finished: reader.bool()?,
+                })
+            } else {
+                None
+            };
+            let room = if reader.bool()? { Some(reader.u32()?) } else { None };
+            Some(Self { runtime, room, skip_hold: reader.f32()? })
         }
+    }
+
+    /// Each script the log holds, once: a playing cutscene's state changes
+    /// each tick and its script does not, so the log names it by its place in
+    /// this table.
+    fn script_table(log: &CutscenesInRooms) -> Vec<&std::sync::Arc<CutsceneScript>> {
+        let mut scripts: Vec<&std::sync::Arc<CutsceneScript>> = Vec::new();
+        let states = std::iter::once(&log.seen).chain(log.changes.iter().map(|(_, _, state)| state));
+        for runtime in states.filter_map(|state| state.runtime.as_ref()) {
+            if !scripts.iter().any(|known| std::sync::Arc::ptr_eq(known, &runtime.script) || ***known == *runtime.script) {
+                scripts.push(&runtime.script);
+            }
+        }
+        scripts
     }
 
     impl SnapshotState for CutscenesInRooms {
         fn encode(&self, out: &mut Vec<u8>) {
-            self.seen.encode(out);
+            let scripts = script_table(self);
+            let index_of = |state: &CutsceneState| {
+                state.runtime.as_ref().and_then(|runtime| {
+                    scripts
+                        .iter()
+                        .position(|known| std::sync::Arc::ptr_eq(known, &runtime.script) || ***known == *runtime.script)
+                        .map(|at| at as u32)
+                })
+            };
+            put_u32(out, scripts.len() as u32);
+            for script in &scripts {
+                script.encode(out);
+            }
+            self.seen.encode(index_of(&self.seen), out);
             put_u32(out, self.changes.len() as u32);
             for (room, tick, replaced) in &self.changes {
                 put_u32(out, *room);
                 ambition_platformer2d_core::snapshot::put_u64(out, *tick);
-                replaced.encode(out);
+                replaced.encode(index_of(replaced), out);
             }
         }
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-            let seen = CutsceneState::decode(reader)?;
+            let count = reader.u32()? as usize;
+            let mut scripts = Vec::with_capacity(count.min(64));
+            for _ in 0..count {
+                scripts.push(std::sync::Arc::new(CutsceneScript::decode(reader)?));
+            }
+            let seen = CutsceneState::decode(reader, &scripts)?;
             let count = reader.u32()? as usize;
             let mut changes = Vec::with_capacity(count.min(1024));
             for _ in 0..count {
-                changes.push((reader.u32()?, reader.u64()?, CutsceneState::decode(reader)?));
+                changes.push((reader.u32()?, reader.u64()?, CutsceneState::decode(reader, &scripts)?));
             }
             Some(Self { seen, changes })
         }
@@ -1135,6 +1207,37 @@ mod snapshot {
             log.encode(&mut bytes);
             let after = CutscenesInRooms::decode(&mut Reader::new(&bytes)).expect("the log decodes");
             assert_eq!(after, log, "the cutscene log did not survive the wire");
+        }
+
+        /// Review 2026-11-11 (P2): a playing cutscene changes each tick and
+        /// its script does not, so the log holds and writes each script
+        /// once, and a second script keeps its own place.
+        #[test]
+        fn the_room_cutscene_log_keeps_one_copy_of_each_script() {
+            let long = CutsceneRuntime::new(CutsceneScript::new(
+                "long_scene_with_a_distinct_name",
+                vec![CutsceneBeat::Wait { seconds: 9.0 }],
+            ));
+            let other = CutsceneRuntime::new(CutsceneScript::new("other", vec![CutsceneBeat::Wait { seconds: 1.0 }]));
+            let mut log = CutscenesInRooms::default();
+            for tick in 0..20u64 {
+                let runtime = CutsceneRuntime { elapsed: tick as f32 / 60.0, ..long.clone() };
+                log.observe(CutsceneState { runtime: Some(runtime), room: Some(1), skip_hold: 0.0 }, tick, 600);
+            }
+            log.observe(CutsceneState { runtime: Some(other), room: Some(2), skip_hold: 0.0 }, 20, 600);
+            assert!(
+                log.changes.iter().filter_map(|(_, _, state)| state.runtime.as_ref()).skip(1).all(|runtime| {
+                    runtime.script.id != long.script.id || std::sync::Arc::ptr_eq(&runtime.script, &long.script)
+                }),
+                "a logged tick copied its script"
+            );
+            let mut bytes = Vec::new();
+            log.encode(&mut bytes);
+            let name = b"long_scene_with_a_distinct_name";
+            let copies = bytes.windows(name.len()).filter(|window| *window == name).count();
+            assert_eq!(copies, 1, "the log wrote its script once per tick");
+            let after = CutscenesInRooms::decode(&mut Reader::new(&bytes)).expect("the log decodes");
+            assert_eq!(after, log, "the log with two scripts did not survive the wire");
         }
 
         /// A rollback into the MIDDLE of a beat restores its picture.

@@ -256,3 +256,10 @@ chart from the native material partition, then admit its mapped velocity and
 carried vectors. Use the child's policy, not the emitter's. Stage resource
 changes until the complete birth passes admission. A projectile cue uses
 the admitted birth position.
+
+
+A cut boundary can supply a tangent contact normal. An instantaneous closing
+rate alone does not prove that a curved path stays clear. Full linear shapes
+can prove continued separation with their native boundary planes; their
+clipped subsets stay clear too. Retain the continuous result for curves.
+A refused support query keeps the accepted body and its settled state.

@@ -370,6 +370,45 @@ impl PreparedPortalTransfer {
     pub fn acceleration(&self) -> Option<Vec2> { self.acceleration }
 }
 
+/// Admit one root crossing before the motion owner commits it.
+/// The returned link seeds the next leg in the exit chart.
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_body_crossing(
+    body: BodyKinematics, acceleration: Option<Vec2>, crossing: crate::PortalCrossing,
+    portals: &[PlacedPortal], admission: Option<ae::frame::thread::MotionAdmission<'_>>,
+    completed_hops: u8, tuning: &PortalTuning,
+) -> Result<(PreparedPortalTransfer, u32), ae::frame::thread::Refusal> {
+    use ae::frame::thread::{Refusal, RefusalReason, MaterialPrimitive, MotionAdmission};
+    let numeric=|fault| Refusal {path:vec![],link:None,reason:RefusalReason::Numeric(fault)};
+    let policy=admission.ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+    if policy.convention != tuning.convention.map_convention() {
+        return Err(numeric(ae::frame::NumericFault::InvalidFrame));
+    }
+    let enter=find_portal(portals,crossing.entry_channel)
+        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+    let exit=find_portal(portals,crossing.exit_channel)
+        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+    let forward=policy.links.iter().find(|link|link.enter==enter.aperture() && link.exit==exit.aperture())
+        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+    let reverse=policy.links.iter().find(|link|link.enter==exit.aperture() && link.exit==enter.aperture())
+        .ok_or_else(||numeric(ae::frame::NumericFault::InvalidFrame))?;
+    if completed_hops>=policy.budget.max_hops {
+        return Err(Refusal {path:vec![],link:Some(forward.key),reason:RefusalReason::HopLimit});
+    }
+    let transfer=crate::PortalTransfer::at_crossing(crossing,body.pos,body.vel,tuning).map_err(numeric)?;
+    let input_warp=crate::portal_input_warp_flips_horizontal_for_convention(
+        policy.convention,transfer.enter.frame.normal,transfer.exit.frame.normal);
+    let prepared=PreparedPortalTransfer::new(body,acceleration,transfer,input_warp).map_err(numeric)?;
+    let body=*prepared.body();
+    let domain=body.canonical_box().map_err(numeric)?;
+    let cast=ae::frame::material_cast::MaterialCast::new(MaterialPrimitive {
+        domain:&domain,to_world:body.material_map().map_err(numeric)?,
+    },body.pos,Vec2::ZERO,crossing.root.world_time..crossing.root.world_time);
+    let vectors:Vec<_>=prepared.acceleration().into_iter().collect();
+    MotionAdmission {first:Some(reverse.key),..policy}.admit(cast,body.vel,&vectors)?;
+    Ok((prepared,reverse.key))
+}
+
 /// Commit the same root state and event for every motion owner.
 pub fn commit_body_transfer(
     commands:&mut Commands, entity:Entity, body:&mut BodyKinematics,

@@ -30,9 +30,9 @@ impl MaterialCell {
 
     /// Prove that full linear shapes remain separated after this contact.
     /// Their clipped subsets cannot create a collision when this proof holds.
-    /// The source parameter covers the full world tick.
+    /// `time_span` maps the source parameter to the world clock.
     pub(crate) fn clears_obstacle(&self, polygon: &[crate::Vec2], obstacle: &[crate::Vec2],
-        displacement: crate::Vec2, hit: &super::MaterialCastHit,
+        displacement: crate::Vec2, hit: &super::MaterialCastHit, time_span: f64,
     ) -> Result<bool, NumericFault> {
         if self.curve.is_some() { return Ok(false); }
         let map = self.at(hit.toi)?;
@@ -40,7 +40,7 @@ impl MaterialCell {
         let obstacle: Vec<_> = obstacle.iter().map(|point| point.as_dvec2()
             - displacement.as_dvec2() * (1.0 - hit.world_time)).collect();
         if body.iter().chain(&obstacle).any(|point| !point.is_finite()) { return Err(NumericFault::NonFinite); }
-        let relative = self.travel - displacement.as_dvec2();
+        let relative = self.travel - displacement.as_dvec2() * time_span;
         let stays_outside = |points: &[DVec2], boundary: &[DVec2], velocity: DVec2| {
             super::translation::boundary(boundary).into_iter().any(|plane| {
                 velocity.dot(plane.inward) <= 0.0

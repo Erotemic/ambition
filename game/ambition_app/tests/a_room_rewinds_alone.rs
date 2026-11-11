@@ -1078,3 +1078,116 @@ fn without_the_retraction_the_flag_stays_set() {
     let [_, after_take, after_replay] = a_flag_set_only_before_the_rewind(false);
     assert_eq!(after_replay, after_take, "the flag went without the retraction");
 }
+
+/// A quest whose first step waits on the goblin wave's clear.
+const CLEAR_QUEST: &str = "isl2d_a_room_rewinds_alone_clear_quest";
+
+/// What the save and the quests say of the goblin wave: (its linked switches
+/// that are on, of how many; the quest's step).
+type ClearReading = (usize, usize, u8);
+
+/// ISL-2d, a wave encounter's clear: Alice (in `goblin_encounter`, Bob in the
+/// hub) clears the goblin wave in the window, which greens its linked
+/// switches in the save and moves a quest's step on. The clear is the
+/// encounter's `Completed` event, written as the reducer would: the effects
+/// it has on the shared stores are what is under test. The room rewinds to
+/// before it and replays WITHOUT it. Returns the readings at N, after the
+/// clear, and after the replay.
+fn a_wave_cleared_only_before_the_rewind(retract: bool) -> [ClearReading; 3] {
+    use crate::pickup_regrowth_across_rooms::HUB;
+    use ambition_platformer2d::persistence::quest::{QuestRegistry, QuestSpec, QuestStepCondition, QuestStepSpec};
+    const ARENA: &str = "goblin_encounter";
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        ARENA,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::common::walk_through_the_door_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    {
+        let mut quests = sim.world_mut().resource_mut::<QuestRegistry>();
+        quests.ensure(QuestSpec::new(
+            CLEAR_QUEST,
+            "Witness",
+            "a quest a room's clear moves",
+            vec![
+                QuestStepSpec::new("Clear it.", QuestStepCondition::EncounterCleared(ARENA.into())),
+                QuestStepSpec::new("Then nothing.", QuestStepCondition::FlagSet("isl2d_never_set".into())),
+            ],
+        ));
+        quests.start(CLEAR_QUEST);
+    }
+    let read = |sim: &Platformer2dSimHarness| -> ClearReading {
+        let world = sim.world();
+        let switches = world
+            .resource::<ambition_platformer2d::encounter::switches::EncounterSwitchIndex>()
+            .switch_ids_for_encounter(ARENA);
+        let save = world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
+        (
+            switches.iter().filter(|switch| save.data().switch(switch)).count(),
+            switches.len(),
+            world.resource::<QuestRegistry>().get(CLEAR_QUEST).expect("ensured above").step,
+        )
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_reading = read(&sim);
+
+    sim.world_mut().write_message(ambition_platformer2d::encounter::EncounterEventMsg {
+        encounter: ARENA.into(),
+        room: Some(room),
+        event: ambition_platformer2d::encounter::EncounterEvent::Completed,
+    });
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let after_clear = read(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    for _ in 0..20 {
+        sim.app_mut().update();
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = read(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_reading, after_clear, after_replay]
+}
+
+/// ISL-2d: a room that rewinds puts back the switches its clear greened after
+/// the tick it was saved at, and the quest step the clear moved.
+#[test]
+fn a_rewound_room_puts_back_the_wave_clear_its_replay_does_not_make() {
+    let [at_n, after_clear, after_replay] = a_wave_cleared_only_before_the_rewind(true);
+    assert!(at_n.1 > 0, "premise: the goblin wave has linked switches ({at_n:?})");
+    assert_eq!((at_n.0, at_n.2), (0, 0), "premise: no switch on and the quest at its first step at N ({at_n:?})");
+    assert_eq!((after_clear.0, after_clear.2), (after_clear.1, 1), "premise: the clear greens every switch and moves the quest");
+    assert_eq!((after_replay.0, after_replay.2), (0, 0), "the replay did not clear the wave, and the save says it did");
+}
+
+/// The control: without the retraction the switches and the step stay. Run
+/// it beside the witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_wave_stays_cleared() {
+    let [_, after_clear, after_replay] = a_wave_cleared_only_before_the_rewind(false);
+    assert_eq!(after_replay, after_clear, "the clear went without the retraction");
+}

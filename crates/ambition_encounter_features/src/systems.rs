@@ -566,6 +566,12 @@ pub fn apply_wave_encounter_effects(
     )>,
     // The live room of each staged encounter, whose music it asks for.
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // Each clear from a room, with the tick: a rewind of that room puts back
+    // what it wrote (ISL-2d).
+    (sim_tick, mut clears): (
+        Option<Res<ambition_time::SimTick>>,
+        Option<ResMut<crate::room_writes::EncounterClearsInRooms>>,
+    ),
 ) {
     // ⭐ THIS ADAPTER NO LONGER SPAWNS ANYTHING. The reward-chest sync it used to
     // call was its only spawner; reward chests are the feature layer's now, and
@@ -581,7 +587,8 @@ pub fn apply_wave_encounter_effects(
     // director) lands in the gameplay trace regardless of the player guard
     // below, in the same `encounter:<id>:<label>` format as before E8.
     let tick = trace.current_tick();
-    let mut completed_wave_ids: Vec<String> = Vec::new();
+    let mut completed_wave_ids: Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)> =
+        Vec::new();
     for msg in events_in.read() {
         trace.push_event(ambition_gameplay_trace::GameplayTraceEvent::Sfx {
             tick,
@@ -595,7 +602,7 @@ pub fn apply_wave_encounter_effects(
                 .iter()
                 .any(|(enc, _, waves, _)| enc.id == msg.encounter && waves.is_some());
             if is_wave {
-                completed_wave_ids.push(msg.encounter.clone());
+                completed_wave_ids.push((msg.encounter.clone(), msg.room));
             }
         }
     }
@@ -633,21 +640,34 @@ pub fn apply_wave_encounter_effects(
 
     // Completion effects: auto-flip the linked switch to on (green) so the player can see they
     // finished it, surface a celebration banner, and advance any "clear encounter" quest step.
-    for encounter_id in &completed_wave_ids {
+    for (encounter_id, room) in &completed_wave_ids {
+        let written = room.zip(sim_tick.as_deref()).map(|(room, tick)| {
+            ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
+        });
+        let mut greened = Vec::new();
         // ⛔ ALL of them, not the first. `encounter_armed` arms on ANY red link,
         // so greening one switch of two leaves the encounter armed and the
         // driver re-starts the fight it just completed. See
         // `EncounterSwitchIndex::switch_ids_for_encounter`.
         for switch_id in switch_index.switch_ids_for_encounter(encounter_id) {
+            greened.push((switch_id.clone(), save.data().switch(&switch_id)));
             save.data_mut().set_switch(&switch_id, true);
         }
         banner_requests.write(ambition_combat::events::GameplayBannerRequested::new(
             format!("ARENA CLEAR — {encounter_id}"),
             3.0,
         ));
-        quests.push_event(
-            ambition_persistence::quest::QuestAdvanceEvent::EncounterCleared(encounter_id.clone()),
-        );
+        let event = ambition_persistence::quest::QuestAdvanceEvent::EncounterCleared(encounter_id.clone());
+        match (written, clears.as_deref_mut()) {
+            (Some(written), Some(clears)) => {
+                let clear = crate::room_writes::EncounterClear { written, encounter: encounter_id.clone(), switches: greened };
+                quests.push_event_caused_by(event, clear.quest_cause());
+                for old in clears.record(clear) {
+                    quests.forget_cause(&old.quest_cause());
+                }
+            }
+            _ => quests.push_event(event),
+        }
     }
 
     // ⭐ REWARD CHESTS ARE NOT SYNCED FROM HERE ANY MORE. This adapter used to

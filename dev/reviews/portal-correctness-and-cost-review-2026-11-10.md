@@ -212,3 +212,13 @@ contact, owner, slice, policy, app and default warning checks pass. The
 [contact receipt](../ambition_dev_measurements/summaries/portal-carried-projectile-contact-20261111.md)
 records exact commands and validation stages. Moving targets, surviving
 responses, general continuation and full PSIM acceptance remain open.
+
+`d795c9268` prepares carried parries before movement, guard rewards or ownership
+writes. The source root stops at the contact prefix; velocity uses the existing
+material law at the physical witness. Reflection and absorption pass through
+both H ratios. Translation, spin and response overflow pass in the core guard.
+After audio merge `fec049833`, owner and app cases, the app check and default
+warning checks pass. The
+[interception receipt](../ambition_dev_measurements/summaries/portal-carried-projectile-interception-20261111.md)
+records validation scope. Moving targets, other responses, general continuation
+and full PSIM acceptance remain open.

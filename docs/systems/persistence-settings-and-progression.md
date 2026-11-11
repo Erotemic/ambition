@@ -1,69 +1,62 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-11-10
 ---
 
 # Persistence, settings, and progression
 
-`ambition_persistence` owns saved-game, quest, and user-settings vocabulary plus
-save I/O. Provider content owns named quests/rewards/dialogue/encounters; UI
-crates edit settings through renderer-neutral models. Presentation does not own
-persistent truth.
+`ambition_persistence` owns durable save and settings vocabulary and save I/O.
+Game/provider content owns named quests, rewards, and authored progression.
+Simulation owns live entities and temporary state. Presentation reads these
+facts; it does not own persistent truth.
 
-## Data categories
+## Three different lifetimes
 
-| Category | Examples | Owner |
-|---|---|---|
-| Durable world/player history | collected rewards, defeated/converted actors, switches, quest flags, seen cutscenes | save data and provider progression integration |
-| User preferences | audio mix, controls/deadzones, gameplay options, video/display preferences | persistence settings model + host/UI adapters |
-| Live session state | current entities, timers, temporary effects, active move playback | simulation; reconstructed/snapshotted through canonical seams |
-| Derived UI/read models | menu rows, quest text, settings pages | settings/menu/sim-view presentation models |
+| State | Examples | Owner |
+| --- | --- | --- |
+| Durable history | Rewards, switches, quest progress, seen events, saved NPC-life facts | Save data plus provider progression integration |
+| User preferences | Audio mix, input settings, display options | Persistence settings model and host adapters |
+| Live simulation | Entities, movement, timers, captures, active attacks | Simulation and its rollback/construction authority |
 
-Do not store frame events or derived UI state as progression flags. Do not use
-settings persistence as a general simulation state bag.
+Derived menu or HUD models are neither saves nor authoritative simulation.
+Persist provider-qualified stable identities rather than raw Bevy `Entity`
+handles. Renaming an ID referenced by saved data requires deliberate migration
+or compatibility treatment.
 
-## Stable IDs and migration
+## Content and runtime
 
-Persist provider-qualified stable IDs, not Bevy `Entity` handles or source-file
-paths. Renaming a persisted flag, quest, item, encounter, or character ID is a
-save-format migration even when the Rust type is unchanged.
+A provider's `quest_book` source defines quests with ordered steps and optional
+`auto_start` behavior. The schema is owned by
+`ambition_persistence::quest::content_schema`; Ambition authors its quests at
+`game/ambition_content/assets/data/quests.ron`. Preparation checks duplicate
+IDs, empty quests, and invalid condition identifiers. Completion producers
+emit typed facts; persistence records durable outcomes.
 
-Parsers may retain backward-compatible defaults/aliases when practical. New
-fields need deterministic defaults and explicit reset behavior.
+NPC-life `LifeLedger` preserves a character's facts and last planned hour.
+`body::life::persist_lives_to_save` publishes changed ledger rows into the
+save, and restore reconstructs active lives from those values and the authored
+`LifeBook`. See [NPC lives](npc-lives.md).
 
-## Settings flow
+The **room snapshot prototype** at
+`ambition_platformer2d_runtime/src/rollback/room_snapshot.rs` is a separate,
+experimental mechanism for restoring registered component rows of selected
+entities. It is not yet an independent room rollback host: it does not capture
+resources or checksums. Do not describe experimental simulation-island
+reconstruction as shipped independent rollback. The active GGRS authority and
+save/checkpoint lifecycle remain separate concerns.
+
+## Settings
 
 ```text
-persisted settings
-    -> ambition_persistence host/settings vocabulary
-    -> settings/system menu IR
-    -> host/domain adapters derive effective runtime values
+persisted preferences
+    -> settings and menu models
+    -> host/domain adapters
+    -> effective runtime configuration
 ```
 
-Gameplay may read effective values but should not perform disk I/O or own the
-settings UI. Platform path selection stays in persistence/host helpers; never
-hard-code a user directory.
+Gameplay consumes effective values without doing disk I/O. File locations
+remain platform-owned rather than hardcoded in simulation.
 
-## Progression flow
-
-Provider content registers named quest, encounter, dialogue, and reward data.
-A pack authors its quests as data: a `quest_book` source (schema owned by
-`ambition_persistence::quest::content_schema`), a RON list of quests with
-ordered steps and an `auto_start` flag. Ambition's is
-`game/ambition_content/assets/data/quests.ron`. The content compiler refuses a
-quest with no steps, a doubled quest id and a condition with an empty id.
-Reusable domain state machines emit typed completion/reward facts. Persistence
-records only the durable result. On load/reset/restore, canonical construction
-and reconciliation rebuild the live world from authored content plus saved
-facts.
-
-## Validation
-
-```bash
-./run_tests.sh -p ambition_persistence
-./run_tests.sh -p ambition_settings_menu
-./run_tests.sh -p ambition_encounter
-./run_tests.sh -p ambition_content -k quest
-./run_tests.sh -k save
-./run_tests.sh -k settings
-```
+When changing persistence, check the relevant load/restore path and a focused
+real usage scenario. Avoid routinely running every settings, quest, rollback,
+and save suite for a localized change.

@@ -1,71 +1,72 @@
 ---
 status: current
-last_verified: 2026-10-11
+last_verified: 2026-11-10
 ---
 
-# Iterating without a rebuild
+# Iterating without rebuilding the game
 
-Use this page to change the game while it runs. It tells you, for each kind of
-file, what a running game does when you save it, and what an edit costs when
-the game is not running. The numbers are measured on the agent machine.
+A development build can load many authored changes from disk. Use the owning
+content or tool pipeline; don't rebuild the engine for an edit that only changes
+a content file.
 
-All of it applies to a desktop development build: the default
-`cargo run -p ambition_app` (no `static_content`). A web, Android or bundled
-build embeds its content (`static_content`, `static_map`), so it reads no file
-from disk and watches nothing.
+## Authored content packs
 
-## What a running game does with a saved file
+`game/ambition_content/assets/pack.ron` declares Ambition's pack sources.
+`game/ambition_content/src/content_watch.rs` polls the manifest and the local
+source paths it declares every 20 update frames in non-`static_content` builds.
+When a source changes, it compiles a candidate pack and asks the active route
+to prepare and publish a new generation. A changed manifest also updates the
+watch list.
 
-| You save | The running game | Where it is checked |
-| --- | --- | --- |
-| A move table (`game/ambition_content/assets/data/movesets/*.ron`) | Compiles the pack again from disk and reloads it: the bodies play the new moves about 20 frames after the save. | `edit_to_play_through_the_shell::a_content_file_saved_while_the_game_runs_is_played` |
-| `data/boss_profiles.ron`, `data/boss_encounters/*.ron` | The same reload. A boss built after it has the new tuning and the new HP. | `a_boss_tuning_saved_while_the_game_runs_is_played` |
-| `data/character_catalog.ron` (a row's health, body, abilities, brain; a row added or removed) | The same reload; every character is folded again against the new catalog. An added row is built and staged; a removed one leaves the cast. | `a_character_row_saved_while_the_game_runs_is_played`, `a_catalog_save_that_adds_or_removes_a_character_is_played` |
-| `data/fighter_brain_ladder.ron`, `data/encounters/*.ron` | The same reload. | `ambition_content::reload` tests |
-| A fighter facet (`data/fighters/*.ron`) | The same reload: every character is staged again from the live catalog with the edited facet folded in (a match that plays fighter damage reads it). | `a_fighter_facet_saved_while_the_game_runs_reaches_the_cast` |
-| `data/items.ron` (an item's name, description, category, held item, dialogue id) | The same reload: the App's item catalog is replaced. The menu, pickups, shops and dialogue name items from the new rows. The bag keeps its counts. | `an_item_row_saved_while_the_game_runs_is_played` |
-| `audio/sfx_registry.ron`, `audio/music_registry.ron` | The same reload: Ambition's audio fragment is replaced and the running session plays the new cues and tracks. ⚠ A cue that the packed bank (`audio/sfx.bank`) holds plays from the bank, so a registry edit to it is not heard until the bank is packed again (`scripts/regen/sfx.sh`). A cue that only the registry authors is synthesized from the new spec. | `shell_host_rendered::an_sfx_cue_saved_while_the_game_runs_is_played` |
-| `data/boss_seeds.ron`, `data/boss_validator_bands.ron` | The same reload takes them, and nothing in the running game changes: only the offline fight validator (`game/ambition_content/tests/boss_fight_validator.rs`) reads them. | `a_candidate_that_changes_only_the_validator_calibration_publishes` |
-| `game/ambition_content/assets/ambition/platformer_defaults.ron` (movement tuning, and combat/time feel under `feel:`) | Writes a changed tuning to the F3 inspector's mirror (`EditableMovementTuning`, `EditableFeelTuning`); the developer-edit road publishes it about 20 frames after the save. A file that does not parse, or a `feel:` field the engine does not have, is refused. The starting abilities in the file need a restart. | `a_movement_tuning_saved_while_the_game_runs_is_played` |
-| A Yarn file (`assets/dialogue/sandbox/*.yarn`) | Compiles the whole dialogue project with the new file, then uses it. A dialogue that is open starts its current node again. | `content_it::a_saved_dialogue_edit_is_played` |
-| A procedural module (`game/ambition_content_modules/src/*.rs`) | Nothing until you rebuild the `.wasm` (next section); then the game loads the new code. | `a_module_file_that_changes_while_the_game_runs_is_reloaded` |
-| A Mary-O enemy brain (`game/ambition_demo_mary_o_modules/src/*.rs`; the Void Lizard, the Laden Swallow) | The same: rebuild that crate's `.wasm` (next section, with the crate name), and the Mary-O app loads the new code. | `mary_o_it::the_void_lizard_runs_from_its_module_file` |
-| The LDtk world | Press F11 to apply the edit, or F12 to apply each save. | `an_edit_reaches_the_shipped_game` |
+This includes local pack entries such as movesets, encounters, character data,
+items, and **`data/npc_lives.ron`**. The NPC-life publisher installs an updated
+`LifeBook`; active lives use the new domain on their next planning decision.
 
-A reload is refused, and the game keeps what it runs, when:
+**Detection, preparation, and publication are distinct.** A valid file save is
+not proof that the current session adopted it. A failed compilation, an
+unsupported content change, or an externally owned rollback timeline can
+refuse the reload without replacing live content. Check the reload log and the
+result in gameplay. Editing content while no route can prepare it may leave a
+pending change for the next available route.
 
-- the pack does not compile (the log shows the compiler's message);
-- a rollback timeline another owner holds is live (a networked match).
+**Library-backed files need special care.** The pack compiler resolves a
+source's declared `library`, but the current watcher's timestamp checks use
+`root.join(path)` for each declaration. That is not the resolved path in an
+external content library. Do not rely on edits to, for example, the shared
+music/SFX registry being detected automatically. Restart or explicitly
+reprepare the content through a supported route, and verify the changed result.
 
-Read the log for the result. Each reload writes one line:
-`content reload requested for route ...`, `dialogue reloaded from [...]`,
-`movement tuning reloaded from ...`, `feel tuning reloaded from ...`,
-`extension modules reloaded: ...`, or a refusal with its reason.
+A standalone demo has its own authored pack and composition; don't assume
+Ambition's watcher automatically watches every other game's source tree.
 
-## Procedural modules: rebuild only the module
+## Other edit paths
 
-1. Run the module build in watch mode. It rebuilds the `.wasm` each time you
-   save a module source, in about 1 to 2 s, and does not compile the engine:
+| Edited material | Development iteration path |
+| --- | --- |
+| Yarn dialogue | Its own dialogue-project watcher recompiles the project; an open conversation may restart its current node |
+| Movement/feel defaults (`platformer_defaults.ron`) | The developer tuning-edit path publishes supported fields; starting abilities may require restarting the session |
+| LDtk world | Use the editor, then `F11` to validate/apply, or `F12` to toggle auto-apply; see [LDtk hot reload](../systems/ldtk-hot-reload.md) |
+| Generated art/audio | Run the relevant publication or bank-generation tool; writing a registry entry does not regenerate its already packed media |
+| Rust gameplay/engine code | Recompile the affected crate/application, unless it is an independently loaded extension module |
 
-   ```bash
-   scripts/regen/build_extension_modules.sh --watch
-   ```
+## Procedural Rust modules
 
-2. Start the game once with the loaded modules, and leave it running:
+The development module road compiles a small `.wasm` without relinking the
+engine, when the `wasm_modules` runtime capability is enabled. Once the module
+build is authorized for the assigned checkout, a watch loop can rebuild it:
 
-   ```bash
-   AMBITION_EXTENSION_MODULES=target/extension-modules/wasm32-unknown-unknown/release \
-       cargo run -p ambition_app
-   ```
+```bash
+scripts/regen/build_extension_modules.sh --watch
+```
 
-3. Save a module source. The watch rebuilds the file; the game sees the new
-   file within about 20 frames and loads it. A module that the new build no
-   longer exports leaves with the old build. Records that a module keeps
-   across ticks are carried to the new field list by field tag.
+Run the host with the resulting module directory:
 
-A demo's enemy brains are modules on the same road, in their own crate. For
-Super Mary-O (0.57 s for one edit, measured 2026-10-11; a change to the same
-rule in the Mary-O crate compiled the crate and its app, 23.7 s):
+```bash
+AMBITION_EXTENSION_MODULES=target/extension-modules/wasm32-unknown-unknown/release \
+    cargo run -p ambition_app
+```
+
+For Mary-O's module crate, use:
 
 ```bash
 scripts/regen/build_extension_modules.sh --watch ambition_demo_mary_o_modules
@@ -73,47 +74,15 @@ AMBITION_EXTENSION_MODULES=target/extension-modules/wasm32-unknown-unknown/relea
     cargo run -p ambition_demo_mary_o_app
 ```
 
-See [`writing-a-procedural-module.md`](writing-a-procedural-module.md) to write
-one.
+The script rebuilds on source changes; the host watches the resulting module
+file. A failed rebuild leaves the previous good module running. See
+[writing a procedural module](writing-a-procedural-module.md) for the authoring
+contract. Coordinate builds with other agents in the assigned checkout.
 
-## When the game is not running: what an edit costs
+## Checking an edit
 
-Every content file below is read from disk at startup, so an edit costs a
-restart and no Rust build. Measured as `cargo build -p ambition_app --bin
-ambition_game_bin` after touching the file, with a warm target:
-
-| File | Rebuild |
-| --- | --- |
-| `boss_profiles.ron` | 0.44 s, no crate compiled |
-| `audio/sfx_registry.ron` | 0.52 s, no crate compiled |
-| `data/boss_sheets.ron` | 0.48 s, no crate compiled |
-| A Yarn file | 0.43 s, no crate compiled |
-| Movement defaults and feel (`game/ambition_content/assets/ambition/platformer_defaults.ron`) | 0.49 s, no crate compiled (embedded, it was 14.10 s: the actor monolith and 14 crates after it; a feel value in `ambition_combat`'s `Default` costs 14.98 s and 27 crates) |
-| A demo's move table, catalog or fighter facet (`game/ambition_demo_*/assets/`, the versus pack in `game/ambition_app/assets/`) | 0.43 to 0.45 s, no crate compiled (embedded, it was 6.62 s: the demo crate and the app) |
-| A Sanic world (`game/ambition_demo_sanic/assets/worlds/*.ldtk`) | 0.78 s, no crate compiled, for `cargo build -p ambition_demo_sanic_app --bins` (embedded, it was 10.3 s: the demo crate and its app) |
-| Mary-O's world (`game/ambition_demo_mary_o/authoring/worlds/mary_o.ldtk`) | 0.69 s, no crate compiled, for `cargo build -p ambition_demo_mary_o_app --bins` |
-| A sprite publish (any file under `assets/sprites*` or `assets/sprite_packs` of the actor monolith) | 0.67 s, no crate compiled, for the Sanic app (embedded, it was 185 s and 23 crates). A development build reads the tree at startup. |
-| A file that is still embedded (`include_str!`) | about 6 to 7 s: `ambition_content` and the app compile again |
-
-`assets/pack.ron` is the one list of the pack's sources. A development build
-reads it when the pack compiles, so a new source is a new file and one line in
-`pack.ron`, and no Rust build (0.71 s, measured). A running game watches
-`pack.ron` too and plays the new source at the save.
-
-A demo's other authored files, such as a world, are written with
-`ambition_platformer2d::content_text!`: one file, read off disk the same way
-and embedded under the same feature.
-
-A demo's pack is written with `ambition_platformer2d::content_pack! { root:
-"assets" }`, which reads `pack.ron` and each source it declares off disk. A new
-source is one line in that `pack.ron`, as for Ambition. The demo crate's
-`build.rs` (`ambition_content_pack::embed::embed_pack`) embeds the same list
-only under the crate's own `static_content` feature. `ambition_app`'s
-`static_content` turns the feature on for the demos it hosts.
-
-## Validation
-
-- After a content edit: the log line above, and the change on screen.
-- After a refusal: the reason is in the log; fix the file and save again.
-- To check the pack without the game: see
-  [`validating-a-content-pack.md`](validating-a-content-pack.md).
+Prefer the actual observed gameplay result and the relevant reload diagnostic.
+For a malformed pack or missing source, use
+[validating a content pack](validating-a-content-pack.md). Static distribution
+builds embed content and don't use these runtime file-watch paths. Historical
+per-machine build times are not useful predictions for a different checkout.

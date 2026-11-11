@@ -1131,3 +1131,15 @@ The final merge passes both J tests and the assembled app check.
 v442; their peer row set is unchanged. All four schema checks then pass.
 The final logs are `target/portal-lab-final-main-chain.log`,
 `target/portal-lab-v442-schema.log` and `target/portal-lab-final-main-check.log`.
+
+
+Review follow-up `670e4683c` fixes P1 recipient scope and P2 translation
+admission. Recipient sweeps check conservative bounds before
+partition admission. An early solid stop can pass even when the unreachable
+motion suffix refuses. Guards cover a remote invalid recipient, a thin
+contact after chart cancellation, and a wall before a refused portal path.
+After the upstream merge, the assembled app check, all 15 projectile app
+cases and three GNU-ton punch cases pass. The punch cases include rewind.
+See the [review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md).
+R3, R4, R5, R6 and R8 remain open. The material repair draft is separate
+from main. Full PSIM acceptance remains open.

@@ -1,52 +1,53 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-11-10
 ---
 
 # Developer tools in the running game
 
-Developer tools are optional host/presentation adapters over stable simulation
-and provider interfaces. They may inspect or request changes through explicit
-commands, but must not become hidden gameplay authority.
+Developer tools inspect runtime state or request simulation changes through
+explicit commands. They are not a second gameplay authority.
 
-## Ownership model
+## Controls and ownership
 
-- `ambition_dev_tools` and focused tool crates own reusable debug resources,
-  commands, profiling, overlays, and diagnostics.
-- The host/app wires desktop-only input or windows behind features/policy.
-- Render/UI adapters visualize read models and debug geometry.
-- Simulation domains expose typed commands/queries/traces rather than granting a
-  debug panel arbitrary mutable access.
-- Provider content may register provider-specific debug destinations or IDs.
+[Developer hotkeys](developer-hotkeys.md) lists the current bindings: `F1`
+toggles debug overlays, `Shift+F1` selects combat geometry, `F3` opens the
+resource inspector, and `F8` writes a gameplay trace.
 
-Use generated navigation for the current hotkey and command implementation:
+- `ambition_dev_tools` owns debug switches, tool state, and reusable adapters.
+- Runtime/provider systems own queries and command handlers that inspect or
+  change authoritative state.
+- App/render crates present read models, geometry, or inspector windows.
+- Headless tools should consume the same observations when practical.
 
-```bash
-python scripts/agent_query.py "developer tools hotkey debug overlay"
-python scripts/agent_query.py crate ambition_dev_tools
-```
+## Authoritative geometry observations
 
-Do not preserve a hotkey list in this page; hotkeys are implementation details
-and should be discoverable from current source/help/UI.
+The current observation interface is `ambition_geometry_observation`.
+Owners register one-shot read-only providers using
+`GeometryObserverAppExt::add_geometry_observer`; consumers call `observe_all`
+with an `ObservationQuery` containing an optional room and subject.
 
-## Rules
+The collision-world adapter in
+`ambition_platformer2d_world/src/geometry_observers.rs` exposes:
 
-- Debug features compile out or remain inert in production personas as intended.
-- A developer command has a typed request and deterministic simulation-side
-  handler when it affects authoritative state.
-- Tools use stable provider IDs, not raw Bevy entity handles, for durable targets.
-- Headless diagnostics have a non-visual output (trace, report, snapshot, or
-  structured read model).
-- Teleports, room switches, grants, and resets use canonical lifecycle and
-  construction seams.
-- Debug UI cannot silently alter tuning every frame.
+| Provider | Meaning |
+| --- | --- |
+| `collision.authored` | Authored blocks; notes which are absent from the current composed walls |
+| `collision.composed` | Current room walls, including platform/feature contributions |
+| `collision.for_subject` | Geometry the selected body actually meets, including its gates and portal cuts |
 
-## Validation
+The subject-specific provider returns `needs_subject` when no subject is
+supplied. Results use room-pixel coordinates, y downward, and carry an
+`active` or `inactive` state with a reason. `to_json` provides the common
+headless representation. The provider reads the collision authority rather
+than rebuilding another approximation for display.
 
-```bash
-./run_tests.sh -p ambition_dev_tools
-./run_tests.sh -k dev_tool
-python scripts/checks/check_doc_links.py
-```
+## Adding a tool
 
-For profiling workflows see [`../recipes/profiling.md`](../recipes/profiling.md).
+Expose a typed simulation request for an operation that changes the world, or
+register a read-only observation for inspection. Prefer stable content/provider
+identities for references that must survive reconstruction. Keep heavyweight
+rendering/debug work disabled when the tools are not requested.
+
+Use [profiling](../recipes/profiling.md) for performance investigation and
+[explaining a tick](../recipes/explaining-a-tick.md) for causal debugging.

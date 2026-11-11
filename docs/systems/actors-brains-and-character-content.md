@@ -105,6 +105,9 @@ also independent of body identity; multi-view work is specified in
 Use [`../recipes/adding-a-character.md`](../recipes/adding-a-character.md).
 Extending reusable brain/action vocabulary is separate and described in
 [`../recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md).
+For authored daily schedules, world observations, and per-character facts, see
+[NPC lives](npc-lives.md). A `Life` augments the ordinary body; it does not
+introduce a second NPC body-construction path.
 
 ## Validation principle
 
@@ -112,6 +115,6 @@ Validate authored references and completeness during preparation. Runtime
 systems should receive resolved identities/values rather than silently looking
 up strings and choosing a fallback body.
 
-Use the focused character/content test suites plus the real provider/headless
-construction path for the character being changed; exact commands evolve with
-the repository and should be localized with `scripts/agent_query.py`.
+Verify the changed character through its actual provider/engine construction
+path and a meaningful gameplay scenario. Use focused tests where a distinct
+failure mode warrants one.

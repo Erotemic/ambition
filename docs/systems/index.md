@@ -11,6 +11,7 @@ presenting their findings as current architecture.
 | --- | --- |
 | Input and control authority | [Input, control and UI](input-control-and-ui.md) |
 | Characters and brains | [Actors and character content](actors-brains-and-character-content.md) |
+| NPC schedules and lives | [NPC lives](npc-lives.md) |
 | World and room loading | [LDtk world composition](ldtk-world-composition.md) |
 | Save data and progression | [Persistence](persistence-settings-and-progression.md) |
 | Headless runtime | [Headless simulation](headless-simulation.md) |

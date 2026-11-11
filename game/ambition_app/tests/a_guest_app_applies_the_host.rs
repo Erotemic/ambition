@@ -226,3 +226,162 @@ fn probe_where_a_gated_guest_spends_its_update() {
         println!("[guest-split]   App::update {:.2} ms an update ({sub_apps} sub-app(s))", times.mean_ms());
     }
 }
+
+/// A shot the guest built from a spawn row, which it removes when the host's
+/// snapshot no longer names it.
+#[derive(bevy::prelude::Component)]
+struct ReplicatedShot;
+
+/// One spawn row: the shot's network id, its kind, the half extent it is
+/// drawn at and a visual index. The body row (position, velocity, facing)
+/// rides beside it as for any body.
+const SPAWN_RECORD: u64 = 4 + 1 + 8 + 2;
+/// One despawn row: the network id.
+const DESPAWN_RECORD: u64 = 4;
+/// One body row, as `hosted_world`'s.
+const BODY_ROW: u64 = 4 + 8 + 8 + 4;
+
+/// Alice fires a short shot to her right every twelve frames from frame 10
+/// to 200: shots spawn and end all through the run.
+fn alice_fires_often(sim: &mut Platformer2dSimHarness, frame: i32) {
+    use ambition_platformer2d::projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+    if !(10..=200).contains(&frame) || frame % 12 != 10 % 12 {
+        return;
+    }
+    let world = sim.world_mut();
+    let (alice, at) = world
+        .query_filtered::<(bevy::prelude::Entity, &BodyKinematics), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .map(|(entity, body)| (entity, body.pos))
+        .expect("Alice has a body");
+    world.write_message(ProjectileSpawnRequest::open(
+        alice,
+        ProjectileSpawn {
+            origin: at + bevy::math::Vec2::new(24.0, 0.0),
+            dir: bevy::math::Vec2::new(1.0, 0.0),
+            speed: 240.0,
+            damage: 1,
+            max_lifetime: 0.4,
+            half_extent: bevy::math::Vec2::new(6.0, 6.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            bounces: 0,
+            bounce_on_world_contact: false,
+            boomerang_return_s: None,
+            splash_half_extent: 0.0,
+        },
+        ProjectileStart::StepThisTick,
+    ));
+}
+
+/// The host's shots in flight, by id.
+fn shot_ids(sim: &mut Platformer2dSimHarness) -> BTreeSet<SimId> {
+    let world = sim.world_mut();
+    world
+        .query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>()
+        .iter(world)
+        .cloned()
+        .collect()
+}
+
+/// What one snapshot did to the guest.
+#[derive(Default)]
+struct Applied {
+    spawned: u64,
+    despawned: u64,
+    /// Ids on one side only after the snapshot was applied.
+    unmatched: usize,
+}
+
+/// Apply `rows` to the guest, building the shots it does not hold (`shots`
+/// names them) and removing the replicated shots the rows no longer name.
+fn apply_with_spawns(
+    guest: &mut Platformer2dSimHarness,
+    rows: &BTreeMap<SimId, [f32; 5]>,
+    shots: &BTreeSet<SimId>,
+) -> Applied {
+    let mut applied = Applied::default();
+    let missing = apply(guest, rows);
+    let world = guest.world_mut();
+    for id in missing.iter().filter(|id| shots.contains(*id)) {
+        let row = rows[id];
+        let mut body = BodyKinematics::default();
+        body.pos = bevy::math::Vec2::new(row[0], row[1]);
+        body.vel = bevy::math::Vec2::new(row[2], row[3]);
+        body.facing = row[4];
+        world.spawn((id.clone(), body, ReplicatedShot));
+        applied.spawned += 1;
+    }
+    let ended: Vec<bevy::prelude::Entity> = world
+        .query_filtered::<(bevy::prelude::Entity, &SimId), bevy::prelude::With<ReplicatedShot>>()
+        .iter(world)
+        .filter(|(_, id)| !rows.contains_key(*id))
+        .map(|(entity, _)| entity)
+        .collect();
+    for entity in ended {
+        world.despawn(entity);
+        applied.despawned += 1;
+    }
+    let held: BTreeSet<SimId> =
+        world.query_filtered::<&SimId, bevy::prelude::With<BodyKinematics>>().iter(world).cloned().collect();
+    let sent: BTreeSet<SimId> = rows.keys().cloned().collect();
+    applied.unmatched = held.symmetric_difference(&sent).count();
+    applied
+}
+
+/// NA-2b with spawns: Alice fires a short shot every twelve frames, so shots
+/// spawn and end all through the run. The guest builds each shot the host's
+/// snapshot names and it does not hold, from a spawn row, and removes each
+/// replicated shot the snapshot no longer names. Prints the spawns and
+/// despawns, the most shots in flight, what applying costs, the frames the
+/// guest's ids differ from the snapshot's after applying it, and the link
+/// bytes a frame (body rows, spawn rows, despawn rows).
+#[test]
+#[ignore = "measurement: prints what replicating spawned shots to a guest costs; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_guest_needs_to_draw_shots() {
+    let mut host = booted(ROOM);
+    let mut guest = booted(ROOM);
+    simulate_nothing(&mut guest);
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>, BTreeSet<SimId>)> = VecDeque::new();
+    let (mut spawned, mut despawned, mut unmatched_frames, mut most_shots) = (0u64, 0u64, 0, 0usize);
+    let (mut body_bytes, mut applied) = (0u64, 0u32);
+    let mut apply_time = std::time::Duration::ZERO;
+    for frame in 1..=FRAMES {
+        alice_fires_often(&mut host, frame);
+        host.drive_seat(0, Default::default());
+        host.drive_seat(1, Default::default());
+        host.app_mut().update();
+        let shots = shot_ids(&mut host);
+        most_shots = most_shots.max(shots.len());
+        in_flight.push_back((frame, bodies(&mut host, None), shots));
+        if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+            let (_, rows, shots) = in_flight.pop_front().expect("a snapshot arrived");
+            let started = std::time::Instant::now();
+            let done = apply_with_spawns(&mut guest, &rows, &shots);
+            apply_time += started.elapsed();
+            applied += 1;
+            spawned += done.spawned;
+            despawned += done.despawned;
+            body_bytes += rows.len() as u64 * BODY_ROW;
+            if done.unmatched > 0 {
+                unmatched_frames += 1;
+            }
+        }
+        guest.app_mut().update();
+    }
+    let link = body_bytes + spawned * SPAWN_RECORD + despawned * DESPAWN_RECORD;
+    println!("[shots] {ROOM}: {FRAMES} frames, a snapshot {LATENCY} frames late, {applied} applied");
+    println!("[shots]   shots spawned on the guest {spawned}, despawned {despawned}; most in flight at once {most_shots}");
+    println!(
+        "[shots]   applying a snapshot {:.3} ms; frames whose ids differ after applying {unmatched_frames}",
+        apply_time.as_secs_f64() * 1e3 / f64::from(applied.max(1))
+    );
+    println!(
+        "[shots]   link {:.1} bytes a frame: body rows {:.1}, spawn rows {:.2}, despawn rows {:.2}",
+        link as f64 / f64::from(applied.max(1)),
+        body_bytes as f64 / f64::from(applied.max(1)),
+        (spawned * SPAWN_RECORD) as f64 / f64::from(applied.max(1)),
+        (despawned * DESPAWN_RECORD) as f64 / f64::from(applied.max(1)),
+    );
+    assert!(spawned > 0, "premise: the host fired shots the guest had to build");
+}

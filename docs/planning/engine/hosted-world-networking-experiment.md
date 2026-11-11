@@ -182,14 +182,39 @@ schedule run in `MainScheduleOrder`'s order and timed, and 120 more through
   sink only) is the measurement that would say how much of the 2 ms is the
   gated simulation and how much is presentation.
 
+### NA-2b, spawns and despawns by `SimId` (2026-11-11)
+
+Probe `probe_what_a_guest_needs_to_draw_shots` (same file, ignored). The
+NA-2b guest in `switch_lab`, gated as above. Alice fires a short shot (0.4 s)
+every twelve frames from frame 10 to 200, so shots spawn and end all through
+the run. Each snapshot (three frames late) carries the body rows and the ids
+of the shots in flight. The guest writes the rows onto what it holds, builds
+each shot it does not hold from a spawn row (id, kind, half extent, visual
+index: 15 bytes) and removes each replicated shot the snapshot no longer
+names (a 4-byte despawn row). One run, 240 frames:
+
+| Shots spawned / despawned | Most in flight | Applying a snapshot | Frames whose ids differ after applying | Link a frame |
+|---|---|---|---|---|
+| 16 / 16 | 2 | 0.172 ms | 0 | 86.5 bytes (body rows 85.3, spawn 1.01, despawn 0.27) |
+
+- **A spawn row per kind by `SimId` is enough to keep the guest's set equal
+  to the host's:** after every applied snapshot the guest held exactly the
+  ids the host sent, shots included.
+- **Spawns cost little on the link:** about 1.3 bytes a frame here, against
+  85 for the body rows that carry the shots' motion. The body rows are the
+  cost; delta encoding (NA-1/NA-2) is where the bytes are.
+- **Not yet exercised:** a death (a body despawned and rebuilt), spawn rows
+  for other kinds (items, debris), and sending only the guest's room.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
    spawns; the gated update is split (2026-11-11): 2.2 ms alone, nearly all
-   `Update`'s 1,030 gated systems. Next: a guest composed without the
-   simulation plugins; a scene that spawns and despawns (shots, a death),
-   with a replicated spawn row per kind by `SimId`; send only the guest's
-   room.
+   `Update`'s 1,030 gated systems. Shots spawned and ended by `SimId`
+   (2026-11-11): the guest's ids equal the host's after every snapshot, at
+   about 1.3 bytes a frame of spawn and despawn rows. Next: a guest composed
+   without the simulation plugins; a death and other kinds' spawn rows; send
+   only the guest's room.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

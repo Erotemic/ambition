@@ -9,6 +9,8 @@ use super::{NumericFault, Sim2};
 use crate::{Aabb, CombatVolume, Vec2};
 
 mod translation;
+mod penetration;
+pub(crate) use penetration::PolygonAxisContact;
 mod cell;
 mod temporal;
 mod affine;
@@ -68,6 +70,16 @@ pub struct MaterialCastCells<'a> {
     initial_overlap: InitialOverlap,
 }
 
+fn carry_plane(
+    plane: translation::MovingPlane, map: Sim2, travel: DVec2,
+) -> Result<translation::MovingPlane, NumericFault> {
+    let inward = map.direction_wide(plane.plane.inward);
+    let offset = plane.plane.offset * map.scale_wide() + inward.dot(map.translation());
+    let rate = plane.rate * map.scale_wide() + inward.dot(travel);
+    if !inward.is_finite() || !offset.is_finite() || !rate.is_finite() { return Err(NumericFault::Overflow); }
+    Ok(translation::MovingPlane { plane: MaterialPlane { inward, offset }, rate })
+}
+
 fn numeric(reason: NumericFault) -> Refusal {
     Refusal {
         path: Vec::new(),
@@ -124,10 +136,32 @@ impl<'a> MaterialCast<'a> {
         Ok(self)
     }
 
+    /// Keep a crossing found during this transaction until its root rebase.
+    pub(crate) fn motion_admission<'p>(
+        &self, admission: Option<MotionAdmission<'p>>,
+    ) -> Result<Option<MotionAdmission<'p>>, Refusal> {
+        let Some(mut policy) = admission else { return Ok(None); };
+        if policy.first.is_some() || self.time.start == self.time.end { return Ok(Some(policy)); }
+        let mut first: Option<(f64, u32)> = None;
+        for link in policy.links {
+            let crossing = self.crossing(link.enter_step, link.enter, self.until)
+                .map_err(|reason| Refusal { path: vec![], link: Some(link.key), reason })?;
+            if let Some(crossing) = crossing {
+                let key = (crossing.toi, link.key);
+                if first.is_none_or(|old| key.0.total_cmp(&old.0).then(key.1.cmp(&old.1)).is_lt()) {
+                    first = Some(key);
+                }
+            }
+        }
+        policy.first = first.map(|(_, key)| key);
+        Ok(Some(policy))
+    }
+
     pub fn cells(
         self,
         admission: Option<MotionAdmission<'_>>,
     ) -> Result<MaterialCastCells<'a>, Refusal> {
+        let admission = self.motion_admission(admission)?;
         if !self.time.start.is_finite() || !self.time.end.is_finite() {
             return Err(numeric(NumericFault::NonFinite));
         }
@@ -153,7 +187,7 @@ impl<'a> MaterialCast<'a> {
             let scene = scene.as_ref().unwrap().clone();
             if admission.is_some() { arcs::build(&self, policy, scene)? }
             else {
-                vec![MaterialCell { path: vec![], map: self.material.to_world, travel: DVec2::ZERO,
+                vec![MaterialCell { world_planes: Vec::new(), path: vec![], map: self.material.to_world, travel: DVec2::ZERO,
                     planes: vec![], time: 0.0..self.until, curve: Some(std::sync::Arc::new(arcs::CurveCell::whole(scene))) }]
             }
         } else if let Some(admission) = admission {
@@ -167,7 +201,7 @@ impl<'a> MaterialCast<'a> {
                 } else {arcs::build(&self,admission,scene.as_ref().unwrap().clone())?}
             } else {affine::build(&self, admission)?}
         } else {
-            vec![MaterialCell { path: vec![], curve:None,map: self.material.to_world,
+            vec![MaterialCell { world_planes: Vec::new(), path: vec![], curve:None,map: self.material.to_world,
                 travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..self.until }]
         };
         for cell in &parts {
@@ -209,6 +243,23 @@ impl MaterialCastCells<'_> {
         displacement: Vec2,
     ) -> Result<Option<MaterialCastHit>, Refusal> {
         self.against_rigid_where(part,obstacle,displacement,0.0,Vec2::ZERO,|_|true)
+    }
+
+    fn solid_may_occupy(
+        &self, part: &MaterialCell, obstacle: &[Vec2], displacement: Vec2,
+    ) -> bool {
+        if part.world_planes.is_empty() { return true; }
+        let motion = displacement.as_dvec2() * (self.time.end - self.time.start);
+        let mut region = obstacle.iter().map(|point| point.as_dvec2()
+            - displacement.as_dvec2() * (1.0 - self.time.start)).collect::<Vec<_>>();
+        for plane in &part.world_planes {
+            // A matching rate keeps this cut fixed in the obstacle's chart.
+            // Other cuts can admit new solid area later in the interval.
+            if plane.rate == plane.plane.inward.dot(motion) {
+                region = clip(&region, plane.plane);
+            }
+        }
+        crate::frame::thread::has_area(&region)
     }
 
     fn against_translation(&self,part:&MaterialCell,obstacle:&[Vec2],displacement:Vec2)
@@ -267,25 +318,13 @@ impl MaterialCastCells<'_> {
         if !turn.is_finite() || !pivot.is_finite() {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
+        if turn == 0.0 && obstacle.len() >= 3 && !self.solid_may_occupy(part, obstacle, displacement) {
+            return Ok(None);
+        }
         if turn==0.0 && part.curve.is_none() && (obstacle.len()>2 || self.scene.is_none()) {
             return Ok(self.against_translation(part,obstacle,displacement)?.filter(|hit|accepts(hit)));
         }
-        let scopes:std::borrow::Cow<'_,[MaterialCell]>=if obstacle.len()<=2 {
-            if let Some(scene)=&self.scene {
-                let program=match &part.curve {
-                    Some(curve)=>(**curve).clone(),
-                    None=>arcs::CurveCell::from_affine(scene.clone(),part).map_err(|e|numeric_at(part,e))?,
-                };
-                let admitted=if part.curve.is_none() {
-                    Some(self.parts.iter().filter(|other|other.path.len()>part.path.len()
-                        && other.path.starts_with(&part.path)
-                        && (other.time.start.max(part.time.start)<other.time.end.min(part.time.end)
-                            || other.time.start==other.time.end && other.time.start>=part.time.start && other.time.end<=part.time.end))
-                        .map(|other|other.path[part.path.len()]).collect::<Vec<_>>())
-                } else {None};
-                std::borrow::Cow::Owned(program.line_parts(part,obstacle,displacement,turn,pivot,admitted.as_deref())?)
-            } else {std::borrow::Cow::Borrowed(std::slice::from_ref(part))}
-        } else {std::borrow::Cow::Borrowed(std::slice::from_ref(part))};
+        let scopes = self.obstacle_scopes(part, obstacle, displacement, turn, pivot)?;
         let mut selected:Option<MaterialCastHit>=None;
         let mut failed=None;
         for scope in scopes.iter() {
@@ -310,6 +349,26 @@ impl MaterialCastCells<'_> {
             if failed.is_some(){break;}
         }
         match failed {Some(reason)=>Err(reason),None=>Ok(selected)}
+    }
+
+    fn obstacle_scopes<'b>(&self, part: &'b MaterialCell, obstacle: &[Vec2], displacement: Vec2,
+        turn: f32, pivot: Vec2) -> Result<std::borrow::Cow<'b, [MaterialCell]>, Refusal> {
+        Ok(if obstacle.len()<=2 {
+            if let Some(scene)=&self.scene {
+                let program=match &part.curve {
+                    Some(curve)=>(**curve).clone(),
+                    None=>arcs::CurveCell::from_affine(scene.clone(),part).map_err(|e|numeric_at(part,e))?,
+                };
+                let admitted=if part.curve.is_none() {
+                    Some(self.parts.iter().filter(|other|other.path.len()>part.path.len()
+                        && other.path.starts_with(&part.path)
+                        && (other.time.start.max(part.time.start)<other.time.end.min(part.time.end)
+                            || other.time.start==other.time.end && other.time.start>=part.time.start && other.time.end<=part.time.end))
+                        .map(|other|other.path[part.path.len()]).collect::<Vec<_>>())
+                } else {None};
+                std::borrow::Cow::Owned(program.line_parts(part,obstacle,displacement,turn,pivot,admitted.as_deref())?)
+            } else {std::borrow::Cow::Borrowed(std::slice::from_ref(part))}
+        } else {std::borrow::Cow::Borrowed(std::slice::from_ref(part))})
     }
 
     fn contact(&self, part: &MaterialCell, contact: CastHit) -> Result<Option<MaterialCastHit>, Refusal> {

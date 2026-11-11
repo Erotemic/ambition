@@ -47,8 +47,9 @@ GNU-ton's simultaneous-limb capture and I's held-accessory film remain open.
 
 The November 10 review has three fixes: projectile refusals and dimensionless
 knockback in `741212079`, and proposed limb admission in `482dcfc5b`.
-Stationary material repair, independent capture ownership, runtime cost,
-capture budgets and room-scoped straddler lookup remain open. See the
+Stationary material repair and support now use admitted material in
+`5f07fbb17`. Independent capture ownership, runtime cost, capture budgets and
+room-scoped straddler lookup remain open. See the
 [review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
 for guards and verification scope.
 
@@ -1141,10 +1142,18 @@ contact after chart cancellation, and a wall before a refused portal path.
 After the upstream merge, the assembled app check, all 15 projectile app
 cases and three GNU-ton punch cases pass. The punch cases include rewind.
 See the [review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md).
-R3, R4, R5, R6 and R8 remain open. Material repair draft `4ea13076a` is
-published separately from main. The H slice, reverse transit, rewind,
-rendering, floor bounce and camera continuity pass in its 35-case app lane.
-The last support change passes all 877 existing core cases. A new ground-line
-host guard fails because line settling still uses the full source line.
-Do not merge the draft until line support and the final gates pass.
-Full PSIM acceptance remains open.
+R3 is fixed in `5f07fbb17`. Axis repair, initial support, line settling and
+platform support use the same admitted material as movement. The guards
+cover stationary far-side support, a ground-line opening at rest and during
+transit, source-chart retention and canonical rounding. The H slice pauses
+a partial body before reverse transit and deterministic rewind.
+
+The packet passes 878 core, 595 actor, 178 world, 35 portal app, 73 Smash and
+35 policy tests, plus the assembled app check. One core probe and six Smash
+probes are ignored. Do not restore a root-AABB correction pass after native
+material queries. R4, R5, R6 and R8 remain open. Full PSIM acceptance remains
+open, including other movement models and general remaining-time continuation.
+
+After upstream merge `a40680fd4`, both 80/40 slice cases and both chained-lab
+cases pass again. The app and core all-target warning check passes under
+their default features. See `target/portal-r3-merged-gates.json`.

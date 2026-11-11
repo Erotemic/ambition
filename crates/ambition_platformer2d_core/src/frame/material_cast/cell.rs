@@ -13,6 +13,9 @@ pub struct MaterialCell {
     pub(super) map: Sim2,
     pub(super) travel: DVec2,
     pub(super) planes: Vec<MovingPlane>,
+    // These physical constraints remain valid throughout the cell interval.
+    // Keep coincident solid faces before projection into canonical axes.
+    pub(super) world_planes: Vec<MovingPlane>,
     pub(super) time: std::ops::Range<f64>,
     pub(super) curve: Option<std::sync::Arc<super::arcs::CurveCell>>,
 }
@@ -185,7 +188,7 @@ mod tests {
 
     #[test]
     fn bounds_include_a_cell_that_exists_only_between_endpoint_poses() {
-        let cell = MaterialCell {
+        let cell = MaterialCell { world_planes: Vec::new(),
             path: vec![],
             curve: None,
             time: 0.0..1.0,
@@ -215,7 +218,7 @@ mod tests {
 
     #[test]
     fn a_cell_and_material_with_equal_motion_stay_apart() {
-        let cell = MaterialCell {
+        let cell = MaterialCell { world_planes: Vec::new(),
             path: vec![],
             curve: None,
             time: 0.0..1.0,
@@ -246,7 +249,7 @@ mod tests {
                     Vec2::new(100.0, -50.0),
                 )
                 .unwrap();
-                let cell = MaterialCell {
+                let cell = MaterialCell { world_planes: Vec::new(),
                     path: vec![],
                     curve: None,
                     time: 0.0..1.0,
@@ -288,7 +291,7 @@ mod tests {
             )
             .unwrap();
             let delta = DVec2::new(number() * 12.0 - 6.0, number() * 12.0 - 6.0);
-            let cell = MaterialCell {
+            let cell = MaterialCell { world_planes: Vec::new(),
                 path: vec![],
                 curve: None,
                 time: 0.0..1.0,

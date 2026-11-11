@@ -46,6 +46,9 @@ fn run() -> Vec<Vec<u8>> {
     let mut trace = Vec::new();
     let mut shrunk = 0;
     let mut restored = 0;
+    let mut stationary = None;
+    let mut far_clear_at = None;
+    let mut returned = false;
     for frame in 0..220 {
         if frame == 60 {
             let (_, pose) = body(&mut sim);
@@ -58,19 +61,30 @@ fn run() -> Vec<Vec<u8>> {
             world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks.retain(|b| b.name != "slice far contact");
             sim.rebase_rollback_history().unwrap();
         }
-        let moving = frame < 90 || frame >= 120;
+        let moving = if frame < 60 { frame < 50 }
+            else { !returned && far_clear_at.is_none_or(|at| frame > at + 30) };
         sim.step(AgentAction { move_x: if moving { 1.0 } else { 0.0 }, ..crate::common::base() });
         sim.rollback_health().unwrap_or_else(|error| panic!("frame {frame}: {error}"));
         let (_, pose) = body(&mut sim);
+        if frame == 50 { stationary = Some(pose.pos); }
+        if (51..60).contains(&frame) {
+            assert_eq!(Some(pose.pos), stationary, "a stationary partial body must keep its pose");
+            assert!(sim.observation().on_ground, "a stationary partial body must keep its support");
+        }
         if pose.material.scale() == 0.5 {
+            if far_clear_at.is_none() && pose.pos.x + pose.half_extent().x < 2448.0 {
+                far_clear_at = Some(frame);
+            }
             shrunk += 1;
-            assert!(pose.material.reflected());
+            assert!(pose.material.reflected(), "frame {frame}: {pose:?}, convention {:?}",
+                sim.world().resource::<PortalTuning>().convention);
             if frame < 90 { assert_eq!(pose.facing, initial.facing, "held steering must retain material facing through a reflection"); }
             assert_eq!(pose.canonical_size, initial.canonical_size);
             assert_eq!(pose.size(), initial.size() * 0.5);
             assert!(pose.material.orthogonal().abs_diff_eq(Mat2::from_cols(Vec2::NEG_X, Vec2::Y), 1.0e-5));
         }
         if shrunk > 0 && pose.material.scale() == 1.0 {
+            if pose.pos.x + pose.half_extent().x < 1904.0 { returned = true; }
             restored += 1;
             assert!(!pose.material.reflected());
             assert!(pose.material.orthogonal().abs_diff_eq(Mat2::IDENTITY, 1.0e-5));

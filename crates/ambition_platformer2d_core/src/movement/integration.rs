@@ -131,6 +131,7 @@ pub(super) fn integrate_velocity_clusters(
     events: &mut FrameEvents,
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) {
+    let mut admission = admission;
     use crate::player_state::BodyMode;
 
     let climbing = clusters.body_mode.body_mode == BodyMode::Climbing
@@ -217,6 +218,16 @@ pub(super) fn integrate_velocity_clusters(
     let drop_through = wants_drop_through(input.local_axis().y, input.jump_pressed())
         || state.drop_through_timer > 0.0;
 
+    let pos_before_side = clusters.kinematics.pos;
+    let entry_support = if clusters.ground.on_ground {
+        match crate::walkable_lines::stood_on_material_line(world, clusters.kinematics, frame.down(), admission) {
+            Ok(line) => line,
+            Err(reason) => { events.motion_refusal = Some(reason); return; }
+        }
+    } else { None };
+    let entry_line = entry_support.map(|line| line.chain);
+    if let Some(line) = entry_support { clusters.kinematics.pos += line.carry; }
+
     let mut refusal = None;
     let mut sweep =
         |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -277,36 +288,11 @@ pub(super) fn integrate_velocity_clusters(
                 drop_through,
                 frame.down(),
                 contacts,
-                admission,
+                &mut admission,
                 &mut refusal,
             ));
         };
 
-    let pos_before_side = clusters.kinematics.pos;
-    // The line the body stands on as the step begins: it keeps to it where
-    // lines fork (`walkable_lines`).
-    let entry_line = clusters
-        .ground
-        .on_ground
-        .then(|| {
-            crate::walkable_lines::stood_on_line(
-                world,
-                clusters.kinematics.aabb(),
-                frame.down(),
-            )
-        })
-        .flatten()
-        .map(|line| line.chain);
-    // A line that moves carries what stands on it by the motion it made this
-    // tick at the body's feet (a ridden mount's slope, a turning platform),
-    // before the body's own motion: the body is where it stood on the line,
-    // and walks from there.
-    if let Some(chain) = entry_line.map(|chain| &world.chains[chain]).filter(|chain| chain.moves()) {
-        let g = frame.down();
-        let body = clusters.kinematics.aabb();
-        let feet_point = body.center() + g * (body.feet_coord(g) - body.center().dot(g));
-        clusters.kinematics.pos += chain.carried(feet_point) - feet_point;
-    }
     sweep(
         clusters,
         side_axis,
@@ -363,20 +349,14 @@ pub(super) fn integrate_velocity_clusters(
     if was_grounded && !clusters.ground.on_ground && state.drop_through_timer <= 0.0 {
         let g = frame.down();
         if clusters.kinematics.vel.dot(g) >= 0.0 {
-            let oriented = clusters.kinematics.aabb();
-            let receding = world.blocks.iter().find(|block| {
-                block.velocity.dot(g) > 0.0
-                    && crate::collision_semantics::surface_supports_body_at_rest(
-                        block.kind,
-                        oriented,
-                        block.aabb,
-                        g,
-                        false,
-                    )
-            });
-            if let Some(support) = receding {
-                clusters.kinematics.pos +=
-                    crate::collision_semantics::snap_feet_to_surface(oriented, support.aabb, g);
+            let receding = match crate::walkable_lines::material_block_support(world, clusters.kinematics,
+                g, crate::collision_semantics::CONTACT_SLOP, true, 1.0, admission) {
+                Ok(support) => support,
+                Err(reason) => { events.motion_refusal = Some(reason); return; }
+            };
+            if let Some((delta, contact)) = receding {
+                clusters.kinematics.pos += delta;
+                events.contacts.push(contact);
                 let along = clusters.kinematics.vel.dot(g);
                 clusters.kinematics.vel -= g * along;
                 clusters.ground.on_ground = true;
@@ -391,7 +371,6 @@ pub(super) fn integrate_velocity_clusters(
     // top only where it is higher.
     {
         let g = frame.down();
-        let body = clusters.kinematics.aabb();
         let step = crate::walkable_lines::WalkStep {
             velocity: clusters.kinematics.vel,
             prev_feet: feet_before_fall,
@@ -402,11 +381,16 @@ pub(super) fn integrate_velocity_clusters(
             up_held: input.local_axis().y < -crate::walkable_lines::BOARDING_UP,
             drop_through,
         };
-        if let Some((delta, step)) = crate::walkable_lines::settle_on_line(world, body, g, step) {
+        let settled = match crate::walkable_lines::settle_on_line(world, clusters.kinematics, g, step, admission) {
+            Ok(settled) => settled,
+            Err(reason) => { events.motion_refusal = Some(reason); return; }
+        };
+        if let Some((delta, step)) = settled {
             clusters.kinematics.pos += delta;
             let toward_feet = clusters.kinematics.vel.dot(g).max(0.0);
             clusters.kinematics.vel -= g * toward_feet;
             clusters.ground.on_ground = true;
+            let landed = matches!(step, crate::walkable_lines::LineStep::Landed(_));
             let contact = match step {
                 crate::walkable_lines::LineStep::Landed(line) | crate::walkable_lines::LineStep::Held(line) => {
                     crate::collision_semantics::Contact {
@@ -415,7 +399,7 @@ pub(super) fn integrate_velocity_clusters(
                         normal: line.normal,
                         toi: 0.0,
                         surface_velocity: line.velocity,
-                        impact_speed: if matches!(step, crate::walkable_lines::LineStep::Landed(_)) {
+                        impact_speed: if landed {
                             toward_feet
                         } else {
                             0.0
@@ -427,37 +411,9 @@ pub(super) fn integrate_velocity_clusters(
                         },
                     }
                 }
-                crate::walkable_lines::LineStep::OntoBlock(index) => crate::collision_semantics::block_face_contact(
-                    clusters.kinematics.aabb(),
-                    &world.blocks[index],
-                    -g,
-                    0.0,
-                    crate::collision_semantics::ContactKind::Support,
-                    0.0,
-                ),
+                crate::walkable_lines::LineStep::OntoBlock(contact) => contact,
             };
             events.contacts.push(contact);
-        }
-    }
-
-    // A SOLID OUTLINE IS SOLID. What a portal pair carries of a block it
-    // turns is that block's true shape (`SurfaceKind::Solid`), which a box
-    // cannot be: a body that ends its sweeps in one is put out the shortest
-    // way and loses the speed it had into it; put out upward, it stands
-    // (`crate::solid_lines`). A world with no outline, which is every world
-    // but a body's in a turning pair, finds none.
-    {
-        let g = frame.down();
-        let body = clusters.kinematics.aabb();
-        if let Some((moved, normal)) = crate::solid_lines::put_out_of_solid_lines(world, body) {
-            clusters.kinematics.pos += moved;
-            let into = clusters.kinematics.vel.dot(normal);
-            if into < 0.0 {
-                clusters.kinematics.vel -= normal * into;
-            }
-            if normal.dot(-g) >= crate::walkable_lines::WALK_SLOPE_LIMIT_DEG.to_radians().cos() {
-                clusters.ground.on_ground = true;
-            }
         }
     }
 
@@ -508,57 +464,22 @@ pub(super) fn integrate_velocity_clusters(
                     drop_through,
                     g,
                     &mut events.contacts,
-                    admission,
+                    &mut admission,
                     &mut refusal,
                 ));
             }
         }
     }
 
-    // Emergent platform riding, and every body gets it because every body is
-    // swept here: a grounded body resting on a MOVING solid is carried
-    // by that solid's gravity-perpendicular velocity (toward a support the
-    // gravity-axis ride is gravity and the sweep; away from it, the block
-    // above). Static geometry carries `ZERO`, so
-    // this is a no-op off moving platforms. This is why the player — and the
-    // brain-driven clone, which runs this exact core — ride moving platforms: not a
-    // player feature, a property of standing on a moving solid.
+    // The admitted support supplies platform motion in the body chart.
     if clusters.ground.on_ground {
-        let g = frame.down();
-        let oriented = clusters.kinematics.aabb();
-        if let Some(support) = crate::collision_semantics::supporting_block(
-            world,
-            oriented,
-            g,
-            state.drop_through_timer > 0.0,
-        ) {
-            let v = support.velocity;
-            clusters.kinematics.pos += v - v.dot(g) * g;
-            // The grounded-frame REST contact: the one place per frame that
-            // knows both the support and its frame motion, so the contact
-            // carries `surface_velocity` (moving-platform carry made visible).
-            // The support face's TRUE outward normal (a cardinal block face);
-            // equals -g for cardinal gravity, and stays the surface fact under
-            // an oblique frame.
-            let axis = crate::collision_semantics::gravity_axis(g);
-            let sign = match axis {
-                crate::collision_semantics::Axis::X => -g.x.signum(),
-                crate::collision_semantics::Axis::Y => -g.y.signum(),
-            };
-            let normal = match axis {
-                crate::collision_semantics::Axis::X => crate::Vec2::new(sign, 0.0),
-                crate::collision_semantics::Axis::Y => crate::Vec2::new(0.0, sign),
-            };
-            events
-                .contacts
-                .push(crate::collision_semantics::block_face_contact(
-                    oriented,
-                    support,
-                    normal,
-                    0.0,
-                    crate::collision_semantics::ContactKind::Support,
-                    crate::collision_semantics::closing_speed(clusters.kinematics.vel, normal),
-                ));
+        let support = events.contacts.iter().rev().find(|contact|
+            contact.kind == crate::collision_semantics::ContactKind::Support);
+        if let Some(support) = support.filter(|contact| matches!(contact.source,
+            crate::collision_semantics::ContactSource::Block { .. })) {
+            let g = frame.down();
+            let velocity = support.surface_velocity;
+            clusters.kinematics.pos += velocity - velocity.dot(g) * g;
         }
     }
 

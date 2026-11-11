@@ -1537,7 +1537,7 @@ pub fn integrate_sim_bodies(
         };
         // The walls as they stand for this body: a gate open for it (Q54) is
         // not among them.
-        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(actor_entity).ok(), actor_entity)
+        let Some(feature_world) = composed.physical_for(&collision, body_rooms.get(actor_entity).ok(), actor_entity)
         else {
             continue;
         };
@@ -1618,7 +1618,7 @@ pub fn integrate_sim_bodies(
         let player_tuning = authored_tuning
             .map(|t| t.0)
             .unwrap_or(editable_player_tuning);
-        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(player_entity).ok(), player_entity,
+        let Some(feature_world) = composed.physical_for(&collision, body_rooms.get(player_entity).ok(), player_entity,
         )
         else {
             continue;

@@ -76,7 +76,21 @@ gate files: `target/portal-p1-p2-gates.json`,
 `target/portal-p1-p2-merged-gates.json`. This lane does not cover the full
 workspace, GPU, device or performance requirements.
 
-R3 remains open. Draft `fe9ead9b0` is published on
-`agent/portal-r3-repair-draft-fe9ead9b`. Its stationary support guard passes,
-but root crossing, the H slice and floor bounce do not pass. Do not merge
-that draft before these cases pass. R4, R5, R6 and R8 also remain open.
+R3 remains open. Draft `4ea13076a` is published on
+`agent/portal-r3-native-contacts-4ea13076`. It replaces the earlier repair
+draft. Material contact now owns polygon repair and initial support sampling.
+Physical cell cuts prevent false floor contact after chart projection.
+The source chart stays admitted through the movement transaction.
+
+All 35 portal app cases pass before the last support-sampling change. These
+include the H slice, rendering, reverse transit, rewind, floor bounce and
+camera continuity. After that change, all 877 existing core cases pass.
+Evidence uses `target/portal-r3-physical-front-app.log` and
+`target/portal-r3-native-baseline-core.log`.
+
+A new ground-line host guard fails: the slope-settling pass can stop admitted
+material on the full source line. Evidence is
+`target/portal-r3-line-host-before.log`. Do not merge this draft until line
+support uses admitted material and the focused app and architecture gates pass.
+The draft is a recovery point, not an accepted R3 fix. R4, R5, R6 and R8 also
+remain open. Full PSIM acceptance remains open.

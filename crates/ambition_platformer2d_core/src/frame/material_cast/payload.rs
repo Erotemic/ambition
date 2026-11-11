@@ -8,6 +8,29 @@ use crate::Vec2;
 use crate::frame::{MapConvention, thread::MotionAdmission};
 use bevy_math::{DMat2, DVec2};
 
+/// Velocity conversion at one material contact point.
+/// The drift includes imposed source turns and moving portal surfaces.
+#[derive(Clone,Copy,Debug)]
+pub struct ContactVelocityFrame {
+    linear: crate::frame::Sim2,
+    drift: DVec2,
+}
+
+impl ContactVelocityFrame {
+    pub const IDENTITY: Self=Self {linear:crate::frame::Sim2::IDENTITY,drift:DVec2::ZERO};
+
+    pub fn to_physical(self, velocity: Vec2) -> Result<Vec2,NumericFault> {
+        if !velocity.is_finite() { return Err(NumericFault::NonFinite); }
+        let value=self.linear.direction_wide(velocity.as_dvec2())*self.linear.scale_wide()+self.drift;
+        crate::frame::Sim2::IDENTITY.vector_from_wide(value)
+    }
+
+    pub fn to_source(self, velocity: Vec2) -> Result<Vec2,NumericFault> {
+        if !velocity.is_finite() { return Err(NumericFault::NonFinite); }
+        self.linear.inverse()?.vector_from_wide(velocity.as_dvec2()-self.drift)
+    }
+}
+
 #[derive(Clone, Copy)]
 struct Affine {
     linear: DMat2,
@@ -56,6 +79,47 @@ fn round(value: f64) -> f64 {
 }
 
 impl MaterialCastCells<'_> {
+    /// Use the same velocity law as payload admission at the contact point.
+    /// Input velocity is at the source root before the recorded turn.
+    pub fn contact_velocity_frame(&self, hit: &super::SampledPieceHit) -> Result<ContactVelocityFrame,Refusal> {
+        let cell=self.parts.iter().find(|cell| cell.path==hit.source_path
+            && hit.toi>=cell.time.start && hit.toi<=cell.time.end)
+            .ok_or_else(||super::numeric(NumericFault::InvalidFrame))?;
+        let numeric=|fault|failure(cell,RefusalReason::Numeric(fault));
+        if cell.path.is_empty() && self.source.rotation.is_none_or(|turn|turn.turn==0.0) {
+            return Ok(ContactVelocityFrame::IDENTITY);
+        }
+        let scene=self.scene.as_ref().ok_or_else(||numeric(NumericFault::InvalidFrame))?;
+        let values=self.payloads(cell,scene.admission(),hit.toi,0.0,Vec2::ZERO,&[]).map_err(numeric)?;
+        let speed=values.last().unwrap().0;
+        let drift=speed.linear*hit.source_point+speed.offset;
+        if !drift.is_finite() { return Err(numeric(NumericFault::Overflow)); }
+        let linear=self.source.map_at(hit.toi).and_then(|map|map.inverse())
+            .and_then(|map|map.then(cell.at(hit.toi)?)).map_err(numeric)?;
+        Ok(ContactVelocityFrame {linear,drift})
+    }
+
+    /// Admit a response over all occupied material at one accepted time.
+    pub fn admit_payloads_at(&self, time:f64, velocity:Vec2, carried:&[Vec2]) -> Result<(),Refusal> {
+        if !time.is_finite() || !velocity.is_finite() || carried.iter().any(|value|!value.is_finite()) {
+            return Err(super::numeric(NumericFault::NonFinite));
+        }
+        if time<0.0 || time>self.until { return Err(super::numeric(NumericFault::InvalidFrame)); }
+        let Some(scene)=self.scene.as_ref() else {return Ok(());};
+        for cell in self.parts.iter().filter(|cell|time>=cell.time.start && time<=cell.time.end) {
+            let numeric=|fault|failure(cell,RefusalReason::Numeric(fault));
+            let Some(planes)=cell.planes_at(time).map_err(numeric)? else {continue;};
+            let planes=planes.into_iter().map(|plane|plane.plane).collect::<Vec<_>>();
+            let values=self.payloads(cell,scene.admission(),time,0.0,velocity,carried).map_err(numeric)?;
+            let Some(bounds)=value_bounds(self.material.domain,&planes,&values) else {continue;};
+            let limit=f64::from(f32::MAX);
+            if bounds.iter().any(|(lo,hi)|*lo < -limit || *hi > limit) {
+                return Err(numeric(NumericFault::Overflow));
+            }
+        }
+        Ok(())
+    }
+
     /// Geometry and payloads use the same cells, portal paths and world clock.
     pub(crate) fn admit_payloads(&self, velocity: Vec2, carried: &[Vec2]) -> Result<(), Refusal> {
         if !velocity.is_finite() || carried.iter().any(|vector| !vector.is_finite()) {

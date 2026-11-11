@@ -17,6 +17,7 @@ mod affine;
 mod curved;
 mod arcs;
 mod payload;
+pub use payload::ContactVelocityFrame;
 mod source;
 mod sampled;
 pub use sampled::SampledPieceHit;

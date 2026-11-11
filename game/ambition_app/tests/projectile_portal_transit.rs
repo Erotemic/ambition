@@ -230,90 +230,148 @@ fn a_projectile_hits_far_side_geometry_before_its_root_transits() {
 
 #[test]
 fn a_projectile_damages_a_body_with_its_scaled_tip_before_root_transit() {
+    for reverse in [false,true] {
+        for launch in [false,true] {scaled_tip_contact(reverse,TipResponse::Damage {launch});}
+    }
+}
+
+#[test]
+fn a_portal_carried_tip_is_parried_at_its_physical_contact_before_root_transit() {
+    for reverse in [false,true] {
+        for absorb in [false,true] {scaled_tip_contact(reverse,TipResponse::Parry {absorb});}
+    }
+}
+
+#[derive(Clone,Copy)]
+enum TipResponse { Damage {launch:bool}, Parry {absorb:bool} }
+
+fn scaled_tip_contact(reverse:bool,response:TipResponse) {
     use ambition_platformer2d::engine_core as ae;
     use ambition_platformer2d::characters::actor::{BodyHealth,BodyCombat,Health};
     use ambition_platformer2d::combat::{HitEvent, HitTarget, components::FeatureId};
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
     use ambition_platformer2d::portal::{PlacedPortal, PortalBodyTransited};
     use ambition_platformer2d::projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId};
-    for (reverse,launch) in [(false,false),(true,false),(false,true),(true,true)] {
-        let mut sim=fixed_60hz_room_sim("portal_lab");
-        sim.step(base());
-        let (owner,mut pair)={
-            let world=sim.world_mut();
-            let owner=world.query_filtered::<Entity,PrimaryPlayerOnly>().single(world).unwrap();
-            let pair=world.query::<&PlacedPortal>().iter(world)
-                .filter(|p| p.pos==Vec2::new(1904.0,856.0) || p.pos==Vec2::new(2448.0,876.0))
-                .cloned().collect::<Vec<_>>();
-            (owner,pair)
-        };
-        assert_eq!(pair.len(),2,"H must keep both authored openings");
-        pair.sort_by(|a,b|a.pos.x.total_cmp(&b.pos.x));
-        if reverse { pair.reverse(); }
-        let (entry,exit)=(&pair[0],&pair[1]);
-        let ratio=exit.half_length/entry.half_length;
-        assert_eq!(ratio,if reverse {2.0} else {0.5});
-        sim.spawn_enemy_character_at("carried_tip_recipient","Carried tip recipient",
-            (exit.pos.x,exit.pos.y),(1.0,1.0),
-            ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,"npc_raptor_stalker");
-        let target={
-            let world=sim.world_mut();
-            world.query::<(Entity,&FeatureId)>().iter(world)
-                .find(|(_,id)|id.as_str()=="carried_tip_recipient").unwrap().0
-        };
-        let mut target_body=*sim.world().get::<ae::BodyKinematics>(target).unwrap();
-        target_body.material=ae::frame::BodyMaterial::new(0.01,bevy::math::Mat2::IDENTITY).unwrap();
-        let half=target_body.half_extent();
-        let center=exit.pos+exit.normal*(half.dot(exit.normal.abs())+0.5*ratio);
-        target_body.pos=center;
-        target_body.vel=Vec2::ZERO;
-        let weight=sim.world().get::<ambition_platformer2d::combat::components::CombatTuning>(target)
-            .map_or(1.0,|tuning|tuning.weight);
-        sim.world_mut().entity_mut(target).insert((target_body,BodyHealth::new(Health::new(100)),
-            BodyCombat::default(),ae::PoseOwnedExternally::only(ae::PoseHold::Conductor)));
-        sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
-            origin:entry.pos+entry.normal*10.0,dir:-entry.normal,speed:600.0,
-            damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
-            visual_id:"scaled_tip_gauge".into(),bounces:0,bounce_on_world_contact:false,
-            splash_half_extent:0.0,boomerang_return_s:None,
-        },ProjectileStart::StepNextTick).with_launch(launch.then_some(
-            ambition_platformer2d::projectiles::ProjectileLaunch {base:100.0,growth:0.0})));
-        sim.step(base());
-        let shot={
-            let world=sim.world_mut();
-            world.query::<(Entity,&ProjectileVisualId)>().iter(world)
-                .find(|(_,visual)|visual.0=="scaled_tip_gauge").unwrap().0
-        };
-        let mut transited=false;
-        let mut contacts=Vec::new();
-        for _ in 0..4 {
-            sim.step(base());
-            transited|=sim.world().resource::<Messages<PortalBodyTransited>>()
-                .iter_current_update_messages().any(|event|event.body==shot);
-            contacts.extend(sim.world().resource::<Messages<HitEvent>>().iter_current_update_messages()
-                .filter(|event|event.target==HitTarget::Body(target)).filter_map(|event|event.contact.clone()
-                    .map(|contact|(contact,event.knockback.as_ref().unwrap().magnitude))));
-            if sim.world().get::<ae::BodyKinematics>(shot).is_none() { break; }
-        }
-        assert_eq!(contacts.len(),1,"the carried tip must name one recipient: reverse={reverse}");
-        assert!(!transited,"contact precedes the root crossing: reverse={reverse}");
-        let (contact,magnitude)=&contacts[0];
-        use ambition_platformer2d::combat::HitKnockbackMagnitude;
-        let expected=if launch {
-            let rules=ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
-                ambition_platformer2d::combat::rules::RoomCombatTuning>(sim.world()).unwrap().0;
-            let HitKnockbackMagnitude::LaunchSpeed(speed)=ambition_platformer2d::combat::hitbox::projectile_launch_magnitude(
-                100.0,0.0,0,weight,&rules) else { panic!("an authored launch has speed units"); };
-            HitKnockbackMagnitude::LaunchSpeed(speed*ratio)
-        } else {HitKnockbackMagnitude::FeelScale(0.85)};
-        assert_eq!(*magnitude,expected,"convert speed, preserve feel: reverse={reverse}, launch={launch}");
-        assert!(contact.time>0.0 && contact.time<1.0,"{contact:?}");
-        assert!((contact.point-center).length()<=half.length()+0.001,"{contact:?}");
-        sim.step(base());
-        assert_eq!(sim.world().get::<BodyHealth>(target).unwrap().current(),99,
-            "the real actor consumes exactly one point of damage");
-        assert!(sim.world().get::<ae::BodyKinematics>(shot).is_none(),"contact spends the shot");
+    let launch=matches!(response,TipResponse::Damage {launch:true});
+
+    let mut sim=fixed_60hz_room_sim("portal_lab");
+    sim.step(base());
+    let (owner,mut pair)={
+        let world=sim.world_mut();
+        let owner=world.query_filtered::<Entity,PrimaryPlayerOnly>().single(world).unwrap();
+        let pair=world.query::<&PlacedPortal>().iter(world)
+            .filter(|p| p.pos==Vec2::new(1904.0,856.0) || p.pos==Vec2::new(2448.0,876.0))
+            .cloned().collect::<Vec<_>>();
+        (owner,pair)
+    };
+    assert_eq!(pair.len(),2,"H must keep both authored openings");
+    pair.sort_by(|a,b|a.pos.x.total_cmp(&b.pos.x));
+    if reverse { pair.reverse(); }
+    let (entry,exit)=(&pair[0],&pair[1]);
+    let ratio=exit.half_length/entry.half_length;
+    assert_eq!(ratio,if reverse {2.0} else {0.5});
+    sim.spawn_enemy_character_at("carried_tip_recipient","Carried tip recipient",
+        (exit.pos.x,exit.pos.y),(1.0,1.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,"npc_raptor_stalker");
+    let target={
+        let world=sim.world_mut();
+        world.query::<(Entity,&FeatureId)>().iter(world)
+            .find(|(_,id)|id.as_str()=="carried_tip_recipient").unwrap().0
+    };
+    let mut target_body=*sim.world().get::<ae::BodyKinematics>(target).unwrap();
+    target_body.material=ae::frame::BodyMaterial::new(0.01,bevy::math::Mat2::IDENTITY).unwrap();
+    let half=target_body.half_extent();
+    let center=exit.pos+exit.normal*(half.dot(exit.normal.abs())+0.5*ratio);
+    target_body.pos=center;
+    target_body.vel=Vec2::ZERO;
+    let weight=sim.world().get::<ambition_platformer2d::combat::components::CombatTuning>(target)
+        .map_or(1.0,|tuning|tuning.weight);
+    let mut health=BodyHealth::new(Health::new(100));
+    if matches!(response,TipResponse::Parry {..}) {health.health.current=90;}
+    sim.world_mut().entity_mut(target).insert((target_body,health,
+        BodyCombat::default(),ae::PoseOwnedExternally::only(ae::PoseHold::Conductor)));
+    if let TipResponse::Parry {absorb}=response {
+        // The authored base must permit the open counter window.
+        sim.world_mut().get_mut::<ae::AbilityBase>(target).unwrap().abilities.shield=true;
+        sim.world_mut().entity_mut(target).insert(ae::BodyShieldState {parry_window_timer:0.2,
+            absorb_window_timer:if absorb {0.2} else {0.0},..Default::default()});
     }
+    sim.world_mut().write_message(ProjectileSpawnRequest::open(owner,ProjectileSpawn {
+        origin:entry.pos+entry.normal*10.0,dir:-entry.normal,speed:600.0,
+        damage:1,max_lifetime:2.0,half_extent:Vec2::splat(5.0),gravity:0.0,
+        visual_id:"scaled_tip_gauge".into(),bounces:0,bounce_on_world_contact:false,
+        splash_half_extent:0.0,boomerang_return_s:None,
+    },ProjectileStart::StepNextTick).with_launch(launch.then_some(
+        ambition_platformer2d::projectiles::ProjectileLaunch {base:100.0,growth:0.0})));
+    sim.step(base());
+    let shot={
+        let world=sim.world_mut();
+        world.query::<(Entity,&ProjectileVisualId)>().iter(world)
+            .find(|(_,visual)|visual.0=="scaled_tip_gauge").unwrap().0
+    };
+    let mut transited=false;
+    let initial=*sim.world().get::<ae::BodyKinematics>(shot).unwrap();
+    let mut contacts=Vec::new();
+    let mut intercepted=false;
+    let mut cue=None;
+    for _ in 0..4 {
+        sim.step(base());
+        transited|=sim.world().resource::<Messages<PortalBodyTransited>>()
+            .iter_current_update_messages().any(|event|event.body==shot);
+        contacts.extend(sim.world().resource::<Messages<HitEvent>>().iter_current_update_messages()
+            .filter(|event|event.target==HitTarget::Body(target)).filter_map(|event|event.contact.clone()
+                .map(|contact|(contact,event.knockback.as_ref().unwrap().magnitude))));
+        intercepted=sim.world().get::<ambition_platformer2d::projectiles::ProjectileOwner>(shot)
+            .is_some_and(|owner|owner.0==target);
+        cue=cue.or_else(||sim.world().resource::<Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+            .iter_current_update_messages().find_map(|event|match event.vfx {
+                ambition_platformer2d::vfx::VfxMessage::Impact {pos,..}
+                    if pos.distance(center)<=half.length()+0.001=>Some(pos),_=>None,
+            }));
+        if intercepted || sim.world().get::<ae::BodyKinematics>(shot).is_none() { break; }
+    }
+    if let TipResponse::Parry {absorb}=response {
+        assert!(contacts.is_empty(),"an intercepted contact cannot also deal damage");
+        assert!(!transited,"a carried-tip parry precedes root transit");
+        if absorb {
+            assert!(sim.world().get::<ae::BodyKinematics>(shot).is_none());
+        } else {
+            assert!(intercepted,"the returned shot changes combat owner");
+            let returned=*sim.world().get::<ae::BodyKinematics>(shot).unwrap();
+            assert_eq!(returned.material,initial.material);
+            assert!((returned.pos-entry.pos).dot(entry.normal)>0.0,"{returned:?}");
+            assert!(returned.vel.distance(-initial.vel*1.3)<0.001,"{returned:?}");
+            let sample=sim.world().get::<ae::SweepSample>(shot).unwrap();
+            assert!(matches!(sample.travel,ae::LinearTravel::Prefix {until,..} if until>0.0 && until<1.0),"{sample:?}");
+            assert!(cue.is_some(),"the parry cue belongs at the physical recipient");
+            sim.step(base());
+            let next=sim.world().get::<ae::BodyKinematics>(shot).unwrap();
+            assert!((next.pos-returned.pos).dot(entry.normal)>0.0,"the shot retreats in its source chart");
+        }
+        sim.step(base());
+        assert_eq!(sim.world().get::<BodyHealth>(target).unwrap().current(),91,
+            "the catch heals exactly once and deals no damage");
+        return;
+    }
+    assert_eq!(contacts.len(),1,"the carried tip must name one recipient: reverse={reverse}");
+    assert!(!transited,"contact precedes the root crossing: reverse={reverse}");
+    let (contact,magnitude)=&contacts[0];
+    use ambition_platformer2d::combat::HitKnockbackMagnitude;
+    let expected=if launch {
+        let rules=ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+            ambition_platformer2d::combat::rules::RoomCombatTuning>(sim.world()).unwrap().0;
+        let HitKnockbackMagnitude::LaunchSpeed(speed)=ambition_platformer2d::combat::hitbox::projectile_launch_magnitude(
+            100.0,0.0,0,weight,&rules) else { panic!("an authored launch has speed units"); };
+        HitKnockbackMagnitude::LaunchSpeed(speed*ratio)
+    } else {HitKnockbackMagnitude::FeelScale(0.85)};
+    assert_eq!(*magnitude,expected,"convert speed, preserve feel: reverse={reverse}, launch={launch}");
+    assert!(contact.time>0.0 && contact.time<1.0,"{contact:?}");
+    assert!((contact.point-center).length()<=half.length()+0.001,"{contact:?}");
+    sim.step(base());
+    assert_eq!(sim.world().get::<BodyHealth>(target).unwrap().current(),99,
+        "the real actor consumes exactly one point of damage");
+    assert!(sim.world().get::<ae::BodyKinematics>(shot).is_none(),"contact spends the shot");
+
 }
 
 #[test]

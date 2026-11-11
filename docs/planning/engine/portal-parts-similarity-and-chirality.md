@@ -23,8 +23,8 @@ tests and workspace policy pass. The assembled app warning check passes.
 After `55d5a4292`, the assembled app check, both slice tests and all four
 schema tests pass again.
 
-The full workspace run is not green. Sanic reaches righting `WorkLimit`
-refusals without portals; its long soak was stopped. Fighter attack art and
+The last full workspace run was not green. It reported Sanic righting
+`WorkLimit` refusals without portals; its long soak was stopped. Fighter attack art and
 unpublished history-art checks also fail. The capability sentinel reports the
 new upstream HTN dependency. The review receipt records the scope and logs.
 
@@ -1341,3 +1341,36 @@ Keep bounds in the broad phase. The
 records all passed gates and a deliberate AABB failure. Deflect response,
 autonomous facing under material reflection, held-item placement/release,
 general movement continuation and full PSIM acceptance remain open.
+
+### Control facing and crawler direction — 2026-11-11
+
+`e5a0e4ac1` maps facing between control axes and canonical material in the
+shared kernel. The actor override after the kernel is removed. Neutral input
+sends no turn request. Axis requests use the existing turn permissions, and
+concrete melee requests use the accepted body pose. Crawler route control and
+travel use material parity. A tighter signed-plane bound in the existing
+curved contact query removes the angled-chain righting `WorkLimit` found by
+the crawler witness. The work limit and typed refusals remain in force.
+
+The core guards cover turn, scale, parity, neutral input, air locking and
+reflected crawler travel on blocks and an angled chain. The transformed
+Warden guard case now runs with its brain active. Portal reverse/replay,
+projectile and GNU-ton path cases pass. After room-state merge `09f0afbc4`,
+owners, the assembled app, Warden, reverse/replay, schemas, room cutscenes,
+conversation rewinds, control publication and warnings pass. The focused
+Sanic ramp/loop/runout case also passes; the full workspace was not repeated.
+Do not restore the actor facing override after the kernel. The
+[facing receipt](../../../dev/ambition_dev_measurements/summaries/portal-material-facing-20261111.md)
+records commands and scope. General movement continuation, complete physical
+integration of other motion models, moving-target hurt CCD, guard responses,
+held-item placement/release, numeric fault identity/effects and device and
+performance gates remain open. Full PSIM acceptance remains open.
+
+
+`42fe3ccfd` also projects wall-cling and ledge-grab facing from the control
+frame into canonical material axes. Acquisition and continued hanging use
+that rule. A perpendicular request keeps the current facing. Core (885),
+actor (600), Smash (73 active) and the assembled app check pass. The
+[facing receipt](../../../dev/ambition_dev_measurements/summaries/portal-material-facing-20261111.md)
+records scope. This closes these contact-facing writes; the open physical
+integration and acceptance work listed above remains open.

@@ -457,7 +457,10 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
     }
 
     state.elapsed += dt;
-    clusters.kinematics.facing = into_platform_axis(state.contact);
+    let facing = clusters.kinematics.material.project_facing(into_platform_axis(state.contact), frame.side());
+    if facing != 0.0 {
+        clusters.kinematics.facing = facing;
+    }
 
     // ⭐ THE HANG IS ON A CLOCK. Checked BEFORE the getup branch so a body that
     // has already committed to a climb, roll or getup attack finishes it — the
@@ -897,7 +900,10 @@ pub fn try_start_ledge_grab_clusters_in_frame(
 
     clusters.kinematics.pos = contact.anchor;
     clusters.kinematics.vel = Vec2::ZERO;
-    clusters.kinematics.facing = into_platform_axis(contact);
+    let facing = clusters.kinematics.material.project_facing(into_platform_axis(contact), frame.side());
+    if facing != 0.0 {
+        clusters.kinematics.facing = facing;
+    }
     axis_state.wall_clinging = true;
     axis_state.wall_climbing = false;
     clusters.wall.on_wall = true;

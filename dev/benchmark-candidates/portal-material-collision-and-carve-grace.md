@@ -200,3 +200,17 @@ Test front and top coverage after mapping the strike source back through
 the contact path and root material. An AABB corner can be outside the guard;
 use that corner to check exact shape contact. Keep numerical refusals through
 coverage and ranked sibling selection.
+
+
+A facing request and accepted material facing have different axes. Project
+ordinary facing through the physical side, and use material parity for an
+oriented route. Apply the request inside the admitted movement candidate.
+A write after the kernel can undo its projection and its refusal. Neutral
+input must not reissue an old pose. Concrete actions use accepted body facing.
+
+A whole-point motion envelope can exhaust work on a nearly tangent contact.
+For root material, bound signed plane distance with its directional derivative
+and relative angular acceleration. This retains fast tangential travel
+without widening the normal envelope by that full speed. Keep the original
+conservative envelope when the tighter finite bound is unavailable. Do not
+turn an unproved query into a miss or raise the work budget to hide the cause.

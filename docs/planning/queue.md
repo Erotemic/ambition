@@ -963,11 +963,18 @@ parent declares `#[cfg(test)] mod name;` (34 files, among them
 writer of `ControlledSubject`); five adjudicated Kaleidoscope/visual-quality
 resources no longer have a writer (their verdicts are gone); `body_seed`'s
 borrowed `BodyGeometry<'a>` view collided by name with the shared-tangle
-resource (renamed `BodySizes`). Still red:
-`check_multi_writer_resources_are_adjudicated` names eight NEW multi-writer
-resources to adjudicate (`AudioPlaybackConditions`, `BodyGeometry`,
-`EditableAbilitySet`, `LocalSeatClaims`, `PlayerGlowCatalog`,
-`PromisedRoomPlans`, `SfxLoopPlayback`, `SfxOneShots`), and four other guards
+resource (renamed `BodySizes`). The eight NEW
+multi-writer resources it then named are adjudicated (`AudioPlaybackConditions`,
+`BodyGeometry`, `EditableAbilitySet`, `LocalSeatClaims`, `PlayerGlowCatalog`,
+`PromisedRoomPlans`, `SfxLoopPlayback`, `SfxOneShots`: disjoint fields, a
+keyed registry, an editor plus the session edge, a player and its mixer).
+Still red: the same guard's next layer, thirteen adjudicated resources that
+GAINED a writer since their verdicts (`AmbitionGameSave`,
+`AuthoredOccurrences`, `AutopilotOrder`, `ConsumedSinceCheckpoint`,
+`DeveloperTools`, `GateNetworkState`, `MainScheduleOrder`,
+`MusicPlaybackState`, `PendingLifecycleCommit`, `SeatMenuFrames`,
+`UserSettings`, `MenuControlFrame`, `YarnContentBindings`): each verdict is
+to be re-read against its new writer; and four other guards
 are red on their own findings (`check_host_configuration_has_no_session_writer`:
 `FactionRelations`; `check_level_box_readers`; `check_presence_filtered_state_is_rollback_registered`:
 `ActorGlow`, `PresentationCover`; `check_session_authority_none_arms`: six

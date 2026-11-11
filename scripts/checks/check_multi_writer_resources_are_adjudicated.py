@@ -921,6 +921,39 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_sim_view/src/pose_view.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
+    "AudioPlaybackConditions": (
+        "crates/ambition_platformer2d_audio/src/plugin.rs",
+        "game/ambition_app/src/host/platform/android.rs",
+    ),
+    "BodyGeometry": (
+        "crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs",
+        "crates/ambition_portal2d/src/passages.rs",
+    ),
+    "EditableAbilitySet": (
+        "crates/ambition_dev_tools/src/lib.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "LocalSeatClaims": (
+        "crates/ambition_input/src/local_seats.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "PlayerGlowCatalog": (
+        "crates/ambition_platformer2d_provider/src/authoring.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "PromisedRoomPlans": (
+        "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/room_promises.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
+    ),
+    "SfxLoopPlayback": (
+        "crates/ambition_audio/src/sfx_loops.rs",
+        "crates/ambition_audio/src/spatial.rs",
+    ),
+    "SfxOneShots": (
+        "crates/ambition_audio/src/bank_asset.rs",
+        "crates/ambition_audio/src/spatial.rs",
+    ),
 }
 
 #: ⚠ `MovingPlatformSet` LEFT THIS POPULATION ON 2026-09-29 (OW1 cut 3b): it is
@@ -3533,6 +3566,78 @@ ADJUDICATED: dict[str, str] = {
         "`a_schedule_another_plugin_inserted_keeps_its_place_in_either_install_order` "
         "in runtime_census.rs runs both orders. Neither writer runs after "
         "startup, and the resource is not rollback state."
+    ),
+    "AudioPlaybackConditions": (
+        "DISJOINT FIELDS. `publish_audio_readiness` "
+        "(`ambition_platformer2d_audio/src/plugin.rs`) writes "
+        "`initial_presentation_ready` and `music_context_required`; "
+        "`apply_android_suspend_to_audio` (the Android host) writes "
+        "`device_suspended` and pauses or resumes the instances. Neither writes "
+        "the other's field, so the struct is three facts with two owners, not "
+        "one fact with two. MEASURED 2026-11-10 from `write_sites`."
+    ),
+    "BodyGeometry": (
+        "DISJOINT FIELDS. The portal crate's `publish_portal_apertures` and "
+        "`publish_portal_passages` (`ambition_portal2d/src/passages.rs`) write "
+        "the convention, the default and per-body piece budgets, each room's "
+        "links and the straddlers (`reset_apertures`, `set_body_budget`, "
+        "`clear_straddlers`, `add_straddler`); the shared tangle's "
+        "`publish_body_geometry_before_motion` / `_after_motion` write only "
+        "`materials` (`clear_materials`, `set_body_material`). No method either "
+        "side calls touches the other's fields. MEASURED 2026-11-10 from "
+        "`write_sites`."
+    ),
+    "EditableAbilitySet": (
+        "ONE EDITOR PLUS THE SESSION EDGE. The developer menu "
+        "(`SystemMenuParams` in `menu/kaleidoscope_app.rs`) edits the set when "
+        "a person toggles an ability; `reset_editable_abilities_on_activation` "
+        "(`ambition_dev_tools`) returns it to its default when a session "
+        "activates. The reset happens at the edge, before any edit of the new "
+        "session, so the two never write one frame's value. MEASURED 2026-11-10 "
+        "from `write_sites`."
+    ),
+    "LocalSeatClaims": (
+        "A KEYED REGISTRY, ONE FILLER AND ONE TAKER. `claim_local_seats` "
+        "(`ambition_input/src/local_seats.rs`) claims a controller for a "
+        "participant when it joins; the menu's `request_leave` "
+        "(`SystemMenuParams`, LOCAL-PLAY-MODES slice 3) releases the leaving "
+        "participant's claim, so the pad can join again. Each acts on the "
+        "participant it is about; nothing else adds or removes a claim. "
+        "MEASURED 2026-11-10 from `write_sites`."
+    ),
+    "PlayerGlowCatalog": (
+        "COMPOSITION PLUS A CAPTURE TOOL. `register` "
+        "(`ambition_platformer2d_provider/src/authoring.rs`) fills the catalog "
+        "when a route is composed; the only other writer is `force_player_glow` "
+        "in the `capture_scene` binary, a capture tool's option that sets the "
+        "active route's glow for a picture. No shipped game runs it. MEASURED "
+        "2026-11-10 from `write_sites`."
+    ),
+    "PromisedRoomPlans": (
+        "ONE CRATE'S HOST STATE, STAGES OF ONE LIFECYCLE. `pub(crate)` in "
+        "`ambition_platformer2d_rollback_ggrs`: `decide_this_peers_verdict` "
+        "(`lifecycle_commit.rs`) retains the plan a verdict authorised, "
+        "`publish_local_inputs` (`session.rs`) records the frame a verdict was "
+        "advertised for, and `collect_after_save` / `collect_without_snapshots` "
+        "(`room_promises.rs`) drop the plans below the saved floor; "
+        "`session.rs` also inserts it empty when a session starts. Retain, "
+        "advertise, collect: no two stages write the same plan's fact. MEASURED "
+        "2026-11-10 from `write_sites`."
+    ),
+    "SfxLoopPlayback": (
+        "A PLAYER AND ITS MIXER. `audio_play_sfx_loops` (`sfx_loops.rs`) "
+        "starts, holds and fades the loops; `update_sfx_attenuation` "
+        "(`spatial.rs`) updates each held and fading voice's attenuation each "
+        "frame and drops a voice whose instance has ended. The mixer adds "
+        "nothing and its removal is of a voice that is already over. MEASURED "
+        "2026-11-10 from `write_sites`."
+    ),
+    "SfxOneShots": (
+        "A PLAYER AND ITS MIXER, as `SfxLoopPlayback`. "
+        "`audio_play_sfx_messages` (`bank_asset.rs`) starts each one-shot; "
+        "`update_sfx_attenuation` (`spatial.rs`) keeps its attenuation current "
+        "and drops it when its instance has ended. MEASURED 2026-11-10 from "
+        "`write_sites`."
     ),
 }
 

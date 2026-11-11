@@ -35,7 +35,7 @@ pub use materialize::{
 };
 pub use spawn::{ProjectileSpawner, SpawnFailure};
 pub use spawn_request::{
-    build_in_flight_projectile, ProjectilePresentation, ProjectileSpawnRequest, ProjectileStart,
+    build_in_flight_projectile, ProjectileBirth, ProjectilePresentation, ProjectileSpawnRequest, ProjectileStart,
 };
 pub use state::PlayerProjectileState;
 pub use visual::{

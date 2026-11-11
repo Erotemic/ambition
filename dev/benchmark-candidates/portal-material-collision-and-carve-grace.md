@@ -242,3 +242,17 @@ physical material together. Gravity and the root AABB cannot reconstruct the
 point after scale or reflection. Keep a missing landmark separate from a
 failed map. Resolve a required hand before firing state changes; a muzzle
 that does not use a hand must not query it.
+
+
+A firing hand belongs to the shooter; an independent shot has its own root
+extents. Map the hand through body material, then project the shot's extents
+on the physical feet normal for clearance. Do not scale the shot's extents
+as a side effect of placing the hand. A fixture that expects a rotated body
+must state its physical material as well as its acceleration frame.
+
+
+A child can need a new root chart before its emitter crosses. Select that
+chart from the native material partition, then admit its mapped velocity and
+carried vectors. Use the child's policy, not the emitter's. Stage resource
+changes until the complete birth passes admission. A projectile cue uses
+the admitted birth position.

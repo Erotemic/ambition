@@ -93,32 +93,6 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     assert!(body.game.damage >= 2);
 }
 
-/// A shot is born with its rear edge at the hand that fires it: the hand, in
-/// the body's rig space, plus the shot's half extent along the aim.
-#[test]
-fn a_shot_is_born_with_its_rear_edge_at_the_firing_hand() {
-    use ambition_combat::shot_birth::hand_local_offset as born;
-    use ambition_platformer2d_core as ae;
-    let size = ae::Vec2::new(30.0, 48.0);
-    let half = ae::Vec2::new(12.0, 9.0);
-    // The hand: 9 behind the feet and 10 above them. The feet are 24 below
-    // the centre.
-    let hand = ae::Vec2::new(-9.0, -10.0);
-    let right = ae::Vec2::new(1.0, 0.0);
-    assert_eq!(born(hand, right, 1.0, size, half), ae::Vec2::new(-9.0 + 12.0, 24.0 - 10.0));
-    // A body that faces left mirrors its hand about its feet, and the aim is
-    // the aim: the shot is born on the other side.
-    let left = ae::Vec2::new(-1.0, 0.0);
-    assert_eq!(born(hand, left, -1.0, size, half), ae::Vec2::new(9.0 - 12.0, 24.0 - 10.0));
-    // Aimed up, the shot's lower edge is at the hand.
-    let up = ae::Vec2::new(0.0, -1.0);
-    assert_eq!(born(hand, up, 1.0, size, half), ae::Vec2::new(-9.0, 24.0 - 10.0 - 9.0));
-    // A larger shot is born farther along the aim, and its rear edge is still
-    // at the hand.
-    let big = half * 1.8;
-    assert_eq!(born(hand, right, 1.0, size, big).x - big.x, -9.0);
-}
-
 /// The shot is born at the hand of the rows the firing body is DRAWN from.
 /// This holds the row chain to the sprite picker's fallback rule.
 #[test]
@@ -463,6 +437,10 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
             900.0,
         ));
         world.entity_mut(player).insert(frame);
+        // This fixture has no pose step. Set the physical body down to the right.
+        world.get_mut::<ambition_platformer2d_core::BodyKinematics>(player).unwrap().material =
+            ambition_platformer2d_core::frame::BodyMaterial::new(1.0,
+                bevy::math::Mat2::from_cols(-bevy::math::Vec2::Y, bevy::math::Vec2::X)).unwrap();
     }
     // Precision aiming (charged fire) now defaults to screen-directed, so opt
     // into a body-relative aim mode to exercise the controlled-body-local seam

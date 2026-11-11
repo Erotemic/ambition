@@ -241,13 +241,53 @@ impl PreparedBodyPose {
     }
 }
 
-/// Admit a body that enters world simulation without an earlier world path.
-pub fn prepare_body_materialization(
-    desired: crate::BodyKinematics,
+/// An admitted new body and its carried vector payloads.
+#[must_use]
+pub struct PreparedBodyMaterialization<const N: usize> {
+    pose: PreparedBodyPose,
+    carried: [Vec2; N],
+}
+
+impl<const N: usize> PreparedBodyMaterialization<N> {
+    /// Commit the body and return its admitted carried payloads.
+    pub fn commit(self, body: &mut crate::BodyKinematics, sweep: Option<&mut SweepSample>) -> [Vec2; N] {
+        self.pose.commit(body, sweep);
+        self.carried
+    }
+}
+
+/// Admit a new body from a reference root in the source chart. Its native
+/// partition selects the chart of its centre before payload admission.
+pub fn prepare_body_materialization<const N: usize>(
+    mut desired: crate::BodyKinematics,
+    reference: Vec2,
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
-) -> Result<PreparedBodyPose, crate::frame::thread::Refusal> {
+    mut carried: [Vec2; N],
+) -> Result<PreparedBodyMaterialization<N>, crate::frame::thread::Refusal> {
+    use crate::frame::thread::{MaterialPrimitive, Refusal, RefusalReason, partition};
+    let numeric = |reason| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(reason) };
+    if !reference.is_finite() { return Err(numeric(crate::frame::NumericFault::NonFinite)); }
+    if let Some(admission) = admission {
+        let domain = desired.canonical_box().map_err(numeric)?;
+        let parts = partition(MaterialPrimitive { domain: &domain, to_world: desired.material_map().map_err(numeric)? },
+            reference, admission.links, admission.first, admission.budget, admission.convention)?;
+        let mut root = None;
+        for piece in &parts {
+            if piece.source_bounds_contain(Vec2::ZERO).map_err(numeric)?
+                && root.as_ref().is_none_or(|old: &&crate::frame::thread::VolumePiece|
+                    (piece.path.len(), &piece.path) < (old.path.len(), &old.path)) { root = Some(piece); }
+        }
+        let piece = root.ok_or_else(|| numeric(crate::frame::NumericFault::InvalidFrame))?;
+        let map = piece.path_transform().map_err(numeric)?;
+        desired.vel = admission.carry_velocity(&piece.path, desired.pos, desired.vel, 1.0)?;
+        desired.pos = map.point(desired.pos).map_err(numeric)?;
+        desired.material = desired.material.carried(map).map_err(numeric)?;
+        for vector in &mut carried { *vector = map.vector(*vector).map_err(numeric)?; }
+    }
     let sample = SweepSample::at_tick_end(desired, Vec2::ZERO);
-    prepare_body_pose(&desired, Some(&sample), desired, admission, &[])
+    let admission = admission.map(|admission| crate::frame::thread::MotionAdmission { first: None, ..admission });
+    let pose = prepare_body_pose(&desired, Some(&sample), desired, admission, &carried)?;
+    Ok(PreparedBodyMaterialization { pose, carried })
 }
 
 /// Validate a complete external pose without changing its body or history.
@@ -372,6 +412,28 @@ mod translation_tests {
 
     fn aperture(x: f32, y: f32, normal: Vec2, half_length: f32) -> PortalAperture {
         PortalAperture { frame: PortalFrame::fixed(Vec2::new(x, y), normal), half_length }
+    }
+
+    #[test]
+    fn materialization_uses_the_centre_chart_and_carries_velocity_and_payloads() {
+        let links = [PortalLink::new(aperture(100.0, 300.0, -Vec2::Y, 40.0),
+            aperture(600.0, 100.0, Vec2::Y, 20.0), 0)];
+        let admission = MotionAdmission { links: &links, first: None,
+            budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+        let desired = crate::BodyKinematics { pos: Vec2::new(100.0, 310.0), vel: Vec2::new(20.0, 200.0),
+            canonical_size: Vec2::splat(4.0), ..Default::default() };
+        let vector = Vec2::new(4.0, -12.0);
+        let prepared = prepare_body_materialization(desired, Vec2::new(100.0, 270.0), Some(admission), [vector]).unwrap();
+        let mut body = desired;
+        let [carried] = prepared.commit(&mut body, None);
+        assert_eq!(body.pos, Vec2::new(600.0, 105.0));
+        assert_eq!(body.material.scale(), 0.5);
+        assert!(body.material.reflected());
+        assert_eq!(body.canonical_size, desired.canonical_size);
+        assert_eq!(body.vel.length(), desired.vel.length() * 0.5);
+        assert_eq!(carried, links[0].map(MapConvention::Reflection).unwrap().vector(vector).unwrap());
+        assert!(prepare_body_materialization(desired, Vec2::new(100.0, 270.0), Some(admission),
+            [Vec2::splat(f32::NAN)]).is_err());
     }
 
     #[test]

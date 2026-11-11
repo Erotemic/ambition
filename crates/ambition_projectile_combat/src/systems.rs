@@ -72,6 +72,7 @@ fn commit_parried_shot(
 /// Emits [`ProjectileSpawnRequest`]; [`step_projectiles`] owns flight.
 #[allow(clippy::too_many_arguments)]
 pub fn charge_projectile_input(
+    births: ambition_projectiles::ProjectileBirth,
     world_time: Res<ambition_time::WorldTime>,
     // Per-BODY projectile state lives on the charge-capable body itself. Iterates
     // every such body so co-op / possession builds get one independent charge timer.
@@ -154,15 +155,12 @@ pub fn charge_projectile_input(
 
         let mut events: Vec<ProjectileTraceEvent> = Vec::new();
 
-        let facing = if kin.facing.abs() < f32::EPSILON {
-            1.0
-        } else {
-            kin.facing.signum()
-        };
-        // The firing body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
-        let local_dir = ambition_combat::shot_birth::local_fire_dir(tick_info.aim, facing);
-        let direction = frame.to_world(local_dir).normalize_or_zero();
+        let direction = match ambition_combat::shot_birth::world_fire_dir(kin, frame.to_world(tick_info.aim)) {
+            Ok(direction) => direction,
+            Err(fault) => { warn!(?fault, "charge aim refused"); continue; }
+        };
+        let local_dir = frame.to_local(direction);
         // The shot is born at the hand that fires, in the row the body fires
         // in. Asked only on a tick that fires. The shot's size is of its kind
         // and charge, so the place is too.
@@ -174,9 +172,7 @@ pub fn charge_projectile_input(
                 &landmarks,
                 body_entity,
                 kin,
-                |local| frame.to_world(local),
-                resolved_frame.down(),
-                local_dir,
+                direction,
                 half_extent,
             )
         };
@@ -185,6 +181,7 @@ pub fn charge_projectile_input(
         let mut firing = Firing {
             owner: body_entity,
             origin_of: &origin_of,
+            admit: &|body| births.prepare(body_entity, kin.pos, body),
             flight: fireball_flight.of(body_entity).copied(),
             local_dir,
             to_world: &to_world,
@@ -199,7 +196,7 @@ pub fn charge_projectile_input(
         // cooldown is over, or is refused when it has waited too long.
         if let Some(mut shot) = state.buffered.take() {
             match firing.fire(&mut state, &mut events, shot.kind, shot.charge_tier) {
-                FireOutcome::Fired => {}
+                FireOutcome::Fired | FireOutcome::Geometry(_) => {}
                 FireOutcome::Cooldown => {
                     shot.remaining -= dt;
                     if shot.remaining > 0.0 {
@@ -309,7 +306,8 @@ pub fn charge_projectile_input(
 /// they fly, and the two messages a press can end in.
 struct Firing<'a, 's, 'r> {
     owner: Entity,
-    origin_of: &'a dyn Fn(ambition_projectiles::ProjectileKind, u8) -> ae::Vec2,
+    origin_of: &'a dyn Fn(ambition_projectiles::ProjectileKind, u8) -> Result<ae::Vec2, ae::frame::NumericFault>,
+    admit: &'a dyn Fn(ambition_projectiles::ProjectileBody) -> Result<ambition_projectiles::ProjectileBody, ae::frame::thread::Refusal>,
     /// How the fireball flies in the firer's room; `None` flies the kind's own.
     flight: Option<ambition_projectiles::FireballFlight>,
     /// The aim in the firer's frame, and that frame's way to the world.
@@ -333,8 +331,16 @@ impl Firing<'_, '_, '_> {
         kind: ambition_projectiles::ProjectileKind,
         charge_tier: u8,
     ) -> FireOutcome {
-        let origin = (self.origin_of)(kind, charge_tier);
-        match state.spawner.try_spawn(kind, origin, self.direction, self.damage_mult) {
+        let origin = match (self.origin_of)(kind, charge_tier) {
+            Ok(origin) => origin,
+            Err(fault) => {
+                let refusal = ae::frame::thread::Refusal { path: Vec::new(), link: None,
+                    reason: ae::frame::thread::RefusalReason::Numeric(fault) };
+                warn!(?refusal, "charge birth refused"); return FireOutcome::Geometry(refusal);
+            }
+        };
+        let mut proposed_spawner = state.spawner;
+        match proposed_spawner.try_spawn(kind, origin, self.direction, self.damage_mult) {
             Ok(spec) => {
                 let flight = self.flight.filter(|_| kind == ambition_projectiles::ProjectileKind::Fireball);
                 let spec = match flight {
@@ -346,6 +352,11 @@ impl Firing<'_, '_, '_> {
                 if let Some(flight) = flight {
                     body.game.rebound = flight.rebound();
                 }
+                let body = match (self.admit)(body) {
+                    Ok(body) => body,
+                    Err(refusal) => { warn!(?refusal, "projectile materialization refused"); return FireOutcome::Geometry(refusal); }
+                };
+                state.spawner = proposed_spawner;
                 self.spawn.write(
                     ProjectileSpawnRequest::named(
                         self.owner,
@@ -424,9 +435,10 @@ fn said_by(
 }
 
 /// What one attempt to fire did.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum FireOutcome {
     Fired,
+    Geometry(ae::frame::thread::Refusal),
     /// The spawner is cooling down. The caller decides whether the shot waits.
     Cooldown,
     /// The meter cannot pay for the shot.
@@ -491,6 +503,48 @@ pub(crate) fn wall_is_the_targets_own_surface(
     match &wall.id.source {
         ae::GeoSource::Placement(placement) => placement.0 == target_id,
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod birth_tests {
+    use super::*;
+
+    #[test]
+    fn a_refused_birth_spends_no_meter_or_cooldown_and_emits_no_shot() {
+        use bevy::ecs::system::SystemState;
+        let mut app = App::new();
+        app.add_message::<ProjectileSpawnRequest>();
+        app.add_message::<ambition_combat::RangedFireRefused>();
+        let mut params = SystemState::<(MessageWriter<ProjectileSpawnRequest>, MessageWriter<ambition_combat::RangedFireRefused>)>::new(app.world_mut());
+        let mut state = PlayerProjectileState::default();
+        let before = state.spawner;
+        let mut events = Vec::new();
+        {
+            let (mut spawn, mut refused) = params.get_mut(app.world_mut()).unwrap();
+            let origin = |_, _| Err(ae::frame::NumericFault::Precision);
+            let to_world = |vector| vector;
+            let mut firing = Firing { owner: Entity::PLACEHOLDER, origin_of: &origin,
+                admit: &Ok, flight: None, local_dir: ae::Vec2::X, to_world: &to_world,
+                direction: ae::Vec2::X, damage_mult: 1.0, spawn: &mut spawn,
+                refused: &mut refused, fired: 0 };
+            assert_eq!(firing.fire(&mut state, &mut events, ambition_projectiles::ProjectileKind::Fireball, 0),
+                FireOutcome::Geometry(ae::frame::thread::Refusal { path: Vec::new(), link: None,
+                    reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::Precision) }));
+            assert_eq!(firing.fired, 0);
+            let partition_refusal = ae::frame::thread::Refusal { path: vec![7], link: Some(7),
+                reason: ae::frame::thread::RefusalReason::PieceLimit };
+            let admit = |_| Err(partition_refusal.clone());
+            let origin = |_, _| Ok(ae::Vec2::ZERO);
+            firing.origin_of = &origin;
+            firing.admit = &admit;
+            assert_eq!(firing.fire(&mut state, &mut events, ambition_projectiles::ProjectileKind::Fireball, 0),
+                FireOutcome::Geometry(partition_refusal.clone()));
+            assert_eq!(firing.fired, 0);
+        }
+        assert_eq!(state.spawner, before);
+        assert!(events.is_empty());
+        assert!(app.world().resource::<Messages<ProjectileSpawnRequest>>().is_empty());
     }
 }
 

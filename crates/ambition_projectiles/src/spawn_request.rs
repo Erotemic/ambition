@@ -247,3 +247,27 @@ mod tests {
         assert_eq!(projectile.body.game.gravity, 0.0);
     }
 }
+
+/// Prepare a projectile in the chart reached from its emitter's body root.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ProjectileBirth<'w, 's> {
+    geometry: Option<bevy::prelude::Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
+}
+
+impl ProjectileBirth<'_, '_> {
+    /// Admit before the producer spends resources or emits a request.
+    pub fn prepare(&self, owner: Entity, reference: ambition_platformer2d_core::Vec2,
+        mut body: ProjectileBody,
+    ) -> Result<ProjectileBody, ambition_platformer2d_core::frame::thread::Refusal> {
+        let room = self.rooms.of(owner);
+        let admission = self.geometry.as_deref().and_then(|geometry| geometry.motion_for(owner, room)
+            .map(|admission| ambition_platformer2d_core::frame::thread::MotionAdmission {
+                budget: geometry.budget_for(None, room), ..admission
+            }));
+        let [acceleration] = ambition_platformer2d_core::movement::prepare_body_materialization(
+            body.kin, reference, admission, [body.acceleration.0])?.commit(&mut body.kin, None);
+        body.acceleration.0 = acceleration;
+        Ok(body)
+    }
+}

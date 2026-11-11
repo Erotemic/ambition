@@ -226,3 +226,43 @@ fn a_carried_javelin_leaves_the_scaled_holder_with_its_physical_material() {
     }
     assert_eq!(run_held(), run_held());
 }
+
+
+#[test]
+fn a_shot_from_a_hand_through_the_80_40_pair_is_born_in_the_far_chart() {
+    fn run_birth() -> Vec<Vec<u8>> {
+        use ambition_platformer2d::projectiles::{LiveProjectile, ProjectileOwner};
+        let mut sim = slice();
+        {
+            let world = sim.world_mut();
+            world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks.retain(|block| block.name != "slice far contact");
+        }
+        let (owner, mut pose) = body(&mut sim);
+        pose.pos.x = 1898.0;
+        pose.vel = ae::Vec2::ZERO;
+        sim.world_mut().entity_mut(owner).insert((pose, ae::SweepSample::at_rest(pose, ae::Vec2::Y)));
+        sim.rebase_rollback_history().unwrap();
+        sim.step_frame(ae::ControlFrame { projectile_pressed: true, projectile_held: true, ..Default::default() });
+        for _ in 0..6 { sim.step_frame(ae::ControlFrame { projectile_held: true, ..Default::default() }); }
+        let mut trace = Vec::new();
+        for tick in 0..14 {
+            sim.step_frame(ae::ControlFrame { projectile_released: tick == 0, ..Default::default() });
+            sim.rollback_health().unwrap();
+            let (owner, pose) = body(&mut sim);
+            assert!(pose.pos.x < 1904.0, "the shooter must keep its source root");
+            let world = sim.world_mut();
+            for (kin, projectile_owner) in world.query_filtered::<(&BodyKinematics, &ProjectileOwner), With<LiveProjectile>>().iter(world) {
+                if projectile_owner.0 != owner { continue; }
+                assert!(kin.pos.x > 2300.0, "the shot must start beyond the paired exit: {kin:?}");
+                assert_eq!(kin.material.scale(), 0.5);
+                assert!(kin.material.reflected());
+                assert_eq!(kin.canonical_size, ambition_platformer2d::projectiles::ProjectileKind::Fireball.half_extent() * 2.0);
+                trace.push(ae::snapshot::encode_state(kin));
+            }
+        }
+        assert!(!trace.is_empty(), "the real firing path must produce a far-side projectile");
+        assert!(sim.rollback_execution_stats().unwrap().load_runs > 0);
+        trace
+    }
+    assert_eq!(run_birth(), run_birth());
+}

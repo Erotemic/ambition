@@ -70,6 +70,8 @@ fn the_halls_copied_bosses_are_practice_copies_at_their_own_placements() {
         // Castle Godwin's throne room, cloned into the hall (2026-10-17):
         // Wolfenstein, and the Inugami that rises from him (2026-10-20).
         ("hall_wolfenstein_arena", &["hall.wolfenstein", "hall.wolfenstein_inugami"][..], "castle_godwin_throne"),
+        // Hylbert's hotel's haunted wing, cloned into the hall (2026-11-11).
+        ("hall_gram_reaper_arena", &["hall.gram_reaper"][..], "math_hotel_gram_reaper"),
     ] {
         let hall = room(hall_room);
         let game = room(game_room);
@@ -101,6 +103,42 @@ fn boss_practice_in(room: &str) -> Vec<(String, bool)> {
     bosses
 }
 
+/// Jon, 2026-11-11: "Gram reaper (and more generally all bosses) should be
+/// in the hall of bosses, and we should have a check that fails if they
+/// aren't." Every boss script a shipped room places has a copy in the hall: a
+/// placement of its own (`hall.*`) in a room the hall's doors reach (through
+/// one room at most, as GNU-ton's approach is).
+#[test]
+fn every_boss_of_the_shipped_rooms_has_a_copy_in_the_hall() {
+    use ambition_platformer2d::entity_catalog::placements::BossBrain;
+    let rooms = shipped_rooms();
+    let links = rooms.canonical_links();
+    let from = |room: &str| -> BTreeSet<String> {
+        links.iter().filter(|link| link.from_room == room).map(|link| link.to_room.clone()).collect()
+    };
+    let mut reached = from(HALL);
+    for room in reached.clone() {
+        reached.extend(from(&room));
+    }
+    let mut placed = BTreeSet::new();
+    let mut in_hall = BTreeSet::new();
+    for room in &rooms.rooms {
+        for boss in &room.boss_spawns {
+            let BossBrain::PhaseScript { script_id } = &boss.payload else { continue };
+            placed.insert(script_id.clone());
+            if boss.id.starts_with("hall.") && reached.contains(&room.id) {
+                in_hall.insert(script_id.clone());
+            }
+        }
+    }
+    assert!(placed.len() >= 10, "precondition: the shipped bosses are read ({placed:?})");
+    let missing: Vec<_> = placed.difference(&in_hall).collect();
+    assert!(
+        missing.is_empty(),
+        "these bosses are placed in the game and have no copy behind a door of the Hall of Bosses: {missing:?}"
+    );
+}
+
 /// In the running game the hall's copy is spawned as a practice boss, and
 /// the main game's Mockingbird is not (the control: the same archetype, the
 /// same arena geometry, another room).
@@ -118,6 +156,7 @@ fn the_halls_mockingbird_spawns_as_a_practice_boss() {
         boss_practice_in("hall_wolfenstein_arena"),
         vec![("hall.wolfenstein".to_string(), true), ("hall.wolfenstein_inugami".to_string(), true)]
     );
+    assert_eq!(boss_practice_in("hall_gram_reaper_arena"), vec![("hall.gram_reaper".to_string(), true)]);
 }
 
 // ---- The life switches ------------------------------------------------------

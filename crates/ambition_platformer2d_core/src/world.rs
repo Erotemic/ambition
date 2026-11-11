@@ -1092,7 +1092,11 @@ impl crate::layered::Spatial for SurfaceChain {
         crate::layered::bounds_of(&self.points)
     }
     fn swept_bounds(&self) -> Aabb {
+        if !self.velocity.is_finite() || !self.turn.is_finite() || !self.pivot.is_finite() {
+            return crate::layered::UNBOUNDED;
+        }
         let bounds = crate::layered::bounds_of(&self.points);
+        if !bounds.min.is_finite() || !bounds.max.is_finite() { return crate::layered::UNBOUNDED; }
         if self.turn == 0.0 {
             return Aabb { min: bounds.min.min(bounds.min-self.velocity), max: bounds.max.max(bounds.max-self.velocity) };
         }

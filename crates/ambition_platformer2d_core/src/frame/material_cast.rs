@@ -122,7 +122,7 @@ impl<'a> MaterialCast<'a> {
         let spin = if turn == 0.0 { 0.0 } else { turn / duration };
         if !spin.is_finite() { return Err(numeric(NumericFault::Overflow)); }
         if turn != 0.0 && spin == 0.0 { return Err(numeric(NumericFault::Underflow)); }
-        self.rotation = Some(source::Rotation { pivot: pivot.as_dvec2(), turn, spin });
+        self.rotation = (turn != 0.0).then_some(source::Rotation { pivot: pivot.as_dvec2(), turn, spin });
         Ok(self)
     }
 

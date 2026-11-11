@@ -277,3 +277,10 @@ process it twice.
 A source cell's linear travel covers its cast interval. A world's published
 collider displacement covers the full tick. Scale the latter by the cast's
 world duration before the separation proof compares these two quantities.
+
+Build source cells once for each recorded motion leg. Reuse them across
+recipient queries. Keep exact contact and refusal with each recipient.
+The source chart, clock and admission snapshot bound the cache lifetime.
+Geometry validation can be shared within that lifetime; each sample must
+still check its clock. A broad phase must include all physical cells. An
+unknown motion envelope retains its candidate for exact admission.

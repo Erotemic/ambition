@@ -6,9 +6,9 @@ use super::{
     RefusalReason, Sim2,
 };
 use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink};
-use crate::frame::{MapConvention, motion::WideAperture};
+use crate::frame::{MapConvention, motion::{PreparedApertureStep, WideAperture}};
 use bevy_math::DMat2;
-use std::{collections::VecDeque, ops::Range, sync::Arc};
+use std::{collections::VecDeque, ops::Range, sync::{Arc, OnceLock}};
 
 const MAX_WORK: usize = 16_384;
 fn perp(p: DVec2) -> DVec2 {
@@ -34,6 +34,7 @@ pub(super) struct Scene {
     time: Range<f64>,
     until: f64,
     links: Vec<PortalLink>,
+    prepared_steps: OnceLock<Vec<Result<(PreparedApertureStep, PreparedApertureStep), NumericFault>>>,
     first: Option<u32>,
     budget: PieceBudget,
     convention: MapConvention,
@@ -136,17 +137,27 @@ impl Scene {
             time: cast.time.clone(),
             until: cast.until,
             links: admission.links.to_vec(),
+            prepared_steps: OnceLock::new(),
             first: admission.first,
             budget: admission.budget,
             convention: admission.convention,
         })
     }
-    fn pose(&self, link: usize, time: f64) -> Result<Pose, NumericFault> {
-        let link = self.links[link];
+    fn pose(&self, link_index: usize, time: f64) -> Result<Pose, NumericFault> {
+        let link = self.links[link_index];
         let span = self.time.end - self.time.start;
         let world = self.time.start + span * time;
-        let mut enter = link.enter_step.sample_wide(link.enter, world)?;
-        let mut exit = link.exit_step.sample_wide(link.exit, world)?;
+        // Geometry stays fixed for this scene. Each sample checks its clock.
+        // Failed preparation uses full sampling to keep the refusal order.
+        let prepared = self.prepared_steps.get_or_init(|| self.links.iter().map(|link| {
+            Ok((link.enter_step.prepare_wide(link.enter)?,
+                link.exit_step.prepare_wide(link.exit)?))
+        }).collect());
+        let (mut enter, mut exit) = match &prepared[link_index] {
+            Ok((enter, exit)) => (enter.sample_wide(world)?, exit.sample_wide(world)?),
+            Err(_) => (link.enter_step.sample_wide(link.enter, world)?,
+                link.exit_step.sample_wide(link.exit, world)?),
+        };
         enter.shift *= span;
         enter.turn *= span;
         exit.shift *= span;

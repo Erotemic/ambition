@@ -41,24 +41,27 @@ fn booted(room: &str) -> Platformer2dSimHarness {
     sim
 }
 
+/// The simulation phases a guest puts to sleep.
+const GATED: [Phase; 12] = [
+    Phase::CoreSimulation,
+    Phase::FeatureCollection,
+    Phase::FeatureInteraction,
+    Phase::LdtkRuntimeSpine,
+    Phase::EncounterSimulation,
+    Phase::Cutscene,
+    Phase::GameplayEffects,
+    Phase::Progression,
+    Phase::ResetProcessing,
+    Phase::FeatureViewSync,
+    Phase::PresentationVisualSync,
+    Phase::Trace,
+];
+
 /// Put every simulation phase of `guest` to sleep.
 fn simulate_nothing(guest: &mut Platformer2dSimHarness) {
     let app = guest.app_mut();
     let schedule = app.sim_schedule();
-    for phase in [
-        Phase::CoreSimulation,
-        Phase::FeatureCollection,
-        Phase::FeatureInteraction,
-        Phase::LdtkRuntimeSpine,
-        Phase::EncounterSimulation,
-        Phase::Cutscene,
-        Phase::GameplayEffects,
-        Phase::Progression,
-        Phase::ResetProcessing,
-        Phase::FeatureViewSync,
-        Phase::PresentationVisualSync,
-        Phase::Trace,
-    ] {
+    for phase in GATED {
         app.configure_sets(schedule, phase.run_if(|| false));
     }
 }
@@ -185,6 +188,35 @@ fn probe_where_a_gated_guest_spends_its_update() {
         for label in &fixed {
             println!("[guest-split]   (fixed) {:<16} {:>5} systems", format!("{label:?}"), count(world, *label));
         }
+        // How many of the sim schedule's systems the gate puts to sleep, and
+        // how many still run.
+        let sim = guest.app_mut().sim_schedule();
+        let (gated, all, running) = guest.world_mut().resource_scope(|world, mut schedules: bevy::prelude::Mut<Schedules>| {
+            let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
+            let _ = schedule.initialize(world);
+            let mut gated = BTreeSet::new();
+            for phase in GATED {
+                if let Ok(systems) = schedule.graph().systems_in_set(bevy::ecs::schedule::SystemSet::intern(&phase)) {
+                    gated.extend(systems.into_iter().map(|key| format!("{key:?}")));
+                }
+            }
+            let mut running: BTreeMap<String, usize> = BTreeMap::new();
+            if let Ok(systems) = schedule.systems() {
+                for (key, system) in systems {
+                    if gated.contains(&format!("{key:?}")) {
+                        continue;
+                    }
+                    let name = system.name().to_string();
+                    let owner = name.trim_start_matches('<').split("::").next().unwrap_or("?").to_string();
+                    *running.entry(owner).or_default() += 1;
+                }
+            }
+            (gated.len(), schedule.systems_len(), running)
+        });
+        println!("[guest-split]   the sim schedule: {all} systems, {gated} in a gated phase, {} still run", all - gated);
+        let mut owners: Vec<_> = running.into_iter().collect();
+        owners.sort_by(|a, b| b.1.cmp(&a.1));
+        println!("[guest-split]   still running, by crate: {owners:?}");
         // The same guest through `App::update`, which also runs sub-apps.
         let mut times = UpdateTimes::default();
         for _ in 0..MEASURED {

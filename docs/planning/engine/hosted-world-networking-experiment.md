@@ -169,6 +169,13 @@ schedule run in `MainScheduleOrder`'s order and timed, and 120 more through
   `Update` here; gating the twelve simulation phases off still leaves the
   executor walking every system and evaluating its run conditions. The fixed
   loop is empty (one system).
+- **Of the 1,030, 557 are in a gated phase and 473 still run** (by
+  `ScheduleGraph::systems_in_set` over the twelve phases). By crate: 146 are
+  `bevy_ecs`'s own (sync points and message updates), then the conversation
+  (39), the game shell (31), the runtime (24), content (19), the Mary-O and
+  Smash demos (18, 17: other games' systems in an Ambition guest), load
+  presentation (16), the session (15), and a long tail. A gated phase still
+  costs its systems a skip each; what runs is presentation and composition.
 - ⇒ **A guest should be COMPOSED from fewer plugins, not gated.** The cost is
   the system count, which does not depend on the bodies; a guest built
   without the simulation plugins (presentation, the shell and the replication

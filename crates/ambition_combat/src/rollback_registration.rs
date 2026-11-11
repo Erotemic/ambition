@@ -98,7 +98,7 @@ where
     // A live room's own pace on its root (ISL-1b): it scales the `dt` the
     // room's bodies integrate with, as the shared clock does, so a rewind
     // (of the session, or of the room alone) must restore it.
-    registrar.rollback_component_clone_checksum::<crate::impact_hitstop::RoomPace>(
+    registrar.rollback_component_clone_checksum::<ambition_platformer2d_shared_tangle::lifecycle::RoomPace>(
         OWNER,
         "combat.room_pace",
         "a live room's impact hold expiry and eased clock scale",
@@ -663,7 +663,7 @@ fn impact_hitstop_checksum(hold: &crate::impact_hitstop::ImpactHitstop) -> u64 {
     checksum_bytes(&bytes)
 }
 
-fn room_pace_checksum(pace: &crate::impact_hitstop::RoomPace) -> u64 {
+fn room_pace_checksum(pace: &ambition_platformer2d_shared_tangle::lifecycle::RoomPace) -> u64 {
     let mut bytes = Vec::new();
     put_u64(&mut bytes, pace.held_until);
     put_u64(&mut bytes, u64::from(pace.clock_scale.to_bits()));

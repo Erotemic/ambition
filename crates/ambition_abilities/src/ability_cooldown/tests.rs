@@ -91,7 +91,7 @@ fn first_use_inserts_and_allows_then_armed_use_is_blocked() {
 /// holds the room, and at full pace in the other room.
 #[test]
 fn a_cooldown_waits_while_its_room_is_held() {
-    use ambition_combat::impact_hitstop::RoomPace;
+    use ambition_platformer2d_shared_tangle::lifecycle::RoomPace;
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let (held, free) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
     let mut app = App::new();

@@ -51,7 +51,7 @@ pub fn tick_ability_cooldown(
     time: Res<ambition_time::WorldTime>,
     mut bodies: Query<(Entity, &mut AbilityCooldown)>,
     // At the body's room's pace (ISL-1b).
-    freeze: ambition_combat::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = time.sim_dt();
     for (body, mut cd) in &mut bodies {

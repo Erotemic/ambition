@@ -95,7 +95,7 @@ fn an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room() {
             world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance)>();
         roots.iter(world).find(|(_, room)| **room == hub).map(|(root, _)| root).expect("the hub has a root")
     };
-    sim.world_mut().entity_mut(root).insert(ambition_platformer2d::combat::impact_hitstop::RoomPace {
+    sim.world_mut().entity_mut(root).insert(ambition_platformer2d::platformer::lifecycle::RoomPace {
         held_until: now + 30,
         clock_scale: 1.0,
     });
@@ -120,7 +120,7 @@ fn an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room() {
 fn holds(sim: &mut Platformer2dSimHarness) -> std::collections::BTreeMap<u32, u64> {
     let world = sim.world_mut();
     world
-        .query::<(&ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, &ambition_platformer2d::combat::impact_hitstop::RoomPace)>()
+        .query::<(&ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, &ambition_platformer2d::platformer::lifecycle::RoomPace)>()
         .iter(world)
         .map(|(room, pace)| (room.ordinal(), pace.held_until))
         .collect()

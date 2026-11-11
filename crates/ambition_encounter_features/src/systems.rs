@@ -202,9 +202,11 @@ pub fn drive_wave_encounters(
     // and it only ever did because the retire was wedged into its switch loop.
     // A switch's quest flags, dated in its room so a rewind of that room takes
     // them back (ISL-2d), and the tick that dates them.
-    (mut flag_writes, sim_tick): (
+    // And each room's pace, which its waves run at.
+    (mut flag_writes, sim_tick, freeze): (
         MessageWriter<ambition_combat::events::SetFlagRequested>,
         Option<Res<ambition_time::SimTick>>,
+        ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     ),
 ) {
     // The session gate stays: this system spawns nothing now, but it wrote
@@ -362,7 +364,7 @@ pub fn drive_wave_encounters(
                     }
                 }
                 let mut events = Vec::new();
-                let exhausted = waves.tick_active(dt, &mut participants, &mut events);
+                let exhausted = waves.tick_active(dt * freeze.scale_in(room), &mut participants, &mut events);
                 if exhausted {
                     lifecycle_commands.write(
                         EncounterCommand::signal(&enc.id, WAVES_EXHAUSTED_SIGNAL).in_room(room),

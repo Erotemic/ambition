@@ -392,7 +392,7 @@ pub fn drive_boss_animators(
         Option<&ambition_time::ProperTimeScale>,
     )>,
     // A connect's room holds its boss's frames too (ISL-1b).
-    freeze: ambition_combat::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     for (entity, feature_id, mut frame, scale) in &mut frames {
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale)) * freeze.scale_of(entity);

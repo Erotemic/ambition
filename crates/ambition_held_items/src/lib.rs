@@ -526,15 +526,19 @@ pub fn carry_or_wake_settled_items(
     mut commands: Commands,
     time: Res<ambition_time::WorldTime>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    live: LiveRooms,
+    // At each item's room's pace (ISL-1b): a held room's items wait.
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     mut settled: Query<(Entity, &mut BodyKinematics, &mut ae::SweepSample, &ItemCustody, Has<ItemStruckSurface>), (With<SettledItem>, With<GroundItem>)>,
 ) {
-    let dt = time.sim_dt();
-    if dt <= 0.0 { return; }
+    let live = freeze.live();
+    let shared_dt = time.sim_dt();
+    if shared_dt <= 0.0 { return; }
     let solids = SolidsByRoom::build(&collision, settled.iter().map(|(entity, ..)| live.of(entity)));
     for (entity, mut item, mut sweep, custody, struck_surface) in &mut settled {
+        let dt = shared_dt * freeze.scale_of(entity);
+        if dt <= 0.0 { continue; }
         if struck_surface { commands.entity(entity).remove::<ItemStruckSurface>(); }
         if !custody.in_world() { continue; }
         let before = *item;

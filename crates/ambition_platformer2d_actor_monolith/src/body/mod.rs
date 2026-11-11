@@ -128,14 +128,15 @@ pub use target_volumes::{
 /// so every announced restart is counted once and restarts the clock.
 pub fn track_body_life_stats(
     world_time: bevy::prelude::Res<ambition_time::WorldTime>,
-    mut bodies: Query<(&ae::BodyRestartLatch, &mut ae::BodyLifeStats)>,
+    mut bodies: Query<(Entity, &ae::BodyRestartLatch, &mut ae::BodyLifeStats)>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    for (latch, mut stats) in &mut bodies {
+    for (body, latch, mut stats) in &mut bodies {
         if latch.pending {
             stats.resets += 1;
             stats.time_alive = 0.0;
         } else {
-            stats.time_alive += world_time.sim_dt();
+            stats.time_alive += world_time.sim_dt() * freeze.scale_of(body);
         }
     }
 }

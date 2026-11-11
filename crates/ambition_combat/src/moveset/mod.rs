@@ -1247,7 +1247,7 @@ pub fn advance_move_playback(
     // hands off between contiguous windows must hand off WHO IT ALREADY HIT —
     // see the handoff carry below.
     live_strike_volumes: Query<&HitboxHits, With<StrikeVolume>>,
-    (room_rules, freeze): (crate::rules::CombatTuningOf, crate::impact_hitstop::RoomFreeze),
+    (room_rules, freeze): (crate::rules::CombatTuningOf, ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze),
 ) {
     // The tuning a body that carries none is read under — one value, borrowed by
     // every owner below, rather than a second spelling of the defaults.
@@ -2229,7 +2229,7 @@ pub fn resolve_attack_gestures(
 pub fn buffer_combat_action_presses(
     world_time: Res<WorldTime>,
     // A connect's room holds its bodies' buffered presses too (ISL-1b).
-    freeze: crate::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     mut bodies: Query<(
         Entity,
         &ActorControl,

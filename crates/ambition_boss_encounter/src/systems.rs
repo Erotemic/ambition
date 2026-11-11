@@ -95,7 +95,8 @@ pub fn update_boss_encounters(
     // another room (`RoomMetadata::boss_reward_drop`).
     // And where the players are, for a boss that sleeps until one comes near
     // (`BossEncounterSpec::wake_radius`).
-    (mut since_checkpoint, rooms, drivers, sim_tick, catalog, players): (
+    // And each boss's room pace, which its phase clocks run at.
+    (mut since_checkpoint, rooms, drivers, sim_tick, catalog, players, freeze): (
         ResMut<crate::retraction::BossDefeatsSinceCheckpoint>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
@@ -108,6 +109,7 @@ pub fn update_boss_encounters(
                 Without<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
             ),
         >,
+        ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     ),
     mut bosses: Query<
         (
@@ -136,7 +138,7 @@ pub fn update_boss_encounters(
     // Sim clock: phase pacing (intro/phase-change timers, the death edge,
     // reward grace) freezes with the player in bullet-time (ADR 0010), so phase
     // transitions do not fire while the sim is stopped.
-    let dt = world_time.sim_dt();
+    let shared_dt = world_time.sim_dt();
 
     // Active-fight music track (first fighting boss wins) and reward anchors,
     // collected per boss and grouped by the boss's live room. Anchors are
@@ -164,6 +166,7 @@ pub fn update_boss_encounters(
         .collect();
 
     for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides, boss_sim_id) in &mut bosses {
+        let dt = shared_dt * freeze.scale_of(boss_entity);
         let archetype_id = feature.config.behavior.id.clone();
         let runtime_id = feature.config.id.clone();
 

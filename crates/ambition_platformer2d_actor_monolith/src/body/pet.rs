@@ -380,9 +380,11 @@ pub fn advance_pet_beats(
     mut vfx: VfxWriter,
     // The hearts are drawn in the live room of the body that pets.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    let dt = world_time.sim_dt();
+    let shared_dt = world_time.sim_dt();
     for (petter, mut beat) in &mut petters {
+        let dt = shared_dt * freeze.scale_of(petter);
         let Some(petted) = ids.entity_of(&beat.petted) else {
             end_pet_beat(&mut commands, petter);
             continue;

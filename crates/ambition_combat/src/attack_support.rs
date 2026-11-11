@@ -241,7 +241,7 @@ pub fn tick_body_melee_cooldowns(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<(Entity, &mut BodyMelee)>,
     // At the body's room's pace (ISL-1b).
-    freeze: crate::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
     for (body, mut melee) in &mut bodies {
@@ -254,7 +254,7 @@ pub fn tick_ranged_refire(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<(Entity, &mut crate::components::RangedRefire)>,
     // At the body's room's pace (ISL-1b).
-    freeze: crate::impact_hitstop::RoomFreeze,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
     for (body, mut refire) in &mut bodies {

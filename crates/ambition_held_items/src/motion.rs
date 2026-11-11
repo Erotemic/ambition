@@ -7,7 +7,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt, BodyKinematics, Vec2};
 use ae::frame::{NumericFault, Sim2, material_cast::MaterialCast,
     thread::{MaterialPrimitive, MotionAdmission, Refusal, RefusalReason}};
 use ambition_platformer2d_shared_tangle::{body::geometry::BodyGeometry,
-    lifecycle::{LiveRoomInstance, LiveRooms}, sim_id::SimId};
+    lifecycle::LiveRoomInstance, sim_id::SimId};
 use super::{GroundItem, ItemBody, ItemCustody, ItemStruckBody, ItemStruckSurface,
     SettledItem, SolidsByRoom, GROUND_ITEM_GRAVITY};
 
@@ -73,14 +73,16 @@ struct Flight {
 pub fn ground_item_physics(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    live: LiveRooms,
+    // Each item flies at its room's pace (ISL-1b): a held room's items wait.
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     portals: ItemGeometry,
     mut commands: Commands,
     mut populations: ParamSet<(Items, Recipients)>,
 ) {
-    let dt = time.sim_dt();
-    if dt <= 0.0 { return; }
+    let live = freeze.live();
+    let shared_dt = time.sim_dt();
+    if shared_dt <= 0.0 { return; }
     let geometry = portals.geometry.as_deref();
     #[cfg(not(feature = "portal"))]
     let _ = &portals.marker;
@@ -97,6 +99,8 @@ pub fn ground_item_physics(
     let mut items = populations.p0();
     let solids = SolidsByRoom::build(&world, items.iter().map(|(entity, ..)| live.of(entity)));
     for (entity, mut item, mut sweep, custody, response, settled) in &mut items {
+        let dt = shared_dt * freeze.scale_of(entity);
+        if dt <= 0.0 { continue; }
         let before = *item;
         let prior = *sweep;
         *sweep = ae::SweepSample::at_tick_end(before, Vec2::ZERO);

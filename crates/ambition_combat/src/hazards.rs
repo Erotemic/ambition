@@ -26,14 +26,15 @@ pub struct HazardTickSet;
 /// Advance every hazard's patrol and publish its volume.
 pub fn advance_hazards(
     world_time: Res<WorldTime>,
-    mut hazards: Query<(&mut CenteredAabb, &mut HazardFeature), With<FeatureSimEntity>>,
+    mut hazards: Query<(Entity, &mut CenteredAabb, &mut HazardFeature), With<FeatureSimEntity>>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     // Sim clock: patrolling damage volumes must slow in bullet-time
     // so the player can route around them. ADR 0010.
     let dt = world_time.sim_dt();
-    for (mut aabb, mut feature) in &mut hazards {
+    for (entity, mut aabb, mut feature) in &mut hazards {
         let hazard = &mut feature.hazard;
-        hazard.update(dt);
+        hazard.update(dt * freeze.scale_of(entity));
         aabb.center = hazard.pos;
         aabb.half_size = hazard.size * 0.5;
     }

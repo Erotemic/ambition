@@ -41,11 +41,14 @@ pub fn regrow_pickups(
     // The tick each record is written on: a rewind of its room takes it
     // back (ISL-2d).
     tick: Option<Res<ambition_time::SimTick>>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     // The sim clock, as a breakable's respawn: the regrowth freezes in
     // bullet time with everything else (ADR 0010).
-    let dt = world_time.sim_dt();
+    let shared_dt = world_time.sim_dt();
     for (entity, feature, collected, timer) in &mut pickups {
+        // At the pickup's room's pace (ISL-1b).
+        let dt = shared_dt * freeze.scale_of(entity);
         let Some(definition) = rooms.definition_of(entity) else {
             continue;
         };

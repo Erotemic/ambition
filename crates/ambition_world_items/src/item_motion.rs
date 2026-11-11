@@ -199,12 +199,18 @@ pub fn step_item_motion(
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut items: Query<(Entity, &mut WorldItem, &mut ItemMotion)>,
+    // At each pickup's room's pace (ISL-1b).
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    let dt = time.sim_dt();
-    if dt <= 0.0 {
+    let shared_dt = time.sim_dt();
+    if shared_dt <= 0.0 {
         return;
     }
     for (entity, mut item, mut motion) in &mut items {
+        let dt = shared_dt * freeze.scale_of(entity);
+        if dt <= 0.0 {
+            continue;
+        }
         let Some(geometry) = rooms.of(entity) else {
             continue;
         };

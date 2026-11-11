@@ -167,6 +167,7 @@ pub fn tick_cut_rope_flavor(
     mut fireworks: MessageWriter<FireworksRequest>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut vfx: VfxWriter,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     // Fully drain the gate reader (cursor hygiene) + note each room's anvil
     // impact.
@@ -198,7 +199,7 @@ pub fn tick_cut_rope_flavor(
                 pulse_waiting_rope_explosions(
                     arena,
                     room,
-                    dt,
+                    dt * freeze.scale_in(Some(room)),
                     rope_pos,
                     boss_pos.unwrap_or(rope_pos),
                     &mut explosions,

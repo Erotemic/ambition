@@ -84,6 +84,7 @@ pub fn space_the_talkers(
     pets: Query<(), With<super::PetBeat>>,
     mut spacings: Query<(Entity, &mut TalkSpacing)>,
     mut bodies: Query<&mut BodyKinematics>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let pair = conversation
         .as_deref()
@@ -116,7 +117,7 @@ pub fn space_the_talkers(
             return;
         };
         let arrived = (initiator_kin.pos.dot(frame.side) - spacing.mark).abs() <= TALK_ARRIVE_TOLERANCE;
-        let remaining = spacing.walking - world_time.sim_dt();
+        let remaining = spacing.walking - world_time.sim_dt() * freeze.scale_of(initiator);
         if !arrived && remaining > 0.0 {
             spacing.walking = remaining;
             return;

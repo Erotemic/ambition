@@ -3,7 +3,7 @@
 use crate::collision::{ComposedSolids, MovingPlatformSet, retire_stale_composed_solids};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    LiveRoomInstance, LiveRooms, RoomInstanceRoot,
+    LiveRoomInstance, RoomInstanceRoot,
 };
 use ambition_platformer2d_shared_tangle::schedule::{MovingPlatformsAdvanced, WorldPrepSet};
 use bevy_app::App;
@@ -36,8 +36,10 @@ fn any_moving_platforms(rooms: Query<&MovingPlatformSet, With<RoomInstanceRoot>>
     rooms.iter().any(|platforms| !platforms.0.is_empty())
 }
 
-/// Each live room advances on the simulation clock. A lift responds to a
-/// grounded body in its room and collision plane, regardless of its controller.
+/// Each live room advances on the simulation clock, at its own pace (ISL-1b:
+/// a held room's platforms hold with the bodies on them). A lift responds to
+/// a grounded body in its room and collision plane, regardless of its
+/// controller.
 #[allow(clippy::type_complexity)]
 fn advance_moving_platforms(
     time: Res<ambition_time::WorldTime>,
@@ -49,8 +51,9 @@ fn advance_moving_platforms(
         Option<&ae::SweepSample>,
         Option<&ae::DepthPlane>,
     )>,
-    live: LiveRooms,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
+    let live = freeze.live();
     let dt = time.sim_dt();
     for (instance, mut platforms) in &mut rooms {
         // Empty sets must not receive a change tick: composed walls use it.
@@ -71,7 +74,7 @@ fn advance_moving_platforms(
                 });
                 platform.set_ridden(ridden);
             }
-            platform.update(dt);
+            platform.update(dt * freeze.scale_in(room));
         }
     }
 }

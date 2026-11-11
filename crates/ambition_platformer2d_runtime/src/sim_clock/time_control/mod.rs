@@ -51,7 +51,7 @@ pub fn emit_primary_observer_time_intent(
             (
                 Entity,
                 &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
-                Option<&mut ambition_combat::impact_hitstop::RoomPace>,
+                Option<&mut ambition_platformer2d_shared_tangle::lifecycle::RoomPace>,
             ),
             With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
         >,
@@ -62,7 +62,7 @@ pub fn emit_primary_observer_time_intent(
     ),
 ) {
     let wall_dt = world_time.as_deref().map_or(0.0, ambition_time::WorldTime::wall_dt);
-    let one_room = !ambition_combat::impact_hitstop::rooms_keep_their_own_clocks(live_rooms.iter().count());
+    let one_room = !ambition_platformer2d_shared_tangle::lifecycle::rooms_keep_their_own_clocks(live_rooms.iter().count());
     // A root with no pace yet takes the handed scale as its start.
     let seed = clock.as_deref_mut().and_then(|clock| {
         let observed_room = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
@@ -143,7 +143,7 @@ fn hand_over_the_slow_down(
         (
             Entity,
             &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
-            Option<&mut ambition_combat::impact_hitstop::RoomPace>,
+            Option<&mut ambition_platformer2d_shared_tangle::lifecycle::RoomPace>,
         ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
@@ -191,7 +191,7 @@ fn ease_room_clocks(
         (
             Entity,
             &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
-            Option<&mut ambition_combat::impact_hitstop::RoomPace>,
+            Option<&mut ambition_platformer2d_shared_tangle::lifecycle::RoomPace>,
         ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
@@ -214,7 +214,7 @@ fn ease_room_clocks(
         match pace {
             Some(mut pace) => pace.clock_scale = next,
             None => {
-                commands.entity(root).insert(ambition_combat::impact_hitstop::RoomPace {
+                commands.entity(root).insert(ambition_platformer2d_shared_tangle::lifecycle::RoomPace {
                     clock_scale: next,
                     ..Default::default()
                 });

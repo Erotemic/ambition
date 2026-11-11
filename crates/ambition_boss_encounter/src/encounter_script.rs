@@ -77,6 +77,7 @@ pub fn tick_encounter_scripts(
     live: LiveRooms,
     // The tick, which dates a music claim.
     sim_tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
     let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
@@ -116,7 +117,7 @@ pub fn tick_encounter_scripts(
             .filter(|(_, fired_in)| *fired_in == room)
             .map(|(gate, _)| gate.clone())
             .collect();
-        let effects = script.advance(dt, participants, &fired_here);
+        let effects = script.advance(dt * freeze.scale_in(room), participants, &fired_here);
         let member_entity = |i: usize| participants.members.get(i).and_then(|p| p.entity);
         for effect in &effects {
             match effect {
@@ -280,9 +281,11 @@ pub fn tick_falling_hazards(
     mut gates: MessageWriter<EncounterGate>,
     mut hazards: Query<(Entity, &mut CenteredAabb, &mut FallingHazard)>,
     targets: Query<&CenteredAabb, Without<FallingHazard>>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    let dt = world_time.sim_dt().max(0.0);
+    let shared_dt = world_time.sim_dt().max(0.0);
     for (entity, mut aabb, mut hazard) in &mut hazards {
+        let dt = shared_dt * freeze.scale_of(entity);
         let Ok(target) = targets.get(hazard.target) else {
             // Target gone (room change / despawn) — retire the hazard.
             commands.entity(entity).despawn();

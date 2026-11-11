@@ -298,6 +298,20 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<
             ambition_world_returns::WorldTimeSchedule,
         >(app);
+        // A room rewound puts back the due times it wrote or forgot after the
+        // tick it was saved at (ISL-2d).
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "session_root.world_time_schedule",
+            |world, room, saved_at| {
+                if let Some(mut schedule) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+                    ambition_world_returns::WorldTimeSchedule,
+                >(world)
+                {
+                    schedule.retract_room(room, saved_at);
+                }
+            },
+        );
         app.add_systems(
                 sim,
                 (

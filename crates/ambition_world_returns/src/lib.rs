@@ -32,6 +32,21 @@ use ambition_time::GameplayElapsed;
 #[derive(Component, Clone, Debug, Default)]
 pub struct WorldTimeSchedule {
     due: Arc<Records>,
+    /// The records a live room wrote or forgot, with what each replaced
+    /// (ISL-2d): a rewind of that room puts them back
+    /// ([`Self::retract_room`]). Without it a replay that takes a pickup on
+    /// its first tick keeps the mispredicted run's due time, since a record
+    /// keeps the first departure's. Bookkeeping for a rewind, not a fact:
+    /// not compared or hashed, and kept only within the rewind horizon.
+    written: Arc<Vec<ScheduleWrite>>,
+}
+
+/// One record a live room wrote or forgot, and the record it replaced.
+#[derive(Clone, Debug, PartialEq)]
+struct ScheduleWrite {
+    at: ambition_platformer2d_shared_tangle::lifecycle::RoomWrite,
+    key: (String, String),
+    replaced: Option<Due>,
 }
 
 type Records = BTreeMap<(String, String), Due>;
@@ -87,15 +102,61 @@ impl WorldTimeSchedule {
     /// `owners`. Keeps an existing record: the first departure decides the
     /// time and the owners.
     pub fn record(&mut self, room: &str, feature: &str, due: f32, owners: &[PlayerSlot]) {
+        self.record_from(None, room, feature, due, owners);
+    }
+
+    /// [`Self::record`], written from a live room on a tick: a rewind of that
+    /// room takes the record back.
+    pub fn record_from(
+        &mut self,
+        written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+        room: &str,
+        feature: &str,
+        due: f32,
+        owners: &[PlayerSlot],
+    ) {
         let key = (room.to_string(), feature.to_string());
         if !self.due.contains_key(&key) {
             Arc::make_mut(&mut self.due).insert(
-                key,
+                key.clone(),
                 Due {
                     at: due,
                     owners: owners.to_vec(),
                 },
             );
+            self.log(written, key, None);
+        }
+    }
+
+    fn log(
+        &mut self,
+        written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+        key: (String, String),
+        replaced: Option<Due>,
+    ) {
+        let Some(at) = written else {
+            return;
+        };
+        let log = Arc::make_mut(&mut self.written);
+        log.retain(|write| !write.at.beyond_the_horizon(at.tick));
+        log.push(ScheduleWrite { at, key, replaced });
+    }
+
+    /// `room` rewinds to `saved_at`: put back the records it wrote or forgot
+    /// after that tick, newest first.
+    pub fn retract_room(&mut self, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, saved_at: u64) {
+        if !self.written.iter().any(|write| write.at.retracted_by(room, saved_at)) {
+            return;
+        }
+        let (taken, kept): (Vec<_>, Vec<_>) =
+            self.written.iter().cloned().partition(|write| write.at.retracted_by(room, saved_at));
+        self.written = Arc::new(kept);
+        let records = Arc::make_mut(&mut self.due);
+        for write in taken.into_iter().rev() {
+            match write.replaced {
+                Some(due) => records.insert(write.key, due),
+                None => records.remove(&write.key),
+            };
         }
     }
 
@@ -141,9 +202,21 @@ impl WorldTimeSchedule {
 
     /// Forget the record of the occurrence `feature` of room `room`.
     pub fn forget(&mut self, room: &str, feature: &str) {
+        self.forget_from(None, room, feature);
+    }
+
+    /// [`Self::forget`], from a live room on a tick: a rewind of that room
+    /// puts the record back.
+    pub fn forget_from(
+        &mut self,
+        written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+        room: &str,
+        feature: &str,
+    ) {
         let key = (room.to_string(), feature.to_string());
         if self.due.contains_key(&key) {
-            Arc::make_mut(&mut self.due).remove(&key);
+            let replaced = Arc::make_mut(&mut self.due).remove(&key);
+            self.log(written, key, replaced);
         }
     }
 
@@ -158,6 +231,9 @@ impl WorldTimeSchedule {
     pub fn forget_all(&mut self) {
         if !self.due.is_empty() {
             self.due = Arc::default();
+        }
+        if !self.written.is_empty() {
+            self.written = Arc::default();
         }
     }
 
@@ -286,6 +362,7 @@ mod tests {
         });
         WorldTimeSchedule {
             due: Arc::new(records.collect()),
+            written: Arc::default(),
         }
     }
 
@@ -319,6 +396,37 @@ mod tests {
             second.checksum(),
             "a changed record did not move the checksum"
         );
+    }
+
+    /// ISL-2d: a room's rewind puts back what its writes after the save
+    /// replaced, newest first: a record it wrote goes, a record it forgot
+    /// comes back. Another room's write stays, and a write beyond the rewind
+    /// horizon is no longer kept.
+    #[test]
+    fn a_rewind_puts_back_the_records_its_room_wrote_and_forgot() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomWrite, ROOM_REWIND_HORIZON_TICKS};
+        let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+        let at = |room, tick| Some(RoomWrite { room, tick });
+        let owners = [PlayerSlot(0)];
+        let mut schedule = WorldTimeSchedule::default();
+        schedule.record_from(at(here, 2), "x", "old", 9.0, &owners);
+        schedule.record_from(at(here, 6), "x", "taken", 5.0, &owners);
+        schedule.forget_from(at(here, 7), "x", "old");
+        schedule.record_from(at(there, 8), "y", "elsewhere", 6.0, &owners);
+        schedule.retract_room(here, 4);
+        let due = |feature| schedule.due(if feature == "elsewhere" { "y" } else { "x" }, feature);
+        assert_eq!(
+            (due("old"), due("taken"), due("elsewhere")),
+            (Some(9.0), None, Some(6.0)),
+            "(forgotten in the window, written in the window, another room's)"
+        );
+
+        let mut far = WorldTimeSchedule::default();
+        far.record_from(at(here, 1), "x", "early", 3.0, &owners);
+        far.record_from(at(here, 2 + ROOM_REWIND_HORIZON_TICKS), "x", "late", 4.0, &owners);
+        far.retract_room(here, 0);
+        assert_eq!(far.due("x", "early"), Some(3.0), "a write beyond the horizon was still taken back");
+        assert_eq!(far.due("x", "late"), None, "a write within the horizon stayed");
     }
 
     /// OW3: a rollback frame clones the schedule, hashes it and compares it

@@ -694,3 +694,197 @@ fn without_the_retraction_the_throw_stays_spent() {
     assert_eq!((after_replay.0, after_replay.1), (0, 1), "the bag came back without the retraction");
     assert_eq!(after_replay.2.len(), 1, "the mint's row went without the retraction: {:?}", after_replay.2);
 }
+
+/// What the world says of the boss: (its save row cleared, alive, defeats
+/// since the checkpoint, the occurrence ledger's rows).
+type BossReading = (bool, Option<bool>, usize, usize);
+
+/// ISL-2d, a keyed store one room owns: a mockingbird in Alice's room
+/// (`basement_breakables`, Bob in the hub) is killed in the window, which
+/// clears its save row and records the defeat. The room rewinds to before the
+/// kill and replays WITHOUT it. Returns the readings at N, after the kill, and
+/// after the replay.
+fn a_boss_killed_only_before_the_rewind(retract: bool) -> [BossReading; 3] {
+    use crate::boss_lifecycle::{boss_alive, boss_cleared, force_kill_boss, spawn_mockingbird};
+    use crate::pickup_regrowth_across_rooms::{HUB, ROOM as BOSS_ROOM};
+    const BOSS: &str = "alices_rewound_boss";
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        BOSS_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    spawn_mockingbird(&mut sim, BOSS);
+    sim.step(crate::common::base());
+    {
+        let world = sim.world_mut();
+        let boss = world
+            .query::<(Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.id == BOSS)
+            .map(|(entity, _)| entity)
+            .expect("the boss reached the world");
+        world.entity_mut(boss).insert(InRoomInstance(room));
+    }
+    for _ in 0..15 {
+        sim.step(crate::common::base());
+    }
+    let read = |sim: &mut Platformer2dSimHarness| -> BossReading {
+        (
+            boss_cleared(sim, BOSS),
+            boss_alive(sim.world_mut(), BOSS),
+            sim.world().resource::<ambition_platformer2d::boss_encounter::BossDefeatsSinceCheckpoint>().defeats().count(),
+            sim.world().resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>().rows().count(),
+        )
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_reading = read(&mut sim);
+
+    force_kill_boss(&mut sim, BOSS);
+    for _ in 0..120 {
+        sim.step(crate::common::base());
+    }
+    let after_kill = read(&mut sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    // The replay: nobody kills the boss.
+    for _ in 0..30 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = read(&mut sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_reading, after_kill, after_replay]
+}
+
+/// ISL-2d: a room that rewinds takes back the boss defeat it recorded after
+/// the tick it was saved at, with its save row. Without it (the control) the
+/// restored boss stays dead: its row still says `Cleared`.
+#[test]
+fn a_rewound_room_takes_back_the_boss_defeat_its_replay_does_not_make() {
+    let [at_n, after_kill, after_replay] = a_boss_killed_only_before_the_rewind(true);
+    assert_eq!(at_n, (false, Some(true), 0, 0), "premise: the boss is alive and uncleared at N");
+    assert_eq!((after_kill.0, after_kill.1, after_kill.2), (true, Some(false), 1), "premise: the kill clears it and records the defeat");
+    assert_eq!(after_replay, at_n, "the replay did not kill the boss, and the world says it did");
+}
+
+/// The control: without the retraction the defeat and its row stay. Run it
+/// beside the witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_boss_stays_defeated() {
+    let [_, _, after_replay] = a_boss_killed_only_before_the_rewind(false);
+    assert_eq!((after_replay.0, after_replay.2), (true, 1), "the defeat went without the retraction");
+}
+
+/// ISL-2d, the world-time schedule: (the regrowing heart's due time, the
+/// clock at its collection in the window, the clock at its collection in the
+/// replay). The window takes it late; the replay takes it on its first steps.
+fn a_regrowth_taken_at_another_time_in_the_replay(retract: bool) -> (Option<f32>, f32, f32) {
+    use crate::pickup_regrowth_across_rooms::{collect, HEART, HUB, ROOM as HEART_ROOM};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        HEART_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+
+    for _ in 0..40 {
+        sim.step(crate::common::base());
+    }
+    let taken_in_window = collect(&mut sim, HEART);
+    for _ in 0..5 {
+        sim.step(crate::common::base());
+    }
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    let taken_in_replay = collect(&mut sim, HEART);
+    for _ in 0..5 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let feature = heart_feature(&mut sim);
+    let due = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world_returns::WorldTimeSchedule,
+    >(sim.world())
+    .expect("the session root carries the schedule")
+    .due(HEART_ROOM, &feature);
+    sim.world_mut().insert_resource(rows);
+    (due, taken_in_window, taken_in_replay)
+}
+
+/// The authored id of the regrowing heart, the schedule's key.
+fn heart_feature(sim: &mut Platformer2dSimHarness) -> String {
+    let world = sim.world_mut();
+    world
+        .query::<(&ambition_platformer2d::combat::components::FeatureName, &ambition_platformer2d::combat::components::FeatureId)>()
+        .iter(world)
+        .find(|(name, _)| name.0.as_str() == crate::pickup_regrowth_across_rooms::HEART)
+        .map(|(_, id)| id.as_str().to_string())
+        .expect("the room authors the regrowing heart")
+}
+
+/// ISL-2d: a room that rewinds puts back the due times it wrote after the
+/// tick it was saved at. The replay takes the regrowing heart (4 s) at
+/// another time than the window did, on its first steps, before the mirror
+/// could forget the window's record; without the retraction (the control)
+/// the record keeps the window's due time, measured 2026-11-10: 6.22 s for a
+/// heart the replay took at 1.57 s.
+#[test]
+fn a_rewound_room_keeps_the_regrowth_time_of_its_replay() {
+    let (due, window, replay) = a_regrowth_taken_at_another_time_in_the_replay(true);
+    assert!(window - replay > 0.3, "premise: the replay takes the heart earlier than the window: {replay} against {window}");
+    let due = due.expect("the replay's take schedules a regrowth");
+    assert!((due - replay - 4.0).abs() < 0.1, "the regrowth is due at {due}, not 4 s after the replay's take at {replay}");
+}
+
+/// The control: without the retraction the window's due time stays. Run it
+/// beside the witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_window_s_regrowth_time_stays() {
+    let (due, window, _) = a_regrowth_taken_at_another_time_in_the_replay(false);
+    let due = due.expect("a regrowth is scheduled");
+    assert!((due - window - 4.0).abs() < 0.1, "the window's due time went without the retraction: {due} for a take at {window}");
+}

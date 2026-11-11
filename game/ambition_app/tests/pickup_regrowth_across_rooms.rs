@@ -24,7 +24,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 
 pub(crate) const ROOM: &str = "basement_breakables";
 pub(crate) const HUB: &str = "central_hub_complex";
-const HEART: &str = "regrowing heart";
+pub(crate) const HEART: &str = "regrowing heart";
 /// The heart beside it, authored `Never`: gone for the run once taken (Q154).
 pub(crate) const PLAIN: &str = "one-time heart";
 const REGROW_S: f32 = 4.0;

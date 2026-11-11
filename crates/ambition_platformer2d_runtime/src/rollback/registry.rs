@@ -263,7 +263,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // The item material basis and room cutscene log are canonical rollback state.
 // 458 -> 459: the portal gun is an ordinary held item; the portal crate
 // registers a `PortalGenerator` and its gestures, and no gun pickup.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 459;
+// 459 -> 460: `boss.encounter`'s cursor encodes the conductor's health floor
+// (`ambition.boss.health_floor`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 460;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

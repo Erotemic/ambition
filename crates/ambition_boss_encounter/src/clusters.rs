@@ -8,7 +8,7 @@
 use super::behavior::{authored_boss_behavior, BossBehaviorProfile};
 use super::BossEncounterPhase;
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::snapshot::{put_bool, put_f32, SnapshotCursor, SnapshotState};
+use ambition_platformer2d_core::snapshot::{put_bool, put_f32, put_i32, SnapshotCursor, SnapshotState};
 use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::ActorSpriteMetrics;
 use bevy::ecs::query::QueryData;
@@ -110,6 +110,10 @@ pub struct BossEncounter {
     /// projectile hits clang off it and take no HP. Holds until the conductor
     /// changes it.
     pub guarded: bool,
+    /// The least health a hit can leave it (`ambition.boss.health_floor`): a
+    /// conductor staging a finish holds it at `1`. `0`: none. Holds until
+    /// its conductor changes it.
+    pub health_floor: i32,
     /// The boss is drawn and built at this many times the size it was built
     /// at (`ambition.boss.scale`): its quad, body box and hurt volumes. `1.0`
     /// as built. Holds until its conductor changes it.
@@ -428,6 +432,7 @@ impl BossClusterScratch {
                 encounter: None,
                 render_size: render_basis,
                 guarded: false,
+                health_floor: 0,
                 scale: 1.0,
                 stage: Default::default(),
             },
@@ -571,6 +576,7 @@ pub mod test_support {
                 // Test fixtures don't render; a placeholder render basis is fine.
                 render_size: ae::Vec2::splat(64.0),
                 guarded: false,
+                health_floor: 0,
                 scale: 1.0,
                 stage: Default::default(),
             },
@@ -634,6 +640,8 @@ impl SnapshotCursor for BossEncounter {
         put_bool(out, self.guarded);
         // So is the scale: it decides the body box and every hurt volume.
         put_f32(out, self.scale);
+        // And the floor: it decides whether a hit kills.
+        put_i32(out, self.health_floor);
     }
 }
 

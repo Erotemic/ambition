@@ -142,6 +142,11 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::lower_boss_guards,
     );
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossHealthFloorPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_boss_health_floors,
+    );
     app.install_extension_submitted_request::<ambition_boss_special_port::BossScalePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

@@ -37,6 +37,9 @@ pub(crate) fn apply_entity_boss_damage(
         .encounter
         .as_ref()
         .map_or(false, |phase| phase.boss_invulnerable());
+    // Its conductor's floor (`ambition.boss.health_floor`): no hit takes it
+    // below. A hit at the floor lands as an invulnerable phase's does.
+    let amount = if status.health_floor > 0 { amount.min(health.current() - status.health_floor) } else { amount };
     if invulnerable || amount <= 0 {
         return (false, false, None);
     }

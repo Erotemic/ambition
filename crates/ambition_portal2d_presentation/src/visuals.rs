@@ -2,10 +2,7 @@
 //! indicator. A portal's own look is in `glow.rs`; what a pair carries is
 //! drawn by `carry.rs`.
 //!
-//! Gun-specific sprites and shot/pickup markers live in `gun_visuals.rs` so the
-//! reusable portal presentation surface can move toward static portals, scripted
-//! emitters, moving portals, and other non-gun use cases without inheriting
-//! Ambition's current portal-gun workflow.
+//! Shots in flight are drawn by `shot_visuals.rs`.
 //!
 //! Every system here is read-only over the portal sim and rebuilds its transient
 //! entities each frame, so visuals cannot desync from the sim.
@@ -14,9 +11,9 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 
-use ambition_portal2d::{PlacedPortal, PortalGunPickup, PortalInputWarp, PortalShot};
+use ambition_portal2d::{PlacedPortal, PortalInputWarp, PortalShot};
 
-use crate::{gun_visuals, PortalFrames, PortalGunArt};
+use crate::{shot_visuals, PortalFrames};
 
 /// Marks a sprite entity that visualizes a [`PlacedPortal`]. Rebuilt each frame from
 /// the sim portals, so it never drifts.
@@ -79,8 +76,7 @@ pub fn sync_portal_disorientation_indicator(
     ));
 }
 
-/// The colour-name label of each portal, and the gun's shot and pickup
-/// markers. Rebuilt from the sim entities each frame, and reconciled with what
+/// The colour-name label of each portal, and each shot in flight. Rebuilt from the sim entities each frame, and reconciled with what
 /// is drawn: a visual whose source wants the same look in the same room is
 /// kept and moved, any other is despawned, and what is missing is spawned. A
 /// label is a `Text2d`, and a new one is laid out again, so each placed portal
@@ -91,16 +87,13 @@ pub fn sync_portal_disorientation_indicator(
 pub fn sync_portal_visuals(
     mut commands: Commands,
     frames: PortalFrames,
-    art: Option<Res<PortalGunArt>>,
-    mut visuals: Query<(Entity, &gun_visuals::PortalVisualDrawn, &mut Transform), With<PortalVisual>>,
+    mut visuals: Query<(Entity, &shot_visuals::PortalVisualDrawn, &mut Transform), With<PortalVisual>>,
     portals: Query<(Entity, &PlacedPortal)>,
-    pickups: Query<(Entity, &PortalGunPickup)>,
     projectiles: Query<(Entity, &PortalShot)>,
 ) {
-    use gun_visuals::{PortalVisualDrawn, PortalVisualLook};
+    use shot_visuals::{PortalVisualDrawn, PortalVisualLook};
     let mut wanted: Vec<(PortalVisualDrawn, Transform)> = Vec::new();
-    gun_visuals::want_portal_shot_visuals(&frames, &projectiles, &mut wanted);
-    gun_visuals::want_portal_gun_pickup_visuals(&frames, art.is_some(), &pickups, &mut wanted);
+    shot_visuals::want_portal_shot_visuals(&frames, &projectiles, &mut wanted);
     // Each portal in its own live room's frame.
     for (source, portal) in portals.iter() {
         let Some(placement) = frames.of(source) else {
@@ -117,14 +110,9 @@ pub fn sync_portal_visuals(
             Transform::from_translation(label_translation),
         ));
     }
-    // A replaced art is new content: each pickup is drawn again from it.
-    let art_replaced = art.as_ref().is_some_and(|art| art.is_changed());
     let mut taken = vec![false; wanted.len()];
     for (entity, drawn, mut transform) in &mut visuals {
-        let redraw = art_replaced && matches!(drawn.look, PortalVisualLook::Pickup { .. });
-        let kept = (!redraw)
-            .then(|| (0..wanted.len()).find(|&at| !taken[at] && wanted[at].0 == *drawn))
-            .flatten();
+        let kept = (0..wanted.len()).find(|&at| !taken[at] && wanted[at].0 == *drawn);
         match kept {
             Some(at) => {
                 taken[at] = true;
@@ -154,7 +142,7 @@ pub fn sync_portal_visuals(
                     Name::new("Portal label"),
                 ));
             }
-            _ => gun_visuals::spawn_gun_visual(&mut commands, drawn, transform, art.as_deref()),
+            PortalVisualLook::Shot(_) => shot_visuals::spawn_shot_visual(&mut commands, drawn, transform),
         }
     }
 }

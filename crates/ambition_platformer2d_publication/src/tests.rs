@@ -25,7 +25,6 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         moving_platforms: Vec::new(),
         props: Vec::new(),
         ground_items: Vec::new(),
-        portal_gun_spawns: Vec::new(),
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
         enemy_spawns: Vec::new(),

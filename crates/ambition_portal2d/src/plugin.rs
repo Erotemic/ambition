@@ -1,4 +1,4 @@
-//! Portal plugin assembly: reusable simulation plus an optional portal-gun opener.
+//! Portal plugin assembly: reusable simulation plus optional portal generators.
 //! Render, authoring, and debug stay in downstream adapters.
 
 use bevy::prelude::*;
@@ -14,61 +14,42 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Backward-compatible full portal composition.
 ///
-/// Portal simulation plus the portal gun. Consumers that want portals without
-/// a gun install [`PortalSimulationPlugin`] only.
+/// Portal simulation plus generators. Consumers that want portals with no
+/// generator install [`PortalSimulationPlugin`] only.
 pub struct PortalPlugin;
 
 impl Plugin for PortalPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((PortalSimulationPlugin, PortalGunPlugin));
+        app.add_plugins((PortalSimulationPlugin, PortalGeneratorPlugin));
     }
 }
 
-/// Optional portal-gun opener layered over the reusable portal simulation.
+/// Portal generators layered over the reusable portal simulation: the
+/// generator's own gestures (fire, toggle) and its portals' lifetime.
 ///
-/// Owns only gun vocabulary and gun lifetime. It reads no host input; the
-/// Ambition inventory and input adapters are above this crate. The shot path
-/// is in [`PortalSimulationPlugin`] and consumes [`PortalFireIntent`], so other
-/// emitters do not need a gun.
-pub struct PortalGunPlugin;
+/// Reads no host input and knows nothing of what a generator is; a host
+/// gives one to whatever opens portals. The shot path is in
+/// [`PortalSimulationPlugin`] and consumes [`PortalFireIntent`], so other
+/// emitters do not need a generator.
+pub struct PortalGeneratorPlugin;
 
-impl Plugin for PortalGunPlugin {
+impl Plugin for PortalGeneratorPlugin {
     fn build(&self, app: &mut App) {
-        use super::messages::{
-            DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
-        };
+        use super::messages::{FirePortalGenerator, TogglePortalGenerator, TogglePortalGeneratorsActive};
 
         let sim = app.sim_schedule();
-        app.add_message::<FirePortalGun>();
-        app.add_message::<TogglePortalGun>();
-        app.add_message::<super::messages::TogglePortalGunsActive>();
-        app.add_message::<DropPortalGun>();
-        app.add_message::<PickUpPortalGun>();
-        app.add_message::<PortalGunEquipped>();
+        app.add_message::<FirePortalGenerator>();
+        app.add_message::<TogglePortalGenerator>();
+        app.add_message::<TogglePortalGeneratorsActive>();
 
-        // Construction metadata is data only. The constructor is the closed
-        // `PortalGunConstruction` dispatch, never selected from this catalog.
-        app.init_resource::<
-            ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
-        >();
-        let registry = super::portal_gun_construction_registry();
-        app.world_mut()
-            .resource_mut::<
-                ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
-            >()
-            .try_contribute(
-                super::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-                registry.deterministic_dump(),
-            )
-            .expect("the portal-gun construction schema cannot conflict with itself");
-
-        // Toggle is gun policy; fire is in the simulation plugin. The explicit
-        // edge keeps the order without portal core knowing about the gun.
+        // The toggles run before the fire, so a press that toggles and a press
+        // that fires on one tick fire the new end.
         app.add_systems(
             sim,
             (
-                super::portal_guns_active_toggle_system.run_if(ambition_platformer2d_core::a_message_waits::<crate::TogglePortalGunsActive>),
-                super::portal_toggle_system.run_if(ambition_platformer2d_core::a_message_waits::<crate::TogglePortalGun>),
+                super::portal_generators_active_toggle_system
+                    .run_if(ambition_platformer2d_core::a_message_waits::<TogglePortalGeneratorsActive>),
+                super::portal_toggle_system.run_if(ambition_platformer2d_core::a_message_waits::<TogglePortalGenerator>),
             )
                 .chain()
                 .before(super::portal_fire_system)
@@ -77,7 +58,7 @@ impl Plugin for PortalGunPlugin {
         app.add_systems(
             sim,
             super::despawn_orphaned_portals
-                .run_if(super::gun_lifecycle::a_portal_or_shot_exists)
+                .run_if(super::generator_lifecycle::a_portal_or_shot_exists)
                 .in_set(PortalSet::WeaponMaintenance),
         );
     }
@@ -128,9 +109,6 @@ impl Plugin for PortalSimulationPlugin {
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
             ),
         );
-        // The aim hint (`PortalAimHint`) is render-only and initialised by the
-        // host presentation layer.
-
         // Only portal-internal ordering is declared here. The host places each
         // [`PortalSet`] in its phases, adds edges against host systems, and adds
         // run conditions (e.g. "gameplay allowed"), right after
@@ -257,13 +235,11 @@ impl Plugin for PortalSimulationPlugin {
 mod tests {
     use bevy::prelude::{App, Messages};
 
-    use ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog;
-
-    use super::{PortalGunPlugin, PortalPlugin, PortalSimulationPlugin};
-    use crate::{PortalFireIntent, TogglePortalGun, PORTAL_GUN_CONSTRUCTION_DOMAIN};
+    use super::{PortalGeneratorPlugin, PortalPlugin, PortalSimulationPlugin};
+    use crate::{PortalFireIntent, TogglePortalGenerator};
 
     #[test]
-    fn simulation_only_portals_install_no_gun_control_channel() {
+    fn simulation_only_portals_install_no_generator_control_channel() {
         let mut app = App::new();
         app.add_plugins(PortalSimulationPlugin);
 
@@ -271,21 +247,16 @@ mod tests {
             .world()
             .contains_resource::<Messages<PortalFireIntent>>());
         assert!(
-            !app.world().contains_resource::<Messages<TogglePortalGun>>(),
-            "static/scripted portal users must not inherit portal-gun control vocabulary",
+            !app.world().contains_resource::<Messages<TogglePortalGenerator>>(),
+            "static/scripted portal users must not inherit generator control vocabulary",
         );
     }
 
     #[test]
-    fn gun_layer_publishes_its_construction_schema() {
+    fn the_generator_layer_adds_its_gestures() {
         let mut app = App::new();
-        app.add_plugins((PortalSimulationPlugin, PortalGunPlugin));
-
-        assert!(app.world().contains_resource::<Messages<TogglePortalGun>>());
-        assert!(app
-            .world()
-            .resource::<ConstructionSchemaCatalog>()
-            .contains_domain(PORTAL_GUN_CONSTRUCTION_DOMAIN),);
+        app.add_plugins((PortalSimulationPlugin, PortalGeneratorPlugin));
+        assert!(app.world().contains_resource::<Messages<TogglePortalGenerator>>());
     }
 
     #[test]
@@ -295,6 +266,6 @@ mod tests {
         assert!(app
             .world()
             .contains_resource::<Messages<PortalFireIntent>>());
-        assert!(app.world().contains_resource::<Messages<TogglePortalGun>>());
+        assert!(app.world().contains_resource::<Messages<TogglePortalGenerator>>());
     }
 }

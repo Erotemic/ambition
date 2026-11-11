@@ -78,8 +78,6 @@ pub(crate) struct MenuBodySource<'w, 's> {
     drivers: Query<'w, 's, (Entity, &'static DrivingParticipant)>,
     held: Query<'w, 's, Option<&'static HeldItem>>,
     worn: Query<'w, 's, Option<&'static ambition_platformer2d::characters::equipment::WornEquipment>>,
-    #[cfg(feature = "portal")]
-    guns: Query<'w, 's, Option<&'static ambition_platformer2d::portal::PortalGun>>,
 }
 
 fn body_for_slot(drivers: &Query<(Entity, &DrivingParticipant)>, participant: PlayerSlot) -> Option<Entity> {
@@ -103,9 +101,7 @@ impl MenuBodySource<'_, '_> {
         let participant = ambition_platformer2d::actors::participant_seat::player_slot_of(owner);
         let entity = body_for_slot(&self.drivers, participant)?;
         let held = self.held.get(entity).ok().flatten();
-        #[cfg(feature = "portal")]
-        let gun = self.guns.get(entity).ok().flatten();
-        let in_hand = item_in_hand(self.items.get(), held, #[cfg(feature = "portal")] gun);
+        let in_hand = item_in_hand(self.items.get(), held);
         Some(MenuBodyFacts {
             entity, participant, in_hand,
             equipped: EquippedItems::of(self.items(), in_hand, self.worn.get(entity).ok().flatten()),
@@ -178,22 +174,7 @@ pub(crate) fn hand_of_primary_player(world: &mut World) -> Option<Item> {
         .ok()
         .flatten()
         .cloned();
-    #[cfg(feature = "portal")]
-    let gun = world
-        .query_filtered::<
-            Option<&ambition_platformer2d::portal::PortalGun>,
-            (With<PlayerEntity>, With<PrimaryPlayer>),
-        >()
-        .single(world)
-        .ok()
-        .flatten()
-        .cloned();
-    item_in_hand(
-        &items,
-        held.as_ref(),
-        #[cfg(feature = "portal")]
-        gun.as_ref(),
-    )
+    item_in_hand(&items, held.as_ref())
 }
 
 /// Decide the effect of confirming `item` (equip / unequip / use / inspect)
@@ -218,7 +199,7 @@ pub(crate) fn dispatch_item_confirm(
 pub(crate) fn apply_menu_action(participant: PlayerSlot, action: MenuAction, requests: &mut MenuItemRequests<'_, '_>) {
     match action {
         // The simulation equips, on its own tick: an ability into the worn
-        // set, a weapon or the portal gun into the hand.
+        // set, a held item into the hand.
         MenuAction::Equip(item) => {
             requests.equips.write(ambition_platformer2d::items::ItemEquipRequested { participant, item });
         }

@@ -110,7 +110,6 @@ pub fn spawn_room_visuals(
         keep_out.extend(spec.props.iter().map(|prop| around(prop.pos)));
         keep_out.extend(spec.shrines.iter().map(|shrine| around(shrine.pos)));
         keep_out.extend(spec.ground_items.iter().map(|item| around(item.pos)));
-        keep_out.extend(spec.portal_gun_spawns.iter().map(|spawn| around(spawn.pos)));
         // A block that is not ground (a hazard, an orb, a pad) is a thing of
         // the play too.
         keep_out.extend(

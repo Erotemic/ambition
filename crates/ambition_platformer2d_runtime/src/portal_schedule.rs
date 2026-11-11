@@ -162,24 +162,3 @@ impl Plugin for PortalSchedulePlugin {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::PortalSchedulePlugin;
-    use ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog;
-
-    #[test]
-    fn simulation_only_has_no_gun_schema_and_the_gun_can_be_selected() {
-        let mut app = bevy::prelude::App::new();
-        app.add_plugins(PortalSchedulePlugin);
-        assert!(app.world().get_resource::<ConstructionSchemaCatalog>().is_none_or(|catalog|
-            !catalog.contains_domain(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN)));
-        app.add_plugins(ambition_portal2d::PortalGunPlugin);
-        let catalog = app.world().resource::<ConstructionSchemaCatalog>();
-        assert!(catalog.contains_domain(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN));
-        let dump = catalog.deterministic_dump();
-        let mut other = bevy::prelude::App::new();
-        other.add_plugins((PortalSchedulePlugin, ambition_portal2d::PortalGunPlugin));
-        assert_eq!(dump, other.world().resource::<ConstructionSchemaCatalog>().deterministic_dump());
-    }
-}

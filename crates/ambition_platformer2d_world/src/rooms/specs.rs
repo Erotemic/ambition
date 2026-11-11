@@ -97,27 +97,6 @@ pub struct GroundItemSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// LDtk-authored portal-gun pickup. Pure room IR; the Ambition portal adapter
-/// lowers it to a runtime `PortalGunPickup` at room load.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct PortalGunSpawnSpec {
-    /// LDtk iid — stable across rebuilds for save/debug joins.
-    pub id: String,
-    /// LDtk display name (editor-facing / entity naming only).
-    pub name: String,
-    /// World-space center of the pickup box.
-    pub pos: ae::Vec2,
-    /// Pickup half-extent, taken from the LDtk entity's box size.
-    pub half_extent: ae::Vec2,
-    /// Which portal pair the gun from this pickup owns. `0` (the default) is
-    /// the classic blue/orange gun. A different pair gives a second,
-    /// independently coloured gun.
-    ///
-    /// `serde(default)` lets room files written before this field load.
-    #[serde(default)]
-    pub pair: u8,
-}
-
 /// Portal channel color, re-exported here to keep the room-spec API stable.
 pub use ambition_entity_catalog::placements::PortalChannelColorSpec;
 

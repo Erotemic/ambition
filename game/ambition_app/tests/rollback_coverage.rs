@@ -2718,13 +2718,6 @@ const INERT_WAIVED: &[(&str, &str)] = &[
          and the simulation never writes. It is rebuilt with its room, not \
          restored with the frame.",
     ),
-    (
-        "ambition_portal2d::gun_pickup::PortalGunPickup",
-        "an authored world FIXTURE, placed by the room and never moved. Taking it \
-         is a portal-gun grant, and THAT is rollback state on the taker \
-         (`PlacedPortal` is anchored); the pedestal itself holds only its \
-         construction provenance.",
-    ),
 ];
 
 /// Construction-provenance components are write-once, so an entity stranded only on this set

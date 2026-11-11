@@ -81,10 +81,6 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
                 ambition_combat::held_items::HeldItem::new(ambition_held_items::axe_spec()),
             ))
             .id();
-    #[cfg(feature = "portal")]
-    app.world_mut()
-        .entity_mut(player)
-        .insert(ambition_portal2d::PortalGun::default());
 
     // No reset queued → nothing changes.
     app.update();
@@ -117,13 +113,6 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
             .get::<ambition_combat::held_items::HeldItem>(player)
             .is_none(),
         "held item removed from player"
-    );
-    #[cfg(feature = "portal")]
-    assert!(
-        app.world()
-            .get::<ambition_portal2d::PortalGun>(player)
-            .is_none(),
-        "portal gun removed from player"
     );
 }
 

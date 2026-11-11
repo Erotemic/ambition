@@ -13,6 +13,9 @@
     // the head after it), so the head is out of the hand when it is swung.
     "axe": (path: "sprites/props/axe.png", size: (40.0, 18.0), grip: Some(0.15)),
     "javelin": (path: "sprites/props/javelin.png", size: (58.0, 7.0)),
+    // The portal gun: it points where its holder aims, the way its shots go.
+    // The picture is its blue end (`portal_gun_orange.png` is the other).
+    "portal_gun": (path: "sprites/props/portal_gun_blue.png", size: (52.0, 24.0), aims: true),
     // The coconut (renderer target `coconut`): a thing to throw, and what the
     // African swallow carries.
     "coconut": (path: "sprites/props/coconut.png", size: (18.0, 15.0)),

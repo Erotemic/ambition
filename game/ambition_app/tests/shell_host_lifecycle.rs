@@ -1543,7 +1543,7 @@ fn two_local_histories_compute_the_same_mechanical_values() {
 fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};
 
-    /// The eleven rows S7 ranks sharpest: outside the peer checksum, read by an
+    /// The ten rows S7 ranks sharpest: outside the peer checksum, read by an
     /// unfiltered per-tick query, float-bearing, AND mutably borrowed in
     /// production. Row names, as the registry spells them.
     ///
@@ -1561,7 +1561,6 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "feature.hazard",
         "player.blink_camera_state",
         "portal.emission",
-        "portal.gun_pickup",
         "portal.shot",
         "entity.transform",
     ];
@@ -1787,11 +1786,15 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         // vertical, so the census was RE-RUN there
         // (`scripts/measure/measure_unchecksummed_rollback_rows.py`, 24 rows where it
         // printed 25) and the new number was carried here — which is the order
-        // the message below demands of the next person.
+        // the message below demands of the next person. ELEVEN UNTIL 2026-11-11:
+        // the portal gun became an ordinary ground item, so `portal.gun_pickup`
+        // left the registry; the census re-run printed 22 rows, one of them
+        // `actor.life_ledger`, which arrived the same day and S7 has not
+        // classified yet.
         assert_eq!(
             SHARP_ROWS.len(),
-            11,
-            "S7 ranks ELEVEN rows as sharp — outside the peer checksum, read every \
+            10,
+            "S7 ranks TEN rows as sharp — outside the peer checksum, read every \
              tick, float-bearing and mutably written in production. This list has \
              {}. If S7's census genuinely moved, re-derive it THERE first and bring \
              the new number here with it; shrinking the list to make this arm green \
@@ -1803,7 +1806,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         let targeted: std::collections::BTreeSet<&str> = SHARP_ROWS.iter().copied().collect();
         assert_eq!(
             registered, targeted,
-            "the registry no longer spells exactly S7's eleven sharp rows. A row that \
+            "the registry no longer spells exactly S7's ten sharp rows. A row that \
              LEFT is coverage this arm silently lost; a row that arrived is one S7 \
              has not classified. Re-derive the list against \
              `docs/planning/engine/simulation-authority-and-determinism.md` rather \
@@ -1906,7 +1909,6 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "item.ground_item",
         "player.blink_camera_state",
         "portal.emission",
-        "portal.gun_pickup",
         "portal.placed",
         "portal.shot",
     ];

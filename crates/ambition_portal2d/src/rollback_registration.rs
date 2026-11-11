@@ -1,7 +1,7 @@
 //! Rollback declaration owned by `ambition_portal2d`.
 //!
-//! Portal simulation and the portal gun register separately, like their
-//! plugins, so portal-only users do not get gun state.
+//! Portal simulation and portal generators register separately, like their
+//! plugins, so portal-only users do not get generator state.
 //! [`register_rollback_state`] registers both.
 //!
 //! The host supplies the backend through [`RollbackRegistrar`]. This module has
@@ -34,7 +34,7 @@ fn look_probe(channel: crate::PortalChannel) -> u64 {
     }
 }
 
-/// Register reusable portal topology/transit/shot state, with no portal-gun
+/// Register reusable portal topology/transit/shot state, with no generator
 /// custody or control vocabulary.
 pub fn register_portal_rollback_state<R>(registrar: &mut R)
 where
@@ -131,46 +131,35 @@ where
     );
 }
 
-/// Register state owned specifically by the optional held portal-gun workflow.
-pub fn register_portal_gun_rollback_state<R>(registrar: &mut R)
+/// Register state owned by portal generators.
+pub fn register_portal_generator_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
-    // The pickup carries SimId, SpawnOrigin and TransactionId, so it must be an
-    // entity anchor whenever the gun capability is installed.
-    registrar.require_rollback::<crate::PortalGunPickup>(OWNER, "entity:portal_gun_pickup");
-    registrar.rollback_component_clone::<crate::PortalGunPickup>(OWNER, "portal.gun_pickup");
-    registrar.rollback_component_clone::<crate::PortalGun>(OWNER, "portal.gun");
-    // The owned pair outlives the gun in hand, so it is rollback state too.
+    registrar.rollback_component_clone::<crate::PortalGenerator>(OWNER, "portal.generator");
+    // The owned pair outlives the generator, so it is rollback state too.
     // Probed, so the checksum sees the pair value and not only presence. The
     // projection is the `u8` itself.
-    registrar.rollback_component_clone_probed::<crate::OwnedPortalGunPair>(
+    registrar.rollback_component_clone_probed::<crate::OwnedPortalPair>(
         OWNER,
-        "portal.owned_gun_pair",
+        "portal.owned_pair",
         |pair| u64::from(pair.0),
     );
-    registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.drop_portal_gun");
-    registrar.clear_message_on_rollback::<crate::FirePortalGun>(OWNER, "message.fire_portal_gun");
+    registrar.clear_message_on_rollback::<crate::FirePortalGenerator>(OWNER, "message.fire_portal_generator");
     registrar
-        .clear_message_on_rollback::<crate::PickUpPortalGun>(OWNER, "message.pick_up_portal_gun");
-    registrar.clear_message_on_rollback::<crate::PortalGunEquipped>(
+        .clear_message_on_rollback::<crate::TogglePortalGenerator>(OWNER, "message.toggle_portal_generator");
+    registrar.clear_message_on_rollback::<crate::TogglePortalGeneratorsActive>(
         OWNER,
-        "message.portal_gun_equipped",
-    );
-    registrar
-        .clear_message_on_rollback::<crate::TogglePortalGun>(OWNER, "message.toggle_portal_gun");
-    registrar.clear_message_on_rollback::<crate::TogglePortalGunsActive>(
-        OWNER,
-        "message.toggle_portal_guns_active",
+        "message.toggle_portal_generators_active",
     );
 }
 
-/// Full portal registration, including the gun. Portal-only compositions call
+/// Full portal registration, including generators. Portal-only compositions call
 /// [`register_portal_rollback_state`].
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
     register_portal_rollback_state(registrar);
-    register_portal_gun_rollback_state(registrar);
+    register_portal_generator_rollback_state(registrar);
 }

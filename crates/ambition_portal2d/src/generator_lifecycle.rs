@@ -1,17 +1,16 @@
-//! Compatibility lifecycle for gun-owned portals.
+//! Portals a generator opened do not outlive it.
 //!
-//! Keeps the "gun portals disappear when the gun is gone" policy out of the
+//! Keeps the "a generator's portals close when it is gone" policy out of the
 //! portal core. Authored, scripted, and moving portals do not use it.
 
 use bevy::prelude::*;
 
-use super::gun::PortalGun;
-use super::gun_pickup::PortalGunPickup;
+use super::generator::PortalGenerator;
 use super::gun_projectile::PortalShot;
 use super::types::PlacedPortal;
 
 /// Run condition of [`despawn_orphaned_portals`]: there is a portal or a
-/// shot that a gun's leaving could orphan.
+/// shot that a generator's leaving could orphan.
 pub fn a_portal_or_shot_exists(
     portals: Query<(), With<PlacedPortal>>,
     shots: Query<(), With<PortalShot>>,
@@ -19,32 +18,24 @@ pub fn a_portal_or_shot_exists(
     !portals.is_empty() || !shots.is_empty()
 }
 
-/// The gun's portals must not outlive the gun that made them: despawn the
-/// gun-pair portals plus in-flight shots whose PAIR no longer has a gun in the
-/// room — neither held ([`PortalGun`]) nor lying as a [`PortalGunPickup`].
+/// A generator's portals must not outlive it: despawn the generator-pair
+/// portals plus in-flight shots whose PAIR no longer has a
+/// [`PortalGenerator`]. What a generator is (a gun in a hand, a gun lying on
+/// the floor, a turret) is the host's; any one of them keeps its pair open.
 ///
-/// Checked per pair: another gun on a different pair does not keep these
+/// Checked per pair: a generator of a different pair does not keep these
 /// portals open.
-///
-/// FIXME(portal-api): this should become a host-installed policy plugin or a
-/// generic "emitter owns portal set" cleanup rule. It is not part of the pure
-/// portal chart-transition model.
 pub fn despawn_orphaned_portals(
     mut commands: Commands,
-    guns: Query<&PortalGun>,
-    pickups: Query<&PortalGunPickup>,
+    generators: Query<&PortalGenerator>,
     portals: Query<(Entity, &PlacedPortal)>,
     shots: Query<(Entity, &PortalShot)>,
 ) {
-    // Every pair with a gun still in the room, in hand or on the floor.
-    let live: std::collections::HashSet<u8> = guns
-        .iter()
-        .map(|gun| gun.pair())
-        .chain(pickups.iter().map(|pickup| pickup.pair))
-        .collect();
+    // Every pair with a generator still in the world.
+    let live: std::collections::HashSet<u8> = generators.iter().map(|generator| generator.pair()).collect();
     let orphaned = |channel: &crate::PortalChannel| match channel {
         crate::PortalChannel::Gun(color) => !live.contains(&color.pair()),
-        // Authored pairs are not gun-owned and never orphaned by a gun leaving.
+        // Authored pairs are not generator-owned and never orphaned.
         crate::PortalChannel::Authored(_) => false,
     };
     for (entity, portal) in &portals {
@@ -86,63 +77,46 @@ mod tests {
         channels
     }
 
-    /// Removing the only gun of one pair clears that pair's portals, even if a
-    /// gun of another pair remains.
+    /// Removing the only generator of one pair clears that pair's portals, even
+    /// if a generator of another pair remains.
     #[test]
-    fn losing_one_guns_pair_does_not_strand_its_portals_or_touch_another_guns() {
+    fn losing_one_generators_pair_does_not_strand_its_portals_or_touch_anothers() {
         let mut app = app();
         let mine = PortalChannel::Gun(PortalGunColor::for_pair(3));
         let theirs = PortalChannel::Gun(PortalGunColor::for_pair(0));
         app.world_mut().spawn(floor_portal(mine, 100.0));
         app.world_mut().spawn(floor_portal(theirs, 200.0));
-        // Only the pair-0 gun is still in the room.
-        app.world_mut().spawn(PortalGun::for_pair(0));
+        // Only the pair-0 generator is still in the world.
+        app.world_mut().spawn(PortalGenerator::for_pair(0));
 
         app.update();
 
         assert_eq!(
             live_channels(&mut app),
             vec![theirs],
-            "pair 3's portals outlived the only gun that could have made them, \
+            "pair 3's portals outlived the only generator that could have made them, \
              or pair 0's were taken with them"
         );
     }
 
-    /// A gun lying on the floor still owns its pair, so its portals stay.
+    /// Authored pairs are not generator-owned, and a world with no generator
+    /// at all keeps them.
     #[test]
-    fn a_pickup_on_the_floor_keeps_its_pairs_portals_alive() {
-        let mut app = app();
-        let channel = PortalChannel::Gun(PortalGunColor::for_pair(5));
-        app.world_mut().spawn(floor_portal(channel, 100.0));
-        app.world_mut().spawn(PortalGunPickup {
-            pos: Vec2::ZERO,
-            half_extent: Vec2::splat(20.0),
-            arm_timer: 0.0,
-            pair: 5,
-        });
-
-        app.update();
-
-        assert_eq!(live_channels(&mut app), vec![channel]);
-    }
-
-    /// Authored pairs are not gun-owned and a room with no gun at all keeps them.
-    #[test]
-    fn an_authored_pair_is_never_orphaned_by_a_missing_gun() {
+    fn an_authored_pair_is_never_orphaned_by_a_missing_generator() {
         let mut app = app();
         let authored = PortalChannel::Authored(PortalChannelColor::Purple);
         let gun = PortalChannel::Gun(PortalGunColor::BLUE);
         app.world_mut().spawn(floor_portal(authored, 100.0));
         app.world_mut().spawn(floor_portal(gun, 200.0));
-        // No gun and no pickup anywhere.
+        // No generator anywhere.
 
         app.update();
 
         assert_eq!(
             live_channels(&mut app),
             vec![authored],
-            "an authored portal was despawned with the gun pairs, or a gun pair \
-             survived with no gun in the room"
+            "an authored portal was despawned with the generator pairs, or a \
+             generator pair survived with no generator"
         );
     }
 }

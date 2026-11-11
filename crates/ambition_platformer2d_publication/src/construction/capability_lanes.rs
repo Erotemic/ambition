@@ -141,16 +141,12 @@ pub(crate) struct CapabilityLanes {
     /// simply always present.
     gravity:
         ambition_platformer2d_shared_tangle::gravity::construction::GravityZoneConstructionPlan,
-    #[cfg(feature = "portal")]
-    portal: ambition_portal2d::PortalGunConstructionPlan,
 }
 
 /// What those lanes committed. One field per lane, same list, same rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct CapabilityReceipts {
     gravity: ConstructionReceipt,
-    #[cfg(feature = "portal")]
-    portal: ConstructionReceipt,
 }
 
 impl CapabilityLanes {
@@ -158,8 +154,6 @@ impl CapabilityLanes {
     pub(crate) fn emptied(&self) -> Self {
         Self {
             gravity: self.gravity.emptied(),
-            #[cfg(feature = "portal")]
-            portal: self.portal.emptied(),
         }
     }
 
@@ -174,7 +168,6 @@ impl CapabilityLanes {
         schemas: Option<&ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
     ) -> Result<Self, ambition_platformer2d_shared_tangle::construction::ConstructionError> {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity;
-        #[cfg(not(feature = "portal"))]
         let _ = schemas;
 
         let gravity = prepare_lane(
@@ -184,25 +177,9 @@ impl CapabilityLanes {
             suppressed,
             &gravity::gravity_zone_construction_registry(),
         )?;
-        #[cfg(feature = "portal")]
-        let portal_registry = if schemas.is_some_and(|catalog| catalog.contains_domain(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN)) {
-            ambition_portal2d::portal_gun_construction_registry()
-        } else {
-            ambition_portal2d::PortalGunConstructionRegistry::default()
-        };
-        #[cfg(feature = "portal")]
-        let portal = prepare_lane(
-            scope.clone(),
-            ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-            super::portal_construction::authored_requests(room, outlook, dependencies),
-            suppressed,
-            &portal_registry,
-        )?;
 
         Ok(Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         })
     }
 
@@ -218,12 +195,8 @@ impl CapabilityLanes {
     ) -> Result<(), super::RoomFeatureConstructionError> {
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         super::claim_lane_ids(room, &gravity.planned_ids(), roster)?;
-        #[cfg(feature = "portal")]
-        super::claim_lane_ids(room, &portal.planned_ids(), roster)?;
         Ok(())
     }
 
@@ -243,12 +216,8 @@ impl CapabilityLanes {
     ) {
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         out.extend(gravity.planned_ids());
-        #[cfg(feature = "portal")]
-        out.extend(portal.planned_ids());
     }
 
     /// Append each complete payload in the same lane order as construction.
@@ -258,12 +227,8 @@ impl CapabilityLanes {
     ) -> Result<(), ambition_platformer2d_core::snapshot::canonical::Error> {
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         out.push(gravity.payload_bytes()?);
-        #[cfg(feature = "portal")]
-        out.push(portal.payload_bytes()?);
         Ok(())
     }
 
@@ -272,19 +237,11 @@ impl CapabilityLanes {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         dump_lane(
             out,
             gravity_domain::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
             gravity,
-        );
-        #[cfg(feature = "portal")]
-        dump_lane(
-            out,
-            ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-            portal,
         );
     }
 
@@ -294,8 +251,6 @@ impl CapabilityLanes {
     pub(crate) fn debug_assert_binding(&self, binding: ContentBinding) {
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         // ⛔ THE EXPECTED-LIVE BINDING, because that is what this assertion is
         // about: every lane must be judged against the SAME boundary. Their
@@ -303,8 +258,6 @@ impl CapabilityLanes {
         // but a lane disagreeing about which world it publishes INTO is the
         // failure this guards.
         debug_assert_eq!(gravity.scope().expected_live(), binding);
-        #[cfg(feature = "portal")]
-        debug_assert_eq!(portal.scope().expected_live(), binding);
         let _ = binding;
     }
 
@@ -312,8 +265,8 @@ impl CapabilityLanes {
     ///
     /// ⛔⛤ **A LANE DOES NOT SHARE THE ROOM'S TRANSACTION ID — MEASURED, after I
     /// wrote a comment saying it did.** `ConstructionPlan::prepare_in_lane`
-    /// appends `\tlane:{name}`, so a portal-gun row is stamped
-    /// `epoch:1\tportal_bridge\tsession:…\tlane:portal-gun` while the actor
+    /// appends `\tlane:{name}`, so a lane's row is stamped
+    /// `epoch:1\t<room>\tsession:…\tlane:<name>` while the actor
     /// lane's row is stamped without the suffix. Publishing the room against the
     /// actor transaction alone therefore admitted ZERO roots in a room whose only
     /// committed row was a lane's — the object stayed invisible forever, and
@@ -327,13 +280,9 @@ impl CapabilityLanes {
     ) -> Vec<ambition_platformer2d_shared_tangle::construction::TransactionId> {
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         vec![
             gravity.transaction(session),
-            #[cfg(feature = "portal")]
-            portal.transaction(session),
         ]
     }
 
@@ -345,8 +294,6 @@ impl CapabilityLanes {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         CapabilityReceipts {
             gravity: commit_lane(
@@ -354,13 +301,6 @@ impl CapabilityLanes {
                 commands,
                 session,
                 gravity_domain::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
-            ),
-            #[cfg(feature = "portal")]
-            portal: commit_lane(
-                portal,
-                commands,
-                session,
-                ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
             ),
         }
     }
@@ -378,21 +318,10 @@ impl CapabilityLanes {
     ) {
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         verify_lane(
             gravity,
             &receipts.gravity,
-            baseline,
-            world,
-            session,
-            violations,
-        );
-        #[cfg(feature = "portal")]
-        verify_lane(
-            portal,
-            &receipts.portal,
             baseline,
             world,
             session,
@@ -410,8 +339,6 @@ impl CapabilityLanes {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         if let Some(outcome) = respawn_from_lane(
             gravity,
@@ -419,16 +346,6 @@ impl CapabilityLanes {
             commands,
             session,
             gravity_domain::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
-        ) {
-            return Some(outcome);
-        }
-        #[cfg(feature = "portal")]
-        if let Some(outcome) = respawn_from_lane(
-            portal,
-            sim_id,
-            commands,
-            session,
-            ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
         ) {
             return Some(outcome);
         }
@@ -447,10 +364,6 @@ impl CapabilityLanes {
         &self.gravity
     }
 
-    #[cfg(all(test, feature = "portal"))]
-    pub(crate) fn portal(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
-        &self.portal
-    }
 }
 
 impl CapabilityReceipts {
@@ -458,42 +371,7 @@ impl CapabilityReceipts {
     pub(crate) fn extend_committed_ids(&self, roster: &mut BTreeSet<String>) {
         let Self {
             gravity,
-            #[cfg(feature = "portal")]
-            portal,
         } = self;
         roster.extend(gravity.committed_ids().iter().map(ToString::to_string));
-        #[cfg(feature = "portal")]
-        roster.extend(portal.committed_ids().iter().map(ToString::to_string));
-    }
-}
-
-#[cfg(all(test, feature = "portal"))]
-mod schema_tests {
-    use super::*;
-    use ambition_platformer2d_shared_tangle::construction::{ConstructionError, ConstructionSchemaCatalog};
-    use ambition_platformer2d_core as ae;
-
-    #[test]
-    fn gun_construction_requires_the_generation_schema() {
-        let scope = ConstructionScope::in_generation(ContentBinding::RuntimeDynamic, None);
-        let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
-            "test", ae::World::new("test", ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()),
-        );
-        let outlook = Default::default();
-        let mut dependencies = Default::default();
-        let suppressed = BTreeSet::new();
-        assert!(CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, None).is_ok());
-        room.portal_gun_spawns.push(ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
-            id: "gun".into(), name: "gun".into(), pos: ae::Vec2::ZERO,
-            half_extent: ae::Vec2::splat(8.0), pair: 0,
-        });
-        assert!(matches!(CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, None), Err(ConstructionError::UnknownRecipe { .. })));
-        let mut schemas = ConstructionSchemaCatalog::default();
-        schemas.try_contribute(ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-            ambition_portal2d::portal_gun_construction_registry().deterministic_dump()).unwrap();
-        let first = CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, Some(&schemas)).unwrap();
-        let second = CapabilityLanes::prepare(&scope, &room, &outlook, &mut dependencies, &suppressed, Some(&schemas)).unwrap();
-        assert_eq!(first.portal.planned_ids().len(), 1);
-        assert_eq!(first.portal.deterministic_dump(), second.portal.deterministic_dump());
     }
 }

@@ -1,7 +1,7 @@
 //! Ambition fire-intent resolver: gesture → generic portal fire intent.
 //!
-//! The input adapter recognizes the gesture and emits a [`FirePortalGun`] naming
-//! its body. This resolver reads `FirePortalGun`, resolves the origin (that
+//! The input adapter recognizes the gesture and emits a [`FirePortalGenerator`] naming
+//! its body. This resolver reads `FirePortalGenerator`, resolves the origin (that
 //! body's position), the direction (the gesture's aim) and the channel (the
 //! held gun's current color), and emits the generic intent. Anything (a replay,
 //! an AI) can also place a portal by emitting `PortalFireIntent` directly.
@@ -9,9 +9,9 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
+use ambition_portal2d::{FirePortalGenerator, PortalFireIntent, PortalGenerator};
 
-/// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] fired
+/// Resolve a [`FirePortalGenerator`] gesture into a generic [`PortalFireIntent`] fired
 /// from the body holding the gun.
 ///
 /// The gesture names its body, so this resolver re-derives nothing. With a
@@ -19,18 +19,18 @@ use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
 /// whose press it was, and would fire one shot per body for one press
 /// (D-PORTAL-GESTURE-SEAT).
 ///
-/// The other two portal readers are correctly singular:
-/// `sync_portal_viewer`'s eye and `tag_portal_affordance_body`'s drawn gun are
-/// presentation, and a view has one viewpoint. Origin = the body's position,
-/// dir = the gesture's aim, channel = the held gun's `next_color`. If the body
-/// is not holding a `PortalGun`, no intent is emitted (no fallback to the home
-/// avatar). Gun-active gating lives here, so the generic intent is emitted only
-/// for an armed fire. The core fire system drops a zero aim.
+/// The other portal readers are correctly singular: `sync_portal_viewer`'s
+/// eye and `tag_portal_affordance_body`'s tag are presentation, and a view has
+/// one viewpoint. Origin = the body's position, dir = the gesture's aim,
+/// channel = the generator's `next_color`. If the body is not a
+/// `PortalGenerator`, no intent is emitted (no fallback to the home avatar).
+/// Active gating lives here, so the generic intent is emitted only for an
+/// armed fire. The core fire system drops a zero aim.
 pub fn resolve_portal_fire_intent(
-    mut fires: MessageReader<FirePortalGun>,
+    mut fires: MessageReader<FirePortalGenerator>,
     mut holders: Query<(
         &BodyKinematics,
-        &PortalGun,
+        &PortalGenerator,
         &mut ambition_characters::control::ActorControl,
         // The shot's identity is minted here, the only place that knows who fired.
         // A portal shot is a rollback anchor (`require_rollback::<PortalShot>`), so
@@ -118,7 +118,7 @@ mod tests {
         let holder_pos = Vec2::new(500.0, 40.0);
 
         let mut app = App::new();
-        app.add_message::<FirePortalGun>();
+        app.add_message::<FirePortalGenerator>();
         app.add_message::<PortalFireIntent>();
         app.init_resource::<CapturedOrigin>();
         app.add_systems(Update, (resolve_portal_fire_intent, capture_origin).chain());
@@ -147,9 +147,9 @@ mod tests {
                     canonical_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
-                PortalGun {
+                PortalGenerator {
                     active: true,
-                    ..PortalGun::default()
+                    ..PortalGenerator::default()
                 },
                 // Every production body carries an intent frame, and this system
                 // spends the Attack press on it when the gun answers.
@@ -161,7 +161,7 @@ mod tests {
                 ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
             ))
             .id();
-        app.world_mut().write_message(FirePortalGun {
+        app.world_mut().write_message(FirePortalGenerator {
             body: holder,
             aim: Vec2::new(1.0, 0.0),
         });
@@ -185,7 +185,7 @@ mod tests {
 
         let press_survived = |active: bool| -> bool {
             let mut app = App::new();
-            app.add_message::<FirePortalGun>();
+            app.add_message::<FirePortalGenerator>();
             app.add_message::<PortalFireIntent>();
             app.add_systems(Update, resolve_portal_fire_intent);
             let mut control = ActorControl::default();
@@ -199,14 +199,14 @@ mod tests {
                         canonical_size: Vec2::new(24.0, 40.0),
                         facing: 1.0,
                     },
-                    PortalGun {
+                    PortalGenerator {
                         active,
-                        ..PortalGun::default()
+                        ..PortalGenerator::default()
                     },
                     control,
                 ))
                 .id();
-            app.world_mut().write_message(FirePortalGun {
+            app.world_mut().write_message(FirePortalGenerator {
                 body: holder,
                 aim: Vec2::new(1.0, 0.0),
             });

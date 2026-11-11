@@ -242,7 +242,6 @@ fn families(room: &ambition_platformer2d::world::rooms::RoomSpec) -> std::collec
         format!("placement {kind}")
     }));
     for (family, present) in [
-        ("portal gun", !room.portal_gun_spawns.is_empty()),
         ("shrine", !room.shrines.is_empty()),
         ("moving platform", !room.moving_platforms.is_empty()),
         ("mount", !room.mount_links.is_empty()),

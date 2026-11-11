@@ -88,7 +88,7 @@ fn held_item_ids_round_trip_for_every_wired_item() {
         .collect();
     assert_eq!(
         wired,
-        [Item::Grapple, Item::MarkRecall, Item::GunSword, Item::PuppySlugGun, Item::Bomb],
+        [Item::Grapple, Item::MarkRecall, Item::PortalGun, Item::GunSword, Item::PuppySlugGun, Item::Bomb],
         "wired held-items"
     );
 }

@@ -14,7 +14,7 @@ mod host_adapter {
         PortalAffordanceBody, PortalBodyView, PortalCameraContinuityCamera,
         PortalCameraContinuityConfig, PortalCameraContinuityFocus, PortalCameraContinuityHostView,
         PortalCameraContinuityState, PortalCameraTransitMode,
-        PortalDebugOverlay, PortalFrames, PortalGunArt, PortalObservationSet, PortalSceneBody,
+        PortalDebugOverlay, PortalFrames, PortalObservationSet, PortalSceneBody,
         PortalTransitView, PortalViewer, PortalViewers,
     };
 
@@ -139,14 +139,13 @@ mod host_adapter {
     }
 
     /// Bridge the CONTROLLED body → the crate-owned [`PortalAffordanceBody`]
-    /// seam: whose hand the portal gun draws in, and who the disorientation
-    /// indicator floats above.
+    /// seam: who the disorientation indicator floats above.
     ///
     /// The authority is [`ControlledSubject`], not `PrimaryPlayer` — the same
     /// authority [`sync_portal_viewer`] uses for the eye of a view that names
     /// no body of its own. While possessing,
-    /// the controlled body is the possessed actor, so the gun and the warp
-    /// indicator now follow the body you are actually driving instead of
+    /// the controlled body is the possessed actor, so the warp indicator
+    /// follows the body you are actually driving instead of
     /// staying on the home avatar.
     pub fn tag_portal_affordance_body(
         mut commands: Commands,
@@ -516,26 +515,6 @@ mod host_adapter {
                 commands.entity(visual).remove::<PortalTransitView>();
             }
         }
-    }
-
-    /// Load the portal-gun mode sprites at startup into the crate-owned
-    /// [`PortalGunArt`] seam — asset PATHS are Ambition content, so loading
-    /// stays host-side.
-    ///
-    /// ⚠ THESE TWO REACH `Assets<Image>` WITH NO DEMAND STAMP, deliberately.
-    /// The Hall's `[image-unrouted]` row names them (2026-09-02, alongside the
-    /// LDtk editor-preview tileset), and routing them through
-    /// `ambition_sprite_sheet::game_assets::load_sheet_image` would mean a new
-    /// dependency edge from this crate to the asset ledger — for **0.0 MP** of
-    /// icon art loaded once at startup. The stamp exists so residency can
-    /// attribute megapixels to an owner; two icons that round to zero are not
-    /// worth a crate edge to attribute. Revisit if this crate acquires that
-    /// dependency for another reason, or if these ever become sheets.
-    pub fn load_portal_gun_art(mut commands: Commands, assets: Res<AssetServer>) {
-        commands.insert_resource(PortalGunArt {
-            blue: assets.load("sprites/props/portal_gun_blue.png"),
-            orange: assets.load("sprites/props/portal_gun_orange.png"),
-        });
     }
 
     /// Drive the portal debug overlay's host-side F1 gate from the standard
@@ -1080,19 +1059,19 @@ mod host_adapter {
             .max(padding.top)
             .max(padding.bottom)
     }
-    /// Dev off-switch: the portal-gun developer action turns every gun on or
-    /// off, so the always-on slice gun does not fire portals on every Attack
-    /// while other sandbox mechanics are tested. (Visible build only.)
+    /// Dev off-switch: the portal-gun developer action turns every portal
+    /// generator on or off, so a held gun does not fire portals on every
+    /// Attack while other sandbox mechanics are tested. (Visible build only.)
     ///
     /// The developer action is a host fact, so this reads it here and writes
-    /// a host intent. `portal_guns_active_toggle_system` flips the guns inside
+    /// a host intent. `portal_generators_active_toggle_system` flips them inside
     /// the simulation, so a rewind does not undo the switch.
     pub fn portal_dev_toggle_system(
         mut actions: MessageReader<
             ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
         >,
         mut intents: ambition_platformer2d_runtime::host_intents::HostIntentWriter<
-            ambition_portal2d::TogglePortalGunsActive,
+            ambition_portal2d::TogglePortalGeneratorsActive,
         >,
     ) {
         let presses = actions
@@ -1103,7 +1082,7 @@ mod host_adapter {
             })
             .count();
         for _ in 0..presses {
-            intents.write(ambition_portal2d::TogglePortalGunsActive);
+            intents.write(ambition_portal2d::TogglePortalGeneratorsActive);
         }
     }
 
@@ -1117,8 +1096,7 @@ mod host_adapter {
     /// - `tag_portal_scene_bodies` too — the audit ruled its old
     ///   `.after(sync_visuals)` pin STALE: it tags SIM bodies
     ///   (`PlayerVisual` + `PortalSceneBody`), not render-spawned visuals;
-    /// - the portal-gun developer toggle (semantic host action, no set);
-    /// - `load_portal_gun_art` at startup (asset PATHS are Ambition content).
+    /// - the portal-generator developer toggle (semantic host action, no set).
     pub struct PortalObservationPlugin;
 
     /// The player's portal window look (`Video > Portal Windows`) is the
@@ -1167,7 +1145,7 @@ mod host_adapter {
                 ),
             );
             app.add_plugins(ambition_platformer2d_runtime::host_intents::HostIntentPlugin::<
-                ambition_portal2d::TogglePortalGunsActive,
+                ambition_portal2d::TogglePortalGeneratorsActive,
             >::default());
             app.add_systems(
                 Update,
@@ -1175,7 +1153,7 @@ mod host_adapter {
                     settings.is_some_and(|settings| settings.is_changed())
                 }),
             );
-            app.add_systems(Startup, load_portal_gun_art).add_systems(
+            app.add_systems(
                 Update,
                 (
                     (
@@ -1415,9 +1393,9 @@ mod tests {
         assert_eq!(world.get::<PortalBodyView>(player).map(|view| view.pos), Some(Vec2::new(200.0, 295.0)));
     }
 
-    /// The portal affordances (held gun, disorientation indicator) follow the
-    /// CONTROLLED body, so possessing an actor moves the gun into the possessed
-    /// actor's hand — and takes it out of the home avatar's.
+    /// The portal affordances (the disorientation indicator) follow the
+    /// CONTROLLED body, so possessing an actor moves them to the possessed
+    /// actor — and takes them from the home avatar.
     ///
     /// The untag half is the one that regresses silently: a tagger that only
     /// ever inserts leaves two tagged bodies, and the presentation crate's
@@ -1451,7 +1429,7 @@ mod tests {
         assert!(
             app.world().get::<PortalAffordanceBody>(home).is_none(),
             "the home avatar must lose the affordance tag, or `single()` finds two \
-             carriers and the gun stops drawing entirely",
+             carriers and the affordances stop drawing entirely",
         );
         assert!(app.world().get::<PortalAffordanceBody>(possessed).is_some());
         assert_eq!(
@@ -1645,15 +1623,12 @@ mod tests {
         };
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()));
-        // The plugin loads the portal gun's art at startup.
-        app.init_asset::<bevy::image::Image>();
         // The presentation plugin owns the two rule resources. Only its view
         // windows are on, and they wait for a render stack this app does not have.
         app.add_plugins(ambition_portal2d_presentation::PortalPresentationPlugin {
             portal_quads: false,
             body_pieces: false,
             far_side_compositing: false,
-            gun_indicator: false,
             disorientation: false,
             view_cones: true,
         });
@@ -1781,7 +1756,7 @@ mod tests {
 }
 
 pub use host_adapter::{
-    apply_portal_camera_continuity, load_portal_gun_art, portal_dev_toggle_system,
+    apply_portal_camera_continuity, portal_dev_toggle_system,
     publish_portal_body_views, publish_feature_body_views, sync_portal_camera_continuity_focus,
     sync_portal_debug_overlay_to_f1, sync_portal_viewer,
     tag_portal_affordance_body, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,

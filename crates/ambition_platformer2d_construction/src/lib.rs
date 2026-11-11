@@ -1916,7 +1916,6 @@ pub fn reinstatable_authored_requests(
         // both, but its request needs the room's lowering plan, so the room
         // build reinstates it (`RoomFeatureConstructionPlan::prepare`), not
         // this RoomSpec-only list.
-        portal_gun_spawns: _,
         enemy_spawns: _,
         boss_spawns: _,
         placements: _,

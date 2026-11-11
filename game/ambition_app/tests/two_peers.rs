@@ -928,11 +928,11 @@ struct ObservedRoomArrivalResets(usize);
 
 fn observe_room_arrival_resets(
     frame: Res<RollbackFrameCount>,
-    mut sounds: MessageReader<ambition_platformer2d::sfx::OwnedSfxMessage>,
+    mut effects: MessageReader<ambition_platformer2d::vfx::VfxInRoom>,
     mut observed: ResMut<ObservedRoomArrivalResets>,
 ) {
-    for sound in sounds.read() {
-        if frame.0 >= RECORDED_ON && matches!(sound.request, ambition_platformer2d::sfx::SfxMessage::Reset { .. }) {
+    for effect in effects.read() {
+        if frame.0 >= RECORDED_ON && matches!(effect.vfx, ambition_platformer2d::vfx::VfxMessage::ResetEffects { .. }) {
             observed.0 += 1;
         }
     }

@@ -640,7 +640,7 @@ impl RoomTransitionFinalize<'_, '_> {
             } else if !through_a_passage {
                 self.effects.vfx.for_room(arrival_room).write(VfxMessage::ResetEffects { from: arrival_pos, to: arrival_pos });
             }
-            self.effects.sfx.write(SfxMessage::Reset { pos: arrival_pos });
+            // No arrival sound: a door's own cue above is the sound of a crossing.
             if let Some(room_set) = self.session.iter().next() {
                 log_room_transition_landing(staged.target_room, room_set, arrival_pos,
                     member.size, member.gravity_dir, &staged.target_world);

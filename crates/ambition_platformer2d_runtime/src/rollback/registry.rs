@@ -261,7 +261,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 454 -> 455: the bag log keeps what a room's conversation added to the
 // bag.
 // The item material basis and room cutscene log are canonical rollback state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 458;
+// 458 -> 459: the portal gun is an ordinary held item; the portal crate
+// registers a `PortalGenerator` and its gestures, and no gun pickup.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 459;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

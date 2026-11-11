@@ -118,3 +118,55 @@ fn portal_bridge_lets_the_player_teleport_across_the_death_gap() {
         obs.resets,
     );
 }
+
+/// The portal gun is an ordinary held item: from the press that takes it, the
+/// held-item view the renderer draws from has it in the hand (it was drawn
+/// only once a portal stood), and the body is a portal generator; and
+/// `Shield + Attack` puts it down where it is a generator still.
+#[test]
+#[ignore = "on demand: run with --ignored when the portal gun's item road changes"]
+fn the_portal_gun_is_in_the_hand_from_the_press_that_takes_it() {
+    use ambition_platformer2d::portal::{PlacedPortal, PortalGenerator};
+    let mut sim = fixed_60hz_room_sim("portal_bridge");
+    for _ in 0..80 {
+        if sim.step(AgentAction { move_x: 1.0, ..base() }).player_pos.0 >= 165.0 {
+            break;
+        }
+    }
+    sim.step(AgentAction { attack: true, ..base() });
+    sim.step(base());
+    let world = sim.world_mut();
+    let portals = world.query::<&PlacedPortal>().iter(world).count();
+    assert_eq!(portals, 0, "premise: no portal stands, so nothing woke the portal systems");
+    let in_hand: Vec<String> = world
+        .resource::<ambition_platformer2d::sim_view::HeldItemView>()
+        .0
+        .iter()
+        .map(|held| held.item_id.clone())
+        .collect();
+    assert_eq!(in_hand, vec!["portal_gun".to_string()], "the gun is not in the drawn hand");
+    // The holder is a generator; so is the gun it carries, which keeps its pair.
+    let holders = world
+        .query_filtered::<(), (bevy::prelude::With<PortalGenerator>, bevy::prelude::Without<ambition_platformer2d::held_items::GroundItem>)>()
+        .iter(world)
+        .count();
+    assert_eq!(holders, 1, "the holder is not a generator");
+
+    sim.step_frame(ambition_platformer2d::engine_core::ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..Default::default()
+    });
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    assert!(world.resource::<ambition_platformer2d::sim_view::HeldItemView>().0.is_empty(), "the gun is still in the hand");
+    let lying = world
+        .query::<(&ambition_platformer2d::held_items::GroundItem, Option<&PortalGenerator>)>()
+        .iter(world)
+        .filter(|(item, _)| item.spec.id == "portal_gun")
+        .map(|(_, generator)| generator.is_some())
+        .collect::<Vec<_>>();
+    assert_eq!(lying, vec![true], "the gun lies in the world as a generator");
+}

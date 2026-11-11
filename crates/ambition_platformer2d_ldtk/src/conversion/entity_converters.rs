@@ -562,32 +562,23 @@ pub(super) fn convert_ground_item(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     ))
 }
 
-#[cfg(feature = "portal_ldtk")]
+/// A `PortalGunSpawn` is the portal gun lying in the room: an ordinary ground
+/// item (`portal_gun`), as a `GroundItem` naming it would be. `id` and `name`
+/// are optional. Not behind `portal_ldtk`: the gun is an item, and a build
+/// without portals lays it down like any other.
 pub(super) fn convert_portal_gun_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // The box gives the pickup's center and half-extent. `id`, `name`, and `pair`
-    // are optional. Spawns an armed `PortalGunPickup` at room load.
     let id = field_string(entity, "id")
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| entity.iid.clone());
-    // The portal pair this gun owns. Absent means 0, the classic blue/orange gun.
-    // For a second gun of a different color, place another `PortalGunSpawn` with
-    // a different `pair`.
-    //
-    // An out-of-range value wraps and is not refused: a wrong number gives a gun
-    // of another color, not a room that fails to load. This code only fits the
-    // value into a `u8`. `PortalGunColor` wraps the pair space, and this layer
-    // does not depend on the portal crate (see the portal-api FIXME about the gun
-    // palette).
-    let pair = field_i32(entity, "pair").unwrap_or(0).rem_euclid(256) as u8;
-    Ok(RoomEmission::portal_gun_spawn(
-        ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
+    Ok(RoomEmission::ground_item(
+        ambition_platformer2d_world::rooms::GroundItemSpec {
             id,
             name,
+            held_item: "portal_gun".to_string(),
             pos: min + size * 0.5,
             half_extent: size * 0.5,
-            pair,
         },
     ))
 }
@@ -738,11 +729,6 @@ pub(super) fn settle_portals_on_faces(
 // Portal entities need the `portal_ldtk` feature. Without it, register
 // converters that fail with an error, so LDtk does not drop portal entities
 // without notice.
-#[cfg(not(feature = "portal_ldtk"))]
-pub(super) fn convert_portal_gun_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
-    portal_compiled_out(ctx)
-}
-
 #[cfg(not(feature = "portal_ldtk"))]
 pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     portal_compiled_out(ctx)

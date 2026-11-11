@@ -1,29 +1,26 @@
-//! Ambition input binding for the portal gun.
+//! Ambition input binding for portal generators.
 //!
 //! Translates the Ambition [`ControlFrame`] (and the nearest-interactable HUD
-//! state) into the reusable portal intent messages
-//! ([`FirePortalGun`] / [`TogglePortalGun`] / [`DropPortalGun`] /
-//! [`PickUpPortalGun`]). Portal core consumes only those intents and never
-//! reads `ControlFrame` for the gun's gestures, so a replay or another input
-//! layer can drive the gun by emitting the same messages.
+//! state) into the reusable portal intent messages ([`FirePortalGenerator`] /
+//! [`TogglePortalGenerator`]). Portal core consumes only those intents and
+//! never reads `ControlFrame`, so a replay or another input layer can drive a
+//! generator by emitting the same messages.
 //!
-//! Gesture ownership lives here:
+//! The gestures of a body that is a [`PortalGenerator`] (it holds the portal
+//! gun):
 //! - `Attack` (no Shield) → fire, with the aim resolved from right-stick / move
 //!   axis / facing;
-//! - `Shield + Attack` → drop;
-//! - `Attack` while not holding the gun → pickup attempt;
 //! - `Interact` (when no door / NPC claims it) → color toggle.
+//!
+//! Taking the gun up and putting it down are the ordinary held-item road's
+//! (`Attack` over it, `Shield + Attack`), not this adapter's.
 
 use bevy::prelude::*;
 
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_platformer2d_core::{BodyKinematics, ControlFrame};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
-use ambition_portal2d::{
-    DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun,
-};
-#[cfg(feature = "portal_render")]
-use ambition_portal2d_presentation::PortalAimHint;
+use ambition_portal2d::{FirePortalGenerator, PortalGenerator, TogglePortalGenerator};
 use ambition_sim_view::affordances::{InteractVariant, NearestInteractable};
 
 pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
@@ -38,28 +35,20 @@ pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
 }
 
-/// Translate this frame's controller input into portal-gun intents for each
-/// driven body. The gun is a `PortalGun` held by that body, so gestures come
-/// from the body's slot and aim and holder from its own kinematics: possess an
-/// actor holding the gun and it fires from that actor, not the vacated home
-/// avatar. Runs in the portal weapon set so the core fire, toggle, pickup and
-/// drop systems see the intents in the same frame.
-#[allow(clippy::too_many_arguments)]
+/// Translate this frame's controller input into portal intents for each
+/// driven body that is a generator. Gestures come from the body's slot, and
+/// aim and origin from its own kinematics: possess an actor holding the gun
+/// and it fires from that actor, not the vacated home avatar. Runs in the
+/// portal input set so the core fire and toggle see the intents in the same
+/// frame.
 pub fn portal_input_adapter_system(
     nearest: Option<Res<NearestInteractable>>,
     controlled: Res<ControlledSubject>,
     // The controller's slot frame (the sanctioned per-slot input source).
     slots: Res<SlotControls>,
-    // The controlled body: its brain (→ slot), position and held gun (if any).
-    //
-    // A producer cannot know whether its action will be accepted (the drop is
-    // refused for a body holding a throwable, the fire for an inactive gun), so
-    // it does not spend the press. See the drop branch below.
-    holders: Query<(
-        Option<&DrivingParticipant>,
-        &BodyKinematics,
-        Option<&PortalGun>,
-    )>,
+    // A producer cannot know whether its action will be accepted (the fire is
+    // refused for an inactive generator), so it does not spend the press.
+    holders: Query<(Option<&DrivingParticipant>, &BodyKinematics), With<PortalGenerator>>,
     // The seated half of the driven population: the union `DrivenBodies`
     // names, written out here because that `SystemParam` is the actor crate's.
     driven_seats: Query<
@@ -69,21 +58,13 @@ pub fn portal_input_adapter_system(
         ),
         With<DrivingParticipant>,
     >,
-    #[cfg(feature = "portal_render")] mut aim_hint: Option<ResMut<PortalAimHint>>,
-    mut fire: MessageWriter<FirePortalGun>,
-    mut toggle: MessageWriter<TogglePortalGun>,
-    mut drop: MessageWriter<DropPortalGun>,
-    mut pickup: MessageWriter<PickUpPortalGun>,
+    mut fire: MessageWriter<FirePortalGenerator>,
+    mut toggle: MessageWriter<TogglePortalGenerator>,
 ) {
     // Every driven body makes its own gestures, and each gesture names its
-    // body, so a couch's second seat can fire, toggle, drop and pick up its own
-    // gun.
-
+    // body, so a couch's second seat can fire and toggle its own gun.
     let mut subjects: Vec<Entity> = Vec::new();
-    // Held separately, because the held-gun presentation is not per-body. See
-    // the `PortalAimHint` write below.
-    let presented_subject = controlled.0;
-    if let Some(subject) = presented_subject {
+    if let Some(subject) = controlled.0 {
         subjects.push(subject);
     }
     // Ordered by stable identity, never by query order: a resimulation must
@@ -98,22 +79,12 @@ pub fn portal_input_adapter_system(
             subjects.push(entity);
         }
     }
-    // The body whose gun is drawn: the controlled subject, else the first seat in
-    // stable order. Never "whichever seat the loop visited last".
-    // Gated to match its only reader, which is
-    // `#[cfg(feature = "portal_render")]`. Without the gate the crate's default
-    // build warns, which the workspace build never shows because feature
-    // unification enables `portal_render`. An underscore name would hide the
-    // warning but keep an unread computation.
-    #[cfg(feature = "portal_render")]
-    let presented_subject = presented_subject.or_else(|| subjects.first().copied());
     for subject in subjects {
-        let Ok((driver, kin, gun)) = holders.get(subject) else {
+        let Ok((driver, kin)) = holders.get(subject) else {
             continue;
         };
         let slot = driver.map_or(PlayerSlot::PRIMARY, |driver| driver.0);
         let control = slots.get(slot);
-        let control = &control;
         // Color toggle: Interact, but only when no genuine interactable (door / NPC /
         // switch) claims the press — matching the HUD label.
         if control.interact_pressed {
@@ -130,68 +101,21 @@ pub fn portal_input_adapter_system(
                 .as_deref()
                 .is_some_and(|n| !matches!(n.for_body(subject), InteractVariant::None));
             if !claimed {
-                toggle.write(TogglePortalGun { body: subject });
+                toggle.write(TogglePortalGenerator { body: subject });
             }
         }
-        // Publish the resolved aim for the visible-build held-gun presentation
-        // (`sync_portal_mode_indicator`), so presentation reads this hint, not
-        // `ControlFrame`. Render-only: `PortalAimHint` exists only behind
-        // `portal_render`.
+        // Plain Attack fires. `Shield + Attack` is the held-item road's: it
+        // puts the gun down.
         //
-        // The controlled subject's aim only, inside a loop over every driven body.
-        // `PortalAimHint` is a singleton, and the gun it describes is drawn for one
-        // body: the `PortalAffordanceBody` from `ControlledSubject`, read back with
-        // `carriers.single()`. Writing it per seat would let the last seat win.
-        //
-        // The gameplay above is per-body; this line is presentation, which has one
-        // viewer. If every seat gets a drawn gun, make this per-body state keyed by
-        // `PortalAffordanceBody`, not a singleton written N times.
-        #[cfg(feature = "portal_render")]
-        if Some(subject) == presented_subject {
-            if let Some(aim_hint) = aim_hint.as_deref_mut() {
-                aim_hint.aim = pick_aim(control, kin.facing);
-            }
-        }
-        let holding_gun = gun.is_some();
-
-        if control.attack_pressed {
-            if control.shield_held {
-                // Shield+Attack is the drop gesture: an intent, not a claim on the press.
-                //
-                // The press is spent where the action commits. Otherwise a body holding a
-                // laser sword would lose the press here, the drop would refuse, and
-                // `throw_held_item_system` (whose Shield+Attack throw is correct) would see
-                // `melee_pressed == false`. The drop and the throw are mutually exclusive
-                // by `Without<HeldItem>`, so whichever runs first, only the one that acts
-                // consumes the edge.
-                drop.write(DropPortalGun { body: subject });
-            } else if holding_gun {
-                // Plain Attack while holding the gun fires it.
-                fire.write(FirePortalGun {
-                    aim: pick_aim(control, kin.facing),
-                    body: subject,
-                });
-                // The press is spent for a fire, at the seam that accepts it:
-                // `resolve_portal_fire_intent`, after the gun answers (it refuses a gun
-                // that is not `active`). A weapon in hand owns the Attack press, and
-                // `trigger_moveset_moves` arbitrates from `HeldItem`, which the portal gun
-                // is not and must not become.
-                //
-                // The arbiter has no `PortalGun` branch: its job is to be the single path.
-                // Marking the press spent where it is spent is what the pickup and the
-                // throw do, and it crosses the phase boundary (both run in
-                // `PlayerSimulation`; the trigger reads in `Combat`).
-                //
-                // The gun stays tappable on a phone because the slot is untouched.
-            } else {
-                // Plain Attack while NOT holding the gun is a pickup attempt
-                // (consumed only if overlapping an armed pickup).
-                //
-                // Not consumed here. The grant path clears the press when it picks
-                // something up (`items::pickup`), and a press that grabs nothing must
-                // still reach the wearer's jab.
-                pickup.write(PickUpPortalGun { body: subject });
-            }
+        // The press is spent for a fire at the seam that accepts it,
+        // `resolve_portal_fire_intent`, after the generator answers (it refuses
+        // one that is not `active`). The gun is a held item with no verb, so
+        // the body has no swing for the press to reach either way.
+        if control.attack_pressed && !control.shield_held {
+            fire.write(FirePortalGenerator {
+                aim: pick_aim(&control, kin.facing),
+                body: subject,
+            });
         }
     }
 }
@@ -206,10 +130,8 @@ mod tests {
     /// gesture and `ActorControl` carries what the body will act on.
     fn app_with_holder(holding: bool) -> (App, Entity) {
         let mut app = App::new();
-        app.add_message::<FirePortalGun>();
-        app.add_message::<TogglePortalGun>();
-        app.add_message::<DropPortalGun>();
-        app.add_message::<PickUpPortalGun>();
+        app.add_message::<FirePortalGenerator>();
+        app.add_message::<TogglePortalGenerator>();
 
         let mut slots = SlotControls::default();
         let mut frame = ambition_platformer2d_core::ControlFrame::default();
@@ -225,10 +147,7 @@ mod tests {
             control,
         ));
         if holding {
-            body.insert(PortalGun {
-                active: true,
-                ..PortalGun::default()
-            });
+            body.insert(PortalGenerator::default());
         }
         let body = body.id();
         app.insert_resource(ControlledSubject(Some(body)));
@@ -256,17 +175,15 @@ mod tests {
 
     /// The gun answers the press, so the jab must not.
     ///
-    /// `trigger_moveset_moves` arbitrates the Attack press from `HeldItem`, and
-    /// the portal gun is its own component, so the arbiter cannot see it. This
-    /// runs the adapter and the resolver, because the press is spent where the
-    /// fire is accepted: a refused action cannot eat the press.
+    /// This runs the adapter and the resolver, because the press is spent
+    /// where the fire is accepted: a refused action cannot eat the press.
     #[test]
     fn firing_the_gun_spends_the_attack_press() {
         let (mut app, body) = app_with_holder(true);
         app.update();
         assert_eq!(
             app.world()
-                .resource::<Messages<FirePortalGun>>()
+                .resource::<Messages<FirePortalGenerator>>()
                 .iter_current_update_messages()
                 .count(),
             1,
@@ -278,24 +195,23 @@ mod tests {
         );
     }
 
-    /// The negative control. Attack while holding nothing is a pickup attempt;
-    /// if it grabs nothing, the press belongs to the wearer's jab. Consuming it
-    /// here would silently delete the unarmed attack.
+    /// The negative control. Attack while holding no gun fires nothing, and
+    /// the press belongs to the body (its jab, or a pickup).
     #[test]
     fn attacking_with_no_gun_leaves_the_press_for_the_body() {
         let (mut app, body) = app_with_holder(false);
         app.update();
         assert_eq!(
             app.world()
-                .resource::<Messages<PickUpPortalGun>>()
+                .resource::<Messages<FirePortalGenerator>>()
                 .iter_current_update_messages()
                 .count(),
-            1,
-            "with no gun, Attack attempts a pickup"
+            0,
+            "with no gun, Attack fires nothing"
         );
         assert!(
             melee_still_pressed(&app, body),
-            "⛔ a pickup attempt that grabs nothing must leave the jab its press"
+            "⛔ a body that is no generator must keep its press"
         );
     }
 
@@ -306,10 +222,8 @@ mod tests {
     #[test]
     fn two_driven_bodies_each_fire_their_own_portal_gun() {
         let mut app = App::new();
-        app.add_message::<FirePortalGun>();
-        app.add_message::<TogglePortalGun>();
-        app.add_message::<DropPortalGun>();
-        app.add_message::<PickUpPortalGun>();
+        app.add_message::<FirePortalGenerator>();
+        app.add_message::<TogglePortalGenerator>();
         app.add_message::<ambition_portal2d::PortalFireIntent>();
         app.insert_resource(ControlledSubject(None));
 
@@ -332,10 +246,7 @@ mod tests {
                         ..BodyKinematics::default()
                     },
                     control,
-                    PortalGun {
-                        active: true,
-                        ..PortalGun::default()
-                    },
+                    PortalGenerator::default(),
                     ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
                 ))
                 .id()

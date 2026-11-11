@@ -334,7 +334,7 @@ pub fn begin_fresh_run(world: &mut World) {
 
 /// On a New Game, despawn the transient world items **the room rebuild does not own** —
 /// placed portals + in-flight shots, a dropped weapon, a summoned puppy-slug ally — and strip
-/// the player's held state (`HeldItem` / `PortalGun`), re-deriving its repertoire for the
+/// the player's held state (`HeldItem`), re-deriving its repertoire for the
 /// emptied hand. (fresh-run reducer, `CheckpointDomainApply`)
 ///
 /// **AND NOTHING THAT IS ROOM-SCOPED, because the room is already rebuilt by
@@ -360,7 +360,6 @@ pub fn clear_transient_on_sandbox_reset(
             Or<(
                 With<ambition_portal2d::PlacedPortal>,
                 With<ambition_portal2d::PortalShot>,
-                With<ambition_portal2d::PortalGunPickup>,
                 With<ambition_held_items::GroundItem>,
                 With<ambition_combat::components::SummonedCompanion>,
             )>,
@@ -391,15 +390,13 @@ pub fn clear_transient_on_sandbox_reset(
         commands.entity(entity).despawn();
     }
     for (player, mut repertoire) in &mut players {
-        // Both hand components go below, so the hand this refolds for is empty.
+        // The hand component goes below, so the hand this refolds for is empty.
         repertoire.refold(ambition_characters::repertoire::Hand::Empty);
         commands
             .entity(player)
             .remove::<ambition_combat::held_items::HeldItem>();
-        #[cfg(feature = "portal")]
-        commands
-            .entity(player)
-            .remove::<ambition_portal2d::PortalGun>();
+        // A portal generator follows the hand: the portal adapter takes it
+        // from a body that holds no generator item.
         // Clear any Mark/Recall mark too, so re-equipping after a reset can't
         // recall to a position from before the room was rebuilt.
         commands

@@ -5,8 +5,9 @@
 //! application, room-reset policy, rendering/audio/VFX, and content-specific
 //! behavior through adapters around [`PortalPlugin`].
 //!
-//! TODO(compat-remove): move the Ambition portal-gun workflow out of this generic mechanic
-//! crate and delete the `gun_*` compatibility modules.
+//! Whatever opens portals is a [`PortalGenerator`]; the crate does not know
+//! what carries one. Ambition's portal gun is an ordinary held item, and its
+//! adapter gives the holder a generator.
 //!
 //! Every entity with [`BodyKinematics`](ambition_platformer2d_core::BodyKinematics)
 //! takes the generic [`portal_transit`] path, which derives how each body takes
@@ -17,10 +18,8 @@
 mod color;
 mod eviction;
 pub mod extension;
-mod gun;
-mod gun_construction;
-mod gun_lifecycle;
-mod gun_pickup;
+mod generator;
+mod generator_lifecycle;
 mod gun_projectile;
 mod lifecycle;
 mod link;
@@ -44,15 +43,10 @@ pub use eviction::{
     evict_straddlers_on_portal_change,
     forget_portal_frames_on_activation, portals_or_their_frames, PortalFrameHistory,
 };
-pub use gun::{portal_guns_active_toggle_system, portal_toggle_system, OwnedPortalGunPair, PortalGun};
-pub use gun_construction::{
-    install_portal_gun_construction_recipes, portal_gun_construction_registry,
-    recipe_authored_portal_gun, PortalGunConstruction, PortalGunConstructionParams,
-    PortalGunConstructionPlan, PortalGunConstructionRegistry, PortalGunConstructionRequest,
-    PORTAL_GUN_CONSTRUCTION_DOMAIN, RECIPE_AUTHORED_PORTAL_GUN,
+pub use generator::{
+    portal_generators_active_toggle_system, portal_toggle_system, OwnedPortalPair, PortalGenerator,
 };
-pub use gun_lifecycle::despawn_orphaned_portals;
-pub use gun_pickup::{arm_portal_pickups, PortalGunPickup, PortalPickupArming};
+pub use generator_lifecycle::despawn_orphaned_portals;
 pub use gun_projectile::{
     is_portal_placeable, portal_fire_system, step_portal_shot, PortalShot, PortalShotStep,
     PortalShotWorld,
@@ -62,8 +56,8 @@ pub use link::{
     link_hash, resolve_portal_links, PortalHistoryAdvance, PortalLink, PortalLinkResolution, LINK_CHANNEL_FIRST, UNRESOLVED_LINK_CHANNEL,
 };
 pub use messages::{
-    ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
-    PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun, TogglePortalGunsActive,
+    ClearPortals, FirePortalGenerator, PortalBodyEntered, PortalFireIntent, PortalShotFired,
+    TogglePortalGenerator, TogglePortalGeneratorsActive,
 };
 pub use placement::{
     first_portal_crossing, first_portal_crossing_through, host_material_depth, measure_host_depth, portal_fits,
@@ -91,7 +85,7 @@ pub use view::{
     window_eye, PortalCopyTransform, PortalViewMap, PortalViewpointFrame, ViewCone,
 };
 
-pub use plugin::{PortalGunPlugin, PortalPlugin, PortalSimulationPlugin};
+pub use plugin::{PortalGeneratorPlugin, PortalPlugin, PortalSimulationPlugin};
 pub use rooms::{PortalHostDepthsByRoom, PortalRoom, PortalRooms, PortalsByRoom};
 pub use schedule::PortalSet;
 
@@ -104,5 +98,5 @@ mod body_contract_tests;
 mod snag;
 pub use snag::{fits_through, snag_push, snag_straddlers};
 pub use rollback_registration::{
-    register_portal_gun_rollback_state, register_portal_rollback_state, register_rollback_state,
+    register_portal_generator_rollback_state, register_portal_rollback_state, register_rollback_state,
 };

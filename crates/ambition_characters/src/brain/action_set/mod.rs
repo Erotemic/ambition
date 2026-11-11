@@ -486,6 +486,19 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
+        // The portal gun is an ordinary held item with no verb of its own: the
+        // portal adapter (`ambition_content::portal`) makes whatever holds it a
+        // portal generator, and that takes its `Attack`. `Shield + Attack`
+        // puts it down like any other kept item.
+        items.insert(
+            "portal_gun",
+            HeldItemSpec {
+                id: "portal_gun".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
+            },
+        );
         // The gravity grenade is a pure throwable like the bomb (plain Attack
         // throws it); `gravity_grenade::tick_gravity_grenade_fuses` opens an
         // up-gravity well on its fuse instead of exploding.

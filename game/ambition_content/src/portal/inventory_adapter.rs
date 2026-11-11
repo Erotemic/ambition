@@ -1,230 +1,69 @@
-//! Ambition inventory binding for the portal gun.
-//!
-//! Portal core owns the [`PortalGun`](ambition_portal2d::PortalGun) component and the
-//! [`PortalGunPickup`](ambition_portal2d::PortalGunPickup) body, but the *policy* of
-//! how the Ambition player acquires / relinquishes the gun is content-specific:
-//!
-//! - equipping puts the gun in the player's hand, and the repertoire derived for
-//!   that hand has no melee `Attack` (the same fold the held axe / gun-sword
-//!   take), so `Attack` fires portals instead of swinging;
-//! - acquiring reflects ownership + equipped state into the 24-item
-//!   [`OwnedItems`] roster so the OoT menu shows it.
-//!
-//! These translate the reusable [`PickUpPortalGun`] / [`DropPortalGun`] intents
-//! (emitted by the input adapter) and the [`PortalGunEquipped`] outcome into
-//! Ambition item state. The reusable portal core never imports `ambition_platformer2d_actor_monolith::items`
-//! or `HeldItem`.
+//! Ambition's portal gun is an ordinary held item (`portal_gun`): it lies in
+//! the world as a `GroundItem`, a body takes it up and puts it down like any
+//! other item, the menu equips and stows it like any other, and the held-item
+//! renderer draws it. This adapter is the one place that knows the gun opens
+//! portals: whatever holds it is a [`PortalGenerator`], and so is a gun lying
+//! in the world, so its pair's portals stay open while it is on the floor.
 
 use bevy::prelude::*;
 
-use ambition_items::{Item, OwnedItems};
-use ambition_platformer2d::platformer::lifecycle::{
-    SessionCommands, SessionSpawnScope, SpawnSessionScopedExt,
-};
 use ambition_combat::held_items::HeldItem;
-use ambition_combat::hand::RepertoireQuery;
-#[cfg(test)]
-use ambition_platformer2d_core::BodyBaseSize;
-use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_portal2d::{
-    DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
-};
+use ambition_held_items::GroundItem;
+use ambition_portal2d::{OwnedPortalPair, PortalGenerator};
 
-/// Facade: the equip/unequip pair lives in
-/// [`ambition_platformer2d_items::pickup`] (pure item-equip
-/// machinery, the twins of `equip_held_spec` / `unequip_held`). The content
-/// adapter keeps the world-side systems below: when a body may take or release
-/// the gun, and what it leaves on the floor. All callers use this one pair, so
-/// the roster cannot be left behind by one caller.
-pub use ambition_held_items::{equip_portal_gun, unequip_portal_gun};
+/// The held items that open portals.
+pub const PORTAL_GENERATOR_ITEMS: &[&str] = &["portal_gun"];
 
-/// On a [`DropPortalGun`] intent, drop the held portal gun: remove the
-/// `PortalGun` (so `Attack` stops firing portals), restore the stashed melee,
-/// and leave a `PortalGunPickup` at the player's feet. Only when not also
-/// holding a throwable item: that throw takes precedence. The gesture is
-/// recognized in the input adapter, but the held-item exclusion is an Ambition
-/// inventory rule, so it stays here.
-pub fn drop_portal_gun_system(
-    mut drops: MessageReader<DropPortalGun>,
-    mut commands: SessionCommands,
-    mut holders: Query<
-        (
-            &BodyKinematics,
-            RepertoireQuery,
-            &mut ambition_characters::control::ActorControl,
-            &PortalGun,
-        ),
-        (With<PortalGun>, Without<HeldItem>),
-    >,
-    mut sfx: ambition_sfx::SfxWriter,
-    tuning: Res<crate::tuning::AmbitionTuning>,
-) {
-    // The body whose press it was, for every drop in the tick. Each intent names
-    // its body, so a second seat's drop cannot drop the first seat's gun. Taking
-    // only the head of the queue would serialize seats across updates, so the
-    // second would land in a world the first had already changed.
-    //
-    // The session that owns the dropped pickup. With no session the intents
-    // are read and dropped, so an old intent cannot drop a gun in the next
-    // session.
-    let scope = commands.spawn_scope();
-    for drop in drops.read().copied().collect::<Vec<_>>() {
-        let Some(scope) = scope else {
-            continue;
-        };
-        drop_one_portal_gun(drop.body, scope, &tuning.0.portal_gun_drop, &mut commands, &mut holders, &mut sfx);
-    }
+/// Whether the held item `id` opens portals.
+pub fn opens_portals(id: &str) -> bool {
+    PORTAL_GENERATOR_ITEMS.contains(&id)
 }
 
-/// One body's drop, split out so the loop above reads as "every intent, in
-/// order".
-fn drop_one_portal_gun(
-    player: bevy::prelude::Entity,
-    scope: SessionSpawnScope,
-    rules: &ambition_content_schemas::rules::PortalGunDrop,
-    commands: &mut Commands,
-    holders: &mut Query<
-        (
-            &BodyKinematics,
-            RepertoireQuery,
-            &mut ambition_characters::control::ActorControl,
-            &PortalGun,
-        ),
-        (With<PortalGun>, Without<HeldItem>),
-    >,
-    sfx: &mut ambition_sfx::SfxWriter,
-) {
-    let Ok((kin, mut repertoire, mut actor_control, gun)) = holders.get_mut(player) else {
-        return;
-    };
-    // Committed: this body IS dropping its gun, so the press is answered.
-    actor_control.0.melee_pressed = false;
-    // Custody, one operation: detach the gun and restore the swing it replaced.
-    // The inventory menu performs the same release; the hand is the record.
-    unequip_portal_gun(commands, player, &mut repertoire);
-    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    commands.spawn_room_in_session(
-        scope,
-        (
-            PortalGunPickup {
-                pos: kin.pos + Vec2::new(facing * rules.ahead_px, 0.0),
-                half_extent: Vec2::splat(rules.half_extent_px),
-                arm_timer: rules.arm_seconds,
-                // The gun that was just in this hand, not a fresh default one.
-                pair: gun.pair(),
-            },
-            Name::new("Portal gun pickup"),
-        ),
-    );
-    sfx.write(ambition_sfx::SfxMessage::Play {
-        id: ambition_sfx::ids::PORTAL_FIZZLE,
-        emitter: (kin.pos).into(),
-    });
-}
-
-/// On a [`PickUpPortalGun`] intent, grant the player an (active) `PortalGun` if
-/// they overlap an armed `PortalGunPickup`, consume the pickup, stash the melee
-/// (so `Attack` fires portals), and reflect the grant into [`OwnedItems`]. The
-/// gun is a single item: it doesn't exist until you pick it up — picking up
-/// the one world item *is* getting the portal gun. Emits [`PortalGunEquipped`].
-pub fn pickup_portal_gun_system(
-    mut picks: MessageReader<PickUpPortalGun>,
+/// A body holding a portal-opening item is a [`PortalGenerator`], and one that
+/// does not hold one is not; a portal-opening item lying in the world is one
+/// too. (sim)
+///
+/// Every tick, not on change: a hand emptied by a removal satisfies no
+/// `Changed` filter. A body takes up the pair it last held
+/// ([`OwnedPortalPair`]), 0 if it never held one, and keeps that pair after
+/// the item leaves its hand.
+#[allow(clippy::type_complexity)]
+pub fn reconcile_portal_generators(
     mut commands: Commands,
-    // The controlled body attempts the pickup. The `Has` flags gate on its
-    // state: it cannot grab a gun it holds, or while holding a ground item.
-    mut bodies: Query<(
-        &BodyKinematics,
-        RepertoireQuery,
-        Has<PortalGun>,
-        Has<HeldItem>,
-    )>,
-    pickups: Query<(Entity, &PortalGunPickup)>,
-    mut owned: Option<ResMut<OwnedItems>>,
-    items: ambition_items::ItemCatalogRead,
-    mut equipped: MessageWriter<PortalGunEquipped>,
+    bodies: Query<
+        (
+            Entity,
+            Option<&HeldItem>,
+            Has<PortalGenerator>,
+            Option<&OwnedPortalPair>,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
+        ),
+        (Or<(With<HeldItem>, With<PortalGenerator>)>, Without<GroundItem>),
+    >,
+    items: Query<(Entity, &GroundItem), Without<PortalGenerator>>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    // The body whose press it was (see `drop_portal_gun_system`), for every
-    // intent in the tick.
-    //
-    // Contention has a definite winner, by message order: the first intent that
-    // overlaps an armed pickup despawns it, so the second finds nothing. There is
-    // one portal gun before and after two people grab for it. The order is the
-    // producers': `portal_input_adapter_system` walks its bodies in a stable
-    // order.
-    // A claim is not yet a despawn: `commands.entity(..).despawn()` is deferred
-    // to the next flush, so a second intent in the same run still sees the
-    // pickup. The claimed set makes the winner definite within the run too.
-    let mut claimed: std::collections::HashSet<bevy::prelude::Entity> =
-        std::collections::HashSet::new();
-    for pick in picks.read().copied().collect::<Vec<_>>() {
-        pick_up_one_portal_gun(
-            pick.body,
-            &mut commands,
-            &mut bodies,
-            &pickups,
-            &mut claimed,
-            owned.as_deref_mut(),
-            items.get(),
-            &mut equipped,
-            &mut sfx,
-        );
-    }
-}
-
-/// One body's attempt. Split out for the same reason the drop is.
-#[allow(clippy::too_many_arguments)]
-fn pick_up_one_portal_gun(
-    player: bevy::prelude::Entity,
-    commands: &mut Commands,
-    bodies: &mut Query<(
-        &BodyKinematics,
-        RepertoireQuery,
-        Has<PortalGun>,
-        Has<HeldItem>,
-    )>,
-    pickups: &Query<(bevy::prelude::Entity, &PortalGunPickup)>,
-    claimed: &mut std::collections::HashSet<bevy::prelude::Entity>,
-    mut owned: Option<&mut OwnedItems>,
-    items: &ambition_items::ItemCatalog,
-    equipped: &mut MessageWriter<PortalGunEquipped>,
-    sfx: &mut ambition_sfx::SfxWriter,
-) {
-    let Ok((kin, mut repertoire, has_gun, has_held)) = bodies.get_mut(player) else {
-        return;
-    };
-    // Already holding the gun, or holding a ground item → no pickup.
-    if has_gun || has_held {
-        return;
-    }
-    let player_aabb = kin.aabb();
-    for (entity, pickup) in pickups {
-        if pickup.arm_timer > 0.0 || claimed.contains(&entity) {
-            continue;
-        }
-        if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
-            // Acquisition: the gun does not exist until someone picks it up, so
-            // grabbing the one world item is how you own it. Separate from custody
-            // below: owning and holding are different facts, and re-equipping from the
-            // menu must not mint a second gun.
-            if let Some(owned) = owned.as_deref_mut() {
-                owned.grant(items, Item::PortalGun, 1);
+    for (body, held, generating, owned, kin) in &bodies {
+        let wants = held.is_some_and(|held| opens_portals(held.id()));
+        if wants && !generating {
+            let pair = owned.map_or(0, |owned| owned.0);
+            commands
+                .entity(body)
+                .insert((PortalGenerator::for_pair(pair), OwnedPortalPair(pair)));
+            // A rising charge-up as the device wakes in the hand.
+            if let Some(kin) = kin {
+                sfx.write(ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::PORTAL_POWERUP,
+                    emitter: kin.pos.into(),
+                });
             }
-            // Custody: the one take-custody operation, shared with the inventory menu.
-            // The pickup's pair travels with it: the gun you hold has the pair that was
-            // on the floor, not the default.
-            equip_portal_gun(commands, player, &mut repertoire, pickup.pair);
-            claimed.insert(entity);
-            commands.entity(entity).despawn();
-            equipped.write(PortalGunEquipped { player });
-            // Rising sci-fi charge-up as the device wakes.
-            sfx.write(ambition_sfx::SfxMessage::Play {
-                id: ambition_sfx::ids::PORTAL_POWERUP,
-                emitter: (kin.pos).into(),
-            });
-            bevy::log::info!(target: "ambition_platformer2d::portal", "picked up the portal gun");
-            break;
+        } else if !wants && generating {
+            commands.entity(body).remove::<PortalGenerator>();
+        }
+    }
+    for (item, ground) in &items {
+        if opens_portals(ground.spec.id.as_str()) {
+            commands.entity(item).insert(PortalGenerator::default());
         }
     }
 }

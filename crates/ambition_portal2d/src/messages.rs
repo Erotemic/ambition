@@ -1,23 +1,23 @@
 //! Portal intent and outcome messages.
 //!
-//! Portal core consumes host-neutral intents. Gun-specific gesture messages remain a compatibility
-//! surface until equivalent generic ownership/emitter intents exist.
+//! Portal core consumes host-neutral intents. A generator's gestures (fire,
+//! toggle) name the body that is the [`PortalGenerator`](crate::PortalGenerator).
 
 use bevy::prelude::*;
 
 use super::color::PortalChannel;
 
-/// Compatibility intent for firing a held portal gun; the host lowers it to
+/// Intent to fire a portal generator; the host lowers it to
 /// [`PortalFireIntent`].
 #[derive(Message, Clone, Copy, Debug)]
-pub struct FirePortalGun {
+pub struct FirePortalGenerator {
     /// World-space aim direction for the shot (need not be normalized; the
     /// resolver normalizes and ignores a zero vector).
     pub aim: Vec2,
-    /// The body whose press this is. Every gun gesture names its body, so
-    /// each seat can fire its own gun.
+    /// The generator whose press this is. Every generator gesture names it, so
+    /// each seat can fire its own.
     ///
-    /// An `Entity` in a message is safe here: these four messages are
+    /// An `Entity` in a message is safe here: these messages are
     /// `clear_message_on_rollback`, so they never cross a rollback boundary.
     pub body: Entity,
 }
@@ -55,32 +55,18 @@ pub struct PortalFireIntent {
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
-/// Compatibility intent: toggle which color the held portal gun will place
-/// next. The host has already decided this gesture belongs to the gun.
+/// Intent: toggle which end of its pair a generator opens next. The host has
+/// already decided this gesture belongs to the generator.
 #[derive(Message, Clone, Copy, Debug)]
-pub struct TogglePortalGun {
-    /// The body whose press this is — see [`FirePortalGun::body`].
+pub struct TogglePortalGenerator {
+    /// The generator whose press this is — see [`FirePortalGenerator::body`].
     pub body: Entity,
 }
 
-/// Developer intent: turn every portal gun on or off. A host asks for it and
-/// the simulation flips it, so every replay of the tick flips it again.
+/// Developer intent: turn every portal generator on or off. A host asks for
+/// it and the simulation flips it, so every replay of the tick flips it again.
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct TogglePortalGunsActive;
-
-/// Compatibility intent to drop the held portal gun as a world pickup.
-#[derive(Message, Clone, Copy, Debug)]
-pub struct DropPortalGun {
-    /// The body whose press this is — see [`FirePortalGun::body`].
-    pub body: Entity,
-}
-
-/// Compatibility intent to acquire an overlapping portal-gun pickup.
-#[derive(Message, Clone, Copy, Debug)]
-pub struct PickUpPortalGun {
-    /// The body whose press this is — see [`FirePortalGun::body`].
-    pub body: Entity,
-}
+pub struct TogglePortalGeneratorsActive;
 
 /// Portal-owned reset intent: clear placed portals and body transit cooldowns.
 #[derive(Message, Clone, Copy, Debug)]
@@ -99,14 +85,4 @@ pub struct PortalShotFired {
 pub struct PortalBodyEntered {
     /// World position of the entry portal (where the ENTER cue plays).
     pub pos: Vec2,
-}
-
-/// Compatibility outcome emitted when an entity acquires a portal-gun pickup.
-#[derive(Message, Clone, Copy, Debug)]
-pub struct PortalGunEquipped {
-    /// Entity that now holds the gun.
-    ///
-    /// FIXME(portal-gun-seam): rename this field to `carrier` when the host
-    /// adapter migration can tolerate the API break.
-    pub player: Entity,
 }

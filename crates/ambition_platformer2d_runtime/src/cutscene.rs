@@ -72,8 +72,11 @@ pub fn drain_cutscene_triggers(
     if active.is_playing() {
         return;
     }
-    let pending = std::mem::take(&mut queue.0);
-    for trigger in pending {
+    // One trigger starts; the rest wait their turn. Two rooms entered on one
+    // tick queue two entry cutscenes, and each room is announced once
+    // (`LastCutsceneRoom`), so a trigger dropped here never comes back.
+    let mut pending = std::mem::take(&mut queue.0).into_iter();
+    while let Some(trigger) = pending.next() {
         let Some(script) = library.get(&trigger.id) else {
             continue;
         };
@@ -90,6 +93,7 @@ pub fn drain_cutscene_triggers(
         active.room = trigger.room;
         break;
     }
+    queue.0.extend(pending);
 }
 
 /// END a cutscene: mark it seen and tear it down. THE ONE ENDING.
@@ -461,6 +465,35 @@ mod tests {
         );
     }
 
+    /// Two rooms entered on one tick queue two entry cutscenes: the first
+    /// plays, and the second waits for it and then plays (review 2026-11-11,
+    /// P1: the drain took the whole queue and dropped all but the first).
+    #[test]
+    fn a_second_rooms_cutscene_waits_its_turn() {
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        let mut library = CutsceneLibrary::default();
+        for id in ["alices_room", "bobs_room"] {
+            library.insert(ambition_cutscene::CutsceneScript { id: id.into(), beats: Vec::new(), seen_flag: None });
+        }
+        app.insert_resource(library);
+        app.init_resource::<ActiveCutscene>();
+        let mut queue = CutsceneTriggerQueue::default();
+        queue.request_in("alices_room", 1);
+        queue.request_in("bobs_room", 2);
+        app.insert_resource(queue);
+        app.add_systems(bevy::prelude::Update, drain_cutscene_triggers);
+        let playing = |app: &bevy::prelude::App| {
+            let active = app.world().resource::<ActiveCutscene>();
+            active.runtime.as_ref().map(|runtime| (runtime.script.id.clone(), active.room))
+        };
+        app.update();
+        assert_eq!(playing(&app), Some(("alices_room".to_string(), Some(1))));
+        let _ = end_cutscene(&mut app.world_mut().resource_mut::<ActiveCutscene>());
+        app.update();
+        assert_eq!(playing(&app), Some(("bobs_room".to_string(), Some(2))), "the second room's cutscene was dropped");
+    }
+
     /// ⚠ AND A SCRIPT THAT ASKS FOR NO FLAG ENDS WITHOUT WRITING ONE. Ending
     /// unrecorded is a different thing from ending unmarked, and a helper that
     /// invented an id would put a row in the save for every unnamed cutscene.
@@ -567,6 +600,8 @@ mod tests {
         let queued = |app: &App| app.world().resource::<CutsceneTriggerQueue>().0.len();
         app.update();
         assert_eq!(queued(&app), 1, "the first frame queues the entry cutscene");
+        // Played: the drain takes it (a trigger still waiting is not queued twice).
+        app.world_mut().resource_mut::<CutsceneTriggerQueue>().0.clear();
         let a = session_world_entity(app.world()).expect("session A is live");
 
         let b = app
@@ -575,7 +610,7 @@ mod tests {
             .id();
         assert!(app.world().get::<LastCutsceneRoom>(b).is_none());
         app.update();
-        assert_eq!(queued(&app), 1, "a candidate queued a cutscene");
+        assert_eq!(queued(&app), 0, "a candidate queued a cutscene");
         assert_eq!(
             app.world().get::<LastCutsceneRoom>(a).unwrap().0,
             vec!["hall".to_owned()],
@@ -595,7 +630,7 @@ mod tests {
         app.update();
         assert_eq!(
             queued(&app),
-            2,
+            1,
             "a new game that starts in the room the last session ended in skipped its \
              entry cutscene"
         );

@@ -815,8 +815,14 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    every room). The app harness cannot show it: a driven seat's frame skips
    the device road the claim gates, and the harness resolves no seat
    contexts. Still one cutscene at a time: a second
-   room's entry cutscene queued while one plays is dropped by the drain, as
-   before. **Its flags (2026-11-11, ISL-2d):** a cutscene's `SetFlag` beats
+   room's entry cutscene waits in the queue until the first ends, then
+   plays. **The drain dropped it (review 2026-11-11, P1):** it took the
+   whole queue and started the first, so two rooms entered on one tick lost
+   the second room's cutscene for good (each room is announced once). It
+   now takes only the trigger it starts, and a trigger already waiting is
+   not queued twice (the queue is not rollback state, so a replay asks
+   again). Witness: `a_second_rooms_cutscene_waits_its_turn` (poisoned: the
+   second is dropped). **Its flags (2026-11-11, ISL-2d):** a cutscene's `SetFlag` beats
    and its seen flag were written straight to the save; they now go through
    `SetFlagRequested`, dated in the room it plays for, so a rewind of that
    room takes them back with the quest steps they moved (a world cutscene's

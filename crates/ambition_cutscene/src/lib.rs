@@ -575,12 +575,22 @@ pub struct CutsceneTrigger {
 impl CutsceneTriggerQueue {
     /// Queue a cutscene of the whole world.
     pub fn request(&mut self, id: impl Into<String>) {
-        self.0.push(CutsceneTrigger { id: id.into(), room: None });
+        self.push(CutsceneTrigger { id: id.into(), room: None });
     }
 
     /// Queue a cutscene that plays for the live room with ordinal `room`.
     pub fn request_in(&mut self, id: impl Into<String>, room: u32) {
-        self.0.push(CutsceneTrigger { id: id.into(), room: Some(room) });
+        self.push(CutsceneTrigger { id: id.into(), room: Some(room) });
+    }
+
+    /// A trigger already waiting is not queued twice. The queue is not
+    /// rollback state and keeps what waits behind a playing cutscene, so a
+    /// replay that asks again for a trigger still waiting would otherwise
+    /// play it twice.
+    fn push(&mut self, trigger: CutsceneTrigger) {
+        if !self.0.contains(&trigger) {
+            self.0.push(trigger);
+        }
     }
 }
 

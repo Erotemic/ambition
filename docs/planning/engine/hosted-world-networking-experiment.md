@@ -224,6 +224,25 @@ body it holds and the snapshot no longer names, whoever built it.
   The body row needs the defeat (health, or a defeated flag and pose) before
   a guest can show a death; a despawn row is for what leaves the world.
 
+**The defeat in the body row (2026-11-11),** the same probe: each snapshot
+also carries every body's current health by `SimId` (an `i16`, two bytes),
+and the guest writes it onto the body it holds (giving one it built from a
+spawn row a health of its own). The shots fly at a crawler's height now: a
+body's collision is fitted to its art, and the puppy slug is 14 units tall,
+under the old line of fire, so the earlier run's kill no longer happened.
+
+| Host's enemy dead | Guest's enemy defeated | Frames a held body's life differs after applying | The field a frame |
+|---|---|---|---|
+| frame 14 | frame 17 (the snapshot's 3 frames) | 0 | 5.97 bytes (three bodies) |
+
+- **Health in the row is enough for the guest to hold the defeat:** its
+  enemy is dead exactly one snapshot after the host's, and no body's life
+  ever disagreed with the snapshot it had applied.
+- **Holding it is not showing it.** What draws a death (the death beat, its
+  pose, the corpse rule) is set by simulation systems the guest has gated
+  off, so a guest that should draw the death needs the beat's state in the
+  row too (its phase and time), or a presentation that reads health.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -232,9 +251,11 @@ body it holds and the snapshot no longer names, whoever built it.
    (2026-11-11): the guest's ids equal the host's after every snapshot, at
    about 1.3 bytes a frame of spawn and despawn rows. A death is a row
    change: the killed enemy's body stays in the host's world, so the body
-   row must carry the defeat. Next: the defeat in the body row; a guest
-   composed without the simulation plugins; other kinds' spawn rows; send
-   only the guest's room.
+   row must carry the defeat. The defeat in the row (2026-11-11): health by
+   `SimId`, 2 bytes a body; the guest's enemy is defeated one snapshot after
+   the host's, with no disagreement. Next: the death beat's state in the row
+   (what draws the death); a guest composed without the simulation plugins;
+   other kinds' spawn rows; send only the guest's room.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

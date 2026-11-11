@@ -257,7 +257,9 @@ fn alice_fires_often(sim: &mut Platformer2dSimHarness, frame: i32) {
     world.write_message(ProjectileSpawnRequest::open(
         alice,
         ProjectileSpawn {
-            origin: at + bevy::math::Vec2::new(24.0, 0.0),
+            // Low, at a crawler's height: a body's collision is fitted to its
+            // art, and a puppy slug is about 14 units tall.
+            origin: at + bevy::math::Vec2::new(24.0, 16.0),
             dir: bevy::math::Vec2::new(1.0, 0.0),
             speed: 240.0,
             damage: 1,
@@ -435,12 +437,55 @@ fn apply_all(guest: &mut Platformer2dSimHarness, rows: &BTreeMap<SimId, [f32; 5]
     applied
 }
 
+/// The defeat in the body row: each body's current health on the host, by
+/// `SimId` (two bytes on the link: an `i16`).
+const HEALTH_FIELD: u64 = 2;
+
+type Health = ambition_platformer2d::characters::actor::BodyHealth;
+
+fn healths(sim: &mut Platformer2dSimHarness) -> BTreeMap<SimId, i32> {
+    let world = sim.world_mut();
+    world.query::<(&SimId, &Health)>().iter(world).map(|(id, health)| (id.clone(), health.health.current)).collect()
+}
+
+/// Write the host's healths onto the bodies the guest holds (a body it built
+/// from a spawn row is given one), and return how many bodies the guest then
+/// holds whose life (alive or defeated) differs from the snapshot's.
+fn apply_healths(guest: &mut Platformer2dSimHarness, sent: &BTreeMap<SimId, i32>) -> usize {
+    let world = guest.world_mut();
+    let held: Vec<(bevy::prelude::Entity, SimId)> =
+        world.query::<(bevy::prelude::Entity, &SimId)>().iter(world).map(|(entity, id)| (entity, id.clone())).collect();
+    for (entity, id) in &held {
+        let Some(&current) = sent.get(id) else {
+            continue;
+        };
+        match world.get_mut::<Health>(*entity) {
+            Some(mut health) => health.health.current = current,
+            None => {
+                let mut pool = ambition_platformer2d::characters::actor::Health::new(current.max(1));
+                pool.current = current;
+                world.entity_mut(*entity).insert(Health::new(pool));
+            }
+        }
+    }
+    world
+        .query::<(&SimId, &Health)>()
+        .iter(world)
+        .filter(|(id, health)| sent.get(*id).is_some_and(|current| (*current > 0) != health.alive()))
+        .count()
+}
+
 /// NA-2b with a death: an enemy is spawned beside Alice on the host at frame
 /// 5 with one point of health, and her shots kill it. The guest applies each
 /// late snapshot by the general rule (build what it does not hold, remove what
 /// is no longer named). Prints when the enemy's id entered and left the
 /// host's snapshot, what the guest built and removed, and the frames its ids
 /// differ from the snapshot's after applying it.
+///
+/// The snapshot carries the defeat (each body's health, [`HEALTH_FIELD`]):
+/// it prints the frames the guest's enemy stood defeated, the frames any held
+/// body's life differed from the snapshot's after applying it, and the link
+/// bytes the field costs.
 #[test]
 #[ignore = "measurement: prints what a death on the host does to a guest; run with --ignored --nocapture --test-threads=1"]
 fn probe_what_a_death_on_the_host_does_to_a_guest() {
@@ -448,8 +493,9 @@ fn probe_what_a_death_on_the_host_does_to_a_guest() {
     let mut host = booted(ROOM);
     let mut guest = booted(ROOM);
     simulate_nothing(&mut guest);
-    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>)> = VecDeque::new();
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>, BTreeMap<SimId, i32>)> = VecDeque::new();
     let (mut built, mut removed_built, mut removed_booted, mut unmatched_frames) = (Vec::new(), Vec::new(), Vec::new(), 0);
+    let (mut life_differs, mut guest_defeated, mut health_bytes) = (0, None::<i32>, 0u64);
     let (mut enemy_id, mut entered, mut left, mut died) = (None::<SimId>, None, None, None);
     for frame in 1..=FRAMES {
         if frame == 5 {
@@ -503,10 +549,22 @@ fn probe_what_a_death_on_the_host_does_to_a_guest() {
                 left.get_or_insert(frame);
             }
         }
-        in_flight.push_back((frame, rows));
-        if in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATENCY) {
-            let (_, rows) = in_flight.pop_front().expect("a snapshot arrived");
+        let lives = healths(&mut host);
+        health_bytes += lives.len() as u64 * HEALTH_FIELD;
+        in_flight.push_back((frame, rows, lives));
+        if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+            let (_, rows, lives) = in_flight.pop_front().expect("a snapshot arrived");
             let done = apply_all(&mut guest, &rows);
+            if apply_healths(&mut guest, &lives) > 0 {
+                life_differs += 1;
+            }
+            if let Some(id) = &enemy_id {
+                let world = guest.world_mut();
+                let dead = world.query::<(&SimId, &Health)>().iter(world).any(|(held, health)| held == id && !health.alive());
+                if dead {
+                    guest_defeated.get_or_insert(frame);
+                }
+            }
             built.extend(done.built);
             removed_built.extend(done.removed_built);
             removed_booted.extend(done.removed_booted);
@@ -532,6 +590,10 @@ fn probe_what_a_death_on_the_host_does_to_a_guest() {
         removed_booted.len(),
     );
     println!("[death]   frames whose ids differ after applying {unmatched_frames}");
+    println!(
+        "[death]   with the defeat in the row: the guest's enemy defeated from frame {guest_defeated:?}; frames a held body's life differs after applying {life_differs}; the field costs {:.2} link bytes a frame",
+        health_bytes as f64 / FRAMES as f64
+    );
     let world = host.world_mut();
     let last = world
         .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&ambition_platformer2d::characters::actor::BodyHealth>, Option<&BodyKinematics>)>()

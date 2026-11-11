@@ -40,6 +40,11 @@ pub struct AuthoredPropSheet {
     /// not have it.
     #[serde(default)]
     pub packed: bool,
+    /// Draw the prop behind the room's blocks: a wall of the room, which its
+    /// floors and ledges stand in front of. By default a prop is scenery
+    /// in front of the blocks and behind the cast.
+    #[serde(default)]
+    pub backdrop: bool,
 }
 
 fn one() -> f32 {
@@ -70,6 +75,8 @@ pub struct PropSheetSource {
     pub target: String,
     pub tuning: crate::character::SheetTuning,
     pub packed: bool,
+    /// Drawn behind the room's blocks ([`AuthoredPropSheet::backdrop`]).
+    pub backdrop: bool,
 }
 
 /// Prop sheet declarations shared by asset loading and presentation.
@@ -92,6 +99,11 @@ impl PropSheets {
     /// True when content declares a sheet for this kind.
     pub fn contains(&self, kind: &str) -> bool {
         self.0.iter().any(|(known, _)| known == kind)
+    }
+
+    /// True when the sheet of this kind is drawn behind the room's blocks.
+    pub fn is_backdrop(&self, kind: &str) -> bool {
+        self.0.iter().any(|(known, source)| known == kind && source.backdrop)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &PropSheetSource)> {
@@ -123,7 +135,7 @@ impl PropSheets {
 
 /// A pack row's source.
 fn sprite_folder_row(kind: &str, row: &AuthoredPropSheet) -> PropSheetSource {
-    PropSheetSource { target: row.target(kind).to_string(), tuning: row.tuning(), packed: row.packed }
+    PropSheetSource { target: row.target(kind).to_string(), tuning: row.tuning(), packed: row.packed, backdrop: row.backdrop }
 }
 
 /// Register prop sheets from a content plugin's `build`.
@@ -285,7 +297,7 @@ mod tests {
 
     #[test]
     fn a_row_the_loader_cannot_draw_is_named_by_its_kind_and_field() {
-        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0, sheet: None, packed: false };
+        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false };
         let good = PropSheetRows::from([("coconut_palm".to_string(), row(1.4))]);
         assert!(problems(&good).is_empty(), "{:?}", problems(&good));
         let bad = PropSheetRows::from([
@@ -335,6 +347,7 @@ fn a_prop_kind_has_one_sheet() {
         target: "a".to_string(),
         tuning: crate::character::SheetTuning::new(1.0, 0),
         packed: false,
+        backdrop: false,
     };
     let mut sheets = PropSheets::default();
     sheets.register("a", source());

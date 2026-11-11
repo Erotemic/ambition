@@ -435,6 +435,12 @@ const SCENERY_Z_BACK: f32 = WORLD_Z_DUMMY + 0.55;
 pub(super) const SCENERY_Z_FRONT: f32 = WORLD_Z_DUMMY + 0.95;
 /// The z step between pieces of scenery listed one after the other.
 const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
+/// Where a backdrop prop (a wall of the room, `AuthoredPropSheet::backdrop`)
+/// draws: behind the room's blocks and its back motes (`WORLD_Z_BLOCK - 1`
+/// and further), and the water backdrop (`WATER_BACKDROP_Z`), in front of
+/// the parallax (-18 through -15). In the room's order, as scenery.
+const BACKDROP_Z_BACK: f32 = -12.0;
+const BACKDROP_Z_FRONT: f32 = -10.0;
 /// Where a climbable draws: in front of all the scenery, behind the actors
 /// (`feature_z(Actor)`, `WORLD_Z_DUMMY + 1.0`).
 pub(super) const CLIMBABLE_Z: f32 = SCENERY_Z_FRONT + 0.02;
@@ -465,6 +471,8 @@ pub fn spawn_room_prop(
     // behind the cast, in the room's order.
     let z = if prop.draw.occludes_bodies() {
         WORLD_Z_PLAYER + super::BODY_DEPTH_BAND
+    } else if prop_sheets.is_some_and(|sheets| sheets.is_backdrop(&prop.kind)) {
+        (BACKDROP_Z_BACK + SCENERY_Z_STEP * index as f32).min(BACKDROP_Z_FRONT)
     } else {
         (SCENERY_Z_BACK + SCENERY_Z_STEP * index as f32).min(SCENERY_Z_FRONT)
     };

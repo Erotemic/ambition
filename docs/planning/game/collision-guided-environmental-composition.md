@@ -283,6 +283,31 @@ silhouettes on straight architectural materials.
    Address measured performance issues if they arise. Leave unrelated
    scenery and generic renderer code intact.
 
+### Progress (2026-11-11)
+
+- **Roles.** The ornament parts are structural roles laid at their
+  picture's size (see *Artwork and composition*).
+- **Pilot B, the spectral wing, is done with existing mechanisms plus one
+  extension.** The haunted wing has its own dressing theme, `math_haunted`
+  (`terrain/skins.py`; its roles are `terrain/hotel_roles.py`). Its floating
+  ledges are ordinary one-way ledges, faced with the hotel's checker
+  (`hotel_ledge`), held up on carved corbels, with ghost lanterns or
+  medallions in their bays, volutes at some ends and cobwebs, drips or a
+  broken chain below them. The floors keep `hylbert_floor_strip`; the fill
+  under them is plum marble, not the town's terracotta.
+- **The visible defect the pilot found:** every room prop draws over the
+  terrain (scenery is at `WORLD_Z_DUMMY + 0.55..0.95`, blocks at 0). A room
+  whose walls are prop art (the wing's wallpaper panels) hid every skinned
+  ledge in front of it, which is why the districts paint their walk lines
+  into prop art. A prop-sheet row can now say `backdrop: true`
+  (`prop_sheets.ron`): that kind draws behind the blocks, in front of the
+  parallax (`BACKDROP_Z_*` in `rendering/world.rs`).
+- **Next.** The pirate stair and the cedar branches are drawn by their
+  district props (`port_harbour_house`, the cedars), not by the skin. Each
+  needs the same split: the prop keeps the building or the trunk, and the
+  walkable structure becomes the skin's (a `stair` grouping for A; a forest
+  theme's underhang, ledge ends and trailing for C).
+
 The ordering is a guide to producing useful work, not a gating bureaucracy.
 An agent may combine steps and continue autonomously through reasonable
 reversible decisions. Do not pause an overnight task over a minor art choice.

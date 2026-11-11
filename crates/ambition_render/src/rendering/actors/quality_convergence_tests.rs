@@ -595,6 +595,7 @@ fn a_declared_prop_waits_for_its_sheet_then_binds_on_the_same_entity() {
         target: "robot".into(),
         tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 1),
         packed: false,
+        backdrop: false,
     });
     let room = ae::World::new("prop_probe", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, vec![]);
     let spawn = |app: &mut App, kind: &str, assets: Option<&GameAssets>, declared: Option<&PropSheets>| {

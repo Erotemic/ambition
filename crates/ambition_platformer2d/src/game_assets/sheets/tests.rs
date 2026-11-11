@@ -215,6 +215,7 @@ fn registered_prop_sheets_load_with_the_first_game_assets() {
             target: KIND.to_string(),
             tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 2),
             packed: false,
+            backdrop: false,
         },
     );
 
@@ -273,9 +274,9 @@ fn a_prop_row_draws_its_records_page_or_the_pack() {
     app.init_asset::<Image>();
     app.init_asset::<TextureAtlasLayout>();
     let tuning = ambition_sprite_sheet::character::SheetTuning::new(1.0, 2);
-    app.register_prop_sheet("lab_genesis_vat", PropSheetSource { target: "genesis_vat".to_string(), tuning, packed: false });
-    app.register_prop_sheet("intro_cart", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: true });
-    app.register_prop_sheet("intro_cart_unpacked", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: false });
+    app.register_prop_sheet("lab_genesis_vat", PropSheetSource { target: "genesis_vat".to_string(), tuning, packed: false, backdrop: false });
+    app.register_prop_sheet("intro_cart", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: true, backdrop: false });
+    app.register_prop_sheet("intro_cart_unpacked", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: false, backdrop: false });
 
     let config = GameAssetConfig::default();
     let characters = ambition_characters::actor::character_catalog::CharacterCatalog::empty();

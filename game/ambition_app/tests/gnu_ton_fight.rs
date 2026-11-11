@@ -2854,3 +2854,67 @@ fn both_gnu_ton_fists_damage_separate_bodies_through_their_paths_in_one_tick() {
     };
     assert_eq!(run(), run());
 }
+
+/// Jon, 2026-11-11: "gnuton-scholar uses death animation when going through
+/// doors instead of having a door transition animation." Beaten down in his
+/// prelude room, GNU-ton runs to the door of his hall and goes through it
+/// as a body goes through a door (its passage plays: the door opens, he
+/// walks into its dark), and only when he is through does he leave the
+/// room, with no death row.
+///
+/// On demand (Jon, 2026-11-11: unlikely to regress, not worth every run).
+#[test]
+#[ignore = "on demand: run with --ignored when GNU-ton's prelude changes"]
+fn beaten_in_his_prelude_gnu_ton_leaves_by_the_door_and_does_not_die() {
+    use ambition_platformer2d::combat::components::{ActorIdentity, DeathBeat};
+    use ambition_platformer2d::session::rooms::passage::{PassageKind, ZonePassage};
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room("gnu_ton_approach");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the approach builds headlessly");
+    untouchable_player(&mut sim);
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let duelist = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &ActorIdentity)>();
+        q.iter(world).find(|(_, id)| id.name == ambition_content::bosses::gnu_ton::prelude::NAME).map(|(e, _)| e)
+    };
+    let him = duelist(&mut sim).expect("the prelude room has its GNU-ton");
+    {
+        let mut health = sim.world_mut().get_mut::<BodyHealth>(him).expect("he has health");
+        let beaten = health.max() - (health.max() as f32 * 0.25).ceil() as i32;
+        health.damage(beaten);
+    }
+    let mut passage_from = None;
+    let mut dead_at = None;
+    let mut death_row = 0.0f32;
+    for tick in 0..60 * 12 {
+        sim.step(AgentAction::default());
+        let world = sim.world();
+        let Ok(entity) = world.get_entity(him) else {
+            break;
+        };
+        if passage_from.is_none() && entity.contains::<ZonePassage>() {
+            passage_from = Some(tick);
+        }
+        if dead_at.is_none() && entity.get::<BodyHealth>().is_some_and(|h| !h.alive()) {
+            dead_at = Some(tick);
+        }
+        if let Some(beat) = entity.get::<DeathBeat>().filter(|beat| beat.since_s.is_some()) {
+            death_row = death_row.max(beat.row_s);
+        }
+        if dead_at.is_some_and(|dead| tick > dead + 30) {
+            break;
+        }
+    }
+    let passage_from = passage_from.expect("he did not go through the door: no passage played");
+    let dead_at = dead_at.expect("he never left the room");
+    let walk_in = (ZonePassage::entering_s(PassageKind::Door) * 60.0) as i32 - 1;
+    assert!(
+        dead_at as i32 - passage_from as i32 >= walk_in,
+        "he left at tick {dead_at}, before the door's passage ({passage_from} + {walk_in}) had played"
+    );
+    assert_eq!(death_row, 0.0, "going through the door played a death row");
+}

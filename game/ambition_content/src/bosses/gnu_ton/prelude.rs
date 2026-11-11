@@ -5,8 +5,10 @@
 //!
 //! Beaten down to [`FLEE_AT`] of his health, he stops fighting. Blows do
 //! not hurt him any more; he says so, and he runs to the door of the room
-//! that goes to his hall ([`DOORS`]). At the door he dives through it, and
-//! he is gone from this room. The player chases him: in the hall he comes
+//! that goes to his hall ([`DOORS`]). At the door he goes through it as a
+//! body goes through a door (the door passage: it opens, he turns his back
+//! and walks into the dark of it), and when he is through he is gone from
+//! this room, with no death. The player chases him: in the hall he comes
 //! in by its top door and leaps onto his giant's shoulders (the arrival
 //! beat of his conductor, `gnu_ton::conductor` in `ambition_content_modules`).
 //!
@@ -20,6 +22,7 @@ use ambition_characters::control::CommandedMove;
 use ambition_combat::components::DeathBeat;
 use ambition_combat::components::ActorIdentity;
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_session::rooms::passage::{PassageKind, PassageStage, ZonePassage};
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 use ambition_vfx::vfx::{VfxMessage, VfxWriter};
 
@@ -46,7 +49,7 @@ pub fn runs(health: &BodyHealth) -> bool {
 }
 
 /// While he runs: he cannot be hurt, his steps go to the door, and at the
-/// door he dives through it and is gone.
+/// door he goes through it (its passage) and is gone.
 #[allow(clippy::type_complexity)]
 pub fn flee_to_the_hall(
     mut commands: Commands,
@@ -60,9 +63,10 @@ pub fn flee_to_the_hall(
         &mut BodyHealth,
         Option<&CommandedMove>,
         Option<&mut DeathBeat>,
+        Option<&ZonePassage>,
     )>,
 ) {
-    for (entity, id, kin, mut health, walking, beat) in &mut duelists {
+    for (entity, id, kin, mut health, walking, beat, passage) in &mut duelists {
         if id.name != NAME {
             continue;
         }
@@ -74,10 +78,12 @@ pub fn flee_to_the_hall(
         let Some(door) = rooms.live_rooms().find(|(live_room, _)| *live_room == room).and_then(|(_, definition)| {
             let spec = rooms.rooms().spec(definition);
             let zone = DOORS.iter().find(|(room_id, _)| *room_id == spec.id)?.1;
-            spec.loading_zones.iter().find(|z| z.id == zone).map(|z| ae::AabbExt::center(z.aabb))
+            spec.loading_zones.iter().find(|z| z.id == zone).map(|z| (z.id.clone(), z.aabb))
         }) else {
             continue;
         };
+        let (zone, aabb) = door;
+        let door = ae::AabbExt::center(aabb);
         // Gone through the door: no death row, he blinks out at once.
         if !health.alive() {
             if let Some(mut beat) = beat {
@@ -85,6 +91,20 @@ pub fn flee_to_the_hall(
                     beat.row_s = 0.0;
                     beat.corpse = Corpse::Vanish;
                 }
+            }
+            continue;
+        }
+        // Going through the door: when he is through, he leaves the room,
+        // with no death row (from the tick he leaves, not the next).
+        if let Some(passage) = passage {
+            if passage.stage == PassageStage::Entering && passage.elapsed >= ZonePassage::entering_s(passage.kind) {
+                if let Some(mut beat) = beat {
+                    beat.row_s = 0.0;
+                    beat.corpse = Corpse::Vanish;
+                }
+                health.health.invulnerable.set(Invulnerability::SCRIPTED, false);
+                let all = health.current();
+                health.damage(all);
             }
             continue;
         }
@@ -100,11 +120,24 @@ pub fn flee_to_the_hall(
         }
         let target = ae::Vec2::new(door.x, kin.pos.y);
         if (kin.pos.x - door.x).abs() <= AT_THE_DOOR {
-            // Through the door.
-            health.health.invulnerable.set(Invulnerability::SCRIPTED, false);
-            let all = health.current();
-            health.damage(all);
-            commands.entity(entity).remove::<CommandedMove>();
+            // At the door: through it, as any body goes through a door. No
+            // crossing: he leaves this room, and his hall has its own GNU-ton.
+            commands.entity(entity).remove::<CommandedMove>().insert(ZonePassage {
+                kind: PassageKind::Door,
+                stage: PassageStage::Entering,
+                elapsed: 0.0,
+                from: kin.pos,
+                zone,
+                foot: door + ae::Vec2::new(0.0, ae::AabbExt::half_size(aabb).y),
+                heart: door,
+                half_h: kin.size().y * 0.5,
+                facing: if kin.facing < 0.0 { -1.0 } else { 1.0 },
+                crossing: None,
+                recorded: false,
+                recorded_at: 0.0,
+                arrival: None,
+                room: None,
+            });
             vfx.for_room(Some(room)).write(VfxMessage::SpeechBubble {
                 pos: kin.pos - ae::Vec2::new(0.0, kin.size().y * 0.5 + 20.0),
                 text: GONE.to_string(),

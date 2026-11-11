@@ -17,6 +17,12 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 /// and any actor body that resolves a `blink` intent from its
 /// `ActorControlFrame` call this (I2/I7), against the collision world it
 /// occupies.
+/// How far a landing box may reach into a solid and still not embed, in
+/// pixels. f32 rounding puts a face that touches a solid one step past it, and
+/// a step is 1.5e-5 at 128 and 2.4e-4 at 4000: far below any real embedding,
+/// and well above the rounding of any room's coordinates.
+const EMBED_TOLERANCE: f32 = 0.01;
+
 pub fn blink_target(
     world: &ae::World,
     from: ae::Vec2,
@@ -39,8 +45,11 @@ pub fn blink_target(
     };
     // Safety net: the center ray can miss a wall the body's width would clip
     // (corners, grazing). If the landing box still overlaps a solid, stay at
-    // the start.
-    let landing = ae::Aabb::new(target, half);
+    // the start. Less [`EMBED_TOLERANCE`]: a body exactly as tall as its
+    // corridor (48 in `blink_run`'s 48) touches floor and ceiling, and f32
+    // rounding puts its faces a step into them.
+    let tolerance = ae::Vec2::splat(EMBED_TOLERANCE);
+    let landing = ae::Aabb::new(target, (half - tolerance).max(ae::Vec2::ZERO));
     let embeds = world.blocks.iter().any(|b| {
         ae::collision_semantics::is_full_collision_surface(b.kind) && landing.strict_intersects(b.aabb)
     });

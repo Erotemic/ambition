@@ -1012,9 +1012,19 @@ stashed and re-run): `smash_ride::a_shark_summoned_into_a_save_that_remembers_a_
 
 **Red at f18c6f4875 and every later commit checked (2026-11-11, checked out
 and re-run):** `blink_run_reachability::blink_run_blinks_across_the_death_gaps`
-("should have blinked across gap 1 onto the mid floor", one reset). Not
-classified yet: no art or music is read by that room's assertion, so it may be
-a real defect older than this work. Also red in the same lane, environmental:
+("should have blinked across gap 1 onto the mid floor", one reset).
+**Classified 2026-11-11, two causes.** (1) An engine defect, fixed: the
+player is now 30 by 48 and `blink_run`'s corridor is 48 high, so the body
+touches floor and ceiling, f32 rounding put its bottom face 1.5e-5 into the
+floor, and `blink_target`'s embed check (an exact `strict_intersects`)
+refused every blink in the corridor; it now allows 0.01 px
+(`a_body_that_fills_its_corridor_blinks_along_it`). (2) Content against the
+body: each gap is 128 px of hazard (8 tiles) and a blink carries 150, so a
+30-wide body lands 8 px over the hazard at best (and the test's walk edges,
+275 and 595, are past the 273 and 593 where its edge first touches the
+hazard). `blink_run` is LDtk-owned (`level ownership status`): narrowing each
+gap to 7 tiles in the editor, and moving the test's edges to 266 and 586,
+makes it clearable again; the test stays red until then. Also red in the same lane, environmental:
 `director_teleport_blink` (three) and
 `smash_ride::a_saddled_body_advances_its_clocks_and_none_of_its_displacement`
 ("the match seats a first fighter", the Smash start).

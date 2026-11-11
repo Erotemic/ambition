@@ -62,3 +62,26 @@ fn blink_target_stays_put_when_the_arrival_box_would_clip_a_corner() {
     // From x = 122: past the box.
     assert_eq!(blink_target(&world(122.0), from, up, 140.0, half), ae::Vec2::new(100.0, -40.0));
 }
+
+/// A body exactly as tall as its corridor blinks along it: touching the floor
+/// and the ceiling is not embedding, even when its half extent is rounded a
+/// few millionths over its size (the player is 48 tall in `blink_run`'s
+/// 48-high corridor, half extent 24.000002, at y 104.00001).
+#[test]
+fn a_body_that_fills_its_corridor_blinks_along_it() {
+    let half = ae::Vec2::new(15.0, 24.000002);
+    let corridor = ae::World::new(
+        "t",
+        ae::Vec2::new(2000.0, 600.0),
+        ae::Vec2::ZERO,
+        vec![
+            ae::Block::solid("ceiling", ae::Vec2::new(0.0, 0.0), ae::Vec2::new(2000.0, 80.0)),
+            ae::Block::solid("floor", ae::Vec2::new(0.0, 128.0), ae::Vec2::new(2000.0, 80.0)),
+        ],
+    );
+    // The player's y in `blink_run`: its bottom face rounds one f32 step
+    // (1.5e-5) into the floor.
+    let from = ae::Vec2::new(100.0, 104.00001);
+    let to = blink_target(&corridor, from, ae::Vec2::new(1.0, 0.0), 150.0, half);
+    assert!((to.x - 250.0).abs() < 1e-3, "a body filling its corridor did not blink: {from:?} -> {to:?}");
+}

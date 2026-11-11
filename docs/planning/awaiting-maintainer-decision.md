@@ -34,7 +34,37 @@ options, written `* **(a) …`. Derive gates from the field, not from row prose.
 
 ## Open questions
 
-None as of 2026-11-06. `Q168` and `Q170` were decided on that date and are
-recorded in [`maintainer-decisions.md`](maintainer-decisions.md). Their remaining
+`Q168` and `Q170` were decided on 2026-11-06 and are recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md). Their remaining
 engineering and content work is indexed in [`tracks.md`](tracks.md), not held
 as a product-decision gate.
+
+## Q171 — Does holding down crouch at once, or look down first?
+
+**Asked 2026-11-11 (Jon, unsure):** *"pressing down maybe shouldn't
+immediately put you into a crouch, maybe it just has your head look down. And
+after a bit of time it also translates the camera a little bit down so you can
+actually 'look down'. The same 'look up' should happen for when you press and
+hold up."*
+
+**What exists:** up held while standing turns the head up (`idle_look_up`,
+over a walk too). The camera already leans: a full look up held still, or a
+full crouch held still, for `LOOK_DELAY_SECS` (0.8 s) leans the view by
+`LOOK_SHARE_OF_VIEW` (0.3) of its height over `LOOK_RAMP_SECS` (0.5 s)
+(`ambition_sim_view::camera_snapshot::camera_look`). Down crouches at once:
+a smaller hurtbox, the crawl, the down+jump drop through a one-way, and the
+crouching attacks all key on it.
+
+**Options:**
+
+* **(a) Keep the crouch at once** (now). Down is the crouch; the camera's
+  look down is the crouch held still. Nothing changes.
+* **(b) Down tilts the head first, and crouches after a hold** (as long as
+  the camera's delay, or shorter). A crouch to dodge comes later by that
+  hold, and every crouch-keyed verb (crawl, drop through, crouch attacks)
+  waits for it or keys on the down input instead.
+* **(c) Down tilts the head, and the crouch moves to another input** (or to
+  down while moving). The largest change: the crouch's verbs are re-bound.
+
+**Owner:** the movement kernel's crouch (`update_body_mode`) and the pose
+view (`next_gaze_secs`). Engineering for (b) or (c) is a queue row once ruled.

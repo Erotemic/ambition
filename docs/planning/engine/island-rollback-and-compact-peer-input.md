@@ -441,10 +441,29 @@ control keeps both. Still open: `QuestAdvanceRequested` (an item collected, an
 NPC talked) carries no room, so a quest step moved by an event that is not a
 flag is not taken back yet.
 
+**Wave encounter clears (2026-11-10):** the quest events that are not flags,
+read in `quests.ron`: `EncounterCleared` (3 steps), `BossDefeated` (4, done
+above), `RoomEntered` (5: a room's entry, before any window of it),
+`ItemCollected` and `NpcTalked` (1 each). A wave clear
+(`apply_wave_encounter_effects`) greens the save's switches linked to the
+encounter and queues `EncounterCleared`; the encounter's own save row is a
+mirror of its lifecycle, which the room's snapshot rewinds. The clear is now
+recorded with its room and tick, and each switch's prior value, in
+`EncounterClearsInRooms` (`ambition_encounter_features::room_writes`,
+rollback state `resource.encounter_clears_in_rooms`, horizon-bounded), and its
+quest event is caused by it. The retractor puts back the switches and the
+quest steps, newest first, unless a later clear of the same encounter stands.
+Witness `a_rewound_room_puts_back_the_wave_clear_its_replay_does_not_make`
+(the goblin wave's `Completed`, written as the reducer would, with Alice in
+`goblin_encounter` and Bob in the hub), with an ignored control; units in
+`room_writes.rs`. Still open: `ItemCollected` (one step, from a pickup through
+`QuestAdvanceRequested`, which carries no room), and `NpcTalked` (a
+conversation, ISL-1b).
+
 **Next:** the room rollback host that calls `retract_room_writes` in
 production (today the witnesses and the ISL-2e probe host
 `room_rollback_host.rs` call it after each restore), and the room attribution
-of `QuestAdvanceRequested`.
+of `QuestAdvanceRequested` (the pickup's `ItemCollected`).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 

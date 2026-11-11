@@ -43,7 +43,6 @@ const RELEASE_PHASE: f32 = 0.5;
 /// is stated to four decimals of her height.
 const TOLERANCE: f32 = 0.5;
 
-const DOWN: Vec2 = Vec2::new(0.0, 1.0);
 
 /// Her published sprites are not in git: each checkout publishes its own. A
 /// checkout that pulled the `shoot` row and did not publish reads the old
@@ -203,7 +202,7 @@ fn her_spark_is_born_at_her_throwing_hand() {
     );
     for facing in [1.0_f32, -1.0] {
         let throw = throw_facing(&mut app, body, facing);
-        let hand_world = rig_point_in_world(hand, &throw.body, DOWN);
+        let hand_world = rig_point_in_world(hand, None, &throw.body).expect("her body has a material map");
         // The hand is not where a shot with no muzzle is born: the arms below
         // cannot pass on `Muzzle::BodyOrigin`.
         let no_muzzle = throw.body.pos + Vec2::new(0.0, -8.0);

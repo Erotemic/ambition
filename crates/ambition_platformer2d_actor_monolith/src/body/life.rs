@@ -910,6 +910,28 @@ fn persisted_lives(ledger: &LifeLedger) -> Vec<ambition_persistence::save_data::
         .collect()
 }
 
+/// The ledger's bookings as the save keeps them, in key order.
+fn persisted_bookings(ledger: &LifeLedger) -> Vec<ambition_persistence::save_data::PersistedBooking> {
+    ledger
+        .bookings
+        .iter()
+        .map(|((place, thing, hour), taken)| ambition_persistence::save_data::PersistedBooking {
+            place: place.clone(),
+            thing: thing.clone(),
+            hour: *hour,
+            taken_thousandths: (taken * 1000.0).round().max(0.0) as u32,
+        })
+        .collect()
+}
+
+/// The saved bookings, as the ledger keeps them.
+fn bookings_from_save(saved: &[ambition_persistence::save_data::PersistedBooking]) -> BTreeMap<(String, String, i64), f32> {
+    saved
+        .iter()
+        .map(|booking| ((booking.place.clone(), booking.thing.clone(), booking.hour), booking.taken_thousandths as f32 / 1000.0))
+        .collect()
+}
+
 /// Mirror the ledger into the save when they differ, once the loaded save
 /// has been applied. (sim, the durable mirror; a composition with no save
 /// has nothing to mirror into)
@@ -927,11 +949,13 @@ pub fn persist_lives_to_save(
         return;
     }
     let lives = persisted_lives(&ledger);
-    if save.data().lives() == lives.as_slice() {
+    let bookings = persisted_bookings(&ledger);
+    if save.data().lives() == lives.as_slice() && save.data().bookings() == bookings.as_slice() {
         return;
     }
     // `data_mut` only past the guard: it marks the save changed.
     save.data_mut().set_lives(lives);
+    save.data_mut().set_bookings(bookings);
 }
 
 /// Put the saved lives into the ledger on the tick the loaded save is
@@ -947,8 +971,14 @@ pub fn restore_lives_from_save(
     mut lives: Query<(&mut Life, &WornCharacter)>,
 ) {
     let (Some(restored), Some(save)) = (restored, save) else { return };
-    if restored.0 || ready.single().is_err() || save.data().lives().is_empty() {
+    if restored.0 || ready.single().is_err() || (save.data().lives().is_empty() && save.data().bookings().is_empty()) {
         return;
+    }
+    // The hours the saved lives booked: a body that catches up after the
+    // load books against them.
+    let bookings = bookings_from_save(save.data().bookings());
+    if ledger.bookings != bookings {
+        ledger.bookings = bookings;
     }
     let rows: BTreeMap<String, LedgerRow> = save
         .data()
@@ -1140,6 +1170,19 @@ mod tests {
         // Told, and it claims anyway: no plan.
         assert_eq!(plan(&Greedy, &observing, &book, &mut facts), None);
         assert_eq!(facts.booked(None, "bench", 9), 1.0);
+    }
+
+    /// The bookings go to the save and come back as they were: a body that
+    /// catches up after a load books against the hours the saved lives took.
+    #[test]
+    fn the_bookings_come_back_from_the_save_as_they_went() {
+        let mut ledger = LifeLedger::default();
+        ledger.bookings.insert(("tavern".into(), "bench".into(), 33), 0.25);
+        ledger.bookings.insert(("tavern".into(), "bench".into(), 34), 1.0);
+        ledger.bookings.insert(("forge".into(), "anvil".into(), 33), 0.75);
+        let saved = persisted_bookings(&ledger);
+        assert_eq!(saved.iter().map(|booking| booking.taken_thousandths).collect::<Vec<_>>(), vec![750, 250, 1000]);
+        assert_eq!(bookings_from_save(&saved), ledger.bookings);
     }
 
     /// RADIANT: a body that comes back on a later tick books against what

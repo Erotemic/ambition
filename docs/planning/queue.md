@@ -107,7 +107,7 @@ or updating their source. Check with
 
 **Done 2026-11-10 (review findings 2, 3, 4, 6, 8):** `daily` facts start each day again (day-2 lunch witnessed); `say` speaks a line and a verb neither the executor nor `holds` knows is refused when the book is read; the save is written only when a life changed; the executor plans through the `ambition_life_planning::LifePlanner` contract (the HTN is one planner); offscreen hours book an exclusive thing by the hours its holders' steps take, in character-id order ([offscreen](engine/radiant-npc-planning.md#slice-5-first-part-2026-11-10-offscreen-and-re-entry)).
 
-**Next action:** slice 7 waits on the [authority experiment](engine/hosted-world-networking-experiment.md)'s choice. Done 2026-11-10: the day clock is in the save (v7), so a session from a save goes on at the hour its lives planned in. Done 2026-11-10: offscreen bookings outlive the tick in the life ledger, so bodies that come back on different ticks share a thing's hours. Open: the bookings in the save, and a live holder's hours as a booking for a body that catches up.
+**Next action:** slice 7 waits on the [authority experiment](engine/hosted-world-networking-experiment.md)'s choice. Done 2026-11-10: the day clock is in the save (v7), so a session from a save goes on at the hour its lives planned in. Done 2026-11-10: offscreen bookings outlive the tick in the life ledger, so bodies that come back on different ticks share a thing's hours. Done 2026-11-10: the bookings are in the save (v8). Open: a live holder's hours as a booking for a body that catches up.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 
@@ -1000,7 +1000,9 @@ and `gnu_ton_fight::thrown_off_the_back_he_comes_back_and_he_goes_to_a_player_at
 work, so they are reported to it, not fixed here), and
 `two_seats_two_items::two_local_seats_each_pick_up_their_own_bomb` ("the
 match seats this fighter": a Smash match, which on this VM waits for
-unrendered music).
+unrendered music). Also red on 316ff3ef7f with no local change (2026-11-11,
+stashed and re-run): `smash_ride::a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive`
+("the opening ceremony never released the cast"), the same Smash start.
 
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn

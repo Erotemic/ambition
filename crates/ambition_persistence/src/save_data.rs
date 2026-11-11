@@ -406,6 +406,24 @@ pub struct AmbitionGameSaveData {
     /// [`PersistedDayClock`].
     #[serde(default)]
     pub(crate) day_clock: Option<PersistedDayClock>,
+    /// The hours NPC lives booked of each thing at each place, so a body
+    /// that catches up after a load does not use a thing another body
+    /// already took in that hour. See [`PersistedBooking`].
+    #[serde(default)]
+    pub(crate) bookings: Vec<PersistedBooking>,
+}
+
+/// One booking of a thing by NPC lives (`body::life::LifeLedger::bookings`):
+/// the place (a room's definition id), the thing, the hour (day * 24 + hour)
+/// and how much of it is taken, in thousandths of an hour. Thousandths, for
+/// the reason [`PersistedDayClock`] keeps whole seconds: a float removes the
+/// `Eq` derive.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PersistedBooking {
+    pub place: String,
+    pub thing: String,
+    pub hour: i64,
+    pub taken_thousandths: u32,
 }
 
 /// The day clock (`ambition_time::DayClock`): the day, from 1, and the whole
@@ -444,13 +462,14 @@ pub struct PersistedModuleRecord {
 }
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
-/// v5 adds `module_records`. v6 adds `lives`. v7 adds `day_clock`.
+/// v5 adds `module_records`. v6 adds `lives`. v7 adds `day_clock`. v8 adds
+/// `bookings`.
 ///
 /// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
 /// with an empty list, which is the correct reading. The bump makes a v5 file
 /// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
 /// the records it cannot read.
-pub const CURRENT_SAVE_VERSION: u32 = 7;
+pub const CURRENT_SAVE_VERSION: u32 = 8;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -515,6 +534,7 @@ impl AmbitionGameSaveData {
             module_records: Vec::new(),
             lives: Vec::new(),
             day_clock: None,
+            bookings: Vec::new(),
         }
     }
 
@@ -714,6 +734,16 @@ impl AmbitionGameSaveData {
         self.day_clock = day_clock;
     }
 
+    /// The bookings of NPC lives the save keeps, in key order.
+    pub fn bookings(&self) -> &[PersistedBooking] {
+        &self.bookings
+    }
+
+    /// Replace the bookings of NPC lives.
+    pub fn set_bookings(&mut self, bookings: Vec<PersistedBooking>) {
+        self.bookings = bookings;
+    }
+
     /// Which durable fact families differ between two saves, by name.
     ///
     /// The exhaustive destructure of both sides is the guard. Do not replace it
@@ -738,6 +768,7 @@ impl AmbitionGameSaveData {
             module_records,
             lives,
             day_clock,
+            bookings,
         } = self;
         let Self {
             version: _,
@@ -757,6 +788,7 @@ impl AmbitionGameSaveData {
             module_records: o_module_records,
             lives: o_lives,
             day_clock: o_day_clock,
+            bookings: o_bookings,
         } = other;
         let mut differ = Vec::new();
         let mut check = |name: &'static str, same: bool| {
@@ -780,6 +812,7 @@ impl AmbitionGameSaveData {
         check("module_records", module_records == o_module_records);
         check("lives", lives == o_lives);
         check("day_clock", day_clock == o_day_clock);
+        check("bookings", bookings == o_bookings);
         differ
     }
 
@@ -893,6 +926,9 @@ impl AmbitionGameSaveData {
                 // v6 → v7: additive; no clock is correct for a v6 file (the
                 // session's clock starts at the cycle's start hour).
                 6 => {}
+                // v7 → v8: additive; no bookings is correct for a v7 file (a
+                // body catching up after the load books from an empty hour).
+                7 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -925,6 +961,7 @@ impl AmbitionGameSaveData {
             module_records,
             lives,
             day_clock,
+            bookings,
         } = self;
         encounters.clear();
         switches.clear();
@@ -942,6 +979,7 @@ impl AmbitionGameSaveData {
         module_records.clear();
         lives.clear();
         *day_clock = None;
+        bookings.clear();
     }
 }
 
@@ -980,6 +1018,14 @@ mod tests {
                 }])
             }),
             (vec!["day_clock"], |d| d.set_day_clock(Some(PersistedDayClock { day: 2, seconds: 30 }))),
+            (vec!["bookings"], |d| {
+                d.set_bookings(vec![PersistedBooking {
+                    place: "room".into(),
+                    thing: "bench".into(),
+                    hour: 33,
+                    taken_thousandths: 250,
+                }])
+            }),
             (vec!["lives"], |d| {
                 d.set_lives(vec![PersistedLife {
                     character: "c".into(),
@@ -1054,6 +1100,7 @@ mod tests {
             "module_records",
             "lives",
             "day_clock",
+            "bookings",
         ]
         .into_iter()
         .collect();
@@ -1440,6 +1487,7 @@ mod tests {
             module_records,
             lives,
             day_clock,
+            bookings,
         } = &data;
 
         // Anti-vacuity: a fresh save must hold no durable facts.
@@ -1456,7 +1504,8 @@ mod tests {
                 && minted_items.is_empty()
                 && module_records.is_empty()
                 && lives.is_empty()
-                && day_clock.is_none(),
+                && day_clock.is_none()
+                && bookings.is_empty(),
             "a new save carries no durable world facts to retract"
         );
         assert!(

@@ -147,7 +147,14 @@ Explore:
 
 Use `RoomDressingSet` and existing publication/catalog selection for normal
 terrain pieces. The current `RoomDressingPart` is a finite named vocabulary;
-do not add a new enum case for every variant, structural role, or biome. Use
+do not add a new enum case for every variant, structural role, or biome.
+Its structural roles (`RoomDressingPart::ROLES`: `pillar`, `underhang`,
+`pendant`, `ledge_end`, `trailing`, `motif`) name what a block's shape asks
+for, not what one theme draws there, and each is laid at the size of its own
+picture (2026-11-11; they were the hub's `arch`, `banner`, `ivy`,
+`ivy_strands` and `emblem`). A theme gives a role its own art at its own size
+with no engine change: the hub's underhang is an arcade, a forest's can be
+the foliage under a branch. Use
 existing parts and authored props first. If the pilot demonstrates a genuine
 need for multiple theme-specific structural variants, introduce a small data
 representation in the existing art/presentation ownership boundary, with

@@ -327,6 +327,33 @@ the other, the control, is not.
   is the windowed host's), so a shake here never ends and "shaking" counts
   frames since the first one. Sounds and visuals were counted, not sent.
 
+**A guest of its own game only (2026-11-11):** the hub installs the games
+`AMBITION_HUB_GAMES` names (`game/ambition_app/src/app/hub_games.rs`; unset
+is all, and an empty value is none), so `probe_where_a_gated_guest_spends_its_update`
+run with `AMBITION_HUB_GAMES=ambition` measures a guest with no other game's
+plugins (host and guest alike: the selection is the process's). Two runs of
+each, alternating order (ms an update, gated guest / without the gated
+systems):
+
+| Composition | `Update` systems (gated) | `switch_lab` | `central_hub_complex` |
+|---|---|---|---|
+| every game, run 1 | 1,031 (558) | 2.46 / 1.66 | 2.91 / 1.60 |
+| every game, run 2 | 1,031 (558) | 1.90 / 1.61 | 2.12 / 1.75 |
+| Ambition only, run 1 | 895 (483) | 1.78 / 1.48 | 2.16 / 1.63 |
+| Ambition only, run 2 | 895 (483) | 1.85 / 1.75 | 1.84 / 1.78 |
+
+- **The other games cost a guest 136 systems and no measurable time:** the
+  first every-game run is the outlier; the second sits inside the
+  Ambition-only runs' range. Mary-O's 18 and Smash's 17 still-running sim
+  systems, and the rest, are run conditions that answer no.
+- **What is left is Ambition's own shell and presentation:** with the
+  gated systems removed, 281 sim-schedule systems still run (the
+  conversation 39, the game shell 31, the runtime 24, content 19, load
+  presentation 16) and about 140 Bevy sync points, for about 1.5–1.8 ms an
+  update, the same as with every game. A cheaper guest is not a shorter game
+  list; it is the gated guest without the conversation, shell and load
+  presentation it does not run, or those run on the host's word.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -346,9 +373,11 @@ the other, the control, is not.
    shell). The kill as a presentation event (2026-11-11): forwarding the
    host's camera shakes makes the guest shake with it (the control never
    does), at 0.11 bytes a frame; sounds and visuals would ride the same
-   channel. Next: a guest composed of its own game only; other kinds' spawn
-   rows; send only the guest's room; sounds and visuals sent, with room
-   numbers mapped.
+   channel. A guest of Ambition alone (`AMBITION_HUB_GAMES=ambition`,
+   2026-11-11): 136 fewer systems and no time measurably saved; what costs
+   is Ambition's own conversation, shell and load presentation. Next: other
+   kinds' spawn rows; send only the guest's room; sounds and visuals sent,
+   with room numbers mapped.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

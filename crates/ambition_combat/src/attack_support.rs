@@ -239,22 +239,26 @@ pub fn apply_post_hit_input_gates(
 /// once all telegraph readers use moveset playback state.
 pub fn tick_body_melee_cooldowns(
     world_time: Res<ambition_time::WorldTime>,
-    mut bodies: Query<&mut BodyMelee>,
+    mut bodies: Query<(Entity, &mut BodyMelee)>,
+    // At the body's room's pace (ISL-1b).
+    freeze: crate::impact_hitstop::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
-    for mut melee in &mut bodies {
-        melee.cooldown = (melee.cooldown - dt).max(0.0);
+    for (body, mut melee) in &mut bodies {
+        melee.cooldown = (melee.cooldown - dt * freeze.scale_of(body)).max(0.0);
     }
 }
 
 /// Tick every body's [`crate::components::RangedRefire`] floor on simulation time.
 pub fn tick_ranged_refire(
     world_time: Res<ambition_time::WorldTime>,
-    mut bodies: Query<&mut crate::components::RangedRefire>,
+    mut bodies: Query<(Entity, &mut crate::components::RangedRefire)>,
+    // At the body's room's pace (ISL-1b).
+    freeze: crate::impact_hitstop::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
-    for mut refire in &mut bodies {
-        refire.tick(dt);
+    for (body, mut refire) in &mut bodies {
+        refire.tick(dt * freeze.scale_of(body));
     }
 }
 

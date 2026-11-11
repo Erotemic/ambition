@@ -1474,10 +1474,13 @@ pub fn tick_and_despawn_hitboxes(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     mut hitboxes: Query<(Entity, &mut HitboxLifetime), With<Hitbox>>,
+    // A strike's window runs at its room's pace: a held room keeps it open
+    // (ISL-1b).
+    freeze: crate::impact_hitstop::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
     for (entity, mut lifetime) in &mut hitboxes {
-        lifetime.remaining_s -= dt;
+        lifetime.remaining_s -= dt * freeze.scale_of(entity);
         if lifetime.remaining_s <= 0.0 {
             commands.entity(entity).despawn();
         }

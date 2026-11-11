@@ -115,3 +115,69 @@ fn an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room() {
     }
     assert_ne!(at(&mut sim, hub), hub_before, "the hub stayed held after its freeze ran out");
 }
+
+/// Each live room's hold: the tick its root's `RoomPace` holds it until.
+fn holds(sim: &mut Platformer2dSimHarness) -> std::collections::BTreeMap<u32, u64> {
+    let world = sim.world_mut();
+    world
+        .query::<(&ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, &ambition_platformer2d::combat::impact_hitstop::RoomPace)>()
+        .iter(world)
+        .map(|(room, pace)| (room.ordinal(), pace.held_until))
+        .collect()
+}
+
+/// ISL-1b: a kill holds its own room. Ambition's rules give a kill a beat
+/// (a freeze of 0.083 s). With Alice in the hub and Bob in `switch_lab`, an
+/// enemy in the hub dies: the hub is held past the tick of the kill, and
+/// Bob's room is not. Before, the kill wrote only the shared hold, which
+/// stops no clock while two rooms are live, so a kill had no freeze at all.
+#[test]
+fn a_kill_in_the_hub_holds_the_hub_and_not_bobs_room() {
+    let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(ROOM)).expect("the room boots");
+    bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    alice_on_the_hub_door(&mut sim);
+    for frame in 1..=120 {
+        sim.drive_seat(0, alice_leaves(frame));
+        sim.drive_seat(1, ControlFrame::default());
+        sim.app_mut().update();
+    }
+    let (hub, lab) = where_they_are(&mut sim);
+    let (hub, lab) = (hub.expect("Alice has a room"), lab.flatten().expect("Bob has a room"));
+    assert_ne!(hub, lab, "premise: Alice and Bob are in two live rooms");
+    sim.spawn_enemy_character_at(
+        "isl1b_kill_probe",
+        "Target",
+        (200.0, 100.0),
+        (12.0, 16.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+        "npc_puppy_slug",
+    );
+    sim.app_mut().update();
+    let enemy = {
+        let world = sim.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+            .iter(world)
+            .find(|(_, id)| id.0 == "isl1b_kill_probe")
+            .expect("the enemy was spawned")
+            .0
+    };
+    sim.world_mut()
+        .entity_mut(enemy)
+        .insert(ambition_platformer2d::platformer::lifecycle::InRoomInstance(hub));
+    sim.app_mut().update();
+    let before = holds(&mut sim);
+    let now = sim.world().resource::<SimTick>().0;
+    sim.world_mut()
+        .get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(enemy)
+        .expect("the enemy has health")
+        .health
+        .current = 0;
+    sim.app_mut().update();
+    let after = holds(&mut sim);
+    assert!(
+        after.get(&hub.ordinal()).is_some_and(|until| *until > now),
+        "the kill did not hold the hub ({before:?} -> {after:?}, now {now})"
+    );
+    assert_eq!(after.get(&lab.ordinal()), before.get(&lab.ordinal()), "the kill held Bob's room");
+}

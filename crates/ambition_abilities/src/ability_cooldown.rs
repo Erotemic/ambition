@@ -49,12 +49,14 @@ pub fn try_use_ability(
 /// Tick all body ability cooldowns using scaled simulation time.
 pub fn tick_ability_cooldown(
     time: Res<ambition_time::WorldTime>,
-    mut bodies: Query<&mut AbilityCooldown>,
+    mut bodies: Query<(Entity, &mut AbilityCooldown)>,
+    // At the body's room's pace (ISL-1b).
+    freeze: ambition_combat::impact_hitstop::RoomFreeze,
 ) {
     let dt = time.sim_dt();
-    for mut cd in &mut bodies {
+    for (body, mut cd) in &mut bodies {
         if cd.remaining > 0.0 {
-            cd.remaining = (cd.remaining - dt).max(0.0);
+            cd.remaining = (cd.remaining - dt * freeze.scale_of(body)).max(0.0);
         }
     }
 }

@@ -1835,14 +1835,28 @@ pub(super) fn apply_wall_abilities_clusters(
     was_clinging: bool,
     events: &mut FrameEvents,
 ) {
-    if !wall.on_wall || ground.on_ground || !abilities.abilities.wall_cling {
+    if !wall.on_wall || !abilities.abilities.wall_cling {
         return;
     }
     let basis = frame.basis();
     let local_stick = input.local_axis();
+    // A grounded body climbs the wall it faces with up held; anything else on
+    // the ground stands. (A climber faces away from its wall, below.)
+    let faces_the_wall =
+        kinematics.facing == kinematics.material.project_facing(-wall.wall_normal_x, frame.side());
+    if ground.on_ground && !(abilities.abilities.wall_climb && local_stick.y < -0.25 && faces_the_wall) {
+        return;
+    }
     let pressing_into_wall =
         local_stick.x.abs() > 0.1 && local_stick.x.signum() == -wall.wall_normal_x;
-    if !pressing_into_wall {
+    // A climb under way (or begun from the ground) holds on with up or down
+    // and no side input. A body only passing a wall with up held (aiming)
+    // does not catch it.
+    let held_by_a_climb = abilities.abilities.wall_climb
+        && (was_clinging || ground.on_ground)
+        && local_stick.x.abs() <= 0.1
+        && local_stick.y.abs() > 0.25;
+    if !pressing_into_wall && !held_by_a_climb {
         return;
     }
     state.wall_clinging = true;

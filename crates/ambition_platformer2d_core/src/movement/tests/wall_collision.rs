@@ -1689,3 +1689,43 @@ fn an_axis_body_can_cross_a_portal_in_a_ground_line() {
     }
     panic!("the line host stopped admitted material: {:?}", body.kinematics);
 }
+
+/// Jon, 2026-11-11: "If you have the ability to climb walls, you should be
+/// able to climb a wall if you stand next to it and press up, currently you
+/// must jump onto the wall first." A body standing on the floor against the
+/// left wall, facing it, holds up: it climbs, and keeps climbing with up
+/// alone once off the floor. Facing away, or without `wall_climb`, it stays
+/// on the floor.
+#[test]
+fn a_climber_standing_at_a_wall_climbs_it_with_up_held() {
+    let world = test_world();
+    let rise = |abilities: AbilitySet, facing: f32| {
+        let mut scratch = scratch_with(abilities, world.spawn);
+        let half = scratch.kinematics.size() * 0.5;
+        scratch.kinematics.pos = Vec2::new(36.0 + half.x, world.size.y - 48.0 - half.y);
+        scratch.kinematics.vel = Vec2::ZERO;
+        scratch.kinematics.facing = facing;
+        scratch.ground.on_ground = true;
+        for _ in 0..4 {
+            step_scratch(&world, &mut scratch, InputState::default());
+        }
+        assert!(scratch.ground.on_ground, "premise: the body stands on the floor");
+        scratch.kinematics.facing = facing;
+        let start = scratch.kinematics.pos.y;
+        let up = InputState { axes: crate::LocalAxes::new(0.0, -1.0), ..InputState::default() };
+        let mut climbed_off_the_floor = false;
+        for _ in 0..30 {
+            step_scratch(&world, &mut scratch, up);
+            climbed_off_the_floor |= !scratch.ground.on_ground && scratch.axis().wall_climbing;
+        }
+        (start - scratch.kinematics.pos.y, climbed_off_the_floor)
+    };
+    let (risen, climbing) = rise(AbilitySet::sandbox_all(), -1.0);
+    assert!(risen > 40.0 && climbing, "standing at the wall with up held, the body rose {risen:.1} px (climbing: {climbing})");
+    let (risen, _) = rise(AbilitySet::sandbox_all(), 1.0);
+    assert!(risen.abs() < 1.0, "facing away from the wall, up climbed it ({risen:.1} px)");
+    let mut no_climb = AbilitySet::sandbox_all();
+    no_climb.wall_climb = false;
+    let (risen, _) = rise(no_climb, -1.0);
+    assert!(risen.abs() < 1.0, "a body without `wall_climb` climbed ({risen:.1} px)");
+}

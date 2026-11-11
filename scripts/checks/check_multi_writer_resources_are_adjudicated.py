@@ -698,6 +698,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_time/src/time_control/mod.rs",
     ),
     "DayClock": (
+        "crates/ambition_platformer2d_actor_monolith/src/body/life.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_time/src/day.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
@@ -2433,6 +2434,12 @@ ADJUDICATED: dict[str, str] = {
         "does. The third file is `game/ambition_app_tools/src/bin/capture_scene.rs`, "
         "a standalone `[[bin]]` whose `--hour` sets the clock once on one tick for "
         "a capture; it never coexists with the game. Adjudicated 2026-10-15."
+        " ⭐ 2026-11-10 (RADIANT): `restore_day_clock_from_save` "
+        "(`actor_monolith/src/body/life.rs`) sets it once, on the tick a loaded "
+        "save is applied (behind `SaveRestored`, which the same tick closes), "
+        "to the clock the save kept: the durable restore of a fact the save owns, "
+        "as every durable family's restore. `advance_day_clock` turns it from "
+        "there, and the boundary reset stays the session edge's."
     ),
     "WorldTime": (
         "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "

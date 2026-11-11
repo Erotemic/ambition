@@ -370,12 +370,13 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
         // by a New Game.
         app.add_systems(
             sim,
-            crate::body::life::persist_lives_to_save
+            (crate::body::life::persist_lives_to_save, crate::body::life::persist_day_clock_to_save)
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::DurableHorizonSet::DomainMirror),
         );
         app.add_systems(
             sim,
-            crate::body::life::restore_lives_from_save
+            (crate::body::life::restore_day_clock_from_save, crate::body::life::restore_lives_from_save)
+                .chain()
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::DurableRestoreSet::Domains),
         );
         app.add_systems(

@@ -107,7 +107,7 @@ or updating their source. Check with
 
 **Done 2026-11-10 (review findings 2, 3, 4, 6, 8):** `daily` facts start each day again (day-2 lunch witnessed); `say` speaks a line and a verb neither the executor nor `holds` knows is refused when the book is read; the save is written only when a life changed; the executor plans through the `ambition_life_planning::LifePlanner` contract (the HTN is one planner); offscreen hours book an exclusive thing by the hours its holders' steps take, in character-id order ([offscreen](engine/radiant-npc-planning.md#slice-5-first-part-2026-11-10-offscreen-and-re-entry)).
 
-**Next action:** slice 7 waits on the [authority experiment](engine/hosted-world-networking-experiment.md)'s choice. Open: the clock in the save; offscreen bookings shared across bodies that come back on different ticks.
+**Next action:** slice 7 waits on the [authority experiment](engine/hosted-world-networking-experiment.md)'s choice. Done 2026-11-10: the day clock is in the save (v7), so a session from a save goes on at the hour its lives planned in. Open: offscreen bookings shared across bodies that come back on different ticks.
 
 **Acceptance:** both scientists follow different authored schedules, share an exclusive lab affordance, react/replan, persist on departure and reentry, explain their plans and remain correct under save/reload and hosted authority. Change their activity policies without an engine-host compile. Do not require LLM inference or all-peer rollback.
 

@@ -932,6 +932,51 @@ pub fn restore_lives_from_save(
     ledger.rows = rows;
 }
 
+/// Keep the day clock in the save once a loaded save is applied, as of each
+/// new hour: a session started from the save goes on at the hour its lives
+/// planned in (the save's lives name that hour). Once an hour, not each tick,
+/// so the save is not marked changed every frame. (sim, the durable mirror)
+pub fn persist_day_clock_to_save(
+    restored: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>>,
+    cycle: Option<Res<ambition_time::DayCycle>>,
+    clock: Res<ambition_time::DayClock>,
+    save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
+) {
+    let (Some(restored), Some(cycle), Some(mut save)) = (restored, cycle, save) else { return };
+    if !restored.0 || clock.day == 0 || cycle.day_length_s <= 0.0 {
+        return;
+    }
+    let hour_of = |day: u32, seconds: f32| (day, (seconds / cycle.day_length_s * 24.0).floor() as i64);
+    let now = hour_of(clock.day, clock.seconds);
+    if save.data().day_clock().map(|saved| hour_of(saved.day, saved.seconds as f32)) == Some(now) {
+        return;
+    }
+    // `data_mut` only past the guard: it marks the save changed.
+    save.data_mut().set_day_clock(Some(ambition_persistence::save_data::PersistedDayClock {
+        day: clock.day,
+        seconds: clock.seconds.max(0.0) as u32,
+    }));
+}
+
+/// Put the saved day clock back on the tick the loaded save is applied,
+/// before the lives plan from it. (sim, the durable restore)
+pub fn restore_day_clock_from_save(
+    restored: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::SaveRestored>>,
+    ready: Query<(), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
+    save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
+    mut clock: ResMut<ambition_time::DayClock>,
+) {
+    let (Some(restored), Some(save)) = (restored, save) else { return };
+    if restored.0 || ready.single().is_err() {
+        return;
+    }
+    let Some(saved) = save.data().day_clock() else { return };
+    let saved = ambition_time::DayClock { day: saved.day, seconds: saved.seconds as f32 };
+    if *clock != saved {
+        *clock = saved;
+    }
+}
+
 /// A New Game starts every life from the book. (fresh-run reducer)
 pub fn start_lives_fresh(
     fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,

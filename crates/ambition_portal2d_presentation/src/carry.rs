@@ -88,8 +88,8 @@ pub struct PortalCarryCamera {
     pub slot: usize,
 }
 
-/// The carry cameras and their textures. Made when a live room first has a
-/// portal. Sources keep their world layers until the capture is ready.
+/// Carry cameras and optional capture targets. Idle slots retain no target.
+/// Sources keep their world layers until captured or proxy pieces are ready.
 #[derive(Resource, Default)]
 pub struct PortalCarryAtlas {
     slots: Vec<CarrySlot>,

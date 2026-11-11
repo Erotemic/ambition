@@ -1155,8 +1155,9 @@ remains open.
 
 **Next action:** continue implementation and testing on main. Native material
 repair and support are fixed in `5f07fbb17`; independent captures and room
-identity are fixed in `ae8f2b07a` and `b499e5090`. Measure portal-free runtime
-cost and finish adaptive capture resources and overflow policy. Complete the
+identity are fixed in `ae8f2b07a` and `b499e5090`. Adaptive capture storage
+and material-proxy overflow are fixed in `1d551594b`. Measure portal-free
+runtime cost and hardware/device capture cost. Complete the
 remaining motion, geometry, numeric-fault and device requirements in the owner's
 [implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
 and [draft status](engine/portal-parts-similarity-and-chirality.md#draft-status).

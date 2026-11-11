@@ -56,3 +56,10 @@ capture must preserve these owners before pixels blend. Combining their
 bounds and choosing one root cannot represent both material domains.
 Retain source depth order inside the exit-copy band as well as on the source
 side. The same depth value for every exit loses that order.
+
+Capture storage must not set the physical domain. Keep the full family bounds
+and reduce pixel resolution when storage is limited. If no target fits, render
+clipped canonical material with its physical transform. Retire hidden material
+references with each idle target; a hidden quad can otherwise keep its image
+alive. Measure allocated image descriptors as well as active cameras: a newly
+allocated target can await a deferred camera command for one frame.

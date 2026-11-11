@@ -66,7 +66,7 @@ pub enum GuardFaces {
     Around,
 }
 
-/// What a deflected strike does.
+/// What a deflected strike does. Speeds use the guard's canonical material units.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Deflect {

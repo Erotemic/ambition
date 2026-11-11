@@ -214,3 +214,12 @@ and relative angular acceleration. This retains fast tangential travel
 without widening the normal envelope by that full speed. Keep the original
 conservative envelope when the tighter finite bound is unavailable. Do not
 turn an unproved query into a miss or raise the work budget to hide the cause.
+
+
+A guard response must retain both meeting pieces' root maps. Root positions
+from different charts do not give the contact direction. Unit-bearing guard
+speeds use the guard material map; duration does not scale. Pull velocity
+through the recorded portal frames at the response position. Use the guarded
+body's mapped velocity as the response baseline so a common boost cancels.
+Prepare both launches before changing a body, move or guard state. A contact
+chart does not make an approximate contact position or time exact.

@@ -222,3 +222,12 @@ warning checks pass. The
 [interception receipt](../ambition_dev_measurements/summaries/portal-carried-projectile-interception-20261111.md)
 records validation scope. Moving targets, other responses, general continuation
 and full PSIM acceptance remain open.
+
+
+`10f8eaf95` admits a surviving world rebound over all occupied material.
+Geometry and response retain separate typed results. A reached response refusal
+prevents movement and combat writes. An earlier terminal target outcome retires
+the later response. Both H directions bounce before root transit and clear the
+contact next tick. Owner and app checks pass after merge `eff565e6d`. The
+[world response receipt](../ambition_dev_measurements/summaries/portal-world-response-admission-20261111.md)
+records the full verification scope. Full PSIM acceptance remains open.

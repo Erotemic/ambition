@@ -238,6 +238,15 @@ advance the projectile clock and retire the old sweep. Reflection ends the
 step. The guard is
 `a_portal_carried_tip_is_parried_at_its_physical_contact_before_root_transit`.
 
+A world contact and its checked response have separate results. The contact
+still orders the leg when its response refuses. Admit a surviving rebound over
+all occupied source material. An earlier terminal target outcome retires the
+later response. When the world response is reached, its refusal prevents pose,
+bounce budget, hit ledger, guard and damage writes. Lifetime still advances.
+The guards are `a_rebound_must_fit_every_occupied_material_chart`,
+`only_a_reached_world_response_can_refuse_the_projectile_step` and
+`a_projectile_bounces_on_its_far_material_and_retires_the_contact`.
+
 Exactly one receiver owns a recipient. A missing or multiple claim is a
 diagnostic, not a broadcast fallback.
 

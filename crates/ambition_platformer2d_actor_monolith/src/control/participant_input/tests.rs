@@ -68,7 +68,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     assert!(control.0.jump_pressed);
     assert!(control.0.melee_pressed);
     assert!(control.0.shield_held);
-    assert_eq!(control.0.facing, 1.0);
+    assert_eq!(control.0.facing, 0.0, "airborne steering is left to the movement policy");
 }
 
 /// Build the target through the actor seed, then give it a driving seat.

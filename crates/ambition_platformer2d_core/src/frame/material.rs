@@ -33,6 +33,14 @@ impl BodyMaterial {
             map.direction_wide(DVec2::X), map.direction_wide(DVec2::Y)) }
     }
 
+    /// Map a facing sign between canonical x and a reference side.
+    /// A perpendicular request cannot be expressed by a facing flip.
+    pub fn project_facing(self, facing: f32, reference_side: Vec2) -> f32 {
+        let alignment = self.orthogonal.x_axis.dot(reference_side.as_dvec2());
+        if facing.abs() <= 0.001 || alignment.abs() <= 0.001 { return 0.0; }
+        (f64::from(facing.signum()) * alignment).signum() as f32
+    }
+
     /// Build the map from canonical coordinates into the current room chart.
     pub fn at(self, center: Vec2) -> Result<Sim2, NumericFault> {
         Sim2::from_wide_translation(self.scale, self.orthogonal, center.as_dvec2())

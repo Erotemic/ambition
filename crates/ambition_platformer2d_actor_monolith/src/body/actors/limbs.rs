@@ -101,11 +101,11 @@ fn strike_frame(
     phase: LimbPhase,
     onset: bool,
     gravity_dir: ae::Vec2,
-    facing: f32,
+    host: &BodyKinematics,
 ) -> ActorControlFrame {
     let down = gravity_dir;
     let up = -gravity_dir;
-    let side = ae::Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0);
+    let side = host.material.orthogonal().x_axis * host.facing.signum();
     let (velocity_target, striking) = match (motion, phase) {
         (LimbMotion::SlamDown, LimbPhase::Startup) => (up * LIMB_LIFT_SPEED, false),
         (LimbMotion::SlamDown, LimbPhase::Active) => (down * LIMB_SLAM_SPEED, true),
@@ -118,7 +118,7 @@ fn strike_frame(
     };
     let mut frame = ActorControlFrame::neutral();
     frame.velocity_target = ae::WorldVec2(velocity_target);
-    frame.facing = facing;
+    frame.facing = host.material.project_facing(host.facing, ae::AccelerationFrame::new(gravity_dir).side);
     frame.melee_pressed = striking && onset;
     frame
 }
@@ -206,7 +206,7 @@ pub fn route_boss_strikes_to_limbs(
                     route.phase,
                     onset,
                     gravity_dir,
-                    host_kin.facing,
+                    host_kin,
                 ),
                 _ => station_frame(limb, host_kin, limb_kin, gravity_dir),
             };

@@ -28,6 +28,7 @@ pub struct MotionStepContext<'a> {
     /// receives this exact value; none is permitted to derive a private
     /// gravity frame.
     pub frame: MotionFrame,
+    /// Desired facing in control axes. A crawler uses its oriented route.
     pub facing_intent: f32,
     pub dt: f32,
     /// THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH.
@@ -230,6 +231,7 @@ fn step_world_motion(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
+    let facing_intent = model.project_facing(clusters.kinematics.material, ctx.facing_intent, ctx.frame.side());
     // THE launch drain, and it is here because here is the only gateway.
     //
     // An external reaction (knockback, a fling) writes a world-space launch into
@@ -286,6 +288,7 @@ fn step_world_motion(
                 axis,
                 clusters,
                 ctx.input,
+                facing_intent,
                 ctx.frame,
                 ctx.dt,
                 ctx.contact,
@@ -301,7 +304,7 @@ fn step_world_motion(
                 matches!(momentum.state, super::SurfaceMotion::Riding { .. }),
                 ctx.frame,
             );
-            let mut result = step_surface_momentum(momentum, clusters, ctx);
+            let mut result = step_surface_momentum(momentum, clusters, ctx, facing_intent);
             result.events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
             result
         }
@@ -311,7 +314,7 @@ fn step_world_motion(
                 crawler.state.is_attached(),
                 ctx.frame,
             );
-            let mut result = step_adhesive_crawler(crawler, clusters, ctx);
+            let mut result = step_adhesive_crawler(crawler, clusters, ctx, facing_intent);
             result.events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
             result
         }
@@ -539,6 +542,7 @@ fn step_surface_momentum(
     motion: &mut super::SurfaceMomentumMotion,
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
+    facing_intent: f32,
 ) -> MotionStepResult {
     let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel, clusters.kinematics.material);
     let mut body = SurfaceBody {
@@ -586,8 +590,8 @@ fn step_surface_momentum(
         surface_momentum::apply_pad_impulse(ctx.world, &mut body, impulse, ctx.dt);
     }
     clusters.kinematics.vel = body.vel;
-    if ctx.facing_intent.abs() > 0.001 {
-        clusters.kinematics.facing = ctx.facing_intent.signum();
+    if facing_intent.abs() > 0.001 {
+        clusters.kinematics.facing = facing_intent.signum();
     }
     clusters.ground.on_ground = body.riding();
     // The wall FACT, from the same contacts, by the axis arm's rule: a rider
@@ -629,6 +633,7 @@ fn step_adhesive_crawler(
     motion: &mut super::AdhesiveCrawlerMotion,
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
+    facing_intent: f32,
 ) -> MotionStepResult {
     let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel, clusters.kinematics.material);
     let mut events = FrameEvents::default();
@@ -644,7 +649,7 @@ fn step_adhesive_crawler(
         ctx.world,
         clusters,
         ctx.frame,
-        ctx.facing_intent,
+        facing_intent,
         ctx.input.axes.x,
         ctx.dt,
         &mut events.contacts,

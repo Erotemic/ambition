@@ -45,7 +45,9 @@ pub struct BrainSnapshot {
     pub actor_pos: ae::Vec2,
     /// Actor's current velocity (px/s).
     pub actor_vel: ae::Vec2,
-    /// Actor's current facing: +1 local-right, -1 local-left.
+    /// Current facing in the movement policy's control axes.
+    /// Ordinary bodies project physical facing onto the reference side.
+    /// Crawlers use direction along their oriented route.
     pub actor_facing: f32,
     /// Half the side extent of the body that turns when this brain turns: its
     /// own box, or its mount's when it rides one that mirrors (the mount takes

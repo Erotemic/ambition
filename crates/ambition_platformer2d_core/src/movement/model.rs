@@ -761,6 +761,15 @@ fn distance_to_stop(speed: f32, decel: f32) -> f32 {
 }
 
 impl MotionModel {
+    /// Convert facing between body material and the policy's control axes.
+    pub fn project_facing(&self, material: crate::frame::BodyMaterial, facing: f32, reference_side: Vec2) -> f32 {
+        match self {
+            // A crawler commands direction along its oriented route.
+            Self::AdhesiveCrawler(_) => super::adhesive_crawler::route_facing(material, facing),
+            _ => material.project_facing(facing, reference_side),
+        }
+    }
+
     pub fn axis_swept(params: AxisSweptParams) -> Self {
         Self::AxisSwept(AxisSweptMotion::new(params))
     }

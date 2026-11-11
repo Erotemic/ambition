@@ -99,6 +99,42 @@ impl Rigid<'_> {
         Ok(points)
     }
 
+    // Bound signed plane motion. Tangential travel does not widen the normal envelope.
+    fn normal_variation(&self, normal: DVec2, domain: &[DVec2], map: super::Sim2,
+        pivot: DVec2, middle: f64, half: f64,
+    ) -> Option<f64> {
+        let source = self.cell.curve.as_ref()?.unmapped_source()?;
+        let source_pivot = source.rotation.map_or(source.map.translation(), |rotation| rotation.pivot)
+            + source.delta * middle;
+        let obstacle_velocity = self.shift * self.span();
+        let source_turn = source.turn();
+        let obstacle_turn = self.turn * self.span();
+        let relative_velocity = source.delta - obstacle_velocity;
+        let speed = relative_velocity.length() + scalar_round(source.delta.length() + obstacle_velocity.length());
+        let offset = (source_pivot - pivot).length() + scalar_round(source_pivot.length() + pivot.length());
+        let (mut derivative, mut radius) = (0.0_f64, 0.0_f64);
+        for &point in domain {
+            let point = map.point_wide(point);
+            let arm = point - source_pivot;
+            let velocity = source.delta + perpendicular(arm) * source_turn - obstacle_velocity;
+            let rate = obstacle_turn * perpendicular(normal).dot(point - pivot) + normal.dot(velocity);
+            let rounding = scalar_round(obstacle_turn.abs() * perpendicular(normal).abs().dot(point.abs() + pivot.abs())
+                + normal.abs().dot(source.delta.abs() + (perpendicular(arm) * source_turn).abs() + obstacle_velocity.abs()));
+            let reach = arm.length() + scalar_round(point.length() + source_pivot.length());
+            if !rate.is_finite() || !rounding.is_finite() || !reach.is_finite() { return None; }
+            derivative = derivative.max(rate.abs() + rounding);
+            radius = radius.max(reach);
+        }
+        // In the obstacle frame, the pivot offset turns at obstacle_turn;
+        // the material arm turns at source_turn - obstacle_turn.
+        let acceleration = obstacle_turn.powi(2) * (offset + speed * half)
+            + 2.0 * obstacle_turn.abs() * speed + (source_turn - obstacle_turn).powi(2) * radius;
+        let variation = (derivative * half + 0.5 * normal.length() * acceleration * half * half)
+            / map.scale_wide() * (1.0 + f64::EPSILON * 64.0);
+        // An unbounded estimate leaves the general conservative envelope in force.
+        variation.is_finite().then_some(variation)
+    }
+
     /// Bounds the rotation of each face normal and the relative translation.
     /// The bound retains every winding; it is not an endpoint chord.
     fn relaxed(
@@ -152,15 +188,16 @@ impl Rigid<'_> {
         } else {
             relative.length() * half
         };
-        let error = (reach * angle + travel) / map.scale_wide()
-            + self.rounding(middle, extent)?
-            + uncertainty;
+        let pose_rounding = self.rounding(middle, extent)?;
+        let error = (reach * angle + travel) / map.scale_wide() + pose_rounding + uncertainty;
         if !error.is_finite() {
             return Err(NumericFault::Overflow);
         }
         let mut region = domain;
         for (normal, constant) in rigid_planes(self.end, self.pivot) {
             let normal = rotation * normal;
+            let error = self.normal_variation(normal, &region, map, pivot, middle, half)
+                .map_or(error, |bound| error.min(bound + pose_rounding + uncertainty));
             let inward = map.inverse_direction_wide(normal);
             let offset = (normal.dot(pivot - map.translation()) + constant) / map.scale_wide();
             let rounding = round_bound(inward, offset, &region);

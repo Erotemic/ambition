@@ -229,8 +229,9 @@ pub struct ActorControlFrame {
     // way a human does: `locomotion.y` toward the feet plus `jump_pressed`.
     // Adding the boolean back would fork the one gesture rule into two
     // spellings that agree only by hand.
-    /// Desired facing this tick. `+1.0` = right, `-1.0` = left,
-    /// `0.0` = leave the actor's existing facing alone.
+    /// Desired facing in the movement policy's control axes.
+    /// Ordinary bodies use reference right/left; crawlers use route direction.
+    /// Zero leaves facing to the movement policy.
     pub facing: f32,
     /// Brain wants to begin a melee attack windup this tick. The
     /// simulation half handles cooldown gating; the brain just

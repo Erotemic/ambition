@@ -981,10 +981,13 @@ pub fn lower_camera_shakes(
 /// `BossSteerSlot`, in the control gate after the brain and before the
 /// integration.
 pub fn face_conducted_bosses(
-    mut bosses: Query<(&ConductedFacing, &mut ambition_characters::control::ActorControl), With<ae::PoseOwnedExternally>>,
+    mut bosses: Query<(&ConductedFacing, &ae::BodyKinematics,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        &mut ambition_characters::control::ActorControl), With<ae::PoseOwnedExternally>>,
 ) {
-    for (facing, mut control) in &mut bosses {
-        control.0.facing = facing.0;
+    for (facing, body, frame, mut control) in &mut bosses {
+        let side = frame.map_or(ae::Vec2::X, |frame| frame.basis().side);
+        control.0.facing = body.material.project_facing(facing.0, side);
     }
 }
 

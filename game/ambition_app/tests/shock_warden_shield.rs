@@ -214,21 +214,18 @@ fn a_broken_guard_stays_broken_across_a_change_of_form() {
 fn his_guard_uses_physical_material_for_shape_and_front_coverage() {
     use ambition_platformer2d::combat::guard::DeflectedBodyHit;
     use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, HitSide};
-    let mut sim = a_warden_beside_you();
-    let (defender, attacker) = {
-        let world = sim.world_mut();
-        let defender = world.query::<(Entity, &FeatureId)>().iter(world)
-            .find(|(_, id)| id.as_str() == WARDEN).unwrap().0;
-        let attacker = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
-        (defender, attacker)
-    };
-    // Keep the authored guard pose fixed during contact.
-    sim.world_mut().entity_mut(defender)
-        .remove::<ambition_platformer2d::characters::brain::Brain>()
-        .insert(ambition_platformer2d::characters::control::ActorControl::default());
-    sim.world_mut().entity_mut(defender).insert(ae::PoseOwnedExternally::only(ae::PoseHold::Path));
-    sim.world_mut().entity_mut(attacker).insert(ae::PoseOwnedExternally::only(ae::PoseHold::Path));
     for (scale, reflected) in [(0.5, true), (2.0, false)] {
+        let mut sim = a_warden_beside_you();
+        let (defender, attacker) = {
+            let world = sim.world_mut();
+            let defender = world.query::<(Entity, &FeatureId)>().iter(world)
+                .find(|(_, id)| id.as_str() == WARDEN).unwrap().0;
+            let attacker = world.query_filtered::<Entity, PrimaryPlayerOnly>().single(world).unwrap();
+            (defender, attacker)
+        };
+        // Hold positions while the live controller can turn the guard.
+        sim.world_mut().entity_mut(defender).insert(ae::PoseOwnedExternally::only(ae::PoseHold::Path));
+        sim.world_mut().entity_mut(attacker).insert(ae::PoseOwnedExternally::only(ae::PoseHold::Path));
         let axes = Mat2::from_angle(0.6) * if reflected { Mat2::from_cols(-Vec2::X, Vec2::Y) } else { Mat2::IDENTITY };
         {
             let mut body = sim.world_mut().get_mut::<ae::BodyKinematics>(defender).unwrap();

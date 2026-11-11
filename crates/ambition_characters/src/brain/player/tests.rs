@@ -17,17 +17,12 @@ fn neutral_input_yields_neutral_frame() {
     tick_player_brain_from_control(&input, &s, &mut out);
     assert!(!out.melee_pressed);
     assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
-    // Facing falls back to snapshot when stick neutral.
-    assert_eq!(out.facing, 1.0);
+    assert_eq!(out.facing, 0.0, "neutral input does not request a turn");
 }
 
 #[test]
 fn tick_player_brain_without_snapshot_input_falls_back_to_neutral() {
-    // When snapshot.player_input is None, tick_player_brain
-    // emits a neutral frame + facing only (no garbage from
-    // uninitialized fields). Pins the safe-default path so
-    // a driven actor with no input snapshot
-    // doesn't fire random actions.
+    // Missing input clears action and facing requests.
     let mut s = BrainSnapshot::idle();
     s.actor_facing = -1.0;
     s.player_input = None;
@@ -39,7 +34,7 @@ fn tick_player_brain_without_snapshot_input_falls_back_to_neutral() {
     tick_player_brain(PlayerSlot(0), &s, &mut out);
     assert!(!out.melee_pressed);
     assert!(out.fire.is_none());
-    assert_eq!(out.facing, -1.0);
+    assert_eq!(out.facing, 0.0);
 }
 
 #[test]
@@ -302,19 +297,6 @@ fn blink_and_special_are_separate_actions() {
     );
 }
 
-#[test]
-fn tick_player_brain_no_input_emits_neutral_with_facing() {
-    // The signature-matching variant doesn't have input access
-    // yet (Chunk 4 plumbing); it emits neutral + facing from the
-    // snapshot. Keep this test honest to that contract.
-    let mut s = BrainSnapshot::idle();
-    s.actor_facing = -1.0;
-    let mut out = crate::actor::control::ActorControlFrame::default();
-    out.melee_pressed = true; // pre-poisoned
-    tick_player_brain(PlayerSlot(0), &s, &mut out);
-    assert!(!out.melee_pressed);
-    assert_eq!(out.facing, -1.0);
-}
 
 ///  `velocity_target` is WORLD-space and this brain wrote a LOCAL vector.
 ///

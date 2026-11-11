@@ -382,7 +382,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
             let impact = midpoint(event.volume.center(), em.kin.pos);
             // The guard is the VICTIM's, so the clang is the victim's cue: a
             // shielded Sanic clangs out of Sanic's bank.
-            writers.sfx.write_for_body(
+            writers.sfx.in_space(ambition_vfx::sfx_space(room)).write_for_body(
                 victim_source.as_ref(),
                 SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -754,7 +754,7 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 },
                 None => SfxMessage::Death { pos: em.kin.pos },
             };
-            writers.sfx.write_for_body(victim_source.as_ref(), death_cue);
+            writers.sfx.in_space(ambition_vfx::sfx_space(room)).write_for_body(victim_source.as_ref(), death_cue);
         }
         true
     }

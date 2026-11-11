@@ -144,7 +144,7 @@ pub fn detect_cut_rope_rope_cut(
             color: cut.color,
             kind: ParticleKind::Shard,
         });
-        sfx.write(SfxMessage::Slash { pos: rope.pos });
+        sfx.in_space(vfx.sfx_space()).write(SfxMessage::Slash { pos: rope.pos });
     }
 }
 

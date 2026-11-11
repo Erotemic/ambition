@@ -605,7 +605,8 @@ pub fn audio_play_sfx_messages(
         let Some(accepted) = resolver.accept(owned.owner, &owned.source, id) else {
             continue;
         };
-        let emitter = owned.request.emitter();
+        // In the space it was made in: only that room's listeners hear it.
+        let emitter = owned.request.emitter().in_space(owned.space);
         let duration = resolver.duration(&accepted.resolved.handle);
         let voice = output.start(accepted.owner, accepted.resolved.handle, emitter, duration, None, owned.request.gain());
         let gain = voice.gain;
@@ -764,6 +765,7 @@ mod tests {
             owner: Some(AudioContextOwner::Gameplay(1)),
             source: "sanic".into(),
             request: SfxMessage::Dash { pos: Vec2::ZERO },
+            space: None,
         };
         assert!(!selection.accepts_request_owner(stale.owner));
     }

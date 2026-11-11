@@ -367,7 +367,7 @@ pub fn resolve_deflects(
         } else {
             ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_CHINK
         };
-        sfx.write(ambition_sfx::SfxMessage::Play { id: cue, emitter: (deflect.contact).into() });
+        sfx.in_space(ambition_vfx::sfx_space(rooms.of(deflect.defender))).write(ambition_sfx::SfxMessage::Play { id: cue, emitter: (deflect.contact).into() });
         let mut room = vfx.for_room(rooms.of(deflect.defender));
         room.write(ambition_vfx::vfx::VfxMessage::Impact { pos: deflect.contact, blow: ambition_vfx::ImpactBlow::PLAIN });
         room.write(ambition_vfx::vfx::VfxMessage::Burst {

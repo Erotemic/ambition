@@ -234,6 +234,9 @@ pub struct OwnedSfxMessage {
     pub owner: Option<AudioContextOwner>,
     pub source: PresentationSourceId,
     pub request: SfxMessage,
+    /// The listening space it sounds in (a live room's); `None` reaches every
+    /// listener. A global request stays global.
+    pub space: Option<crate::SfxSpace>,
 }
 
 /// Mechanics-facing writer that captures audio ownership at emission time.
@@ -246,18 +249,33 @@ pub struct SfxWriter<'w> {
     context: Option<Res<'w, SfxEmissionContext>>,
 }
 
-impl SfxWriter<'_> {
+impl<'w> SfxWriter<'w> {
     pub fn write(&mut self, request: SfxMessage) {
-        let owner = self.context.as_deref().and_then(SfxEmissionContext::owner);
+        self.write_in(None, request);
+    }
+
+    /// This writer, for sounds made in `space` (a live room's): only the
+    /// listeners of that space hear them.
+    pub fn in_space(&mut self, space: Option<crate::SfxSpace>) -> SfxInSpace<'_, 'w> {
+        SfxInSpace { writer: self, space }
+    }
+
+    fn write_in(&mut self, space: Option<crate::SfxSpace>, request: SfxMessage) {
         let source = self
             .context
             .as_deref()
             .map(|context| context.source().clone())
             .unwrap_or_default();
+        self.write_from_in(space, source, request);
+    }
+
+    fn write_from_in(&mut self, space: Option<crate::SfxSpace>, source: impl Into<PresentationSourceId>, request: SfxMessage) {
+        let owner = self.context.as_deref().and_then(SfxEmissionContext::owner);
         self.messages.write(OwnedSfxMessage {
             owner,
-            source,
+            source: source.into(),
             request,
+            space,
         });
     }
 
@@ -275,12 +293,30 @@ impl SfxWriter<'_> {
     /// sessions. Ownership is still captured from the active session context;
     /// callers cannot forge a retired session merely by naming another source.
     pub fn write_from(&mut self, source: impl Into<PresentationSourceId>, request: SfxMessage) {
-        let owner = self.context.as_deref().and_then(SfxEmissionContext::owner);
-        self.messages.write(OwnedSfxMessage {
-            owner,
-            source: source.into(),
-            request,
-        });
+        self.write_from_in(None, source, request);
+    }
+}
+
+/// An [`SfxWriter`] bound to one listening space ([`SfxWriter::in_space`]).
+pub struct SfxInSpace<'a, 'w> {
+    writer: &'a mut SfxWriter<'w>,
+    space: Option<crate::SfxSpace>,
+}
+
+impl SfxInSpace<'_, '_> {
+    pub fn write(&mut self, request: SfxMessage) {
+        self.writer.write_in(self.space, request);
+    }
+
+    pub fn write_for_body(&mut self, source: Option<&PresentationSourceId>, request: SfxMessage) {
+        match source {
+            Some(source) => self.write_from(source.clone(), request),
+            None => self.write(request),
+        }
+    }
+
+    pub fn write_from(&mut self, source: impl Into<PresentationSourceId>, request: SfxMessage) {
+        self.writer.write_from_in(self.space, source, request);
     }
 }
 
@@ -357,7 +393,12 @@ pub struct BodySfxWriter<'w, 's> {
     sources: Query<'w, 's, &'static BodyPresentationSource>,
 }
 
-impl BodySfxWriter<'_, '_> {
+impl<'w, 's> BodySfxWriter<'w, 's> {
+    /// This writer, for sounds made in `space` (a live room's).
+    pub fn in_space(&mut self, space: Option<crate::SfxSpace>) -> BodySfxInSpace<'_, 'w, 's> {
+        BodySfxInSpace { writer: self, space }
+    }
+
     /// Emit a cue caused by `body`, under `body`'s presentation source.
     pub fn write_for(&mut self, body: Entity, request: SfxMessage) {
         let source = self.sources.get(body).ok().map(BodyPresentationSource::id);
@@ -403,6 +444,32 @@ impl BodySfxWriter<'_, '_> {
             .get(body)
             .ok()
             .map(|source| source.id().clone())
+    }
+}
+
+/// A [`BodySfxWriter`] bound to one listening space ([`BodySfxWriter::in_space`]).
+pub struct BodySfxInSpace<'a, 'w, 's> {
+    writer: &'a mut BodySfxWriter<'w, 's>,
+    space: Option<crate::SfxSpace>,
+}
+
+impl BodySfxInSpace<'_, '_, '_> {
+    /// [`BodySfxWriter::write_for`], in this space.
+    pub fn write_for(&mut self, body: Entity, request: SfxMessage) {
+        let source = self.writer.sources.get(body).ok().map(BodyPresentationSource::id).cloned();
+        self.write_for_body(source.as_ref(), request);
+    }
+
+    /// [`BodySfxWriter::write_for_body`], in this space.
+    pub fn write_for_body(&mut self, source: Option<&PresentationSourceId>, request: SfxMessage) {
+        let space = self.space;
+        self.writer.sfx.in_space(space).write_for_body(source, request);
+    }
+
+    /// [`BodySfxWriter::write_from`], in this space.
+    pub fn write_from(&mut self, source: impl Into<PresentationSourceId>, request: SfxMessage) {
+        let space = self.space;
+        self.writer.sfx.in_space(space).write_from(source, request);
     }
 }
 

@@ -167,7 +167,7 @@ pub fn apply_pogo_bounce(
         let pos = kin.pos;
         ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(rules.room_of(msg.owner))).write_for(
             msg.owner,
             match cue {
                 Some(id) => SfxMessage::Play { id, emitter: (pos).into() },

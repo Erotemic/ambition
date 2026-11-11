@@ -317,6 +317,18 @@ impl VfxForRoom<'_, '_> {
     pub fn room(&self) -> Option<LiveRoomInstance> {
         self.room
     }
+
+    /// The listening space of this writer's room: a sound made beside this
+    /// effect is heard where the effect is seen.
+    pub fn sfx_space(&self) -> Option<ambition_sfx::SfxSpace> {
+        sfx_space(self.room)
+    }
+}
+
+/// The listening space of a live room: its sounds are heard only by the views
+/// that frame it (ISL-1b). `None`: every listener.
+pub fn sfx_space(room: Option<LiveRoomInstance>) -> Option<ambition_sfx::SfxSpace> {
+    room.map(|room| ambition_sfx::SfxSpace(room.ordinal()))
 }
 
 /// A visual effect: the payload of [`VfxInRoom`]. Emitted by simulation

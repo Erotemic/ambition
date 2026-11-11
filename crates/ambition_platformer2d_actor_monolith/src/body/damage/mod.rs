@@ -1001,7 +1001,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
             // it is NOT a sound the prop makes on its own, so no
             // `strike_sfx == <this cue>` test is needed to keep it quiet.
             if let Some(strike) = event.strike_sfx {
-                writers.sfx.write(ambition_sfx::SfxMessage::Play {
+                writers.sfx.in_space(ambition_vfx::sfx_space(rooms.of(entity))).write(ambition_sfx::SfxMessage::Play {
                     id: ambition_combat::util::resolve_strike_sfx(
                         ambition_vfx::HurtFeedback::METAL,
                         Some(strike),

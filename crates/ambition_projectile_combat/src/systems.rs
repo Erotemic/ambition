@@ -74,7 +74,7 @@ fn reflect_parried_shot(
     // ⛔ THE CUES STAY HERE, and that is the split. A parry CLANGS; a reflector
     // would hum and an absorber swallow, and a domain operation that played one
     // of those would make the other two wrong.
-    sfx.write_for_body(
+    sfx.in_space(ambition_vfx::sfx_space(room)).write_for_body(
         parrier_source,
         SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -627,7 +627,7 @@ pub(crate) fn emit_landing_splash(
             lifetime_s: 0.0,
             name: Some("projectile splash"),
         });
-    sfx.write(SfxMessage::Play {
+    sfx.in_space(ambition_vfx::sfx_space(room)).write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         emitter: (pos).into(),
     });
@@ -1567,7 +1567,7 @@ pub fn step_projectiles(
         });
         match world_response.outcome {
             WorldHitOutcome::Bounced { pos } => {
-                sfx.write_for_body(bolt_source.as_ref(), SfxMessage::Hit { pos });
+                sfx.in_space(ambition_vfx::sfx_space(shot_room)).write_for_body(bolt_source.as_ref(), SfxMessage::Hit { pos });
             }
             WorldHitOutcome::Expired { pos } => {
                 if game.splash_half_extent > 0.0 {

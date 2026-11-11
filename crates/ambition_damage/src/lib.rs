@@ -655,7 +655,7 @@ pub(crate) fn handle_player_damage_events(
         BodyHitResolution::Ignored => false,
         BodyHitResolution::Blocked => {
             // The guard is this body's (G1).
-            sfx.write_for_body(
+            sfx.in_space(vfx.sfx_space()).write_for_body(
                 victim_source,
                 SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -679,7 +679,7 @@ pub(crate) fn handle_player_damage_events(
         // the brief i-frames the resolver already armed.
         BodyHitResolution::Armored => {
             // The armor was WORN by this body, so losing it is its cue (G1).
-            sfx.write_for_body(
+            sfx.in_space(vfx.sfx_space()).write_for_body(
                 victim_source,
                 SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_DAMAGE,
@@ -762,7 +762,7 @@ pub(crate) fn handle_player_damage_events(
             // `ruleset_owns_death` no longer selects an arm. It is still read to
             // decide whether the world's OTHER consequences apply (the enemy
             // death economy), which is the question it actually answers.
-            sfx.write_for_body(
+            sfx.in_space(vfx.sfx_space()).write_for_body(
                 victim_source,
                 SfxMessage::Death {
                     pos: clusters.kinematics.pos,
@@ -790,7 +790,7 @@ pub(crate) fn handle_player_damage_events(
                 if let Some(id) = damage.strike_sfx {
                     // The ATTACK's sound, so the attacker's source — the same
                     // split `emit_hit_feedback` makes (A13).
-                    sfx.write_for_body(
+                    sfx.in_space(vfx.sfx_space()).write_for_body(
                         attacker_source,
                         SfxMessage::Play {
                             id,
@@ -893,7 +893,7 @@ pub(crate) fn safe_respawn_player(
             "safe_respawn",
         ));
     }
-    sfx.write_for_body(victim_source, SfxMessage::Reset { pos: to });
+    sfx.in_space(vfx.sfx_space()).write_for_body(victim_source, SfxMessage::Reset { pos: to });
     vfx.write(VfxMessage::ResetEffects { from, to });
 }
 

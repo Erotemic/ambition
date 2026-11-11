@@ -614,7 +614,73 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    every player's: a quest payout (the quest book is the session's) and the
    sandbox reset. Witness: `a_room_s_banner_shows_only_in_that_room`; tests
    that asked "was a banner shown" read `shown()`, every room's, so a room's
-   banner cannot slip past them. Seven of the ten remain.
+   banner cannot slip past them.
+
+   **Sounds (2026-11-11):** `ambition_sfx` gains an opaque listening space
+   (`SfxSpace`). A spatial emitter carries one, so a voice keeps it while its
+   gain is recomputed each frame. `SfxListeners` carries each listener's
+   space, and `OwnedSfxMessage` carries the space it was made in
+   (`SfxWriter::in_space`, `BodySfxWriter::in_space`). A listener hears a
+   spatial sound only from its own space, or from a sound with none. The host
+   names the spaces: `ambition_vfx::sfx_space(room)` maps a live room to its
+   space, and the sfx crate never names a room. Each view listens in the
+   space of the room it frames (`publish_audio_listeners`). Before this, two
+   live rooms at the same coordinates (two instances of one room) heard each
+   other's hits as if they were beside the listener.
+   Writers that name their room:
+   - movement (`emit_movement_fx`);
+   - hit feedback (`emit_hit_feedback`), a body's or boss's guard, death and
+     strike, a breakable struck or broken, a guard deflect;
+   - pogo bounces (on-hit, extension contact, attack support);
+   - pickups and chests, switches (`apply_switch_effects`);
+   - projectile parry, splash and bounce, a brain's shot report;
+   - bombs and the gravity grenade, the puppy-slug gun, vitality pulses,
+     extension body sounds;
+   - a boss's defeat and phase change, a character's beat cues, a pet;
+   - teleport, trapdoor and flyline;
+   - a move's authored cue (`MoveEventKind::Sfx`), an `FxRequest`'s cue
+     (`process_fx_requests`), a knockout jet;
+   - the cut-rope slash, lock walls, wormhole gates;
+   - `GameplaySfxRequested`, which now carries a room (it has no production
+     writer today).
+
+   Still heard in every space (no room named):
+   - the shell menus, pause menu, kaleidoscope menu, and the dialog
+     blips (`ambition_dialog`, `yarn_vocabulary`): UI, which belongs to a
+     seat rather than a room, and the one conversation of ISL-1b;
+   - the sandbox reset;
+   - door crossings (`room_transition/commit.rs`, `rooms/passage.rs`,
+     `rooms/systems.rs`): a crossing spans two rooms, and the session crate
+     does not reach `ambition_vfx`;
+   - the shrine (its crate does not reach `ambition_vfx`);
+   - the smash-charge and parry cues in `body_cues.rs`, read from the feature
+     view index, which carries no room;
+   - the demo crates (Sanic, Mary-O, Twin Track);
+   - the portal adapters (the portal owner's).
+   Witnesses: `a_sound_in_one_space_is_not_heard_from_another_at_the_same_place`
+   (the gain rule) and
+   `a_landing_in_one_room_is_not_heard_from_another_at_the_same_place`
+   (`ambition_audio`, under `--features kira`: playback applies the
+   message's space; poisoned by dropping it, the assertion "another room's
+   listener heard it" fails).
+
+   **Three of the remaining five were misfiled (2026-11-11):**
+   - `AmbientGravityRequest` is a developer tool's ask (a hotkey, the
+     developer menu). The room is named where it is applied:
+     `apply_ambient_gravity_requests` cycles `BaseGravity` for
+     `PrimaryLiveRoom`, the room the developer looks at, one tick after the
+     key. So it is a seat's act with its room resolved on application, not a
+     room's act that loses its room.
+   - `RoomReplayRequested` is the same: `admit_room_replay` replays the
+     controlled subject's room, and `close_death_interlude` asks only when
+     the primary's room goes back (Q153: a second seat that falls comes back
+     beside the primary). One residual: with no primary (a match) and two
+     rooms live, it reaches the replay only in a composition with no
+     checkpoint horizon. There the request names no room, `definition_named(None)`
+     finds no sole room, and the replay is dropped.
+   - `CutRopeRoomReplayRequested` is the conversation's ("try again"), so it
+     is the one-conversation item's. It replays the controlled subject's
+     room, which is the talker's room only while the primary is the talker.
 
 ## Order, exclusions and integration
 

@@ -276,7 +276,7 @@ pub fn emit_breakable_destroyed(
         pos,
         cue: PhysicsDebrisCue::Breakable,
     });
-    sfx.write(SfxMessage::Play {
+    sfx.in_space(vfx.sfx_space()).write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_CRATE_BREAK,
         emitter: (pos).into(),
     });

@@ -443,7 +443,7 @@ pub fn advance_pet_beats(
                     remaining: PET_SECONDS,
                 };
                 if let Some(sound) = &petting.sound {
-                    sfx.write(SfxMessage::Play {
+                    sfx.in_space(ambition_vfx::sfx_space(rooms.of(petter))).write(SfxMessage::Play {
                         id: SfxId::new(sound),
                         emitter: (center.center).into(),
                     });

@@ -608,6 +608,7 @@ fn play_owned_sfx_from(
             owner,
             source,
             request,
+            space: None,
         });
     // ⛔⛔ READ THE RECORD THAT CHANGED, NOT THE LATCH AFTER A FIXED COUNT.
     // `last_played` is a LATCH, and this used to run exactly two updates and
@@ -827,6 +828,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         owner: Some(first_sanic_owner),
         source: "sanic".into(),
         request: SfxMessage::Dash { pos: Vec2::ZERO },
+        space: None,
     });
     app.update();
     app.update();
@@ -1728,7 +1730,7 @@ fn a_world_sound_uses_the_live_listener_and_a_menu_sound_does_not() {
     for (emitter, expected) in [(SfxEmitter::point(at), 1.0),
         (SfxEmitter::point(at + Vec2::splat(5000.0)), 0.0), (SfxEmitter::Global, 1.0)] {
         app.world_mut().write_message(OwnedSfxMessage { owner, source: source.clone(),
-            request: SfxMessage::Play { id: ids::UI_MENU_MOVE, emitter } });
+            request: SfxMessage::Play { id: ids::UI_MENU_MOVE, emitter }, space: None });
         app.update();
         let record = app.world().resource::<SfxPlaybackState>().played_this_pass.iter()
             .find(|record| record.id == ids::UI_MENU_MOVE && record.emitter == emitter)

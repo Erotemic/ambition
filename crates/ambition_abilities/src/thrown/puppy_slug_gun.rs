@@ -51,6 +51,8 @@ pub fn fire_puppy_slug_gun_system(
     companions: Query<(), With<SummonedCompanion>>,
     mut effects: MessageWriter<SummonRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
+    // The gun is heard in the caster's live room.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // ⛔⛔ A QUERY CANNOT SEE A SUMMON THAT IS NOT BUILT YET, and every driven
     // body reads the cap on the same tick. Without this running tally, N seats
@@ -98,7 +100,7 @@ pub fn fire_puppy_slug_gun_system(
         });
         summoned_this_tick += 1;
         // The GUN is the caster's, not the summoned slug's.
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(live.of(subject))).write_for(
             subject,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,

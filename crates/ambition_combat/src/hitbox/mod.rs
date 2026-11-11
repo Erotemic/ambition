@@ -1298,10 +1298,7 @@ pub fn apply_hitbox_damage(
                     HitKnockbackMagnitude::LaunchSpeed(_) => magnitude,
                 };
                 // Only unit-bearing speed changes between material charts.
-                let magnitude = match magnitude {
-                    HitKnockbackMagnitude::FeelScale(_) => Ok(magnitude),
-                    HitKnockbackMagnitude::LaunchSpeed(value) => material_into_victim.length(value).map(HitKnockbackMagnitude::LaunchSpeed),
-                };
+                let magnitude = magnitude.in_chart(material_into_victim);
                 let Ok(magnitude) = magnitude else { continue; };
                 let Ok(victim_in_source) = from_victim.point(victim_body.center()) else { continue; };
                 let Ok(launch_dir) = hitbox.launch_world(owner_kin.get(hitbox.owner).ok(), spatial_source, victim_in_source) else { continue; };

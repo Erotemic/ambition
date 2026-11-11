@@ -264,16 +264,7 @@ impl DamageableVolumes {
             };
             map.bounds(bounds)
         };
-        let mut swept = None;
-        for part in cells.parts() {
-            if let Some(bounds) = cells.bounds(part)? {
-                swept = Some(swept.map_or(bounds, |old: ae::Aabb| ae::Aabb {
-                    min: old.min.min(bounds.min), max: old.max.max(bounds.max),
-                }));
-            }
-        }
-        let Some(swept) = swept else { return Ok(None); };
-        let (swept_min,swept_max) = (swept.min.as_dvec2(),swept.max.as_dvec2());
+        if cells.swept_bounds().next().is_none() { return Ok(None); }
         let reaches_opening = |min: bevy::math::DVec2, max: bevy::math::DVec2,
             ap: ae::frame::PortalAperture, front: bool| {
             if !ap.frame.origin.is_finite() || !ap.frame.normal.is_finite()
@@ -293,7 +284,8 @@ impl DamageableVolumes {
             let possible = self.domains().iter().any(|domain| {
                 let Ok(bounds) = projected_bounds(domain, map) else { return true; };
                 let (min, max) = (bounds.min.as_dvec2(), bounds.max.as_dvec2());
-                if min.cmple(swept_max).all() && swept_min.cmple(max).all() { return true; }
+                if cells.swept_bounds().any(|bounds| min.cmple(bounds.max.as_dvec2()).all()
+                    && bounds.min.as_dvec2().cmple(max).all()) { return true; }
                 let Some(geometry) = geometry else { return false; };
                 let carried = matches!(self.space(), HurtSpace::Body)
                     .then(|| geometry.straddled_by(owner)).flatten();
@@ -301,7 +293,8 @@ impl DamageableVolumes {
                 // A carried region enters one opening and leaves a final opening.
                 // Keep all link combinations, including chained paths.
                 links().any(|link| reaches_opening(min, max, link.enter, false))
-                    && links().any(|link| reaches_opening(swept_min, swept_max, link.exit, true))
+                    && links().any(|link| cells.swept_bounds().any(|bounds|
+                        reaches_opening(bounds.min.as_dvec2(),bounds.max.as_dvec2(),link.exit,true)))
             });
             if !possible { return Ok(None); }
         }
@@ -427,6 +420,22 @@ mod hurt_material_tests {
         assert!(contact(&source).unwrap().is_none());
         source.pos = body.pos - ae::Vec2::X * 20.0;
         assert!(contact(&source).is_err());
+
+        let source_owner=Entity::from_raw_u32(1).unwrap();
+        let entry=ae::frame::PortalAperture {frame:ae::frame::PortalFrame::fixed(ae::Vec2::ZERO,-ae::Vec2::Y),half_length:40.0};
+        let exit=ae::frame::PortalAperture {frame:ae::frame::PortalFrame::fixed(ae::Vec2::new(500.0,-200.0),ae::Vec2::Y),half_length:80.0};
+        let mut geometry=BodyGeometry::default();
+        geometry.add_pair(None,(entry,exit));
+        geometry.add_straddler(source_owner,None,entry,exit);
+        geometry.set_body_budget(owner,PieceBudget {max_pieces:0,..PieceBudget::SINGLE_HOP});
+        let source=ae::BodyKinematics {pos:ae::Vec2::new(0.0,-2.0),canonical_size:ae::Vec2::splat(8.0),..Default::default()};
+        let domain=source.canonical_box().unwrap();
+        let cells=ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
+            domain:&domain,to_world:source.material_map().unwrap() },source.pos,ae::Vec2::ZERO,0.0..1.0)
+            .cells(geometry.motion_for(source_owner,None)).unwrap();
+        let body=ae::BodyKinematics {pos:ae::Vec2::new(250.0,-100.0),..Default::default()};
+        assert!(hurt.swept_body_contact(owner,Some(&body),Some(&geometry),None,&cells).unwrap().is_none(),
+            "the space between independent source cells is not a contact candidate");
     }
 
     #[test]

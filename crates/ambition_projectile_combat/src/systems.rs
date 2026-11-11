@@ -639,19 +639,6 @@ pub(crate) fn emit_landing_splash(
     });
 }
 
-/// Whether a shot may make contact with `target` on the leg it is flying.
-///
-/// ONE RULE FOR EVERY FAMILY A SHOT CAN REACH: bodies, bosses and breakables.
-/// A shot never touches the body that fired it, so a shot born inside its
-/// thrower's hull flies out of it. And it touches each target once per leg.
-fn shot_may_touch(
-    owner: Option<Entity>,
-    hits: &ambition_platformer2d_shared_tangle::projectile::ProjectileHits,
-    target: Entity,
-) -> bool {
-    Some(target) != owner && !hits.hit.contains(&target)
-}
-
 /// Step every live projectile in deterministic spawn order.
 /// Player/enemy routing shares this body-general path; bosses and breakables use the feature-hit path.
 pub fn step_projectiles(
@@ -1117,9 +1104,44 @@ pub fn step_projectiles(
                 let mut ordered = Vec::new();
                 for victim in victims.iter().filter(|victim| collision.room_of(victim.entity) == shot_room
                     && may_touch(victim.entity)) {
+                    // Only an eligible recipient can refuse this contact query.
+                let can_hit = indiscriminate
+                    || allegiance.as_ref().is_some_and(|side| {
+                        ambition_combat::targeting::damage_lands_between(
+                            tuning.relations(),
+                            ambition_combat::targeting::Combatant {
+                                faction: side.faction,
+                                driver: side.driver.as_ref(),
+                                team: side.team(),
+                            },
+                            ambition_combat::targeting::Combatant {
+                                faction: *victim.faction,
+                                driver: victim.driver,
+                                team: victim.team,
+                            },
+                            friendly_fire,
+                            firer_grudge,
+                            victim.entity,
+                        )
+                    });
+                if !can_hit || victim.is_corpse() {
+                    continue;
+                }
                     if let Some(hit) = victim.contact_along(&source_cells, collision.body_geometry(), shot_room)?
                         .filter(|hit| hit.hit.toi <= travel_end) {
-                        ordered.push((hit, victim));
+                        let magnitude=if let Some(launch)=launch {
+                            let numeric=|fault| ae::frame::thread::Refusal {
+                                path:hit.hit.source_path.clone(),link:None,
+                                reason:ae::frame::thread::RefusalReason::Numeric(fault),
+                            };
+                            let into_victim=hit.hit.source_map.then(hit.hit.target_map.inverse().map_err(numeric)?)
+                                .map_err(numeric)?;
+                            let (damage_taken,weight)=victim.knockback_growth_inputs();
+                            ambition_combat::hitbox::projectile_launch_magnitude(launch.base,launch.growth,
+                                damage_taken,weight,&tuning.in_room(shot_room).unwrap_or_default())
+                                .in_chart(into_victim).map_err(numeric)?
+                        } else { HitKnockbackMagnitude::FeelScale(0.85) };
+                        ordered.push((hit, victim, magnitude));
                     }
                 }
                 Ok((feature_contact, ordered))
@@ -1134,7 +1156,7 @@ pub fn step_projectiles(
                     continue 'projectiles;
                 }
             };
-            ordered.sort_by(|(at, a), (bt, b)| {
+            ordered.sort_by(|(at, a, _), (bt, b, _)| {
                 let (ax, ay) = (a.aabb.aabb().center().x, a.aabb.aabb().center().y);
                 let (bx, by) = (b.aabb.aabb().center().x, b.aabb.aabb().center().y);
                 at.hit.toi.total_cmp(&bt.hit.toi)
@@ -1177,7 +1199,7 @@ pub fn step_projectiles(
                 let ambiguous = ordered
                     .windows(2)
                     .find(|pair| {
-                        let ((at, a), (bt, b)) = (&pair[0], &pair[1]);
+                        let ((at, a, _), (bt, b, _)) = (&pair[0], &pair[1]);
                         a.sim_id.is_none()
                             && b.sim_id.is_none()
                             && at.hit.toi == bt.hit.toi
@@ -1213,7 +1235,7 @@ pub fn step_projectiles(
                 down: ae::Vec2::ZERO,
             });
 
-            for (contact, victim) in &ordered {
+            for (contact, victim, magnitude) in &ordered {
                 // ⛔ THE EARLIEST CONTACT WINS, WHATEVER FAMILY IT IS IN.
                 // `ordered` ascends by time, so a feature reached strictly before
                 // this victim is reached strictly before every remaining one:
@@ -1260,35 +1282,6 @@ pub fn step_projectiles(
                         .is_lt()
                 }) {
                     break;
-                }
-                if !shot_may_touch(owner_entity, &already_hit, victim.entity) {
-                    continue;
-                }
-                // An owned shot lands on a faction-foe OR a same-faction body its firer holds a
-                // grudge against; an indiscriminate (ownerless) shot lands on everyone — there is
-                // no ally to spare. `damage_lands_BETWEEN`, so the TEAMS decide when both bodies
-                // are seated and the factions decide when they are not.
-                let can_hit = indiscriminate
-                    || allegiance.as_ref().is_some_and(|side| {
-                        ambition_combat::targeting::damage_lands_between(
-                            tuning.relations(),
-                            ambition_combat::targeting::Combatant {
-                                faction: side.faction,
-                                driver: side.driver.as_ref(),
-                                team: side.team(),
-                            },
-                            ambition_combat::targeting::Combatant {
-                                faction: *victim.faction,
-                                driver: victim.driver,
-                                team: victim.team,
-                            },
-                            friendly_fire,
-                            firer_grudge,
-                            victim.entity,
-                        )
-                    });
-                if !can_hit {
-                    continue;
                 }
                 let victim_body = victim.aabb.aabb();
                 // An independent world surface wins an exact contact tie.
@@ -1401,22 +1394,7 @@ pub fn step_projectiles(
                         // An ordinary hit: it stuns.
                         reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
                         dir: knock_dir,
-                        // A shot whose weapon authors a growing launch deals
-                        // it by the strike law, against this victim's percent
-                        // and weight; every other shot keeps the fixed nudge.
-                        magnitude: match launch {
-                            Some(launch) => {
-                                let (damage_taken, weight) = victim.knockback_growth_inputs();
-                                ambition_combat::hitbox::projectile_launch_magnitude(
-                                    launch.base,
-                                    launch.growth,
-                                    damage_taken,
-                                    weight,
-                                    &tuning.in_room(shot_room).unwrap_or_default(),
-                                )
-                            }
-                            None => HitKnockbackMagnitude::FeelScale(0.85),
-                        },
+                        magnitude: *magnitude,
                         // WHERE THE SHOT WAS, not where it ended: the endpoint of
                         // a fast bolt is past the body it hit, and a knockback
                         // sourced there pushes the victim back toward the muzzle.

@@ -48,8 +48,8 @@ impl MaterialCastCells<'_> {
         let inverse = target.transform().inverse().map_err(numeric)?;
         let bounds = target.world_volume().bounds();
         let mut first: Option<SampledPieceHit> = None;
-        for part in &self.parts {
-            let Some(source_bounds) = self.bounds(part)? else { continue; };
+        for (part, source_bounds) in self.bounded_parts() {
+            let Some(source_bounds) = source_bounds else { continue; };
             if (0..2).any(|axis| source_bounds.max[axis] < bounds.min[axis].next_down()
                 || source_bounds.min[axis] > bounds.max[axis].next_up()) { continue; }
             let hit=if part.curve.is_some() {

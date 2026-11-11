@@ -168,7 +168,7 @@ pub fn drive_wave_encounters(
         &mut EncounterWaves,
         &mut EncounterParticipants,
     )>,
-    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     // ⭐ THE QUEUE IS NOT DRAINED HERE ANY MORE. This reads what the switch
     // domain published; the drain, the parse and the persisted toggle all
     // belong to `ambition_encounter::switches::drain_switch_activations`.
@@ -178,7 +178,6 @@ pub fn drive_wave_encounters(
         (Entity, &ambition_platformer2d_core::BodyKinematics),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
-    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
     // ⭐ THE ROOM SET IS ALL THAT SURVIVES. This system used to take the
@@ -201,6 +200,12 @@ pub fn drive_wave_encounters(
     // ⭐ THE CHEST QUERY LEFT WITH THE REWARD RETIRE (2026-09-03). This system
     // drives waves; it has no business reading an encounter's reward entities,
     // and it only ever did because the retire was wedged into its switch loop.
+    // A switch's quest flags, dated in its room so a rewind of that room takes
+    // them back (ISL-2d), and the tick that dates them.
+    (mut flag_writes, sim_tick): (
+        MessageWriter<ambition_combat::events::SetFlagRequested>,
+        Option<Res<ambition_time::SimTick>>,
+    ),
 ) {
     // The session gate stays: this system spawns nothing now, but it wrote
     // persisted switch state and quest flags before the drain split out, and
@@ -404,15 +409,19 @@ pub fn drive_wave_encounters(
     //    that it is not this system.
     for activation in &resolved_switches.0 {
         // Quest hook: every switch interaction sets a generic flag that quests
-        // can listen for, whatever the action was.
-        save.data_mut().set_flag("test_switch_toggled", true);
-        save.data_mut().set_flag(
-            ambition_encounter::switches::switch_used_flag(&activation.id),
-            true,
-        );
-        quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
-            "test_switch_toggled".into(),
-        ));
+        // can listen for, whatever the action was, and the switch's own "used"
+        // flag. Through the flag channel, so each is the switch's room's write
+        // (ISL-2d) and queues its `FlagSet` step under that write. Only a
+        // write that changes the flag is dated: the log keeps what a rewind
+        // must put back.
+        for flag in ["test_switch_toggled".to_string(), ambition_encounter::switches::switch_used_flag(&activation.id)] {
+            let written = activation
+                .room
+                .filter(|_| !save.data().flag(&flag))
+                .zip(sim_tick.as_deref())
+                .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 });
+            flag_writes.write(ambition_combat::events::SetFlagRequested { id: flag, on: true, written });
+        }
         match &activation.action {
             // A gravity switch turns the ambient of the live room it is in,
             // and of no other (customer 2): Bob's switch does not turn Alice's

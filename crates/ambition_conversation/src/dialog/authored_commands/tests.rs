@@ -46,7 +46,7 @@ fn spread_descriptor() -> CommandDescriptor {
     }
 }
 
-fn spread(_world: &mut World, _args: &[AuthoredArg]) -> CommandOutcome {
+fn spread(_world: &mut World, _args: &[AuthoredArg], _room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     CommandOutcome::Done
 }
 

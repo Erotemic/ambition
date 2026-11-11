@@ -25,7 +25,7 @@ struct Bell(Vec<String>);
 #[derive(Component)]
 struct Struck;
 
-fn ring(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+fn ring(world: &mut World, args: &[AuthoredArg], _room: Option<crate::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     let Some(note) = args[0].as_name() else {
         return CommandOutcome::refused("argument was not a name");
     };
@@ -146,7 +146,7 @@ fn asking_for_an_unpublished_command_is_refused_with_a_reason() {
         app.world_mut(),
         &CommandId::new("nobody", "cares"),
         &[AuthoredArg::Name("C".to_string())],
-        &crate::authored_logic::AuthoredAsk::new("probe", "a test")) else {
+        &crate::authored_logic::AuthoredAsk::new("probe", "a test"), None) else {
         panic!("an unpublished command must be refused");
     };
     assert!(reason.contains("knows 1 others"), "{reason}");
@@ -162,13 +162,13 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     let catalog = app.world().resource::<CommandCatalog>().clone();
     let id = CommandId::new("world", "ring");
 
-    let CommandOutcome::Refused(too_few) = catalog.run(app.world_mut(), &id, &[], &crate::authored_logic::AuthoredAsk::new("probe", "a test")) else {
+    let CommandOutcome::Refused(too_few) = catalog.run(app.world_mut(), &id, &[], &crate::authored_logic::AuthoredAsk::new("probe", "a test"), None) else {
         panic!("no arguments must be refused");
     };
     assert!(too_few.contains("note"), "{too_few}");
 
     let CommandOutcome::Refused(wrong_kind) =
-        catalog.run(app.world_mut(), &id, &[AuthoredArg::Number(1.0)], &crate::authored_logic::AuthoredAsk::new("probe", "a test"))
+        catalog.run(app.world_mut(), &id, &[AuthoredArg::Number(1.0)], &crate::authored_logic::AuthoredAsk::new("probe", "a test"), None)
     else {
         panic!("a Number where a Name belongs must be refused");
     };

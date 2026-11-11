@@ -37,7 +37,7 @@ fn perform(app: &mut App, call: &PreparedCommand) -> CommandOutcome {
         call,
         ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new("probe", "a test"),
     );
-    signal(app.world_mut(), &request.args)
+    signal(app.world_mut(), &request.args, request.room)
 }
 
 /// AN AUTHORED LINE SIGNALS A LIVE ENCOUNTER, AND THE REDUCER RECEIVES THE
@@ -146,4 +146,31 @@ fn an_authored_start_line_asks_the_reducer_to_start_the_encounter() {
         .map(|command| (command.encounter, command.kind))
         .collect();
     assert_eq!(kinds, vec![(ATTUNEMENT.to_string(), EncounterCommandKind::Start)]);
+}
+
+/// Two live rooms that each hold the encounter are told apart by the room the
+/// request was asked in (a switch's, a room's line). Asked in no room, the
+/// signal still refuses, because which of the two was meant is written nowhere.
+#[test]
+fn a_signal_asked_in_a_room_reaches_that_room_s_occurrence_of_two() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+    let mut app = App::new();
+    app.add_message::<EncounterCommand>();
+    publish_authored_commands(&mut app);
+    for room in [here, there] {
+        app.world_mut().spawn((Encounter::new(ATTUNEMENT), SimId::encounter(ATTUNEMENT), InRoomInstance(room)));
+    }
+    let call = prepare(&app, "encounter.signal encounter:symmetry_attunement gravity_down").expect("the verb is published");
+    let ask = || RunAuthoredCommand::prepared(&call, ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new("probe", "a test"));
+
+    let request = ask();
+    assert!(matches!(signal(app.world_mut(), &request.args, None), CommandOutcome::Refused(_)), "a signal asked in no room picked one of two");
+    assert!(drain(&mut app).is_empty());
+
+    let request = ask().in_room(Some(there));
+    assert!(matches!(signal(app.world_mut(), &request.args, request.room), CommandOutcome::Done));
+    let sent = drain(&mut app);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].room, Some(there), "the signal went to another room's occurrence");
 }

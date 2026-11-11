@@ -106,7 +106,7 @@ pub fn cycle_descriptor() -> CommandDescriptor {
 /// `world.set_flag` does, and for the same reason: that request is cleared on
 /// a rollback, applied in `GameplayEffects`, and mirrored to quests. A write
 /// to the save from here would be a second road for a flag.
-pub fn cycle(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+pub fn cycle(world: &mut World, args: &[AuthoredArg], _room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     let Some(room) = args[0].as_name() else {
         return CommandOutcome::refused("`room` must be a name");
     };

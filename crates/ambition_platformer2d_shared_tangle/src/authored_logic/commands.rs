@@ -125,7 +125,12 @@ impl CommandOutcome {
 /// message and lets the domain's own consumer apply it — which is what
 /// `world.set_flag` does, and what makes it snapshot-safe without inventing
 /// anything.
-pub type CommandRunner = fn(&mut World, &[AuthoredArg]) -> CommandOutcome;
+///
+/// The third argument is the live room the request was made in (a switch's
+/// room, a room's own `while_live` line), or `None` for a request that is no
+/// room's (a conversation). A verb that acts on one occurrence of something
+/// two live rooms can each hold uses it to tell them apart.
+pub type CommandRunner = fn(&mut World, &[AuthoredArg], Option<crate::lifecycle::LiveRoomInstance>) -> CommandOutcome;
 
 #[derive(Clone)]
 struct Registered {
@@ -190,8 +195,9 @@ impl CommandCatalog {
         id: &CommandId,
         args: &[AuthoredArg],
         asked_by: &super::AuthoredAsk,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
     ) -> CommandOutcome {
-        let outcome = self.perform(world, id, args);
+        let outcome = self.perform(world, id, args, room);
         // ⛔⛤ **THE SAME ONE DOOR THE CONDITION SIDE RECORDS AT, AND FOR THE
         // SAME REASON — see [`super::AuthoredVerdictLog`].** The verbs land in
         // the SAME ring as the questions, because *"the door did not open when
@@ -213,7 +219,7 @@ impl CommandCatalog {
 
     /// The verb itself, with no diagnostic on the path: arity, kinds, then the
     /// owning domain.
-    fn perform(&self, world: &mut World, id: &CommandId, args: &[AuthoredArg]) -> CommandOutcome {
+    fn perform(&self, world: &mut World, id: &CommandId, args: &[AuthoredArg], room: Option<crate::lifecycle::LiveRoomInstance>) -> CommandOutcome {
         let Some(row) = self.rows.get(id) else {
             return CommandOutcome::refused(format!(
                 "no command `{id}` is published; the installed engine knows {} others",
@@ -243,7 +249,7 @@ impl CommandCatalog {
                 ));
             }
         }
-        (row.run)(world, args)
+        (row.run)(world, args, room)
     }
 
     /// Every published command, in id order.
@@ -311,6 +317,9 @@ pub struct RunAuthoredCommand {
     /// and by then every requester looks the same. See
     /// [`super::AuthoredAsk`].
     pub asked_by: super::AuthoredAsk,
+    /// The live room it was asked in; `None` for a request that is no room's.
+    /// See [`CommandRunner`].
+    pub room: Option<crate::lifecycle::LiveRoomInstance>,
 }
 
 impl RunAuthoredCommand {
@@ -319,7 +328,14 @@ impl RunAuthoredCommand {
             id,
             args,
             asked_by,
+            room: None,
         }
+    }
+
+    /// This request, asked in live room `room`.
+    pub fn in_room(mut self, room: Option<crate::lifecycle::LiveRoomInstance>) -> Self {
+        self.room = room;
+        self
     }
 }
 
@@ -367,7 +383,7 @@ pub fn run_requested_authored_commands(world: &mut World) {
     world.resource_scope::<CommandCatalog, _>(|world, catalog| {
         for request in requests {
             if let CommandOutcome::Refused(reason) =
-                catalog.run(world, &request.id, &request.args, &request.asked_by)
+                catalog.run(world, &request.id, &request.args, &request.asked_by, request.room)
             {
                 tracing::warn!(
                     target: "crate::authored_logic",

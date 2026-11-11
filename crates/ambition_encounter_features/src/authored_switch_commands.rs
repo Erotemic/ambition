@@ -150,7 +150,9 @@ pub fn request_authored_switch_commands(
                     "switch",
                     activation.activation.id.as_str(),
                 ),
-            ));
+            )
+            // Asked in the switch's own live room.
+            .in_room(activation.room));
         }
     }
 }

@@ -79,20 +79,24 @@ pub fn prepare_authored_room_commands(
         .collect();
 }
 
-/// Ask for each live room's line. (sim)
+/// Ask for each live room's line, in that room. (sim)
 ///
-/// In room id order, so a resimulation asks in the same order. Two live
-/// rooms of one id ask once: the line is the room's, not the instance's.
+/// In room id order, then live room order, so a resimulation asks in the same
+/// order. Two live rooms of one id each ask, each in its own room: the line is
+/// the room's, and a verb that acts on one occurrence (`encounter.start`)
+/// acts on that room's (ISL-1b).
 pub fn request_authored_room_commands(
     prepared: Res<AuthoredRoomCommands>,
+    rooms: crate::rooms::LiveRoomSpecs,
     mut requests: MessageWriter<RunAuthoredCommand>,
 ) {
-    for (room_id, call) in &prepared.rooms {
-        if let Some(call) = call {
-            requests.write(RunAuthoredCommand::prepared(
-                call,
-                AuthoredAsk::new("room", room_id.as_str()),
-            ));
+    let mut live: Vec<_> = rooms.live_specs().into_iter().map(|(room, spec)| (spec.id.as_str(), room)).collect();
+    live.sort();
+    for (room_id, room) in live {
+        if let Some(call) = prepared.get(room_id) {
+            requests.write(
+                RunAuthoredCommand::prepared(call, AuthoredAsk::new("room", room_id)).in_room(Some(room)),
+            );
         }
     }
 }

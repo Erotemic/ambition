@@ -62,11 +62,11 @@ const START_TARGET: ParamSpec = ParamSpec {
 /// every tick (a room's `while_live` line) starts it once, and a completed
 /// encounter is not started again. The occurrence rule is the one
 /// [`signal`] uses.
-fn start(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+fn start(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     let Some(target) = args[0].as_reference() else {
         return CommandOutcome::refused("`encounter.start` takes an occurrence reference");
     };
-    let occurrences = resolve_encounter(world, target);
+    let occurrences = resolve_encounter(world, target, room);
     let [(encounter_id, room)] = occurrences.as_slice() else {
         return CommandOutcome::refused(if occurrences.is_empty() {
             format!(
@@ -96,17 +96,17 @@ fn start(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
 ///
 ///  it does not depend on query iteration order. The reference names an
 /// authored encounter, and each live room that holds it holds an occurrence
-/// of it (see [`crate::occurrence`]). The command carries no room, so it
-/// signals the one occurrence in the room it stands in, and refuses when two
-/// live rooms each hold one: which of them was meant is not written anywhere
-/// it can read.
-fn signal(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+/// of it (see [`crate::occurrence`]). A request asked in a live room signals
+/// that room's occurrence. One that is no room's signals the one occurrence
+/// there is, and refuses when two live rooms each hold one: which of them was
+/// meant is not written anywhere it can read.
+fn signal(world: &mut World, args: &[AuthoredArg], room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> CommandOutcome {
     let (Some(target), Some(key)) = (args[0].as_reference(), args[1].as_name()) else {
         return CommandOutcome::refused(
             "`encounter.signal` takes an occurrence reference and a signal key",
         );
     };
-    let occurrences = resolve_encounter(world, target);
+    let occurrences = resolve_encounter(world, target, room);
     let [(encounter_id, room)] = occurrences.as_slice() else {
         return CommandOutcome::refused(if occurrences.is_empty() {
             format!(
@@ -127,9 +127,15 @@ fn signal(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
 }
 
 /// The encounter id and live room of every occurrence a reference names.
+///
+/// A request asked in a live room (a switch's, a room's line) resolves only the
+/// occurrence in that room, so two live rooms that each hold the encounter are
+/// told apart by where the ask came from. A request that is no room's sees
+/// every occurrence.
 fn resolve_encounter(
     world: &mut World,
     target: &SimId,
+    asked_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)> {
     let mut occurrences = world.query::<(
         &SimId,
@@ -140,6 +146,7 @@ fn resolve_encounter(
         .iter(world)
         .filter(|(sim_id, ..)| *sim_id == target)
         .map(|(_, encounter, stamp)| (encounter.id.clone(), stamp.map(|stamp| stamp.0)))
+        .filter(|(_, room)| asked_in.is_none() || *room == asked_in)
         .collect();
     found.sort();
     found

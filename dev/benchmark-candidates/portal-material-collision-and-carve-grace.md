@@ -263,3 +263,17 @@ rate alone does not prove that a curved path stays clear. Full linear shapes
 can prove continued separation with their native boundary planes; their
 clipped subsets stay clear too. Retain the continuous result for curves.
 A refused support query keeps the accepted body and its settled state.
+
+
+A free body's root crossing changes the link that seeds the next native
+cast. A later righting proposal must use its recorded leg's root link and
+world duration. A zero-duration end pose has no time for a source turn.
+A contact or root crossing at tick end can leave no free leg. Keep the
+accepted translation when a solid blocks the turn. Query hurt material
+from the accepted path before impact facts commit. Retire transport that
+has already produced its root transfers so a later transit phase cannot
+process it twice.
+
+A source cell's linear travel covers its cast interval. A world's published
+collider displacement covers the full tick. Scale the latter by the cast's
+world duration before the separation proof compares these two quantities.

@@ -334,7 +334,7 @@ Check the affected owners again after the optimization work ends.
 | Partition | `crates/ambition_platformer2d_core/src/frame/thread.rs`: `VolumePiece` stores a mapped volume, world bounds, an `Iso2`, and a path. Keep canonical source regions as authority. Replace both the whole-piece fallback and the fallback that omits through-material. |
 | Domain queries | `crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
 | Pair openings | `crates/ambition_portal2d/src/types.rs` and `crates/ambition_portal2d/src/link.rs`: `opening_half_length` takes the minimum through `partner_opening_half`. Remove that field and the equalizer when all consumers support the directed map. |
-| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. The root now carries physical material through the admitted map. Projectiles spend the remaining tick after each accepted root crossing. General kernel and other free-body continuation remain open. |
+| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. The root now carries physical material through the admitted map. Projectiles and loose-item free flight spend the remaining tick after each accepted root crossing. General kernel, support carry and other free-body continuation remain open. |
 | World collision | `crates/ambition_platformer2d_shared_tangle/src/feature_overlay.rs` and `crates/ambition_platformer2d_world/src/collision.rs`: `PortalGlue` imports far-side geometry into the entry chart. Replace independent pair clipping with projections of canonical parts and the same validated maps. |
 | Body contact | `crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`: `snapshot_body_contact` publishes a whole owner box plus carried boxes, then maps foreign boxes back through one straddled link. Use clipped parts and map each constraint to its one owner. |
 | Transit consequences | `crates/ambition_platformer2d_runtime/src/portal_body.rs`: carried momentum and projectile acceleration reconstruct rigid maps from normals. Read the admitted transit map and velocity facts instead. |
@@ -1460,3 +1460,18 @@ app, held, schema 459 and all four slice checks. `01a3c3bf3` removes the old
 gun-file layout assertion; policy passes. Dynamic item sweep/bounce, R5 cost
 measurement and the other full PSIM gates remain open. Do not interpret a
 refused support query as lost support.
+
+
+### Native loose-item flight — 2026-11-11
+
+`70c9fbf75` replaces endpoint AABB item collision with native material legs.
+World contacts and root crossings use the remaining tick. Righting uses the
+last free leg's root link and duration. Hurt contacts, motion and portal
+events pass admission before commit. Ordinary items settle on support.
+The [flight receipt](../../../dev/ambition_dev_measurements/summaries/portal-item-motion-20261111.md)
+records owner, real-app, slice, Smash, policy and warning checks. Merge
+`55864a788` passes app, schema, held-projectile, Smash and warning checks.
+General actor and support-carry continuation, moving targets, terminal effect
+timing, other births, full held geometry and the other PSIM gates remain
+open. R5 remains open; the receipt records an uncontrolled timing lead.
+Do not replay consumed free-flight history or restore root-AABB collision.

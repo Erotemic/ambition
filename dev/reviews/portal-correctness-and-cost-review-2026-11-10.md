@@ -132,3 +132,7 @@ explicit overflow policy. More independent captures make that cost important.
 
 The app, portal presentation and host all-target warning check passes under
 their default features. Evidence is `target/portal-r4-r8-warnings.log`.
+
+After the upstream day-clock save merge, the assembled app check and all four
+schema guards pass with schema v443. Evidence is
+`target/portal-r4-r8-merged-gates.json` and its check and schema logs.

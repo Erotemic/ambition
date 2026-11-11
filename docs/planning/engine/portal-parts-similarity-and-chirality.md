@@ -3,8 +3,8 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** THE REQUESTED PLAYABLE 80/40 SLICE IS COMPLETE (`fddf6084a`).
-The final NPC save merge is `55d5a4292`. The current rollback schema is v442
-after the upstream notice-state merge.
+The current rollback schema is v443 after the upstream day-clock save
+change `1ec4e9bb3`.
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
 Station H has two reachable wall openings with widths 80 and 40. Each keeps
@@ -1182,3 +1182,7 @@ open.
 
 The app, portal presentation and host all-target warning check passes under
 their default features. Its log is `target/portal-r4-r8-warnings.log`.
+
+After the upstream day-clock save merge, the assembled app check and all four
+schema guards pass with v443. Evidence is
+`target/portal-r4-r8-merged-gates.json`.

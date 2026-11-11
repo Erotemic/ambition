@@ -102,6 +102,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+mod readiness;
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
@@ -301,6 +302,7 @@ pub struct ImpostorAtlas {
     /// page, so a cell holds its body's pixels only if that body was drawn
     /// into the latest render (`RiggedPresentation::shown`).
     pub generation: u64,
+    pass_ready: readiness::PassReady,
 }
 
 impl ImpostorAtlas {
@@ -482,6 +484,7 @@ pub fn add_rigged_impostor_material_plugin(app: &mut App) {
     }
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(bevy::sprite_render::Material2dPlugin::<ImpostorUnpremultiply>::default());
+        readiness::install(app);
     }
 }
 
@@ -716,6 +719,8 @@ pub struct ImpostorAssets<'w> {
     meshes: Option<ResMut<'w, Assets<Mesh>>>,
     materials: Option<ResMut<'w, Assets<ImpostorUnpremultiply>>>,
     atlas: ResMut<'w, RiggedImpostorAtlas>,
+    gpu: Option<Res<'w, readiness::GpuImpostors>>,
+    gpu_images: Option<Res<'w, ambition_asset_manager::image_stages::AppGpuPreparedImages>>,
 }
 
 /// Bind, rebind and unbind each root's rigged presentation: a root whose sheet
@@ -892,6 +897,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
         .id()];
     let mut entities = cameras.clone();
     let mut material = None;
+    let pass_ready = readiness::PassReady::new(cameras[0]);
     // Where the app renders, the second camera divides the colour out; where it
     // does not, nothing is drawn and roots may as well name the first target.
     let image = match (assets.meshes.as_deref_mut(), assets.materials.as_deref_mut()) {
@@ -906,6 +912,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
                 commands
                     .spawn((
                         Name::new("rigged impostor unpremultiply"),
+                        pass_ready.clone(),
                         Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(side)))),
                         MeshMaterial2d(handle),
                         Transform::from_translation(quad.extend(0.0)),
@@ -942,6 +949,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
         entities,
         taken: vec![false; (cells * cells) as usize],
         generation: 0,
+        pass_ready,
     }
 }
 
@@ -1170,7 +1178,7 @@ pub fn drive_rigged_presentations(
             }
         }
     }
-    let ImpostorAssets { atlas: mut atlases, materials, .. } = impostors;
+    let ImpostorAssets { atlas: mut atlases, materials, gpu, gpu_images, .. } = impostors;
     // Per page of each class: whether a body draws from it, whether a cell of
     // it changed, and its cells' opacities.
     //
@@ -1182,6 +1190,7 @@ pub fn drive_rigged_presentations(
     let mut drawing: [Vec<bool>; IMPOSTOR_CELL_CLASSES.len()] =
         std::array::from_fn(|class| vec![false; atlases.0[class].len()]);
     let mut changed = drawing.clone();
+    let mut pending_gpu = drawing.clone();
     let mut cells: [Vec<ImpostorCellOpacity>; IMPOSTOR_CELL_CLASSES.len()] = std::array::from_fn(|class| {
         atlases.0[class].iter().map(|atlas| ImpostorCellOpacity::opaque(atlas.side, atlas.cell_size())).collect()
     });
@@ -1305,6 +1314,9 @@ pub fn drive_rigged_presentations(
             continue;
         };
         drawing[class][page] = true;
+        pending_gpu[class][page] |= gpu.is_some() && (!atlas.pass_ready.is_ready()
+            || gpu_images.as_deref().is_none_or(|ready| presentation.pages.pages.iter()
+                .any(|image| !ready.is_prepared(image.id().untyped()))));
         // The body's warp and how far through it this frame is.
         match preview.or_else(|| body_warp(animator, &flipbook, row, performed)) {
             // The warp fades its slivers itself: the row's own fade, which a
@@ -1415,36 +1427,36 @@ pub fn drive_rigged_presentations(
         presentation.posed_draws = posed_draws;
     }
     let mut materials = materials.map(|materials| materials.into_inner());
-    let pages = atlases.0.iter_mut().zip(cells).zip(drawing.iter().zip(&changed)).flat_map(
-        |((pages, cells), (drawing, changed))| pages.iter_mut().zip(cells).zip(drawing.iter().zip(changed)),
-    );
-    for ((atlas, cells), (drawing, changed)) in pages {
-        let mut changed = *changed;
-        if atlas.cells != cells {
-            changed = true;
-            if let Some(mut material) = atlas
-                .material
-                .as_ref()
-                .and_then(|handle| materials.as_deref_mut().and_then(|materials| materials.get_mut(handle)))
-            {
-                material.cells = cells.clone();
+    for (class, (pages, cells)) in atlases.0.iter_mut().zip(cells).enumerate() {
+        for (page, (atlas, cells)) in pages.iter_mut().zip(cells).enumerate() {
+            let drawing = drawing[class][page];
+            let mut changed = changed[class][page];
+            if atlas.cells != cells {
+                changed = true;
+                if let Some(mut material) = atlas
+                    .material
+                    .as_ref()
+                    .and_then(|handle| materials.as_deref_mut().and_then(|materials| materials.get_mut(handle)))
+                {
+                    material.cells = cells.clone();
+                }
+                atlas.cells = cells;
             }
-            atlas.cells = cells;
-        }
-        // Source parts render only when a cell changes. The targets keep their
-        // pixels between renders.
-        let run = *drawing && changed;
-        if run {
-            atlas.generation += 1;
-        }
-        // A held warp changes only the finishing pass. Its source parts stay cached.
-        let animate_held = *drawing && held_warp_changed
-            && atlas.cells.warp.iter().any(|warp| warp.x == 1.0 && warp.y >= 0.98);
-        for (pass, entity) in atlas.cameras.iter().enumerate() {
-            let active = run || (pass > 0 && animate_held);
-            if let Ok(mut camera) = cameras.get_mut(*entity) {
-                if camera.is_active != active {
-                    camera.is_active = active;
+            // Cache only after the finishing pipeline and source images are ready.
+            // CPU pose equality cannot certify a completed GPU image.
+            let run = drawing && (changed || pending_gpu[class][page]);
+            if run {
+                atlas.generation += 1;
+            }
+            // A held warp changes only the finishing pass. Its source parts stay cached.
+            let animate_held = drawing && held_warp_changed
+                && atlas.cells.warp.iter().any(|warp| warp.x == 1.0 && warp.y >= 0.98);
+            for (pass, entity) in atlas.cameras.iter().enumerate() {
+                let active = run || (pass > 0 && animate_held);
+                if let Ok(mut camera) = cameras.get_mut(*entity) {
+                    if camera.is_active != active {
+                        camera.is_active = active;
+                    }
                 }
             }
         }

@@ -2028,3 +2028,56 @@ fn a_held_blink_refreshes_its_finish_without_redrawing_its_parts() {
     assert_eq!(warp_of(&app, root), Vec4::ZERO);
     assert!(cameras.iter().all(|camera| !app.world().get::<Camera>(*camera).unwrap().is_active));
 }
+
+#[cfg(feature = "portal_render")]
+#[test]
+fn a_portal_reads_an_unclassified_rigged_picture_as_a_real_image() {
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprites, true);
+    app.world_mut().resource_mut::<Composite>().0 = false;
+    settle(&mut app);
+    assert!(app.world().get::<RiggedPresentation>(owner(&app,root)).unwrap().impostor.is_none());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+            "portal picture", Vec2::splat(1000.0), Vec2::ZERO, Vec::new())));
+    app.world_mut().spawn(ambition_portal2d_presentation::PlacedPortal::fixed(
+        ambition_portal2d_presentation::PortalChannel::Authored(ambition_portal2d_presentation::PortalChannelColor::Purple),
+        Vec2::new(500.0,500.0), -Vec2::X, 40.0).unwrap());
+    app.add_systems(Update, crate::rendering::portal_compositing::declare_portal_body_demand.before(drive_rigged_presentations));
+    for _ in 0..4 { app.update(); }
+    assert!(app.world().get::<RiggedPresentation>(owner(&app,root)).unwrap().impostor.is_some(),
+        "a generated picture needs a readable image even without a controller marker");
+    assert_ne!(app.world().get::<Sprite>(root).unwrap().image,
+        ambition_sprite_sheet::character::NO_BAKED_IMAGE);
+}
+
+#[test]
+fn an_unchanged_impostor_waits_for_gpu_readiness_before_it_rests() {
+    use ambition_asset_manager::image_stages::AppGpuPreparedImages;
+    let sprites = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprites, true);
+    let images_ready = AppGpuPreparedImages::default();
+    app.insert_resource(images_ready.clone()).init_resource::<readiness::GpuImpostors>()
+        .init_resource::<Assets<Mesh>>().init_resource::<Assets<ImpostorUnpremultiply>>();
+    let ids: Vec<_> = app.world().resource::<Assets<Image>>().ids().collect();
+    for id in ids { images_ready.mark_prepared(id.untyped()); }
+    for _ in 0..4 { app.update(); }
+    let impostor = app.world().get::<RiggedPresentation>(owner(&app,root)).unwrap().impostor.unwrap();
+    let atlas = app.world().resource::<RiggedImpostorAtlas>().page(&impostor).unwrap();
+    let cameras = atlas.cameras.clone();
+    let pass_ready = atlas.pass_ready.clone();
+    let active = |app: &App| cameras.iter().all(|camera|app.world().get::<Camera>(*camera).unwrap().is_active);
+    assert!(active(&app), "an unchanged pose cannot certify a finished image");
+    app.update();
+    assert!(active(&app));
+    pass_ready.acknowledge();
+    app.update();
+    assert!(!active(&app), "the finished image can stay cached");
+    let source = app.world().get::<RiggedPresentation>(owner(&app,root)).unwrap().pages.pages[0].id().untyped();
+    images_ready.mark_awaiting(source);
+    app.update();
+    assert!(active(&app), "new source pixels need another render");
+    images_ready.mark_prepared(source);
+    app.update();
+    assert!(!active(&app));
+}

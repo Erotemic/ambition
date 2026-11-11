@@ -335,6 +335,7 @@ mod host_adapter {
             id: String,
             room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
             host: Entity,
+            view: PortalBodyView,
             slot: String,
             within: Option<(ambition_portal2d::PortalChannel, f32)>,
         }
@@ -360,7 +361,7 @@ mod host_adapter {
                 let thickness = body.half_size().x * frame.normal.x.abs() + body.half_size().y * frame.normal.y.abs();
                 Some((transit.straddling, deepest + 2.0 * thickness))
             });
-            carried.push(Carried { id: id.0.clone(), room, host: of.of, slot: of.slot.as_str().to_owned(), within });
+            carried.push(Carried { id: id.0.clone(), room, host: of.of, view: body_view(limb, kin), slot: of.slot.as_str().to_owned(), within });
         }
         for (visual, feature, has_reach, presented, limb_twins, masked) in &visuals {
             let room = live.of(visual);
@@ -409,9 +410,6 @@ mod host_adapter {
                     }
                     continue;
                 };
-                let Ok((_, kin)) = hosts.get(c.host) else {
-                    continue;
-                };
                 sent.push(c.slot.clone());
                 // Shown on the frame its limb goes in; while it is cut, the
                 // portal hides and shows it (`resolve_portal_source_visibility`).
@@ -428,7 +426,7 @@ mod host_adapter {
                 }
                 commands.entity(twin).try_insert((
                     PortalSceneBody,
-                    body_view(c.host, kin),
+                    c.view,
                     PortalTransitView { straddling },
                 ));
             }

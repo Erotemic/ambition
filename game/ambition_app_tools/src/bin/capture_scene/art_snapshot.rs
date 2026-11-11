@@ -21,7 +21,13 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     let mut strikes = Vec::new();
     let mut items = Vec::new();
     let mut portal_drawables = Vec::new();
+    let mut apertures = Vec::new();
     for entity in world.iter_entities() {
+        if let Some(portal) = entity.get::<engine::portal::PlacedPortal>() {
+            apertures.push(json!({"channel":portal.channel.name(), "position":portal.pos.to_array(),
+                "normal":portal.normal.to_array(), "half_length":portal.half_length,
+                "room":entity.get::<engine::platformer::lifecycle::InRoomInstance>().map(|room|format!("{:?}",room.0))}));
+        }
         if let (Some(item), Some(body), Some(custody)) = (
             entity.get::<engine::item::GroundItem>(),
             entity.get::<engine::engine_core::BodyKinematics>(),
@@ -125,6 +131,10 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                 "stable_id": entity.get::<engine::observation::SimId>().map(|id| id.as_str()),
                 "session": entity.get::<engine::platformer::lifecycle::SessionScopedEntity>().map(|scope| scope.0.0),
                 "feature_id": entity.get::<engine::combat::components::FeatureId>().map(|id| &id.0),
+                "limb": entity.get::<engine::characters::actor::Limb>().map(|limb| json!({
+                    "owner":format!("{:?}",limb.of), "slot":limb.slot.as_str(),
+                    "owner_id":world.get::<engine::observation::SimId>(limb.of).map(|id|id.as_str()),
+                })),
                 "alive": entity.get::<BodyHealth>().map(|health| health.alive()),
                 "death": entity.get::<engine::combat::components::DeathBeat>().map(|beat| format!("{beat:?}")),
                 "position": entity.get::<engine::engine_core::BodyKinematics>().map(|body| [body.pos.x, body.pos.y]),
@@ -166,6 +176,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     }
     material_parts.sort_by_key(|row| row.to_string());
     items.sort_by_key(|row| row.to_string());
+    apertures.sort_by_key(|row| row.to_string());
     strikes.sort_by_key(|row| row.to_string());
     bodies.sort_by_key(|row| row.to_string());
     visuals.sort_by_key(|row| row.to_string());
@@ -186,6 +197,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "content_fingerprint": content,
         "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
         "portal_carry_load":carry_load,
+        "apertures":apertures,
         "bodies": bodies, "items": items, "visuals": visuals, "views": views, "music": music, "material_parts": material_parts, "strikes": strikes, "portal_drawables": portal_drawables})
 }
 

@@ -103,10 +103,7 @@ const FEEL: ambition_characters::actor::Deflect = ambition_characters::actor::De
     push: 40.0,
 };
 
-/// A guarded defender at (100, 100) in ordinary gravity and an attacker at
-/// `attacker_at` whose unit down is `attacker_down`; the attacker's strike is
-/// deflected. Returns the attacker's (staged launch, carried run).
-fn deflected_attacker(attacker_at: ae::Vec2, attacker_down: ae::Vec2) -> (ae::Vec2, f32) {
+fn guard_app(feel: ambition_characters::actor::Deflect) -> App {
     let mut app = App::new();
     app.add_message::<DeflectedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
@@ -117,11 +114,19 @@ fn deflected_attacker(attacker_at: ae::Vec2, attacker_down: ae::Vec2) -> (ae::Ve
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
     );
-    finalized.prepared.guards = vec![GuardSpec { deflect: FEEL, ..spec(None) }];
+    finalized.prepared.guards = vec![GuardSpec { deflect: feel, ..spec(None) }];
     let mut registry = PreparedCharacterRegistry::default();
     registry.insert_prepared(finalized.prepared);
     app.insert_resource(registry);
     app.add_systems(Update, resolve_deflects);
+    app
+}
+
+/// A guarded defender at (100, 100) in ordinary gravity and an attacker at
+/// `attacker_at` whose unit down is `attacker_down`; the attacker's strike is
+/// deflected. Returns the attacker's (staged launch, carried run).
+fn deflected_attacker(attacker_at: ae::Vec2, attacker_down: ae::Vec2) -> (ae::Vec2, f32) {
+    let mut app = guard_app(FEEL);
     let body = |pos: ae::Vec2| {
         (
             ae::BodyKinematics { pos, ..Default::default() },
@@ -142,7 +147,9 @@ fn deflected_attacker(attacker_at: ae::Vec2, attacker_down: ae::Vec2) -> (ae::Ve
         attacker,
         hitbox: attacker,
         guard: 0,
-        contact: ae::Vec2::new(100.0, 80.0),
+        contact: DeflectContact::at(&VolumePiece::whole(ae::CombatVolume::aabb(ae::Aabb::new(attacker_at, ae::Vec2::ONE))),
+            &VolumePiece::whole(ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::splat(100.0), ae::Vec2::ONE))),
+            attacker_at, ae::Vec2::splat(100.0), ae::Vec2::new(100.0, 80.0), None, None).unwrap(),
         damage: 1,
     });
     app.update();
@@ -214,4 +221,98 @@ fn a_deflected_attacker_is_thrown_away_in_every_gravity() {
             );
         }
     }
+}
+
+#[test]
+fn guard_rebound_uses_the_contact_chart_for_scale_parity_and_surface_motion() {
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame};
+    use ae::frame::thread::{MaterialPrimitive, MotionAdmission, PieceBudget, PortalLink, partition};
+    for ratio in [0.5, 2.0] {
+        for convention in [MapConvention::Reflection, MapConvention::Rotation] {
+            for moving in [false, true] {
+                for guard_carried in [false, true] {
+                    let mut entry = PortalFrame::fixed(ae::Vec2::new(0.0, 100.0), -ae::Vec2::Y);
+                    let mut exit = PortalFrame::fixed(ae::Vec2::new(-500.0, 100.0), ae::Vec2::Y);
+                    if moving {
+                        entry.velocity = ae::Vec2::new(15.0, -25.0);
+                        entry.spin = 0.1;
+                        exit.velocity = ae::Vec2::new(-30.0, 50.0);
+                        exit.spin = -0.2;
+                    }
+                    let link = PortalLink::new(PortalAperture { frame: entry, half_length: 80.0 },
+                        PortalAperture { frame: exit, half_length: 80.0 * ratio }, 0);
+                    let links = [link];
+                    let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention };
+                    let source = ae::Vec2::new(0.0, 90.0);
+                    let volume = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::new(0.0, 105.0), ae::Vec2::splat(4.0)));
+                    let pieces = partition(MaterialPrimitive { domain: &volume, to_world: ae::frame::Sim2::IDENTITY },
+                        source, &links, None, admission.budget, convention).unwrap();
+                    let carried = pieces.iter().find(|piece| !piece.path.is_empty()).expect("the material crosses the aperture");
+                    let point = carried.center();
+                    let far_source = ae::Vec2::new(-500.0 + 20.0 * ratio, 100.0 + 20.0 * ratio);
+                    let far = VolumePiece::whole(ae::CombatVolume::aabb(ae::Aabb::new(point, ae::Vec2::splat(2.0))));
+                    let (strike, guard, attacker_at, defender_at) = if guard_carried {
+                        (&far, carried, far_source, source)
+                    } else {
+                        (carried, &far, source, far_source)
+                    };
+                    let contact = DeflectContact::at(strike, guard, attacker_at, defender_at, point,
+                        Some(admission), Some(admission)).unwrap();
+                    let out = contact.outward.unwrap();
+                    let speed = contact.guard_material.length(FEEL.rebound_speed).unwrap();
+                    let lift = contact.guard_material.length(FEEL.rebound_lift).unwrap();
+                    for (piece, chart, out, speed, lift) in [
+                        (strike, contact.attacker, out, speed, lift),
+                        (guard, contact.defender, -out, contact.guard_material.length(FEEL.push).unwrap(), 0.0),
+                    ] {
+                        let map = link.map(convention).unwrap();
+                        let root_point = if piece.is_carried() { map.inverse().unwrap().point(point).unwrap() } else { point };
+                        for boost in [ae::Vec2::ZERO, ae::Vec2::new(70.0, -30.0)] {
+                            let resting = if piece.is_carried() {
+                                map.inverse().unwrap().velocity(&exit, &entry, point, boost).unwrap()
+                            } else { boost };
+                            let body = ae::BodyKinematics { vel: resting, ..Default::default() };
+                            let prepared = chart.prepare_throw(&body, DOWN, Some(out), 1.0, speed, lift, boost).unwrap();
+                            let (velocity, right) = if piece.is_carried() {
+                                (map.velocity(&entry, &exit, root_point, prepared.launch).unwrap(), map.direction(ae::Vec2::X))
+                            } else { (prepared.launch, ae::Vec2::X) };
+                            let relative_velocity = velocity - boost;
+                            assert!(relative_velocity.dot(out) > 0.0, "the visible contact separates: {velocity:?}, {out:?}");
+                            assert!((relative_velocity.dot(right).abs() - speed).abs() < 0.001,
+                                "the guard's speed is measured in contact units");
+                            assert!((prepared.run - prepared.launch.x).abs() < 0.001, "carried run uses the body's root frame");
+                            if moving && piece.is_carried() {
+                                assert!((prepared.launch - map.inverse().unwrap().vector(velocity).unwrap()).length() > 1.0,
+                                    "portal surface motion must survive the response conversion");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+#[test]
+fn a_refused_guard_response_commits_neither_body_nor_guard_state() {
+    let mut app = guard_app(ambition_characters::actor::Deflect { rebound_speed: f32::MAX, ..FEEL });
+    let initial = ae::BodyKinematics { pos: ae::Vec2::splat(100.0), vel: ae::Vec2::new(7.0, 9.0), ..Default::default() };
+    let attacker = app.world_mut().spawn((initial, BodyCombat::default(), ae::BodyFlightState::default())).id();
+    let defender = app.world_mut().spawn((initial, BodyCombat::default(), ae::BodyFlightState::default(),
+        WornCharacter::new("npc_guard"), GuardState::default())).id();
+    let volume = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::ONE));
+    let piece = VolumePiece::from_material(ae::frame::thread::MaterialPrimitive { domain: &volume,
+        to_world: ae::frame::Sim2::new(2.0, bevy::math::Mat2::IDENTITY, initial.pos).unwrap() }).unwrap();
+    let contact = DeflectContact::at(&piece, &piece, initial.pos + ae::Vec2::X, initial.pos, initial.pos, None, None).unwrap();
+    app.world_mut().write_message(DeflectedBodyHit { attacker, defender, hitbox: attacker, guard: 0, contact, damage: 1 });
+    app.update();
+    for body in [attacker, defender] {
+        assert_eq!(*app.world().get::<ae::BodyKinematics>(body).unwrap(), initial);
+        assert_eq!(*app.world().get::<ae::BodyFlightState>(body).unwrap(), ae::BodyFlightState::default());
+        let combat = app.world().get::<BodyCombat>(body).unwrap();
+        assert_eq!(combat.recoil_lock_timer, 0.0);
+        assert_eq!(combat.hitstop_timer, 0.0);
+    }
+    assert_eq!(*app.world().get::<GuardState>(defender).unwrap(), GuardState::default());
 }

@@ -696,21 +696,28 @@ struct RankedStrike<'a> {
 /// A guard of a body and its pieces, cut by the body's own room and transit.
 type CutGuard = (crate::guard::GuardPiece, Vec<ae::frame::thread::VolumePiece>);
 
+struct TurnedStrike<'a> {
+    guard: u8,
+    contact: ae::Vec2,
+    strike_piece: &'a ae::frame::thread::VolumePiece,
+    guard_piece: &'a ae::frame::thread::VolumePiece,
+}
+
 /// The guard that turns aside a strike of `strike` pieces from `source`, and
 /// where they touch. A guard turns a strike that meets it from a side it
 /// covers.
-fn turned_aside(
-    strike: &[ae::frame::thread::VolumePiece],
+fn turned_aside<'a>(
+    strike: &'a [ae::frame::thread::VolumePiece],
     source: ae::Vec2,
-    guards: &[CutGuard],
-) -> Result<Option<(u8, ae::Vec2)>, ae::frame::thread::Refusal> {
+    guards: &'a [CutGuard],
+) -> Result<Option<TurnedStrike<'a>>, ae::frame::thread::Refusal> {
     let numeric = |fault| ae::frame::thread::Refusal { path: Vec::new(), link: None,
         reason: ae::frame::thread::RefusalReason::Numeric(fault) };
     for (guard, guard_pieces) in guards {
         for sp in strike {
             for gp in guard_pieces.iter().filter(|gp| sp.meets(gp)) {
                 let source = gp.uncarry(sp.carry(source).map_err(numeric)?).map_err(numeric)?;
-                if guard.covers(source)? { return Ok(Some((guard.guard, midpoint(sp.center(), gp.center())))); }
+                if guard.covers(source)? { return Ok(Some(TurnedStrike { guard: guard.guard, contact: midpoint(sp.center(), gp.center()), strike_piece: sp, guard_piece: gp })); }
             }
         }
     }
@@ -1168,14 +1175,19 @@ pub fn apply_hitbox_damage(
                         continue;
                     }
                 }
-                if let Some((guard, contact)) = turned {
+                if let Some(turned) = turned {
+                    let contact = crate::guard::DeflectContact::at(turned.strike_piece, turned.guard_piece,
+                        spatial_source, owner_kin.get(victim.entity).map_or(victim.aabb.center, |kin| kin.pos), turned.contact,
+                        passages.as_deref().and_then(|p| p.motion_for(hitbox.owner, strike_room)),
+                        passages.as_deref().and_then(|p| p.motion_for(victim.entity, victim_room)));
+                    let Ok(contact) = contact else { continue; };
                     hits.hit.insert(victim.entity);
                     pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
                     out.deflected.write(crate::guard::DeflectedBodyHit {
                         defender: victim.entity,
                         attacker: hitbox.owner,
                         hitbox: hitbox_entity,
-                        guard,
+                        guard: turned.guard,
                         contact,
                         damage: hitbox.damage,
                     });

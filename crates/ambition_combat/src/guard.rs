@@ -126,6 +126,108 @@ impl GuardState {
     }
 }
 
+/// One body's root chart at a guard contact.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct DeflectChart {
+    into_contact: ae::frame::Sim2,
+    // Root velocity that keeps this contact point fixed in the contact chart.
+    stationary_velocity: ae::Vec2,
+}
+
+impl DeflectChart {
+    fn at(piece: &VolumePiece, point: ae::Vec2,
+        admission: Option<ae::frame::thread::MotionAdmission<'_>>,
+    ) -> Result<Self, Refusal> {
+        let stationary_velocity = match admission {
+            Some(admission) => admission.uncarry_velocity(&piece.path, point, ae::Vec2::ZERO, 1.0)?,
+            None if piece.path.is_empty() => ae::Vec2::ZERO,
+            None => return Err(Refusal { path: piece.path.clone(), link: None, reason: RefusalReason::MissingMaterial }),
+        };
+        Ok(Self { into_contact: piece.path_transform().map_err(GuardPiece::numeric)?, stationary_velocity })
+    }
+
+    fn velocity(self, velocity: ae::Vec2) -> Result<ae::Vec2, ae::frame::NumericFault> {
+        self.into_contact.vector_from_wide(velocity.as_dvec2() - self.stationary_velocity.as_dvec2())
+    }
+
+    fn prepare_throw(self, kin: &ae::BodyKinematics, down: ae::Vec2,
+        out: Option<ae::Vec2>, default_side: f32, speed: f32, lift: f32, contact_velocity: ae::Vec2,
+    ) -> Result<PreparedThrow, ae::frame::NumericFault> {
+        use bevy::math::DVec2;
+        let right = ae::Vec2::new(down.y, -down.x);
+        let contact_down = self.into_contact.direction(down).as_dvec2();
+        let contact_right = self.into_contact.direction(right).as_dvec2();
+        let velocity = self.velocity(kin.vel)?.as_dvec2() - contact_velocity.as_dvec2();
+        let side = out.map_or(f64::from(default_side), |out| if contact_right.dot(out.as_dvec2()) < 0.0 { -1.0 } else { 1.0 });
+        let along = side * f64::from(speed);
+        let fall = velocity.dot(contact_down);
+        let lifted = contact_right * along + contact_down * if lift > 0.0 { fall.min(-f64::from(lift)) } else { fall };
+        let launch = match out.filter(|out| lifted.dot(out.as_dvec2()) <= 0.0) {
+            Some(out) => {
+                let away = out.as_dvec2().dot(contact_down) * along.abs();
+                contact_right * along + contact_down * if away > 0.0 { fall.max(away) } else { fall.min(away) }
+            }
+            None => lifted,
+        };
+        let into_root = self.into_contact.inverse()?;
+        let leaves_ground = into_root.vector_from_wide(launch)?.as_dvec2().dot(down.as_dvec2()) < 0.0;
+        let root = into_root.vector_from_wide(launch + contact_velocity.as_dvec2())?;
+        let launch = ae::frame::Sim2::IDENTITY.vector_from_wide(root.as_dvec2() + self.stationary_velocity.as_dvec2())?;
+        let run = f64::from(launch.x) * f64::from(right.x) + f64::from(launch.y) * f64::from(right.y);
+        let run = ae::frame::Sim2::IDENTITY.vector_from_wide(DVec2::new(run, 0.0))?.x;
+        Ok(PreparedThrow { launch, run, leaves_ground })
+    }
+}
+
+/// The contact chart and both root charts, retained from exact guard contact.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DeflectContact {
+    pub point: ae::Vec2,
+    attacker: DeflectChart,
+    defender: DeflectChart,
+    outward: Option<ae::Vec2>,
+    guard_material: ae::frame::Sim2,
+}
+
+impl DeflectContact {
+    pub(crate) fn at(strike: &VolumePiece, guard: &VolumePiece, source: ae::Vec2,
+        defender: ae::Vec2, point: ae::Vec2,
+        strike_admission: Option<ae::frame::thread::MotionAdmission<'_>>,
+        guard_admission: Option<ae::frame::thread::MotionAdmission<'_>>,
+    ) -> Result<Self, Refusal> {
+        let source = strike.carry(source).map_err(GuardPiece::numeric)?;
+        let defender = guard.carry(defender).map_err(GuardPiece::numeric)?;
+        let outward = (source.as_dvec2() - defender.as_dvec2()).try_normalize().map(|v| v.as_vec2());
+        Ok(Self { point,
+            attacker: DeflectChart::at(strike, point, strike_admission)?,
+            defender: DeflectChart::at(guard, point, guard_admission)?,
+            outward, guard_material: guard.transform(),
+        })
+    }
+}
+
+struct PreparedThrow {
+    launch: ae::Vec2,
+    run: f32,
+    leaves_ground: bool,
+}
+
+impl PreparedThrow {
+    fn commit(self, kin: &mut ae::BodyKinematics, flight: Option<&mut ae::BodyFlightState>,
+        ground: Option<&mut ae::BodyGroundState>, hold: f32,
+    ) {
+        if let Some(ground) = ground.filter(|_| self.leaves_ground) { ground.on_ground = false; }
+        match flight {
+            Some(flight) => {
+                flight.stage_launch(self.launch, true);
+                flight.carried_run = self.run;
+                flight.carried_hold = flight.carried_hold.max(hold);
+            }
+            None => kin.vel = self.launch,
+        }
+    }
+}
+
 /// A strike a guard turned aside. It did not reach the body: no damage, no
 /// knockback, and no `LandedBodyHit`.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
@@ -138,8 +240,8 @@ pub struct DeflectedBodyHit {
     pub hitbox: Entity,
     /// Which of the defender's guards turned it.
     pub guard: u8,
-    /// Where they met, in the world.
-    pub contact: ae::Vec2,
+    /// The exact contact and its chart conversions.
+    pub contact: DeflectContact,
     /// The strike's damage, for a guard that breaks under a heavy one.
     pub damage: i32,
 }
@@ -262,67 +364,28 @@ pub fn resolve_deflects(
         };
         let feel = spec.deflect;
         let down_of = |body: Entity| frames.get(body).map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-        let defender_at = bodies.get(deflect.defender).map(|(kin, ..)| kin.pos).ok();
-        let attacker_at = bodies.get(deflect.attacker).map(|(kin, ..)| kin.pos).ok();
-        // Which way along the right of a body whose unit down is `down` the
-        // attacker is from the guarded body.
-        let side = |down: ae::Vec2| match (defender_at, attacker_at) {
-            (Some(defender), Some(attacker)) if (attacker - defender).dot(ae::Vec2::new(down.y, -down.x)) < 0.0 => -1.0,
-            _ => 1.0,
-        };
-        // Away from the guarded body, in the world: the one direction both
-        // throws must agree with, whatever frame each body is in. `None` when
-        // the two bodies are at one point, or one is not known.
-        let outward = match (defender_at, attacker_at) {
-            (Some(defender), Some(attacker)) => (attacker - defender).try_normalize(),
-            _ => None,
-        };
-        // Each body is thrown in its OWN frame. The attacker's run is carried
-        // along its own right; a run measured on the guarded body's right put
-        // a body in another gravity on axes it does not move along.
-        // A body is thrown along its frame's right through the knockback road:
-        // the launch is staged, and its run is carried while the body cannot
-        // act (`hit_reaction`), so its own walk does not stop it dead. Flinchless:
-        // it is thrown, not struck. A throw with lift leaves the ground on the
-        // tick it is staged, as a pogo bounce does: a launch too weak to tumble
-        // keeps the body planted, and its footing takes the run.
-        //
-        // ⛔ AND IT IS THROWN AWAY. `out` is the world direction away from the
-        // other body. The run along the body's right always has a part along
-        // `out`, but the lift is against the body's own down, and in another
-        // gravity "up" can point at the other body: a body whose down is
-        // away from the guarded body was lifted back into it. When the throw
-        // would not move the body away, its part of `out` along its own down
-        // takes the place of the lift.
-        let throw = |kin: &mut ae::BodyKinematics,
-                     flight: Option<&mut ae::BodyFlightState>,
-                     ground: Option<&mut ae::BodyGroundState>,
-                     down: ae::Vec2,
-                     out: Option<ae::Vec2>,
-                     along: f32,
-                     lift: f32,
-                     hold: f32| {
-            let right = ae::Vec2::new(down.y, -down.x);
-            let fall = kin.vel.dot(down);
-            let lifted = right * along + down * if lift > 0.0 { fall.min(-lift) } else { fall };
-            let (launch, leaves_ground) = match out.filter(|out| lifted.dot(*out) <= 0.0) {
-                Some(out) => {
-                    let away = out.dot(down) * along.abs();
-                    let fall = if away > 0.0 { fall.max(away) } else { fall.min(away) };
-                    (right * along + down * fall, away < 0.0)
-                }
-                None => (lifted, lift > 0.0),
-            };
-            if let Some(ground) = ground.filter(|_| leaves_ground) {
-                ground.on_ground = false;
-            }
-            match flight {
-                Some(flight) => {
-                    flight.stage_launch(launch, true);
-                    flight.carried_run = along;
-                    flight.carried_hold = flight.carried_hold.max(hold);
-                }
-                None => kin.vel = launch,
+        // Prepare both launches before any body, guard, or move state changes.
+        let prepared = (|| {
+            let attacker = bodies.get(deflect.attacker).ok().map(|(kin, ..)| kin);
+            let defender = bodies.get(deflect.defender).ok().map(|(kin, ..)| kin);
+            // The guard sets the contact frame's velocity. A common boost must
+            // not change either body's relative response.
+            let contact_velocity = defender.map(|kin| deflect.contact.defender.velocity(kin.vel)).transpose()?.unwrap_or(ae::Vec2::ZERO);
+            let material = deflect.contact.guard_material;
+            let rebound = material.length(feel.rebound_speed)?;
+            let lift = material.length(feel.rebound_lift)?;
+            let push = material.length(feel.push)?;
+            let attacker = attacker.map(|kin| deflect.contact.attacker.prepare_throw(kin,
+                down_of(deflect.attacker), deflect.contact.outward, 1.0, rebound, lift, contact_velocity)).transpose()?;
+            let defender = defender.map(|kin| deflect.contact.defender.prepare_throw(kin,
+                down_of(deflect.defender), deflect.contact.outward.map(|out| -out), -1.0, push, 0.0, contact_velocity)).transpose()?;
+            Ok::<_, ae::frame::NumericFault>((attacker, defender))
+        })();
+        let (attacker_throw, defender_throw) = match prepared {
+            Ok(prepared) => prepared,
+            Err(fault) => {
+                warn!(?fault, attacker = ?deflect.attacker, defender = ?deflect.defender, "guard response refused");
+                continue;
             }
         };
         // The body that swung: its swing ends, it is thrown back, and it can
@@ -335,18 +398,9 @@ pub fn resolve_deflects(
                 crate::moveset::MoveEnd::Interrupted,
             );
         }
-        if let Ok((mut kin, mut combat, flight, ground)) = bodies.get_mut(deflect.attacker) {
-            let down = down_of(deflect.attacker);
-            throw(
-                &mut kin,
-                flight.map(Mut::into_inner),
-                ground.map(Mut::into_inner),
-                down,
-                outward,
-                side(down) * feel.rebound_speed,
-                feel.rebound_lift,
-                feel.lockout_s,
-            );
+        if let (Some(prepared), Ok((mut kin, mut combat, flight, ground))) =
+            (attacker_throw, bodies.get_mut(deflect.attacker)) {
+            prepared.commit(&mut kin, flight.map(Mut::into_inner), ground.map(Mut::into_inner), feel.lockout_s);
             combat.recoil_lock_timer = combat.recoil_lock_timer.max(feel.lockout_s);
             combat.hitstop_timer = combat.hitstop_timer.max(feel.hitstop_s);
         }
@@ -354,18 +408,9 @@ pub fn resolve_deflects(
         let broke = states
             .get_mut(deflect.defender)
             .is_ok_and(|mut state| state.count_deflect(spec, deflect.damage));
-        if let Ok((mut kin, mut combat, flight, ground)) = bodies.get_mut(deflect.defender) {
-            let down = down_of(deflect.defender);
-            throw(
-                &mut kin,
-                flight.map(Mut::into_inner),
-                ground.map(Mut::into_inner),
-                down,
-                outward.map(|out| -out),
-                -side(down) * feel.push,
-                0.0,
-                feel.hitstop_s,
-            );
+        if let (Some(prepared), Ok((mut kin, mut combat, flight, ground))) =
+            (defender_throw, bodies.get_mut(deflect.defender)) {
+            prepared.commit(&mut kin, flight.map(Mut::into_inner), ground.map(Mut::into_inner), feel.hitstop_s);
             combat.hitstop_timer = combat.hitstop_timer.max(feel.hitstop_s);
             if broke {
                 // Staggered: open, and acting on nothing.
@@ -378,11 +423,11 @@ pub fn resolve_deflects(
         } else {
             ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_CHINK
         };
-        sfx.in_space(ambition_vfx::sfx_space(rooms.of(deflect.defender))).write(ambition_sfx::SfxMessage::Play { id: cue, emitter: (deflect.contact).into() });
+        sfx.in_space(ambition_vfx::sfx_space(rooms.of(deflect.defender))).write(ambition_sfx::SfxMessage::Play { id: cue, emitter: deflect.contact.point.into() });
         let mut room = vfx.for_room(rooms.of(deflect.defender));
-        room.write(ambition_vfx::vfx::VfxMessage::Impact { pos: deflect.contact, blow: ambition_vfx::ImpactBlow::PLAIN });
+        room.write(ambition_vfx::vfx::VfxMessage::Impact { pos: deflect.contact.point, blow: ambition_vfx::ImpactBlow::PLAIN });
         room.write(ambition_vfx::vfx::VfxMessage::Burst {
-            pos: deflect.contact,
+            pos: deflect.contact.point,
             count: if broke { 24 } else { 10 },
             speed: if broke { 320.0 } else { 220.0 },
             color: [0.7, 0.88, 1.0, 1.0],

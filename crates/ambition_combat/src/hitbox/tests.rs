@@ -3810,3 +3810,62 @@ fn a_guard_keeps_its_exact_material_and_coverage_through_a_scaled_portal() {
         }
     }
 }
+
+#[test]
+fn a_guard_rebounds_a_portal_strike_in_the_chart_where_they_meet() {
+    use crate::guard::{GuardPiece, GuardState, GuardVolumes};
+    use ambition_characters::actor::{BodyCombat, GuardFaces, GuardSpec, WornCharacter};
+    use ambition_characters::prepared::PreparedCharacterRegistry;
+    use ae::frame::{MapConvention, PortalAperture, PortalFrame, Sim2};
+    for ratio in [0.5, 2.0] {
+        for convention in [MapConvention::Reflection, MapConvention::Rotation] {
+            let mut passages = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(convention);
+            passages.add_pair(None, (
+                PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, -ae::Vec2::Y), half_length: 80.0 },
+                PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y), half_length: 80.0 * ratio },
+            ));
+            let contact_map = passages.links_in(None)[0].map(convention).unwrap();
+            let boost = ae::Vec2::new(70.0, -30.0);
+            let mut app = portal_strike_app(Some(passages));
+            app.add_message::<ambition_sfx::OwnedSfxMessage>();
+            app.add_systems(Update, crate::guard::resolve_deflects.after(apply_hitbox_damage));
+            let definition = ambition_characters::actor::definition::CharacterDefinition::new("npc_guard", "Guard", "test");
+            let mut prepared = ambition_characters::prepared::prepare_and_finalize_for_test(definition,
+                &ambition_characters::prepared::CharacterBindings::default()).prepared;
+            let feel = ambition_characters::actor::Deflect { rebound_speed: 300.0, rebound_lift: 120.0,
+                push: 40.0, ..Default::default() };
+            prepared.guards = vec![GuardSpec { part: ambition_characters::actor::PartBox::Shield,
+                faces: GuardFaces::Around, open_above: false, lowered_in: Vec::new(), inset_px: 0.0,
+                deflect: feel, breaks: None }];
+            let mut registry = PreparedCharacterRegistry::default();
+            registry.insert_prepared(prepared);
+            app.insert_resource(registry);
+            let owner = hazard_victim(&mut app, ActorFaction::Player, ae::Vec2::new(0.0, -60.0));
+            let defender_at = ae::Vec2::new(500.0 - 20.0 * ratio, -200.0 + 30.0 * ratio);
+            let defender = hazard_victim(&mut app, ActorFaction::Enemy, defender_at);
+            app.world_mut().get_mut::<ae::BodyKinematics>(owner).unwrap().vel = contact_map.inverse().unwrap().vector(boost).unwrap();
+            app.world_mut().get_mut::<ae::BodyKinematics>(defender).unwrap().vel = boost;
+            app.world_mut().entity_mut(owner).insert(ae::BodyFlightState::default());
+            app.world_mut().entity_mut(defender).insert((WornCharacter::new("npc_guard"), GuardState::default(),
+                ae::BodyFlightState::default(), GuardVolumes { pieces: vec![GuardPiece { guard: 0,
+                    domain: ae::Aabb::new(ae::Vec2::new(20.0, -20.0) * ratio, ae::Vec2::new(10.0, 20.0) * ratio),
+                    material: Ok(Sim2::new(1.0, bevy::math::Mat2::IDENTITY, defender_at).unwrap()),
+                    faces: GuardFaces::Around, facing: 1.0, open_above: false }] }));
+            strike(&mut app, owner, HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(0.0, 60.0) }, ae::Vec2::new(10.0, 15.0));
+            app.update();
+            assert_eq!(struck(&app, defender), 0, "the guard stops damage");
+            let attack = app.world().get::<ae::BodyFlightState>(owner).unwrap();
+            let expected = contact_map.inverse().unwrap().vector(boost + ae::Vec2::new(feel.rebound_speed, -feel.rebound_lift)).unwrap();
+            assert!((attack.pending_launch - expected).length() < 0.01,
+                "the root launch maps to an outward contact rebound: {:?}, expected {expected:?}", attack.pending_launch);
+            assert!((attack.carried_run - attack.pending_launch.x).abs() < 0.01);
+            assert_eq!(app.world().get::<ae::BodyFlightState>(defender).unwrap().pending_launch,
+                boost + ae::Vec2::new(-feel.push, 0.0));
+            assert_eq!(app.world().get::<GuardState>(defender).unwrap().deflects, 1);
+            assert_eq!(app.world().get::<BodyCombat>(owner).unwrap().recoil_lock_timer, feel.lockout_s);
+            assert_eq!(app.world().get::<BodyCombat>(defender).unwrap().hitstop_timer, feel.hitstop_s);
+            app.update();
+            assert_eq!(app.world().get::<GuardState>(defender).unwrap().deflects, 1, "one strike is deflected once");
+        }
+    }
+}

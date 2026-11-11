@@ -149,12 +149,47 @@ The host is NA-2's, which applies Bob's input three frames late. One run,
   shots or a death is the next measurement, and it needs a replicated spawn
   row per kind.
 
+### NA-2b, the gated guest's update split (2026-11-11)
+
+Probe `probe_where_a_gated_guest_spends_its_update` (same file, ignored):
+the gated guest alone, warmed 30 updates, then 120 updates with each `Main`
+schedule run in `MainScheduleOrder`'s order and timed, and 120 more through
+`App::update`.
+
+| Room | `App::update` | `Update` | `PreUpdate` | `PostUpdate` | `Last` | the rest |
+|---|---|---|---|---|---|---|
+| `switch_lab` | 2.11 ms | 1.93 ms (1,030 systems) | 0.07 | 0.09 | 0.05 | 0.07 |
+| `central_hub_complex` | 2.24 ms | 1.92 ms (1,030 systems) | 0.06 | 0.09 | 0.09 | 0.07 |
+
+- **Alone, the gated guest costs about 2.2 ms, not 4.5.** The first
+  measurement timed the guest interleaved with a host App in the same
+  process, and the gap is that interleaving and the snapshot's change
+  detection, not the guest's own schedules.
+- **Nearly all of it is `Update`'s 1,030 systems.** The sim schedule is
+  `Update` here; gating the twelve simulation phases off still leaves the
+  executor walking every system and evaluating its run conditions. The fixed
+  loop is empty (one system).
+- **Of the 1,030, 557 are in a gated phase and 473 still run** (by
+  `ScheduleGraph::systems_in_set` over the twelve phases). By crate: 146 are
+  `bevy_ecs`'s own (sync points and message updates), then the conversation
+  (39), the game shell (31), the runtime (24), content (19), the Mary-O and
+  Smash demos (18, 17: other games' systems in an Ambition guest), load
+  presentation (16), the session (15), and a long tail. A gated phase still
+  costs its systems a skip each; what runs is presentation and composition.
+- ⇒ **A guest should be COMPOSED from fewer plugins, not gated.** The cost is
+  the system count, which does not depend on the bodies; a guest built
+  without the simulation plugins (presentation, the shell and the replication
+  sink only) is the measurement that would say how much of the 2 ms is the
+  gated simulation and how much is presentation.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
-   spawns. Next: a scene that spawns and despawns (shots, a death), with a
-   replicated spawn row per kind by `SimId`; split the gated guest's 4.5 ms;
-   send only the guest's room.
+   spawns; the gated update is split (2026-11-11): 2.2 ms alone, nearly all
+   `Update`'s 1,030 gated systems. Next: a guest composed without the
+   simulation plugins; a scene that spawns and despawns (shots, a death),
+   with a replicated spawn row per kind by `SimId`; send only the guest's
+   room.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

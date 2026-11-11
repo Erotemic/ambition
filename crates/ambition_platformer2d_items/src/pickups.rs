@@ -273,7 +273,7 @@ pub fn collect_ecs_pickups(
                 .entity(entity)
                 .insert(ambition_world_returns::RespawnTimer(seconds));
         }
-        banner.show(format!("picked up {}", name.0.as_str()), 2.6);
+        banner.show_in(rooms.of(entity), format!("picked up {}", name.0.as_str()), 2.6);
         let granted = grant_pickup(
             &pickup.pickup.kind,
             collector_entity,

@@ -97,7 +97,8 @@ pub fn celebrate_symmetry_attunement(
         if msg.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(msg.event, EncounterEvent::Completed)
         {
             banners.write(
-                ambition_combat::events::GameplayBannerRequested::new(
+                ambition_combat::events::GameplayBannerRequested::in_room(
+                    msg.room,
                     attunement.banner.clone(),
                     attunement.banner_seconds,
                 ),

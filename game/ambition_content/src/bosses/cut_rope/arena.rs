@@ -213,7 +213,8 @@ pub fn tick_cut_rope_flavor(
             let center = arena.anvil_center.or(boss_pos).unwrap_or(ae::Vec2::ZERO);
             let burst_pos = boss_pos.unwrap_or(center);
             let trap = &tuning.0.cut_rope_trap;
-            banner.show(
+            banner.show_in(
+                Some(room),
                 trap.flattened_banner.replace("{object}", heavy_object.current_dialogue_id(trap)),
                 trap.banner_seconds,
             );

@@ -77,7 +77,8 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
         bout.home_avatars_seen = bout.home_avatars_seen.max(still_home.iter(world).count());
         bout.peak_shake_px = bout
             .peak_shake_px
-            .max(world.resource::<CameraShakeState>().amplitude_px);
+            // Any view's shake: a hit shakes the views of its own room (ISL-1b).
+            .max(world.resource::<CameraShakeState>().loudest());
         let tick = *world.resource::<ambition_platformer2d::time::SimTick>();
         if world
             .resource::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()

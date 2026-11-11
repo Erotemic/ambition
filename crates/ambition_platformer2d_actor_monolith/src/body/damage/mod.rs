@@ -667,7 +667,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                 );
                 writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: aabb.center, blow: ambition_vfx::ImpactBlow::PLAIN });
                 if broke {
-                    banner.show(format!("shattered {}", name.0.as_str()), 2.6);
+                    banner.show_in(rooms.of(entity), format!("shattered {}", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(
                         aabb.center,
                         &mut writers.sfx,
@@ -1013,7 +1013,7 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
             }
             writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact, blow: ambition_vfx::ImpactBlow::PLAIN });
             if broke {
-                banner.show(format!("broke {}", name.0.as_str()), 2.6);
+                banner.show_in(rooms.of(entity), format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible
                 // pickup path as enemy drops).
                 let session_scope = writers.spawn_scope_from(entity);

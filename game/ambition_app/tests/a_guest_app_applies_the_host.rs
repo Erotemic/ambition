@@ -24,6 +24,7 @@ use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::sim::{Platformer2dSimulationPhase as Phase, SimScheduleExt as _};
 use bevy::prelude::IntoScheduleConfigs as _;
+use bevy::prelude::World;
 
 use crate::common::fixed_60hz_room_options;
 use crate::hosted_world::{alice_fights, bobs, bodies, UpdateTimes, LATENCY};
@@ -40,24 +41,27 @@ fn booted(room: &str) -> Platformer2dSimHarness {
     sim
 }
 
+/// The simulation phases a guest puts to sleep.
+const GATED: [Phase; 12] = [
+    Phase::CoreSimulation,
+    Phase::FeatureCollection,
+    Phase::FeatureInteraction,
+    Phase::LdtkRuntimeSpine,
+    Phase::EncounterSimulation,
+    Phase::Cutscene,
+    Phase::GameplayEffects,
+    Phase::Progression,
+    Phase::ResetProcessing,
+    Phase::FeatureViewSync,
+    Phase::PresentationVisualSync,
+    Phase::Trace,
+];
+
 /// Put every simulation phase of `guest` to sleep.
 fn simulate_nothing(guest: &mut Platformer2dSimHarness) {
     let app = guest.app_mut();
     let schedule = app.sim_schedule();
-    for phase in [
-        Phase::CoreSimulation,
-        Phase::FeatureCollection,
-        Phase::FeatureInteraction,
-        Phase::LdtkRuntimeSpine,
-        Phase::EncounterSimulation,
-        Phase::Cutscene,
-        Phase::GameplayEffects,
-        Phase::Progression,
-        Phase::ResetProcessing,
-        Phase::FeatureViewSync,
-        Phase::PresentationVisualSync,
-        Phase::Trace,
-    ] {
+    for phase in GATED {
         app.configure_sets(schedule, phase.run_if(|| false));
     }
 }
@@ -135,4 +139,90 @@ fn guest_in(room: &str) {
         "[guest]   Bob's own input reaches his screen {} frames late: {LATENCY} to the host, {LATENCY} back, no interpolation",
         2 * LATENCY
     );
+}
+
+/// Where a gated guest spends its update: each schedule of `Main`, run in
+/// `MainScheduleOrder`'s order and timed, with its system count (and the
+/// fixed loop's own schedules). Close to `App::update`: sub-apps are not run.
+#[test]
+#[ignore = "measurement: prints where a gated guest's update goes; run with --ignored --nocapture --test-threads=1"]
+fn probe_where_a_gated_guest_spends_its_update() {
+    use bevy::app::{FixedMainScheduleOrder, MainScheduleOrder};
+    use bevy::ecs::schedule::{InternedScheduleLabel, Schedules};
+    const WARM: i32 = 30;
+    const MEASURED: u32 = 120;
+    for room in ROOMS {
+        let mut guest = booted(room);
+        simulate_nothing(&mut guest);
+        for _ in 0..WARM {
+            guest.app_mut().update();
+        }
+        let world = guest.world_mut();
+        let main: Vec<InternedScheduleLabel> = world.resource::<MainScheduleOrder>().labels.clone();
+        let fixed: Vec<InternedScheduleLabel> =
+            world.get_resource::<FixedMainScheduleOrder>().map(|order| order.labels.clone()).unwrap_or_default();
+        let count = |world: &World, label: InternedScheduleLabel| {
+            world.resource::<Schedules>().get(label).map_or(0, |schedule| schedule.systems_len())
+        };
+        let mut spent: BTreeMap<String, std::time::Duration> = BTreeMap::new();
+        let mut total = std::time::Duration::ZERO;
+        for _ in 0..MEASURED {
+            for label in &main {
+                let started = std::time::Instant::now();
+                let _ = world.try_run_schedule(*label);
+                let took = started.elapsed();
+                total += took;
+                *spent.entry(format!("{label:?}")).or_default() += took;
+            }
+            world.clear_trackers();
+        }
+        println!("[guest-split] {room}: {MEASURED} updates, {:.2} ms an update", total.as_secs_f64() * 1e3 / f64::from(MEASURED));
+        let mut rows: Vec<_> = main.iter().map(|label| (format!("{label:?}"), count(world, *label))).collect();
+        rows.sort_by(|a, b| spent[&b.0].cmp(&spent[&a.0]));
+        for (name, systems) in rows {
+            println!(
+                "[guest-split]   {name:<24} {:>6.3} ms  {systems:>5} systems",
+                spent[&name].as_secs_f64() * 1e3 / f64::from(MEASURED)
+            );
+        }
+        for label in &fixed {
+            println!("[guest-split]   (fixed) {:<16} {:>5} systems", format!("{label:?}"), count(world, *label));
+        }
+        // How many of the sim schedule's systems the gate puts to sleep, and
+        // how many still run.
+        let sim = guest.app_mut().sim_schedule();
+        let (gated, all, running) = guest.world_mut().resource_scope(|world, mut schedules: bevy::prelude::Mut<Schedules>| {
+            let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
+            let _ = schedule.initialize(world);
+            let mut gated = BTreeSet::new();
+            for phase in GATED {
+                if let Ok(systems) = schedule.graph().systems_in_set(bevy::ecs::schedule::SystemSet::intern(&phase)) {
+                    gated.extend(systems.into_iter().map(|key| format!("{key:?}")));
+                }
+            }
+            let mut running: BTreeMap<String, usize> = BTreeMap::new();
+            if let Ok(systems) = schedule.systems() {
+                for (key, system) in systems {
+                    if gated.contains(&format!("{key:?}")) {
+                        continue;
+                    }
+                    let name = system.name().to_string();
+                    let owner = name.trim_start_matches('<').split("::").next().unwrap_or("?").to_string();
+                    *running.entry(owner).or_default() += 1;
+                }
+            }
+            (gated.len(), schedule.systems_len(), running)
+        });
+        println!("[guest-split]   the sim schedule: {all} systems, {gated} in a gated phase, {} still run", all - gated);
+        let mut owners: Vec<_> = running.into_iter().collect();
+        owners.sort_by(|a, b| b.1.cmp(&a.1));
+        println!("[guest-split]   still running, by crate: {owners:?}");
+        // The same guest through `App::update`, which also runs sub-apps.
+        let mut times = UpdateTimes::default();
+        for _ in 0..MEASURED {
+            times.time(&mut guest);
+        }
+        let sub_apps = guest.app_mut().sub_apps().iter().count();
+        println!("[guest-split]   App::update {:.2} ms an update ({sub_apps} sub-app(s))", times.mean_ms());
+    }
 }

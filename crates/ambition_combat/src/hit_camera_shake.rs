@@ -35,19 +35,26 @@ use ambition_platformer2d_shared_tangle::camera_ease::{hit_shake_amplitude, Came
 pub fn shake_camera_on_landed_hits(
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     mut requests: MessageWriter<CameraShakeRequest>,
-    bodies: Query<&ambition_characters::actor::BodyCombat>,
+    bodies: Query<(
+        &ambition_characters::actor::BodyCombat,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
 ) {
     let Some(feel) = feel else {
         return;
     };
-    let mut hardest = 0.0f32;
-    for combat in &bodies {
-        hardest = hardest.max(hit_shake_amplitude(combat.hitstop_timer, feel.hitlag_time));
+    // The hardest hit of each live room shakes that room's views (ISL-1b).
+    let mut hardest: std::collections::BTreeMap<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, f32> =
+        std::collections::BTreeMap::new();
+    for (combat, room) in &bodies {
+        let amplitude = hit_shake_amplitude(combat.hitstop_timer, feel.hitlag_time);
+        if amplitude > 0.0 {
+            let held = hardest.entry(room.map(|room| room.0)).or_insert(0.0);
+            *held = held.max(amplitude);
+        }
     }
-    if hardest > 0.0 {
-        requests.write(CameraShakeRequest {
-            amplitude_px: hardest,
-        });
+    for (room, amplitude_px) in hardest {
+        requests.write(CameraShakeRequest { amplitude_px, room });
     }
 }
 
@@ -86,6 +93,22 @@ mod tests {
             (shake_camera_on_landed_hits, apply_camera_shake_requests).chain(),
         );
         app
+    }
+
+    /// ISL-1b: a hit in one live room shakes the views of that room, not
+    /// every view.
+    #[test]
+    fn a_hit_shakes_only_the_views_of_its_own_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let mut app = app_with_bodies(&[]);
+        let reference = reference(&app);
+        let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
+        app.world_mut().spawn((BodyCombat { hitstop_timer: reference, ..Default::default() }, InRoomInstance(here)));
+        app.update();
+        let shake = app.world().resource::<CameraShakeState>();
+        assert!(shake.amplitude_in(Some(here)) > 0.0, "premise: the hit shakes its own room");
+        assert_eq!(shake.amplitude_in(Some(there)), 0.0, "the hit shook the view of another room");
+        assert_eq!(shake.amplitude_px, 0.0, "the hit shook every view");
     }
 
     fn reference(app: &App) -> f32 {

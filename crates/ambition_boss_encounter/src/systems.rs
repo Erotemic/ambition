@@ -273,6 +273,7 @@ pub fn update_boss_encounters(
                 title: feature.config.behavior.title.as_deref(),
             };
             publish_events(&archetype_id, &bill, ev, cutscene_queue.as_deref_mut(), &mut banner,
+                rooms.live().of(boss_entity),
             );
             // the transition edge, from the authority that commits it. Every
             // consumer of "this boss just changed phase" reads this, not a
@@ -565,10 +566,12 @@ pub fn boss_phase_transition_feedback(
                 hold.until_tick = Some(hold.until_tick.map_or(until, |held| held.max(until)));
             }
             zoom.write(ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest { closeness: 1.0,
+                    room: rooms.of(entity),
                 },
             );
             shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
                 amplitude_px: BOSS_DEFEAT_SHAKE_PX,
+                room: rooms.of(entity),
             },
             );
             for cue in ["boss.generic.defeat", "cutscene.dramatic_chord.defeat"] {
@@ -595,6 +598,7 @@ pub fn boss_phase_transition_feedback(
             shake.write(
                 ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
                     amplitude_px: BOSS_PHASE_SHAKE_PX,
+                    room: rooms.of(entity),
                 },
             );
             sfx.write(ambition_sfx::SfxMessage::Play {

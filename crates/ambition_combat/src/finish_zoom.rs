@@ -42,8 +42,10 @@ pub fn zoom_camera_on_decided_match(
 ) {
     for message in decided.read() {
         if message.outcome.winner().is_some() {
+            // The match's, not one room's: every view.
             requests.write(FinishZoomRequest {
                 closeness: DECIDED_CLOSENESS,
+                room: None,
             });
         }
     }
@@ -72,13 +74,13 @@ pub fn zoom_camera_on_a_finishing_blow(
     mut cast: Query<&mut ambition_characters::actor::BodyCombat, With<crate::FighterStocks>>,
     mut requests: MessageWriter<FinishZoomRequest>,
 ) {
-    let finishing = launched.iter().any(|(entity, stocks, kin, flight, frame)| {
+    let finishing = launched.iter().find(|(entity, stocks, kin, flight, frame)| {
         let staged = flight.pending_launch_state();
         stocks.remaining == 1
             && !staged.flinchless
             && staged.velocity != ae::Vec2::ZERO
             && geometry
-                .room_of(entity)
+                .room_of(*entity)
                 .and_then(|room| geometry.in_room(room))
                 .is_some_and(|world| {
                     ae::hit_response::launch_leaves_the_world(
@@ -89,11 +91,13 @@ pub fn zoom_camera_on_a_finishing_blow(
                     )
                 })
     });
-    if !finishing {
+    let Some((finished, ..)) = finishing else {
         return;
-    }
+    };
+    // The views of the room the blow lands in (ISL-1b).
     requests.write(FinishZoomRequest {
         closeness: DECIDED_CLOSENESS,
+        room: geometry.room_of(finished),
     });
     for mut combat in &mut cast {
         combat.hitstop_timer = combat.hitstop_timer.max(FINISHING_BLOW_FREEZE_S);

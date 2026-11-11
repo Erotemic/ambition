@@ -662,7 +662,7 @@ pub(crate) fn handle_player_damage_events(
                     emitter: (clusters.kinematics.pos).into(),
                 },
             );
-            banner_requests.write(GameplayBannerRequested::new("blocked", 1.0));
+            banner_requests.write(GameplayBannerRequested::in_room(vfx.room(), "blocked", 1.0));
             // ⭐ AND THE SIMULATION IS TOLD, not just the player. A move's own
             // `OnHit` cancel used to confirm on a blocked strike because the only
             // channel it could read meant OVERLAP; the block is decided HERE.
@@ -686,7 +686,7 @@ pub(crate) fn handle_player_damage_events(
                     emitter: (impact_pos).into(),
                 },
             );
-            banner_requests.write(GameplayBannerRequested::new("POWERUP LOST", 1.4));
+            banner_requests.write(GameplayBannerRequested::in_room(vfx.room(), "POWERUP LOST", 1.4));
             false
         }
         BodyHitResolution::WalletShielded { spent } => {

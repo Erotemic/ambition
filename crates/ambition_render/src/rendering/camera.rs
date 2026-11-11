@@ -138,10 +138,8 @@ pub fn camera_follow(
     // the viewport applier and the draw-side lookup, so all three agree on
     // which view a camera is for.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
-    let shake_offset = shake.offset();
     // Resolved once per run: both are process-wide, and an idle zoom is 1.0,
     // so this is a no-op for hosts that never decide a match.
-    let finish_zoom_factor = finish_zoom.scale_factor(*finish_zoom_tuning);
 
     // A view that is gone has no camera sample.
     #[cfg(feature = "portal_render")]
@@ -252,8 +250,11 @@ pub fn camera_follow(
             // readability floor. A finishing zoom goes below it, so it is applied to
             // the presented projection, like shake to the presented transform.
             // `scale_factor` is 1.0 when idle.
-            orthographic.scale = snapshot.orthographic_scale * finish_zoom_factor;
+            // The zoom of the room this view frames (ISL-1b).
+            orthographic.scale = snapshot.orthographic_scale * finish_zoom.scale_factor_in(Some(frame.room), *finish_zoom_tuning);
         }
+        // The shake of the room this view frames (ISL-1b).
+        let shake_offset = shake.offset_in(Some(frame.room));
         transform.translation.x = x + shake_offset.x;
         transform.translation.y = y + shake_offset.y;
         transform.rotation = Quat::from_rotation_z(snapshot.rotation_radians);

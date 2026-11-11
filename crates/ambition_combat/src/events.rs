@@ -539,25 +539,78 @@ impl RoomReplayAdmitted {
 ///
 /// Gameplay systems either mutate this resource directly or emit
 /// [`GameplayBannerRequested`] when their parameter list is already large.
+///
+/// A banner is shown to every player ([`Self::show`]) or to the views of one
+/// live room ([`Self::show_in`]): a chest opened in Alice's room is not
+/// announced in Bob's (ISL-1b).
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct GameplayBanner {
+    /// The banner every player sees.
     pub text: String,
     pub timer: f32,
+    /// Each live room's banner, for the players whose view frames it.
+    pub rooms: std::collections::BTreeMap<
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        (String, f32),
+    >,
 }
 
 impl GameplayBanner {
+    /// Show `text` to every player.
     pub fn show(&mut self, text: impl Into<String>, duration: f32) {
         self.text = text.into();
         self.timer = duration.max(0.0);
     }
 
+    /// Show `text` to the players of `room`, or to every player with `None`.
+    pub fn show_in(
+        &mut self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        text: impl Into<String>,
+        duration: f32,
+    ) {
+        match room {
+            Some(room) => {
+                self.rooms.insert(room, (text.into(), duration.max(0.0)));
+            }
+            None => self.show(text, duration),
+        }
+    }
+
     pub fn clear(&mut self) {
         self.text.clear();
         self.timer = 0.0;
+        self.rooms.clear();
     }
 
+    /// Whether the banner every player sees is up.
     pub fn visible(&self) -> bool {
         self.timer > 0.0 && !self.text.is_empty()
+    }
+
+    /// The banner a player whose view frames `room` sees: the room's own,
+    /// else the one every player sees.
+    pub fn visible_in(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Option<&str> {
+        room.and_then(|room| self.rooms.get(&room))
+            .filter(|(text, timer)| *timer > 0.0 && !text.is_empty())
+            .map(|(text, _)| text.as_str())
+            .or_else(|| self.visible().then_some(self.text.as_str()))
+    }
+
+    /// Every banner up, in any room or for every player.
+    pub fn shown(&self) -> impl Iterator<Item = &str> {
+        self.visible()
+            .then_some(self.text.as_str())
+            .into_iter()
+            .chain(self.rooms.values().filter(|(text, timer)| *timer > 0.0 && !text.is_empty()).map(|(text, _)| text.as_str()))
+    }
+
+    /// Whether any banner shows or holds a timer to run down.
+    pub fn is_up(&self) -> bool {
+        self.timer > 0.0 || !self.text.is_empty() || !self.rooms.is_empty()
     }
 
     pub fn tick(&mut self, dt: f32) {
@@ -565,6 +618,10 @@ impl GameplayBanner {
         if self.timer <= 0.0 {
             self.text.clear();
         }
+        for (_, timer) in self.rooms.values_mut() {
+            *timer = (*timer - dt).max(0.0);
+        }
+        self.rooms.retain(|_, (_, timer)| *timer > 0.0);
     }
 }
 
@@ -573,13 +630,30 @@ impl GameplayBanner {
 pub struct GameplayBannerRequested {
     pub text: String,
     pub duration: f32,
+    /// The live room whose players see it; `None` shows it to every player.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 impl GameplayBannerRequested {
+    /// A banner for every player.
     pub fn new(text: impl Into<String>, duration: f32) -> Self {
         Self {
             text: text.into(),
             duration,
+            room: None,
+        }
+    }
+
+    /// A banner for the players of `room` (`None`: every player).
+    pub fn in_room(
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        text: impl Into<String>,
+        duration: f32,
+    ) -> Self {
+        Self {
+            text: text.into(),
+            duration,
+            room,
         }
     }
 }

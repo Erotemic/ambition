@@ -53,7 +53,7 @@ pub fn update_ecs_breakables(
                     feature.breakable.state = ambition_interaction::BreakableState::Intact;
                     feature.breakable.health.reset();
                     commands.entity(entity).remove::<RespawnTimer>();
-                    banner.show(format!("{} respawned", name.0.as_str()), 2.6);
+                    banner.show_in(room, format!("{} respawned", name.0.as_str()), 2.6);
                     vfx.write(VfxMessage::Burst {
                         pos: aabb.center,
                         count: 16,
@@ -88,7 +88,7 @@ pub fn update_ecs_breakables(
                 let broke = strike(&mut commands, entity, &mut feature, damage);
                 if broke {
                     stand_timer.0 = 0.0;
-                    banner.show(format!("{} collapsed under weight", name.0.as_str()), 2.6);
+                    banner.show_in(room, format!("{} collapsed under weight", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
                 }
             }

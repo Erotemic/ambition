@@ -2803,8 +2803,8 @@ fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
         if !asks.is_some_and(|asks| active.current() == Some(asks.0)) {
             return;
         }
-        shakes.write(CameraShakeRequest { amplitude_px: 6.0 });
-        zooms.write(FinishZoomRequest { closeness: 1.0 });
+        shakes.write(CameraShakeRequest { amplitude_px: 6.0, room: None });
+        zooms.write(FinishZoomRequest { closeness: 1.0, room: None });
         effects.write(VfxInRoom {
             room: Some(LiveRoomInstance::ACTIVATION),
             vfx: VfxMessage::CoinPop { pos: MARK },

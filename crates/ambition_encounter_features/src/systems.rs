@@ -653,7 +653,8 @@ pub fn apply_wave_encounter_effects(
             greened.push((switch_id.clone(), save.data().switch(&switch_id)));
             save.data_mut().set_switch(&switch_id, true);
         }
-        banner_requests.write(ambition_combat::events::GameplayBannerRequested::new(
+        banner_requests.write(ambition_combat::events::GameplayBannerRequested::in_room(
+            *room,
             format!("ARENA CLEAR — {encounter_id}"),
             3.0,
         ));

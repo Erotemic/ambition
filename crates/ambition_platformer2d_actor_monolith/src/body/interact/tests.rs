@@ -371,9 +371,10 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
         !world.resource::<ambition_dialog::DialogState>().active(),
         "no conversation may open"
     );
+    // Every banner, a room's too: an interaction shows its banner in its room.
     assert_eq!(
-        world.resource::<GameplayBanner>().text.as_str(),
-        "sentinel",
+        world.resource::<GameplayBanner>().shown().collect::<Vec<_>>(),
+        ["sentinel"],
         "no banner may be shown — the interaction did not happen"
     );
     assert!(

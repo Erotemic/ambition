@@ -111,7 +111,7 @@ pub fn apply_actor_stimuli(
                         color: [0.84, 0.95, 1.0, 0.82],
                         kind: ParticleKind::Spark,
                     });
-                    banner.show(format!("{} turns hostile", identity.name), 2.6);
+                    banner.show_in(room, format!("{} turns hostile", identity.name), 2.6);
                 }
             }
         }

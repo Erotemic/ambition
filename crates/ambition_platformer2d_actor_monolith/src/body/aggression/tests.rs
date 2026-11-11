@@ -80,7 +80,7 @@ fn a_body_with_no_provoked_policy_cannot_be_provoked() {
     app.update();
     assert_eq!(app.world().get::<ActorAggression>(npc).unwrap().strikes, NPC_HOSTILE_STRIKE_THRESHOLD);
     assert_eq!(*app.world().get::<ActorDisposition>(npc).unwrap(), ActorDisposition::Peaceful);
-    assert!(!app.world().resource::<GameplayBanner>().text.ends_with("turns hostile"));
+    assert!(!app.world().resource::<GameplayBanner>().shown().any(|text| text.ends_with("turns hostile")));
 
 }
 

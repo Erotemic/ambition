@@ -140,10 +140,14 @@ impl Default for CameraEaseTuning {
 /// landing from a tall drop should saturate the shake budget, not
 /// stack it. A trickle from a small bounce can't reset a still-active
 /// big shake.
-#[derive(Resource, Clone, Copy, Debug, Default)]
+#[derive(Resource, Clone, Debug, Default)]
 pub struct CameraShakeState {
-    /// Current shake amplitude in world pixels. Zero means "no shake."
+    /// Current shake amplitude in world pixels, for every view. Zero means
+    /// "no shake." A kick that names no room lands here.
     pub amplitude_px: f32,
+    /// The shake of each live room, for the views that frame it (ISL-1b): a
+    /// hit in one room does not shake the view of another.
+    pub rooms: std::collections::BTreeMap<crate::lifecycle::LiveRoomInstance, f32>,
     /// Seed bumped each frame so the random offset is deterministic
     /// within a frame (camera follow can call into multiple samples)
     /// but uncorrelated across frames.
@@ -196,6 +200,40 @@ impl CameraShakeState {
             self.amplitude_px = target;
         }
     }
+
+    /// [`Self::kick`] the views of `room`, or every view with `None`.
+    pub fn kick_in(&mut self, room: Option<crate::lifecycle::LiveRoomInstance>, amplitude_px: f32, tuning: CameraShakeTuning) {
+        let Some(room) = room else {
+            self.kick(amplitude_px, tuning);
+            return;
+        };
+        let target = amplitude_px.max(0.0).min(tuning.max_amplitude_px.max(0.0));
+        let held = self.rooms.entry(room).or_insert(0.0);
+        if target > *held {
+            *held = target;
+        }
+    }
+
+    /// The shake a view of `room` shows: the louder of every view's and the
+    /// room's own.
+    pub fn amplitude_in(&self, room: Option<crate::lifecycle::LiveRoomInstance>) -> f32 {
+        let own = room.and_then(|room| self.rooms.get(&room).copied()).unwrap_or(0.0);
+        self.amplitude_px.max(own)
+    }
+
+    /// The loudest shake any view shows, every room's included.
+    pub fn loudest(&self) -> f32 {
+        self.rooms.values().copied().fold(self.amplitude_px, f32::max)
+    }
+
+    /// Settle every shake by `px`, and forget a room's once it is still.
+    pub fn decay(&mut self, px: f32) {
+        self.amplitude_px = (self.amplitude_px - px).max(0.0);
+        for amplitude in self.rooms.values_mut() {
+            *amplitude = (*amplitude - px).max(0.0);
+        }
+        self.rooms.retain(|_, amplitude| *amplitude > 0.0);
+    }
 }
 
 /// A simulation-produced request to kick the camera. (P0.1)
@@ -217,6 +255,8 @@ impl CameraShakeState {
 pub struct CameraShakeRequest {
     /// Desired amplitude in world pixels, before [`CameraShakeTuning`]'s cap.
     pub amplitude_px: f32,
+    /// The live room whose views shake; `None` shakes every view.
+    pub room: Option<crate::lifecycle::LiveRoomInstance>,
 }
 
 /// Apply released [`CameraShakeRequest`]s to the live shake state.
@@ -232,7 +272,7 @@ pub fn apply_camera_shake_requests(
     mut shake: bevy::prelude::ResMut<CameraShakeState>,
 ) {
     for request in requests.read() {
-        shake.kick(request.amplitude_px, *tuning);
+        shake.kick_in(request.room, request.amplitude_px, *tuning);
     }
 }
 
@@ -251,7 +291,7 @@ pub fn tick_camera_shake(
     mut shake: bevy::prelude::ResMut<CameraShakeState>,
 ) {
     let dt = time.delta_secs();
-    shake.amplitude_px = (shake.amplitude_px - tuning.decay_px_per_s * dt).max(0.0);
+    shake.decay(tuning.decay_px_per_s * dt);
     shake.seed = shake.seed.wrapping_add(1);
 }
 
@@ -320,7 +360,13 @@ impl CameraShakeState {
     /// independent xorshifts for x / y avoid the diagonal-only shake a
     /// naive `(s, s)` pair would produce.
     pub fn offset(&self) -> ae::Vec2 {
-        if self.amplitude_px <= 0.05 {
+        self.offset_in(None)
+    }
+
+    /// [`Self::offset`] for a view of `room` ([`Self::amplitude_in`]).
+    pub fn offset_in(&self, room: Option<crate::lifecycle::LiveRoomInstance>) -> ae::Vec2 {
+        let amplitude = self.amplitude_in(room);
+        if amplitude <= 0.05 {
             return ae::Vec2::ZERO;
         }
         let mut sx = self.seed.wrapping_mul(0x45d9f3b).wrapping_add(0x9e3779b9);
@@ -330,10 +376,7 @@ impl CameraShakeState {
         sy ^= sy >> 15;
         sy = sy.wrapping_mul(0xc2b2ae35);
         let to_unit = |s: u32| (s as f32 / u32::MAX as f32) * 2.0 - 1.0;
-        ae::Vec2::new(
-            to_unit(sx) * self.amplitude_px,
-            to_unit(sy) * self.amplitude_px,
-        )
+        ae::Vec2::new(to_unit(sx) * amplitude, to_unit(sy) * amplitude)
     }
 }
 
@@ -463,12 +506,17 @@ impl Default for FinishZoomTuning {
 /// Strongest-kick-wins and non-stacking, exactly like [`CameraShakeState`] and
 /// for the same reason — several requests released together by the quarantine
 /// settle on the strongest rather than multiplying into an unreadable close-up.
-#[derive(Resource, Clone, Copy, Debug, Default)]
+#[derive(Resource, Clone, Debug, Default)]
 pub struct FinishZoomState {
-    /// 0.0 = no zoom, 1.0 = fully in. Not a scale: see [`Self::scale_factor`].
+    /// 0.0 = no zoom, 1.0 = fully in, for every view. Not a scale: see
+    /// [`Self::scale_factor`].
     pub closeness: f32,
     /// Seconds of hold left before the release begins.
     pub hold_secs_left: f32,
+    /// Each live room's zoom, for the views that frame it (ISL-1b): its
+    /// closeness and hold left. A boss falling in one room does not pull in
+    /// the view of another.
+    pub rooms: std::collections::BTreeMap<crate::lifecycle::LiveRoomInstance, (f32, f32)>,
 }
 
 impl FinishZoomState {
@@ -479,6 +527,49 @@ impl FinishZoomState {
             self.closeness = target;
             self.hold_secs_left = tuning.hold_secs.max(0.0);
         }
+    }
+
+    /// [`Self::kick`] the views of `room`, or every view with `None`.
+    pub fn kick_in(&mut self, room: Option<crate::lifecycle::LiveRoomInstance>, closeness: f32, tuning: FinishZoomTuning) {
+        let Some(room) = room else {
+            self.kick(closeness, tuning);
+            return;
+        };
+        let target = closeness.clamp(0.0, 1.0);
+        let held = self.rooms.entry(room).or_insert((0.0, 0.0));
+        if target > held.0 {
+            *held = (target, tuning.hold_secs.max(0.0));
+        }
+    }
+
+    /// [`Self::scale_factor`] for a view of `room`: the closer of every
+    /// view's zoom and the room's own.
+    pub fn scale_factor_in(&self, room: Option<crate::lifecycle::LiveRoomInstance>, tuning: FinishZoomTuning) -> f32 {
+        let own = room.and_then(|room| self.rooms.get(&room)).map_or(0.0, |(closeness, _)| *closeness);
+        let close = self.closeness.max(own).clamp(0.0, 1.0) * tuning.max_close_fraction.clamp(0.0, 0.9);
+        1.0 - close
+    }
+
+    /// Spend `dt` of every zoom's hold, then release it; a room at rest is
+    /// forgotten.
+    pub fn settle(&mut self, dt: f32, tuning: FinishZoomTuning) {
+        let settle = |(closeness, hold): (f32, f32)| {
+            if hold > 0.0 {
+                (closeness, (hold - dt).max(0.0))
+            } else {
+                ((closeness - tuning.release_per_s * dt).max(0.0), 0.0)
+            }
+        };
+        (self.closeness, self.hold_secs_left) = settle((self.closeness, self.hold_secs_left));
+        for held in self.rooms.values_mut() {
+            *held = settle(*held);
+        }
+        self.rooms.retain(|_, (closeness, hold)| *closeness > 0.0 || *hold > 0.0);
+    }
+
+    /// Whether any zoom, shared or a room's, is held or releasing.
+    pub fn is_active(&self) -> bool {
+        self.hold_secs_left > 0.0 || self.closeness > 0.0 || !self.rooms.is_empty()
     }
 
     /// The multiplier to apply to the presented orthographic scale.
@@ -502,6 +593,8 @@ impl FinishZoomState {
 pub struct FinishZoomRequest {
     /// 0.0..=1.0. `1.0` is the full pull described by [`FinishZoomTuning`].
     pub closeness: f32,
+    /// The live room whose views pull in; `None` pulls in every view.
+    pub room: Option<crate::lifecycle::LiveRoomInstance>,
 }
 
 /// Apply released [`FinishZoomRequest`]s to the live state.
@@ -514,7 +607,7 @@ pub fn apply_finish_zoom_requests(
     mut zoom: bevy::prelude::ResMut<FinishZoomState>,
 ) {
     for request in requests.read() {
-        zoom.kick(request.closeness, *tuning);
+        zoom.kick_in(request.room, request.closeness, *tuning);
     }
 }
 
@@ -539,13 +632,14 @@ pub fn rest_the_camera_on_activation(
     }
     // The seed is a counter of frames, not a motion: it keeps its value.
     shake.amplitude_px = 0.0;
+    shake.rooms.clear();
     *zoom = FinishZoomState::default();
 }
 
 /// Run condition of [`tick_finish_zoom`]: a zoom is held or releasing. At
 /// rest the tick has nothing to do, and it wrote the state each frame.
 pub fn finish_zoom_is_active(zoom: bevy::prelude::Res<FinishZoomState>) -> bool {
-    zoom.hold_secs_left > 0.0 || zoom.closeness > 0.0
+    zoom.is_active()
 }
 
 /// Hold, then release. Runs beside [`tick_camera_shake`] while
@@ -555,12 +649,7 @@ pub fn tick_finish_zoom(
     tuning: bevy::prelude::Res<FinishZoomTuning>,
     mut zoom: bevy::prelude::ResMut<FinishZoomState>,
 ) {
-    let dt = time.delta_secs();
-    if zoom.hold_secs_left > 0.0 {
-        zoom.hold_secs_left = (zoom.hold_secs_left - dt).max(0.0);
-        return;
-    }
-    zoom.closeness = (zoom.closeness - tuning.release_per_s * dt).max(0.0);
+    zoom.settle(time.delta_secs(), *tuning);
 }
 
 #[cfg(test)]

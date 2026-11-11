@@ -545,8 +545,76 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    that freeze is back in the struck room. Still open: projectile ids
    sequenced per room (deferred to the state transfer; see ISL-2c above), a clock scale per room (Player 1's bullet-time slows
    Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
-   about a hundred non-test sites), one conversation and one cutscene per participant or room. Then
-   classify the 91 message rows by writer and reader room.
+   about a hundred non-test sites), one conversation and one cutscene per participant or room.
+
+   **The 91 message rows, by what they carry (2026-11-11,**
+   `scripts/measure/message_rows_by_room_carrier.py`**):** 13 carry their room
+   (the encounter's four, `HitEvent`, `VfxInRoom`, `DebrisBurstMessage`,
+   `FxRequest`, `FireworksRequest`, `KnockoutBeatRequested`,
+   `SwitchActivated`, `RoomReplayAdmitted`, `SetFlagRequested` by its
+   `RoomWrite`); 51 carry an entity, a peer id or a participant, from which
+   the room is derivable; 27 carry neither. The 27, read one by one:
+   - **one per world by meaning (7):** `NewGameRequested`,
+     `CheckpointCommitted`, `ResetToCheckpoint`, `StocksMatchDecided`,
+     `SuddenDeathBegan` (the match's), `NpcProvocationChanged` (a durable
+     world fact), `RoomLoaded` (a load, not a room's act);
+   - **the portal owner's (4):** `ClearPortals`, `PortalBodyEntered`,
+     `PortalShotFired`, `TogglePortalGunsActive`;
+   - **the one conversation's, ISL-1b (3):** `ConversationEnded`,
+     `ItemGrantRequested`, `ShopTransactionRequested`;
+   - **the clock's, ISL-1b (2):** `ClockScaleRequest`, `ClockResetRequest`
+     (a domain and a requester, no room: the scale coupling);
+   - **staging, not a room's act (1):** `SpawnActorRequest` (the harness and
+     publication staging write it; it spawns session-scoped);
+   - **a room's act that drops its room (10), the coupling list:**
+     `CameraShakeRequest` and `FinishZoomRequest` (every view shakes or
+     zooms for one room's hit), `GameplayBannerRequested` (one banner for
+     every player), `GameplaySfxRequested` (a position with no room) and
+     `OwnedSfxMessage` (an owner context, no room), `AmbientGravityRequest`
+     (a cycle with no room), `RoomReplayRequested` and
+     `CutRopeRoomReplayRequested` ("the" room), `RunAuthoredCommand` (its
+     `AuthoredAsk` names a kind and subject, no room), and
+     `QuestAdvanceRequested` (its cause names a room as text, 2026-11-11; an
+     uncaused event does not).
+   The ten are the ISL-1b work list for messages, beside the clock scale,
+   the conversation and the cutscene.
+
+   **The camera shake (2026-11-11):** `CameraShakeRequest` carries the room
+   whose views shake (`None` shakes every view), and `CameraShakeState`
+   keeps each room's shake beside the shared one; a camera reads
+   `offset_in` the room its view frames. Every writer names its room: the
+   hardest landed hit and the loudest kill of each room
+   (`shake_camera_on_landed_hits`, `advance_death_beats`), a boss's defeat and
+   phase change, a conducted boss's port, a bomb, and a hard landing.
+   Witnesses: `a_hit_shakes_only_the_views_of_its_own_room` (combat) and
+   `a_room_s_kick_shakes_only_that_room_s_views` (the state);
+   `hit_shakes_the_camera` reads any view's shake (`loudest`).
+
+   **The finish zoom (2026-11-11):** `FinishZoomRequest` carries its room the
+   same way, and `FinishZoomState` keeps each room's closeness and hold;
+   a camera scales by `scale_factor_in` the room its view frames. A
+   finishing blow and a boss's defeat name their room; a decided match
+   zooms every view (`None`), since the match is not one room's. The
+   finishing blow's cast freeze still reaches every fighter: Smash runs
+   one match in one room. Witness:
+   `a_room_s_finish_zoom_pulls_in_only_that_room_s_views`. A session
+   replaced by `rest_the_camera_on_activation` now forgets every room's
+   shake and zoom, not only the shared ones.
+
+   **The banner (2026-11-11):** `GameplayBanner` keeps each live room's
+   banner beside the one every player sees (`show_in`, `visible_in`), and
+   `GameplayBannerRequested` carries its room (`in_room`). Its one reader,
+   the inspector HUD, shows the banner of the primary seat's room. In a
+   networked session a peer's process runs every live room, so a chest opened
+   in Alice's room had announced itself in Bob's HUD. The room's acts name
+   their room: pickups, chests, breakables (a break, a collapse, a respawn),
+   a body's defeat and fall, a boss's phase and defeat, an encounter script's
+   banner, a wave's clear, the symmetry attunement, the cut-rope flattening,
+   a talk, a switch, a provocation, a blocked or armoured hit. Two stay
+   every player's: a quest payout (the quest book is the session's) and the
+   sandbox reset. Witness: `a_room_s_banner_shows_only_in_that_room`; tests
+   that asked "was a banner shown" read `shown()`, every room's, so a room's
+   banner cannot slip past them. Seven of the ten remain.
 
 ## Order, exclusions and integration
 

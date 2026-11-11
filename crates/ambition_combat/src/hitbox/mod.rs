@@ -516,13 +516,12 @@ impl StrikeVictimItem<'_, '_> {
     /// Contact of the physical source body with this victim's sampled material.
     pub fn contact_along(
         &self,
-        source: &ae::BodyKinematics,
-        delta: ae::Vec2,
+        cells: &ae::frame::material_cast::MaterialCastCells<'_>,
         geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> Result<Option<super::components::BodySweepContact>, ae::frame::thread::Refusal> {
         resolve_hurt_material(self.volumes, self.kinematics, self.aabb)
-            .swept_body_contact(self.entity, self.kinematics, geometry, room, source, delta)
+            .swept_body_contact(self.entity, self.kinematics, geometry, room, cells)
     }
 
     /// The "away" axis in the VICTIM's local frame (§B11).

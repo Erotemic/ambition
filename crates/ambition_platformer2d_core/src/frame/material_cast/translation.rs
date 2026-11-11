@@ -120,6 +120,12 @@ fn planes(points: &[DVec2], delta: DVec2) -> Vec<Plane> {
     result
 }
 
+pub(super) fn boundary(points: &[DVec2]) -> Vec<MaterialPlane> {
+    planes(points,DVec2::ZERO).into_iter().map(|plane| MaterialPlane {
+        inward:plane.inward,offset:plane.offset,
+    }).collect()
+}
+
 fn intersection(a: Plane, b: Plane) -> Result<Option<Point>, NumericFault> {
     let determinant = a.inward.perp_dot(b.inward);
     if determinant == 0.0 {

@@ -19,7 +19,7 @@ mod arcs;
 mod payload;
 mod source;
 mod sampled;
-pub use sampled::{SampledPieceHit, sweep_polygon_against_piece};
+pub use sampled::SampledPieceHit;
 pub(super) use source::{SourceMotion, rotation_delta};
 pub use cell::MaterialCell;
 
@@ -224,6 +224,11 @@ impl<'a> MaterialCast<'a> {
 }
 
 impl MaterialCastCells<'_> {
+    /// Canonical source material shared by all cells.
+    pub fn domain(&self) -> &CombatVolume {
+        self.material.domain
+    }
+
     pub fn parts(&self) -> &[MaterialCell] {
         &self.parts
     }

@@ -248,17 +248,13 @@ impl DamageableVolumes {
         body: Option<&ae::BodyKinematics>,
         geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        source: &ae::BodyKinematics,
-        delta: ae::Vec2,
+        cells: &ae::frame::material_cast::MaterialCastCells<'_>,
     ) -> Result<Option<BodySweepContact>, ae::frame::thread::Refusal> {
         use ae::frame::thread::{Refusal, RefusalReason};
         if self.domains().is_empty() { return Ok(None); }
         // Reject only bounds that cannot touch the source or enter a portal.
         // A failed bound remains a candidate and keeps its typed refusal.
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
-        if !delta.is_finite() { return Err(numeric(ae::frame::NumericFault::NonFinite)); }
-        let source_domain = source.canonical_box().map_err(numeric)?;
-        let source_map = source.material_map().map_err(numeric)?;
         let projected_bounds = |domain: &ae::CombatVolume, map: ae::frame::Sim2| {
             let bounds = domain.bounds();
             // Primitive bounds can round inwards before a chart offset cancels.
@@ -268,9 +264,16 @@ impl DamageableVolumes {
             };
             map.bounds(bounds)
         };
-        let start = projected_bounds(&source_domain, source_map).map_err(numeric)?;
-        let swept_min = start.min.as_dvec2().min(start.min.as_dvec2() + delta.as_dvec2());
-        let swept_max = start.max.as_dvec2().max(start.max.as_dvec2() + delta.as_dvec2());
+        let mut swept = None;
+        for part in cells.parts() {
+            if let Some(bounds) = cells.bounds(part)? {
+                swept = Some(swept.map_or(bounds, |old: ae::Aabb| ae::Aabb {
+                    min: old.min.min(bounds.min), max: old.max.max(bounds.max),
+                }));
+            }
+        }
+        let Some(swept) = swept else { return Ok(None); };
+        let (swept_min,swept_max) = (swept.min.as_dvec2(),swept.max.as_dvec2());
         let reaches_opening = |min: bevy::math::DVec2, max: bevy::math::DVec2,
             ap: ae::frame::PortalAperture, front: bool| {
             if !ap.frame.origin.is_finite() || !ap.frame.normal.is_finite()
@@ -304,14 +307,12 @@ impl DamageableVolumes {
         }
         let pieces = self.pieces(owner, body, geometry, room)?;
         if pieces.is_empty() { return Ok(None); }
-        let domain = source_domain;
-        let polygon = domain.polygon().expect("a canonical body box is a polygon");
-        let map = source_map;
+        let domain = cells.domain();
         let mut earliest: Option<BodySweepContact> = None;
         for piece in &pieces {
-            if let Some(hit) = ae::frame::material_cast::sweep_polygon_against_piece(&polygon, map, delta, piece)? {
+            if let Some(hit) = cells.against_piece(piece)? {
                 if earliest.as_ref().is_none_or(|before| hit.toi < before.hit.toi) {
-                    let source_volume = ae::frame::thread::map_volume(&domain, &hit.source_map).map_err(numeric)?;
+                    let source_volume = ae::frame::thread::map_volume(domain, &hit.source_map).map_err(numeric)?;
                     let source_in_target = hit.target_map.inverse().and_then(|map| map.point(hit.source_map.point(ae::Vec2::ZERO)?)).map_err(numeric)?;
                     earliest = Some(BodySweepContact { hit, source_volume, source_in_target });
                 }
@@ -388,10 +389,22 @@ mod hurt_material_tests {
     use super::*;
     use ae::frame::{BodyMaterial, thread::RefusalReason};
 
+    fn contact(hurt: &DamageableVolumes, owner: Entity, body: Option<&ae::BodyKinematics>,
+        geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        source: &ae::BodyKinematics, delta: ae::Vec2) -> Result<Option<BodySweepContact>,ae::frame::thread::Refusal> {
+        let numeric=|fault| ae::frame::thread::Refusal { path:vec![],link:None,reason:RefusalReason::Numeric(fault) };
+        let domain=source.canonical_box().map_err(numeric)?;
+        let cells=ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
+            domain:&domain,to_world:source.material_map().map_err(numeric)? },source.pos,delta,0.0..1.0)
+            .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report).cells(None)?;
+        hurt.swept_body_contact(owner,body,geometry,room,&cells)
+    }
+
     fn box_hit(hurt: &DamageableVolumes, body: Option<&ae::BodyKinematics>, start: ae::Vec2, half: ae::Vec2, delta: ae::Vec2)
         -> Result<Option<f64>, ae::frame::thread::Refusal> {
         let source = ae::BodyKinematics { pos: start, canonical_size: half * 2.0, ..Default::default() };
-        hurt.swept_body_contact(Entity::PLACEHOLDER, body, None, None, &source, delta).map(|hit| hit.map(|hit| hit.hit.toi))
+        contact(&hurt, Entity::PLACEHOLDER, body, None, None, &source, delta).map(|hit| hit.map(|hit| hit.hit.toi))
     }
 
     #[test]
@@ -409,7 +422,7 @@ mod hurt_material_tests {
         ));
         let mut source = ae::BodyKinematics { pos: body.pos - ae::Vec2::new(100.0, 200.0),
             canonical_size: ae::Vec2::splat(4.0), ..Default::default() };
-        let contact = |source: &ae::BodyKinematics| hurt.swept_body_contact(owner, Some(&body),
+        let contact = |source: &ae::BodyKinematics| contact(&hurt, owner, Some(&body),
             Some(&geometry), None, source, ae::Vec2::X * 20.0);
         assert!(contact(&source).unwrap().is_none());
         source.pos = body.pos - ae::Vec2::X * 20.0;
@@ -568,13 +581,13 @@ mod hurt_material_tests {
         hurt.publish_body(vec![ae::CombatVolume::circle(ae::Vec2::ZERO, 20.0)]);
         for (point, expected) in [(ae::Vec2::new(500.0, -195.0), true), (ae::Vec2::new(515.0, -195.0), false), (ae::Vec2::new(500.0, -215.0), false)] {
             let source = ae::BodyKinematics { pos: point, canonical_size: ae::Vec2::splat(0.5), ..Default::default() };
-            let hit = hurt.swept_body_contact(owner, Some(&body), Some(&geometry), None, &source, ae::Vec2::ZERO).unwrap();
+            let hit = contact(&hurt, owner, Some(&body), Some(&geometry), None, &source, ae::Vec2::ZERO).unwrap();
             assert_eq!(hit.is_some(), expected, "point {point:?}");
             if let Some(hit) = hit { assert!(!hit.hit.target_path.is_empty()); }
         }
         let source = ae::BodyKinematics { pos: ae::Vec2::new(500.0, -175.0), canonical_size: ae::Vec2::ONE, ..Default::default() };
         let delta = ae::Vec2::new(0.0, -30.0);
-        let contact = hurt.swept_body_contact(owner, Some(&body), Some(&geometry), None, &source, delta).unwrap().unwrap();
+        let contact = contact(&hurt, owner, Some(&body), Some(&geometry), None, &source, delta).unwrap().unwrap();
         assert!(contact.hit.toi > 0.0 && contact.hit.toi < 1.0);
         assert!(contact.hit.normal.dot(delta) < 0.0);
         assert!(contact.hit.point.y >= -200.0 && contact.hit.point.y <= -190.0 + 1.0e-4);

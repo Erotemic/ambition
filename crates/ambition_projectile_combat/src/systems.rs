@@ -966,6 +966,31 @@ pub fn step_projectiles(
                 )
         };
 
+        // Wall and recipient contacts use the same admitted source material.
+        // Build it once for this leg, before any recipient can commit a hit.
+        let source_domain = before.canonical_box();
+        let source_cells = source_domain.as_ref().map_err(|fault| ae::frame::thread::Refusal {
+            path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(*fault),
+        }).and_then(|domain| {
+            let map=before.material_map().map_err(|fault| ae::frame::thread::Refusal {
+                path: vec![], link: None, reason: ae::frame::thread::RefusalReason::Numeric(fault),
+            })?;
+            ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
+                domain,to_world:map },before.pos,attempted_delta,0.0..1.0)
+                .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report)
+                .prefix(travel_end)?.cells(collision.motion_for(proj_entity,shot_room))
+        });
+        let source_cells=match source_cells {
+            Ok(cells)=>cells,
+            Err(refusal)=>{
+                *game=candidate_game;
+                commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before,ae::Vec2::ZERO));
+                bevy::log::debug!(target:"ambition_portal::refusal",body=?proj_entity,?refusal,
+                    "projectile source contact refused before commit");
+                continue;
+            }
+        };
+
         // Damage routed by the FIRER's real faction (the owner's), not a label on
         // the shot: a shot lands on a faction-foe, on a same-faction body its
         // firer holds a grudge against, or — if it is OWNERLESS and therefore
@@ -1046,7 +1071,6 @@ pub fn step_projectiles(
             // finite time, ordering by "whose centre is nearer the muzzle" can
             // disagree with "whom it reached first"; a big body slightly further
             // out is touched before a small one dead ahead.
-            let leg = attempted_delta;
             // ⛔⛔ **THE FEATURE CANDIDATE IS RESOLVED HERE, BESIDE THE BODIES,
             // BECAUSE THEY ARE COMPETING FOR THE SAME CONTACT.** It used to be
             // computed after this whole block had `continue`d away on a body
@@ -1055,12 +1079,10 @@ pub fn step_projectiles(
             // 0.8. That is the family knowledge A2 exists to remove — the
             // protocol orders contacts within a projectile by finite time of
             // impact, and a family name is not a time.
-            let feature_leg = leg;
             // Every recipient query must succeed before motion or contact is committed.
             let prepared = (|| -> Result<_, ae::frame::thread::Refusal> {
                 let breakable_contact = super::feature_contact::projectile_reaches_breakable(
-                    &before,
-                    feature_leg,
+                    &source_cells,
                     collision.body_geometry(),
                     shot_room,
                     |target| {
@@ -1070,8 +1092,7 @@ pub fn step_projectiles(
                     &ecs_breakables,
                 )?;
                 let boss_contact = super::feature_contact::projectile_reaches_boss(
-                    &before,
-                    feature_leg,
+                    &source_cells,
                     collision.body_geometry(),
                     shot_room,
                     |target| {
@@ -1096,7 +1117,7 @@ pub fn step_projectiles(
                 let mut ordered = Vec::new();
                 for victim in victims.iter().filter(|victim| collision.room_of(victim.entity) == shot_room
                     && may_touch(victim.entity)) {
-                    if let Some(hit) = victim.contact_along(&before, leg, collision.body_geometry(), shot_room)?
+                    if let Some(hit) = victim.contact_along(&source_cells, collision.body_geometry(), shot_room)?
                         .filter(|hit| hit.hit.toi <= travel_end) {
                         ordered.push((hit, victim));
                     }

@@ -9979,7 +9979,7 @@
         ),
         // The residents of the orbital station of the Science dimension, made by
         // the character generator (`targets/characters/townsfolk.py`). They
-        // live and work on the station (`specs/orbital_station/`).
+        // live and work on the station (`game/ambition_map_assets/ambition_content/generators/orbital_station/`).
         "npc_station_okafor": (
             display_name: "Officer Okafor",
             manifest: "sprites/station_okafor_spritesheet.ron",

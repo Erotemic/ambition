@@ -1584,7 +1584,7 @@ const SEAT_LIFT: f32 = 47.0;
 /// The coils beside the throne: their tops, from him (authored body). The
 /// throne room puts their middles 150 world units either side of his, their
 /// tops 172 over the floor, at his 140-unit build
-/// (`specs/castle_godwin/make_specs.py`, `COIL_*_X`).
+/// (`game/ambition_map_assets/ambition_content/generators/castle_godwin/make_specs.py`, `COIL_*_X`).
 const COIL_SPREAD: f32 = 107.0;
 const COIL_HIGH: f32 = 123.0;
 

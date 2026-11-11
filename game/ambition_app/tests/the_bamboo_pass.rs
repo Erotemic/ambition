@@ -1,5 +1,5 @@
 //! The Bamboo Pass: out of the Ninja Village, east of the cedar forest
-//! (`tools/ambition_ldtk_tools/specs/ninja_village/make_specs.py`).
+//! (`game/ambition_map_assets/ambition_content/generators/ninja_village/make_specs.py`).
 //!
 //! Jon (2026-10-30): "out of town zones with enemies", joined by side exits.
 //! The player starts at the pass's west end, walks by keys west into the

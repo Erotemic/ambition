@@ -1,5 +1,5 @@
 //! Eureka, the science dimension's institute town, and the space elevator
-//! from it to the orbital station (`tools/ambition_ldtk_tools/specs/eureka/`).
+//! from it to the orbital station (`game/ambition_map_assets/ambition_content/generators/eureka/`).
 //!
 //! Jon (2026-10-29): "the science dimension should have a space elevator that
 //! brings you up to the orbital station". The player walks by keys

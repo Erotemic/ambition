@@ -1,5 +1,5 @@
 //! The Searchlight Moor: out of town in the Evil dimension, west of the gate
-//! forest (`tools/ambition_ldtk_tools/specs/evil_moor/make_specs.py`).
+//! forest (`game/ambition_map_assets/ambition_content/generators/evil_moor/make_specs.py`).
 //!
 //! Jon (2026-10-30): "out of town zones with enemies", joined by side exits.
 //! The player starts at the moor's east end, walks by keys east into the gate

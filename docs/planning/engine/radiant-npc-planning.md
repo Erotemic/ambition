@@ -22,7 +22,7 @@ scripted fallback, or later an LLM-backed policy) without touching the actor
 and world crates?
 
 **First customer:** Nikobolt and Coulomba Tesseract, who share the Eureka coil
-lab (`tools/ambition_ldtk_tools/specs/eureka/eureka_coil_lab.ron`; both are
+lab (`game/ambition_map_assets/ambition_content/generators/eureka/eureka_coil_lab.ron`; both are
 placed there today with `brain_override: "stand_still"` and their own
 dialogue, `eureka_nikobolt` and `eureka_coulomba`).
 
@@ -198,7 +198,7 @@ it is doing, a plan revision, and why the last plan stopped short.
   only place it goes.
 
 The coil lab names its places with signs (generator
-`tools/ambition_ldtk_tools/specs/eureka/make_specs.py`): `workbench` ("COIL
+`game/ambition_map_assets/ambition_content/generators/eureka/make_specs.py`): `workbench` ("COIL
 No. 27", at the bench) and `lunch` ("LUNCH. NAPKINS: 18", by the crate);
 home is out of `lab_door`.
 
@@ -287,6 +287,12 @@ catches up by schedule arithmetic:
   every peer). A body sees the thing free while the hour has time left, and a
   plan that would overrun the hour plans again with it taken
   (`plan_an_hour_away`; unit test `bodies_away_share_a_thing_by_the_hours_it_has`).
+  The booking is never overrun: a body with no `Free` of the thing, or whose
+  planner claims it although told it is taken, has no plan that hour and
+  nothing it would have done is applied (review 2026-11-10, second pass;
+  `a_plan_that_would_overrun_a_thing_is_never_booked`). It counts hours, not
+  intervals: two quarter-hour uses fit in an hour without deciding which came
+  first, so it bounds the sum of uses and is not a timetable.
   The booking lasts the tick: bodies that come back on different ticks (one
   room built again before another) do not see each other's hours away, which
   the two scientists, one room, never meet;

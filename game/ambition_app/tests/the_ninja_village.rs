@@ -1,5 +1,5 @@
 //! The Ninja Village (gate address SILENT): the gate shrine, the street, the
-//! dojo and the cedar forest (`tools/ambition_ldtk_tools/specs/ninja_village/`).
+//! dojo and the cedar forest (`game/ambition_map_assets/ambition_content/generators/ninja_village/`).
 //!
 //! The shipped session puts the player at the gate shrine, where the gate
 //! arrives. From there the player walks by keys (`common::walk`): the low road

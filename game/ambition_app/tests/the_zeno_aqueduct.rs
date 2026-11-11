@@ -1,5 +1,5 @@
 //! Zeno's Aqueduct: out of the Math dimension's town, west along the
-//! aqueduct (`tools/ambition_ldtk_tools/specs/math_town/make_specs.py`).
+//! aqueduct (`game/ambition_map_assets/ambition_content/generators/math_town/make_specs.py`).
 //!
 //! Jon (2026-10-30): "out of town zones with enemies". The player starts on
 //! the aqueduct's deck, walks by keys (`common::walk`) east along it into the

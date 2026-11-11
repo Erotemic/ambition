@@ -488,12 +488,49 @@ loose top-level specs and edits are one-offs, but some are still read:
 `symmetry_room_area.ron` (`gen_symmetry_room.py`) and
 `intro_raid_corridor_area.ron` (`test_spec_brains_resolve.py`).
 
-**Next action:** world by world, survey its generator, record the reproduced
-rooms as generated, adopt the rest, then move each generator to
-`generators/<dimension>/` as History
-did (its specs to the temp folder; `district_kit` stays in tools). Apply each
-once so its rooms are recorded. Hand-written one-off specs (`*_area.ron`,
-`*.yaml` edits) that already ran become LDtk-owned and are deleted.
+**Every room has an owner (2026-11-10):** `generator_survey <generator>`
+runs a whole generator (its `--apply`, with its committed specs and without
+the ownership records) on the live worlds, fingerprints every room before and
+after, and puts the worlds back from git; `--settle` records the rooms it
+left as they were and adopts the rest. Run over the 14 room-making
+generators: 103 rooms reproduced and are recorded as generated; every room
+that DIFFERS (edited after its generator), that no generator made (the
+sandbox's 80, intro, noodle) or whose generator cannot run (hall of biomes:
+the sandbox already fails validation at `scroll_lab_door`, a LoadingZone with
+no target) is LDtk-owned. `level ownership status` names an owner for every
+room of every world but two History rooms, HAND-EDITED by e7ad541's
+per-zone loading-zone presentation after History generated them (the guard
+refuses to overwrite them).
+
+**Generators moved (2026-11-10):** the 14 room-making generators live in
+`game/ambition_map_assets/ambition_content/generators/<generator>/` beside
+their worlds, as History's does; their area specs go to a temp folder and are
+no longer committed; `district_kit`, `district_scenery` and the gate network
+(`gates.py`, `make_gates.py`, which writes the three districts'
+`gate_interface.yaml` into their generators' folders) stay in tools as shared
+code. Each moved generator writes the same specs as before it moved (compared
+with the lenient art box this VM needs: its art publication is missing, so a
+generator here cannot `--apply`).
+
+**One-offs deleted (2026-11-10):** 111 hand-written one-off specs and edits
+(`*_area.ron`, `*.yaml`, `gnu_ton/`, `pirate_sky/`) are gone; every room they
+made is LDtk-owned, and the code and docs that cited one for a number now
+name the room. The dog example moved to `specs/examples/`.
+
+**What stays in tools (2026-11-10):** besides shared code
+(`district_kit`, `district_scenery`, `scenery_overlay`, `check_flat_map`,
+the gate network) and the tool's examples: the hall of characters' spec and
+order, written by the package's catalog-driven `generate_hall_of_characters.py`
+(its room reproduces and is recorded as generated, so the hall can be made
+again when the catalog grows; its test checks the committed spec is current);
+`intro_raid_corridor_area.ron`, the fixture of `test_spec_brains_resolve.py`;
+and the portal labs' specs (the portal peer's). The symmetry room DIFFERS from
+its spec and is LDtk-owned; `gen_symmetry_room.py` and its spec were deleted
+(last at `83b5cdfa78`).
+
+**Next action:** none required by the acceptance below beyond the portal
+peer's specs; a generator's next `--apply` on a machine with the art
+publication is the check that each moved generator still makes its rooms.
 
 **Acceptance:** `tools/ambition_ldtk_tools/specs/` holds only shared code and
 checks; `level ownership status` names an owner for every room of every world.

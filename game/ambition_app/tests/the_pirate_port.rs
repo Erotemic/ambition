@@ -1,5 +1,5 @@
 //! The Pirate Port (gate address SAILING): the gate plaza, the waterfront,
-//! the tavern and the docks (`tools/ambition_ldtk_tools/specs/pirate_port/`).
+//! the tavern and the docks (`game/ambition_map_assets/ambition_content/generators/pirate_port/`).
 //!
 //! The shipped session puts the player in the gate plaza, where the gate
 //! arrives. From there the player walks by keys (`common::walk`): the low road

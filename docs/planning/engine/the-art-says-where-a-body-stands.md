@@ -75,7 +75,8 @@ Keep carry based on measured displacement, including when a collision stops a mo
 ### 4. The room has a copy of the giant's size
 
 - The arena's `EnemySpawn` for the giant is a box of 630 x 464
-  (`sandbox.ldtk`, `gnu_ton_arena`; `specs/gnu_ton/fit_the_new_giant.yaml`):
+  (`sandbox.ldtk`, `gnu_ton_arena`; set by a one-off edit, deleted
+  2026-11-10 with the other one-off specs: the room is LDtk-owned):
   a copy of the body's box times its scale. A body is built with its feet
   on the bottom of its box, so a wrong copy puts the giant in the wrong
   place.
@@ -84,8 +85,9 @@ Keep carry based on measured displacement, including when a collision stops a mo
   giant.
 - The hall of characters has a constant for the height of the giants' row
   (`GIANT_SLOT_HEIGHT_PX = 832`), a copy of how tall the art is.
-- `specs/gnu_ton_arena_area.ron` is behind the level it says it describes
-  (it has the stones as entities; the level has them as painted cells).
+- The arena's spec was behind the level it said it described (it had the
+  stones as entities; the level has them as painted cells). Deleted
+  2026-11-10: the room is LDtk-owned, so the level is the only copy.
 
 ### 5. The fight's own numbers do not know the giant
 

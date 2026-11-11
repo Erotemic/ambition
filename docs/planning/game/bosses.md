@@ -644,7 +644,7 @@ space-launch phase built around Newton's laws. The old 2026-10-11
 by these implementations. This section keeps the gameplay contract; the
 technical debts remain in [`gnu-ton-fight-debts.md`](gnu-ton-fight-debts.md),
 and placement in the Science gravity works is specified in
-`tools/ambition_ldtk_tools/specs/gnu_ton_gravity/README.md`.
+`game/ambition_map_assets/ambition_content/generators/gnu_ton_gravity/README.md`.
 
 **The body.** A giant like a gnu, almost a centaur: a beast on four long
 legs, a chest that stands up at its front, two arms to two fists, a gnu's
@@ -823,7 +823,7 @@ four puzzle rooms (up fields; side fields; portals; a room that turns over)
 and his arena `gnu_ton_shoulders`. The arena is the hall's arena as it is,
 with his placement `gnu_ton_handle.gnu_ton`. A `LockWall` gated on
 `boss.cleared gnu_ton_handle.gnu_ton` opens the door home. Room by room:
-`tools/ambition_ldtk_tools/specs/gnu_ton_gravity/README.md`. Proof:
+`game/ambition_map_assets/ambition_content/generators/gnu_ton_gravity/README.md`. Proof:
 `game/ambition_app/tests/the_gnu_ton_handle.rs`. Recorded follow-up: verify whether the Hall copy is now `practice`; the
 2026-10-23 pass reported that GNU-ton, T-rex and FSM were not. Do not infer
 current state from that dated observation.

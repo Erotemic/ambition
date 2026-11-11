@@ -49,6 +49,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TOOLS = HERE.parents[1]
+#: The district generators, beside their worlds in the map submodule.
+GENERATORS = TOOLS.parents[1] / "game" / "ambition_map_assets" / "ambition_content" / "generators"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 sys.path.insert(0, str(HERE))
@@ -417,7 +419,7 @@ RECEIVER_TERMINALS = [
 ]
 
 
-#: The districts' arrival rooms (`specs/pirate_port`, `specs/ninja_village`):
+#: The districts' arrival rooms (the `pirate_port`, `ninja_village` and `eureka` generators):
 #: each generator adds its `gate_interface.yaml` after it makes its rooms.
 #: The ring's zone is the arrival; the floor is clear from x 112 to 512.
 DISTRICT_RINGS = [
@@ -433,7 +435,7 @@ def district_interfaces() -> dict[Path, str]:
     out = {}
     for spec_dir, room, label, zone, terminal in DISTRICT_RINGS:
         entities = gates.ring(label, zone, 112, DISTRICT_FLOOR, "the gate") + gates.terminal(label, terminal, 412, DISTRICT_FLOOR)
-        out[HERE.parent / spec_dir / "gate_interface.yaml"] = gates.as_yaml(
+        out[GENERATORS / spec_dir / "gate_interface.yaml"] = gates.as_yaml(
             room, entities, "Written by specs/gate_network/make_gates.py. Change that script, not this file.\n"
             "The district's gate ring (its zone is the arrival) and its terminal; the district's\n"
             "make_specs.py adds this file after it makes its rooms.")

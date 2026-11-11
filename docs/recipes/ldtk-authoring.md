@@ -167,7 +167,7 @@ enters its trigger.
 
 The player flies and blinks. A way is shut only by solid wall round the door:
 check each way round it. The worked example is the Noodly Temple
-(`tools/ambition_ldtk_tools/specs/noodly_temple/`): `make_specs.py` writes its
+(`game/ambition_map_assets/ambition_content/generators/noodly_temple/`): `make_specs.py` writes its
 rooms and `check_temple.py` proves that the level can be finished and that no
 place in it is a trap.
 

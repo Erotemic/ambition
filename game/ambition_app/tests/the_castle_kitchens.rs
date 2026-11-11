@@ -1,7 +1,7 @@
 //! Castle Godwin as one connected place: its lower floor of staff
-//! (`tools/ambition_ldtk_tools/specs/castle_kitchens/make_specs.py`, talk in
+//! (`game/ambition_map_assets/ambition_content/generators/castle_kitchens/make_specs.py`, talk in
 //! `dialogue/sandbox/castle_godwin.yarn`) joined to its upper floor of combat
-//! (`specs/castle_godwin/make_specs.py`) by their edges on a faithful flat
+//! (`game/ambition_map_assets/ambition_content/generators/castle_godwin/make_specs.py`) by their edges on a faithful flat
 //! map.
 //!
 //! Jon (2026-10-30): "It needs to feel like a connected world, not a series

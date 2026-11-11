@@ -1,5 +1,5 @@
 //! Hylbert's Hotel, in the Math dimension's town
-//! (`tools/ambition_ldtk_tools/specs/math_town/make_specs.py`).
+//! (`game/ambition_map_assets/ambition_content/generators/math_town/make_specs.py`).
 //!
 //! Jon (2026-10-30): "hylberts hotel is something we should build tonight".
 //! The player walks by keys (`common::walk`) from Euclid Street through the

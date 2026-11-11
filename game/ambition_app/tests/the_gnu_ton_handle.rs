@@ -1,6 +1,6 @@
 //! The GNU-ton gravity handle: the gravity works of the Science dimension,
 //! four rooms of gravity and portal puzzles, the approach, and GNU-ton at the
-//! end (`tools/ambition_ldtk_tools/specs/gnu_ton_gravity/`). The spoke joins
+//! end (`game/ambition_map_assets/ambition_content/generators/gnu_ton_gravity/`). The spoke joins
 //! the works to the orbital station on foot.
 //!
 //! Each test drives the robot through the way a room means to be solved,

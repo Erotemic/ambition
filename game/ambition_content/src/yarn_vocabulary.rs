@@ -262,15 +262,29 @@ pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::ItemGrantRequested>,
     items: ambition_items::ItemCatalogRead,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
 ) {
-    let Some(request) = item_grant(items.get(), &kind, count) else {
+    let Some(mut request) = item_grant(items.get(), &kind, count) else {
         warn!(
             target: "ambition_conversation::dialog::yarn",
             "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
         );
         return;
     };
+    request.participant = talking_seat(conversation.as_deref());
     narrative.write(request);
+}
+
+/// The seat whose conversation runs this command: its input owner. A
+/// conversation every seat drives, or none, names no seat.
+fn talking_seat(
+    conversation: Option<&ambition_conversation::ActiveConversation>,
+) -> Option<ambition_characters::control::PlayerSlot> {
+    match conversation?.input_owner()? {
+        ambition_input::InputOwner::Participant(id) => Some(ambition_characters::control::PlayerSlot(id.slot())),
+        ambition_input::InputOwner::Primary => Some(ambition_characters::control::PlayerSlot::PRIMARY),
+        ambition_input::InputOwner::AllParticipants => None,
+    }
 }
 
 /// `<<buy_item "id" price>>` — spend `price` from the player's wallet and grant
@@ -280,6 +294,7 @@ pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
     items: ambition_items::ItemCatalogRead,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
 ) {
     let Some(item) = items.get().item_by_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
@@ -300,6 +315,7 @@ pub fn cmd_buy_item(
         }
     };
     narrative.write(ambition_items::shop::ShopTransactionRequested {
+        participant: talking_seat(conversation.as_deref()),
         item,
         price: coins,
         side: ambition_items::shop::ShopSide::Buy,
@@ -312,6 +328,7 @@ pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
     items: ambition_items::ItemCatalogRead,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
 ) {
     let Some(item) = items.get().item_by_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
@@ -332,6 +349,7 @@ pub fn cmd_sell_item(
         }
     };
     narrative.write(ambition_items::shop::ShopTransactionRequested {
+        participant: talking_seat(conversation.as_deref()),
         item,
         price: coins,
         side: ambition_items::shop::ShopSide::Sell,
@@ -355,6 +373,7 @@ fn item_grant(
     }
     let item = items.item_by_dialog_id(kind)?;
     Some(ambition_items::ItemGrantRequested {
+        participant: None,
         item,
         count: count as u32,
     })
@@ -654,6 +673,7 @@ mod tests {
         assert_eq!(
             item_grant(ambition_items::test_item_catalog(), "health_potion", 2.0),
             Some(ambition_items::ItemGrantRequested {
+                participant: None,
                 item: Item::HealthCell,
                 count: 2
             })
@@ -663,6 +683,7 @@ mod tests {
         assert_eq!(
             item_grant(ambition_items::test_item_catalog(), "HealthPotion", 1.9),
             Some(ambition_items::ItemGrantRequested {
+                participant: None,
                 item: Item::HealthCell,
                 count: 1
             })

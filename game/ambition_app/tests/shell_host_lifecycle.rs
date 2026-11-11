@@ -2966,6 +2966,7 @@ fn a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only() 
         let before = bombs_in_the_bag(&veteran);
         let saved_before = items_in_the_save(&veteran);
         veteran.world_mut().write_message(ItemGrantRequested {
+            participant: None,
             item: Item::Bomb,
             count: BOMBS,
         });

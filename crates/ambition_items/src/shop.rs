@@ -84,6 +84,10 @@ pub struct ShopTransactionRequested {
     /// What the merchant is charging (buy) or paying (sell).
     pub price: i32,
     pub side: ShopSide,
+    /// The seat whose conversation agreed to it (its input owner): its body's
+    /// wallet pays or is paid, and the bag change is that body's room's act
+    /// (ISL-2d). `None` is the primary seat's, a scripted conversation's.
+    pub participant: Option<ambition_characters::control::PlayerSlot>,
 }
 
 impl ShopTransactionRequested {

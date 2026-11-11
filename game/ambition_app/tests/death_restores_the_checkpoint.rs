@@ -647,6 +647,7 @@ fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
 
     // ── 1. entitlement, through the channel `<<give_item>>` uses ─────────────
     sim.world_mut().write_message(ItemGrantRequested {
+        participant: None,
         item: MINTED_ITEM,
         count: 1,
     });
@@ -1183,6 +1184,7 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
     sim.step_n(base(), 8);
 
     sim.world_mut().write_message(ItemGrantRequested {
+        participant: None,
         item: MINTED_ITEM,
         count: 1,
     });
@@ -1246,6 +1248,7 @@ fn a_death_undoes_a_purchase_since_the_checkpoint_whole() {
         |sim: &mut Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::Bomb);
     let buy_a_bomb = |sim: &mut Platformer2dSimHarness| {
         sim.world_mut().write_message(ShopTransactionRequested {
+            participant: None,
             item: Item::Bomb,
             price: 6,
             side: ShopSide::Buy,
@@ -1474,6 +1477,7 @@ fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
 
     // ── AFTER THE CHECKPOINT: one more of it, and the reward in hand ─────────
     sim.world_mut().write_message(ItemGrantRequested {
+        participant: None,
         item: STACKABLE,
         count: 1,
     });
@@ -1795,6 +1799,7 @@ fn throw_after_a_checkpoint(item: Item, into: &str, carried_back: bool) -> (Plat
     // The demo's bag starts with a stock of bombs; this story counts one.
     sim.world_mut().resource_mut::<OwnedItems>().take(item, u32::MAX);
     sim.world_mut().write_message(ItemGrantRequested {
+        participant: None,
         item: item,
         count: 1,
     });

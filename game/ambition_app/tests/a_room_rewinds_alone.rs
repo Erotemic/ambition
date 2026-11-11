@@ -963,6 +963,83 @@ fn without_the_retraction_the_cell_stays_spent() {
     assert_eq!(after_replay, after_use, "the cell came back without the retraction");
 }
 
+/// ISL-2d, a conversation's grant: Alice (in `basement_breakables`, Bob in
+/// the hub) is given a health cell by her conversation in the window
+/// (`<<give_item>>`, which names her seat). The room rewinds to before it
+/// and replays without the grant. Returns the bag's health cells at N, after
+/// the grant, and after the replay.
+fn a_grant_given_only_before_the_rewind(retract: bool) -> [u32; 3] {
+    use crate::pickup_regrowth_across_rooms::{HUB, ROOM as GRANT_ROOM};
+    use ambition_platformer2d::item::{Item, OwnedItems};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        GRANT_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    let cells = |sim: &Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::HealthCell);
+    // Room in the stack for one more.
+    sim.world_mut().resource_mut::<OwnedItems>().take(Item::HealthCell, 1);
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_cells = cells(&sim);
+
+    sim.world_mut().write_message(ambition_platformer2d::item::ItemGrantRequested {
+        item: Item::HealthCell,
+        count: 1,
+        participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
+    });
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    let after_grant = cells(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = cells(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_cells, after_grant, after_replay]
+}
+
+/// ISL-2d: a room that rewinds takes back what its conversation gave after
+/// the tick it was saved at.
+#[test]
+fn a_rewound_room_takes_back_the_grant_its_conversation_gave() {
+    let [at_n, after_grant, after_replay] = a_grant_given_only_before_the_rewind(true);
+    assert_eq!(after_grant, at_n + 1, "premise: the grant gives one cell (at N {at_n}, after {after_grant})");
+    assert_eq!(after_replay, at_n, "the replay's conversation gave nothing, and the bag keeps the cell");
+}
+
+/// The control: without the retraction the cell stays given.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_given_cell_stays() {
+    let [_, after_grant, after_replay] = a_grant_given_only_before_the_rewind(false);
+    assert_eq!(after_replay, after_grant, "the cell went without the retraction");
+}
+
 /// Not a shipped flag: the world sets no flag of this name.
 const WITNESS_FLAG: &str = "isl2d_a_room_rewinds_alone_flag";
 /// A quest whose first step waits on [`WITNESS_FLAG`].

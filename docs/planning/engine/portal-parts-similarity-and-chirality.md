@@ -51,8 +51,8 @@ dimensionless knockback in `741212079`, and proposed limb admission in
 Stationary material repair and support now use admitted material in
 `5f07fbb17`. Independent captures and depth order are fixed in `ae8f2b07a`.
 Room-scoped straddler lookup is fixed in `b499e5090`. Adaptive capture storage
-and explicit material-proxy overflow are fixed in `1d551594b`. Runtime and
-device performance measurements remain open. See the
+and explicit material-proxy overflow are fixed in `1d551594b`. Optimized
+simulation cost is measured. Displayed-host and device cost remain open. See the
 [review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
 for guards and verification scope.
 
@@ -854,10 +854,10 @@ PORTAL-SIMILARITY complete from this checkpoint. Preserve the unrelated dirty
 submodules, science.ldtk, profiling measurements and the untracked related-work
 ideas file.
 
-### Draft status
+### Foundation checkpoint before the playable 80/40 slice
 
-The tested foundation is merged into main with the Android profiling and asset
-loading work. No complete PSIM acceptance slice is closed.
+These foundation steps precede the later playable 80/40 acceptance below.
+Full PSIM acceptance remains open.
 
 - Loose items use `BodyKinematics` and `SweepSample`. `GroundItem` owns item
   metadata. Custody derives `BodyInStorage` before spatial reads. One portal
@@ -1485,6 +1485,24 @@ with the canonical solver. The [cost receipt](../../../dev/ambition_dev_measurem
 records a lab instruction estimate 18.65% below its matched baseline, the
 historical control, census and limits. Owner, all four slice/replay checks,
 Smash, room-freeze and default warning checks pass after the room-clock merge.
-R5 remains open: the current Hall costs about twice the historical snapshot;
+R5 remains open: that measured Hall snapshot costs about twice the historical control;
 displayed-host, device and full PSIM acceptance remain open. Do not add a
 second collision authority to hide native material cost.
+
+
+### Native query reuse and collider refusals — 2026-11-11
+
+`32a268334` shares checked aperture steps within each cast scene and selects
+line support through the room's swept index over all physical cells.
+`d31127c19` rejects non-finite collider input before a carve and retains
+unknown world sweeps. Exact contact keeps scale, reflection and typed refusal.
+The [query receipt](../../../dev/ambition_dev_measurements/summaries/portal-native-query-reuse-20261111.md)
+records matched instruction reductions of 30.72% in the Hall and 46.12% in
+the lab, before the later boss-height and dialer data changes. Core 891,
+held 60, projectile refusal, all four slice/replay cases, both chain cases,
+room freeze, content art, Smash and default warning checks pass after merge
+`eabde9a66`. `6050392c3` accounts for the scope-pace composition callback;
+all 21 active rollback coverage cases pass. R5 displayed-host/device cost,
+general actor continuation, moving targets, durable material history and the
+other full PSIM gates remain open. Do not certify separation from unknown
+motion or add a second collision authority.

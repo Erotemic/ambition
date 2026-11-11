@@ -327,6 +327,27 @@ the other, the control, is not.
   is the windowed host's), so a shake here never ends and "shaking" counts
   frames since the first one. Sounds and visuals were counted, not sent.
 
+**What else a host spawns (2026-11-11),** probe
+`probe_what_else_a_host_spawns` (same file, ignored): the death probe's run
+(the enemy held at one point of health, so Alice's first hit kills it), and
+a census of every entity the simulation keeps that appears after boot.
+
+| Appeared | How many | In the body rows | Identity |
+|---|---|---|---|
+| the spawned enemy (`placement:…`) | 1 | yes | `SimId` |
+| Alice's shots (`slot:0/#`) | 16, each lived 4–23 frames | yes | `SimId` |
+| the enemy's bounty coin (`PickupFeature`, `PickupMagnet`) | 1 | no (no `BodyKinematics`) | none: `FeatureId` and `SpawnOrigin::Dynamic { parent, sequence }` |
+
+- **A death drop has no `SimId`, so a guest that replicates by `SimId`
+  never sees it.** This is deliberate (`ambition_platformer2d_items::loot`,
+  `DropIdentity::Anonymous`): a coin, a heart and an ability pickup are not
+  occurrences; only a dropped weapon mints `SimId::death_drop`. A guest needs
+  them anyway (the coin is drawn and collected), so a pickup's spawn row has
+  to be keyed by its origin (its parent's `SimId` and its sequence), which
+  is peer-stable, and its despawn by the same key.
+- **Nothing else appeared:** this room has no breakables, debris or
+  summons, so their kinds are not measured here.
+
 **A guest of its own game only (2026-11-11):** the hub installs the games
 `AMBITION_HUB_GAMES` names (`game/ambition_app/src/app/hub_games.rs`; unset
 is all, and an empty value is none), so `probe_where_a_gated_guest_spends_its_update`
@@ -375,9 +396,12 @@ systems):
    does), at 0.11 bytes a frame; sounds and visuals would ride the same
    channel. A guest of Ambition alone (`AMBITION_HUB_GAMES=ambition`,
    2026-11-11): 136 fewer systems and no time measurably saved; what costs
-   is Ambition's own conversation, shell and load presentation. Next: other
-   kinds' spawn rows; send only the guest's room; sounds and visuals sent,
-   with room numbers mapped.
+   is Ambition's own conversation, shell and load presentation. What else a
+   host spawns (2026-11-11): a kill's bounty coin has no `SimId` (by design:
+   drops are anonymous), so a guest replicating by `SimId` never sees it.
+   Next: spawn rows for pickups keyed by their `SpawnOrigin`, and a census
+   in a room with breakables and summons; send only the guest's room;
+   sounds and visuals sent, with room numbers mapped.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

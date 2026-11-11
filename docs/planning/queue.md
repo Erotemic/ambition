@@ -1022,9 +1022,9 @@ refused every blink in the corridor; it now allows 0.01 px
 body: each gap is 128 px of hazard (8 tiles) and a blink carries 150, so a
 30-wide body lands 8 px over the hazard at best (and the test's walk edges,
 275 and 595, are past the 273 and 593 where its edge first touches the
-hazard). `blink_run` is LDtk-owned (`level ownership status`): narrowing each
-gap to 7 tiles in the editor, and moving the test's edges to 266 and 586,
-makes it clearable again; the test stays red until then. Also red in the same lane, environmental:
+hazard). `blink_run` is LDtk-owned (`level ownership status`). **Fixed 2026-11-11:**
+each gap is 7 tiles (112 px; the far column is floor again) and the test
+blinks from 266 and 586; it passes. Also red in the same lane, environmental:
 `director_teleport_blink` (three) and
 `smash_ride::a_saddled_body_advances_its_clocks_and_none_of_its_displacement`
 ("the match seats a first fighter", the Smash start).

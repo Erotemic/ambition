@@ -507,6 +507,8 @@ mod tests {
                 reason: crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::NonFinite), ..
             })));
         world.chains[1].velocity = Vec2::ZERO;
+        // A pivot does not change a linear envelope.
+        world.chains[1].pivot = Vec2::splat(f32::NAN);
         let support = material_lines(&world, &body, DOWN, 1.0, 1.0, 1.0, None).unwrap();
         assert_eq!(support.len(), 1);
         assert_eq!(support[0].chain, 0);

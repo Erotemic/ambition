@@ -102,6 +102,7 @@ pub mod daylight;
 pub mod window_camera_stack;
 pub mod body_clock;
 pub mod boss_finish;
+pub mod area_card;
 pub mod boss_stage;
 pub mod body_cues;
 pub mod bubble_shield;

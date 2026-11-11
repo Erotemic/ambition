@@ -7,6 +7,7 @@
 //! binary of this crate gives them to the content CLI, so one list is read by
 //! both.
 
+pub mod area_cards;
 pub mod autoplay;
 pub mod flag_chains;
 pub mod npc_lives;
@@ -22,6 +23,7 @@ pub const AMBITION_CAPABILITY: &str = "ambition";
 /// Every schema Ambition's pack names beside the engine's.
 pub fn ambition_schemas() -> Vec<SchemaRegistration> {
     vec![
+        area_cards::area_cards_schema(),
         autoplay::autoplay_schema(),
         rules::ambition_rules_schema(),
         text::ambition_text_schema(),

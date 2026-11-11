@@ -28,6 +28,9 @@ impl Plugin for AmbitionContentPlugin {
         // Its NPC lives (`data/npc_lives.ron`): the executor's book.
         super::npc_lives::register(app);
 
+        // Its areas (`data/area_cards.ron`): the card shown on entering each.
+        super::area_cards::register(app);
+
         // What a thrown item does to the body it strikes (the coconut).
         super::items::thrown_impact::register(app);
 

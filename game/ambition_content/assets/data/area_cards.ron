@@ -1,0 +1,83 @@
+// Ambition's areas (schema `area_cards`): the card shown on entering each,
+// and the rooms it holds. Jon, 2026-11-10: "We need text intro cards /
+// overlays for different areas (similar to bosses)."
+//
+// Entering a room of another area shows that area's name across the view and
+// its subtitle under it. A room in no area (a lab, a boss arena: a boss shows
+// its own card) shows nothing and leaves the last area standing.
+//
+// A room id that ends in `*` is every room whose id starts with what comes
+// before it. A room named exactly wins over a prefix, and a longer prefix
+// over a shorter one, so `math_hotel_*` takes the hotel out of `math_*`.
+[
+    // ---- the hub and the lab under it ----
+    (name: "Central Hub", rooms: ["central_hub_*"]),
+    (name: "The Basement", rooms: ["basement_*", "tech_bros_basement"]),
+    (name: "Hall of Characters", rooms: ["hall_of_characters"]),
+    (name: "Hall of Bosses", rooms: ["hall_of_bosses"]),
+    (name: "Hall of Biomes", rooms: ["hall_of_biomes"]),
+    (name: "The Overfit Annex", rooms: ["overfit_annex_*"]),
+    (name: "Gradient Ascent", rooms: ["gradient_ascent", "gradient_summit_chamber"]),
+    (name: "The Military Tower", rooms: ["military_tower", "military_gate_annex"]),
+
+    // ---- the intro ----
+    (name: "The Lab", subtitle: Some("Where you woke"), rooms: [
+        "intro_wake_room", "intro_raid_corridor", "intro_escape_shaft", "first_system_boss",
+        "gate_stack_lower", "combat_calibration_lab",
+    ]),
+    (name: "Under Town", rooms: ["drain_alley", "under_town_pipes", "alice_relay", "bob_relay"]),
+
+    // ---- the Dinosaur dimension ----
+    (name: "The Primeval Trail", subtitle: Some("The Dinosaur Dimension"), rooms: ["primeval_*"]),
+
+    // ---- the Noodle dimension ----
+    (name: "The Noodly Temple", subtitle: Some("The Noodle Dimension"), rooms: ["noodly_*"]),
+
+    // ---- the Math dimension ----
+    (name: "Math Town", subtitle: Some("The Math Dimension"), rooms: ["math_*"]),
+    (name: "Hylbert's Hotel", subtitle: Some("The Math Dimension"), rooms: ["math_hotel_*"]),
+
+    // ---- the Science dimension ----
+    (name: "Eureka", subtitle: Some("The Science Dimension"), rooms: ["eureka_*"]),
+    (name: "The Orbital Station", subtitle: Some("The Science Dimension"), rooms: ["orbital_station_*"]),
+    (name: "The Gravity Works", subtitle: Some("The Science Dimension"), rooms: ["gnu_ton_orchard", "gnu_ton_vector_well",
+        "gnu_ton_conservation_hall", "gnu_ton_inversion_gallery", "gnu_ton_works_approach", "gnu_ton_shoulders"]),
+
+    // ---- the PvN dimension: pirates and ninjas ----
+    (name: "Pirate Port", subtitle: Some("Pirates and Ninjas"), rooms: [
+        "pirate_port_*", "pirate_sail_loft", "pirate_smugglers_hoard", "pirate_smugglers_tunnel",
+        "pirate_customs_cellars", "pirate_wreckers_reef", "pirate_lighthouse_point",
+    ]),
+    (name: "Pirate Cove", subtitle: Some("Pirates and Ninjas"), rooms: ["pirate_cove", "pirate_sky_lookout"]),
+    (name: "Ninja Village", subtitle: Some("Pirates and Ninjas"), rooms: ["ninja_*"]),
+
+    // ---- the Evil dimension ----
+    (name: "Castle Godwin", subtitle: Some("The Evil Dimension"), rooms: [
+        "castle_godwin_*", "evil_crooked_lantern", "evil_founders_crypt", "evil_other_founders",
+        "evil_catacombs", "evil_crumbs_bakery",
+    ]),
+    (name: "The Lands of Godwin", subtitle: Some("The Evil Dimension"), rooms: [
+        "evil_gate_forest", "evil_searchlight_ridge", "evil_gallows_hill", "evil_lower_godwin",
+        "evil_castle_allotments", "evil_searchlight_moor",
+    ]),
+
+    // ---- the Magical dimension ----
+    (name: "Starlight", subtitle: Some("The Magical Dimension"), rooms: [
+        "magical_gate_garden", "magical_starlight_square", "magical_starless_hollow", "magical_stardune_road",
+    ]),
+    (name: "The Void", subtitle: Some("The Magical Dimension"), rooms: ["magical_void_*"]),
+
+    // ---- the Art dimension ----
+    (name: "Painter's Plaza", subtitle: Some("The Art Dimension"), rooms: [
+        "art_painters_plaza", "art_sculpture_garden", "art_gallery_unfinished", "art_curators_studio",
+    ]),
+    (name: "The Sketchbook Cliffs", subtitle: Some("The Art Dimension"), rooms: ["art_sketchbook_cliffs"]),
+    (name: "The Inkfall Caverns", subtitle: Some("The Art Dimension"), rooms: ["art_inkfall_caverns"]),
+    (name: "The Story Stacks", subtitle: Some("The Art Dimension"), rooms: ["art_story_stacks", "art_library_of_endings"]),
+    (name: "The Amphitheatre", subtitle: Some("The Art Dimension"), rooms: ["art_amphitheatre", "art_backstage", "art_picture_palace"]),
+    (name: "The Resonant Reach", subtitle: Some("The Art Dimension"), rooms: ["art_resonant_reach", "art_concert_hall"]),
+    (name: "The Workshop Deeps", subtitle: Some("The Art Dimension"), rooms: ["art_workshop_deeps", "art_loom_hall"]),
+
+    // ---- the History dimension ----
+    (name: "The Timeline", subtitle: Some("The History Dimension"), rooms: ["history_*"]),
+]

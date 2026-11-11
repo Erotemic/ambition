@@ -15,6 +15,7 @@
 //! ([`quest`], [`music`], [`intro`]) and the
 //! [`content_validation`] cross-reference checker.
 
+pub mod area_cards;
 pub mod audio_registries;
 pub mod autoplay;
 pub mod bosses;

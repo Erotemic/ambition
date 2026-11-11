@@ -10,7 +10,7 @@ pub use crate::lifecycle::{
     SpawnSessionScopedExt,
 };
 pub use crate::projectile::{
-    resolve_world_collision, InFlightProjectile, ProjectileBody,
+    query_world_collision, InFlightProjectile, ProjectileBody,
     ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
 };
 pub use crate::schedule::{gameplay_allowed, gameplay_suspended, GameMode};

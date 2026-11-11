@@ -13,8 +13,9 @@ fn a_rotating_one_way_line_keeps_the_front_contact_after_the_back_contact() {
     let mut shot=straight_projectile(Vec2::new(0.0,8.0));
     shot.kin.canonical_size=Vec2::splat(2.0);
     shot.kin.vel=Vec2::ZERO;
-    let response=resolve_world_collision(shot.kin,shot.kin,shot.game,&world,Vec2::Y,1.0,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None).unwrap();
-    let hit=response.contact.unwrap();
+    let contact=query_world_collision(shot.kin,shot.kin,shot.game,&world,Vec2::Y,1.0,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None).unwrap();
+    let response=contact.response().unwrap();
+    let hit=contact.contact.unwrap();
     let advance=hit.contact.toi*f64::from(turn);
     assert!(advance>4.0 && advance<5.0,"{hit:?}, advance={advance}");
     assert!(matches!(response.outcome,WorldHitOutcome::Expired {..}));
@@ -28,7 +29,8 @@ fn resolve_motion(
     let mut before=*kin;
     before.pos-=kin.vel*0.1;
     game.world_hit=policy;
-    let response=super::resolve_world_collision(before,*kin,*game,world,gravity,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None).unwrap();
+    let contact=super::query_world_collision(before,*kin,*game,world,gravity,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None).unwrap();
+    let response=contact.response().unwrap();
     *kin=response.body;
     game.bounces_remaining=response.bounces_remaining;
     response.outcome
@@ -400,11 +402,12 @@ fn an_overlapping_far_part_hits_before_the_shot_can_withdraw() {
     after.pos.x -= 20.0;
     let world = world_with_block(ae::BlockKind::Solid, Vec2::new(102.0, 0.0), Vec2::new(1.0, 20.0));
     let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
-    let response = super::resolve_world_collision(before, after, shot.game, &world, Vec2::Y, 0.1,
+    let contact=super::query_world_collision(before, after, shot.game, &world, Vec2::Y, 0.1,
         0.0..1.0, ae::LinearTravel::Complete, Some(admission)).unwrap();
+    let response=contact.response().unwrap();
     assert!(matches!(response.outcome, WorldHitOutcome::Expired { .. }));
     assert_eq!(response.body.pos, before.pos);
-    let contact = response.contact.unwrap();
+    let contact = contact.contact.unwrap();
     assert_eq!(contact.contact.toi, 0.0);
     assert_eq!(contact.contact.path, vec![0]);
 }
@@ -423,10 +426,11 @@ fn a_projectile_meets_the_far_wall_before_its_root_crosses() {
     let mut after=before; after.pos=Vec2::ZERO;
     let world=world_with_block(ae::BlockKind::Solid,Vec2::new(103.0,0.0),Vec2::new(1.0,20.0));
     let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
-    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
+    let contact=super::query_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
+    let response=contact.response().unwrap();
     assert!(matches!(response.outcome,WorldHitOutcome::Expired { .. }));
     assert!((response.body.pos.x+6.0).abs()<0.001,"{response:?}");
-    let contact=response.contact.unwrap();
+    let contact=contact.contact.unwrap();
     assert_eq!(contact.contact.path,vec![0]);
     assert_eq!(contact.contact.world_point.x,102.0);
     assert!(response.body.pos.x<0.0);
@@ -449,12 +453,44 @@ fn a_far_side_bounce_uses_relative_surface_motion_in_the_root_chart() {
     let mut world=world_with_block(ae::BlockKind::Solid,Vec2::new(102.0,0.0),Vec2::new(1.0,40.0));
     world.blocks[0].velocity=Vec2::X;
     let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
-    let response=super::resolve_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
+    let contact=super::query_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
+    let response=contact.response().unwrap();
     assert!(matches!(response.outcome,WorldHitOutcome::Bounced { .. }),"{response:?}");
     assert_eq!(response.bounces_remaining,1);
     assert!((response.body.vel.y+26.5).abs()<0.001,"{response:?}");
     assert!(response.body.pos.y<0.0);
-    assert_eq!(response.contact.unwrap().contact.path,vec![0]);
+    assert_eq!(contact.contact.unwrap().contact.path,vec![0]);
+}
+
+#[test]
+fn a_rebound_must_fit_every_occupied_material_chart() {
+    use ae::frame::{MapConvention,PortalAperture,PortalFrame};
+    use ae::frame::thread::{PieceBudget,PortalLink};
+    for exit_half in [20.0,80.0] {
+        let links=PortalLink::both_ways(0,(
+            PortalAperture {frame:PortalFrame::fixed(Vec2::ZERO,-Vec2::Y),half_length:40.0},
+            PortalAperture {frame:PortalFrame::fixed(Vec2::new(100.0,0.0),Vec2::X),half_length:exit_half},
+        ));
+        let mut shot=falling_shot(Vec2::new(0.0,-12.0),2);
+        shot.kin.canonical_size=Vec2::splat(10.0);
+        shot.kin.vel=Vec2::new(0.0,110.0);
+        shot.game.rebound=crate::projectile::Rebound {restitution:0.5,min_speed:1.8e38};
+        shot.game.world_hit=WorldHitPolicy::Bouncing;
+        let before=shot.kin;
+        let after=BodyKinematics {pos:Vec2::new(0.0,-1.0),..before};
+        let world=world_with_block(ae::BlockKind::Solid,Vec2::new(102.0,0.0),Vec2::new(1.0,40.0));
+        let admission=MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection};
+        let contact=super::query_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,
+            0.0..1.0,ae::LinearTravel::Complete,Some(admission)).unwrap();
+        assert_eq!(contact.contact.as_ref().unwrap().contact.path,vec![0]);
+        if exit_half==80.0 {
+            assert_eq!(contact.response().unwrap_err().reason,RefusalReason::Numeric(NumericFault::Overflow));
+        } else {
+            let response=contact.response().unwrap();
+            assert!(matches!(response.outcome,WorldHitOutcome::Bounced {..}));
+            assert_eq!(response.body.vel,Vec2::new(0.0,-1.8e38));
+        }
+    }
 }
 
 #[test]
@@ -466,10 +502,11 @@ fn a_shot_born_inside_a_wall_hits_before_it_can_escape() {
         shot.kin.vel = Vec2::new(-300.0, 0.0);
         let before = shot.kin;
         let after = BodyKinematics { pos: before.pos + before.vel * 0.1, ..before };
-        let response = resolve_world_collision(before, after, shot.game, &world,
+        let contact=query_world_collision(before, after, shot.game, &world,
             Vec2::Y, 0.1, 0.0..1.0, ae::LinearTravel::Complete, None).unwrap();
+    let response=contact.response().unwrap();
         assert!(matches!(response.outcome, WorldHitOutcome::Expired { .. }));
-        assert_eq!(response.contact.unwrap().contact.toi, 0.0);
+        assert_eq!(contact.contact.unwrap().contact.toi, 0.0);
         assert_eq!(response.body.pos, before.pos);
     }
 }

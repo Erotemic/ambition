@@ -2316,6 +2316,76 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
 
 }
 
+#[test]
+fn only_a_reached_world_response_can_refuse_the_projectile_step() {
+    use ambition_platformer2d_core::frame::{BodyMaterial,NumericFault,thread::RefusalReason};
+    use ambition_projectiles::{LiveProjectile,ProjectileGameplay,ProjectileOwner,Rebound,WorldHitPolicy};
+    for early_parry in [None,Some(false),Some(true)] {
+        let world=ae::World::new("response selection",ae::Vec2::splat(2000.0),ae::Vec2::ZERO,
+            vec![ae::Block::solid("later floor",ae::Vec2::new(400.0,306.0),ae::Vec2::new(200.0,20.0))]);
+        let mut body=ambition_projectiles::ProjectileBody::from_spec(ProjectileKind::Fireball.spec(
+            ae::Vec2::new(500.0,280.0),ae::Vec2::Y,1.0));
+        body.kin.canonical_size=ae::Vec2::splat(10.0);
+        body.kin.material=BodyMaterial::new(2.0,Mat2::IDENTITY).unwrap();
+        body.kin.vel=ae::Vec2::Y*1200.0;
+        body.game.gravity=0.0;
+        body.acceleration.0=ae::Vec2::ZERO;
+        body.game.splash_half_extent=0.0;
+        body.game.bounces_remaining=2;
+        body.game.world_hit=WorldHitPolicy::Bouncing;
+        body.game.rebound=Rebound {restitution:0.5,min_speed:2.0e38};
+        let before=body.kin;
+        {
+            let after=ae::BodyKinematics {pos:before.pos+before.vel*0.016,..before};
+            let contact=ambition_projectiles::query_world_collision(before,after,body.game,&world,
+                ae::Vec2::Y,0.016,0.0..1.0,ae::LinearTravel::Complete,None).unwrap();
+            assert!(contact.contact.is_some(),"the later floor is reached by the full proposal");
+            assert_eq!(contact.response().unwrap_err().reason,RefusalReason::Numeric(NumericFault::Overflow));
+        }
+        let mut app=projectile_test_app(world,ae::Vec2::new(200.0,200.0),1.0);
+        app.update();
+        let recipient=early_parry.map(|parry| {
+            let entity=app.world_mut().spawn((
+                ambition_characters::actor::ActorFaction::Enemy,
+                ae::BodyKinematics {pos:ae::Vec2::new(500.0,296.0),canonical_size:ae::Vec2::new(20.0,4.0),..Default::default()},
+                ae::CenteredAabb::from_center_size(ae::Vec2::new(500.0,296.0),ae::Vec2::new(20.0,4.0)),
+                BodyHealth::restored(ambition_characters::actor::Health::new(100),0,default()),
+            )).id();
+            if parry {app.world_mut().entity_mut(entity).insert(ae::BodyShieldState {parry_window_timer:0.2,..Default::default()});}
+            entity
+        });
+        crate::projectile_tests::spawn_player_projectile(&mut app,body);
+        advance_time(&mut app,0.016);
+        app.update();
+        let damage=app.world().resource::<Messages<ambition_combat::events::HitEvent>>()
+            .iter_current_update_messages().count();
+        let healed=app.world().resource::<Messages<ambition_damage::healing::BodyHealRequested>>()
+            .iter_current_update_messages().count();
+        if early_parry==Some(false) {
+            assert_eq!(damage,1);
+            assert_eq!(healed,0);
+            assert!(crate::projectile_tests::projectile_bodies(&mut app).is_empty());
+        } else {
+            assert_eq!(damage,0);
+            let world=app.world_mut();
+            let (shot,after,game,owner)=world.query_filtered::<(Entity,&ae::BodyKinematics,&ProjectileGameplay,&ProjectileOwner),With<LiveProjectile>>()
+                .single(world).unwrap();
+            assert_eq!(game.bounces_remaining,2,"the rejected or unreached rebound spends no budget");
+            if let Some(recipient)=recipient {
+                assert_eq!(owner.0,recipient);
+                assert_eq!(healed,1);
+                assert!(after.pos.y>before.pos.y && after.pos.y<286.1,"{after:?}");
+                assert!(after.vel.y<0.0);
+            } else {
+                assert_eq!(*after,before);
+                assert!(game.age>0.0,"a refused response still ages");
+                assert_eq!(healed,0);
+                assert_eq!(world.get::<ae::SweepSample>(shot).unwrap().delta(),ae::Vec2::ZERO);
+            }
+        }
+    }
+}
+
 /// ⛔⛔ AN ABSORBED SHOT STOPS. It does not carry on into the body behind.
 ///
 /// `intercept_projectile(.., Consume)` returns `false` to say the projectile did
@@ -2727,7 +2797,7 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
 
     let mut destination=body.kin;
     destination.pos+=destination.vel*DT;
-    let selected=ambition_projectiles::resolve_world_collision(
+    let selected=ambition_projectiles::query_world_collision(
         body.kin,destination,body.game,&world,ae::Vec2::Y,DT,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,None,
     ).expect("the contact is representable");
     let Some(ae::world::MaterialCollider::Block(selected_block))=selected.contact.as_ref().map(|hit|hit.collider)

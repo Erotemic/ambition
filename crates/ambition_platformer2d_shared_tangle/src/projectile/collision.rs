@@ -26,10 +26,23 @@ pub enum WorldHitOutcome {
     Continue,
 }
 
-/// All state is private to the candidate until the caller selects this contact.
+/// Geometry and response have separate results until contact selection.
 #[derive(Debug)]
-pub struct ProjectileWorldCollision<'w> {
+pub struct ProjectileWorldContact<'w> {
     pub contact: Option<MaterialWorldHit<'w>>,
+    response: Result<ProjectileWorldResponse, Refusal>,
+}
+
+impl ProjectileWorldContact<'_> {
+    /// Read the checked response only if this part of the leg is reached.
+    pub fn response(&self) -> Result<ProjectileWorldResponse, Refusal> {
+        self.response.clone()
+    }
+}
+
+/// Admitted state for one selected world response.
+#[derive(Clone, Copy, Debug)]
+pub struct ProjectileWorldResponse {
     pub body: BodyKinematics,
     pub bounces_remaining: u8,
     pub outcome: WorldHitOutcome,
@@ -70,9 +83,10 @@ fn surface_velocity(
 
 /// Cast a translated body during `time`, an interval of the world tick.
 /// Blocks use their published displacement. Return the selected collider
-/// and a complete candidate response. A refusal changes no body state.
+/// and a checked candidate response. Query failure and response failure stay
+/// separate. A refusal changes no body state.
 #[allow(clippy::too_many_arguments)]
-pub fn resolve_world_collision<'w>(
+pub fn query_world_collision<'w>(
     before: BodyKinematics,
     after: BodyKinematics,
     game: ProjectileGameplay,
@@ -82,7 +96,7 @@ pub fn resolve_world_collision<'w>(
     time:std::ops::Range<f64>,
     travel: ae::LinearTravel,
     admission: Option<MotionAdmission<'_>>,
-) -> Result<ProjectileWorldCollision<'w>, Refusal> {
+) -> Result<ProjectileWorldContact<'w>, Refusal> {
     if !before.vel.is_finite()
         || !after.vel.is_finite()
         || !gravity_dir.is_finite()
@@ -112,7 +126,8 @@ pub fn resolve_world_collision<'w>(
         time,
     ).with_initial_overlap(InitialOverlap::Report).prefix(until)?;
     let down = super::body::projectile_down(gravity_dir);
-    let contact = world.first_material_sweep(cast, admission, |collider, _, hit| {
+    let cells=cast.cells(admission)?;
+    let contact = world.first_material_contact(&cells, |collider, _, hit| {
         let one_way = match collider {
             MaterialCollider::Block(block) => {
                 if !ae::collision_semantics::is_full_collision_surface(block.kind)
@@ -147,45 +162,48 @@ pub fn resolve_world_collision<'w>(
         }
         Ok(true)
     })?;
-    let mut result = ProjectileWorldCollision {
-        contact,
-        body: after,
-        bounces_remaining: game.bounces_remaining,
-        outcome: WorldHitOutcome::Continue,
-    };
-    let Some(hit) = result.contact.as_ref() else {
-        return Ok(result);
-    };
-    let surface = surface_velocity(hit.collider, &hit.contact, dt, admission)?;
-    let normal = hit.contact.normal.as_dvec2();
-    let relative = after.vel.as_dvec2() - surface.as_dvec2();
-    let normal_speed = relative.dot(normal);
-    result.body.pos = Sim2::IDENTITY
-        .point_from_wide(before.pos.as_dvec2() + delta.as_dvec2() * hit.contact.toi)
-        .map_err(|reason| at_contact(&hit.contact, reason))?;
-    let point = hit.contact.world_point;
-    if game.world_hit == WorldHitPolicy::Bouncing
-        && game.bounces_remaining > 0
-        && hit.contact.normal.dot(down) < -0.5
-        && normal_speed < 0.0
-    {
-        let rebound = game.rebound;
-        if !rebound.restitution.is_finite() || !rebound.min_speed.is_finite() {
-            return Err(at_contact(&hit.contact, NumericFault::NonFinite));
-        }
-        let outward = (-normal_speed * f64::from(rebound.restitution))
-            .max(f64::from(rebound.min_speed) * f64::from(before.material.scale())).max(0.0);
-        result.body.vel = Sim2::IDENTITY
-            .vector_from_wide(
-                relative - normal * normal_speed + normal * outward + surface.as_dvec2(),
-            )
+    let response=(|| {
+        let mut result = ProjectileWorldResponse {
+            body: after,
+            bounces_remaining: game.bounces_remaining,
+            outcome: WorldHitOutcome::Continue,
+        };
+        let Some(hit) = contact.as_ref() else {
+            return Ok(result);
+        };
+        let surface = surface_velocity(hit.collider, &hit.contact, dt, admission)?;
+        let normal = hit.contact.normal.as_dvec2();
+        let relative = after.vel.as_dvec2() - surface.as_dvec2();
+        let normal_speed = relative.dot(normal);
+        result.body.pos = Sim2::IDENTITY
+            .point_from_wide(before.pos.as_dvec2() + delta.as_dvec2() * hit.contact.toi)
             .map_err(|reason| at_contact(&hit.contact, reason))?;
-        result.bounces_remaining -= 1;
-        result.outcome = WorldHitOutcome::Bounced { pos: point };
-    } else {
-        result.outcome = WorldHitOutcome::Expired { pos: point };
-    }
-    Ok(result)
+        let point = hit.contact.world_point;
+        if game.world_hit == WorldHitPolicy::Bouncing
+            && game.bounces_remaining > 0
+            && hit.contact.normal.dot(down) < -0.5
+            && normal_speed < 0.0
+        {
+            let rebound = game.rebound;
+            if !rebound.restitution.is_finite() || !rebound.min_speed.is_finite() {
+                return Err(at_contact(&hit.contact, NumericFault::NonFinite));
+            }
+            let outward = (-normal_speed * f64::from(rebound.restitution))
+                .max(f64::from(rebound.min_speed) * f64::from(before.material.scale())).max(0.0);
+            result.body.vel = Sim2::IDENTITY
+                .vector_from_wide(
+                    relative - normal * normal_speed + normal * outward + surface.as_dvec2(),
+                )
+                .map_err(|reason| at_contact(&hit.contact, reason))?;
+            cells.admit_payloads_at(hit.contact.toi,result.body.vel,&[])?;
+            result.bounces_remaining -= 1;
+            result.outcome = WorldHitOutcome::Bounced { pos: point };
+        } else {
+            result.outcome = WorldHitOutcome::Expired { pos: point };
+        }
+        Ok(result)
+    })();
+    Ok(ProjectileWorldContact {contact,response})
 }
 
 #[cfg(test)]

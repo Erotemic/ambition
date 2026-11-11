@@ -23,7 +23,7 @@ use ambition_projectiles::diagnostics::log_press_diagnostics;
 use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
 use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
 use ambition_projectiles::{
-    ProjectileSpawnRequest, ProjectileStart, WorldHitOutcome, resolve_world_collision,
+    ProjectileSpawnRequest, ProjectileStart, WorldHitOutcome, query_world_collision,
 };
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
@@ -904,7 +904,7 @@ pub fn step_projectiles(
         }
 
         candidate.pos = contact_end;
-        let world_response = match resolve_world_collision(
+        let world_contact = match query_world_collision(
             before, candidate, candidate_game, collision_world, gravity_dir, dt,0.0..1.0, travel,
             collision.motion_for(proj_entity, shot_room),
         ) {
@@ -917,7 +917,8 @@ pub fn step_projectiles(
                 continue;
             }
         };
-        let blocked_at = world_response.contact.as_ref();
+        let blocked_at = world_contact.contact.as_ref();
+        let world_response;
         // `true` when an independent blocker reaches this leg no later than the
         // candidate contact — strictly earlier, or at an exact tie, which the
         // protocol awards to the wall.
@@ -1250,6 +1251,21 @@ pub fn step_projectiles(
                 }
             };
 
+            // A terminal target response does not reach the later world response.
+            world_response=if interception.is_none() && (candidate_game.returns(*acceleration)
+                || selected_body.is_none() && feature_contact.is_none()) {
+                match world_contact.response() {
+                    Ok(response)=>Some(response),
+                    Err(refusal)=>{
+                        *game=candidate_game;
+                        commands.entity(proj_entity).insert(ae::SweepSample::at_tick_end(before,ae::Vec2::ZERO));
+                        bevy::log::debug!(target:"ambition_portal::refusal",body=?proj_entity,?refusal,
+                            "projectile world response refused before commit");
+                        continue 'projectiles;
+                    }
+                }
+            } else {None};
+
             if rearm_hits {
                 already_hit.hit.clear();
                 candidate_game.hits_cleared_on_leg = next_leg;
@@ -1464,8 +1480,9 @@ pub fn step_projectiles(
             }
         }
 
+        let world_response=world_response.expect("surviving flight prepares its world response before commit");
         *kin = world_response.body;
-        let recorded_travel = world_response.contact.as_ref().map_or(travel, |hit| {
+        let recorded_travel = world_contact.contact.as_ref().map_or(travel, |hit| {
             ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.contact.toi }
         });
         game.bounces_remaining = world_response.bounces_remaining;

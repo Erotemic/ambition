@@ -752,6 +752,52 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    ledger) stays the one conversation's (ISL-1b). Witness:
    `a_talk_is_dated_in_the_talkers_room`.
 
+   **The one conversation (2026-11-11, ISL-1b):** `ActiveConversation` is
+   one world value, and a room rewinds alone. A talk opened in the rewound
+   window stayed open at the rewind (the separation rule closed it a frame
+   into the replay, with a cut bark the replay never earned), and a
+   conversation that ended in the window stayed ended though the replay kept
+   talking. A conversation is two bodies of one room, so each change is that
+   room's act: `ConversationsInRooms` (rollback state,
+   `resource.conversations_in_rooms`, schema 453) logs each change at the
+   tail of the tick with the room of its bodies, the tick and the value it
+   replaced, and its retractor puts back what the room had at the save,
+   unless a later change of another room's stands. Witnesses:
+   `a_rewound_room_takes_back_the_conversation_its_replay_does_not_open` and
+   `a_rewound_room_puts_back_the_conversation_its_replay_does_not_leave`
+   (read straight after the rewind, before a replayed frame, so the
+   continuity rule cannot stand in), with an ignored control. Still one
+   conversation at a time: Bob cannot open his own while Alice talks, and
+   the text box is one; two at once need a box per view. A participant
+   despawned and re-created by the room restore comes back as a new entity,
+   which the restored conversation does not name, so the continuity rule
+   ends it. The conversation's grants and sales (`ItemGrantRequested`,
+   `ShopTransactionRequested`) come from the Yarn runner, which is
+   presentation and does not rewind; dating them in the conversation's room
+   is the next step.
+
+   **The one cutscene (2026-11-11, ISL-1b):** a playing cutscene captured
+   every participant's input, so a room's entry cutscene (or a boss's intro)
+   in Alice's room held Bob in his. A cutscene now keeps the live room it
+   plays for (`ActiveCutscene::room`, an ordinal, so the cutscene crate names
+   no room type; schema 454): a room's entry trigger and a boss intro queue
+   it in their room (`CutsceneTriggerQueue::request_in`), a world cutscene
+   (`request`) holds everyone as before. The input contexts hold only the
+   participants whose bodies are in its room, and its skip and dismiss are
+   read from the lowest seat in its room, not Player 1's. Witness:
+   `a_room_cutscene_holds_only_the_seats_in_its_room` (the input contexts of
+   two seats whose bodies are in two rooms; red with `holds` poisoned to
+   every room). The app harness cannot show it: a driven seat's frame skips
+   the device road the claim gates, and the harness resolves no seat
+   contexts. Still one cutscene at a time: a second
+   room's entry cutscene queued while one plays is dropped by the drain, as
+   before. **Its flags (2026-11-11, ISL-2d):** a cutscene's `SetFlag` beats
+   and its seen flag were written straight to the save; they now go through
+   `SetFlagRequested`, dated in the room it plays for, so a rewind of that
+   room takes them back with the quest steps they moved (a world cutscene's
+   stay undated). Witness: `a_room_cutscene_dates_its_flags_in_its_room`.
+   Still open: the playback itself does not rewind with its room.
+
    The last message on the list, `QuestAdvanceRequested` with no cause, now
    has one writer: `RoomEntered`, a crossing, which spans two rooms and
    belongs to hosted authority, not to one room's rollback. So the

@@ -31,19 +31,20 @@ pub fn auto_trigger_room_cutscenes(
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ambition_cutscene::LastCutsceneRoom>,
 ) {
-    let mut live: Vec<(String, Option<String>)> = rooms
+    // Each live room's id, its entry cutscene, and the room it plays for.
+    let mut live: Vec<(String, Option<String>, u32)> = rooms
         .live_rooms()
-        .map(|(_, definition)| {
+        .map(|(instance, definition)| {
             let spec = rooms.rooms().spec(definition);
-            (spec.id.clone(), spec.metadata.entry_cutscene.clone())
+            (spec.id.clone(), spec.metadata.entry_cutscene.clone(), instance.ordinal())
         })
         .collect();
     if live.is_empty() {
         return;
     }
     live.sort();
-    live.dedup();
-    let ids: Vec<String> = live.iter().map(|(id, _)| id.clone()).collect();
+    live.dedup_by(|a, b| a.0 == b.0);
+    let ids: Vec<String> = live.iter().map(|(id, ..)| id.clone()).collect();
     // Read through the immutable deref: on every frame but a change there is
     // nothing to write, and a `DerefMut` would mark the resource changed.
     if last_rooms.0 == ids {
@@ -51,9 +52,9 @@ pub fn auto_trigger_room_cutscenes(
     }
     // In sorted room order, so a resimulation queues the same cutscenes in
     // the same order.
-    for (_, cutscene) in live.iter().filter(|(id, _)| !last_rooms.0.contains(id)) {
+    for (_, cutscene, room) in live.iter().filter(|(id, ..)| !last_rooms.0.contains(id)) {
         if let Some(cutscene) = cutscene {
-            queue.request(cutscene);
+            queue.request_in(cutscene, *room);
         }
     }
     last_rooms.0 = ids;
@@ -72,8 +73,8 @@ pub fn drain_cutscene_triggers(
         return;
     }
     let pending = std::mem::take(&mut queue.0);
-    for id in pending {
-        let Some(script) = library.get(&id) else {
+    for trigger in pending {
+        let Some(script) = library.get(&trigger.id) else {
             continue;
         };
         if let Some(seen) = script.seen_flag.as_ref() {
@@ -86,6 +87,7 @@ pub fn drain_cutscene_triggers(
         // and is snapshotted in the same frame is not blank.
         active.presentation = runtime.presentation();
         active.runtime = Some(runtime);
+        active.room = trigger.room;
         break;
     }
 }
@@ -104,19 +106,43 @@ pub fn drain_cutscene_triggers(
 /// ⚠ The flag is `Option` because not every script asks to be remembered; a
 /// script with no `seen_flag` ends without recording anything, which is a
 /// different thing from ending without being marked.
-fn end_cutscene(
-    active: &mut ActiveCutscene,
-    save: &mut ambition_persistence::save::AmbitionGameSave,
-) {
-    if let Some(seen) = active
+///
+/// Returns the seen flag to set, which the caller writes with the cutscene's
+/// other flags ([`write_cutscene_flags`]).
+#[must_use]
+fn end_cutscene(active: &mut ActiveCutscene) -> Option<String> {
+    let seen = active
         .runtime
         .as_ref()
-        .and_then(|runtime| runtime.script.seen_flag.clone())
-    {
-        save.data_mut().set_flag(seen, true);
-    }
+        .and_then(|runtime| runtime.script.seen_flag.clone());
     active.runtime = None;
     active.presentation = Default::default();
+    active.room = None;
+    seen
+}
+
+/// Write the flags a cutscene set this tick, dated in the room it plays for
+/// (ISL-2d): through `SetFlagRequested`, so a rewind of that room takes them
+/// back and the quests they moved, as it does a switch's. A composition with
+/// no flag channel writes the save directly.
+fn write_cutscene_flags(
+    flags: Vec<(String, bool)>,
+    written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+    requests: Option<&mut Messages<ambition_combat::events::SetFlagRequested>>,
+    save: &mut ambition_persistence::save::AmbitionGameSave,
+) {
+    match requests {
+        Some(requests) => {
+            for (id, on) in flags {
+                requests.write(ambition_combat::events::SetFlagRequested { id, on, written });
+            }
+        }
+        None => {
+            for (id, on) in flags {
+                save.data_mut().set_flag(id, on);
+            }
+        }
+    }
 }
 
 /// Run condition of [`tick_active_cutscene`]: a cutscene plays, or a skip
@@ -127,6 +153,26 @@ pub fn a_cutscene_plays_or_its_hold_remains(
     skip_hold: bevy::prelude::Res<ambition_cutscene::CutsceneSkipHold>,
 ) -> bool {
     active.runtime.is_some() || skip_hold.seconds != 0.0
+}
+
+/// The seat that answers the playing cutscene: for a room's cutscene, the
+/// lowest seat driving a body in that room (so Player 1 in another room does
+/// not skip it, ISL-1b); otherwise, and when no seat is in the room, the
+/// primary seat.
+fn cutscene_seat(
+    active: &ActiveCutscene,
+    drivers: &Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+    rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) -> ambition_characters::control::PlayerSlot {
+    let Some(room) = active.room else {
+        return ambition_characters::control::PlayerSlot::PRIMARY;
+    };
+    drivers
+        .iter()
+        .filter(|(_, body)| rooms.of(*body).map(|at| at.ordinal()) == Some(room))
+        .map(|(driver, _)| driver.0)
+        .min()
+        .unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY)
 }
 
 /// Advance the playing cutscene by one SIMULATION step.
@@ -161,8 +207,24 @@ pub fn tick_active_cutscene(
     mut active: ResMut<ActiveCutscene>,
     mut skip_hold: ResMut<ambition_cutscene::CutsceneSkipHold>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    // The seats and the rooms of the bodies they drive: a room's cutscene
+    // is skipped and dismissed by a seat in its room. And the flag channel
+    // and the tick its flags are dated on.
+    (drivers, rooms, mut requests, tick): (
+        Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        Option<ResMut<Messages<ambition_combat::events::SetFlagRequested>>>,
+        Option<Res<ambition_time::SimTick>>,
+    ),
 ) {
-    let seat = controls.get(ambition_characters::control::PlayerSlot::PRIMARY);
+    let written = active.room.zip(tick.as_deref()).map(|(room, tick)| {
+        ambition_platformer2d_shared_tangle::lifecycle::RoomWrite {
+            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(room),
+            tick: tick.0,
+        }
+    });
+    let slot = cutscene_seat(&active, &drivers, &rooms);
+    let seat = controls.get(slot);
     let dt = time.sim_dt();
 
     let Some(runtime) = active.runtime.as_mut() else {
@@ -184,12 +246,14 @@ pub fn tick_active_cutscene(
     if skip {
         skip_hold.seconds = 0.0;
         let _ = runtime.skip();
-        end_cutscene(&mut active, &mut save);
+        let flags = end_cutscene(&mut active).map(|seen| (seen, true)).into_iter().collect();
+        write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
         return;
     }
 
     let events = runtime.tick(dt, dismiss);
     let mut completed = false;
+    let mut flags = Vec::new();
     for event in events {
         match event {
             // It fires only on the tick a beat begins (`elapsed == 0.0`), so a rollback landing
@@ -198,9 +262,7 @@ pub fn tick_active_cutscene(
             // republish them. It also mutated one field at a time, so a camera beat following a
             // dialogue left the dialogue on screen.
             CutsceneEvent::BeatEntered { .. } => {}
-            CutsceneEvent::FlagWritten { id, on } => {
-                save.data_mut().set_flag(id, on);
-            }
+            CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
             CutsceneEvent::Skipped | CutsceneEvent::Completed => {
                 completed = true;
             }
@@ -208,7 +270,10 @@ pub fn tick_active_cutscene(
     }
 
     if completed {
-        end_cutscene(&mut active, &mut save);
+        flags.extend(end_cutscene(&mut active).map(|seen| (seen, true)));
+    }
+    write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
+    if completed {
         return;
     }
 
@@ -282,6 +347,7 @@ mod tests {
     #[test]
     fn ending_a_cutscene_records_that_it_was_seen() {
         let mut active = ActiveCutscene {
+            room: None,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(
                 ambition_cutscene::CutsceneScript {
                     id: "probe".to_string(),
@@ -291,12 +357,11 @@ mod tests {
             )),
             presentation: Default::default(),
         };
-        let mut save = ambition_persistence::save::AmbitionGameSave::default();
+        let seen = end_cutscene(&mut active);
 
-        end_cutscene(&mut active, &mut save);
-
-        assert!(
-            save.data().flag("probe_seen"),
+        assert_eq!(
+            seen.as_deref(),
+            Some("probe_seen"),
             "the cutscene ended without recording its seen flag, so its trigger \
              will play it again on the next visit"
         );
@@ -306,12 +371,56 @@ mod tests {
         );
     }
 
+    /// The flags a cutscene sets, and its seen flag, under the room it plays
+    /// for and the tick (ISL-2d), so a rewind of that room takes them back.
+    fn flags_written_by_a_cutscene_in(room: Option<u32>) -> Vec<ambition_combat::events::SetFlagRequested> {
+        let mut app = bevy::prelude::App::new();
+        app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
+        app.insert_resource(ambition_time::SimTick(5));
+        app.init_resource::<ambition_characters::control::SlotControls>();
+        app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.add_message::<ambition_combat::events::SetFlagRequested>();
+        app.insert_resource(ActiveCutscene {
+            room,
+            runtime: Some(ambition_cutscene::CutsceneRuntime::new(
+                ambition_cutscene::CutsceneScript::new(
+                    "probe",
+                    vec![ambition_cutscene::CutsceneBeat::SetFlag { id: "probe_flag".into(), on: true }],
+                )
+                .with_seen_flag("probe_seen"),
+            )),
+            presentation: Default::default(),
+        });
+        app.add_systems(bevy::prelude::Update, tick_active_cutscene);
+        app.update();
+        let messages = app.world().resource::<Messages<ambition_combat::events::SetFlagRequested>>();
+        messages.get_cursor().read(messages).cloned().collect()
+    }
+
+    #[test]
+    fn a_room_cutscene_dates_its_flags_in_its_room() {
+        let room = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(3);
+        let dated = Some(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: 5 });
+        let written: Vec<_> = flags_written_by_a_cutscene_in(Some(3)).into_iter().map(|flag| (flag.id, flag.on, flag.written)).collect();
+        assert_eq!(
+            written,
+            [("probe_flag".to_string(), true, dated), ("probe_seen".to_string(), true, dated)],
+            "a room's cutscene wrote its flags undated, or not at all"
+        );
+        assert!(
+            flags_written_by_a_cutscene_in(None).iter().all(|flag| flag.written.is_none()),
+            "a cutscene of the whole world dated its flags in a room"
+        );
+    }
+
     /// ⚠ AND A SCRIPT THAT ASKS FOR NO FLAG ENDS WITHOUT WRITING ONE. Ending
     /// unrecorded is a different thing from ending unmarked, and a helper that
     /// invented an id would put a row in the save for every unnamed cutscene.
     #[test]
     fn a_cutscene_with_no_seen_flag_records_nothing() {
         let mut active = ActiveCutscene {
+            room: None,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(
                 ambition_cutscene::CutsceneScript {
                     id: "unnamed".to_string(),
@@ -321,14 +430,9 @@ mod tests {
             )),
             presentation: Default::default(),
         };
-        let mut save = ambition_persistence::save::AmbitionGameSave::default();
+        let seen = end_cutscene(&mut active);
 
-        end_cutscene(&mut active, &mut save);
-
-        assert!(
-            save.data().flags().is_empty(),
-            "a script with no `seen_flag` wrote a durable row anyway"
-        );
+        assert_eq!(seen, None, "a script with no `seen_flag` wrote a durable row anyway");
         assert!(active.runtime.is_none());
     }
 
@@ -343,6 +447,7 @@ mod tests {
         app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.insert_resource(ActiveCutscene {
+            room: None,
             runtime: Some(ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript {
                 id: "probe".to_string(),
                 beats: Vec::new(),
@@ -371,7 +476,9 @@ mod tests {
         let mut queue = CutsceneTriggerQueue::default();
         queue.request("a");
         queue.request("b");
-        assert_eq!(queue.0, vec!["a".to_string(), "b".to_string()]);
+        queue.request_in("c", 7);
+        let queued: Vec<_> = queue.0.iter().map(|trigger| (trigger.id.as_str(), trigger.room)).collect();
+        assert_eq!(queued, [("a", None), ("b", None), ("c", Some(7))]);
     }
 
     /// ⭐ **THE CUTSCENE ROOM MEMORY IS THE SESSION'S, AND SO IS THE QUEST ONE

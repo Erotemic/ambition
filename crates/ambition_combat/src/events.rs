@@ -84,9 +84,9 @@ pub struct SetFlagRequested {
     pub id: String,
     pub on: bool,
     /// The room and tick a body's act in a room set it from, when it was one
-    /// (a pickup, a chest, a death): a rewind of that room takes the write
-    /// back ([`FlagWritesInRooms`]). `None` for a conversation, a cutscene, an
-    /// authored command, and anything else no one room owns.
+    /// (a pickup, a chest, a death, a switch, a room's cutscene): a rewind of
+    /// that room takes the write back ([`FlagWritesInRooms`]). `None` for a
+    /// cutscene of the whole world, and anything else no one room owns.
     pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
 }
 

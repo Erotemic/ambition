@@ -339,6 +339,11 @@ pub struct ActiveCutscene {
     pub runtime: Option<CutsceneRuntime>,
     /// Current presentation, republished each tick from `runtime` for Bevy readers.
     pub presentation: CutscenePresentation,
+    /// The live room the cutscene plays for, by its ordinal
+    /// (`LiveRoomInstance::ordinal`), when a room's entry started it; `None`
+    /// for a cutscene of the whole world. A room's cutscene holds the players
+    /// in that room and not the others (ISL-1b).
+    pub room: Option<u32>,
 }
 
 impl ActiveCutscene {
@@ -355,6 +360,13 @@ impl ActiveCutscene {
     /// get an opinion about the pad.
     pub fn is_playing(&self) -> bool {
         self.runtime.is_some()
+    }
+
+    /// Does the playing cutscene hold a body in the live room `room` (by its
+    /// ordinal)? A cutscene of the whole world holds every body; a room's
+    /// holds the bodies in its room, and a body whose room cannot be told.
+    pub fn holds(&self, room: Option<u32>) -> bool {
+        self.is_playing() && (self.room.is_none() || room.is_none() || self.room == room)
     }
 }
 
@@ -474,11 +486,25 @@ impl CutsceneLibrary {
 /// this build, so no mechanical answer to *"which schedule writes this"* is
 /// available; the guard makes the question unavoidable instead of answering it.
 #[derive(Resource, Default)]
-pub struct CutsceneTriggerQueue(pub Vec<String>);
+pub struct CutsceneTriggerQueue(pub Vec<CutsceneTrigger>);
+
+/// A queued cutscene: its id, and the live room it plays for (by ordinal;
+/// `None` for the whole world).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CutsceneTrigger {
+    pub id: String,
+    pub room: Option<u32>,
+}
 
 impl CutsceneTriggerQueue {
+    /// Queue a cutscene of the whole world.
     pub fn request(&mut self, id: impl Into<String>) {
-        self.0.push(id.into());
+        self.0.push(CutsceneTrigger { id: id.into(), room: None });
+    }
+
+    /// Queue a cutscene that plays for the live room with ordinal `room`.
+    pub fn request_in(&mut self, id: impl Into<String>, room: u32) {
+        self.0.push(CutsceneTrigger { id: id.into(), room: Some(room) });
     }
 }
 
@@ -876,6 +902,13 @@ mod snapshot {
                     put_u32(out, runtime.beat_index as u32);
                     put_f32(out, runtime.elapsed);
                     put_bool(out, runtime.finished);
+                    match self.room {
+                        Some(room) => {
+                            put_bool(out, true);
+                            put_u32(out, room);
+                        }
+                        None => put_bool(out, false),
+                    }
                 }
             }
         }
@@ -886,13 +919,16 @@ mod snapshot {
                 return Some(Self::default());
             }
             let script = CutsceneScript::decode(reader)?;
+            let runtime = CutsceneRuntime {
+                script,
+                beat_index: reader.u32()? as usize,
+                elapsed: reader.f32()?,
+                finished: reader.bool()?,
+            };
+            let room = if reader.bool()? { Some(reader.u32()?) } else { None };
             Some(Self {
-                runtime: Some(CutsceneRuntime {
-                    script,
-                    beat_index: reader.u32()? as usize,
-                    elapsed: reader.f32()?,
-                    finished: reader.bool()?,
-                }),
+                runtime: Some(runtime),
+                room,
                 ..Self::default()
             })
         }
@@ -953,6 +989,23 @@ mod snapshot {
             );
         }
 
+        /// The room a cutscene plays for survives the wire: a rewind that lost
+        /// it would hold every room's players for one room's cutscene.
+        #[test]
+        fn the_room_a_cutscene_plays_for_survives_the_wire() {
+            for room in [None, Some(3)] {
+                let before = ActiveCutscene {
+                    runtime: Some(CutsceneRuntime::new(CutsceneScript::new(
+                        "room_scene",
+                        vec![CutsceneBeat::Wait { seconds: 1.0 }],
+                    ))),
+                    room,
+                    ..ActiveCutscene::default()
+                };
+                assert_eq!(round_trip(&before).room, room, "the cutscene's room did not survive the wire");
+            }
+        }
+
         /// A rollback into the MIDDLE of a beat restores its picture.
         ///
         /// Rebuild presentation from decoded runtime state and require it to
@@ -982,6 +1035,7 @@ mod snapshot {
             );
 
             let before = ActiveCutscene {
+                room: None,
                 presentation: runtime.presentation(),
                 runtime: Some(runtime),
             };

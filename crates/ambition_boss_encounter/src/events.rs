@@ -39,7 +39,8 @@ pub(super) fn publish_events(
     event: &BossPhaseEvent,
     cutscene_queue: Option<&mut CutsceneTriggerQueue>,
     banner: &mut ambition_combat::GameplayBanner,
-    // The boss's live room: its players see the banner, no one else's.
+    // The boss's live room: its players see the banner and are held by the
+    // intro cutscene, no one else's.
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) {
     // Only the exposed phase change carries banner/cutscene; the brief
@@ -48,7 +49,11 @@ pub(super) fn publish_events(
         return;
     };
     if let (BossEncounterPhase::Intro, Some(queue)) = (to, cutscene_queue) {
-        queue.request(format!("boss_intro_{encounter_id}"));
+        let id = format!("boss_intro_{encounter_id}");
+        match room {
+            Some(room) => queue.request_in(id, room.ordinal()),
+            None => queue.request(id),
+        }
     }
     let text = match to {
         BossEncounterPhase::Intro => match bill.title {
@@ -86,7 +91,8 @@ mod tests {
         let bill = BossBillName { name: "Warden", title: None };
         publish_events("warden", &bill, &intro, Some(&mut queue), &mut banner, None);
         publish_events("warden", &bill, &phase1, Some(&mut queue), &mut banner, None);
-        assert_eq!(queue.0, vec!["boss_intro_warden".to_string()], "the intro's request, and not phase 1's");
+        let ids: Vec<_> = queue.0.iter().map(|trigger| trigger.id.as_str()).collect();
+        assert_eq!(ids, ["boss_intro_warden"], "the intro's request, and not phase 1's");
 
         let mut banner = ambition_combat::GameplayBanner::default();
         publish_events("warden", &bill, &intro, None, &mut banner, None);

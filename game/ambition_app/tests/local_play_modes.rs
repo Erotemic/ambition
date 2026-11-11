@@ -1400,7 +1400,7 @@ fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
     for (body, room) in bodies.into_iter().zip(rooms) {
         assert_eq!(app.world().get::<InRoomInstance>(body), Some(&room));
     }
-    let mut arrivals = app.world().resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>().get_cursor_current();
+    let mut arrivals = app.world().resource::<Messages<ambition_platformer2d::vfx::VfxInRoom>>().get_cursor_current();
     let mut arrival_resets = 0;
     let release_at = app.world().resource::<Time<Real>>().elapsed();
     let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
@@ -1409,8 +1409,8 @@ fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
     let mut committed = None;
     for _ in 0..1200 {
         app.update();
-        arrival_resets += arrivals.read(app.world().resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>())
-            .filter(|sound| matches!(sound.request, ambition_platformer2d::sfx::SfxMessage::Reset { .. })).count();
+        arrival_resets += arrivals.read(app.world().resource::<Messages<ambition_platformer2d::vfx::VfxInRoom>>())
+            .filter(|effect| matches!(effect.vfx, ambition_platformer2d::vfx::VfxMessage::ResetEffects { .. })).count();
         let state = app.world().resource::<RoomTransitionLoadState>();
         if let Some(active) = state.presentation(sequence) {
             assert!(active.failure.is_none(), "the crossing failed: {:?}", active.failure);
@@ -1422,8 +1422,8 @@ fn loading_combat_witness(host: App, loading_slot: u8, capture: bool) {
     let mut revealed = false;
     for _ in 0..1200 {
         app.update();
-        arrival_resets += arrivals.read(app.world().resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>())
-            .filter(|sound| matches!(sound.request, ambition_platformer2d::sfx::SfxMessage::Reset { .. })).count();
+        arrival_resets += arrivals.read(app.world().resource::<Messages<ambition_platformer2d::vfx::VfxInRoom>>())
+            .filter(|effect| matches!(effect.vfx, ambition_platformer2d::vfx::VfxMessage::ResetEffects { .. })).count();
         if app.world().resource::<RoomTransitionLoadState>().presentation(sequence).is_none() { revealed = true; break; }
     }
     assert!(revealed, "the cover did not retire");

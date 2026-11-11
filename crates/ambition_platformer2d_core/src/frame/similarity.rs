@@ -153,6 +153,19 @@ impl Sim2 {
         narrow_vec(self.point_wide(point))
     }
 
+    /// Enclose an axis-aligned region after projection. Round each bound outwards.
+    pub fn bounds(self, bounds: crate::Aabb) -> Result<crate::Aabb, NumericFault> {
+        if !bounds.min.is_finite() || !bounds.max.is_finite() { return Err(NumericFault::NonFinite); }
+        if bounds.min.cmpgt(bounds.max).any() { return Err(NumericFault::InvalidFrame); }
+        let corners = [bounds.min, Vec2::new(bounds.max.x, bounds.min.y),
+            bounds.max, Vec2::new(bounds.min.x, bounds.max.y)];
+        let points = corners.map(|point| self.point_wide(point.as_dvec2()));
+        let mut min = points[0];
+        let mut max = points[0];
+        for point in points { min = min.min(point); max = max.max(point); }
+        super::material_cast::enclosing_bounds(min, max)
+    }
+
     pub fn point(self, point: Vec2) -> Result<Vec2, NumericFault> {
         self.point_from_wide(point.as_dvec2())
     }

@@ -36,6 +36,13 @@ fn a_projectile_retains_its_pose_when_a_recipients_partition_is_refused() {
         ae::CenteredAabb::new(center, Vec2::splat(10.0)), hurt,
         MaterialBudget(ae::frame::thread::PieceBudget { max_pieces: 0,
             ..ae::frame::thread::PieceBudget::SINGLE_HOP }))).id();
+    let remote = Vec2::new(100_000.0, -100_000.0);
+    let remote_target = sim.world_mut().spawn((ActorFaction::Enemy, room,
+        ambition_platformer2d::observation::SimId::placement("remote_recipient_refusal_target"),
+        ae::BodyKinematics { pos: remote, canonical_size: Vec2::splat(20.0), ..Default::default() },
+        ae::CenteredAabb::new(remote, Vec2::splat(10.0)), DamageableVolumes::body_box(Vec2::splat(10.0)),
+        MaterialBudget(ae::frame::thread::PieceBudget { max_pieces: 0,
+            ..ae::frame::thread::PieceBudget::SINGLE_HOP }))).id();
     sim.world_mut().write_message(ProjectileSpawnRequest::open(owner, ProjectileSpawn {
         origin: center - Vec2::X * 20.0, dir: Vec2::X, speed: 1200.0,
         damage: 1, max_lifetime: 3.0, half_extent: Vec2::splat(2.0), gravity: 0.0,
@@ -63,6 +70,7 @@ fn a_projectile_retains_its_pose_when_a_recipients_partition_is_refused() {
     assert!(hits.read(sim.world().resource::<Messages<ambition_platformer2d::combat::HitEvent>>())
         .any(|hit| hit.target == ambition_platformer2d::combat::HitTarget::Body(target)),
         "an admitted contact must resume: {:?}", sim.world().get::<BodyKinematics>(shot));
+    assert!(sim.world().get::<MaterialBudget>(remote_target).is_some());
 }
 
 #[test]

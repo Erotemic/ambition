@@ -31,6 +31,7 @@ pub enum InitialOverlap {
 }
 
 /// A primitive's recorded rigid motion in its owner's world chart.
+#[derive(Clone)]
 pub struct MaterialCast<'a> {
     pub(super) material: MaterialPrimitive<'a>,
     pub(super) root: Vec2,
@@ -366,7 +367,7 @@ fn corners(bounds: Aabb) -> [Vec2; 4] {
 }
 
 /// Round a broad phase envelope outwards, including subnormal coordinates.
-fn enclosing_bounds(lo: DVec2, hi: DVec2) -> Result<Aabb, NumericFault> {
+pub(super) fn enclosing_bounds(lo: DVec2, hi: DVec2) -> Result<Aabb, NumericFault> {
     if !lo.is_finite() || !hi.is_finite() { return Err(NumericFault::NonFinite); }
     let mut min = lo.as_vec2();
     let mut max = hi.as_vec2();

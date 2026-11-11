@@ -252,12 +252,61 @@ impl DamageableVolumes {
         delta: ae::Vec2,
     ) -> Result<Option<BodySweepContact>, ae::frame::thread::Refusal> {
         use ae::frame::thread::{Refusal, RefusalReason};
+        if self.domains().is_empty() { return Ok(None); }
+        // Reject only bounds that cannot touch the source or enter a portal.
+        // A failed bound remains a candidate and keeps its typed refusal.
+        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
+        if !delta.is_finite() { return Err(numeric(ae::frame::NumericFault::NonFinite)); }
+        let source_domain = source.canonical_box().map_err(numeric)?;
+        let source_map = source.material_map().map_err(numeric)?;
+        let projected_bounds = |domain: &ae::CombatVolume, map: ae::frame::Sim2| {
+            let bounds = domain.bounds();
+            // Primitive bounds can round inwards before a chart offset cancels.
+            let bounds = ae::Aabb {
+                min: ae::Vec2::new(bounds.min.x.next_down(), bounds.min.y.next_down()),
+                max: ae::Vec2::new(bounds.max.x.next_up(), bounds.max.y.next_up()),
+            };
+            map.bounds(bounds)
+        };
+        let start = projected_bounds(&source_domain, source_map).map_err(numeric)?;
+        let swept_min = start.min.as_dvec2().min(start.min.as_dvec2() + delta.as_dvec2());
+        let swept_max = start.max.as_dvec2().max(start.max.as_dvec2() + delta.as_dvec2());
+        let reaches_opening = |min: bevy::math::DVec2, max: bevy::math::DVec2,
+            ap: ae::frame::PortalAperture, front: bool| {
+            if !ap.frame.origin.is_finite() || !ap.frame.normal.is_finite()
+                || !ap.half_length.is_finite() || ap.half_length <= 0.0 { return true; }
+            let corners = [min, bevy::math::DVec2::new(max.x, min.y),
+                max, bevy::math::DVec2::new(min.x, max.y)];
+            let local = corners.map(|point| {
+                let offset = point - ap.frame.origin.as_dvec2();
+                (offset.dot(ap.frame.tangent().as_dvec2()), offset.dot(ap.frame.normal.as_dvec2()))
+            });
+            let half = f64::from(ap.half_length);
+            !local.iter().all(|(_, y)| if front { *y < 0.0 } else { *y > 0.0 })
+                && !local.iter().all(|(x, _)| *x < -half)
+                && !local.iter().all(|(x, _)| *x > half)
+        };
+        if let Ok(map) = self.material(body) {
+            let possible = self.domains().iter().any(|domain| {
+                let Ok(bounds) = projected_bounds(domain, map) else { return true; };
+                let (min, max) = (bounds.min.as_dvec2(), bounds.max.as_dvec2());
+                if min.cmple(swept_max).all() && swept_min.cmple(max).all() { return true; }
+                let Some(geometry) = geometry else { return false; };
+                let carried = matches!(self.space(), HurtSpace::Body)
+                    .then(|| geometry.straddled_by(owner)).flatten();
+                let links = || geometry.links_in(room).iter().chain(carried.iter());
+                // A carried region enters one opening and leaves a final opening.
+                // Keep all link combinations, including chained paths.
+                links().any(|link| reaches_opening(min, max, link.enter, false))
+                    && links().any(|link| reaches_opening(swept_min, swept_max, link.exit, true))
+            });
+            if !possible { return Ok(None); }
+        }
         let pieces = self.pieces(owner, body, geometry, room)?;
         if pieces.is_empty() { return Ok(None); }
-        let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
-        let domain = source.canonical_box().map_err(numeric)?;
+        let domain = source_domain;
         let polygon = domain.polygon().expect("a canonical body box is a polygon");
-        let map = source.material_map().map_err(numeric)?;
+        let map = source_map;
         let mut earliest: Option<BodySweepContact> = None;
         for piece in &pieces {
             if let Some(hit) = ae::frame::material_cast::sweep_polygon_against_piece(&polygon, map, delta, piece)? {
@@ -343,6 +392,37 @@ mod hurt_material_tests {
         -> Result<Option<f64>, ae::frame::thread::Refusal> {
         let source = ae::BodyKinematics { pos: start, canonical_size: half * 2.0, ..Default::default() };
         hurt.swept_body_contact(Entity::PLACEHOLDER, body, None, None, &source, delta).map(|hit| hit.map(|hit| hit.hit.toi))
+    }
+
+    #[test]
+    fn a_remote_refused_recipient_does_not_block_an_unrelated_sweep() {
+        use ae::frame::thread::PieceBudget;
+        use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+        let owner = Entity::PLACEHOLDER;
+        let body = ae::BodyKinematics { pos: ae::Vec2::new(1000.0, 400.0), ..Default::default() };
+        let hurt = DamageableVolumes::body_box(ae::Vec2::splat(10.0));
+        let mut geometry = BodyGeometry::default();
+        geometry.set_body_budget(owner, PieceBudget { max_pieces: 0, ..PieceBudget::SINGLE_HOP });
+        geometry.add_pair(None, (
+            ae::frame::PortalAperture { frame: ae::frame::PortalFrame::fixed(body.pos, ae::Vec2::NEG_Y), half_length: 40.0 },
+            ae::frame::PortalAperture { frame: ae::frame::PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y), half_length: 40.0 },
+        ));
+        let mut source = ae::BodyKinematics { pos: body.pos - ae::Vec2::new(100.0, 200.0),
+            canonical_size: ae::Vec2::splat(4.0), ..Default::default() };
+        let contact = |source: &ae::BodyKinematics| hurt.swept_body_contact(owner, Some(&body),
+            Some(&geometry), None, source, ae::Vec2::X * 20.0);
+        assert!(contact(&source).unwrap().is_none());
+        source.pos = body.pos - ae::Vec2::X * 20.0;
+        assert!(contact(&source).is_err());
+    }
+
+    #[test]
+    fn a_large_material_offset_does_not_shrink_the_hurt_bounds() {
+        let body = ae::BodyKinematics { pos: ae::Vec2::new(-1_000_000.0, 0.0), ..Default::default() };
+        let mut hurt = DamageableVolumes::default();
+        hurt.publish_body(vec![ae::CombatVolume::circle(ae::Vec2::new(1_000_000.0, 0.0), 3.7)]);
+        assert!(box_hit(&hurt, Some(&body), ae::Vec2::new(3.695, 0.0),
+            ae::Vec2::splat(0.001), ae::Vec2::ZERO).unwrap().is_some());
     }
 
     #[test]

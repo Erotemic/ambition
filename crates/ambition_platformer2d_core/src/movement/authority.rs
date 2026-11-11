@@ -249,22 +249,9 @@ pub fn prepare_body_pose(
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
     carried_vectors: &[Vec2],
 ) -> Result<PreparedBodyPose, crate::frame::thread::Refusal> {
-    use crate::frame::{thread::{Refusal, RefusalReason}, NumericFault};
+    validate_body_pose(kinematics, sweep, &desired)?;
+    use crate::frame::thread::{Refusal, RefusalReason};
     let numeric = |reason| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(reason) };
-    if desired.material != kinematics.material { return Err(numeric(NumericFault::InvalidFrame)); }
-    if !desired.pos.is_finite() || !desired.vel.is_finite() || !desired.facing.is_finite() || !desired.canonical_size.is_finite() {
-        return Err(numeric(NumericFault::NonFinite));
-    }
-    if desired.canonical_size.min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
-    if let Some(sample) = sweep.as_deref() {
-        sample.travel.line(sample.prev, sample.curr).map_err(numeric)?;
-        if !sample.down.is_finite() || sample.time.iter().any(|time| !time.is_finite()) {
-            return Err(numeric(NumericFault::NonFinite));
-        }
-        if sample.time[0] < 0.0 || sample.time[1] > 1.0 || sample.time[0] > sample.time[1] {
-            return Err(numeric(NumericFault::InvalidFrame));
-        }
-    }
     let prior = sweep.as_deref().and_then(|sample| sample.ending_at(kinematics.pos)).copied();
     let mut candidate = match prior {
         Some(sample) if sample.time[0] != sample.time[1] => SweepSample {
@@ -284,6 +271,30 @@ pub fn prepare_body_pose(
     Ok(PreparedBodyPose { body: desired, sweep: candidate })
 }
 
+fn validate_body_pose(
+    kinematics: &crate::BodyKinematics,
+    sweep: Option<&SweepSample>,
+    desired: &crate::BodyKinematics,
+) -> Result<(), crate::frame::thread::Refusal> {
+    use crate::frame::{thread::{Refusal, RefusalReason}, NumericFault};
+    let numeric = |reason| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(reason) };
+    if desired.material != kinematics.material { return Err(numeric(NumericFault::InvalidFrame)); }
+    if !desired.pos.is_finite() || !desired.vel.is_finite() || !desired.facing.is_finite() || !desired.canonical_size.is_finite() {
+        return Err(numeric(NumericFault::NonFinite));
+    }
+    if desired.canonical_size.min_element() <= 0.0 { return Err(numeric(NumericFault::InvalidScale)); }
+    if let Some(sample) = sweep.as_deref() {
+        sample.travel.line(sample.prev, sample.curr).map_err(numeric)?;
+        if !sample.down.is_finite() || sample.time.iter().any(|time| !time.is_finite()) {
+            return Err(numeric(NumericFault::NonFinite));
+        }
+        if sample.time[0] < 0.0 || sample.time[1] > 1.0 || sample.time[0] > sample.time[1] {
+            return Err(numeric(NumericFault::InvalidFrame));
+        }
+    }
+    Ok(())
+}
+
 /// Sweep an external translation against full solids before one pose commit.
 pub fn prepare_body_translation(
     world: &crate::World,
@@ -298,7 +309,8 @@ pub fn prepare_body_translation(
     if desired.canonical_size != kinematics.canonical_size {
         return Err(numeric(crate::frame::NumericFault::InvalidFrame));
     }
-    let mut prepared = prepare_body_pose(kinematics, sweep, desired, admission, carried_vectors)?;
+    validate_body_pose(kinematics, sweep, &desired)?;
+    let mut accepted = desired;
     let delta = desired.pos - kinematics.pos;
     let mut sample = SweepSample { curr: desired.pos, vel: desired.vel,
         ..SweepSample::at_rest(*kinematics, sweep.map_or(Vec2::ZERO, |sample| sample.down)) };
@@ -306,15 +318,34 @@ pub fn prepare_body_translation(
     let cast = MaterialCast::new(MaterialPrimitive {
         domain: &domain, to_world: kinematics.material_map().map_err(numeric)?,
     }, kinematics.pos, delta, 0.0..1.0);
-    let contact = world.first_material_sweep(cast, admission, |collider, _, _| {
+    let accepts = |collider, _: &crate::frame::material_cast::MaterialCell, _: &crate::frame::material_cast::MaterialCastHit| {
         Ok(match collider {
             crate::world::MaterialCollider::Block(block) => crate::collision_semantics::is_full_collision_surface(block.kind),
             crate::world::MaterialCollider::Chain { chain, .. } => chain.kind == crate::world::SurfaceKind::Solid,
         })
-    })?;
+    };
+    let contact = match world.first_material_sweep(cast.clone(), admission, accepts) {
+        Ok(contact) => contact,
+        Err(refusal) => {
+            // A later refusal does not reject an earlier solid contact.
+            cast.clone().prefix(0.0)?.cells(admission)?;
+            let (mut valid, mut refused) = (0.0, 1.0);
+            let mut contact = None;
+            for _ in 0..128 {
+                let middle = valid + (refused - valid) * 0.5;
+                if middle == valid || middle == refused { break; }
+                match world.first_material_sweep(cast.clone().prefix(middle)?, admission, accepts) {
+                    Ok(Some(hit)) => { contact = Some(hit); break; }
+                    Ok(None) => valid = middle,
+                    Err(_) => refused = middle,
+                }
+            }
+            match contact { Some(hit) => Some(hit), None => return Err(refusal) }
+        }
+    };
     if let Some(hit) = contact {
-        prepared.body.pos = (kinematics.pos.as_dvec2() + delta.as_dvec2() * hit.contact.toi).as_vec2();
-        sample.curr = prepared.body.pos;
+        accepted.pos = (kinematics.pos.as_dvec2() + delta.as_dvec2() * hit.contact.toi).as_vec2();
+        sample.curr = accepted.pos;
         sample.travel = crate::LinearTravel::Prefix { delta, until: hit.contact.toi };
     }
     let cast = sample.material_cast(&domain)?;
@@ -322,8 +353,7 @@ pub fn prepare_body_translation(
         Some(admission) => admission.admit(cast, desired.vel, carried_vectors)?,
         None => cast.cells(None)?.admit_payloads(desired.vel, carried_vectors)?,
     }
-    prepared.sweep = sample;
-    Ok(prepared)
+    Ok(PreparedBodyPose { body: accepted, sweep: sample })
 }
 
 #[cfg(test)]
@@ -333,6 +363,27 @@ mod translation_tests {
 
     fn aperture(x: f32, y: f32, normal: Vec2, half_length: f32) -> PortalAperture {
         PortalAperture { frame: PortalFrame::fixed(Vec2::new(x, y), normal), half_length }
+    }
+
+    #[test]
+    fn translation_admits_the_wall_stop_before_a_refused_portal_path() {
+        let links = [PortalLink::new(aperture(100.0, 300.0, -Vec2::Y, 40.0),
+            aperture(600.0, 100.0, Vec2::Y, 40.0), 0)];
+        let admission = Some(MotionAdmission { links: &links, first: Some(0),
+            budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED },
+            convention: MapConvention::Reflection });
+        let body = crate::BodyKinematics { pos: Vec2::new(100.0, 270.0),
+            canonical_size: Vec2::splat(16.0), ..Default::default() };
+        let sample = SweepSample::at_tick_end(body, Vec2::Y);
+        let desired = crate::BodyKinematics { pos: body.pos + Vec2::Y * 200.0, ..body };
+        let mut world = crate::World::new("prefix", Vec2::splat(2000.0), Vec2::ZERO, vec![]);
+        assert!(prepare_body_translation(&world, &body, Some(&sample), desired, admission, &[]).is_err());
+        world.blocks.push(crate::Block::solid("early stop", Vec2::new(0.0, 286.0), Vec2::new(400.0, 4.0)));
+        let prepared = prepare_body_translation(&world, &body, Some(&sample), desired, admission, &[]).unwrap();
+        assert_eq!(prepared.body.pos, Vec2::new(100.0, 278.0));
+        assert!(matches!(prepared.sweep.travel, crate::LinearTravel::Prefix { until, .. } if until < 0.1));
+        assert!(prepare_body_translation(&world, &body, Some(&sample), desired, admission,
+            &[Vec2::splat(f32::NAN)]).is_err());
     }
 
     #[test]

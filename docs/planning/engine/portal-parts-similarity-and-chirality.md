@@ -334,7 +334,7 @@ Check the affected owners again after the optimization work ends.
 | Partition | `crates/ambition_platformer2d_core/src/frame/thread.rs`: `VolumePiece` stores a mapped volume, world bounds, an `Iso2`, and a path. Keep canonical source regions as authority. Replace both the whole-piece fallback and the fallback that omits through-material. |
 | Domain queries | `crates/ambition_platformer2d_shared_tangle/src/body/geometry.rs`: `pieces_from` logs refusals and returns only pieces. Return an explicit admission result to simulation callers. Keep room and body policy ownership. |
 | Pair openings | `crates/ambition_portal2d/src/types.rs` and `crates/ambition_portal2d/src/link.rs`: `opening_half_length` takes the minimum through `partner_opening_half`. Remove that field and the equalizer when all consumers support the directed map. |
-| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. The root now carries physical material through the admitted map. Same-tick continuation remains open. |
+| Transit | `crates/ambition_portal2d/src/placement.rs` and `crates/ambition_portal2d/src/transit.rs`: the common machine maps position and velocity. `PortalBodyTransited` carries the admitted full map. Actors and loose items use `BodyKinematics` and `SweepSample`; custody removes stored items from world queries. The root now carries physical material through the admitted map. Projectiles spend the remaining tick after each accepted root crossing. General kernel and other free-body continuation remain open. |
 | World collision | `crates/ambition_platformer2d_shared_tangle/src/feature_overlay.rs` and `crates/ambition_platformer2d_world/src/collision.rs`: `PortalGlue` imports far-side geometry into the entry chart. Replace independent pair clipping with projections of canonical parts and the same validated maps. |
 | Body contact | `crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`: `snapshot_body_contact` publishes a whole owner box plus carried boxes, then maps foreign boxes back through one straddled link. Use clipped parts and map each constraint to its one owner. |
 | Transit consequences | `crates/ambition_platformer2d_runtime/src/portal_body.rs`: carried momentum and projectile acceleration reconstruct rigid maps from normals. Read the admitted transit map and velocity facts instead. |
@@ -1309,3 +1309,21 @@ app cases pass. Both H slice cases pass, including reverse travel and
 rewind/replay. Both room-freeze cases, the assembled app and default warning
 checks pass. The world response receipt records the stage boundaries. Full
 PSIM acceptance remains open.
+
+### Projectile root continuation — 2026-11-11
+
+`cad13e2eb` continues projectile motion after each accepted root crossing.
+Generic transit and projectile motion use one prepared transfer and commit.
+Age and the force kick run once. Each leg keeps its world-time interval and
+departure material. A returning shot keeps one ordinary contact budget for
+the whole tick. A refused leg retains the previous admitted root.
+
+The guards cover both H ratios, L's moving exit, J's three crossings and
+two-hop refusal, a recipient beyond the exit, and one returning-shot contact
+across roots. After room timing merge `b0e5bd404`, owner, runtime, projectile
+app, both H slice, room timing, app compile and warning checks pass. The H
+slice includes reverse crossing and rewind/replay. Keep the clock and contact
+budget outside the leg loop. The
+[continuation receipt](../../../dev/ambition_dev_measurements/summaries/portal-projectile-root-continuation-20261111.md)
+records commands and scope. General kernel and other free-body continuation,
+moving-target hurt CCD and full PSIM acceptance remain open.

@@ -133,6 +133,16 @@ Get them from the movement/transit operation; never sweep through the gap. A
 reflected or bounced shot ends its current tick's travel after that response.
 Residual-time multi-bounce integration is a later explicit behavior change.
 
+Projectile motion now spends the unused interval after each accepted root
+crossing in the destination chart. Lifetime and the force kick run once before
+those legs. A returning shot keeps one ordinary contact budget for the whole
+tick. Each leg uses the original world clock for moving apertures and solids.
+`HitContact.time` is a fraction of the whole tick; the query's local `toi`
+stays local to that leg. Accepted roots use the same prepared transfer and
+commit as generic body transit. A later refusal retains the previous admitted
+root. The existing hop policy bounds the operation. Kernel and other free-body
+continuation remain outside this projectile implementation.
+
 Travel legs and unselected candidates are scratch, recomputed after rollback.
 An accepted queued hit retains its contact until reception; the pending-hit
 checksum includes it. Return-leg hit memory, identity, ownership and velocity

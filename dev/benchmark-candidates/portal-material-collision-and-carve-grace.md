@@ -181,3 +181,13 @@ retires that later response. A reached rebound must fit every occupied material
 chart before any pose, bounce budget or combat write. Root finiteness alone
 does not prove carried velocity is representable. The numeric check and the
 next-tick separation witness serve different invariants; keep both.
+
+
+For motion after a root crossing, advance age and apply forces once before
+the leg loop. Each leg needs its own departure material and interval in the
+original tick clock. A contact query's local time is not the tick time.
+Prepare the crossing only after earlier terminal contacts have been selected.
+Commit through the common portal operation, then spend the unused time from
+the admitted exit pose and velocity. Do not reset a projectile's contact
+budget at each root. A refused later leg must retain the last admitted root
+and retire its sweep.

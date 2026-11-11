@@ -57,46 +57,67 @@ Dmitri: Do not touch that. And do not touch that. You can touch that, it is alre
 title: eureka_nikobolt
 ---
 Nikobolt Tesseract: Please keep the blueprints off the floor. I have counted them twice, and I would rather not count them a third time.
+<<present_speaker "npc_science_coulomba">>
 Coulomba Tesseract: You counted them three times. The third time you counted the napkins too.
 -> What are you building?
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: A way to light the whole town without stretching a wire from house to house. The small lamp works. The large coil is less polite.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: The small lamp works because I made him put it in a glass case. Before that, it lit the curtains as well.
 -> Is that the gravity lever?
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: A prototype. It changes which way the room thinks is down. The physics is sound.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: Dmitri installed the second switch on the ceiling. The plumbing was less sound.
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: That is why we test things.
 -> Why do you guard your drawings?
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: Someone borrowed a design for bringing light into a house. Now there is lightning over a castle beyond the gate.
     Nikobolt Tesseract: I wanted windows to glow at night. I did not want anyone to be afraid of the sky.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: We keep copies now. And I have started writing down who comes through the door.
 -> Are you two always here together?
     Coulomba Tesseract: No. Sometimes he is on the roof counting pigeons, and I am here explaining why they are not my cousins.
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: I never said they were.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: You made a family tree.
 -> I'll leave you to your work.
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: Thank you. The fourth count can wait.
 ===
 
 title: eureka_coulomba
 ---
 Coulomba Tesseract: Come in. The crackling is normal. If you smell smoke, please tell Dmitri before you tell Nikobolt.
+<<present_speaker "npc_science_nikobolt">>
 Nikobolt Tesseract: I can smell smoke.
+<<present_speaker "npc_science_coulomba">>
 Coulomba Tesseract: You call it "evidence of progress."
 -> Does he ever leave the laboratory?
     Coulomba Tesseract: We walk through the quad every evening. He stops to examine the lamps. I stop to see the people beneath them.
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: One of those lamps has a loose contact.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: Yes, dear. We have enjoyed that walk for six weeks.
 -> How did you meet?
     Coulomba Tesseract: He was demonstrating a lamp that needed no wire. Everyone watched the light. I asked what happened when the power went out.
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: She was the only person who asked about the switch.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: He went home and built one. We have been arguing about switches ever since.
 -> Are the pigeons outside your family?
     Coulomba Tesseract: I am a pigeon. That does not make every pigeon in town my relation.
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: We have no proof either way.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: We also have no reason to collect feathers for your proposed test.
 -> Can I touch the coils?
     Coulomba Tesseract: I would not. We have a perfectly good conversation that does not require you to become part of the circuit.
+    <<present_speaker "npc_science_nikobolt">>
     Nikobolt Tesseract: The coils are insulated.
+    <<present_speaker "npc_science_coulomba">>
     Coulomba Tesseract: Since Tuesday.
 -> Good to meet you both.
     Coulomba Tesseract: Come by again. Perhaps we will have finished the lamp for the street.

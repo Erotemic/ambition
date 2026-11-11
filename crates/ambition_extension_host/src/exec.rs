@@ -278,6 +278,8 @@ pub struct InstalledPortCodecs {
 /// by. The host knows nothing of where a scope is; a composition whose
 /// clocks run at different paces (one room held while another plays)
 /// installs this, and without it every scope runs at the shared clock.
+/// The callback is fixed at composition. Read mutable clock values from
+/// canonical world state. Captured mutable data must be access caches.
 #[derive(Resource)]
 pub struct ScopePace(pub Box<dyn FnMut(&mut World, Entity) -> f32 + Send + Sync>);
 

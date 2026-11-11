@@ -1185,6 +1185,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "composition data: the installed observation projections and request decoders, frozen at admission",
     ),
     (
+        "ambition_extension_host::exec::ScopePace",
+        "composition callback: each invocation reads canonical room pace and membership; the captured SystemState holds ECS access metadata",
+    ),
+    (
         "ambition_extension_host::exec::ExtensionInvocations",
         "intra-phase queue: trigger adapters fill it in ExtensionSet::Collect and run_phase drains every entry of that phase in ExtensionSet::Invoke of the same tick, so it is empty at every snapshot boundary",
     ),

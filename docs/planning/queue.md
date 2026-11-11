@@ -980,9 +980,12 @@ menu's `#[cfg(test)]` hand seam; `FactionRelations` is composed and installed
 by Ambition's content plugin rather than written through `resource_mut`
 (the guard now sees a typed `insert_resource::<T>` install); `ActorGlow` and
 `PresentationCover` are waived as presentation (render-crate `Update`
-filters only). Still red: `check_level_box_readers`, whose baseline has
-drifted far (86 reads found, 40 classified, many baseline lines gone): it
-needs its own pass.
+filters only). Still red: `check_level_box_readers`. Its 27 gone
+baseline lines are deleted (the code they named was rewritten, mostly into
+`kin.aabb()`), leaving 13 classified; 73 reads are unclassified, largely
+the same sites under the new spelling, and each needs the guard's question
+asked of it (is the level box right there, or should it ask
+`collision_box(last_step)`?) — its own pass, with turned gravity in mind.
 
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn

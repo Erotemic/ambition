@@ -629,11 +629,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_trace/src/systems.rs",
         "crates/ambition_projectile_combat/src/systems.rs",
     ),
-    "KaleidoscopeCursor": (
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app/pointer.rs",
-    ),
     "LocalSessionOwnership": (
         "crates/ambition_platformer2d/src/rollback.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
@@ -757,18 +752,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
 
-    "KaleidoscopeOpenState": (
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-        "game/ambition_menu_kaleidoscope/src/lib.rs",
-    ),
-    "KaleidoscopeScroll": (
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app/scroll.rs",
-    ),
-    "KaleidoscopeSystemNav": (
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
-    ),
     "LeaveRequested": (
         "game/ambition_demo_smash/src/lib.rs",
         "game/ambition_demo_smash/src/select_screen.rs",
@@ -897,10 +880,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "VersusMatch": (
         "game/ambition_app/src/app/versus.rs",
         "game/ambition_app/src/app/versus_rules.rs",
-    ),
-    "VisualQualityConfirmState": (
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
     "WorldlineHistoryView2d": (
         "crates/ambition_relativity2d/src/telemetry.rs",
@@ -1324,33 +1303,6 @@ ADJUDICATED: dict[str, str] = {
         "no gameplay session at all. ⇒ Adjudicated on the partition, not on the "
         "absence of a collision — a partition is a fact a reader can re-check."
     ),
-    "KaleidoscopeCursor": (
-        "CORRECT NOW, AND IT WAS NOT WHEN THIS ROW WAS OPENED — the one member "
-        "of the two-backends family whose writers were not all gated. The "
-        "cursor is SHARED: `grid_backend.rs` says the *\"shared cursor and drill "
-        "state stay on `KaleidoscopeCursor` / `KaleidoscopeSystemNav`\"*, and "
-        "both backends move it. Grid writers are "
-        "`.run_if(grid_backend_active)`; a grid hover writes no cursor (hover "
-        "is a presentation state, Q70). Cube writers are gated by "
-        "`kaleidoscope_menu_visible`, and its press/release observers carry the "
-        "body test.\n"
-        "    ⛔⛤ `kaleidoscope_pointer_move` CARRIED NEITHER, and that was a "
-        "live defect rather than a census artifact: these observers are "
-        "installed whenever the cube feature is COMPILED — not when the cube is "
-        "SELECTED — and a grid menu control carries the same "
-        "`AmbitionMenuControl<MenuPageAction>` its query matches, so with the "
-        "flat backend active a mouse move over a GRID row reached the shared "
-        "cursor and wrote `owner = Pointer` while the grid's own hover (since "
-        "deleted, Q70) wrote `owner = Keyboard`. Gated 2026-09-18, below the drag-cancel so "
-        "a touch/pen drag still cancels a tap. Held by "
-        "`a_pointer_move_with_the_cube_closed_does_not_move_the_shared_cursor` "
-        "(`menu/kaleidoscope_app/lunex_kaleidoscope_app_tests.rs`), poison-"
-        "verified: remove the gate and the arm fails.\n"
-        "    ⭐ THE CENSUS FOUND IT BY LOCALITY, NOT BY SUSPICION. Six of this "
-        "backend's seven writers carry the check whether or not they also have a "
-        "`run_if` — a double gate that is the house style — so the missing one "
-        "stood out only once all seven were listed side by side."
-    ),
     "RadioStationState": (
         "CORRECT — ONE SETTER ROAD AND ONE CONTEXT RESET, and the road was "
         "followed to its only caller rather than inferred from the file. The "
@@ -1367,23 +1319,6 @@ ADJUDICATED: dict[str, str] = {
         "the same human road from the same menu file: the radio's Off row "
         "(`SystemOptionId::RadioOff`, 2026-10-23) stops the station and the "
         "level or situation music plays again."
-    ),
-    "KaleidoscopeOpenState": (
-        "CORRECT — TWO FIELDS, TWO OWNERS, AND THE SPLIT IS THE WHOLE TYPE. "
-        "`pub amount: f32` and `pub target: f32`. The HOST writes the target: "
-        "`gate_kaleidoscope_menu` (`ambition_app/src/menu/kaleidoscope_app.rs`) "
-        "assigns `open_state.target = 1.0` while the cube backend is selected and "
-        "the overlay is open, `0.0` otherwise, and touches nothing else. The "
-        "LIBRARY writes the amount: `animate_cube_ring` "
-        "(`ambition_menu_kaleidoscope/src/lib.rs`) eases `amount` toward that "
-        "target every frame and reads the target to decide the rate — opening "
-        "keeps the gentle ease, closing multiplies by `close_speed_scale`. "
-        "⇒ A request and its easing, not two opinions about one number.\n"
-        "    ⭐ AND THE HOST COMPARES BEFORE WRITING, for a reason worth "
-        "carrying: `gate_kaleidoscope_menu` runs every frame with no run "
-        "condition *\"(it has to — it detects the open EDGE)\"*, so an "
-        "unconditional `ResMut` write would mark this resource changed on every "
-        "frame of the game's life for a value that moves twice per menu visit."
     ),
     "MusicIntent": (
         "CORRECT ABOUT THE WRITERS, AND THE OTHER QUESTION ABOUT THE SAME SYSTEM "
@@ -1447,51 +1382,6 @@ ADJUDICATED: dict[str, str] = {
     # bodies instead. A writer that carries neither is the way this verdict
     # fails, which is why `KaleidoscopeCursor` is a separate row.
 
-    "KaleidoscopeSystemNav": (
-        "`route_menu_lifecycle` resets navigation when a surface opens. "
-        "Grid and Cube navigation and action dispatch use the effective "
-        "backend selector, so only one presentation handles a frame. "
-        "The shared navigation state still requires menu-instance ownership."
-    ),
-    "VisualQualityConfirmState": (
-        "CORRECT — the same selector. On the cube side the three gated writers "
-        "above; on the grid side `grid_menu_tab_activated` plus the "
-        "`MenuDispatchParams` bundle, which is how the census names a mutable "
-        "reach it cannot attribute to one system. ⚠ THE BUNDLE IS THE REASON "
-        "THIS ROW IS NOT INTERESTING AND THE REASON IT COULD HAVE BEEN: a bundle "
-        "grants its `ResMut` to every system that takes it, and the mutator "
-        "guard has already found five menu systems holding "
-        "`ResMut<NewGameResetRequested>` through `SystemMenuParams` that cannot "
-        "reach the write at all. ⇒ So this was followed to the expressions, and "
-        "the first answer was wrong: the confirm state is NOT written only "
-        "through `dispatch_menu_action`. That road owns the ARM and the SPEND — "
-        "`step_from`, `take_confirmed`, `cancel` (`menu/dispatch.rs`) — and each "
-        "backend ALSO calls `quality_confirm.cancel()` directly at its own "
-        "navigation points, five sites in `grid_backend.rs` and one in "
-        "`kaleidoscope_app.rs`. ⭐ That is still one authority: `cancel` writes "
-        "the ABSENCE of a pending confirmation and is idempotent, so a backend "
-        "leaving the screen cannot disagree with the road that armed it — but "
-        "the census's two files are two files for a second reason the gate "
-        "argument alone does not cover."
-    ),
-    "KaleidoscopeScroll": (
-        "CORRECT — AN OVERRIDE AND ITS RELEASE, one field, one backend. The type "
-        "is `system_window_start: Option<usize>` and its doc states the contract: "
-        "*\"explicit System scroll-window start, or `None` to follow the "
-        "cursor\"*. The pointer road SETS the override — `kaleidoscope_scroll_wheel` "
-        "and `kaleidoscope_apply_scroll_drag` "
-        "(`ambition_app/src/menu/kaleidoscope_app/scroll.rs`) — and the keyboard "
-        "road RELEASES it: `kaleidoscope_focus_nav` "
-        "(`ambition_app/src/menu/kaleidoscope_app.rs`) assigns "
-        "`scroll.system_window_start = None` when `dx != 0 || dy != 0 || "
-        "menu.select`, so *\"the window snaps to follow the cursor again\"*. "
-        "⇒ `None` is not a competing value, it is the absence of one; whichever "
-        "input last acted owns the window, which is the arbitration this field "
-        "exists to express. ⛔ All three are cube-only AND each re-checks "
-        "`backend.effective() == LunexKaleidoscope` in its own body on top of its "
-        "`run_if` — a double gate that is the house style for this backend's "
-        "writers, and the reason a missing one stands out."
-    ),
     # ── two SURFACES, one SETTING ────────────────────────────────────────────
     #
     # ⭐ THE ARGUMENT IS ONLY SAFE WHILE NOTHING DERIVES THE VALUE. A control is

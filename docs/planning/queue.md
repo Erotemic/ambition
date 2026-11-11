@@ -956,6 +956,24 @@ commit before it):**
 - `ambition_platformer2d` lib, two tests in `game_assets::sheets::tests`: no
   published art on this VM.
 
+**Red source guards (2026-11-10, measured on main):** five checks were red on
+other agents' drift. Repaired here: `is_test_path` did not know a file its
+parent declares `#[cfg(test)] mod name;` (34 files, among them
+`camera_scenarios.rs`, whose scenario App counted as a second in-session
+writer of `ControlledSubject`); five adjudicated Kaleidoscope/visual-quality
+resources no longer have a writer (their verdicts are gone); `body_seed`'s
+borrowed `BodyGeometry<'a>` view collided by name with the shared-tangle
+resource (renamed `BodySizes`). Still red:
+`check_multi_writer_resources_are_adjudicated` names eight NEW multi-writer
+resources to adjudicate (`AudioPlaybackConditions`, `BodyGeometry`,
+`EditableAbilitySet`, `LocalSeatClaims`, `PlayerGlowCatalog`,
+`PromisedRoomPlans`, `SfxLoopPlayback`, `SfxOneShots`), and four other guards
+are red on their own findings (`check_host_configuration_has_no_session_writer`:
+`FactionRelations`; `check_level_box_readers`; `check_presence_filtered_state_is_rollback_registered`:
+`ActorGlow`, `PresentationCover`; `check_session_authority_none_arms`: six
+optional reads; `check_session_root_construction_is_declared`: two
+undeclared constructions and one gone).
+
 **Uncleared verification (2026-11-04):** the last full feature run recorded
 30 failures in five targets. Subsequent selected app cases (seven) and spawn
 owner cases (14) passed after repairs; **those focused passes do not clear the

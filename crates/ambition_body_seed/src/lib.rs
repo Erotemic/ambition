@@ -38,7 +38,7 @@ pub mod clusters;
 pub mod physical_baseline;
 mod snapshot_impls;
 pub use physical_baseline::{
-    BaselineBoundary, BodyGeometry, DisplacedPhysicals, PersonaBaseline, PhysicalBaseline,
+    BaselineBoundary, BodySizes, DisplacedPhysicals, PersonaBaseline, PhysicalBaseline,
     PhysicalRetraction,
 };
 

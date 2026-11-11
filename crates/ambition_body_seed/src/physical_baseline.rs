@@ -247,7 +247,7 @@ impl PhysicalBaseline {
         entity: &mut EntityCommands,
         health: Option<&mut ambition_characters::actor::BodyHealth>,
         combat_tuning: Option<&mut ambition_combat::CombatTuning>,
-        geometry: Option<BodyGeometry<'_>>,
+        geometry: Option<BodySizes<'_>>,
         retraction: PhysicalRetraction,
     ) {
         if let Some(health) = health {
@@ -312,7 +312,7 @@ impl PhysicalBaseline {
 /// IDENTITY size a reset restores to and a body-mode transition derives from.
 /// They are separate fields on purpose — a crouching body's live size is
 /// legitimately not its base — but an identity CHANGE has to move both.
-pub struct BodyGeometry<'a> {
+pub struct BodySizes<'a> {
     pub live: &'a mut Vec2,
     pub base: &'a mut Vec2,
 }

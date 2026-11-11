@@ -580,3 +580,117 @@ fn without_the_retraction_the_untaken_heart_stays_taken() {
     let [_, _, after_replay] = a_heart_taken_only_before_the_rewind(false);
     assert_eq!(after_replay, (Some("Consumed".into()), true), "the rows went without the retraction");
 }
+
+/// What the bag says of the thrown item: (its count in the bag, the spends
+/// since the checkpoint, the occurrence ledger's rows).
+type BagReading = (u32, usize, Vec<String>);
+
+/// ISL-2d, the shared bag: Alice holds a gun sword out of the bag in
+/// `basement_breakables` while Bob stays in the hub, and throws it in the
+/// window, which spends one from the bag and mints an object. The room
+/// rewinds to before the throw and replays WITHOUT it. Returns the readings
+/// at N, after the throw, and after the replay.
+fn a_throw_made_only_before_the_rewind(retract: bool) -> [BagReading; 3] {
+    use crate::pickup_regrowth_across_rooms::{HUB, ROOM as THROW_ROOM};
+    use ambition_platformer2d::item::{Item, OwnedItems};
+    use bevy::ecs::system::RunSystemOnce;
+    const ITEM: Item = Item::GunSword;
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        THROW_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    assert_ne!(room, bobs, "premise: Alice and Bob are in two live rooms");
+    sim.world_mut()
+        .run_system_once(
+            move |mut commands: bevy::prelude::Commands,
+                  items: ambition_platformer2d::items::ItemCatalogRead,
+                  mut bodies: bevy::prelude::Query<
+                (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
+                ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+            >| {
+                let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
+                let spec = ambition_platformer2d::held_items::held_spec_for_item(items.get(), ITEM)
+                    .expect("the item is a wired weapon with a held spec");
+                ambition_platformer2d::held_items::equip_held_spec(&mut commands, player, &mut repertoire, spec);
+            },
+        )
+        .expect("the equip verb runs");
+    for _ in 0..4 {
+        sim.step(crate::common::base());
+    }
+    let read = |sim: &Platformer2dSimHarness| -> BagReading {
+        let world = sim.world();
+        (
+            world.resource::<OwnedItems>().count(ITEM),
+            world.resource::<ambition_platformer2d::held_items::BagSpendsSinceCheckpoint>().spends().len(),
+            world
+                .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+                .rows()
+                .map(|(id, row)| format!("{id} {row:?}"))
+                .collect(),
+        )
+    };
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_reading = read(&sim);
+
+    sim.step_frame(ControlFrame { attack_pressed: true, shield_held: true, ..ControlFrame::default() });
+    for _ in 0..30 {
+        sim.step(crate::common::base());
+    }
+    let after_throw = read(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    // The replay: Alice holds the sword and does not throw it.
+    for _ in 0..30 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = read(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_reading, after_throw, after_replay]
+}
+
+/// ISL-2d, the shared bag: a room that rewinds puts back in the bag what it
+/// threw after the tick it was saved at, and takes the thrown object out of
+/// the occurrence ledger. Without the ledger half, the replay found the
+/// object's `Placed` row with no object and wrote it `Consumed`: a mint that
+/// never existed, remembered ended.
+#[test]
+fn a_rewound_room_puts_back_the_throw_its_replay_does_not_make() {
+    let [at_n, after_throw, after_replay] = a_throw_made_only_before_the_rewind(true);
+    assert_eq!((at_n.0, at_n.1, at_n.2.len()), (1, 0, 0), "premise: one in the bag, nothing spent, no rows at N");
+    assert_eq!((after_throw.0, after_throw.1, after_throw.2.len()), (0, 1, 1), "premise: the throw spends one and places a mint");
+    assert_eq!(after_replay, at_n, "the replay did not throw, and the bag, the spends or the ledger say it did");
+}
+
+/// The control: without the retraction the bag stays spent. Run it beside the
+/// witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_throw_stays_spent() {
+    let [_, _, after_replay] = a_throw_made_only_before_the_rewind(false);
+    assert_eq!((after_replay.0, after_replay.1), (0, 1), "the bag came back without the retraction");
+    assert_eq!(after_replay.2.len(), 1, "the mint's row went without the retraction: {:?}", after_replay.2);
+}

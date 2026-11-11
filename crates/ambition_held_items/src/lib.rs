@@ -1138,6 +1138,8 @@ pub fn record_placed_ground_items(
     occurrences: Option<
         ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
     >,
+    // The tick a mint enters on: a rewind of its room takes it out (ISL-2d).
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let (Some(room_set), Some(mut occurrences)) = (room_set, occurrences) else {
         return;
@@ -1149,6 +1151,7 @@ pub fn record_placed_ground_items(
         std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, Vec2>,
     > = std::collections::BTreeMap::new();
     let mut marks: Vec<ambition_platformer2d_shared_tangle::sim_id::SimId> = Vec::new();
+    let mut entered = Vec::new();
     for (entity, sim_id, ground, custody, origin) in &items {
         let minted = matches!(
             origin,
@@ -1159,6 +1162,12 @@ pub fn record_placed_ground_items(
         // `InCustody`, and still ends as a mint (`compact_ended_mints`).
         if minted && !occurrences.is_mint(sim_id) {
             marks.push(sim_id.clone());
+            if let (Some(room), Some(tick)) = (room_set.live().of(entity), tick.as_deref()) {
+                entered.push((
+                    ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 },
+                    sim_id.clone(),
+                ));
+            }
         }
         if !minted || !custody.in_world() || occurrences.remembers(sim_id) {
             continue;
@@ -1170,6 +1179,7 @@ pub fn record_placed_ground_items(
         mints.entry(room.clone()).or_default().insert(sim_id.clone(), ground.pos);
     }
     occurrences.mark_mints(marks);
+    occurrences.note_mints_entered(entered);
     for (room, admitted) in mints {
         occurrences.admit_mints(&room, admitted);
     }
@@ -1714,6 +1724,10 @@ pub struct BagSpend {
     /// end (an exploded bomb's `Consumed` row), keeps the spend, and a
     /// restore that takes the object back puts the quantity back.
     pub object: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    /// The room the throw was made in and the tick: a rewind of that room to
+    /// before the tick puts the quantity back in the bag (ISL-2d). `None`
+    /// for a throw outside a live room.
+    pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
 }
 
 /// The quantities of the shared bag that throws made into objects since the
@@ -1738,6 +1752,23 @@ impl BagSpendsSinceCheckpoint {
 
     pub fn spends(&self) -> &[BagSpend] {
         &self.spends
+    }
+
+    /// `room` rewinds to `saved_at`: take out the spends it made after that
+    /// tick, and return them, so their quantities go back in the bag. Its
+    /// replay spends again what it throws again.
+    pub fn retract_room(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) -> Vec<BagSpend> {
+        let retracted = |spend: &BagSpend| spend.written.is_some_and(|written| written.retracted_by(room, saved_at));
+        if !self.spends.iter().any(retracted) {
+            return Vec::new();
+        }
+        let (taken, kept) = std::mem::take(&mut self.spends).into_iter().partition(retracted);
+        self.spends = kept;
+        taken
     }
 
     /// The spends that `kept` keeps, in the order they were made.
@@ -1834,8 +1865,9 @@ pub fn throw_held_item_system(
     )>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
     items: ambition_items::ItemCatalogRead,
-    // Each quantity a mint spends, with the object it became.
-    mut spends: Option<ResMut<BagSpendsSinceCheckpoint>>,
+    // Each quantity a mint spends, with the object it became, and the tick
+    // it is spent on: a rewind of the thrower's room puts it back.
+    (mut spends, tick): (Option<ResMut<BagSpendsSinceCheckpoint>>, Option<Res<ambition_time::SimTick>>),
 ) {
     // The session that owns an item this system mints. With no session there
     // is no driven body, so there is nothing to release.
@@ -1990,6 +2022,9 @@ pub fn throw_held_item_system(
                 spends.record(BagSpend {
                     item,
                     object: object.clone(),
+                    written: room.zip(tick.as_deref()).map(|(room, tick)| {
+                        ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: room.0, tick: tick.0 }
+                    }),
                 });
             }
             rearm = release == Release::Throw && spent > 0 && owned.count(item) > 0;

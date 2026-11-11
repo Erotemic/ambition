@@ -362,12 +362,35 @@ the log is forgotten with the records at a committed checkpoint, so a window
 cannot reach across one, and it is not in the value checksum (as the grants'
 stamps are not): it changes no value until a rewind uses it.
 
-**Next:** the shared bag (`OwnedItems`, each write's delta inverted) with
-`BagSpendsSinceCheckpoint` (append, as the grants); then
-`BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed by placement and
-by feature, one room each: the value replaced); the quests and flags last,
-since they need the decision above. Still open too: the room rollback host that calls
-`retract_room_writes` (today only the tests do).
+**The shared bag (2026-11-10):** the room's own writes are inverted, not
+the bag restored. A grant's record already held the quantity it added
+(`PickupGranted::item`), so the grants' retractor takes it back out of the
+bag; the coins stay, because the wallet is on the collector's body and the
+room's snapshot rewound it. A throw's spend (`BagSpend`) now carries its room
+write, and its retractor puts the quantity back (`OwnedItems::put_back`, the
+uncapped inverse of `take`). The probe found a third write: the throw MINTS an
+object, and the ledger admitted its `Placed` row in the window; after the
+rewind the replay saw that row with no object and wrote it `Consumed`, so a
+mint that never happened was remembered ended. The ledger now notes each mint
+with the room and tick it entered from (`note_mints_entered`, at its mark in
+`record_placed_ground_items`), and one retractor
+(`resource.authored_occurrences`) first puts back the terminal rows, then
+takes out the room's mints (`retract_room_mints`), in that order so a mint
+made and ended in the window leaves. The witness is
+`a_rewound_room_puts_back_the_throw_its_replay_does_not_make` (Alice throws
+a gun sword in `basement_breakables` while Bob holds the hub; the replay does
+not throw); with the mint retraction poisoned it reads `(1, 0, ["slot:0/0
+Consumed"])`, and its ignored control keeps the bag spent.
+
+Still unretracted bag writes: the narrative grants and the cell uses
+(`ambition_platformer2d_items/src/narrative.rs`) and the conditions' take
+(`conditions.rs`); each needs its write stamped and inverted the same way.
+
+**Next:** `BossDefeatsSinceCheckpoint` and `WorldTimeSchedule` (keyed by
+placement and by feature, one room each: the value replaced); the narrative
+bag writes; the quests and flags last, since they need the decision above.
+Still open too: the room rollback host that calls `retract_room_writes`
+(today only the tests do).
 
 ### ISL-2e, measured (2026-11-10): what room-level rollback costs a hosted world
 

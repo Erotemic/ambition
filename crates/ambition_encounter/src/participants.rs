@@ -55,7 +55,10 @@ pub enum Ownership {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SpawnedCleanup {
     /// Release AND despawn spawned participants on any end (complete / fail /
-    /// reset) — the wave-arena rule, and the default.
+    /// reset) — the wave-arena rule, and the default. Except the dead of a
+    /// won fight: a body killed in it stays where it fell, as its corpse rule
+    /// says (a failed or reset attempt clears its dead, because the retry
+    /// spawns the wave again).
     #[default]
     DespawnOnEnd,
     /// Release them from the encounter but leave them alive in the world as

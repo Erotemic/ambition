@@ -192,6 +192,8 @@ struct SceneCaptureConfig {
     /// (`CameraZoomPreset`). A wider view shows what a default capture can
     /// not, like the second image in a row of portal images.
     camera_zoom: Option<ambition_platformer2d::persistence::settings::video::CameraZoomPreset>,
+    /// Roll of a fixed capture view, in radians.
+    camera_roll: Option<f32>,
     /// The look of the portal windows (`--portal-windows`): seamless unless
     /// asked, whatever the user's own settings say, so a seam check measures
     /// a seamless window.
@@ -467,6 +469,7 @@ OPTIONS:
                         default, 568 by 320 units), tight, combat, arena,
                         cinematic or debug (1600 by 900)
                         The blur of the sky is in its art (`room_look_sky.py`).
+    --camera-roll DEG   rotate a fixed X,Y view; excludes player, route and fit-room views
     --boss-hp F         hold every boss's health at fraction F of its max, to
                         photograph art it wears by its wounds
     --screen-effect E   force screen post-process effects on, comma separated:
@@ -1626,6 +1629,7 @@ impl SceneCaptureConfig {
         let mut boss_blows: Vec<(u64, i32)> = Vec::new();
         let mut look_depth: Option<[f32; 2]> = None;
         let mut camera_zoom = None;
+        let mut camera_roll = None;
         let mut portal_windows = ambition_platformer2d::persistence::settings::video::PortalWindowLook::Seamless;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
@@ -1720,6 +1724,13 @@ impl SceneCaptureConfig {
                             return Err(format!("--portal-windows wants seamless, tinted-blue or tinted-gold, not {other:?}"))
                         }
                     };
+                    2
+                }
+                "--camera-roll" => {
+                    let degrees = args.get(i + 1).and_then(|value| value.parse::<f32>().ok())
+                        .filter(|value| value.is_finite())
+                        .ok_or_else(|| "--camera-roll requires finite degrees".to_string())?;
+                    camera_roll = Some(degrees.rem_euclid(360.0).to_radians());
                     2
                 }
                 "--camera-zoom" => {
@@ -2172,6 +2183,9 @@ impl SceneCaptureConfig {
 
         // A route has no room id and no focus point: the shell composes its
         // own surface and cameras.
+        if camera_roll.is_some() && route.is_some() {
+            return Err("--camera-roll requires a room with a fixed X,Y focus".to_string());
+        }
         if let Some(route) = route.clone() {
             // Classify positionals instead of counting them, so an unexpected
             // argument is named before any work happens.
@@ -2241,6 +2255,7 @@ impl SceneCaptureConfig {
                 boss_blows: Vec::new(),
                 look_depth,
                 camera_zoom,
+                camera_roll,
                 portal_windows,
                 screen_effects,
                 press,
@@ -2258,6 +2273,9 @@ impl SceneCaptureConfig {
         // `player` centers the camera on the live player entity (handy for
         // starting-character shots — no per-room spawn coordinate to look up).
         let follow_player = focus_text.eq_ignore_ascii_case("player");
+        if camera_roll.is_some() && (follow_player || fit_room) {
+            return Err("--camera-roll requires a fixed X,Y focus without --fit-room".to_string());
+        }
         let focus = if follow_player {
             ae::Vec2::ZERO
         } else {
@@ -2293,6 +2311,7 @@ impl SceneCaptureConfig {
             boss_blows,
             look_depth,
             camera_zoom,
+            camera_roll,
             portal_windows,
             screen_effects,
             follow_player,
@@ -2953,8 +2972,10 @@ fn apply_capture_snapshot(
                 view_box: None,
                 ease_tuning: *ease_tuning,
                 screen_framing: None,
-                reference_frame: Default::default(),
-                subject_down: None,
+                reference_frame: if config.camera_roll.is_some() {
+                    ae::CameraReferenceFrame::SubjectFrame
+                } else { ae::CameraReferenceFrame::WorldFixed },
+                subject_down: config.camera_roll.map(|angle| ae::Vec2::new(angle.sin(), angle.cos())),
             },
             None,
         )

@@ -2021,3 +2021,43 @@ fn a_moving_line_carries_its_hanger_and_knocks_it_off_past_the_limit() {
     let tilted = world_with_line(Vec2::new(100.0, 94.0), LEDGE_TILT_LIMIT_DEG + 5.0, Vec2::new(0.0, -6.0));
     assert_eq!(ledge_carry_for_frame(&tilted, contact, body, size, DOWN), LedgeCarry::KnockOff);
 }
+
+
+#[test]
+fn a_carried_body_faces_the_ledge_on_acquisition_and_while_hanging() {
+    let world = world_with(vec![Block::solid(
+        "ledge", Vec2::splat(100.0), Vec2::splat(200.0),
+    )]);
+    for scale in [0.5, 2.0] {
+        for angle in [0.0, 0.35] {
+            for reflected in [false, true] {
+                for normal in [-1.0, 1.0] {
+                    let rotation = bevy_math::Mat2::from_angle(angle);
+                    let side = if reflected { -Vec2::X } else { Vec2::X };
+                    let material = crate::frame::BodyMaterial::new(scale,
+                        rotation * bevy_math::Mat2::from_cols(side, Vec2::Y)).unwrap();
+                    let mut scratch = scratch_at(Vec2::ZERO);
+                    scratch.kinematics.material = material;
+                    let half = scratch.kinematics.size() * 0.5;
+                    let wall_side = if normal < 0.0 { 100.0 } else { 300.0 };
+                    scratch.kinematics.pos = Vec2::new(wall_side + normal * half.x, 100.0 + half.y - 10.0);
+                    scratch.wall.wall_normal_x = normal;
+                    scratch.axis_mut().wall_clinging = true;
+                    scratch.kinematics.facing = material.project_facing(normal, Vec2::X);
+                    let mut events = crate::movement::FrameEvents::default();
+                    assert!(try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events),
+                        "latch at scale {scale}, angle {angle}, reflection {reflected}, normal {normal}");
+                    let material_side = material.orthogonal().x_axis;
+                    assert!(material_side.x * scratch.kinematics.facing * normal < 0.0);
+                    // Each phase must set facing from the contact, not from the previous pose.
+                    scratch.kinematics.facing = -scratch.kinematics.facing;
+                    assert!(tick_active_ledge_grab_scratch(&mut scratch, InputState::default(),
+                        1.0 / 60.0, TEST_TUNING, &mut events));
+                    assert!(scratch.axis().ledge_grab.is_some());
+                    assert!(material_side.x * scratch.kinematics.facing * normal < 0.0);
+                    assert_eq!(scratch.kinematics.material, material);
+                }
+            }
+        }
+    }
+}

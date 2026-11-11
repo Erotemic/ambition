@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v457",
+    "version": "ggrs-rollback-schema-v458",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -101,6 +101,7 @@
       "feature.world_time_schedule\tcomponent-clone-custom-checksum\tWorldTimeSchedule\tbevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
       "frame_env.force_zone\tcomponent-canonical\tForceZone",
       "item.bag_uses_in_rooms\tresource-clone-custom-checksum\tBagUsesInRooms\tbevy_ggrs clone snapshot + the cells bodies used from the shared bag, and what a room's conversation added to it or sold from it, within the rewind horizon, with the room and tick of each, which a room rewind takes back (ISL-2d)",
+      "item.held_material_basis\tcomponent-canonical\tHeldMaterialBasis",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "portal.held_pairs\tcomponent-clone-cursor\tHeldPortalPairs",
@@ -219,9 +220,11 @@
     "ambition_cutscene::CutsceneBeat",
     "ambition_cutscene::CutsceneScript",
     "ambition_cutscene::CutsceneSkipHold",
+    "ambition_cutscene::CutscenesInRooms",
     "ambition_cutscene::LastCutsceneRoom",
     "ambition_encounter::EncounterLifecycle",
     "ambition_encounter::EncounterParticipants",
+    "ambition_held_items::HeldMaterialBasis",
     "ambition_match::ActiveMatch",
     "ambition_match::MatchSeat",
     "ambition_match::StocksMatchSettled",

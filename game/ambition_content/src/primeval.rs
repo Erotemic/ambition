@@ -124,7 +124,8 @@ fn swallows_carry_coconuts(
         Has<DrivingParticipant>,
     )>,
     mut controls: Query<(&mut ActorControl, RepertoireQuery)>,
-    mut items: Query<(Entity, &GroundItem, &ae::BodyKinematics, &mut ItemCustody)>,
+    mut items: Query<(Entity, &GroundItem, &ae::BodyKinematics, &mut ItemCustody, &ambition_held_items::HeldMaterialBasis)>,
+    release_world: ambition_held_items::ItemReleaseWorld,
     at_rest: Query<(), With<SettledItem>>,
     ids: Query<&SimId>,
     hunted: Query<&ae::BodyKinematics>,
@@ -156,7 +157,7 @@ fn swallows_carry_coconuts(
     birds.sort_by(|a, b| a.id.cmp(&b.id));
     let nuts: Vec<_> = items
         .iter()
-        .filter_map(|(entity, ground, item_body, custody)| {
+        .filter_map(|(entity, ground, item_body, custody, _)| {
             (ground.spec.id == COCONUT && custody.in_world() && at_rest.contains(entity))
                 .then(|| {
                     ids.get(entity).ok().map(|id| Nut {
@@ -202,11 +203,13 @@ fn swallows_carry_coconuts(
         });
         if !intact || decision == Laden::LetGo {
             if let Ok((_, mut repertoire)) = controls.get_mut(leader) {
-                release_carried_item(
+                match release_carried_item(
                     &mut commands,
                     leader,
                     &mut repertoire,
                     &mut items,
+                    &birds[i].kin,
+                    &release_world,
                     anchor,
                     ae::Vec2::new(birds[i].kin.vel.x * 0.25, 0.0),
                     if intact {
@@ -214,7 +217,11 @@ fn swallows_carry_coconuts(
                     } else {
                         Release::Drop
                     },
-                );
+                ) {
+                    Err(refusal) => { warn!(?refusal, "supported item release refused"); continue; }
+                    Ok(false) => ambition_held_items::empty_hand(&mut commands, leader, &mut repertoire),
+                    Ok(true) => {}
+                }
             }
             commands.entity(leader).remove::<SupportedCarry>();
             birds[i].flight.depart();
@@ -302,11 +309,13 @@ fn swallows_carry_coconuts(
                 .map(|prey| laden(fetch, from, prey.pos, prey.vel));
             if let Ok((mut control, mut repertoire)) = controls.get_mut(entity) {
                 if !bird.alive || bird.capacity < 1.0 || decision == Some(Laden::LetGo) {
-                    release_carried_item(
+                    match release_carried_item(
                         &mut commands,
                         entity,
                         &mut repertoire,
                         &mut items,
+                        &bird.kin,
+                        &release_world,
                         from,
                         ae::Vec2::new(bird.kin.vel.x * 0.25, 0.0),
                         if bird.alive && bird.capacity >= 1.0 {
@@ -314,7 +323,11 @@ fn swallows_carry_coconuts(
                         } else {
                             Release::Drop
                         },
-                    );
+                    ) {
+                        Err(refusal) => { warn!(?refusal, "item release refused"); continue; }
+                        Ok(false) => ambition_held_items::empty_hand(&mut commands, entity, &mut repertoire),
+                        Ok(true) => {}
+                    }
                     birds[i].flight.depart();
                 } else if let Some(Laden::Carry(velocity)) = decision {
                     flight_control(&mut control, velocity);
@@ -375,7 +388,7 @@ fn swallows_carry_coconuts(
             let Ok((_, mut repertoire)) = controls.get_mut(entity) else {
                 continue;
             };
-            let Ok((item, ground, item_body, mut custody)) = items.get_mut(nut.entity) else {
+            let Ok((item, ground, item_body, mut custody, _)) = items.get_mut(nut.entity) else {
                 continue;
             };
             if !custody.in_world() {
@@ -389,6 +402,7 @@ fn swallows_carry_coconuts(
                 ground,
                 item_body,
                 &mut custody,
+                &bird.kin,
             );
             taken.insert(item);
             busy.insert(entity);

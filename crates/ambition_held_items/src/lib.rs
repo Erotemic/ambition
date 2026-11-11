@@ -28,6 +28,8 @@
 //! `add_systems` and not `configure_sets`; this one moves both.
 
 pub mod conditions;
+mod release;
+pub use release::{HeldMaterialBasis, ItemReleaseWorld, PreparedItemRelease, put_down, release_carried_item};
 
 use bevy::prelude::*;
 
@@ -366,7 +368,7 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
 
 /// One persistent item occurrence. Shared body components own its motion.
 #[derive(Component, Clone, Debug)]
-#[require(ItemCustody, BodyKinematics, ae::SweepSample)]
+#[require(ItemCustody, HeldMaterialBasis, BodyKinematics, ae::SweepSample)]
 #[non_exhaustive]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
@@ -976,9 +978,10 @@ pub fn return_released_items(
         Option<&SupportedCarry>,
         Option<&ambition_combat::held_items::MoveBrandishedItem>,
     )>,
-    mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
+    mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody, &HeldMaterialBasis)>,
+    release_world: ItemReleaseWorld,
 ) {
-    for (entity, item, body, mut custody) in &mut carried {
+    for (entity, item, body, mut custody, basis) in &mut carried {
         let ItemCustody::Held { holder } = *custody else {
             continue;
         };
@@ -1004,34 +1007,14 @@ pub fn return_released_items(
             continue;
         }
         // The body let go: the object lands where that body is standing.
-        let pos = support.and_then(|support| holders.get(support.supporter).ok())
+        let pos = support.filter(|support| release_world.rooms.of(holder) == release_world.rooms.of(support.supporter))
+            .and_then(|support| holders.get(support.supporter).ok())
             .map_or(kin.pos, |(partner, ..)| SupportedCarry::anchor(kin, partner, Vec2::Y));
-        commands.entity(holder).remove::<SupportedCarry>();
-        put_down(&mut commands, entity, body, &mut custody, pos);
+        match put_down(&mut commands, entity, body, &mut custody, *basis, kin, &release_world, pos) {
+            Ok(()) => { commands.entity(holder).remove::<SupportedCarry>(); }
+            Err(refusal) => warn!(?refusal, "item put-down refused"),
+        }
     }
-}
-
-/// Put an object a body holds down at `pos`, at rest: the hand let go of it
-/// without throwing it (a stow, a swap, or the body leaving the session).
-///
-/// The same entity and `SimId` go back to the world, so nothing is minted and
-/// nothing is lost.
-pub fn put_down(
-    commands: &mut Commands,
-    item: Entity,
-    body: &BodyKinematics,
-    custody: &mut ItemCustody,
-    pos: Vec2,
-) {
-    let body = BodyKinematics { pos, vel: Vec2::ZERO, ..*body };
-    commands.entity(item).insert((body, ae::SweepSample::at_tick_end(body, Vec2::ZERO)));
-    *custody = ItemCustody::InWorld;
-    // Not a `Release`: it stamps no `ReleasedAs`, so a bomb that leaves a
-    // hand this way does not arm.
-    commands.entity(item).remove::<ReleasedAs>();
-    // Let go at whatever height that body is at: the object is back under
-    // gravity until it lands on something.
-    commands.entity(item).remove::<SettledItem>();
 }
 
 /// Derive room residency from item custody.
@@ -1352,7 +1335,9 @@ pub fn take_ground_item(
     ground: &GroundItem,
     item_body: &BodyKinematics,
     custody: &mut ItemCustody,
+    holder_kin: &BodyKinematics,
 ) {
+    commands.entity(item).insert(HeldMaterialBasis(holder_kin.material));
     // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
     equip_held_spec(commands, body, repertoire, ground.spec.clone());
     *custody = ItemCustody::Held { holder: body };
@@ -1420,6 +1405,10 @@ pub fn apply_hand_requests(
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     #[cfg(feature = "portal")] mut hands: Query<(RepertoireQuery, Option<&OwnedPortalGunPair>)>,
     #[cfg(not(feature = "portal"))] mut hands: Query<RepertoireQuery>,
+    kinematics: Query<&BodyKinematics>,
+    supports: Query<&SupportedCarry>,
+    mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody, &HeldMaterialBasis)>,
+    release_world: ItemReleaseWorld,
 ) {
     use std::collections::BTreeMap;
     let catalog = items.get();
@@ -1453,6 +1442,32 @@ pub fn apply_hand_requests(
         let Ok((mut repertoire, owned_pair)) = hands.get_mut(body) else { continue };
         #[cfg(not(feature = "portal"))]
         let Ok(mut repertoire) = hands.get_mut(body) else { continue };
+        if item.and_then(|item| held_spec_for_item(catalog, item)).is_some_and(|spec|
+            repertoire.held.is_some_and(|held| held.id() == spec.id.as_str())) { continue; }
+        let prepared = (|| {
+            let mut releases = Vec::new();
+            for (item, _, stored, custody, basis) in &carried {
+                if !custody.held_by(body) { continue; }
+                let holder = kinematics.get(body).map_err(|_| ae::frame::thread::Refusal {
+                    path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::MissingMaterial,
+                })?;
+                let pos = supports.get(body).ok()
+                    .filter(|support| release_world.rooms.of(body) == release_world.rooms.of(support.supporter))
+                    .and_then(|support| kinematics.get(support.supporter).ok())
+                    .map_or(holder.pos, |partner| SupportedCarry::anchor(holder, partner, Vec2::Y));
+                releases.push((item, release_world.prepare_release(body, Some(item), holder, stored, *basis, pos, Vec2::ZERO)?));
+            }
+            Ok::<_, ae::frame::thread::Refusal>(releases)
+        })();
+        let releases = match prepared {
+            Ok(releases) => releases,
+            Err(refusal) => { warn!(?refusal, "hand change refused"); continue; }
+        };
+        for (item, released) in releases {
+            if let Ok((_, _, _, mut custody, _)) = carried.get_mut(item) {
+                released.put_down(&mut commands, item, &mut custody);
+            }
+        }
         // The hand holds one thing: empty it, then take the new one.
         empty_hand(&mut commands, body, &mut repertoire);
         match item {
@@ -1476,9 +1491,8 @@ pub fn apply_hand_requests(
 /// Detach [`HeldItem`] and re-derive the repertoire for the emptied hand. The
 /// body stops holding it here and nowhere else.
 ///
-/// Nothing here has an item query to fix that with (the menu calls this from `Update`, in another
-/// crate), so custody is re-derived from the hand instead: see [`return_released_items`]. A caller
-/// that simply lets go can no longer destroy an authored object.
+/// Physical instances leave custody through an admitted release. Menu requests
+/// prepare that release before this operation changes the hand.
 pub fn unequip_held(
     commands: &mut Commands,
     player: Entity,
@@ -1663,7 +1677,7 @@ pub fn pickup_held_item_system(
                 // same reset that retracts the object, and impossible to disagree
                 // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
                 //
-                take_ground_item(&mut commands, player, &mut repertoire, item, ground, item_body, &mut custody);
+                take_ground_item(&mut commands, player, &mut repertoire, item, ground, item_body, &mut custody, kin);
                 // The Attack press is *consumed* by the pickup so the same press
                 // doesn't also fire the just-equipped item this frame. Clear the
                 // brain-resolved `ActorControl` (the subject-generic held-item / ability
@@ -1855,7 +1869,8 @@ pub fn throw_held_item_system(
     >,
     // The object this body is CARRYING, found by the custody it records rather
     // than by the hand remembering an entity handle.
-    mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
+    mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody, &HeldMaterialBasis)>,
+    release_world: ItemReleaseWorld,
     // The thrower's identity stream, for the one case that genuinely mints a new
     // object (see below). N3.1: a dynamically-spawned sim entity takes
     // `(spawner SimId, per-spawner counter)`, never a global counter.
@@ -1914,6 +1929,8 @@ pub fn throw_held_item_system(
         };
         let spec = held.spec.clone();
         let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+        let reference = ae::AccelerationFrame::new(gravity.dir_for(room.map(|stamp| stamp.0), kin.aabb()));
+        let control_facing = kin.material.project_facing(facing, reference.side);
         // The press as an attack: its direction and its strength.
         let aimed = {
             let mut probe = *gesture;
@@ -1922,7 +1939,7 @@ pub fn throw_held_item_system(
                 &mut probe,
                 *tuning,
                 frame.attack_axis,
-                facing,
+                control_facing,
                 ground.map(|g| g.on_ground).unwrap_or(true),
                 true,
                 frame.melee_held,
@@ -1931,22 +1948,18 @@ pub fn throw_held_item_system(
             )
             .pressed
         };
-        // The launch is authored in the body's LOCAL frame (x = forward/side,
-        // y = toward-feet) and rotated into the body's gravity frame, so the throw
-        // arcs "ahead + away from feet" under ANY gravity — identity under normal
-        // gravity. The subsequent free-fall (`ground_item_physics`) is already
-        // gravity-relative, so the whole toss now flips with the field.
-        let frame =
-            ae::AccelerationFrame::new(gravity.dir_for(
-                room.map(|stamp| stamp.0),
-                ae::Aabb::new(kin.pos, kin.size() * 0.5),
-            ));
+        // Offsets and speeds use the thrower's canonical material units.
         let (throw_pos, throw_vel) = match release {
             // The launch for the press's direction, in the local frame → world,
             // with part of the thrower's own motion.
             Release::Throw => {
-                let (from, launch) = throw_launch(aimed, facing, kin.size());
-                (kin.pos + frame.to_world(from), frame.to_world(launch) + kin.vel * THROW_MOMENTUM)
+                let (from, launch) = throw_launch(aimed, facing, kin.canonical_size);
+                let mapped = kin.material.at(kin.pos).and_then(|map| Ok((map.point(from)?, map.vector(launch)?)));
+                let (from, launch) = match mapped {
+                    Ok(mapped) => mapped,
+                    Err(fault) => { warn!(?fault, "item throw refused"); continue; }
+                };
+                (from, launch + kin.vel * THROW_MOMENTUM)
             }
             // ⭐ WHERE THE BODY IS, WITH NOTHING ADDED. Not "a weak throw": a drop
             // that inherited a fraction of the forward offset would still place the
@@ -1965,10 +1978,17 @@ pub fn throw_held_item_system(
         // the stored quantity — the spend belongs at the MINT, where the quantity actually becomes an
         // object.
         // RETURN THE OBJECT, do not manufacture a replacement (`release_carried_item`).
-        if release_carried_item(&mut commands, player, &mut repertoire, &mut carried, throw_pos, throw_vel, release) {
-            // ⛔⛔ `continue`, NOT `return` — this body is done, the loop is not.
-            continue;
+        match release_carried_item(&mut commands, player, &mut repertoire, &mut carried, kin, &release_world, throw_pos, throw_vel, release) {
+            Ok(true) => continue,
+            Err(refusal) => { warn!(?refusal, "held item release refused"); continue; }
+            Ok(false) => {}
         }
+        let stored = BodyKinematics { canonical_size: MINTED_ITEM_HALF_EXTENT * 2.0, ..Default::default() };
+        let released = match release_world.prepare_release(player, None, kin, &stored, HeldMaterialBasis::default(), throw_pos, throw_vel) {
+            Ok(body) => body,
+            Err(refusal) => { warn!(?refusal, "item mint refused"); continue; }
+        };
+        unequip_held(&mut commands, player, &mut repertoire);
         // NO OBJECT BEHIND THE HAND — materialize one. A body can come to hold
         // an item with no world instance at all: the inventory menu equips straight
         // out of `OwnedItems`, which is a count table. Throwing that turns a
@@ -2040,6 +2060,7 @@ pub fn throw_held_item_system(
                 Name::new("Ground item: thrown"),
             ),
         );
+        thrown.insert((released.body, ae::SweepSample::at_tick_end(released.body, Vec2::ZERO)));
         if let Some((sim_id, origin)) = minted {
             thrown.insert((sim_id, origin));
         }
@@ -2047,45 +2068,6 @@ pub fn throw_held_item_system(
             thrown.insert(*room);
         }
     }
-}
-
-/// A body lets go of what it holds: the ONE `Held -> InWorld` of an object
-/// that has an entity, for a press and for a body no press drives alike (a
-/// bird that lets a coconut go). The hand empties; the object the body took
-/// custody of is put at `pos` with `vel`, in the world again, and says how it
-/// was released.
-///
-/// False: the hand held a quantity with no object behind it (an item equipped
-/// from the menu). The hand is empty all the same, and the caller decides
-/// whether a quantity becomes an object (the throw mints one; nothing else
-/// does).
-pub fn release_carried_item(
-    commands: &mut Commands,
-    body: Entity,
-    repertoire: &mut RepertoireQueryItem<'_, '_>,
-    carried: &mut Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
-    pos: Vec2,
-    vel: Vec2,
-    release: Release,
-) -> bool {
-    unequip_held(commands, body, repertoire);
-    // The item this body took custody of is still a live entity carrying its
-    // own identity, so the release resets its custody and writes the launch
-    // onto it.
-    let Some((entity, _, item_body, mut custody)) = carried.iter_mut().find(|(_, _, _, custody)| custody.held_by(body)) else {
-        return false;
-    };
-    let released = BodyKinematics { pos, vel, ..*item_body };
-    commands.entity(entity).insert((released, ae::SweepSample::at_tick_end(released, Vec2::ZERO)));
-    *custody = ItemCustody::InWorld;
-    // The release SAYS what it was. Every fuse downstream reads this
-    // rather than re-deriving intent from the launch vector.
-    commands.entity(entity).insert(ReleasedAs(release));
-    // ⭐ A DROP IS THE CASE THAT NEEDS THIS, not the throw. `Release::Drop`
-    // launches at ZERO velocity, so an object that kept the settled marker
-    // it wore when it was picked up would hang at head height forever.
-    commands.entity(entity).remove::<SettledItem>();
-    true
 }
 
 /// Where a throw leaves the body and how fast, in the thrower's local frame,

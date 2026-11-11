@@ -382,6 +382,7 @@ pub fn settle_errands(
                     ground,
                     item_body,
                     &mut custody,
+                    kinematics,
                 );
                 errand.outcome = ErrandOutcome::Done;
             }

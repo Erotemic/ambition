@@ -260,11 +260,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 453 -> 454: a playing cutscene keeps the room it plays for.
 // 454 -> 455: the bag log keeps what a room's conversation added to the
 // bag.
-// 455 -> 456: the cutscene's changes are logged in their rooms for a room's
-// rewind.
-// 456 -> 457: the cutscene log writes each script once, in a table its
-// states name by place.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 457;
+// The item material basis and room cutscene log are canonical rollback state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 458;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

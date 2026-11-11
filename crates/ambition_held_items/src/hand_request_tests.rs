@@ -97,3 +97,44 @@ fn a_portal_gun_keeps_the_named_bodys_pair_when_equipped_again() {
     assert!(app.world().get::<PortalGun>(bodies[1]).is_none());
     assert_eq!(app.world().get::<OwnedPortalGunPair>(bodies[1]).map(|pair| pair.0), Some(7));
 }
+
+#[test]
+fn a_refused_stow_keeps_the_physical_object_and_its_hand() {
+    use ae::frame::{MapConvention, thread::PieceBudget};
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+    let (mut app, bodies) = hands_app();
+    let holder = bodies[0];
+    app.world_mut().entity_mut(holder).insert(BodyKinematics::default());
+    equip(&mut app, PlayerSlot(0), Item::GunSword);
+    let item = app.world_mut().spawn((GroundItem::at_rest(held_spec_by_id("gun_sword").unwrap(), Vec2::ZERO, Vec2::splat(4.0)),
+        ItemCustody::Held { holder })).id();
+    app.insert_resource(BodyGeometry::new(MapConvention::Reflection).with_default_budget(PieceBudget { max_pieces: 0, ..PieceBudget::COMPOSED }));
+    stow(&mut app, PlayerSlot(0));
+    assert!(app.world().get::<HeldItem>(holder).is_some());
+    assert!(app.world().get::<ItemCustody>(item).unwrap().held_by(holder));
+    app.world_mut().resource_mut::<BodyGeometry>().reset_apertures(MapConvention::Reflection, PieceBudget::COMPOSED);
+    stow(&mut app, PlayerSlot(0));
+    assert!(app.world().get::<HeldItem>(holder).is_none());
+    assert!(app.world().get::<ItemCustody>(item).unwrap().in_world());
+}
+
+
+#[test]
+fn a_stowed_shared_load_stays_at_the_sling_anchor() {
+    let (mut app, bodies) = hands_app();
+    let holder = bodies[0];
+    let primary = BodyKinematics { pos: Vec2::splat(100.0), ..Default::default() };
+    let partner = BodyKinematics { pos: Vec2::new(140.0, 100.0), ..Default::default() };
+    app.world_mut().entity_mut(holder).insert((primary, SupportedCarry { supporter: bodies[1] }));
+    app.world_mut().entity_mut(bodies[1]).insert(partner);
+    equip(&mut app, PlayerSlot(0), Item::GunSword);
+    app.world_mut().entity_mut(holder).insert(SupportedCarry { supporter: bodies[1] });
+    let anchor = SupportedCarry::anchor(&primary, &partner, Vec2::Y);
+    let item = app.world_mut().spawn((GroundItem::at_rest(held_spec_by_id("gun_sword").unwrap(), anchor, Vec2::splat(4.0)),
+        ItemCustody::Held { holder })).id();
+    stow(&mut app, PlayerSlot(0));
+    assert_eq!(app.world().get::<BodyKinematics>(item).unwrap().pos, anchor);
+    assert!(app.world().get::<ItemCustody>(item).unwrap().in_world());
+    assert!(app.world().get::<HeldItem>(holder).is_none());
+    assert!(app.world().get::<SupportedCarry>(holder).is_none());
+}

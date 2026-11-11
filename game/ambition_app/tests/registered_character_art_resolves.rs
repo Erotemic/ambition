@@ -97,7 +97,8 @@ fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
 
     for (id, explodes, divides_into, health) in [
         ("npc_exploding_mite", true, None, 2),
-        ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),
+        ("npc_dividing_mite", false, Some("npc_dividing_mite_half"), 4),
+        ("npc_dividing_mite_half", false, None, 2),
     ] {
         let prepared = registry.get(id).unwrap_or_else(|| {
             panic!(

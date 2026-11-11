@@ -1099,7 +1099,8 @@ mod tests {
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
         for (id, explodes, divides_into, health) in [
             ("npc_exploding_mite", true, None, 2),
-            ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),
+            ("npc_dividing_mite", false, Some("npc_dividing_mite_half"), 4),
+            ("npc_dividing_mite_half", false, None, 2),
         ] {
             let authored = prepared
                 .get(id)

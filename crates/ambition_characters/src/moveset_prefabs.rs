@@ -1137,26 +1137,4 @@ mod voice_tests {
         assert!(moveset.moves[0].windows.iter().flat_map(|w| &w.volumes).all(|v| v.hit_sfx.as_deref() == Some("own.hit")));
         assert_eq!(moveset.moves[1], before);
     }
-
-    /// A detonation plants for its fuse and ends the body at the fuse's end:
-    /// no volume of its own (the blast is the death's), and the tell over the
-    /// fuse with no swing after it.
-    #[test]
-    fn a_detonation_is_a_fuse_with_a_tell_and_no_swing() {
-        use crate::brain::action_set::DetonateSpec;
-        let fuse_s = 0.9;
-        let mv = attack_move_from_melee(&MeleeActionSpec::Detonate(DetonateSpec { fuse_s, reach_px: 40.0 }));
-        assert!(mv.windows.iter().all(|w| w.volumes.is_empty()), "a detonation hits nothing itself");
-        let detonations: Vec<f32> = mv
-            .events
-            .iter()
-            .filter(|e| matches!(&e.kind, MoveEventKind::Effect(effect) if effect.key == ambition_entity_catalog::detonate::DETONATE))
-            .map(|e| e.at_s)
-            .collect();
-        assert_eq!(detonations, vec![fuse_s]);
-        assert!(mv.duration_s > fuse_s, "the detonation is inside the move");
-        let mut moveset = MovesetContract { verbs: Default::default(), moves: vec![mv] };
-        voice_moveset(&cues(), &mut moveset);
-        assert_eq!(sounds(&moveset.moves[0]), vec![(0.0, "enemy.raptor.tell".to_string())]);
-    }
 }

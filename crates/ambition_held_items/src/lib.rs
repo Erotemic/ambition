@@ -1007,7 +1007,8 @@ pub fn return_released_items(
             continue;
         }
         // The body let go: the object lands where that body is standing.
-        let pos = support.and_then(|support| holders.get(support.supporter).ok())
+        let pos = support.filter(|support| release_world.rooms.of(holder) == release_world.rooms.of(support.supporter))
+            .and_then(|support| holders.get(support.supporter).ok())
             .map_or(kin.pos, |(partner, ..)| SupportedCarry::anchor(kin, partner, Vec2::Y));
         match put_down(&mut commands, entity, body, &mut custody, *basis, kin, &release_world, pos) {
             Ok(()) => { commands.entity(holder).remove::<SupportedCarry>(); }
@@ -1405,6 +1406,7 @@ pub fn apply_hand_requests(
     #[cfg(feature = "portal")] mut hands: Query<(RepertoireQuery, Option<&OwnedPortalGunPair>)>,
     #[cfg(not(feature = "portal"))] mut hands: Query<RepertoireQuery>,
     kinematics: Query<&BodyKinematics>,
+    supports: Query<&SupportedCarry>,
     mut carried: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody, &HeldMaterialBasis)>,
     release_world: ItemReleaseWorld,
 ) {
@@ -1449,7 +1451,11 @@ pub fn apply_hand_requests(
                 let holder = kinematics.get(body).map_err(|_| ae::frame::thread::Refusal {
                     path: Vec::new(), link: None, reason: ae::frame::thread::RefusalReason::MissingMaterial,
                 })?;
-                releases.push((item, release_world.prepare_release(body, Some(item), holder, stored, *basis, holder.pos, Vec2::ZERO)?));
+                let pos = supports.get(body).ok()
+                    .filter(|support| release_world.rooms.of(body) == release_world.rooms.of(support.supporter))
+                    .and_then(|support| kinematics.get(support.supporter).ok())
+                    .map_or(holder.pos, |partner| SupportedCarry::anchor(holder, partner, Vec2::Y));
+                releases.push((item, release_world.prepare_release(body, Some(item), holder, stored, *basis, pos, Vec2::ZERO)?));
             }
             Ok::<_, ae::frame::thread::Refusal>(releases)
         })();

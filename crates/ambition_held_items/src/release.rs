@@ -16,7 +16,7 @@ impl SnapshotState for HeldMaterialBasis {
 
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ItemReleaseWorld<'w, 's> {
-    rooms: LiveRooms<'w, 's>,
+    pub(super) rooms: LiveRooms<'w, 's>,
     geometry: Option<Res<'w, ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 }
 

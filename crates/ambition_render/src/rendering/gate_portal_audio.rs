@@ -87,6 +87,7 @@ pub fn sync_gate_portal_audio(
                 let emitter = ambition_sfx::SfxEmitter::Spatial {
                     shape: ambition_sfx::SfxShape::Circle { center: at, radius: prop.size.min_element() * 0.5 },
                     falloff: ambition_sfx::SfxFalloff::new(0.0, 1200.0),
+                    space: ambition_vfx::sfx_space(room),
                 };
                 drawn.insert((room, zone.clone()), (phases.phase(zone), emitter));
             }

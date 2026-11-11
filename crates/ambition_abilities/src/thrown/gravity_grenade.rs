@@ -156,7 +156,7 @@ pub fn tick_gravity_grenade_fuses(
             ground.pos,
             well_id,
         );
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(rooms.of(entity))).write_for(
             entity,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_POWERUP,

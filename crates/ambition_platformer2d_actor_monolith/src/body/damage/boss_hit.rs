@@ -292,7 +292,7 @@ pub(crate) fn apply_boss_hit(
             cue: PhysicsDebrisCue::BossRagdoll,
         });
         // The boss dies in its own voice (G1), like every other body.
-        writers.sfx.write_for_body(
+        writers.sfx.in_space(ambition_vfx::sfx_space(room)).write_for_body(
             victim_source.as_ref(),
             SfxMessage::Death { pos: boss.kin.pos },
         );

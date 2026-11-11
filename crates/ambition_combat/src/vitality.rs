@@ -80,7 +80,7 @@ pub fn apply_authored_vitality(
             scale: 1.0,
             pose: ambition_vfx::FxPose::UPRIGHT,
         });
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(rooms.of(message.actor))).write_for(
             message.actor,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(&params.sfx),

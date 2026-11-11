@@ -121,7 +121,7 @@ pub fn apply_authored_flylines(
                 pose: ambition_vfx::FxPose::UPRIGHT,
             });
         }
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(room.map(|stamp| stamp.0))).write_for(
             message.actor,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(&params.sfx),

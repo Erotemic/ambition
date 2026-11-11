@@ -264,6 +264,8 @@ impl FlagWritesInRooms {
 pub struct GameplaySfxRequested {
     pub id: ambition_sfx::SfxId,
     pub pos: ae::Vec2,
+    /// The live room it sounds in; `None` reaches every listener.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Why a room reset fired. Lets a consumer treat a player DEATH differently from

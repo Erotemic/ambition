@@ -62,6 +62,18 @@ impl SfxShape {
     }
 }
 
+/// A listening space: a spatial sound is heard only by listeners in its own
+/// space, so two spaces may share coordinates without hearing each other. The
+/// host names the spaces (a live room each); this crate only compares them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SfxSpace(pub u32);
+
+impl From<u32> for SfxSpace {
+    fn from(space: u32) -> Self {
+        Self(space)
+    }
+}
+
 /// How one sound reaches its listeners. UI and announcements use `Global`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SfxEmitter {
@@ -69,6 +81,8 @@ pub enum SfxEmitter {
     Spatial {
         shape: SfxShape,
         falloff: SfxFalloff,
+        /// The space it sounds in; `None` reaches a listener in any space.
+        space: Option<SfxSpace>,
     },
 }
 
@@ -77,6 +91,24 @@ impl SfxEmitter {
         Self::Spatial {
             shape: SfxShape::Point(position),
             falloff: SfxFalloff::default(),
+            space: None,
+        }
+    }
+
+    /// This emitter, sounding in `space` when one is named. A global sound
+    /// stays global, and an emitter that already names its space keeps it.
+    pub fn in_space(self, space: Option<SfxSpace>) -> Self {
+        match self {
+            Self::Spatial { shape, falloff, space: None } => Self::Spatial { shape, falloff, space },
+            other => other,
+        }
+    }
+
+    /// Whether a listener in `listener` space can hear it at all.
+    pub fn reaches(self, listener: Option<SfxSpace>) -> bool {
+        match self {
+            Self::Global | Self::Spatial { space: None, .. } => true,
+            Self::Spatial { space: Some(space), .. } => listener.is_none_or(|listener| listener == space),
         }
     }
 
@@ -90,7 +122,7 @@ impl SfxEmitter {
     pub fn gain_at(self, listener: Vec2) -> f32 {
         match self {
             Self::Global => 1.0,
-            Self::Spatial { shape, falloff } => falloff.gain(shape.distance(listener)),
+            Self::Spatial { shape, falloff, .. } => falloff.gain(shape.distance(listener)),
         }
     }
 }
@@ -103,8 +135,11 @@ impl From<Vec2> for SfxEmitter {
 
 /// Local listening positions. Several listeners hear one voice once, at its
 /// highest audible gain. No listener means that world sounds are silent.
+///
+/// The second list is each listener's space, by index: `.1[i]` is the space
+/// of `.0[i]`, and a listener with no entry (or `None`) hears every space.
 #[derive(Resource, Default, Debug)]
-pub struct SfxListeners(pub Vec<Vec2>);
+pub struct SfxListeners(pub Vec<Vec2>, pub Vec<Option<SfxSpace>>);
 
 impl SfxListeners {
     pub fn gain(&self, emitter: SfxEmitter) -> f32 {
@@ -113,8 +148,24 @@ impl SfxListeners {
         }
         self.0
             .iter()
-            .map(|position| emitter.gain_at(*position))
+            .enumerate()
+            .filter(|(index, _)| emitter.reaches(self.1.get(*index).copied().flatten()))
+            .map(|(_, position)| emitter.gain_at(*position))
             .fold(0.0, f32::max)
+    }
+
+    /// Listen at `position` in `space`; the same listener twice is one.
+    pub fn listen(&mut self, position: Vec2, space: Option<SfxSpace>) {
+        self.1.resize(self.0.len(), None);
+        if !self.0.iter().zip(&self.1).any(|(at, heard)| *at == position && *heard == space) {
+            self.0.push(position);
+            self.1.push(space);
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
+        self.1.clear();
     }
 }
 
@@ -164,9 +215,26 @@ mod tests {
     #[test]
     fn listeners_do_not_add_volume_and_global_sounds_need_no_listener() {
         let emitter = SfxEmitter::point(Vec2::ZERO);
-        let listeners = SfxListeners(vec![Vec2::ZERO, Vec2::ZERO, Vec2::splat(9000.0)]);
+        let listeners = SfxListeners(vec![Vec2::ZERO, Vec2::ZERO, Vec2::splat(9000.0)], Vec::new());
         assert_eq!(listeners.gain(emitter), 1.0);
         assert_eq!(SfxListeners::default().gain(emitter), 0.0);
         assert_eq!(SfxListeners::default().gain(SfxEmitter::Global), 1.0);
+    }
+
+    #[test]
+    fn a_sound_in_one_space_is_not_heard_from_another_at_the_same_place() {
+        let (here, there) = (Some(SfxSpace(1)), Some(SfxSpace(2)));
+        let mut listeners = SfxListeners::default();
+        listeners.listen(Vec2::ZERO, there);
+        let sound = SfxEmitter::point(Vec2::ZERO);
+        assert_eq!(listeners.gain(sound.in_space(here)), 0.0, "another space's listener heard it");
+        assert_eq!(listeners.gain(sound.in_space(there)), 1.0);
+        assert_eq!(listeners.gain(sound), 1.0, "a sound in no space reaches every listener");
+        listeners.listen(Vec2::ZERO, here);
+        assert_eq!(listeners.gain(sound.in_space(here)), 1.0);
+        assert_eq!(SfxEmitter::Global.in_space(here), SfxEmitter::Global);
+        listeners.clear();
+        listeners.0.push(Vec2::ZERO);
+        assert_eq!(listeners.gain(sound.in_space(here)), 1.0, "a listener in no space hears every space");
     }
 }

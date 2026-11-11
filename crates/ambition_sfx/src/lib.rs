@@ -32,14 +32,14 @@ pub mod voice;
 #[cfg(feature = "bevy")]
 pub mod spatial;
 #[cfg(feature = "bevy")]
-pub use spatial::{SfxEmitter, SfxFalloff, SfxListeners, SfxPresentationSet, SfxShape};
+pub use spatial::{SfxEmitter, SfxFalloff, SfxListeners, SfxPresentationSet, SfxShape, SfxSpace};
 #[cfg(feature = "bevy")]
 mod message;
 #[cfg(feature = "bevy")]
 pub use message::{
     AudioContextOwner, BodyPresentationSource, BodySfxWriter, DerivedPresentationSource,
     OwnedSfxLoopMessage, OwnedSfxMessage, PresentationSourceId, SfxEmissionContext, SfxLoopKey,
-    SfxLoopRequest, SfxLoopWriter, SfxMessage, SfxWriter,
+    SfxLoopRequest, SfxLoopWriter, SfxMessage, SfxWriter, SfxInSpace, BodySfxInSpace,
 };
 
 /// Stable, hashed identifier for an SFX entry. Construct via

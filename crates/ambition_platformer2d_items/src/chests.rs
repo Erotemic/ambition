@@ -227,7 +227,7 @@ pub fn open_ecs_chests(
                 color: [0.84, 0.95, 1.0, 0.82],
                 kind: ParticleKind::Spark,
             });
-            sfx.write(SfxMessage::Play {
+            sfx.in_space(ambition_vfx::sfx_space(rooms.of(entity))).write(SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_TREASURE_CHEST_OPEN,
                 emitter: (pos).into(),
             });

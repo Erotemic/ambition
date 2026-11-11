@@ -1004,6 +1004,12 @@ unrendered music). Also red on 316ff3ef7f with no local change (2026-11-11,
 stashed and re-run): `smash_ride::a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive`
 ("the opening ceremony never released the cast"), the same Smash start.
 
+**Also red with no local change (2026-11-11, my files stashed and re-run):**
+`shell_host_rendered::provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work`
+("Sanic resolves its authored procedural Dash") and
+`smash_cpus_damage_each_other::the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick`
+(the match never seated two bodies): the Sanic and Smash starts on this VM.
+
 **Red guard reported to the portal owner (2026-11-11):**
 `check_session_authority_none_arms.py` is red on
 `game/ambition_app_tools/src/bin/capture_scene/portal_fixture.rs::place_portals`

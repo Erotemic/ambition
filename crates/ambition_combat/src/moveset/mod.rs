@@ -4301,6 +4301,8 @@ pub fn dispatch_move_events(
                     id: SfxId::new(cue),
                     emitter: (pos).into(),
                 };
+                // Heard in the mover's live room.
+                let mut sfx = sfx.in_space(ambition_vfx::sfx_space(rooms.of(ev.owner)));
                 if ev.presentation_source.is_unscoped() {
                     sfx.write(request);
                 } else {

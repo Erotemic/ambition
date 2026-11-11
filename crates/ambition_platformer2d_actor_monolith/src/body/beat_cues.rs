@@ -16,6 +16,8 @@ pub fn play_beat_cues(
     cast: SessionCast,
     bodies: Query<(&WornCharacter, &ae::BodyKinematics)>,
     mut sfx: BodySfxWriter,
+    // A body's cue is heard in its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let Some(cast) = cast.get() else { return };
     for &(body, beat) in decisions.beats() {
@@ -27,7 +29,7 @@ pub fn play_beat_cues(
             BrainBeat::Tell => &cues.tell,
         };
         if let Some(cue) = cue {
-            sfx.write_for(body, SfxMessage::Play { id: SfxId::new(cue), emitter: (kin.pos).into() });
+            sfx.in_space(ambition_vfx::sfx_space(rooms.of(body))).write_for(body, SfxMessage::Play { id: SfxId::new(cue), emitter: (kin.pos).into() });
         }
     }
 }

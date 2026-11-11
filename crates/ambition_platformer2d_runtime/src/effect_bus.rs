@@ -154,7 +154,7 @@ pub fn apply_switch_effects(
                 activation: effect.activation.clone(),
                 room: effect.room,
             });
-        sfx.write(ambition_sfx::SfxMessage::Play {
+        sfx.in_space(ambition_vfx::sfx_space(effect.room)).write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
             emitter: (effect.pos).into(),
         });
@@ -169,7 +169,7 @@ pub fn apply_gameplay_sfx_effects(
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     for effect in effects.read() {
-        sfx.write(ambition_sfx::SfxMessage::Play {
+        sfx.in_space(ambition_vfx::sfx_space(effect.room)).write(ambition_sfx::SfxMessage::Play {
             id: effect.id,
             emitter: (effect.pos).into(),
         });
@@ -204,6 +204,7 @@ mod tests {
         let sfx = GameplaySfxRequested {
             id: ambition_sfx::ids::PLAYER_DAMAGE,
             pos: ae::Vec2::new(5.0, 6.0),
+            room: None,
         };
 
         assert!(flag.on);

@@ -161,6 +161,8 @@ pub fn spawn_projectiles_from_brain_actions(
         // confirmed timeline saw.
         Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     )>,
+    // The shot's report is heard in the shooter's live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // WHO WROTE THIS BODY'S VELOCITY. The causal log answers "what is the
     // velocity" and never "who set it", so a body that moves without asking to
     // costs a survey of all 70 velocity writers to explain — measured, six
@@ -393,7 +395,7 @@ pub fn spawn_projectiles_from_brain_actions(
             boomerang_return_s: flight.boomerang_return_s,
         };
         if let Some(cue) = discharge.fire_sfx.as_deref() {
-            sfx.write(SfxMessage::Play {
+            sfx.in_space(ambition_vfx::sfx_space(rooms.of(msg.actor))).write(SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(cue),
                 emitter: (spawn.origin).into(),
             });

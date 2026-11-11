@@ -143,6 +143,8 @@ pub fn lower_contact_bounces(
     table: Res<ContactTouchers>,
     mut bodies: Query<(&mut ae::BodyKinematics, Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>)>,
     mut sfx: ambition_sfx::BodySfxWriter,
+    // The bounce is heard in the toucher's live room.
+    live: LiveRooms,
 ) {
     for submitted in outbox.drain::<ContactBouncePort>(&BODY_CONTACT) {
         let bounce = submitted.value;
@@ -170,7 +172,7 @@ pub fn lower_contact_bounces(
             Err(_) => continue,
         }
         if bounce.pogo_cue {
-            sfx.write_for(toucher, ambition_sfx::SfxMessage::Pogo { pos: at });
+            sfx.in_space(ambition_vfx::sfx_space(live.of(toucher))).write_for(toucher, ambition_sfx::SfxMessage::Pogo { pos: at });
         }
     }
 }

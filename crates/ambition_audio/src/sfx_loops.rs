@@ -309,6 +309,7 @@ mod tests {
         app.world_mut().write_message(OwnedSfxMessage {
             owner: Some(AudioContextOwner::Gameplay(1)), source: "fixture".into(),
             request: SfxMessage::Land { pos: Vec2::ZERO, strength: 0.1 },
+            space: None,
         });
         app.update();
         let gain = |app: &App| app.world().resource::<SfxOneShots>().0[0].gain;
@@ -320,6 +321,42 @@ mod tests {
         app.update();
         assert!((gain(&app) - 0.1).abs() < 1e-6);
         assert_eq!(app.world().resource::<crate::SfxPlaybackState>().accepted_playbacks, 1);
+    }
+
+    /// A sound made in one room's space is silent to a listener in another
+    /// room's space at the same coordinates, for as long as it plays.
+    #[test]
+    fn a_landing_in_one_room_is_not_heard_from_another_at_the_same_place() {
+        use crate::{audio_play_sfx_messages, spatial::{SfxOneShots, update_sfx_attenuation}};
+        use ambition_sfx::{OwnedSfxMessage, SfxListeners, SfxMessage, SfxSpace};
+        use bevy::{prelude::{IntoScheduleConfigs, Vec2}, time::TimeUpdateStrategy};
+        let mut app = app();
+        let registry = SfxRegistry {
+            sample_rate: 44_100,
+            sfx: vec![SfxSpec {
+                cue: Some(crate::spec::SoundCueKey::Land), id: None,
+                waveform: WaveformSpec::Sine, frequency: 110.0, frequency_end: 90.0,
+                duration: 0.5, volume: 0.5, attack: 0.0, release: 0.02, noise: 0.0,
+            }],
+        };
+        app.world_mut().resource_mut::<ActiveAudioSelection>()
+            .select_gameplay(1, "fixture", None, Some(registry), BTreeSet::new());
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(std::time::Duration::from_millis(16)));
+        app.add_message::<OwnedSfxMessage>();
+        app.add_systems(Update, audio_play_sfx_messages.before(audio_play_sfx_loops));
+        app.add_systems(Update, update_sfx_attenuation.after(audio_play_sfx_loops));
+        app.world_mut().resource_mut::<SfxListeners>().listen(Vec2::ZERO, Some(SfxSpace(2)));
+        app.world_mut().write_message(OwnedSfxMessage {
+            owner: Some(AudioContextOwner::Gameplay(1)), source: "fixture".into(),
+            request: SfxMessage::Land { pos: Vec2::ZERO, strength: 1.0 },
+            space: Some(SfxSpace(1)),
+        });
+        app.update();
+        let gain = |app: &App| app.world().resource::<SfxOneShots>().0[0].gain;
+        assert_eq!(gain(&app), 0.0, "another room's listener heard it");
+        app.world_mut().resource_mut::<SfxListeners>().listen(Vec2::ZERO, Some(SfxSpace(1)));
+        app.update();
+        assert!(gain(&app) > 0.0, "its own room's listener does not hear it");
     }
 
     #[test]
@@ -346,6 +383,7 @@ mod tests {
         let emitter = SfxEmitter::Spatial {
             shape: SfxShape::Point(Vec2::ZERO),
             falloff: SfxFalloff::new(10.0, 110.0),
+            space: None,
         };
         app.world_mut().write_message(OwnedSfxMessage {
             owner: Some(AudioContextOwner::Gameplay(1)),
@@ -354,6 +392,7 @@ mod tests {
                 id: SfxId::new(HUM),
                 emitter,
             },
+            space: None,
         });
         send(
             &mut app,
@@ -434,6 +473,7 @@ mod tests {
                 id: SfxId::new(HUM),
                 emitter: SfxEmitter::Global,
             },
+            space: None,
         });
         app.update();
         assert_eq!(

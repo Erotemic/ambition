@@ -1682,9 +1682,10 @@ pub fn sync_lock_wall_visuals(
         now.insert(*room, (root, world.0.name.clone(), runs));
     }
     *settled = now;
-    let mut heard = |id: ambition_sfx::SfxId, pos: ae::Vec2| {
+    // A wall is heard in its own live room.
+    let mut heard = |room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, id: ambition_sfx::SfxId, pos: ae::Vec2| {
         if let Some(sfx) = sfx.as_mut() {
-            sfx.write(ambition_sfx::SfxMessage::Play { id, emitter: (pos).into() });
+            sfx.in_space(ambition_vfx::sfx_space(room)).write(ambition_sfx::SfxMessage::Play { id, emitter: (pos).into() });
         }
     };
 
@@ -1707,7 +1708,7 @@ pub fn sync_lock_wall_visuals(
         // drawn again with its look is not a gate that shuts.
         let shuts = !redrawn.contains(&key) && heard_rooms.contains(&room);
         if block.name.starts_with("gated_lock:") && shuts {
-            heard(ambition_sfx::ids::WORLD_GATE_FALL, block.aabb.center());
+            heard(Some(room), ambition_sfx::ids::WORLD_GATE_FALL, block.aabb.center());
         }
         let size = block.aabb.half_size() * 2.0;
         let render = BVec2::new(size.x, size.y);
@@ -1792,13 +1793,13 @@ pub fn sync_lock_wall_visuals(
             // goes at once.
             if key.0.is_some_and(|room| heard_rooms.contains(&room)) {
                 if *crumbles {
-                    heard(ambition_sfx::ids::WORLD_ROCK_BREAK, *centre);
-                    heard(ambition_sfx::ids::WORLD_SECRET_REVEAL, *centre);
+                    heard(key.0, ambition_sfx::ids::WORLD_ROCK_BREAK, *centre);
+                    heard(key.0, ambition_sfx::ids::WORLD_SECRET_REVEAL, *centre);
                     commands.entity(*entity).remove::<LockWallVisual>().insert(LockWallCrumble);
                     continue;
                 }
                 if key.1.starts_with("gated_lock:") {
-                    heard(ambition_sfx::ids::WORLD_LOCK_OPEN, *centre);
+                    heard(key.0, ambition_sfx::ids::WORLD_LOCK_OPEN, *centre);
                 }
                 commands.entity(*entity).remove::<LockWallVisual>().insert(LockWallSlide::opens());
                 continue;

@@ -158,7 +158,7 @@ pub fn tick_bomb_fuses(
             // It landed or hit a wall: what is left of the fuse is short.
             fuse.timer = fuse.timer.min(BOMB_FUSE_AFTER_BOUNCE_SECS);
             if surface >= BOMB_CLUNK_SPEED {
-                sfx.write_for(
+                sfx.in_space(ambition_vfx::sfx_space(rooms.of(entity))).write_for(
                     entity,
                     ambition_sfx::SfxMessage::Play {
                         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -184,7 +184,7 @@ pub fn tick_bomb_fuses(
         });
         // The bomb inherits its thrower's source at spawn, so the blast plays
         // the thrower's cue, or the session's when nothing was stamped.
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(room)).write_for(
             entity,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_EXPLOSION,

@@ -401,7 +401,8 @@ pub fn emit_hit_feedback(
     } else {
         victim_source
     };
-    sfx.write_for_body(
+    // Heard in the room the hit is seen in.
+    sfx.in_space(vfx.sfx_space()).write_for_body(
         sound_source,
         ambition_sfx::SfxMessage::Play {
             id: resolve_strike_sfx(hurt, strike_sfx, damage, weight),

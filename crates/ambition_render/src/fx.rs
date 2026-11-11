@@ -178,6 +178,8 @@ pub fn process_fx_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sh
                 id,
                 emitter: (request.pos).into(),
             };
+            // Heard in the room the effect is drawn in.
+            let mut sfx = sfx.in_space(ambition_vfx::sfx_space(request.room));
             if request.source.is_unscoped() {
                 sfx.write(play);
             } else {

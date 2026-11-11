@@ -845,6 +845,8 @@ fn lower_body_sounds<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut sfx: ambition_sfx::BodySfxWriter,
     bodies: Query<&BodyKinematics>,
+    // A body's sound is heard in its own live room.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for submitted in outbox.drain::<BodySoundPort>(&L::PHASE) {
         let sound = submitted.value;
@@ -852,7 +854,7 @@ fn lower_body_sounds<L: LowersIn>(
             warn!("extension entry {} asked for a sound at a body with no position; refused", submitted.entry);
             continue;
         };
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(live.of(submitted.scope))).write_for(
             submitted.scope,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(&sound.cue),

@@ -322,7 +322,7 @@ pub fn collect_ecs_pickups(
             }
             _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
         };
-        sfx.write(SfxMessage::Play { id, emitter: (pos).into() });
+        sfx.in_space(ambition_vfx::sfx_space(rooms.of(entity))).write(SfxMessage::Play { id, emitter: (pos).into() });
     }
 }
 

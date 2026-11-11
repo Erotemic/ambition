@@ -1194,6 +1194,7 @@ mod semantic_input_tests {
                 owner: Some(ambition_sfx::AudioContextOwner::Frontend(9)),
                 source,
                 request: SfxMessage::Play { id, .. },
+                ..
             }] if source.as_str() == "shell.test" && *id == ids::UI_MENU_MOVE
         ));
         intent(&mut app, |f| f.up = true);

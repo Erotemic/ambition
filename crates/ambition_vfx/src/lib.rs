@@ -11,7 +11,7 @@ pub use fx::FxId;
 pub use lightning::{LightningEnd, LightningKey, LightningLook};
 pub use vfx::{
     FireworksRequest, FxPose, FxRequest, HitBurst, HurtFeedback, ImpactBlow, ImpactMaterial, ParticleKind, VfxForRoom, VfxInRoom, VfxMessage,
-    VfxWriter,
+    VfxWriter, sfx_space,
 };
 
 // ===================================================================

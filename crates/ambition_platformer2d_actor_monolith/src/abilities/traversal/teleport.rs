@@ -492,7 +492,7 @@ pub fn apply_authored_teleports(
             scale: 1.0,
             pose: ambition_vfx::FxPose::UPRIGHT,
         });
-        sfx.write_for(
+        sfx.in_space(vfx.sfx_space()).write_for(
             message.actor,
             ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::PLAYER_BLINK,

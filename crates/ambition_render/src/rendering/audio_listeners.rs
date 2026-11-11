@@ -4,16 +4,16 @@ use ambition_sfx::SfxListeners;
 use ambition_sim_view::{camera_snapshot::ResolvedCameraSnapshot, LocalView};
 use bevy::prelude::*;
 
-/// Listen at each view's followed body, independent of camera zoom and easing.
+/// Listen at each view's followed body, independent of camera zoom and easing,
+/// in the space of the live room the view frames: a sound made in another
+/// room at the same coordinates is not heard (ISL-1b).
 pub fn publish_audio_listeners(
     views: Query<&ResolvedCameraSnapshot, With<LocalView>>,
     mut listeners: ResMut<SfxListeners>,
 ) {
-    listeners.0.clear();
+    listeners.clear();
     for frame in views.iter().filter_map(ResolvedCameraSnapshot::frame) {
-        if !listeners.0.contains(&frame.follow_world) {
-            listeners.0.push(frame.follow_world);
-        }
+        listeners.listen(frame.follow_world, ambition_vfx::sfx_space(Some(frame.room)));
     }
 }
 

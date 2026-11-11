@@ -349,7 +349,7 @@ pub fn pogo_moveset_off_world_orbs(
         ground.on_ground = false;
         // The bounce is the OWNER's technique, so it is the owner's cue (G1) —
         // both the authored override and the generic pogo.
-        sfx.write_for(
+        sfx.in_space(ambition_vfx::sfx_space(live.of(owner))).write_for(
             owner,
             match cue {
                 Some(id) => SfxMessage::Play { id, emitter: (pos).into() },

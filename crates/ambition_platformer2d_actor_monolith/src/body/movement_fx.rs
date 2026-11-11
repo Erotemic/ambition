@@ -259,6 +259,9 @@ pub fn emit_movement_fx(
     // wearing no character.
     source: Option<&ambition_sfx::PresentationSourceId>,
 ) {
+    // Heard in the room it is seen in.
+    let space = vfx.sfx_space();
+    let sfx = &mut sfx.in_space(space);
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {

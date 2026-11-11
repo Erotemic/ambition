@@ -214,7 +214,7 @@ pub fn emit_knockout_beat(
             color: beat.core,
             kind: ParticleKind::Spark,
         });
-        sfx.write(SfxMessage::Play {
+        sfx.in_space(vfx.sfx_space()).write(SfxMessage::Play {
             id: ids::WORLD_EXPLOSION,
             emitter: (base).into(),
         });

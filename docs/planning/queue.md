@@ -1148,10 +1148,10 @@ remains open.
 **Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
 
 **Next action:** continue implementation and testing on main. Native material
-repair and support are fixed in `5f07fbb17`. Resolve independent capture roots
-and depth, room-scoped straddler lookup, portal-free runtime cost and capture
-budgets. Complete the remaining motion, geometry, numeric-fault and device
-requirements in the owner's
+repair and support are fixed in `5f07fbb17`; independent captures and room
+identity are fixed in `ae8f2b07a` and `b499e5090`. Measure portal-free runtime
+cost and finish adaptive capture resources and overflow policy. Complete the
+remaining motion, geometry, numeric-fault and device requirements in the owner's
 [implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
 and [draft status](engine/portal-parts-similarity-and-chirality.md#draft-status).
 This is local to one live simulation room; cross-island live portals are not

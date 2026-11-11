@@ -9,11 +9,11 @@ model and transactional movement authority.
 | R1: projectile recipient refusals became misses | Fixed in `741212079`; candidate scope is fixed in `670e4683c`. All recipient queries complete before motion or hits commit. Refusal retains the pose, retires travel and advances lifetime. |
 | R2: portal scale changed dimensionless knockback | Fixed in `741212079`. `FeelScale` keeps its value; `LaunchSpeed` uses the material chart conversion. |
 | R3: material sweeps use root-AABB penetration repair | Fixed in `5f07fbb17`. Movement, rest repair, initial support, line settling and platform support use admitted material. |
-| R4: independent bodies share one capture root and depth | Open. Keep each body's geometric and depth semantics. |
+| R4: independent bodies share one capture root and depth | Fixed in `ae8f2b07a`. Each drawable family keeps its root, capture and depth order. |
 | R5: movement and lookup costs need measurement | Open. Measure portal-free gameplay, body-to-visual lookup and repeated room-link construction. |
 | R6: capture density and capacity are fixed | Open. Measure viewport and capture costs before changing resource policy. |
 | R7: a failed limb correction can retain the proposed pose | Fixed in `482dcfc5b`; prefix admission is fixed in `670e4683c`. Sweep and admit the proposal against physical room solids before one commit. Refusal retains the accepted pose and hold. |
-| R8: straddler lookup searches other rooms | Open. Resolve the link in the body's own room. |
+| R8: straddler lookup searches other rooms | Fixed in `b499e5090`. Publication resolves the link in the owning room. |
 
 R1 has a real-app recipient refusal/resume witness. It checks retained pose,
 zero travel, no hit, lifetime progress and successful contact after admission.
@@ -93,11 +93,42 @@ Validation passes 878 core, 595 actor, 178 world, 35 portal app, 73 Smash and
 35 policy tests, plus the assembled app check. One core probe and six Smash
 probes are ignored. Evidence is `target/portal-r3-acceptance-gates.json` and
 `target/portal-r3-acceptance-*.log`. This lane does not prove the full workspace,
-other movement models, device/GPU or performance requirements. R4, R5, R6
-and R8 remain open. Full PSIM acceptance remains open.
+other movement models, device/GPU or performance requirements. R5 and R6
+remain open. Full PSIM acceptance remains open.
 
 After upstream merge `a40680fd4`, both 80/40 slice cases and both chained-lab
 cases pass again. The app and core all-target warning check passes under
 their default features. Evidence is `target/portal-r3-merged-gates.json` and
 `target/portal-r3-merged-*.log`. Non-default feature-only code is not covered
 by that warning check.
+
+R4 fix: `ae8f2b07a`. Independent bodies and free drawables no longer merge
+into one capture. Explicit drawable families still stay together. Each family
+keeps its own root and source depth. Exit pieces retain source depth order
+inside the reserved band below the panes. The guard compares two bodies with
+the same policy and link against their isolated geometry in both spawn orders.
+Do not share a blended capture by collapsing independent roots or depths.
+
+R8 fix: `b499e5090`. Straddler publication passes the owning room. The guard
+uses identical apertures in two rooms with different link keys and requires
+the owning room's link. Do not search all rooms by aperture geometry.
+
+All 1,483 active owner cases, 35 portal app cases and 35 policy cases pass.
+Four owner probes are ignored. The assembled app check and capture tools build
+pass. Evidence uses `target/portal-r4-r8-*.log` and
+`target/portal-r4-r8-gates.json`.
+
+The Vulkan llvmpipe film at `target/portal-r4-visible/close/` shows a robot and
+an independent javelin partly in the same 80/40 pair. Frames 47–49 have the same
+carried path with separate capture layers and targets. Frame 64 shows the robot
+clear at persistent half scale and reflected parity. The witness is
+`target/portal-r4-visible/witness.json`. This is software render-stack evidence,
+not hardware GPU or mobile performance evidence.
+
+`ae8f2b07a` also indexes feature bodies by room and identity, and reuses each
+room's links within the carry pass. R5 still needs portal-free before/after
+measurements. R6 still needs viewport adaptation, resource limits and an
+explicit overflow policy. More independent captures make that cost important.
+
+The app, portal presentation and host all-target warning check passes under
+their default features. Evidence is `target/portal-r4-r8-warnings.log`.

@@ -332,7 +332,7 @@ fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
     });
     app.update();
     app.update();
-    let images = app.world().resource::<Assets<Image>>().len();
+    let mut images = None;
     let materials = app.world().resource::<Assets<PortalClipMaterial>>().len();
     let meshes = app.world().resource::<Assets<Mesh>>().len();
 
@@ -359,7 +359,8 @@ fn a_moving_rotating_pair_keeps_two_pieces_as_the_body_changes_ends() {
         let drawn = outcome(&mut app, visual);
         assert!(drawn.active_capture && !drawn.on_world, "degree={degree}: {drawn:?}");
         assert_eq!(drawn.pieces.len(), 2, "degree={degree}: {drawn:?}");
-        assert_eq!(app.world().resource::<Assets<Image>>().len(), images);
+        let count = app.world().resource::<Assets<Image>>().len();
+        assert_eq!(count, *images.get_or_insert(count));
         assert_eq!(app.world().resource::<Assets<PortalClipMaterial>>().len(), materials);
         assert_eq!(app.world().resource::<Assets<Mesh>>().len(), meshes);
     }
@@ -413,4 +414,99 @@ fn a_reaching_swing_does_not_move_a_bodys_near_foot_into_the_aperture_wedge() {
         ambition_platformer2d_shared_tangle::body::geometry::ReachesFrom(Vec2::new(498.0,300.0))));
     for _ in 0..3 { app.update(); }
     assert!(paints(&outcome(&mut app, visual)), "the foot outside the mouth must remain in the near chart");
+}
+
+#[test]
+fn capture_resolution_tracks_the_view_without_changing_material_and_releases_idle_targets() {
+    let mut app = warm_app();
+    let visual = spawn_body(&mut app, PieceBudget::COMPOSED, 300.0, authored_entry());
+    for _ in 0..3 { app.update(); }
+    let expected = outcome(&mut app, visual);
+    let initial_side = app.world().resource::<PortalCarryAtlas>().slots[0].side;
+    let camera = app.world_mut().query_filtered::<Entity, With<MainCamera>>().single(app.world()).unwrap();
+    app.world_mut().get_mut::<Camera>(camera).unwrap().viewport.as_mut().unwrap().physical_size = UVec2::splat(2048);
+    app.update();
+    let large_side = app.world().resource::<PortalCarryAtlas>().slots[0].side;
+    assert!(large_side > initial_side);
+    assert_eq!(outcome(&mut app, visual), expected);
+    if let Projection::Orthographic(projection) = &mut *app.world_mut().get_mut::<Projection>(camera).unwrap() {
+        projection.area = Rect::from_center_size(Vec2::ZERO, WORLD * 0.5);
+    }
+    app.update();
+    assert!(app.world().resource::<PortalCarryAtlas>().slots[0].side > large_side);
+    assert_eq!(outcome(&mut app, visual), expected);
+    let retired = app.world().resource::<PortalCarryAtlas>().slots[0].image.clone().unwrap();
+    app.world_mut().despawn(visual);
+    app.update();
+    assert_eq!(app.world().resource::<PortalCarryAtlas>().load.texture_bytes, 0);
+    assert!(!app.world().resource::<Assets<Image>>().contains(retired.id()));
+    assert!(app.world().resource::<Assets<PortalClipMaterial>>().iter().all(|(_,material)| material.color_texture != retired));
+}
+
+#[test]
+fn storage_pressure_reduces_quality_and_keeps_more_than_sixteen_families_partitioned() {
+    let mut app = warm_app();
+    let bytes = 20 * 32 * 32 * 4;
+    app.world_mut().resource_mut::<PortalCarryAtlas>().budget.max_texture_bytes = bytes;
+    let visuals: Vec<_> = (0..20).map(|index|
+        spawn_body(&mut app, PieceBudget::COMPOSED, 280.0 + index as f32, authored_entry())).collect();
+    for _ in 0..4 { app.update(); }
+    let load = app.world().resource::<PortalCarryAtlas>().load;
+    assert_eq!(load.families, 20);
+    assert_eq!(load.material_proxies, 0);
+    assert_eq!(load.reduced_resolution, 20);
+    assert!(load.texture_bytes <= bytes);
+    for &visual in &visuals {
+        let result = outcome(&mut app, visual);
+        assert!(result.active_capture && !result.on_world && result.pieces.len() >= 2, "{result:?}");
+    }
+    app.world_mut().resource_mut::<PortalCarryAtlas>().budget.max_texture_bytes = 0;
+    app.update();
+    app.update();
+    let load = app.world().resource::<PortalCarryAtlas>().load;
+    assert_eq!(load.material_proxies, 20);
+    assert_eq!(load.texture_bytes, 0);
+    for visual in visuals {
+        assert!(app.world().get::<RenderLayers>(visual).unwrap().iter().next().is_none());
+        assert!(app.world().get::<PortalCarried>(visual).is_some());
+    }
+    let drawn = app.world_mut().query_filtered::<&Visibility, With<PortalBodyPiece>>()
+        .iter(app.world()).filter(|shown| **shown != Visibility::Hidden).count();
+    assert!(drawn >= 40, "overflow must retain the admitted near and far geometry");
+}
+
+#[test]
+fn a_material_proxy_keeps_physical_scale_and_persistent_reflection() {
+    let mut app = warm_app();
+    app.world_mut().resource_mut::<ambition_portal2d::PortalTuning>().convention = ambition_portal2d::PortalConvention::Reflection;
+    app.world_mut().resource_mut::<PortalCarryAtlas>().budget.max_texture_bytes = 0;
+    let visual = spawn_body(&mut app, PieceBudget::COMPOSED, 300.0, authored_entry());
+    let material = ae::frame::BodyMaterial::new(0.5, Mat2::from_cols(-Vec2::X,Vec2::Y)).unwrap();
+    let body = app.world().get::<crate::PortalBodyView>(visual).unwrap().body;
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+        kin.canonical_size = Vec2::new(32.0,48.0); kin.material = material;
+    }
+    {
+        let mut view = app.world_mut().get_mut::<crate::PortalBodyView>(visual).unwrap();
+        view.canonical_size = Vec2::new(32.0,48.0); view.material = material; view.size = Vec2::new(16.0,24.0);
+    }
+    for _ in 0..3 { app.update(); }
+    let mut area = 0.0;
+    let mut flips = Vec::new();
+    let world = app.world_mut();
+    let pieces: Vec<_> = world.query_filtered::<(&Transform,&Mesh2d,&MeshMaterial2d<PortalClipMaterial>,&Visibility), With<PortalBodyPiece>>()
+        .iter(world).filter(|(_,_,_,shown)| **shown != Visibility::Hidden)
+        .map(|(pose,mesh,material,_)| (*pose,mesh.0.clone(),material.0.clone())).collect();
+    for (pose,mesh,handle) in pieces {
+        let mesh = world.resource::<Assets<Mesh>>().get(&mesh).unwrap();
+        let bevy::mesh::VertexAttributeValues::Float32x3(points) = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap() else { panic!("positions"); };
+        for triangle in mesh.indices().unwrap().iter().collect::<Vec<_>>().chunks_exact(3) {
+            let p: Vec<_> = triangle.iter().map(|index| pose.transform_point(Vec3::from_array(points[*index])).truncate()).collect();
+            area += (p[1]-p[0]).perp_dot(p[2]-p[0]).abs()*0.5;
+        }
+        flips.push(world.resource::<Assets<PortalClipMaterial>>().get(&handle).unwrap().control.x > 0.5);
+    }
+    assert!((area - 32.0*48.0*0.25).abs() < 0.01, "{area}");
+    assert!(flips.contains(&true) && flips.contains(&false), "root reflection and reflected transit must both apply: {flips:?}");
 }

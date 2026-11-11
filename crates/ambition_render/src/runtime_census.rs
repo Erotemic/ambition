@@ -30,7 +30,7 @@ use bevy::prelude::*;
 
 use ambition_dev_tools::runtime_census::RuntimeCensus;
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    FrontHudCamera, MainCamera, FRONT_HUD_LAYER, LOCAL_VIEW_RENDER_LAYER_BASE,
+    FrontHudCamera, MainCamera, FRONT_HUD_LAYER, PRIVATE_VIEW_RENDER_LAYER_BASE,
     PARALLAX_BACKGROUND_LAYER,
 };
 use ambition_sim_view::{LocalView, LocalViewId, PresentedForView, PresentsView};
@@ -521,7 +521,8 @@ pub fn report_draw_census(
             0 => area_world += area,
             FRONT_HUD_LAYER => area_hud += area,
             PARALLAX_BACKGROUND_LAYER => area_parallax += area,
-            n if n >= LOCAL_VIEW_RENDER_LAYER_BASE => area_local += area,
+            n if n >= PRIVATE_VIEW_RENDER_LAYER_BASE
+                && !ambition_platformer2d_shared_tangle::camera_layers::is_portal_carry_render_layer(n) => area_local += area,
             _ => area_other += area,
         }
     }

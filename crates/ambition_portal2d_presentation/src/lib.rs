@@ -93,7 +93,7 @@ pub use visuals::{
 };
 pub use carry::{
     carry_through_pairs, give_back_carried_layers, CarriedLayers, CarryQuadPool, PortalCarried,
-    PortalCarryAtlas, PortalCarryCamera, PortalCarrySelection, PortalDrawnWith,
+    PortalCarryAtlas, PortalCarryBudget, PortalCarryLoad, PortalCarryCamera, PortalCarrySelection, PortalDrawnWith,
 };
 
 /// Host-observation systems that publish data into this crate's presentation

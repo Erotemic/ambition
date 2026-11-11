@@ -3,8 +3,8 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** THE REQUESTED PLAYABLE 80/40 SLICE IS COMPLETE (`fddf6084a`).
-The current rollback schema is v443 after the upstream day-clock save
-change `1ec4e9bb3`.
+The current rollback schema is v445 after the upstream room rollback
+change `2fac6d3f8`.
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
 Station H has two reachable wall openings with widths 80 and 40. Each keeps
@@ -50,8 +50,9 @@ dimensionless knockback in `741212079`, and proposed limb admission in
 `482dcfc5b`.
 Stationary material repair and support now use admitted material in
 `5f07fbb17`. Independent captures and depth order are fixed in `ae8f2b07a`.
-Room-scoped straddler lookup is fixed in `b499e5090`. Runtime cost and capture
-resource policy remain open. See the
+Room-scoped straddler lookup is fixed in `b499e5090`. Adaptive capture storage
+and explicit material-proxy overflow are fixed in `1d551594b`. Runtime and
+device performance measurements remain open. See the
 [review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
 for guards and verification scope.
 
@@ -1186,3 +1187,27 @@ their default features. Its log is `target/portal-r4-r8-warnings.log`.
 After the upstream day-clock save merge, the assembled app check and all four
 schema guards pass with v443. Evidence is
 `target/portal-r4-r8-merged-gates.json`.
+
+### Adaptive capture storage — 2026-11-10
+
+R6 is fixed in `1d551594b`. Viewport density sets each target resolution.
+A 32 MiB default budget reduces resolution before selecting clipped canonical
+material proxies. All admitted families keep their geometry, scale, reflection
+and depth order. Idle targets and their hidden material references retire.
+Do not omit a family or change physical admission to meet a texture budget.
+
+The twenty-family, viewport, idle-release and reflected-proxy guards pass.
+Validation passes 985 owner cases, 35 portal app cases, 35 policy cases and
+seven capture-tool cases, plus the app check and capture-tool build.
+The llvmpipe films reduce peak target storage from 64 to 2.3125 MiB at
+1280 by 720 and from 16 to 0.578125 MiB at 540 by 960. Idle storage is zero.
+Matched-tick player and item physics are equal before and after the change,
+across viewport sizes and with zero-byte proxies. See the
+[review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
+for evidence and limits. R5, hardware/device performance and full PSIM
+acceptance remain open.
+
+After upstream room-rollback merge `dfdfa5f3b`, all four schema guards pass
+with v445. The app, portal presentation and renderer all-target warning check
+passes under default features. Evidence is `target/portal-r6-merged-gates.json`
+and its warning and schema logs. Non-default feature-only code is not covered.

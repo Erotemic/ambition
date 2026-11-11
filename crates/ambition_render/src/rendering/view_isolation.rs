@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::camera_layers::{
     live_room_window_layer, local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
     LIVE_ROOM_RENDER_LAYER_LAST, LIVE_ROOM_WINDOW_LAYER_BASE, LIVE_ROOM_WINDOW_LAYER_LAST,
-    LOCAL_VIEW_RENDER_LAYER_BASE, PORTAL_WINDOW_RENDER_LAYER, RETIRED_ROOM_RENDER_LAYER,
+    is_local_view_render_layer, PORTAL_WINDOW_RENDER_LAYER, RETIRED_ROOM_RENDER_LAYER,
     RETIRED_ROOM_WINDOW_LAYER,
 };
 
@@ -409,8 +409,7 @@ fn view_layer(
 fn without_view_layers(layers: &RenderLayers) -> RenderLayers {
     let mut base = layers.clone();
     for layer in layers.iter() {
-        if layer >= LOCAL_VIEW_RENDER_LAYER_BASE && (layer - LOCAL_VIEW_RENDER_LAYER_BASE) % 2 == 0
-        {
+        if is_local_view_render_layer(layer) {
             base = base.without(layer);
         }
     }

@@ -135,6 +135,8 @@ struct SceneCaptureConfig {
     portal_convention: Option<ambition_platformer2d::portal::PortalConvention>,
     /// Choose material limits before simulation starts.
     portal_budget: Option<ambition_platformer2d::portal::PortalGeometry>,
+    /// Capture-target byte limit for resource-pressure witnesses.
+    portal_capture_bytes: Option<u64>,
     /// Draw these limbs of a part-drawn body (their `limb:<slot>` tracks)
     /// nowhere, in the body or in its limbs' twins (`--limbs-unseen`); empty
     /// for every limb. A film with the limbs and one without differ by the
@@ -406,6 +408,8 @@ OPTIONS:
                         `far` turns the windows off and puts the camera where
                         the view through PORTAL is. PORTAL is a channel (as
                         `c131`) or a world X,Y (the portal nearest to it).
+    --portal-capture-bytes N
+                        limit capture-target storage; zero uses clipped material proxies
     --portal-convention rotation|reflection
     --portal-budget HOPS,PIECES,SCALE_EXPONENT
                         select the physical mapping before the simulation starts
@@ -575,6 +579,11 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
                 // Refuse an unknown room: otherwise the capture silently
                 // photographs the hub and exits 0.
                 app.insert_resource(ambition_app::app::StartRoomMustResolve);
+            }
+            if let Some(bytes) = config.portal_capture_bytes {
+                let mut atlas = ambition_platformer2d::portal_presentation::PortalCarryAtlas::default();
+                atlas.budget.max_texture_bytes = bytes;
+                app.insert_resource(atlas);
             }
             if config.portal_convention.is_some() || config.portal_budget.is_some() {
                 let mut tuning = ambition_platformer2d::portal::PortalTuning::default();
@@ -1642,6 +1651,7 @@ impl SceneCaptureConfig {
         let mut portal_effect_off = false;
         let mut portal_convention = None;
         let mut portal_budget = None;
+        let mut portal_capture_bytes = None;
         let mut limbs_unseen: Option<Vec<String>> = None;
         let mut carry = true;
         let mut gear: Vec<(String, u64)> = Vec::new();
@@ -1995,6 +2005,11 @@ impl SceneCaptureConfig {
                     });
                     2
                 }
+                "--portal-capture-bytes" => {
+                    let Some(value) = args.get(i + 1) else { return Err("--portal-capture-bytes requires bytes".into()); };
+                    portal_capture_bytes = Some(value.parse::<u64>().map_err(|_| "--portal-capture-bytes requires an unsigned byte count")?);
+                    2
+                }
                 "--portal-convention" => {
                     use ambition_platformer2d::portal::PortalConvention;
                     portal_convention = Some(match args.get(i + 1).map(String::as_str) {
@@ -2211,6 +2226,7 @@ impl SceneCaptureConfig {
                 portal_effect_off: false,
                 portal_convention,
                 portal_budget,
+                portal_capture_bytes,
                 limbs_unseen: None,
                 carry: true,
                 gear: Vec::new(),
@@ -2298,6 +2314,7 @@ impl SceneCaptureConfig {
             portal_effect_off,
             portal_convention,
             portal_budget,
+            portal_capture_bytes,
             limbs_unseen,
             carry,
             gear,

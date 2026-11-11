@@ -9,6 +9,11 @@ pub fn snapshot(world: &World) -> serde_json::Value {
     use engine::characters::actor::{BodyHealth, WornCharacter};
     use engine::sprite_sheet::character::CharacterAnimator;
     use engine::render::rendering::actors::{BoundActorArt, BoundSpriteQuality, PlayerSpriteCharacter};
+    let carry_load = world.get_resource::<engine::portal_presentation::PortalCarryAtlas>().map(|atlas| json!({
+        "families":atlas.load.families,"texture_bytes":atlas.load.texture_bytes,
+        "reduced_resolution":atlas.load.reduced_resolution,"material_proxies":atlas.load.material_proxies,
+        "budget_bytes":atlas.budget.max_texture_bytes,
+    }));
     let mut bodies = Vec::new();
     let mut visuals = Vec::new();
     let mut views = Vec::new();
@@ -81,6 +86,13 @@ pub fn snapshot(world: &World) -> serde_json::Value {
                         "opacity":p.pages.flipbook.frame_opacity(row,animator.frame),"shown":p.shown.as_ref().map(|(_,at,generation)|format!("{at:?} {generation}"))}))
                 }),
                 "target": entity.get::<bevy::camera::RenderTarget>().map(|v| format!("{v:?}")),
+                "target_image": entity.get::<bevy::camera::RenderTarget>().and_then(|target| {
+                    let bevy::camera::RenderTarget::Image(target) = target else { return None; };
+                    let image = world.get_resource::<Assets<Image>>()?.get(&target.handle)?;
+                    Some(json!({"size":[image.texture_descriptor.size.width,image.texture_descriptor.size.height],
+                        "format":format!("{:?}", image.texture_descriptor.format),
+                        "render_attachment":image.texture_descriptor.usage.contains(bevy::render::render_resource::TextureUsages::RENDER_ATTACHMENT)}))
+                }),
                 "visibility": entity.get::<Visibility>().map(|v| format!("{v:?}")),
                 "inherited_visibility": entity.get::<InheritedVisibility>().map(|v| v.get()),
                 "view_visibility": entity.get::<ViewVisibility>().map(|v| v.get()),
@@ -171,6 +183,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "build": {"package": env!("CARGO_PKG_NAME"), "version": env!("CARGO_PKG_VERSION"), "revision": option_env!("AMBITION_BUILD_COMMIT")},
         "content_fingerprint": content,
         "sheet_generation": engine::sprite_sheet::baked_sheet_rons::current(&sprite_content).id(),
+        "portal_carry_load":carry_load,
         "bodies": bodies, "items": items, "visuals": visuals, "views": views, "music": music, "material_parts": material_parts, "strikes": strikes, "portal_drawables": portal_drawables})
 }
 

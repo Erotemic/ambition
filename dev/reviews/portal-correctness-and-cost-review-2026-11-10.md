@@ -11,7 +11,7 @@ model and transactional movement authority.
 | R3: material sweeps use root-AABB penetration repair | Fixed in `5f07fbb17`. Movement, rest repair, initial support, line settling and platform support use admitted material. |
 | R4: independent bodies share one capture root and depth | Fixed in `ae8f2b07a`. Each drawable family keeps its root, capture and depth order. |
 | R5: movement and lookup costs need measurement | Open. Measure portal-free gameplay, body-to-visual lookup and repeated room-link construction. |
-| R6: capture density and capacity are fixed | Open. Measure viewport and capture costs before changing resource policy. |
+| R6: capture density and capacity are fixed | Fixed in `1d551594b`. Density follows the viewport; a byte budget reduces resolution and then selects material proxies. Device performance remains unmeasured. |
 | R7: a failed limb correction can retain the proposed pose | Fixed in `482dcfc5b`; prefix admission is fixed in `670e4683c`. Sweep and admit the proposal against physical room solids before one commit. Refusal retains the accepted pose and hold. |
 | R8: straddler lookup searches other rooms | Fixed in `b499e5090`. Publication resolves the link in the owning room. |
 
@@ -136,3 +136,35 @@ their default features. Evidence is `target/portal-r4-r8-warnings.log`.
 After the upstream day-clock save merge, the assembled app check and all four
 schema guards pass with schema v443. Evidence is
 `target/portal-r4-r8-merged-gates.json` and its check and schema logs.
+
+R6 fix: `1d551594b`. Each family keeps its full world bounds while target
+resolution follows viewport density. Retained RGBA targets share a 32 MiB
+default budget. Targets retire when idle, including hidden material bindings.
+All admitted families render; there is no 16-family cutoff. Storage pressure
+first reduces pixel resolution, then uses clipped canonical material proxies.
+The proxy retains physical scale and reflection, with less visual detail.
+Do not reduce geometry admission or omit a family to meet a texture budget.
+
+The guards cover viewport and zoom changes, idle release, twenty independent
+families, zero target bytes and persistent reflected material. Validation passes
+985 owner cases, 35 portal app cases, 35 policy cases and seven capture-tool
+cases. The assembled app check and capture-tool build pass. Evidence is
+`target/portal-r6-gates.json`. The standalone debug-drawing fixture now creates
+its required geometry observation resource in `ab5de0ba4`.
+
+The before/after llvmpipe films each have 80 frames. At 1280 by 720, peak
+retained target storage falls from 64 MiB to 2.3125 MiB. At 540 by 960 it falls
+from 16 MiB to 0.578125 MiB. Idle target storage falls from 32 and 8 MiB to
+zero. A zero-byte run renders material proxies with no capture targets.
+Matched-tick player and item states are equal: 73 ticks before/after, 78 ticks
+across viewport sizes and 78 ticks with proxies. Partial and cleared crossings
+were inspected. Evidence is `target/portal-r6-before/resources.json`,
+`target/portal-r6-after/resources.json` and
+`target/portal-r6-after/physics-comparison.json`. These are software-renderer
+resource measurements, not hardware GPU, Android or frame-time measurements.
+R5 and full PSIM acceptance remain open.
+
+After upstream room-rollback merge `dfdfa5f3b`, all four schema guards pass
+with v445. The app, portal presentation and renderer all-target warning check
+passes under default features. Evidence is `target/portal-r6-merged-gates.json`
+and its warning and schema logs. Non-default feature-only code is not covered.

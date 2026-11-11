@@ -37,21 +37,9 @@ pub const RETIRED_ROOM_RENDER_LAYER: usize = 7;
 /// Only those cameras draw it; the field's quad stands far from any world.
 pub const ROOM_FRONT_FIELD_LAYER: usize = 8;
 
-/// Base of the render-layer band of the portal carry cameras: a drawable that
-/// goes through a portal pair is drawn, while it does, on the layer of one
-/// carry camera only, which draws it into a texture that the pair cuts
-/// (`ambition_portal2d_presentation::carry`). Layers 9 to 24: under the
-/// twin-track demo's own layers (26 to 30).
-pub const PORTAL_CARRY_LAYER_BASE: usize = 9;
-/// How many pairs can carry at once: the carry band's size.
-pub const PORTAL_CARRY_LAYERS: usize = 16;
-
-/// Base of the render-layer band reserved for isolated local-view projections.
-///
-/// Lower ranges are reserved for world/HUD/parallax/portal/overlay layers. The
-/// even slots hold local views and odd slots hold menu scenes. Both namespaces
-/// grow with their own dense ordinals; neither has a fixed semantic limit.
-pub const LOCAL_VIEW_RENDER_LAYER_BASE: usize = 1024;
+/// Base of the private camera namespace. Each ordinal has a local view,
+/// a menu view and a portal carry view. These namespaces do not overlap.
+pub const PRIVATE_VIEW_RENDER_LAYER_BASE: usize = 1024;
 
 /// Base of the render-layer band for live rooms. While two or more rooms are
 /// live, an entity stamped into a live room draws on its room's layer instead
@@ -119,12 +107,27 @@ pub fn live_room_band(
 /// Callers sort views by id and pass the dense ordinal so render-layer allocation
 /// remains private to presentation.
 pub fn local_view_render_layer(ordinal: usize) -> usize {
-    LOCAL_VIEW_RENDER_LAYER_BASE + 2 * ordinal
+    PRIVATE_VIEW_RENDER_LAYER_BASE + 3 * ordinal
 }
 
 /// Render layer for a menu scene ordinal, separate from all local-view slots.
 pub fn menu_scene_render_layer(ordinal: usize) -> usize {
-    LOCAL_VIEW_RENDER_LAYER_BASE + 2 * ordinal + 1
+    PRIVATE_VIEW_RENDER_LAYER_BASE + 3 * ordinal + 1
+}
+
+/// Render layer for one drawable family's private portal capture.
+pub fn portal_carry_render_layer(ordinal: usize) -> usize {
+    PRIVATE_VIEW_RENDER_LAYER_BASE + 3 * ordinal + 2
+}
+
+/// The layer belongs to a local gameplay view rather than a menu or capture.
+pub fn is_local_view_render_layer(layer: usize) -> bool {
+    layer >= PRIVATE_VIEW_RENDER_LAYER_BASE && (layer - PRIVATE_VIEW_RENDER_LAYER_BASE) % 3 == 0
+}
+
+/// The layer belongs to a portal carry rather than a local or menu view.
+pub fn is_portal_carry_render_layer(layer: usize) -> bool {
+    layer >= PRIVATE_VIEW_RENDER_LAYER_BASE && (layer - PRIVATE_VIEW_RENDER_LAYER_BASE) % 3 == 2
 }
 
 /// Marks a gameplay camera for one local view; this marker is not a singleton.

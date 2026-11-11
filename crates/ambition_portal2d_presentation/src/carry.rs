@@ -49,7 +49,7 @@ use bevy::render::render_resource::TextureFormat;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    PORTAL_CARRY_LAYER_BASE, PORTAL_CARRY_LAYERS, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
+    portal_carry_render_layer, LIVE_ROOM_RENDER_LAYER_BASE, LIVE_ROOM_RENDER_LAYER_LAST,
 };
 
 use ae::frame::thread::{partition, partition_reaching, PieceBudget, PortalLink, VolumePiece};
@@ -88,21 +88,46 @@ pub struct PortalCarryCamera {
     pub slot: usize,
 }
 
-/// The carry cameras and their textures. Made when a live room first has a
-/// portal. Sources keep their world layers until the capture is ready.
+/// Carry cameras and optional capture targets. Idle slots retain no target.
+/// Sources keep their world layers until captured or proxy pieces are ready.
 #[derive(Resource, Default)]
 pub struct PortalCarryAtlas {
     slots: Vec<CarrySlot>,
-    /// Texels on each side of a slot's texture.
-    side: u32,
-    /// World units on each side of what a slot's camera sees.
-    span: f32,
+    /// Limits for capture targets. The material proxy needs no capture target.
+    pub budget: PortalCarryBudget,
+    /// Current allocation and quality reductions.
+    pub load: PortalCarryLoad,
+    placeholder: Option<Handle<Image>>,
+    warned_fallback: bool,
+}
+
+/// Capture-target storage is independent of source art and gameplay limits.
+#[derive(Clone, Copy, Debug)]
+pub struct PortalCarryBudget {
+    /// Retained RGBA targets. In-flight GPU copies and source art are separate.
+    pub max_texture_bytes: u64,
+}
+
+impl Default for PortalCarryBudget {
+    fn default() -> Self { Self { max_texture_bytes: 32 * 1024 * 1024 } }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PortalCarryLoad {
+    pub families: usize,
+    pub texture_bytes: u64,
+    pub reduced_resolution: usize,
+    pub material_proxies: usize,
 }
 
 struct CarrySlot {
     camera: Entity,
-    image: Handle<Image>,
+    image: Option<Handle<Image>>,
+    side: u32,
 }
+
+mod resources;
+use resources::{capture_plan, replace_target, retire_target};
 
 /// Whether the pairs carry what goes through them. On by default; off draws
 /// each drawable whole on its side of a pair, to compare against (a
@@ -125,6 +150,7 @@ const WARM_SLOTS: usize = 2;
 const WARM_QUADS: usize = 10;
 /// The largest texture side of a carry, in texels.
 const MAX_SIDE: u32 = 2048;
+const MIN_SIDE: u32 = 64;
 /// The camera order of the carries: after the impostor cameras (a carried
 /// part-drawn body draws its composited cell) and before every window's
 /// capture and view (they draw the carried pieces).
@@ -254,7 +280,7 @@ pub struct CarryCameras<'w, 's> {
     carry: Query<
         'w,
         's,
-        (&'static PortalCarryCamera, &'static mut Camera, &'static mut Transform, &'static mut Projection),
+        (&'static PortalCarryCamera, &'static mut Camera, &'static mut Transform, &'static mut Projection, &'static mut RenderTarget),
         Without<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
     >,
 }
@@ -330,21 +356,13 @@ pub fn carry_through_pairs(
         // carried.
         return;
     };
-    // The cameras and their textures, made before the first need.
+    let density = if any_portal {
+        screen_density(&cameras.main).map_or(1.0, |(density,_)| density).clamp(0.05, f32::MAX)
+    } else { 1.0 };
     if any_portal && atlas.slots.is_empty() {
-        if let Some((density, physical)) = screen_density(&cameras.main) {
-            let side = physical.max_element().next_power_of_two().clamp(256, MAX_SIDE);
-            atlas.side = side;
-            atlas.span = side as f32 / density.max(0.05);
-            for slot in 0..WARM_SLOTS {
-                let made = spawn_slot(&mut commands, images, slot, side, atlas.span);
-                atlas.slots.push(made);
-            }
-            // The quads too: a quad made on the frame of its first piece was
-            // not drawn on that frame.
-            pool.0.warm(&mut commands, materials, meshes, WARM_QUADS, PortalBodyPiece);
-            pool.0.begin(|_| true);
-        }
+        for slot in 0..WARM_SLOTS { atlas.slots.push(spawn_slot(&mut commands, slot)); }
+        pool.0.warm(&mut commands, materials, meshes, WARM_QUADS, PortalBodyPiece);
+        pool.0.begin(|_| true);
     }
     let convention = tuning.as_deref().map(|tuning| tuning.convention.map_convention()).unwrap_or_default();
 
@@ -470,28 +488,45 @@ pub fn carry_through_pairs(
     // Independent roots keep their source depth order within the exit band.
     carries.sort_by(|a,b| a.room.cmp(&b.room).then(a.z.total_cmp(&b.z))
         .then(a.drawables[0].cmp(&b.drawables[0])));
-    let depths: Vec<_> = carries.iter().take(PORTAL_CARRY_LAYERS).map(|carry| (carry.room, carry.z)).collect();
+    let depths: Vec<_> = carries.iter().map(|carry| (carry.room, carry.z)).collect();
+    let requested: Vec<_> = carries.iter().map(|carry| {
+        let span = (carry.max - carry.min).max_element().max(1.0) + 4.0 / density;
+        let wanted = (span * density).ceil();
+        let side = (wanted.clamp(1.0, MAX_SIDE as f32) as u32).next_power_of_two().max(MIN_SIDE);
+        (span, side, wanted)
+    }).collect();
+    let sides = capture_plan(&requested.iter().map(|(_,side,_)| *side).collect::<Vec<_>>(), atlas.budget.max_texture_bytes);
+    atlas.load = PortalCarryLoad { families: carries.len(),
+        reduced_resolution: sides.iter().zip(&requested).filter(|(side,(_,_,wanted))| **side > 0 && (**side as f32) < *wanted).count(),
+        material_proxies: sides.iter().filter(|side| **side == 0).count(), ..Default::default() };
+    if atlas.load.material_proxies > 0 && !atlas.warned_fallback {
+        bevy::log::warn!(families=atlas.load.material_proxies, "portal capture storage exhausted; draw admitted material proxies");
+        atlas.warned_fallback = true;
+    }
     // Each carry: its slot, its camera, its members' layers, its pieces.
     let mut used = vec![false; atlas.slots.len()];
     let fresh_quads_before = pool.0.made();
-    for carry in carries.iter_mut().take(PORTAL_CARRY_LAYERS) {
+    for (carry_index, carry) in carries.iter_mut().enumerate() {
         let room_depths = depths.iter().filter(|(room,_)| *room == carry.room);
         let count = room_depths.clone().count();
         let below = room_depths.filter(|(_,z)| *z < carry.z).count();
         let exit_z = crate::PORTAL_EXIT_COPY_Z + (crate::PORTAL_WINDOW_Z - crate::PORTAL_EXIT_COPY_Z)
             * (below + 1) as f32 / (count + 1) as f32;
-        let slot = match used.iter().position(|taken| !taken) {
-            Some(slot) => slot,
-            None => {
-                let slot = atlas.slots.len();
-                let (side, span) = (atlas.side, atlas.span);
-                let made = spawn_slot(&mut commands, images, slot, side, span);
-                atlas.slots.push(made);
-                used.push(false);
-                slot
-            }
-        };
-        used[slot] = true;
+        let span = requested[carry_index].0;
+        let capture = if sides[carry_index] > 0 {
+            let slot = match used.iter().position(|taken| !taken) {
+                Some(slot) => slot,
+                None => {
+                    let slot = atlas.slots.len();
+                    atlas.slots.push(spawn_slot(&mut commands, slot));
+                    used.push(false);
+                    slot
+                }
+            };
+            used[slot] = true;
+            let image = replace_target(&mut atlas.slots[slot], sides[carry_index], images, materials, &mut pool.0);
+            Some((slot, image))
+        } else { None };
         let Some(room_links) = links_by_room.get(&Some(carry.room)) else { continue; };
         let links = match carry.reach {
             Some(depth) => {
@@ -502,26 +537,19 @@ pub fn carry_through_pairs(
             None => std::borrow::Cow::Borrowed(room_links.as_slice()),
         };
         let budget = carry.budget;
-        // What the camera sees: a square of the slot's span about what is
-        // carried (larger than the span is cut at its edge).
         let centre = (carry.min + carry.max) * 0.5;
-        let span = atlas.span;
         let half = Vec2::splat(span * 0.5);
         let render_centre = carry.frame.to_render(centre, 0.0);
-        let layer = PORTAL_CARRY_LAYER_BASE + slot;
-        if let Ok((_, mut camera, mut transform, mut projection)) = cameras.carry.get_mut(atlas.slots[slot].camera) {
-            camera.is_active = true;
-            *transform = Transform::from_translation(render_centre);
-            if let Projection::Orthographic(ortho) = &mut *projection {
-                let fixed = matches!(ortho.scaling_mode, ScalingMode::Fixed { width, height } if width == span && height == span);
-                if !fixed {
+        let layer = capture.as_ref().map(|(slot,_)| portal_carry_render_layer(*slot));
+        if let Some((slot,image)) = &capture {
+            if let Ok((_, mut camera, mut transform, mut projection, mut target)) = cameras.carry.get_mut(atlas.slots[*slot].camera) {
+                camera.is_active = true;
+                *target = RenderTarget::Image(ImageRenderTarget::from(image.clone()));
+                *transform = Transform::from_translation(render_centre);
+                if let Projection::Orthographic(ortho) = &mut *projection {
                     ortho.scaling_mode = ScalingMode::Fixed { width: span, height: span };
                 }
-            }
-        } else {
-            // A new camera is deferred. Keep the source on its world layers
-            // until the capture can run.
-            continue;
+            } else { continue; }
         }
         // The members and their families.
         let mut members: Vec<Entity> = Vec::new();
@@ -550,33 +578,47 @@ pub fn carry_through_pairs(
             (hi.x - (centre.x - half.x)) / span,
             (hi.y - (centre.y - half.y)) / span,
         );
-        let corners = vec![lo, Vec2::new(hi.x, lo.y), hi, Vec2::new(lo.x, hi.y)];
+        let proxy = capture.is_none();
+        let (source_map, source_middle, source_size, canonical_proxy) = if proxy {
+            match bodies.get(carry.drawables[0]) {
+                Ok((_, view, _, None)) => match view.material.at(view.pos) {
+                    Ok(map) => (map, Vec2::ZERO, view.canonical_size, true),
+                    Err(_) => continue,
+                },
+                _ => (ae::frame::Sim2::IDENTITY, middle, size, false),
+            }
+        } else { (ae::frame::Sim2::IDENTITY, middle, size, false) };
+        let domain = if canonical_proxy {
+            ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, source_size * 0.5))
+        } else {
+            ae::CombatVolume::convex(vec![lo, Vec2::new(hi.x,lo.y), hi, Vec2::new(lo.x,hi.y)])
+        };
+        let material = ae::frame::thread::MaterialPrimitive { domain: &domain, to_world: source_map };
         let first = links.iter().find(|link| link.key == carry.link).map(|link| link.key);
         let cut = if carry.reaching {
-            partition_reaching(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), carry.root, &links, first, budget, convention)
+            partition_reaching(material, carry.root, &links, first, budget, convention)
         } else {
-            partition(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), carry.root, &links, first, budget, convention)
+            partition(material, carry.root, &links, first, budget, convention)
         };
         let Ok(cut) = cut else { continue; };
         let through = cut.iter().any(VolumePiece::is_carried);
-        let image = atlas.slots[slot].image.clone();
+        let image = match &capture {
+            Some((_,image)) => image.clone(),
+            None => atlas.placeholder.get_or_insert_with(|| resources::placeholder(images)).clone(),
+        };
+        let uv = if proxy { Vec4::new(0.0,0.0,1.0,1.0) } else { uv };
         for piece in &cut {
             let bounds = piece.active_bounds();
             let planes: Vec<Vec4> = bounds.iter().map(|plane| clip_plane_render(&carry.frame, plane.point, plane.inward)).collect();
-            let (base, flip, name) = if piece.is_carried() {
-                let Ok(path_map) = piece.path_transform() else { continue; };
-                let copy = ambition_portal2d::copy_transform_of(&path_map);
-                let Ok(mapped_middle) = piece.carry(middle) else { continue; };
-                let base = Transform {
-                    translation: carry.frame.to_render(mapped_middle, exit_z),
-                    rotation: Quat::from_rotation_z(copy.rolled(0.0)),
-                    scale: Vec3::splat(copy.scale),
-                };
-                (base, copy.flip_x, "Portal carry piece (through)")
-            } else {
-                (Transform::from_translation(carry.frame.to_render(middle, carry.z)), false, "Portal carry piece (here)")
-            };
-            let pose = clip_piece_transform(&base, Vec2::ZERO, size);
+            let map = piece.transform();
+            let copy = ambition_portal2d::copy_transform_of(&map);
+            let Ok(mapped_middle) = map.point(source_middle) else { continue; };
+            let depth = if piece.is_carried() { exit_z } else { carry.z };
+            let base = Transform { translation: carry.frame.to_render(mapped_middle, depth),
+                rotation: Quat::from_rotation_z(copy.rolled(0.0)), scale: Vec3::splat(copy.scale) };
+            let flip = copy.flip_x;
+            let name = if piece.is_carried() { "Portal carry piece (through)" } else { "Portal carry piece (here)" };
+            let pose = clip_piece_transform(&base, Vec2::ZERO, source_size);
             pool.0.draw(
                 &mut commands,
                 materials,
@@ -603,10 +645,13 @@ pub fn carry_through_pairs(
             if !on_the_world(own) {
                 continue;
             }
-            let carry_layers = match (handoff, own) {
-                (true, Some(own)) => own.clone().with(layer),
-                (true, None) => RenderLayers::layer(0).with(layer),
-                (false, _) => RenderLayers::layer(layer),
+            let carry_layers = match (handoff, own, layer) {
+                (true, Some(own), Some(layer)) => own.clone().with(layer),
+                (true, None, Some(layer)) => RenderLayers::layer(0).with(layer),
+                (true, Some(own), None) => own.clone(),
+                (true, None, None) => RenderLayers::default(),
+                (false, _, Some(layer)) => RenderLayers::from_layers(&[layer]),
+                (false, _, None) => RenderLayers::none(),
             };
             match families.layers.get_mut(*member) {
                 Ok(mut current) => *current = carry_layers.clone(),
@@ -644,16 +689,19 @@ pub fn carry_through_pairs(
             );
         }
     }
-    // The cameras with nothing to carry rest.
     for (slot, taken) in used.iter().enumerate() {
         if !taken {
-            if let Ok((_, mut camera, ..)) = cameras.carry.get_mut(atlas.slots[slot].camera) {
-                if camera.is_active {
-                    camera.is_active = false;
-                }
+            retire_target(&mut atlas.slots[slot], images, materials, &mut pool.0);
+            if let Ok((_, mut camera, _, _, mut target)) = cameras.carry.get_mut(atlas.slots[slot].camera) {
+                camera.is_active = false;
+                *target = RenderTarget::Image(ImageRenderTarget::from(Handle::<Image>::default()));
             }
         }
     }
+    let keep = used.iter().rposition(|taken| *taken).map_or(WARM_SLOTS, |slot| (slot + 1).max(WARM_SLOTS));
+    let keep = keep.min(atlas.slots.len());
+    for slot in atlas.slots.drain(keep..) { commands.entity(slot.camera).despawn(); }
+    atlas.load.texture_bytes = atlas.slots.iter().map(|slot| u64::from(slot.side).pow(2) * 4).sum();
     for entity in &families.were_carried {
         if !carried_now.contains(&entity) {
             commands.entity(entity).remove::<PortalCarried>();
@@ -662,42 +710,17 @@ pub fn carry_through_pairs(
     pool.0.end(&mut commands);
 }
 
-/// One carry slot: a texture `side` texels square and a camera that draws
-/// carry layer `slot` into it, `span` world units square.
-fn spawn_slot(commands: &mut Commands, images: &mut Assets<Image>, slot: usize, side: u32, span: f32) -> CarrySlot {
-    // The camera clears the target. CPU pixels would spend the upload budget
-    // and defer the changed clip meshes on the frame a new slot opens.
-    let mut target = Image::new_uninit(
-        bevy::render::render_resource::Extent3d { width: side, height: side, depth_or_array_layers: 1 },
-        bevy::render::render_resource::TextureDimension::D2,
-        TextureFormat::Rgba8UnormSrgb,
-        bevy::asset::RenderAssetUsages::default(),
-    );
-    target.texture_descriptor.usage |= bevy::render::render_resource::TextureUsages::RENDER_ATTACHMENT;
-    let image = images.add(target);
-    let camera = commands
-        .spawn((
-            Camera2d,
-            Camera {
-                order: CARRY_CAMERA_ORDER - slot as isize,
-                is_active: false,
-                // A transparent clear: the texture holds what is carried and
-                // nothing else, its colour premultiplied by its cover.
-                clear_color: ClearColorConfig::Custom(Color::NONE),
-                ..default()
-            },
-            bevy::render::view::Msaa::Off,
-            RenderTarget::Image(ImageRenderTarget::from(image.clone())),
-            RenderLayers::layer(PORTAL_CARRY_LAYER_BASE + slot),
-            Projection::Orthographic(OrthographicProjection {
-                scaling_mode: ScalingMode::Fixed { width: span, height: span },
-                ..OrthographicProjection::default_2d()
-            }),
-            PortalCarryCamera { slot },
-            Name::new(format!("Portal carry camera {slot}")),
-        ))
-        .id();
-    CarrySlot { camera, image }
+/// Prewarm the camera. Allocate its texture only when a family needs it.
+fn spawn_slot(commands: &mut Commands, slot: usize) -> CarrySlot {
+    let camera = commands.spawn((Camera2d, Camera {
+        order: CARRY_CAMERA_ORDER - slot as isize, is_active: false,
+        clear_color: ClearColorConfig::Custom(Color::NONE), ..default()
+    }, bevy::render::view::Msaa::Off,
+        RenderTarget::Image(ImageRenderTarget::from(Handle::<Image>::default())),
+        RenderLayers::from_layers(&[portal_carry_render_layer(slot)]),
+        Projection::Orthographic(OrthographicProjection::default_2d()),
+        PortalCarryCamera { slot }, Name::new(format!("Portal carry camera {slot}")))).id();
+    CarrySlot { camera, image: None, side: 0 }
 }
 
 /// The carry's clipped quads, kept from frame to frame.

@@ -172,6 +172,17 @@ impl ClipQuadPool {
         }
     }
 
+    /// Release bindings to a retired capture, including hidden pooled pieces.
+    pub(crate) fn forget_image(&mut self, image: &Handle<Image>, materials: &mut Assets<PortalClipMaterial>) {
+        for slot in &self.slots {
+            if materials.get(&slot.material).is_some_and(|material| material.color_texture == *image) {
+                if let Some(mut material) = materials.get_mut(&slot.material) {
+                    material.color_texture = Handle::default();
+                }
+            }
+        }
+    }
+
     pub fn end(&mut self, commands: &mut Commands) {
         for slot in &self.slots[self.used..] {
             commands.entity(slot.entity).insert(Visibility::Hidden);

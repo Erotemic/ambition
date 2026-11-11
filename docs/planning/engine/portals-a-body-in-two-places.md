@@ -548,17 +548,21 @@ cutter, its fallback copy and `PortalTransitHidden` are deleted.
   a swing, from its body). No kind opts in.
 - A drawable drawn as part of another (`PortalDrawnWith`: a rigged body's
   parts, the over twin) and each child go with that one.
-- Resolve each body's geometry budget before batching. Members share a carry
-  only when their budgets and cut rules agree. Other drawables keep the room's
-  budget. A host picture carried by a limb keeps that limb's restricted reach.
-- **Drawing is by geometry.** Each pair that carries has a capture camera
-  (layer `PORTAL_CARRY_LAYER_BASE` + slot). Its drawables are on that layer
-  only for the frame (given back in `First`). The texture is drawn back cut
-  by `frame::thread::partition`: in front of the entry where it is, the
-  rest out of the exit. Two slots (side = the view's largest side, rounded
-  up to a power of two, 256 to 2048) and ten quads are made when a live
-  room first has a portal. The source keeps its world layers until its camera
-  can capture it and its pieces are ready.
+- Each explicit drawable family keeps its own root, geometry budget, capture
+  and drawing depth. Independent bodies do not share a blended capture.
+  A host picture carried by a limb keeps that limb's restricted reach.
+- **Drawing is by geometry.** Each family has a private camera layer from
+  `portal_carry_render_layer`. Sources return to their original layers in
+  `First`. The texture is cut by `frame::thread::partition`: the front part
+  stays at the entry, and the remainder comes out of the exit. Body pictures
+  follow physical material occupancy before centre transit.
+- Two cameras and ten quads are prepared when a live room first has a portal.
+  Targets allocate on demand, follow viewport density and cover the family's
+  full world bounds. A shared 32 MiB default target budget first reduces pixel
+  resolution, then uses clipped canonical material proxies. All admitted
+  families render, including those beyond sixteen. Proxies retain scale and
+  reflection with less visual detail. Idle targets retire. The source keeps
+  its world layers until its captured or proxy pieces are ready.
 - ⛔ It runs in `PostUpdate` before the assets' events, the cameras and the
   propagation, so it reads a drawable's `Transform`, and computes a
   sprite's bounds itself (its `Aabb` is computed later: one frame old, and

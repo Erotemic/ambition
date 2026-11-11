@@ -1141,5 +1141,10 @@ contact after chart cancellation, and a wall before a refused portal path.
 After the upstream merge, the assembled app check, all 15 projectile app
 cases and three GNU-ton punch cases pass. The punch cases include rewind.
 See the [review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md).
-R3, R4, R5, R6 and R8 remain open. The material repair draft is separate
-from main. Full PSIM acceptance remains open.
+R3, R4, R5, R6 and R8 remain open. Material repair draft `4ea13076a` is
+published separately from main. The H slice, reverse transit, rewind,
+rendering, floor bounce and camera continuity pass in its 35-case app lane.
+The last support change passes all 877 existing core cases. A new ground-line
+host guard fails because line settling still uses the full source line.
+Do not merge the draft until line support and the final gates pass.
+Full PSIM acceptance remains open.

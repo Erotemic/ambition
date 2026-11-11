@@ -20,21 +20,28 @@ pub fn mirror_breakable_respawns(
     >,
     participants: Query<(Entity, &DrivingParticipant)>,
     mut schedule: SessionWorldMut<WorldTimeSchedule>,
+    // The tick each record is written on: a rewind of its room takes it
+    // back (ISL-2d).
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     for (entity, feature, breakable, timer) in &breakables {
         let Some(definition) = rooms.definition_of(entity) else {
             continue;
         };
         let room = &rooms.rooms().spec(definition).id;
+        let written = rooms.live().of(entity).zip(tick.as_deref()).map(|(room, tick)| {
+            ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
+        });
         match (breakable.broken(), timer) {
-            (true, Some(timer)) => schedule.record(
+            (true, Some(timer)) => schedule.record_from(
+                written,
                 room,
                 feature.as_str(),
                 elapsed.0 + timer.0,
                 &owners_beside(entity, rooms.live(), &participants),
             ),
             (false, _) if schedule.holds(room, feature.as_str()) => {
-                schedule.forget(room, feature.as_str())
+                schedule.forget_from(written, room, feature.as_str())
             }
             (false, _) => {}
             // Broken for good (`Never`, `OnRoomReload`): no respawn to schedule.

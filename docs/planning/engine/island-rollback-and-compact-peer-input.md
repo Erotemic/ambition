@@ -397,8 +397,21 @@ mockingbird in Alice's room killed in the window); its control shows why it
 matters beyond the record: the restored boss stays dead, because its save row
 still says `Cleared`.
 
-**Next:** `WorldTimeSchedule` (keyed by feature, one room each: the value
-replaced); the narrative bag writes; the quests and flags last, since they need the decision above.
+**The world-time schedule (2026-11-10):** for a live room it is a mirror of
+live state, republished every tick, so a replay that does not take a pickup
+forgets the window's record by itself. What it does not heal: a record keeps
+the first departure's due time, so a replay that takes the regrowing heart on
+its first tick, before the mirror forgets, kept the window's (measured: due at
+6.22 s for a heart the replay took at 1.57 s, 4 s regrowth). The two mirrors
+now write through `record_from`/`forget_from` with their room write, and the
+schedule keeps an undo log that a rewind replays newest first. The schedule is
+not cleared at a checkpoint, so the log is bounded by the rewind horizon,
+`ROOM_REWIND_HORIZON_TICKS` (600 ticks, beside `RoomWrite`): the room
+rollback host must not rewind further. Witness:
+`a_rewound_room_keeps_the_regrowth_time_of_its_replay`; unit:
+`a_rewind_puts_back_the_records_its_room_wrote_and_forgot` (and the horizon).
+
+**Next:** the narrative bag writes; the quests and flags last, since they need the decision above.
 Still open too: the room rollback host that calls `retract_room_writes`
 (today only the tests do).
 

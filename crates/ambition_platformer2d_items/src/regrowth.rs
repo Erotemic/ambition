@@ -38,6 +38,9 @@ pub fn regrow_pickups(
     participants: Query<(Entity, &DrivingParticipant)>,
     mut schedule: SessionWorldMut<WorldTimeSchedule>,
     mut commands: Commands,
+    // The tick each record is written on: a rewind of its room takes it
+    // back (ISL-2d).
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     // The sim clock, as a breakable's respawn: the regrowth freezes in
     // bullet time with everything else (ADR 0010).
@@ -47,6 +50,9 @@ pub fn regrow_pickups(
             continue;
         };
         let room = &rooms.rooms().spec(definition).id;
+        let written = rooms.live().of(entity).zip(tick.as_deref()).map(|(room, tick)| {
+            ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.0 }
+        });
         match (collected, timer) {
             (true, Some(mut timer)) => {
                 timer.0 = (timer.0 - dt).max(0.0);
@@ -54,9 +60,10 @@ pub fn regrow_pickups(
                     commands
                         .entity(entity)
                         .remove::<(Collected, RespawnTimer)>();
-                    schedule.forget(room, feature.as_str());
+                    schedule.forget_from(written, room, feature.as_str());
                 } else {
-                    schedule.record(
+                    schedule.record_from(
+                        written,
                         room,
                         feature.as_str(),
                         elapsed.0 + timer.0,
@@ -65,7 +72,7 @@ pub fn regrow_pickups(
                 }
             }
             (false, _) if schedule.holds(room, feature.as_str()) => {
-                schedule.forget(room, feature.as_str())
+                schedule.forget_from(written, room, feature.as_str())
             }
             (false, _) => {}
             // Collected for good (`Never`, `OnRoomReload`): nothing to schedule.

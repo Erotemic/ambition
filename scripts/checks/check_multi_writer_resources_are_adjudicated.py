@@ -3737,6 +3737,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
     "WorldTimeSchedule": (
         "crates/ambition_breakables/src/returns.rs",
         "crates/ambition_platformer2d_items/src/regrowth.rs",
+        "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
         "crates/ambition_world_returns/src/lifecycle.rs",
     ),
     "AbandonedCheckpointOperation": (
@@ -3821,6 +3822,12 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "replay and checkpoint horizon transitions. Runtime keeps these "
         "operations in their existing interaction and restore slots. The ledger "
         "is rollback state; its records carry deadlines and participant owners."
+        " ⭐ 2026-11-10 (ISL-2d): the fourth file is the room-write retractor "
+        "`ambition_platformer2d_runtime/src/world_schedule.rs` registers. It "
+        "calls `retract_room`, which puts back what the two mirrors' "
+        "`record_from`/`forget_from` replaced from a live room after the saved "
+        "tick, newest first: the undo of those writers, not a new source of "
+        "deadlines."
     ),
     "OccurrenceBaseline": (
         "CORRECT -- ONE WRITER PER LIFECYCLE EVENT, ON THE SESSION ROOT SINCE C03 "

@@ -24,10 +24,23 @@ pub struct RoomWrite {
     pub tick: u64,
 }
 
+/// How far back, in ticks, a room may rewind: a store that keeps its room
+/// writes for no other reason (a checkpoint does not clear it) drops the ones
+/// older than this, so the log stays bounded. The room rollback host must
+/// not rewind a room further (ten seconds at 60 Hz; a late input is a few
+/// frames).
+pub const ROOM_REWIND_HORIZON_TICKS: u64 = 600;
+
 impl RoomWrite {
     /// Whether a rewind of `room` to `saved_at` takes this record back.
     pub fn retracted_by(&self, room: LiveRoomInstance, saved_at: u64) -> bool {
         self.room == room && self.tick > saved_at
+    }
+
+    /// Whether no rewind can take this record back any longer, `now` being
+    /// the current tick ([`ROOM_REWIND_HORIZON_TICKS`]).
+    pub fn beyond_the_horizon(&self, now: u64) -> bool {
+        self.tick.saturating_add(ROOM_REWIND_HORIZON_TICKS) < now
     }
 }
 

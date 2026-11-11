@@ -797,3 +797,94 @@ fn without_the_retraction_the_boss_stays_defeated() {
     let [_, _, after_replay] = a_boss_killed_only_before_the_rewind(false);
     assert_eq!((after_replay.0, after_replay.2), (true, 1), "the defeat went without the retraction");
 }
+
+/// ISL-2d, the world-time schedule: (the regrowing heart's due time, the
+/// clock at its collection in the window, the clock at its collection in the
+/// replay). The window takes it late; the replay takes it on its first steps.
+fn a_regrowth_taken_at_another_time_in_the_replay(retract: bool) -> (Option<f32>, f32, f32) {
+    use crate::pickup_regrowth_across_rooms::{collect, HEART, HUB, ROOM as HEART_ROOM};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        HEART_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+
+    for _ in 0..40 {
+        sim.step(crate::common::base());
+    }
+    let taken_in_window = collect(&mut sim, HEART);
+    for _ in 0..5 {
+        sim.step(crate::common::base());
+    }
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    let taken_in_replay = collect(&mut sim, HEART);
+    for _ in 0..5 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let feature = heart_feature(&mut sim);
+    let due = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world_returns::WorldTimeSchedule,
+    >(sim.world())
+    .expect("the session root carries the schedule")
+    .due(HEART_ROOM, &feature);
+    sim.world_mut().insert_resource(rows);
+    (due, taken_in_window, taken_in_replay)
+}
+
+/// The authored id of the regrowing heart, the schedule's key.
+fn heart_feature(sim: &mut Platformer2dSimHarness) -> String {
+    let world = sim.world_mut();
+    world
+        .query::<(&ambition_platformer2d::combat::components::FeatureName, &ambition_platformer2d::combat::components::FeatureId)>()
+        .iter(world)
+        .find(|(name, _)| name.0.as_str() == crate::pickup_regrowth_across_rooms::HEART)
+        .map(|(_, id)| id.as_str().to_string())
+        .expect("the room authors the regrowing heart")
+}
+
+/// ISL-2d: a room that rewinds puts back the due times it wrote after the
+/// tick it was saved at. The replay takes the regrowing heart (4 s) at
+/// another time than the window did, on its first steps, before the mirror
+/// could forget the window's record; without the retraction (the control)
+/// the record keeps the window's due time, measured 2026-11-10: 6.22 s for a
+/// heart the replay took at 1.57 s.
+#[test]
+fn a_rewound_room_keeps_the_regrowth_time_of_its_replay() {
+    let (due, window, replay) = a_regrowth_taken_at_another_time_in_the_replay(true);
+    assert!(window - replay > 0.3, "premise: the replay takes the heart earlier than the window: {replay} against {window}");
+    let due = due.expect("the replay's take schedules a regrowth");
+    assert!((due - replay - 4.0).abs() < 0.1, "the regrowth is due at {due}, not 4 s after the replay's take at {replay}");
+}
+
+/// The control: without the retraction the window's due time stays. Run it
+/// beside the witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_window_s_regrowth_time_stays() {
+    let (due, window, _) = a_regrowth_taken_at_another_time_in_the_replay(false);
+    let due = due.expect("a regrowth is scheduled");
+    assert!((due - window - 4.0).abs() < 0.1, "the window's due time went without the retraction: {due} for a take at {window}");
+}

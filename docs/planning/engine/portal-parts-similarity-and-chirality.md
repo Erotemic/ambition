@@ -1365,3 +1365,12 @@ records commands and scope. General movement continuation, complete physical
 integration of other motion models, moving-target hurt CCD, guard responses,
 held-item placement/release, numeric fault identity/effects and device and
 performance gates remain open. Full PSIM acceptance remains open.
+
+
+`42fe3ccfd` also projects wall-cling and ledge-grab facing from the control
+frame into canonical material axes. Acquisition and continued hanging use
+that rule. A perpendicular request keeps the current facing. Core (885),
+actor (600), Smash (73 active) and the assembled app check pass. The
+[facing receipt](../../../dev/ambition_dev_measurements/summaries/portal-material-facing-20261111.md)
+records scope. This closes these contact-facing writes; the open physical
+integration and acceptance work listed above remains open.

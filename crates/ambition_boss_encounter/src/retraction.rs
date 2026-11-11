@@ -45,6 +45,9 @@ pub struct BossDefeatSinceCheckpoint {
     /// whose restore has since gone back past it. A death keeps a defeat that
     /// another participant owns (Q151), also after its room retired.
     pub present: Vec<ambition_characters::control::PlayerSlot>,
+    /// The tick it fell on: a rewind of `room` to before it takes the defeat
+    /// back (ISL-2d, [`BossDefeatsSinceCheckpoint::take_for_room_rewind`]).
+    pub tick: Option<u64>,
 }
 
 /// The boss placements the save recorded `Cleared` since the last committed
@@ -74,6 +77,24 @@ impl BossDefeatsSinceCheckpoint {
         if !self.defeats.is_empty() {
             self.defeats.clear();
         }
+    }
+
+    /// Take out the defeats that fell in live room `room` after the tick
+    /// `saved_at` it rewinds to (ISL-2d). The room's own: no other room's
+    /// defeat, and none from before the save.
+    pub fn take_for_room_rewind(&mut self, room: LiveRoomInstance, saved_at: u64) -> Vec<(String, BossDefeatSinceCheckpoint)> {
+        let rewound = |defeat: &BossDefeatSinceCheckpoint| {
+            defeat.room == Some(room) && defeat.tick.is_some_and(|tick| tick > saved_at)
+        };
+        let placements: Vec<String> =
+            self.defeats.iter().filter(|(_, defeat)| rewound(defeat)).map(|(placement, _)| placement.clone()).collect();
+        placements
+            .into_iter()
+            .filter_map(|placement| {
+                let defeat = self.defeats.remove(&placement)?;
+                Some((placement, defeat))
+            })
+            .collect()
     }
 
     /// Take out the defeats a replay of live room `replayed` (an instance of
@@ -343,6 +364,39 @@ pub fn retract_boss_defeats_on_replay(
     }
 }
 
+/// `room` rewinds to `saved_at` (ISL-2d): each boss that fell there after
+/// that tick did not fall. The replay's consequences, from the room-write
+/// road: its save row, looted flag and quest steps go back
+/// ([`retract_defeat_records`]), its reward chest goes, and
+/// [`BossDefeatRetracted`] lets the item domain take back its mints. The
+/// room's snapshot has already put the boss back as it stood.
+pub fn retract_boss_defeats_on_room_rewind(world: &mut bevy::prelude::World, room: LiveRoomInstance, saved_at: u64) {
+    // The plugin that registers this retractor installs the record.
+    let taken = world.resource_mut::<BossDefeatsSinceCheckpoint>().take_for_room_rewind(room, saved_at);
+    if taken.is_empty() {
+        return;
+    }
+    world.resource_scope(|world, mut save: bevy::prelude::Mut<ambition_persistence::save::AmbitionGameSave>| {
+        world.resource_scope(|_, mut quests: bevy::prelude::Mut<ambition_persistence::quest::QuestRegistry>| {
+            for (placement, _) in &taken {
+                retract_defeat_records(save.data_mut(), &mut quests, placement);
+            }
+        });
+    });
+    let chests: Vec<Entity> = world
+        .query_filtered::<(Entity, &ambition_combat::BossRewardChest), With<ambition_world_items::containers::ChestFeature>>()
+        .iter(world)
+        .filter(|(_, reward)| taken.iter().any(|(placement, _)| reward.encounter_id == *placement))
+        .map(|(chest, _)| chest)
+        .collect();
+    for chest in chests {
+        world.despawn(chest);
+    }
+    for (placement, defeat) in taken {
+        world.write_message(BossDefeatRetracted { placement, boss: defeat.boss });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -353,6 +407,7 @@ mod tests {
             definition: definition.into(),
             boss: Some(SimId::placement(&format!("boss_in_{room}"))),
             present: Vec::new(),
+            tick: None,
         }
     }
 
@@ -415,6 +470,7 @@ mod tests {
         let (alice, bob) = (PlayerSlot(0), PlayerSlot(1));
         let won_by = |room: u32, seats: &[PlayerSlot]| BossDefeatSinceCheckpoint {
             present: seats.to_vec(),
+            tick: None,
             ..defeat(room, "arena")
         };
         let mut since = BossDefeatsSinceCheckpoint::default();
@@ -451,6 +507,7 @@ mod tests {
         let (alice, bob) = (PlayerSlot(0), PlayerSlot(1));
         let won_by = |room: u32, seats: &[PlayerSlot]| BossDefeatSinceCheckpoint {
             present: seats.to_vec(),
+            tick: None,
             ..defeat(room, "arena")
         };
         let mut since = BossDefeatsSinceCheckpoint::default();

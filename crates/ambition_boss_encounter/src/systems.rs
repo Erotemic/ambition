@@ -341,6 +341,7 @@ pub fn update_boss_encounters(
                             definition: rooms.rooms().spec(definition).id.clone(),
                             boss: boss_sim_id.cloned(),
                             present,
+                            tick: sim_tick.as_deref().map(|tick| tick.0),
                         },
                     );
                 }

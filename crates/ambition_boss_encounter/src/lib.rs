@@ -150,6 +150,13 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         app.add_message::<ambition_time::time_control::ClockScaleRequest>();
         app.init_resource::<BossDefeatsSinceCheckpoint>();
         app.add_message::<BossDefeatRetracted>();
+        // A room rewound takes back the defeats it recorded after the tick it
+        // was saved at, with their consequences (ISL-2d).
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.boss_defeats_since_checkpoint",
+            crate::retraction::retract_boss_defeats_on_room_rewind,
+        );
         // A committed checkpoint makes the defeats since the last one part of
         // the baseline; a fresh run starts with none. The replay retraction
         // itself is placed by the host, in its replay chain's content slot.

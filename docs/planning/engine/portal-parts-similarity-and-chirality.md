@@ -31,7 +31,7 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 Full PSIM acceptance remains open: general remaining-time continuation,
 moving-target and carried-source projectile/hurt contact, other movement
 models, guard geometry, attachments, the bounded numeric law and fault effects,
-I's held-accessory film, and device/GPU and performance gates. Two simultaneous limbs
+and device/GPU and performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
 `99d51bc9f`. Two active fists hit separate bodies in the same tick through
@@ -41,7 +41,8 @@ Station J is live in `0f64b41bf`. Its axe crosses three pairs at quarter scale
 while a foot uses another pair. The damage, refusal and replay checks pass.
 The impact film shows the body and far foot. Walls or platforms back all J
 mouths and both K mouths. I has a Reflection prompt at the existing wall pair.
-GNU-ton's simultaneous-limb capture and I's held-accessory film remain open.
+I's held-javelin film passes two reflections in zero- and ninety-degree views
+after `04a1625b1`. GNU-ton's simultaneous-limb capture remains open.
 
 The November 10 review corrections include projectile refusals and
 dimensionless knockback in `741212079`, and proposed limb admission in
@@ -1218,3 +1219,26 @@ the windowless assembled host. It does not establish a regression or justify
 a second collision authority. The historical control and optimized/displayed
 host costs remain open. See the
 [cost receipt](../../../dev/ambition_dev_measurements/summaries/portal-free-material-cost-20261110.md).
+
+### Held accessory through two reflections — 2026-11-11
+
+`04a1625b1` fixes a held javelin tip that drew inside the source wall while its
+holder was in front. Both held-picture paths publish the holder's reach root
+and ownership. The common carry respects that owner's material budget. The
+guard checks a refused hop limit and exact near and far mesh bounds. Do not
+partition a held picture from its own centre or substitute the room budget
+for its owner's policy.
+
+Station I now has a visible held-javelin witness through two reflections,
+including full clearance and return. `db953edef` adds fixed-view camera roll
+and sprite transform evidence. Zero- and ninety-degree films match physics
+and held world transforms at 138 ticks. Before/after physics match at 136
+ticks. The item stays held at all 111 common ticks after pickup. Both root
+crossings and the clipped tip were inspected in both views.
+
+All 791 active owner cases and 35 policy cases pass. Two view probes remain
+ignored. Tool tests, tool build, app check and the default-feature all-target
+warning check pass. The app check passes after the upstream observer merge.
+See the [accessory receipt](../../../dev/ambition_dev_measurements/summaries/portal-held-accessory-20261111.md)
+for commands and limits. Full PSIM acceptance, physical attachment scale and
+release behavior, and GNU-ton's simultaneous-limb film remain open.

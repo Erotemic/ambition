@@ -63,3 +63,9 @@ clipped canonical material with its physical transform. Retire hidden material
 references with each idle target; a hidden quad can otherwise keep its image
 alive. Measure allocated image descriptors as well as active cameras: a newly
 allocated target can await a deferred camera command for one frame.
+
+A held picture can have its centre behind an entry while its holder is still
+in front. Cut its reach from the holder root and keep the holder's geometry
+budget. Facing and sprite rotation do not identify this root. Inspect the
+source-wall tip as well as the exit; a visible far-side body alone can hide
+a source-wall accessory defect.

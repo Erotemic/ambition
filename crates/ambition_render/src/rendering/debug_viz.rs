@@ -1251,6 +1251,7 @@ mod room_drawing_tests {
     fn debug_drawings_follow_visible_rooms_and_retire_without_rebuilding_their_handles() {
         let mut app = App::new();
         app.init_resource::<Assets<bevy::gizmos::GizmoAsset>>();
+        app.init_resource::<super::super::observed_geometry::ObservedGeometryFrame>();
         app.init_resource::<FeatureViewIndex>();
         app.init_resource::<CombatGeometryView>();
         app.init_resource::<ambition_sim_view::PresentedFeaturePoses>();

@@ -61,19 +61,6 @@ The three acceptance scenes below intentionally represent three different
 problems. The successful pirate scaffold and wasteland ground are comparison
 references, not things to rebuild.
 
-### Captured visual baselines
-
-These are reduced-resolution copies of the maintainer's November 11 gameplay
-screenshots, retained so a new agent can see the specific visual problems
-without recreating the original camera immediately. They are examples of the
-*current* game, not target art:
-
-| Needs improvement | Already effective |
-| --- | --- |
-| [Spectral floating platforms](figures/terrain-baseline-spectral.webp) | [Pirate scaffolding](figures/terrain-positive-scaffold.webp) |
-| [Pirate-port stairs](figures/terrain-baseline-harbor.webp) | [Red wasteland ground](figures/terrain-positive-wasteland.webp) |
-| [Cedar forest branches](figures/terrain-baseline-forest.webp) | — |
-
 ## Existing ownership and extension points
 
 | Responsibility | Existing owner | What to reuse |

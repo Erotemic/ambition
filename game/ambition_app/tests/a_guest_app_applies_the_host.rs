@@ -475,6 +475,49 @@ fn apply_healths(guest: &mut Platformer2dSimHarness, sent: &BTreeMap<SimId, i32>
         .count()
 }
 
+/// What draws a death: each body's `DeathBeat` on the host, by `SimId`. On
+/// the link: the frames since the death (a `u16`, none while it lives) and a
+/// byte for its `lived` and corpse bits. Its row length is the body's sheet,
+/// a fact of its spawn row, not of every frame.
+const BEAT_FIELD: u64 = 2 + 1;
+
+type Beat = ambition_platformer2d::combat::components::DeathBeat;
+
+fn beats(sim: &mut Platformer2dSimHarness) -> BTreeMap<SimId, (Beat, bool)> {
+    let world = sim.world_mut();
+    world
+        .query::<(&SimId, &Beat, &Health)>()
+        .iter(world)
+        .map(|(id, beat, health)| (id.clone(), (*beat, beat.visible(health.alive()))))
+        .collect()
+}
+
+/// How many bodies the guest holds whose `visible` differs from the host's in
+/// the snapshot.
+fn beats_differ(guest: &mut Platformer2dSimHarness, sent: &BTreeMap<SimId, (Beat, bool)>) -> usize {
+    let world = guest.world_mut();
+    world
+        .query::<(&SimId, &Beat, &Health)>()
+        .iter(world)
+        .filter(|(id, beat, health)| sent.get(*id).is_some_and(|(_, visible)| beat.visible(health.alive()) != *visible))
+        .count()
+}
+
+/// Write the host's beats onto the bodies the guest holds, and return how
+/// many differed in `visible` before ([`beats_differ`]) and after.
+fn apply_beats(guest: &mut Platformer2dSimHarness, sent: &BTreeMap<SimId, (Beat, bool)>) -> (usize, usize) {
+    let before = beats_differ(guest, sent);
+    let world = guest.world_mut();
+    let held: Vec<(bevy::prelude::Entity, SimId)> =
+        world.query::<(bevy::prelude::Entity, &SimId)>().iter(world).map(|(entity, id)| (entity, id.clone())).collect();
+    for (entity, id) in &held {
+        if let Some((beat, _)) = sent.get(id) {
+            world.entity_mut(*entity).insert(*beat);
+        }
+    }
+    (before, beats_differ(guest, sent))
+}
+
 /// NA-2b with a death: an enemy is spawned beside Alice on the host at frame
 /// 5 with one point of health, and her shots kill it. The guest applies each
 /// late snapshot by the general rule (build what it does not hold, remove what
@@ -485,7 +528,10 @@ fn apply_healths(guest: &mut Platformer2dSimHarness, sent: &BTreeMap<SimId, i32>
 /// The snapshot carries the defeat (each body's health, [`HEALTH_FIELD`]):
 /// it prints the frames the guest's enemy stood defeated, the frames any held
 /// body's life differed from the snapshot's after applying it, and the link
-/// bytes the field costs.
+/// bytes the field costs. It carries the death's beat too ([`BEAT_FIELD`]):
+/// it prints when the enemy stopped being drawn on the host and on the
+/// guest, and the frames any held body's `visible` differed from the host's
+/// after applying.
 #[test]
 #[ignore = "measurement: prints what a death on the host does to a guest; run with --ignored --nocapture --test-threads=1"]
 fn probe_what_a_death_on_the_host_does_to_a_guest() {
@@ -493,7 +539,8 @@ fn probe_what_a_death_on_the_host_does_to_a_guest() {
     let mut host = booted(ROOM);
     let mut guest = booted(ROOM);
     simulate_nothing(&mut guest);
-    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>, BTreeMap<SimId, i32>)> = VecDeque::new();
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>, BTreeMap<SimId, i32>, BTreeMap<SimId, (Beat, bool)>)> = VecDeque::new();
+    let (mut drawn_differed, mut drawn_differs, mut host_hidden, mut guest_hidden, mut beat_bytes) = (0, 0, None::<i32>, None::<i32>, 0u64);
     let (mut built, mut removed_built, mut removed_booted, mut unmatched_frames) = (Vec::new(), Vec::new(), Vec::new(), 0);
     let (mut life_differs, mut guest_defeated, mut health_bytes) = (0, None::<i32>, 0u64);
     let (mut enemy_id, mut entered, mut left, mut died) = (None::<SimId>, None, None, None);
@@ -551,12 +598,36 @@ fn probe_what_a_death_on_the_host_does_to_a_guest() {
         }
         let lives = healths(&mut host);
         health_bytes += lives.len() as u64 * HEALTH_FIELD;
-        in_flight.push_back((frame, rows, lives));
+        let drawn = beats(&mut host);
+        beat_bytes += drawn.len() as u64 * BEAT_FIELD;
+        if let Some((_, visible)) = enemy_id.as_ref().and_then(|id| drawn.get(id)) {
+            if !visible && died.is_some() {
+                host_hidden.get_or_insert(frame);
+            }
+        }
+        in_flight.push_back((frame, rows, lives, drawn));
         if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
-            let (_, rows, lives) = in_flight.pop_front().expect("a snapshot arrived");
+            let (_, rows, lives, drawn) = in_flight.pop_front().expect("a snapshot arrived");
             let done = apply_all(&mut guest, &rows);
             if apply_healths(&mut guest, &lives) > 0 {
                 life_differs += 1;
+            }
+            let (before, after) = apply_beats(&mut guest, &drawn);
+            if before > 0 {
+                drawn_differed += 1;
+            }
+            if after > 0 {
+                drawn_differs += 1;
+            }
+            if let Some(id) = &enemy_id {
+                let world = guest.world_mut();
+                let hidden = world
+                    .query::<(&SimId, &Beat, &Health)>()
+                    .iter(world)
+                    .any(|(held, beat, health)| held == id && !health.alive() && !beat.visible(health.alive()));
+                if hidden {
+                    guest_hidden.get_or_insert(frame);
+                }
             }
             if let Some(id) = &enemy_id {
                 let world = guest.world_mut();
@@ -593,6 +664,10 @@ fn probe_what_a_death_on_the_host_does_to_a_guest() {
     println!(
         "[death]   with the defeat in the row: the guest's enemy defeated from frame {guest_defeated:?}; frames a held body's life differs after applying {life_differs}; the field costs {:.2} link bytes a frame",
         health_bytes as f64 / FRAMES as f64
+    );
+    println!(
+        "[death]   with the beat in the row: the enemy stopped being drawn on the host from frame {host_hidden:?}, on the guest from frame {guest_hidden:?}; frames a held body's `visible` differs from the host's before applying (the guest's own beat) {drawn_differed} and after {drawn_differs}; the field costs {:.2} link bytes a frame",
+        beat_bytes as f64 / FRAMES as f64
     );
     let world = host.world_mut();
     let last = world

@@ -243,6 +243,35 @@ under the old line of fire, so the earlier run's kill no longer happened.
   off, so a guest that should draw the death needs the beat's state in the
   row too (its phase and time), or a presentation that reads health.
 
+**The death beat in the body row (2026-11-11),** the same probe: each
+snapshot also carries every body's `DeathBeat` by `SimId` (on the link, the
+frames since its death as a `u16` and a byte for its `lived` and corpse
+bits, 3 bytes; its row length is the body's sheet, a fact of its spawn row),
+and the guest writes it onto the body it holds. The probe compares the
+`visible` the view reads (`view_index`: a dead body is drawn only as its
+beat says) on the guest, before and after applying, with the host's in the
+snapshot.
+
+| Host stops drawing the enemy | Guest stops | Frames `visible` differs before applying | After applying | The field a frame |
+|---|---|---|---|---|
+| never (Ambition's corpse rule is `Stay`) | never | 1 | 0 | 5.95 bytes (three bodies) |
+
+- **Without the beat a guest never draws a dead body.** The one frame that
+  differed before applying is the snapshot that brought the death: the
+  guest's own beat had no `since_s`, and `visible(false)` is false without
+  one. Nothing on the guest would ever set it: `advance_death_beats` runs in
+  the gated simulation. With the beat applied the guest draws the corpse
+  exactly as the host does.
+- **In a `Stay` game the beat only says "dead since"; in a `Vanish` game it
+  times the blink.** This probe's room states `Stay`, so the blink is not
+  witnessed here; the frames since death are what time it, and they are in
+  the row.
+- **The kill's shake and hold do not travel with it.** `advance_death_beats`
+  starts the kill's camera shake and its room's hold on the tick a beat
+  first gets `since_s`. A guest that only applies the field draws the
+  corpse but not that beat; a presentation event (the kill, by `SimId`)
+  would carry it.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -253,9 +282,11 @@ under the old line of fire, so the earlier run's kill no longer happened.
    change: the killed enemy's body stays in the host's world, so the body
    row must carry the defeat. The defeat in the row (2026-11-11): health by
    `SimId`, 2 bytes a body; the guest's enemy is defeated one snapshot after
-   the host's, with no disagreement. Next: the death beat's state in the row
-   (what draws the death); a guest composed without the simulation plugins;
-   other kinds' spawn rows; send only the guest's room.
+   the host's, with no disagreement. The death beat in the row (2026-11-11):
+   3 bytes a body; the guest draws the corpse as the host does (without it,
+   never), but not the kill's shake and hold. Next: a guest composed without
+   the simulation plugins; other kinds' spawn rows; send only the guest's
+   room; the kill as a presentation event.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

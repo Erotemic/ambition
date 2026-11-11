@@ -711,7 +711,7 @@ pub fn step_projectiles(
     // one reason — rebuilding a boss's hurt geometry to answer "does this shot
     // reach it" — and the answer comes from the published volumes now. The
     // projectile stepper no longer needs to know what a boss IS.
-    (owner_combat, visual_catalog, mut outcome_fx, boss_guards, mut blasts): (
+    (owner_combat, visual_catalog, mut outcome_fx, boss_guards, mut blasts, freeze): (
         Query<(
             &ActorFaction,
             Option<&ActorAggression>,
@@ -725,6 +725,8 @@ pub fn step_projectiles(
         // fields and decides the damage; the shot reads them for its look.
         Query<(&BossConfig, &ambition_boss_encounter::BossEncounter)>,
         ambition_combat::damage_box::DamageBoxSpawner,
+        // A connect's room holds its shots too (ISL-1b).
+        ambition_combat::impact_hitstop::RoomFreeze,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -787,6 +789,7 @@ pub fn step_projectiles(
         // is not live is not stepped.
         let shot_room = collision.shot_room(proj_entity, owner_entity);
         let friendly_fire = tuning.in_room(shot_room).map(|t| t.damage_policy()).unwrap_or_default();
+        let dt = dt * freeze.scale_in(shot_room);
         let room_index = match composed.iter().position(|(room, _)| *room == shot_room) {
             Some(index) => index,
             None => {

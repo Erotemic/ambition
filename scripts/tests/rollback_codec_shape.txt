@@ -3,7 +3,7 @@ crates/ambition_boss_encounter/src/clusters.rs	6	4217686b74db8d3d
 crates/ambition_boss_encounter/src/conduct.rs	2	335fa17331478011
 crates/ambition_characters/src/snapshot_impls.rs	385	468ea736d7f89210
 crates/ambition_combat/src/extension.rs	4	a6f9c44535332e26
-crates/ambition_combat/src/rollback_registration.rs	47	6ce4cbd9abc94d6f
+crates/ambition_combat/src/rollback_registration.rs	50	01e44d5af0ae4be5
 crates/ambition_combat/src/snapshot_impls.rs	91	da05457754f4843c
 crates/ambition_cutscene/src/lib.rs	37	22979ceed6e33108
 crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd

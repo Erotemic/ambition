@@ -258,8 +258,9 @@ pub fn tick_actor_brains(
     // never adopted it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     // The live room each actor is in: it perceives that room's walls, bodies
-    // and shots and no other live room's (OW1 cuts 3d and 4).
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // and shots and no other live room's (OW1 cuts 3d and 4). And its pace: a
+    // connect's room holds its brains too (ISL-1b).
+    rooms: ambition_combat::impact_hitstop::RoomFreeze,
     // Cross-body liveness/crowding was observed in the preceding phase. The
     // decision loop reads the resulting values and does not rescan the actor
     // population itself.
@@ -453,6 +454,7 @@ pub fn tick_actor_brains(
         // old room's sightings. Its own tick forgets them below; until then
         // it must not call them out in the new room.
         let memory_room = rooms
+            .live()
             .stamped(entity)
             .map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ordinal);
         if body.policy.0.shares_sightings && body.health.alive() && memory.0.room() == memory_room {
@@ -507,6 +509,7 @@ pub fn tick_actor_brains(
         // An actor with no live room (no room loaded) has no world to decide
         // in.
         let stamp = rooms
+            .live()
             .stamped(this_actor_entity)
             .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
         let Some(feature_world) = composed.solids(&collision, stamp.as_ref()) else {
@@ -520,6 +523,7 @@ pub fn tick_actor_brains(
             .map(|room| room.gates_open_for(this_actor_entity))
             .unwrap_or_default();
         let room = rooms.of(this_actor_entity);
+        let dt = dt * rooms.scale_in(room);
         // Tactical memory is room-local (`WorldMemory::enter_room`). The key is
         // the body's own stamp, not `room`: an unstamped body is put in the
         // sole live room, and that answer changes when a second room goes
@@ -1386,7 +1390,9 @@ pub fn integrate_sim_bodies(
     // `Local` rather than a fresh `Vec` per body: this is the innermost loop of
     // the movement phase.
     mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
-    world_time: Res<WorldTime>,
+    // The sim clock, and the pace of each body's room: a connect holds its
+    // own room's bodies while another room plays on (ISL-1b).
+    (world_time, freeze): (Res<WorldTime>, ambition_combat::impact_hitstop::RoomFreeze),
     // The one composer of the collision world: the room, its moving platforms
     // and the feature overlay, as every other simulated collider reads it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
@@ -1567,7 +1573,7 @@ pub fn integrate_sim_bodies(
             // is many ticks long.
             motion_facts.tumbling,
             out_of_play,
-            dt,
+            dt * freeze.scale_of(actor_entity),
             *feel_tuning,
             authored_tuning.map(|t| t.0),
             &mut frame_out,
@@ -1646,7 +1652,7 @@ pub fn integrate_sim_bodies(
             player_feel,
             playback.map_or(1.0, |pb| pb.motion_scale_now()),
             frame_dt,
-            scaled_dt,
+            scaled_dt * freeze.scale_of(player_entity),
             // The move itself, not merely whether one is playing: only a
             // RECOVERY postpones helplessness, which is why the derivation reads
             // the spec's gate rather than the component's presence.

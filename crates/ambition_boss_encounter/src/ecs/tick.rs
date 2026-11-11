@@ -391,9 +391,11 @@ pub fn drive_boss_animators(
         &mut ambition_sprite_sheet::boss::BossAnimFrame,
         Option<&ambition_time::ProperTimeScale>,
     )>,
+    // A connect's room holds its boss's frames too (ISL-1b).
+    freeze: ambition_combat::impact_hitstop::RoomFreeze,
 ) {
     for (entity, feature_id, mut frame, scale) in &mut frames {
-        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale)) * freeze.scale_of(entity);
         // Both helpers belong to `crate::anim`; call them there.
         let Some((_, state)) =
             crate::anim::ecs_boss_anim_state_and_entity(&boss_catalog, feature_id.as_str(), &ecs_bosses)

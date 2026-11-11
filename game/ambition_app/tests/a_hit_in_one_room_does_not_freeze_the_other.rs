@@ -4,7 +4,9 @@
 //! beat writes) stops the shared clock. With Alice in the hub and Bob in
 //! `switch_lab`, a hold from Alice's fight stopped Bob's room too. Now, with
 //! several live rooms, the hold does not stop the clock: Bob walks on. The
-//! control: with one live room the same hold still stops it.
+//! control: with one live room the same hold still stops it. And the struck
+//! room still freezes (`ImpactHitstop::rooms`, read through `RoomFreeze`):
+//! Alice, driven, does not move while her room is held.
 
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::ControlFrame;
@@ -62,4 +64,47 @@ fn an_impact_freeze_in_the_hub_does_not_stop_bobs_room() {
     let after = bodies(&mut sim, Some(lab));
     assert_eq!(stopped, 0, "the hold stopped the shared clock on {stopped} of 20 ticks with two live rooms");
     assert_ne!(before, after, "Bob did not move while a freeze was held in the hub");
+}
+
+/// The struck room freezes while the other plays on: a hold in Alice's room
+/// keeps every body of that room where it stood (Alice is driven left the
+/// whole time), and Bob, driven left in his room, moves.
+#[test]
+fn an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room() {
+    let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(ROOM)).expect("the room boots");
+    bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    alice_on_the_hub_door(&mut sim);
+    for frame in 1..=120 {
+        sim.drive_seat(0, alice_leaves(frame));
+        sim.drive_seat(1, ControlFrame::default());
+        sim.app_mut().update();
+    }
+    let (hub, lab) = where_they_are(&mut sim);
+    let hub = hub.expect("Alice has a room");
+    let lab = lab.flatten().expect("Bob has a room");
+    assert_ne!(hub, lab, "premise: Alice and Bob are in two live rooms");
+
+    let at = |sim: &mut Platformer2dSimHarness, room| -> Vec<[f32; 2]> {
+        bodies(sim, Some(room)).values().map(|body| [body[0], body[1]]).collect()
+    };
+    let now = sim.world().resource::<SimTick>().0;
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()
+        .rooms
+        .insert(hub, now + 30);
+    let (hub_before, lab_before) = (at(&mut sim, hub), at(&mut sim, lab));
+    for _ in 0..20 {
+        sim.drive_seat(0, ControlFrame { axis_x: -1.0, ..Default::default() });
+        sim.drive_seat(1, ControlFrame { axis_x: -1.0, ..Default::default() });
+        sim.app_mut().update();
+    }
+    assert_eq!(at(&mut sim, hub), hub_before, "a body of the held room moved during its freeze");
+    assert_ne!(at(&mut sim, lab), lab_before, "Bob did not move while only the hub was held");
+    // The hold runs out and the hub moves again.
+    for _ in 0..20 {
+        sim.drive_seat(0, ControlFrame { axis_x: -1.0, ..Default::default() });
+        sim.drive_seat(1, ControlFrame::default());
+        sim.app_mut().update();
+    }
+    assert_ne!(at(&mut sim, hub), hub_before, "the hub stayed held after its freeze ran out");
 }

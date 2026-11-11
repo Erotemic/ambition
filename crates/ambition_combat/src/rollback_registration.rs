@@ -92,7 +92,7 @@ where
     registrar.rollback_resource_clone_checksum::<crate::impact_hitstop::ImpactHitstop>(
         OWNER,
         "resource.impact_hitstop",
-        "the freeze's expiry tick, which decides the sim clock",
+        "the freeze's expiry tick, which decides the sim clock, and each held room's",
         impact_hitstop_checksum,
     );
     registrar.rollback_resource_clone_checksum::<crate::events::PendingPlayerHitEvents>(
@@ -651,6 +651,12 @@ fn impact_hitstop_checksum(hold: &crate::impact_hitstop::ImpactHitstop) -> u64 {
     // `None` and `Some(0)` are different states and must not share a digest.
     put_u64(&mut bytes, u64::from(hold.until_tick.is_some()));
     put_u64(&mut bytes, hold.until_tick.unwrap_or(0));
+    // Each held room and its expiry, in room order (a `BTreeMap`).
+    put_u64(&mut bytes, hold.rooms.len() as u64);
+    for (room, until) in &hold.rooms {
+        put_u64(&mut bytes, u64::from(room.ordinal()));
+        put_u64(&mut bytes, *until);
+    }
     checksum_bytes(&bytes)
 }
 

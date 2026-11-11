@@ -214,10 +214,12 @@ pub fn publish_guard_volumes(
 /// stagger.
 pub fn tick_guard_states(
     world_time: Res<ambition_time::WorldTime>,
-    mut states: Query<(&mut GuardState, Option<&ambition_time::ProperTimeScale>)>,
+    mut states: Query<(Entity, &mut GuardState, Option<&ambition_time::ProperTimeScale>)>,
+    // A connect's room holds its bodies' guards too (ISL-1b).
+    freeze: crate::impact_hitstop::RoomFreeze,
 ) {
-    for (mut state, scale) in &mut states {
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
+    for (entity, mut state, scale) in &mut states {
+        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(entity);
         let state = &mut *state;
         state.since_deflect_s += dt;
         state.broken_s = (state.broken_s - dt).max(0.0);

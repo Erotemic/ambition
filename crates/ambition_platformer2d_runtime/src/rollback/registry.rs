@@ -244,7 +244,15 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 439 -> 440: saved NPC lives and native portal body contacts join the merge.
 // 440 -> 441: distinguish the combined save and portal snapshot.
 // 441 -> 442: a skirmisher's brain cursor carries its notice beat.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 449;
+// 442 -> 443: the day clock is in the save.
+// 443 -> 444: a room's spent cells are logged for its rewind.
+// 444 -> 445: a room's flag writes are logged for its rewind.
+// 445 -> 446: a room's wave clears are logged for its rewind.
+// 446 -> 447: the bookings of NPC lives are in the save.
+// 447 -> 448: a room's pickups' quest causes are logged for its rewind.
+// 448 -> 449: a live holder's hours are booked for the time held.
+// 449 -> 450: the impact freeze keeps each held room's expiry.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 450;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

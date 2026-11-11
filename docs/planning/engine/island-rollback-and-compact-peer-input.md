@@ -542,7 +542,25 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    is live does not feel like the same fight alone. The fix is a freeze
    scoped to the connect's room, which waits for a room clock (body motion
    reads the shared `sim_dt`). Independent room rollback does not ship until
-   that freeze is back in the struck room. Still open: projectile ids
+   that freeze is back in the struck room. **Back in the struck room
+   (2026-11-11), without a room clock:** `ImpactHitstop::rooms` keeps the
+   expiry of each room a connect landed in (by the victim's room), beside the
+   shared expiry, and `RoomFreeze` answers a body's pace: `0.0` while its
+   room is held. The readers that carry a fight's feel multiply the `dt` they
+   give that body by it:
+   - body motion (`integrate_sim_bodies`, players and actors);
+   - actor brains (`tick_actor_brains`, after the actor's room is known);
+   - move playback, buffered presses, reactions, guards and pose clocks;
+   - a boss's frames;
+   - projectiles (`step_projectiles`, by the shot's room).
+
+   With one live room the shared clock is already stopped, so nothing
+   changes there. The other ~90 `sim_dt` reads (day clock, encounter timers,
+   room departure, cutscene, trails, demos) still run in a held room, as they
+   ran in every room before; a held room is a few ticks long. Witness:
+   `an_impact_freeze_in_the_hub_holds_the_hub_and_not_bobs_room` (Alice,
+   driven, stands still for the hold while Bob walks on, and moves again when
+   it runs out). Schema 450 (the checksum folds each held room). Still open: projectile ids
    sequenced per room (deferred to the state transfer; see ISL-2c above), a clock scale per room (Player 1's bullet-time slows
    Player 1's room; the scale reaches gameplay through `WorldTime::sim_dt`, read at
    about a hundred non-test sites), one conversation and one cutscene per participant or room.

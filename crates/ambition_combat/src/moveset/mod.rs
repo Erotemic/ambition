@@ -1247,7 +1247,7 @@ pub fn advance_move_playback(
     // hands off between contiguous windows must hand off WHO IT ALREADY HIT —
     // see the handoff carry below.
     live_strike_volumes: Query<&HitboxHits, With<StrikeVolume>>,
-    room_rules: crate::rules::CombatTuningOf,
+    (room_rules, freeze): (crate::rules::CombatTuningOf, crate::impact_hitstop::RoomFreeze),
 ) {
     // The tuning a body that carries none is read under — one value, borrowed by
     // every owner below, rather than a second spelling of the defaults.
@@ -1302,8 +1302,9 @@ pub fn advance_move_playback(
             })
             .unwrap_or_else(PresentationSourceId::unscoped);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
-        // ProperTimeScale — undilated actors are the identity case.
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
+        // ProperTimeScale — undilated actors are the identity case. A
+        // connect's room holds the moves of its bodies (ISL-1b).
+        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(owner);
         let t_prev = playback.t;
         // THE CHARGE HOLD. A chargeable use walks its ordinary timeline to the
         // authored hold point and stands there while Attack is held. The proper
@@ -2227,7 +2228,10 @@ pub fn resolve_attack_gestures(
 /// either, which is what keeps them from disagreeing.
 pub fn buffer_combat_action_presses(
     world_time: Res<WorldTime>,
+    // A connect's room holds its bodies' buffered presses too (ISL-1b).
+    freeze: crate::impact_hitstop::RoomFreeze,
     mut bodies: Query<(
+        Entity,
         &ActorControl,
         &AttackGestureTuning,
         &mut AttackGestureState,
@@ -2243,10 +2247,10 @@ pub fn buffer_combat_action_presses(
         Option<&ae::BodyGroundState>,
     )>,
 ) {
-    for (control, tuning, mut state, mut resolved, mut buffer, scale, kin, ground) in &mut bodies {
+    for (entity, control, tuning, mut state, mut resolved, mut buffer, scale, kin, ground) in &mut bodies {
         // ADR 0011: the owner's own clock, so a dilated body's leniency
         // dilates with everything else it does.
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
+        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(entity);
         if !buffer.is_empty() {
             buffer.tick(dt);
         }

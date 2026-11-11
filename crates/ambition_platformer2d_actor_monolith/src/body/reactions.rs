@@ -9,11 +9,13 @@ use bevy::prelude::*;
 /// Hitstop uses the unscaled step so a freeze cannot stop its own expiry.
 pub fn advance_body_reactions(
     time: Res<WorldTime>,
-    mut bodies: Query<(&mut BodyCombat, Option<&ProperTimeScale>), With<BodyKinematics>>,
+    mut bodies: Query<(bevy::prelude::Entity, &mut BodyCombat, Option<&ProperTimeScale>), With<BodyKinematics>>,
+    // A connect's room holds its bodies' recovery too (ISL-1b).
+    freeze: ambition_combat::impact_hitstop::RoomFreeze,
 ) {
-    for (mut combat, scale) in &mut bodies {
+    for (entity, mut combat, scale) in &mut bodies {
         combat.decay_reaction_timers(
-            time.entity_dt(ProperTimeScale::or_default(scale)),
+            time.entity_dt(ProperTimeScale::or_default(scale)) * freeze.scale_of(entity),
             time.wall_dt(),
         );
     }

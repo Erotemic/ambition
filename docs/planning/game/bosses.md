@@ -627,6 +627,18 @@ it dead without a reward; red-to-green retracts defeat and reseeds a
 loaded boss. Tests include `the_hall_of_bosses_has_its_own_bosses` and
 `boss_lifecycle::a_practice_copy_dies_without_the_story_consequences`.
 
+**Every boss has its copy (2026-11-11, Jon: "Gram reaper (and more
+generally all bosses) should be in the hall of bosses, and we should have a
+check that fails if they aren't").** The Gram Reaper was the one boss with
+no hall placement. `hall_gram_reaper_arena` (math world) is a practice copy
+of Hylbert's haunted wing, placement `hall.gram_reaper`, behind a door on
+the hall's upper gallery with its life switch; its west edge returns to the
+hall, and its way into the story's treasury (the east exit and its seal) is
+removed and walled. `every_boss_of_the_shipped_rooms_has_a_copy_in_the_hall`
+fails for any boss script a shipped room places that has no `hall.*`
+placement within one room of a hall door (poisoned: it names
+`gram_reaper_boss`).
+
 **Remaining classification check.** The Hall's GNU-ton copy was recorded
 as not yet `practice` after the Science-world placement was added;
 T-rex and the FSM were in the same category. Verify current placement and

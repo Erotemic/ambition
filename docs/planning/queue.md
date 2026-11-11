@@ -980,12 +980,18 @@ menu's `#[cfg(test)]` hand seam; `FactionRelations` is composed and installed
 by Ambition's content plugin rather than written through `resource_mut`
 (the guard now sees a typed `insert_resource::<T>` install); `ActorGlow` and
 `PresentationCover` are waived as presentation (render-crate `Update`
-filters only). Still red: `check_level_box_readers`. Its 27 gone
-baseline lines are deleted (the code they named was rewritten, mostly into
-`kin.aabb()`), leaving 13 classified; 73 reads are unclassified, largely
-the same sites under the new spelling, and each needs the guard's question
-asked of it (is the level box right there, or should it ask
-`collision_box(last_step)`?) — its own pass, with turned gravity in mind.
+filters only). `check_level_box_readers` was red with 73 unclassified
+`kin.aabb()` reads; its premise had gone (2026-11-10): since the body
+material, `BodyKinematics::aabb()` is the material's envelope
+(`material.half_extent(canonical_size * 0.5)`), which righting turns toward
+the body's DOWN, so it IS the turned box the guard asked readers to use, and
+`collision_box(last_step)` no longer exists. The guard is re-aimed at the
+level box's present spelling, a world box built from the unturned half
+(`Aabb::new(<not the origin>, ..canonical_size * 0.5)`); that population is
+zero, so its baseline is empty and the check is green. Evidence that `aabb()`
+is turned: `a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches`
+(items) turns a body's material a quarter and collects a pickup only the
+turned box touches.
 
 **Red app tests seen in a focused lane (2026-11-10, on ae2e0e8bab, before and
 after the ISL-2d bag slice):** `gnu_ton_fight::with_its_arms_on_a_blow_launches_him_and_the_third_blow_throws`

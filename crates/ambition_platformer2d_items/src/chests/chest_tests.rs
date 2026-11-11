@@ -427,7 +427,7 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
 
 /// A 28 by 46 body in sideways gravity lies along the gravity: its collision
 /// box is 46 wide and 28 tall. The reach of a body is that box
-/// (`BodyKinematics::collision_box`), not its level box.
+/// (`BodyKinematics::aabb`, the material's turned box), not its level box.
 #[test]
 fn a_body_in_sideways_gravity_opens_the_chest_its_own_box_touches() {
     let opens = |offset: ae::Vec2| {

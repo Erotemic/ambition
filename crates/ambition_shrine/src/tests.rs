@@ -509,7 +509,7 @@ fn a_body_rests_only_at_a_shrine_in_its_own_live_room() {
 
 /// A 24 by 40 body in sideways gravity lies along the gravity: its collision
 /// box is 40 wide and 24 tall. A body rests at the shrine that box touches
-/// (`BodyKinematics::collision_box`), not the one its level box touches.
+/// (`BodyKinematics::aabb`, the material's turned box), not the one its level box touches.
 #[test]
 fn a_body_in_sideways_gravity_rests_at_the_shrine_its_own_box_touches() {
     let rests = |offset: Vec2| {

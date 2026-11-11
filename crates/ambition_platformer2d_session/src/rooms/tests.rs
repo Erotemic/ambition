@@ -522,7 +522,7 @@ fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches
 /// A body that a raw teleport moved has a record that does not end where it
 /// is, so the zones test the body where it stands. The box it stands in is
 /// its collision box as its last step turned it
-/// (`BodyKinematics::collision_box`), not its level box.
+/// (`BodyKinematics::aabb`, the material's turned box), not its level box.
 #[test]
 fn a_body_moved_past_its_record_in_sideways_gravity_crosses_the_zone_its_own_box_touches() {
     let size = ae::Vec2::new(48.0, 22.0);

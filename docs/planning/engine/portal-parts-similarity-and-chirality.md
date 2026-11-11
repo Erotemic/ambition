@@ -1390,3 +1390,20 @@ records scope. The overlap midpoint estimate stays in place; swept contact
 time/point and root-epoch reception remain open. General motion continuation,
 other motion models, attachments, numeric fault effects, device/performance
 and full PSIM acceptance remain open.
+
+
+### Item release material — 2026-11-11
+
+`a66c9209d` records the pickup material basis and admits release before hand,
+custody, stock, mint or participant retirement changes. The retained item
+keeps its material through the holder's later transform. Native partition
+selects the released root chart; its own policy and portal surface velocity
+apply. `03a9efeaf` keeps the shared-load sling anchor. Do not treat a refused
+object release as a quantity mint. The authored H javelin passes scaled
+release, real rewind and a second bit-identical replay. Owner, app, schema,
+Smash, policy and warning checks pass in the scopes in the
+[release receipt](../../../dev/ambition_dev_measurements/summaries/portal-item-release-20261111.md).
+The combined cutscene/item schema is 458 (`dbc086852`); app, schema, javelin
+and absence checks pass. The later presentation merge `df6e93285` passes the
+app check. Held pose/render, durable material history, free-item motion and
+collision, and the other full PSIM and device/performance gates remain open.

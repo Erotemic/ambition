@@ -280,3 +280,14 @@ and warnings pass. App, Warden and schemas pass after merge `10b07aef7`.
 The [guard receipt](../ambition_dev_measurements/summaries/portal-guard-material-20261111.md)
 keeps the midpoint position estimate, swept-contact work and broader open
 scope explicit.
+
+
+`a66c9209d` adds an admitted item release with a canonical pickup material
+basis. A refusal preserves the object and cannot mint a replacement. Menu
+and participant changes prepare their releases first. `03a9efeaf` keeps the
+shared-load anchor. The real H javelin passes scaled release and rewind/replay.
+Combined item/cutscene schema 458 passes app, schema, javelin and absence
+checks in `dbc086852`. The [release receipt](../ambition_dev_measurements/summaries/portal-item-release-20261111.md)
+records each batch and its limits. Hand/wrist and held render geometry,
+free-item motion/collision, durable material history and full PSIM acceptance
+remain open.

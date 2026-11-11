@@ -888,3 +888,77 @@ fn without_the_retraction_the_window_s_regrowth_time_stays() {
     let due = due.expect("a regrowth is scheduled");
     assert!((due - window - 4.0).abs() < 0.1, "the window's due time went without the retraction: {due} for a take at {window}");
 }
+
+/// ISL-2d, a cell used from the shared bag: Alice (in `basement_breakables`,
+/// Bob in the hub) uses a health cell in the window. The room rewinds to
+/// before it and replays without the use. Returns the bag's health cells at
+/// N, after the use, and after the replay.
+fn a_cell_used_only_before_the_rewind(retract: bool) -> [u32; 3] {
+    use crate::pickup_regrowth_across_rooms::{HUB, ROOM as CELL_ROOM};
+    use ambition_platformer2d::item::{Item, OwnedItems};
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+        HUB,
+        CELL_ROOM,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        crate::breakable_respawn_across_rooms::cross_to,
+    );
+    for _ in 0..10 {
+        sim.app_mut().update();
+    }
+    let (room, bobs) = where_they_are(&mut sim);
+    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
+    let cells = |sim: &Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::HealthCell);
+
+    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
+    let entities = of_room(sim.world_mut(), room);
+    let mut saved = rows.save(sim.world(), &entities);
+    let at_n = clock(sim.world());
+    let at_n_cells = cells(&sim);
+
+    sim.world_mut().write_message(ambition_platformer2d::items::ItemUseRequested {
+        participant: ambition_platformer2d::characters::control::PlayerSlot(0),
+        item: Item::HealthCell,
+    });
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    let after_use = cells(&sim);
+
+    let hidden = of_room(sim.world_mut(), bobs);
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).insert(Disabled);
+    }
+    let now = of_room(sim.world_mut(), room);
+    rows.restore(sim.world_mut(), &mut saved, &now);
+    set_clock(sim.world_mut(), at_n);
+    if retract {
+        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
+    }
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    for entity in &hidden {
+        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
+    }
+    let after_replay = cells(&sim);
+    sim.world_mut().insert_resource(rows);
+    [at_n_cells, after_use, after_replay]
+}
+
+/// ISL-2d: a room that rewinds puts back in the bag the cells its bodies
+/// used after the tick it was saved at.
+#[test]
+fn a_rewound_room_puts_back_the_cell_its_replay_does_not_use() {
+    let [at_n, after_use, after_replay] = a_cell_used_only_before_the_rewind(true);
+    assert_eq!(after_use + 1, at_n, "premise: the use spends one cell (at N {at_n}, after {after_use})");
+    assert_eq!(after_replay, at_n, "the replay did not use the cell, and the bag says it did");
+}
+
+/// The control: without the retraction the cell stays spent. Run it beside
+/// the witness when the retraction changes; it is not a suite member.
+#[test]
+#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
+fn without_the_retraction_the_cell_stays_spent() {
+    let [_, after_use, after_replay] = a_cell_used_only_before_the_rewind(false);
+    assert_eq!(after_replay, after_use, "the cell came back without the retraction");
+}

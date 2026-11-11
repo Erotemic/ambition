@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v443
+ggrs-rollback-schema-v444
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -299,6 +299,7 @@ frame_env.force_zone	component-canonical	ForceZone	bevy_ggrs canonical codec sna
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.bag_uses_in_rooms	resource-clone-custom-checksum	BagUsesInRooms	bevy_ggrs clone snapshot + the cells bodies used from the shared bag within the rewind horizon, with the room and tick of each, which a room rewind puts back (ISL-2d)
 item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; not in the session checksum
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

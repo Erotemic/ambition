@@ -317,6 +317,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_items/src/persist.rs",
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_items/src/starting_bag.rs",
+        "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
         "game/ambition_content/src/portal/inventory_adapter.rs",
         "game/ambition_content/src/quest.rs",
     ),
@@ -473,6 +474,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_items/src/chests.rs",
         "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
+    ),
+    "BagUsesInRooms": (
+        "crates/ambition_platformer2d_items/src/narrative.rs",
+        "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
     ),
     "BagSpendsSinceCheckpoint": (
         "crates/ambition_held_items/src/lib.rs",
@@ -1904,6 +1909,15 @@ ADJUDICATED: dict[str, str] = {
         "different type — `Option::take` on an armed row and a capture, and "
         "`QuestState::apply_persisted`. A method name is not a receiver. Follow "
         "each writer to the expression that changes `counts` instead."
+        " ⭐ 2026-11-10 (ISL-2d): two writers are room-rewind retractors, the "
+        "inverse of a write another listed file made. `minted_horizon.rs`'s "
+        "takes back the item a retracted grant added and puts back a retracted "
+        "throw's spend (`put_back`, the uncapped inverse of `take`); "
+        "`ambition_platformer2d_runtime/src/world_schedule.rs`'s puts back the "
+        "cells `apply_item_uses` (`narrative.rs`) spent from a rewound room "
+        "(`BagUsesInRooms`). The bag is shared by rooms, so each inverts only "
+        "its own room's writes after the saved tick: no other room's count is "
+        "touched."
     ),
     "BossDefeatsSinceCheckpoint": (
         "CORRECT — ONE RECORDER, ONE TAKER, TWO FORGETTERS, ONE TYPE "
@@ -1920,6 +1934,16 @@ ADJUDICATED: dict[str, str] = {
         "Every writer runs in the simulation schedule or the checkpoint apply, "
         "and the type is rollback state with a value checksum "
         "(`boss.defeats_since_checkpoint`)."
+    ),
+    "BagUsesInRooms": (
+        "CORRECT — ONE RECORDER AND ITS RETRACTOR (ISL-2d, 2026-11-10). The list "
+        "is private (`ambition_platformer2d_items/src/narrative.rs`): `record` is "
+        "called only by `apply_item_uses`, when a body's cell use spends from the "
+        "bag, with the body's room and tick; `retract_room` only by the room-write "
+        "retractor `ambition_platformer2d_runtime/src/world_schedule.rs` registers, "
+        "which takes out the rewound room's uses after the saved tick. Both run "
+        "in the simulation or at a rewind, and the type is rollback state with a "
+        "value checksum (`item.bag_uses_in_rooms`)."
     ),
     "BagSpendsSinceCheckpoint": (
         "CORRECT — ONE RECORDER, THREE FORGETTERS, ONE TYPE (review 2026-10-05, "

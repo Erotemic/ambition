@@ -382,9 +382,16 @@ a gun sword in `basement_breakables` while Bob holds the hub; the replay does
 not throw); with the mint retraction poisoned it reads `(1, 0, ["slot:0/0
 Consumed"])`, and its ignored control keeps the bag spent.
 
-Still unretracted bag writes: the narrative grants and the cell uses
-(`ambition_platformer2d_items/src/narrative.rs`) and the conditions' take
-(`conditions.rs`); each needs its write stamped and inverted the same way.
+The other bag writers, read 2026-11-10: a body's **cell use**
+(`apply_item_uses`) is a room write, now recorded with the body's room and
+tick in `BagUsesInRooms` (rollback state, `item.bag_uses_in_rooms`, bounded by
+the rewind horizon) and put back by its retractor; witness
+`a_rewound_room_puts_back_the_cell_its_replay_does_not_use`, with an ignored
+control. A **conversation's grant** and a **shop transaction**
+(`apply_item_grants`, `apply_shop_transactions`) are consequences of the one
+conversation, an ISL-1b coupling, not of a room: they wait for the
+conversation to be a room's. The census's "conditions' take" was a test's
+(`conditions.rs`'s test module), not a writer.
 
 **Boss defeats (2026-11-10):** each defeat record carries the tick it fell
 on, and a room's rewind takes back the defeats that fell there after the
@@ -411,7 +418,7 @@ rollback host must not rewind further. Witness:
 `a_rewound_room_keeps_the_regrowth_time_of_its_replay`; unit:
 `a_rewind_puts_back_the_records_its_room_wrote_and_forgot` (and the horizon).
 
-**Next:** the narrative bag writes; the quests and flags last, since they need the decision above.
+**Next:** the quests and flags, since they need the decision above.
 Still open too: the room rollback host that calls `retract_room_writes`
 (today only the tests do).
 

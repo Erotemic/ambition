@@ -302,11 +302,26 @@ silhouettes on straight architectural materials.
   into prop art. A prop-sheet row can now say `backdrop: true`
   (`prop_sheets.ron`): that kind draws behind the blocks, in front of the
   parallax (`BACKDROP_Z_*` in `rendering/world.rs`).
-- **Next.** The pirate stair and the cedar branches are drawn by their
-  district props (`port_harbour_house`, the cedars), not by the skin. Each
-  needs the same split: the prop keeps the building or the trunk, and the
-  walkable structure becomes the skin's (a `stair` grouping for A; a forest
-  theme's underhang, ledge ends and trailing for C).
+- **Scenes A and C are art changes in their district props** (the doc's
+  "prefer changing artwork over infrastructure when the problem is
+  artistic"): their walkable structure is drawn by the prop that holds it
+  up, so the skin is not where the fault was.
+  - **C, the cedar forest:** each bough tapers from its trunk to a twig and
+    forks into side twigs; its needles hang in a few clumps of different
+    shapes with gaps between them, and moss trails from it
+    (`village_cedar_*`, `ninja_village_props.py`). A scenery prop's box is
+    its art's body box, so the forest's cedar props took new boxes.
+  - **A, the plaza stair:** one flight of coursed ashlar instead of three
+    blocks, slab treads with nosings, a stringer climbing its flank, an iron
+    handrail, and a pier carrying it into the balcony's end
+    (`port_harbour_house`, `pirate_port_props.py`), in the old footprint, so
+    the room is unchanged.
+- **Still open:** a playtest review by the maintainer; the colliders'
+  plank skin shows by about 8 units at the west end of each plaza tread (it
+  did before; the prop is drawn that much east of its collider); the
+  generator drift found on the way (the full `ninja_village` apply rewrites
+  the street, the hidden way and the bamboo pass, and the full `math_town`
+  apply stops at the LDtk-owned gate hall).
 
 The ordering is a guide to producing useful work, not a gating bureaucracy.
 An agent may combine steps and continue autonomously through reasonable

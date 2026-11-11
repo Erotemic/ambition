@@ -28,6 +28,13 @@
 //!
 //! She does not cut it: the fight is yours.
 //!
+//! She comes once more, for its finish ([`GREAT_SEAL`], Jon, 2026-11-11): held
+//! at the last of its strength, it bursts into its invincible fire again, and
+//! the head's conductor calls her back. She casts her great seal
+//! (`great_seal`), a ring of talismans round it, tells you it is weak and to
+//! strike now, and leaves the blow to you. Its conductor keeps the time her
+//! seal lands, [`GREAT_SEAL_AT_S`].
+//!
 //! "Off screen" is not a fact the simulation may read: peers with different
 //! windows would desync. She leaves by height and by time.
 
@@ -48,6 +55,9 @@ pub const KAGERO_ID: &str = "npc_ninja_kagero";
 /// The status she holds from birth: the module that performs her visit.
 pub const VISIT: &str = "ambition.kagero_visit";
 
+/// The status she holds from birth when she comes back for its finish.
+pub const GREAT_SEAL: &str = "ambition.kagero_great_seal";
+
 /// Her body box, world px (half extents).
 pub const HALF_SIZE: [f32; 2] = [14.0, 30.0];
 
@@ -64,6 +74,15 @@ const FLY_S: f32 = 0.3;
 /// The head's ward breaks this long after her birth: when her talismans
 /// reach it.
 pub const DISPEL_AT_S: f32 = ARRIVE_S + THROW_AT_S + FLY_S;
+
+/// Her great seal (`great_seal`): she casts longer and throws later.
+const GREAT_CAST_S: f32 = 16.0 * 0.09;
+const GREAT_THROW_AT_S: f32 = 0.8;
+const GREAT_FLY_S: f32 = 0.35;
+/// Seconds from her birth to her great seal landing on it.
+pub const GREAT_SEAL_AT_S: f32 = ARRIVE_S + GREAT_THROW_AT_S + GREAT_FLY_S;
+/// The great seal is bigger than her first.
+const GREAT_SEAL_SCALE: f32 = SEAL_SCALE * 1.8;
 /// She keeps her place as she casts, turned to the head: this slow toward it.
 const DRIFT: f32 = 12.0;
 /// The line drops for this long before it reels her.
@@ -108,10 +127,15 @@ pub const SOUNDS: [&str; 4] = [SFX_ARRIVE, SFX_THROW, SFX_LINE, SFX_CATCH];
 pub const LINE_ARRIVE: &str = "Noisy one. Even the dead heard you.";
 pub const LINE_CAST: &str = "Burn out, borrowed fire!";
 pub const LINE_LEAVE: &str = "It was a dog once. Set it free, ripple-foot.";
+/// What she says when she comes back for its finish, as she seals it, and
+/// as she goes.
+pub const LINE_RETURN: &str = "Borrowed fire again? Not for long.";
+pub const LINE_WEAK: &str = "It is weak now! Strike, ripple-foot. Strike now!";
+pub const LINE_FINISH: &str = "One blow. Make it yours.";
 
 record! {
     /// Her visit, so far.
-    pub struct Visit = SchemaKey::new(crate::PROVIDER, "kagero.visit", 2);
+    pub struct Visit = SchemaKey::new(crate::PROVIDER, "kagero.visit", 3);
     /// Gameplay seconds since she came.
     1 age: f32,
     /// The beat she is in ([`Beat`]) and the seconds she has been in it.
@@ -123,6 +147,8 @@ record! {
     5 away: f32,
     6 line_x: f32,
     7 line_y: f32,
+    /// She came back for its finish: her great seal.
+    8 great: bool,
 }
 
 /// The beats of her visit, in order.
@@ -174,10 +200,12 @@ pub fn module() -> ModuleDescriptor {
             version: env!("CARGO_PKG_VERSION").into(),
         },
         schemas: vec![Visit::schema()],
-        entries: vec![EntryDescriptor {
-            key: "visit".into(),
+        entries: [("visit", VISIT, visit as fn(&mut Invocation<'_>) -> Result<(), Fault>), ("great_seal", GREAT_SEAL, great_seal)]
+            .into_iter()
+            .map(|(key, hold, run)| EntryDescriptor {
+            key: key.into(),
             phase: TECHNIQUE_EXECUTION,
-            trigger: TriggerBinding { port: StatusTickPort::KEY, selector: VISIT.into() },
+            trigger: TriggerBinding { port: StatusTickPort::KEY, selector: hold.into() },
             reads: vec![FoesPort::KEY],
             writes: vec![Visit::KEY],
             requests: vec![
@@ -193,8 +221,9 @@ pub fn module() -> ModuleDescriptor {
             after: Vec::new(),
             limits: Limits { max_requests: 16 },
             on_idle: IdlePolicy::Invoke,
-            run: EntryCode::Native(visit),
-        }],
+            run: EntryCode::Native(run),
+        })
+            .collect(),
     }
 }
 
@@ -233,7 +262,7 @@ pub fn visit_tick_of(v: &mut Visit, at: Vec2, head: Option<Vec2>, dt: f32) -> Vi
         Beat::Arrive => {
             if first {
                 out.sounds.push(SFX_ARRIVE);
-                out.says = Some(LINE_ARRIVE);
+                out.says = Some(if v.great { LINE_RETURN } else { LINE_ARRIVE });
                 out.smoke = true;
             }
             out.row = ("blink_in", v.beat_t);
@@ -243,21 +272,23 @@ pub fn visit_tick_of(v: &mut Visit, at: Vec2, head: Option<Vec2>, dt: f32) -> Vi
             }
         }
         Beat::Cast => {
-            out.row = ("cast", v.beat_t);
+            let (row, throw_at, fly, cast) =
+                if v.great { ("great_seal", GREAT_THROW_AT_S, GREAT_FLY_S, GREAT_CAST_S) } else { ("cast", THROW_AT_S, FLY_S, CAST_S) };
+            out.row = (row, v.beat_t);
             out.course = (toward * DRIFT).into();
-            if !v.thrown && v.beat_t >= THROW_AT_S {
+            if !v.thrown && v.beat_t >= throw_at {
                 v.thrown = true;
                 out.sounds.push(SFX_THROW);
-                out.says = Some(LINE_CAST);
+                out.says = Some(if v.great { LINE_WEAK } else { LINE_CAST });
                 out.throw = head.map(|h| (at.into(), h.into()));
             }
-            out.ofuda_hit = v.beat_t >= THROW_AT_S + FLY_S && v.beat_t - dt < THROW_AT_S + FLY_S;
-            if v.beat_t >= CAST_S {
+            out.ofuda_hit = v.beat_t >= throw_at + fly && v.beat_t - dt < throw_at + fly;
+            if v.beat_t >= cast {
                 v.away = head.map_or(1.0, |h| if at.x < h.x { -1.0 } else { 1.0 });
                 v.line_x = at.x + v.away * LINE_AWAY;
                 v.line_y = at.y - LINE_UP;
                 out.sounds.push(SFX_LINE);
-                out.says = Some(LINE_LEAVE);
+                out.says = Some(if v.great { LINE_FINISH } else { LINE_LEAVE });
                 v.enter(Beat::Catch);
             }
         }
@@ -294,6 +325,15 @@ pub fn volley(from: Vec2, to: Vec2) -> Effect {
 }
 
 fn visit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    perform(inv, false)
+}
+
+/// Her visit for its finish: her great seal.
+fn great_seal(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    perform(inv, true)
+}
+
+fn perform(inv: &mut Invocation<'_>, great: bool) -> Result<(), Fault> {
     let at = Vec2::from(inv.trigger::<StatusTickPort>()?.position);
     let head = inv
         .observe::<FoesPort>()?
@@ -302,6 +342,7 @@ fn visit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         .map(|foe| Vec2::from(foe.position))
         .min_by(|a, b| a.distance_squared(at).total_cmp(&b.distance_squared(at)));
     let mut v = Visit::load(inv)?;
+    v.great |= great;
     let tick = visit_tick_of(&mut v, at, head, inv.dt());
     v.store(inv)?;
     if tick.dismissed {
@@ -309,13 +350,16 @@ fn visit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         return inv.submit::<DismissPort>(Dismiss);
     }
     inv.submit::<HoldCoursePort>(HoldCourse { velocity: Some(tick.course) })?;
-    inv.submit::<DrawnRowPort>(DrawnRow::body(tick.row.0, tick.row.1, false))?;
+    // Her great seal is drawn as her cast where its row is not published.
+    let names = std::iter::once(tick.row.0).chain((tick.row.0 == "great_seal").then_some("cast")).map(str::to_string).collect();
+    inv.submit::<DrawnRowPort>(DrawnRow { names, ..DrawnRow::body(tick.row.0, tick.row.1, false) })?;
     if let Some((from, to)) = tick.throw {
         inv.submit::<EffectPort>(volley(Vec2::from(from), Vec2::from(to)))?;
     }
     if let (true, Some(h)) = (tick.ofuda_hit, head) {
-        inv.submit::<EffectPort>(Effect { at: Place::World(h.into()), fx: SEAL_FX.into(), scale: SEAL_SCALE, angle: 0.0 })?;
-        inv.submit::<BurstPort>(Burst { at: h.into(), count: 14, speed: 240.0, color: PAPER, kind: "streak".into() })?;
+        let (scale, count) = if v.great { (GREAT_SEAL_SCALE, 40) } else { (SEAL_SCALE, 14) };
+        inv.submit::<EffectPort>(Effect { at: Place::World(h.into()), fx: SEAL_FX.into(), scale, angle: 0.0 })?;
+        inv.submit::<BurstPort>(Burst { at: h.into(), count, speed: 240.0, color: PAPER, kind: "streak".into() })?;
     }
     inv.submit::<BodyLinePort>(BodyLine { anchor: tick.line })?;
     for cue in tick.sounds {

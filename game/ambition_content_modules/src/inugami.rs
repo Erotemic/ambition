@@ -57,8 +57,8 @@
 //! the world by [`Head`].
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, BossGuard, BossGuardPort, BossScale, BossScalePort, BossStage, BossStagePort,
-    BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide, Wear,
+    BossConduct, BossConductPort, BossGuard, BossGuardPort, BossHealthFloor, BossHealthFloorPort, BossScale, BossScalePort,
+    BossStage, BossStagePort, BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose, Predecessor, SummonSide, Wear,
     WearPort, Wearer,
 };
 use ambition_combat_port::{
@@ -393,7 +393,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the head.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 6);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 7);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -507,6 +507,12 @@ record! {
     64 chase_stall: f32,
     /// Seconds left of going through what holds it, as the spirit it is.
     65 ghost: Option<f32>,
+    /// Its finish: brought to the last of its strength in the final hall, it
+    /// bursts into its invincible fire again and Kagero seals it. Seconds
+    /// into it.
+    66 finish: Option<f32>,
+    /// Her great seal has struck: the next blow ends it, in hellfire.
+    67 exposed: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -607,6 +613,7 @@ pub fn module() -> ModuleDescriptor {
                 LightningPort::KEY,
                 BodySoundPort::KEY,
                 BossGuardPort::KEY,
+                BossHealthFloorPort::KEY,
                 BossScalePort::KEY,
                 BossStagePort::KEY,
                 BossSummonPort::KEY,
@@ -808,9 +815,45 @@ fn held_at(
         pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt.max(1e-4)).into() }),
         side: Some(side),
     })?;
-    inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))?;
-    let (names, elapsed, looping) = layer.map_or((Vec::new(), 0.0, false), |(name, t, looping)| (vec![name.into()], t, looping));
+    inv.submit::<DrawnRowPort>(DrawnRow { names: drawn_names(row.0), ..DrawnRow::body(row.0, row.1, row.2) })?;
+    let (names, elapsed, looping) = layer.map_or((Vec::new(), 0.0, false), |(name, t, looping)| (drawn_names(name), t, looping));
     inv.submit::<DrawnRowPort>(DrawnRow { on: ambition_boss_special_port::DrawnPart::Layer, names, elapsed, looping })
+}
+
+/// Its finish (Jon, 2026-11-11: "'Killing' him or bringing him to 1 health
+/// after this should trigger a cutscene. IW should burst into his invincible
+/// state again with full blue AND green SSJ2 lightning and then [Kagero]
+/// should come and cast a bigger talisman spell, tell the player he is weak
+/// and strike now, and then the next strike cinematically kills the boss").
+/// Held at one health from her first spell, it bursts into its fire with its
+/// lightning (`ssj2_full`) for `FINISH_CALL_S`, then calls her back; her
+/// great seal lands `kagero::GREAT_SEAL_AT_S` later, it shakes free of its
+/// fire (`dispel`), and falls guttered: the next blow kills it.
+const FINISH_CALL_S: f32 = 1.4;
+const FINISH_SEAL_S: f32 = FINISH_CALL_S + crate::kagero::GREAT_SEAL_AT_S;
+/// It rises a little as it bursts.
+const FINISH_RISE: f32 = 40.0;
+/// Its lightning, both his colours and the spirit's green.
+const FINISH_LAYER: &str = "ssj2_full";
+const GREEN: [f32; 4] = [0.45, 1.0, 0.55, 1.0];
+/// In the chase its ward burns with green lightning through it (Jon,
+/// 2026-11-11): its spirits and the bolts, one layer on the ring's clock.
+const CHASE_RING: &str = "ward_ring_green";
+/// The finishing blow burns it in hellfire and it evaporates into the ether
+/// (`hellfire_death`) before his head falls.
+const HELLFIRE_ROW: &str = "hellfire_death";
+const HELLFIRE: [f32; 4] = [1.0, 0.25, 0.08, 1.0];
+const EMBER: [f32; 4] = [1.0, 0.62, 0.2, 1.0];
+
+/// A row, then the row a sheet without it draws instead: its finish's rows
+/// are drawn as its older ones where they are not published.
+fn drawn_names(name: &str) -> Vec<String> {
+    let instead = match name {
+        HELLFIRE_ROW => Some("death"),
+        CHASE_RING | FINISH_LAYER => Some("ward_ring"),
+        _ => None,
+    };
+    std::iter::once(name).chain(instead).map(str::to_string).collect()
 }
 
 /// How long its spirits take to go round once (`wolfenstein_inugami`'s
@@ -837,6 +880,7 @@ fn ward_layer(c: &Conductor) -> Option<(&'static str, f32, bool)> {
     }
     match c.rearing {
         Some(t) if c.rear_crash && t < FLARE_S => Some(("ward_ring_kindle", w, false)),
+        _ if c.warded && c.run.is_some() => Some((CHASE_RING, w, true)),
         _ if c.warded => Some(("ward_ring", w, true)),
         _ => None,
     }
@@ -1015,13 +1059,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             play(inv, howl_cue(c.scale), at)?;
             burst(inv, at, 30, 300.0, FIRE, "spark")?;
         }
+        // Killed by the blow her great seal left it open to, it burns in
+        // hellfire and evaporates, her talismans burning on it.
+        let hellfire = lived && c.exposed;
+        if hellfire && t < DEATH_LEAVES_U * DEATH_S && c.ticks % 3 == 0 {
+            burst(inv, at + Vec2::new(0.0, half.y * 0.4), 6, 260.0, HELLFIRE, "spark")?;
+            burst(inv, at - Vec2::new(0.0, half.y * 0.3), 4, 180.0, EMBER, "streak")?;
+        }
         if crossed(DEATH_LEAVES_U) {
             play(inv, SFX_GUTTER, at)?;
-            burst(inv, at, 40, 340.0, FIRE_CORE, "spark")?;
+            burst(inv, at, 40, 340.0, if hellfire { HELLFIRE } else { FIRE_CORE }, "spark")?;
             shake(inv, SHAKE_TEAR)?;
-            // Her talismans have done their work: they come off with the spirit.
+            // Her talismans have done their work: they come off with the spirit
+            // (burnt, after a finish).
             inv.submit::<WearPort>(Wear { who: Wearer::Boss, gear: SEALED.into(), on: false })?;
-            burst(inv, at, 16, 260.0, PAPER, "streak")?;
+            burst(inv, at, 16, 260.0, if hellfire { EMBER } else { PAPER }, "streak")?;
         }
         if crossed(DEATH_FALL.1) {
             let chin = Vec2::new(at.x, hall.floor - 4.0);
@@ -1051,7 +1103,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.dead_for = Some(t);
         c.warded = false;
         c.ward_t = None;
-        held_at(inv, at, Vec2::new(x, y), side, ("death", t, false), None, dt)?;
+        let row = if hellfire && t < DEATH_FALL.0 * DEATH_S { HELLFIRE_ROW } else { "death" };
+        held_at(inv, at, Vec2::new(x, y), side, (row, t, false), None, dt)?;
         return c.store(inv);
     }
     c.lived = true;
@@ -1417,6 +1470,94 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             // Blown out: the ward is gone.
             c.ward_t = None;
         }
+    }
+
+    // ── Its finish: held at its last strength, it bursts; she seals it ──
+    if c.ally_called && !c.warded && !c.exposed {
+        // From her first spell no blow takes its last strength: that is its
+        // finish's to take.
+        inv.submit::<BossHealthFloorPort>(BossHealthFloor { floor: 1 })?;
+        if c.finish.is_none() && inu.health <= 1 {
+            c.finish = Some(0.0);
+            c.part_move = 0;
+            c.miss = None;
+            c.buried = None;
+            c.guttered = None;
+            c.slack = None;
+            c.from_x = at.x;
+            c.from_y = at.y;
+            inv.submit::<BossGuardPort>(BossGuard { guarded: true })?;
+            play(inv, howl_cue(c.scale), at)?;
+            play(inv, SFX_CATCH, at)?;
+            burst(inv, at, 60, 420.0, WARD_FIRE, "spark")?;
+            burst(inv, at, 40, 380.0, GREEN, "spark")?;
+            shake(inv, SHAKE_TEAR)?;
+        }
+    }
+    if let Some(f) = c.finish {
+        let t = f + dt;
+        let crossed = |s: f32| t >= s && f < s;
+        c.finish = Some(t);
+        let rise = ease((t / FINISH_CALL_S).min(1.0));
+        let pos = clamp(Vec2::new(c.from_x, c.from_y - h.len(FINISH_RISE) * rise));
+        // Its lightning crawls over it and leaps off it, blue and green.
+        if c.ticks % 4 == 0 {
+            let k = c.ticks as f32 * 0.37;
+            let r = half.length() * 0.9;
+            let a = Vec2::new(k.cos(), k.sin()) * r;
+            arc(inv, "inugami_finish", pos + a, pos - a.perp() * 0.8, 0.1)?;
+            burst(inv, pos, 4, 300.0, if c.ticks % 8 == 0 { GREEN } else { WARD_FIRE }, "spark")?;
+        }
+        if c.ticks % 20 == 0 {
+            play(inv, SFX_ZAP, pos)?;
+        }
+        inv.submit::<BossStagePort>(BossStage { lit: SPIRIT_LIT, flash: flash_after(t, 0.6), card: 0.0 })?;
+        if crossed(FINISH_CALL_S) {
+            // She comes back, beside you, and casts her great seal.
+            let toward_it = if pos.x < target.x { -1.0 } else { 1.0 };
+            let x = within(target.x + toward_it * ALLY_BESIDE, hall.left + ALLY_WALL, hall.right - ALLY_WALL);
+            let y = within(target.y - ALLY_OVER, top, hall.floor - 80.0);
+            inv.submit::<BossSummonPort>(BossSummon {
+                label: "kagero_great_seal".into(),
+                serial: Vec::new(),
+                position: [x, y],
+                half_size: crate::kagero::HALF_SIZE,
+                character_id: crate::kagero::KAGERO_ID.into(),
+                health: Some(ALLY_HEALTH),
+                keeps_contact_damage: false,
+                side: SummonSide::Player,
+                holds: vec![crate::kagero::GREAT_SEAL.into()],
+            })?;
+        }
+        if crossed(FINISH_SEAL_S) {
+            // Her seal strikes: its fire goes out, its last strength is open.
+            c.exposed = true;
+            inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
+            inv.submit::<BossHealthFloorPort>(BossHealthFloor { floor: 0 })?;
+            inv.submit::<WearPort>(Wear { who: Wearer::Boss, gear: SEALED.into(), on: true })?;
+            play(inv, SFX_WARD_BREAK, pos)?;
+            play(inv, SFX_GUTTER, pos)?;
+            burst(inv, pos, 60, 420.0, PAPER, "streak")?;
+            burst(inv, pos, 30, 300.0, GREEN, "spark")?;
+            shake(inv, SHAKE_TEAR)?;
+        }
+        let (row, layer) = if t < FINISH_CALL_S {
+            (("ward_kindle", t, false), Some((FINISH_LAYER, t, true)))
+        } else if t < FINISH_SEAL_S {
+            (("ward_bound", t - FINISH_CALL_S, true), Some((FINISH_LAYER, t, true)))
+        } else {
+            (span("dispel", 0.0, 12.0, 0.075, (t - FINISH_SEAL_S) / DISPEL_S), None)
+        };
+        if t >= FINISH_SEAL_S + DISPEL_S {
+            // Its fire spent, it falls guttered: strike now.
+            c.finish = None;
+            c.guttered = Some(0.0);
+            c.from_x = pos.x;
+            c.from_y = pos.y;
+        }
+        let row = turned(&mut c, side, row, dt);
+        held_at(inv, at, pos, side, row, layer, dt)?;
+        return c.store(inv);
     }
 
     for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear, &mut c.slack, &mut c.ward_t] {

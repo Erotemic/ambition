@@ -36,14 +36,12 @@ pub mod fist_lines;
 pub use conductor::{ascent_of, birth, conductor_of, Arm, Blow, Exit, GnuTonView, Move, GNU_TON_ID};
 
 /// LDtk level identifier of the arena room whose ladder this system
-/// gates. Held as a constant so it's grep-able alongside the matching
-/// spec at `tools/ambition_ldtk_tools/specs/gnu_ton_arena_area.ron`.
+/// gates (`sandbox.ldtk`; LDtk-owned).
 const ARENA_ROOM_NAME: &str = "gnu_ton_arena";
 
 /// Authored name of the named Solid block that fills the gap above
 /// the ladder while the fight is live. Defined in the LDtk file as a
-/// `Solid` entity with `fields.name = "ladder_floor_gate"`. Must
-/// match `specs/gnu_ton/add_ladder_floor_gate.yaml`.
+/// `Solid` entity with `fields.name = "ladder_floor_gate"`.
 const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 
 /// Recognize the encounter rider by authored id/name. The `giant_gnu` mount is

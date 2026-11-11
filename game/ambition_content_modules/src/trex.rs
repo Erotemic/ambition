@@ -165,7 +165,7 @@ const WAVE_LIFETIME_S: f32 = 4.0;
 /// Rocks shaken from the ceiling: one over where you stand and the rest
 /// spread from it, each falling after its dust has trickled for a while.
 const ROCK_SPACING: f32 = 170.0;
-/// Under the ceiling (`trex_arena_area.ron`: its underside is 656 above the
+/// Under the ceiling (the `trex_arena` room: its underside is 656 above the
 /// floor).
 const ROCK_DROP_HEIGHT: f32 = 620.0;
 const ROCK_WARN_S: f32 = 0.7;

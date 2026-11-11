@@ -1722,7 +1722,7 @@ pub mod arrival {
     pub const POWER: f32 = 1.1;
     pub const LEN: f32 = STAND + LEAP + POWER;
     /// The ledge by the hall's top door: this far over the floor, and this
-    /// far from the left wall (`gnu_ton_arena_area.ron`, `shoulders()` in the
+    /// far from the left wall (the `gnu_ton_arena` room, `shoulders()` in the
     /// Science world's `make_specs.py`).
     pub const LEDGE_OVER_FLOOR: f32 = 1040.0;
     pub const LEDGE_IN: f32 = 120.0;

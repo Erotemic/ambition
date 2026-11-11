@@ -192,7 +192,7 @@ fn the_bite_reaches_under_his_chin() {
     step_until(&mut sim, 120, "the bite to land", |sim| player(sim).1 < before);
 }
 
-/// The arena's left ledge (`trex_arena_area.ron`): its top, and its middle.
+/// The arena's left ledge (the `trex_arena` room): its top, and its middle.
 const LEDGE_TOP: f32 = 464.0;
 const LEDGE_X: f32 = 112.0;
 

@@ -29,11 +29,11 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
   game/ambition_content/assets/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/goblin_encounter_area.ron \
+  tools/ambition_ldtk_tools/specs/examples/crawl_lab.yaml \
   --dry-run
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
-  tools/ambition_ldtk_tools/specs/companion_dog_central_hub_basement.yaml \
+  tools/ambition_ldtk_tools/specs/examples/companion_dog_central_hub_basement.yaml \
   --in-place
 ```
 

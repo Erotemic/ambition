@@ -512,11 +512,20 @@ code. Each moved generator writes the same specs as before it moved (compared
 with the lenient art box this VM needs: its art publication is missing, so a
 generator here cannot `--apply`).
 
-**Next action:** delete the hand-written one-off specs at the top of
-`tools/ambition_ldtk_tools/specs/` (`*_area.ron`, `*.yaml` edits, `gnu_ton/`,
-`pirate_sky/`): every room they made is LDtk-owned. Keep the few still read
-(`hall_of_characters_area.ron`, `symmetry_room_area.ron`,
-`intro_raid_corridor_area.ron`; grep for the rest first).
+**One-offs deleted (2026-11-10):** 111 hand-written one-off specs and edits
+(`*_area.ron`, `*.yaml`, `gnu_ton/`, `pirate_sky/`) are gone; every room they
+made is LDtk-owned, and the code and docs that cited one for a number now
+name the room. The dog example moved to `specs/examples/`.
+
+**Next action:** what is left in `tools/ambition_ldtk_tools/specs/` besides
+shared code (`district_kit`, `district_scenery`, `scenery_overlay`,
+`check_flat_map`, the gate network) and the tool's examples:
+`hall_of_characters_area.ron` and its order (written by the package's
+`generate_hall_of_characters.py`), `symmetry_room_area.ron`
+(`gen_symmetry_room.py`), `intro_raid_corridor_area.ron` (the fixture of
+`test_spec_brains_resolve.py`), and the portal labs' specs (the portal
+peer's). Move the two generators beside their worlds; give the guard its own
+fixture; leave the portal specs to their owner.
 
 **Acceptance:** `tools/ambition_ldtk_tools/specs/` holds only shared code and
 checks; `level ownership status` names an owner for every room of every world.

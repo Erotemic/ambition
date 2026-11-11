@@ -180,7 +180,7 @@ fn pounce_low() -> f32 {
     art(0.0, 165.0).y
 }
 const POUNCE_DAMAGE: i32 = 2;
-/// The underside of the ceiling over the floor (`hunny_horror_arena_area.ron`:
+/// The underside of the ceiling over the floor (the `hunny_horror_arena` room:
 /// 656): where his balloon pops.
 const CEILING: f32 = 656.0;
 const POUNCE_KNOCKBACK: f32 = 1.6;

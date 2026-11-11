@@ -1,8 +1,8 @@
 title: military_tower_context
 ---
 // The garrison of the General's tower (the Iron Bastion, `military_tower`),
-// one node per soldier, named `military_tower_<soldier>`. The room is written
-// by `tools/ambition_ldtk_tools/specs/military_tower_area.ron`; the General's
+// one node per soldier, named `military_tower_<soldier>`. The room is
+// `military_tower` in `sandbox.ldtk`; the General's
 // own talk is `military_general` in `factions.yarn`. The soldiers are made by
 // the character generator (renderer `data/townsfolk/tower_*.chargen.yaml`).
 //

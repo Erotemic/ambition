@@ -187,8 +187,8 @@ Ambition playing itself (the same rooms in the same order, every run):
                           its itinerary (the hall of characters in and out, then
                           a flight through the primeval trail and back) by
                           navigation. The default scenario is `ambition-autoplay`.
-                          AMBITION_AUTOPLAY=portal_profile selects the Hall and
-                          portal lab loop, with its own scenario ID.
+                          AMBITION_AUTOPLAY=portal_profile selects the portal lab
+                          and Hall loop, in that order, with its own scenario ID.
                           Combine with --duration N.
 
 Smash match (a real round, not the character-select menu):
@@ -1765,7 +1765,7 @@ main() {
     log "profiling the $build_profile build: ${plan_binary:-<unresolved>}"
     if [[ -n "$plan_features" ]]; then log "cargo features: $plan_features"; fi
     if [[ "$workload" == "ambition-autoplay" ]]; then
-        log "workload: Ambition plays itself (the hall of characters, then a flight through the primeval trail); quit the game or pass --duration to end the capture"
+        log "workload: Ambition plays itself (autoplay profile: ${AMBITION_AUTOPLAY:-ambition}); quit the game or pass --duration to end the capture"
     fi
     if [[ "$workload" == "smash-match" ]]; then
         log "workload: a LIVE Smash match ($smash_fighters fighters, $smash_stocks stocks, cast=$smash_cast, characters=$(smash_seat_character_ids)), not the character-select menu"

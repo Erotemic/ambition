@@ -928,8 +928,8 @@ scripts/measure/profile_desktop.sh --autoplay --duration 120   # a bundle, scena
 routes are validated content in `game/ambition_content/assets/data/autoplay.ron`.
 An unavailable route waits and retries; it does not count the stop as reached.
 
-**Hall and portal lab.** `portal_profile` flies across the Hall of Characters,
-flies across the portal lab, returns to the hub, and repeats. It uses the
+**Portal lab and Hall.** `portal_profile` flies across the portal lab,
+flies across the Hall of Characters, returns to the hub, and repeats. It uses the
 normal doors and navigation input. It does not fight or equip an item.
 
 ```bash

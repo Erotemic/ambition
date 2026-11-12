@@ -58,4 +58,23 @@ players join or leave a region, is **not approved or promised** by this ADR.
 - Measure resolved Cargo closure, active systems, CPU, memory, saved state, resimulated ticks
   and latency instead of inferring costs from the presence of schema declarations.
 
+## Per-game synchronization (NA-4, 2026-11-12)
+
+The maintainer set the flagship's direction on 2026-11-10
+([decision](../planning/maintainer-decisions.md)); NET-AUTHORITY-EXPERIMENT's
+measurements ([results](../planning/engine/hosted-world-networking-experiment.md))
+now support it per game:
+
+| Game | Synchronization | Why, from the measurements |
+|---|---|---|
+| Smash and other match demos | GGRS input-synchronized rollback, one domain per match | A bounded arena with every body interacting every frame; rollback hides latency and the world is small. |
+| Ambition (the metroidvania) | Hybrid: a player's own game hosts the world; guests send input and receive their room's state; inside a room the guest predicts and reconciles by rewinding its own room (ISL-2's room snapshot) | Each GGRS peer spent about 4× the host's update per frame without rollbacks (NA-1). A guest's room alone is 27 bytes a frame of body rows where the whole world was 398 (NA-2b). A guest predicting its own body is exact until another body acts on it; replaying its own room since each snapshot keeps the mean correction at 0.068 units (NA-3). A late or returning guest builds rooms from the host's save, which carries occurrences and what lives hold; a life's step needs a row of its own. |
+
+What this does not decide: the transport (no service dependency, no network
+crate chosen), a guest App composed from fewer plugins (NA-2b measured that a
+gated guest still pays about 1.8 ms for presentation it does not need), and
+the production input path that turns the room rollback host into shipped code
+(SIMULATION-ISLANDS' next action). Runtime switching between modes is still
+not promised.
+
 See [ADR 0027](0027-ggrs-is-the-sole-rollback-authority.md), [ADR 0037](0037-causally-isolated-simulation-islands.md), and [capability planning](../planning/engine/capability-and-runtime-composition.md).

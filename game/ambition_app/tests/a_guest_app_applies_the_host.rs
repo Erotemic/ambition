@@ -2184,3 +2184,72 @@ fn probe_what_a_late_guest_needs() {
     }
     assert_eq!(host_wall, Some(true), "premise: Alice broke the wall on the host");
 }
+
+/// NA-3, an NPC's life for a guest that arrives later: the host plays
+/// `eureka_coil_lab` from five past ten until a scientist holds the
+/// workbench (a life's claim, booked in `LifeLedger`, which the save keeps).
+/// Then two guests boot in the lab with the host's day clock: one adopts the
+/// host's save (as a file load does, settled with its simulation awake for
+/// 90 frames), the control does not. Prints, per life on the host, what it
+/// is doing and claims there and on each guest: what a returning or late
+/// guest knows of the room's lives.
+#[test]
+#[ignore = "measurement: prints what a guest knows of a room's NPC lives when it arrives; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_guest_knows_of_a_rooms_lives() {
+    use ambition_platformer2d::actors::body::life::Life;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::time::{DayClock, DayCycle};
+    const LAB: &str = "eureka_coil_lab";
+    let lives = |sim: &mut Platformer2dSimHarness| -> BTreeMap<SimId, String> {
+        let world = sim.world_mut();
+        world
+            .query::<(&SimId, &Life)>()
+            .iter(world)
+            .map(|(id, life)| {
+                let doing = format!("{:?}", life.doing);
+                let doing: String = doing.split(|ch: char| ch == ' ' || ch == '(' || ch == '{').next().unwrap_or_default().to_string();
+                (id.clone(), format!("{doing}, claim {:?}, plan {:?} #{}", life.claim, life.planned_in, life.revision))
+            })
+            .collect()
+    };
+    let mut host = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(LAB)).expect("the lab boots");
+    host.step(crate::common::base());
+    {
+        let world = host.world_mut();
+        let cycle = *world.resource::<DayCycle>();
+        *world.resource_mut::<DayClock>() = DayClock::at_hour(&cycle, 10.05);
+    }
+    let mut steps = 0;
+    while !lives(&mut host).values().any(|life| life.contains("Some(\"workbench\")")) {
+        assert!(steps < 20_000, "premise: a scientist takes the bench");
+        host.step(crate::common::base());
+        steps += 1;
+    }
+    for _ in 0..30 {
+        host.step(crate::common::base());
+    }
+    let day = *host.world().resource::<DayClock>();
+    let save = host.world().resource::<AmbitionGameSave>().0.clone();
+    let on_host = lives(&mut host);
+    let mut on_guests = Vec::new();
+    for adopt in [false, true] {
+        let mut guest = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(LAB)).expect("the lab boots");
+        *guest.world_mut().resource_mut::<DayClock>() = day;
+        if adopt {
+            guest.world_mut().resource_mut::<AmbitionGameSave>().0 = save.clone();
+            guest.world_mut().resource_mut::<ambition_platformer2d::platformer::lifecycle::SaveRestored>().0 = false;
+        }
+        for _ in 0..90 {
+            guest.app_mut().update();
+        }
+        on_guests.push((adopt, lives(&mut guest)));
+    }
+    println!("[lives] {LAB}: {steps} steps until a scientist held the bench; the save keeps {} lives", save.lives().len());
+    for (id, life) in &on_host {
+        println!("[lives]   {id:?}");
+        println!("[lives]     host:              {life}");
+        for (adopt, guest) in &on_guests {
+            println!("[lives]     guest {}: {}", if *adopt { "with its save   " } else { "without its save" }, guest.get(id).map_or("absent", |life| life.as_str()));
+        }
+    }
+}

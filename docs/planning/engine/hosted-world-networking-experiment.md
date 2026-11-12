@@ -1,6 +1,6 @@
 # Hosted world versus GGRS — the authority experiment
 
-**Status:** NA-1 and NA-2 done (2026-11-10); NA-2b's guest App measured through spawns, deaths, drops, presentation, room scope and room following (2026-11-12); NA-3 prediction and reconciliation measured (2026-11-12); NA-3's NPC facts and late join, and NA-4, open.
+**Status:** NA-1 and NA-2 done (2026-11-10); NA-2b's guest App measured through spawns, deaths, drops, presentation, room scope and room following (2026-11-12); NA-3 measured (2026-11-12: prediction, reconciliation, late join, NPC lives); NA-4 recorded in ADR 0036 (2026-11-12).
 **Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs).
 **Research and candidates:** [network topology and authority](network-topology-and-authority-research.md) (models A–D, R0–R5, the comparison scenarios). This page owns the experiment's results, not the candidate list.
 **Related:** [netcode](netcode.md), [compact peer input](island-rollback-and-compact-peer-input.md), [multiplayer and multiview](multiplayer-and-multiview.md), [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
@@ -642,6 +642,29 @@ host's body rows for 60 frames.
   save again, not a history of what changed while it was away. Not measured
   here: an NPC's life (`LifeLedger`) across a guest's absence.
 
+**An NPC's life for a guest that arrives later (2026-11-12),** probe
+`probe_what_a_guest_knows_of_a_rooms_lives` (same file, ignored): the host
+plays `eureka_coil_lab` from five past ten until a scientist holds the
+workbench (292 steps) and 30 more. Two guests then boot in the lab with the
+host's day clock and settle 90 frames with their simulation awake; one
+adopts the host's save (which keeps both lives, `LifeLedger`), the control
+does not.
+
+| Life | Host | Guest without the save | Guest with the save |
+|---|---|---|---|
+| `NpcSpawn-410911` | holding, claims the workbench, plan #2 | going to, no claim, plan #2 | holding, claims the workbench, plan #1 |
+| `NpcSpawn-410910` | going to, no claim, plan #2 | going to, no claim, plan #2 | holding, no claim, plan #1 |
+
+- **The save carries what a life holds:** the guest that adopted it has the
+  same scientist on the bench as the host; the control's lives replanned
+  from the authored start and nobody holds it.
+- **It does not carry where a life is in its plan:** with the save, the
+  other scientist resumed as holding at plan #1 while the host's had moved
+  on to plan #2. A life's step is the host's alone; a guest that simulates
+  lives from the save drifts from it, and a gated guest has none. So a
+  guest that shows lives needs each life's step on the wire (as the death
+  beat is), or accepts drift until the next save.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -703,6 +726,8 @@ host's body rows for 60 frames.
    guest joining a running world from a host snapshot. A late join
    (2026-11-12, above): a guest that adopts the host's save builds the room
    as the host has it (a broken wall broken) and the rows agree at once;
-   without it the wall stands for good. Next: an NPC's life across a guest's
-   absence.
+   without it the wall stands for good. An NPC's life (2026-11-12, above):
+   the save carries what a life holds (the scientist on the bench), not
+   where it is in its plan; a guest that shows lives needs each life's step
+   on the wire. NA-3 is measured.
 4. **NA-4** once 1–3 have numbers.

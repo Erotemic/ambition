@@ -2094,3 +2094,93 @@ fn probe_how_far_a_guest_that_replays_is_from_the_host() {
         );
     }
 }
+
+/// NA-3, a late join: the host plays `breakable_wall_lab` and Alice breaks
+/// its cracked wall (frame 78 in the wall census). On frame 200 two guests
+/// boot in the lab: one adopts the host's save (as a load from a file does:
+/// the save's data, then `SaveRestored` cleared, settled with its simulation
+/// awake), the control does not. Then both are gated and take the host's
+/// body rows for 60 frames. Prints, per guest, the wall, the frames its ids
+/// differ from the snapshot's after applying it, and what it built and
+/// removed: what a guest joining a running world needs besides the rows.
+#[test]
+#[ignore = "measurement: prints what a guest that joins a running world needs; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_late_guest_needs() {
+    use ambition_platformer2d::engine_core::ControlFrame;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    const LAB: &str = "breakable_wall_lab";
+    const JOIN: i32 = 200;
+    let the_wall = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::breakables::BreakableFeature)>()
+            .iter(world)
+            .find(|(id, _)| id.as_str() == "breakable_wall_lab_wall")
+            .map(|(_, wall)| wall.broken())
+    };
+    let mut host = booted(LAB);
+    let drive = |host: &mut Platformer2dSimHarness, frame: i32| {
+        if frame == 1 {
+            host.teleport_player((600.0, 200.0));
+        }
+        let swing = frame > 10 && frame % 25 == 0 && frame < 150;
+        host.drive_seat(
+            0,
+            ControlFrame { axis_x: if frame <= 3 { 1.0 } else { 0.0 }, attack_pressed: swing, attack_held: swing, ..Default::default() },
+        );
+        host.drive_seat(1, Default::default());
+        host.app_mut().update();
+    };
+    for frame in 1..=JOIN {
+        drive(&mut host, frame);
+    }
+    let host_wall = the_wall(&mut host);
+    let save = host.world().resource::<AmbitionGameSave>().0.clone();
+    let mut guests = Vec::new();
+    for adopt in [false, true] {
+        let mut guest = booted(LAB);
+        if adopt {
+            guest.world_mut().resource_mut::<AmbitionGameSave>().0 = save.clone();
+            guest.world_mut().resource_mut::<ambition_platformer2d::platformer::lifecycle::SaveRestored>().0 = false;
+        }
+        for _ in 0..90 {
+            guest.drive_seat(0, Default::default());
+            guest.drive_seat(1, Default::default());
+            guest.app_mut().update();
+        }
+        let restored = guest.world().resource::<ambition_platformer2d::platformer::lifecycle::SaveRestored>().0;
+        simulate_nothing(&mut guest);
+        guests.push((adopt, restored, guest, None::<bool>, 0, Vec::new(), Vec::new()));
+    }
+    for (_, _, guest, wall, ..) in guests.iter_mut() {
+        *wall = the_wall(guest);
+    }
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>)> = VecDeque::new();
+    for frame in (JOIN + 1)..=(JOIN + 60) {
+        drive(&mut host, frame);
+        in_flight.push_back((frame, bodies(&mut host, None)));
+        if in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATENCY) {
+            let (_, rows) = in_flight.pop_front().expect("a snapshot arrived");
+            for (_, _, guest, _, unmatched, built, removed) in guests.iter_mut() {
+                let done = apply_all(guest, &rows);
+                if done.unmatched > 0 {
+                    *unmatched += 1;
+                }
+                built.extend(done.built);
+                removed.extend(done.removed_booted);
+            }
+        }
+        for (_, _, guest, ..) in guests.iter_mut() {
+            guest.app_mut().update();
+        }
+    }
+    println!("[join] {LAB}: the host's wall at frame {JOIN}: broken {host_wall:?}; the save's checkpoint {:?}", save.checkpoint().map(|checkpoint| checkpoint.room_id.clone()));
+    for (adopt, restored, guest, wall_at_join, unmatched, built, removed) in guests.iter_mut() {
+        println!(
+            "[join]   the guest {} the host's save (load landed: {restored}): its wall broken {wall_at_join:?} at the join, {:?} at the end; frames whose ids differ after applying {unmatched}; built {built:?}; removed {removed:?}",
+            if *adopt { "adopting" } else { "without" },
+            the_wall(guest),
+        );
+    }
+    assert_eq!(host_wall, Some(true), "premise: Alice broke the wall on the host");
+}

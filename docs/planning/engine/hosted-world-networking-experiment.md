@@ -617,6 +617,31 @@ and replays Bob's inputs since (five frames at this latency).
   that replays only its own body (not the room's other systems) or
   corrects only past a threshold would pay less; not measured.
 
+### NA-3, a late join (2026-11-12)
+
+Probe `probe_what_a_late_guest_needs` (same file, ignored). The host plays
+`breakable_wall_lab` and Alice breaks its cracked wall. On frame 200 two
+guests boot in the lab: one adopts the host's save as a load from a file
+does (the save's data, `SaveRestored` cleared, 90 frames with its
+simulation awake), the control does not. Both are then gated and take the
+host's body rows for 60 frames.
+
+| Guest | Its wall at the join, at the end | Frames its ids differ after applying | Built, removed |
+|---|---|---|---|
+| without the host's save | whole, whole | 0 | none, none |
+| adopting the host's save | broken, broken | 0 | none, none |
+
+- **The host's save is what a late guest needs besides the rows:** a
+  breakable's state is an occurrence in the save (`Spent`), so a guest that
+  loads the host's save builds the room as the host has it, and the body
+  rows agree with it at once. Without it the wall stands on the guest for
+  good: no body row names it.
+- **The same road serves a returning guest:** the host keeps NPC and room
+  facts in its save and its ledgers (the persistence authority every room
+  rebuild already reads), so a guest that leaves and comes back needs that
+  save again, not a history of what changed while it was away. Not measured
+  here: an NPC's life (`LifeLedger`) across a guest's absence.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -671,10 +696,13 @@ and replays Bob's inputs since (five frames at this latency).
    offset reconciliation. The corrections are Alice's strikes
    on Bob. Reconciling by replaying the guest's own room since the snapshot
    (ISL-2's room rewind) brings the mean to 0.068 at about 9 ms a frame of
-   replays (debug build). Next: NPC facts and late join. The kernel already
-   runs per body (`transit_body`, `BodyKinematics`); the open question is
-   what else a prediction needs (contacts, abilities, held items).
+   replays (debug build). What else a prediction needs is what reaches the
+   predicted body from others (here, strikes); the replay absorbs it.
 3. **NA-3 — NPC facts and late join.** Host-owned NPC state across a guest's
    departure and return, using the existing save/persistence authority; a
-   guest joining a running world from a host snapshot.
+   guest joining a running world from a host snapshot. A late join
+   (2026-11-12, above): a guest that adopts the host's save builds the room
+   as the host has it (a broken wall broken) and the rows agree at once;
+   without it the wall stands for good. Next: an NPC's life across a guest's
+   absence.
 4. **NA-4** once 1–3 have numbers.

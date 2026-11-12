@@ -48,3 +48,43 @@ partial-contact, reverse-travel and deterministic replay check also passes.
 The broader suite is not run. Logs and commands are under
 `target/portal-e-stall/`.
 A new desktop run is needed to measure frame time at station E after the fix.
+
+## Reverse crossing follow-up
+
+The next F8 trace is
+`debug_traces/ambition_gameplay_trace_1794453749-348163725-000000_20769d03h22m29s.json`.
+The body walks right from `(3444.092, 921.99994)` into the wall aperture.
+At tick 1726 it returns to the slope at `(2968.5095, 880.05524)` with velocity
+`(-134.5872, -234.0647)`. The next 42 recorded ticks keep that pose and velocity.
+The real-app reproducer matches this crossing and refuses the next tick with
+`WorkLimit`, path `[]`, and no link key.
+
+The corresponding bundle is `desktop-timeline-run-20261112T031559Z`, source
+`9779af7b0650`, with the `profile` feature and Tracy enabled. The final census
+reports about 416 ms per tick in integration. Its last frame takes 6.449 s.
+These traced times are not comparable to untraced frame times as a controlled
+performance estimate. They confirm that integration owns this stall.
+
+This query has a real contact region. It cannot use the disjoint-line filter
+from the forward correction. The curved search rejects one contact component
+and must prove that the same overlap persists before it can skip that time
+interval. Its old proof bounds a collider point and portal cut separately in
+the rotating body chart. That loses their shared physical motion and forces
+very small time subdivisions along the slope.
+
+The correction reports whether the existing world-plane set contains every
+active cut with fixed eligibility. For a collider with no angular motion,
+its material point and each such plane have an affine relative distance.
+Use that distance, with a bound for numerical rounding, to prove containment
+in the cuts. Keep the existing body-containment proof. An incomplete plane
+set, changing eligibility, or a rotating collider retains the existing
+conservative proof. No contact component is skipped without a proof that its
+overlap continues. Refusal and contact-admission rules remain unchanged.
+
+The reverse regression drives the crossing under rollback, checks for refusals,
+and requires the body to move clear without resetting. All 101 material-cast
+tests, all three lab tests, and the 80/40 partial-contact, reverse-travel and
+bit-identical replay guard pass on the final implementation. The broader suite
+is not run. Logs and commands are under `target/portal-e-reverse-final/`.
+Desktop confirmation at E in both directions and the earlier station J stop
+remain open.

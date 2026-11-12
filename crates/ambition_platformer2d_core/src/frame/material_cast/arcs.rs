@@ -126,6 +126,12 @@ pub(super) struct CurveCell {
     holes: Vec<Hole>,
 }
 
+pub(super) struct WorldPlanes {
+    pub planes: Vec<super::translation::MovingPlane>,
+    /// Every active cut is included, with fixed eligibility over the interval.
+    pub complete: bool,
+}
+
 impl Scene {
     pub(super) fn admission(&self) -> MotionAdmission<'_> {
         MotionAdmission { links: &self.links, first: self.first, budget: self.budget, convention: self.convention }
@@ -553,11 +559,11 @@ impl CurveCell {
         self.scene.pull(state, aperture, n, aperture.half, half)
     }
 
-    fn world_planes(&self, time: &Range<f64>) -> Result<Vec<super::translation::MovingPlane>, NumericFault> {
+    pub(super) fn world_planes(&self, time: &Range<f64>) -> Result<WorldPlanes, NumericFault> {
         if self.path.iter().any(|&index| {
             let link = self.scene.links[index];
             link.enter_step.turn != 0.0 || link.exit_step.turn != 0.0
-        }) { return Ok(Vec::new()); }
+        }) { return Ok(WorldPlanes { planes: Vec::new(), complete: false }); }
         let (middle, half) = crate::frame::interval_center(time);
         let (states, poses) = self.scene.states(&self.path, middle, half)?;
         let origin = (0..self.scene.links.len()).map(|i| self.scene.pose(i, 0.0))
@@ -572,12 +578,17 @@ impl CurveCell {
             Ok((map, travel))
         };
         let mut out = Vec::new();
+        let mut complete = self.base.is_empty();
         for &clause in &self.clauses {
             let link = self.scene.links[clause.link];
-            if link.enter_step.turn != 0.0 { continue; }
+            if link.enter_step.turn != 0.0 { complete = false; continue; }
             // Stay(0) can omit its cut when the reference is not eligible.
-            if matches!(clause.kind, Kind::Stay(0))
-                && self.scene.condition(clause, states[clause.stage], &poses, half) != Truth::Yes { continue; }
+            let condition = self.scene.condition(clause, states[clause.stage], &poses, half);
+            if condition == Truth::No && matches!(clause.kind, Kind::Stay(0)) { continue; }
+            if condition != Truth::Yes {
+                complete = false;
+                if matches!(clause.kind, Kind::Stay(0)) { continue; }
+            }
             let pose = origin[clause.link];
             let (map, travel) = suffix(clause.stage)?;
             for (inward, constant) in selected_planes(clause.kind, pose.enter.normal,
@@ -592,8 +603,15 @@ impl CurveCell {
         let state = *states.last().unwrap();
         for &hole in &self.holes {
             let link = self.scene.links[hole.link];
-            if (if hole.exit { link.exit_step.turn } else { link.enter_step.turn }) != 0.0 { continue; }
-            if hole.side == 0 && self.hole_condition(hole, state, &poses, half) != Truth::Yes { continue; }
+            if (if hole.exit { link.exit_step.turn } else { link.enter_step.turn }) != 0.0 {
+                complete = false; continue;
+            }
+            let condition = self.hole_condition(hole, state, &poses, half);
+            if condition == Truth::No && hole.side == 0 { continue; }
+            if condition != Truth::Yes {
+                complete = false;
+                if hole.side == 0 { continue; }
+            }
             let pose = origin[hole.link];
             let aperture = if hole.exit { pose.exit } else { pose.enter };
             let inward = aperture.tangent() * if hole.side == 0 { -1.0 } else { 1.0 };
@@ -602,7 +620,7 @@ impl CurveCell {
                 rate: inward.dot(aperture.origin_velocity()),
             });
         }
-        Ok(out)
+        Ok(WorldPlanes { planes: out, complete })
     }
 
     fn affine_planes(
@@ -727,7 +745,7 @@ impl CurveCell {
                     .affine_planes(&cell.time)
                     .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
                 let world_planes = curve.world_planes(&cell.time)
-                    .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+                    .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?.planes;
                 Ok(match affine {
                     Some(planes) => MaterialCell {
                         planes, world_planes,
@@ -1354,7 +1372,7 @@ pub(super) fn build(
             let travel = curve.velocity(DVec2::ZERO, 0.0)
                 .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
             let world_planes = curve.world_planes(&time)
-                .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+                .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?.planes;
             Ok(match affine {
                 Some(planes) => MaterialCell { path, map, travel, planes, world_planes, time, curve: None },
                 None => MaterialCell { path, map, world_planes, travel: DVec2::ZERO,

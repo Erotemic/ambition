@@ -1304,3 +1304,61 @@ fn probe_what_a_breaking_wall_spawns() {
         host.drive_seat(1, Default::default());
     });
 }
+
+/// NA-2b's census with a summon: in `switch_lab` an enemy is spawned beside
+/// Alice on frame 5 and summons a flying shark on frame 10 through the
+/// summon road (`SummonRequest`), as a boss or a summoning move does. Prints
+/// what appeared, with and without an id: what a spawn row for a summon
+/// would have to build.
+#[test]
+#[ignore = "measurement: prints what a host spawns when a body summons; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_summon_spawns() {
+    const SUMMONER: &str = "na2b_summoner";
+    census("summon", ROOM, 120, |host, frame| {
+        if frame == 5 {
+            let at = {
+                let world = host.world_mut();
+                world
+                    .query_filtered::<&BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                    .single(world)
+                    .expect("Alice has a body")
+                    .pos
+            };
+            host.spawn_enemy_character_at(
+                SUMMONER,
+                "Summoner",
+                (at.x + 96.0, at.y),
+                (12.0, 16.0),
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+                "npc_puppy_slug",
+            );
+        }
+        if frame == 10 {
+            let world = host.world_mut();
+            let (owner, at) = world
+                .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId, &BodyKinematics)>()
+                .iter(world)
+                .find(|(_, feature, _)| feature.0 == SUMMONER)
+                .map(|(entity, _, body)| (entity, body.pos))
+                .expect("the summoner stands");
+            world.write_message(ambition_platformer2d::characters::summon::SummonRequest {
+                owner,
+                spec: ambition_platformer2d::characters::summon::SummonSpec {
+                    id: "na2b_summon".to_string(),
+                    pos: at + bevy::math::Vec2::new(0.0, 48.0),
+                    half_size: bevy::math::Vec2::new(12.0, 12.0),
+                    character_id: "npc_burning_flying_shark".to_string(),
+                    encounter_id: "na2b_summon_encounter".to_string(),
+                    faction: ambition_platformer2d::characters::actor::ActorFaction::Enemy,
+                    calling: ambition_platformer2d::characters::summon::SummonCalling::Fight,
+                    ridden_by_summoner: None,
+                    health: None,
+                    keeps_contact_damage: false,
+                    holds: Vec::new(),
+                },
+            });
+        }
+        host.drive_seat(0, Default::default());
+        host.drive_seat(1, Default::default());
+    });
+}

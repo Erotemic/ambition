@@ -430,6 +430,26 @@ every 25 frames, 300 frames.
 - **Still not measured:** a summon (no summoner in either room), and a
   breakable whose break spawns debris.
 
+**A summon (2026-11-12),** probe `probe_what_a_summon_spawns` (same file,
+ignored): in `switch_lab` an enemy is spawned beside Alice on frame 5 and
+summons a flying shark on frame 10 through the summon road
+(`SummonRequest`), 120 frames.
+
+- **A summon is a body like any other:** its id is the summoner's with a
+  sequence (`placement:…/#`), it has `BodyKinematics`, so the body rows
+  already carry it and the general rule (build every body the snapshot names
+  and the guest does not hold) applies. Its spawn row has to name what it is
+  built from: its character (82 components on the host, nearly all from the
+  prepared character), faction and calling.
+- **Its strike is one more short-lived strike volume** (`…/#/strike/…`), as
+  Alice's swings were: drawn from the body's move.
+- **One anonymous pickup appeared,** keyed by its `SpawnOrigin` as above;
+  this probe did not record which body it fell from.
+- **That closes the census of what a host spawns** in these rooms: bodies
+  (players, enemies, summons, shots) by `SimId`, drops by `SpawnOrigin`,
+  breakables as row changes on booted `SimId`s, strike volumes not
+  replicated.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -461,7 +481,9 @@ every 25 frames, 300 frames.
    motion). A breaking wall (2026-11-12): a row change on a `SimId` both
    Apps already hold; its drop takes the pickup road; a swing's strike
    volumes are the only new non-body `SimId`s and need no row to be drawn.
-   Next: a census with a summon; send only the guest's room;
+   A summon (2026-11-12): a body with a `SimId` descended from its
+   summoner, carried by the body rows; its spawn row names its character.
+   Next: send only the guest's room;
    sounds and visuals sent, with room numbers mapped.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,

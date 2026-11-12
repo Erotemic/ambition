@@ -327,6 +327,16 @@ or talker, or the conversation names neither (a cutscene or sign with no
 participant). With that change the probe kept the conversation open on both
 peers through Bob's crossing.
 
+## A menu during another participant's crossing (2026-11-12)
+
+The acceptance asks that a participant keep using its menu while another
+crosses. Witness `local_play_modes::a_participants_menu_stays_open_while_another_crosses`
+(rendered host, two pads, fixed split): seat 0's crossing is held on its
+room's delayed work; seat 1 opens its menu with its pad and turns a page;
+the work completes and the crossing commits. Seat 1's menu stays open on the
+page it turned, and seat 0's stays shut. Run for both orders; it passes as
+written, so no fix was needed.
+
 ## Implementation and behavior gates
 
 1. Exercise the shared room application inside a rollback schedule. Restore

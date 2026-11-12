@@ -1164,6 +1164,51 @@ fn a_room_transition_keeps_the_other_participants_input_and_view() {
     }
 }
 
+/// While one participant's crossing waits on its room, the other opens its
+/// own menu and turns its page; the crossing then commits without closing
+/// that menu or opening the crossing participant's.
+#[test]
+fn a_participants_menu_stays_open_while_another_crosses() {
+    use ambition_app::menu::model::{MenuPage, MenuPageAction};
+    use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkState};
+    use ambition_platformer2d::menu::ActiveMenuPages;
+    use ambition_platformer2d::runtime::room_transition::{RoomTransitionLoadPhase, RoomTransitionLoadState};
+    type Pages = ActiveMenuPages<MenuPage, MenuPageAction>;
+    for slot in [0u8, 1] {
+        let other = 1 - slot;
+        let (mut app, pads, barrier) = transition_in_one_view(rendered_app(), slot);
+        let sequence = app.world().resource::<RoomTransitionLoadState>().active.as_ref().unwrap().sequence;
+        tap(&mut app, pads[usize::from(other)], GamepadButton::Start);
+        let menus = inventory_menus(&mut app);
+        assert!(menus[&other].1, "seat {other} opens its menu while seat {slot} crosses");
+        assert!(!menus[&slot].1, "the crossing seat's menu stays shut");
+        let menu = menus[&other].0;
+        let page = app.world().get::<Pages>(menu).unwrap().active;
+        tap(&mut app, pads[usize::from(other)], GamepadButton::RightTrigger);
+        let turned = app.world().get::<Pages>(menu).unwrap().active;
+        assert_ne!(turned, page, "seat {other}'s menu answers its pad while seat {slot} crosses");
+        let _ = app.world_mut().resource_mut::<LoadCoordinator>().apply(LoadCommand::SetWorkState {
+            load_id: barrier.load_id, work_id: "fixture.delayed-room-art".into(), state: LoadWorkState::Complete,
+        });
+        let mut committed = false;
+        for _ in 0..600 {
+            app.update();
+            let state = app.world().resource::<RoomTransitionLoadState>();
+            if let Some(active) = state.presentation(sequence) {
+                assert!(active.failure.is_none(), "the crossing failed: {:?}", active.failure);
+                if active.phase == RoomTransitionLoadPhase::Committed { committed = true; break; }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert!(committed, "seat {slot}'s crossing never committed while seat {other}'s menu was open");
+        for _ in 0..10 { app.update(); }
+        let menus = inventory_menus(&mut app);
+        assert!(menus[&other].1, "seat {slot}'s crossing closed seat {other}'s menu");
+        assert!(!menus[&slot].1, "seat {slot}'s crossing opened its own menu");
+        assert_eq!(app.world().get::<Pages>(menu).unwrap().active, turned, "the crossing turned seat {other}'s page");
+    }
+}
+
 #[test]
 #[ignore = "needs a wgpu adapter; captures each participant's room loading foreground"]
 fn room_loading_draws_only_in_the_crossing_participants_view() {

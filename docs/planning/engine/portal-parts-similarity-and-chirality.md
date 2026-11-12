@@ -1776,8 +1776,11 @@ sends real `VfxInRoom` rows through the spawn and ageing systems. A refusal
 written every tick, with a replayed row in the same frame, draws one set of
 glyphs. A policy refusal adds EXPONENT BIAS and no second IEEE 754. A refusal
 that ends and comes back draws again. Every view's camera draws the app's one
-set of glyph entities, so a second view adds no effect; that has no
-two-camera test.
+set of glyph entities, so a second view of the same room adds no effect.
+`a_fault_is_drawn_in_the_room_that_refused_it` covers two views on two live
+rooms of different sizes: each fault's letters carry the stamp of the room
+that refused, which a view of the other room declines, and drift by that
+room's flip into Bevy space.
 
 ### A body's own lines, and a pair that does not close on a body — 2026-11-12
 

@@ -240,4 +240,46 @@ mod tests {
         advance(&mut app, 1.0 / 60.0);
         assert_eq!(texts(&mut app), ["7FF8", "IEEE 754", "NaN", "NaN"]);
     }
+
+    /// Two views on two live rooms: a refusal in each, at one simulation
+    /// position. Each fault's letters belong to the room that refused, so a
+    /// view of the other room does not draw them, and they drift by that
+    /// room's flip into Bevy space, not the other's.
+    #[test]
+    fn a_fault_is_drawn_in_the_room_that_refused_it() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance, LiveRoomInstance};
+        let mut app = app();
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let small = ae::Vec2::new(400.0, 300.0);
+        spawn_live_room(app.world_mut(), second, ae::RoomGeometry(ae::World::new("small", small, ae::Vec2::new(40.0, 40.0), Vec::new())));
+        let at = ae::Vec2::new(100.0, 200.0);
+        for (room, episode) in [(LiveRoomInstance::ACTIVATION, 7), (second, 8)] {
+            app.world_mut().write_message(ambition_vfx::vfx::VfxInRoom {
+                room: Some(room),
+                vfx: ambition_vfx::VfxMessage::PortalFault {
+                    pos: at, normal: ae::Vec2::new(0.0, -1.0), half_length: 40.0, glyph: FaultGlyph::Infinity, episode,
+                },
+            });
+        }
+        advance(&mut app, 1.0 / 60.0);
+        advance(&mut app, 0.2);
+        let mut query = app.world_mut().query::<(&PortalFaultGlyphVisual, &Transform, &InRoomInstance)>();
+        let mut rooms = std::collections::BTreeMap::<u32, usize>::new();
+        for (glyph, transform, stamp) in query.iter(app.world()) {
+            let size = if stamp.0 == second { small } else { ae::Vec2::new(800.0, 600.0) };
+            let expected = world_to_bevy(&ae::World::new("", size, ae::Vec2::ONE, Vec::new()), glyph.pos, 0.0).truncate();
+            assert!(
+                (transform.translation.truncate() - expected).length() < 1e-3,
+                "a glyph of room {} is placed by its own room's flip",
+                stamp.0.ordinal()
+            );
+            assert!(glyph.pos.y < at.y, "it has drifted out of the mouth");
+            *rooms.entry(stamp.0.ordinal()).or_default() += 1;
+        }
+        assert_eq!(
+            rooms.into_iter().collect::<Vec<_>>(),
+            [(LiveRoomInstance::ACTIVATION.ordinal(), 4), (second.ordinal(), 4)],
+            "each room draws its own fault's header and three symbols"
+        );
+    }
 }

@@ -19,14 +19,17 @@ fn non_finite_collider_input_refuses_before_a_portal_cut() {
             links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection,
         })).unwrap();
     let part = cells.parts().iter().find(|part| !part.world_planes.is_empty()).unwrap();
-    for bad_motion in [true, false] {
+    for vertices in [2, 4] {
+      for bad_motion in [true, false] {
         let mut obstacle = box_at(Vec2::ZERO, Vec2::ONE);
+        obstacle.truncate(vertices);
         let displacement = if bad_motion { Vec2::new(f32::NAN, 0.0) }
             else { obstacle[0].x = f32::NAN; Vec2::ZERO };
         let result = cells.against(part, &obstacle, displacement);
         assert!(matches!(result, Err(Refusal {
             reason: RefusalReason::Numeric(NumericFault::NonFinite), ..
-        })), "bad_motion={bad_motion}: {result:?}");
+        })), "vertices={vertices}, bad_motion={bad_motion}: {result:?}");
+      }
     }
 }
 

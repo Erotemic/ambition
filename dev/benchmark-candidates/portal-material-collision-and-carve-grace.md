@@ -284,3 +284,13 @@ The source chart, clock and admission snapshot bound the cache lifetime.
 Geometry validation can be shared within that lifetime; each sample must
 still check its clock. A broad phase must include all physical cells. An
 unknown motion envelope retains its candidate for exact admission.
+
+A segment can be disjoint from a carried piece by a very small, constant
+gap at a portal plane. A curved envelope can retain that segment throughout
+many time subdivisions even when every exact sample is empty. Apply the
+cell's fixed world-plane separation proof before curved contact for segments
+and points as well as polygons. Keep a nonempty clipped segment or point;
+requiring positive area would remove valid boundary contacts. A moving cut
+can be used only when its rate matches the collider's motion in that chart.
+Keep finite-input validation before candidate exclusion. Do not raise the
+interval budget or convert a numerical refusal into a miss to hide this cost.

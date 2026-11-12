@@ -1565,3 +1565,14 @@ Keep time-dependent sampling and typed numeric refusals. A short desktop run
 without Tracy averages 8.80 ms/frame in the lab after this change. Longer lab
 and device validation, autoplay navigation, R5 and full PSIM acceptance remain
 open. The desktop receipt records the capture and its limits.
+
+### Slope crossing refusal — 2026-11-12
+
+`3d0e411db` applies the fixed world-plane separation proof to line colliders
+before curved contact. Station E no longer exhausts the work budget after
+crossing in the real-app regression. The body moves clear under rollback
+without a reset. All 101 material-cast tests, both lab tests, and the 80/40
+partial-contact, reverse-travel and replay guard pass. See the
+[stall receipt](../../../dev/reviews/portal-slope-stall-2026-11-12.md).
+Keep boundary contacts and typed refusals. Desktop frame-time confirmation
+at E and the earlier station J stop remain open, as do the other PSIM gates.

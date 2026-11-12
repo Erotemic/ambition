@@ -410,6 +410,26 @@ ones it holds, and removes what the snapshot no longer names.
   drops (the same road, other kinds), and a drop in a room the guest is not
   in.
 
+**A breaking wall (2026-11-12),** probe `probe_what_a_breaking_wall_spawns`
+(same file, ignored; the census above is now one function run in either
+room): `breakable_wall_lab`, Alice put before the cracked wall and swinging
+every 25 frames, 300 frames.
+
+| Appeared or changed | How many | Identity | What a guest needs |
+|---|---|---|---|
+| the wall broke (frame 78) | 1 | its own `SimId`, booted on both | a row change: `broken`, keyed by the `SimId` both Apps already hold |
+| the wall's drop (`PickupFeature`, `PickupMagnet`) | 1 | `SpawnOrigin::Dynamic`, no `SimId` | the pickup row above, keyed by its origin |
+| Alice's three swings' strike volumes (`slot:#/strike/…`) | 3, 5–7 frames each | `SimId`, no `BodyKinematics` | nothing to draw: a strike is drawn from the swinging body's move, which its rows would carry; only an inspector reading the host's combat geometry needs the volume |
+
+- **A breakable is a row change, as a death is:** the wall is booted on
+  both sides under the same `SimId`, and breaking it removes nothing and
+  spawns no debris entity here; what it drops goes the dropped-pickup road.
+- **Strikes are the one new `SimId` kind that is not a body:** minted per
+  swing and gone in a few frames. A guest drawing the swinging body draws
+  the strike; replicating the volume would only serve a combat inspector.
+- **Still not measured:** a summon (no summoner in either room), and a
+  breakable whose break spawns debris.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -438,7 +458,10 @@ ones it holds, and removes what the snapshot no longer names.
    (the parent's `SimId` and the sequence), the guest builds, draws and
    removes the bounty coin one snapshot after the host, with no difference
    in what a view draws, at 0.38 bytes a frame (most of it the magnet's
-   motion). Next: a census in a room with breakables and summons; send only the guest's room;
+   motion). A breaking wall (2026-11-12): a row change on a `SimId` both
+   Apps already hold; its drop takes the pickup road; a swing's strike
+   volumes are the only new non-body `SimId`s and need no row to be drawn.
+   Next: a census with a summon; send only the guest's room;
    sounds and visuals sent, with room numbers mapped.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,

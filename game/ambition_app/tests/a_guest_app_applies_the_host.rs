@@ -895,25 +895,7 @@ fn id_shape(id: &SimId) -> String {
 #[ignore = "measurement: prints what kinds of thing a host spawns besides bodies; run with --ignored --nocapture --test-threads=1"]
 fn probe_what_else_a_host_spawns() {
     const ENEMY: &str = "na2b_census_probe";
-    let mut host = booted(ROOM);
-    let mut seen: BTreeMap<SimId, (i32, Option<i32>)> = BTreeMap::new();
-    let booted_with: BTreeSet<SimId> = {
-        let world = host.world_mut();
-        world.query::<&SimId>().iter(world).cloned().collect()
-    };
-    // shape -> (count, a body row carries it, components of the first, lifetimes)
-    let mut shapes: BTreeMap<String, (usize, bool, Vec<String>, Vec<i32>)> = BTreeMap::new();
-    // What appears with no id: what the simulation keeps, by its components.
-    let anonymous_at_boot: BTreeSet<bevy::prelude::Entity> = {
-        let world = host.world_mut();
-        world
-            .query_filtered::<bevy::prelude::Entity, bevy::prelude::Without<SimId>>()
-            .iter(world)
-            .collect()
-    };
-    let mut anonymous: BTreeMap<bevy::prelude::Entity, String> = BTreeMap::new();
-    let mut anonymous_kinds: BTreeMap<String, usize> = BTreeMap::new();
-    for frame in 1..=FRAMES {
+    census("census", ROOM, FRAMES, |host, frame| {
         if frame == 5 {
             let at = {
                 let world = host.world_mut();
@@ -932,7 +914,7 @@ fn probe_what_else_a_host_spawns() {
                 "npc_puppy_slug",
             );
         }
-        alice_fires_often(&mut host, frame);
+        alice_fires_often(host, frame);
         host.drive_seat(0, Default::default());
         host.drive_seat(1, Default::default());
         {
@@ -944,7 +926,49 @@ fn probe_what_else_a_host_spawns() {
                 }
             }
         }
+    });
+}
+
+/// The census of [`probe_what_else_a_host_spawns`] in `room` for `frames`,
+/// with `each_frame` driving the host before each update. Also prints each
+/// breakable whose state changed (its id, whether it has a `SimId`, and the
+/// frames it broke and came back).
+fn census(label: &str, room: &str, frames: i32, mut each_frame: impl FnMut(&mut Platformer2dSimHarness, i32)) {
+    let mut host = booted(room);
+    let mut seen: BTreeMap<SimId, (i32, Option<i32>)> = BTreeMap::new();
+    let booted_with: BTreeSet<SimId> = {
+        let world = host.world_mut();
+        world.query::<&SimId>().iter(world).cloned().collect()
+    };
+    // shape -> (count, a body row carries it, components of the first, lifetimes)
+    let mut shapes: BTreeMap<String, (usize, bool, Vec<String>, Vec<i32>)> = BTreeMap::new();
+    // What appears with no id: what the simulation keeps, by its components.
+    let anonymous_at_boot: BTreeSet<bevy::prelude::Entity> = {
+        let world = host.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::Without<SimId>>()
+            .iter(world)
+            .collect()
+    };
+    let mut anonymous: BTreeMap<bevy::prelude::Entity, String> = BTreeMap::new();
+    let mut anonymous_kinds: BTreeMap<String, usize> = BTreeMap::new();
+    let mut breakables: BTreeMap<String, (bool, bool, Vec<(i32, bool)>)> = BTreeMap::new();
+    for frame in 1..=frames {
+        each_frame(&mut host, frame);
         host.app_mut().update();
+        {
+            let world = host.world_mut();
+            for (id, wall, sim_id) in world
+                .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::breakables::BreakableFeature, Option<&SimId>)>()
+                .iter(world)
+            {
+                let entry = breakables.entry(id.as_str().to_string()).or_insert((wall.broken(), sim_id.is_some(), Vec::new()));
+                let last = entry.2.last().map_or(entry.0, |(_, broken)| *broken);
+                if wall.broken() != last {
+                    entry.2.push((frame, wall.broken()));
+                }
+            }
+        }
         let world = host.world_mut();
         let now: Vec<(bevy::prelude::Entity, SimId, bool)> = world
             .query::<(bevy::prelude::Entity, &SimId, bevy::prelude::Has<BodyKinematics>)>()
@@ -1009,20 +1033,24 @@ fn probe_what_else_a_host_spawns() {
             }
         }
     }
-    println!("[census] {ROOM}: {FRAMES} frames; {} ids at boot, {} minted after", booted_with.len(), seen.len());
+    println!("[{label}] {room}: {frames} frames; {} ids at boot, {} minted after", booted_with.len(), seen.len());
     for (shape, (count, body, names, lives)) in &shapes {
         let still = count - lives.len();
         println!(
-            "[census]   {shape}: {count} (in the body rows: {body}); lived {:?} frames, {still} still there; components ({}): {}",
+            "[{label}]   {shape}: {count} (in the body rows: {body}); lived {:?} frames, {still} still there; components ({}): {}",
             (lives.iter().min(), lives.iter().max()),
             names.len(),
             names.join(" ")
         );
     }
-    println!("[census]   with no id, {} simulation entities appeared:", anonymous_kinds.values().sum::<usize>());
+    println!("[{label}]   with no id, {} simulation entities appeared:", anonymous_kinds.values().sum::<usize>());
     for (kind, count) in &anonymous_kinds {
-        println!("[census]     {count} x {kind}");
+        println!("[{label}]     {count} x {kind}");
     }
+    for (id, (at_boot, has_id, changes)) in breakables.iter().filter(|(_, (_, _, changes))| !changes.is_empty()) {
+        println!("[{label}]   breakable {id} (a SimId: {has_id}; broken at boot: {at_boot}): (frame, broken) {changes:?}");
+    }
+    println!("[{label}]   {} breakables, {} changed", breakables.len(), breakables.values().filter(|(_, _, changes)| !changes.is_empty()).count());
 }
 
 type Pickup = ambition_platformer2d::item_runtime::pickups::PickupFeature;
@@ -1253,4 +1281,26 @@ fn probe_what_a_guest_needs_to_draw_a_drop() {
         despawn_bytes as f64 / RUN as f64,
     );
     assert!(host_dropped.is_some(), "premise: the enemy dropped something on the host");
+}
+
+/// NA-2b's census in a room with a breakable: `breakable_wall_lab`, Alice
+/// put before its cracked wall, facing it, and swinging every 25 frames
+/// until it breaks (a wall takes more than one hit). Prints what appeared,
+/// with and without an id, and the wall's change: what a guest would need
+/// to be sent for a broken breakable.
+#[test]
+#[ignore = "measurement: prints what a host spawns when a breakable breaks; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_breaking_wall_spawns() {
+    use ambition_platformer2d::engine_core::ControlFrame;
+    census("wall", "breakable_wall_lab", 300, |host, frame| {
+        if frame == 1 {
+            host.teleport_player((600.0, 200.0));
+        }
+        let swing = frame > 10 && frame % 25 == 0;
+        host.drive_seat(
+            0,
+            ControlFrame { axis_x: if frame <= 3 { 1.0 } else { 0.0 }, attack_pressed: swing, attack_held: swing, ..Default::default() },
+        );
+        host.drive_seat(1, Default::default());
+    });
 }

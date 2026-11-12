@@ -1561,5 +1561,7 @@ The matched lab instruction estimate falls 50.50%; the Hall control stays
 within run variation. All 101 material-cast tests and the assembled 80/40
 partial-contact, reverse-travel and rollback replay check pass. See the
 [desktop receipt](../../../dev/reviews/portal-desktop-performance-2026-11-12.md).
-Keep time-dependent sampling and typed numeric refusals. Displayed desktop
-validation, autoplay navigation, R5 and full PSIM acceptance remain open.
+Keep time-dependent sampling and typed numeric refusals. A short desktop run
+without Tracy averages 8.80 ms/frame in the lab after this change. Longer lab
+and device validation, autoplay navigation, R5 and full PSIM acceptance remain
+open. The desktop receipt records the capture and its limits.

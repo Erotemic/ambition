@@ -213,5 +213,41 @@ cargo test -j12 -p ambition_app --test app_it -- portal_similarity_slice::the_au
 ```
 
 The app command runs one test. The broader suite is not run for this change.
-A new displayed desktop capture remains necessary to measure frame pacing
-and GPU cost after this change. The autoplay navigation failure remains open.
+These checks do not measure displayed frame pacing or GPU cost. The autoplay
+navigation failure remains open.
+
+### Desktop confirmation
+
+`desktop-timeline-run-20261112T020509Z` uses source `f0c5a90beaf1`, the same
+desktop, the `profiling` profile, and no Tracy feature or capture. Manual input
+enters the Hall at wall time 13.951 seconds, leaves it near 73.383 seconds,
+and enters the lab at 77.958 seconds. The capture ends near 90 seconds.
+
+Lab census windows from 79.5 seconds to the end contain 1,139 frames with
+a weighted mean of 8.803 ms, about 113.6 FPS, and a maximum of 32.61 ms.
+The lab still has 11 bodies and 34 capture rigs. Sampled active captures
+average 0.6. The Hall interval from 20 to 70 seconds averages 10.161 ms,
+about 98.4 FPS, with 524 bodies and zero portal capture rigs.
+
+In the earlier run without Tracy, the late lab interval averages 32.832 ms,
+about 30.5 FPS, with one active capture. The manual inputs and camera activity
+differ. These frame-time values are an observed comparison, not a controlled
+speedup estimate. The matched headless measurements above establish the CPU
+cost reduction with equal inputs.
+
+Lab `PlayerSimulation` decreases from 12.587 to 8.024 ms per tick across
+these selected desktop intervals. `Integrate` decreases from 1.684 to
+1.185 ms per tick. The reduced tick cost leaves room for rendering without
+the earlier accumulation of simulation steps in each rendered frame.
+
+The last native window in each run lies within the lab. The old self sample
+shares for `Scene::pose`, `rotation_ending_at`, and aperture sampling total
+37.66%. The new shares for `Scene::pose`, its extracted `sample_pose`, rotation,
+and aperture sampling total 9.35%. Sample shares have different denominators;
+they support the mechanism but are not a direct cost ratio.
+Memory copies now lead the last window at 8.78% of self CPU samples. Repeated
+pose/state vector construction remains a candidate for a later measurement.
+
+This is a short displayed confirmation of the optimization. It does not cover
+a long lab session, every station, all camera positions, or mobile performance.
+The autoplay navigation defect and the remaining PSIM gates stay open.

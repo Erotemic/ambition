@@ -473,15 +473,42 @@ pub(super) fn integrate_velocity_clusters(
         }
     }
 
-    // The admitted support supplies platform motion in the body chart.
+    // The admitted support supplies platform motion in the body chart. The
+    // carry is motion like any other: swept along the side axis, so a
+    // platform stops its rider at a wall and takes it through an opening as
+    // a walk would, admitted and refused by the same pass. The part along
+    // gravity is the receding snap's and the gravity sweep's.
     if clusters.ground.on_ground {
         let support = events.contacts.iter().rev().find(|contact|
             contact.kind == crate::collision_semantics::ContactKind::Support);
         if let Some(support) = support.filter(|contact| matches!(contact.source,
             crate::collision_semantics::ContactSource::Block { .. })) {
             let g = frame.down();
-            let velocity = support.surface_velocity;
-            clusters.kinematics.pos += velocity - velocity.dot(g) * g;
+            let carry = support.surface_velocity - support.surface_velocity.dot(g) * g;
+            let along = match side_axis {
+                crate::collision_semantics::Axis::X => carry.x,
+                crate::collision_semantics::Axis::Y => carry.y,
+            };
+            if along != 0.0 && refusal.is_none() {
+                let prev_feet = clusters.kinematics.aabb().feet_coord(g);
+                events.constraint_conflicts.extend(super::collision::sweep_player_axis_clusters(
+                    world,
+                    clusters.kinematics,
+                    clusters.ground,
+                    clusters.wall,
+                    clusters.body_mode,
+                    clusters.env_contact,
+                    side_axis,
+                    along,
+                    prev_feet,
+                    drop_through,
+                    g,
+                    &mut events.contacts,
+                    &mut admission,
+                    &mut refusal,
+                    clusters.carrier,
+                ));
+            }
         }
     }
 

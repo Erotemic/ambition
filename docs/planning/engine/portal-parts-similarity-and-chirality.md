@@ -34,8 +34,9 @@ The last full workspace run was not green. It reported Sanic righting
 unpublished history-art checks also fail. The capability sentinel reports the
 new upstream HTN dependency. The review receipt records the scope and logs.
 
-Full PSIM acceptance remains open: support-carry continuation (kernel
-bodies keep the whole tick, see the 2026-11-12 section),
+Full PSIM acceptance remains open: a moving line's carry of its rider
+(kernel bodies keep the whole tick, and a block platform's carry is swept;
+see the 2026-11-12 sections),
 complete projectile/hurt contact, including moving targets and other surviving
 contact responses, other movement models, swept guard contact and response, attachments, and device/GPU and performance gates.
 The fault effect landed in `c21bfff4d` with its witnesses; two live rooms
@@ -1804,6 +1805,24 @@ because the material cast meets far geometry through the pieces. Only the
 translation pair was measured. This is
 the kernel's continuation; projectiles and loose items needed their own
 because they used to stop at the crossing.
+
+### A platform's carry is swept motion — 2026-11-12
+
+A body standing on a moving block was carried by a bare position write after
+its step (`pos += v - (v . g) g` in `integrate_velocity_clusters`): no cast, no
+contact, no admission. A platform carried its rider 3 px into a wall every
+tick and the next tick's repair pushed it out again; across a mouth the
+carry was not admitted at all. The carry now goes through the same side-axis
+sweep as a walk, with the step's admission, refusal and carrier key, so a
+wall stops the rider flush and an opening takes it as a walk does, after
+which transit maps the end pose like any kernel step. The part along gravity
+stays with the receding snap and the gravity sweep. Probe (deleted): rider
+on a platform at 3 px a tick into a wall at x 240 rests with its edge at
+243.00 before, 240.00 after.
+
+A moving surface line still carries its rider by a position write before
+the step (`stood_on_material_line`'s `carry`). Its own body is stopped by
+walls first, so it has not been seen to push a rider into geometry.
 
 ### A body's own lines, and a pair that does not close on a body — 2026-11-12
 

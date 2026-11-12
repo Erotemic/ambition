@@ -1760,6 +1760,6 @@ arrive without a gap and are drawn once. Each throw starts a second after the
 last one ended, so each of the six one-tick refusals at the other plank is a
 new effect. Continuity separates the operations, not the key.
 
-Still open for this effect: glyphs are plain `Text2d`. They do not fold
-through a pane, so they belong to PORTAL-STRUCTURAL-FX like the rest of
-`fx.rs`. The effect also has no multi-view witness yet.
+The glyphs are top-level `Text2d`, so the portal carry cuts a glyph that
+drifts past an entry plane and draws it out of the exit, as it does every
+`fx.rs` effect. Still open: the effect has no multi-view witness.

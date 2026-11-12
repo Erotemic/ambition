@@ -1237,7 +1237,7 @@ part geometry, collision, combat and masking agree; reflection persists as
 correct actor chirality after transit; bounded rejected numeric transforms
 show the typed IEEE 754 effect without poisoning simulation or replay.
 
-### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes
+### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes (done)
 
 Jon, 2026-10-17: "it should not be structurally possible to add something
 into the game that doesn't work with portals." Meshes built on the CPU now
@@ -1261,8 +1261,18 @@ the view). Witness: `a_far_side_effect_is_composited_with_no_marker_of_its_own`
 the portal-room check). Cost (release, 2000 sprites, 1000 over the window,
 one pane): 64.9 µs a frame, against 34.7 µs for the old rule, which took
 only the 100 marked ones; with no pane 16.3 µs against 24.7 µs. A candidate
-that stays one is written in place: an insert command for each was 179 µs. **Open:** an effect is still not cut at a crossing
-(the transit pieces, `sync_portal_body_pieces`, take only bodies).
+that stays one is written in place: an insert command for each was 179 µs.
+
+**Crossing, done 2026-10-25 (63797b0ac):** the portal carry
+(`ambition_portal2d_presentation::carry`) cuts every top-level `Sprite`,
+`Mesh2d` and `Text2d` that reaches past an entry plane inside the opening, and
+draws its part past the plane out of the exit. It needs no marker, so every
+`fx.rs` particle, beam, impact and text is carried. A child goes with its
+parent. Witness: `a_free_drawable_keeps_the_room_policy_beside_a_body_with_its_own_policy`
+(a plain unmarked sprite across an entry is cut into pieces and captured).
+`sync_portal_body_pieces`, named by the earlier open note, no longer exists.
+No effect in `fx.rs`, `fx/`, `lines/` or the slash visuals draws with
+gizmos or another kind, so nothing is left open here.
 
 ### MOUNT-RIDER-CUSTOMER — a shipped rider controls a shipped mount
 

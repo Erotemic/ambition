@@ -323,7 +323,7 @@ fn a_projectile_continues_through_the_authored_chain_with_one_tick_clock() {
     use ambition_platformer2d::portal::{link_hash,PlacedPortal,PortalBodyTransited,PortalLink};
     use ambition_platformer2d::projectiles::{ProjectileGameplay,ProjectileSpawn,ProjectileSpawnRequest,ProjectileStart,ProjectileVisualId};
     for hops in [2,4] {
-        let mut sim=fixed_60hz_room_sim("portal_lab");
+        let mut sim=fixed_60hz_room_sim("portal_chain_lab");
         sim.step(base());
         let (entry,exit,owner)={
             let world=sim.world_mut();

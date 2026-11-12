@@ -7,8 +7,12 @@ use ambition_platformer2d::combat::{hitbox::strike_pieces, strike::{Hitbox, Hitb
 use ambition_platformer2d::item::{GroundItem, ItemCustody};
 use ambition_platformer2d::platformer::{body::geometry::BodyGeometry,
     lifecycle::InRoomInstance, markers::PrimaryPlayerOnly};
-use ambition_platformer2d::portal::{EditablePortalTuning, PortalConvention, PortalGeometry, PortalTuning};
+use ambition_platformer2d::portal::{EditablePortalTuning, PlacedPortal, PortalConvention, PortalGeometry,
+    PortalLink, PortalTuning, link_hash};
 use bevy::prelude::*;
+
+/// The floor top of `portal_chain_lab`.
+const FLOOR: f32 = 512.0;
 
 fn place(sim: &mut Platformer2dSimHarness, who: Entity, at: Vec2) {
     let mut body = *sim.world().get::<BodyKinematics>(who).unwrap();
@@ -20,7 +24,7 @@ fn place(sim: &mut Platformer2dSimHarness, who: Entity, at: Vec2) {
 
 fn station(max_hops: u8) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default().with_required_start_room("portal_lab")
+        Platformer2dSimHarnessOptions::default().with_required_start_room("portal_chain_lab")
             .with_sync_test_rollback_settings(4, 10)).unwrap();
     for _ in 0..30 { sim.step(crate::common::base()); }
     let (player, axe, target) = {
@@ -40,15 +44,23 @@ fn station(max_hops: u8) {
         let tuning = *tuning;
         world.resource_mut::<EditablePortalTuning>().0 = tuning;
     }
+    // The foot door's mouth that faces the axe: the body stands with its back
+    // half through it, supported by the floor on both sides of the wall.
+    let foot = {
+        let world = sim.world_mut();
+        world.query::<(&PlacedPortal, &PortalLink)>().iter(world)
+            .find(|(portal, link)| link.0 == link_hash("portal_lab_j_other") && portal.normal.x > 0.5)
+            .unwrap().0.clone()
+    };
     let at = sim.world().get::<BodyKinematics>(axe).unwrap().pos;
     let half = sim.world().get::<BodyKinematics>(player).unwrap().half_extent();
-    place(&mut sim, player, Vec2::new(at.x, 896.0-half.y));
+    place(&mut sim, player, Vec2::new(at.x, FLOOR-half.y));
     let press = ControlFrame { attack_pressed: true, ..Default::default() };
     sim.rebase_rollback_history().unwrap();
     sim.step_frame(press);
     for _ in 0..6 { sim.step_frame(ControlFrame::default()); }
     assert!(matches!(sim.world().get::<ItemCustody>(axe), Some(ItemCustody::Held { holder }) if *holder == player));
-    place(&mut sim, player, Vec2::new(at.x+20.0, 896.0-half.y));
+    place(&mut sim, player, Vec2::new(foot.pos.x+4.0, FLOOR-half.y));
     sim.rebase_rollback_history().unwrap();
     for _ in 0..3 { sim.step_frame(ControlFrame::default()); }
     let mut simultaneous = false;

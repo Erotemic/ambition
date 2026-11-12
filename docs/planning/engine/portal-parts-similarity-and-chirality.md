@@ -606,8 +606,11 @@ Station H is live in `fddf6084a`. Its
 [station source](../../../tools/ambition_ldtk_tools/specs/portal_similarity_slice.yaml)
 adds seven entities. The
 [station source](../../../tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml)
-adds I's Reflection prompt and J's axe station with four pairs. The J receipt
-below records its physical contact and render checks. It does not add H again.
+adds I's Reflection prompt. It does not add H again. J's axe station, with
+four pairs, is its own room: its
+[room source](../../../tools/ambition_ldtk_tools/specs/portal_chain_lab_area.ron)
+and its exact [hosts](../../../tools/ambition_ldtk_tools/specs/portal_chain_lab_hosts.yaml).
+The J receipt below records its physical contact and render checks.
 
 Station K is now authored in the live lab. It has a gun-sword beside a wall
 opening and a target two pixels beyond the paired exit. A shot must hit the
@@ -1631,5 +1634,15 @@ curved builder and pops 21 px under the affine one. J's foot mouth sits on an
 enters the mouth's column from the side, under its face, where no host stops
 it. That is the host-depth teleport this plan forbids. The sweep then stops the
 root on the face, with no rebase through that link. The thin-wall walk now
-stops past its own door. Station J moves to a room of its own, with every mouth
-set into a host that runs past both ends.
+stops past its own door.
+
+Station J now has its own room, `portal_chain_lab`, behind a door where it
+stood in `portal_lab`. Every mouth there is set into a host that runs past both
+of its ends. The foot pair is a door through a 32 px wall. The body stands with
+its back half through the door while the axe crosses the chain. Both J tests
+and the chained-projectile test pass there, as do all 53 `portal` app tests.
+A body that walks into the first cut stops with a `HopLimit` refusal, because
+the chain needs more hops than the player's budget. It does not hang, and
+walking back works at once. That is the prescribed refusal at the solid
+boundary. `portal_lab`'s floor now runs clear from the thin-wall door to
+station H's small mouth, which J's column had cut off.

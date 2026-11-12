@@ -1,0 +1,42 @@
+level_id: portal_chain_lab
+entities:
+- type: Solid
+  px: [160, 352]
+  size: [32, 160]
+  fields:
+    name: J foot door wall
+- type: Solid
+  px: [232, 344]
+  size: [16, 176]
+  fields:
+    name: J first entry backing
+- type: Solid
+  px: [272, 384]
+  size: [16, 96]
+  fields:
+    name: J first exit backing
+- type: Solid
+  px: [252, 384]
+  size: [16, 96]
+  fields:
+    name: J second entry backing
+- type: Solid
+  px: [524, 396]
+  size: [96, 16]
+  fields:
+    name: J second exit backing
+- type: Solid
+  px: [524, 376]
+  size: [96, 16]
+  fields:
+    name: J third entry backing
+- type: Solid
+  px: [496, 308]
+  size: [16, 56]
+  fields:
+    name: J third exit backing
+- type: Solid
+  px: [512, 360]
+  size: [64, 16]
+  fields:
+    name: J target shelf

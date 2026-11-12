@@ -574,8 +574,8 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
             }
         }
         previous = current;
-        // Station J's floor mouth starts 96px past the door: any snap there
-        // belongs to J's pairs, not this one.
+        // Station H's small mouth is the next opening along the floor: a snap
+        // there belongs to H's pair, not this one.
         if current.player_pos.x > exit.pos.x + 64.0 {
             break;
         }

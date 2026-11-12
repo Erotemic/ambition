@@ -1,0 +1,109 @@
+// portal_chain_lab — station J of the portal lab, in a room of its own.
+//
+// A held axe crosses three pairs and reaches its target at a quarter scale,
+// while the body stands with its back through a fourth pair. In portal_lab
+// the station sat in station H's walkway: its floor-to-ceiling first mouth cut
+// the return walk to H's small opening, and its foot mouth sat on a slab no
+// wider than itself, so a walking body slid into the opening's column from
+// the side, under its face, and no host stopped it.
+//
+// Every mouth here is set into a host that runs past both of its ends. The
+// hosts are `Solid` entities in portal_chain_lab_hosts.yaml, added with
+// `entity add` after this spec: an area spec turns a Solid into 16 px
+// collision cells, and the back-to-back pairs sit 4 px apart.
+//
+// Layout (960x576), floor top at y=512, left to right:
+//   entry door, then the foot door: a 32-wide wall with a mouth on each face,
+//   the axe, the first cut (160 tall), its exit and the second cut back to
+//   back, and high on the right the second exit, the third cut and the target.
+(
+    id: "portal_chain_lab",
+    level_id: "portal_chain_lab",
+    world_x: 46000,
+    world_y: 1200,
+    px_wid: 960,
+    px_hei: 576,
+    fill_collision: "empty",
+    bg_color: "#141821",
+    biome: "lab",
+    connect_to: [
+        (
+            target_room: "portal_lab",
+            px: [2296, 804],
+            size: [48, 96],
+            id: "portal_lab_chain_door",
+            target_zone: "portal_chain_lab_exit",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        // --- Room shell ---
+        ( type: "Solid", px: [0, 512], size: [960, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [960, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 496], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [944, 16], size: [16, 496], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [72, 464], size: [24, 48], fields: ( name: "start" ) ),
+        (
+            type: "LoadingZone",
+            px: [24, 416],
+            size: [48, 96],
+            fields: (
+                id: "portal_chain_lab_exit",
+                name: "to portal lab",
+                activation: "Door",
+                target_room: "portal_lab",
+                target_zone: "portal_lab_chain_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [960, 576],
+            fields: ( id: "portal_chain_lab_camera", name: "portal_chain_lab_camera", mode: "Default" ),
+        ),
+
+        // --- The foot door: a wall 32 wide with a mouth on each face ---
+        // Walk through it either way. Stand with your back through it to give
+        // the body a second path while the axe uses the chain.
+        ( type: "Portal", px: [151, 432], size: [18, 80],
+          fields: ( id: "similarity_j_d_out", name: "J foot door", link: "portal_lab_j_other", normal: "left", color: "purple" ) ),
+        ( type: "Portal", px: [183, 432], size: [18, 80],
+          fields: ( id: "similarity_j_d_in", name: "J foot door", link: "portal_lab_j_other", normal: "right", color: "purple" ) ),
+
+        // --- The axe ---
+        ( type: "GroundItem", px: [200, 494], size: [20, 14],
+          fields: ( id: "portal_lab_chain_axe", name: "axe", held_item: "axe" ) ),
+
+        // --- First cut: 160 tall in, 80 tall out, both facing left ---
+        ( type: "Portal", px: [223, 352], size: [18, 160],
+          fields: ( id: "similarity_j_a_in", name: "J first cut", link: "portal_lab_j_first", normal: "left", color: "purple" ) ),
+        ( type: "Portal", px: [263, 392], size: [18, 80],
+          fields: ( id: "similarity_j_a_out", name: "J first cut", link: "portal_lab_j_first", normal: "left", color: "purple" ) ),
+
+        // --- Second cut: in faces right, back to back with the first exit ---
+        ( type: "Portal", px: [259, 392], size: [18, 80],
+          fields: ( id: "similarity_j_b_in", name: "J second cut", link: "portal_lab_j_second", normal: "right", color: "purple" ) ),
+        ( type: "Portal", px: [532, 387], size: [80, 18],
+          fields: ( id: "similarity_j_b_out", name: "J second cut", link: "portal_lab_j_second", normal: "up", color: "purple" ) ),
+
+        // --- Third cut: in faces down, back to back with the second exit ---
+        ( type: "Portal", px: [532, 383], size: [80, 18],
+          fields: ( id: "similarity_j_c_in", name: "J third cut", link: "portal_lab_j_third", normal: "down", color: "purple" ) ),
+        ( type: "Portal", px: [503, 316], size: [18, 40],
+          fields: ( id: "similarity_j_c_out", name: "J third cut", link: "portal_lab_j_third", normal: "right", color: "purple" ) ),
+
+        // --- The target ---
+        ( type: "EnemySpawn", px: [512, 312], size: [32, 48],
+          fields: ( name: "J far target", brain: "Passive", character_id: "sandbag_infinite", disposition: "Hostile" ) ),
+
+        // --- Signs ---
+        ( type: "DebugLabel", px: [24, 40], size: [900, 24],
+          fields: ( name: "lab_sign_j", text: "J: F3: Reflection, Composed, 3 or more hops. Pick up the axe. Try 2 hops to refuse the swing.", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [24, 72], size: [900, 24],
+          fields: ( name: "lab_sign_j_feet", text: "Back into the foot door until it takes your back half, face right and swing.", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [360, 240], size: [480, 24],
+          fields: ( name: "lab_sign_j_chain", text: "The swing crosses three pairs and reaches the target at 1/4 scale.", category: "Custom" ) ),
+    ],
+)

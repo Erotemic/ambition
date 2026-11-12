@@ -161,4 +161,57 @@ Measure the Hall and lab separately with matched inputs before and after
 each change. Check movement and replay at the affected seam. Fix the generic
 navigation failure before using autoplay as the acceptance workload.
 Record process memory and pressure during a repeat if the long stall returns.
-No runtime optimization is implemented by this analysis.
+The first runtime optimization is measured below.
+
+## Fixed-link pose reuse
+
+The curved query scene now keeps one sampled pose for each fixed link. A link
+is fixed when both aperture steps have zero displacement and turn, or when
+the query samples one world instant. Other links still sample their recorded
+motion. Invalid clocks use the full sampler to keep refusal order. The cache
+belongs to one immutable query scene and has at most one entry per link.
+It does not change the material collision authority or exclude candidates.
+
+### Matched simulation measurement
+
+Baseline source is `2a63bf880`. The optimized arm changes only
+`crates/ambition_platformer2d_core/src/frame/material_cast/arcs.rs`.
+Both binaries use rustc 1.95.0, the `profiling` build profile, no Tracy,
+and the same content hashes on the local VM. No build runs during measurement.
+The sprite watcher is off in both arms. Each arm has a 60-tick warmup in
+each room, followed by three interleaved pairs of 60- and 360-tick processes.
+Low/high order alternates. The estimate is `(total_360 - total_60) / 300`.
+The table gives the median of the three estimates.
+
+| Room | Baseline million user instructions/tick | Reuse | Change |
+| --- | ---: | ---: | ---: |
+| Portal lab | 219.597 | 108.701 | -50.50% |
+| Hall | 80.329 | 80.371 | +0.05% |
+
+The lab estimates range from 219.297 to 219.646 million instructions/tick
+before the change and 108.461 to 108.781 after it. Median process CPU time
+falls from 16.694 to 9.259 ms/tick. These are startup-subtracted process
+estimates, not direct counters around individual ticks or desktop FPS.
+The Hall's baseline ranges from 78.150 to 80.751 million instructions/tick.
+Do not interpret its small median change as a demonstrated regression.
+
+All 24 measured processes complete with 100% instruction-counter coverage.
+Every process matches content hashes and the expected simulation census:
+524 bodies and zero portals in the Hall; 11 bodies and 34 portals in the lab.
+All requested ticks and shared-clock active steps run.
+Raw counters, binary hashes, source metadata and commands remain under
+`target/portal-lab-pose-cost/`. Binary files are not committed.
+
+The 101 material-cast tests pass, including the fixed/moving sample and invalid
+clock comparison. The assembled 80/40 crossing and replay check passes. It
+checks stationary partial support, persistent scale and reflection, reverse
+travel, and bit-identical repeated input under rollback. Validation commands:
+
+```bash
+cargo test -j12 -p ambition_platformer2d_core --lib frame::material_cast
+cargo test -j12 -p ambition_app --test app_it -- portal_similarity_slice::the_authored_80_40_pair_carries_partial_contact_scale_parity_and_reverse_travel
+```
+
+The app command runs one test. The broader suite is not run for this change.
+A new displayed desktop capture remains necessary to measure frame pacing
+and GPU cost after this change. The autoplay navigation failure remains open.

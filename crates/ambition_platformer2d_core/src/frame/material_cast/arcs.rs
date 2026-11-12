@@ -35,6 +35,7 @@ pub(super) struct Scene {
     until: f64,
     links: Vec<PortalLink>,
     prepared_steps: OnceLock<Vec<Result<(PreparedApertureStep, PreparedApertureStep), NumericFault>>>,
+    fixed_poses: Vec<OnceLock<Result<Pose, NumericFault>>>,
     first: Option<u32>,
     budget: PieceBudget,
     convention: MapConvention,
@@ -138,12 +139,27 @@ impl Scene {
             until: cast.until,
             links: admission.links.to_vec(),
             prepared_steps: OnceLock::new(),
+            fixed_poses: (0..admission.links.len()).map(|_| OnceLock::new()).collect(),
             first: admission.first,
             budget: admission.budget,
             convention: admission.convention,
         })
     }
     fn pose(&self, link_index: usize, time: f64) -> Result<Pose, NumericFault> {
+        let link = &self.links[link_index];
+        let span = self.time.end - self.time.start;
+        let world = self.time.start + span * time;
+        let fixed = span == 0.0 || [link.enter_step, link.exit_step].iter()
+            .all(|step| step.turn == 0.0 && step.displacement == crate::Vec2::ZERO);
+        // A fixed pose is shared across branch samples. Invalid clocks still
+        // use full sampling to keep the numeric refusal order.
+        if fixed && world.is_finite() && (0.0..=1.0).contains(&world) {
+            return *self.fixed_poses[link_index].get_or_init(|| self.sample_pose(link_index, time));
+        }
+        self.sample_pose(link_index, time)
+    }
+
+    fn sample_pose(&self, link_index: usize, time: f64) -> Result<Pose, NumericFault> {
         let link = self.links[link_index];
         let span = self.time.end - self.time.start;
         let world = self.time.start + span * time;
@@ -1354,6 +1370,34 @@ mod tests {
     use crate::frame::thread::MaterialPrimitive;
     use crate::frame::{ApertureStep, PortalAperture, PortalFrame};
     use crate::{Aabb, Block, SurfaceChain, Vec2, World};
+
+    #[test]
+    fn fixed_pose_reuse_keeps_motion_and_numeric_refusals() {
+        let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(4.0)));
+        for turn in [0.0, std::f32::consts::FRAC_PI_2] {
+            let links = links(turn);
+            for clock in [0.0..1.0, 0.5..0.5] {
+                let mut cast = request(&body);
+                cast.time = clock;
+                let scene = Scene::new(&cast, admission(&links));
+                for time in [0.0, 0.5, 1.0, 0.25, -1.0, f64::NAN, f64::INFINITY] {
+                    for index in 0..links.len() {
+                        let actual = scene.pose(index, time);
+                        let expected = scene.sample_pose(index, time);
+                        assert_eq!(actual.map(|pose| pose.map), expected.map(|pose| pose.map));
+                        if let (Ok(actual), Ok(expected)) = (actual, expected) {
+                            assert_eq!(actual.enter.origin, expected.enter.origin);
+                            assert_eq!(actual.enter.normal, expected.enter.normal);
+                            assert_eq!(actual.exit.origin, expected.exit.origin);
+                            assert_eq!(actual.exit.normal, expected.exit.normal);
+                            assert_eq!(actual.velocity, expected.velocity);
+                            assert_eq!(actual.spin, expected.spin);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn a_static_opening_keeps_a_body_above_its_end_with_a_distant_turning_pair() {

@@ -647,6 +647,8 @@ struct InHand<'a> {
     swing: Option<ambition_sim_view::ItemSwingFact>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     holder: &'a ambition_sim_view::ItemHolder,
+    /// The item's physical scale in the hand (`HeldItemFact::material`).
+    scale: f32,
 }
 
 /// How far under its hand part an item in a hand of the art is drawn: half
@@ -729,6 +731,7 @@ pub fn sync_held_item_visual(
             swing: held.swing,
             room: held.room,
             holder: &held.holder,
+            scale: held.material.scale(),
         }
     });
     let over_hand = wielded_view
@@ -748,6 +751,8 @@ pub fn sync_held_item_visual(
                 swing: None,
                 room: fact.room,
                 holder: &fact.holder,
+                // The over-hand road sizes an item to its wielder.
+                scale: 1.0,
             }
         });
     for held in in_hand.chain(over_hand) {
@@ -774,6 +779,10 @@ pub fn sync_held_item_visual(
         // the manifest says (`held_item_art.ron`: "absent: by its middle"),
         // and turns it as the hand turns, like any other item it holds.
         let posed_grip = grip.or_else(|| entry.as_ref().map(|entry| (0.5, entry.size.x)));
+        // The picture is drawn at the item's own scale, so its length from
+        // the grip is that long too.
+        let (grip, posed_grip) = (grip.map(|(at, length)| (at, length * held.scale)),
+            posed_grip.map(|(at, length)| (at, length * held.scale)));
 
         // A ranged held item (the gun-sword) points where the subject aims,
         // the direction it fires. Melee and thrown items only flip with
@@ -821,7 +830,8 @@ pub fn sync_held_item_visual(
             (Quat::IDENTITY, facing < 0.0, false)
         };
 
-        let transform = Transform::from_translation(translation).with_rotation(rotation);
+        let transform = Transform::from_translation(translation).with_rotation(rotation)
+            .with_scale(Vec3::new(held.scale, held.scale, 1.0));
         wanted.push((held, room, transform, flip_x, flip_y, false));
     }
     for (entity, drawn, mut transform, mut sprite, mut root) in &mut visuals {
@@ -1202,6 +1212,7 @@ mod tests {
             size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
             facing,
             item_id: "axe".to_string(),
+            material: Default::default(),
             ranged: false,
             aim: ambition_platformer2d_core::Vec2::ZERO,
             swing: None,

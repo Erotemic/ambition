@@ -1932,3 +1932,47 @@ The hit-flash overlay (damage flash, intangibility blink such as a ledge
 grab's) took its quad size from the sprite and dropped the sprite's own
 scale, so it outlined a shrunk or reflected body at full size. It now
 composes the source's scale.
+
+### A window shows the far side at the pair's scale; scaling doors — 2026-11-12
+
+**The view window maps by the pair's similarity.** Every point the view cone
+mapped went through `ambition_portal2d::pieces::map_point`, which has the two
+frames and no scale. At station H the 80 mouth's window showed the 40 mouth's
+side at 1:1, so the far mouth's ends sat 20 px inside the near mouth's, and
+the picture changed size at the crossing. `pieces::map_through` maps by
+`Sim2::through`, the map a body crosses by. The cone's source quad, the eye
+seen through the partner (`view::view_point_through`), the visible-eye
+candidates, the mesh's mapped vertices, the parallax anchor and the capture
+camera all use it. The capture frames a rect the pair's scale times the
+view's, and its texture is made for the view's size (`CaptureCameraFrame::shown`),
+so a magnified window is as sharp as the world beside it. Offscreen frames
+(`capture_scene portal_lab player`, medium): at the 80 mouth the far floor's
+edge and the far mouth meet c148's ends; at the 40 mouth the near side shows
+at half scale and meets c149's ends. With the camera now zooming by the
+subject's scale at the crossing, what the window shows is what the view
+shows after it.
+
+**`portal_scale_lab`** (map submodule; spec
+`tools/ambition_ldtk_tools/specs/portal_scale_lab_area.ron`, reached by a door
+at the right of `portal_chain_lab`). Two doors through full-height walls,
+each with one mouth on each face: A is 80 in, 40 out (walking right halves
+the body); B is 40 in, 80 out (walking right restores it). Each pair faces
+one way, so neither convention turns the body: only its size changes, and
+it can cross back and forth as often as it likes.
+`walking_back_and_forth_through_the_scaling_doors_halves_and_restores_the_upright_body`
+walks three round trips under the shipped tuning with a 4/10 sync test:
+half size between the walls, whole outside, never turned.
+
+**Body-owned drawables compose the body's draw transform.** Three drawables
+copied or overwrote the body's root `Transform`, whose scale is the body's
+material (portal scale and mirror), and so drew a scaled body at its
+authored size: the hit-flash overlay (above), the door passage look (it set
+the scale to the passage's; it now multiplies, and the body sync puts it
+back every frame, so `PassageScaled` is gone), and the item in the hand (its
+quad had no scale). A held item's material is
+`HeldMaterialBasis::present`: its own material when taken, carried as its
+holder's has changed since. Release puts the item down with it, and
+`HeldItemFact::material` publishes it, so a 1.25 javelin in a 0.75 hand is
+drawn at 1.25, and at 0.625 once the hand has crossed to 0.375, which is
+what it is when dropped. Not yet: the strike volume of a held item is
+still the holder's move volume, at the holder's scale.

@@ -243,6 +243,11 @@ pub struct HeldItemFact {
     pub size: ae::Vec2,
     pub facing: f32,
     pub item_id: String,
+    /// The item's material in the hand now
+    /// (`ambition_held_items::HeldMaterialBasis::present`): an item a body
+    /// took keeps its own size to that body. An item with no object behind
+    /// the hand has the holder's.
+    pub material: ae::frame::BodyMaterial,
     pub ranged: bool,
     pub aim: ae::Vec2,
     /// The swing the holder makes with the item now, when its move is the
@@ -372,7 +377,15 @@ pub fn rebuild_held_item_view(
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
     positions: ambition_held_items::ItemWorldPos,
     features: Query<&ambition_combat::components::FeatureId>,
+    // The objects behind the hands: each held item's own body and the
+    // holder's material when it was taken.
+    items: Query<(&ambition_held_items::ItemCustody, &BodyKinematics, &ambition_held_items::HeldMaterialBasis)>,
 ) {
+    let in_hand = |holder: bevy::prelude::Entity, holder_kin: &BodyKinematics| {
+        items.iter()
+            .find(|(custody, ..)| matches!(custody, ambition_held_items::ItemCustody::Held { holder: held } if *held == holder))
+            .map_or(Ok(holder_kin.material), |(_, item, basis)| basis.present(item.material, holder_kin.material))
+    };
     // Include every eligible holder, not only a controlled participant.
     // Over-hand presentation owns its separate partition. Sort rows by
     // stable SimId to keep drawing order independent of ECS iteration.
@@ -389,7 +402,7 @@ pub fn rebuild_held_item_view(
             let resolved = supported_carry_fact(&positions, &landmarks, &features, body, basis.down)
                 .and_then(|support| ambition_held_items::holding_hand_world(&landmarks, body, kin)
                     .map(|hand| (support, hand)));
-            let (support, hand_world) = match resolved {
+            let (support, hand_world, material) = match resolved.and_then(|(support, hand)| Ok((support, hand, in_hand(body, kin)?))) {
                 Ok(resolved) => resolved,
                 Err(fault) => { warn!(?fault, "held item view map refused"); return None; }
             };
@@ -402,6 +415,7 @@ pub fn rebuild_held_item_view(
                     size: kin.size(),
                     facing: kin.facing,
                     item_id: held.spec.id.clone(),
+                    material,
                     ranged: held.spec.ranged.is_some(),
                     aim: held_item_world_aim(Some(&control.0), kin.facing, basis),
                     swing: playback.and_then(ItemSwingFact::of),

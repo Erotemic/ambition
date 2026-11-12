@@ -80,13 +80,13 @@ fn a_body_drawn_as_a_feature_takes_its_passage_look() {
     assert!((y - 90.0).abs() < 1e-4, "about its feet: half of the 40 px body, halved, is 10 px down; y is {y}");
     assert!((color.alpha - 0.4).abs() < 1e-4 && (color.red - 0.5).abs() < 1e-4, "opacity and shade: {color:?}");
 
-    // The passage is over. `sync_visuals` places the body again each frame.
+    // The passage is over. `sync_visuals` places the body again each frame,
+    // at its own size.
     app.insert_resource(ActorAnimIndex::from_rows([("npc".to_string(), frame(None))]));
-    app.world_mut().get_mut::<Transform>(body).expect("a transform").translation.y = 100.0;
+    *app.world_mut().get_mut::<Transform>(body).expect("a transform") = Transform::from_xyz(0.0, 100.0, 0.0);
     app.update();
     let (scale, y, _) = drawn(&app, body);
     assert_eq!((scale, y), (Vec3::ONE, 100.0), "after the passage the body is drawn at its own size");
-    assert!(app.world().get::<PassageScaled>(body).is_none());
 }
 
 /// Control: a player body still takes the look beside its pose.

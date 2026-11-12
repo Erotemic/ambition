@@ -23,11 +23,6 @@ mod tests;
 /// The frames of a door's opening strip.
 pub const DOOR_OPENING_FRAMES: u32 = 6;
 
-/// This body's drawing was scaled by its passage, and is put back when the
-/// passage ends.
-#[derive(Component)]
-pub struct PassageScaled;
-
 /// Draw each body in a passage at its passage's size, opacity and shade.
 ///
 /// Both roads: a player body reads the look beside its pose, and a body drawn
@@ -37,66 +32,44 @@ pub struct PassageScaled;
 /// transform and tint.
 #[allow(clippy::type_complexity)]
 pub fn apply_passage_looks(
-    mut commands: Commands,
     mut bodies: Query<
-        (
-            Entity,
-            &mut Transform,
-            &mut Sprite,
-            &ambition_sim_view::BodyPoseView,
-            Option<&ambition_sim_view::PassageLookView>,
-            Has<PassageScaled>,
-        ),
+        (&mut Transform, &mut Sprite, &ambition_sim_view::BodyPoseView, Option<&ambition_sim_view::PassageLookView>),
         With<PlayerVisual>,
     >,
-    mut actors: Query<(Entity, &FeatureVisual, &mut Transform, &mut Sprite, Has<PassageScaled>), Without<PlayerVisual>>,
+    mut actors: Query<(&FeatureVisual, &mut Transform, &mut Sprite), Without<PlayerVisual>>,
     frames: Option<Res<ambition_sim_view::ActorAnimIndex>>,
     features: Option<Res<ambition_sim_view::FeatureViewIndex>>,
 ) {
-    for (entity, mut transform, mut sprite, pose, look, scaled) in &mut bodies {
-        draw_passage_look(&mut commands, entity, &mut transform, &mut sprite, look.copied(), pose.size.y, scaled);
-    }
-    for (entity, visual, mut transform, mut sprite, scaled) in &mut actors {
-        let look = frames.as_deref().and_then(|frames| frames.get(&visual.id)).and_then(|frame| frame.passage_look);
-        if look.is_none() && !scaled {
-            continue;
+    for (mut transform, mut sprite, pose, look) in &mut bodies {
+        if let Some(look) = look {
+            draw_passage_look(&mut transform, &mut sprite, *look, pose.size.y);
         }
+    }
+    for (visual, mut transform, mut sprite) in &mut actors {
+        let Some(look) = frames.as_deref().and_then(|frames| frames.get(&visual.id)).and_then(|frame| frame.passage_look) else {
+            continue;
+        };
         let height = features.as_deref().and_then(|views| views.get(&visual.id)).map_or(0.0, |view| view.size.y);
-        draw_passage_look(&mut commands, entity, &mut transform, &mut sprite, look, height, scaled);
+        draw_passage_look(&mut transform, &mut sprite, look, height);
     }
 }
 
-/// Draw one body at `look`, about its feet (`height` is its body's height),
-/// or put it back when its passage is over.
-fn draw_passage_look(
-    commands: &mut Commands,
-    entity: Entity,
-    transform: &mut Transform,
-    sprite: &mut Sprite,
-    look: Option<ambition_sim_view::PassageLookView>,
-    height: f32,
-    scaled: bool,
-) {
-    match look {
-        Some(look) => {
-            let scale = look.scale.max(0.01);
-            transform.scale = Vec3::new(scale, scale, 1.0);
-            // About the feet: the translation is the middle of the body
-            // (`sync_visuals`), and Bevy's y is up.
-            transform.translation.y -= (1.0 - scale) * height * 0.5;
-            let lit = 1.0 - look.shade.clamp(0.0, 1.0);
-            let tint = sprite.color.to_srgba();
-            sprite.color = Color::srgba(tint.red * lit, tint.green * lit, tint.blue * lit, tint.alpha * look.alpha);
-            if !scaled {
-                commands.entity(entity).try_insert(PassageScaled);
-            }
-        }
-        None if scaled => {
-            transform.scale = Vec3::ONE;
-            commands.entity(entity).try_remove::<PassageScaled>();
-        }
-        None => {}
-    }
+/// Draw one body at `look`, about its feet (`height` is its body's height).
+///
+/// The passage's size is a part of the size the body is drawn at, so it
+/// multiplies the scale `sync_visuals` placed the body at this frame, which
+/// is the body's material (a portal's scale, and its mirror). Set outright, it
+/// grew a body a pair had shrunk as it went through a door. The body is
+/// placed again every frame, so nothing is put back when the passage ends.
+fn draw_passage_look(transform: &mut Transform, sprite: &mut Sprite, look: ambition_sim_view::PassageLookView, height: f32) {
+    let scale = look.scale.max(0.01);
+    transform.scale *= Vec3::new(scale, scale, 1.0);
+    // About the feet: the translation is the middle of the body
+    // (`sync_visuals`), and Bevy's y is up.
+    transform.translation.y -= (1.0 - scale) * height * 0.5;
+    let lit = 1.0 - look.shade.clamp(0.0, 1.0);
+    let tint = sprite.color.to_srgba();
+    sprite.color = Color::srgba(tint.red * lit, tint.green * lit, tint.blue * lit, tint.alpha * look.alpha);
 }
 
 /// Declare each body that its passage fades as read as one image

@@ -7,6 +7,19 @@ use ae::snapshot::SnapshotState;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct HeldMaterialBasis(pub ae::frame::BodyMaterial);
 
+impl HeldMaterialBasis {
+    /// The material of an item in the hand now: its own material when it was
+    /// taken (`stored`), carried as its holder's material (`holder`, now) has
+    /// changed since. A javelin a small hand took stays small to it, and
+    /// grows with that hand through a pair. The one answer for what the hand
+    /// draws and what a release puts down.
+    pub fn present(self, stored: ae::frame::BodyMaterial, holder: ae::frame::BodyMaterial)
+        -> Result<ae::frame::BodyMaterial, ae::frame::NumericFault> {
+        let delta = self.0.at(Vec2::ZERO)?.inverse()?.then(holder.at(Vec2::ZERO)?)?;
+        stored.carried(delta)
+    }
+}
+
 impl SnapshotState for HeldMaterialBasis {
     fn encode(&self, out: &mut Vec<u8>) { self.0.encode(out); }
     fn decode(reader: &mut ae::snapshot::Reader<'_>) -> Option<Self> {
@@ -26,9 +39,7 @@ impl ItemReleaseWorld<'_, '_> {
     ) -> Result<PreparedItemRelease, ae::frame::thread::Refusal> {
         use ae::frame::thread::{Refusal, RefusalReason};
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
-        let delta = basis.0.at(Vec2::ZERO).and_then(|map| map.inverse())
-            .and_then(|map| map.then(kin.material.at(Vec2::ZERO)?)).map_err(numeric)?;
-        let desired = BodyKinematics { pos, vel, material: stored.material.carried(delta).map_err(numeric)?, ..*stored };
+        let desired = BodyKinematics { pos, vel, material: basis.present(stored.material, kin.material).map_err(numeric)?, ..*stored };
         let room = self.rooms.of(holder);
         let admission = self.geometry.as_deref().and_then(|geometry| geometry.motion_for(holder, room)
             .map(|admission| ae::frame::thread::MotionAdmission { budget: geometry.budget_for(item, room), ..admission }));

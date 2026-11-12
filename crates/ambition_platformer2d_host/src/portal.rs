@@ -892,13 +892,13 @@ mod host_adapter {
 
                 // This view's camera moves through the pair; no other view's
                 // does (review of 15d0cf99c, finding C).
+                // By the transfer's own map, scale included: the camera
+                // centre goes through it above, and a target mapped without
+                // the scale eased the view off the shrunk body.
                 if camera_ease.target_initialized {
-                    camera_ease.live_target_world = ambition_portal2d::pieces::map_point(
-                        camera_ease.live_target_world,
-                        &enter_frame,
-                        &exit_frame,
-                        convention,
-                    );
+                    if let Ok(target) = ev.transfer.map.point(camera_ease.live_target_world) {
+                        camera_ease.live_target_world = target;
+                    }
                 }
                 state.start_screen_anchor(desired_camera_world, body_screen_offset_world, roll);
                 // The camera moves through the pair on this frame; the

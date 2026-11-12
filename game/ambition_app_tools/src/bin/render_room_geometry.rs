@@ -365,6 +365,7 @@ fn resolve_headless_snapshot(
                 facing: 1.0,
                 velocity_world: ae::Vec2::ZERO,
                 look: 0.0,
+                scale: 1.0,
             },
             base_view: ae::Vec2::new(800.0, 450.0),
             viewport_px: ae::Vec2::new(image_size.0 as f32, image_size.1 as f32),

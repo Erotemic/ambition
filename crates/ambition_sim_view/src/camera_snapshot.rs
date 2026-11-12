@@ -208,6 +208,10 @@ pub struct CameraFocus2d {
     /// The subject's held look, -1 (up) to 1 (down): see [`camera_look`].
     /// The view leans by [`LOOK_SHARE_OF_VIEW`] of its height at full look.
     pub look: f32,
+    /// The subject's physical scale (its body material's). The view is in
+    /// the subject's frame: a body a portal pair shrank sees the world
+    /// larger, not itself smaller. 1 for a focus that is not a scaled body.
+    pub scale: f32,
 }
 
 /// How long a still look is held before the camera follows it.
@@ -418,6 +422,10 @@ pub fn resolve_follow_camera_snapshot(
         }
     };
 
+    // The subject's scale is a chart fact, adopted at once like a chart
+    // roll: it changes only where its body crosses a scaling pair, and the
+    // continuity maps the camera through that pair on the same frame.
+    let camera_scale = if input.overview_camera { camera_scale } else { camera_scale * input.focus.scale };
     let target_view_w = input.base_view.x * camera_scale;
     let target_view_h = input.base_view.y * camera_scale;
     let (visible_view, orthographic_scale) = fit_camera_view(
@@ -1777,10 +1785,13 @@ pub fn resolve_camera_observation(
         center_world: player_body.pos,
         tick_center_world: subject_sim_pos,
         size: player_body.size(),
-        base_size: player_base_size.base_size,
+        // The standing shape is canonical; the size it is compared with is
+        // physical. Unscaled, a shrunk body read as crouched.
+        base_size: player_base_size.base_size * player_body.material.scale(),
         facing: player_body.facing,
         velocity_world: player_body.vel,
         look: poses.get(followed).map_or(0.0, |pose| camera_look(pose.gaze_secs)),
+        scale: player_body.material.scale(),
     };
     let blink = CameraBlinkInput {
         blink_in_timer: blink_cam.blink_in_timer,
@@ -1812,6 +1823,7 @@ pub fn resolve_camera_observation(
                 facing: kin.facing,
                 velocity_world: kin.vel,
                 look: poses.get(subject).map_or(0.0, |pose| camera_look(pose.gaze_secs)),
+                scale: kin.material.scale(),
             },
             subject_frames.get(subject).ok().map(|frame| frame.down()),
             center,
@@ -2256,6 +2268,7 @@ mod m2_forward_scroll_tests {
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
                     look: 0.0,
+                    scale: 1.0,
                 },
                 base_view: ae::Vec2::new(480.0, 270.0),
                 viewport_px: ae::Vec2::new(480.0, 270.0),
@@ -2377,6 +2390,7 @@ mod zone_change_tests {
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
                     look: 0.0,
+                    scale: 1.0,
                 },
                 base_view: ae::Vec2::new(480.0, 270.0),
                 viewport_px: ae::Vec2::new(480.0, 270.0),
@@ -2794,6 +2808,7 @@ mod soft_framing_tests {
                     facing: if vel.x < 0.0 { -1.0 } else { 1.0 },
                     velocity_world: vel,
                     look: 0.0,
+                    scale: 1.0,
                 },
                 base_view: VIEW,
                 viewport_px: VIEW,
@@ -3309,6 +3324,7 @@ mod observer_roll_continuity_tests {
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
                     look: 0.0,
+                    scale: 1.0,
                 },
                 base_view: ae::Vec2::new(800.0, 450.0),
                 viewport_px: ae::Vec2::new(1600.0, 900.0),
@@ -3479,6 +3495,7 @@ mod rolled_safe_area_tests {
             facing: 1.0,
             velocity_world: ae::Vec2::ZERO,
             look: 0.0,
+            scale: 1.0,
         };
         apply_soft_subject_framing(
             ae::Vec2::ZERO,
@@ -3546,6 +3563,7 @@ mod rolled_safe_area_tests {
             facing: 1.0,
             velocity_world: ae::Vec2::new(120.0, -30.0),
             look: 0.0,
+            scale: 1.0,
         };
         let framing = CameraScreenFraming {
             active: true,
@@ -4014,7 +4032,7 @@ mod zone_blend_tests {
                 CameraSnapshotResolveInput {
                     world: &world,
                     camera_zones: &zones,
-                    focus: CameraFocus2d { center_world: at, tick_center_world: at, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0), look: 0.0 },
+                    focus: CameraFocus2d { center_world: at, tick_center_world: at, size: ae::Vec2::new(30.0, 48.0), base_size: ae::Vec2::new(30.0, 48.0), facing: 1.0, velocity_world: ae::Vec2::new(300.0, 0.0), look: 0.0, scale: 1.0 },
                     base_view: default_base_view(),
                     viewport_px: ae::Vec2::new(1280.0, 720.0),
                     aspect_policy: CameraAspectPolicy::FixedHeight,
@@ -4073,6 +4091,7 @@ mod held_look_tests {
                     facing: 1.0,
                     velocity_world: ae::Vec2::ZERO,
                     look,
+                    scale: 1.0,
                 },
                 base_view: ae::Vec2::new(480.0, 270.0),
                 viewport_px: ae::Vec2::new(480.0, 270.0),

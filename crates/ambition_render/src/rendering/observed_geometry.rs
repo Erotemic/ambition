@@ -102,6 +102,11 @@ fn role_color(observation: &GeometryObservation) -> Color {
         "rebound" => Color::srgba(1.0, 0.6, 0.2, 0.9),
         "hurt" => Color::srgba(1.0, 0.9, 0.2, 0.9),
         "hit" => Color::srgba(1.0, 0.2, 0.2, 0.95),
+        // A body as the kernel swept it: its box, its path, and the edges it
+        // reported touching.
+        "body_box" => Color::srgba(0.75, 0.55, 1.0, 0.9),
+        "sweep" => Color::srgba(0.75, 0.55, 1.0, 0.6),
+        "contact_ground" | "contact_head" | "contact_wall" => Color::srgba(0.2, 1.0, 0.2, 1.0),
         _ => Color::srgba(0.3, 1.0, 1.0, 0.9),
     }
 }

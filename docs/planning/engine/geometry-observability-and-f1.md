@@ -189,6 +189,23 @@ harness that reads it boots a visible app).
 
 ### GOBS-2 — effective collision, contacts and query truth
 
+**First slice landed (2026-11-11): `body.sweep`**
+(`ambition_platformer2d_world::geometry_observers`). Each body as the
+movement kernel last moved it, read from its own `SweepSample`: the box the
+sweep tested at the end of the step (`body_box`), the path from where the
+step began (`sweep`, when it moved), and an edge of that box for each
+contact the kernel reported (`contact_ground` and `contact_head` from
+`BodyGroundState`, along the body's `down`; `contact_wall` from
+`BodyWallState`). The subject alone when the query names one, else every
+body in the room. F1 draws them through the Observed Geometry layer with no
+edit to its drawer beyond a colour for each new role. Headless, in
+`central_hub_complex` after 120 ticks: 18 bodies, two NPC paths, ground
+contacts on Player 1 and the two NPCs; the fifteen items resting on the
+floor (`ground_*`, the portal gun) have a sweep record and no ground state,
+so they show no contact. Not yet: candidate versus accepted contacts and
+their normals and penetration (the kernel keeps flags, not contacts), and
+item 3's reasons.
+
 1. Display **authored base** solids, **composited active-room** solids and **selected-body effective** solids as distinct layers or selectable comparisons. Read the same `CollisionWorld`/`RoomCollision::solids_for` composition used for real sweeps. Include moving platforms, feature solids, portals/carves, gate/one-way policies and the actor reference/gravity frame where relevant.
 2. Draw the body shape actually used in sweep/contact tests, not only the coarse player pose box. Expose recent sweep/raycast hit/miss results, candidate versus accepted contacts, normal and penetration/separation where produced by the collision owner. Avoid inventing a synthetic contact merely because shapes overlap.
 3. Make individual missing/filtered geometry explainable: portal permission denied, one-way rejected from the wrong side, room mismatch, collision mask excluded or object currently disabled. Preserve the owning domain's predicates; don't add duplicate decision logic to the observer.

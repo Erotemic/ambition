@@ -12,6 +12,11 @@
 //!   ([`RoomCollision::solids_for`]): the gates open for it passed, the portal
 //!   holes it opened cut. A composed wall the body does not meet is listed as
 //!   inactive.
+//! - `body.sweep` (GOBS-2): each body as the movement kernel last moved it,
+//!   from its own record ([`ae::SweepSample`]): the box the sweep tested at
+//!   the end of the step, the path from where the step began, and an edge of
+//!   that box for each contact the kernel reported (ground, head, wall). The
+//!   subject alone when the query names one, else every body in the room.
 
 use std::borrow::Cow;
 
@@ -50,6 +55,14 @@ pub fn install(app: &mut App) {
             needs_subject: true,
         },
         for_subject,
+    )
+    .add_geometry_observer(
+        ObserverInfo {
+            name: "body.sweep",
+            description: "each body as the kernel last moved it: the box it swept, its path, and its ground, head and wall contacts",
+            needs_subject: false,
+        },
+        body_sweeps,
     );
 }
 
@@ -156,5 +169,81 @@ fn for_subject(
     // What the body meets that the room's walls do not hold (the far side of
     // a portal it is in).
     out.extend(met.blocks.iter().filter(|block| !walls.blocks.iter().any(|known| same(known, block))).map(|block| observed(block, ObservedState::Active)));
+    out
+}
+
+/// The edge of `aabb` whose outward normal is nearest `toward`.
+fn edge_toward(aabb: &ae::Aabb, toward: ae::Vec2) -> ([f32; 2], [f32; 2]) {
+    let (min, max) = (aabb.min, aabb.max);
+    if toward.x.abs() > toward.y.abs() {
+        let x = if toward.x > 0.0 { max.x } else { min.x };
+        ([x, min.y], [x, max.y])
+    } else {
+        let y = if toward.y > 0.0 { max.y } else { min.y };
+        ([min.x, y], [max.x, y])
+    }
+}
+
+fn body_sweeps(
+    query: In<ObservationQuery>,
+    roots: Query<&LiveRoomInstance>,
+    bodies: Query<(
+        Entity,
+        &ae::SweepSample,
+        Option<&InRoomInstance>,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&ae::BodyGroundState>,
+        Option<&ae::BodyWallState>,
+    )>,
+) -> Vec<GeometryObservation> {
+    let room = match (query.room, query.subject) {
+        (Some(root), _) => roots.get(root).ok().copied(),
+        (None, Some(subject)) => bodies.get(subject).ok().and_then(|(_, _, room, ..)| room.map(|room| room.0)),
+        (None, None) => None,
+    };
+    let mut out = Vec::new();
+    for (entity, sweep, at, id, ground, wall) in &bodies {
+        if query.subject.is_some_and(|subject| subject != entity) || (room.is_some() && at.map(|at| at.0) != room) {
+            continue;
+        }
+        let name = id.map_or_else(|| format!("{entity}"), |id| id.as_str().to_owned());
+        let tested = ae::Aabb::new(sweep.curr, sweep.half);
+        out.push(GeometryObservation {
+            key: format!("{name}/box"),
+            roles: vec![Cow::Borrowed("body_box")],
+            shape: ObservedShape::aabb(tested.min.to_array(), tested.max.to_array()),
+            state: ObservedState::Active,
+        });
+        if sweep.prev != sweep.curr {
+            out.push(GeometryObservation {
+                key: format!("{name}/path"),
+                roles: vec![Cow::Borrowed("sweep")],
+                shape: ObservedShape::Segment { a: sweep.prev.to_array(), b: sweep.curr.to_array() },
+                state: ObservedState::Active,
+            });
+        }
+        let down = if sweep.down == ae::Vec2::ZERO { ae::Vec2::Y } else { sweep.down };
+        let mut contact = |role: &'static str, toward: ae::Vec2| {
+            let (a, b) = edge_toward(&tested, toward);
+            out.push(GeometryObservation {
+                key: format!("{name}/{role}"),
+                roles: vec![Cow::Borrowed(role)],
+                shape: ObservedShape::Segment { a, b },
+                state: ObservedState::Active,
+            });
+        };
+        if let Some(ground) = ground {
+            if ground.on_ground {
+                contact("contact_ground", down);
+            }
+            if ground.head_contact {
+                contact("contact_head", -down);
+            }
+        }
+        if let Some(wall) = wall.filter(|wall| wall.on_wall && wall.wall_normal_x != 0.0) {
+            // The wall's normal points out of it, toward the body.
+            contact("contact_wall", ae::Vec2::new(-wall.wall_normal_x.signum(), 0.0));
+        }
+    }
     out
 }

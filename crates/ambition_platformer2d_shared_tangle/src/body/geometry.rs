@@ -243,6 +243,17 @@ impl BodyGeometry {
         self.body_pieces_from(material, body, true, room)
     }
 
+    /// [`ambition_platformer2d_core::frame::thread::short_of_refusal`] over
+    /// the links a volume `carrier` carries in `room` is cut by: what of a
+    /// refused reach acts in front of the mouth that refused it.
+    pub fn short_of_refusal(
+        &self, cut: Partition, material: MaterialPrimitive<'_>, carrier: Option<Entity>, room: Option<LiveRoomInstance>,
+    ) -> Partition {
+        let mut links = self.links_in(room).to_vec();
+        links.extend(carrier.and_then(|carrier| self.straddled_by(carrier)));
+        ambition_platformer2d_core::frame::thread::short_of_refusal(cut, material, &links)
+    }
+
     /// Partition accepted body material without a reach wedge.
     pub fn body_pieces(&self, material: MaterialPrimitive<'_>, body: Entity, room: Option<LiveRoomInstance>) -> Partition {
         self.body_pieces_from(material, body, false, room)

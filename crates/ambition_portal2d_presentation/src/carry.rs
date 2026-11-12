@@ -610,16 +610,10 @@ pub fn carry_through_pairs(
         };
         // A cut the pairs refuse draws what is in front of the mouth it
         // reaches and nothing past it, as the strike that goes with it hits
-        // nothing past it. Drawn whole, a held javelin refused at the hop
-        // limit showed its tip through the host.
-        let cut = match cut {
-            Ok(cut) => cut,
-            Err(_) => match links.iter().find(|link| Some(link.key) == first)
-                .map(|link| ae::frame::thread::in_front_of(material, &link.enter)) {
-                Some(Ok(Some(piece))) => vec![piece],
-                _ => continue,
-            },
-        };
+        // there and nowhere past it. Drawn whole, a held javelin refused at
+        // the hop limit showed its tip through the host.
+        let Ok(cut) = ae::frame::thread::short_of_refusal(cut, material, &links) else { continue; };
+        if cut.is_empty() { continue; }
         let through = cut.iter().any(VolumePiece::is_carried);
         let image = match &capture {
             Some((_,image)) => image.clone(),

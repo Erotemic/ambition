@@ -139,7 +139,7 @@ pub struct CombatStrikeGeometryView {
     pub volume: ae::CombatVolume,
     /// Where [`Self::volume`] is when a portal pair cuts it (it reaches into
     /// one): its pieces, each mapped through its pairs, as combat resolves
-    /// them (`ambition_combat::hitbox::strike_pieces`). `None`: no pair cuts
+    /// them (`ambition_combat::hitbox::strike_reach`). `None`: no pair cuts
     /// it, and the volume is where it is.
     pub pieces: Option<Vec<ae::frame::thread::VolumePiece>>,
     /// The live strike entity, so an observer can tie a per-strike visual to
@@ -330,7 +330,7 @@ pub fn rebuild_combat_geometry_view(
         let owner = owner_kinematics.get(hitbox.owner).ok();
         let Ok(volume) = hitbox.world_volume(owner) else { continue; };
         let room = rooms.stamped(strike).or_else(|| rooms.of(hitbox.owner));
-        let pieces = passages.and_then(|passages| cut(ambition_combat::hitbox::strike_pieces(Some(passages), hitbox, owner, room)));
+        let pieces = passages.and_then(|passages| cut(ambition_combat::hitbox::strike_reach(Some(passages), hitbox, owner, room)));
         view.strikes.push(CombatStrikeGeometryView {
             volume,
             pieces,

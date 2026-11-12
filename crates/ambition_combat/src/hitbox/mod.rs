@@ -735,8 +735,8 @@ fn spatial_source_of(hitbox: &Hitbox, owner_pos: ae::Vec2) -> ae::Vec2 {
 }
 
 /// Where a strike's volume is in live room `room`: its pieces, as the portal
-/// pairs cut it, or its whole volume. The one rule [`apply_hitbox_damage`]
-/// resolves by and the combat read model shows. A volume the owner carries
+/// pairs cut it, or its whole volume, or the pairs' refusal (what of it still
+/// acts then is [`strike_reach`]). A volume the owner carries
 /// (it follows the owner) reaches from it: through an opening it goes in the
 /// wedge from the owner through the opening's ends, and what it swept beside
 /// the opening met the host (its drawing is cut the same way,
@@ -748,6 +748,31 @@ pub fn strike_pieces(
     owner: Option<&ae::BodyKinematics>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> ambition_platformer2d_core::frame::thread::Partition {
+    strike_cut(passages, hitbox, owner, room, false)
+}
+
+/// What of a strike acts: its [`strike_pieces`], or, when the pairs refuse
+/// its cut, what is in front of the first mouth the refusal reached. The one
+/// rule [`apply_hitbox_damage`] resolves by and the combat read model shows.
+/// Nothing
+/// past a refusing mouth is hit, and a body in front of it still is: a swing
+/// beside a mouth whose far side runs out of hops hit nothing at all.
+pub fn strike_reach(
+    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    hitbox: &Hitbox,
+    owner: Option<&ae::BodyKinematics>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> ambition_platformer2d_core::frame::thread::Partition {
+    strike_cut(passages, hitbox, owner, room, true)
+}
+
+fn strike_cut(
+    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    hitbox: &Hitbox,
+    owner: Option<&ae::BodyKinematics>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    short_of_refusal: bool,
+) -> ambition_platformer2d_core::frame::thread::Partition {
     use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason, VolumePiece};
     let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
     if matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }) {
@@ -755,14 +780,20 @@ pub fn strike_pieces(
         let domain = hitbox.source_volume();
         let material = MaterialPrimitive { domain: &domain, to_world: pose.material_map().map_err(numeric)? };
         return match passages {
-            Some(passages) => passages.body_pieces_reaching(material, hitbox.owner, room),
+            Some(passages) => {
+                let cut = passages.body_pieces_reaching(material, hitbox.owner, room);
+                if short_of_refusal { passages.short_of_refusal(cut, material, Some(hitbox.owner), room) } else { cut }
+            }
             None => VolumePiece::from_material(material).map(|piece| vec![piece]).map_err(numeric),
         };
     }
     let volume = hitbox.world_volume(owner)?;
     let owner_pos = owner.map_or(volume.center(), |owner| owner.pos);
     match passages {
-        Some(passages) => passages.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room),
+        Some(passages) => {
+            let cut = passages.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room);
+            if short_of_refusal { passages.short_of_refusal(cut, MaterialPrimitive::world(&volume), None, room) } else { cut }
+        }
         None => Ok(vec![VolumePiece::whole(volume)]),
     }
 }
@@ -895,7 +926,7 @@ pub fn apply_hitbox_damage(
         // live rooms share one local frame, so a body at the same place
         // in another room is not in reach.
         let room = rooms.stamped(hitbox_entity).or_else(|| rooms.of(hitbox.owner));
-        (room, strike_pieces(passages.as_deref(), hitbox, owner_kin.get(hitbox.owner).ok(), room))
+        (room, strike_reach(passages.as_deref(), hitbox, owner_kin.get(hitbox.owner).ok(), room))
     };
     // The victims in a stable order (see the victim loop), sorted once a
     // tick: the order is the same for every strike.

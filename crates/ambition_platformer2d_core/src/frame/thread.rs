@@ -463,6 +463,22 @@ pub fn in_front_of(source: MaterialPrimitive<'_>, ap: &PortalAperture) -> Result
     Ok((!piece.is_empty()).then_some(piece))
 }
 
+/// What of a reach acts when its cut through `links` is `cut`: the admitted
+/// pieces, or, when the pairs refuse it, what is in front of the first mouth
+/// the refusal reached ([`in_front_of`]). A refusal stops the reach at that
+/// mouth and nothing past it hits or is drawn, but a swing beside a mouth
+/// still hits a body standing in front of it. A refusal that reached no
+/// mouth stays a refusal.
+pub fn short_of_refusal(cut: Partition, source: MaterialPrimitive<'_>, links: &[PortalLink]) -> Partition {
+    let refusal = match cut { Ok(pieces) => return Ok(pieces), Err(refusal) => refusal };
+    let Some(mouth) = refusal.path.first().copied().or(refusal.link)
+        .and_then(|key| links.iter().find(|link| link.key == key)) else { return Err(refusal) };
+    match in_front_of(source, &mouth.enter) {
+        Ok(piece) => Ok(piece.into_iter().collect()),
+        Err(fault) => Err(Refusal { reason: RefusalReason::Numeric(fault), ..refusal }),
+    }
+}
+
 fn entry_opening(ap: &PortalAperture, reach: Option<Vec2>) -> [HalfPlane; 3] {
     reach.map_or_else(|| opening(ap), |from| opening_from(ap, from))
 }

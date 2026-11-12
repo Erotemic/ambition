@@ -525,6 +525,7 @@ fn fall_step(
             contacts,
             &mut admission,
             refusal,
+            clusters.carrier,
         ));
     };
     sweep(clusters, side_axis);

@@ -290,6 +290,7 @@ pub(super) fn integrate_velocity_clusters(
                 contacts,
                 &mut admission,
                 &mut refusal,
+                clusters.carrier,
             ));
         };
 
@@ -466,6 +467,7 @@ pub(super) fn integrate_velocity_clusters(
                     &mut events.contacts,
                     &mut admission,
                     &mut refusal,
+                    clusters.carrier,
                 ));
             }
         }

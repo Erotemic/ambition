@@ -33,6 +33,8 @@ fn block_passable_while_submerged(body_mode: &crate::body_clusters::BodyModeStat
 pub(super) struct BodyCollisionPolicy<'a> {
     body_mode: &'a crate::body_clusters::BodyModeState,
     env_contact: &'a crate::body_clusters::BodyEnvironmentContact,
+    /// The lines this body carries are not obstacles to it.
+    carrier: Option<u64>,
 }
 
 impl BodyCollisionPolicy<'_> {
@@ -99,11 +101,13 @@ pub(super) fn sweep_player_axis_clusters(
     contacts: &mut Vec<Contact>,
     admission: &mut Option<crate::frame::thread::MotionAdmission<'_>>,
     refusal: &mut Option<crate::frame::thread::Refusal>,
+    carrier: Option<u64>,
 ) -> Option<AxisConstraintConflict> {
     let delta = axis_vec(axis, delta_along);
     let policy = BodyCollisionPolicy {
         body_mode,
         env_contact,
+        carrier,
     };
     // Correct gravity penetration before transverse motion. Keep the imposed
     // velocity and contact state until the movement sweep resolves them.
@@ -137,7 +141,7 @@ pub(super) fn sweep_player_axis_clusters(
         let domain = kinematics.canonical_box().map_err(numeric)?;
         let cast = MaterialCast::new(MaterialPrimitive {
             domain: &domain, to_world: kinematics.material_map().map_err(numeric)?,
-        }, kinematics.pos, delta, 0.0..1.0);
+        }, kinematics.pos, delta, 0.0..1.0).carried_by(policy.carrier);
         *admission = cast.motion_admission(*admission)?;
         let cells = cast.cells(*admission)?;
         let result = world.first_material_contact(&cells, |collider, _, hit| {
@@ -234,7 +238,7 @@ fn material_axis_hits<'w>(
     let domain = kinematics.canonical_box().map_err(numeric)?;
     let cells = MaterialCast::new(MaterialPrimitive { domain: &domain,
         to_world: kinematics.material_map().map_err(numeric)? }, kinematics.pos,
-        Vec2::ZERO, 1.0..1.0).cells(admission)?;
+        Vec2::ZERO, 1.0..1.0).carried_by(policy.carrier).cells(admission)?;
     let hits = world.material_axis_contacts(&cells, axis_vec(axis, 1.0))?;
     let role = axis_role(axis, gravity_dir);
     let mut accepted = Vec::new();
@@ -277,7 +281,7 @@ pub(super) fn material_support_at_rest(
     world: &World, clusters: &crate::body_clusters::BodyClustersMut<'_>, gravity_dir: Vec2,
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> Result<bool, crate::frame::thread::Refusal> {
-    let policy = BodyCollisionPolicy { body_mode: clusters.body_mode, env_contact: clusters.env_contact };
+    let policy = BodyCollisionPolicy { body_mode: clusters.body_mode, env_contact: clusters.env_contact, carrier: clusters.carrier };
     let hits = material_axis_hits(world, clusters.kinematics, policy,
         crate::collision_semantics::gravity_axis(gravity_dir), clusters.kinematics.aabb().feet_coord(gravity_dir),
         false, gravity_dir, admission)?;
@@ -552,7 +556,7 @@ mod tests {
                         let feet = body.aabb().feet_coord(down);
                         sweep_player_axis_clusters(&world, &mut body, &mut Default::default(),
                             &mut Default::default(), &Default::default(), &Default::default(), axis,
-                            0.0, feet, false, down, &mut Vec::new(), &mut None, &mut refusal);
+                            0.0, feet, false, down, &mut Vec::new(), &mut None, &mut refusal, None);
                         assert!(refusal.is_none(), "{refusal:?}");
                         let result = body.pos;
                         let face = normal.as_dvec2().dot(block.center().as_dvec2()) + 40.0;

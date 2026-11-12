@@ -45,6 +45,7 @@ pub struct MaterialCast<'a> {
     pub(super) until: f64,
     pub(super) rotation: Option<source::Rotation>,
     pub(super) initial_overlap: InitialOverlap,
+    pub(super) carrier: Option<u64>,
 }
 
 /// One contact, with both the owner-chart and physical-world witnesses.
@@ -71,6 +72,7 @@ pub struct MaterialCastCells<'a> {
     time: std::ops::Range<f64>,
     scene:Option<std::sync::Arc<arcs::Scene>>,
     initial_overlap: InitialOverlap,
+    carrier: Option<u64>,
 }
 
 fn carry_plane(
@@ -104,7 +106,14 @@ fn numeric_at(part: &MaterialCell, reason: NumericFault) -> Refusal {
 impl<'a> MaterialCast<'a> {
     /// Record the original line and its world clock.
     pub fn new(material: super::thread::MaterialPrimitive<'a>, root: Vec2, delta: Vec2, time: std::ops::Range<f64>) -> Self {
-        Self { material, root, delta, time, until: 1.0, rotation: None, initial_overlap: InitialOverlap::AllowSeparation }
+        Self { material, root, delta, time, until: 1.0, rotation: None, initial_overlap: InitialOverlap::AllowSeparation, carrier: None }
+    }
+
+    /// The body this material is, by its key: the lines that body carries
+    /// (`SurfaceChain::carrier`) are not obstacles to it.
+    pub fn carried_by(mut self, carrier: Option<u64>) -> Self {
+        self.carrier = carrier;
+        self
     }
 
     pub fn with_initial_overlap(mut self, initial_overlap: InitialOverlap) -> Self {
@@ -333,11 +342,17 @@ impl<'a> MaterialCast<'a> {
             time:self.time,
             scene,
             initial_overlap: self.initial_overlap,
+            carrier: self.carrier,
         })
     }
 }
 
 impl MaterialCastCells<'_> {
+    /// The key of the body this material is ([`MaterialCast::carried_by`]).
+    pub fn carrier(&self) -> Option<u64> {
+        self.carrier
+    }
+
     /// Canonical source material shared by all cells.
     pub fn domain(&self) -> &CombatVolume {
         self.material.domain

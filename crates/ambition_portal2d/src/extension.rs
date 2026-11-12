@@ -215,6 +215,11 @@ fn module_of(entry: &str) -> &str {
 /// openings and looks. A pair is held only while an entry of its module asks
 /// for it, so the pairs of a module that is no longer admitted (a reload that
 /// removed it) are released: nothing can ask for them again.
+///
+/// ⛔ A pair is not released while a body straddles one of its ends: it
+/// closes the first tick it is empty. Closed on a straddler, the part of the
+/// body through it would be inside the host, and the repair that takes it out
+/// may push it the other way, through a floor and out of the room.
 #[allow(clippy::type_complexity)]
 fn lower_held_portal_pairs<L: LowersIn>(
     mut commands: SessionCommands,
@@ -226,6 +231,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
     rooms: Query<&InRoomInstance>,
     others: Query<(Entity, &PlacedPortal), Without<HeldPortalOf>>,
     mut transits: MessageReader<crate::PortalBodyTransited>,
+    straddlers: Query<(Entity, &crate::PortalTransit)>,
 ) {
     let submitted = outbox.drain::<HeldPortalPairPort>(&L::PHASE);
     let asked = |owner: Entity, r: &HeldPortalPairRecord| {
@@ -258,8 +264,16 @@ fn lower_held_portal_pairs<L: LowersIn>(
         if held.0.iter().all(|r| r.phase != L::PHASE || asked(owner, r)) {
             continue;
         }
+        let straddled = |r: &HeldPortalPairRecord| {
+            r.ends.iter().any(|end| {
+                portals.get(*end).is_ok_and(|(_, _, portal, _)| {
+                    let room = rooms.get(*end).ok().map(|r| r.0);
+                    straddlers.iter().any(|(body, transit)| transit.straddling == portal.channel && live.of(body) == room)
+                })
+            })
+        };
         held.0.retain(|r| {
-            let keep = r.phase != L::PHASE || asked(owner, r);
+            let keep = r.phase != L::PHASE || asked(owner, r) || straddled(r);
             if !keep {
                 for end in r.ends {
                     if let Ok(mut e) = commands.get_entity(end) {
@@ -322,6 +336,16 @@ fn lower_held_portal_pairs<L: LowersIn>(
                 fizzled.push((s.scope, record.module.clone(), record.slot));
                 continue;
             }
+            // ⛔ An opening does not shrink onto a body in it: the part of
+            // the body past the plane would be cut into the host beside the
+            // smaller opening, and taken out of it the wrong way. It shrinks
+            // once the pair is empty.
+            let straddled = record.ends.iter().any(|end| {
+                portals.get(*end).is_ok_and(|(_, _, portal, _)| {
+                    let room = rooms.get(*end).ok().map(|r| r.0);
+                    straddlers.iter().any(|(body, transit)| transit.straddling == portal.channel && live.of(body) == room)
+                })
+            });
             // Held: each end is what was asked this tick, in place, normal,
             // opening and look. Written only where it changed, so an
             // unchanged pair is not marked changed.
@@ -334,8 +358,9 @@ fn lower_held_portal_pairs<L: LowersIn>(
                     if portal.pos != at || portal.normal != prepared[index].normal {
                         portal.place_at(at, normal).expect("the complete pair passed placement validation");
                     }
-                    if portal.half_length != asked.half_length {
-                        portal.half_length = asked.half_length;
+                    let half_length = if straddled { asked.half_length.max(portal.half_length) } else { asked.half_length };
+                    if portal.half_length != half_length {
+                        portal.half_length = half_length;
                     }
                     if let Some(half_thickness) = asked.half_thickness.filter(|t| *t != portal.half_thickness) {
                         portal.half_thickness = half_thickness;

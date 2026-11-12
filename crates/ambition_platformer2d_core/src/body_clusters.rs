@@ -12,6 +12,9 @@ use crate::Vec2;
 
 /// Mutable body-cluster view consumed by movement entry points.
 pub struct BodyClustersMut<'a> {
+    /// This body's key for the lines it carries (`SurfaceChain::carrier`):
+    /// its entity's bits, or `None` for a scratch body that carries none.
+    pub carrier: Option<u64>,
     pub abilities: &'a BodyAbilities,
     pub kinematics: &'a mut BodyKinematics,
     /// Per-tick motion record written by simulation. `Option` because a mover
@@ -44,6 +47,7 @@ pub struct BodyClustersMut<'a> {
 #[derive(bevy_ecs::query::QueryData)]
 #[query_data(mutable)]
 pub struct BodyClusterQueryData {
+    pub entity: bevy_ecs::entity::Entity,
     pub abilities: &'static BodyAbilities,
     pub kinematics: &'static mut BodyKinematics,
     pub sweep: Option<&'static mut SweepSample>,
@@ -72,6 +76,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
         's: 'a,
     {
         BodyClustersMut {
+            carrier: Some(self.entity.to_bits()),
             abilities: &*self.abilities,
             kinematics: &mut *self.kinematics,
             sweep: self.sweep.as_deref_mut(),
@@ -1527,6 +1532,7 @@ impl BodyClusterScratch {
     /// clusters) so scratch callers can hand both to [`crate::step_motion`].
     pub fn parts(&mut self) -> (&mut crate::movement::MotionModel, BodyClustersMut<'_>) {
         let clusters = BodyClustersMut {
+            carrier: None,
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,
             // Scratch is the non-ECS test scratchpad; it carries no sample
@@ -1572,6 +1578,7 @@ impl BodyClusterScratch {
 
     pub fn as_mut(&mut self) -> BodyClustersMut<'_> {
         BodyClustersMut {
+            carrier: None,
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,
             // Scratch is the non-ECS test scratchpad; it carries no sample

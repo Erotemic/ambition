@@ -649,7 +649,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         false,
         gravity_dir,
         &mut Vec::new(),
-    &mut None, &mut None,);
+    &mut None, &mut None, None);
     let after = scratch.kinematics.pos;
     assert!(
         after.x < 1100.0,
@@ -1133,7 +1133,7 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
                 false,
                 gravity_dir,
                 &mut Vec::new(),
-            &mut None, &mut None,)
+            &mut None, &mut None, None)
         };
     let from_ceiling_first = conflict(vec![ceiling(), platform()])
         .expect("a 32px gap cannot hold a 48px body — the axis must report no feasible position");
@@ -1245,7 +1245,7 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
                 false,
                 gravity_dir,
                 &mut Vec::new(),
-            &mut None, &mut None,)
+            &mut None, &mut None, None)
         };
     assert_eq!(
         conflict(vec![floor(), step()]),
@@ -1543,7 +1543,7 @@ fn stationary_material_uses_far_side_support_and_repair() {
             &mut body.kinematics, &mut body.ground, &mut body.wall, &body.body_mode,
             &body.env_contact, crate::collision_semantics::Axis::Y, 0.0, 306.0, false,
             Vec2::Y, &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(0),
-                budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }), &mut refusal);
+                budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }), &mut refusal, None);
         assert!(refusal.is_none(), "{refusal:?}");
         assert!(conflict.is_none(), "{conflict:?}");
         assert_eq!(body.kinematics.pos, Vec2::new(100.0, 290.0), "penetration {penetration}");
@@ -1580,7 +1580,7 @@ fn an_axis_crossing_keeps_its_source_chart_until_rebase() {
     super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
         &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
         crate::collision_semantics::Axis::X, 50.0, 108.0, false, Vec2::Y,
-        &mut Vec::new(), &mut admission, &mut refusal);
+        &mut Vec::new(), &mut admission, &mut refusal, None);
     assert!(refusal.is_none(), "{refusal:?}");
     assert_eq!(body.kinematics.pos, Vec2::new(130.0, 100.0));
 }
@@ -1598,7 +1598,7 @@ fn transverse_motion_keeps_its_speed_after_canonical_floor_repair() {
         super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
             &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
             crate::collision_semantics::Axis::X, 10.0 * sign, 896.0, false, Vec2::Y,
-            &mut Vec::new(), &mut None, &mut refusal);
+            &mut Vec::new(), &mut None, &mut refusal, None);
         assert!(refusal.is_none(), "{refusal:?}");
         assert_eq!(body.kinematics.pos.x, 1000.0 + 10.0 * sign);
         assert_eq!(body.kinematics.vel.x, 600.0 * sign);
@@ -1635,7 +1635,7 @@ fn portal_host_boundaries_do_not_gain_solid_area_after_chart_projection() {
             &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
             crate::collision_semantics::Axis::Y, 0.0, 920.0, false, Vec2::Y,
             &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(1),
-                budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation }), &mut refusal);
+                budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation }), &mut refusal, None);
         assert!(refusal.is_none(), "{refusal:?}");
         assert!(!body.ground.on_ground, "turn {turn}, y {y}: {contacts:?}");
         assert_eq!(body.kinematics, before);
@@ -1672,7 +1672,7 @@ fn an_axis_body_can_cross_a_portal_in_a_ground_line() {
         &mut touching.ground, &mut touching.wall, &touching.body_mode, &touching.env_contact,
         crate::collision_semantics::Axis::Y, 0.0, 300.0, false, Vec2::Y,
         &mut Vec::new(), &mut Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
-            convention: MapConvention::Reflection }), &mut refusal);
+            convention: MapConvention::Reflection }), &mut refusal, None);
     assert!(refusal.is_none(), "{refusal:?}");
     assert!(!touching.ground.on_ground, "the opening is not static support");
     for _ in 0..30 {

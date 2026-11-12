@@ -203,6 +203,7 @@ fn try_motion(
     let result = {
         let (candidate_model, mut body) = candidate.parts();
         body.sweep = Some(&mut sweep);
+        body.carrier = clusters.carrier;
         step_admitted_motion(candidate_model, &mut body, ctx)
     };
     if let Some(refusal) = result.events.motion_refusal.clone() {
@@ -218,7 +219,7 @@ fn try_motion(
         } else { 8.0 * f64::from(ctx.dt.max(0.0)) };
     super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
         target, max_step, f64::from(ctx.dt), ctx.world, ctx.admission,
-        &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run])?;
+        &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run], clusters.carrier)?;
     candidate.commit(model, clusters);
     if let Some(target) = clusters.sweep.as_deref_mut() { *target = sweep; }
     Ok(result)

@@ -176,11 +176,18 @@ checks each fist's move against its own velocity.
      `mount_slope` segments. Since `811150d6f` a refused straddler halts, so
      the giant now restarts its fall from rest at each refusal. Skipping the
      floor's empty instants is no answer: the band is about 73,000 ulps and
-     the search refuses `WorkLimit` instead. The fix is structural: a body
-     does not collide with surfaces it carries. That needs a carrier key on
-     the surfaces the mount publishes, and the body's own key in the
-     collision policy (`movement::collision::BodyCollisionPolicy`). Frame 134
-     then shows a 92 px snap with no refusal, not yet explained.
+     the search refuses `WorkLimit` instead. **Fixed 2026-11-12:** a body
+     does not collide with the lines it carries. `SurfaceChain::carrier`
+     names the body by its entity's bits; the mount sets it on its slope and
+     drawn ledges, and every material cast of a body's own step carries its
+     key (`MaterialCast::carried_by`, from `BodyClustersMut::carrier`). The
+     giant now falls out of the exit accelerating every frame, with no
+     refusal; the 92 px snap at frame 134 went with the hitch. Falling
+     freely, it reaches the floor portal again while the well closes, and the
+     well closes by shrinking its opening. That shrank onto the straddling
+     giant and pushed it through the floor. A held pair now keeps its opening
+     while a body straddles it, and closes once it is empty (see the portal
+     plan, "A body's own lines, and a pair that does not close on a body").
   2. **A free fist in a portal pair** (`demonstrate_pair`, phase 2): while
      the strike carries it through the pair, its position jumps about 280
      units between the pair's two ends on every frame, one way then back,

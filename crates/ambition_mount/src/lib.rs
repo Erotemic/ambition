@@ -407,6 +407,7 @@ pub const DRAWN_LEDGE_LINE: &str = "mount_drawn_ledge";
 /// make the step its velocity asked for.
 pub fn mount_backs_are_ground(
     mounts: Query<(
+        bevy::prelude::Entity,
         &ae::BodyKinematics,
         &BackLedge,
         bevy::prelude::Has<ae::Unmirrored>,
@@ -415,7 +416,9 @@ pub fn mount_backs_are_ground(
     )>,
     mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
 ) {
-    for (mount, back, unmirrored, step, room) in &mounts {
+    for (body, mount, back, unmirrored, step, room) in &mounts {
+        // Its lines are part of it: they are ground for others, never for it.
+        let carrier = Some(body.to_bits());
         // A body in another live room must not stand on it.
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
@@ -431,7 +434,10 @@ pub fn mount_backs_are_ground(
                 art_color: None,
             });
         }
-        overlay.chains.extend(back.drawn_chains(mount, unmirrored, moved));
+        overlay.chains.extend(back.drawn_chains(mount, unmirrored, moved).into_iter().map(|mut line| {
+            line.carrier = carrier;
+            line
+        }));
         if let Some(points) = back.slope_line(mount, unmirrored) {
             let mut line = ae::SurfaceChain::open(SLOPE_LINE, points);
             line.velocity = moved;
@@ -445,6 +451,7 @@ pub fn mount_backs_are_ground(
             }
             // The mount's art draws it.
             line.hidden = true;
+            line.carrier = carrier;
             overlay.chains.push(line);
         }
     }

@@ -1778,3 +1778,28 @@ glyphs. A policy refusal adds EXPONENT BIAS and no second IEEE 754. A refusal
 that ends and comes back draws again. Every view's camera draws the app's one
 set of glyph entities, so a second view adds no effect; that has no
 two-camera test.
+
+### A body's own lines, and a pair that does not close on a body — 2026-11-12
+
+GNU-ton's giant, falling out of the well's exit in phase 3, stopped every 7
+or 8 frames with a `Precision` refusal. All nine refusals were against the
+giant's own back slope (`mount_slope`), which the mount publishes as room
+collision moving with it. While the giant straddled the exit, the cut planes
+put that cast into the curved search. The slope crossed the cut already
+inside the giant's material, and the envelope's constant band before that
+instant could not be resolved. Skipping the floor's empty instants only moved
+the refusal to `WorkLimit` (a band of about 73,000 ulps). A body now does not
+collide with the lines it carries: `SurfaceChain::carrier` names the body,
+and the casts of a body's own step (the axis sweep, material repair and
+support, and righting, including the kernel's scratch candidate) carry its
+key. Blocks carry no key: none refused.
+
+With the hitch gone, the giant falls freely and reaches the floor portal
+again while the well closes. The well closes by shrinking its opening, which
+cut into the straddling giant and pushed it through the floor and out of the
+hall (`the_well_pulls_the_hall_through_its_portals_into_space`). A held pair
+(`ambition_portal2d::extension`) now neither shrinks its opening nor is
+released while a body straddles one of its ends. It shrinks and closes once
+it is empty. The giant passes through a second time, and the well holds its
+full opening until it is clear.
+

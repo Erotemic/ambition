@@ -656,6 +656,13 @@ pub struct SurfaceChain {
     /// The point it turned about, where it is now.
     #[serde(default)]
     pub pivot: Vec2,
+    /// The body this line is part of (a mount's back), by the key that body
+    /// casts its material with (`MaterialCast::carried_by`). That body does
+    /// not collide with it: the line moves with it and lies inside it, and a
+    /// body cut by a portal saw its own line cross the cut already inside its
+    /// material, which no search can resolve.
+    #[serde(default)]
+    pub carrier: Option<u64>,
 }
 
 /// How a walking body standing on other ground steps onto a line where they
@@ -750,6 +757,7 @@ impl SurfaceChain {
             boarding: Boarding::Auto,
             turn: 0.0,
             pivot: Vec2::ZERO,
+            carrier: None,
         }
     }
 
@@ -768,6 +776,7 @@ impl SurfaceChain {
             boarding: Boarding::Auto,
             turn: 0.0,
             pivot: Vec2::ZERO,
+            carrier: None,
         }
     }
 
@@ -1793,6 +1802,7 @@ impl World {
                 }
             }
             for (index,chain) in self.chains.indexed_swept_near(bounds) {
+                if chain.carrier.is_some() && chain.carrier == cells.carrier() { continue; }
                 if !chain.velocity.is_finite() || !chain.turn.is_finite() || !chain.pivot.is_finite()
                     || chain.points.iter().any(|p| !p.is_finite()) {
                     return Err(crate::frame::thread::Refusal { path: part.path.clone(), link: None,
@@ -1843,6 +1853,7 @@ impl World {
                 }
             }
             for (index, chain) in self.chains.indexed_swept_near(bounds) {
+                if chain.carrier.is_some() && chain.carrier == cells.carrier() { continue; }
                 if !chain.velocity.is_finite() || !chain.turn.is_finite() || !chain.pivot.is_finite()
                     || chain.points.iter().any(|point| !point.is_finite()) {
                     return Err(crate::frame::thread::Refusal { path: part.path.clone(), link: None,

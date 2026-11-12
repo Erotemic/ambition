@@ -15,6 +15,8 @@ pub fn admit_body_righting(
     world: &World,
     admission: Option<MotionAdmission<'_>>,
     carried_vectors: &[Vec2],
+    // The body's key for the lines it carries (`MaterialCast::carried_by`).
+    carrier: Option<u64>,
 ) -> Result<bool, Refusal> {
     let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
     if !body.canonical_size.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
@@ -23,7 +25,7 @@ pub fn admit_body_righting(
     let domain = body.canonical_box().map_err(numeric)?;
     if turn != 0.0 {
         let proposal = SweepSample { turn: Some(SourceTurn { radians: turn, duration }), ..*record };
-        let cells = proposal.material_cast(&domain)?.cells(admission)?;
+        let cells = proposal.material_cast(&domain)?.carried_by(carrier).cells(admission)?;
         cells.admit_payloads(body.vel, carried_vectors)?;
         let contact = world.first_material_contact(&cells, |collider, _, hit| {
             Ok(match collider {
@@ -49,7 +51,7 @@ pub fn admit_body_righting(
             return Ok(true);
         }
     }
-    let cells = record.material_cast(&domain)?.cells(admission)?;
+    let cells = record.material_cast(&domain)?.carried_by(carrier).cells(admission)?;
     cells.admit_payloads(body.vel, carried_vectors)?;
     Ok(false)
 }

@@ -182,7 +182,7 @@ pub fn heal_save_shrine_system(
                 room_id,
                 kin.pos.x.round() as i32,
                 kin.pos.y.round() as i32,
-            );
+            ).with_material(kin.material);
             // Assign only on a real change, so resting twice at the same shrine does
             // not churn the file.
             if save.data().checkpoint() != Some(&checkpoint) {

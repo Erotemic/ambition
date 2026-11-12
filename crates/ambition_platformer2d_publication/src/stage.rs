@@ -3387,6 +3387,7 @@ mod tests {
                 let arrivals = subjects.into_iter().enumerate().map(|(index, subject)| StagedArrival {
                     subject, arrival: ae::Vec2::new(100.0 + index as f32 * 40.0, 200.0),
                     air_jumps: 1, momentum: ae::movement::ArrivalMomentum::Reset,
+                    material: None,
                 });
                 let succession = Some(succession);
                 if held {

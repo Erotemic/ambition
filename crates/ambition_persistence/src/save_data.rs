@@ -311,15 +311,17 @@ pub struct PersistedMintedItem {
 
 /// Where the player resumes: the last checkpoint they touched.
 ///
-/// It holds the room id and the position, so that the player resumes where they
-/// stood, not at the room's authored spawn.
+/// It holds the room, position and physical material at rest.
 ///
-/// The position is integer world pixels, so the save keeps `Eq`.
+/// Position uses integer world pixels. Material uses validated integer words.
+/// Both values have exact equality for save change detection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedCheckpoint {
     pub room_id: String,
     pub x: i32,
     pub y: i32,
+    #[serde(default)]
+    pub material: ambition_platformer2d_core::frame::BodyMaterialRecord,
 }
 
 impl PersistedCheckpoint {
@@ -328,7 +330,13 @@ impl PersistedCheckpoint {
             room_id: room_id.into(),
             x,
             y,
+            material: Default::default(),
         }
+    }
+
+    pub fn with_material(mut self, material: ambition_platformer2d_core::frame::BodyMaterial) -> Self {
+        self.material = material.record();
+        self
     }
 }
 
@@ -463,13 +471,13 @@ pub struct PersistedModuleRecord {
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
 /// v5 adds `module_records`. v6 adds `lives`. v7 adds `day_clock`. v8 adds
-/// `bookings`.
+/// `bookings`. v9 adds checkpoint material.
 ///
 /// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
 /// with an empty list, which is the correct reading. The bump makes a v5 file
 /// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
 /// the records it cannot read.
-pub const CURRENT_SAVE_VERSION: u32 = 8;
+pub const CURRENT_SAVE_VERSION: u32 = 9;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -935,6 +943,8 @@ impl AmbitionGameSaveData {
                 // v7 → v8: additive; no bookings is correct for a v7 file (a
                 // body catching up after the load books from an empty hour).
                 7 => {}
+                // v8 has no checkpoint material. The identity default is its state.
+                8 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -992,6 +1002,19 @@ impl AmbitionGameSaveData {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_checkpoint_file_keeps_material_without_float_equality() {
+        use ambition_platformer2d_core::{frame::BodyMaterial, Vec2};
+        let material = BodyMaterial::new(0.5, bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap();
+        let checkpoint = PersistedCheckpoint::new("room", 12, 34).with_material(material);
+        let saved = ron::ser::to_string(&checkpoint).unwrap();
+        let restored: PersistedCheckpoint = ron::from_str(&saved).unwrap();
+        assert_eq!(restored, checkpoint);
+        assert_eq!(restored.material.material().record(), material.record());
+        let original: PersistedCheckpoint = ron::from_str("(room_id:\"room\",x:12,y:34)").unwrap();
+        assert_eq!(original.material, BodyMaterial::IDENTITY.record());
+    }
 
     /// Each arm of `families_that_differ` is checked by name. The exhaustive
     /// destructure catches a missing family but not a swapped pair, such as

@@ -3,6 +3,7 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** Full portal implementation and acceptance remain open.
+Further implementation is paused for desktop performance profiling.
 The requested playable 80/40 slice is complete (`fddf6084a`).
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
@@ -1529,3 +1530,65 @@ core/combat tests and six Smash tests remain ignored. Logs are under
 `target/portal-moving-target-validation/`. This batch does not repeat the
 app slice/replay or displayed-device acceptance. Complete motion history
 across root crossings and full PSIM acceptance remain open.
+
+
+### Checkpoint material — 2026-11-11
+
+`8f3e7ab96` saves exact scale and axes in checkpoint format v9. Startup and
+room reconstruction admit the saved material before commit. New Game uses
+identity material. Rollback schema is v461. Guards cover invalid records,
+refused arrivals, shrine capture, fresh-session restore and the real app.
+Do not reconstruct saved material from body dimensions or gravity.
+
+Core 896, persistence 136, session 205, publication 180, shrine 7, the app
+material guard, Smash 73 and policy 35 pass. The assembled app check passes.
+The broad rollback selection has 83 passes, eight ignored tests and one
+existing failure: the LifeLedger localization probe checks only presence.
+The warning wrapper rejected an unsupported argument and produced no verdict.
+Remaining checks are deferred at the maintainer's request. Logs are under
+`target/portal-material-checkpoint-validation/`. Full PSIM acceptance remains
+open; current work addresses measured desktop performance costs.
+
+The authored `portal_profile` itinerary requests the portal lab, then the Hall,
+then the hub. Its profiler scenario is `ambition-autoplay:portal_profile`.
+Live runs cannot navigate to the lab door. This navigation defect remains
+open. Manual input reaches the lab. Do not treat this route as validated.
+
+### Fixed portal pose reuse — 2026-11-12
+
+`22d36dd3d` removes repeated fixed-link pose calculations within curved queries.
+The matched lab instruction estimate falls 50.50%; the Hall control stays
+within run variation. All 101 material-cast tests and the assembled 80/40
+partial-contact, reverse-travel and rollback replay check pass. See the
+[desktop receipt](../../../dev/reviews/portal-desktop-performance-2026-11-12.md).
+Keep time-dependent sampling and typed numeric refusals. A short desktop run
+without Tracy averages 8.80 ms/frame in the lab after this change. Longer lab
+and device validation, autoplay navigation, R5 and full PSIM acceptance remain
+open. The desktop receipt records the capture and its limits.
+
+### Slope crossing refusal — 2026-11-12
+
+`3d0e411db` applies the fixed world-plane separation proof to line colliders
+before curved contact. The forward station E crossing no longer exhausts the
+work budget in the real-app regression. The body moves clear under rollback
+without a reset. All 101 material-cast tests, both lab tests, and the 80/40
+partial-contact, reverse-travel and replay guard pass. See the
+[stall receipt](../../../dev/reviews/portal-slope-stall-2026-11-12.md).
+Keep boundary contacts and typed refusals. Desktop frame-time confirmation
+at E and the earlier station J stop remain open, as do the other PSIM gates.
+
+`0a3be0efc` fixes a second work-limit refusal on the reverse E crossing.
+The rejected-contact overlap proof uses a complete world-plane set for
+collider points with no angular motion. Both E crossings move clear under
+rollback without resets. All 101 material-cast tests, three lab tests and the
+80/40 partial-contact, reverse-travel and replay guard pass. The stall receipt
+records the second F8 trace and profile. Desktop confirmation at E, the earlier
+J stop, and the remaining PSIM gates stay open. Do not skip a rejected contact
+component without proving that its overlap persists.
+
+The latest desktop run still freezes near the E opening on a different fall
+path, before a recorded crossing. Source `84fe3f9a909d` includes both fixes.
+The maintainer paused work for handoff. This playable defect is unresolved;
+the fitted-path regressions above do not establish a complete E fix. See the
+[handoff](../../../dev/reviews/portal-stall-handoff-2026-11-12.md) for the latest
+F8 trace, coordinates, unverified fit lead, and current limits.

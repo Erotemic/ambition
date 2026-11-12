@@ -47,7 +47,7 @@ impl MaterialCastCells<'_> {
         if self.time.start != self.time.end || self.source.delta != DVec2::ZERO || self.source.rotation.is_some() {
             return Err(numeric_at(part, NumericFault::InvalidFrame));
         }
-        if obstacle.len() >= 3 && !self.solid_may_occupy(part, obstacle, Vec2::ZERO) { return Ok(None); }
+        if obstacle.len() >= 3 && !self.collider_may_occupy(part, obstacle, Vec2::ZERO) { return Ok(None); }
         let body = self.material.domain.polygon().ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
         let body: Vec<_> = body.iter().map(|point| point.as_dvec2()).collect();
         let root = self.source.map_at(1.0).map_err(|fault| numeric_at(part, fault))?;

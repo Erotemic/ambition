@@ -928,6 +928,19 @@ scripts/measure/profile_desktop.sh --autoplay --duration 120   # a bundle, scena
 routes are validated content in `game/ambition_content/assets/data/autoplay.ron`.
 An unavailable route waits and retries; it does not count the stop as reached.
 
+**Portal lab and Hall.** `portal_profile` flies across the portal lab,
+flies across the Hall of Characters, returns to the hub, and repeats. It uses the
+normal doors and navigation input. It does not fight or equip an item.
+
+```bash
+AMBITION_AUTOPLAY=portal_profile scripts/measure/profile_desktop.sh --autoplay --duration 300
+AMBITION_AUTOPLAY=portal_profile ./run_game.sh --autoplay profiling
+```
+
+The capture uses scenario `ambition-autoplay:portal_profile`. Named autoplay
+profiles have separate scenario IDs so their captures stay distinct from
+the default itinerary. Allow more capture time if low frame rates delay travel.
+
 **Castle Godwin combat and music.** This route dials the gate, travels through
 all four castle halls, clears the muster, and fights Wolfenstein. It uses flight,
 normal attacks, and the authored starting equipment. Normal combat and encounter

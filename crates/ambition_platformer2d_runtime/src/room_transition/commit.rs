@@ -319,7 +319,7 @@ impl RoomTransitionApplication<'_, '_> {
         let arrival_pos = body.kinematics.pos;
         let gravity_dir = self.bodies.motion_frames.get(subject).map(|frame| frame.down())
             .unwrap_or(ae::Vec2::new(0.0, 1.0));
-        Ok(StagedRoomMember { subject, participant, arrival_pos, size, gravity_dir })
+        Ok(StagedRoomMember { subject, participant, arrival_pos, size, gravity_dir, material: None })
     }
 
     fn arrival_world<'a>(
@@ -399,7 +399,21 @@ impl RoomTransitionApplication<'_, '_> {
         let transfers: Vec<_> = intent.transfers().collect();
         let mut resolved = vec![false; members.len()];
         for (index, transfer) in transfers.iter().enumerate() {
-            if let ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(at) = transfer.arrival {
+            if let Some(at) = transfer.arrival.point() {
+                if let ambition_platformer2d_session::lifecycle_commit::RoomArrival::Pose { material, .. } = transfer.arrival {
+                    let body = self.bodies.clusters.get(members[index].subject).expect("the member was checked");
+                    let desired = ae::BodyKinematics { material, pos: at,
+                        canonical_size: body.base_size.base_size, ..*body.kinematics };
+                    let checked = desired.canonical_box().and_then(|domain|
+                        ae::frame::thread::map_volume(&domain, &desired.material_map()?));
+                    if checked.is_err() {
+                        return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                            subject: members[index].subject, missing: "representable arrival material",
+                        });
+                    }
+                    members[index].size = desired.size();
+                    members[index].material = Some(material);
+                }
                 if !at.is_finite() {
                     return Err(RoomTransitionApplyError::SubjectCannotTransit {
                         subject: members[index].subject, missing: "finite arrival point",
@@ -489,6 +503,7 @@ impl RoomTransitionApplication<'_, '_> {
             None,
             members.iter().map(|member| publication::StagedArrival {
                 subject: member.subject, arrival: member.arrival_pos, air_jumps: self.tuning.0.air_jumps,
+                material: member.material,
                 momentum: if intent.edge_exit() { ae::ArrivalMomentum::Preserve } else { ae::ArrivalMomentum::Reset },
             }),
             succession, retires_beside, restore,
@@ -540,6 +555,7 @@ impl StagedRoomTransition {
 
 /// Per-body facts frozen before the destination publishes.
 pub struct StagedRoomMember {
+    pub material: Option<ae::frame::BodyMaterial>,
     pub subject: Entity,
     pub participant: Option<ambition_characters::control::PlayerSlot>,
     pub arrival_pos: ae::Vec2,

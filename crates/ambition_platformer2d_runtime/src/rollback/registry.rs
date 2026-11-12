@@ -265,7 +265,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // registers a `PortalGenerator` and its gestures, and no gun pickup.
 // 459 -> 460: `boss.encounter`'s cursor encodes the conductor's health floor
 // (`ambition.boss.health_floor`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 460;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 461;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

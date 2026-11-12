@@ -272,7 +272,8 @@ impl Rigid<'_> {
             Ok(map) => map,
             Err(_) => return false,
         };
-        let arm = map.point_wide(point) - pivot;
+        let world = map.point_wide(point);
+        let arm = world - pivot;
         let local = rotation.transpose() * arm;
         let witness = match self.point(local, middle) {
             Ok(point) => point,
@@ -315,16 +316,33 @@ impl Rigid<'_> {
         if !reach.is_finite() {
             return false;
         }
-        let cuts = match self.cell.inner_planes(interval) {
-            Ok(Some(cuts)) => cuts,
-            _ => return false,
-        };
-        if !cuts.iter().all(|p| {
-            at.dot(p.inward) - p.offset + rounding * p.inward.length()
-                > p.inward.length() * reach
-                    + scalar_round(at.abs().dot(p.inward.abs()) + p.offset.abs())
-        }) {
-            return false;
+        let world_cuts = self.cell.curve.as_ref().filter(|_| self.turn == 0.0)
+            .and_then(|curve| curve.world_planes(interval).ok())
+            .filter(|cuts| cuts.complete);
+        if let Some(cuts) = world_cuts {
+            // A collider point and a fixed cut share one physical chart.
+            // Body rotation must not widen their relative normal motion.
+            let velocity = self.shift * self.span();
+            if !cuts.planes.iter().all(|p| {
+                let normal = p.plane.inward;
+                let offset = p.plane.offset + p.rate * middle;
+                let change = (normal.dot(velocity) - p.rate).abs() * half;
+                let error = scalar_round(world.abs().dot(normal.abs()) + offset.abs()
+                    + p.rate.abs() * middle.abs() + change)
+                    + scalar_round(normal.abs().dot(velocity.abs()) + p.rate.abs()) * half;
+                change.is_finite() && world.dot(normal) - offset
+                    + rounding * map.scale_wide() * normal.length() > change + error
+            }) { return false; }
+        } else {
+            let cuts = match self.cell.inner_planes(interval) {
+                Ok(Some(cuts)) => cuts,
+                _ => return false,
+            };
+            if !cuts.iter().all(|p| {
+                at.dot(p.inward) - p.offset + rounding * p.inward.length()
+                    > p.inward.length() * reach
+                        + scalar_round(at.abs().dot(p.inward.abs()) + p.offset.abs())
+            }) { return false; }
         }
         match body {
             CombatVolume::Circle { center, radius } => {

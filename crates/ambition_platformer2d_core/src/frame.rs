@@ -281,7 +281,7 @@ mod crossing;
 pub use crossing::RootCrossing;
 pub(crate) use motion::{rotation_at,rotation_ending_at,interval_center,rotation_bound};
 mod material;
-pub use material::BodyMaterial;
+pub use material::{BodyMaterial, BodyMaterialRecord};
 
 pub mod thread;
 

@@ -35,6 +35,7 @@ pub(super) struct Scene {
     until: f64,
     links: Vec<PortalLink>,
     prepared_steps: OnceLock<Vec<Result<(PreparedApertureStep, PreparedApertureStep), NumericFault>>>,
+    fixed_poses: Vec<OnceLock<Result<Pose, NumericFault>>>,
     first: Option<u32>,
     budget: PieceBudget,
     convention: MapConvention,
@@ -125,6 +126,12 @@ pub(super) struct CurveCell {
     holes: Vec<Hole>,
 }
 
+pub(super) struct WorldPlanes {
+    pub planes: Vec<super::translation::MovingPlane>,
+    /// Every active cut is included, with fixed eligibility over the interval.
+    pub complete: bool,
+}
+
 impl Scene {
     pub(super) fn admission(&self) -> MotionAdmission<'_> {
         MotionAdmission { links: &self.links, first: self.first, budget: self.budget, convention: self.convention }
@@ -138,12 +145,27 @@ impl Scene {
             until: cast.until,
             links: admission.links.to_vec(),
             prepared_steps: OnceLock::new(),
+            fixed_poses: (0..admission.links.len()).map(|_| OnceLock::new()).collect(),
             first: admission.first,
             budget: admission.budget,
             convention: admission.convention,
         })
     }
     fn pose(&self, link_index: usize, time: f64) -> Result<Pose, NumericFault> {
+        let link = &self.links[link_index];
+        let span = self.time.end - self.time.start;
+        let world = self.time.start + span * time;
+        let fixed = span == 0.0 || [link.enter_step, link.exit_step].iter()
+            .all(|step| step.turn == 0.0 && step.displacement == crate::Vec2::ZERO);
+        // A fixed pose is shared across branch samples. Invalid clocks still
+        // use full sampling to keep the numeric refusal order.
+        if fixed && world.is_finite() && (0.0..=1.0).contains(&world) {
+            return *self.fixed_poses[link_index].get_or_init(|| self.sample_pose(link_index, time));
+        }
+        self.sample_pose(link_index, time)
+    }
+
+    fn sample_pose(&self, link_index: usize, time: f64) -> Result<Pose, NumericFault> {
         let link = self.links[link_index];
         let span = self.time.end - self.time.start;
         let world = self.time.start + span * time;
@@ -537,11 +559,11 @@ impl CurveCell {
         self.scene.pull(state, aperture, n, aperture.half, half)
     }
 
-    fn world_planes(&self, time: &Range<f64>) -> Result<Vec<super::translation::MovingPlane>, NumericFault> {
+    pub(super) fn world_planes(&self, time: &Range<f64>) -> Result<WorldPlanes, NumericFault> {
         if self.path.iter().any(|&index| {
             let link = self.scene.links[index];
             link.enter_step.turn != 0.0 || link.exit_step.turn != 0.0
-        }) { return Ok(Vec::new()); }
+        }) { return Ok(WorldPlanes { planes: Vec::new(), complete: false }); }
         let (middle, half) = crate::frame::interval_center(time);
         let (states, poses) = self.scene.states(&self.path, middle, half)?;
         let origin = (0..self.scene.links.len()).map(|i| self.scene.pose(i, 0.0))
@@ -556,12 +578,17 @@ impl CurveCell {
             Ok((map, travel))
         };
         let mut out = Vec::new();
+        let mut complete = self.base.is_empty();
         for &clause in &self.clauses {
             let link = self.scene.links[clause.link];
-            if link.enter_step.turn != 0.0 { continue; }
+            if link.enter_step.turn != 0.0 { complete = false; continue; }
             // Stay(0) can omit its cut when the reference is not eligible.
-            if matches!(clause.kind, Kind::Stay(0))
-                && self.scene.condition(clause, states[clause.stage], &poses, half) != Truth::Yes { continue; }
+            let condition = self.scene.condition(clause, states[clause.stage], &poses, half);
+            if condition == Truth::No && matches!(clause.kind, Kind::Stay(0)) { continue; }
+            if condition != Truth::Yes {
+                complete = false;
+                if matches!(clause.kind, Kind::Stay(0)) { continue; }
+            }
             let pose = origin[clause.link];
             let (map, travel) = suffix(clause.stage)?;
             for (inward, constant) in selected_planes(clause.kind, pose.enter.normal,
@@ -576,8 +603,15 @@ impl CurveCell {
         let state = *states.last().unwrap();
         for &hole in &self.holes {
             let link = self.scene.links[hole.link];
-            if (if hole.exit { link.exit_step.turn } else { link.enter_step.turn }) != 0.0 { continue; }
-            if hole.side == 0 && self.hole_condition(hole, state, &poses, half) != Truth::Yes { continue; }
+            if (if hole.exit { link.exit_step.turn } else { link.enter_step.turn }) != 0.0 {
+                complete = false; continue;
+            }
+            let condition = self.hole_condition(hole, state, &poses, half);
+            if condition == Truth::No && hole.side == 0 { continue; }
+            if condition != Truth::Yes {
+                complete = false;
+                if hole.side == 0 { continue; }
+            }
             let pose = origin[hole.link];
             let aperture = if hole.exit { pose.exit } else { pose.enter };
             let inward = aperture.tangent() * if hole.side == 0 { -1.0 } else { 1.0 };
@@ -586,7 +620,7 @@ impl CurveCell {
                 rate: inward.dot(aperture.origin_velocity()),
             });
         }
-        Ok(out)
+        Ok(WorldPlanes { planes: out, complete })
     }
 
     fn affine_planes(
@@ -711,7 +745,7 @@ impl CurveCell {
                     .affine_planes(&cell.time)
                     .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
                 let world_planes = curve.world_planes(&cell.time)
-                    .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+                    .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?.planes;
                 Ok(match affine {
                     Some(planes) => MaterialCell {
                         planes, world_planes,
@@ -1338,7 +1372,7 @@ pub(super) fn build(
             let travel = curve.velocity(DVec2::ZERO, 0.0)
                 .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
             let world_planes = curve.world_planes(&time)
-                .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?;
+                .map_err(|e| failure(&curve, None, RefusalReason::Numeric(e)))?.planes;
             Ok(match affine {
                 Some(planes) => MaterialCell { path, map, travel, planes, world_planes, time, curve: None },
                 None => MaterialCell { path, map, world_planes, travel: DVec2::ZERO,
@@ -1354,6 +1388,34 @@ mod tests {
     use crate::frame::thread::MaterialPrimitive;
     use crate::frame::{ApertureStep, PortalAperture, PortalFrame};
     use crate::{Aabb, Block, SurfaceChain, Vec2, World};
+
+    #[test]
+    fn fixed_pose_reuse_keeps_motion_and_numeric_refusals() {
+        let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(4.0)));
+        for turn in [0.0, std::f32::consts::FRAC_PI_2] {
+            let links = links(turn);
+            for clock in [0.0..1.0, 0.5..0.5] {
+                let mut cast = request(&body);
+                cast.time = clock;
+                let scene = Scene::new(&cast, admission(&links));
+                for time in [0.0, 0.5, 1.0, 0.25, -1.0, f64::NAN, f64::INFINITY] {
+                    for index in 0..links.len() {
+                        let actual = scene.pose(index, time);
+                        let expected = scene.sample_pose(index, time);
+                        assert_eq!(actual.map(|pose| pose.map), expected.map(|pose| pose.map));
+                        if let (Ok(actual), Ok(expected)) = (actual, expected) {
+                            assert_eq!(actual.enter.origin, expected.enter.origin);
+                            assert_eq!(actual.enter.normal, expected.enter.normal);
+                            assert_eq!(actual.exit.origin, expected.exit.origin);
+                            assert_eq!(actual.exit.normal, expected.exit.normal);
+                            assert_eq!(actual.velocity, expected.velocity);
+                            assert_eq!(actual.spin, expected.spin);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn a_static_opening_keeps_a_body_above_its_end_with_a_distant_turning_pair() {

@@ -264,7 +264,7 @@ impl MaterialCastCells<'_> {
         self.against_rigid_where(part,obstacle,displacement,0.0,Vec2::ZERO,|_|true)
     }
 
-    fn solid_may_occupy(
+    fn collider_may_occupy(
         &self, part: &MaterialCell, obstacle: &[Vec2], displacement: Vec2,
     ) -> bool {
         if part.world_planes.is_empty() { return true; }
@@ -278,7 +278,8 @@ impl MaterialCastCells<'_> {
                 region = clip(&region, plane.plane);
             }
         }
-        crate::frame::thread::has_area(&region)
+        if obstacle.len() >= 3 { crate::frame::thread::has_area(&region) }
+        else { !region.is_empty() }
     }
 
     fn against_translation(&self,part:&MaterialCell,obstacle:&[Vec2],displacement:Vec2)
@@ -329,7 +330,7 @@ impl MaterialCastCells<'_> {
             || obstacle.iter().any(|point| !point.is_finite()) {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
-        if turn == 0.0 && obstacle.len() >= 3 && !self.solid_may_occupy(part, obstacle, displacement) {
+        if turn == 0.0 && !self.collider_may_occupy(part, obstacle, displacement) {
             return Ok(None);
         }
         if turn==0.0 && part.curve.is_none() && (obstacle.len()>2 || self.scene.is_none()) {

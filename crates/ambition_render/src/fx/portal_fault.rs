@@ -174,4 +174,70 @@ mod tests {
         assert!(episodes.starts(7, 0.2 + CONTINUING_GAP_SECONDS + 0.05), "the refusal ended and came back");
         assert!(episodes.starts(8, 0.6), "another operation starts on its own");
     }
+
+    fn app() -> App {
+        use ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component;
+        let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+        app.init_resource::<Time>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        app.add_systems(Update, (super::super::vfx_spawn_messages, update_portal_fault_glyphs).chain());
+        let world = ae::World::new("fault room", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(40.0, 40.0), Vec::new());
+        insert_live_room_component(app.world_mut(), ae::RoomGeometry(world));
+        app
+    }
+
+    fn refuse(app: &mut App, glyph: FaultGlyph, episode: u64) {
+        app.world_mut().write_message(ambition_vfx::vfx::VfxInRoom {
+            room: None,
+            vfx: ambition_vfx::VfxMessage::PortalFault {
+                pos: ae::Vec2::new(400.0, 300.0),
+                normal: ae::Vec2::new(0.0, -1.0),
+                half_length: 40.0,
+                glyph,
+                episode,
+            },
+        });
+    }
+
+    fn texts(app: &mut App) -> Vec<String> {
+        let mut query = app.world_mut().query_filtered::<&Text2d, With<PortalFaultGlyphVisual>>();
+        let mut texts: Vec<String> = query.iter(app.world()).map(|text| text.0.clone()).collect();
+        texts.sort();
+        texts
+    }
+
+    fn advance(app: &mut App, seconds: f32) {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(seconds));
+        app.update();
+    }
+
+    /// The simulation writes a standing refusal every tick, and a rollback
+    /// writes the ticks it replays again. The effect is drawn once for the
+    /// operation, with the glyphs of its reason.
+    #[test]
+    fn a_standing_and_replayed_fault_is_one_effect_with_its_reasons_glyphs() {
+        let mut app = app();
+        refuse(&mut app, FaultGlyph::NotANumber, 7);
+        refuse(&mut app, FaultGlyph::NotANumber, 7);
+        advance(&mut app, 1.0 / 60.0);
+        refuse(&mut app, FaultGlyph::NotANumber, 7);
+        advance(&mut app, 1.0 / 60.0);
+        assert_eq!(texts(&mut app), ["7FF8", "IEEE 754", "NaN", "NaN"]);
+
+        // A policy refusal is not an IEEE fault.
+        refuse(&mut app, FaultGlyph::ExponentBias, 9);
+        advance(&mut app, 1.0 / 60.0);
+        let shown = texts(&mut app);
+        assert_eq!(shown.iter().filter(|text| *text == "IEEE 754").count(), 1, "{shown:?}");
+        assert_eq!(shown.iter().filter(|text| *text == "EXPONENT BIAS").count(), 1, "{shown:?}");
+
+        // Gone once its letters fade; drawn again when the refusal comes back.
+        advance(&mut app, 1.0);
+        advance(&mut app, 0.5);
+        assert!(texts(&mut app).is_empty(), "the letters fade out");
+        refuse(&mut app, FaultGlyph::NotANumber, 7);
+        advance(&mut app, 1.0 / 60.0);
+        assert_eq!(texts(&mut app), ["7FF8", "IEEE 754", "NaN", "NaN"]);
+    }
 }

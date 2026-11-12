@@ -36,9 +36,8 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 
 Full PSIM acceptance remains open: general remaining-time continuation,
 complete projectile/hurt contact, including moving targets and other surviving
-contact responses, other movement models, swept guard contact and response, attachments, a multi-view witness for the fault
-effect (the effect itself landed in `c21bfff4d`), and device/GPU and
-performance gates. Two simultaneous limbs
+contact responses, other movement models, swept guard contact and response, attachments, and device/GPU and performance gates.
+The fault effect landed in `c21bfff4d` with its witnesses. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
 `99d51bc9f`. Two active fists hit separate bodies in the same tick through
@@ -1768,4 +1767,14 @@ new effect. Continuity separates the operations, not the key.
 
 The glyphs are top-level `Text2d`, so the portal carry cuts a glyph that
 drifts past an entry plane and draws it out of the exit, as it does every
-`fx.rs` effect. Still open: the effect has no multi-view witness.
+`fx.rs` effect.
+
+Witnesses: `each_refusal_shows_its_own_glyphs_and_a_budget_shows_none`
+(runtime) checks the mapping above.
+`a_standing_and_replayed_fault_is_one_effect_with_its_reasons_glyphs` (render)
+sends real `VfxInRoom` rows through the spawn and ageing systems. A refusal
+written every tick, with a replayed row in the same frame, draws one set of
+glyphs. A policy refusal adds EXPONENT BIAS and no second IEEE 754. A refusal
+that ends and comes back draws again. Every view's camera draws the app's one
+set of glyph entities, so a second view adds no effect; that has no
+two-camera test.

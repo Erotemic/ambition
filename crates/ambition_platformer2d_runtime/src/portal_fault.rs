@@ -101,3 +101,26 @@ pub fn publish_portal_numeric_faults(
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Only arithmetic shows IEEE 754; a policy cap shows its own accent, and
+    /// a budget shows nothing.
+    #[test]
+    fn each_refusal_shows_its_own_glyphs_and_a_budget_shows_none() {
+        use NumericFault::*;
+        let shown = |reason| fault_glyph(reason);
+        assert_eq!(shown(RefusalReason::Numeric(NonFinite)), Some(FaultGlyph::NotANumber));
+        assert_eq!(shown(RefusalReason::Numeric(Overflow)), Some(FaultGlyph::Infinity));
+        assert_eq!(shown(RefusalReason::Numeric(Underflow)), Some(FaultGlyph::SignedZero));
+        for fault in [Precision, InvalidScale, InvalidFrame] {
+            assert_eq!(shown(RefusalReason::Numeric(fault)), Some(FaultGlyph::BitPattern));
+        }
+        assert_eq!(shown(RefusalReason::ScaleLimit), Some(FaultGlyph::ExponentBias));
+        for budget in [RefusalReason::MissingMaterial, RefusalReason::HopLimit, RefusalReason::PieceLimit, RefusalReason::WorkLimit] {
+            assert_eq!(shown(budget), None);
+        }
+    }
+}

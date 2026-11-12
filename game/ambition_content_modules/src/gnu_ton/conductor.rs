@@ -1760,7 +1760,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             poses[i] = Pose::idle(pos);
             c.last_stuck[i] = false;
         }
-        c.last_pos[i] = Some(a(pos));
+        // Only a driven limb has a place to move from: one at rest sits in the
+        // giant, and its first driven tick is a placement, not travel. Read as
+        // travel it is a velocity of the whole jump in a tick, and a body
+        // drawn ahead of its tick is drawn that far past where it is.
+        c.last_pos[i] = depth.map(|_| a(pos));
     }
     // Hurt, he puts more into the hammer: it sends a shock along the floor
     // each way, as the giant's stomp does.

@@ -1,6 +1,6 @@
 # Hosted world versus GGRS — the authority experiment
 
-**Status:** NA-1 and a first NA-2 measurement done (2026-11-10); NA-2's guest view, NA-3 and NA-4 open.
+**Status:** NA-1 and NA-2 done (2026-11-10); NA-2b's guest App measured through spawns, deaths, drops, presentation, room scope and room following (2026-11-12); NA-3 and NA-4 open.
 **Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs).
 **Research and candidates:** [network topology and authority](network-topology-and-authority-research.md) (models A–D, R0–R5, the comparison scenarios). This page owns the experiment's results, not the candidate list.
 **Related:** [netcode](netcode.md), [compact peer input](island-rollback-and-compact-peer-input.md), [multiplayer and multiview](multiplayer-and-multiview.md), [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
@@ -521,6 +521,35 @@ is Bob's App and receives Bob's room only.
   as a crossing builds a room), retiring what it no longer needs, with the
   host's number mapped to its own for bodies, visuals and listening spaces.
 
+**A guest that follows on the host's word (2026-11-12),** probe
+`probe_whether_a_guest_follows_its_player_on_the_hosts_word` (same file,
+ignored): the crossing probe's run, 300 frames, with each snapshot also
+carrying a room row (the host's number for Bob's room and the definition it
+builds). When the row names a definition Bob is not in on the guest, the
+guest records a crossing of Bob's body into it at the position the body row
+gives, as a door would; once its Bob stands in a room of that definition,
+the host's number maps to the guest's. The room transition phase sits
+inside `CoreSimulation`, so this guest gates the core's other phases one by
+one and leaves it awake (`simulate_nothing_but_room_changes`). Run twice:
+applying every snapshot, and deferring the bodies of a room the guest has
+not mapped yet.
+
+| | Guest recorded | Hub live on the guest (host: frame 92) | Host to guest numbers | Built bare | Held twice at the end |
+|---|---|---|---|---|---|
+| every snapshot applied | frame 95 | frame 97 | 0 to 0, 1 to 1 | 18 (the hub's bodies, before its room existed) | 0 |
+| unmapped rooms deferred | frame 95 | frame 97 | 0 to 0, 1 to 1 | 1 (Alice's body: session-owned, no room builds it) | 0 |
+
+- **The guest's own room lifecycle can follow the host:** a crossing
+  recorded on the host's word was built by the guest's own room
+  construction two frames later, five after the host, with `switch_lab`
+  retired as on the host. With the core fully gated it was admitted but
+  never committed; the room transition phase has to stay awake.
+- **The room's own bodies come from the guest's construction, not the
+  wire:** deferring the snapshot's bodies until the room is mapped leaves
+  only what no room builds (another player's body) to a spawn row.
+- **The numbers happened to agree again** (both sides minted 1 for the
+  hub); the map is what would carry a disagreement.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -561,9 +590,12 @@ is Bob's App and receives Bob's room only.
    translating, by `SimId`, and all 13 did. A guest whose player crosses
    (2026-11-12): it does not follow (room changes run in the simulation it
    gates); it keeps the old room and builds the new room's bodies with no
-   room. Next: a room row (definition and host number) that the guest builds
-   through its own room construction, with the host's numbers mapped to its
-   own for bodies, visuals and listening spaces.
+   room. Following on the host's word (2026-11-12): a room
+   row (the host's number and the definition) makes the guest record its
+   player's crossing, and its own room construction builds the room two
+   frames later if the room transition phase stays awake; deferring an
+   unmapped room's bodies leaves only another player's body to a spawn row.
+   NA-2b's questions are answered; what remains is NA-3.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

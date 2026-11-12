@@ -1685,3 +1685,213 @@ fn probe_what_a_guest_does_when_its_player_crosses() {
         removed_booted.len()
     );
 }
+
+/// The live rooms of `sim` by number, with the definition each builds.
+fn live_room_ids(sim: &mut Platformer2dSimHarness) -> Vec<(ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, String)> {
+    use bevy::ecs::system::RunSystemOnce as _;
+    sim.world_mut()
+        .run_system_once(|rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs| {
+            rooms.live_specs().into_iter().map(|(room, spec)| (room, spec.id.clone())).collect::<Vec<_>>()
+        })
+        .expect("the live rooms are read")
+}
+
+/// Ask `sim`'s own room lifecycle to carry seat `slot`'s body into `target`
+/// at `at`: the crossing a door would record.
+fn record_a_crossing(sim: &mut Platformer2dSimHarness, slot: u8, target: &str, at: bevy::math::Vec2) -> bool {
+    use ambition_platformer2d::session::lifecycle_commit::{
+        BodyTransferRequirement, LifecycleIntent, PendingLifecycleCommit, RoomArrival, RoomBodyTransfer, RoomTransitionIntent,
+    };
+    let world = sim.world_mut();
+    let Some(body) = world
+        .query::<(bevy::prelude::Entity, &ambition_platformer2d::characters::control::DrivingParticipant)>()
+        .iter(world)
+        .find(|(_, driver)| driver.0 == ambition_platformer2d::characters::control::PlayerSlot(slot))
+        .map(|(body, _)| body)
+    else {
+        return false;
+    };
+    let Some(subject) = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, body) else {
+        return false;
+    };
+    let frame = world.get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>().map_or(0, |boundary| boundary.current);
+    world
+        .resource_mut::<PendingLifecycleCommit>()
+        .record(
+            frame,
+            LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(),
+                source_zone: None,
+                initiator: RoomBodyTransfer {
+                    requirement: BodyTransferRequirement::InPlay,
+                    subject,
+                    arrival: RoomArrival::At(at),
+                    participant: Some(ambition_platformer2d::characters::control::PlayerSlot(slot)),
+                },
+                companions: Vec::new(),
+                target_room: target.into(),
+                edge_exit: false,
+                zone_sfx: None,
+            }),
+        )
+        .admitted()
+}
+
+/// [`simulate_nothing`], but with the room transition phase awake: it sits
+/// inside `CoreSimulation`, so the core's other phases are gated one by one.
+fn simulate_nothing_but_room_changes(guest: &mut Platformer2dSimHarness) {
+    let app = guest.app_mut();
+    let schedule = app.sim_schedule();
+    for phase in GATED.into_iter().filter(|phase| *phase != Phase::CoreSimulation).chain([
+        Phase::PlayerInput,
+        Phase::WorldPrep,
+        Phase::PlayerSimulation,
+        Phase::Combat,
+        Phase::PresentationSync,
+    ]) {
+        app.configure_sets(schedule, phase.run_if(|| false));
+    }
+}
+
+/// NA-2b, a guest that follows its player on the host's word: the crossing
+/// probe's run, with each snapshot also carrying a room row (the host's number
+/// for Bob's room and the definition it builds). When the row names a room the
+/// guest has not mapped, the guest records a crossing of Bob's body into that
+/// definition, at the position the body row gives, and its own room lifecycle
+/// builds it (the guest gates every simulation phase but the room
+/// transition: [`simulate_nothing_but_room_changes`]). Once
+/// its Bob stands in a room of that definition, the host's number maps to the
+/// guest's. Prints both sides' rooms over the run, the frames the definition
+/// of Bob's room differs between the guest and the snapshot it applied, the
+/// number map, and what the guest built bare (no room of its own built it).
+#[test]
+#[ignore = "measurement: prints whether a guest can follow its player's crossing through its own room lifecycle; run with --ignored --nocapture --test-threads=1"]
+fn probe_whether_a_guest_follows_its_player_on_the_hosts_word() {
+    for defer_unmapped in [false, true] {
+        println!("[follow] bodies of a room the guest has not mapped: {}", if defer_unmapped { "deferred" } else { "built" });
+        follow_on_the_hosts_word(defer_unmapped);
+    }
+}
+
+fn follow_on_the_hosts_word(defer_unmapped: bool) {
+    use ambition_platformer2d::engine_core::{AabbExt as _, ControlFrame};
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
+    const RUN: i32 = 300;
+    let presses = |at: i32| move |frame: i32| ControlFrame {
+        interact_pressed: frame == at,
+        interact_held: (at..at + 3).contains(&frame),
+        ..Default::default()
+    };
+    let (alice, bob) = (presses(30), presses(90));
+    let bobs = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &InRoomInstance, &SimId)>()
+            .iter(world)
+            .find(|(driver, ..)| driver.0 == ambition_platformer2d::characters::control::PlayerSlot(1))
+            .map(|(_, room, id)| (room.0, id.clone()))
+    };
+    let on_the_door = |sim: &mut Platformer2dSimHarness| {
+        crate::common::doors_cross_at_once(sim);
+        let door = crate::common::door_to(sim, "central_hub_complex").aabb.center();
+        sim.teleport_player((door.x, door.y));
+        crate::two_players_two_live_rooms::put_bob_at(sim, door);
+    };
+    let mut host = booted(ROOM);
+    on_the_door(&mut host);
+    let mut guest = booted(ROOM);
+    on_the_door(&mut guest);
+    simulate_nothing_but_room_changes(&mut guest);
+    // host number -> guest number
+    let mut map: BTreeMap<String, LiveRoomInstance> = BTreeMap::new();
+    if let (Some((host_room, _)), Some((guest_room, _))) = (bobs(&mut host), bobs(&mut guest)) {
+        map.insert(format!("{host_room:?}"), guest_room);
+    }
+    type Sent = (i32, BTreeMap<SimId, [f32; 5]>, Option<(LiveRoomInstance, String)>);
+    let mut in_flight: VecDeque<Sent> = VecDeque::new();
+    let mut changes: Vec<(i32, &str, Vec<String>)> = Vec::new();
+    let (mut last_host, mut last_guest) = (Vec::new(), Vec::new());
+    let (mut recorded, mut refused, mut differs, mut built_bare) = (Vec::new(), 0, 0, BTreeSet::new());
+    let mut bob_arrived = None;
+    for frame in 1..=RUN {
+        host.drive_seat(0, alice(frame));
+        host.drive_seat(1, bob(frame));
+        host.app_mut().update();
+        let room = bobs(&mut host).map(|(room, _)| room);
+        let row = room.and_then(|room| live_room_ids(&mut host).into_iter().find(|(live, _)| *live == room));
+        in_flight.push_back((frame, bodies(&mut host, room), row));
+        if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+            let (_, rows, row) = in_flight.pop_front().expect("a snapshot arrived");
+            if let Some((host_room, definition)) = &row {
+                let key = format!("{host_room:?}");
+                let guest_bob = bobs(&mut guest);
+                let guests = live_room_ids(&mut guest);
+                let in_definition = guest_bob
+                    .as_ref()
+                    .and_then(|(room, _)| guests.iter().find(|(live, _)| live == room))
+                    .is_some_and(|(_, id)| id == definition);
+                if in_definition {
+                    if !map.contains_key(&key) {
+                        map.insert(key.clone(), guest_bob.as_ref().expect("Bob stands").0);
+                        bob_arrived.get_or_insert(frame);
+                    }
+                } else {
+                    differs += 1;
+                    let at = guest_bob
+                        .as_ref()
+                        .and_then(|(_, id)| rows.get(id))
+                        .map(|row| bevy::math::Vec2::new(row[0], row[1]));
+                    if let Some(at) = at {
+                        if record_a_crossing(&mut guest, 1, definition, at) {
+                            recorded.push(frame);
+                        } else {
+                            refused += 1;
+                        }
+                    }
+                }
+            }
+            // A room the guest has not mapped is one it is about to build:
+            // its own construction makes that room's bodies.
+            let mapped = row.as_ref().is_some_and(|(host_room, _)| map.contains_key(&format!("{host_room:?}")));
+            if mapped || !defer_unmapped {
+                let done = apply_all(&mut guest, &rows);
+                built_bare.extend(done.built);
+            }
+        }
+        guest.app_mut().update();
+        for (side, sim, last) in [("host", &mut host, &mut last_host), ("guest", &mut guest, &mut last_guest)] {
+            let now: Vec<String> = live_room_ids(sim).into_iter().map(|(room, id)| format!("{room:?}={id}")).collect();
+            if now != *last {
+                changes.push((frame, side, now.clone()));
+                *last = now;
+            }
+        }
+    }
+    println!("[follow] {ROOM}: {RUN} frames; Alice crosses on frame 30, Bob on frame 90; the guest gets Bob's room and a room row");
+    for (frame, side, rooms) in &changes {
+        println!("[follow]   frame {frame} {side}: {rooms:?}");
+    }
+    println!(
+        "[follow]   crossings the guest recorded on frames {:?} ({} refused); snapshots whose room the guest's Bob was not in {differs}; Bob in the host's room on the guest from frame {bob_arrived:?}",
+        recorded.iter().take(8).collect::<Vec<_>>(),
+        refused
+    );
+    println!("[follow]   host number -> guest number {map:?}");
+    {
+        let world = guest.world();
+        let state = world.resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>();
+        println!(
+            "[follow]   the guest's transaction: {:?}; its slot holds {:?}",
+            state.active.as_ref().map(|active| (active.phase, active.failure.clone())),
+            world.resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>().peek().map(|pending| format!("{pending:?}").chars().take(200).collect::<String>()),
+        );
+    }
+    println!("[follow]   built bare (no room of the guest's built them): {} {:?}", built_bare.len(), built_bare.iter().take(6).collect::<Vec<_>>());
+    let world = guest.world_mut();
+    let mut held: BTreeMap<SimId, usize> = BTreeMap::new();
+    for id in world.query_filtered::<&SimId, bevy::prelude::With<BodyKinematics>>().iter(world) {
+        *held.entry(id.clone()).or_insert(0) += 1;
+    }
+    let twice: Vec<&SimId> = held.iter().filter(|(_, count)| **count > 1).map(|(id, _)| id).collect();
+    println!("[follow]   bodies the guest holds twice at the end: {} {:?}", twice.len(), twice.iter().take(6).collect::<Vec<_>>());
+}

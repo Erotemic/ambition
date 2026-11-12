@@ -645,9 +645,13 @@ evidence. Keep diagnostics independent of playback repair.
 **State:** OPEN. Jon reports flicker on desktop and Steam Deck. Warmed High and
 Ultra captures show an opening flare and continuous steady rendering. They do
 not prove that cold startup is correct.
-**Next action:** capture the reported gate from cold startup and locate the
-first incorrect frame. Check sprite readiness, animation ownership and the
-shader layer before changing art.
+**Found and fixed 2026-11-11 ([startup rendering](game/gate-network.md#startup-rendering)):**
+each tier landing at startup rebound the membrane and ring with a new
+animator, unordered against the gate's own systems: one frame of the idle
+cell, then the stable loop restarted at frame 0 (measured with a probe). The
+rebind keeps the cursor and the gate's systems run after it.
+**Next action:** a cold-start capture on desktop and the Deck to see whether
+any flicker remains (the shader layer is unchecked).
 **Acceptance:** the gate renders continuously after its opening on desktop and
 Steam Deck. Keep intended opening animation separate from missing frames.
 

@@ -997,7 +997,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     // Readiness, not residency — see `texture_is_ready`.
     asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
-    props: Query<(Entity, &PropVisual, Option<&BoundSpriteQuality>)>,
+    props: Query<(Entity, &PropVisual, Option<&BoundSpriteQuality>, Option<&CharacterAnimator>)>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -1007,7 +1007,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     // is no `assets.is_changed()` early-out: images decode asynchronously, so
     // the frame `GameAssets` changes is not the frame the texture is ready. The
     // tier comparison is the convergence check, and it is cheap.
-    for (entity, prop, bound_quality) in &props {
+    for (entity, prop, bound_quality, bound_animator) in &props {
         let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) else {
             continue;
         };
@@ -1017,8 +1017,16 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         if !realization_is_ready(&asset_server, &images, asset) {
             continue;
         }
-        let bundle =
+        let mut bundle =
             crate::rendering::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
+        // A prop that was drawn at another tier goes on where it was: a gate's
+        // stable loop or a turning wheel does not jump back to frame 0 when
+        // the sharper pixels land. Its animator draws the frame this tick: the
+        // generic prop animator is chained after this, the gate's systems
+        // ordered after it.
+        if let Some(bound) = bound_animator {
+            bundle.2 = bound.continued_on(bundle.2);
+        }
         commands.entity(entity).insert((
             bundle,
             BoundSpriteQuality::of(asset),

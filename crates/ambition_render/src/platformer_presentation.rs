@@ -60,6 +60,9 @@ impl Plugin for SessionRoomVisualsPlugin {
             )
                 .after(crate::rendering::present_live_room_visuals)
                 .after(crate::rendering::sync_visuals)
+                // A tier landing rebinds the membrane and ring: draw them from
+                // the rebound animator this tick, not the bundle's idle frame.
+                .after(crate::rendering::refresh_prop_sprites_on_game_assets_change)
                 .run_if(crate::rendering::session_presentation_is_ready)
                 .run_if(resource_exists::<ambition_platformer2d_world::rooms::GatePortalRegistry>)
                 .run_if(resource_exists::<ambition_platformer2d_world::rooms::GatePortalPhases>),

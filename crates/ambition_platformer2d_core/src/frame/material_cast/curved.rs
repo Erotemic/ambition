@@ -10,6 +10,12 @@ use crate::{Vec2, frame::Sim2};
 
 pub(super) const MAX_INTERVALS: usize = 16_384;
 
+/// The finest time step at which `cast` follows a rejected contact component,
+/// and the farthest the obstacle may move within it, in body units. A first
+/// contact outside such a component is still found to full precision.
+const RESOLVED_INSTANT: f64 = 1.0 / 4096.0;
+const RESOLVED_MOTION: f64 = 1.0 / 64.0;
+
 #[derive(Clone, Copy)]
 struct Vertex {
     point: DVec2,
@@ -172,24 +178,9 @@ impl Rigid<'_> {
                 }
             }
         }
-        let reach = domain
-            .iter()
-            .map(|p| map.point_wide(*p).distance(pivot))
-            .fold(0.0_f64, f64::max);
-        let angle = crate::frame::rotation_bound(
-            self.turn,
-            self.time.start + self.span() * middle,
-            self.span() * half,
-        );
-        let relative = self.cell.travel - self.shift * self.span();
         let extent = domain.iter().map(|p| p.length()).fold(0.0_f64, f64::max);
-        let travel = if self.cell.curve.is_some() {
-            self.cell.variation(middle, half)? + self.shift.length() * self.span() * half
-        } else {
-            relative.length() * half
-        };
         let pose_rounding = self.rounding(middle, extent)?;
-        let error = (reach * angle + travel) / map.scale_wide() + pose_rounding + uncertainty;
+        let error = self.motion_bound(&domain, interval)? + pose_rounding + uncertainty;
         if !error.is_finite() {
             return Err(NumericFault::Overflow);
         }
@@ -229,6 +220,29 @@ impl Rigid<'_> {
             }
         }
         Ok(intersection(body, &region).map(|_| region))
+    }
+
+    /// How far, in body units, the obstacle can move relative to the body's
+    /// material within `interval` from its pose at the interval's middle.
+    fn motion_bound(&self, domain: &[DVec2], interval: &Range<f64>) -> Result<f64, NumericFault> {
+        let (middle, half) = crate::frame::interval_center(interval);
+        let (pivot, _) = self.pose(middle);
+        let map = self.cell.at(middle)?;
+        let reach = domain
+            .iter()
+            .map(|p| map.point_wide(*p).distance(pivot))
+            .fold(0.0_f64, f64::max);
+        let angle = crate::frame::rotation_bound(
+            self.turn,
+            self.time.start + self.span() * middle,
+            self.span() * half,
+        );
+        let travel = if self.cell.curve.is_some() {
+            self.cell.variation(middle, half)? + self.shift.length() * self.span() * half
+        } else {
+            (self.cell.travel - self.shift * self.span()).length() * half
+        };
+        Ok((reach * angle + travel) / map.scale_wide())
     }
 
     fn side_bound(
@@ -809,6 +823,20 @@ pub(super) fn cast(
             if point.is_some_and(|point| rigid.overlap_persists(body, point, &interval)) {
                 continue;
             }
+        }
+        // ⭐ A REJECTED COMPONENT ENDS WITHIN ONE RESOLVED INSTANT. After a
+        // rejected overlap separates, the gap stays inside the rounding band
+        // for a short tail, and the relaxed envelope cannot clear it. Every
+        // interval of that tail was bisected to f64 resolution before it was
+        // skipped: a body leaving a spinning plank visited over 8,000 such
+        // intervals and refused with `WorkLimit`. Skip the component's
+        // intervals at a resolved instant instead, while the obstacle moves
+        // less than a sixty-fourth of a unit within it: a contact that ends and
+        // starts again inside such an instant is the same contact. A fast
+        // obstacle keeps the full bisection, so its next approach is found.
+        if escaping && interval.end - interval.start <= RESOLVED_INSTANT
+            && rigid.motion_bound(&domain_polygon(body), &interval).map_err(numeric)? <= RESOLVED_MOTION {
+            continue;
         }
         let small = middle == interval.start || middle == interval.end;
         if small {

@@ -1646,3 +1646,28 @@ the chain needs more hops than the player's budget. It does not hang, and
 walking back works at once. That is the prescribed refusal at the solid
 boundary. `portal_lab`'s floor now runs clear from the thin-wall door to
 station H's small mouth, which J's column had cut off.
+
+### Every mouth across its width — 2026-11-12
+
+A temporary sweep threw the player at every lab mouth from 60 px in front, at
+400 px/s, at 8 px steps across the aperture and 16 px past each end: 415
+throws, 60 ticks each. Only the two turning stations misbehaved. At G, a body
+leaving the spinning plank refused with `WorkLimit` and cost about 980 ms in
+that tick (debug build). After a rejected overlap separates, the gap stays in
+the rounding band for a short tail that the relaxed envelope cannot clear, and
+the curved search bisected every interval of it to f64 resolution: over 8,000
+intervals. It now skips the rejected component's intervals at 1/4096 of the
+tick while the obstacle moves less than 1/64 unit within one. A first contact
+is still found to full precision, and a fast obstacle keeps the full search.
+G's worst tick falls to 44 ms. The worst throw anywhere is now 193 ms, at F's
+floor mouth, whose partner swings. Normal ticks cost 22–27 ms.
+
+Open: a seam. G and F still refuse `Precision` for one tick or a few. Each
+plank hosts its own mouth, so the host line lies on the body piece's cut. The
+exact clipped region is empty, but the relaxed envelope keeps a rounding-wide
+sliver for the whole tick. At F the thrown body halts for 22 ticks. A clear
+test at three samples is not sound there: an empty clipped region carries no
+distance, and a portal's cut can sweep across an obstacle faster than the
+obstacle moves. The GNU-ton well test caught exactly that miss. Within the
+aperture span the cut is a seam, not a surface, and outside it the same line
+is real support. The answer must use that split.

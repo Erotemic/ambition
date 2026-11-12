@@ -1435,3 +1435,168 @@ fn probe_what_a_guest_in_one_room_is_sent() {
     );
     assert!(two_rooms_from.is_some(), "premise: Alice left Bob's room");
 }
+
+/// The host entities a visual names (a swing's owner, an aura's, a bolt's
+/// body end): what a guest must map by `SimId` before it can draw it.
+fn named_bodies(vfx: &ambition_platformer2d::vfx::VfxMessage) -> Vec<bevy::prelude::Entity> {
+    use ambition_platformer2d::vfx::VfxMessage;
+    use ambition_platformer2d::vfx::lightning::LightningEnd;
+    let end = |end: &LightningEnd| match end {
+        LightningEnd::Body { owner, .. } => Some(*owner),
+        LightningEnd::World(_) => None,
+    };
+    match vfx {
+        VfxMessage::Slash { owner, .. } | VfxMessage::LightningAura { owner, .. } => vec![*owner],
+        VfxMessage::Lightning { from, to, .. } => end(from).into_iter().chain(end(to)).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// An enum value's variant name, from its `Debug`.
+fn variant(value: &impl std::fmt::Debug) -> String {
+    let text = format!("{value:?}");
+    text.split(|ch: char| ch == ' ' || ch == '(' || ch == '{').next().unwrap_or_default().to_string()
+}
+
+/// NA-2b, sounds and visuals over the presentation channel: the death
+/// probe's run with Alice also swinging (`alice_fights`), so the host makes
+/// shots, swings, hits and a kill. Each frame's sounds and visuals are sent
+/// with the snapshot and written on the guest. Prints each kind by count,
+/// how many visuals name a host body and how many of those the guest can map
+/// by `SimId` to a body it holds when the snapshot arrives, and the room
+/// numbers they name.
+#[test]
+#[ignore = "measurement: prints what forwarding sounds and visuals to a guest needs; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_guest_needs_to_hear_and_see_the_host() {
+    use ambition_platformer2d::sfx::OwnedSfxMessage;
+    use ambition_platformer2d::vfx::VfxInRoom;
+    use bevy::ecs::message::{MessageCursor, Messages};
+    use crate::hosted_world::alice_fights;
+    const ENEMY: &str = "na2b_presentation_probe";
+    let mut host = booted(ROOM);
+    let mut guest = booted(ROOM);
+    simulate_nothing(&mut guest);
+    let mut sounds = MessageCursor::<OwnedSfxMessage>::default();
+    let mut visuals = MessageCursor::<VfxInRoom>::default();
+    let mut guest_sounds = MessageCursor::<OwnedSfxMessage>::default();
+    let mut guest_visuals = MessageCursor::<VfxInRoom>::default();
+    type Sent = (i32, BTreeMap<SimId, [f32; 5]>, Vec<OwnedSfxMessage>, Vec<(VfxInRoom, Vec<Option<SimId>>)>);
+    let mut in_flight: VecDeque<Sent> = VecDeque::new();
+    let (mut sound_kinds, mut visual_kinds) = (BTreeMap::<String, u64>::new(), BTreeMap::<String, u64>::new());
+    let (mut naming, mut named_with_id, mut mapped, mut unmapped) = (0u64, 0u64, 0u64, Vec::<String>::new());
+    let (mut sound_spaces, mut visual_rooms) = (BTreeSet::new(), BTreeSet::new());
+    let (mut forwarded, mut guest_heard, mut guest_saw) = (0u64, 0u64, 0u64);
+    for frame in 1..=FRAMES {
+        if frame == 5 {
+            let at = {
+                let world = host.world_mut();
+                world
+                    .query_filtered::<&BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                    .single(world)
+                    .expect("Alice has a body")
+                    .pos
+            };
+            host.spawn_enemy_character_at(
+                ENEMY,
+                "Target",
+                (at.x + 72.0, at.y),
+                (12.0, 16.0),
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+                "npc_puppy_slug",
+            );
+        }
+        alice_fires_often(&mut host, frame);
+        host.drive_seat(0, ambition_platformer2d::engine_core::ControlFrame { axis_x: 0.0, ..alice_fights(frame) });
+        host.drive_seat(1, Default::default());
+        {
+            let world = host.world_mut();
+            for (feature, mut health) in world.query::<(&ambition_platformer2d::combat::components::FeatureId, &mut Health)>().iter_mut(world) {
+                if feature.0 == ENEMY && health.health.current > 3 {
+                    health.health.current = 3;
+                }
+            }
+        }
+        host.app_mut().update();
+        let (heard, seen): (Vec<OwnedSfxMessage>, Vec<VfxInRoom>) = {
+            let world = host.world();
+            (
+                sounds.read(world.resource::<Messages<OwnedSfxMessage>>()).cloned().collect(),
+                visuals.read(world.resource::<Messages<VfxInRoom>>()).cloned().collect(),
+            )
+        };
+        for sound in &heard {
+            *sound_kinds.entry(variant(&sound.request)).or_insert(0) += 1;
+            sound_spaces.insert(sound.space.map(|space| space.0));
+        }
+        // A visual that names a body is sent with that body's `SimId`.
+        let seen: Vec<(VfxInRoom, Vec<Option<SimId>>)> = seen
+            .into_iter()
+            .map(|visual| {
+                *visual_kinds.entry(variant(&visual.vfx)).or_insert(0) += 1;
+                visual_rooms.insert(visual.room.map(|room| format!("{room:?}")));
+                let ids = named_bodies(&visual.vfx)
+                    .into_iter()
+                    .map(|body| host.world().get::<SimId>(body).cloned())
+                    .collect::<Vec<_>>();
+                naming += ids.len() as u64;
+                named_with_id += ids.iter().filter(|id| id.is_some()).count() as u64;
+                (visual, ids)
+            })
+            .collect();
+        in_flight.push_back((frame, bodies(&mut host, None), heard, seen));
+        if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+            let (_, rows, heard, seen) = in_flight.pop_front().expect("a snapshot arrived");
+            apply_all(&mut guest, &rows);
+            let world = guest.world_mut();
+            let held: BTreeMap<SimId, bevy::prelude::Entity> =
+                world.query::<(bevy::prelude::Entity, &SimId)>().iter(world).map(|(entity, id)| (id.clone(), entity)).collect();
+            for sound in heard {
+                world.write_message(sound);
+                forwarded += 1;
+            }
+            for (visual, ids) in seen {
+                let mut targets = ids.iter().map(|id| id.as_ref().and_then(|id| held.get(id).copied()));
+                let mut all_mapped = true;
+                let mut remap = |body: &mut bevy::prelude::Entity| match targets.next().flatten() {
+                    Some(mine) => *body = mine,
+                    None => all_mapped = false,
+                };
+                let mut visual = visual;
+                {
+                    use ambition_platformer2d::vfx::VfxMessage;
+                    use ambition_platformer2d::vfx::lightning::LightningEnd;
+                    match &mut visual.vfx {
+                        VfxMessage::Slash { owner, .. } | VfxMessage::LightningAura { owner, .. } => remap(owner),
+                        VfxMessage::Lightning { from, to, .. } => {
+                            for end in [from, to] {
+                                if let LightningEnd::Body { owner, .. } = end {
+                                    remap(owner);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                if ids.is_empty() {
+                } else if all_mapped {
+                    mapped += ids.len() as u64;
+                } else {
+                    unmapped.push(format!("{} {ids:?}", variant(&visual.vfx)));
+                }
+                world.write_message(visual);
+                forwarded += 1;
+            }
+        }
+        guest.app_mut().update();
+        let world = guest.world();
+        guest_heard += guest_sounds.read(world.resource::<Messages<OwnedSfxMessage>>()).count() as u64;
+        guest_saw += guest_visuals.read(world.resource::<Messages<VfxInRoom>>()).count() as u64;
+    }
+    println!("[fx] {ROOM}: {FRAMES} frames, a snapshot {LATENCY} frames late");
+    println!("[fx]   sounds by kind {sound_kinds:?}; listening spaces {sound_spaces:?}");
+    println!("[fx]   visuals by kind {visual_kinds:?}; rooms {visual_rooms:?}");
+    println!(
+        "[fx]   visuals naming a body: {naming} names, {named_with_id} with a SimId on the host, {mapped} mapped to a body the guest holds; not mapped {unmapped:?}"
+    );
+    println!("[fx]   forwarded {forwarded}; the guest's channels carried {guest_heard} sounds and {guest_saw} visuals (its own included)");
+}

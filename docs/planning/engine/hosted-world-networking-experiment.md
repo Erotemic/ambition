@@ -470,6 +470,31 @@ only the bodies in the room Bob's body is in on the host.
   already holds under another number needs the number mapped, as the
   forwarded shakes do; that crossing is not exercised here.
 
+**Sounds and visuals over the presentation channel (2026-11-12),** probe
+`probe_what_a_guest_needs_to_hear_and_see_the_host` (same file, ignored):
+the death probe's run with Alice also swinging every ten frames, so the
+host makes shots, swings, hits and a kill. Each frame's `OwnedSfxMessage`s
+and `VfxInRoom`s ride the snapshot and are written on the guest. A visual
+that names a host body (a swing's owner, an aura's, a bolt's body end) is
+sent with that body's `SimId` and written with the guest's body for it.
+
+| Sounds | Visuals | Visuals naming a body | Mapped by `SimId` on the guest | The guest's own |
+|---|---|---|---|---|
+| 15 (`Play` 14, `Land` 1) | 16 (`Slash` 13, `Dust` 2, `Impact` 1) | 13 (every `Slash`) | 13 of 13 | none |
+
+- **Only a body reference needs translating:** every other sound and visual
+  carries positions, a listening space or a room. The swings name their
+  swinging body, and each one maps to a body the guest holds when the
+  snapshot arrives, since the body rows that carry it arrive with it.
+- **A gated guest makes no presentation of its own**, so what its channels
+  carry is exactly what was forwarded (31 messages here).
+- **Rooms and listening spaces are numbers** (`LiveRoomInstance(0)`,
+  `SfxSpace(0)`), equal here because both Apps booted the same room first;
+  they need the same mapping as a guest's room number.
+- **Not measured:** what a renderer and a mixer on the guest make of them
+  (the headless harness has neither); the bytes (the messages are not yet
+  encoded).
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -505,8 +530,10 @@ only the bodies in the room Bob's body is in on the host.
    summoner, carried by the body rows; its spawn row names its character.
    The guest's room only (2026-11-12): once Alice leaves, Bob's room is
    27 bytes a frame of body rows against 398 unscoped, and Alice's body
-   leaves the guest by the general rule. Next: sounds and visuals sent, and
-   room numbers mapped for a guest that crosses into a room the host already
+   leaves the guest by the general rule. Sounds and visuals (2026-11-12): forwarded with
+   the snapshot; only a visual that names a body (a swing's owner) needs
+   translating, by `SimId`, and all 13 did. Next: room and listening-space
+   numbers mapped for a guest that crosses into a room the host already
    holds.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,

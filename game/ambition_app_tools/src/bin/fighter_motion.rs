@@ -1,6 +1,6 @@
 //! How does a Smash fighter MOVE, set against Ultimate's cast?
 //!
-//! `cargo run -p ambition_app_tools --bin fighter_motion -- [ID ...] [anchor=Mario] [tsv]`
+//! `cargo run -p ambition_app_tools --bin fighter_motion -- [ID ...] [anchor=Mario] [tsv] [demo]`
 //!
 //! Seats each fighter on the real Smash stage, takes both brains off, and
 //! drives the production input road through scripted presses: a run from rest,
@@ -17,6 +17,9 @@
 //! frames a second. Nothing here holds a target of its own.
 //!
 //! `tsv` prints one machine-readable row per fighter instead of the report.
+//! `demo` seats them in the demo's own shell instead of the app host: the same
+//! stage and fighters, for a machine whose app host waits for music it does
+//! not have (the opening ceremony never releases the cast).
 //!
 //! Observational: no threshold, no pass/fail.
 
@@ -43,9 +46,10 @@ fn main() {
         .unwrap_or("Mario")
         .to_string();
     let tsv = argv.iter().any(|a| a == "tsv");
+    let demo_host = argv.iter().any(|a| a == "demo");
     let mut ids: Vec<String> = argv
         .iter()
-        .filter(|a| !a.contains('=') && a.as_str() != "tsv")
+        .filter(|a| !a.contains('=') && a.as_str() != "tsv" && a.as_str() != "demo")
         .cloned()
         .collect();
     if ids.is_empty() {
@@ -66,7 +70,7 @@ fn main() {
         );
     }
     for id in &ids {
-        let measured = measure(id, platform.min.x, platform.max.x, platform.min.y);
+        let measured = measure(id, demo_host, platform.min.x, platform.max.x, platform.min.y);
         if tsv {
             let cells: Vec<String> = METRICS
                 .iter()
@@ -111,6 +115,13 @@ const METRICS: &[Metric] = &[
     Metric { key: "walk", label: "half-stick speed", unit: Unit::Speed, column: Some("walk_speed") },
     Metric { key: "stop_decel", label: "stop deceleration", unit: Unit::Accel, column: Some("traction") },
     Metric { key: "stop_dist", label: "stop slide", unit: Unit::Distance, column: None },
+    // GROUNDED-ATTACK-MOMENTUM (Q169): an attack pressed out of a full run.
+    Metric { key: "atk_off_frames", label: "attack, run let go: length", unit: Unit::Time, column: None },
+    Metric { key: "atk_off_slide", label: "  slide to rest", unit: Unit::Distance, column: None },
+    Metric { key: "atk_off_move", label: "  of it during the move", unit: Unit::Distance, column: None },
+    Metric { key: "atk_fwd_frames", label: "attack, run held: length", unit: Unit::Time, column: None },
+    Metric { key: "atk_fwd_move", label: "  travel during the move", unit: Unit::Distance, column: None },
+    Metric { key: "atk_fwd_end", label: "  speed at its end, stick on", unit: Unit::Speed, column: None },
     Metric { key: "squat", label: "press to takeoff", unit: Unit::Time, column: None },
     Metric { key: "full_hop", label: "full hop height", unit: Unit::Distance, column: Some("full_hop") },
     Metric { key: "fh_air", label: "full hop airtime", unit: Unit::Time, column: Some("fh_frames") },
@@ -360,10 +371,10 @@ fn hold(x: f32, y: f32) -> ControlFrame {
     }
 }
 
-fn measure(id: &str, stage_left: f32, stage_right: f32, stage_top: f32) -> BTreeMap<&'static str, f32> {
+fn measure(id: &str, demo_host: bool, stage_left: f32, stage_right: f32, stage_top: f32) -> BTreeMap<&'static str, f32> {
     let probe_stage::Staged { mut app, seat0, seat1 } = probe_stage::stage(probe_stage::StageRequest {
         cast: [id, id],
-        demo_host: false,
+        demo_host,
         rendered: false,
     });
     // The partner stands still, off to the side, so it is never in the way.
@@ -385,6 +396,7 @@ fn measure(id: &str, stage_left: f32, stage_right: f32, stage_top: f32) -> BTree
 
     let mut out = BTreeMap::new();
     ground(&mut rig, &mut out);
+    run_attacks(&mut rig, &mut out);
     jumps(&mut rig, &mut out);
     falls(&mut rig, &mut out);
     evades(&mut rig, &mut out);
@@ -440,6 +452,66 @@ fn ground(rig: &mut Rig, out: &mut BTreeMap<&'static str, f32>) {
         half.push(rig.step(hold(0.5, 0.0)).vel.x);
     }
     out.insert("walk", tail_mean(&half, 8));
+}
+
+/// The move the fighter plays now, if any.
+fn playing(rig: &mut Rig) -> Option<String> {
+    rig.app
+        .world()
+        .get::<ambition_platformer2d::combat::moveset::MovePlayback>(rig.body)
+        .map(|playback| format!("{:?}", playback.spec.id))
+}
+
+/// Attack pressed out of a full run (GROUNDED-ATTACK-MOMENTUM, Q169): with
+/// the stick let go on the press, how far the body slides (to rest) and how
+/// much of that is while the move plays; with the stick held on, how far it
+/// travels while the move plays and its speed when the move ends. Set beside
+/// `stop_dist` (the same run let go with no attack): equal means the move
+/// keeps no speed of its own and brakes by the law's traction.
+fn run_attacks(rig: &mut Rig, out: &mut BTreeMap<&'static str, f32>) {
+    let start = rig.stage_left + 60.0;
+    let room = rig.stage_right - 30.0;
+    for stick_on in [false, true] {
+        rig.reset_at(start);
+        for _ in 0..90 {
+            if rig.step(hold(1.0, 0.0)).pos.x > room - 200.0 {
+                break;
+            }
+        }
+        let from = rig.sample();
+        let press = ControlFrame { attack_pressed: true, ..if stick_on { hold(1.0, 0.0) } else { ControlFrame::default() } };
+        let mut s = rig.step(press);
+        let name = playing(rig);
+        let mut frames = 1usize;
+        let mut during = (s.pos.x - from.pos.x).abs();
+        let mut end_speed = s.vel.x;
+        while playing(rig).is_some() && frames < 240 {
+            s = rig.step(if stick_on { hold(1.0, 0.0) } else { ControlFrame::default() });
+            frames += 1;
+            during = (s.pos.x - from.pos.x).abs();
+            end_speed = s.vel.x;
+        }
+        if stick_on {
+            out.insert("atk_fwd_frames", frames as f32 * DT);
+            out.insert("atk_fwd_move", during);
+            out.insert("atk_fwd_end", end_speed);
+        } else {
+            let mut ticks = 0usize;
+            while s.vel.x.abs() > 2.0 && ticks < 120 {
+                s = rig.step(ControlFrame::default());
+                ticks += 1;
+            }
+            out.insert("atk_off_frames", frames as f32 * DT);
+            out.insert("atk_off_move", during);
+            out.insert("atk_off_slide", (s.pos.x - from.pos.x).abs());
+        }
+        eprintln!(
+            "  run attack (stick {}): speed {:.0} at the press, move {}",
+            if stick_on { "on" } else { "off" },
+            from.vel.x,
+            name.as_deref().unwrap_or("none")
+        );
+    }
 }
 
 /// Height (px, up positive) and airtime of one jump held for `held` ticks

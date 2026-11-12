@@ -843,8 +843,16 @@ it brakes as standing does, in under a pixel). That is the authored Hollow
 Knight model; no change is recommended
 ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)).
 
-**Next action:** the same for the Smash traction law and Sanic's
-surface-momentum law, and a controlled ledge. Originally: measure, for
+**Measured 2026-11-11, Smash** (`fighter_motion demo`, [table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)):
+a grounded move keeps the run's speed and brakes at traction (a jab out of a
+let-go run slides the 42.5 px stop slide), it does not take the stick, and
+George's dash attack carries the run 115.6 px on its authored impulse. No
+change recommended.
+
+**Next action:** Sanic's surface-momentum law (its roll) on a flat floor,
+a dash cancel, and a controlled ledge. Found on the way, for the portal
+owner: a Sanic ball frozen at 1471 px/s by a `WorkLimit` motion refusal
+every tick ([note](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)). Originally: measure, for
 representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry

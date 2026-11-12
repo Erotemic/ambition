@@ -165,6 +165,22 @@ checks each fist's move against its own velocity.
      on every second or third frame (77, 80, 82, 84, 87, 89) while its
      velocity keeps growing, then moves every frame once it is clear of the
      aperture (about frame 90). A hitch at about 20 Hz for a quarter second.
+     **Diagnosed 2026-11-12** (temporary probes, deleted): the giant collides
+     with its own back. Its slope (`ambition_mount::SLOPE_LINE`) is room
+     collision that moves with it. While the giant straddles the exit, the
+     cut planes put that cast into the curved search. The slope enters the
+     stay cell across the cut already inside the giant's material. The envelope
+     keeps a constant rounding band before that instant, and the exact region
+     inside the band is empty, so the search refuses `Precision`. All nine
+     refusals in phase 3 (frames 78–132, every 7 or 8 frames) name
+     `mount_slope` segments. Since `811150d6f` a refused straddler halts, so
+     the giant now restarts its fall from rest at each refusal. Skipping the
+     floor's empty instants is no answer: the band is about 73,000 ulps and
+     the search refuses `WorkLimit` instead. The fix is structural: a body
+     does not collide with surfaces it carries. That needs a carrier key on
+     the surfaces the mount publishes, and the body's own key in the
+     collision policy (`movement::collision::BodyCollisionPolicy`). Frame 134
+     then shows a 92 px snap with no refusal, not yet explained.
   2. **A free fist in a portal pair** (`demonstrate_pair`, phase 2): while
      the strike carries it through the pair, its position jumps about 280
      units between the pair's two ends on every frame, one way then back,

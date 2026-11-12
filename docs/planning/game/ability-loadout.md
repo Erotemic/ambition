@@ -143,14 +143,7 @@ tests (bounce, one-way landing, strike rules).
 
 ## Open
 
-1. **The robot's `eye_laser` row** is authored (sprite renderer `eefd4b0`):
-   a braced pose with the whole visor lit red (Jon: two red eyes looked
-   "a little bit too evil"). The game draws it once robot v3 is
-   published again; until then the body falls back to `shoot`.
-2. **The visor point and height are authored numbers** (`eye_laser::VISOR`,
-   `VISOR_HEIGHT`, measured from that row). Publish a `visor` landmark with the sheet, as the hand
-   landmark places the fireball, and read it.
-3. **Contextual Blink** (Jon's notes): level 1 blinks behind an enemy that
+1. **Contextual Blink** (Jon's notes): level 1 blinks behind an enemy that
    is near; level 2 from further; level 3 adds a double tap that slows time
    to choose the enemy. The Blink slot routes a technique (2026-11-10): a
    technique on `Blink` takes the whole edge (pressed, held, released) and the
@@ -167,28 +160,40 @@ tests (bounce, one-way landing, strike rules).
    tick's carry: a one-tick delay, and crossings see the move like any other.
    It touches the body-path and portal ordering, so build it with the portal
    owner's review.
-4. **Precision Blink tiers** (Jon's notes): level 1 directional instant;
+2. **Precision Blink tiers** (Jon's notes): level 1 directional instant;
    level 2 adds a controlled blink; level 3 adds a time-slow control. Also:
    a quick press does "the intuitive thing", and two quick presses give the
    directional blink.
-5. **Tiers.** A variant with levels needs an upgrade fact. None exists.
+3. **Tiers.** A variant with levels needs an upgrade fact. None exists.
    Prefer a level on the owned item (the bag counts it) over a second
    authority.
-6. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
+4. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.
-7. **A laser sound of its own.** The recipe is authored and rendered
+5. **A laser sound of its own.** The recipe is authored and rendered
    (`ability.eye_laser.ignite`, sfx renderer `7cd29ce`: a rising charge, then a
    buzzing beam hum). The laser still plays `boss.wolfenstein.zap`
    (`eye_laser::SFX_IGNITE`) until a publishing machine republishes the SFX
    bank (`scripts/regen/sfx.sh`). Switching the id first would leave the laser
    silent on every machine with the old bank.
-8. **A crouched laser row** (`eye_laser_crouch`). A crouched body draws a
+6. **A crouched laser row** (`eye_laser_crouch`). A crouched body draws a
    pinned row's `_crouch` variant, or its own crouch when the sheet has none
    (`ClipRequest::with_pin`), so a crouched robot lasers in its plain crouch
    today. Author the variant in `player_robot_v3_crouch.py` (the crouch
    squashes the head, which `_place_visor_glow` refuses), and place the beam
    from it.
+
+Done (2026-11-11): robot v3 is published with its `eye_laser` row (a braced
+pose with the whole visor lit red), and the laser leaves the visor the art
+draws. The robot's flipbook publishes its lit fill as the `visor` part box
+(`PartBox::Visor`, track `visor_fill`), and the laser asks for a ray from that
+part in the row it pins (`Spot::Part`, `ambition.combat.held_ray` v3). The
+host starts the ray at the middle of the box's front edge, as thick as the box
+is tall, 3 sheet pixels in from its bounds (the part's transparent margin).
+On the robot (probed box, less the inset) it starts about 1 px ahead of and
+1 px below the old authored point and is about 15 thick against the authored
+14 (0.29 of 48). `VISOR` and `VISOR_HEIGHT`
+remain as the stated fallback for a body whose art draws no visor.
 
 Done (2026-11-09): held past an empty bar, the laser lit again on every tick
 the refill could pay, about 28 zaps a second, and its row flickered. It now

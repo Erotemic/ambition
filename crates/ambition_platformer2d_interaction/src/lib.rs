@@ -68,6 +68,11 @@ impl InteractReach {
         !requires_facing || ambition_interaction::faces(self.pos, self.facing, self.side, target)
     }
 
+    /// The box the body talks from.
+    pub fn talk_box(&self) -> ambition_platformer2d_core::Aabb {
+        self.talk
+    }
+
     /// Can the press talk to a peaceful body at `aabb` in live room `room`?
     /// The door rule is not part of it: see [`Self::a_door_keeps_the_press`].
     pub fn can_talk_to(
@@ -76,10 +81,27 @@ impl InteractReach {
         aabb: &CenteredAabb,
         requires_facing: bool,
     ) -> bool {
+        self.refuses_talk(room, aabb, requires_facing).is_none()
+    }
+
+    /// Why the press cannot talk to a body at `aabb` in live room `room`: the
+    /// first clause of [`Self::can_talk_to`] it fails, or `None`.
+    pub fn refuses_talk(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        aabb: &CenteredAabb,
+        requires_facing: bool,
+    ) -> Option<&'static str> {
         // OW1 cut 7b: two live rooms can hold a body at one position.
-        room == self.room
-            && aabb.aabb().strict_intersects(self.talk)
-            && self.passes_the_facing_gate(aabb.center, requires_facing)
+        if room != self.room {
+            Some("in another live room")
+        } else if !aabb.aabb().strict_intersects(self.talk) {
+            Some("out of talking reach")
+        } else if !self.passes_the_facing_gate(aabb.center, requires_facing) {
+            Some("not faced")
+        } else {
+            None
+        }
     }
 
     /// Does the press reach a chest or a switch at `aabb` in live room `room`?
@@ -89,9 +111,26 @@ impl InteractReach {
         aabb: &CenteredAabb,
         requires_facing: bool,
     ) -> bool {
-        room == self.room
-            && aabb.aabb().strict_intersects(self.reach)
-            && self.passes_the_facing_gate(aabb.center, requires_facing)
+        self.refuses_touch(room, aabb, requires_facing).is_none()
+    }
+
+    /// Why the press does not reach a chest or switch at `aabb`: the first
+    /// clause of [`Self::touches`] it fails, or `None`.
+    pub fn refuses_touch(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        aabb: &CenteredAabb,
+        requires_facing: bool,
+    ) -> Option<&'static str> {
+        if room != self.room {
+            Some("in another live room")
+        } else if !aabb.aabb().strict_intersects(self.reach) {
+            Some("not touched")
+        } else if !self.passes_the_facing_gate(aabb.center, requires_facing) {
+            Some("not faced")
+        } else {
+            None
+        }
     }
 
     /// How far a target at `center` is from the point the body reaches with:
@@ -100,8 +139,12 @@ impl InteractReach {
     /// the least, so the player chooses by where they stand and which way they
     /// face, and the prompt names the same one.
     pub fn preference(&self, center: ambition_platformer2d_core::Vec2) -> f32 {
-        let front = self.pos + self.side * (self.facing.signum() * self.reach.half_size().x);
-        center.distance(front)
+        center.distance(self.front())
+    }
+
+    /// The point the body reaches with: the front of its box, the way it faces.
+    pub fn front(&self) -> ambition_platformer2d_core::Vec2 {
+        self.pos + self.side * (self.facing.signum() * self.reach.half_size().x)
     }
 
     /// One press can be for a door or for a body to talk to: the nearer of

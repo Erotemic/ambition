@@ -8,6 +8,26 @@ issue is recorded after them; it has concrete October 11 customers.
 
 ## Remaining
 
+### A crawler on a wall reports an unturned box (found 2026-11-11)
+
+`02cabae983` moved a body's turn into its material (`BodyMaterial`) and
+removed the separate surface-upright state; `write_sweep_sample` now records
+`half_extent()` (the material envelope) where it recorded the box turned to
+the step's DOWN. A crawler that climbs a wall still only changes its DOWN:
+its material stays the identity. So its step collides a box turned to the
+wall, while `BodyKinematics::aabb`, the step record (`SweepSample::half`)
+and the hazard gate that shares that half all report the unturned box.
+
+Measured on `ow1_bob` (53.76 x 14.15) walking into a party exit wall in
+`party_follower_hits_an_exit_wall_and_can_cross_after_the_policy_changes`
+(red on `fc7ce4d3eb`; not bisected): he stops with his centre
+at x 685.59, flush with the wall (692.67) for a turned half of 7.07, and
+climbs it; the record says half (26.88, 7.07) with down (1, 0), 20 units
+into the wall. The doc comment on `write_sweep_sample` still states the turned
+box. The owner is the body-material work under PORTAL-SIMILARITY (PSIM):
+either the crawler turns its material when it attaches, or the record turns
+its half to the DOWN again.
+
 ### Block-to-chain crawl transfer (customer-gated)
 
 A crawler attached to a block surface does not transfer directly onto an
@@ -151,14 +171,63 @@ frames), with the stick as each row says, and is followed for 90 frames.
 **Recommendation for the robot:** no change. The measured behaviour is the
 authored one, and the axis law's instant brake already rules out a slide.
 
+**Measured 2026-11-11, the Smash fighters (the responsive axis law at
+Ultimate's traction).** Instrument: `fighter_motion` (`ambition_app_tools`),
+its run-attack rows: a full run (315 px/s) on the Smash stage, then Attack
+with the stick let go on the press, and again with the stick held; read off
+the body. Run with `demo` (the demo shell; this machine's app host waits for
+entry music it does not have).
+
+| Fighter | Case | Move | Length | Travel during the move | Slide to rest / speed at its end |
+|---|---|---|---|---|---|
+| any | no attack, let go (the brake) | – | – | – | 42.5 px (1050 px/s², Mario's 0.102 u/f² is 0.0972 here) |
+| `smash_george_booul` | Attack, run let go | `jab` | 15 f | 42.1 px | 42.5 px to rest |
+| `smash_george_booul` | Attack, run held | `george_booul_dash_attack` | 30 f | 115.6 px | 43 px/s at its end |
+| `smash_duelist_a` | Attack, run let go | `jab` | 15 f | 42.1 px | 42.5 px to rest |
+| `smash_duelist_a` | Attack, run held | `jab` | 15 f | 46.7 px | 58 px/s at its end |
+
+- **A move does not take the stick.** Unlike the robot, a Smash jab held
+  forward travels about what it does let go (46.7 against 42.1 px): the run
+  brakes under it.
+- **It keeps the run's speed and brakes at traction.** Let go, an attack
+  out of a run slides exactly the stop slide, 42.5 px: the move adds and
+  removes nothing.
+- **A dash attack carries the run.** Stick held, the run is still a run on
+  the press tick (`BodyMotionFacts::running`), so the press is the running
+  attack; its authored forward impulse (`authoring::dash_attack`, 260 px/s at
+  the swing) keeps it moving: 115.6 px in 30 frames. Let go on the press
+  tick, the body is no longer running, so the press is a jab.
+- The stand-in duelists bind no `attack_dash` (an incomplete kit by Q89),
+  so a running press is their jab.
+
+**Recommendation for Smash:** no change: this is Ultimate's model (traction
+under a grounded move, the dash attack as the move that carries a run). A
+dash cancel and a ledge are not measured.
+
 **Not yet measured:**
-- the Smash fighters' traction law (a dash attack and a dash cancel);
 - Sanic's surface-momentum law (the 2026-10-13 coast of 351 px from
   530 px/s comes from a brain test, not from a move played in the game);
-- a controlled ledge.
+  Sanic has no grounded attack, so the question there is the roll;
+- a dash cancel, and a controlled ledge for every law.
 
-These need the Smash and Sanic hosts. Compare them with Smash Ultimate's
-traction and Hollow Knight's Dash Slash before changing either.
+**Found while measuring Sanic (2026-11-11, not fixed): a ball frozen at
+speed.** In the demo's act, after 150 frames of running right from the
+start (1314 px/s at x 2265), a spin dash (crouch, three revs, release)
+launches the ball at 1517 px/s. At x 2919.3 it stops for good: `Riding`
+chain 0 at s 9699.5 with `v_t` 1470.67 that friction never touches, because
+every tick's movement step is refused (`BodyFrameOutput::events.motion_refusal`
+is `Refusal { path: [], link: None, reason: WorkLimit }`), and a refused step
+commits nothing. No control hold, no room pace, no component change. The
+`WorkLimit` sites are the frame-threading and material-cast admission
+(`frame/thread.rs`, `frame/crossing.rs`, `frame/material_cast/*`), the
+portal owner's code, so it is left for that owner. Probe to rebuild it: a
+`sanic_it` test on `build_demo_app()` driving `drive_control_frame` with the
+inputs above. Measured on the same run: a crouch held at speed neither
+brakes nor balls Sanic (identical to letting go: he coasts from 1314 px/s,
+losing about 400 px/s per second). The act is not flat, so these are not
+clean momentum numbers.
+
+Compare them with Hollow Knight's Dash Slash before changing either.
 
 ## Re-measuring these gates
 

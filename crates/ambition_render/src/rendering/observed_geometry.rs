@@ -102,6 +102,26 @@ fn role_color(observation: &GeometryObservation) -> Color {
         "rebound" => Color::srgba(1.0, 0.6, 0.2, 0.9),
         "hurt" => Color::srgba(1.0, 0.9, 0.2, 0.9),
         "hit" => Color::srgba(1.0, 0.2, 0.2, 0.95),
+        // A body as the kernel swept it: its box, its path, and the edges it
+        // reported touching.
+        "body_box" => Color::srgba(0.75, 0.55, 1.0, 0.9),
+        "sweep" => Color::srgba(0.75, 0.55, 1.0, 0.6),
+        "contact_ground" | "contact_head" | "contact_wall" => Color::srgba(0.2, 1.0, 0.2, 1.0),
+        // What an interact press reaches.
+        "interact_touch" | "interact_talk" | "interact_front" => Color::srgba(1.0, 0.75, 0.3, 0.8),
+        "talk" | "switch" | "chest" => Color::srgba(1.0, 0.95, 0.6, 0.9),
+        // Navigation, in the overlay's colours.
+        "nav_surface" => Color::srgba(0.2, 1.0, 0.2, 0.9),
+        "nav_hop" => Color::srgba(1.0, 1.0, 0.2, 0.9),
+        "nav_drop" => Color::srgba(1.0, 0.6, 0.1, 0.9),
+        "nav_route" | "nav_goal" => Color::srgba(1.0, 0.2, 1.0, 0.9),
+        "nav_target_place" => Color::srgba(0.2, 1.0, 1.0, 0.9),
+        // The room's regions that are not walls.
+        "loading_zone" => Color::srgba(0.3, 0.6, 1.0, 0.9),
+        "camera_zone" => Color::srgba(0.6, 0.6, 0.6, 0.6),
+        "gravity_zone" => Color::srgba(0.6, 0.3, 1.0, 0.8),
+        "encounter_trigger" => Color::srgba(1.0, 0.45, 0.45, 0.8),
+        "lock_wall" => Color::srgba(1.0, 0.7, 0.2, 0.9),
         _ => Color::srgba(0.3, 1.0, 1.0, 0.9),
     }
 }

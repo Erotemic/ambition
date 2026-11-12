@@ -490,6 +490,19 @@ fn the_attachment_observation_gives_each_point_from_the_position_of_the_body() {
     assert_eq!(body_attachments_of(&world, bare), None, "a body with no rig gave points");
 }
 
+
+/// [`cast_ray`] for a ray from a world point.
+fn cast_world(
+    ray: &HeldRay,
+    walls: Option<&ae::World>,
+    passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
+    owner: Entity,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Option<(ae::Vec2, crate::strike::RayStrike, ae::VolumeShape)> {
+    let ambition_combat_port::Spot::World(at) = ray.from else { panic!("a world ray") };
+    cast_ray(ray, ae::Vec2::from(at), ray.width, walls, passages, owner, room)
+}
+
 #[test]
 fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
     use ae::frame::thread::{PieceBudget, VolumePiece};
@@ -512,7 +525,7 @@ fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
             toward:[direction,0.0],reach:40.0,width:4.0,damage:1,knockback:1.0,
             launch_dir:None,lifetime_s:0.5,look:"laser".into(),
         };
-        let (origin,strike,shape)=cast_ray(&request,None,Some(&world),Some(&passages),owner,None).unwrap();
+        let (origin,strike,shape)=cast_world(&request, Some(&world),Some(&passages),owner,None).unwrap();
         assert_eq!(strike.length,expected_length);
         let volume=shape.place_at(origin,1.0,ae::Vec2::Y);
         let parts=passages.pieces(&volume,PartSource::World { owner:Some(owner) },origin,None).unwrap();
@@ -523,10 +536,10 @@ fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
         assert!(meets(near),"the admitted ray must reach its far chart: {parts:?}");
         assert!(!meets(far),"the ray must stop at its scaled reach or wall");
         passages.set_body_budget(owner,PieceBudget { max_hops:0,..PieceBudget::COMPOSED });
-        assert!(cast_ray(&request,None,Some(&world),Some(&passages),owner,None).is_none(),
+        assert!(cast_world(&request, Some(&world),Some(&passages),owner,None).is_none(),
             "a refused ray cannot publish an uncut strike");
         passages.set_body_budget(owner,PieceBudget { max_pieces:0,..PieceBudget::COMPOSED });
-        assert!(cast_ray(&request,None,Some(&world),Some(&passages),owner,None).is_none(),
+        assert!(cast_world(&request, Some(&world),Some(&passages),owner,None).is_none(),
             "ray material must be admitted before its strike is published");
         passages.set_body_budget(owner,PieceBudget::COMPOSED);
     }
@@ -543,16 +556,16 @@ fn a_subunit_ray_does_not_extend_through_its_first_wall() {
         toward:[f32::MAX,0.0],reach:40.0,width:0.1,damage:1,knockback:1.0,
         launch_dir:None,lifetime_s:0.5,look:"laser".into(),
     };
-    let (origin,strike,shape)=cast_ray(&request,None,Some(&world),None,owner,None).unwrap();
+    let (origin,strike,shape)=cast_world(&request, Some(&world),None,owner,None).unwrap();
     assert_eq!(strike.dir,ae::Vec2::X);
     assert_eq!(strike.length,0.25);
     let bounds=shape.place_at(origin,1.0,ae::Vec2::Y).bounds();
     assert_eq!(bounds.max.x,0.25);
     assert_eq!(bounds.max.y-bounds.min.y,0.1);
     request.reach=0.0;
-    assert!(cast_ray(&request,None,Some(&world),None,owner,None).is_none());
+    assert!(cast_world(&request, Some(&world),None,owner,None).is_none());
     request.reach=f32::NAN;
-    assert!(cast_ray(&request,None,None,None,owner,None).is_none());
+    assert!(cast_world(&request, None,None,owner,None).is_none());
 }
 
 #[test]
@@ -565,11 +578,11 @@ fn a_held_ray_stops_when_its_edge_hits_a_wall_that_its_centre_misses() {
         toward: [1.0, 0.0], reach: 40.0, width: 4.0, damage: 1, knockback: 1.0,
         launch_dir: None, lifetime_s: 0.5, look: "laser".into(),
     };
-    let (origin, strike, shape) = cast_ray(&request, None, Some(&world), None, owner, None).unwrap();
+    let (origin, strike, shape) = cast_world(&request, Some(&world), None, owner, None).unwrap();
     assert_eq!(strike.length, 12.0);
     assert_eq!(shape.place_at(origin, 1.0, ae::Vec2::Y).bounds().max.x, 12.0);
     let narrow = HeldRay { width: 1.0, ..request };
-    assert_eq!(cast_ray(&narrow, None, Some(&world), None, owner, None).unwrap().1.length, 40.0);
+    assert_eq!(cast_world(&narrow, Some(&world), None, owner, None).unwrap().1.length, 40.0);
 }
 
 /// A world-space port request enters body material without a second scale or turn.

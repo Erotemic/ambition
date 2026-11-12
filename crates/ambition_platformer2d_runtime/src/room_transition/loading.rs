@@ -2029,6 +2029,7 @@ mod checkpoint_failure_tests {
                     custody: Default::default(),
                 }),
                 item: None,
+                facts: None,
                 fresh: false,
                 replay: None,
             });

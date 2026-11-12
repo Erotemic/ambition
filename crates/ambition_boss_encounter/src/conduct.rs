@@ -930,7 +930,9 @@ pub fn lower_lightning(
         let owner = submitted.scope;
         let end = |end: Spot| match end {
             Spot::World(at) => LightningEnd::World(ae::Vec2::from(at)),
-            Spot::Body(offset) => LightningEnd::Body { owner, offset: ae::Vec2::from(offset) },
+            Spot::Body(offset) | Spot::Part(ambition_combat_port::PartSpot { otherwise: offset, .. }) => {
+                LightningEnd::Body { owner, offset: ae::Vec2::from(offset) }
+            }
         };
         vfx.for_room(rooms.of(owner)).write(ambition_vfx::vfx::VfxMessage::Lightning {
             key: LightningKey::scoped(Some(owner), &bolt.key),

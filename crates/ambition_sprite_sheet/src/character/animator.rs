@@ -159,6 +159,22 @@ impl CharacterAnimator {
         }
     }
 
+    /// This animator's cursor (pose, clip, frame, clock and every per-row
+    /// state) on `fresh`'s sheet: the same character's sheet at another
+    /// resolution has the same rows, so a rebind continues the animation
+    /// instead of starting it again from the idle row's first frame. The
+    /// sheet, its pages and how its frames are drawn come from `fresh`.
+    pub fn continued_on(&self, fresh: CharacterAnimator) -> CharacterAnimator {
+        CharacterAnimator {
+            spec: fresh.spec,
+            pages: fresh.pages,
+            render_basis: fresh.render_basis,
+            samples_inside_frame: fresh.samples_inside_frame,
+            keeps_its_quad: fresh.keeps_its_quad,
+            ..self.clone()
+        }
+    }
+
     /// The part of the current frame that a sprite samples, measured from the
     /// corner of the frame's atlas rect (`Sprite::rect`), when this animator
     /// samples inside its frames. `None`: sample the whole frame.

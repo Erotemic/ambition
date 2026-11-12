@@ -610,6 +610,12 @@ impl AmbitionGameSaveData {
         }
     }
 
+    /// Every recorded quest row. A READER only, as [`Self::flags`] is: quests
+    /// are written one at a time through [`Self::set_quest`].
+    pub fn quests(&self) -> &[PersistedQuest] {
+        &self.quests
+    }
+
     pub fn quest(&self, id: &str) -> (PersistedQuestState, u8) {
         self.quests
             .iter()

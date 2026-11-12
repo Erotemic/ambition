@@ -57,20 +57,9 @@ pub fn populate_quest_registry(
     for spec in quest_specs_of(selected.get()) {
         registry.ensure(spec);
     }
-    let save_data = save.data();
-    for (id, state) in registry.quests.iter_mut() {
-        let (persisted, step) = save_data.quest(id);
-        state.apply_persisted(persisted, step);
-    }
-    // ⭐ THE QUESTS SAY SO THEMSELVES. This was a separate `AUTO_START_QUESTS`
-    // list of ids looked up with `get_mut`, so an id that stopped matching a
-    // spec started nothing and reported nothing. Reading the flag off the spec
-    // means a quest cannot be missing from a list it is not named in.
-    for state in registry.quests.values_mut() {
-        if state.spec.auto_start {
-            let _ = state.start();
-        }
-    }
+    // ⭐ THE QUESTS SAY SO THEMSELVES: each auto-starting quest is started by
+    // the flag on its spec, not by a list of ids that could stop matching.
+    registry.rehydrate(save.data());
     registry.initialized = true;
 }
 

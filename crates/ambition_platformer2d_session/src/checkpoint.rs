@@ -317,6 +317,8 @@ pub fn restore_checkpoint_on_session_start(
                     spends: Default::default(),
                 }
             }),
+            // The load has just applied the file's facts.
+            facts: None,
             fresh: false,
             replay: None,
         });
@@ -470,6 +472,8 @@ pub fn resume_at_checkpoint_on_reset(
         Option<Res<ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
         // The bag this composition begins with: what a New Game gives.
         Option<Res<ambition_platformer2d_items::starting_bag::StartingBag>>,
+        // The flags and quest steps of the checkpoint (Q164).
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::fact_horizon::FactsBaseline>>,
     ),
     // The quantities that throws made into objects since the checkpoint, the
     // objects, the bodies that hold them and their rooms, and the live ledger:
@@ -633,7 +637,7 @@ pub fn resume_at_checkpoint_on_reset(
         return;
     };
     outstanding.0.take();
-    let (occurrences, custody, minted, owned, items, consumed, grants, defeats, starting) = baselines;
+    let (occurrences, custody, minted, owned, items, consumed, grants, defeats, starting, facts_baseline) = baselines;
     let fresh = restore_to == RestoreTo::NewGame;
     // ⭐ A DEATH IS LOCAL TO ITS PARTICIPANT AND ROOM (Q151). The rooms other
     // participants hold keep what was won in them since the checkpoint. A New
@@ -667,6 +671,7 @@ pub fn resume_at_checkpoint_on_reset(
             .into_iter()
             .collect()
     };
+    let spared_participants_are_none = spared_participants.is_empty();
     let (lifecycle, item) = if fresh {
         // The fresh baseline, pinned in the same shape as a checkpoint's. A
         // domain that is not installed still pins `None`: absent is not empty.
@@ -888,12 +893,19 @@ pub fn resume_at_checkpoint_on_reset(
         .to_the_checkpoint()
         .sparing(spared)
         .sparing_participants(spared_participants);
+    // The facts go back with a death that spares nobody: alone, or the last
+    // of the party. A co-op death keeps the shared facts (Q151, Q164).
+    let facts = (!fresh && spared_participants_are_none)
+        .then(|| facts_baseline.as_ref().and_then(|baseline| baseline.remembered().cloned()))
+        .flatten()
+        .map(crate::fact_horizon::FactCheckpointRestoreInputs);
     accepted.accept(AcceptedRestore {
         key,
         frame,
         intent,
         lifecycle,
         item,
+        facts,
         fresh,
         replay: Some(replay),
     });
@@ -1070,6 +1082,11 @@ pub struct AcceptedRestore {
     /// ⚠ THE MINTS TRAVEL WITH THE LEDGER for the reason `OccurrenceContinuity`
     /// states: the memory without the means to act on it deletes the object.
     pub item: Option<ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointRestoreInputs>,
+    /// The world facts' half (Q164): the flags and quest steps of the
+    /// checkpoint. `None` when the restore spares a participant (a shared fact
+    /// is not rolled back behind a survivor), for a New Game (its wipe is the
+    /// fresh-run reducer's), and where no baseline was taken.
+    pub facts: Option<crate::fact_horizon::FactCheckpointRestoreInputs>,
     /// This restore begins a new run: the commit also runs each domain's
     /// fresh-run reducer, and the pinned values become the checkpoint.
     pub fresh: bool,
@@ -1136,6 +1153,7 @@ impl AcceptedRestore {
             intent,
             lifecycle,
             item,
+            facts,
             fresh,
             replay,
         } = self;
@@ -1164,6 +1182,13 @@ impl AcceptedRestore {
                 put_u8(&mut bytes, 1);
                 put_u64(&mut bytes, item.minted.checksum());
                 put_u64(&mut bytes, item.owned.checksum());
+            }
+        }
+        match facts {
+            None => put_u8(&mut bytes, 0),
+            Some(facts) => {
+                put_u8(&mut bytes, 1);
+                put_u64(&mut bytes, facts.0.checksum());
             }
         }
         put_u8(&mut bytes, u8::from(*fresh));
@@ -1288,8 +1313,15 @@ pub fn prospective_commit_fates(
         .get_resource::<ambition_persistence::quest::QuestRegistry>()
         .cloned()
         .unwrap_or_default();
+    let restored_facts = accepted.and_then(|accepted| accepted.facts.clone());
     facts
         .with_save_edited(|save| {
+            // The flags and quest steps the restore puts back. A restore that
+            // pins them spares nobody, so the boss retraction below returns
+            // its records to the same checkpoint.
+            if let Some(restored) = &restored_facts {
+                restored.0.restore_into(save);
+            }
             for placement in &retracted {
                 ambition_boss_encounter::retract_defeat_records(save, &mut quests, placement);
             }
@@ -1445,6 +1477,9 @@ pub fn apply_committed_checkpoint_restore(
     if let Some(item) = accepted.item.clone() {
         world.insert_resource(item);
     }
+    if let Some(facts) = accepted.facts.clone() {
+        world.insert_resource(facts);
+    }
     if accepted.fresh {
         world.insert_resource(ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore);
     }
@@ -1463,6 +1498,7 @@ pub fn apply_committed_checkpoint_restore(
     world.remove_resource::<CheckpointRestoreInputs>();
     world
         .remove_resource::<ambition_platformer2d_items::pickup::minted_horizon::ItemCheckpointRestoreInputs>();
+    world.remove_resource::<crate::fact_horizon::FactCheckpointRestoreInputs>();
     world.remove_resource::<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>();
     // ⭐ THE STRUCTURAL WORK THE CUSTODY RESTORE QUEUED. It materializes
     // occurrences the checkpoint remembers in a hand; a caller that returned
@@ -1776,6 +1812,18 @@ fn verify_restored_domains(
                         .to_string(),
                 });
             }
+        }
+    }
+    if let (Some(facts), Some(save)) =
+        (accepted.facts.as_ref(), world.get_resource::<ambition_persistence::save::AmbitionGameSave>())
+    {
+        if !facts.0.recorded_in(save.data()) {
+            return Err(RestoreVerificationFailure {
+                failure: RestoreFailure::Entitlements,
+                detail: "the applied flags and quest steps do not match the facts this \
+                         operation was accepted with"
+                    .to_string(),
+            });
         }
     }
     // ── THE ROOM THE OPERATION SAID IT WOULD LEAVE STANDING ──────────────────

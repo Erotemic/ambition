@@ -199,6 +199,20 @@ remains unverified. Capture the first incorrect frame before changing the art
 or shader. [GATE-STARTUP-FLICKER](../queue.md#gate-startup-flicker--diagnose-the-wormhole-at-startup)
 owns this issue.
 
+**A tier landing broke the loop (fixed 2026-11-11).** At startup the art
+arrives a tier at a time, and each landing rebinds every prop's sprite
+(`refresh_prop_sprites_on_game_assets_change`) with a new animator. The
+membrane's and ring's systems were not ordered against that rebind, so on the
+landing frame the membrane drew the new bundle's idle cell, and the next frame
+started its stable loop again from frame 0. Measured with a temporary probe
+(the robot sheet as a membrane, phase `On`, a Half then a Full realization):
+before, the landing frame drew cell 0 (Idle) where the loop was at cell 14,
+then the loop restarted at frame 0; after, the landing frame drew frame 7
+(cell 15), the loop's next. The rebind now keeps the animator's cursor
+(`CharacterAnimator::continued_on`) and the gate's systems run after it. This
+is one wrong frame per landing, so it is a candidate for the reported flicker,
+not a proof: a cold-start capture on the Deck is still owed.
+
 ## Future expansion
 
 - Several public gates in one hub (the rules hold already: one facility).

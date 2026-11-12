@@ -283,26 +283,62 @@ struct AskedHeld {
     lifetime_s: f32,
 }
 
-/// Where `ray`, asked for by a body at `body`, goes: from its start along its
-/// direction to the first wall, through the pairs it enters as far as the
+/// Where `ray`, asked for by `owner` (with kinematics `body`), starts and how
+/// wide it is. A ray from a part its art draws leaves the whole part, at the
+/// middle of its front edge ([`ambition_combat_port::PartSpot`]); one whose
+/// art does not draw the part starts at the part's `otherwise` offset, at
+/// the ray's own width. `None`: a body ray of a body with no kinematics, or a
+/// part whose place does not map.
+fn ray_start(
+    ray: &HeldRay,
+    owner: Entity,
+    body: Option<&ae::BodyKinematics>,
+    landmarks: &crate::body_landmarks::BodyLandmarks,
+) -> Option<(ae::Vec2, f32)> {
+    use ambition_combat_port::{ArtPart, Spot};
+    match &ray.from {
+        Spot::World(at) => Some((ae::Vec2::from(*at), ray.width)),
+        Spot::Body(offset) => Some((body?.pos + ae::Vec2::from(*offset), ray.width)),
+        Spot::Part(spot) => {
+            let kin = body?;
+            let part = match spot.part {
+                ArtPart::Visor => ambition_characters::actor::PartBox::Visor,
+            };
+            let rows: Vec<&str> = spot.rows.iter().map(String::as_str).collect();
+            match landmarks.part_box_in_row(owner, part, &rows, spot.elapsed, spot.inset_px) {
+                Some(drawn) => {
+                    let front = bevy::math::Vec2::new(drawn.max.x, drawn.center().y);
+                    match landmarks.place_rig_point(owner, front, kin) {
+                        Ok(at) => Some((at, drawn.height())),
+                        Err(fault) => {
+                            trace!(?owner, ?fault, "ray part did not map");
+                            None
+                        }
+                    }
+                }
+                None => Some((kin.pos + ae::Vec2::from(spot.otherwise), ray.width)),
+            }
+        }
+    }
+}
+
+/// Where `ray`, asked for by `owner`, goes: from `origin` along its direction
+/// to the first wall, `width` wide, through the pairs it enters as far as the
 /// body's portal policy lets a volume go, as a volume from its start (so the
-/// pairs cut it where it goes through them). `None`: a body ray of a body
-/// with no position, or no direction.
+/// pairs cut it where it goes through them). `None`: no direction.
+#[allow(clippy::too_many_arguments)]
 fn cast_ray(
     ray: &HeldRay,
-    body: Option<ae::Vec2>,
+    origin: ae::Vec2,
+    width: f32,
     walls: Option<&ae::World>,
     passages: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
     owner: Entity,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> Option<(ae::Vec2, crate::strike::RayStrike, ae::VolumeShape)> {
-    let origin = match ray.from {
-        ambition_combat_port::Spot::World(at) => ae::Vec2::from(at),
-        ambition_combat_port::Spot::Body(offset) => body? + ae::Vec2::from(offset),
-    };
     let toward = ae::Vec2::from(ray.toward);
     if !origin.is_finite() || !toward.is_finite() || !ray.reach.is_finite()
-        || !ray.width.is_finite() || ray.reach <= 0.0 || ray.width <= 0.0 { return None; }
+        || !width.is_finite() || ray.reach <= 0.0 || width <= 0.0 { return None; }
     let dir = toward.as_dvec2().normalize_or_zero().as_vec2();
     if dir == ae::Vec2::ZERO { return None; }
     let reach = ray.reach;
@@ -313,7 +349,7 @@ fn cast_ray(
                 None => (&[][..], ae::frame::thread::PieceBudget::SINGLE_HOP.into(), Default::default()),
             };
             match ae::cast::trace_through_apertures(
-                walls, links, ae::cast::PortalRay { origin, direction: dir, reach, width: ray.width }, false, budget, convention,
+                walls, links, ae::cast::PortalRay { origin, direction: dir, reach, width }, false, budget, convention,
             ) {
                 Ok(trace) => trace.distance,
                 Err(refusal) => {
@@ -325,7 +361,7 @@ fn cast_ray(
         None => reach,
     };
     if length <= 0.0 { return None; }
-    let strike = crate::strike::RayStrike { dir, length, width: ray.width, look: Arc::from(ray.look.as_str()) };
+    let strike = crate::strike::RayStrike { dir, length, width, look: Arc::from(ray.look.as_str()) };
     let shape = strike.shape();
     if let Some(passages) = passages {
         let volume = shape.place_at(origin, 1.0, ae::Vec2::Y);
@@ -358,6 +394,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
     bodies: Query<(&ae::BodyKinematics, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>)>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
+    landmarks: crate::body_landmarks::BodyLandmarks,
 ) {
     let mut asked: Vec<AskedHeld> = outbox
         .drain::<HeldDamageBoxPort>(&P::PHASE)
@@ -378,11 +415,11 @@ fn lower_held_damage_boxes<P: LowersIn>(
         })
         .collect();
     for s in outbox.drain::<HeldRayPort>(&P::PHASE) {
-        let (body, room) = bodies.get(s.scope).map_or((None, None), |(kin, room)| (Some(kin.pos), room));
+        let (body, room) = bodies.get(s.scope).map_or((None, None), |(kin, room)| (Some(kin), room));
         let walls = collision.room(room).and_then(|room| room.solids());
-        let Some((origin, ray, shape)) =
-            cast_ray(&s.value, body, walls.as_deref(), passages.as_deref(), s.scope, room.map(|r| r.0))
-        else {
+        let Some((origin, ray, shape)) = ray_start(&s.value, s.scope, body, &landmarks).and_then(|(origin, width)| {
+            cast_ray(&s.value, origin, width, walls.as_deref(), passages.as_deref(), s.scope, room.map(|r| r.0))
+        }) else {
             trace!("extension entry {} ray from {:?} refused before publication", s.entry, s.scope);
             continue;
         };

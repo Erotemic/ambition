@@ -252,6 +252,7 @@ kaleidoscope_menu = []
 profile = ["bevy/trace", "bevy/trace_tracy"]
 
 [dependencies]
+ambition_geometry_observation = { path = "../ambition_geometry_observation" }
 ambition_platformer2d_interaction = { path = "../ambition_platformer2d_interaction" }
 ambition_breakables = { path = "../ambition_breakables" }
 ambition_projectile_combat = { path = "../ambition_projectile_combat" }

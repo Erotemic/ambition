@@ -1,7 +1,7 @@
 # Chargen: species head knobs and per-view 2D overlay art
 
-**State:** the overlay mechanism is built. Species parameters and asymmetric
-view cells remain open under
+**State:** the overlay mechanism and the dog and pigeon knobs are built. The
+other species' knobs and asymmetric view cells remain open under
 [CHARGEN-SPECIES](../queue.md#chargen-species--species-parameters-and-asymmetric-overlay-views).
 The renderer's `chargen` modules own implementation; this page owns the design.
 
@@ -108,16 +108,37 @@ Rulings it must keep:
 
 ## 2. Species head knobs
 
-Each species is one fixed model today, plus `head.muzzle` (0.6 to 1.4) and
-`head.ears` (`default`, `floppy`, `pointed`). Proposed knobs, drawn from the
-seed like every other field:
+Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
+`floppy`, `pointed`). The dog and the pigeon have their own knobs (built):
 
-- **dog**: muzzle length, stop depth, skull breadth, jowls (flews), ear length
-  and fold and set, nose size, coat markings (mask, blaze, saddle; floppy ears
-  already take the hair colour).
-- **pigeon**: beak length and curve, cere size, sheen strength, an eye ring.
-- **horse**: face length, a blaze or star. **cat**: ear size, cheek fluff,
-  stripes. **bird**: crest style. **sea lion**: whisker pads.
+- **dog** (`spec.SPECIES_KNOBS["dog"]`): `head.stop` (0.3 to 1.6: below 1
+  the forehead runs into the muzzle, above 1 it domes over a deeper step),
+  `head.skull` (breadth, 0.85 to 1.2), `head.flews` (0 to 1: the upper lip
+  hangs over the jaw), `head.ear_length`, `head.ear_fold` (a floppy ear
+  folds forward into a button ear, a pointed ear's tip tips over: the
+  pointed dog no longer has to read as a fox), `head.ear_set` (0 high on
+  the crown to 1 low at the sides), `head.marking` (`none`, `mask`, `blaze`,
+  `saddle`; a dark mask or saddle darkens the ears, and the saddle runs down
+  the back of the neck). The nose's size is the existing `face.nose_size`.
+- **pigeon** (`spec.SPECIES_KNOBS["pigeon"]`): beak length is `head.muzzle`;
+  `head.beak_curve` (how far the tip turns down), `head.cere` (0 for none),
+  `head.sheen` (strength of the neck's green and purple, 0 for none),
+  `head.eye_ring` (bare skin round the eye, 0 for none).
+- How they are kept: each knob's default draws the head exactly as before
+  (checked byte for byte). They are drawn from the seed after every older
+  field, so every existing seed keeps all its older fields (checked over
+  3447 generated and resident records). On another species a knob is reset
+  to its default and not written, so other species' records and SVGs are
+  unchanged. A species always writes its own knobs, so a value an author
+  sets (even the default) is never redrawn from the seed. The four pigeon
+  residents pin the pigeon knobs at their defaults, so they draw as
+  published. `BOUNDS` and `CHOICES` own the ranges, so validation, the
+  studio's controls and `applies.py` pick them up; `test_chargen_applies`
+  checks each knob draws on its own head and nothing on a human's.
+- Every marking is the same on both sides, so the mirrored left views stay
+  right. A one-sided marking (an eye patch) needs left cells first.
+- Next: **horse**: face length, a blaze or star. **cat**: ear size, cheek
+  fluff, stripes. **bird**: crest style. **sea lion**: whisker pads.
   **alligator**: snout length and width, scute rows.
 
 ## Traps (measured while making the dog and pigeon, renderer 5d0f0bf)
@@ -139,4 +160,4 @@ seed like every other field:
   `sheets._head_crop` and `sheets._grid` (about 8 s a species; run with
   `PYTHONPATH=<renderer>`).
 - Open weak spots: the pigeon's beak reads a little snout-like from the front;
-  the pointed-ear dog reads foxy; the cat is untouched.
+  the pointed-ear dog reads foxy when `head.ear_fold` is 0; the cat is untouched.

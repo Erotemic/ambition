@@ -141,8 +141,39 @@ every jump.
   work.
 - **Turning mid-walk** happens once in the run (it turns to face the player).
 
+**Phases 2 and 3 and the rider, measured 2026-11-11** with the same probe,
+now three runs of 20 s: phase 1; phase 2 (`free_fists`); phase 3 (the
+scholar at a fifth of his health, so the well opens and the fight goes on
+in space). It also records the scholar's own drawn row and its clock, and
+checks each fist's move against its own velocity.
+
+- **The walk is right in every phase:** 135 world units per second of row
+  clock, phases 1, 2 and 3 alike.
+- **The rider's rows are smooth:** `point`, `conduct`, `invoke` and `brace`
+  start at 0.00 s when a move starts and step by exactly one frame each
+  frame; between moves he is unpinned (his own rows). No clock went back or
+  skipped.
+- **The stomp plays at half speed** (its clock steps 0.008 a frame), as the
+  windups do: stretched over its telegraph, uniform.
+- **In phase 1 the fists ride the rig:** placed each frame with velocity
+  zero (417 frames move a fist 2.3 units with velocity zero). Not a jump; a
+  renderer that extrapolated from velocity would lag them.
+- **⛔ A body that straddles a portal moves unevenly (portal work).** Two
+  cases, both in portal transit, which the portals work owns:
+  1. **The giant falling out of the well's exit portal** (phase 3, frames
+     77–89 of the run): falling 15–16 units a frame, it does not move at all
+     on every second or third frame (77, 80, 82, 84, 87, 89) while its
+     velocity keeps growing, then moves every frame once it is clear of the
+     aperture (about frame 90). A hitch at about 20 Hz for a quarter second.
+  2. **A free fist in a portal pair** (`demonstrate_pair`, phase 2): while
+     the strike carries it through the pair, its position jumps about 280
+     units between the pair's two ends on every frame, one way then back,
+     and before the strike each fist's velocity is zero on every other
+     frame.
+  Whether either is drawn as a hitch depends on how the renderer draws a
+  body in two places, which the headless probe cannot see.
+
 **Not measured.** The rendered part transforms (the headless harness draws
-nothing), render-rate interpolation, phase 2 and 3 (arms in their lines, the
-space phase), and the rider's own rows. On the measuring machine the giant's sheet
+nothing) and render-rate interpolation. On the measuring machine the giant's sheet
 was not baked, so the shoulder and hump tests in `gnu_ton_fight` failed there
 for that reason, before this change and after it alike.

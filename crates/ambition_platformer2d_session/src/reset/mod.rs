@@ -302,6 +302,14 @@ pub fn begin_fresh_run(world: &mut World) {
     if let Some(mut save) = world.get_resource_mut::<AmbitionGameSave>() {
         *save.data_mut() = fresh_run_save();
     }
+    // And the facts a later death goes back to: the new run's, not the old
+    // run's last checkpoint.
+    if let Some(mut baseline) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+        crate::fact_horizon::FactsBaseline,
+    >(world)
+    {
+        baseline.adopt(crate::fact_horizon::CheckpointFacts::of(&fresh_run_save()));
+    }
     // The registries. `Default` clears `specs_loaded` / `initialized`, so the
     // populate systems build them again from the empty save on the next tick.
     if let Some(mut registry) = world.get_resource_mut::<BossEncounterRegistry>() {

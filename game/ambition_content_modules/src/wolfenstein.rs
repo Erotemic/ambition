@@ -27,12 +27,14 @@
 //!   points along is marked, and the current goes down it. It answers a
 //!   player on a gallery or in the air.
 //!
-//! His room is dark, and he sits dead on his throne, his eyes faintly lit,
-//! the coils at his sides crackling, until you come near enough to see him
-//! (his encounter's `wake_radius`). Then his intro: a beat of dark; the
-//! coils fire and their flash shows him on the throne; dark; more lightning;
-//! dark; the lights flicker on, the coils strike his bolts and he rises out
-//! of the throne; he roars in the lightning under his name card
+//! His room is dark, and he lies asleep on a slab under a sheet (Jon,
+//! 2026-11-11: "on a bench with a sheet covering him to start, (sleeping so
+//! no tongue and dead droopy eyes), waiting, and then he powers up"), the
+//! coils at its sides crackling, until you come near enough to see him (his
+//! encounter's `wake_radius`). Then his intro: a beat of dark; the coils fire
+//! and their flash shows him on the slab; dark; more lightning; dark; the
+//! lights flicker on, the coils strike his bolts, he throws off the sheet,
+//! gets down and the power goes through him; he roars in the lightning under his name card
 //! (`ambition.boss.stage`); and he leaps back from you, to give you room
 //! before the fight. Between the phases
 //! lightning strikes him, he shakes, and he howls. At a third of his health
@@ -131,6 +133,13 @@ impl Body {
     /// The bolts in his neck, standing.
     fn bolts(self) -> Vec2 {
         self.art(156.0, 112.0)
+    }
+
+    /// His bolts as he lies on his slab (`bench_sleep`, and `bench_wake`
+    /// until he sits up): the renderer's bolt point moves by (-51.5, +56.2)
+    /// frame pixels from `idle` frame 0 to lying, carried onto [`Self::bolts`].
+    fn bench_bolts(self) -> Vec2 {
+        self.art(156.0 - 51.5, 112.0 + 56.2)
     }
 
     /// His body. It hurts to touch only while a move is live.
@@ -459,9 +468,9 @@ record! {
     /// Dead: seconds since he died.
     42 dead_for: Option<f32>,
     /// His intro: seconds since his encounter woke (a player came near his
-    /// throne). `None` while he sleeps.
+    /// slab). `None` while he sleeps.
     43 intro: Option<f32>,
-    /// The leap back off his throne: where it starts and where it lands.
+    /// The leap back from his slab: where it starts and where it lands.
     44 leap_from: f32,
     45 leap_to: f32,
     /// Overreached after a stab: seconds into hauling himself back.
@@ -755,7 +764,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let crossed = |at: f32| t >= at && was < at;
         let bolt_at = neck(at, side);
         inv.submit::<BossStagePort>(death_stage_at(t))?;
-        // The coils stand where they stood at his throne, at his build.
+        // The coils stand where they stood by his slab, at his build.
         let built = if c.serumed { Body::of_height(wolf.size[1] / SERUM_GROWTH) } else { b };
         let coils = coils_of(built, c.leap_from, hall.floor);
         if c.dead_for.is_none() {
@@ -820,7 +829,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         return c.store(inv);
     }
 
-    // ── Asleep on his throne, then his intro ──
+    // ── Asleep on his slab, then his intro ──
     // It ends when its time is up, or when his pattern starts a move.
     if !c.woke {
         if wolf.awake {
@@ -1539,7 +1548,7 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
 /// fight.
 const INTRO_S: f32 = 8.28;
 /// The coils fire: when, and how bright. The first flash shows him on his
-/// throne; dark; then more of them.
+/// slab; dark; then more of them.
 const FLASHES: [(f32, f32); 5] = [(0.9, 1.0), (2.3, 0.7), (2.55, 0.55), (2.95, 1.0), (3.2, 0.75)];
 /// A flash fades with this time constant.
 const FLASH_FADE_S: f32 = 0.16;
@@ -1548,12 +1557,15 @@ const CHARGE_FROM: f32 = 3.4;
 /// The lights flicker on over this long.
 const LIGHTS_FROM: f32 = 3.9;
 const LIGHTS_S: f32 = 1.5;
-/// The coils strike his bolts twice; from the first he rises out of the
-/// throne (`throne_wake`, 20 frames of 85 ms).
-const JOLTS: [f32; 2] = [4.1, 4.6];
-const WAKE_S: f32 = 1.7;
-/// From this part of the wake on, he stands up.
-const STAND_FROM: f32 = 0.55;
+/// The coils strike his bolts twice. At the first he wakes and gets up off
+/// his slab (`bench_wake`, 20 frames of 80 ms: he throws the sheet off, sits
+/// up, drops to the floor); the second is the power going through him, on
+/// the floor, at `POWER_U` of the row.
+const WAKE_S: f32 = 20.0 * 0.08;
+const POWER_U: f32 = 0.66;
+/// He has sat up by this part of `bench_wake`.
+const SITS_UP_U: f32 = 0.2;
+const JOLTS: [f32; 2] = [4.1, 4.1 + POWER_U * WAKE_S];
 /// He roars (`howl`, 12 frames of 70 ms) in the lightning.
 const ROAR_AT: f32 = JOLTS[0] + WAKE_S;
 const ROAR_S: f32 = 0.84;
@@ -1573,29 +1585,14 @@ const LAND_S: f32 = 0.56;
 const LAND_SKID: f32 = 14.0;
 /// Asleep, a coil crackles this often.
 const DORMANT_ARC_S: f32 = 1.4;
-/// His eyes on his throne, from his position (authored body, art facing
-/// right), and their glow in the dark.
-const EYES: Vec2 = Vec2::new(8.0, -40.0);
-const EYE_GLOW: [f32; 4] = [1.0, 0.42, 0.22, 0.7];
-/// Seated, all of him is lifted this far over the floor: the throne's
-/// cushion (84 over its base) less the underside of his seat in his art (18
-/// over his feet line), at his 140-unit build (authored body).
-const SEAT_LIFT: f32 = 47.0;
-/// The coils beside the throne: their tops, from him (authored body). The
+/// The coils beside his slab: their tops, from him (authored body). The
 /// throne room puts their middles 150 world units either side of his, their
 /// tops 172 over the floor, at his 140-unit build
 /// (`game/ambition_map_assets/ambition_content/generators/castle_godwin/make_specs.py`, `COIL_*_X`).
 const COIL_SPREAD: f32 = 107.0;
 const COIL_HIGH: f32 = 123.0;
 
-/// How far he has stood up out of his throne, `t` seconds into his intro: 0
-/// seated, 1 standing.
-fn stood(t: f32) -> f32 {
-    let from = JOLTS[0] + WAKE_S * STAND_FROM;
-    ease(((t - from) / (WAKE_S * (1.0 - STAND_FROM))).clamp(0.0, 1.0))
-}
-
-/// The tops of the coils either side of the throne at `x`.
+/// The tops of the coils either side of his slab at `x`.
 fn coils_of(b: Body, x: f32, floor: f32) -> [Vec2; 2] {
     [
         Vec2::new(x - b.len(COIL_SPREAD), floor - b.len(COIL_HIGH)),
@@ -1655,7 +1652,7 @@ fn row_span(name: &'static str, from: f32, to: f32, fd: f32, u: f32) -> (&'stati
     (name, (from + u.clamp(0.0, 0.999) * (to - from)) * fd, false)
 }
 
-/// Asleep on his throne, and then his intro (the module docs): where he is,
+/// Asleep on his slab, and then his intro (the module docs): where he is,
 /// what he is drawn as, the coils, the lightning and the stage.
 fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Body, hall: Hall, dt: f32) -> Result<(), Fault> {
     let at = Vec2::from(wolf.position);
@@ -1663,11 +1660,11 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
     let ceiling = hall.floor - CEILING;
     let mut side = wolf.side;
     let neck = |pos: Vec2, side: f32| pos + Vec2::new(b.bolts().x * side, b.bolts().y);
-    let eyes = |pos: Vec2, side: f32| pos + Vec2::new(EYES.x * side, EYES.y) * b.grown();
     inv.submit::<BossStagePort>(stage_at(c.intro))?;
 
     let Some(t) = c.intro else {
-        // Asleep: a coil crackles now and then, and his eyes are lit.
+        // Asleep on his slab: a coil crackles now and then. His box stands on
+        // the floor; his rows lie on the slab.
         let coils = coils_of(b, at.x, hall.floor);
         let was = c.clock - dt;
         if (c.clock / DORMANT_ARC_S).floor() != (was / DORMANT_ARC_S).floor() {
@@ -1676,11 +1673,8 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
             bolt(inv, "coil", Spot::World(coil.into()), Spot::World(up.into()), "spark_gap", 0.08)?;
             burst(inv, coil, 3, 70.0, ARC, "spark")?;
         }
-        let pos = Vec2::new(at.x, stand_y - b.len(SEAT_LIFT));
-        if c.ticks % 10 == 0 {
-            burst(inv, eyes(pos, side), 1, 4.0, EYE_GLOW, "spark")?;
-        }
-        return held_at(inv, at, pos, side, ("throne_dead", c.clock, true), dt);
+        let pos = Vec2::new(at.x, stand_y);
+        return held_at(inv, at, pos, side, ("bench_sleep", c.clock, true), dt);
     };
 
     let was = t - dt;
@@ -1692,15 +1686,18 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
         None => wolf.side,
     };
     if was < 0.0 {
-        // Woken: he is turned to whoever woke him. His throne is here.
+        // Woken: he is turned to whoever woke him. His slab is here.
         side = face(at.x);
         c.leap_from = at.x;
     }
-    let throne_x = if t < LEAP_AT { at.x } else { c.leap_from };
-    let coils = coils_of(b, throne_x, hall.floor);
-    let bolt_at = neck(at, side);
+    let slab_x = if t < LEAP_AT { at.x } else { c.leap_from };
+    let coils = coils_of(b, slab_x, hall.floor);
+    // He lies on his slab until he sits up, about a fifth of the way into
+    // his wake: the charge and the first jolt find his bolts there.
+    let lying = t < JOLTS[0] + SITS_UP_U * WAKE_S;
+    let bolt_at = if lying { at + Vec2::new(b.bench_bolts().x * side, b.bench_bolts().y) } else { neck(at, side) };
 
-    // The coils fire: across the throne, then at the ceiling.
+    // The coils fire: across his slab, then at the ceiling.
     for (k, (mark, bright)) in FLASHES.into_iter().enumerate() {
         if !crossed(mark) {
             continue;
@@ -1793,11 +1790,11 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
     let skid = |u: f32| (c.leap_to + away * b.len(LAND_SKID) * ease_out(u)).clamp(lo, hi);
 
     let (pos, row) = if t < LEAP_AT {
-        let pos = Vec2::new(at.x, stand_y - b.len(SEAT_LIFT) * (1.0 - stood(t)));
+        let pos = Vec2::new(at.x, stand_y);
         let row = if t < JOLTS[0] {
-            ("throne_dead", t, true)
+            ("bench_sleep", t, true)
         } else if t < ROAR_AT {
-            row_span("throne_wake", 0.0, 20.0, 0.085, (t - JOLTS[0]) / WAKE_S)
+            row_span("bench_wake", 0.0, 20.0, 0.08, (t - JOLTS[0]) / WAKE_S)
         } else if t < ROAR_AT + ROAR_S {
             row_span("howl", 0.0, 12.0, 0.07, (t - ROAR_AT) / ROAR_S)
         } else {
@@ -1816,10 +1813,6 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
     } else {
         (Vec2::new(skid(1.0), stand_y), ("idle", t, true))
     };
-    if t < LIGHTS_FROM + 0.5 && c.ticks % 10 == 0 {
-        // His eyes, in the dark.
-        burst(inv, eyes(pos, side), 1, 4.0, EYE_GLOW, "spark")?;
-    }
     held_at(inv, at, pos, side, row, dt)
 }
 

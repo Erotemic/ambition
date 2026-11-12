@@ -150,6 +150,21 @@ impl QuestRegistry {
             .or_insert_with(|| crate::quest::QuestState::new(spec));
     }
 
+    /// Put each registered quest where `save` records it, and start each quest
+    /// that starts by itself and has not started: the rule a session's quests
+    /// are built by, and the one a checkpoint restore puts them back by. An
+    /// auto-started quest is not written to the save until it advances, so the
+    /// save alone would leave it unstarted.
+    pub fn rehydrate(&mut self, save: &crate::save_data::AmbitionGameSaveData) {
+        for (id, state) in self.quests.iter_mut() {
+            let (persisted, step) = save.quest(id);
+            state.apply_persisted(persisted, step);
+            if state.spec.auto_start {
+                let _ = state.start();
+            }
+        }
+    }
+
     pub fn get(&self, id: &str) -> Option<&crate::quest::QuestState> {
         self.quests.get(id)
     }

@@ -215,6 +215,30 @@ impl BodyLandmarks<'_, '_> {
         ))
     }
 
+    /// `part` of `body` in its rig space, in the first of `rows` its art
+    /// has, `elapsed_s` into that row on the row's own loop rule: the row a
+    /// module draws the body in, which its pose clocks do not hold. Drawn in
+    /// `inset_px` sheet pixels from its art's bounds, as [`Self::part_box`].
+    /// `None` when its art has none of the rows or does not draw the part in
+    /// that frame.
+    pub fn part_box_in_row(
+        &self,
+        body: Entity,
+        part: ambition_characters::actor::PartBox,
+        rows: &[&str],
+        elapsed_s: f32,
+        inset_px: f32,
+    ) -> Option<bevy::math::Rect> {
+        let (worn, posed, render_size, ..) = self.bodies.get(body).ok()?;
+        let sheet = self.characters.as_ref()?.get(worn?.id())?.sheet.as_deref()?;
+        let table = ambition_sprite_sheet::baked_landmarks::body_landmarks(&self.sprite_content, sheet)?;
+        let world_per_pixel = drawn_world_per_pixel(posed, render_size, table.frame_height)?;
+        let (name, clip) = table.first_clip(rows.iter().copied())?;
+        let pixels = table.part_box(part, name, clip.frame_at_time(elapsed_s))?.inflate(-inset_px);
+        (!pixels.is_empty())
+            .then(|| bevy::math::Rect::from_corners(pixels.min * world_per_pixel, pixels.max * world_per_pixel))
+    }
+
     /// Place a canonical rig point through the body's accepted material map.
     pub fn place_rig_point(
         &self,

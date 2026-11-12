@@ -107,6 +107,24 @@
       "status": "active",
       "cwd": "repository root",
       "binary": "render_room_geometry"
+    },
+    {
+      "id": "inspect_geometry",
+      "title": "Inspect the effective gameplay geometry of a room headless (collision, bodies, combat, interaction, navigation) as JSON",
+      "owner": "game/ambition_app_tools",
+      "command": "target/debug/inspect_geometry --room basement_breakables --ticks 30 --out /tmp/geometry.json",
+      "help": "target/debug/inspect_geometry --help",
+      "requires": [
+        "game/ambition_app_tools/src/bin/inspect_geometry.rs"
+      ],
+      "docs": "docs/planning/engine/geometry-observability-and-f1.md",
+      "inputs": "Room; ticks to step; observer names or prefixes (--provider, --list for the catalog); --no-subject for the room's own view.",
+      "outputs": "ambition.geometry_observation.v1 JSON: each observer's pieces with key, roles, shape and active or inactive with the owner's reason.",
+      "mutation": "Runs an isolated simulation; writes the requested output file.",
+      "build": "Reuse target/debug/inspect_geometry or target/release/inspect_geometry. If absent, enable the target bind, then cargo build -p ambition_app_tools --bin inspect_geometry.",
+      "status": "active",
+      "cwd": "repository root",
+      "binary": "inspect_geometry"
     }
   ]
 }

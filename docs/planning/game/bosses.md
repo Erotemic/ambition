@@ -348,6 +348,26 @@ authored effect sheets too. No shader draws any of them.
 
 The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
 
+**The bench intro (art, Jon 2026-11-11: "he should likely be on a bench with
+a sheet covering him to start, (sleeping so no tongue and dead droopy eyes),
+waiting, and then he powers up").** Built 2026-11-11: he lies on
+`wolfenstein_bench` (the throne's place in the throne room; generator
+`castle_godwin/make_specs.py`) in `bench_sleep`, with no eye glow; the coils'
+first jolt finds his bolts where he lies (`Body::bench_bolts`), he wakes in
+`bench_wake`, and the second jolt lands with the row's power-up lightning
+(`POWER_U`).
+
+- `wolfenstein` rows: `bench_sleep` (6 frames x 300 ms, a loop: he lies on
+  his back under a white sheet to his neck, jaws shut, dull half-shut eyes,
+  a slow breath) and `bench_wake` (20 x 80 ms: the charge crawls over the
+  sheet, he throws the sheet off at 0.12 of the row, sits up, sits on the
+  edge, drops to the floor at about 0.56, the power-up lightning goes
+  through him from 0.66 to 0.88, and the last frame is `idle` frame 0).
+- The prop `wolfenstein_bench` (`castle_godwin_dressing`, 176 x 40 world
+  units, its top 37.6 units over the floor) is not in his rows. Put its
+  bottom middle on the floor under his feet anchor (his body box's bottom
+  middle): his rows then lie and sit on its top. It stays after he rises.
+
 ### Remaining polish and acceptance
 
 The staged implementation established its own attacks, intro, phase 3,
@@ -416,6 +436,34 @@ continuity if her combat role changes.
    castle gatehouse. Lock walls with a `break` row crumble; other looks
    slide into their lintels. The crack and its hidden breach do not appear
    open before the correct state change.
+
+**The last stand (art, Jon 2026-11-11).** At its last hit point it bursts
+unhurtable again, Kagero's great seal holds it, and the next blow kills it in
+hell's fire. Built 2026-11-11: held at one health from Kagero's first spell, it
+bursts in `ssj2_full`; she comes back with her great seal (`great_seal`, the
+volley `great_seal_volley`); the Inugami draws the ring round its head
+(`great_seal_wrap`, then `great_seal_hold` while it lies guttered, sized from
+its own box) and the killing blow bursts it (`great_seal_break`) as it burns
+away in `hellfire_death`, held to its empty last frame. In the chase it wears
+`ward_ring_green`.
+
+- `wolfenstein_inugami` layer rows (drawn as the ward's layers are: about
+  the head at rest, carried by the `skull` track, `behind` tracks under the
+  head): `ssj2_full` (blue and green aura and bolts, the burst) and
+  `ssj2_green` (green), each a 12 x 40 ms loop; and `ward_ring_green`
+  (32 x 35 ms, one turn): the spirits of `ward_ring`, frame for frame, with
+  the green lightning in the same layer. The chase draws it in place of
+  `ward_ring`, because the game draws one layer over a row at a time.
+- `wolfenstein_inugami` row `hellfire_death` (28 x 70 ms): struck, hell's
+  fire burns it from its chin up, it goes up in embers and pale wisps, and
+  the last frame is empty. The old `death` row is unchanged.
+- `ninja_kagero` row `great_seal` (16 x 80 ms): her seal opens round her
+  with ten talismans, and she throws them at 0.66-0.9 of the row.
+- Effect sheet `kagero_great_seal` (320 px square frames): `great_seal_volley`
+  (12 x 30 ms, played as `ofuda_volley`), `great_seal_wrap` (14 x 45 ms, the
+  ring closes round the head), `great_seal_hold` (12 x 70 ms, a loop) and
+  `great_seal_break` (12 x 45 ms, the ring bursts and burns). The ring is 0.8
+  of the frame across.
 
 **Attack language.** The hunting dog stalks and gathers before its lunge,
 pounces jaws-first onto a marked floor, lashes the **tip** of a broken

@@ -27,8 +27,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
-5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) makes the effective geometry behind collisions, attacks, interactions, portals and navigation visible and machine-readable; it is a concrete inspection customer, not a broad spatial rearchitecture. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
-   EDITOR-SHELL remain selected at their stated boundaries. Portal, rendering,
+5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) makes the effective geometry behind collisions, attacks, interactions, portals and navigation visible and machine-readable; it is a concrete inspection customer, not a broad spatial rearchitecture. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
+   remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
+   are complete: [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
+   T0-T5; retired from this queue 2026-11-11). Portal, rendering,
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
 
@@ -55,7 +57,7 @@ or updating their source. Check with
 
 **Owner:** [authority-model experiment](engine/hosted-world-networking-experiment.md) and [network topology](engine/network-topology-and-authority-research.md).
 
-**Next action:** NA-1 and a first NA-2 are measured (2026-11-10, [results](engine/hosted-world-networking-experiment.md#na-1-and-na-2-2026-11-10)): each GGRS peer spends about 4× the host's update per frame even without rollbacks, and room-scoped replication bytes depend on delta encoding. Half of that is `SaveWorld`: 1,196 systems, about 16 ms per run whatever the body count. The 2026-11-10 direction (hybrid; rollback kept per room while cheap) makes this the hosted half of [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world). NA-2b's first measurement ([result](engine/hosted-world-networking-experiment.md#na-2b-first-measurement-2026-11-10-a-guest-app-that-simulates-nothing)): a guest App with every simulation phase gated off costs about 4.5 ms an update against the host's 9–10, and applying 2–18 body rows costs about 0.1 ms. The gated guest's update split (2026-11-11): alone it costs about 2.2 ms, nearly all `Update`'s 1,030 gated systems, so a guest should be composed from fewer plugins rather than gated. Done 2026-11-11: shots spawned and ended on the host are built and removed on the guest by `SimId` from a spawn row per kind; its ids equal the host's after every snapshot, at about 1.3 link bytes a frame ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)). A death on the host is a row change, not a despawn (the killed enemy's body stays), so the body row must carry the defeat; done 2026-11-11 ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)): health by `SimId` (2 bytes a body) puts the guest's enemy down one snapshot after the host's with no disagreement, but what draws a death is gated simulation state; done 2026-11-11 ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)): the `DeathBeat` by `SimId` (3 bytes a body) makes the guest draw the corpse as the host does (without it, never), though the kill's shake and hold stay on the host. Without the gated systems (2026-11-11, [result](engine/hosted-world-networking-experiment.md#na-2b-the-gated-guests-update-split-2026-11-11)): taking the simulation's 557 systems out of a booted guest saves 0.24–0.46 ms of about 2.1, and the rest is 335 composition and presentation systems (other games' demos, the conversation, the shell), so a cheap guest is a narrower composition, not a missing simulation. Done 2026-11-11: the kill as a presentation event: the host's camera shakes, forwarded with each snapshot, make the guest shake with it and the control never does, at 0.11 link bytes a frame ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)). Measured 2026-11-11: a guest of Ambition alone (`AMBITION_HUB_GAMES=ambition`) has 136 fewer systems and costs no measurably less (1.8–2.2 ms an update against 1.9–2.9, two runs each); its cost is Ambition's own conversation, shell and load presentation ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)). Next: NA-2b with the other kinds' spawn rows, and sounds and visuals over the same channel; NA-3 guest prediction, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
+**Next action:** NA-1 and a first NA-2 are measured (2026-11-10, [results](engine/hosted-world-networking-experiment.md#na-1-and-na-2-2026-11-10)): each GGRS peer spends about 4× the host's update per frame even without rollbacks, and room-scoped replication bytes depend on delta encoding. Half of that is `SaveWorld`: 1,196 systems, about 16 ms per run whatever the body count. The 2026-11-10 direction (hybrid; rollback kept per room while cheap) makes this the hosted half of [SIMULATION-ISLANDS](#simulation-islands--room-level-rollback-inside-a-hybrid-world). NA-2b's first measurement ([result](engine/hosted-world-networking-experiment.md#na-2b-first-measurement-2026-11-10-a-guest-app-that-simulates-nothing)): a guest App with every simulation phase gated off costs about 4.5 ms an update against the host's 9–10, and applying 2–18 body rows costs about 0.1 ms. The gated guest's update split (2026-11-11): alone it costs about 2.2 ms, nearly all `Update`'s 1,030 gated systems, so a guest should be composed from fewer plugins rather than gated. Done 2026-11-11: shots spawned and ended on the host are built and removed on the guest by `SimId` from a spawn row per kind; its ids equal the host's after every snapshot, at about 1.3 link bytes a frame ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)). A death on the host is a row change, not a despawn (the killed enemy's body stays), so the body row must carry the defeat; done 2026-11-11 ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)): health by `SimId` (2 bytes a body) puts the guest's enemy down one snapshot after the host's with no disagreement, but what draws a death is gated simulation state; done 2026-11-11 ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)): the `DeathBeat` by `SimId` (3 bytes a body) makes the guest draw the corpse as the host does (without it, never), though the kill's shake and hold stay on the host. Without the gated systems (2026-11-11, [result](engine/hosted-world-networking-experiment.md#na-2b-the-gated-guests-update-split-2026-11-11)): taking the simulation's 557 systems out of a booted guest saves 0.24–0.46 ms of about 2.1, and the rest is 335 composition and presentation systems (other games' demos, the conversation, the shell), so a cheap guest is a narrower composition, not a missing simulation. Done 2026-11-11: the kill as a presentation event: the host's camera shakes, forwarded with each snapshot, make the guest shake with it and the control never does, at 0.11 link bytes a frame ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)). Measured 2026-11-11: a guest of Ambition alone (`AMBITION_HUB_GAMES=ambition`) has 136 fewer systems and costs no measurably less (1.8–2.2 ms an update against 1.9–2.9, two runs each); its cost is Ambition's own conversation, shell and load presentation ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)). Measured 2026-11-11: what else a host spawns: in the kill run, only the shots (by `SimId`) and the enemy's bounty coin, which has no `SimId` (drops are anonymous by design), so a guest replicating by `SimId` never sees it ([result](engine/hosted-world-networking-experiment.md#na-2b-spawns-and-despawns-by-simid-2026-11-11)). Next: NA-2b with pickup spawn rows keyed by `SpawnOrigin`, a census with breakables and summons, and sounds and visuals over the same channel; NA-3 guest prediction, NPC persistent state and late join; NA-4 decide per-game backend and update the applicable ADRs. Evaluate compatible Lightyear and `bevy_replicon` APIs without declaring a dependency before the prototype.
 
 **Acceptance:** runnable headless comparison, byte and CPU measurements, stable guest input/reconciliation, region-scoped replication, persistent host-owned NPC facts, no service dependency, and an explicit per-game synchronization decision. Do not remove GGRS or rewrite working multiplayer merely from prose.
 
@@ -137,7 +139,7 @@ or updating their source. Check with
 
 ### GNU-MOTION-PARTS — diagnose and fix non-smooth giant motion
 
-**Measured and partly fixed 2026-11-10** ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): the walk row's clock now follows distance walked, so the hooves stand still as the body speeds up and slows down, and rest starts at its first frame after a blow. Phases 2 and 3, the rider's rows and rendered part transforms are not measured yet.
+**Measured and partly fixed 2026-11-10** ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): the walk row's clock now follows distance walked, so the hooves stand still as the body speeds up and slows down, and rest starts at its first frame after a blow. Measured 2026-11-11 ([owner](game/boss-cinematics-gnu2-and-motion.md#the-giants-motion-gnu-motion-parts)): phases 2 and 3 walk at the same 135 per row second, the rider's rows start at 0 and step by one frame, and the stomp plays stretched like the windups. Two hitches are portal transit's (the portals work): the giant falling out of the well's exit portal stands still on every second or third frame for about a quarter second, and a free fist in a portal pair jumps about 280 units between the pair's ends every frame. Rendered part transforms are not measured yet.
 
 **Failure:** GNU-ton's giant appears to move non-smoothly. It already has part-sheet assets, but the conductor pins mount animation rows separately from its `MountWalk` motion, rider and fist poses. Root/interpolation/part-pose timing has not been measured; missing runtime part use is a hypothesis, not a confirmed cause.
 
@@ -196,14 +198,16 @@ custody and persistent-world witnesses still exercise real production paths.
 
 ### ABILITY-VARIANTS — finish the authored loadout through shared capability seams
 
-**Failure:** the loadout plan still has placeholder variants, no authored
-upgrade fact, and hard-coded eye-laser origin measurements.
+**Failure:** the loadout plan still has placeholder variants and no authored
+upgrade fact.
 
 **Owner:** equipment preparation, body control slots, content modules and
 character landmarks. Design: [ability loadout, open work](game/ability-loadout.md#open).
 
-**Next action:** after LOADOUT-AUTHORITY, recheck the published eye-laser row
-and add its visor landmark and sound at their source owners. Then support
+**Done 2026-11-11:** the published `eye_laser` row draws, and the laser leaves
+the visor its art draws ([loadout](game/ability-loadout.md#open)).
+
+**Next action:** the laser's own sound waits for an SFX bank republish. Support
 Blink and stance replacement through the existing technique/equipment seam,
 with one authoritative upgrade fact. Author Contextual Blink, Precision Blink
 tiers and the remaining variants in that model, not named engine branches.
@@ -223,8 +227,16 @@ to the wrong side.
 **Owner:** renderer `chargen` specification, species geometry, overlay data and
 studio applicability. Design: [species knobs and overlays](game/chargen-species-knobs-and-2d-overlays.md).
 
-**Next action:** add meaningful dog and pigeon parameters first, then the
-other listed species. Keep parameter defaults, generation and studio controls
+**Dog and pigeon done 2026-11-11 (renderer 93d8e69):** the dog has stop,
+skull, flews, ear length, fold and set, and a mask, blaze or saddle marking;
+the pigeon has beak curve, cere, neck sheen and eye ring
+([knobs](game/chargen-species-knobs-and-2d-overlays.md)). Defaults draw the
+old heads byte for byte and 3447 records keep every older field; no resident
+is a dog and the four pigeon residents pin the defaults, so no published
+product changed and nothing was republished.
+
+**Next action:** the other listed species (horse, cat, bird, sea lion,
+alligator). Keep parameter defaults, generation and studio controls
 at their canonical owners. Add explicit left cells for asymmetric details;
 reuse the existing overlay mechanism. New random draws follow existing draws.
 
@@ -325,62 +337,9 @@ Deck and static web release packages still pass their final asset contracts.
 
 **Owner:** [geometry observability and F1](engine/geometry-observability-and-f1.md), under the [inspection/workbench program](engine/inspection-diagnostics-and-workbench.md).
 
-**Next action:** GOBS-0 is done (2026-11-10, [census and lab](engine/geometry-observability-and-f1.md#gobs-0-result-2026-11-10-census-and-the-first-lab)): F1's blocks layer draws 8 of the 18 solids a body meets in `basement_breakables`, and the lab found a broken platform's lingering pogo orb (fixed). GOBS-1's first slice landed 2026-11-10 (the `ambition_geometry_observation` registry, collision and combat providers, F1's Observed Geometry layer reading the same `observe_all` as headless; and the headless `inspect_geometry` binary with provider selection; and F1's per-provider selection, a Developer-page row that cycles all → each installed observer; and labels on the selected observer's pieces: GOBS-1 is done); GOBS-2 render effective per-body collision and contact decisions; GOBS-3 cover combat, interaction, triggers, navigation and portal pieces; GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
+**Next action:** GOBS-0 is done (2026-11-10, [census and lab](engine/geometry-observability-and-f1.md#gobs-0-result-2026-11-10-census-and-the-first-lab)): F1's blocks layer draws 8 of the 18 solids a body meets in `basement_breakables`, and the lab found a broken platform's lingering pogo orb (fixed). GOBS-1's first slice landed 2026-11-10 (the `ambition_geometry_observation` registry, collision and combat providers, F1's Observed Geometry layer reading the same `observe_all` as headless; and the headless `inspect_geometry` binary with provider selection; and F1's per-provider selection, a Developer-page row that cycles all → each installed observer; and labels on the selected observer's pieces: GOBS-1 is done); GOBS-2 render effective per-body collision and contact decisions (first slice 2026-11-11: the `body.sweep` observer draws each body's swept box, its path and the ground, head and wall contacts the kernel reported, in F1 and headless); GOBS-3 cover combat, interaction, triggers, navigation and portal pieces (interaction done 2026-11-11: `interaction.reach` shows the reach, each candidate, the one the press is for and the rule's reason for every refusal; navigation done 2026-11-11: `navigation.graph` shows the advised graphs' surfaces, hops and drops and each body's route and goal; room regions done 2026-11-11: `world.regions` shows each loading, camera, gravity and encounter region and lock wall where it is authored); GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
 
 **Acceptance:** a single representative two-room lab exposes actual collision/hit/hurt/interaction/portal/navigation geometry with source identity, state and why-not reasons; a new provider becomes discoverable in F1 and headless inspection without modifying a central game-specific draw switch; overlays are room- and view-correct, off by default, and do no per-frame diagnostic work when disabled. Tests distinguish absent, filtered, intangible and unsupported geometry. Do not confuse an authored block outline with a subject's effective collision world.
-
-### TOOL-DISCOVERY — find supported commands by developer intent
-
-**Failure:** the generated tool index lists immediate tool directories. It does
-not identify supported script commands or Cargo binaries, so a workflow still
-requires broad source search.
-
-**Owner:** `scripts/generate_agent_index.py`, `scripts/agent_query.py`, and the
-packages that own each command.
-Design: [tooling layout, T0-T1](engine/tooling-layout-and-editor-consolidation.md).
-
-**Priority:** after the selected asset-contract and A9/AP14 ownership work.
-
-**Next action:** inventory supported capture, moveset, LDtk, asset-inspection
-and ECS workflows on current main. Record their canonical command, help,
-inputs, outputs, mutation policy and build or binary-reuse requirement.
-Identify path consumers before any move. Extend the existing generated index
-from tool-owned descriptions and existing entry points. Keep internal and
-experimental commands distinct; do not add a second command registry.
-
-**Acceptance:** intent queries for screenshots, deterministic capture, move
-tuning, room editing, published assets and ECS inspection return runnable
-commands and their owner documents. Missing commands have useful diagnostics.
-Discovery stays fast and does not require a GUI, Cargo build or asset audit.
-No tool or submodule move is part of this slice.
-
-### EDITOR-SHELL — promote the existing inspector without a second authority
-
-**Failure:** the Asset Inspector and specialist tools have separate entry
-points, with no common navigation for existing inspection workflows.
-
-**Owner:** the existing `tools/ambition_editor` implementation and its CLI.
-Design: [tooling layout, T2](engine/tooling-layout-and-editor-consolidation.md).
-
-**Depends on:** TOOL-DISCOVERY and its path-consumer inventory.
-
-**Next action:** promote the inspector as Ambition Editor under
-`tools/ambition_editor/`, with minimal internal renaming. Preserve its asset
-browsing, JSON commands, cached previews, serve behavior and authored review
-notes. Link to at least one existing specialist tool through its supported
-command. Update known callers in the same change; keep only deliberate stable
-launchers. Do not merge tool environments or reimplement domain operations.
-
-**Acceptance:** one editor opens the existing asset and review workflows and
-reaches another inspection capability. Agents can obtain the same facts and
-invoke that capability without browser automation. Review IDs, provenance,
-selected libraries and stale-preview access survive. Inspection does not gain
-a mandatory build, regeneration or full-library audit.
-
-T3-T5 remain proposed in the owner document. Select one relocation or cleanup
-batch only when the discovery inventory shows its owner, benefit and callers.
-Keep unique capabilities regardless of use counts; do not add forwarding
-wrappers for every moved script.
 
 ### ENEMY-NOTICE — complete first-sight beats on the existing brain paths
 
@@ -645,6 +604,9 @@ rendered combat, and input-timing witnesses pass (latest `dc303e611`).
 GPU captures included; the run found and fixed a panic when a camera retired
 in the frame Bevy's render debug overlay first saw it
 ([verification](engine/peer-room-commit-protocol.md#verification-2026-11-10)).
+On 2026-11-11 the feature run found that one peer's crossing closed the
+other peer's conversation; fixed
+([dialogue](engine/peer-room-commit-protocol.md#dialogue-during-another-peers-crossing-2026-11-11)).
 
 **Next action:** complete the broader **feature and tooling verification** for
 input-driven peer room commits. Reproduce a normal crossing and a failed or
@@ -691,9 +653,13 @@ evidence. Keep diagnostics independent of playback repair.
 **State:** OPEN. Jon reports flicker on desktop and Steam Deck. Warmed High and
 Ultra captures show an opening flare and continuous steady rendering. They do
 not prove that cold startup is correct.
-**Next action:** capture the reported gate from cold startup and locate the
-first incorrect frame. Check sprite readiness, animation ownership and the
-shader layer before changing art.
+**Found and fixed 2026-11-11 ([startup rendering](game/gate-network.md#startup-rendering)):**
+each tier landing at startup rebound the membrane and ring with a new
+animator, unordered against the gate's own systems: one frame of the idle
+cell, then the stable loop restarted at frame 0 (measured with a probe). The
+rebind keeps the cursor and the gate's systems run after it.
+**Next action:** a cold-start capture on desktop and the Deck to see whether
+any flicker remains (the shader layer is unchecked).
 **Acceptance:** the gate renders continuously after its opening on desktop and
 Steam Deck. Keep intended opening animation separate from missing frames.
 
@@ -836,8 +802,20 @@ checkpoint: the survey leaves the bag (objects go back), and
 have no checkpoint copy). The object is lost for good while the world says it
 was received.
 
-**Next action:** (1) the checkpoint copies the participant's unbanked facts
-(flags, quest steps) with the bag, and a solo death restores both; (2) an
+**Built 2026-11-11 (slice 1):** the save's flags and quest steps have a
+checkpoint (`session::fact_horizon`): a baseline taken at each checkpoint
+commit and when a session's save is applied (a New Game's wipe takes the fresh
+save's), pinned into a restore that spares no participant, put back in
+`CheckpointDomainApply` with the quest registry rehydrated by its boot rule
+(`QuestRegistry::rehydrate`), mirrored into the save the rebuilt room is
+prepared from, and verified. Measured with a temporary probe in
+`a_death_sends_the_blink_back_to_where_it_lay`: before, a death before any
+checkpoint left (survey 0, note flag on, survey flag on, quest step 2, lock
+open); after, (survey 0, both flags off, step 0, lock standing). Dialogue
+visits are not restored (Q134). A co-op death that spares a participant pins
+no facts, as before.
+
+**Next action:** (2) an
 authored dialogue effect that banks (a checkpoint action through the existing
 persistence road, one transaction with the facts and objects it moves);
 (3) in co-op, shared facts a survivor holds are not rolled back, and their
@@ -865,8 +843,16 @@ it brakes as standing does, in under a pixel). That is the authored Hollow
 Knight model; no change is recommended
 ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)).
 
-**Next action:** the same for the Smash traction law and Sanic's
-surface-momentum law, and a controlled ledge. Originally: measure, for
+**Measured 2026-11-11, Smash** (`fighter_motion demo`, [table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)):
+a grounded move keeps the run's speed and brakes at traction (a jab out of a
+let-go run slides the 42.5 px stop slide), it does not take the stick, and
+George's dash attack carries the run 115.6 px on its authored impulse. No
+change recommended.
+
+**Next action:** Sanic's surface-momentum law (its roll) on a flat floor,
+a dash cancel, and a controlled ledge. Found on the way, for the portal
+owner: a Sanic ball frozen at 1471 px/s by a `WorkLimit` motion refusal
+every tick ([note](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)). Originally: measure, for
 representative laws and moves: whether the move
 takes the stick; whether it keeps horizontal speed; which braking law applies
 while it plays; whether authored move motion adds travel; whether it can carry

@@ -104,10 +104,10 @@ measured by the probe above; the other rows are read, not measured.
 | Surface chains | `World` chains | blocks layer (`draw_surface_chains`) | Covered (read) |
 | Hurt and hit volumes, strikes | `CombatGeometryView` | combat view (`draw_combat_geometry_view`) | Covered (read; the owner's own read model) |
 | Projectiles | projectile bodies | `draw_projectile_debug` | Covered (read) |
-| Interaction reach | `InteractReach`, interactable proximity | none | **Missing** (read), as the evidence table above says |
+| Interaction reach | `InteractReach`, interactable proximity | Observed Geometry (`interaction.reach`, 2026-11-11) | Covered: reach, candidates, the chosen one and each refusal's reason |
 | Loading zones, LDtk spine | room spec zones | `draw_loading_zones` (`show_loading_zones`) | Covered (read) |
 | Camera frame | camera snapshot | `draw_camera_frame` (`show_camera_frame`) | Covered (read) |
-| Navigation graph and links | navigation graph | `navigation_overlay` (`show_navigation`) | Covered in its own overlay (read) |
+| Navigation graph and links | navigation graph | `navigation_overlay` (`show_navigation`), and Observed Geometry (`navigation.graph`, 2026-11-11) | Covered: in its overlay, and in F1's observer layer and headless |
 
 **What GOBS-1 should start from:** the two misleading rows (breakables and
 removed blocks) and the per-subject rows (gates, barriers, portal holes) are
@@ -189,6 +189,23 @@ harness that reads it boots a visible app).
 
 ### GOBS-2 — effective collision, contacts and query truth
 
+**First slice landed (2026-11-11): `body.sweep`**
+(`ambition_platformer2d_world::geometry_observers`). Each body as the
+movement kernel last moved it, read from its own `SweepSample`: the box the
+sweep tested at the end of the step (`body_box`), the path from where the
+step began (`sweep`, when it moved), and an edge of that box for each
+contact the kernel reported (`contact_ground` and `contact_head` from
+`BodyGroundState`, along the body's `down`; `contact_wall` from
+`BodyWallState`). The subject alone when the query names one, else every
+body in the room. F1 draws them through the Observed Geometry layer with no
+edit to its drawer beyond a colour for each new role. Headless, in
+`central_hub_complex` after 120 ticks: 18 bodies, two NPC paths, ground
+contacts on Player 1 and the two NPCs; the fifteen items resting on the
+floor (`ground_*`, the portal gun) have a sweep record and no ground state,
+so they show no contact. Not yet: candidate versus accepted contacts and
+their normals and penetration (the kernel keeps flags, not contacts), and
+item 3's reasons.
+
 1. Display **authored base** solids, **composited active-room** solids and **selected-body effective** solids as distinct layers or selectable comparisons. Read the same `CollisionWorld`/`RoomCollision::solids_for` composition used for real sweeps. Include moving platforms, feature solids, portals/carves, gate/one-way policies and the actor reference/gravity frame where relevant.
 2. Draw the body shape actually used in sweep/contact tests, not only the coarse player pose box. Expose recent sweep/raycast hit/miss results, candidate versus accepted contacts, normal and penetration/separation where produced by the collision owner. Avoid inventing a synthetic contact merely because shapes overlap.
 3. Make individual missing/filtered geometry explainable: portal permission denied, one-way rejected from the wrong side, room mismatch, collision mask excluded or object currently disabled. Preserve the owning domain's predicates; don't add duplicate decision logic to the observer.
@@ -196,6 +213,48 @@ harness that reads it boots a visible app).
 **Done when:** the two-body lab visibly differs for a portal opening accessible to one body but not the other; toggling between authored and effective views explains a collision missing from the current F1 base-block view. A headless query proves the same difference. Collision behavior is unchanged with the overlay off and on.
 
 ### GOBS-3 — combat, interaction, sensors, navigation and portal parts
+
+**Interaction landed (2026-11-11): `interaction.reach`**
+(`ambition_sim_view::interaction_reach_observer`, needs a subject). It asks
+the rule the press and the prompt ask (`InteractReach`, and the prompt's
+`chosen_in_reach`, which now returns the entity the press is for): the
+body's touch box, talk box and the point it reaches with (the press is for
+the nearest thing to it), then every person, switch and chest in its live
+room. One the press could take is active; the one it is for also has the
+role `interact_chosen`; any other is inactive with the clause that refuses
+it, which the rule itself names (`InteractReach::refuses_talk` and
+`refuses_touch`: another live room, out of talking reach, not touched, not
+faced; and around them hostile, untouchable, a door nearer takes the press,
+opened, falling). Checked in the hub with a temporary probe: beside a person
+facing it, it is chosen; facing away, with `RequiresFacing`, it is "not
+faced". Headless: `inspect_geometry --provider interaction.`.
+
+**Navigation landed (2026-11-11): `navigation.graph`**
+(`ambition_platformer2d_actor_monolith::body::navigation`). It reads what
+the navigation overlay reads: each surface graph a body was advised from
+this tick in the asked room (its graphs are keyed by the room's geometry
+stamp, `NavGraphKey::room_stamp`), with its standing surfaces
+(`nav_surface`), hops (`nav_hop`) and drops (`nav_drop`, take-off to
+landing), and each advised body in the room: its route through its
+waypoints (`nav_route`), its goal (`nav_goal`) and the place beside its
+target (`nav_target_place`). Its own provider, apart from the collision
+ones, as a navigation view is apart from a collision view. Headless in
+`central_hub_complex` after 120 ticks: 33 surfaces, 12 hops, 37 drops, and
+one body's four-leg route to its goal.
+
+**Room regions landed (2026-11-11): `world.regions`**
+(`ambition_platformer2d_world::geometry_observers`, no subject needed). The
+asked room's authored regions that are not walls: each loading zone
+(`loading_zone`, with `zone_edge_exit`, `zone_door` or `zone_walk` by how it
+fires, and `zone_secret`), camera zone (`camera_zone`,
+`camera_cinematic_lock`), gravity zone (`gravity_zone`), encounter trigger
+(`encounter_trigger`) and lock wall (`lock_wall`, `lock_wall_gated` when a
+fact opens it). They are read from the live room's spec, so each is drawn
+where it is authored and always active: whether a lock wall stands now or an
+encounter has fired is its owner's state, not read here. Headless:
+`central_hub_complex` answers its 42 loading zones (40 doors, 2 edge exits);
+`noodly_scullery` a door, a camera zone, an encounter trigger and three lock
+walls, two of them gated. Portal openings remain the portal owner's.
 
 1. Adapt the **effective** combat read model: hurt source (`published`, `fallback`, `intangible`), live active hitboxes, projectile body/splash regions and boss-specific strike/contact geometry. Clearly show a dormant strike as dormant or absent rather than inventing a live hitbox.
 2. Add `InteractReach` adapter(s) for talk/chest/switch/door/item eligibility, using the real geometry *and* facing/distance/priority/room predicates. Show both eligible shapes and disabled or overridden candidates; explain why a visible NPC is not interactable. Do not treat merely being nearby as eligibility.

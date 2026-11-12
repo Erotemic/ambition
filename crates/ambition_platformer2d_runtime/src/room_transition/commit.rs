@@ -662,8 +662,20 @@ impl RoomTransitionFinalize<'_, '_> {
                     member.size, member.gravity_dir, &staged.target_world);
             }
         }
-        if let Some(dialogue) = self.dialogue.as_deref_mut() { dialogue.close(); }
-        if let Some(conversation) = self.conversation.as_deref_mut() { conversation.close(); }
+        // The conversation ends with a crossing that takes one of its bodies
+        // away: its initiator or the one talked to. Another participant's
+        // crossing leaves it alone, so a peer coming into a room does not
+        // close the conversation of the player already in it. One that names
+        // neither body has nobody in the world to keep it, and ends with any
+        // crossing.
+        let crossing = |body: Option<Entity>| body.is_some_and(|body| staged.members.iter().any(|member| member.subject == body));
+        let theirs = self.conversation.as_deref().and_then(|conversation| conversation.live()).is_none_or(|live| {
+            (live.initiator.is_none() && live.talker.is_none()) || crossing(live.initiator) || crossing(live.talker)
+        });
+        if theirs {
+            if let Some(dialogue) = self.dialogue.as_deref_mut() { dialogue.close(); }
+            if let Some(conversation) = self.conversation.as_deref_mut() { conversation.close(); }
+        }
     }
 
 }

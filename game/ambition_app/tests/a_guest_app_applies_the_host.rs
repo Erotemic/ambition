@@ -864,3 +864,163 @@ fn probe_what_a_kill_on_the_host_shows_a_guest() {
     );
     assert!(died.is_some(), "premise: Alice's shots killed the enemy");
 }
+
+/// The shape of a minted id: its text with every run of digits written `#`.
+fn id_shape(id: &SimId) -> String {
+    let mut shape = String::new();
+    let mut in_digits = false;
+    for ch in id.as_str().chars() {
+        if ch.is_ascii_digit() {
+            if !in_digits {
+                shape.push('#');
+            }
+            in_digits = true;
+        } else {
+            shape.push(ch);
+            in_digits = false;
+        }
+    }
+    shape
+}
+
+/// NA-2b, what else a host spawns: the death probe's run (Alice's shots kill
+/// an enemy held at one point of health), and a census of every `SimId` that appears on the host after
+/// the room is booted. For each shape of id: how many appeared, how many
+/// frames each lived, whether the body rows already carry it (it has a
+/// `BodyKinematics`), and the game's components on the first of them: what
+/// a spawn row for that kind would have to build. And what the simulation
+/// keeps that appears with no id (room- or session-scoped, or a pickup), by
+/// its components.
+#[test]
+#[ignore = "measurement: prints what kinds of thing a host spawns besides bodies; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_else_a_host_spawns() {
+    const ENEMY: &str = "na2b_census_probe";
+    let mut host = booted(ROOM);
+    let mut seen: BTreeMap<SimId, (i32, Option<i32>)> = BTreeMap::new();
+    let booted_with: BTreeSet<SimId> = {
+        let world = host.world_mut();
+        world.query::<&SimId>().iter(world).cloned().collect()
+    };
+    // shape -> (count, a body row carries it, components of the first, lifetimes)
+    let mut shapes: BTreeMap<String, (usize, bool, Vec<String>, Vec<i32>)> = BTreeMap::new();
+    // What appears with no id: what the simulation keeps, by its components.
+    let anonymous_at_boot: BTreeSet<bevy::prelude::Entity> = {
+        let world = host.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::Without<SimId>>()
+            .iter(world)
+            .collect()
+    };
+    let mut anonymous: BTreeMap<bevy::prelude::Entity, String> = BTreeMap::new();
+    let mut anonymous_kinds: BTreeMap<String, usize> = BTreeMap::new();
+    for frame in 1..=FRAMES {
+        if frame == 5 {
+            let at = {
+                let world = host.world_mut();
+                world
+                    .query_filtered::<&BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                    .single(world)
+                    .expect("Alice has a body")
+                    .pos
+            };
+            host.spawn_enemy_character_at(
+                ENEMY,
+                "Target",
+                (at.x + 72.0, at.y),
+                (12.0, 16.0),
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+                "npc_puppy_slug",
+            );
+        }
+        alice_fires_often(&mut host, frame);
+        host.drive_seat(0, Default::default());
+        host.drive_seat(1, Default::default());
+        {
+            // One point of health, as in the death probe: the first shot kills.
+            let world = host.world_mut();
+            for (feature, mut health) in world.query::<(&ambition_platformer2d::combat::components::FeatureId, &mut Health)>().iter_mut(world) {
+                if feature.0 == ENEMY && health.health.current > 1 {
+                    health.health.current = 1;
+                }
+            }
+        }
+        host.app_mut().update();
+        let world = host.world_mut();
+        let now: Vec<(bevy::prelude::Entity, SimId, bool)> = world
+            .query::<(bevy::prelude::Entity, &SimId, bevy::prelude::Has<BodyKinematics>)>()
+            .iter(world)
+            .map(|(entity, id, body)| (entity, id.clone(), body))
+            .collect();
+        let held: BTreeSet<SimId> = now.iter().map(|(_, id, _)| id.clone()).collect();
+        for (entity, id, body) in &now {
+            if booted_with.contains(id) || seen.contains_key(id) {
+                continue;
+            }
+            seen.insert(id.clone(), (frame, None));
+            let entry = shapes.entry(id_shape(id)).or_insert_with(|| {
+                let mut names: Vec<String> = world
+                    .inspect_entity(*entity)
+                    .map(|infos| {
+                        infos
+                            .map(|info| info.name().to_string())
+                            .filter(|name| name.starts_with("ambition_"))
+                            .map(|name| name.rsplit("::").next().unwrap_or(&name).to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                names.sort();
+                (0, *body, names, Vec::new())
+            });
+            entry.0 += 1;
+        }
+        let unnamed: Vec<bevy::prelude::Entity> = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::Without<SimId>>()
+            .iter(world)
+            .filter(|entity| !anonymous_at_boot.contains(entity) && !anonymous.contains_key(entity))
+            .collect();
+        for entity in unnamed {
+            let mut names: Vec<String> = world
+                .inspect_entity(entity)
+                .map(|infos| {
+                    infos
+                        .map(|info| info.name().to_string())
+                        .filter(|name| name.starts_with("ambition_"))
+                        .map(|name| name.rsplit("::").next().unwrap_or(&name).to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            names.sort();
+            let kind = names.join(" ");
+            // Only what the simulation keeps: what a room or session sweep takes
+            // back, or a pickup. Presentation entities are the guest's own.
+            if !(kind.contains("RoomScopedEntity") || kind.contains("SessionScopedEntity") || kind.contains("Pickup") || kind.contains("GroundItem")) {
+                anonymous.insert(entity, String::new());
+                continue;
+            }
+            *anonymous_kinds.entry(kind.clone()).or_insert(0) += 1;
+            anonymous.insert(entity, kind);
+        }
+        for (id, (born, gone)) in seen.iter_mut() {
+            if gone.is_none() && !held.contains(id) {
+                *gone = Some(frame);
+                if let Some(entry) = shapes.get_mut(&id_shape(id)) {
+                    entry.3.push(frame - *born);
+                }
+            }
+        }
+    }
+    println!("[census] {ROOM}: {FRAMES} frames; {} ids at boot, {} minted after", booted_with.len(), seen.len());
+    for (shape, (count, body, names, lives)) in &shapes {
+        let still = count - lives.len();
+        println!(
+            "[census]   {shape}: {count} (in the body rows: {body}); lived {:?} frames, {still} still there; components ({}): {}",
+            (lives.iter().min(), lives.iter().max()),
+            names.len(),
+            names.join(" ")
+        );
+    }
+    println!("[census]   with no id, {} simulation entities appeared:", anonymous_kinds.values().sum::<usize>());
+    for (kind, count) in &anonymous_kinds {
+        println!("[census]     {count} x {kind}");
+    }
+}

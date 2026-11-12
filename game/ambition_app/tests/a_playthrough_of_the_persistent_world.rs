@@ -218,8 +218,8 @@ fn the_note_reaches_bob_and_opens_alices_return() {
     assert!(the_player_holds(&mut app, &blink), "after the load, the Blink is not in the player's hand");
     talk_and_choose(&mut app, "npc_alice", "What now?");
 
-    // The death step waits for Q164: a death takes back the survey and keeps
-    // the facts it made (two horizons).
+    // A death before a checkpoint takes back the survey and the facts it made
+    // together (Q164): `a_death_sends_the_blink_back_to_where_it_lay`.
 }
 
 /// The save file the autosave wrote for `app`, read back from disk, and the
@@ -447,7 +447,7 @@ fn die(app: &mut App) {
 /// acquired after the checkpoint, so it goes back (Q124): it is not in the
 /// hand, not dropped where the player died, and not copied; it lies where it
 /// was found, and it can be taken again. Alice's return lock agrees with the
-/// survey flag whichever way Q164 rules on the flag.
+/// survey flag, which the death takes back with the survey (Q164).
 ///
 /// The two doors on the way (the hub's into the wake room, and the gate
 /// stack's back into the hub) are taken by their passage: a door opens, the

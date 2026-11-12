@@ -432,7 +432,7 @@ loaded stays in the save (`a_saved_row_comes_back_and_a_row_of_an_older_shape_mi
 Witness: `a_durable_session_record_comes_back_with_its_save_and_a_transient_one_does_not`
 (the loaded fixture, through the file; poisons: no restore, no mirror, no New
 Game reducer, each red at its own assertion; no offer, refused at admission).
-A death keeps the record, as it keeps the durable facts (Q164; ruled 2026-10-19 that unbanked facts go back with their objects: DIALOGUE-CHECKPOINT in the queue).
+A death keeps the record. The save's flags and quest steps do not: since 2026-11-11 a death that spares nobody puts them back to the checkpoint with the bag (Q164, DIALOGUE-CHECKPOINT slice 1).
 
 **Open:** save eligibility for body records and checkpoints (`Body` +
 `Durable` and `Checkpoint` are

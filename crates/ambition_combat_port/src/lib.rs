@@ -60,7 +60,7 @@ pub use special::{
 };
 pub use lightning::{Lightning, LightningAura, LightningAuraPort, LightningPort};
 pub use launch::LaunchDirection;
-pub use ray::{HeldRay, HeldRayPort, Spot};
+pub use ray::{ArtPart, HeldRay, HeldRayPort, PartSpot, Spot};
 pub use motion::{
     Destination, Effect, EffectPort, HitMark, HitMarkPort, MovementCooldown, MovementCooldownPort, Place, SetVelocity,
     SetVelocityPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, Transit, TransitPort,

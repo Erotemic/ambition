@@ -135,33 +135,41 @@ pub(crate) struct MenuItemRequests<'w, 's> {
     >,
 }
 
-/// TEST SEAM: a menu fixture runs no simulation, so this stands in for its
-/// tick. At the end of each frame it hands each new equip and stow request in
-/// the host-intent ledgers to the simulation's own applier
-/// (`ambition_held_items::apply_hand_requests`), so a test reads the hand the
-/// request leads to.
+// In a test module, so the rollback-mutator guard, which strips test modules,
+// does not read its `Last` registration as a shipped one.
 #[cfg(test)]
-pub(crate) fn the_simulation_applies_hand_requests(app: &mut App) {
-    use ambition_platformer2d::items::{ItemEquipRequested, ItemStowRequested};
-    use ambition_platformer2d::platformer::host_intents::HostIntentLedger;
-    fn forward(
-        equips: Res<HostIntentLedger<ItemEquipRequested>>,
-        stows: Res<HostIntentLedger<ItemStowRequested>>,
-        mut seen: Local<(usize, usize)>,
-        mut equip: MessageWriter<ItemEquipRequested>,
-        mut stow: MessageWriter<ItemStowRequested>,
-    ) {
-        equip.write_batch(equips.payloads().skip(seen.0).copied());
-        stow.write_batch(stows.payloads().skip(seen.1).copied());
-        *seen = (equips.depth(), stows.depth());
+mod hand_request_seam {
+    use super::*;
+
+    /// TEST SEAM: a menu fixture runs no simulation, so this stands in for its
+    /// tick. At the end of each frame it hands each new equip and stow request in
+    /// the host-intent ledgers to the simulation's own applier
+    /// (`ambition_held_items::apply_hand_requests`), so a test reads the hand the
+    /// request leads to.
+    pub(crate) fn the_simulation_applies_hand_requests(app: &mut App) {
+        use ambition_platformer2d::items::{ItemEquipRequested, ItemStowRequested};
+        use ambition_platformer2d::platformer::host_intents::HostIntentLedger;
+        fn forward(
+            equips: Res<HostIntentLedger<ItemEquipRequested>>,
+            stows: Res<HostIntentLedger<ItemStowRequested>>,
+            mut seen: Local<(usize, usize)>,
+            mut equip: MessageWriter<ItemEquipRequested>,
+            mut stow: MessageWriter<ItemStowRequested>,
+        ) {
+            equip.write_batch(equips.payloads().skip(seen.0).copied());
+            stow.write_batch(stows.payloads().skip(seen.1).copied());
+            *seen = (equips.depth(), stows.depth());
+        }
+        app.add_message::<ItemEquipRequested>().add_message::<ItemStowRequested>();
+        app.add_systems(Last, (forward, ambition_platformer2d::held_items::apply_hand_requests).chain());
+        // A request is stamped for a live session; the one it would act on.
+        app.world_mut().spawn(ambition_platformer2d::platformer::lifecycle::SessionRoot(
+            ambition_platformer2d::platformer::lifecycle::SessionScopeId(1),
+        ));
     }
-    app.add_message::<ItemEquipRequested>().add_message::<ItemStowRequested>();
-    app.add_systems(Last, (forward, ambition_platformer2d::held_items::apply_hand_requests).chain());
-    // A request is stamped for a live session; the one it would act on.
-    app.world_mut().spawn(ambition_platformer2d::platformer::lifecycle::SessionRoot(
-        ambition_platformer2d::platformer::lifecycle::SessionScopeId(1),
-    ));
 }
+#[cfg(test)]
+pub(crate) use hand_request_seam::the_simulation_applies_hand_requests;
 
 /// TEST SEAM: the primary player's hand, read from a bare `World` (the fact
 /// tests used to read off `OwnedItems::equipped`).

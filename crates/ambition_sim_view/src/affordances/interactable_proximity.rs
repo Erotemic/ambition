@@ -56,7 +56,7 @@ impl NearestInteractable {
 }
 
 /// The peaceful bodies a prompt can name Talk for.
-type Talkers<'w, 's> = Query<
+pub(crate) type Talkers<'w, 's> = Query<
     'w,
     's,
     (
@@ -74,7 +74,7 @@ type Talkers<'w, 's> = Query<
 >;
 
 /// The chests a prompt can name Open for.
-type Chests<'w, 's> = Query<
+pub(crate) type Chests<'w, 's> = Query<
     'w,
     's,
     (
@@ -87,7 +87,7 @@ type Chests<'w, 's> = Query<
 >;
 
 /// The switches a prompt can name Activate for.
-type Switches<'w, 's> = Query<
+pub(crate) type Switches<'w, 's> = Query<
     'w,
     's,
     (
@@ -99,7 +99,7 @@ type Switches<'w, 's> = Query<
 >;
 
 /// A body's kinematics, last step and frame: what its reach is built from.
-type Reaching = (
+pub(crate) type Reaching = (
     &'static ambition_platformer2d_core::BodyKinematics,
     Option<&'static ambition_platformer2d_core::SweepSample>,
     Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
@@ -181,6 +181,18 @@ fn variant_in_reach(
     chests: &Chests,
     switches: &Switches,
 ) -> InteractVariant {
+    chosen_in_reach(reach, door, rooms, actors, chests, switches).map_or(InteractVariant::None, |(_, variant)| variant)
+}
+
+/// [`variant_in_reach`], with the thing the press is for.
+pub(crate) fn chosen_in_reach(
+    reach: &InteractReach,
+    door: Option<f32>,
+    rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    actors: &Talkers,
+    chests: &Chests,
+    switches: &Switches,
+) -> Option<(Entity, InteractVariant)> {
     // The order the press fires in: the nearer of a body to talk to and a
     // switch (`InteractReach::preference`, as `interact_ecs_actors_and_switches`
     // ranks them), then a chest, whose system takes only a press nothing else
@@ -195,26 +207,26 @@ fn variant_in_reach(
                 && reach.can_talk_to(rooms.of(*entity), aabb, *requires_facing)
                 && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
         })
-        .map(|(_, aabb, ..)| reach.preference(aabb.center))
-        .min_by(f32::total_cmp);
+        .map(|(entity, aabb, ..)| (reach.preference(aabb.center), entity))
+        .min_by(|a, b| a.0.total_cmp(&b.0));
     let switch = switches
         .iter()
         .filter(|(entity, aabb, requires_facing)| reach.touches(rooms.of(*entity), aabb, *requires_facing))
-        .map(|(_, aabb, _)| reach.preference(aabb.center))
-        .min_by(f32::total_cmp);
+        .map(|(entity, aabb, _)| (reach.preference(aabb.center), entity))
+        .min_by(|a, b| a.0.total_cmp(&b.0));
     match (talker, switch) {
-        (Some(talker), Some(switch)) if switch < talker => return InteractVariant::Activate,
-        (Some(_), _) => return InteractVariant::Talk,
-        (None, Some(_)) => return InteractVariant::Activate,
+        (Some(talker), Some(switch)) if switch.0 < talker.0 => return Some((switch.1, InteractVariant::Activate)),
+        (Some(talker), _) => return Some((talker.1, InteractVariant::Talk)),
+        (None, Some(switch)) => return Some((switch.1, InteractVariant::Activate)),
         (None, None) => {}
     }
     for (entity, aabb, opened, falling) in chests {
         // A chest has no facing gate: its spec has no `requires_facing`.
         if opened.is_none() && !falling && reach.touches(rooms.of(entity), aabb, false) {
-            return InteractVariant::Open;
+            return Some((entity, InteractVariant::Open));
         }
     }
-    InteractVariant::None
+    None
 }
 
 #[cfg(test)]

@@ -82,12 +82,21 @@ impl PieceMesh {
         mesh
     }
 
+    /// A piece clipped to nothing (or a pooled slot not yet drawn) is one
+    /// triangle of no area. The renderer allocates no buffer for a mesh with
+    /// no vertices and then copies its data anyway, logging a use-after-free
+    /// error for each such mesh every time it changes.
     fn mesh(&self) -> Mesh {
+        let (positions, uvs, indices) = if self.indices.is_empty() {
+            (vec![[0.0; 3]; 3], vec![[0.0; 2]; 3], vec![0, 1, 2])
+        } else {
+            (self.positions.clone(), self.uvs.clone(), self.indices.clone())
+        };
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone());
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; self.positions.len()]);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone());
-        mesh.insert_indices(Indices::U32(self.indices.clone()));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; positions.len()]);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_indices(Indices::U32(indices));
         mesh
     }
 }

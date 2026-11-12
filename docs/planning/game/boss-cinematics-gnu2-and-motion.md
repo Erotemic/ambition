@@ -136,9 +136,13 @@ every jump.
   for about 13 frames. Holding the blow until the giant stands would change
   the fight's timing; left as it is.
 - **The fist jumps 230–460 units relative to the giant** on the frames a
-  portal blow's strike starts and its recover ends: the fist going into and
-  coming back out of the portal pair. Portal transit belongs to the portals
-  work.
+  portal blow's strike starts and its recover ends. Measured 2026-11-12: it
+  is not a crossing and nothing drawn moves. With its arms on, the giant's
+  sheet draws the arms and each fist is drawn as `ch::arms::NO_FIST`; the
+  fist body is only the blow's hit volume, parked at the giant's middle
+  between blows and held through its near line (`near + inward * depth`, in
+  its own chart) while the blow lasts. Its first strike frame is already
+  130 units into the line, so the volume moves there in one frame.
 - **Turning mid-walk** happens once in the run (it turns to face the player).
 
 **Phases 2 and 3 and the rider, measured 2026-11-11** with the same probe,
@@ -188,13 +192,14 @@ checks each fist's move against its own velocity.
      giant and pushed it through the floor. A held pair now keeps its opening
      while a body straddles it, and closes once it is empty (see the portal
      plan, "A body's own lines, and a pair that does not close on a body").
-  2. **A free fist in a portal pair** (`demonstrate_pair`, phase 2): while
-     the strike carries it through the pair, its position jumps about 280
-     units between the pair's two ends on every frame, one way then back,
-     and before the strike each fist's velocity is zero on every other
-     frame.
-  Whether either is drawn as a hitch depends on how the renderer draws a
-  body in two places, which the headless probe cannot see.
+  2. **A free fist in a portal pair** (`demonstrate_pair`, phase 2): the
+     probe read each fist's position jumping about 280 units between the
+     pair's two ends every frame, and each fist's velocity as zero on every
+     other frame. **Not a defect (2026-11-12):** the probe named the fists
+     by `Scene::fists`, which is ordered by x, and the two fists stood at
+     one x a pair apart, so they swapped names whenever their x order
+     flipped. Following each fist by its hand (`fists_by_hand`), phase 2 has
+     no jump and no fist whose velocity disagrees with its motion.
 
 **Not measured.** The rendered part transforms (the headless harness draws
 nothing) and render-rate interpolation. On the measuring machine the giant's sheet

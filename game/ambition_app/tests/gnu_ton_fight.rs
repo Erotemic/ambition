@@ -922,6 +922,18 @@ fn a_body_over_the_giants_neck_falls_and_on_a_shoulder_stands() {
 
 /// The row the giant is drawn in now: its pin's first row, its clock, and
 /// whether it loops.
+/// The giant's fists by hand, left then right. A frame-to-frame measure must
+/// follow each fist: `Scene::fists` is ordered by position, and two fists at
+/// one x a portal pair apart swap places in it every frame.
+fn fists_by_hand(sim: &mut Platformer2dSimHarness) -> Vec<ae::BodyKinematics> {
+    let world = sim.world_mut();
+    let mut rigs = world.query_filtered::<&LimbRig, (With<BackLedge>, Without<Limb>)>();
+    let hands: Vec<Entity> = rigs.iter(world).next().map_or_else(Vec::new, |rig| {
+        [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].iter().filter_map(|slot| rig.limbs.get(slot).copied()).collect()
+    });
+    hands.into_iter().filter_map(|fist| world.get::<ae::BodyKinematics>(fist).cloned()).collect()
+}
+
 fn giant_pin(sim: &mut Platformer2dSimHarness) -> Option<(Vec<String>, f32, bool)> {
     use ambition_platformer2d::sprite_sheet::character::PinnedRow;
     let world = sim.world_mut();
@@ -2581,10 +2593,10 @@ fn giant_motion(label: &str, mut sim: Platformer2dSimHarness) {
             row: pin.as_ref().and_then(|(rows, _, _)| rows.first().cloned()).unwrap_or_else(|| "(unpinned)".into()),
             clock: pin.map_or(-1.0, |(_, clock, _)| clock),
             rider: s.scholar.pos - s.giant.pos,
-            fists: s.fists.iter().map(|(kin, ..)| kin.pos - s.giant.pos).collect(),
+            fists: fists_by_hand(&mut sim).iter().map(|kin| kin.pos - s.giant.pos).collect(),
             performing: s.performing.map(|(key, striking)| format!("{key}{}", if striking { "!" } else { "" })),
             rider_row: rider_pin(&mut sim),
-            fists_at: s.fists.iter().map(|(kin, ..)| (kin.pos, kin.vel)).collect(),
+            fists_at: fists_by_hand(&mut sim).iter().map(|kin| (kin.pos, kin.vel)).collect(),
         });
     }
     let mut events: Vec<(usize, String)> = Vec::new();

@@ -454,6 +454,15 @@ pub fn opening_from(ap: &PortalAperture, root: Vec2) -> [HalfPlane; 3] {
     [square[0], side(lo, hi), side(hi, lo)]
 }
 
+/// What of `source` is in front of `ap`'s plane: the one piece a picture
+/// draws when its cut through the pair is refused, so nothing past a mouth
+/// that refused it is shown. `None`: nothing is in front.
+pub fn in_front_of(source: MaterialPrimitive<'_>, ap: &PortalAperture) -> Result<Option<VolumePiece>, NumericFault> {
+    let [behind, ..] = opening(ap);
+    let piece = VolumePiece::from_material(source)?.bounded(&[behind.flipped()])?;
+    Ok((!piece.is_empty()).then_some(piece))
+}
+
 fn entry_opening(ap: &PortalAperture, reach: Option<Vec2>) -> [HalfPlane; 3] {
     reach.map_or_else(|| opening(ap), |from| opening_from(ap, from))
 }

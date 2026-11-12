@@ -527,7 +527,17 @@ fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget() {
         ReachesFrom(Vec2::new(480.0, 300.0)), PresentationOf(owner),
     )).id();
     for _ in 0..3 { app.update(); }
-    assert!(!outcome(&mut app, visual).active_capture, "the holder's refusal must constrain its reach");
+    // The holder's refusal constrains its reach: drawn only in front of the
+    // mouth that refused it, and nothing of it past the source face.
+    let refused = outcome(&mut app, visual);
+    assert!(refused.active_capture && !refused.on_world, "a refused reach is still cut: {refused:?}");
+    assert_eq!(refused.pieces.len(), 1, "only the near piece");
+    let piece = &refused.pieces[0];
+    let transform = Transform { translation: piece.at, rotation: piece.rotation, scale: piece.scale };
+    assert!(
+        piece.positions.iter().all(|p| transform.transform_point(Vec3::from_array(*p)).x <= 0.001),
+        "a refused reach draws nothing behind the source face"
+    );
     app.world_mut().entity_mut(owner).insert(MaterialBudget(PieceBudget::SINGLE_HOP));
     for _ in 0..3 { app.update(); }
     let cut = outcome(&mut app, visual);

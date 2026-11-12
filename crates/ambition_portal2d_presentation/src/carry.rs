@@ -463,11 +463,18 @@ pub fn carry_through_pairs(
                 Some(_) => partition_reaching(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), root, &links, None, budget, convention),
                 None => partition(ambition_platformer2d_core::frame::thread::MaterialPrimitive::world(&ae::CombatVolume::convex(corners)), root, &links, None, budget, convention),
             };
-            let Ok(cut) = cut else { continue; };
-            let Some(through) = cut.iter().find(|piece| piece.is_carried()) else {
-                continue;
+            // The mouth it reaches first. A cut the pairs refuse is carried
+            // too, so it is drawn only in front of that mouth (below).
+            let link = match cut {
+                Ok(cut) => match cut.iter().find(|piece| piece.is_carried()) {
+                    Some(through) => through.path[0],
+                    None => continue,
+                },
+                Err(refusal) => match refusal.path.first().copied().or(refusal.link) {
+                    Some(key) => key,
+                    None => continue,
+                },
             };
-            let link = through.path[0];
             let z = at.translation.z;
             carries.push(Carry {
                 room: placement.room,
@@ -601,7 +608,18 @@ pub fn carry_through_pairs(
         } else {
             partition(material, carry.root, &links, first, budget, convention)
         };
-        let Ok(cut) = cut else { continue; };
+        // A cut the pairs refuse draws what is in front of the mouth it
+        // reaches and nothing past it, as the strike that goes with it hits
+        // nothing past it. Drawn whole, a held javelin refused at the hop
+        // limit showed its tip through the host.
+        let cut = match cut {
+            Ok(cut) => cut,
+            Err(_) => match links.iter().find(|link| Some(link.key) == first)
+                .map(|link| ae::frame::thread::in_front_of(material, &link.enter)) {
+                Some(Ok(Some(piece))) => vec![piece],
+                _ => continue,
+            },
+        };
         let through = cut.iter().any(VolumePiece::is_carried);
         let image = match &capture {
             Some((_,image)) => image.clone(),

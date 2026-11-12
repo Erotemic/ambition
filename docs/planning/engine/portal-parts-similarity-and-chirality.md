@@ -37,17 +37,19 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 Full PSIM acceptance remains open (kernel bodies keep the whole tick, and
 platform and line carries are swept; see the 2026-11-12 sections):
 complete projectile/hurt contact, including moving targets and other surviving
-contact responses, other movement models, swept guard contact and response, attachments, and device/GPU and performance gates.
+contact responses, other movement models, swept guard contact and response, and device/GPU and performance gates.
 Whether melee strikes and guards need swept contact at all is
 [Q172](../awaiting-maintainer-decision.md#q172--do-melee-strikes-and-guards-need-swept-continuous-contact);
 the device/GPU gates need hardware, and GNU2's finale needs the art publish.
 Attachments: a held item's strike volume is cut through the pairs with the
 body (`strike_pieces`) and a refused cut produces no hit past the mouth. Its
-drawing is cut by the presentation carry, which skips a drawable whose cut
-is refused (`carry.rs`, `Err(_) => continue`), so for that frame the item is
-drawn whole in its own chart: a held javelin refused at the hop limit shows
-its tip past the host. Drawing only the near piece for a refused cut is the
-open attachment work.
+drawing now agrees: a drawable whose cut the pairs refuse is carried anyway
+and drawn only in front of the first mouth it reaches
+(`ae::frame::thread::in_front_of`), where it had been drawn whole, a held
+javelin refused at the hop limit showing its tip past the host.
+`an_owned_reach_keeps_its_holders_cut_root_and_piece_budget` witnesses one
+near piece and nothing behind the source face. A body's own refused cut is
+the simulation's to prevent (a refused step does not commit).
 The fault effect landed in `c21bfff4d` with its witnesses; two live rooms
 draw their own faults (`cd5174469`). GNU-ton's giant no longer hitches out of
 the well's exit: a body does not collide with the lines it carries, and a

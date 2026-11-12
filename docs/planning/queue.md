@@ -227,8 +227,16 @@ to the wrong side.
 **Owner:** renderer `chargen` specification, species geometry, overlay data and
 studio applicability. Design: [species knobs and overlays](game/chargen-species-knobs-and-2d-overlays.md).
 
-**Next action:** add meaningful dog and pigeon parameters first, then the
-other listed species. Keep parameter defaults, generation and studio controls
+**Dog and pigeon done 2026-11-11 (renderer 93d8e69):** the dog has stop,
+skull, flews, ear length, fold and set, and a mask, blaze or saddle marking;
+the pigeon has beak curve, cere, neck sheen and eye ring
+([knobs](game/chargen-species-knobs-and-2d-overlays.md)). Defaults draw the
+old heads byte for byte and 3447 records keep every older field; no resident
+is a dog and the four pigeon residents pin the defaults, so no published
+product changed and nothing was republished.
+
+**Next action:** the other listed species (horse, cat, bird, sea lion,
+alligator). Keep parameter defaults, generation and studio controls
 at their canonical owners. Add explicit left cells for asymmetric details;
 reuse the existing overlay mechanism. New random draws follow existing draws.
 

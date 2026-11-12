@@ -495,6 +495,32 @@ sent with that body's `SimId` and written with the guest's body for it.
   (the headless harness has neither); the bytes (the messages are not yet
   encoded).
 
+**A guest whose player crosses (2026-11-12),** probe
+`probe_what_a_guest_does_when_its_player_crosses` (same file, ignored):
+Alice and Bob stand on `switch_lab`'s door to the hub; Alice goes through on
+frame 30 and Bob on frame 90, into the hub the host already holds. The guest
+is Bob's App and receives Bob's room only.
+
+| Frame | Host: live rooms, Bob's room | Guest: live rooms, Bob's room |
+|---|---|---|
+| 1 | 0, 0 | 0, 0 |
+| 32 | 0 and 1 (the hub), 0 | unchanged |
+| 92 | 1 (`switch_lab` retired), 1 | unchanged: 0, 0 |
+
+- **A gated guest does not follow a crossing.** Its room set never changed:
+  room changes run in the simulation it gates. After Bob crossed, the guest
+  still held `switch_lab` (its collision, its art) with Bob's body stamped
+  in it, and built the hub's 18 bodies from the snapshot with no room at all.
+  Its ids agreed with the snapshot on every frame; its world did not.
+- **The host's numbers are not the guest's:** the hub is the host's room 1,
+  a number the guest never minted, and `switch_lab`'s 0 is retired on the
+  host while the guest still holds it.
+- **So the guest needs a room lifecycle of its own on the host's word:** a
+  room row (the definition id and the host's number for the room its player
+  is in) that the guest builds through its own room construction (ungated,
+  as a crossing builds a room), retiring what it no longer needs, with the
+  host's number mapped to its own for bodies, visuals and listening spaces.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -532,9 +558,12 @@ sent with that body's `SimId` and written with the guest's body for it.
    27 bytes a frame of body rows against 398 unscoped, and Alice's body
    leaves the guest by the general rule. Sounds and visuals (2026-11-12): forwarded with
    the snapshot; only a visual that names a body (a swing's owner) needs
-   translating, by `SimId`, and all 13 did. Next: room and listening-space
-   numbers mapped for a guest that crosses into a room the host already
-   holds.
+   translating, by `SimId`, and all 13 did. A guest whose player crosses
+   (2026-11-12): it does not follow (room changes run in the simulation it
+   gates); it keeps the old room and builds the new room's bodies with no
+   room. Next: a room row (definition and host number) that the guest builds
+   through its own room construction, with the host's numbers mapped to its
+   own for bodies, visuals and listening spaces.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

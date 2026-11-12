@@ -1600,3 +1600,88 @@ fn probe_what_a_guest_needs_to_hear_and_see_the_host() {
     );
     println!("[fx]   forwarded {forwarded}; the guest's channels carried {guest_heard} sounds and {guest_saw} visuals (its own included)");
 }
+
+/// NA-2b, a guest that crosses into a room the host already holds: Alice
+/// and Bob stand on `switch_lab`'s door to the hub; Alice goes through on
+/// frame 30 and Bob on frame 90, into the hub the host already holds. The
+/// guest is Bob's App and receives Bob's room only. Prints, per side, the
+/// live rooms and the number of Bob's room over the run, and what the guest
+/// built for the hub: what a guest's room lifecycle has to follow.
+#[test]
+#[ignore = "measurement: prints what a gated guest does when its player crosses on the host; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_guest_does_when_its_player_crosses() {
+    use ambition_platformer2d::engine_core::{AabbExt as _, ControlFrame};
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    const RUN: i32 = 240;
+    let presses = |at: i32| move |frame: i32| ControlFrame {
+        interact_pressed: frame == at,
+        interact_held: (at..at + 3).contains(&frame),
+        ..Default::default()
+    };
+    let (alice, bob) = (presses(30), presses(90));
+    let bobs_room = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &InRoomInstance)>()
+            .iter(world)
+            .find(|(driver, _)| driver.0 == ambition_platformer2d::characters::control::PlayerSlot(1))
+            .map(|(_, room)| room.0)
+    };
+    let live = |sim: &mut Platformer2dSimHarness| -> Vec<String> {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&LiveRoomInstance, bevy::prelude::With<RoomInstanceRoot>>()
+            .iter(world)
+            .map(|room| format!("{room:?}"))
+            .collect()
+    };
+    let on_the_door = |sim: &mut Platformer2dSimHarness| {
+        crate::common::doors_cross_at_once(sim);
+        let door = crate::common::door_to(sim, "central_hub_complex").aabb.center();
+        sim.teleport_player((door.x, door.y));
+        crate::two_players_two_live_rooms::put_bob_at(sim, door);
+    };
+    let mut host = booted(ROOM);
+    on_the_door(&mut host);
+    let mut guest = booted(ROOM);
+    on_the_door(&mut guest);
+    simulate_nothing(&mut guest);
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>)> = VecDeque::new();
+    let mut changes: Vec<(i32, &str, Vec<String>, Option<String>)> = Vec::new();
+    let (mut last_host, mut last_guest) = ((Vec::new(), None), (Vec::new(), None));
+    let (mut built, mut removed_booted, mut unmatched_frames) = (Vec::new(), Vec::new(), 0);
+    for frame in 1..=RUN {
+        host.drive_seat(0, alice(frame));
+        host.drive_seat(1, bob(frame));
+        host.app_mut().update();
+        let room = bobs_room(&mut host);
+        in_flight.push_back((frame, bodies(&mut host, room)));
+        if in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATENCY) {
+            let (_, rows) = in_flight.pop_front().expect("a snapshot arrived");
+            let done = apply_all(&mut guest, &rows);
+            built.extend(done.built);
+            removed_booted.extend(done.removed_booted);
+            if done.unmatched > 0 {
+                unmatched_frames += 1;
+            }
+        }
+        guest.app_mut().update();
+        for (side, sim, last) in [("host", &mut host, &mut last_host), ("guest", &mut guest, &mut last_guest)] {
+            let now = (live(sim), bobs_room(sim).map(|room| format!("{room:?}")));
+            if now != *last {
+                changes.push((frame, side, now.0.clone(), now.1.clone()));
+                *last = now;
+            }
+        }
+    }
+    println!("[crossing] {ROOM}: {RUN} frames; Alice crosses from frame 30, Bob from frame 90; the guest gets Bob's room only");
+    for (frame, side, rooms, bobs) in &changes {
+        println!("[crossing]   frame {frame} {side}: live rooms {rooms:?}, Bob's room {bobs:?}");
+    }
+    println!(
+        "[crossing]   the guest built {} bodies {:?}; removed {} it booted with {removed_booted:?}; frames whose ids differ after applying {unmatched_frames}",
+        built.len(),
+        built.iter().take(6).collect::<Vec<_>>(),
+        removed_booted.len()
+    );
+}

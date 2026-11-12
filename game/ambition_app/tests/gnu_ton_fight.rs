@@ -2513,15 +2513,38 @@ fn the_well_pulls_the_hall_through_its_portals_into_space() {
     assert!(on_floor(&s.giant, floor), "the giant is not down in space:\n{}", shown());
 }
 
+/// The scholar's drawn row and its clock, when one is pinned.
+fn rider_pin(sim: &mut Platformer2dSimHarness) -> Option<(String, f32)> {
+    use ambition_platformer2d::sprite_sheet::character::PinnedRow;
+    let world = sim.world_mut();
+    world
+        .query::<(&BossConfig, &PinnedRow)>()
+        .iter(world)
+        .find(|(config, _)| config.behavior.id == GNU_TON_ID)
+        .and_then(|(_, pin)| pin.is_pinned().then(|| (pin.rows.first().cloned().unwrap_or_default(), pin.elapsed)))
+}
+
 /// GNU-MOTION-PARTS, the first measurement: is the giant's motion smooth, and
 /// if not, which of its parts steps? Twenty seconds of the fight with a
 /// player who cannot be hurt, recording each frame the giant's body, the row
-/// it is drawn in and that row's clock, the scholar on its back and its two
-/// fists. Prints the frames where something jumps. Not a contract: the
-/// fight's pattern decides what happens in the window.
+/// it is drawn in and that row's clock, the scholar on its back (and his own
+/// row) and its two fists. Prints the frames where something jumps. Not a
+/// contract: the fight's pattern decides what happens in the window.
+///
+/// Three runs: phase 1; phase 2 (its arms free, `free_fists`); and phase 3,
+/// the scholar brought to a fifth of his health, so the well opens and the
+/// fight goes on in space.
 #[test]
 #[ignore = "measurement: prints the giant's motion discontinuities; run with --ignored --nocapture"]
 fn how_the_giant_moves_frame_by_frame() {
+    giant_motion("phase 1", arena());
+    giant_motion("phase 2", arena_with_free_fists());
+    let mut sim = arena_with_free_fists();
+    scholar_health_to(&mut sim, 0.2);
+    giant_motion("phase 3", sim);
+}
+
+fn giant_motion(label: &str, mut sim: Platformer2dSimHarness) {
     struct Frame {
         pos: ae::Vec2,
         vel: ae::Vec2,
@@ -2531,8 +2554,10 @@ fn how_the_giant_moves_frame_by_frame() {
         rider: ae::Vec2,
         fists: Vec<ae::Vec2>,
         performing: Option<String>,
+        rider_row: Option<(String, f32)>,
+        /// Each fist in the world: position and velocity.
+        fists_at: Vec<(ae::Vec2, ae::Vec2)>,
     }
-    let mut sim = arena();
     untouchable_player(&mut sim);
     let dt = 1.0 / 60.0;
     let mut frames: Vec<Frame> = Vec::new();
@@ -2558,6 +2583,8 @@ fn how_the_giant_moves_frame_by_frame() {
             rider: s.scholar.pos - s.giant.pos,
             fists: s.fists.iter().map(|(kin, ..)| kin.pos - s.giant.pos).collect(),
             performing: s.performing.map(|(key, striking)| format!("{key}{}", if striking { "!" } else { "" })),
+            rider_row: rider_pin(&mut sim),
+            fists_at: s.fists.iter().map(|(kin, ..)| (kin.pos, kin.vel)).collect(),
         });
     }
     let mut events: Vec<(usize, String)> = Vec::new();
@@ -2585,8 +2612,27 @@ fn how_the_giant_moves_frame_by_frame() {
         } else if (b.clock - a.clock - dt).abs() > 1e-3 && b.clock >= 0.0 {
             events.push((at, format!("row {} clock stepped {:.3}, not {dt:.3}", b.row, b.clock - a.clock)));
         }
+        match (&a.rider_row, &b.rider_row) {
+            (Some((ra, ca)), Some((rb, cb))) if ra == rb => {
+                if cb + 1e-4 < *ca {
+                    events.push((at, format!("rider row {rb} clock went back {ca:.3} -> {cb:.3}")));
+                } else if (cb - ca - dt).abs() > 1e-3 {
+                    events.push((at, format!("rider row {rb} clock stepped {:.3}, not {dt:.3}", cb - ca)));
+                }
+            }
+            (ra, rb) if ra.as_ref().map(|r| &r.0) != rb.as_ref().map(|r| &r.0) => {
+                events.push((at, format!("rider row {ra:?} -> {rb:?}")));
+            }
+            _ => {}
+        }
         if (b.rider - a.rider).length() > 6.0 {
             events.push((at, format!("rider moved {:?} on the giant", b.rider - a.rider)));
+        }
+        for (k, ((_, _), (pb, vb))) in a.fists_at.iter().zip(&b.fists_at).enumerate() {
+            let moved = *pb - a.fists_at[k].0;
+            if (moved - *vb * dt).length() > 2.0 {
+                events.push((at, format!("fist {k} moved {moved:?}, its velocity says {:?}", *vb * dt)));
+            }
         }
         for (k, (fa, fb)) in a.fists.iter().zip(&b.fists).enumerate() {
             if (*fb - *fa).length() > 40.0 {
@@ -2598,7 +2644,7 @@ fn how_the_giant_moves_frame_by_frame() {
             walk_clock += b.clock - a.clock;
         }
     }
-    println!("[gnu] {} frames; {} events", frames.len(), events.len());
+    println!("[gnu] {label}: {} frames; {} events", frames.len(), events.len());
     if walk_clock > 0.0 {
         println!("[gnu] walking rows: {walked:.0} px over {walk_clock:.2} s of row clock = {:.0} px per row second", walked / walk_clock);
     }
@@ -2630,9 +2676,25 @@ fn how_the_giant_moves_frame_by_frame() {
     }
     let rows: std::collections::BTreeSet<_> = frames.iter().map(|f| f.row.as_str()).collect();
     println!("[gnu] rows drawn: {rows:?}");
+    let rider_rows: std::collections::BTreeSet<_> =
+        frames.iter().map(|f| f.rider_row.as_ref().map_or("(unpinned)", |r| r.0.as_str())).collect();
+    println!("[gnu] rider rows drawn: {rider_rows:?}");
     for (at, what) in &events {
         let f = &frames[*at];
         println!("[gnu] f{at:4} {:<14} {:<26} {what}", f.performing.as_deref().unwrap_or("-"), f.row);
+    }
+    // Around each frame the body moved other than its velocity said: the
+    // body's position and velocity, frame by frame.
+    let stepped: std::collections::BTreeSet<usize> =
+        events.iter().filter(|(_, what)| what.starts_with("body moved")).map(|(at, _)| *at).collect();
+    let mut shown = std::collections::BTreeSet::new();
+    for at in &stepped {
+        for k in at.saturating_sub(3)..(at + 4).min(frames.len()) {
+            if shown.insert(k) {
+                let f = &frames[k];
+                println!("[gnu-body] f{k:4} {:<10} pos ({:.2}, {:.2}) vel ({:.2}, {:.2})", f.row, f.pos.x, f.pos.y, f.vel.x, f.vel.y);
+            }
+        }
     }
 }
 

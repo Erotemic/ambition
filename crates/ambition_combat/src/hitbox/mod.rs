@@ -394,6 +394,7 @@ pub struct StrikeVictim {
     /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
     pub volumes: Option<&'static super::components::DamageableVolumes>,
     pub kinematics: Option<&'static ae::BodyKinematics>,
+    pub motion: Option<&'static ae::SweepSample>,
     pub health: Option<&'static ambition_characters::actor::BodyHealth>,
     /// The world's hands are off this body — see [`crate::death_rules::OutOfPlay`].
     ///
@@ -513,7 +514,7 @@ impl StrikeVictimItem<'_, '_> {
         strike_reaches_victim(world_volume, self.volumes, self.aabb, self.kinematics)
     }
 
-    /// Contact of the physical source body with this victim's sampled material.
+    /// Contact of the physical source body with this victim's admitted path.
     pub fn contact_along(
         &self,
         cells: &ae::frame::material_cast::MaterialCastCells<'_>,
@@ -521,7 +522,7 @@ impl StrikeVictimItem<'_, '_> {
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> Result<Option<super::components::BodySweepContact>, ae::frame::thread::Refusal> {
         resolve_hurt_material(self.volumes, self.kinematics, self.aabb)
-            .swept_body_contact(self.entity, self.kinematics, geometry, room, cells)
+            .swept_body_contact(self.entity, self.kinematics, self.motion, geometry, room, cells)
     }
 
     /// The "away" axis in the VICTIM's local frame (§B11).

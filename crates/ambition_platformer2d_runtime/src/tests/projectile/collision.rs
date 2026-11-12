@@ -13,6 +13,44 @@ use ambition_projectiles::ProjectileKind;
 use super::{BodyHealth, advance_time, min_app, projectile_test_app};
 use ambition_combat::components::ActorIdentity;
 
+#[test]
+fn a_moving_hurt_body_crosses_a_stationary_projectile_between_poses() {
+    use ambition_combat::events::{HitEvent, HitTarget};
+    for recorded in [false, true] {
+        let world = ae::World::new("moving_target", ae::Vec2::splat(2000.0), ae::Vec2::splat(200.0), vec![]);
+        let mut app = projectile_test_app(world, ae::Vec2::splat(200.0), 1.0);
+        app.update();
+        let body = ae::BodyKinematics { pos: ae::Vec2::new(550.0, 300.0),
+            canonical_size: ae::Vec2::splat(2.0), ..Default::default() };
+        let target = app.world_mut().spawn((
+            ambition_characters::actor::ActorFaction::Enemy, body,
+            ae::CenteredAabb::from_aabb(body.aabb()),
+            ambition_combat::components::DamageableVolumes::body_box(ae::Vec2::ONE),
+            BodyHealth::new(ambition_characters::actor::Health::new(100)),
+        )).id();
+        if recorded {
+            app.world_mut().entity_mut(target).insert(ae::SweepSample {
+                prev: ae::Vec2::new(450.0, 300.0),
+                ..ae::SweepSample::at_rest(body, ae::Vec2::Y)
+            });
+        }
+        let spec = ProjectileKind::Fireball.spec(ae::Vec2::new(500.0, 300.0), ae::Vec2::X, 1.0);
+        let mut shot = ambition_projectiles::ProjectileBody::from_spec(spec);
+        shot.kin.vel = ae::Vec2::ZERO;
+        crate::projectile_tests::spawn_player_projectile(&mut app, shot);
+        advance_time(&mut app, 0.016);
+        app.update();
+        let hits: Vec<_> = app.world().resource::<Messages<HitEvent>>().iter_current_update_messages()
+            .filter(|hit| hit.target == HitTarget::Body(target)).collect();
+        assert_eq!(hits.len(), usize::from(recorded), "only the recorded target path reaches the shot");
+        if recorded {
+            assert!(hits[0].knockback.as_ref().unwrap().dir < 0.0,
+                "knockback uses the target position at contact before it passes the shot");
+        }
+        assert_eq!(crate::projectile_tests::projectile_bodies(&mut app).is_empty(), recorded);
+    }
+}
+
 /// Fire the fireball of `fireball_damages_enemy_on_intersect` from live
 /// room #0 with a second live room (#1) beside it, the target stamped
 /// `target_room`, and return the target's `(health, max)`.

@@ -25,6 +25,23 @@ pub struct SampledPieceHit {
     pub(super) source_point: bevy_math::DVec2,
 }
 
+pub(super) fn polygon_points(domain: &crate::CombatVolume) -> Result<Vec<bevy_math::DVec2>, RefusalReason> {
+    let polygon = domain.polygon().ok_or_else(|| RefusalReason::Numeric(NumericFault::InvalidFrame))?;
+    if polygon.len() < 3 { return Err(RefusalReason::Numeric(NumericFault::InvalidFrame)); }
+    let points: Vec<_> = polygon.iter().map(|point| point.as_dvec2()).collect();
+    let origin = points[0];
+    let area: f64 = super::edges(&points).map(|(a,b)| (a-origin).perp_dot(b-origin)).sum();
+    if area == 0.0 { return Err(RefusalReason::Numeric(NumericFault::InvalidFrame)); }
+    for (a,b) in super::edges(&points) {
+        let edge = b-a;
+        if points.iter().any(|point| {
+            let arm = *point-a;
+            edge.perp_dot(arm)*area.signum() < -edge.abs().dot(arm.abs())*f64::EPSILON*16.0
+        }) { return Err(RefusalReason::Numeric(NumericFault::InvalidFrame)); }
+    }
+    Ok(points)
+}
+
 impl MaterialCastCells<'_> {
     /// Contact with a fixed target, retaining both source and target cuts.
     /// Report occupied starts. Keep analytic target circles through the cast.
@@ -34,19 +51,7 @@ impl MaterialCastCells<'_> {
             let link = path.pop();
             Refusal { path, link, reason: RefusalReason::Numeric(fault) }
         };
-        let polygon = self.material.domain.polygon().ok_or_else(|| numeric(NumericFault::InvalidFrame))?;
-        if polygon.len() < 3 { return Err(numeric(NumericFault::InvalidFrame)); }
-        let points: Vec<_> = polygon.iter().map(|point| point.as_dvec2()).collect();
-        let origin = points[0];
-        let area: f64 = super::edges(&points).map(|(a,b)| (a-origin).perp_dot(b-origin)).sum();
-        if area == 0.0 { return Err(numeric(NumericFault::InvalidFrame)); }
-        for (a,b) in super::edges(&points) {
-            let edge = b-a;
-            if points.iter().any(|point| {
-                let arm = *point-a;
-                edge.perp_dot(arm)*area.signum() < -edge.abs().dot(arm.abs())*f64::EPSILON*16.0
-            }) { return Err(numeric(NumericFault::InvalidFrame)); }
-        }
+        let points = polygon_points(self.material.domain).map_err(|reason| Refusal { path: vec![], link: None, reason })?;
         super::super::thread::map_volume(target.source(), &target.transform()).map_err(numeric)?;
         let inverse = target.transform().inverse().map_err(numeric)?;
         let bounds = target.world_volume().bounds();

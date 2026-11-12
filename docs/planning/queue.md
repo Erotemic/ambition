@@ -27,8 +27,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    ENEMY-NOTICE, WORLD-LAYERS and POSE-CONTINUITY; then ABILITY-VARIANTS and
    CHARGEN-SPECIES.
 4. **NPC life and boss product work:** [RADIANT-NPC-HTN](#radiant-npc-htn--authored-npc-lives-and-replaceable-planning) tests text-authored HTN planning and persistent schedules. [BOSS-CINEMATIC-COVERAGE](#boss-cinematic-coverage--give-every-boss-a-wolfenstein-class-name-intro), [GNUTON-GNU2-FINALE](#gnuton-gnu2-finale--summon-a-second-gnu-through-a-real-portal), and [GNU-MOTION-PARTS](#gnu-motion-parts--diagnose-and-fix-non-smooth-giant-motion) are selected implementation customers; follow their owner plans and preserve existing shipped encounter phases until replacements pass.
-5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) makes the effective geometry behind collisions, attacks, interactions, portals and navigation visible and machine-readable; it is a concrete inspection customer, not a broad spatial rearchitecture. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable), CONTENT-AS-DATA, TOOL-DISCOVERY and
-   EDITOR-SHELL remain selected at their stated boundaries. Portal, rendering,
+5. **Developer iteration and inspection:** [GEOMETRY-OBSERVABILITY](#geometry-observability--render-the-effective-geometry-behind-gameplay) makes the effective geometry behind collisions, attacks, interactions, portals and navigation visible and machine-readable; it is a concrete inspection customer, not a broad spatial rearchitecture. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable) and CONTENT-AS-DATA
+   remain selected at their stated boundaries (TOOL-DISCOVERY and EDITOR-SHELL
+   are complete: [tooling layout](engine/tooling-layout-and-editor-consolidation.md),
+   T0-T5; retired from this queue 2026-11-11). Portal, rendering,
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
 
@@ -328,59 +330,6 @@ Deck and static web release packages still pass their final asset contracts.
 **Next action:** GOBS-0 is done (2026-11-10, [census and lab](engine/geometry-observability-and-f1.md#gobs-0-result-2026-11-10-census-and-the-first-lab)): F1's blocks layer draws 8 of the 18 solids a body meets in `basement_breakables`, and the lab found a broken platform's lingering pogo orb (fixed). GOBS-1's first slice landed 2026-11-10 (the `ambition_geometry_observation` registry, collision and combat providers, F1's Observed Geometry layer reading the same `observe_all` as headless; and the headless `inspect_geometry` binary with provider selection; and F1's per-provider selection, a Developer-page row that cycles all → each installed observer; and labels on the selected observer's pieces: GOBS-1 is done); GOBS-2 render effective per-body collision and contact decisions (first slice 2026-11-11: the `body.sweep` observer draws each body's swept box, its path and the ground, head and wall contacts the kernel reported, in F1 and headless); GOBS-3 cover combat, interaction, triggers, navigation and portal pieces (interaction done 2026-11-11: `interaction.reach` shows the reach, each candidate, the one the press is for and the rule's reason for every refusal; navigation done 2026-11-11: `navigation.graph` shows the advised graphs' surfaces, hops and drops and each body's route and goal); GOBS-4 provide practical F1 selection/presets and interpolation comparison; GOBS-5 close coverage and cost regressions. Preserve the already working F1 and combat-view paths.
 
 **Acceptance:** a single representative two-room lab exposes actual collision/hit/hurt/interaction/portal/navigation geometry with source identity, state and why-not reasons; a new provider becomes discoverable in F1 and headless inspection without modifying a central game-specific draw switch; overlays are room- and view-correct, off by default, and do no per-frame diagnostic work when disabled. Tests distinguish absent, filtered, intangible and unsupported geometry. Do not confuse an authored block outline with a subject's effective collision world.
-
-### TOOL-DISCOVERY — find supported commands by developer intent
-
-**Failure:** the generated tool index lists immediate tool directories. It does
-not identify supported script commands or Cargo binaries, so a workflow still
-requires broad source search.
-
-**Owner:** `scripts/generate_agent_index.py`, `scripts/agent_query.py`, and the
-packages that own each command.
-Design: [tooling layout, T0-T1](engine/tooling-layout-and-editor-consolidation.md).
-
-**Priority:** after the selected asset-contract and A9/AP14 ownership work.
-
-**Next action:** inventory supported capture, moveset, LDtk, asset-inspection
-and ECS workflows on current main. Record their canonical command, help,
-inputs, outputs, mutation policy and build or binary-reuse requirement.
-Identify path consumers before any move. Extend the existing generated index
-from tool-owned descriptions and existing entry points. Keep internal and
-experimental commands distinct; do not add a second command registry.
-
-**Acceptance:** intent queries for screenshots, deterministic capture, move
-tuning, room editing, published assets and ECS inspection return runnable
-commands and their owner documents. Missing commands have useful diagnostics.
-Discovery stays fast and does not require a GUI, Cargo build or asset audit.
-No tool or submodule move is part of this slice.
-
-### EDITOR-SHELL — promote the existing inspector without a second authority
-
-**Failure:** the Asset Inspector and specialist tools have separate entry
-points, with no common navigation for existing inspection workflows.
-
-**Owner:** the existing `tools/ambition_editor` implementation and its CLI.
-Design: [tooling layout, T2](engine/tooling-layout-and-editor-consolidation.md).
-
-**Depends on:** TOOL-DISCOVERY and its path-consumer inventory.
-
-**Next action:** promote the inspector as Ambition Editor under
-`tools/ambition_editor/`, with minimal internal renaming. Preserve its asset
-browsing, JSON commands, cached previews, serve behavior and authored review
-notes. Link to at least one existing specialist tool through its supported
-command. Update known callers in the same change; keep only deliberate stable
-launchers. Do not merge tool environments or reimplement domain operations.
-
-**Acceptance:** one editor opens the existing asset and review workflows and
-reaches another inspection capability. Agents can obtain the same facts and
-invoke that capability without browser automation. Review IDs, provenance,
-selected libraries and stale-preview access survive. Inspection does not gain
-a mandatory build, regeneration or full-library audit.
-
-T3-T5 remain proposed in the owner document. Select one relocation or cleanup
-batch only when the discovery inventory shows its owner, benefit and callers.
-Keep unique capabilities regardless of use counts; do not add forwarding
-wrappers for every moved script.
 
 ### ENEMY-NOTICE — complete first-sight beats on the existing brain paths
 

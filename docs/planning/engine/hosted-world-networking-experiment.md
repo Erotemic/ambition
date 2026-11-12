@@ -575,9 +575,11 @@ Bob turns at his own rhythm and jumps.
   or walking away. Movement needs nothing more than the guest's room and
   its own input.
 - **What other bodies do to Bob is what the guest gets wrong:** with Alice
-  swinging beside him, the guest's Alice is a snapshot six frames older than
-  the host's, so what she does to Bob lands on the host and not, or not then,
-  on the guest. Offset reconciliation keeps the error under 1.5 units but
+  swinging beside him, her swings hit him on the host (two connects, each
+  setting an impact freeze; his health falls to 0, so this harness's seats
+  hurt each other). The guest's Alice is written from snapshots and never
+  swings, so the strikes, their knockback and their freezes land only on the
+  host. Offset reconciliation keeps the error under 1.5 units but
   corrects on half the snapshots; a correction that replays the inputs
   since the snapshot (the guest rewinding its own body) is the next thing to
   measure, and which contacts reach a body (strikes, pushes, carries) is

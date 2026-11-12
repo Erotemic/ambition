@@ -1931,10 +1931,24 @@ fn probe_how_far_a_guests_prediction_is_from_the_host() {
             let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>)> = VecDeque::new();
             let mut newest: Option<BTreeMap<SimId, [f32; 5]>> = None;
             let mut corrections: Vec<f32> = Vec::new();
+            // What reached Bob on the host: the connects that set a freeze, and
+            // his health.
+            let (mut connects, mut last_hold, mut bobs_lowest) = (0, None::<u64>, i32::MAX);
             for frame in 1..=FRAMES {
                 host.drive_seat(0, alice(frame));
                 host.drive_seat(1, if frame > LATENCY { bobs(frame - LATENCY) } else { ControlFrame::default() });
                 host.app_mut().update();
+                {
+                    let world = host.world_mut();
+                    let hold = world.resource::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>().until_tick;
+                    if hold != last_hold && hold.is_some() {
+                        connects += 1;
+                    }
+                    last_hold = hold;
+                    if let Some(lowest) = healths(&mut host).get(&bob_id) {
+                        bobs_lowest = bobs_lowest.min(*lowest);
+                    }
+                }
                 in_flight.push_back((frame, bodies(&mut host, None)));
                 if in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATENCY) {
                     let (sent, rows) = in_flight.pop_front().expect("a snapshot arrived");
@@ -1973,7 +1987,7 @@ fn probe_how_far_a_guests_prediction_is_from_the_host() {
             let largest = corrections.iter().copied().fold(0.0f32, f32::max);
             let over = corrections.iter().filter(|error| **error > 0.5).count();
             println!(
-                "[predict] {scene}, {}: {} snapshots compared; correction mean {mean:.3}, largest {largest:.3}, over half a unit on {over}",
+                "[predict] {scene}, {}: {} snapshots compared; correction mean {mean:.3}, largest {largest:.3}, over half a unit on {over}; on the host {connects} connects set a freeze, Bob's lowest health {bobs_lowest}",
                 if reconcile { "reconciled" } else { "not reconciled" },
                 corrections.len()
             );

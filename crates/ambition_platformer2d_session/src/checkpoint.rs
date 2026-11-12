@@ -426,11 +426,14 @@ pub fn resume_at_checkpoint_on_reset(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // Every driven body, to find the rooms other participants hold (Q151).
+    // One out of play is not holding anything: when nobody is in play the
+    // death is a full-party wipe and the restore spares nothing.
     participants: Query<(
         bevy::prelude::Entity,
         &ambition_characters::control::DrivingParticipant,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        Has<ambition_combat::death_rules::OutOfPlay>,
     )>,
     mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore,
     >,
@@ -639,7 +642,8 @@ pub fn resume_at_checkpoint_on_reset(
     } else {
         participants
             .iter()
-            .filter_map(|(_, _, stamp, root)| {
+            .filter(|(.., out_of_play)| !out_of_play)
+            .filter_map(|(_, _, stamp, root, _)| {
                 ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
             })
             .filter(|room| Some(*room) != subject.room)
@@ -654,6 +658,7 @@ pub fn resume_at_checkpoint_on_reset(
     } else {
         participants
             .iter()
+            .filter(|(.., out_of_play)| !out_of_play)
             .filter(|(body, ..)| Some(*body) != subject_body)
             .map(|(_, driver, ..)| driver.0)
             .filter(|seat| Some(*seat) != dying)

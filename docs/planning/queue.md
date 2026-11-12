@@ -755,6 +755,16 @@ full-party-wipe condition as such. Ambition's death beat is 0 s
 (`room_rules.ron`), so an individual return is immediate and a wipe needs two
 deaths on one tick.
 
+**Built 2026-11-11 (the wipe's restore):** a participant out of play is not
+a survivor, so when every participant is out of play the checkpoint restore
+spares no room and no participant (`resume_at_checkpoint_on_reset`). Measured
+with a temporary probe: Bob takes the gun-sword in the hub after Alice's
+checkpoint and carries it to `duel_arena`; both die on one tick. Before, Bob
+was spared and kept it (held 1, ledger `InCustody`); after, it is back on its
+pedestal (lying 1, no row), one copy, and both are back in play. The wipe
+also now pins the facts (DIALOGUE-CHECKPOINT). With Ambition's 0 s beat a
+wipe still needs two deaths on one tick (the declared delay is open).
+
 **Next action:** one recovery state machine over the active participant set,
 symmetric for every participant:
 

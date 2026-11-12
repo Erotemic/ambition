@@ -41,6 +41,13 @@ contact responses, other movement models, swept guard contact and response, atta
 Whether melee strikes and guards need swept contact at all is
 [Q172](../awaiting-maintainer-decision.md#q172--do-melee-strikes-and-guards-need-swept-continuous-contact);
 the device/GPU gates need hardware, and GNU2's finale needs the art publish.
+Attachments: a held item's strike volume is cut through the pairs with the
+body (`strike_pieces`) and a refused cut produces no hit past the mouth. Its
+drawing is cut by the presentation carry, which skips a drawable whose cut
+is refused (`carry.rs`, `Err(_) => continue`), so for that frame the item is
+drawn whole in its own chart: a held javelin refused at the hop limit shows
+its tip past the host. Drawing only the near piece for a refused cut is the
+open attachment work.
 The fault effect landed in `c21bfff4d` with its witnesses; two live rooms
 draw their own faults (`cd5174469`). GNU-ton's giant no longer hitches out of
 the well's exit: a body does not collide with the lines it carries, and a

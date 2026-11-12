@@ -29,6 +29,22 @@ pub fn map_point(
     exit.origin + portal_map_vec(p - enter.origin, enter.normal, exit.normal, convention)
 }
 
+/// Map `p` near `enter` to `exit` by the pair's similarity: the map a body
+/// crosses by (`Sim2::through`), with the pair's scale, which [`map_point`]
+/// (frames only) does not have. What a window shows through a pair is mapped
+/// by this, so the far mouth's ends meet the near mouth's ends at any scale.
+/// A pair no body can cross (a degenerate aperture) maps by its frames.
+pub fn map_through(p: Vec2, enter: &PortalAperture, exit: &PortalAperture, convention: MapConvention) -> Vec2 {
+    ae::frame::Sim2::through(enter, exit, convention)
+        .and_then(|map| map.point(p))
+        .unwrap_or_else(|_| map_point(p, &enter.frame, &exit.frame, convention))
+}
+
+/// The pair's scale: what a length at `enter` is at `exit`.
+pub fn scale_through(enter: &PortalAperture, exit: &PortalAperture) -> f32 {
+    if enter.half_length > 0.0 && exit.half_length > 0.0 { exit.half_length / enter.half_length } else { 1.0 }
+}
+
 /// Map an axis-aligned AABB through the portal pair. The map is axis-aligned for
 /// axis-aligned portals (a 90° turn swaps the half-extents), so the image stays
 /// an axis-aligned AABB.

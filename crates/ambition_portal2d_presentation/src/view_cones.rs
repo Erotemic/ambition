@@ -756,12 +756,7 @@ fn portal_parallax_anchor_world(
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> Option<Vec2> {
     host_view.filter(|v| v.initialized).map(|v| {
-        ambition_portal2d::pieces::map_point(
-            v.current_center_world,
-            &enter.frame,
-            &exit.frame,
-            convention,
-        )
+        ambition_portal2d::pieces::map_through(v.current_center_world, enter, exit, convention)
     })
 }
 
@@ -873,15 +868,15 @@ fn portal_capture_camera_frame(
     // frames the view's rect exactly and its texture is the view's size at
     // every angle. A box around the turned rect changed size with the angle,
     // and the texture was made again each frame.
-    let center = ambition_portal2d::pieces::map_point(
-        host_view.current_center_world,
-        &enter.frame,
-        &exit.frame,
-        convention,
-    );
+    //
+    // A scaling pair maps the view's rect to one the pair's scale times as
+    // large: a window into a smaller exit shows the far side magnified, so the
+    // far mouth's ends meet the near mouth's.
+    let center = ambition_portal2d::pieces::map_through(host_view.current_center_world, enter, exit, convention);
     let axis = ambition_portal2d::pieces::portal_map_vec(Vec2::X, enter.frame.normal, exit.frame.normal, convention)
         .normalize_or(Vec2::X);
-    Some(geometry::CaptureCameraFrame { center, size: host_view.visible_view, axis })
+    let size = host_view.visible_view * ambition_portal2d::pieces::scale_through(enter, exit);
+    Some(geometry::CaptureCameraFrame { center, size, axis, shown: host_view.visible_view })
 }
 
 mod geometry;

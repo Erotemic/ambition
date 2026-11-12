@@ -9,7 +9,7 @@ use ambition_platformer2d_core as ae;
 use bevy::math::Vec2;
 
 use crate::pieces::{
-    map_point, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, MapConvention,
+    portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, MapConvention,
     PortalAperture, PortalFrame,
 };
 
@@ -130,6 +130,14 @@ pub fn view_point(
     PortalViewMap::between(enter, exit, convention).apply(p)
 }
 
+/// [`view_point`] by the pair's similarity ([`crate::pieces::map_through`]),
+/// scale included: `p` reflected across the entry plane, then mapped.
+pub fn view_point_through(p: Vec2, enter: &PortalAperture, exit: &PortalAperture, convention: MapConvention) -> Vec2 {
+    let n = enter.frame.normal;
+    let reflected = p - 2.0 * (p - enter.frame.origin).dot(n) * n;
+    crate::pieces::map_through(reflected, enter, exit, convention)
+}
+
 /// A camera/viewpoint frame in portal world coordinates.
 ///
 /// `rotation` is the 2D z-rotation, in the caller's world-space convention.
@@ -158,8 +166,8 @@ pub fn map_viewpoint_frame(
 }
 
 /// The view cone of one portal: a trapezoid from the entry face into the host
-/// surface, showing the world in front of the exit through the body
-/// [`map_point`]. This is the transit map, so the window agrees with where
+/// surface, showing the world in front of the exit through the body map
+/// ([`crate::pieces::map_through`], the pair's scale included). This is the transit map, so the window agrees with where
 /// bodies emerge; the sprite copy uses the same map through [`copy_roll`].
 ///
 /// Corner order is `[near_a, near_b, far_b, far_a]`: the near edge is on the
@@ -169,7 +177,7 @@ pub fn map_viewpoint_frame(
 pub struct ViewCone {
     /// Trapezoid corners at the ENTRY portal (face + into-the-wall), world space.
     pub entry_quad: [Vec2; 4],
-    /// The same corners through the body [`map_point`]: the exit-side quad the
+    /// The same corners through the body map: the exit-side quad the
     /// window shows. `source_quad[i]` is what `entry_quad[i]` shows; a renderer
     /// gets per-vertex UVs by normalizing these inside [`Self::source`].
     pub source_quad: [Vec2; 4],
@@ -274,7 +282,7 @@ fn from_entry_quad(
     exit: &PortalAperture,
     convention: MapConvention,
 ) -> ViewCone {
-    let source_quad = entry_quad.map(|p| map_point(p, &enter.frame, &exit.frame, convention));
+    let source_quad = entry_quad.map(|p| crate::pieces::map_through(p, enter, exit, convention));
     let (mut min, mut max) = (source_quad[0], source_quad[0]);
     for p in &source_quad[1..] {
         min = min.min(*p);
@@ -375,8 +383,7 @@ pub fn window_eye(
     convention: MapConvention,
 ) -> Option<(Vec2, bool)> {
     let direct = resolve_end_front(enter, eye);
-    let via =
-        resolve_end_front(exit, eye).map(|r| view_point(r, &exit.frame, &enter.frame, convention));
+    let via = resolve_end_front(exit, eye).map(|r| view_point_through(r, exit, enter, convention));
     match (direct, via) {
         (None, None) => None,
         (Some(d), None) => Some((d, false)),

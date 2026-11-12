@@ -27,7 +27,7 @@ pub(crate) fn capture_dims(
 ) -> UVec2 {
     if config.capture_camera_mode == PortalCaptureCameraMode::MappedCameraSnapshot {
         let source_size = capture_frame
-            .map(|frame| frame.size)
+            .map(|frame| frame.shown)
             .unwrap_or(Vec2::new(800.0, 450.0))
             .max(Vec2::splat(1.0));
         // `texels_per_world_px = 1.0` means "pixel-perfect": the main camera
@@ -84,12 +84,16 @@ pub(crate) struct CaptureCameraFrame {
     /// Its `+x` in the world (unit). Its `+y` (texture down) is
     /// [`Self::down`].
     pub(crate) axis: Vec2,
+    /// The size its picture covers where it is shown. A scaling pair frames
+    /// a rect its scale times the view's, and the texture is made for the
+    /// view's size, so a magnified window is as sharp as the world around it.
+    pub(crate) shown: Vec2,
 }
 
 impl CaptureCameraFrame {
     /// The axis-aligned rect from `min` to `max`.
     pub(crate) fn aligned(min: Vec2, max: Vec2) -> Self {
-        Self { center: (min + max) * 0.5, size: max - min, axis: Vec2::X }
+        Self { center: (min + max) * 0.5, size: max - min, axis: Vec2::X, shown: max - min }
     }
 
     /// Its `+y` in the world: texture down.
@@ -780,7 +784,7 @@ pub(crate) fn visibility_route_summary(
             && (corner - exit.frame.origin).dot(exit.frame.normal) < 0.0
         {
             let candidate = VisibleEyeCandidate {
-                wedge_eye: ambition_portal2d::pieces::map_point(corner, &exit.frame, &enter.frame, convention),
+                wedge_eye: ambition_portal2d::pieces::map_through(corner, &exit, &enter, convention),
                 los_origin: corner,
                 los_frame: exit,
             };
@@ -967,7 +971,7 @@ pub(crate) fn compute_cone(
             && (corner - exit.frame.origin).dot(exit.frame.normal) < 0.0
         {
             let candidate = VisibleEyeCandidate {
-                wedge_eye: ambition_portal2d::pieces::map_point(corner, &exit.frame, &enter.frame, convention),
+                wedge_eye: ambition_portal2d::pieces::map_through(corner, &exit, &enter, convention),
                 los_origin: corner,
                 los_frame: exit,
             };
@@ -1139,7 +1143,7 @@ pub(crate) fn cone_render(
     // Map the clipped vertices; their bounds are the capture rect.
     let mapped: Vec<Vec2> = poly
         .iter()
-        .map(|p| ambition_portal2d::pieces::map_point(*p, &enter.frame, &exit.frame, convention))
+        .map(|p| ambition_portal2d::pieces::map_through(*p, enter, exit, convention))
         .collect();
     let capture = capture_frame.unwrap_or_else(|| {
         let (mut smin, mut smax) = (mapped[0], mapped[0]);

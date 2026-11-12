@@ -39,7 +39,7 @@ fn cone_uvs_are_flip_free_in_world_space() {
 #[test]
 fn a_turned_capture_maps_its_own_corners_to_the_texture_corners() {
     let axis = Vec2::new(30f32.to_radians().cos(), 30f32.to_radians().sin());
-    let frame = CaptureCameraFrame { center: Vec2::new(200.0, 100.0), size: Vec2::new(80.0, 40.0), axis };
+    let frame = CaptureCameraFrame { center: Vec2::new(200.0, 100.0), size: Vec2::new(80.0, 40.0), axis, shown: Vec2::new(80.0, 40.0) };
     let down = frame.down();
     let corner = |sx: f32, sy: f32| frame.center + axis * 40.0 * sx + down * 20.0 * sy;
     let close = |a: [f32; 2], b: [f32; 2]| (a[0] - b[0]).abs() < 1e-4 && (a[1] - b[1]).abs() < 1e-4;

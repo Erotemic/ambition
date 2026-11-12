@@ -728,9 +728,21 @@ standing height. Review finding #8 (2026-10-19): the grant no longer sizes an
 `Explicit` body from its sheet (`sheet_body_for`); it keeps its box, as before
 slice 1. Explicit half-extents on a change of form are still slice 1b.
 
-**Next action, in slices:** (1b) a form with no standing height (scaled by a
-placement box today) and `BodySource::Explicit` get one answer on every road
-(contradiction 1). (2) The construction paths
+**Built 2026-11-12 (slice 1b):** `BodySource::Explicit` is the box its author
+wrote on every road: the shared resolver (`BuiltGeometry::resolve`, the NPC,
+minion, enemy and match-seat roads) and a change of form
+(`form_body_for` in `actor_spawn::character_body`) take it before the sheet,
+and the sheet draws it fitted to that box (`fitted_render_size`). Before, a
+sheet with a standing height sized an explicit NPC or seat over its box, and a
+change of form into an explicit character kept the old box. Witnesses:
+`an_explicit_body_is_built_at_its_box_not_its_sheets` (body seed) and
+`an_explicit_body_is_its_own_box_not_its_sheets` (actor spawn). A form with
+neither an explicit box nor a standing height keeps the box its road gives
+(the placement box for an NPC, the body's own box on a change of form) and is
+drawn fitted to it: that is the one answer, since a live body has no placement
+box to scale by. Contradiction 1 is closed.
+
+**Next action, in slices:** (2) The construction paths
 agree on intrinsic geometry for the same form. (3) Distinct operations over
 shared infrastructure: transformation (same body, new form), possession
 (another existing body, same participant), skin (presentation only), body mode

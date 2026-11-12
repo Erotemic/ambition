@@ -200,6 +200,19 @@ impl BuiltGeometry {
         aabb: ae::Aabb,
     ) -> Self {
         let placement = aabb.half_size() * 2.0;
+        // An explicit body is the box its author wrote, on every road (Q159,
+        // CHARACTER-FORM slice 1b): its sheet draws it fitted to that box and
+        // does not size it.
+        if let Some(ambition_characters::actor::definition::BodySource::Explicit { half_extents }) = body {
+            let collision = ae::Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0);
+            return Self {
+                collision,
+                render: sheet.and_then(|sheet| {
+                    ambition_sprite_sheet::character::sheets::fitted_render_size(sprite_content, sheet, collision)
+                }),
+                posed: None,
+            };
+        }
         let posed = match (body, sheet) {
             (
                 Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
@@ -1097,6 +1110,44 @@ mod tests {
             (seed.kin.size(), seed.render_size),
             (from_the_sheet.collision, Some(from_the_sheet.render_size)),
             "the body was not built from the sheet its prepared character wears"
+        );
+    }
+
+    /// An explicit body is the box its author wrote on the NPC road too, also
+    /// with a sheet and a standing height that would size it otherwise
+    /// (CHARACTER-FORM slice 1b): the sheet draws it fitted to that box.
+    #[test]
+    fn an_explicit_body_is_built_at_its_box_not_its_sheets() {
+        let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        const SHEET: &str = "robot";
+        let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let sizing = ambition_characters::prepared::SheetSizing { tuning: None, standing_height: Some(48.0) };
+        let ldtk = ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(108.0, 20.0));
+        let explicit = ambition_characters::actor::definition::BodySource::Explicit { half_extents: (13.0, 29.0) };
+        let mut blueprint = test_blueprint("explicit_worn", "Explicit Worn", 10, Default::default(), Default::default(), false);
+        blueprint.sheet = Some(SHEET);
+        blueprint.sheet_sizing = Some(sizing);
+        blueprint.body = Some(&explicit);
+        let seed = ActorClusterSeed::new_character_in(&sprite_content,
+            &authored,
+            &CharacterCatalog::empty(),
+            "explicit_worn",
+            blueprint,
+            ldtk,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+            &[],
+        );
+        let box_ = ae::Vec2::new(26.0, 58.0);
+        let from_the_sheet = ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_sheet(&sprite_content,
+            &authored, SHEET, &sizing, ldtk.half_size() * 2.0,
+        )
+        .expect("the baked `robot` sheet publishes a body");
+        assert_ne!(from_the_sheet.collision, box_, "premise: the sheet would size the body otherwise");
+        assert_eq!(seed.kin.size(), box_, "the body was not built at its explicit box");
+        assert_eq!(
+            seed.render_size,
+            ambition_sprite_sheet::character::sheets::fitted_render_size(&sprite_content, SHEET, box_),
+            "its sheet does not draw it fitted to its box"
         );
     }
 

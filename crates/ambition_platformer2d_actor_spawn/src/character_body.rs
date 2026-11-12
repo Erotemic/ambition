@@ -45,9 +45,10 @@ pub struct GrantedBodyFacts {
     /// A sprite-authored body: the posed-body marker AND the standing geometry
     /// granted with it, carrying what that geometry displaced.
     pub posed_body: Option<DisplacedGeometry>,
-    /// A body sized from its sheet at its standing height ([`sheet_body_for`]):
-    /// the standing box and the quad granted, carrying what they displaced.
-    pub sheet_body: Option<DisplacedGeometry>,
+    /// A body sized by its form ([`form_body_for`]): an explicit box, or its
+    /// sheet at its standing height. The standing box and the quad granted,
+    /// carrying what they displaced.
+    pub form_body: Option<DisplacedGeometry>,
     /// The quad on the body ([`ambition_combat::components::ActorRenderSize`])
     /// is this wear's: the character has a sheet and no posed body, so its art
     /// is drawn from the body's box ([`drawn_from_its_box`]). The grant states
@@ -102,7 +103,7 @@ impl GrantedBodyFacts {
             body_contact: prepared.locomotion.and_then(|motion| motion.body_contact).map(|_| None),
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
-            sheet_body: sheet_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
+            form_body: form_body_for(&sprite_content, prepared).map(|_| DisplacedGeometry::default()),
             drawn_quad: drawn_from_its_box(&sprite_content, prepared).is_some(),
             unmirrored: prepared.unmirrored,
             carried: prepared.carries.clone(),
@@ -142,7 +143,7 @@ impl GrantedBodyFacts {
             movement_tuning,
             body_contact,
             posed_body,
-            sheet_body,
+            form_body,
             drawn_quad,
             unmirrored,
             carried,
@@ -177,7 +178,7 @@ impl GrantedBodyFacts {
         if posed_body.is_some() {
             scope.remove::<ambition_sprite_sheet::character::SpritePosedBody>();
         }
-        if let Some(displaced) = posed_body.or(sheet_body) {
+        if let Some(displaced) = posed_body.or(form_body) {
             let DisplacedGeometry {
                 base_size,
                 render_size,
@@ -249,29 +250,42 @@ fn posed_body_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
     }
 }
 
-/// The body of a character sized from its sheet: it has no posed body, and a
-/// standing height its sheet's published body can be scaled to.
+/// The box a form brings, and the quad it is drawn at.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct FormBody {
+    collision: ambition_platformer2d_core::Vec2,
+    /// `None` for an explicit body with no sheet: nothing states its quad.
+    render: Option<ambition_platformer2d_core::Vec2>,
+}
+
+/// The body of a character that is not posed: the box its author wrote
+/// (`BodySource::Explicit`), drawn by its sheet fitted to that box, or else
+/// its sheet's published body at its standing height.
 ///
 /// ⭐ A FORM BRINGS ITS OWN SIZE (Q159, ruled 2026-10-19). This is the box an
 /// NPC of the character is built in (`BuiltGeometry::resolve`), with no
 /// placement box, so a body that becomes the dog is a dog of the dog's size,
-/// not a small dog in the box it had. A character with no standing height
-/// would be scaled by a placement box, which a live body has not got; it
-/// keeps its box and its art is fitted to it ([`drawn_from_its_box`]).
-fn sheet_body_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
+/// not a small dog in the box it had. An explicit box outranks the sheet: it
+/// is the size its author wrote. A character with neither would be scaled by
+/// a placement box, which a live body has not got; it keeps its box and its
+/// art is fitted to it ([`drawn_from_its_box`]).
+fn form_body_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
-) -> Option<ambition_sprite_sheet::character::catalog_join::SpriteBodyCollision> {
-    // An authored body outranks the sheet: a posed body brings its own box,
-    // and an explicit one is the size its author wrote.
-    let explicit = matches!(
-        prepared.body,
-        Some(ambition_characters::actor::definition::BodySource::Explicit { .. })
-    );
-    if explicit || posed_body_for(&sprite_content, prepared).is_some() {
+) -> Option<FormBody> {
+    if let Some(ambition_characters::actor::definition::BodySource::Explicit { half_extents }) = prepared.body {
+        let collision = ambition_platformer2d_core::Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0);
+        let render = prepared
+            .sheet
+            .as_deref()
+            .and_then(|sheet| ambition_sprite_sheet::character::sheets::fitted_render_size(sprite_content, sheet, collision));
+        return Some(FormBody { collision, render });
+    }
+    if posed_body_for(sprite_content, prepared).is_some() {
         return None;
     }
     let height = prepared.sheet_sizing.as_ref()?.standing_height?;
-    ambition_sprite_sheet::character::catalog_join::sprite_body_at_standing_height(&sprite_content, prepared.sheet.as_deref()?, height)
+    ambition_sprite_sheet::character::catalog_join::sprite_body_at_standing_height(sprite_content, prepared.sheet.as_deref()?, height)
+        .map(|body| FormBody { collision: body.collision, render: Some(body.render_size) })
 }
 
 /// The sheet of a character whose art is drawn from its body's box: it has a
@@ -282,7 +296,7 @@ fn sheet_body_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
 /// drawn by the catalog's `collision_scale`, which is not known here: a body
 /// that wears one states no quad, and the landmark query has no answer for it.
 fn drawn_from_its_box<'a>(sprite_content: &ambition_sprite_sheet::SpriteContent, prepared: &'a ambition_characters::prepared::PreparedCharacterDefinition) -> Option<&'a str> {
-    if posed_body_for(&sprite_content, prepared).is_some() || sheet_body_for(&sprite_content, prepared).is_some() {
+    if posed_body_for(&sprite_content, prepared).is_some() || form_body_for(&sprite_content, prepared).is_some() {
         return None;
     }
     let sheet = prepared.sheet.as_deref()?;
@@ -519,7 +533,7 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
                 ambition_combat::components::ActorSpriteOffset(standing.sprite_offset),
             ));
             scope.insert(posed);
-        } else if let Some(form) = sheet_body_for(&sprite_content, prepared) {
+        } else if let Some(form) = form_body_for(&sprite_content, prepared) {
             // The same capture as a posed body's, onto its own record.
             scope.queue_entity_edit(|mut body| {
                 let displaced = DisplacedGeometry {
@@ -534,15 +548,15 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
                         .map(|offset| offset.0),
                 };
                 if let Some(mut kit) = body.get_mut::<ProjectedCharacterKit>() {
-                    kit.granted.sheet_body = Some(displaced);
+                    kit.granted.form_body = Some(displaced);
                 }
             });
-            scope.insert((
-                ambition_platformer2d_core::BodyBaseSize {
-                    base_size: form.collision,
-                },
-                ambition_combat::components::ActorRenderSize(form.render_size),
-            ));
+            scope.insert(ambition_platformer2d_core::BodyBaseSize {
+                base_size: form.collision,
+            });
+            if let Some(render) = form.render {
+                scope.insert(ambition_combat::components::ActorRenderSize(render));
+            }
             // No pose pass sizes this body, so the grant stands the live
             // collider in the new box, under the body's current stance, feet
             // planted, as the retraction does.
@@ -648,16 +662,18 @@ mod tests {
         prepared
     }
 
-    /// Review finding #8 (2026-10-19). A character with an explicit body and
-    /// a sheet standing height keeps its explicit body: the sheet does not
-    /// size it. Control: the same character with no authored body is sized
-    /// from its sheet. Measured before: the sheet sized it, over the box its
-    /// author wrote. Poison: ask only about a posed body again.
+    /// A character with an explicit body and a sheet standing height is the
+    /// box its author wrote, drawn by its sheet fitted to that box (review
+    /// finding #8, 2026-10-19; CHARACTER-FORM slice 1b). Control: the same
+    /// character with no authored body is sized from its sheet.
     #[test]
-    fn an_explicit_body_is_not_sized_by_its_sheet() {
-    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-        assert!(sheet_body_for(&sprite_content, &on_a_sheet(None)).is_some(), "premise: the sheet publishes a body at the height");
+    fn an_explicit_body_is_its_own_box_not_its_sheets() {
+        let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        let sized = form_body_for(&sprite_content, &on_a_sheet(None)).expect("premise: the sheet publishes a body at the height");
         let explicit = ambition_characters::actor::definition::BodySource::Explicit { half_extents: (10.0, 20.0) };
-        assert!(sheet_body_for(&sprite_content, &on_a_sheet(Some(explicit))).is_none(), "the sheet sized an explicit body");
+        let form = form_body_for(&sprite_content, &on_a_sheet(Some(explicit))).expect("an explicit body brings its box");
+        assert_eq!(form.collision, ambition_platformer2d_core::Vec2::new(20.0, 40.0), "the explicit body is the box its author wrote");
+        assert_ne!(form.collision, sized.collision, "premise: the sheet would size it differently");
+        assert!(form.render.is_some(), "its sheet draws it fitted to its box");
     }
 }

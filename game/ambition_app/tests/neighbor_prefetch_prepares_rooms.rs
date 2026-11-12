@@ -340,6 +340,7 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
                     custody: Default::default(),
                 }),
                 item: None,
+                facts: None,
                 fresh: false,
                 replay: None,
             });
@@ -494,6 +495,7 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
                 intent: intent.clone(),
                 lifecycle: None,
                 item: None,
+                facts: None,
                 fresh: false,
                 replay: None,
             });

@@ -925,6 +925,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
                 grants: Default::default(),
                 spends: Default::default(),
             }),
+            facts: None,
             fresh: false,
             replay: None,
         });
@@ -990,6 +991,7 @@ fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
             custody: Default::default(),
         }),
         item: None,
+        facts: None,
         fresh: false,
         replay: None,
     });
@@ -1262,6 +1264,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
                 grants: Default::default(),
                 spends: Default::default(),
             }),
+            facts: None,
             fresh: false,
             replay: None,
         }
@@ -1460,6 +1463,7 @@ fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
                 }),
                 lifecycle: None,
                 item: None,
+                facts: None,
                 fresh: false,
                 replay: None,
             });
@@ -1540,6 +1544,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
                 custody,
             }),
             item: None,
+            facts: None,
             fresh: false,
             replay: None,
         });
@@ -1923,6 +1928,7 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
                     custody,
                 }),
                 item: None,
+                facts: None,
                 fresh: false,
                 replay: None,
             });
@@ -2092,6 +2098,7 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
                     custody: Default::default(),
                 }),
                 item: None,
+                facts: None,
                 fresh: false,
                 replay: None,
             });
@@ -2439,6 +2446,7 @@ fn an_operation_at(
             custody: Default::default(),
         }),
         item: None,
+        facts: None,
         fresh: false,
         replay: None,
     }

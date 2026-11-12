@@ -123,6 +123,7 @@ fn a_restore_uses_its_exact_key_and_never_falls_back_to_live_inputs() {
                 custody: Default::default(),
             }),
             item: None,
+            facts: None,
             fresh: false,
             replay: None,
         });
@@ -268,6 +269,7 @@ fn captured_restore_checksums_exclude_host_local_scope_values() {
                 intent: operation.kind,
                 lifecycle: None,
                 item: None,
+                facts: None,
                 fresh: false,
                 replay: None,
             });

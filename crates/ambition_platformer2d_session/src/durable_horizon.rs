@@ -366,6 +366,7 @@ pub fn complete_durable_restore(
 /// slots other domains' adapters join. The generic runtime composes this with
 /// each domain's own installation.
 pub fn install_durable_save_horizon(app: &mut App) {
+    crate::fact_horizon::install_fact_horizon(app);
     // ⭐ A NEW GAME'S FRESH-RUN STATE IS NOT RESET HERE. A New Game is a
     // checkpoint restore to the fresh baseline, so each domain's fresh-run
     // reducer runs in `CheckpointDomainApply`, on the confirmed-frame commit.

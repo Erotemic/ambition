@@ -790,8 +790,20 @@ checkpoint: the survey leaves the bag (objects go back), and
 have no checkpoint copy). The object is lost for good while the world says it
 was received.
 
-**Next action:** (1) the checkpoint copies the participant's unbanked facts
-(flags, quest steps) with the bag, and a solo death restores both; (2) an
+**Built 2026-11-11 (slice 1):** the save's flags and quest steps have a
+checkpoint (`session::fact_horizon`): a baseline taken at each checkpoint
+commit and when a session's save is applied (a New Game's wipe takes the fresh
+save's), pinned into a restore that spares no participant, put back in
+`CheckpointDomainApply` with the quest registry rehydrated by its boot rule
+(`QuestRegistry::rehydrate`), mirrored into the save the rebuilt room is
+prepared from, and verified. Measured with a temporary probe in
+`a_death_sends_the_blink_back_to_where_it_lay`: before, a death before any
+checkpoint left (survey 0, note flag on, survey flag on, quest step 2, lock
+open); after, (survey 0, both flags off, step 0, lock standing). Dialogue
+visits are not restored (Q134). A co-op death that spares a participant pins
+no facts, as before.
+
+**Next action:** (2) an
 authored dialogue effect that banks (a checkpoint action through the existing
 persistence road, one transaction with the facts and objects it moves);
 (3) in co-op, shared facts a survivor holds are not rolled back, and their

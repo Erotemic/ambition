@@ -61,6 +61,12 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         "which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication",
         crate::checkpoint::AcceptedCheckpointRestore::checksum,
     );
+    registrar.rollback_component_clone_checksum::<crate::fact_horizon::FactsBaseline>(
+        OWNER,
+        "resource.facts_baseline",
+        "the save's flags and quest steps at the last checkpoint, which a death puts back",
+        crate::fact_horizon::FactsBaseline::checksum,
+    );
     registrar.rollback_component_clone_checksum::<crate::checkpoint::OutstandingCheckpointRequest>(
         OWNER,
         "resource.outstanding_checkpoint_request",

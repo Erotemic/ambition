@@ -1,8 +1,52 @@
 # Portal desktop performance
 
+## Follow-up without Tracy
+
+`desktop-timeline-run-20261112T012923Z` uses source `c635d39e74ca`, the same
+desktop and `profiling` build profile, no Cargo features, and no Tracy capture.
+Manual input enters the Hall and then the lab. The prior captures use the
+`profile` feature. This comparison changes both instrumentation and input;
+it is not a controlled measurement of profiler overhead alone.
+
+| Interval in the run without Tracy | Mean frame time | Approximate FPS |
+| --- | ---: | ---: |
+| Hall, wall time 13.5 to 18.9 s | 8.68 ms | 115.2 |
+| Hub, wall time 20.5 to 23.5 s | 3.16 ms | 316.7 |
+| Lab, wall time 26 to 67.6 s | 57.72 ms | 17.3 |
+| Lab, wall time 55 to 67.6 s | 32.83 ms | 30.5 |
+
+These are frame-count-weighted census means. Window boundaries can include
+frames just before the named interval. All selected Hall windows are within
+its loaded interval, from 12.401 to 19.490 seconds.
+
+This evidence changes the Hall diagnosis. The earlier 3.8 FPS result is not
+a representative measurement of the engine without instrumentation. The
+driver costs about 4.5 ms per rendered frame in two 300-frame Hall brackets
+without Tracy, compared with 244.58 ms in the earlier traced bracket.
+Hall integration still costs about 4.08 ms per simulation tick without Tracy,
+compared with 5.62 ms in the traced interior interval.
+
+The traced driver spends about 16.68 ms per simulation tick, near the full
+60 Hz budget before rendering and other frame work. Its catch-up loop then
+runs many ticks in one rendered frame. This explains how added per-tick
+overhead can cause a much larger change in rendered frame time. Do not quote
+the ratio between these FPS values as the profiler's direct per-tick cost.
+
+The lab remains expensive without Tracy. Its census reports about 13.15 ms
+per tick in `PlayerSimulation` and 1.86 ms in `Integrate` from wall time 26
+to 67.6 seconds. The same three portal-pose functions below account for
+22.06% of whole-run self CPU samples, including boot, hub and Hall time.
+Their repeated work remains the first runtime optimization target. The late
+lab interval has more active portal captures than the early interval despite
+its better frame rate. Camera count alone does not explain the slowdown.
+
+The maintainer confirms that a memory-pressure incident occurred during the
+earlier run. Keep that long stall separate from the sustained simulation cost.
+The responsible allocation or process is still not established by these files.
+
 ## Captures and limits
 
-Both captures use an i9-11900K, an RTX 3090 with Vulkan, the `profiling`
+The first two captures use an i9-11900K, an RTX 3090 with Vulkan, the `profiling`
 profile, and the `profile` feature. VSync and the frame cap are off.
 
 The bundles are under `dev/ambition_dev_measurements/profiles/`:

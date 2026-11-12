@@ -107,7 +107,8 @@ mod host_adapter {
     }
 
     /// Mark body visuals for physical material rendering. The parts of a
-    /// rigged picture follow their body through `PortalDrawnWith`.
+    /// rigged picture, its hit-flash silhouette and its glow follow their
+    /// body through `PortalDrawnWith`.
     #[allow(clippy::type_complexity)]
     pub fn tag_portal_scene_bodies(
         mut commands: Commands,
@@ -129,12 +130,28 @@ mod host_adapter {
             (Entity, &ambition_render::rendering::actors::rigged::RiggedPresentationOf),
             Without<ambition_portal2d_presentation::PortalDrawnWith>,
         >,
+        // The body's own silhouette and glow, drawn as separate roots. Carried
+        // by their own boxes, each took a capture of its own and was cut apart
+        // from the body it draws over.
+        overlays: Query<
+            (Entity, &ambition_platformer2d_shared_tangle::lifecycle::PresentationOf),
+            (
+                Or<(
+                    With<ambition_render::rendering::hit_flash::HitFlashOverlay>,
+                    With<ambition_render::rendering::actor_glow::ActorGlowVisual>,
+                )>,
+                Without<ambition_portal2d_presentation::PortalDrawnWith>,
+            ),
+        >,
     ) {
         for entity in &untagged {
             commands.entity(entity).try_insert(PortalSceneBody);
         }
         for (owner, of) in &parts {
             commands.entity(owner).try_insert(ambition_portal2d_presentation::PortalDrawnWith(of.0));
+        }
+        for (overlay, of) in &overlays {
+            commands.entity(overlay).try_insert(ambition_portal2d_presentation::PortalDrawnWith(of.0));
         }
     }
 

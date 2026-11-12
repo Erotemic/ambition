@@ -1,0 +1,87 @@
+// portal_scale_lab — scaling doors to walk through again and again.
+//
+// Station H turns its pair half a turn: both mouths face left, so a body
+// comes out of the small one upside down and has to right itself. Here each
+// pair is a door through a wall with one mouth on each face, so the body
+// keeps its heading and its upright, and only its size changes. Walk right
+// through door A to shrink to half, on through door B to grow back, and left
+// again through both. The view window of each mouth shows the far side at the
+// pair's scale, so the far mouth's ends meet the near mouth's.
+//
+// The walls run from the ceiling to the floor, so a door is the only way
+// across, and each wall hosts its mouths past both of their ends. Walls and
+// mouths sit on 16 px cells, so the area's Solids are their exact hosts.
+//
+// Layout (960x576), floor top at y=512, left to right:
+//   entry door; door A in a wall at x 320..352 (80 tall in on its left face,
+//   40 tall out on its right face); door B in a wall at x 608..640 (40 tall
+//   in on its left face, 80 tall out on its right face).
+(
+    id: "portal_scale_lab",
+    level_id: "portal_scale_lab",
+    world_x: 47200,
+    world_y: 1200,
+    px_wid: 960,
+    px_hei: 576,
+    fill_collision: "empty",
+    bg_color: "#141821",
+    biome: "lab",
+    connect_to: [
+        (
+            target_room: "portal_chain_lab",
+            px: [880, 416],
+            size: [48, 96],
+            id: "portal_chain_lab_scale_door",
+            target_zone: "portal_scale_lab_exit",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        // --- Room shell ---
+        ( type: "Solid", px: [0, 512], size: [960, 64], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [960, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 496], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [944, 16], size: [16, 496], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [72, 464], size: [24, 48], fields: ( name: "start" ) ),
+        (
+            type: "LoadingZone",
+            px: [24, 416],
+            size: [48, 96],
+            fields: (
+                id: "portal_scale_lab_exit",
+                name: "to portal chain lab",
+                activation: "Door",
+                target_room: "portal_chain_lab",
+                target_zone: "portal_chain_lab_scale_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [960, 576],
+            fields: ( id: "portal_scale_lab_camera", name: "portal_scale_lab_camera", mode: "Default" ),
+        ),
+
+        // --- Door A: 80 to 40. Walking right shrinks the body to half. ---
+        ( type: "Solid", px: [320, 16], size: [32, 496], fields: ( name: "door A wall" ) ),
+        ( type: "Portal", px: [311, 432], size: [18, 80],
+          fields: ( id: "scale_a_large", name: "A 80 to 40", link: "portal_scale_lab_a", normal: "left", color: "purple" ) ),
+        ( type: "Portal", px: [343, 472], size: [18, 40],
+          fields: ( id: "scale_a_small", name: "A 40 to 80", link: "portal_scale_lab_a", normal: "right", color: "yellow" ) ),
+
+        // --- Door B: 40 to 80. Walking right grows the body back. ---
+        ( type: "Solid", px: [608, 16], size: [32, 496], fields: ( name: "door B wall" ) ),
+        ( type: "Portal", px: [599, 472], size: [18, 40],
+          fields: ( id: "scale_b_small", name: "B 40 to 80", link: "portal_scale_lab_b", normal: "left", color: "green" ) ),
+        ( type: "Portal", px: [631, 432], size: [18, 80],
+          fields: ( id: "scale_b_large", name: "B 80 to 40", link: "portal_scale_lab_b", normal: "right", color: "magenta" ) ),
+
+        // --- Signs ---
+        ( type: "DebugLabel", px: [24, 40], size: [900, 24],
+          fields: ( name: "lab_sign_scale", text: "Scaling doors: walk right through A to shrink, through B to grow, and back again.", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [24, 72], size: [900, 24],
+          fields: ( name: "lab_sign_scale_view", text: "Each window shows the far side at the door's scale: its mouth meets this one end to end.", category: "Custom" ) ),
+    ],
+)

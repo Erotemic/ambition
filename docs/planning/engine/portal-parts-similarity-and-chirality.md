@@ -1662,7 +1662,7 @@ is still found to full precision, and a fast obstacle keeps the full search.
 G's worst tick falls to 44 ms. The worst throw anywhere is now 193 ms, at F's
 floor mouth, whose partner swings. Normal ticks cost 22–27 ms.
 
-Open: a seam. G and F still refuse `Precision` for one tick or a few. Each
+Then open, and closed in *The turning-mouth seam is closed* below: a seam. G and F still refuse `Precision` for one tick or a few. Each
 plank hosts its own mouth, so the host line lies on the body piece's cut. The
 exact clipped region is empty, but the relaxed envelope keeps a rounding-wide
 sliver for the whole tick. At F the thrown body halts for 22 ticks. A clear
@@ -1687,6 +1687,42 @@ on a turning cut is the worst case of the seam. Two directions remain: decide
 the root's crossing instant structurally, as the affine builder does with
 `first`, and cut each line host at its own aperture so that no host lies along
 its mouth's seam.
+
+### The turning-mouth seam is closed — 2026-11-12
+
+The seam was not where the root crosses into a portal. A probe at F's
+refusals found the root crossing the swinging mouth's plane inside its span,
+but `first` was `None`. The body was a fraction of a pixel too wide to fit the
+turning opening at that instant, so the root crossing was no transit. The
+stage-0 clause was then decided by the root's rank, and for any interval longer
+than zero that decision carries a constant rounding band (about 2e-10 here,
+roughly 3e-11 of a tick). Inside the band the clause is `Maybe`, and the
+envelope drops the cut and meets the plank 4 px behind the mouth. The exact
+region at every instant keeps the cut and touches nothing, so the bisection
+reached f64 resolution and refused `Precision`.
+
+Clearing one-ulp intervals at their instants is sound, since nothing lies
+between them, but too slow: the band is about 5×10^5 ulps, and the search
+refused `WorkLimit` instead. The fix is the structural crossing the plan
+called for. For each link a stage-0 clause meets, the scene settles once
+where the root's evaluated side of the entry plane flips over the whole cast.
+It bisects each flip to adjacent instants, and the clause is decided from that
+list. An instant and an interval with no flip get the same answer, so the
+envelope and the exact region agree everywhere except the one interval that
+holds the flip. There the search resolves a real contact or nothing. A root
+that only touches the plane inside the band records no flip. The isolation
+bounds the rank by its slope and curvature, not by the root's and the plane's
+motion added together. A body riding a turning plank moves with the plane, and
+the added bound could not settle in 4,096 intervals. If the isolation still
+runs out, the clause falls back to the banded rank.
+
+The temporary sweep (415 throws, every lab mouth): before, 29 numeric
+refusals, 22 of them ticks where the body stood still. After, none. The worst
+debug tick is unchanged within noise (168 → 171 ms). Fourteen phases of F's
+worst throw, including both that used to stop, now pass through or land on the
+plank with no refusal. The core suite passes.
+Moving the plank mouths flush is still not wanted: it was the worst case of
+the band and is no longer needed.
 
 ### The IEEE 754 fault effect — 2026-11-12
 
@@ -1716,8 +1752,8 @@ new one. The episode seeds where each glyph sits along the face, so a replay
 lays the letters out the same way. One fault is at most five session-scoped
 `Text2d` entities, which drift out along the normal and fade within 1.15 s.
 
-The temporary sweep, rerun with a print in the publisher (since removed),
-found 29 numeric refusals, all `Precision` at the two plank mouths. All 29
+The temporary sweep, rerun with a print in the publisher (since removed) and
+before the seam fix above, found 29 numeric refusals, all `Precision` at the two plank mouths. All 29
 were published under one key, because the same body refused at the same
 mouth for the same reason each time. The 23 ticks of F's standing refusal
 arrive without a gap and are drawn once. Each throw starts a second after the

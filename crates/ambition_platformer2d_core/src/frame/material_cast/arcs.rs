@@ -11,6 +11,9 @@ use bevy_math::DMat2;
 use std::{collections::VecDeque, ops::Range, sync::{Arc, OnceLock}};
 
 const MAX_WORK: usize = 16_384;
+/// Intervals one link's root sides may take to settle; past it the link's
+/// clauses fall back to the banded rank.
+const ROOT_SIDE_WORK: usize = 4_096;
 fn perp(p: DVec2) -> DVec2 {
     DVec2::new(-p.y, p.x)
 }
@@ -36,9 +39,25 @@ pub(super) struct Scene {
     links: Vec<PortalLink>,
     prepared_steps: OnceLock<Vec<Result<(PreparedApertureStep, PreparedApertureStep), NumericFault>>>,
     fixed_poses: Vec<OnceLock<Result<Pose, NumericFault>>>,
+    root_sides: Vec<OnceLock<Option<RootSides>>>,
     first: Option<u32>,
     budget: PieceBudget,
     convention: MapConvention,
+}
+
+/// Which side of one link's entry plane the cast's root is on, over the
+/// whole cast: the side at its start, and each instant from which it is on
+/// the other side.
+#[derive(Debug)]
+struct RootSides {
+    front: bool,
+    flips: Vec<f64>,
+}
+
+impl RootSides {
+    fn front_at(&self, time: f64) -> bool {
+        self.front ^ (self.flips.iter().filter(|&&flip| flip <= time).count() % 2 == 1)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -146,6 +165,7 @@ impl Scene {
             links: admission.links.to_vec(),
             prepared_steps: OnceLock::new(),
             fixed_poses: (0..admission.links.len()).map(|_| OnceLock::new()).collect(),
+            root_sides: (0..admission.links.len()).map(|_| OnceLock::new()).collect(),
             first: admission.first,
             budget: admission.budget,
             convention: admission.convention,
@@ -337,6 +357,85 @@ impl Scene {
         (rank, error + rounding)
     }
 
+    /// The root's rank against one link's entry plane at `time`, how far the
+    /// true rank can move within `half` of it, and the rounding of one
+    /// evaluation.
+    fn root_rank(&self, index: usize, time: f64, half: f64) -> Result<(f64, f64, f64), NumericFault> {
+        let pose = self.pose(index, time)?;
+        let aperture = pose.enter;
+        let reference = self.source.root_at(time);
+        let relative = reference - aperture.origin;
+        let rank = aperture.normal.dot(relative);
+        let error = self.source.root_variation(time, half)
+            + aperture.variation(half)
+            + aperture.angle_bound(half) * relative.length();
+        // A root carried with its plane moves with it, so the two motions
+        // bound the rank loosely. The rank is smooth: bound it by its slope
+        // here and its curvature over the interval.
+        let velocity = self.source.root_velocity(time) - aperture.origin_velocity();
+        let slope = perp(aperture.normal).dot(relative) * aperture.turn + aperture.normal.dot(velocity);
+        let accel = (aperture.origin - aperture.pivot).length() * aperture.turn * aperture.turn
+            + self.source.root_arm().length() * self.source.turn() * self.source.turn();
+        let speed = velocity.length() + half * accel;
+        let reach = relative.length() + half * speed;
+        let curvature = aperture.turn * aperture.turn * reach + 2.0 * aperture.turn.abs() * speed + accel;
+        let taylor = slope.abs() * half + 0.5 * curvature * half * half;
+        let error = if taylor.is_finite() { error.min(taylor * (1.0 + f64::EPSILON * 16.0)) } else { error };
+        Ok((rank, error, round(reference.length() + aperture.origin.length())))
+    }
+
+    fn root_front(&self, index: usize, time: f64) -> Result<bool, NumericFault> {
+        Ok(self.root_rank(index, time, 0.0)?.0 > 0.0)
+    }
+
+    /// Settle once, for the whole cast, where the root changes side of the
+    /// link's entry plane. A side read from the rank with its rounding band is
+    /// undecided for every interval that reaches into the band, so the
+    /// envelope keeps both branches there while each instant keeps one, and no
+    /// bisection can close the difference. A side read from this list is the
+    /// same for an instant and for an interval that holds no flip.
+    ///
+    /// Each flip is where the evaluated side changes, found by bisecting to
+    /// adjacent instants. Where the rank stays inside its rounding band and
+    /// both ends agree, the root touches the plane without crossing it, and no
+    /// flip is recorded.
+    fn solve_root_sides(&self, index: usize) -> Option<RootSides> {
+        let front = self.root_front(index, 0.0).ok()?;
+        let mut flips = Vec::new();
+        let mut stack = vec![0.0..1.0];
+        let mut work = 0;
+        while let Some(interval) = stack.pop() {
+            work += 1;
+            if work > ROOT_SIDE_WORK {
+                return None;
+            }
+            let (middle, half) = crate::frame::interval_center(&interval);
+            let (rank, error, rounding) = self.root_rank(index, middle, half).ok()?;
+            if rank.abs() > error + 2.0 * rounding {
+                continue;
+            }
+            if error > rounding && middle != interval.start && middle != interval.end {
+                stack.push(middle..interval.end);
+                stack.push(interval.start..middle);
+                continue;
+            }
+            let (mut lo, mut hi) = (interval.start, interval.end);
+            let side = self.root_front(index, lo).ok()?;
+            if self.root_front(index, hi).ok()? == side {
+                continue;
+            }
+            loop {
+                let mid = lo + (hi - lo) * 0.5;
+                if mid == lo || mid == hi {
+                    break;
+                }
+                if self.root_front(index, mid).ok()? == side { lo = mid } else { hi = mid }
+            }
+            flips.push(hi);
+        }
+        Some(RootSides { front, flips })
+    }
+
     fn eligible(&self, state: State, stage: usize, index: usize, pose: Pose, half: f64) -> Truth {
         if stage == 0 && self.first == Some(self.links[index].key) {
             return Truth::Yes;
@@ -365,6 +464,15 @@ impl Scene {
                 return Truth::No;
             }
             return Truth::Maybe;
+        }
+        if stage == 0 && (0.0..=1.0).contains(&state.time) {
+            if let Some(sides) = self.root_sides[index].get_or_init(|| self.solve_root_sides(index)) {
+                let (start, end) = ((state.time - half).max(0.0), (state.time + half).min(1.0));
+                if sides.flips.iter().any(|&flip| start < flip && flip <= end) {
+                    return Truth::Maybe;
+                }
+                return if sides.front_at(start) { Truth::Yes } else { Truth::No };
+            }
         }
         let (rank, error) = self.rank(state, index, pose, half);
         if rank - error > 0.0 {

@@ -662,10 +662,7 @@ mod host_adapter {
         portals: Query<(Entity, &ambition_portal2d::PlacedPortal)>,
         // The session's portal map convention, from the resource that owns it.
         tuning: Option<Res<ambition_portal2d::PortalTuning>>,
-        (mut parallax_carry, time): (
-            Option<ResMut<ambition_portal2d_presentation::PortalParallaxCarry>>,
-            Option<Res<Time>>,
-        ),
+        mut parallax_carry: Option<ResMut<ambition_portal2d_presentation::PortalParallaxCarry>>,
     ) {
         let convention = tuning
             .as_deref()
@@ -907,11 +904,10 @@ mod host_adapter {
                 // The camera moves through the pair on this frame; the
                 // foreground does not jump with it.
                 if let Some(carry) = parallax_carry.as_deref_mut() {
-                    carry.carry(
-                        Some(view),
-                        desired_camera_world - previous_host_camera_world,
-                        time.as_deref().map_or(0.0, Time::elapsed_secs),
-                    );
+                    let rendered = |world: Vec2| {
+                        ambition_platformer2d_core::config::world_size_to_bevy(world_frame.size, world, 0.0).truncate()
+                    };
+                    carry.carry(Some(view), rendered(previous_host_camera_world), rendered(desired_camera_world));
                 }
                 if config.debug_log {
                     bevy::log::info!(

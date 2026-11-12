@@ -222,9 +222,12 @@ the crossing frame.
   the camera's place in the room, so a 256 px camera jump through a pair moved it ~49 px
   (Jon's lamp). The camera continuity now adds each crossing's move to
   `PortalParallaxCarry`; the foreground is placed from the camera less the carry, which
-  eases to nothing (rate 3/s). Measured: on the crossing frame the foreground's screen
-  offset moves 0.88 px, as on every frame of the walk, and then eases ~49 px to its place.
-  Open: ease by the camera's travel rather than by time, so a still camera never slides it.
+  eases to nothing as the camera travels from where the crossing put it (e-fold per
+  128 px), not with time: a still camera never slides it. Measured: on the crossing frame
+  the foreground's screen offset moves 0.88 px, as on every frame of the walk. With the
+  camera standing still for 90 frames after the c141 crossing the carry stays at 249 of
+  256 px (the time ease had spent it in two seconds); the crossing's stored camera point
+  equals the main camera's transform on that frame.
 - **`capture_scene` cannot measure a crossing's background.** It pins its camera to a
   player snapshot after `camera_follow` and without the portal camera continuity, so at the
   c146/c147 crossing its camera moved 226.4 px, not 256: every backdrop patch is 66 screen

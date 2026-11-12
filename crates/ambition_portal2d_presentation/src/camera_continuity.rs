@@ -484,7 +484,7 @@ mod tests {
 }
 
 /// How far portals have carried the camera that the foreground has not yet
-/// followed, in world units.
+/// followed.
 ///
 /// The foreground is between the eye and the play, so no window shows it: it
 /// is drawn over everything from the camera's place in the room. A crossing
@@ -492,42 +492,44 @@ mod tests {
 /// and a foreground placed from where the camera is would move with it at
 /// once: a lamp that jumped on the crossing frame (Jon, 2026-10-16). The
 /// camera continuity adds each crossing's move here, the foreground is placed
-/// from the camera less this carry, and the carry eases to nothing, so the
-/// foreground stays put on the crossing frame and then slides to where the
-/// new place puts it.
+/// from the camera less this carry, and the carry eases to nothing as the
+/// camera travels away from where the crossing put it. A camera that stands
+/// still keeps its foreground still: the foreground's place is a function of
+/// the camera's place alone, never of the clock.
+///
+/// Everything here is in the camera's render space (y up, centred on the
+/// room), the space the foreground is placed in.
 ///
 /// Each view has its own (review of 15d0cf99c, finding C): a crossing moves
 /// the camera of the view that follows the body that crossed, and no other
 /// view's foreground. `None` is the view of a host with no view entities.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct PortalParallaxCarry {
-    /// Each view's carry when it was last added to (world units), and when
-    /// that was (seconds of `Time::elapsed_secs`), in view order.
-    views: Vec<(Option<Entity>, Vec2, f32)>,
+    /// Each view's carry when it was last added to, and where its camera
+    /// stood just after that crossing, in view order.
+    views: Vec<(Option<Entity>, Vec2, Vec2)>,
 }
 
 impl PortalParallaxCarry {
-    /// How fast the foreground catches up with the camera (per second,
-    /// exponential): about a third of a second.
-    pub const EASE_RATE: f32 = 3.0;
+    /// Camera travel over which the remaining carry falls by a factor of e:
+    /// the foreground has caught up after about three of these.
+    pub const EASE_DISTANCE: f32 = 128.0;
 
-    /// The carry of `view` at `now_s`: what was carried, eased since. A pure
-    /// function of the time, so it reads the same wherever it is read in a
-    /// frame.
-    pub fn at(&self, view: Option<Entity>, now_s: f32) -> Vec2 {
-        self.views
-            .iter()
-            .find(|(v, ..)| *v == view)
-            .map_or(Vec2::ZERO, |(_, carried, at_s)| *carried * (-Self::EASE_RATE * (now_s - at_s).max(0.0)).exp())
+    /// The carry of `view` with its camera at `camera`: what was carried,
+    /// eased by how far the camera now stands from where the crossing put it.
+    pub fn at(&self, view: Option<Entity>, camera: Vec2) -> Vec2 {
+        self.views.iter().find(|(v, ..)| *v == view).map_or(Vec2::ZERO, |(_, carried, anchor)| {
+            *carried * (-(camera - *anchor).length() / Self::EASE_DISTANCE).exp()
+        })
     }
 
-    /// The camera of `view` was moved `by` through a pair at `now_s`.
-    pub fn carry(&mut self, view: Option<Entity>, by: Vec2, now_s: f32) {
-        let carried = self.at(view, now_s) + by;
+    /// The camera of `view` was moved from `before` to `after` through a pair.
+    pub fn carry(&mut self, view: Option<Entity>, before: Vec2, after: Vec2) {
+        let carried = self.at(view, before) + (after - before);
         match self.views.iter_mut().find(|(v, ..)| *v == view) {
-            Some(row) => *row = (view, carried, now_s),
+            Some(row) => *row = (view, carried, after),
             None => {
-                self.views.push((view, carried, now_s));
+                self.views.push((view, carried, after));
                 self.views.sort_by_key(|(v, ..)| *v);
             }
         }
@@ -541,18 +543,21 @@ mod parallax_carry_tests {
     use bevy::prelude::Entity;
 
     /// On the crossing frame the foreground is carried the whole way (it does
-    /// not move on screen), then it eases to where the new place puts it, and
-    /// two crossings in a row add up.
+    /// not move on screen); while the camera stands still it stays carried,
+    /// whatever the clock does; it eases as the camera travels, and two
+    /// crossings in a row add up.
     #[test]
-    fn the_foreground_is_carried_through_a_crossing_and_eases_after() {
+    fn the_foreground_is_carried_through_a_crossing_and_eases_with_the_camera() {
         let mut carry = PortalParallaxCarry::default();
-        carry.carry(None, Vec2::new(256.0, 0.0), 10.0);
-        assert_eq!(carry.at(None, 10.0), Vec2::new(256.0, 0.0), "all of it on the crossing frame");
-        let later = carry.at(None, 10.25);
-        assert!(later.x < 256.0 && later.x > 100.0, "easing: {later:?}");
-        assert!(carry.at(None, 12.0).x < 1.0, "caught up after two seconds");
-        carry.carry(None, Vec2::new(-256.0, 0.0), 10.25);
-        assert!((carry.at(None, 10.25).x - (later.x - 256.0)).abs() < 1e-3, "crossings add");
+        let (before, after) = (Vec2::new(0.0, 0.0), Vec2::new(256.0, 0.0));
+        carry.carry(None, before, after);
+        assert_eq!(carry.at(None, after), Vec2::new(256.0, 0.0), "all of it where the crossing put the camera");
+        let travelled = carry.at(None, after + Vec2::new(0.0, 64.0));
+        assert!(travelled.x < 256.0 && travelled.x > 100.0, "easing with travel in any direction: {travelled:?}");
+        assert!(carry.at(None, after + Vec2::new(600.0, 0.0)).x < 3.0, "caught up after a long walk");
+        let again = after + Vec2::new(0.0, 64.0);
+        carry.carry(None, again, again + Vec2::new(-256.0, 0.0));
+        assert!((carry.at(None, again + Vec2::new(-256.0, 0.0)).x - (travelled.x - 256.0)).abs() < 1e-3, "crossings add");
     }
 
     /// A crossing carries the foreground of the view that crossed, and no
@@ -561,8 +566,8 @@ mod parallax_carry_tests {
     fn a_crossing_in_one_view_carries_no_other_views_foreground() {
         let (left, right) = (Entity::from_raw_u32(7).unwrap(), Entity::from_raw_u32(9).unwrap());
         let mut carry = PortalParallaxCarry::default();
-        carry.carry(Some(left), Vec2::new(256.0, 0.0), 10.0);
-        assert_eq!(carry.at(Some(left), 10.0), Vec2::new(256.0, 0.0));
-        assert_eq!(carry.at(Some(right), 10.0), Vec2::ZERO);
+        carry.carry(Some(left), Vec2::ZERO, Vec2::new(256.0, 0.0));
+        assert_eq!(carry.at(Some(left), Vec2::new(256.0, 0.0)), Vec2::new(256.0, 0.0));
+        assert_eq!(carry.at(Some(right), Vec2::new(256.0, 0.0)), Vec2::ZERO);
     }
 }

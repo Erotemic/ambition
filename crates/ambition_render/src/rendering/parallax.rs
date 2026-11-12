@@ -755,14 +755,11 @@ pub fn sync_parallax_layers(
     // carried it and the foreground has not followed yet (render space, y up).
     // Each view's own: a crossing in one view does not move another's.
     #[cfg(feature = "portal_render")]
-    let carried = |view: Option<Entity>| {
-        parallax_carry.as_deref().map_or(Vec2::ZERO, |carry| {
-            let world = carry.at(view, elapsed_s);
-            Vec2::new(world.x, -world.y)
-        })
+    let carried = |view: Option<Entity>, camera: Vec2| {
+        parallax_carry.as_deref().map_or(Vec2::ZERO, |carry| carry.at(view, camera))
     };
     #[cfg(not(feature = "portal_render"))]
-    let carried = |_view: Option<Entity>| Vec2::ZERO;
+    let carried = |_view: Option<Entity>, _camera: Vec2| Vec2::ZERO;
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
 
     // Where each view's camera stands, and how much of the world it shows.
@@ -830,7 +827,7 @@ pub fn sync_parallax_layers(
         if layer.travel != travel {
             layer.travel = travel;
         }
-        let placed_from = if seen_through_a_portal(&layer) { camera_xy } else { camera_xy - carried(drawn_for) };
+        let placed_from = if seen_through_a_portal(&layer) { camera_xy } else { camera_xy - carried(drawn_for, camera_xy) };
         sync_parallax_transform_from(&mut transform, &layer, camera_xy, placed_from);
         if let Some(wrap) = wrap {
             transform.translation.x += wrapped_scroll_x(wrap.slot, wrap.speed_px_s, elapsed_s, panel_size.x);

@@ -37,7 +37,11 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 Full PSIM acceptance remains open: general remaining-time continuation,
 complete projectile/hurt contact, including moving targets and other surviving
 contact responses, other movement models, swept guard contact and response, attachments, and device/GPU and performance gates.
-The fault effect landed in `c21bfff4d` with its witnesses. Two simultaneous limbs
+The fault effect landed in `c21bfff4d` with its witnesses; two live rooms
+draw their own faults (`cd5174469`). GNU-ton's giant no longer hitches out of
+the well's exit: a body does not collide with the lines it carries, and a
+held pair does not close on a body that straddles it (`18077127a`). The
+device/GPU gates need hardware this VM does not have. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
 `99d51bc9f`. Two active fists hit separate bodies in the same tick through

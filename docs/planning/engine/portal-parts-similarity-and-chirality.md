@@ -1585,3 +1585,10 @@ rollback without resets. All 101 material-cast tests, three lab tests and the
 records the second F8 trace and profile. Desktop confirmation at E, the earlier
 J stop, and the remaining PSIM gates stay open. Do not skip a rejected contact
 component without proving that its overlap persists.
+
+The latest desktop run still freezes near the E opening on a different fall
+path, before a recorded crossing. Source `84fe3f9a909d` includes both fixes.
+The maintainer paused work for handoff. This playable defect is unresolved;
+the fitted-path regressions above do not establish a complete E fix. See the
+[handoff](../../../dev/reviews/portal-stall-handoff-2026-11-12.md) for the latest
+F8 trace, coordinates, unverified fit lead, and current limits.

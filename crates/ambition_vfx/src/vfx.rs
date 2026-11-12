@@ -259,6 +259,24 @@ pub enum SlashPose {
     Down,
 }
 
+/// What a refused portal operation shows. Only an actual numeric failure
+/// shows IEEE 754; a finite scale beyond the gameplay cap is a policy
+/// refusal and shows its own accent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FaultGlyph {
+    /// A nonfinite input: `NaN`.
+    NotANumber,
+    /// An overflow: `+Inf` and `-Inf`.
+    Infinity,
+    /// An underflow: `+0`, `-0` and a vanishing mantissa.
+    SignedZero,
+    /// A value the representation cannot hold or resolve: hexadecimal bit
+    /// fragments.
+    BitPattern,
+    /// A finite scale beyond the gameplay cap: `EXPONENT BIAS`.
+    ExponentBias,
+}
+
 /// The live room an effect is drawn in, and the effect.
 ///
 /// Positions in a [`VfxMessage`] are in the coordinates of a live room, and
@@ -364,6 +382,24 @@ pub enum VfxMessage {
     /// index zero lands on, which is sideways. "Out of the block" means UP.
     CoinPop {
         pos: ae::Vec2,
+    },
+    /// A portal operation refused for a numeric reason, drawn at the mouth
+    /// that refused it: the letters IEEE 754 and the fault's symbols. It is a
+    /// presentation of the refusal, never a value in simulation state.
+    ///
+    /// Simulation writes it on every tick the operation stays refused; the
+    /// presentation draws one effect per `episode` while it keeps arriving,
+    /// so a held refusal or a rewound and replayed tick is not drawn twice.
+    PortalFault {
+        /// The centre of the refusing aperture.
+        pos: ae::Vec2,
+        /// Its normal: the glyphs leave the mouth along it.
+        normal: ae::Vec2,
+        /// Its half length: the glyphs spread along its face.
+        half_length: f32,
+        glyph: FaultGlyph,
+        /// The refused operation: its body, link and reason.
+        episode: u64,
     },
     /// Hearts rising from `pos`, as when a pet is petted.
     ///

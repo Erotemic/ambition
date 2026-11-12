@@ -10,7 +10,7 @@ pub mod vfx;
 pub use fx::FxId;
 pub use lightning::{LightningEnd, LightningKey, LightningLook};
 pub use vfx::{
-    FireworksRequest, FxPose, FxRequest, HitBurst, HurtFeedback, ImpactBlow, ImpactMaterial, ParticleKind, VfxForRoom, VfxInRoom, VfxMessage,
+    FaultGlyph, FireworksRequest, FxPose, FxRequest, HitBurst, HurtFeedback, ImpactBlow, ImpactMaterial, ParticleKind, VfxForRoom, VfxInRoom, VfxMessage,
     VfxWriter, sfx_space,
 };
 

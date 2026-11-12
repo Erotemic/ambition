@@ -32,6 +32,7 @@ impl Plugin for PortalSchedulePlugin {
             (
                 crate::portal_seat::guard_the_driven_body_after_portal_transit
                     .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                crate::portal_fault::publish_portal_numeric_faults,
             )
                 .in_set(PortalSet::Transited),
         );

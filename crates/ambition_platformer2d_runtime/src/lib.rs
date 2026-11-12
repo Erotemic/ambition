@@ -62,6 +62,8 @@ mod player_schedule;
 #[cfg(feature = "portal")]
 mod portal_body;
 #[cfg(feature = "portal")]
+mod portal_fault;
+#[cfg(feature = "portal")]
 mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;

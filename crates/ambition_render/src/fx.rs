@@ -304,11 +304,17 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
     // store (a headless test) hearts are drawn as plain pink squares.
     mut images: Option<ResMut<Assets<Image>>>,
     mut heart_image: Local<Option<Handle<Image>>>,
+    time: Res<Time>,
+    mut fault_episodes: Local<portal_fault::FaultEpisodes>,
 ) {
     let session_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     let bubble_font = ui_fonts
         .as_deref()
         .map(|fonts| fonts.text_font(18.0, crate::ui_fonts::UiFontWeight::Regular))
+        .unwrap_or_default();
+    let fault_font = ui_fonts
+        .as_deref()
+        .map(|fonts| fonts.text_font(8.0, crate::ui_fonts::UiFontWeight::Monospace))
         .unwrap_or_default();
     for message in messages.read() {
         let Some(room) = message.room.or_else(|| rooms.sole()) else {
@@ -425,6 +431,21 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
             VfxMessage::Slash { .. } => {}
             VfxMessage::ResetEffects { from, to } => {
                 spawn_reset_effects(&mut commands, spawn_scope, world, from, to);
+            }
+            VfxMessage::PortalFault { pos, normal, half_length, glyph, episode } => {
+                if fault_episodes.starts(episode, time.elapsed_secs()) {
+                    portal_fault::spawn_portal_fault(
+                        &mut commands,
+                        spawn_scope,
+                        world,
+                        &fault_font,
+                        pos,
+                        normal,
+                        half_length,
+                        glyph,
+                        episode,
+                    );
+                }
             }
             VfxMessage::SpeechBubble { pos, text } => {
                 spawn_speech_bubble(&mut commands, spawn_scope, world, pos, &text, &bubble_font);
@@ -1530,6 +1551,9 @@ pub fn update_blink_preview(
     }
 }
 
+mod portal_fault;
+pub use portal_fault::PortalFaultGlyphVisual;
+
 #[cfg(test)]
 mod room_tests;
 #[cfg(test)]
@@ -1993,7 +2017,7 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
 
     // Each stage runs only when it has work: a request stage when its message
     // is unread, an ageing stage while a visual of its kind exists. A room
-    // with no effect in flight runs none of the nine.
+    // with no effect in flight runs none of the ten.
     app.add_systems(
         Update,
         (
@@ -2022,6 +2046,7 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
             update_effects.run_if(any_with_component::<EffectVisual>),
             update_impacts.run_if(any_with_component::<ImpactVisual>),
             update_speech_bubbles.run_if(any_with_component::<SpeechBubbleVisual>),
+            portal_fault::update_portal_fault_glyphs.run_if(any_with_component::<PortalFaultGlyphVisual>),
         )
             .chain()
             .before(crate::rendering::WorldLabelLayoutSet)
@@ -2057,16 +2082,16 @@ mod install_tests {
         update
             .initialize(app.world_mut())
             .expect("the Update schedule initializes");
-        // Thirteen: the nine registered systems plus the four `apply_deferred`
+        // Fifteen: the ten registered systems plus the five `apply_deferred`
         // sync points Bevy inserts between chained members. They cannot be
         // filtered out, because without the `debug` feature every system name
         // is a placeholder. If Bevy changes its sync-point policy, update this
         // count.
         assert_eq!(
             update.systems_len(),
-            13,
+            15,
             "the FX pipeline lost a stage in the carve: 3 request systems + \
-             vfx_spawn_messages + 5 ageing systems, plus 4 Bevy sync points"
+             vfx_spawn_messages + 6 ageing systems, plus 5 Bevy sync points"
         );
     }
 

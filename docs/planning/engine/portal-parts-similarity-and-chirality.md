@@ -1687,3 +1687,43 @@ on a turning cut is the worst case of the seam. Two directions remain: decide
 the root's crossing instant structurally, as the affine builder does with
 `first`, and cut each line host at its own aperture so that no host lies along
 its mouth's seam.
+
+### The IEEE 754 fault effect — 2026-11-12
+
+A numeric refusal is now visible at the mouth that refused it. The simulation
+keeps no new state. `ambition_platformer2d_runtime::portal_fault` reads each
+body's `motion_refusal` in `PortalSet::Transited`, maps the reason to a glyph
+and writes `VfxMessage::PortalFault` in the body's live room at that link's
+entry aperture. A refusal found inside a curved search names no link. Then the
+mouth nearest the body is used. The mapping:
+
+| Refusal | Shows |
+|---|---|
+| `NonFinite` | IEEE 754, `NaN`, `7FF8` |
+| `Overflow` | IEEE 754, `+Inf`, `-Inf`, `7FF0` |
+| `Underflow` | IEEE 754, `+0`, `-0`, `1p-1074` |
+| `Precision`, `InvalidScale`, `InvalidFrame` | IEEE 754 and four hex fragments |
+| `ScaleLimit` (policy) | `EXPONENT BIAS`, `1023`, `2^e`, in amber |
+| `HopLimit`, `PieceLimit`, `WorkLimit`, `MissingMaterial` | nothing |
+
+The operation identity is the body, the link the effect is drawn at and the
+reason. It is the
+same for every tick a refusal stands and for a rollback's replay of that tick.
+The tick is not part of it. The renderer (`ambition_render::fx::portal_fault`)
+draws an episode once and forgets it 0.25 s after it was last written. A
+standing refusal is therefore one effect. A refusal that ends and recurs is a
+new one. The episode seeds where each glyph sits along the face, so a replay
+lays the letters out the same way. One fault is at most five session-scoped
+`Text2d` entities, which drift out along the normal and fade within 1.15 s.
+
+The temporary sweep, rerun with a print in the publisher (since removed),
+found 29 numeric refusals, all `Precision` at the two plank mouths. All 29
+were published under one key, because the same body refused at the same
+mouth for the same reason each time. The 23 ticks of F's standing refusal
+arrive without a gap and are drawn once. Each throw starts a second after the
+last one ended, so each of the six one-tick refusals at the other plank is a
+new effect. Continuity separates the operations, not the key.
+
+Still open for this effect: glyphs are plain `Text2d`. They do not fold
+through a pane, so they belong to PORTAL-STRUCTURAL-FX like the rest of
+`fx.rs`. The effect also has no multi-view witness yet.

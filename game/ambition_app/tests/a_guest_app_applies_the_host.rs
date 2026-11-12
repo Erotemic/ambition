@@ -1994,3 +1994,103 @@ fn probe_how_far_a_guests_prediction_is_from_the_host() {
         }
     }
 }
+
+/// NA-3, reconciling by replay: the prediction probe's scenes, where a
+/// correction rewinds the guest's own room to the frame the snapshot speaks
+/// of (its room saved each frame through the registered rows,
+/// `RoomSnapshotRows`, with the clock, as ISL-2's room rewind), writes Bob
+/// as the host had him there and every other body from the snapshot, and
+/// replays Bob's inputs since. Prints, per scene, the mean and largest
+/// correction, the frames over half a unit, how many frames were replayed,
+/// and the wall time the replays cost a frame.
+#[test]
+#[ignore = "measurement: prints how far a guest that replays its own room since each snapshot is from the host; run with --ignored --nocapture --test-threads=1"]
+fn probe_how_far_a_guest_that_replays_is_from_the_host() {
+    use crate::a_room_rewinds_alone::{clock, of_room, set_clock};
+    use crate::hosted_world::alice_fights;
+    use ambition_platformer2d::engine_core::ControlFrame;
+    use ambition_platformer2d::rollback::RoomSnapshotRows;
+    for (scene, alice) in [("Alice still", (|_| ControlFrame::default()) as fn(i32) -> ControlFrame), ("Alice fights", alice_fights as fn(i32) -> ControlFrame)] {
+        let mut host = booted(ROOM);
+        let mut guest = booted(ROOM);
+        let (bob_id, _) = bobs_body(&mut guest).expect("Bob stands on the guest");
+        let room = {
+            let world = guest.world_mut();
+            world
+                .query::<(&SimId, &ambition_platformer2d::platformer::lifecycle::InRoomInstance)>()
+                .iter(world)
+                .find(|(id, _)| **id == bob_id)
+                .map(|(_, room)| room.0)
+                .expect("Bob is in a room")
+        };
+        let rows_table = guest.world_mut().remove_resource::<RoomSnapshotRows>().expect("the guest keeps the room rows");
+        let mut saved: BTreeMap<i32, (ambition_platformer2d::rollback::RoomSnapshot, crate::a_room_rewinds_alone::Clock)> = BTreeMap::new();
+        let mut history: BTreeMap<i32, [f32; 5]> = BTreeMap::new();
+        let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>, BTreeMap<SimId, i32>)> = VecDeque::new();
+        let mut newest: Option<BTreeMap<SimId, [f32; 5]>> = None;
+        let (mut corrections, mut replayed, mut replay_time) = (Vec::<f32>::new(), 0u32, std::time::Duration::ZERO);
+        let others = |rows: &BTreeMap<SimId, [f32; 5]>| -> BTreeMap<SimId, [f32; 5]> {
+            rows.iter().filter(|(id, _)| **id != bob_id).map(|(id, row)| (id.clone(), *row)).collect()
+        };
+        let step = |guest: &mut Platformer2dSimHarness, frame: i32, newest: &Option<BTreeMap<SimId, [f32; 5]>>, saved: &mut BTreeMap<_, _>, history: &mut BTreeMap<i32, [f32; 5]>| {
+            if let Some(rows) = newest {
+                apply(guest, &others(rows));
+            }
+            guest.drive_seat(0, ControlFrame::default());
+            guest.drive_seat(1, bobs(frame));
+            guest.app_mut().update();
+            let entities = of_room(guest.world_mut(), room);
+            saved.insert(frame, (rows_table.save(guest.world(), &entities), clock(guest.world())));
+            if let Some((_, state)) = bobs_body(guest) {
+                history.insert(frame, state);
+            }
+        };
+        for frame in 1..=FRAMES {
+            host.drive_seat(0, alice(frame));
+            host.drive_seat(1, if frame > LATENCY { bobs(frame - LATENCY) } else { ControlFrame::default() });
+            host.app_mut().update();
+            in_flight.push_back((frame, bodies(&mut host, None), healths(&mut host)));
+            if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+                let (sent, rows, lives) = in_flight.pop_front().expect("a snapshot arrived");
+                let at = sent - LATENCY;
+                if let (Some(authority), Some(predicted)) = (rows.get(&bob_id).copied(), history.get(&at).copied()) {
+                    let error = bevy::math::Vec2::new(authority[0] - predicted[0], authority[1] - predicted[1]);
+                    corrections.push(error.length());
+                    if error.length() > 1e-4 {
+                        let started = std::time::Instant::now();
+                        if let Some((mut snapshot, then)) = saved.remove(&at) {
+                            let now = of_room(guest.world_mut(), room);
+                            rows_table.restore(guest.world_mut(), &mut snapshot, &now);
+                            set_clock(guest.world_mut(), then);
+                            let mut bob = BTreeMap::new();
+                            bob.insert(bob_id.clone(), authority);
+                            apply(&mut guest, &bob);
+                            apply(&mut guest, &others(&rows));
+                            apply_healths(&mut guest, &lives);
+                            history.insert(at, authority);
+                            let entities = of_room(guest.world_mut(), room);
+                            saved.insert(at, (rows_table.save(guest.world(), &entities), clock(guest.world())));
+                            let latest = Some(rows.clone());
+                            for again in (at + 1)..frame {
+                                step(&mut guest, again, &latest, &mut saved, &mut history);
+                                replayed += 1;
+                            }
+                        }
+                        replay_time += started.elapsed();
+                    }
+                }
+                newest = Some(rows);
+            }
+            step(&mut guest, frame, &newest, &mut saved, &mut history);
+            saved.retain(|kept, _| *kept > frame - 4 * LATENCY);
+        }
+        let mean = corrections.iter().sum::<f32>() / corrections.len().max(1) as f32;
+        let largest = corrections.iter().copied().fold(0.0f32, f32::max);
+        let over = corrections.iter().filter(|error| **error > 0.5).count();
+        println!(
+            "[replay] {scene}: {} snapshots compared; correction mean {mean:.3}, largest {largest:.3}, over half a unit on {over}; {replayed} frames replayed, {:.2} ms a frame",
+            corrections.len(),
+            replay_time.as_secs_f64() * 1e3 / FRAMES as f64
+        );
+    }
+}

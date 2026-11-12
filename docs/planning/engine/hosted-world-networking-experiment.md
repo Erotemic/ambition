@@ -1,6 +1,6 @@
 # Hosted world versus GGRS — the authority experiment
 
-**Status:** NA-1 and NA-2 done (2026-11-10); NA-2b's guest App measured through spawns, deaths, drops, presentation, room scope and room following (2026-11-12); NA-3 started (2026-11-12, prediction measured); NA-4 open.
+**Status:** NA-1 and NA-2 done (2026-11-10); NA-2b's guest App measured through spawns, deaths, drops, presentation, room scope and room following (2026-11-12); NA-3 prediction and reconciliation measured (2026-11-12); NA-3's NPC facts and late join, and NA-4, open.
 **Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs).
 **Research and candidates:** [network topology and authority](network-topology-and-authority-research.md) (models A–D, R0–R5, the comparison scenarios). This page owns the experiment's results, not the candidate list.
 **Related:** [netcode](netcode.md), [compact peer input](island-rollback-and-compact-peer-input.md), [multiplayer and multiview](multiplayer-and-multiview.md), [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
@@ -589,6 +589,34 @@ Bob turns at his own rhythm and jumps.
   same correction on every later snapshot. The stored history has to move
   with the body.
 
+**Reconciling by replay (2026-11-12),** probe
+`probe_how_far_a_guest_that_replays_is_from_the_host` (same file,
+ignored): the same scenes, but a correction rewinds the guest's own room to
+the frame the snapshot speaks of (the room saved every frame through
+`RoomSnapshotRows` with the clock, ISL-2's room rewind, kept twelve frames),
+writes Bob as the host had him there and every other body from the snapshot,
+and replays Bob's inputs since (five frames at this latency).
+
+| Alice | Reconciliation | Correction mean, largest | Snapshots over 0.5 | Frames replayed | Replay cost a frame (debug build) |
+|---|---|---|---|---|---|
+| still | replay | 0, 0 | 0 | 0 | 0 |
+| fights | none | 1.45, 5.85 | 131 | — | — |
+| fights | offset | 0.37, 1.48 | 116 | — | — |
+| fights | replay | 0.068, 1.45 | 14 | 185 | 9.2 ms |
+
+- **Replaying the guest's own room is the reconciliation that works:** the
+  mean correction falls twentyfold from none and fivefold from offset, and
+  only fourteen snapshots still ask for more than half a unit (each right
+  after a strike the guest could not foresee).
+- **The room rewind ISL-2 built is what a guest needs:** the same
+  `RoomSnapshotRows` save and restore, on the guest's one room, with its own
+  inputs as the replay's. Hosted authority between rooms and rollback inside
+  the guest's room are one mechanism here.
+- **Its cost is the replays, not the saves:** 37 corrections of five frames
+  each, about 9 ms a frame averaged over the run in a debug build. A guest
+  that replays only its own body (not the room's other systems) or
+  corrects only past a threshold would pay less; not measured.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -640,8 +668,10 @@ Bob turns at his own rhythm and jumps.
    and measure correction size under the same scripts. First measurement
    (2026-11-12, above): exact while no other body acts on the guest's; with
    Alice swinging beside Bob, mean 1.45 units unreconciled and 0.37 with
-   offset reconciliation. Next: reconcile by replaying the guest's inputs
-   since the snapshot, and name which contacts reach a predicted body. The kernel already
+   offset reconciliation. The corrections are Alice's strikes
+   on Bob. Reconciling by replaying the guest's own room since the snapshot
+   (ISL-2's room rewind) brings the mean to 0.068 at about 9 ms a frame of
+   replays (debug build). Next: NPC facts and late join. The kernel already
    runs per body (`transit_body`, `BodyKinematics`); the open question is
    what else a prediction needs (contacts, abilities, held items).
 3. **NA-3 — NPC facts and late join.** Host-owned NPC state across a guest's

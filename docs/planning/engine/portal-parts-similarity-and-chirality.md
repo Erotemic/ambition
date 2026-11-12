@@ -34,7 +34,8 @@ The last full workspace run was not green. It reported Sanic righting
 unpublished history-art checks also fail. The capability sentinel reports the
 new upstream HTN dependency. The review receipt records the scope and logs.
 
-Full PSIM acceptance remains open: general remaining-time continuation,
+Full PSIM acceptance remains open: support-carry continuation (kernel
+bodies keep the whole tick, see the 2026-11-12 section),
 complete projectile/hurt contact, including moving targets and other surviving
 contact responses, other movement models, swept guard contact and response, attachments, and device/GPU and performance gates.
 The fault effect landed in `c21bfff4d` with its witnesses; two live rooms
@@ -1785,6 +1786,24 @@ set of glyph entities, so a second view of the same room adds no effect.
 rooms of different sizes: each fault's letters carry the stamp of the room
 that refused, which a view of the other room declines, and drift by that
 room's flip into Bevy space.
+
+### Kernel bodies keep the whole tick through a crossing — 2026-11-12
+
+A kernel body does not stop at the mouth: its step sinks the root through
+the carved opening for the whole tick, and transit maps the end-of-tick
+pose through the pair (`portal_transit`, then `reconcile_transited_bodies`).
+Measured with a temporary probe in the c141 continuity harness (deleted):
+walking right at 270 px/s, the crossing tick ends at exactly
+`map(before + v * dt)` (error 0, 0), and the next ticks advance 4.5 px each.
+The map is a similarity, so straight motion maps exactly through scaled and
+turned pairs too. The part of the tick past the mouth is integrated in the
+entry chart under the acceleration the body carries, and the transfer maps
+that acceleration with it (`CarriedAcceleration`), so it is the one the body
+keeps after the crossing. Exit-side contact during that part is exact,
+because the material cast meets far geometry through the pieces. Only the
+translation pair was measured. This is
+the kernel's continuation; projectiles and loose items needed their own
+because they used to stop at the crossing.
 
 ### A body's own lines, and a pair that does not close on a body — 2026-11-12
 

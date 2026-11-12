@@ -8,6 +8,26 @@ issue is recorded after them; it has concrete October 11 customers.
 
 ## Remaining
 
+### A crawler on a wall reports an unturned box (found 2026-11-11)
+
+`02cabae983` moved a body's turn into its material (`BodyMaterial`) and
+removed the separate surface-upright state; `write_sweep_sample` now records
+`half_extent()` (the material envelope) where it recorded the box turned to
+the step's DOWN. A crawler that climbs a wall still only changes its DOWN:
+its material stays the identity. So its step collides a box turned to the
+wall, while `BodyKinematics::aabb`, the step record (`SweepSample::half`)
+and the hazard gate that shares that half all report the unturned box.
+
+Measured on `ow1_bob` (53.76 x 14.15) walking into a party exit wall in
+`party_follower_hits_an_exit_wall_and_can_cross_after_the_policy_changes`
+(red on `fc7ce4d3eb`; not bisected): he stops with his centre
+at x 685.59, flush with the wall (692.67) for a turned half of 7.07, and
+climbs it; the record says half (26.88, 7.07) with down (1, 0), 20 units
+into the wall. The doc comment on `write_sweep_sample` still states the turned
+box. The owner is the body-material work under PORTAL-SIMILARITY (PSIM):
+either the crawler turns its material when it attaches, or the record turns
+its half to the DOWN again.
+
 ### Block-to-chain crawl transfer (customer-gated)
 
 A crawler attached to a block surface does not transfer directly onto an

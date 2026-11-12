@@ -394,6 +394,7 @@ pub struct StagedArrival {
     pub arrival: ambition_platformer2d_core::Vec2,
     pub air_jumps: u8,
     pub momentum: ambition_platformer2d_core::movement::ArrivalMomentum,
+    pub material: Option<ambition_platformer2d_core::frame::BodyMaterial>,
 }
 
 /// A room replacement staged on the candidate publication entity.
@@ -960,8 +961,18 @@ fn arrival_violations(
         if !seen.insert(subject) {
             violations.push(StagedWorldViolation::DuplicateArrival { subject });
         }
-        if bodies.get(world, subject).is_err() {
-            violations.push(StagedWorldViolation::SubjectCannotArrive { subject });
+        match bodies.get(world, subject) {
+            Err(_) => violations.push(StagedWorldViolation::SubjectCannotArrive { subject }),
+            Ok((body, _)) => if let Some(material) = arrival.material {
+                let desired = ambition_platformer2d_core::BodyKinematics {
+                    pos: arrival.arrival, material, canonical_size: body.base_size.base_size,
+                    ..*body.kinematics
+                };
+                if desired.canonical_box().and_then(|domain| ambition_platformer2d_core::frame::thread::map_volume(
+                    &domain, &desired.material_map()?)).is_err() {
+                    violations.push(StagedWorldViolation::SubjectCannotArrive { subject });
+                }
+            },
         }
     }
     violations
@@ -1396,6 +1407,7 @@ fn apply_staged_arrival(world: &mut World, arrival: StagedArrival) {
             arrival.arrival,
             arrival.air_jumps,
             arrival.momentum,
+            arrival.material,
         );
     }
 }

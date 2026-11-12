@@ -281,7 +281,10 @@ pub fn restore_checkpoint_on_session_start(
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     requirement: crate::lifecycle_commit::BodyTransferRequirement::Present,
                     subject: subject,
-                    arrival: crate::lifecycle_commit::RoomArrival::At(ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32)),
+                    arrival: crate::lifecycle_commit::RoomArrival::Pose {
+                        at: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                        material: checkpoint.material.material(),
+                    },
                     participant: None,
                 },
                 companions: Vec::new(),
@@ -337,15 +340,17 @@ pub fn restore_checkpoint_on_session_start(
     // operation. It is a small rollback-registered simulation operation that
     // moves an already-constructed body, and manufacturing a room-reconstruction
     // intent to do it would be the opposite of what the protocol asks.
-    progress.set(generation, StartupResume::Satisfied);
     let mut item = clusters;
     let mut clusters = item.as_clusters_mut();
-    ae::movement::transit_body(
-        &mut model,
-        &mut clusters,
-        ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
-        ae::movement::TransitVelocity::Zero,
-    );
+    let desired = ae::BodyKinematics {
+        pos: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+        material: checkpoint.material.material(), vel: ae::Vec2::ZERO, ..*clusters.kinematics
+    };
+    if let Err(refusal) = ae::movement::restore_body_pose(&mut model, &mut clusters, desired, None) {
+        bevy::log::warn!(?refusal, "checkpoint pose refused");
+        return;
+    }
+    progress.set(generation, StartupResume::Satisfied);
     bevy::log::info!(
         target: "ambition_platformer2d::shrine",
         "resumed at the checkpoint in `{}` ({}, {})",
@@ -558,7 +563,9 @@ pub fn resume_at_checkpoint_on_reset(
     let (target_room, arrival) = match save.data().checkpoint() {
         _ if restore_to == RestoreTo::NewGame => {
             let start = &room_set.rooms().rooms[room_set.rooms().start()];
-            (start.id.clone(), start.world.spawn)
+            (start.id.clone(), crate::lifecycle_commit::RoomArrival::Pose {
+                at: start.world.spawn, material: ae::frame::BodyMaterial::IDENTITY,
+            })
         }
         // Not fatal: fall through to rebuilding where the player actually is.
         Some(checkpoint)
@@ -570,10 +577,13 @@ pub fn resume_at_checkpoint_on_reset(
         {
             (
                 checkpoint.room_id.clone(),
-                ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                crate::lifecycle_commit::RoomArrival::Pose {
+                    at: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                    material: checkpoint.material.material(),
+                },
             )
         }
-        _ => (active.id.clone(), active.world.spawn),
+        _ => (active.id.clone(), crate::lifecycle_commit::RoomArrival::At(active.world.spawn)),
     };
     // ⚠ Same rule as the session-start resume above: nothing has been mutated,
     // so a refused slot simply means another lifecycle operation is already
@@ -606,7 +616,7 @@ pub fn resume_at_checkpoint_on_reset(
                 initiator: crate::lifecycle_commit::RoomBodyTransfer {
                     requirement: crate::lifecycle_commit::BodyTransferRequirement::Present,
                     subject: subject.clone(),
-                    arrival: crate::lifecycle_commit::RoomArrival::At(arrival),
+                    arrival,
                     participant: None,
                 },
                 companions: Vec::new(),

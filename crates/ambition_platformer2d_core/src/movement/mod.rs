@@ -63,7 +63,7 @@ pub use body_contact::{BodyContact, touches_body_side, constrain_motion, BodyCon
 // predicate the kernel applies — never a duplicated near-copy.
 pub use authority::{
     arrive_body_in_room, carry_body, constrain_body_pose, prepare_body_materialization, prepare_body_pose, prepare_body_translation, PreparedBodyPose, PreparedBodyMaterialization, halt_body, reconcile_transit,
-    shift_frozen_body, transit_body, ArrivalMomentum, TransitVelocity,
+    shift_frozen_body, transit_body, restore_body_pose, ArrivalMomentum, TransitVelocity,
 };
 pub use collision::{hazard_contact_on_path, touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};

@@ -97,13 +97,15 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), room_set("shrine_room"));
     app.add_systems(Update, heal_save_shrine_system);
 
+    let material = ambition_platformer2d_core::frame::BodyMaterial::new(0.5,
+        bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap();
     let player = app
         .world_mut()
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
             ActorControl::default(),
-            BodyKinematics { material: Default::default(),
+            BodyKinematics { material,
                 pos: Vec2::new(412.0, 396.0),
                 vel: Vec2::ZERO,
                 canonical_size: Vec2::new(24.0, 40.0),
@@ -142,6 +144,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         );
     assert_eq!(recorded.room_id, "shrine_room");
     assert_eq!((recorded.x, recorded.y), (412, 396));
+    assert_eq!(recorded.material.material(), material);
 
     // ── The next session, from the same save ─────────────────────────────────
     //
@@ -177,7 +180,10 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         .id();
     next.update();
 
-    let pos = next.world().get::<BodyKinematics>(resumed).unwrap().pos;
+    let restored = next.world().get::<BodyKinematics>(resumed).unwrap();
+    let pos = restored.pos;
+    assert_eq!(restored.material, material);
+    assert_eq!(next.world().get::<ambition_platformer2d_core::SweepSample>(resumed).unwrap().material, material);
     assert_eq!(
         (pos.x, pos.y),
         (412.0, 396.0),
@@ -2217,7 +2223,7 @@ fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
         let pinned = accepted.lifecycle.expect("the lifecycle horizon is installed");
         if new_game {
             assert_eq!(accepted.intent.target_room(), "here", "a New Game kept the old run's room");
-            assert_eq!(accepted.intent.arrival(), Some(&crate::lifecycle_commit::RoomArrival::At(start_spawn)));
+            assert_eq!(accepted.intent.arrival(), Some(&crate::lifecycle_commit::RoomArrival::Pose { at: start_spawn, material: ambition_platformer2d_core::frame::BodyMaterial::IDENTITY }));
             assert_eq!(
                 pinned.occurrences,
                 OccurrenceBaseline::default(),
@@ -2225,7 +2231,7 @@ fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
             );
         } else {
             assert_eq!(accepted.intent.target_room(), "rest_room");
-            assert_eq!(accepted.intent.arrival(), Some(&crate::lifecycle_commit::RoomArrival::At(Vec2::new(512.0, 300.0))));
+            assert_eq!(accepted.intent.arrival(), Some(&crate::lifecycle_commit::RoomArrival::Pose { at: Vec2::new(512.0, 300.0), material: ambition_platformer2d_core::frame::BodyMaterial::IDENTITY }));
             assert_ne!(pinned.occurrences, OccurrenceBaseline::default());
         }
     }

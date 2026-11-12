@@ -95,6 +95,11 @@ impl LifecycleIntent {
                     match arrival {
                         RoomArrival::At(at) => { put_u8(&mut bytes, 0); put_vec2(&mut bytes, *at); }
                         RoomArrival::NearBody(body) => { put_u8(&mut bytes, 1); body.write_peer_stable_into(&mut bytes); }
+                        RoomArrival::Pose { at, material } => {
+                            put_u8(&mut bytes, 2);
+                            put_vec2(&mut bytes, *at);
+                            ambition_platformer2d_core::snapshot::SnapshotState::encode(material, &mut bytes);
+                        }
                     }
                     put_bool(&mut bytes, participant.is_some());
                     put_u8(&mut bytes, participant.map_or(0, |slot| slot.0));
@@ -227,16 +232,17 @@ pub struct RoomBodyTransfer {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoomArrival {
     At(Vec2),
+    Pose { at: Vec2, material: ambition_platformer2d_core::frame::BodyMaterial },
     NearBody(LiveBodyId),
 }
 
 impl RoomArrival {
     pub fn point(&self) -> Option<Vec2> {
-        match self { Self::At(at) => Some(*at), Self::NearBody(_) => None }
+        match self { Self::At(at) | Self::Pose { at, .. } => Some(*at), Self::NearBody(_) => None }
     }
 
     pub fn is_finite(&self) -> bool {
-        match self { Self::At(at) => at.is_finite(), Self::NearBody(_) => true }
+        match self { Self::At(at) | Self::Pose { at, .. } => at.is_finite(), Self::NearBody(_) => true }
     }
 }
 

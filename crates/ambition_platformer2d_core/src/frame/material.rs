@@ -12,6 +12,37 @@ pub struct BodyMaterial {
     orthogonal: DMat2,
 }
 
+/// A lossless material record. Integer words give saves exact equality.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(transparent)]
+pub struct BodyMaterialRecord([u64; 5]);
+
+impl Default for BodyMaterialRecord {
+    fn default() -> Self { BodyMaterial::IDENTITY.record() }
+}
+
+impl BodyMaterialRecord {
+    fn checked(self) -> Result<BodyMaterial, NumericFault> {
+        let material = self.material();
+        material.at(Vec2::ZERO)?;
+        Ok(material)
+    }
+
+    /// Read the material that was validated when this record was made.
+    pub fn material(self) -> BodyMaterial {
+        let [scale, xx, xy, yx, yy] = self.0.map(f64::from_bits);
+        BodyMaterial { scale, orthogonal: DMat2::from_cols(DVec2::new(xx, xy), DVec2::new(yx, yy)) }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for BodyMaterialRecord {
+    fn deserialize<D: serde::Deserializer<'de>>(reader: D) -> Result<Self, D::Error> {
+        let record = Self(<[u64; 5] as serde::Deserialize>::deserialize(reader)?);
+        record.checked().map_err(|fault| serde::de::Error::custom(format!("invalid body material: {fault:?}")))?;
+        Ok(record)
+    }
+}
+
 impl Default for BodyMaterial {
     fn default() -> Self { Self::IDENTITY }
 }
@@ -27,6 +58,11 @@ impl BodyMaterial {
     pub fn scale(self) -> f32 { self.scale as f32 }
     pub fn orthogonal(self) -> Mat2 { Mat2::from_cols(self.orthogonal.x_axis.as_vec2(), self.orthogonal.y_axis.as_vec2()) }
     pub fn reflected(self) -> bool { self.orthogonal.determinant() < 0.0 }
+
+    pub fn record(self) -> BodyMaterialRecord {
+        BodyMaterialRecord([self.scale, self.orthogonal.x_axis.x, self.orthogonal.x_axis.y,
+            self.orthogonal.y_axis.x, self.orthogonal.y_axis.y].map(f64::to_bits))
+    }
 
     fn from_linear(map: Sim2) -> Self {
         Self { scale: map.scale_wide(), orthogonal: DMat2::from_cols(
@@ -84,19 +120,13 @@ impl BodyMaterial {
 
 impl crate::snapshot::SnapshotState for BodyMaterial {
     fn encode(&self, out: &mut Vec<u8>) {
-        for value in [self.scale, self.orthogonal.x_axis.x, self.orthogonal.x_axis.y,
-            self.orthogonal.y_axis.x, self.orthogonal.y_axis.y] {
-            crate::snapshot::put_u64(out, value.to_bits());
+        for word in self.record().0 {
+            crate::snapshot::put_u64(out, word);
         }
     }
 
     fn decode(reader: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
-        let scale = f64::from_bits(reader.u64()?);
-        let orthogonal = DMat2::from_cols(
-            DVec2::new(f64::from_bits(reader.u64()?), f64::from_bits(reader.u64()?)),
-            DVec2::new(f64::from_bits(reader.u64()?), f64::from_bits(reader.u64()?)));
-        Sim2::from_wide_translation(scale, orthogonal, DVec2::ZERO).ok()?;
-        Some(Self { scale, orthogonal })
+        BodyMaterialRecord([reader.u64()?, reader.u64()?, reader.u64()?, reader.u64()?, reader.u64()?]).checked().ok()
     }
 }
 
@@ -133,6 +163,24 @@ mod tests {
 mod snapshot_tests {
     use super::*;
     use crate::snapshot::{decode_state, encode_state};
+
+    #[test]
+    fn saved_material_keeps_every_bit_and_rejects_invalid_scale_or_axes() {
+        for material in [BodyMaterial::IDENTITY,
+            BodyMaterial::new(0.5, Mat2::from_angle(0.37) * Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap()] {
+            let record = material.record();
+            let saved = serde_json::to_string(&record).unwrap();
+            let restored: BodyMaterialRecord = serde_json::from_str(&saved).unwrap();
+            assert_eq!(restored, record);
+            assert_eq!(encode_state(&restored.material()), encode_state(&material));
+        }
+        for (index, value) in [(0, 0.0_f64), (0, f64::NAN), (1, 2.0), (2, 1.0)] {
+            let mut words = BodyMaterial::IDENTITY.record().0;
+            words[index] = value.to_bits();
+            let invalid = serde_json::to_string(&words).unwrap();
+            assert!(serde_json::from_str::<BodyMaterialRecord>(&invalid).is_err());
+        }
+    }
 
     #[test]
     fn material_survives_a_body_snapshot_and_rejects_invalid_scale() {

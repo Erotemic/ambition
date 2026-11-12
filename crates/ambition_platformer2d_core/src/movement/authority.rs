@@ -58,6 +58,8 @@ pub enum ArrivalMomentum {
 /// THE room-arrival authority: reset the body for its new room, then apply the
 /// arrival's momentum policy — in one call, so neither half can be forgotten.
 ///
+/// The caller admits supplied material for the destination and base size.
+///
 /// Restores flight only if the body still HAS the ability, which is the rule both
 /// hand-written copies implemented and neither named.
 pub fn arrive_body_in_room(
@@ -66,8 +68,10 @@ pub fn arrive_body_in_room(
     spawn: Vec2,
     air_jumps_default: u8,
     momentum: ArrivalMomentum,
+    material: Option<crate::frame::BodyMaterial>,
 ) {
     let incoming = clusters.kinematics.vel;
+    if let Some(material) = material { clusters.kinematics.material = material; }
     let fly_enabled = clusters.flight.fly_enabled;
     // ⛔⛤ `ResetFacing::Keep`, AND THE ARRIVAL IS WHERE THAT ANSWER LIVES.
     // `reset_body_clusters` used to spin every reset body to `facing = 1.0`; an
@@ -147,6 +151,20 @@ pub fn transit_body(
     reconcile_transit(model, clusters);
 }
 
+/// Admit a complete arrival pose before contact and path state are reset.
+pub fn restore_body_pose(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    desired: crate::BodyKinematics,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<(), crate::frame::thread::Refusal> {
+    // A discrete arrival has no path from the old material chart.
+    let prepared = prepare_body_pose(&desired, None, desired, admission, &[])?;
+    prepared.commit(clusters.kinematics, None);
+    reconcile_transit(model, clusters);
+    Ok(())
+}
+
 /// The reconciliation half of [`transit_body`], for transit implementations
 /// that necessarily write the pose themselves (the portal core moves ANY
 /// `BodyKinematics`, including cluster-less projectiles; its Ambition adapter
@@ -171,10 +189,8 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
     }
     let pos = clusters.kinematics.pos;
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        // A transit moves the body and does not turn it. The box at the
-        // arrival is the body's PRESENT size (a reset changes the size before
-        // it transits) turned to the DOWN of its last step. The next step
-        // turns the body in the frame it arrives in.
+        // Start a new record in the accepted material chart. Keep the movement
+        // reference until the environment resolves the next step.
         let down = sweep.down;
         *sweep = SweepSample { turn: None, travel: Default::default(), time: [0.0, 1.0],
             material: clusters.kinematics.material,
@@ -530,6 +546,38 @@ mod tests {
     use crate::movement::adhesive_crawler::CrawlerState;
 
     #[test]
+    fn a_material_restore_commits_pose_and_history_only_after_admission() {
+        use crate::{BodyClusterScratch, AbilitySet};
+        use crate::frame::BodyMaterial;
+        let mut body = BodyClusterScratch::new_with_abilities(Vec2::new(10.0, 20.0), AbilitySet::default());
+        body.ground.on_ground = true;
+        let before = body.kinematics;
+        let mut sample = SweepSample::at_rest(before, Vec2::Y);
+        let prior = sample;
+        let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
+        let mut desired = crate::BodyKinematics { pos: Vec2::new(100.0, 200.0),
+            material: BodyMaterial::new(3.0e38, bevy_math::Mat2::IDENTITY).unwrap(), ..before };
+        {
+            let mut clusters = body.as_mut();
+            clusters.sweep = Some(&mut sample);
+            assert!(restore_body_pose(&mut model, &mut clusters, desired, None).is_err());
+        }
+        assert_eq!(body.kinematics, before);
+        assert_eq!(sample, prior);
+        assert!(body.ground.on_ground);
+        desired.material = BodyMaterial::new(0.5, bevy_math::Mat2::from_cols(-Vec2::X, Vec2::Y)).unwrap();
+        {
+            let mut clusters = body.as_mut();
+            clusters.sweep = Some(&mut sample);
+            restore_body_pose(&mut model, &mut clusters, desired, None).unwrap();
+        }
+        assert_eq!(body.kinematics, desired);
+        assert_eq!(sample.material, desired.material);
+        assert_eq!((sample.prev, sample.curr), (desired.pos, desired.pos));
+        assert!(!body.ground.on_ground);
+    }
+
+    #[test]
     fn a_halted_body_keeps_its_pose_and_loses_its_velocity() {
         let mut kin = crate::body_clusters::BodyKinematics {
             pos: Vec2::new(10.0, 20.0),
@@ -705,6 +753,7 @@ mod tests {
                 arrival,
                 1,
                 ArrivalMomentum::Preserve,
+                None,
             );
             (clusters.kinematics.pos, clusters.kinematics.vel)
         };
@@ -749,6 +798,7 @@ mod tests {
                     Vec2::new(200.0, 48.0),
                     1,
                     momentum,
+                    None,
                 );
                 clusters.kinematics.facing
             };
@@ -784,6 +834,7 @@ mod tests {
                 arrival,
                 1,
                 ArrivalMomentum::Reset,
+                None,
             );
             (clusters.kinematics.pos, clusters.kinematics.vel)
         };

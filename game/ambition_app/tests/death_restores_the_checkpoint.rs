@@ -292,6 +292,25 @@ fn latest_restore_outcome(sim: &Platformer2dSimHarness) -> String {
     .unwrap_or_default()
 }
 
+#[test]
+fn a_checkpoint_restore_keeps_saved_scale_and_reflection() {
+    use ambition_platformer2d::engine_core::{frame::BodyMaterial, BodyKinematics};
+    use ambition_platformer2d::persistence::{save::AmbitionGameSave, save_data::PersistedCheckpoint};
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+    let (x, y) = body_pos(&mut sim);
+    let material = BodyMaterial::new(0.5,
+        bevy::math::Mat2::from_cols(-bevy::math::Vec2::X, bevy::math::Vec2::Y)).unwrap();
+    sim.world_mut().resource_mut::<AmbitionGameSave>().data_mut().set_checkpoint(
+        PersistedCheckpoint::new(ROOM, x.round() as i32, y.round() as i32).with_material(material));
+    let before = latest_restore_outcome(&sim);
+    sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
+    step_until_a_restore_commits(&mut sim, &before, 720);
+    assert_the_restore_committed(&mut sim);
+    let subject = body(&mut sim);
+    assert_eq!(sim.world().get::<BodyKinematics>(subject).unwrap().material.record(), material.record());
+}
+
 /// THE FIXTURE. Seven beats, in the order the rule states them.
 ///
 /// one test rather than seven, because the beats are a HISTORY. Beat 6's

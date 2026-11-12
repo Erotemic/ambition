@@ -102,6 +102,7 @@ collections:
   - castle_specimen_vat
   - castle_operating_table
   - castle_iron_throne
+  - wolfenstein_bench
   - castle_cracked_wall
   - castle_cracked_floor
   - castle_cracked_niche
@@ -580,6 +581,7 @@ collections:
   - pirate_admiral_vfx
   - ninja_shadow_oni_leader_vfx
   - ninja_kagero_vfx
+  - kagero_great_seal
   - gnu_ton_vfx
   - gnu_ton_blow_fx
   - space_helmet

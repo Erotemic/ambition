@@ -889,6 +889,29 @@
                 frame_count: 1,
                 duration_secs: 0.1,
             )),
+            // ssj2_full (a layer: its lightning when it bursts unhurtable
+            // at its last hit point)
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.04,
+            )),
+            // ssj2_green (a layer: its lightning in the chase)
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.04,
+            )),
+            // hellfire_death (it burns away in hell's fire; the last frame
+            // is empty)
+            (Rest, (
+                frame_count: 28,
+                duration_secs: 0.07,
+            )),
+            // ward_ring_green (a layer: the ward's spirits as `ward_ring`
+            // draws them, with the green lightning; the chase)
+            (Rest, (
+                frame_count: 32,
+                duration_secs: 0.035,
+            )),
         ],
         collision_scale: 2.327,
         feet_anchor_y: -0.215,

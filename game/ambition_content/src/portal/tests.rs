@@ -294,7 +294,11 @@ fn ground_transit_app() -> App {
         RoomGeometry(ae::World::new("item transit", Vec2::splat(800.0), Vec2::ZERO, vec![])));
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
-    app.add_systems(Update, (ambition_held_items::ground_item_physics,
+    // What admits a crossing: the apertures the game publishes before items move.
+    app.insert_resource(ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::new(
+        ae::frame::MapConvention::Reflection));
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures,
+        ambition_held_items::ground_item_physics,
         ambition_held_items::project_item_body_presence,
         ambition_portal2d::portal_transit).chain());
     app
@@ -380,7 +384,9 @@ fn a_thrown_item_comes_out_turned_as_the_pair_turns_it() {
     assert!(g.pos.x > 390.0, "the item came out of the wall portal, pos={:?}", g.pos);
     let roll = g.material.render_angle();
     assert!(g.material.reflected());
-    assert!(roll.cos().abs() < 1e-3, "turned a quarter, as the pair turns it: roll={roll}");
+    // It comes out a quarter turned; righting then starts on the leg after the
+    // crossing, a few degrees in what is left of the tick, never a snap.
+    assert!((roll.abs() - std::f32::consts::FRAC_PI_2).abs() < 0.2, "turned a quarter, as the pair turns it: roll={roll}");
 }
 
 #[test]

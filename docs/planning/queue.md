@@ -198,14 +198,16 @@ custody and persistent-world witnesses still exercise real production paths.
 
 ### ABILITY-VARIANTS — finish the authored loadout through shared capability seams
 
-**Failure:** the loadout plan still has placeholder variants, no authored
-upgrade fact, and hard-coded eye-laser origin measurements.
+**Failure:** the loadout plan still has placeholder variants and no authored
+upgrade fact.
 
 **Owner:** equipment preparation, body control slots, content modules and
 character landmarks. Design: [ability loadout, open work](game/ability-loadout.md#open).
 
-**Next action:** after LOADOUT-AUTHORITY, recheck the published eye-laser row
-and add its visor landmark and sound at their source owners. Then support
+**Done 2026-11-11:** the published `eye_laser` row draws, and the laser leaves
+the visor its art draws ([loadout](game/ability-loadout.md#open)).
+
+**Next action:** the laser's own sound waits for an SFX bank republish. Support
 Blink and stance replacement through the existing technique/equipment seam,
 with one authoritative upgrade fact. Author Contextual Blink, Precision Blink
 tiers and the remaining variants in that model, not named engine branches.

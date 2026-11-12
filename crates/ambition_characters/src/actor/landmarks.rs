@@ -102,18 +102,20 @@ pub type LandmarkFrame = [Option<Vec2>; Landmark::ALL.len()];
 /// for a gameplay volume that follows the art. A shield that turns strikes
 /// aside is the first ([`crate::actor::guard`]).
 ///
-/// Its art publishes it as the track of that name; a new kind of box is a new
-/// name here and in the published track list.
+/// Its art publishes it as the track `BOX_TRACKS` names for its slot
+/// (`ambition_sprite_sheet`); a new kind of box is a new name here and there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PartBox {
     /// A shield in the hand.
     Shield,
+    /// A lit visor: an eye laser leaves the whole of it.
+    Visor,
 }
 
 impl PartBox {
     /// Every box, in slot order.
-    pub const ALL: [Self; 1] = [Self::Shield];
+    pub const ALL: [Self; 2] = [Self::Shield, Self::Visor];
 
     /// This box's slot in a [`PartBoxFrame`].
     pub fn slot(self) -> usize {

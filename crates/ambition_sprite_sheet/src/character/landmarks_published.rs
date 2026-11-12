@@ -38,8 +38,9 @@ pub type BakedLandmarkFrame = [Option<(f32, f32)>; LANDMARK_TRACKS.len()];
 /// The flipbook tracks that publish a BOX, in slot order: the bounds of what
 /// the track draws in each frame, for a gameplay volume that follows the art
 /// (a shield that turns strikes aside). The order is
-/// `ambition_characters::actor::PartBox::ALL`.
-pub const BOX_TRACKS: [&str; 1] = ["shield"];
+/// `ambition_characters::actor::PartBox::ALL`. The visor is its lit fill,
+/// the red the robot's eye laser leaves.
+pub const BOX_TRACKS: [&str; 2] = ["shield", "visor_fill"];
 
 /// The boxes of one frame, by slot: `(min_x, min_y, max_x, max_y)` in sheet
 /// pixels from the feet, +y down. `None` when the frame does not draw the

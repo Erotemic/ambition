@@ -12,8 +12,8 @@
 
 use ambition_boss_special_port::{DrawnRow, DrawnRowPort};
 use ambition_combat_port::{
-    BodySound, BodySoundPort, HeldRay, HeldRayPort, Place, SpendMana, SpendManaPort, Spot, TechniqueUse,
-    TechniqueUsePort,
+    ArtPart, BodySound, BodySoundPort, HeldRay, HeldRayPort, PartSpot, Place, SpendMana, SpendManaPort, Spot,
+    TechniqueUse, TechniqueUsePort,
 };
 use ambition_extension_sdk::{
     phases::TECHNIQUE_EXECUTION, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation,
@@ -28,8 +28,9 @@ pub const TECHNIQUE: &str = "eye_laser";
 pub const MANA_PER_S: f32 = 30.0;
 /// How far the laser reaches when no wall stops it.
 pub const REACH: f32 = 520.0;
-/// The ray is as thick as the visor's red fill, as a part of the body's
-/// height.
+/// The ray leaves the whole lit visor its art draws (`ArtPart::Visor`), as
+/// thick as it is tall. On a body whose art draws none, it is this thick, as
+/// a part of the body's height: the robot's red fill, measured.
 pub const VISOR_HEIGHT: f32 = 0.29;
 const DAMAGE: i32 = 1;
 /// A light push, a multiple of the victim's feel-tuned launch.
@@ -38,10 +39,14 @@ const KNOCKBACK: f32 = 0.3;
 pub const REHIT_S: f32 = 0.2;
 /// The ray is asked for again each tick it burns; this only outlives one tick.
 const RAY_LIFETIME_S: f32 = 0.1;
-/// The front of the visor at its middle, body-local, as a part of the body's
-/// size from its middle: ahead (along its facing) and up. Measured from the
+/// Where the ray starts on a body whose art draws no visor: the front of the
+/// robot's visor at its middle, body-local, as a part of the body's size
+/// from its middle, ahead (along its facing) and up. Measured from the
 /// robot's `eye_laser` row (sprite renderer `eefd4b0`).
 pub const VISOR: [f32; 2] = [0.52, -0.159];
+/// The transparent margin around the robot's drawn visor fill, in sheet
+/// pixels (measured on its published part: 3 on three sides, 4 below).
+const VISOR_INSET_PX: f32 = 3.0;
 /// The presentation's ray look.
 const LOOK: &str = "laser";
 /// The rows the body is drawn with while it burns, in order of preference.
@@ -143,7 +148,13 @@ pub fn burn_tick_of(s: &mut Burn, used: &TechniqueUse, dt: f32) -> BurnTick {
     out.ray = Some(HeldRay {
         slot: RAY_SLOT,
         generation: s.generation,
-        from: Spot::Body(visor),
+        from: Spot::Part(PartSpot {
+            part: ArtPart::Visor,
+            rows: ROWS.iter().map(|name| (*name).to_owned()).collect(),
+            elapsed: s.burnt,
+            inset_px: VISOR_INSET_PX,
+            otherwise: visor,
+        }),
         toward: user.to_world([side, 0.0]),
         reach: REACH,
         width: VISOR_HEIGHT * user.size[1],
@@ -218,8 +229,11 @@ mod tests {
         assert!(first.ignited);
         let ray = first.ray.expect("a press burns");
         assert_eq!(ray.toward, [-1.0, 0.0], "straight along the facing, not the aim");
-        let Spot::Body([x, y]) = ray.from else { panic!("the ray rides the body") };
-        assert!(x < 0.0 && y < 0.0, "the visor is ahead and up: {x} {y}");
+        let Spot::Part(PartSpot { part: ArtPart::Visor, ref rows, otherwise: [x, y], .. }) = ray.from else {
+            panic!("the ray leaves the visor")
+        };
+        assert_eq!(rows[0], "eye_laser", "the visor of the row the body is drawn in");
+        assert!(x < 0.0 && y < 0.0, "without a drawn visor, ahead and up: {x} {y}");
         assert!(ray.width > 8.0, "the ray is as wide as the visor: {}", ray.width);
         assert_eq!(first.cost, Some(MANA_PER_S * DT));
         assert_eq!(first.row.expect("a row").names[0], "eye_laser");

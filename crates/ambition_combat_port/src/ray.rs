@@ -14,24 +14,65 @@ use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
 /// Where something a module asks for is.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Spot {
     /// A world point, +Y down.
     World([f32; 2]),
     /// An offset from the body the invocation ran for: it follows the body.
     Body([f32; 2]),
+    /// The front of a part the body's art draws: see [`PartSpot`].
+    Part(PartSpot),
+}
+
+/// A part a body's art can draw, for a spot that follows the art.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArtPart {
+    /// A lit visor.
+    Visor,
+}
+
+/// The front of a part the body's art draws in a row: the middle of the
+/// part's edge the way the body faces. The row is named by the request, as a
+/// `DrawnRow` names it, so the spot is a function of the module's own state
+/// and not of what was drawn last.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PartSpot {
+    pub part: ArtPart,
+    /// The rows in order of preference: the first the body's art has.
+    pub rows: Vec<String>,
+    /// Seconds into that row.
+    pub elapsed: f32,
+    /// How far in from the bounds of the drawn part its edge is, in sheet
+    /// pixels: the transparent margin around the part.
+    pub inset_px: f32,
+    /// The offset from the body when its art does not draw the part in that
+    /// frame of that row (or has none of the rows).
+    pub otherwise: [f32; 2],
 }
 
 impl Spot {
-    pub fn put(self, out: &mut Vec<u8>) {
+    pub fn put(&self, out: &mut Vec<u8>) {
         match self {
             Spot::World(at) => {
                 wire::put_u8(out, 0);
-                wire::put_vec2(out, at);
+                wire::put_vec2(out, *at);
             }
             Spot::Body(offset) => {
                 wire::put_u8(out, 1);
-                wire::put_vec2(out, offset);
+                wire::put_vec2(out, *offset);
+            }
+            Spot::Part(spot) => {
+                wire::put_u8(out, 2);
+                wire::put_u8(out, match spot.part {
+                    ArtPart::Visor => 0,
+                });
+                wire::put_u32(out, spot.rows.len() as u32);
+                for row in &spot.rows {
+                    wire::put_str(out, row);
+                }
+                wire::put_f32(out, spot.elapsed);
+                wire::put_f32(out, spot.inset_px);
+                wire::put_vec2(out, spot.otherwise);
             }
         }
     }
@@ -40,15 +81,28 @@ impl Spot {
         match r.u8()? {
             0 => Ok(Spot::World(r.vec2()?)),
             1 => Ok(Spot::Body(r.vec2()?)),
+            2 => {
+                let part = match r.u8()? {
+                    0 => ArtPart::Visor,
+                    tag => return Err(WireError::BadTag(tag)),
+                };
+                let count = r.read_len()?;
+                let mut rows = Vec::new();
+                for _ in 0..count {
+                    rows.push(r.str()?.to_owned());
+                }
+                Ok(Spot::Part(PartSpot { part, rows, elapsed: r.f32()?, inset_px: r.f32()?, otherwise: r.vec2()? }))
+            }
             tag => Err(WireError::BadTag(tag)),
         }
     }
 
-    /// The world point, for a body at `body`.
-    pub fn at(self, body: [f32; 2]) -> [f32; 2] {
+    /// The world point, for a body at `body`. A part's front is where the
+    /// art draws it, which only the host knows: here it is its `otherwise`.
+    pub fn at(&self, body: [f32; 2]) -> [f32; 2] {
         match self {
-            Spot::World(at) => at,
-            Spot::Body([x, y]) => [body[0] + x, body[1] + y],
+            Spot::World(at) => *at,
+            Spot::Body([x, y]) | Spot::Part(PartSpot { otherwise: [x, y], .. }) => [body[0] + x, body[1] + y],
         }
     }
 }
@@ -59,7 +113,9 @@ impl Spot {
 ///
 /// * **Operation** — hold a ray from `from` along `toward` (any length; it
 ///   is the direction), as far as `reach` or the first wall, `width` wide,
-///   through the portal pairs it enters. It hurts what it meets for
+///   through the portal pairs it enters. A ray from a [`Spot::Part`] the art
+///   draws leaves the whole part: it is as wide as the part is tall, and
+///   `width` is its width when the art does not draw it. It hurts what it meets for
 ///   `damage`, launching by `knockback` (a multiplier over the victim's
 ///   feel-tuned launch). `launch_dir` selects the axes; absence launches away
 ///   from the source. It is drawn as `look`.
@@ -95,7 +151,7 @@ pub struct HeldRay {
 }
 
 impl Port for HeldRayPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 2);
+    const KEY: PortKey = PortKey::new("ambition.combat.held_ray", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = HeldRay;
 
@@ -139,7 +195,13 @@ mod tests {
         let ray = HeldRay {
             slot: 5,
             generation: 2,
-            from: Spot::Body([3.0, -27.0]),
+            from: Spot::Part(PartSpot {
+                part: ArtPart::Visor,
+                rows: vec!["eye_laser".into(), "shoot".into()],
+                elapsed: 0.25,
+                inset_px: 3.0,
+                otherwise: [3.0, -27.0],
+            }),
             toward: [0.6, -0.8],
             reach: 460.0,
             width: 30.0,

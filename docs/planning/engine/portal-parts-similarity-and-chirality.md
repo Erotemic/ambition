@@ -1569,10 +1569,19 @@ open. The desktop receipt records the capture and its limits.
 ### Slope crossing refusal — 2026-11-12
 
 `3d0e411db` applies the fixed world-plane separation proof to line colliders
-before curved contact. Station E no longer exhausts the work budget after
-crossing in the real-app regression. The body moves clear under rollback
+before curved contact. The forward station E crossing no longer exhausts the
+work budget in the real-app regression. The body moves clear under rollback
 without a reset. All 101 material-cast tests, both lab tests, and the 80/40
 partial-contact, reverse-travel and replay guard pass. See the
 [stall receipt](../../../dev/reviews/portal-slope-stall-2026-11-12.md).
 Keep boundary contacts and typed refusals. Desktop frame-time confirmation
 at E and the earlier station J stop remain open, as do the other PSIM gates.
+
+`0a3be0efc` fixes a second work-limit refusal on the reverse E crossing.
+The rejected-contact overlap proof uses a complete world-plane set for
+collider points with no angular motion. Both E crossings move clear under
+rollback without resets. All 101 material-cast tests, three lab tests and the
+80/40 partial-contact, reverse-travel and replay guard pass. The stall receipt
+records the second F8 trace and profile. Desktop confirmation at E, the earlier
+J stop, and the remaining PSIM gates stay open. Do not skip a rejected contact
+component without proving that its overlap persists.

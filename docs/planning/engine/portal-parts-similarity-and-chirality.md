@@ -1671,3 +1671,19 @@ distance, and a portal's cut can sweep across an obstacle faster than the
 obstacle moves. The GNU-ton well test caught exactly that miss. Within the
 aperture span the cut is a seam, not a surface, and outside it the same line
 is real support. The answer must use that split.
+
+Measured further, with probes since deleted. At F the refusal lands exactly at
+the root's own crossing of the turning mouth's plane. There the `Stay(0)`
+eligibility is `Maybe` for any interval longer than zero, because `rank` adds a
+constant rounding term. So the relaxed envelope drops the front cut, while the
+exact region at the instant keeps it. The envelope then holds the crossed
+topology, in which the through material meets the plank, and the exact region
+finds nothing. Both plank mouths sit 4 px above their plank's line: a plank's
+line runs through its box centre, and `settle_portals_on_faces` settles mouths
+only onto static blocks and chains. Moving both mouths flush onto their lines
+made things far worse. The G shelf and F floor throws refused `WorkLimit` with
+2–4 s ticks, and bodies stayed stopped for 25 ticks or more. A host line exactly
+on a turning cut is the worst case of the seam. Two directions remain: decide
+the root's crossing instant structurally, as the affine builder does with
+`first`, and cut each line host at its own aperture so that no host lies along
+its mouth's seam.

@@ -63,7 +63,7 @@ use ambition_boss_special_port::{
 };
 use ambition_combat_port::{
     BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, HeldRay,
-    HeldRayPort, Lightning, LightningPort, RidingHitbox, RidingHitboxPort, RidingKnockback, Spot,
+    HeldRayPort, Effect, EffectPort, Lightning, LightningPort, Place, RidingHitbox, RidingHitboxPort, RidingKnockback, Spot,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -393,7 +393,7 @@ impl Move {
 
 record! {
     /// The conductor's memory, on the head.
-    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 7);
+    pub struct Conductor = SchemaKey::new(crate::PROVIDER, "inugami.conductor", 8);
     /// The room, measured once.
     1 hall_known: bool,
     2 hall_floor: f32,
@@ -513,6 +513,9 @@ record! {
     66 finish: Option<f32>,
     /// Her great seal has struck: the next blow ends it, in hellfire.
     67 exposed: bool,
+    /// Seconds since her great seal closed round it (its ring is drawn
+    /// while it lies guttered under it).
+    68 sealed: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -611,6 +614,7 @@ pub fn module() -> ModuleDescriptor {
                 HeldDamageBoxPort::KEY,
                 HeldRayPort::KEY,
                 LightningPort::KEY,
+                EffectPort::KEY,
                 BodySoundPort::KEY,
                 BossGuardPort::KEY,
                 BossHealthFloorPort::KEY,
@@ -840,10 +844,40 @@ const GREEN: [f32; 4] = [0.45, 1.0, 0.55, 1.0];
 /// 2026-11-11): its spirits and the bolts, one layer on the ring's clock.
 const CHASE_RING: &str = "ward_ring_green";
 /// The finishing blow burns it in hellfire and it evaporates into the ether
-/// (`hellfire_death`) before his head falls.
+/// (`hellfire_death`, 28 x 70 ms, its last frame empty): nothing is left to
+/// fall.
 const HELLFIRE_ROW: &str = "hellfire_death";
+const HELLFIRE_S: f32 = 28.0 * 0.07;
+/// Her great seal's ring of talismans (`kagero_great_seal`): it closes round
+/// the head as her seal strikes, holds while it lies guttered, and bursts and
+/// burns with the killing blow. The ring is `SEAL_RING` of the effect's
+/// square across, drawn a little wider than the head.
+/// The wrap's last frame is empty: the hold starts on the frame before it.
+const SEAL_WRAP: (&str, f32) = ("great_seal_wrap", 13.0 * 0.045);
+const SEAL_HOLD: (&str, f32) = ("great_seal_hold", 12.0 * 0.07);
+const SEAL_BREAK: &str = "great_seal_break";
+const SEAL_RING: f32 = 0.8;
+const SEAL_ROOM: f32 = 1.15;
+/// The world size of an effect's square at scale 1 (`ambition_render::fx`).
+const FX_WORLD: f32 = 56.0;
 const HELLFIRE: [f32; 4] = [1.0, 0.25, 0.08, 1.0];
 const EMBER: [f32; 4] = [1.0, 0.62, 0.2, 1.0];
+
+/// Her seal's ring round the head at `at`, a little wider than its box.
+fn seal_ring(inv: &mut Invocation<'_>, fx: &str, at: Vec2, half: Vec2) -> Result<(), Fault> {
+    let scale = 2.0 * half.max_element() * SEAL_ROOM / (FX_WORLD * SEAL_RING);
+    inv.submit::<EffectPort>(Effect { at: Place::World(at.into()), fx: fx.into(), scale, angle: 0.0 })
+}
+
+/// Her ring holds round it, drawn again each time its loop comes round,
+/// once the ring has closed (`sealed` seconds ago, `dt` this tick).
+fn hold_seal(inv: &mut Invocation<'_>, sealed: f32, dt: f32, at: Vec2, half: Vec2) -> Result<(), Fault> {
+    let lap = |s: f32| ((s - SEAL_WRAP.1) / SEAL_HOLD.1).floor();
+    if sealed >= SEAL_WRAP.1 && (sealed - dt < SEAL_WRAP.1 || lap(sealed) > lap(sealed - dt)) {
+        seal_ring(inv, SEAL_HOLD.0, at, half)?;
+    }
+    Ok(())
+}
 
 /// A row, then the row a sheet without it draws instead: its finish's rows
 /// are drawn as its older ones where they are not published.
@@ -1058,11 +1092,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if c.dead_for.is_none() && lived {
             play(inv, howl_cue(c.scale), at)?;
             burst(inv, at, 30, 300.0, FIRE, "spark")?;
+            if c.exposed {
+                // The blow bursts her ring: its talismans burn up.
+                seal_ring(inv, SEAL_BREAK, at, half)?;
+            }
         }
         // Killed by the blow her great seal left it open to, it burns in
         // hellfire and evaporates, her talismans burning on it.
         let hellfire = lived && c.exposed;
-        if hellfire && t < DEATH_LEAVES_U * DEATH_S && c.ticks % 3 == 0 {
+        if hellfire && t < HELLFIRE_S && c.ticks % 3 == 0 {
             burst(inv, at + Vec2::new(0.0, half.y * 0.4), 6, 260.0, HELLFIRE, "spark")?;
             burst(inv, at - Vec2::new(0.0, half.y * 0.3), 4, 180.0, EMBER, "streak")?;
         }
@@ -1075,7 +1113,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             inv.submit::<WearPort>(Wear { who: Wearer::Boss, gear: SEALED.into(), on: false })?;
             burst(inv, at, 16, 260.0, if hellfire { EMBER } else { PAPER }, "streak")?;
         }
-        if crossed(DEATH_FALL.1) {
+        if crossed(DEATH_FALL.1) && !hellfire {
             let chin = Vec2::new(at.x, hall.floor - 4.0);
             play(inv, SFX_SLAM, chin)?;
             burst(inv, chin, 18, 220.0, DUST, "dust")?;
@@ -1091,7 +1129,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         // it shook: each tick the floor put it back up 4 px and the pose put it
         // down again (Jon, 2026-10-21: "The head also shakes violently after
         // you do kill it").
-        let y = if t / DEATH_S < DEATH_FALL.0 {
+        let y = if hellfire {
+            // It burns where it was struck.
+            c.from_y
+        } else if t / DEATH_S < DEATH_FALL.0 {
             if lived { at.y } else { ground }
         } else if u >= 1.0 && t - dt >= DEATH_FALL.1 * DEATH_S {
             at.y
@@ -1103,7 +1144,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.dead_for = Some(t);
         c.warded = false;
         c.ward_t = None;
-        let row = if hellfire && t < DEATH_FALL.0 * DEATH_S { HELLFIRE_ROW } else { "death" };
+        let row = if hellfire { HELLFIRE_ROW } else { "death" };
         held_at(inv, at, Vec2::new(x, y), side, (row, t, false), None, dt)?;
         return c.store(inv);
     }
@@ -1532,6 +1573,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if crossed(FINISH_SEAL_S) {
             // Her seal strikes: its fire goes out, its last strength is open.
             c.exposed = true;
+            c.sealed = Some(0.0);
+            seal_ring(inv, SEAL_WRAP.0, pos, half)?;
             inv.submit::<BossGuardPort>(BossGuard { guarded: false })?;
             inv.submit::<BossHealthFloorPort>(BossHealthFloor { floor: 0 })?;
             inv.submit::<WearPort>(Wear { who: Wearer::Boss, gear: SEALED.into(), on: true })?;
@@ -1555,11 +1598,24 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.from_x = pos.x;
             c.from_y = pos.y;
         }
+        if let Some(s) = c.sealed.as_mut().filter(|_| t > FINISH_SEAL_S) {
+            *s += dt;
+            hold_seal(inv, *s, dt, pos, half)?;
+        }
         let row = turned(&mut c, side, row, dt);
         held_at(inv, at, pos, side, row, layer, dt)?;
         return c.store(inv);
     }
 
+    if let Some(s) = c.sealed.as_mut() {
+        *s += dt;
+        // It is held under her ring while it lies guttered; once it kindles
+        // and moves again only her talismans on it are left.
+        if c.guttered.is_some() {
+            let s = *s;
+            hold_seal(inv, s, dt, at, half)?;
+        }
+    }
     for timer in [&mut c.miss, &mut c.buried, &mut c.guttered, &mut c.rekindle, &mut c.appear, &mut c.slack, &mut c.ward_t] {
         if let Some(t) = timer.as_mut() {
             *t += dt;

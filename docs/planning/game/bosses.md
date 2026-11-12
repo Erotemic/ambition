@@ -350,8 +350,12 @@ The hit volumes come from his art, in sheet pixels, as the Hunny Horror's do.
 
 **The bench intro (art, Jon 2026-11-11: "he should likely be on a bench with
 a sheet covering him to start, (sleeping so no tongue and dead droopy eyes),
-waiting, and then he powers up").** The art is published; the conductor does
-not use it yet.
+waiting, and then he powers up").** Built 2026-11-11: he lies on
+`wolfenstein_bench` (the throne's place in the throne room; generator
+`castle_godwin/make_specs.py`) in `bench_sleep`, with no eye glow; the coils'
+first jolt finds his bolts where he lies (`Body::bench_bolts`), he wakes in
+`bench_wake`, and the second jolt lands with the row's power-up lightning
+(`POWER_U`).
 
 - `wolfenstein` rows: `bench_sleep` (6 frames x 300 ms, a loop: he lies on
   his back under a white sheet to his neck, jaws shut, dull half-shut eyes,
@@ -435,7 +439,13 @@ continuity if her combat role changes.
 
 **The last stand (art, Jon 2026-11-11).** At its last hit point it bursts
 unhurtable again, Kagero's great seal holds it, and the next blow kills it in
-hell's fire. The art is published; the conductors do not use it yet.
+hell's fire. Built 2026-11-11: held at one health from Kagero's first spell, it
+bursts in `ssj2_full`; she comes back with her great seal (`great_seal`, the
+volley `great_seal_volley`); the Inugami draws the ring round its head
+(`great_seal_wrap`, then `great_seal_hold` while it lies guttered, sized from
+its own box) and the killing blow bursts it (`great_seal_break`) as it burns
+away in `hellfire_death`, held to its empty last frame. In the chase it wears
+`ward_ring_green`.
 
 - `wolfenstein_inugami` layer rows (drawn as the ward's layers are: about
   the head at rest, carried by the `skull` track, `behind` tracks under the

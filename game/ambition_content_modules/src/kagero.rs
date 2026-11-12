@@ -81,8 +81,6 @@ const GREAT_THROW_AT_S: f32 = 0.8;
 const GREAT_FLY_S: f32 = 0.35;
 /// Seconds from her birth to her great seal landing on it.
 pub const GREAT_SEAL_AT_S: f32 = ARRIVE_S + GREAT_THROW_AT_S + GREAT_FLY_S;
-/// The great seal is bigger than her first.
-const GREAT_SEAL_SCALE: f32 = SEAL_SCALE * 1.8;
 /// She keeps her place as she casts, turned to the head: this slow toward it.
 const DRIFT: f32 = 12.0;
 /// The line drops for this long before it reels her.
@@ -315,10 +313,19 @@ pub fn visit_tick_of(v: &mut Visit, at: Vec2, head: Option<Vec2>, dt: f32) -> Vi
 /// Her talismans in flight from `from` to `to`: the volley played midway,
 /// turned to the head (clockwise, +Y down) and as big as the distance.
 pub fn volley(from: Vec2, to: Vec2) -> Effect {
+    volley_of(VOLLEY_FX, from, to)
+}
+
+/// Her great seal's ten talismans in flight (`kagero_great_seal`), played as
+/// her five are. Where they strike, the Inugami draws their ring round it
+/// (it knows its own size).
+pub const GREAT_VOLLEY_FX: &str = "great_seal_volley";
+
+fn volley_of(fx: &str, from: Vec2, to: Vec2) -> Effect {
     let way = to - from;
     Effect {
         at: Place::World(from.midpoint(to).into()),
-        fx: VOLLEY_FX.into(),
+        fx: fx.into(),
         scale: way.length() / (FX_WORLD * VOLLEY_SPAN),
         angle: way.y.atan2(way.x),
     }
@@ -354,11 +361,14 @@ fn perform(inv: &mut Invocation<'_>, great: bool) -> Result<(), Fault> {
     let names = std::iter::once(tick.row.0).chain((tick.row.0 == "great_seal").then_some("cast")).map(str::to_string).collect();
     inv.submit::<DrawnRowPort>(DrawnRow { names, ..DrawnRow::body(tick.row.0, tick.row.1, false) })?;
     if let Some((from, to)) = tick.throw {
-        inv.submit::<EffectPort>(volley(Vec2::from(from), Vec2::from(to)))?;
+        let fx = if v.great { GREAT_VOLLEY_FX } else { VOLLEY_FX };
+        inv.submit::<EffectPort>(volley_of(fx, Vec2::from(from), Vec2::from(to)))?;
     }
     if let (true, Some(h)) = (tick.ofuda_hit, head) {
-        let (scale, count) = if v.great { (GREAT_SEAL_SCALE, 40) } else { (SEAL_SCALE, 14) };
-        inv.submit::<EffectPort>(Effect { at: Place::World(h.into()), fx: SEAL_FX.into(), scale, angle: 0.0 })?;
+        let count = if v.great { 40 } else { 14 };
+        if !v.great {
+            inv.submit::<EffectPort>(Effect { at: Place::World(h.into()), fx: SEAL_FX.into(), scale: SEAL_SCALE, angle: 0.0 })?;
+        }
         inv.submit::<BurstPort>(Burst { at: h.into(), count, speed: 240.0, color: PAPER, kind: "streak".into() })?;
     }
     inv.submit::<BodyLinePort>(BodyLine { anchor: tick.line })?;

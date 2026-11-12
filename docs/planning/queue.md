@@ -742,8 +742,22 @@ neither an explicit box nor a standing height keeps the box its road gives
 drawn fitted to it: that is the one answer, since a live body has no placement
 box to scale by. Contradiction 1 is closed.
 
-**Next action, in slices:** (2) The construction paths
-agree on intrinsic geometry for the same form. (3) Distinct operations over
+**Measured and built 2026-11-12 (slice 2):** a census built each of seven
+forms as an NPC (a placement), a summon (`SummonRequest`) and a worn form on
+the player, in one room. Five agreed to the bit on all three roads (the dog,
+the guide, the robot, the burning shark; collision, standing box and quad).
+The puppy slug did not: 53.8 by 14.1 as an NPC, 40.3 by 10.6 as a summon and
+the player's 30 by 48 worn, because a form with no standing height is scaled
+by whatever box its road gives (`sprite_body_collision_for_sheet`'s
+placement fallback). Five catalog rows had no intrinsic size; four now state
+one, the height most of their placements already built them at (the puppy
+slug 21.2, the stochastic parrot 38, Mary-O's cartesian and paper plane
+snakes 28.2 and 30.2), and all seven forms agree on every road. The fifth,
+`npc_gnu_ton_boss`, is built by the boss road (`resolve_sheet_body`, from the
+boss catalog), which reads no character standing height: one form, two
+sizing roads, open for GNUTON-GNU2-FINALE's summoned GNU.
+
+**Next action, in slices:** (3) Distinct operations over
 shared infrastructure: transformation (same body, new form), possession
 (another existing body, same participant), skin (presentation only), body mode
 (same body and form). Investigate the rename `WornCharacter` →

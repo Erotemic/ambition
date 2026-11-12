@@ -2171,6 +2171,8 @@
             tier: MainHall,
             // Floating = gravity-free, so the lively Aerial brain flies it.
             body_kind: Floating,
+            // Its own size (Q159): the 38 its 76-wide placements built it at.
+            standing_height: Some(38.0),
             composition: None,
             //  THE FIRST CHARACTER TO NAME NO BRAIN PRESET (2026-08-12,
             // D81), on the fifth attempt. Four blockers, each a different fact
@@ -2692,6 +2694,10 @@
             manifest: "sprites/puppy_slug_spritesheet.ron",
             tier: MainHall,
             body_kind: Crawler,
+            // Its own size (Q159: a form brings its own): the 21 it was built at
+            // in most of its placements (a 48-wide box), so a summon, a worn
+            // form and every placement agree.
+            standing_height: Some(21.2),
             composition: None,
             default_action_set: "peaceful_slither",
             // THE BODY. It crawls: it holds to the surface it stands on and does

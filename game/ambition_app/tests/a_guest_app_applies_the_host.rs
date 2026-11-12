@@ -1362,3 +1362,76 @@ fn probe_what_a_summon_spawns() {
         host.drive_seat(1, Default::default());
     });
 }
+
+/// NA-2b, the guest's room only: NA-2's two-room scene (Alice leaves through
+/// the hub door on frame 30, Bob stays in `switch_lab`). The guest is Bob's
+/// App, booted in `switch_lab`. Each snapshot carries only the bodies in the
+/// room Bob's body is in on the host, and the guest applies it by the general
+/// rule. Prints the body-row bytes a frame against an unscoped snapshot, what
+/// the guest built and removed, the frames its ids differ from the scoped
+/// snapshot's after applying it, and whether the host and the guest number
+/// Bob's room alike.
+#[test]
+#[ignore = "measurement: prints what scoping the snapshot to the guest's room saves; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_guest_in_one_room_is_sent() {
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use crate::hosted_world::{alice_leaves, alice_on_the_hub_door};
+    const RUN: i32 = 220;
+    let bobs_room = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &InRoomInstance)>()
+            .iter(world)
+            .find(|(driver, _)| driver.0 == ambition_platformer2d::characters::control::PlayerSlot(1))
+            .map(|(_, room)| room.0)
+    };
+    let mut host = booted(ROOM);
+    alice_on_the_hub_door(&mut host);
+    let mut guest = booted(ROOM);
+    simulate_nothing(&mut guest);
+    let guest_room = bobs_room(&mut guest);
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>)> = VecDeque::new();
+    let (mut all_rows, mut scoped_rows, mut two_rooms_from) = (0u64, 0u64, None::<i32>);
+    let (mut built, mut removed_booted, mut removed_built, mut unmatched_frames) = (Vec::new(), Vec::new(), Vec::new(), 0);
+    let mut host_room = None;
+    for frame in 1..=RUN {
+        host.drive_seat(0, alice_leaves(frame));
+        host.drive_seat(1, bobs(frame));
+        host.app_mut().update();
+        let room = bobs_room(&mut host);
+        host_room = room;
+        let all = bodies(&mut host, None);
+        let scoped = bodies(&mut host, room);
+        if all.len() > scoped.len() {
+            two_rooms_from.get_or_insert(frame);
+        }
+        all_rows += all.len() as u64 * BODY_ROW;
+        scoped_rows += scoped.len() as u64 * BODY_ROW;
+        in_flight.push_back((frame, scoped));
+        if in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATENCY) {
+            let (_, rows) = in_flight.pop_front().expect("a snapshot arrived");
+            let done = apply_all(&mut guest, &rows);
+            built.extend(done.built);
+            removed_booted.extend(done.removed_booted);
+            removed_built.extend(done.removed_built);
+            if done.unmatched > 0 {
+                unmatched_frames += 1;
+            }
+        }
+        guest.app_mut().update();
+    }
+    println!("[scoped] {ROOM}: {RUN} frames, a snapshot {LATENCY} frames late; the host holds bodies outside Bob's room from frame {two_rooms_from:?}");
+    println!("[scoped]   Bob's room: the host numbers it {host_room:?}, the guest {guest_room:?}");
+    println!(
+        "[scoped]   body rows a frame: unscoped {:.1} bytes, Bob's room only {:.1}",
+        all_rows as f64 / RUN as f64,
+        scoped_rows as f64 / RUN as f64
+    );
+    println!(
+        "[scoped]   the guest built {} {built:?}, removed {} it booted with {removed_booted:?} and {} it built; frames whose ids differ after applying {unmatched_frames}",
+        built.len(),
+        removed_booted.len(),
+        removed_built.len()
+    );
+    assert!(two_rooms_from.is_some(), "premise: Alice left Bob's room");
+}

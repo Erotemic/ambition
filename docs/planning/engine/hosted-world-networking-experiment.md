@@ -450,6 +450,26 @@ summons a flying shark on frame 10 through the summon road
   breakables as row changes on booted `SimId`s, strike volumes not
   replicated.
 
+**The guest's room only (2026-11-12),** probe
+`probe_what_a_guest_in_one_room_is_sent` (same file, ignored): NA-2's
+two-room scene (Alice leaves through the hub door on frame 30; Bob stays in
+`switch_lab`), 220 frames. The guest is Bob's App; each snapshot carries
+only the bodies in the room Bob's body is in on the host.
+
+| Bodies outside Bob's room from | Body rows a frame: unscoped, Bob's room only | Guest built, removed | Frames its ids differ after applying |
+|---|---|---|---|
+| frame 32 | 398.5 bytes, 27.4 bytes | 0, 1 (Alice's body, `slot:0`) | 0 |
+
+- **Scoping is most of the saving once the players part:** the hub's
+  bodies are 93% of the unscoped rows, and Bob's App never needed them.
+- **A body that leaves the guest's room is removed by the same rule** as a
+  body that leaves the world: Alice's body, booted on the guest, went one
+  snapshot after she crossed, with no id disagreement.
+- **The room numbers agreed only because Bob's room was booted first on
+  both** (`LiveRoomInstance(0)`). A guest that crosses into a room the host
+  already holds under another number needs the number mapped, as the
+  forwarded shakes do; that crossing is not exercised here.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -483,8 +503,11 @@ summons a flying shark on frame 10 through the summon road
    volumes are the only new non-body `SimId`s and need no row to be drawn.
    A summon (2026-11-12): a body with a `SimId` descended from its
    summoner, carried by the body rows; its spawn row names its character.
-   Next: send only the guest's room;
-   sounds and visuals sent, with room numbers mapped.
+   The guest's room only (2026-11-12): once Alice leaves, Bob's room is
+   27 bytes a frame of body rows against 398 unscoped, and Alice's body
+   leaves the guest by the general rule. Next: sounds and visuals sent, and
+   room numbers mapped for a guest that crosses into a room the host already
+   holds.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
    and measure correction size under the same scripts. The kernel already

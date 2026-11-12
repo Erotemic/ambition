@@ -2,7 +2,8 @@
 
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
-**Work state:** THE REQUESTED PLAYABLE 80/40 SLICE IS COMPLETE (`fddf6084a`).
+**Work state:** Full portal implementation and acceptance remain open.
+The requested playable 80/40 slice is complete (`fddf6084a`).
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
 Station H has two reachable wall openings with widths 80 and 40. Each keeps
@@ -1511,3 +1512,20 @@ Merge `803247457` retains nearest interaction and the conductor health floor.
 App, boss-owner, boss-port and all four schema checks pass with schema 460.
 The interaction library compiles and has no tests. This narrow merge lane
 does not repeat the earlier portal suite.
+
+
+### Recorded moving-target contact — 2026-11-11
+
+`b3c975837` queries both admitted motion records on the world clock. Projectile
+and loose-item hurt contacts keep analytic circles, conditional portal cuts,
+scale and reflection. Projectile knockback uses the target root at contact.
+The guards cover an intermediate translating target, a scaled reflected
+target, a full target turn and the production projectile step. Do not infer
+a target path from velocity or its root AABB.
+
+Core 894, combat 829, projectile 30, held-item 60, runtime projectile 58,
+Smash 73 and policy 35 tests pass. The assembled app check passes. Four
+core/combat tests and six Smash tests remain ignored. Logs are under
+`target/portal-moving-target-validation/`. This batch does not repeat the
+app slice/replay or displayed-device acceptance. Complete motion history
+across root crossings and full PSIM acceptance remain open.

@@ -160,11 +160,120 @@ impl<'a> MaterialCast<'a> {
         Ok(Some(policy))
     }
 
+    /// The links this cast's material can reach this tick: an entry aperture
+    /// its swept bounds touch, then, through each admitted link in turn, one
+    /// that the carried bounds touch, up to the budget's hops.
+    ///
+    /// A room's links are not this body's links. Admitting every link of the
+    /// room made each body pay for every portal in it, and one turning portal
+    /// anywhere sent every body's material through the curved builder. A
+    /// link left out here acts closed for this body: its host stays solid, so
+    /// a miss blocks and never tunnels. The bounds are inflated, never
+    /// tightened, so a link the material can reach is not left out.
+    fn reachable_links(&self, policy: MotionAdmission<'_>) -> Result<Vec<super::thread::PortalLink>, Refusal> {
+        let links = policy.links;
+        if links.is_empty() {
+            return Ok(Vec::new());
+        }
+        let numeric = |reason| numeric(reason);
+        let end = self.material.to_world.bounds(self.material.domain.bounds()).map_err(numeric)?;
+        let mut grow = self.delta.length() + 1.0;
+        if let Some(rotation) = self.rotation {
+            // A turn about any pivot stays inside the circle through the
+            // farthest corner from it.
+            let pivot = rotation.pivot.as_vec2();
+            let far = [end.min, end.max, Vec2::new(end.min.x, end.max.y), Vec2::new(end.max.x, end.min.y)]
+                .iter().map(|corner| corner.distance(pivot)).fold(0.0_f32, f32::max);
+            grow += far + end.min.distance(end.max);
+        }
+        if !grow.is_finite() {
+            return Err(numeric(NumericFault::NonFinite));
+        }
+        let swept = Aabb::new((end.min + end.max) * 0.5, (end.max - end.min) * 0.5 + Vec2::splat(grow));
+        let touches = |a: &Aabb, b: &Aabb| a.min.x <= b.max.x && b.min.x <= a.max.x && a.min.y <= b.max.y && b.min.y <= a.max.y;
+        // The entry aperture over the tick: both ends at the start and end of
+        // its motion, widened by the arc a turning aperture sweeps.
+        let entry = |link: &super::thread::PortalLink| -> Result<Aabb, Refusal> {
+            let refusal = |reason| Refusal { path: vec![], link: Some(link.key), reason: RefusalReason::Numeric(reason) };
+            let mut min = Vec2::splat(f32::INFINITY);
+            let mut max = Vec2::splat(f32::NEG_INFINITY);
+            for time in [0.0, 1.0] {
+                let aperture = link.enter_step.sample(link.enter, time).map_err(refusal)?;
+                let along = aperture.frame.tangent() * aperture.half_length;
+                for point in [aperture.frame.origin - along, aperture.frame.origin + along] {
+                    min = min.min(point);
+                    max = max.max(point);
+                }
+            }
+            let sweep = link.enter_step.turn.abs() * link.enter.half_length + 1.0;
+            Ok(Aabb::new((min + max) * 0.5, (max - min) * 0.5 + Vec2::splat(sweep)))
+        };
+        // Where material that went through `link` from inside `region` can be.
+        let carried = |link: &super::thread::PortalLink, region: &Aabb| -> Result<Aabb, Refusal> {
+            let refusal = |reason| Refusal { path: vec![], link: Some(link.key), reason: RefusalReason::Numeric(reason) };
+            let mut min = Vec2::splat(f32::INFINITY);
+            let mut max = Vec2::splat(f32::NEG_INFINITY);
+            for time in [0.0, 1.0] {
+                let pose = (*link).snapshot_at(time).map_err(refusal)?;
+                let map = super::Sim2::through(&pose.enter, &pose.exit, policy.convention).map_err(refusal)?;
+                let image = map.bounds(*region).map_err(refusal)?;
+                min = min.min(image.min);
+                max = max.max(image.max);
+            }
+            let diagonal = min.distance(max);
+            let turn = link.enter_step.turn.abs() + link.exit_step.turn.abs();
+            let sweep = diagonal * turn + link.enter_step.displacement.length() + link.exit_step.displacement.length() + 1.0;
+            if !sweep.is_finite() {
+                return Err(refusal(NumericFault::Overflow));
+            }
+            Ok(Aabb::new((min + max) * 0.5, (max - min) * 0.5 + Vec2::splat(sweep)))
+        };
+        let mut admitted = vec![false; links.len()];
+        let mut frontier = vec![swept];
+        // The link the root crosses this tick is this body's whatever its
+        // bounds say: a root is captured by the portal's face, not its line.
+        if let Some(first) = policy.first {
+            for (index, link) in links.iter().enumerate() {
+                if link.key == first {
+                    admitted[index] = true;
+                    frontier.push(carried(link, &swept)?);
+                }
+            }
+        }
+        for _ in 0..=policy.budget.max_hops {
+            let mut next = Vec::new();
+            for (index, link) in links.iter().enumerate() {
+                if admitted[index] {
+                    continue;
+                }
+                let aperture = entry(link)?;
+                if frontier.iter().any(|region| touches(region, &aperture)) {
+                    admitted[index] = true;
+                    for region in &frontier {
+                        if touches(region, &aperture) {
+                            next.push(carried(link, region)?);
+                        }
+                    }
+                }
+            }
+            if next.is_empty() {
+                break;
+            }
+            frontier = next;
+        }
+        Ok(links.iter().zip(admitted).filter(|(_, kept)| *kept).map(|(link, _)| *link).collect())
+    }
+
     pub fn cells(
         self,
         admission: Option<MotionAdmission<'_>>,
     ) -> Result<MaterialCastCells<'a>, Refusal> {
         let admission = self.motion_admission(admission)?;
+        let reachable = match admission {
+            Some(policy) => self.reachable_links(policy)?,
+            None => Vec::new(),
+        };
+        let admission = admission.map(|policy| MotionAdmission { links: &reachable, ..policy });
         if !self.time.start.is_finite() || !self.time.end.is_finite() {
             return Err(numeric(NumericFault::NonFinite));
         }

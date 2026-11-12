@@ -1592,3 +1592,44 @@ The maintainer paused work for handoff. This playable defect is unresolved;
 the fitted-path regressions above do not establish a complete E fix. See the
 [handoff](../../../dev/reviews/portal-stall-handoff-2026-11-12.md) for the latest
 F8 trace, coordinates, unverified fit lead, and current limits.
+
+### Reachable links and playable refusals — 2026-11-12
+
+Two defects made the lab stall, neither of them a station's geometry.
+
+Every material query received every link in the room. One turning link (G's
+spinning plank, F's swinging plank) selected the curved builder for all
+bodies in the room, so a body falling at E paid for curved subdivision against
+a slope that only an affine query needed. `MaterialCast::cells` now admits only
+the links a body's material can reach this tick: an entry aperture that the
+swept bounds touch, then the apertures that the bounds carried through each
+admitted link touch, up to the hop budget. Bounds are only ever inflated. A
+link left out acts closed for that body, so its host stays solid and a miss
+blocks rather than tunnels.
+
+A refused movement step kept the old body, velocity and all, and the next tick
+asked the refused question again. The body hung at full speed while the clock
+ran on, and each tick repaid the refused search. PSIM-5 requires a refusal to
+leave the previous admitted world playable. `step_motion` now retries the step
+with every portal closed when none of the body's material is through one. A
+body that already straddles a portal stops in place instead, because closing
+the portals would put its material inside their hosts. The refusal is still
+reported on the step.
+
+Idle portal lab (`headless N --bench --start-room portal_lab`, profiling
+profile, 11 bodies, 34 portals, three 60/360-tick pairs per arm, alternating
+order, CPU time from `/usr/bin/time` because this VM forbids counters): median
+13.0 ms of CPU per tick before and 2.6 ms after. Wall time falls from 12.1 to
+2.5 ms per tick. All tick counts match. In a debug build, the newest E fall
+fell from about 125 ms to 23 ms per tick and no longer freezes.
+
+The room-wide set had also hidden a defect: the lab always selected the curved
+builder, so its affine builder never ran there. Station J is the earlier "J
+stop". A body walking right from the thin-wall door freezes at J under the
+curved builder and pops 21 px under the affine one. J's foot mouth sits on an
+80 px slab no wider than the mouth, raised 12 px off the floor. A walking body
+enters the mouth's column from the side, under its face, where no host stops
+it. That is the host-depth teleport this plan forbids. The sweep then stops the
+root on the face, with no rebase through that link. The thin-wall walk now
+stops past its own door. Station J moves to a room of its own, with every mouth
+set into a host that runs past both ends.

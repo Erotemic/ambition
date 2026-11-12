@@ -157,6 +157,47 @@ pub fn step_motion(
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
     let retained_down = SweepSample::down_or(clusters.sweep.as_deref(), ctx.frame.down());
+    let refusal = match try_motion(model, clusters, ctx, retained_down) {
+        Ok(result) => return result,
+        Err(refusal) => refusal,
+    };
+    // ⭐ A REFUSAL LEAVES THE WORLD PLAYABLE (PSIM-5). A refused step used to
+    // keep the old body whole, velocity and all, and every later tick asked
+    // the same refused question again: the body hung in the air at full
+    // speed while the clock ran on, paying the refused search each tick.
+    // A refusal is about this tick's portal material, so the step is taken
+    // again with every portal closed to this body: their hosts are solid, as
+    // the design's "prevent the crossing at the solid portal boundary" asks,
+    // so the body is stopped or carried by real geometry and never tunnels.
+    // Closing is the previous admitted world only while no material is
+    // already through a portal: a straddling body would sit inside the
+    // closed hosts, and repair would throw it out of them.
+    // The refusal is still reported on the step that recovered.
+    if ctx.admission.is_some_and(|admission| !admission.links.is_empty() && !straddles(clusters.kinematics, admission)) {
+        let closed = MotionStepContext { admission: None, ..ctx };
+        if let Ok(mut result) = try_motion(model, clusters, closed, retained_down) {
+            result.events.motion_refusal = Some(refusal);
+            return result;
+        }
+    }
+    // Nothing admits a motion: the body keeps its place and stops, so the
+    // next tick asks a different question rather than the same one forever.
+    halt(model, clusters);
+    if let Some(sample) = clusters.sweep.as_deref_mut() {
+        *sample = SweepSample::at_tick_end(*clusters.kinematics, retained_down);
+    }
+    let mut events = FrameEvents::default();
+    events.motion_refusal = Some(refusal);
+    MotionStepResult::from_events(events, ctx.frame)
+}
+
+/// One candidate step and its righting. Commits only when both are admitted.
+fn try_motion(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: MotionStepContext<'_>,
+    retained_down: Vec2,
+) -> Result<MotionStepResult, crate::frame::thread::Refusal> {
     let mut candidate = crate::body_clusters::BodyClusterScratch::candidate(model, clusters);
     let mut sweep = SweepSample::at_rest(*clusters.kinematics, retained_down);
     let result = {
@@ -164,6 +205,9 @@ pub fn step_motion(
         body.sweep = Some(&mut sweep);
         step_admitted_motion(candidate_model, &mut body, ctx)
     };
+    if let Some(refusal) = result.events.motion_refusal.clone() {
+        return Err(refusal);
+    }
     let target = match &result.support {
         SupportFact::Riding(contact) | SupportFact::Attached(contact) => -contact.normal,
         _ => ctx.frame.down(),
@@ -172,20 +216,30 @@ pub fn step_motion(
         else if matches!(result.support, SupportFact::Riding(_) | SupportFact::Attached(_)) {
             std::f64::consts::PI
         } else { 8.0 * f64::from(ctx.dt.max(0.0)) };
-    let admitted = if let Some(refusal) = result.events.motion_refusal.clone() { Err(refusal) }
-        else { super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
-        target, max_step, f64::from(ctx.dt), ctx.world, ctx.admission, &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run]) };
-    if let Err(refusal) = admitted {
-        if let Some(sample) = clusters.sweep.as_deref_mut() {
-            *sample = SweepSample::at_tick_end(*clusters.kinematics, retained_down);
-        }
-        let mut events = FrameEvents::default();
-        events.motion_refusal = Some(refusal);
-        return MotionStepResult::from_events(events, ctx.frame);
-    }
+    super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
+        target, max_step, f64::from(ctx.dt), ctx.world, ctx.admission,
+        &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run])?;
     candidate.commit(model, clusters);
     if let Some(target) = clusters.sweep.as_deref_mut() { *target = sweep; }
-    result
+    Ok(result)
+}
+
+/// Whether any of the body's material is through an admitted link now.
+/// A partition that cannot be admitted counts as straddling.
+fn straddles(body: &crate::BodyKinematics, admission: crate::frame::thread::MotionAdmission<'_>) -> bool {
+    use crate::frame::thread::{MaterialPrimitive, partition};
+    let (Ok(domain), Ok(to_world)) = ((*body).canonical_box(), (*body).material_map()) else { return true };
+    partition(MaterialPrimitive { domain: &domain, to_world }, body.pos, admission.links,
+        admission.first, admission.budget, admission.convention)
+        .map_or(true, |pieces| pieces.iter().any(|piece| !piece.path.is_empty()))
+}
+
+/// Stop a body where it is: its velocity and a rider's speed along its surface.
+fn halt(model: &mut MotionModel, clusters: &mut BodyClustersMut<'_>) {
+    clusters.kinematics.vel = Vec2::ZERO;
+    if let MotionModel::SurfaceMomentum(momentum) = model {
+        momentum.set_tangential_speed(0.0);
+    }
 }
 
 fn step_admitted_motion(

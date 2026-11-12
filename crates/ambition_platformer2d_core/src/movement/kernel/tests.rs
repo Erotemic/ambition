@@ -1772,7 +1772,7 @@ fn a_tall_body_rides_a_circle_whose_bottom_is_its_feet() {
 }
 
 #[test]
-fn a_motion_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
+fn a_motion_refusal_steps_with_portals_closed_and_does_not_replay_an_old_sweep() {
     use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink, RefusalReason};
     use crate::frame::{MapConvention, PortalAperture, PortalFrame};
     let world = empty_world();
@@ -1796,12 +1796,14 @@ fn a_motion_refusal_keeps_the_body_and_does_not_replay_an_old_sweep() {
         recovery_commitment_outstanding: false,
     });
     assert_eq!(result.events.motion_refusal.as_ref().map(|r| r.reason), Some(RefusalReason::HopLimit));
-    assert_eq!(body.sweep.as_deref().unwrap().time, [1.0, 1.0]);
-    assert_eq!(body.kinematics.pos, initial.pos);
-    assert_eq!(body.kinematics.vel, initial.vel);
-    assert!(result.events.operations.is_empty());
+    // No material is through yet, so the closed world is the admitted one:
+    // this unbacked mouth closes onto empty space and the body falls on.
+    let sample = body.sweep.as_deref().unwrap();
+    assert_eq!(sample.prev, initial.pos, "a new sweep, not the old one");
+    assert_eq!(body.kinematics.pos.x, initial.pos.x);
+    assert!(body.kinematics.pos.y > initial.pos.y + 100.0, "{:?}", body.kinematics);
+    assert_eq!(body.kinematics.material, initial.material, "nothing crossed");
     assert!(result.events.reset.is_none());
-    assert_eq!(body.sweep.as_deref().unwrap().delta(), Vec2::ZERO);
 }
 
 
@@ -1888,7 +1890,8 @@ fn an_unrepresentable_part_velocity_refuses_before_body_commit() {
         input: InputState::default(), frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 0.0, dt: 0.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
     });
-    assert_eq!(*clusters.kinematics, before);
+    // The body straddles the mouth: it stops where it is.
+    assert_eq!(*clusters.kinematics, crate::BodyKinematics { vel: Vec2::ZERO, ..before });
     assert_eq!(result.events.motion_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
 }
 
@@ -1920,7 +1923,7 @@ fn carried_acceleration_is_admitted_before_the_source_body_moves() {
             contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
         });
         if carried {
-            assert_eq!(body.kinematics, before);
+            assert_eq!(body.kinematics, crate::BodyKinematics { vel: Vec2::ZERO, ..before });
             assert_eq!(result.events.motion_refusal.unwrap().reason, RefusalReason::Numeric(NumericFault::Overflow));
         } else {
             assert!(result.events.motion_refusal.is_none(), "world forces do not travel with material");

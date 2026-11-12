@@ -102,3 +102,15 @@ is bound to local VM storage. No owned build or test remains running. Preserve
 unrelated edits in the measurements, map, music and SFX submodules, untracked
 sprite work, and `docs/related-work/ideas.md`. Keep profile and F8 files outside
 Git tracking.
+
+## Takeover, 2026-11-12
+
+The lab stall had two causes outside any one station. Every body received
+every link in the room, so a turning plank anywhere put every body on the
+curved builder. And a refused step froze the body with its velocity, so each
+later tick repeated the refused search. Material queries now take only the
+links a body can reach, and a refusal steps with closed portals or stops the
+body. The idle lab falls from 13.0 to 2.6 ms of CPU per tick. The newest E
+fall no longer freezes. The PSIM log entry "Reachable links and playable
+refusals" records the measurement and the station J defect that the
+room-wide link set had hidden.

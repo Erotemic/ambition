@@ -311,6 +311,22 @@ Not done here: the rendered two-controller main-game playthrough the queue
 row asks for is a person at two pads, and the full feature run is
 [TEST-LANES](../queue.md#test-lanes--keep-required-test-lanes-executable)'.
 
+## Dialogue during another peer's crossing (2026-11-11)
+
+The acceptance asks that a participant keep talking while another crosses.
+A two-peer probe (on the `two_peers` harness, not kept) had Alice open a
+conversation with a hub talker while Bob stood at the hub's door, then
+pressed Up once for him. The control, with Bob still, kept Alice's
+conversation open on both peers through 100 confirmed frames. With Bob's
+crossing, the conversation closed on confirmed frame 39, the frame his
+crossing applied.
+
+Cause: `RoomTransitionCommit::apply_crossing` closed `DialogState` and
+`ActiveConversation` on every crossing. It now closes them only when a crossing member is the conversation's initiator
+or talker, or the conversation names neither (a cutscene or sign with no
+participant). With that change the probe kept the conversation open on both
+peers through Bob's crossing.
+
 ## Implementation and behavior gates
 
 1. Exercise the shared room application inside a rollback schedule. Restore

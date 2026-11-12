@@ -594,6 +594,9 @@ rendered combat, and input-timing witnesses pass (latest `dc303e611`).
 GPU captures included; the run found and fixed a panic when a camera retired
 in the frame Bevy's render debug overlay first saw it
 ([verification](engine/peer-room-commit-protocol.md#verification-2026-11-10)).
+On 2026-11-11 the feature run found that one peer's crossing closed the
+other peer's conversation; fixed
+([dialogue](engine/peer-room-commit-protocol.md#dialogue-during-another-peers-crossing-2026-11-11)).
 
 **Next action:** complete the broader **feature and tooling verification** for
 input-driven peer room commits. Reproduce a normal crossing and a failed or

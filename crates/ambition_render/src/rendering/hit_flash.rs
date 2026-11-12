@@ -852,12 +852,16 @@ fn overlay_transform_from_source(
     anchor: Option<&Anchor>,
     render_size: Vec2,
 ) -> Transform {
-    let anchor_offset = anchor_to_mesh_offset(anchor, render_size);
+    // The source's own scale is its body material (portal scale, and a
+    // negative x for a reflected body), so the quad and its anchor offset
+    // take it too: a blink drawn at the authored size outlined a shrunk body
+    // at full size.
+    let anchor_offset = anchor_to_mesh_offset(anchor, render_size) * source.scale.truncate();
     let world_offset = source.rotation.mul_vec3(anchor_offset.extend(0.0));
     let mut transform = *source;
     transform.translation += world_offset;
     transform.translation.z += FLASH_OVERLAY_Z_BIAS;
-    transform.scale = render_size.extend(1.0);
+    transform.scale = (render_size * source.scale.truncate()).extend(source.scale.z);
     transform
 }
 

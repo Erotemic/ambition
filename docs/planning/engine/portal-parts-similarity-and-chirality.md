@@ -1887,3 +1887,48 @@ released while a body straddles one of its ends. It shrinks and closes once
 it is empty. The giant passes through a second time, and the well holds its
 full opening until it is clear.
 
+
+### What a refused reach still does, standing up, and the subject's scale — 2026-11-12
+
+From Jon's desktop run of `portal_lab` and `portal_chain_lab`.
+
+**A refused strike still hits in front of the mouth.** The infinite sandbag
+on station J's shelf stands against the third cut's exit mouth. A swing at it
+from the side reached through that mouth into J's back-to-back chain, ran out
+of hops under the shipped `SingleHop` geometry, and the whole strike was
+dropped: no hit at all, while a pogo and a fireball landed. The rule above is
+"no hit past the mouth", and the drawing already kept what is in front of it.
+`ae::frame::thread::short_of_refusal` is now the one rule for both: the
+admitted pieces, or the piece in front of the first mouth the refusal
+reached. Combat resolves by `ambition_combat::hitbox::strike_reach` and the
+combat read model shows it; `strike_pieces` still returns the refusal, so the
+station witness keeps its `HopLimit`. Probe (deleted): beside the bag on the
+shelf, facing it, 0 hits before and 9 after; on the floor, 10 both ways.
+
+**A body resting on its ground stands up about a corner.** Under the shipped
+Rotation convention station H's pair turns the body 180°, and it rights
+itself in the air. Landing part way, it lay at about 93° for good: a supported
+body rights about its centre, and the box's corners sweep below the floor it
+lies on, so the turn was blocked every tick. `admit_body_righting` takes a
+`pivot_step`: when the turn about the centre is blocked, a body the kernel
+finds `Supported` or `Riding` turns at most that far about the corner that
+keeps it highest, which stays put. A crawler (`Attached`) keeps its own
+corner rule; the adhesive wrap test is what said so. Probe (deleted): through
+H under Rotation, stuck at 93° from f19 on before, upright by f29 after.
+
+**The camera is in the subject's scale.** `CameraFocus2d::scale` is the framed
+body's material scale, and the view's zoom is multiplied by it after the zone
+ease. It changes only where the body crosses a scaling pair, where the
+continuity maps the camera through the same map, so it is adopted at once,
+as a chart roll is. A shrunk body sees the world larger rather than itself
+smaller. The continuity's eased target now goes through the transfer's map
+too (it had used the unscaled frame map), and the crouch compensation
+compares the standing shape at the body's scale (a shrunk body had read as
+crouched). Probe (deleted), visible app, through H: orthographic scale 0.356
+before, 0.178 after, centred on the robot. The orientation setting
+(`CameraReferenceFrame`) is unchanged and still defaults to `WorldFixed`.
+
+The hit-flash overlay (damage flash, intangibility blink such as a ledge
+grab's) took its quad size from the sprite and dropped the sprite's own
+scale, so it outlined a shrunk or reflected body at full size. It now
+composes the source's scale.

@@ -375,6 +375,41 @@ systems):
   list; it is the gated guest without the conversation, shell and load
   presentation it does not run, or those run on the host's word.
 
+**A pickup by its origin (2026-11-12),** probe
+`probe_what_a_guest_needs_to_draw_a_drop` (same file, ignored): the death
+probe's run for 360 frames, so the enemy's bounty coin falls, drifts to
+Alice on its magnet and is collected. Each snapshot also carries the host's
+uncollected dropped pickups keyed by `SpawnOrigin::Dynamic` (the parent's
+`SimId` and the drop's sequence: 5 bytes on the link), since a drop has no
+`SimId`. A spawn row adds its kind, amount and centre (16 bytes); a motion
+row (key and centre, 13 bytes) is sent only on a frame the drop moved; a
+despawn row is the key. The guest builds each drop it does not hold with
+the components the dropped-pickup view reads (`rebuild_dynamic_feature_views`,
+run on its world because the guest gates the phase that runs it), moves the
+ones it holds, and removes what the snapshot no longer names.
+
+| Host: dropped, collected | Guest: built, removed | Frames its keys differ after applying | Frames a view would draw a drop on the guest | Frames its drawn drops differ from the host's | Link a frame |
+|---|---|---|---|---|---|
+| frame 14, 29 | frame 17, 32 | 0 | 15 | 0 | 0.38 bytes (spawn 0.04, motion 0.33, despawn 0.01) |
+
+- **The origin is a key that works:** the guest built the coin one snapshot
+  after the host dropped it, drew it where the host did on every frame, and
+  removed it one snapshot after the host's player collected it. No peer-
+  stable id was minted for it; the parent's `SimId` and the sequence were
+  enough.
+- **A collected pickup is a row change on the host, a despawn on the
+  guest.** The host keeps a collected pickup with `Collected`; the snapshot
+  names only uncollected ones, so the guest removes it. What the collection
+  gives (the wallet, the sound) travels on the collector's rows and the
+  presentation channel, not on the pickup's.
+- **The magnet is the cost:** most of the 0.38 bytes is the drop's motion
+  while it flies to its collector. A drop at rest costs nothing after its
+  spawn row.
+- **Not exercised:** authored pickups (both Apps boot with them, so taking
+  one is a row change keyed by `SpawnOrigin::Authored`), hearts and ability
+  drops (the same road, other kinds), and a drop in a room the guest is not
+  in.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -399,8 +434,11 @@ systems):
    is Ambition's own conversation, shell and load presentation. What else a
    host spawns (2026-11-11): a kill's bounty coin has no `SimId` (by design:
    drops are anonymous), so a guest replicating by `SimId` never sees it.
-   Next: spawn rows for pickups keyed by their `SpawnOrigin`, and a census
-   in a room with breakables and summons; send only the guest's room;
+   A pickup by its origin (2026-11-12): keyed by `SpawnOrigin::Dynamic`
+   (the parent's `SimId` and the sequence), the guest builds, draws and
+   removes the bounty coin one snapshot after the host, with no difference
+   in what a view draws, at 0.38 bytes a frame (most of it the magnet's
+   motion). Next: a census in a room with breakables and summons; send only the guest's room;
    sounds and visuals sent, with room numbers mapped.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,

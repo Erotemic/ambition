@@ -1024,3 +1024,233 @@ fn probe_what_else_a_host_spawns() {
         println!("[census]     {count} x {kind}");
     }
 }
+
+type Pickup = ambition_platformer2d::item_runtime::pickups::PickupFeature;
+type Collected = ambition_platformer2d::item_runtime::pickups::Collected;
+type Origin = ambition_platformer2d::platformer::construction::SpawnOrigin;
+type Aabb = ambition_platformer2d::combat::components::CenteredAabb;
+
+/// A pickup the guest built from a pickup spawn row.
+#[derive(bevy::prelude::Component)]
+struct ReplicatedPickup;
+
+/// A dropped pickup's peer-stable key: the `SimId` of what it fell out of
+/// and the drop's sequence (`SpawnOrigin::Dynamic`). On the link, the
+/// parent's network id and a byte.
+type DropKey = (SimId, u64);
+const DROP_KEY: u64 = 4 + 1;
+/// One pickup spawn row: its key, its kind (a byte) and amount (an `i16`),
+/// and its centre. Its size and art are its kind's.
+const PICKUP_SPAWN: u64 = DROP_KEY + 1 + 2 + 8;
+/// One pickup motion row (a magnet draws a drop toward its collector): its key
+/// and its centre, sent only on a frame it moved.
+const PICKUP_MOTION: u64 = DROP_KEY + 8;
+
+/// The host's uncollected dropped pickups, by key: the pickup and its box.
+fn dropped(sim: &mut Platformer2dSimHarness) -> BTreeMap<DropKey, (Pickup, Aabb)> {
+    let world = sim.world_mut();
+    world
+        .query_filtered::<(&Origin, &Pickup, &Aabb), bevy::prelude::Without<Collected>>()
+        .iter(world)
+        .filter_map(|(origin, pickup, aabb)| match origin {
+            Origin::Dynamic { parent, sequence } => Some(((parent.clone(), *sequence), (pickup.clone(), *aabb))),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The dropped pickups a view would draw: `rebuild_dynamic_feature_views`'
+/// "Dropped pickup" rows, run on `sim`'s world (the guest gates the phase
+/// that runs it), by position.
+fn drawn_drops(sim: &mut Platformer2dSimHarness) -> Vec<bevy::math::Vec2> {
+    use bevy::ecs::system::RunSystemOnce as _;
+    let world = sim.world_mut();
+    world.init_resource::<ambition_platformer2d::sim_view::DynamicFeatureViews>();
+    world
+        .run_system_once(ambition_platformer2d::sim_view::rebuild_dynamic_feature_views)
+        .expect("the dynamic feature view runs");
+    world
+        .resource::<ambition_platformer2d::sim_view::DynamicFeatureViews>()
+        .0
+        .iter()
+        .filter(|fact| fact.family == "Dropped pickup")
+        .map(|fact| fact.pos)
+        .collect()
+}
+
+/// What one pickup snapshot did to the guest.
+#[derive(Default)]
+struct PickupsApplied {
+    built: u64,
+    moved: u64,
+    removed: u64,
+    /// Keys on one side only after applying.
+    unmatched: usize,
+}
+
+/// Build each dropped pickup the snapshot names and the guest does not hold,
+/// move the ones it holds, and remove the ones it no longer names.
+fn apply_pickups(guest: &mut Platformer2dSimHarness, sent: &BTreeMap<DropKey, (Pickup, Aabb)>) -> PickupsApplied {
+    let mut applied = PickupsApplied::default();
+    let world = guest.world_mut();
+    let held: Vec<(bevy::prelude::Entity, DropKey)> = world
+        .query_filtered::<(bevy::prelude::Entity, &Origin), bevy::prelude::With<ReplicatedPickup>>()
+        .iter(world)
+        .filter_map(|(entity, origin)| match origin {
+            Origin::Dynamic { parent, sequence } => Some((entity, (parent.clone(), *sequence))),
+            _ => None,
+        })
+        .collect();
+    let mut holding = BTreeSet::new();
+    for (entity, key) in &held {
+        match sent.get(key) {
+            Some((_, aabb)) => {
+                let mut mine = world.get_mut::<Aabb>(*entity).expect("a replicated pickup has a box");
+                if mine.center != aabb.center {
+                    mine.center = aabb.center;
+                    applied.moved += 1;
+                }
+                holding.insert(key.clone());
+            }
+            None => {
+                world.despawn(*entity);
+                applied.removed += 1;
+            }
+        }
+    }
+    for (key, (pickup, aabb)) in sent.iter().filter(|(key, _)| !holding.contains(*key)) {
+        let (parent, sequence) = key.clone();
+        world.spawn((
+            ambition_platformer2d::combat::components::FeatureId::new(format!("drop:{}:{sequence}", parent.as_str())),
+            ambition_platformer2d::combat::components::FeatureName::new("Dropped pickup"),
+            *aabb,
+            pickup.clone(),
+            Origin::Dynamic { parent, sequence },
+            ReplicatedPickup,
+        ));
+        applied.built += 1;
+    }
+    let now: BTreeSet<DropKey> = world
+        .query_filtered::<&Origin, bevy::prelude::With<ReplicatedPickup>>()
+        .iter(world)
+        .filter_map(|origin| match origin {
+            Origin::Dynamic { parent, sequence } => Some((parent.clone(), *sequence)),
+            _ => None,
+        })
+        .collect();
+    let sent_keys: BTreeSet<DropKey> = sent.keys().cloned().collect();
+    applied.unmatched = now.symmetric_difference(&sent_keys).count();
+    applied
+}
+
+/// NA-2b, a pickup by its origin: the death probe's run, long enough for the
+/// enemy's bounty coin to fall, drift to Alice on its magnet and be
+/// collected. Each snapshot also carries the host's uncollected dropped
+/// pickups keyed by `SpawnOrigin::Dynamic` (the parent's `SimId` and the
+/// drop's sequence), since a drop has no `SimId`. The guest builds each one
+/// it does not hold, moves the ones it holds, and removes what the snapshot
+/// no longer names. Prints when the coin appeared and was collected on the
+/// host and on the guest, the frames the guest's drop keys differ from the
+/// snapshot's after applying it, the frames the drops a view would draw
+/// differ from the host's three frames earlier, and the link bytes a frame.
+#[test]
+#[ignore = "measurement: prints what replicating a dropped pickup by its origin costs; run with --ignored --nocapture --test-threads=1"]
+fn probe_what_a_guest_needs_to_draw_a_drop() {
+    const ENEMY: &str = "na2b_drop_probe";
+    const RUN: i32 = 360;
+    let mut host = booted(ROOM);
+    let mut guest = booted(ROOM);
+    simulate_nothing(&mut guest);
+    let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>, BTreeMap<DropKey, (Pickup, Aabb)>, Vec<bevy::math::Vec2>)> = VecDeque::new();
+    let (mut host_dropped, mut host_gone, mut guest_built, mut guest_gone) = (None::<i32>, None::<i32>, None::<i32>, None::<i32>);
+    let (mut unmatched_frames, mut drawn_differs, mut drawn_frames, mut moves) = (0, 0, 0, 0u64);
+    let (mut spawn_bytes, mut motion_bytes, mut despawn_bytes) = (0u64, 0u64, 0u64);
+    let mut last_sent: BTreeMap<DropKey, bevy::math::Vec2> = BTreeMap::new();
+    for frame in 1..=RUN {
+        if frame == 5 {
+            let at = {
+                let world = host.world_mut();
+                world
+                    .query_filtered::<&BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                    .single(world)
+                    .expect("Alice has a body")
+                    .pos
+            };
+            host.spawn_enemy_character_at(
+                ENEMY,
+                "Target",
+                (at.x + 72.0, at.y),
+                (12.0, 16.0),
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+                "npc_puppy_slug",
+            );
+        }
+        alice_fires_often(&mut host, frame);
+        host.drive_seat(0, Default::default());
+        host.drive_seat(1, Default::default());
+        {
+            let world = host.world_mut();
+            for (feature, mut health) in world.query::<(&ambition_platformer2d::combat::components::FeatureId, &mut Health)>().iter_mut(world) {
+                if feature.0 == ENEMY && health.health.current > 1 {
+                    health.health.current = 1;
+                }
+            }
+        }
+        host.app_mut().update();
+        let drops = dropped(&mut host);
+        if !drops.is_empty() {
+            host_dropped.get_or_insert(frame);
+        } else if host_dropped.is_some() {
+            host_gone.get_or_insert(frame);
+        }
+        // The link: a spawn row for a key the guest has not been sent, a motion
+        // row for one that moved, a despawn row for one no longer named.
+        for (key, (_, aabb)) in &drops {
+            match last_sent.get(key) {
+                None => spawn_bytes += PICKUP_SPAWN,
+                Some(at) if *at != aabb.center => motion_bytes += PICKUP_MOTION,
+                Some(_) => {}
+            }
+        }
+        despawn_bytes += last_sent.keys().filter(|key| !drops.contains_key(*key)).count() as u64 * DROP_KEY;
+        last_sent = drops.iter().map(|(key, (_, aabb))| (key.clone(), aabb.center)).collect();
+        let drawn = drawn_drops(&mut host);
+        in_flight.push_back((frame, bodies(&mut host, None), drops, drawn));
+        if in_flight.front().is_some_and(|(sent, ..)| *sent <= frame - LATENCY) {
+            let (_, rows, drops, drawn) = in_flight.pop_front().expect("a snapshot arrived");
+            apply_all(&mut guest, &rows);
+            let done = apply_pickups(&mut guest, &drops);
+            moves += done.moved;
+            if done.built > 0 {
+                guest_built.get_or_insert(frame);
+            }
+            if done.removed > 0 {
+                guest_gone.get_or_insert(frame);
+            }
+            if done.unmatched > 0 {
+                unmatched_frames += 1;
+            }
+            let mine = drawn_drops(&mut guest);
+            if !mine.is_empty() {
+                drawn_frames += 1;
+            }
+            if mine != drawn {
+                drawn_differs += 1;
+            }
+        }
+        guest.app_mut().update();
+    }
+    println!("[drop] {ROOM}: {RUN} frames, a snapshot {LATENCY} frames late");
+    println!("[drop]   the host: a drop from frame {host_dropped:?}, collected (no uncollected drop) from frame {host_gone:?}");
+    println!(
+        "[drop]   the guest: built from frame {guest_built:?}, removed from frame {guest_gone:?}; {moves} moves applied; frames its keys differ after applying {unmatched_frames}"
+    );
+    println!("[drop]   frames a view would draw a drop on the guest {drawn_frames}; frames its drawn drops differ from the host's in the snapshot {drawn_differs}");
+    println!(
+        "[drop]   link a frame: spawn {:.3}, motion {:.3}, despawn {:.3} bytes",
+        spawn_bytes as f64 / RUN as f64,
+        motion_bytes as f64 / RUN as f64,
+        despawn_bytes as f64 / RUN as f64,
+    );
+    assert!(host_dropped.is_some(), "premise: the enemy dropped something on the host");
+}

@@ -14,7 +14,7 @@ fn an_admitted_turn_keeps_its_physical_pose_and_record_together() {
         let before = BodyKinematics { material: BodyMaterial::new(2.0, axes).unwrap(), ..Default::default() };
         let mut body = BodyKinematics { pos: Vec2::new(10.0, 0.0), ..before };
         let mut record = SweepSample { curr: body.pos, ..SweepSample::at_rest(before, Vec2::Y) };
-        assert!(admit_body_righting(&mut body, &mut record, Vec2::Y, 0.2, 1.0, &room(), None, &[], None).unwrap());
+        assert!(admit_body_righting(&mut body, &mut record, Vec2::Y, 0.2, None, 1.0, &room(), None, &[], None).unwrap());
         assert_eq!(body.material, before.material.turned(-0.2).unwrap());
         assert_eq!(body.material.reflected(), reflected);
         assert_eq!(body.canonical_size, before.canonical_size);
@@ -33,7 +33,7 @@ fn a_wall_between_clear_end_poses_blocks_the_turn_and_keeps_translation() {
     let before = BodyKinematics { canonical_size: Vec2::new(10.0, 1.0), ..Default::default() };
     let mut body = BodyKinematics { pos: Vec2::X, ..before };
     let mut record = SweepSample { curr: body.pos, ..SweepSample::at_rest(before, Vec2::Y) };
-    assert!(!admit_body_righting(&mut body, &mut record, Vec2::X, std::f64::consts::FRAC_PI_2,
+    assert!(!admit_body_righting(&mut body, &mut record, Vec2::X, std::f64::consts::FRAC_PI_2, None,
         1.0, &world, None, &[], None).unwrap());
     assert_eq!(body.pos, Vec2::X);
     assert_eq!(body.material, before.material);
@@ -48,7 +48,7 @@ fn an_invalid_turn_duration_refuses_without_changing_the_candidate() {
         let mut body = original;
         let original_record = SweepSample::at_rest(body, Vec2::Y);
         let mut record = original_record;
-        let refusal = admit_body_righting(&mut body, &mut record, Vec2::Y, 0.2,
+        let refusal = admit_body_righting(&mut body, &mut record, Vec2::Y, 0.2, None,
             duration, &room(), None, &[], None).unwrap_err();
         assert_eq!(refusal.reason, RefusalReason::Numeric(fault));
         assert_eq!(body, original);

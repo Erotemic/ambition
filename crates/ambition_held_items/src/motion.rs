@@ -143,7 +143,7 @@ pub fn ground_item_physics(
                     if duration > 0.0 {
                         let policy = admission.map(|policy| MotionAdmission { first: leg.first, ..policy });
                         ae::movement::admit_body_righting(&mut flight.body, &mut leg.sample, down,
-                            duration * 8.0, duration, world, policy, &[], None)?;
+                            duration * 8.0, None, duration, world, policy, &[], None)?;
                     }
                 }
             }

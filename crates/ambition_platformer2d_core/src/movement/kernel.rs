@@ -231,12 +231,17 @@ fn try_motion(
         SupportFact::Riding(contact) | SupportFact::Attached(contact) => -contact.normal,
         _ => ctx.frame.down(),
     };
+    let air_step = 8.0 * f64::from(ctx.dt.max(0.0));
     let max_step = if ctx.pose_owned_externally { 0.0 }
         else if matches!(result.support, SupportFact::Riding(_) | SupportFact::Attached(_)) {
             std::f64::consts::PI
-        } else { 8.0 * f64::from(ctx.dt.max(0.0)) };
+        } else { air_step };
+    // A body resting on its ground stands up about a corner when it cannot
+    // turn about its centre. A crawler clinging to a surface turns about its
+    // centre at a corner by its own rule and is left to it.
+    let pivot = matches!(result.support, SupportFact::Supported(_) | SupportFact::Riding(_)).then_some(air_step);
     super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
-        target, max_step, f64::from(ctx.dt), ctx.world, ctx.admission,
+        target, max_step, pivot, f64::from(ctx.dt), ctx.world, ctx.admission,
         &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run], clusters.carrier)?;
     candidate.commit(model, clusters);
     if let Some(target) = clusters.sweep.as_deref_mut() { *target = sweep; }

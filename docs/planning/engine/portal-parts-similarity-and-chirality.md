@@ -1841,6 +1841,28 @@ leaves the rider's edge at 620.00 before and after), because the side
 sweep's repair pushed the rider back out. What changed is that the carry is
 admitted before it moves the body, not repaired after it.
 
+### A refused straddler is not frozen — 2026-11-12
+
+Jon's desktop run soft-locked the robot on a ledge beside c146: hanging on
+the top of J's first entry backing (the map pin before J moved to its own
+room), it began to climb, and every tick after was refused `HopLimit`. The
+climb took its body through J's first cut and straight into the second
+cut's entry, two hops against the player's one. A refused body that
+straddles a pair was halted, the climb is placed by its own clock and takes
+no input, and a halted step does not advance that clock: the same refused
+question every tick, the robot still and its controls dead.
+
+Two rules now leave it playable. A refused body that is through a pair is
+retried with only the pairs it is in open; every other pair meets it as its
+host's solid, so it stops at the second cut's backing instead of being
+refused there (`straddled_links` in `movement/kernel.rs`). If even that is
+refused, the halt also lets go of a hang or climb (with the hang's re-grab
+cooldown), so the next tick is the player's. Probe (deleted), the old map
+pin with the trace's start: before, frozen at (2344.967, 720.5131) with 187
+refusals in 200 ticks, the trace's own place; after, six starts climb and
+walk away with two refusals each. In `portal_chain_lab` the same starts
+climb and walk on.
+
 ### A body's own lines, and a pair that does not close on a body — 2026-11-12
 
 GNU-ton's giant, falling out of the well's exit in phase 3, stopped every 7

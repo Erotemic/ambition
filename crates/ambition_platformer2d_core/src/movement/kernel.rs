@@ -7,6 +7,7 @@
 //! inside a model spec and is never rebuilt by an individual solver.
 
 use crate::collision_semantics::{Contact, ContactKind};
+use crate::frame::thread::MotionAdmission;
 use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
 
 use super::adhesive_crawler;
@@ -173,11 +174,28 @@ pub fn step_motion(
     // already through a portal: a straddling body would sit inside the
     // closed hosts, and repair would throw it out of them.
     // The refusal is still reported on the step that recovered.
-    if ctx.admission.is_some_and(|admission| !admission.links.is_empty() && !straddles(clusters.kinematics, admission)) {
-        let closed = MotionStepContext { admission: None, ..ctx };
-        if let Ok(mut result) = try_motion(model, clusters, closed, retained_down) {
-            result.events.motion_refusal = Some(refusal);
-            return result;
+    //
+    // A body already through a pair keeps that pair open and meets every
+    // other one as its host's solid: a body in J's first cut, whose far side
+    // runs into the second cut beyond its hop budget, stops at the second
+    // cut's backing instead of being refused there every tick.
+    if let Some(admission) = ctx.admission.filter(|admission| !admission.links.is_empty()) {
+        let retry = match straddled_links(clusters.kinematics, admission) {
+            Some(keys) if keys.is_empty() => Some(Vec::new()),
+            Some(keys) => {
+                let kept: Vec<_> = admission.links.iter()
+                    .filter(|link| keys.contains(&link.key) || keys.contains(&(link.key ^ 1))).copied().collect();
+                (kept.len() < admission.links.len()).then_some(kept)
+            }
+            None => None,
+        };
+        if let Some(kept) = retry {
+            let narrowed = (!kept.is_empty()).then(|| MotionAdmission { links: &kept, first: admission.first.filter(|first| kept.iter().any(|link| link.key == *first)), ..admission });
+            let retried = MotionStepContext { admission: narrowed, ..ctx };
+            if let Ok(mut result) = try_motion(model, clusters, retried, retained_down) {
+                result.events.motion_refusal = Some(refusal);
+                return result;
+            }
         }
     }
     // Nothing admits a motion: the body keeps its place and stops, so the
@@ -225,21 +243,37 @@ fn try_motion(
     Ok(result)
 }
 
-/// Whether any of the body's material is through an admitted link now.
-/// A partition that cannot be admitted counts as straddling.
-fn straddles(body: &crate::BodyKinematics, admission: crate::frame::thread::MotionAdmission<'_>) -> bool {
+/// The links the body's material is through now; empty when none is.
+/// `None` when its present partition cannot be admitted: no narrower world
+/// can be chosen for it.
+fn straddled_links(body: &crate::BodyKinematics, admission: MotionAdmission<'_>) -> Option<Vec<u32>> {
     use crate::frame::thread::{MaterialPrimitive, partition};
-    let (Ok(domain), Ok(to_world)) = ((*body).canonical_box(), (*body).material_map()) else { return true };
-    partition(MaterialPrimitive { domain: &domain, to_world }, body.pos, admission.links,
-        admission.first, admission.budget, admission.convention)
-        .map_or(true, |pieces| pieces.iter().any(|piece| !piece.path.is_empty()))
+    let (Ok(domain), Ok(to_world)) = ((*body).canonical_box(), (*body).material_map()) else { return None };
+    let pieces = partition(MaterialPrimitive { domain: &domain, to_world }, body.pos, admission.links,
+        admission.first, admission.budget, admission.convention).ok()?;
+    let mut keys: Vec<u32> = pieces.iter().flat_map(|piece| piece.path.iter().copied()).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    Some(keys)
 }
 
-/// Stop a body where it is: its velocity and a rider's speed along its surface.
+/// Stop a body where it is: its velocity, a rider's speed along its surface,
+/// and a hang or climb that places it by its own clock. A climb that is
+/// refused every tick never advances that clock and takes no input, so it is
+/// let go and the next tick is the player's (the hang's own drop: the re-grab
+/// cooldown keeps it from latching the same ledge at once).
 fn halt(model: &mut MotionModel, clusters: &mut BodyClustersMut<'_>) {
     clusters.kinematics.vel = Vec2::ZERO;
-    if let MotionModel::SurfaceMomentum(momentum) = model {
-        momentum.set_tangential_speed(0.0);
+    match model {
+        MotionModel::SurfaceMomentum(momentum) => { momentum.set_tangential_speed(0.0); }
+        MotionModel::AxisSwept(axis) if axis.state.ledge_grab.is_some() => {
+            axis.state.ledge_grab = None;
+            axis.state.wall_clinging = false;
+            axis.state.wall_climbing = false;
+            clusters.wall.on_wall = false;
+            clusters.ledge.release_cooldown = crate::ledge_grab::LEDGE_REGRAB_COOLDOWN;
+        }
+        _ => {}
     }
 }
 

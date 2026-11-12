@@ -3,6 +3,7 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** Full portal implementation and acceptance remain open.
+Further implementation is paused for desktop performance profiling.
 The requested playable 80/40 slice is complete (`fddf6084a`).
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
@@ -1529,3 +1530,26 @@ core/combat tests and six Smash tests remain ignored. Logs are under
 `target/portal-moving-target-validation/`. This batch does not repeat the
 app slice/replay or displayed-device acceptance. Complete motion history
 across root crossings and full PSIM acceptance remain open.
+
+
+### Checkpoint material — 2026-11-11
+
+`8f3e7ab96` saves exact scale and axes in checkpoint format v9. Startup and
+room reconstruction admit the saved material before commit. New Game uses
+identity material. Rollback schema is v461. Guards cover invalid records,
+refused arrivals, shrine capture, fresh-session restore and the real app.
+Do not reconstruct saved material from body dimensions or gravity.
+
+Core 896, persistence 136, session 205, publication 180, shrine 7, the app
+material guard, Smash 73 and policy 35 pass. The assembled app check passes.
+The broad rollback selection has 83 passes, eight ignored tests and one
+existing failure: the LifeLedger localization probe checks only presence.
+The warning wrapper rejected an unsupported argument and produced no verdict.
+Remaining checks are deferred at the maintainer's request. Logs are under
+`target/portal-material-checkpoint-validation/`. Full PSIM acceptance remains
+open; implementation is paused for the maintainer's desktop profile.
+
+The authored `portal_profile` autoplay itinerary visits the Hall of Characters
+and portal lab, crosses both by flight, returns to the hub and repeats. Its
+profiler scenario is `ambition-autoplay:portal_profile`. The room links were
+checked against authored doors. The new itinerary has not had a live run.

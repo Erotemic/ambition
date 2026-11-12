@@ -19,4 +19,12 @@
             (room: "castle_godwin_throne", way: Fly, cross: true),
         ],
     ),
+    "portal_profile": (
+        fight_at_stops: false, repeat: true, equip: None,
+        stops: [
+            (room: "hall_of_characters", way: Fly, cross: true),
+            (room: "portal_lab", way: Fly, cross: true),
+            (room: "central_hub_complex", way: Fly, cross: false),
+        ],
+    ),
 }

@@ -186,8 +186,10 @@ Ambition playing itself (the same rooms in the same order, every run):
   --autoplay              Ambition plays itself: boots into the game and loops
                           its itinerary (the hall of characters in and out, then
                           a flight through the primeval trail and back) by
-                          navigation. Every such bundle is scenario
-                          `ambition-autoplay`. Combine with --duration N.
+                          navigation. The default scenario is `ambition-autoplay`.
+                          AMBITION_AUTOPLAY=portal_profile selects the Hall and
+                          portal lab loop, with its own scenario ID.
+                          Combine with --duration N.
 
 Smash match (a real round, not the character-select menu):
   --smash                 Profile a LIVE Smash match instead of whatever
@@ -588,6 +590,9 @@ build_effective_run_args() {
     if [[ "$workload" == "ambition-autoplay" ]]; then
         effective_run_args+=(--autoplay)
         scenario_id="ambition-autoplay"
+        if [[ "${AMBITION_AUTOPLAY:-ambition}" != "ambition" ]]; then
+            scenario_id="ambition-autoplay:${AMBITION_AUTOPLAY}"
+        fi
     fi
     if [[ "$headless" == "yes" ]]; then
         extra_game_args+=(--headless --headless-ticks "$headless_ticks")

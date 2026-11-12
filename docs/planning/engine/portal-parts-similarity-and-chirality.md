@@ -34,9 +34,8 @@ The last full workspace run was not green. It reported Sanic righting
 unpublished history-art checks also fail. The capability sentinel reports the
 new upstream HTN dependency. The review receipt records the scope and logs.
 
-Full PSIM acceptance remains open: a moving line's carry of its rider
-(kernel bodies keep the whole tick, and a block platform's carry is swept;
-see the 2026-11-12 sections),
+Full PSIM acceptance remains open (kernel bodies keep the whole tick, and
+platform and line carries are swept; see the 2026-11-12 sections):
 complete projectile/hurt contact, including moving targets and other surviving
 contact responses, other movement models, swept guard contact and response, attachments, and device/GPU and performance gates.
 The fault effect landed in `c21bfff4d` with its witnesses; two live rooms
@@ -1820,9 +1819,15 @@ stays with the receding snap and the gravity sweep. Probe (deleted): rider
 on a platform at 3 px a tick into a wall at x 240 rests with its edge at
 243.00 before, 240.00 after.
 
-A moving surface line still carries its rider by a position write before
-the step (`stood_on_material_line`'s `carry`). Its own body is stopped by
-walls first, so it has not been seen to push a rider into geometry.
+A moving surface line (a ridden mount's slope, a swinging plank) carried its
+rider by a position write before the step (`stood_on_material_line`'s
+`carry`). Its part across the floor is now swept the same way; its part
+along gravity is still placed, because the line holds the feet on that axis
+(`settle_on_line`). Against a wall the write had ended flush anyway (probe,
+deleted: a line moving 3 px a tick under its rider toward a wall at 620
+leaves the rider's edge at 620.00 before and after), because the side
+sweep's repair pushed the rider back out. What changed is that the carry is
+admitted before it moves the body, not repaired after it.
 
 ### A body's own lines, and a pair that does not close on a body — 2026-11-12
 

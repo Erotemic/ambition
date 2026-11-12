@@ -226,9 +226,42 @@ pub(super) fn integrate_velocity_clusters(
         }
     } else { None };
     let entry_line = entry_support.map(|line| line.chain);
-    if let Some(line) = entry_support { clusters.kinematics.pos += line.carry; }
 
     let mut refusal = None;
+    // A moving line carries the body standing on it. Along gravity the line
+    // holds the feet (`settle_on_line`), so that part is placed; across the
+    // floor it is motion like a walk's, swept, so the line does not carry its
+    // rider into a wall or through an opening it was not admitted to.
+    if let Some(line) = entry_support {
+        let g = frame.down();
+        let along_gravity = line.carry.dot(g) * g;
+        clusters.kinematics.pos += along_gravity;
+        let across = line.carry - along_gravity;
+        let along = match side_axis {
+            crate::collision_semantics::Axis::X => across.x,
+            crate::collision_semantics::Axis::Y => across.y,
+        };
+        if along != 0.0 {
+            let prev_feet = clusters.kinematics.aabb().feet_coord(g);
+            events.constraint_conflicts.extend(super::collision::sweep_player_axis_clusters(
+                world,
+                clusters.kinematics,
+                clusters.ground,
+                clusters.wall,
+                clusters.body_mode,
+                clusters.env_contact,
+                side_axis,
+                along,
+                prev_feet,
+                drop_through,
+                g,
+                &mut events.contacts,
+                &mut admission,
+                &mut refusal,
+                clusters.carrier,
+            ));
+        }
+    }
     let mut sweep =
         |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
          axis: crate::collision_semantics::Axis,

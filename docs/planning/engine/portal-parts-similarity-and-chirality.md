@@ -38,6 +38,9 @@ Full PSIM acceptance remains open (kernel bodies keep the whole tick, and
 platform and line carries are swept; see the 2026-11-12 sections):
 complete projectile/hurt contact, including moving targets and other surviving
 contact responses, other movement models, swept guard contact and response, attachments, and device/GPU and performance gates.
+Whether melee strikes and guards need swept contact at all is
+[Q172](../awaiting-maintainer-decision.md#q172--do-melee-strikes-and-guards-need-swept-continuous-contact);
+the device/GPU gates need hardware, and GNU2's finale needs the art publish.
 The fault effect landed in `c21bfff4d` with its witnesses; two live rooms
 draw their own faults (`cd5174469`). GNU-ton's giant no longer hitches out of
 the well's exit: a body does not collide with the lines it carries, and a

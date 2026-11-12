@@ -1227,7 +1227,7 @@ and material-proxy overflow are fixed in `1d551594b`. Measure portal-free
 runtime cost and hardware/device capture cost. Complete the
 remaining motion, geometry, numeric-fault and device requirements in the owner's
 [implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
-and [draft status](engine/portal-parts-similarity-and-chirality.md#draft-status).
+and its [status](engine/portal-parts-similarity-and-chirality.md).
 This is local to one live simulation room; cross-island live portals are not
 an implicit dependency.
 

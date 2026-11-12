@@ -68,3 +68,31 @@ crouching attacks all key on it.
 
 **Owner:** the movement kernel's crouch (`update_body_mode`) and the pose
 view (`next_gaze_secs`). Engineering for (b) or (c) is a queue row once ruled.
+
+## Q172 — Do melee strikes and guards need swept (continuous) contact?
+
+**Asked by:** the portal plan's remaining acceptance (PSIM, "swept guard
+contact" and "moving-target hurt contact"), 2026-11-12.
+
+**What exists:** projectiles and loose items meet moving targets on the
+world clock, through portal cuts, scale and reflection (`b3c975837`,
+`70c9fbf75`). A melee strike and a guard are tested by overlap once a tick,
+in each body's admitted material through the cuts, and the deflect spark and
+knockback read the midpoint of the two touching pieces. No shipped strike
+has been seen to pass a guard or a body in one tick: a strike that reaches a
+body's hurt parts also meets the guard in front of them that tick, and the
+fastest measured limb (GNU-ton's portal blows, 41–60 world units a tick)
+moves less than its own volume plus the smallest body.
+
+**Options:**
+
+* **(a) Keep overlap contact for melee** (now). The swept rules stay with
+  projectiles and items, where a tick's travel exceeds the volume. The PSIM
+  rows for melee CCD close as not required.
+* **(b) Sweep melee strikes against hurt parts and guards** over the tick,
+  with contact time and point, as projectiles do. The cost is one swept
+  query per active strike and recipient; it changes no shipped outcome seen
+  so far, and would matter for a faster or thinner strike authored later.
+
+**Owner:** `ambition_combat::hitbox` (`apply_hitbox_damage`, `turned_aside`).
+Engineering for (b) is a queue row once ruled.

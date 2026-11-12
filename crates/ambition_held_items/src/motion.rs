@@ -41,12 +41,13 @@ type Items<'w, 's> = Query<'w, 's,
 type Recipients<'w, 's> = Query<'w, 's,
     (Entity, &'static ae::CenteredAabb, &'static ambition_characters::actor::BodyHealth,
         Has<ambition_combat::death_rules::OutOfPlay>, Option<&'static ae::DepthPlane>,
-        Option<&'static BodyKinematics>, Option<&'static DamageableVolumes>, Option<&'static SimId>)>;
+        Option<&'static BodyKinematics>, Option<&'static DamageableVolumes>, Option<&'static SimId>, Option<&'static ae::SweepSample>)>;
 
 struct Recipient {
     entity: Entity,
     room: Option<LiveRoomInstance>,
     body: Option<BodyKinematics>,
+    motion: Option<ae::SweepSample>,
     hurt: DamageableVolumes,
     position: Vec2,
     id: Option<SimId>,
@@ -90,8 +91,8 @@ pub fn ground_item_physics(
     let placed = ambition_portal2d::PortalsByRoom::collect(portals.placed.iter(), &portals.rooms);
     let recipients: Vec<_> = populations.p1().iter().filter(|(_, _, health, out, plane, ..)|
         !ambition_combat::util::body_is_untouchable(Some(*health), *out, *plane))
-        .map(|(entity, bounds, _, _, _, body, hurt, id)| Recipient {
-            entity, room: live.of(entity), body: body.copied(), position: bounds.aabb().center(),
+        .map(|(entity, bounds, _, _, _, body, hurt, id, motion)| Recipient {
+            entity, room: live.of(entity), body: body.copied(), motion: motion.copied(), position: bounds.aabb().center(),
             hurt: hurt.filter(|hurt| hurt.published()).cloned().unwrap_or_else(||
                 body.map_or_else(|| DamageableVolumes::world_box(bounds.aabb()), |body|
                     DamageableVolumes::body_box(body.canonical_size * 0.5))), id: id.cloned(),
@@ -164,7 +165,7 @@ pub fn ground_item_physics(
                 let cells = leg.sample.material_cast(&domain)?.cells(policy)?;
                 for &recipient in &targets {
                     if contacts.iter().any(|(_, hit, _)| hit.entity == recipient.entity) { continue; }
-                    let hit = recipient.hurt.swept_body_contact(recipient.entity, recipient.body.as_ref(),
+                    let hit = recipient.hurt.swept_body_contact(recipient.entity, recipient.body.as_ref(), recipient.motion.as_ref(),
                         geometry, room, &cells)?;
                     let Some(hit) = hit else { continue; };
                     // A released item can start inside its holder. Only a new

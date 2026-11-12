@@ -88,6 +88,8 @@ pub struct BodySweepContact {
     pub hit: ae::frame::material_cast::SampledPieceHit,
     pub source_volume: ae::CombatVolume,
     pub source_in_target: ae::Vec2,
+    /// The body's root at contact. World material has no body root.
+    pub target_position: Option<ae::Vec2>,
 }
 
 impl DamageableVolumes {
@@ -241,11 +243,12 @@ impl DamageableVolumes {
         Ok(pieces)
     }
 
-    /// Sweep the physical source body through the sampled hurt pieces.
+    /// Query both recorded paths. A target with no path uses sampled material.
     pub fn swept_body_contact(
         &self,
         owner: Entity,
         body: Option<&ae::BodyKinematics>,
+        motion: Option<&ae::SweepSample>,
         geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         cells: &ae::frame::material_cast::MaterialCastCells<'_>,
@@ -266,9 +269,20 @@ impl DamageableVolumes {
         };
         if cells.swept_bounds().next().is_none() { return Ok(None); }
         let reaches_opening = |min: bevy::math::DVec2, max: bevy::math::DVec2,
-            ap: ae::frame::PortalAperture, front: bool| {
+            ap: ae::frame::PortalAperture, step: ae::frame::ApertureStep, front: bool| {
             if !ap.frame.origin.is_finite() || !ap.frame.normal.is_finite()
                 || !ap.half_length.is_finite() || ap.half_length <= 0.0 { return true; }
+            if step.displacement != ae::Vec2::ZERO || step.turn != 0.0 {
+                if !step.displacement.is_finite() || !step.turn.is_finite() { return true; }
+                let end = if step.turn == 0.0 { ap.frame.origin.as_dvec2() }
+                    else { ap.frame.pivot.as_dvec2() };
+                let radius = f64::from(ap.half_length) + if step.turn == 0.0 { 0.0 }
+                    else { (ap.frame.origin.as_dvec2()-end).length() };
+                if !end.is_finite() || !radius.is_finite() { return true; }
+                let start = end-step.displacement.as_dvec2();
+                let radius = bevy::math::DVec2::splat(radius.next_up());
+                return min.cmple(start.max(end)+radius).all() && (start.min(end)-radius).cmple(max).all();
+            }
             let corners = [min, bevy::math::DVec2::new(max.x, min.y),
                 max, bevy::math::DVec2::new(min.x, max.y)];
             let local = corners.map(|point| {
@@ -280,10 +294,23 @@ impl DamageableVolumes {
                 && !local.iter().all(|(x, _)| *x < -half)
                 && !local.iter().all(|(x, _)| *x > half)
         };
+        let motion = motion.filter(|sample| matches!(self.space(), HurtSpace::Body)
+            && body.is_some_and(|body| sample.ending_at(body.pos).is_some()
+                && sample.turn.map_or(Ok(sample.material), |turn| sample.material.turned(turn.radians))
+                    .map_or(true, |material| material == body.material)));
         if let Ok(map) = self.material(body) {
             let possible = self.domains().iter().any(|domain| {
                 let Ok(bounds) = projected_bounds(domain, map) else { return true; };
-                let (min, max) = (bounds.min.as_dvec2(), bounds.max.as_dvec2());
+                let (mut min, mut max) = (bounds.min.as_dvec2(), bounds.max.as_dvec2());
+                if let Some(sample) = motion {
+                    let Ok(linear) = sample.material.at(ae::Vec2::ZERO) else { return true; };
+                    let Ok(domain) = projected_bounds(domain, linear) else { return true; };
+                    let radius = domain.min.as_dvec2().abs().max(domain.max.as_dvec2().abs()).length();
+                    if !radius.is_finite() || !sample.prev.is_finite() || !sample.curr.is_finite() { return true; }
+                    let margin = bevy::math::DVec2::splat(radius.next_up());
+                    min = min.min(sample.prev.as_dvec2().min(sample.curr.as_dvec2()) - margin);
+                    max = max.max(sample.prev.as_dvec2().max(sample.curr.as_dvec2()) + margin);
+                }
                 if cells.swept_bounds().any(|bounds| min.cmple(bounds.max.as_dvec2()).all()
                     && bounds.min.as_dvec2().cmple(max).all()) { return true; }
                 let Some(geometry) = geometry else { return false; };
@@ -292,11 +319,32 @@ impl DamageableVolumes {
                 let links = || geometry.links_in(room).iter().chain(carried.iter());
                 // A carried region enters one opening and leaves a final opening.
                 // Keep all link combinations, including chained paths.
-                links().any(|link| reaches_opening(min, max, link.enter, false))
+                links().any(|link| reaches_opening(min, max, link.enter, link.enter_step, false))
                     && links().any(|link| cells.swept_bounds().any(|bounds|
-                        reaches_opening(bounds.min.as_dvec2(),bounds.max.as_dvec2(),link.exit,true)))
+                        reaches_opening(bounds.min.as_dvec2(),bounds.max.as_dvec2(),link.exit,link.exit_step,true)))
             });
             if !possible { return Ok(None); }
+        }
+        if let Some(sample) = motion {
+            let mut earliest: Option<BodySweepContact> = None;
+            let policy = geometry.and_then(|geometry| geometry.motion_for(owner, room));
+            for domain in self.domains() {
+                let target = sample.material_cast(domain)?.cells(policy)?;
+                if let Some(hit) = cells.against_moving(&target)? {
+                    if earliest.as_ref().is_none_or(|before| hit.toi < before.hit.toi) {
+                        let source_volume = ae::frame::thread::map_volume(cells.domain(), &hit.source_map).map_err(numeric)?;
+                        let source_in_target = hit.target_map.inverse().and_then(|map|
+                            map.point(hit.source_map.point(ae::Vec2::ZERO)?)).map_err(numeric)?;
+                        let span = sample.time[1]-sample.time[0];
+                        let time = if span == 0.0 { 0.0 } else { (hit.world_time-sample.time[0])/span };
+                        let (delta, _) = sample.travel.line(sample.prev, sample.curr).map_err(numeric)?;
+                        let target_position = Some(ae::frame::Sim2::IDENTITY.point_from_wide(
+                            sample.prev.as_dvec2() + delta.as_dvec2()*time).map_err(numeric)?);
+                        earliest = Some(BodySweepContact { hit, source_volume, source_in_target, target_position });
+                    }
+                }
+            }
+            return Ok(earliest);
         }
         let pieces = self.pieces(owner, body, geometry, room)?;
         if pieces.is_empty() { return Ok(None); }
@@ -307,7 +355,8 @@ impl DamageableVolumes {
                 if earliest.as_ref().is_none_or(|before| hit.toi < before.hit.toi) {
                     let source_volume = ae::frame::thread::map_volume(domain, &hit.source_map).map_err(numeric)?;
                     let source_in_target = hit.target_map.inverse().and_then(|map| map.point(hit.source_map.point(ae::Vec2::ZERO)?)).map_err(numeric)?;
-                    earliest = Some(BodySweepContact { hit, source_volume, source_in_target });
+                    earliest = Some(BodySweepContact { hit, source_volume, source_in_target,
+                        target_position: body.map(|body| body.pos) });
                 }
             }
         }
@@ -391,13 +440,30 @@ mod hurt_material_tests {
         let cells=ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
             domain:&domain,to_world:source.material_map().map_err(numeric)? },source.pos,delta,0.0..1.0)
             .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report).cells(None)?;
-        hurt.swept_body_contact(owner,body,geometry,room,&cells)
+        hurt.swept_body_contact(owner,body,None,geometry,room,&cells)
     }
 
     fn box_hit(hurt: &DamageableVolumes, body: Option<&ae::BodyKinematics>, start: ae::Vec2, half: ae::Vec2, delta: ae::Vec2)
         -> Result<Option<f64>, ae::frame::thread::Refusal> {
         let source = ae::BodyKinematics { pos: start, canonical_size: half * 2.0, ..Default::default() };
         contact(&hurt, Entity::PLACEHOLDER, body, None, None, &source, delta).map(|hit| hit.map(|hit| hit.hit.toi))
+    }
+
+    #[test]
+    fn hurt_contact_uses_the_targets_motion_before_its_final_pose() {
+        let body = ae::BodyKinematics { pos: ae::Vec2::new(0.0, 10.0),
+            canonical_size: ae::Vec2::splat(2.0), ..Default::default() };
+        let sample = ae::SweepSample { prev: ae::Vec2::new(0.0, -10.0),
+            ..ae::SweepSample::at_rest(body, ae::Vec2::Y) };
+        let source = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::ONE));
+        let cells = ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive::world(&source),
+            ae::Vec2::ZERO, ae::Vec2::ZERO, 0.25..1.0).cells(None).unwrap();
+        let hurt = DamageableVolumes::body_box(ae::Vec2::ONE);
+        assert!(hurt.swept_body_contact(Entity::PLACEHOLDER, Some(&body), None, None, None, &cells)
+            .unwrap().is_none());
+        let hit = hurt.swept_body_contact(Entity::PLACEHOLDER, Some(&body), Some(&sample), None, None, &cells)
+            .unwrap().expect("the target crosses the shot before its final pose");
+        assert!((hit.hit.world_time-0.4).abs() < 1.0e-10, "{hit:?}");
     }
 
     #[test]
@@ -434,7 +500,7 @@ mod hurt_material_tests {
             domain:&domain,to_world:source.material_map().unwrap() },source.pos,ae::Vec2::ZERO,0.0..1.0)
             .cells(geometry.motion_for(source_owner,None)).unwrap();
         let body=ae::BodyKinematics {pos:ae::Vec2::new(250.0,-100.0),..Default::default()};
-        assert!(hurt.swept_body_contact(owner,Some(&body),Some(&geometry),None,&cells).unwrap().is_none(),
+        assert!(hurt.swept_body_contact(owner,Some(&body),None,Some(&geometry),None,&cells).unwrap().is_none(),
             "the space between independent source cells is not a contact candidate");
     }
 

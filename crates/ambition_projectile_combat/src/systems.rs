@@ -749,6 +749,7 @@ pub fn step_projectiles(
             &ambition_characters::actor::BodyHealth,
             &ambition_combat::components::DamageableVolumes,
             Option<&ambition_platformer2d_core::BodyKinematics>,
+            Option<&ambition_platformer2d_core::SweepSample>,
         ),
         (With<FeatureSimEntity>, With<BossConfig>),
     >,
@@ -1401,7 +1402,7 @@ pub fn step_projectiles(
                 let contact_volume = contact.source_volume.clone();
                 let source_in_victim = contact.source_in_target;
                 let side = victim.knockback_side();
-                let knock_dir = (victim_body.center() - source_in_victim).dot(side).signum();
+                let knock_dir = (contact.target_position.unwrap_or(victim_body.center()) - source_in_victim).dot(side).signum();
                 let knock_dir = if knock_dir == 0.0 { 1.0 } else { knock_dir };
                 let impact_pos = contact.hit.point;
                 feature_damage.write(HitEvent {

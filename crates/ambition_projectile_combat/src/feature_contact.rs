@@ -1,4 +1,4 @@
-//! Sampled hurt-material contacts for bosses and breakables.
+//! Admitted hurt-material contacts for bosses and breakables.
 
 use ambition_breakables::BreakableFeature;
 use ambition_platformer2d_core::AabbExt;
@@ -33,7 +33,7 @@ pub fn projectile_reaches_breakable(
         .filter(|(entity, _, _, feature)| may_touch(*entity) && breakable_is_eligible(feature))
     {
         if let Some(hit) = DamageableVolumes::world_box(aabb.aabb())
-            .swept_body_contact(entity, None, geometry, room, cells)? {
+            .swept_body_contact(entity, None, None, geometry, room, cells)? {
             let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
@@ -95,20 +95,21 @@ pub fn projectile_reaches_boss(
             &ambition_characters::actor::BodyHealth,
             &DamageableVolumes,
             Option<&ambition_platformer2d_core::BodyKinematics>,
+            Option<&ambition_platformer2d_core::SweepSample>,
         ),
         (With<FeatureSimEntity>, With<BossConfig>),
     >,
 ) -> Result<Option<FeatureContact>, ambition_platformer2d_core::frame::thread::Refusal> {
     let mut first: Option<FeatureContact> = None;
-    for (entity, id, aabb, _, damageable, kin) in bosses
+    for (entity, id, aabb, _, damageable, kin, motion) in bosses
         .iter()
-        .filter(|(entity, _, _, health, damageable, _)| {
+        .filter(|(entity, _, _, health, damageable, _, _)| {
             may_touch(*entity)
                 && health.alive()
                 && damageable.published()
         })
     {
-        if let Some(hit) = damageable.swept_body_contact(entity, kin, geometry, room, cells)? {
+        if let Some(hit) = damageable.swept_body_contact(entity, kin, motion, geometry, room, cells)? {
             let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
@@ -239,6 +240,7 @@ mod tests {
                         &ambition_characters::actor::BodyHealth,
                         &DamageableVolumes,
                         Option<&ambition_platformer2d_core::BodyKinematics>,
+                        Option<&ambition_platformer2d_core::SweepSample>,
                     ),
                     (With<FeatureSimEntity>, With<BossConfig>),
                 >| {

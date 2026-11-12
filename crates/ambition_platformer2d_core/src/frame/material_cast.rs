@@ -20,6 +20,7 @@ mod payload;
 pub use payload::ContactVelocityFrame;
 mod source;
 mod sampled;
+mod moving;
 pub use sampled::SampledPieceHit;
 pub(super) use source::{SourceMotion, rotation_delta};
 pub use cell::MaterialCell;

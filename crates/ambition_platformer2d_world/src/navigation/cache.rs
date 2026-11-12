@@ -60,6 +60,12 @@ impl NavGraphKey {
         Self { room, spec, abilities, size, base_size, frame }
     }
 
+    /// The stamp of the world and exits the graph was built from
+    /// ([`geometry_stamp`]).
+    pub fn room_stamp(&self) -> u64 {
+        self.room
+    }
+
     /// The probe body the graph is built for: the tuning with no history. A
     /// graph is not a fact about what a body was doing when it was asked for.
     pub fn probe_body(&self) -> BodyClusterScratch {

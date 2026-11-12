@@ -318,6 +318,8 @@ impl bevy::prelude::Plugin for BodySimulationPlugin {
             )
                 .in_set(ActorDecisionSet::Observe),
         );
+        // What F1 and headless inspection read of it (GOBS-3).
+        crate::body::navigation::install_geometry_observer(app);
         app.add_systems(
             sim,
             crate::body::perception::remember_who_struck_it

@@ -110,6 +110,12 @@ fn role_color(observation: &GeometryObservation) -> Color {
         // What an interact press reaches.
         "interact_touch" | "interact_talk" | "interact_front" => Color::srgba(1.0, 0.75, 0.3, 0.8),
         "talk" | "switch" | "chest" => Color::srgba(1.0, 0.95, 0.6, 0.9),
+        // Navigation, in the overlay's colours.
+        "nav_surface" => Color::srgba(0.2, 1.0, 0.2, 0.9),
+        "nav_hop" => Color::srgba(1.0, 1.0, 0.2, 0.9),
+        "nav_drop" => Color::srgba(1.0, 0.6, 0.1, 0.9),
+        "nav_route" | "nav_goal" => Color::srgba(1.0, 0.2, 1.0, 0.9),
+        "nav_target_place" => Color::srgba(0.2, 1.0, 1.0, 0.9),
         _ => Color::srgba(0.3, 1.0, 1.0, 0.9),
     }
 }

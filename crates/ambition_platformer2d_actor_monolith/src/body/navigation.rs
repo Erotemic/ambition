@@ -87,6 +87,15 @@ impl RoomNavigation {
             .filter_map(|(_, graph)| graph)
     }
 
+    /// The graphs in use built from a world and exits with the stamp
+    /// `room` ([`ambition_platformer2d_world::navigation::geometry_stamp`]).
+    pub fn graphs_in_use_stamped(&self, room: u64) -> impl Iterator<Item = &NavGraph> {
+        self.graphs
+            .iter()
+            .filter(move |(key, _)| key.room_stamp() == room && self.in_use.contains(key))
+            .filter_map(|(_, graph)| graph)
+    }
+
     /// The graphs that were built. For tests and instruments.
     pub fn graphs(&self) -> impl Iterator<Item = &NavGraph> {
         self.graphs.iter().filter_map(|(_, graph)| graph)
@@ -374,4 +383,86 @@ mod tests {
         ask(&mut cache, &world, split);
         assert_eq!(cache.len(), 2, "a frame with an external acceleration shared the upright graph");
     }
+}
+
+/// The navigation of a room, for observation (GOBS-3,
+/// `docs/planning/engine/geometry-observability-and-f1.md`): `navigation.graph`
+/// reads what the navigation overlay reads. Each graph a body was advised
+/// from this tick in the asked room (its standing surfaces, `nav_surface`;
+/// its hops, `nav_hop`, and drops, `nav_drop`, from take-off to landing), and
+/// each advised body in the room: its route through its waypoints
+/// (`nav_route`), the place it is going to (`nav_goal`) and the place beside
+/// its target (`nav_target_place`). Kept apart from the collision observers,
+/// as a navigation view is apart from a collision view.
+pub fn install_geometry_observer(app: &mut bevy::app::App) {
+    use ambition_geometry_observation::{GeometryObserverAppExt as _, ObserverInfo};
+    app.add_geometry_observer(
+        ObserverInfo {
+            name: "navigation.graph",
+            description: "the surface graphs bodies were advised from this tick (surfaces, hops, drops) and each body's route and goal",
+            needs_subject: false,
+        },
+        observe_navigation,
+    );
+}
+
+fn observe_navigation(
+    query: bevy::prelude::In<ambition_geometry_observation::ObservationQuery>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    roots: Query<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    bodies: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    names: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    navigation: Option<bevy::prelude::Res<RoomNavigation>>,
+    advice: Option<bevy::prelude::Res<NavigationAdvice>>,
+) -> Vec<ambition_geometry_observation::GeometryObservation> {
+    use ambition_geometry_observation::{GeometryObservation, ObservedShape, ObservedState};
+    use std::borrow::Cow;
+    let room = match (query.room, query.subject) {
+        (Some(root), _) => roots.get(root).ok().map(|room| ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(*room)),
+        (None, Some(subject)) => bodies.get(subject).ok().copied(),
+        (None, None) => None,
+    };
+    let Some(walls) = collision.room(room.as_ref()) else {
+        return Vec::new();
+    };
+    let piece = |key: String, role: &'static str, shape: ObservedShape| GeometryObservation {
+        key,
+        roles: vec![Cow::Borrowed(role)],
+        shape,
+        state: ObservedState::Active,
+    };
+    let mut out = Vec::new();
+    let stamp = ambition_platformer2d_world::navigation::geometry_stamp(walls.base(), &[]);
+    for (g, graph) in navigation.iter().flat_map(|navigation| navigation.graphs_in_use_stamped(stamp)).enumerate() {
+        for (k, surface) in graph.surfaces.iter().enumerate() {
+            let (a, b) = (graph.frame.point(surface.left, surface.top), graph.frame.point(surface.right, surface.top));
+            out.push(piece(format!("graph{g}/surface{k}"), "nav_surface", ObservedShape::Segment { a: a.to_array(), b: b.to_array() }));
+        }
+        for (k, link) in graph.links.iter().enumerate() {
+            let role = if link.leg.kind == ae::navigation::NavLegKind::Drop { "nav_drop" } else { "nav_hop" };
+            out.push(piece(
+                format!("graph{g}/link{k}"),
+                role,
+                ObservedShape::Segment { a: link.leg.takeoff.to_array(), b: link.leg.land.to_array() },
+            ));
+        }
+    }
+    for (body, advised) in advice.iter().flat_map(|advice| advice.iter()) {
+        if room.is_some() && bodies.get(body).ok() != room.as_ref() {
+            continue;
+        }
+        let name = names.get(body).map_or_else(|_| format!("{body}"), |id| id.as_str().to_owned());
+        let mut at = advised.feet;
+        for (k, waypoint) in advised.waypoints.iter().take(advised.waypoint_count as usize).enumerate() {
+            out.push(piece(format!("{name}/route{k}"), "nav_route", ObservedShape::Segment { a: at.to_array(), b: waypoint.to_array() }));
+            at = *waypoint;
+        }
+        if let Some(goal) = advised.goal {
+            out.push(piece(format!("{name}/goal"), "nav_goal", ObservedShape::Circle { center: goal.to_array(), radius: 10.0 }));
+        }
+        if let Some(place) = advised.target_place {
+            out.push(piece(format!("{name}/target_place"), "nav_target_place", ObservedShape::Circle { center: place.to_array(), radius: 10.0 }));
+        }
+    }
+    out
 }

@@ -107,7 +107,7 @@ measured by the probe above; the other rows are read, not measured.
 | Interaction reach | `InteractReach`, interactable proximity | Observed Geometry (`interaction.reach`, 2026-11-11) | Covered: reach, candidates, the chosen one and each refusal's reason |
 | Loading zones, LDtk spine | room spec zones | `draw_loading_zones` (`show_loading_zones`) | Covered (read) |
 | Camera frame | camera snapshot | `draw_camera_frame` (`show_camera_frame`) | Covered (read) |
-| Navigation graph and links | navigation graph | `navigation_overlay` (`show_navigation`) | Covered in its own overlay (read) |
+| Navigation graph and links | navigation graph | `navigation_overlay` (`show_navigation`), and Observed Geometry (`navigation.graph`, 2026-11-11) | Covered: in its overlay, and in F1's observer layer and headless |
 
 **What GOBS-1 should start from:** the two misleading rows (breakables and
 removed blocks) and the per-subject rows (gates, barriers, portal holes) are
@@ -228,6 +228,19 @@ faced; and around them hostile, untouchable, a door nearer takes the press,
 opened, falling). Checked in the hub with a temporary probe: beside a person
 facing it, it is chosen; facing away, with `RequiresFacing`, it is "not
 faced". Headless: `inspect_geometry --provider interaction.`.
+
+**Navigation landed (2026-11-11): `navigation.graph`**
+(`ambition_platformer2d_actor_monolith::body::navigation`). It reads what
+the navigation overlay reads: each surface graph a body was advised from
+this tick in the asked room (its graphs are keyed by the room's geometry
+stamp, `NavGraphKey::room_stamp`), with its standing surfaces
+(`nav_surface`), hops (`nav_hop`) and drops (`nav_drop`, take-off to
+landing), and each advised body in the room: its route through its
+waypoints (`nav_route`), its goal (`nav_goal`) and the place beside its
+target (`nav_target_place`). Its own provider, apart from the collision
+ones, as a navigation view is apart from a collision view. Headless in
+`central_hub_complex` after 120 ticks: 33 surfaces, 12 hops, 37 drops, and
+one body's four-leg route to its goal.
 
 1. Adapt the **effective** combat read model: hurt source (`published`, `fallback`, `intangible`), live active hitboxes, projectile body/splash regions and boss-specific strike/contact geometry. Clearly show a dormant strike as dormant or absent rather than inventing a live hitbox.
 2. Add `InteractReach` adapter(s) for talk/chest/switch/door/item eligibility, using the real geometry *and* facing/distance/priority/room predicates. Show both eligible shapes and disabled or overridden candidates; explain why a visible NPC is not interactable. Do not treat merely being nearby as eligibility.

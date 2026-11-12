@@ -359,8 +359,8 @@ pub fn sfx_registry_schema() -> SchemaRegistration {
         version: SFX_REGISTRY_VERSION,
         capability: CapabilityId::new(AUDIO_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
-        doc: "Procedural sound-design cues: the synth sample rate and one waveform/envelope \
-              spec per cue. Defines `sfx_cue` identities.",
+        doc: "Procedural sound-design cues: the synth sample rate, one waveform/envelope \
+              spec per cue, and the ids the provider keeps silent. Defines `sfx_cue` identities.",
         handler: Arc::new(SfxRegistrySchema),
     }
 }

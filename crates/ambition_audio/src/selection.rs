@@ -348,6 +348,9 @@ impl ActiveSfxSource {
             .map(SfxRegistry::authorized_cue_ids)
             .unwrap_or_default();
         provider_sfx.extend(bank_ids);
+        if let Some(silent) = sfx.as_ref().map(SfxRegistry::silent_ids) {
+            provider_sfx.retain(|id| !silent.contains(id));
+        }
         explicit_allowlist
             .map(|allowlist| allowlist.intersection(&provider_sfx).copied().collect())
             .unwrap_or(provider_sfx)
@@ -755,6 +758,7 @@ mod tests {
 
     fn sfx(cues: impl IntoIterator<Item = SoundCueKey>) -> SfxRegistry {
         SfxRegistry {
+            silent: Vec::new(),
             sample_rate: 44_100,
             sfx: cues.into_iter().map(cue).collect(),
         }
@@ -797,6 +801,25 @@ mod tests {
         assert!(selection.music_authority().allows("title"));
         assert!(selection.sfx_authority().allows(SoundCueKey::Jump.sfx_id()));
         assert!(!selection.sfx_authority().allows(SoundCueKey::Dash.sfx_id()));
+    }
+
+    /// A provider that keeps an id silent refuses it even though the bank it
+    /// reads carries a clip for it; another provider reading the same bank
+    /// still plays it.
+    #[test]
+    fn a_silent_id_is_refused_though_the_bank_carries_it() {
+        let reset = SoundCueKey::Reset.sfx_id();
+        let bank = BTreeSet::from([reset, SoundCueKey::Jump.sfx_id()]);
+        let mut quiet = sfx([SoundCueKey::Dash]);
+        quiet.silent = vec!["player.reset".to_owned()];
+        quiet.validate().unwrap();
+        let mut selection = ActiveAudioSelection::default();
+        selection.select_gameplay(4, "ambition", None, Some(quiet), bank.clone());
+        selection.authorize_sfx_source("sanic.cast", "sanic", Some(sfx([SoundCueKey::Dash])), bank);
+        let ambition = selection.sfx_authority_for_source(&PresentationSourceId::new("ambition"));
+        assert!(!ambition.allows(reset));
+        assert!(ambition.allows(SoundCueKey::Jump.sfx_id()), "the rest of the bank still plays");
+        assert!(selection.sfx_authority_for_source(&PresentationSourceId::new("sanic.cast")).allows(reset));
     }
 
     #[test]

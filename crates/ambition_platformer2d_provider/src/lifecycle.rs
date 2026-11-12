@@ -4315,7 +4315,7 @@ mod mechanical_registries_reach_the_identity {
     #[test]
     fn a_transaction_is_prepared_against_its_own_candidate_audio_not_the_apps() {
         use ambition_audio::catalog::{AudioCatalogFragment, AudioCatalogRegistry};
-        let sfx = || ambition_audio::spec::SfxRegistry { sample_rate: 44100, sfx: Vec::new() };
+        let sfx = || ambition_audio::spec::SfxRegistry { sample_rate: 44100, sfx: Vec::new(), silent: Vec::new() };
         let mut live = AudioCatalogRegistry::default();
         live.register(AudioCatalogFragment::new("provider", None, Some(sfx())).expect("fragment"))
             .expect("registers");

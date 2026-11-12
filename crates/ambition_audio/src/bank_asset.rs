@@ -694,6 +694,7 @@ mod tests {
 
     fn sfx_registry(cue: SoundCueKey) -> SfxRegistry {
         SfxRegistry {
+            silent: Vec::new(),
             sample_rate: 44_100,
             sfx: vec![SfxSpec {
                 cue: Some(cue),

@@ -184,6 +184,7 @@ mod tests {
 
     fn select(app: &mut App, owner: u64) {
         let registry = SfxRegistry {
+            silent: Vec::new(),
             sample_rate: 44_100,
             sfx: vec![SfxSpec {
                 cue: None,
@@ -292,6 +293,7 @@ mod tests {
         use bevy::{prelude::{IntoScheduleConfigs, Vec2}, time::TimeUpdateStrategy};
         let mut app = app();
         let registry = SfxRegistry {
+            silent: Vec::new(),
             sample_rate: 44_100,
             sfx: vec![SfxSpec {
                 cue: Some(crate::spec::SoundCueKey::Land), id: None,
@@ -332,6 +334,7 @@ mod tests {
         use bevy::{prelude::{IntoScheduleConfigs, Vec2}, time::TimeUpdateStrategy};
         let mut app = app();
         let registry = SfxRegistry {
+            silent: Vec::new(),
             sample_rate: 44_100,
             sfx: vec![SfxSpec {
                 cue: Some(crate::spec::SoundCueKey::Land), id: None,

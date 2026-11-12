@@ -24,6 +24,12 @@ use std::collections::{BTreeSet, HashSet};
 pub struct SfxRegistry {
     pub sample_rate: u32,
     pub sfx: Vec<SfxSpec>,
+    /// Ids this provider keeps quiet even where a bank it reads carries a
+    /// clip for them: an emitter's request for one is refused, not heard. A
+    /// cue is a game's sound design, and a shared bank is not that game's
+    /// choice.
+    #[serde(default)]
+    pub silent: Vec<String>,
 }
 
 impl SfxRegistry {
@@ -41,6 +47,14 @@ impl SfxRegistry {
                 return Err(format!("duplicate procedural SFX id {id}"));
             }
         }
+        for silent in &self.silent {
+            if silent.trim().is_empty() {
+                return Err("a silent SFX id must not be empty".to_owned());
+            }
+            if ids.contains(&SfxId::new(silent)) {
+                return Err(format!("SFX id {silent} is both authored and silent"));
+            }
+        }
         Ok(())
     }
 
@@ -53,6 +67,11 @@ impl SfxRegistry {
             .iter()
             .filter_map(|spec| spec.sfx_id().ok())
             .collect()
+    }
+
+    /// The ids this provider keeps silent ([`Self::silent`]).
+    pub fn silent_ids(&self) -> BTreeSet<SfxId> {
+        self.silent.iter().map(|id| SfxId::new(id)).collect()
     }
 
     /// Provider-authored procedural definition for `id`, if this registry owns
@@ -257,6 +276,7 @@ mod open_sfx_id_tests {
         let registry = SfxRegistry {
             sample_rate: 44_100,
             sfx: vec![open_spec("ui.menu.move")],
+            silent: Vec::new(),
         };
         registry.validate().unwrap();
         let id = SfxId::new("ui.menu.move");
@@ -273,12 +293,14 @@ mod open_sfx_id_tests {
                 id: Some("also.jump".to_owned()),
                 ..open_spec("ignored")
             }],
+            silent: Vec::new(),
         };
         assert!(both.validate().unwrap_err().contains("both cue and id"));
 
         let duplicate = SfxRegistry {
             sample_rate: 44_100,
             sfx: vec![open_spec("same"), open_spec("same")],
+            silent: Vec::new(),
         };
         assert!(duplicate.validate().unwrap_err().contains("duplicate"));
     }

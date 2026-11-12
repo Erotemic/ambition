@@ -426,6 +426,7 @@ mod tests {
 
     fn registry(frequency: f32) -> SfxRegistry {
         SfxRegistry {
+            silent: Vec::new(),
             sample_rate: 44_100,
             sfx: vec![SfxSpec {
                 cue: Some(SoundCueKey::Dash),

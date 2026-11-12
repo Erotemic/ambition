@@ -3,7 +3,11 @@
 **Status:** MAINTAINER-APPROVED DESIGN, IMPLEMENTATION OPEN (2026-11-06).
 **Execution:** [PORTAL-SIMILARITY](../queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 **Work state:** Full portal implementation and acceptance remain open.
-Further implementation is paused for desktop performance profiling.
+The desktop stall that paused implementation is resolved: material queries
+take only reachable links and a refusal leaves the body playable
+(`811150d6f`), and the curved search no longer exhausts its work on a
+separating tail (`07d0356fb`) or refuses at a turning mouth's seam
+(`d984a1c20`). See the 2026-11-12 sections at the end.
 The requested playable 80/40 slice is complete (`fddf6084a`).
 P01–P06 and P08–P10 are repaired. P07 remains open for the full plan.
 
@@ -32,14 +36,16 @@ new upstream HTN dependency. The review receipt records the scope and logs.
 
 Full PSIM acceptance remains open: general remaining-time continuation,
 complete projectile/hurt contact, including moving targets and other surviving
-contact responses, other movement models, swept guard contact and response, attachments, the
-bounded numeric law and fault effects, and device/GPU and performance gates. Two simultaneous limbs
+contact responses, other movement models, swept guard contact and response, attachments, a multi-view witness for the fault
+effect (the effect itself landed in `c21bfff4d`), and device/GPU and
+performance gates. Two simultaneous limbs
 and a chained third portal now have native contact and GNU-ton occupancy
 guards in `2c4bd3822`. Chained damage, launch scale and replay guards pass in
 `99d51bc9f`. Two active fists hit separate bodies in the same tick through
 independent scaled paths in `6ae7a653a`.
 
-Station J is live in `0f64b41bf`. Its axe crosses three pairs at quarter scale
+Station J is live in `0f64b41bf` and has its own room, `portal_chain_lab`,
+since `f91bd4a1d`. Its axe crosses three pairs at quarter scale
 while a foot uses another pair. The damage, refusal and replay checks pass.
 The impact film shows the body and far foot. Walls or platforms back all J
 mouths and both K mouths. I has a Reflection prompt at the existing wall pair.

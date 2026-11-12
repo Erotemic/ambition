@@ -1547,9 +1547,19 @@ existing failure: the LifeLedger localization probe checks only presence.
 The warning wrapper rejected an unsupported argument and produced no verdict.
 Remaining checks are deferred at the maintainer's request. Logs are under
 `target/portal-material-checkpoint-validation/`. Full PSIM acceptance remains
-open; implementation is paused for the maintainer's desktop profile.
+open; current work addresses measured desktop performance costs.
 
-The authored `portal_profile` autoplay itinerary visits the Hall of Characters
-and portal lab, crosses both by flight, returns to the hub and repeats. Its
-profiler scenario is `ambition-autoplay:portal_profile`. The room links were
-checked against authored doors. The new itinerary has not had a live run.
+The authored `portal_profile` itinerary requests the portal lab, then the Hall,
+then the hub. Its profiler scenario is `ambition-autoplay:portal_profile`.
+Live runs cannot navigate to the lab door. This navigation defect remains
+open. Manual input reaches the lab. Do not treat this route as validated.
+
+### Fixed portal pose reuse — 2026-11-12
+
+`22d36dd3d` removes repeated fixed-link pose calculations within curved queries.
+The matched lab instruction estimate falls 50.50%; the Hall control stays
+within run variation. All 101 material-cast tests and the assembled 80/40
+partial-contact, reverse-travel and rollback replay check pass. See the
+[desktop receipt](../../../dev/reviews/portal-desktop-performance-2026-11-12.md).
+Keep time-dependent sampling and typed numeric refusals. Displayed desktop
+validation, autoplay navigation, R5 and full PSIM acceptance remain open.

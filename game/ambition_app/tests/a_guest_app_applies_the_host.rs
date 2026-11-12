@@ -1895,3 +1895,88 @@ fn follow_on_the_hosts_word(defer_unmapped: bool) {
     let twice: Vec<&SimId> = held.iter().filter(|(_, count)| **count > 1).map(|(id, _)| id).collect();
     println!("[follow]   bodies the guest holds twice at the end: {} {:?}", twice.len(), twice.iter().take(6).collect::<Vec<_>>());
 }
+
+/// Bob's body: its id and state, by his seat.
+fn bobs_body(sim: &mut Platformer2dSimHarness) -> Option<(SimId, [f32; 5])> {
+    let world = sim.world_mut();
+    world
+        .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &SimId, &BodyKinematics)>()
+        .iter(world)
+        .find(|(driver, ..)| driver.0 == ambition_platformer2d::characters::control::PlayerSlot(1))
+        .map(|(_, id, body)| (id.clone(), [body.pos.x, body.pos.y, body.vel.x, body.vel.y, body.facing]))
+}
+
+/// NA-3, guest prediction: Bob's App simulates (nothing gated) and drives
+/// his seat with his own input at once, while the host applies it
+/// [`LATENCY`] frames late, as NA-2. Each frame the guest writes every other
+/// body from the newest snapshot it holds, so only Bob's body is its own. A
+/// host snapshot of frame `h` reflects Bob's inputs up to `h - LATENCY` and
+/// arrives on guest frame `h + LATENCY`; the correction it asks for is the
+/// distance between Bob in it and Bob on the guest after the same inputs
+/// (the guest's frame `h - LATENCY`). Run with Alice still and with Alice
+/// fighting, and twice each: without reconciling, and moving the guest's Bob
+/// by each correction as it arrives. Prints, per run, the mean and largest
+/// correction, and the frames it exceeds half a unit.
+#[test]
+#[ignore = "measurement: prints how far a guest's predicted body is from the host's; run with --ignored --nocapture --test-threads=1"]
+fn probe_how_far_a_guests_prediction_is_from_the_host() {
+    use crate::hosted_world::{alice_fights, holds_right};
+    use ambition_platformer2d::engine_core::ControlFrame;
+    for (scene, alice) in [("Alice still", (|_| ControlFrame::default()) as fn(i32) -> ControlFrame), ("Alice fights", alice_fights as fn(i32) -> ControlFrame), ("Alice holds right", holds_right as fn(i32) -> ControlFrame)] {
+        for reconcile in [false, true] {
+            let mut host = booted(ROOM);
+            let mut guest = booted(ROOM);
+            let bob_id = bobs_body(&mut guest).expect("Bob stands on the guest").0;
+            let mut history: BTreeMap<i32, [f32; 5]> = BTreeMap::new();
+            let mut in_flight: VecDeque<(i32, BTreeMap<SimId, [f32; 5]>)> = VecDeque::new();
+            let mut newest: Option<BTreeMap<SimId, [f32; 5]>> = None;
+            let mut corrections: Vec<f32> = Vec::new();
+            for frame in 1..=FRAMES {
+                host.drive_seat(0, alice(frame));
+                host.drive_seat(1, if frame > LATENCY { bobs(frame - LATENCY) } else { ControlFrame::default() });
+                host.app_mut().update();
+                in_flight.push_back((frame, bodies(&mut host, None)));
+                if in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATENCY) {
+                    let (sent, rows) = in_flight.pop_front().expect("a snapshot arrived");
+                    if let (Some(authority), Some(predicted)) = (rows.get(&bob_id), history.get(&(sent - LATENCY))) {
+                        let error = bevy::math::Vec2::new(authority[0] - predicted[0], authority[1] - predicted[1]);
+                        corrections.push(error.length());
+                        if reconcile && error.length() > 0.0 {
+                            let world = guest.world_mut();
+                            for (id, mut body) in world.query::<(&SimId, &mut BodyKinematics)>().iter_mut(world) {
+                                if *id == bob_id {
+                                    body.pos += error;
+                                }
+                            }
+                            // The prediction since that frame moves with it, or the
+                            // next snapshot asks for the same correction again.
+                            for (_, state) in history.range_mut((sent - LATENCY)..) {
+                                state[0] += error.x;
+                                state[1] += error.y;
+                            }
+                        }
+                    }
+                    newest = Some(rows);
+                }
+                if let Some(rows) = &newest {
+                    let others: BTreeMap<SimId, [f32; 5]> = rows.iter().filter(|(id, _)| **id != bob_id).map(|(id, row)| (id.clone(), *row)).collect();
+                    apply(&mut guest, &others);
+                }
+                guest.drive_seat(0, ControlFrame::default());
+                guest.drive_seat(1, bobs(frame));
+                guest.app_mut().update();
+                if let Some((_, state)) = bobs_body(&mut guest) {
+                    history.insert(frame, state);
+                }
+            }
+            let mean = corrections.iter().sum::<f32>() / corrections.len().max(1) as f32;
+            let largest = corrections.iter().copied().fold(0.0f32, f32::max);
+            let over = corrections.iter().filter(|error| **error > 0.5).count();
+            println!(
+                "[predict] {scene}, {}: {} snapshots compared; correction mean {mean:.3}, largest {largest:.3}, over half a unit on {over}",
+                if reconcile { "reconciled" } else { "not reconciled" },
+                corrections.len()
+            );
+        }
+    }
+}

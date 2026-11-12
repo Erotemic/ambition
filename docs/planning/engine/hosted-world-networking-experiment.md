@@ -1,6 +1,6 @@
 # Hosted world versus GGRS — the authority experiment
 
-**Status:** NA-1 and NA-2 done (2026-11-10); NA-2b's guest App measured through spawns, deaths, drops, presentation, room scope and room following (2026-11-12); NA-3 and NA-4 open.
+**Status:** NA-1 and NA-2 done (2026-11-10); NA-2b's guest App measured through spawns, deaths, drops, presentation, room scope and room following (2026-11-12); NA-3 started (2026-11-12, prediction measured); NA-4 open.
 **Execution:** [NET-AUTHORITY-EXPERIMENT](../queue.md#net-authority-experiment--compare-hosted-world-replication-with-ggrs).
 **Research and candidates:** [network topology and authority](network-topology-and-authority-research.md) (models A–D, R0–R5, the comparison scenarios). This page owns the experiment's results, not the candidate list.
 **Related:** [netcode](netcode.md), [compact peer input](island-rollback-and-compact-peer-input.md), [multiplayer and multiview](multiplayer-and-multiview.md), [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
@@ -550,6 +550,43 @@ not mapped yet.
 - **The numbers happened to agree again** (both sides minted 1 for the
   hub); the map is what would carry a disagreement.
 
+### NA-3, guest prediction: first measurement (2026-11-12)
+
+Probe `probe_how_far_a_guests_prediction_is_from_the_host` (in
+`a_guest_app_applies_the_host.rs`, ignored). Bob's App simulates with
+nothing gated and drives his seat with his own input at once; the host
+applies it [`LATENCY`] (3) frames late, as NA-2. Each frame the guest
+writes every other body from the newest snapshot it holds, so only Bob's
+body is its own. A host snapshot of frame `h` reflects Bob's inputs up to
+`h - 3` and arrives on guest frame `h + 3`; its correction is the distance
+between Bob in it and Bob on the guest after the same inputs. "Reconciled"
+moves the guest's Bob, and its stored prediction since that frame, by each
+correction as it arrives. `switch_lab`, 240 frames, 234 snapshots compared;
+Bob turns at his own rhythm and jumps.
+
+| Alice | Not reconciled: mean, largest, frames over 0.5 | Reconciled: mean, largest, frames over 0.5 |
+|---|---|---|
+| still | 0, 0, 0 | 0, 0, 0 |
+| holds right | 0, 0, 0 | 0, 0, 0 |
+| fights (swings every ten frames) | 1.45, 5.85, 131 | 0.37, 1.48, 116 |
+
+- **Alone, the prediction is exact:** the guest's own kernel against its own
+  room's collision puts Bob where the host does, to the bit, with Alice still
+  or walking away. Movement needs nothing more than the guest's room and
+  its own input.
+- **What other bodies do to Bob is what the guest gets wrong:** with Alice
+  swinging beside him, the guest's Alice is a snapshot six frames older than
+  the host's, so what she does to Bob lands on the host and not, or not then,
+  on the guest. Offset reconciliation keeps the error under 1.5 units but
+  corrects on half the snapshots; a correction that replays the inputs
+  since the snapshot (the guest rewinding its own body) is the next thing to
+  measure, and which contacts reach a body (strikes, pushes, carries) is
+  the list a guest's prediction has to include or accept as corrections.
+- **A first attempt at offset reconciliation diverged** (corrections of
+  10^9): moving the body without moving the stored prediction asked for the
+  same correction on every later snapshot. The stored history has to move
+  with the body.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no
@@ -598,7 +635,11 @@ not mapped yet.
    NA-2b's questions are answered; what remains is NA-3.
 2. **NA-3 — guest prediction.** Run the guest's own body through the
    movement kernel against its room's collision, reconcile to each snapshot,
-   and measure correction size under the same scripts. The kernel already
+   and measure correction size under the same scripts. First measurement
+   (2026-11-12, above): exact while no other body acts on the guest's; with
+   Alice swinging beside Bob, mean 1.45 units unreconciled and 0.37 with
+   offset reconciliation. Next: reconcile by replaying the guest's inputs
+   since the snapshot, and name which contacts reach a predicted body. The kernel already
    runs per body (`transit_body`, `BodyKinematics`); the open question is
    what else a prediction needs (contacts, abilities, held items).
 3. **NA-3 — NPC facts and late join.** Host-owned NPC state across a guest's

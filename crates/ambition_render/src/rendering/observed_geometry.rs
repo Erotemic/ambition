@@ -107,6 +107,9 @@ fn role_color(observation: &GeometryObservation) -> Color {
         "body_box" => Color::srgba(0.75, 0.55, 1.0, 0.9),
         "sweep" => Color::srgba(0.75, 0.55, 1.0, 0.6),
         "contact_ground" | "contact_head" | "contact_wall" => Color::srgba(0.2, 1.0, 0.2, 1.0),
+        // What an interact press reaches.
+        "interact_touch" | "interact_talk" | "interact_front" => Color::srgba(1.0, 0.75, 0.3, 0.8),
+        "talk" | "switch" | "chest" => Color::srgba(1.0, 0.95, 0.6, 0.9),
         _ => Color::srgba(0.3, 1.0, 1.0, 0.9),
     }
 }

@@ -104,7 +104,7 @@ measured by the probe above; the other rows are read, not measured.
 | Surface chains | `World` chains | blocks layer (`draw_surface_chains`) | Covered (read) |
 | Hurt and hit volumes, strikes | `CombatGeometryView` | combat view (`draw_combat_geometry_view`) | Covered (read; the owner's own read model) |
 | Projectiles | projectile bodies | `draw_projectile_debug` | Covered (read) |
-| Interaction reach | `InteractReach`, interactable proximity | none | **Missing** (read), as the evidence table above says |
+| Interaction reach | `InteractReach`, interactable proximity | Observed Geometry (`interaction.reach`, 2026-11-11) | Covered: reach, candidates, the chosen one and each refusal's reason |
 | Loading zones, LDtk spine | room spec zones | `draw_loading_zones` (`show_loading_zones`) | Covered (read) |
 | Camera frame | camera snapshot | `draw_camera_frame` (`show_camera_frame`) | Covered (read) |
 | Navigation graph and links | navigation graph | `navigation_overlay` (`show_navigation`) | Covered in its own overlay (read) |
@@ -213,6 +213,21 @@ item 3's reasons.
 **Done when:** the two-body lab visibly differs for a portal opening accessible to one body but not the other; toggling between authored and effective views explains a collision missing from the current F1 base-block view. A headless query proves the same difference. Collision behavior is unchanged with the overlay off and on.
 
 ### GOBS-3 — combat, interaction, sensors, navigation and portal parts
+
+**Interaction landed (2026-11-11): `interaction.reach`**
+(`ambition_sim_view::interaction_reach_observer`, needs a subject). It asks
+the rule the press and the prompt ask (`InteractReach`, and the prompt's
+`chosen_in_reach`, which now returns the entity the press is for): the
+body's touch box, talk box and the point it reaches with (the press is for
+the nearest thing to it), then every person, switch and chest in its live
+room. One the press could take is active; the one it is for also has the
+role `interact_chosen`; any other is inactive with the clause that refuses
+it, which the rule itself names (`InteractReach::refuses_talk` and
+`refuses_touch`: another live room, out of talking reach, not touched, not
+faced; and around them hostile, untouchable, a door nearer takes the press,
+opened, falling). Checked in the hub with a temporary probe: beside a person
+facing it, it is chosen; facing away, with `RequiresFacing`, it is "not
+faced". Headless: `inspect_geometry --provider interaction.`.
 
 1. Adapt the **effective** combat read model: hurt source (`published`, `fallback`, `intangible`), live active hitboxes, projectile body/splash regions and boss-specific strike/contact geometry. Clearly show a dormant strike as dormant or absent rather than inventing a live hitbox.
 2. Add `InteractReach` adapter(s) for talk/chest/switch/door/item eligibility, using the real geometry *and* facing/distance/priority/room predicates. Show both eligible shapes and disabled or overridden candidates; explain why a visible NPC is not interactable. Do not treat merely being nearby as eligibility.

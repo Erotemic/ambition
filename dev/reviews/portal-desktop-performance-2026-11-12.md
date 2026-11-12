@@ -144,7 +144,10 @@ series to establish the cause or the responsible process.
 The original route reports `NoRoute` at wall time 110.700 seconds when it
 requests the hub's portal-lab door. Changing the stop order does not fix that
 navigation defect. The maintainer reports that the reversed route also fails.
-The manual capture proves that the authored door can be used.
+The manual capture proves that the authored door can be used. Fixed
+2026-11-12: the flight map closed the one-way floor over the hub's basement,
+a crouch rekeyed the autopilot's graph, and the lab's sweeping host cancelled
+every graph build (PSIM doc, "Autoplay reaches the lab").
 
 ## Next work
 
@@ -214,7 +217,7 @@ cargo test -j12 -p ambition_app --test app_it -- portal_similarity_slice::the_au
 
 The app command runs one test. The broader suite is not run for this change.
 These checks do not measure displayed frame pacing or GPU cost. The autoplay
-navigation failure remains open.
+navigation failure was open then (fixed later the same day, see above).
 
 ### Desktop confirmation
 
@@ -250,4 +253,5 @@ pose/state vector construction remains a candidate for a later measurement.
 
 This is a short displayed confirmation of the optimization. It does not cover
 a long lab session, every station, all camera positions, or mobile performance.
-The autoplay navigation defect and the remaining PSIM gates stay open.
+The remaining PSIM gates stay open. The autoplay navigation defect is fixed
+(see above).

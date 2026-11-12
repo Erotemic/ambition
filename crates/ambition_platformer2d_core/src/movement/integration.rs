@@ -59,7 +59,7 @@ pub(super) fn wants_drop_through(descend: f32, jump_pressed: bool) -> bool {
 /// How far toward the feet the stick must be held for a drop request to count,
 /// shared by both gestures so guard+down and jump+down cannot disagree about
 /// what "down" is.
-pub(super) const DROP_THROUGH_DESCEND: f32 = 0.35;
+pub(crate) const DROP_THROUGH_DESCEND: f32 = 0.35;
 
 /// THE PLATFORM DROP: guard + down, on a surface that can be left downward.
 ///

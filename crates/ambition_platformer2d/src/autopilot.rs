@@ -174,7 +174,8 @@ impl Flight {
         if self.route.is_empty() {
             return (LegInput::default(), AutopilotStatus::NoRoute);
         }
-        let facts = FlightFacts { center: kin.pos, vel: kin.vel, side: graph.frame.side, down: graph.frame.down, law: map.law, arrival_region };
+        let facts = FlightFacts { center: kin.pos, vel: kin.vel, side: graph.frame.side, down: graph.frame.down, law: map.law, arrival_region,
+            in_one_way: map.in_one_way(kin.pos) };
         match follow_flight(&self.route, self.next, &facts) {
             (input, FlightProgress::Going(next)) => {
                 self.next = next;
@@ -344,7 +345,11 @@ pub fn drive_autopilot(
     let body = BodyTuning {
         spec: model.spec(),
         abilities: abilities.abilities,
-        size: kin.size(),
+        // The standing shape at the body's scale, not its stance this frame:
+        // a crouch is not another body. Keyed by the live size, a drop
+        // through a one-way (down, held on the platform) crouched the body,
+        // dropped its graph and waited for a new one, frame after frame.
+        size: base_size.base_size * kin.material.scale(),
         base_size: *base_size,
         frame: motion,
     };

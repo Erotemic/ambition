@@ -693,6 +693,10 @@ pub struct FlightFacts {
     /// The body-center region that must be entered. With no region, a
     /// flight ends near its last point.
     pub arrival_region: Option<crate::Aabb>,
+    /// The body overlaps a one-way surface, or all but touches it
+    /// (`FlightMap::in_one_way`): a flight that goes down from here drops
+    /// through it, as a walker does.
+    pub in_one_way: bool,
 }
 
 /// What a step of a flight came to.
@@ -711,6 +715,10 @@ pub enum FlightProgress {
 /// route at the speed from which the body can still slow for each turn and
 /// stop at the end, by its measured braking. So a body that flies by it does
 /// not run past the turns the route makes round the walls.
+/// How far down a flight holds the stick to drop through a one-way surface:
+/// past the movement's own threshold for a drop.
+const DROP_DESCEND: f32 = crate::movement::DROP_THROUGH_DESCEND + 0.15;
+
 pub fn follow_flight(route: &[Vec2], next: usize, facts: &FlightFacts) -> (LegInput, FlightProgress) {
     let Some(&last) = route.last() else {
         return (LegInput::default(), FlightProgress::Arrived);
@@ -754,9 +762,15 @@ pub fn follow_flight(route: &[Vec2], next: usize, facts: &FlightFacts) -> (LegIn
     }
     let toward = (route[next] - facts.center).normalize_or_zero() * speed.min(top);
     let stick = toward / top;
+    let axis_down = stick.dot(facts.down).clamp(-1.0, 1.0);
+    // Down through a one-way surface: the drop (a jump with the stick held
+    // far enough down), which a flying body takes as no leap.
+    let drop = facts.in_one_way && axis_down > 0.0;
+    let axis_down = if drop { axis_down.max(DROP_DESCEND) } else { axis_down };
     let input = LegInput {
         axis: stick.dot(facts.side).clamp(-1.0, 1.0),
-        axis_down: stick.dot(facts.down).clamp(-1.0, 1.0),
+        axis_down,
+        jump_pressed: drop,
         full_speed: true,
         ..LegInput::default()
     };

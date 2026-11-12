@@ -804,6 +804,23 @@ impl MovingPlatformState {
         self.last_delta
     }
 
+    /// Does it stay where it is: no motion of its own carries or turns it?
+    /// A sweep, a path or a swing is at rest at each end and moves again, so
+    /// it is not still there. A lift moves only with a rider, and is still
+    /// while it waits for one.
+    pub fn is_still(&self) -> bool {
+        let turns = self.plank.is_some_and(|plank| plank.turn != PlatformTurn::Level);
+        let carried = match &self.motion {
+            MovingPlatformMotion::Sweep { min_x, max_x, speed, .. }
+            | MovingPlatformMotion::SideLoop { min_x, max_x, speed, .. } => max_x > min_x && *speed != 0.0,
+            MovingPlatformMotion::Loop { min_y, max_y, speed, .. } => max_y > min_y && *speed != 0.0,
+            MovingPlatformMotion::Path { path, .. } => path.speed != 0.0 && path.points.windows(2).any(|pair| pair[0] != pair[1]),
+            MovingPlatformMotion::Lift { stage, .. } => *stage != LiftStage::Resting,
+            MovingPlatformMotion::Ferry { .. } => true,
+        };
+        !turns && !carried
+    }
+
     /// Advance the platform and return its displacement this frame. Also records
     /// it as [`Self::last_delta`] for readers that run after the advance.
     pub fn update(&mut self, dt: f32) -> ae::Vec2 {

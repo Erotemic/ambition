@@ -92,6 +92,7 @@ fn fly_to(world: &World, map: &FlightMap, route: &[Vec2], arrival_region: Option
             down: frame.down(),
             law: map.law,
             arrival_region,
+            in_one_way: map.in_one_way(body.kinematics.pos),
         };
         match follow_flight(route, next, &facts) {
             (_, FlightProgress::Arrived) => return Ok((index, body)),

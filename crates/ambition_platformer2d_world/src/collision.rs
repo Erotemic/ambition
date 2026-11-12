@@ -656,13 +656,14 @@ impl<'a> RoomCollision<'a> {
     /// A navigation cache compares this value with the snapshot it used.
     pub fn still_overlay(self) -> FeatureEcsWorldOverlay {
         let mut still = self.overlay.map(FeatureEcsWorldOverlay::still).unwrap_or_default();
-        for platform in self.platforms {
-            let block = platform.as_collision_block();
-            if block.velocity != ae::Vec2::ZERO { continue; }
+        // A platform whose motion stops at the ends of its travel is not
+        // still there: read by its velocity this frame, a sweeping host came
+        // and went at each turn, and every graph of its room was dropped
+        // before it was built (portal_lab's moving exit).
+        for platform in self.platforms.iter().filter(|platform| platform.is_still()) {
             match platform.as_collision_line() {
-                Some(line) if line.turn == 0.0 => still.chains.push(line),
-                None => still.blocks.push(block),
-                _ => {},
+                Some(line) => still.chains.push(line),
+                None => still.blocks.push(platform.as_collision_block()),
             }
         }
         still

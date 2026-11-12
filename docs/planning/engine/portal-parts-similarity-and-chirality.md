@@ -1576,8 +1576,8 @@ open; current work addresses measured desktop performance costs.
 
 The authored `portal_profile` itinerary requests the portal lab, then the Hall,
 then the hub. Its profiler scenario is `ambition-autoplay:portal_profile`.
-Live runs cannot navigate to the lab door. This navigation defect remains
-open. Manual input reaches the lab. Do not treat this route as validated.
+Live runs could not reach the lab door; three navigation defects, fixed
+2026-11-12 (see "Autoplay reaches the lab" below). The route now loops.
 
 ### Fixed portal pose reuse — 2026-11-12
 
@@ -1588,8 +1588,8 @@ partial-contact, reverse-travel and rollback replay check pass. See the
 [desktop receipt](../../../dev/reviews/portal-desktop-performance-2026-11-12.md).
 Keep time-dependent sampling and typed numeric refusals. A short desktop run
 without Tracy averages 8.80 ms/frame in the lab after this change. Longer lab
-and device validation, autoplay navigation, R5 and full PSIM acceptance remain
-open. The desktop receipt records the capture and its limits.
+and device validation, R5 and full PSIM acceptance remain open (autoplay
+navigation is fixed below). The desktop receipt records the capture and its limits.
 
 ### Slope crossing refusal — 2026-11-12
 
@@ -1976,3 +1976,31 @@ holder's has changed since. Release puts the item down with it, and
 drawn at 1.25, and at 0.625 once the hand has crossed to 0.375, which is
 what it is when dropped. Not yet: the strike volume of a held item is
 still the holder's move volume, at the holder's scale.
+
+### Autoplay reaches the lab — 2026-11-12
+
+`AMBITION_AUTOPLAY=portal_profile` hovered in the hub for good. Run headless
+from the hub (temporary probe, deleted), it showed three generic navigation
+defects, none of them the itinerary's:
+
+- **A flight could not pass a one-way surface.** The hub's basement, where the
+  lab door is, sits under a one-way floor, and the flight map closed the air
+  round every block, one-way included: `NoRoute`. A one-way now marks its
+  cells (`FlightMap::in_one_way`) instead of closing them. A flight rises and
+  crosses through one as a body does, and going down it gives the drop a
+  walker uses (`follow_flight`: a jump with the stick held past
+  `DROP_THROUGH_DESCEND`), which a flying body takes as no leap.
+- **A crouch was another body.** The autopilot keyed its graph by the body's
+  size this frame. Holding down on the platform crouched it, which dropped
+  the active graph and waited for a new one with no input, over and over
+  (1,500 frames on the platform). The key is the standing shape at the
+  body's scale (`BodyBaseSize` times the material scale).
+- **A moving platform was still at each end of its travel.** The room's
+  still overlay took a platform whose velocity was zero this frame. Station
+  L's sweeping host pauses at both ends, so the graph's inputs changed every
+  15 frames and each build was cancelled before it finished: the lab stayed
+  `Building`. `MovingPlatformState::is_still` asks the motion (a sweep, path,
+  loop, swing or spin moves; a lift is still while it waits for a rider).
+
+After: hub, lab (crossed to its far side), hub, Hall, hub, three rounds in
+6,900 frames.

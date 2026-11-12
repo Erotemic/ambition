@@ -16,6 +16,13 @@
 //! in it. A search reuses the buffers of a [`FlightSearch`], so a route plans
 //! with no allocation once the buffers have grown to the room.
 //!
+//! A one-way surface does not close the air: a flight rises and crosses
+//! through it as a body does, and goes down through it by the drop a walker
+//! uses, which the follower gives where the map says the body is in one
+//! ([`FlightMap::in_one_way`]). Closed, it sealed every room under one: the
+//! hub's basement is under a one-way floor, and a flight to its doors had no
+//! route.
+//!
 //! NOT MODELLED: a block that moves, water, and the bodies in the air.
 
 use std::cmp::Reverse;
@@ -56,6 +63,8 @@ pub struct FlightMap {
     /// For each cell, its clearance in chamfer units (`ACROSS` to a cell);
     /// `0` is a cell the centre cannot be in.
     clearance: Vec<u16>,
+    /// The cells where the body overlaps a one-way surface.
+    one_way: Vec<bool>,
 }
 
 /// The buffers of a search. A caller keeps one, and each search reuses it.
@@ -79,27 +88,28 @@ impl FlightMap {
         let cols = (world.size.x / FLIGHT_CELL).ceil().max(1.0) as i32;
         let rows = (world.size.y / FLIGHT_CELL).ceil().max(1.0) as i32;
         let mut free = vec![true; (cols * rows) as usize];
-        let mut close = |min: Vec2, max: Vec2, margin: f32| {
+        let mut one_way = vec![false; (cols * rows) as usize];
+        // Each cell where the centre puts the body within `margin` of the box.
+        let mark = |cells: &mut [bool], min: Vec2, max: Vec2, margin: f32, to: bool| {
             let lo = min - half - Vec2::splat(margin);
             let hi = max + half + Vec2::splat(margin);
             let first = |lo: f32| ((lo / FLIGHT_CELL - 0.5).floor() as i32 + 1).max(0);
             let last = |hi: f32, n: i32| ((hi / FLIGHT_CELL - 0.5).ceil() as i32 - 1).min(n - 1);
             for row in first(lo.y)..=last(hi.y, rows) {
                 for col in first(lo.x)..=last(hi.x, cols) {
-                    free[(row * cols + col) as usize] = false;
+                    cells[(row * cols + col) as usize] = to;
                 }
             }
         };
         for block in &world.blocks {
-            let margin = if matches!(block.kind, BlockKind::Hazard) {
-                HAZARD_MARGIN
-            } else {
-                MARGIN
-            };
-            close(block.aabb.min, block.aabb.max, margin);
+            match block.kind {
+                BlockKind::OneWay => mark(&mut one_way, block.aabb.min, block.aabb.max, MARGIN, true),
+                BlockKind::Hazard => mark(&mut free, block.aabb.min, block.aabb.max, HAZARD_MARGIN, false),
+                _ => mark(&mut free, block.aabb.min, block.aabb.max, MARGIN, false),
+            }
         }
         for exit in exits {
-            close(exit.min, exit.max, MARGIN);
+            mark(&mut free, exit.min, exit.max, MARGIN, false);
         }
         // The body stays in the room.
         let inside = |col: i32, row: i32| {
@@ -125,7 +135,14 @@ impl FlightMap {
             cols,
             rows,
             clearance,
+            one_way,
         }
+    }
+
+    /// Does the body with its centre at `at` overlap a one-way surface (or
+    /// all but touch it)? Going down from here, it drops through.
+    pub fn in_one_way(&self, at: Vec2) -> bool {
+        self.cell_of(at).is_some_and(|index| self.one_way[index])
     }
 
     /// The clearance of the place `at` (px): how far the body's centre can go

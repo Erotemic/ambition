@@ -38,6 +38,7 @@ mod events;
 mod facts;
 mod input;
 mod integration;
+pub(crate) use integration::DROP_THROUGH_DESCEND;
 mod kernel;
 pub mod knockdown;
 mod model;

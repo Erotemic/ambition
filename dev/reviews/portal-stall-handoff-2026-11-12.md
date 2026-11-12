@@ -95,7 +95,8 @@ another conclusion based only on those two fitted paths.
 * `target/portal-e-reverse-final/`: latest completed validation commands and logs.
 
 The earlier station J stop is also unverified. The full portal acceptance
-plan, autoplay navigation, and device/performance gates remain open.
+plan and device/performance gates remain open (autoplay navigation was
+fixed later on 2026-11-12).
 
 Before Cargo, inspect `scripts/setup/target_bindmount.sh --status`; the target
 is bound to local VM storage. No owned build or test remains running. Preserve

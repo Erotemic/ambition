@@ -17,6 +17,10 @@
 //!   the end of the step, the path from where the step began, and an edge of
 //!   that box for each contact the kernel reported (ground, head, wall). The
 //!   subject alone when the query names one, else every body in the room.
+//! - `world.regions` (GOBS-3): the room's authored regions that are not walls:
+//!   its loading zones (with how each is entered, and whether it is secret),
+//!   camera zones, gravity zones, encounter triggers and lock walls, read from
+//!   the live room's spec.
 
 use std::borrow::Cow;
 
@@ -55,6 +59,14 @@ pub fn install(app: &mut App) {
             needs_subject: true,
         },
         for_subject,
+    )
+    .add_geometry_observer(
+        ObserverInfo {
+            name: "world.regions",
+            description: "the room's loading zones, camera zones, gravity zones, encounter triggers and lock walls",
+            needs_subject: false,
+        },
+        regions,
     )
     .add_geometry_observer(
         ObserverInfo {
@@ -244,6 +256,88 @@ fn body_sweeps(
             // The wall's normal points out of it, toward the body.
             contact("contact_wall", ae::Vec2::new(-wall.wall_normal_x.signum(), 0.0));
         }
+    }
+    out
+}
+
+/// How a loading zone is entered.
+fn activation_role(activation: crate::rooms::LoadingZoneActivation) -> &'static str {
+    match activation {
+        crate::rooms::LoadingZoneActivation::EdgeExit => "zone_edge_exit",
+        crate::rooms::LoadingZoneActivation::Door => "zone_door",
+        crate::rooms::LoadingZoneActivation::Walk => "zone_walk",
+    }
+}
+
+fn region(key: String, roles: Vec<Cow<'static, str>>, min: ae::Vec2, max: ae::Vec2) -> GeometryObservation {
+    GeometryObservation {
+        key,
+        roles,
+        shape: ObservedShape::aabb(min.to_array(), max.to_array()),
+        state: ObservedState::Active,
+    }
+}
+
+/// See the module docs: `world.regions`. The room the query names (its root,
+/// else the subject's room), else the sole live room.
+fn regions(
+    query: In<ObservationQuery>,
+    rooms: crate::rooms::LiveRoomSpecs,
+    roots: Query<&LiveRoomInstance>,
+    bodies: Query<&InRoomInstance>,
+) -> Vec<GeometryObservation> {
+    let named = match (query.room, query.subject) {
+        (Some(root), _) => roots.get(root).ok().copied(),
+        (None, Some(subject)) => bodies.get(subject).ok().map(|room| room.0),
+        (None, None) => None,
+    };
+    let live = rooms.live_specs();
+    let spec = match named {
+        Some(room) => live.iter().find(|(live, _)| *live == room).map(|(_, spec)| *spec),
+        None if live.len() == 1 => Some(live[0].1),
+        None => None,
+    };
+    let Some(spec) = spec else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for zone in &spec.loading_zones {
+        let mut roles = vec![Cow::Borrowed("loading_zone"), Cow::Borrowed(activation_role(zone.activation))];
+        if zone.is_secret() {
+            roles.push(Cow::Borrowed("zone_secret"));
+        }
+        out.push(region(format!("zone {}", zone.id), roles, zone.aabb.min, zone.aabb.max));
+    }
+    for zone in &spec.camera_zones {
+        let mut roles = vec![Cow::Borrowed("camera_zone")];
+        if zone.cinematic_lock {
+            roles.push(Cow::Borrowed("camera_cinematic_lock"));
+        }
+        out.push(region(format!("camera {}", zone.id), roles, zone.aabb.min, zone.aabb.max));
+    }
+    for zone in &spec.gravity_zones {
+        out.push(region(
+            format!("gravity {}", zone.id),
+            vec![Cow::Borrowed("gravity_zone")],
+            zone.center - zone.half_extent,
+            zone.center + zone.half_extent,
+        ));
+    }
+    for trigger in &spec.encounter_triggers {
+        out.push(region(
+            format!("encounter {}", trigger.id),
+            vec![Cow::Borrowed("encounter_trigger")],
+            trigger.min,
+            trigger.min + trigger.size,
+        ));
+    }
+    for (n, wall) in spec.lock_walls.iter().enumerate() {
+        let key = if wall.id.is_empty() { format!("lock wall {n}") } else { format!("lock wall {}", wall.id) };
+        let mut roles = vec![Cow::Borrowed("lock_wall")];
+        if wall.gated_by.is_some() {
+            roles.push(Cow::Borrowed("lock_wall_gated"));
+        }
+        out.push(region(key, roles, wall.min, wall.min + wall.size));
     }
     out
 }

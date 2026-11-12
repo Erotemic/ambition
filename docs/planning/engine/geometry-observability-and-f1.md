@@ -242,6 +242,20 @@ ones, as a navigation view is apart from a collision view. Headless in
 `central_hub_complex` after 120 ticks: 33 surfaces, 12 hops, 37 drops, and
 one body's four-leg route to its goal.
 
+**Room regions landed (2026-11-11): `world.regions`**
+(`ambition_platformer2d_world::geometry_observers`, no subject needed). The
+asked room's authored regions that are not walls: each loading zone
+(`loading_zone`, with `zone_edge_exit`, `zone_door` or `zone_walk` by how it
+fires, and `zone_secret`), camera zone (`camera_zone`,
+`camera_cinematic_lock`), gravity zone (`gravity_zone`), encounter trigger
+(`encounter_trigger`) and lock wall (`lock_wall`, `lock_wall_gated` when a
+fact opens it). They are read from the live room's spec, so each is drawn
+where it is authored and always active: whether a lock wall stands now or an
+encounter has fired is its owner's state, not read here. Headless:
+`central_hub_complex` answers its 42 loading zones (40 doors, 2 edge exits);
+`noodly_scullery` a door, a camera zone, an encounter trigger and three lock
+walls, two of them gated. Portal openings remain the portal owner's.
+
 1. Adapt the **effective** combat read model: hurt source (`published`, `fallback`, `intangible`), live active hitboxes, projectile body/splash regions and boss-specific strike/contact geometry. Clearly show a dormant strike as dormant or absent rather than inventing a live hitbox.
 2. Add `InteractReach` adapter(s) for talk/chest/switch/door/item eligibility, using the real geometry *and* facing/distance/priority/room predicates. Show both eligible shapes and disabled or overridden candidates; explain why a visible NPC is not interactable. Do not treat merely being nearby as eligibility.
 3. Incorporate navigation graph, chosen advice, available traversals/hops/drops and agent-size or actor-frame constraints. Keep debug navigation distinct from collision surfaces, like Godot's separate `Visible Navigation` view.

@@ -116,6 +116,12 @@ fn role_color(observation: &GeometryObservation) -> Color {
         "nav_drop" => Color::srgba(1.0, 0.6, 0.1, 0.9),
         "nav_route" | "nav_goal" => Color::srgba(1.0, 0.2, 1.0, 0.9),
         "nav_target_place" => Color::srgba(0.2, 1.0, 1.0, 0.9),
+        // The room's regions that are not walls.
+        "loading_zone" => Color::srgba(0.3, 0.6, 1.0, 0.9),
+        "camera_zone" => Color::srgba(0.6, 0.6, 0.6, 0.6),
+        "gravity_zone" => Color::srgba(0.6, 0.3, 1.0, 0.8),
+        "encounter_trigger" => Color::srgba(1.0, 0.45, 0.45, 0.8),
+        "lock_wall" => Color::srgba(1.0, 0.7, 0.2, 0.9),
         _ => Color::srgba(0.3, 1.0, 1.0, 0.9),
     }
 }

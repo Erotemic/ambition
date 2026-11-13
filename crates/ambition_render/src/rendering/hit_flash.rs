@@ -91,8 +91,8 @@ const CHARGE_TINT: Vec3 = Vec3::new(1.0, 0.71, 0.28);
 const ARMOR_TINT: Vec3 = Vec3::new(0.58, 0.68, 0.82);
 /// The armor sheen's floor and its peak, and its period in sim ticks: a slow
 /// shimmer on a steady base, never off while the window is open.
-const ARMOR_BASE_INTENSITY: f32 = 0.30;
-const ARMOR_PEAK_INTENSITY: f32 = 0.55;
+const ARMOR_BASE_INTENSITY: f32 = 0.20;
+const ARMOR_PEAK_INTENSITY: f32 = 0.42;
 const ARMOR_PERIOD_TICKS: u64 = 18;
 /// The gate's light, the cyan of its glyphs.
 const TRANSIT_TINT: Vec3 = Vec3::new(0.56, 0.96, 1.0);

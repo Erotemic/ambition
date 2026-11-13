@@ -275,6 +275,24 @@ impl ClipRequest {
     }
 }
 
+/// The sheet row a body holding a ranged charge asks for, above its hips.
+pub const AIM_CLIP: &str = "aim";
+
+/// The poses a body's legs can keep under a row that draws only its upper
+/// body (a move's `WindowTag::UpperBody`, a held aim): it walks, runs, jumps,
+/// falls, flies or glides. Any other pose is the whole body.
+pub fn legs_go_on_under(anim: ambition_sprite_sheet::character::CharacterAnim) -> bool {
+    use ambition_sprite_sheet::character::CharacterAnim::*;
+    matches!(anim, Walk | Run | Sprint | Jump | Fall | Fly | FloatGlide)
+}
+
+/// A held aim over a body that moves: the aim row above the hips and the
+/// body's own pose below them. The picker draws a body that stands and aims
+/// as `Aim` itself; one that walks while it charges keeps walking.
+pub fn aim_over_legs(aiming: bool, anim: ambition_sprite_sheet::character::CharacterAnim) -> Option<ClipRequest> {
+    (aiming && legs_go_on_under(anim)).then(|| ClipRequest::only(AIM_CLIP).over_legs(Some(anim)))
+}
+
 /// The sheet row a body holding a smash charge asks for. Authored on the
 /// shipped fighter sheets; a sheet without it falls through the chain.
 pub const SMASH_CHARGE_CLIP: &str = "smash_charge";
@@ -502,6 +520,7 @@ pub fn rebuild_actor_anim_index(
                         None => chain,
                     })
                     .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
+                    .or_else(|| aim_over_legs(a.anim.is_some_and(|f| f.aim_anim_active) && free, anim))
                     , a.pinned, crate::pose_view::crouched(anim)),
             },
         );

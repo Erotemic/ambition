@@ -385,8 +385,9 @@ OPTIONS:
                         repeat for more places
     --player-dies TICK  the player dies on sim tick TICK (the ordinary death
                         report), to film its death; repeat for more deaths
-    --purse N           hold the player's wallet at N coins every tick, so a
-                        death has coins for its fee to take
+    --purse N           hold the player's wallet at N coins until the first
+                        --player-dies tick, so a death has coins for its fee
+                        to take and the film shows what it took
     --player-climbs     a --player-at placement also puts the body in the
                         climbing mode, to photograph it on a ladder; give a
                         point in a climbable region
@@ -1066,12 +1067,15 @@ fn kill_and_pay_the_player(
     mut deaths: MessageWriter<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
 ) {
     let Ok((body, kin, wallet)) = player.single_mut() else { return };
-    if let (Some(coins), Some(mut wallet)) = (config.purse, wallet) {
+    let now = tick.get();
+    // The purse is held until the first death, so the film shows what the
+    // death takes from it.
+    let before_a_death = config.player_dies.iter().all(|&dies| now <= dies);
+    if let (Some(coins), Some(mut wallet), true) = (config.purse, wallet, before_a_death) {
         if wallet.balance != coins {
             wallet.balance = coins;
         }
     }
-    let now = tick.get();
     if config.player_dies.contains(&now) {
         deaths.write(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
             victim: body,

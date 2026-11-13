@@ -949,9 +949,21 @@ row). Filmed in the hub (`capture_scene --player-dies 600 --purse 120`): the
 door takes the robot and the spot is empty, the robot steps out of the
 light at the respawn, the parcel lies where it fell.
 
-**Next action:** the rescue's sounds (the door's cue family
-`vfx.rescue_portal.*` has no sounds yet), and a word on screen for the fee
-taken and the debt owed.
+**Built 2026-11-13 (slice 4, heard and said):** the door's sounds are the
+wormhole's (`vfx.rescue_portal.rescue_portal_take`: the wormhole's swallow
+and the door shutting behind the body; `_give`: its release and a two-note
+chime), and the purse says what the death cost: a purse that drops shows
+the drop beside it for 2.5 s (`$70  -50`), and one in debt reads owed
+(`-$30 owed`). Not a line over the body: the body comes back at its room's
+spawn, and in the hub the door plates and signs leave a speech line (the
+last label family) no place, so the layout hides it; and the gameplay
+banner is drawn only in the developer inspector. Filmed in the hub
+(`capture_scene --player-dies 600 --purse 20 --include-ui --tick-per-frame`;
+`--purse` now holds the wallet only until the death).
+
+**Next action:** none. The acceptance's co-op half holds with the fee in
+force: the 13 `a_second_seat_joins_the_session` witnesses (recovery, the
+wipe, a departed seat, R5) pass in Ambition's rooms, which declare it.
 
 **Acceptance:** a death in Ambition reads as one on screen; the fee is taken
 and lies where the body fell until fetched; with too little to pay, the
@@ -1170,9 +1182,17 @@ frames. With nobody in play a window owes only its beat now
 (`close_death_interlude` caps it at `interlude` in rooms that declare a
 `recovery_wait`; a match's stock windows are untouched); after: 25.
 
-**Next action:** a local recovery that duplicates no object (the R5
-witness, blocked by an inherited join failure in `blink_run`). The whole
-design, for reference:
+**Built 2026-11-13 (R5: a local recovery duplicates no object):** the
+witness `a_seat_that_recovers_alone_gives_back_what_it_took_since_the_checkpoint`
+passes. Its block was the join: in `blink_run` the corridor is exactly the
+robot's height (48), a resting body overlaps floor and ceiling by float
+error (1.7e-5), and the spawn clearance's strict overlap called every place
+beside the primary inside solid. The clearance now ignores 0.01 of contact
+(`rooms::spawn::RESTING_SLACK`). Past the join, the witness counted every
+ground item in every live room, and `portal_bridge` lays out its own: it
+now names the item, and finds one copy, lying in seat 1's room.
+
+**Next action:** none; the rows below are the design, for reference:
 
 - **Individual recovery (the default):** the participant respawns by the
   single-player respawn-location policy, for itself. With nobody else active

@@ -364,6 +364,23 @@ pub fn toggle_builtin_hud_for_declared_games(
     }
 }
 
+/// How long the purse shows what it just lost.
+const PURSE_LOSS_SHOWN_S: f32 = 2.5;
+
+/// The purse's readout: "$70", or in debt (a death's fee it could not pay)
+/// "-$30 owed"; with a loss just taken, its size after it ("$70  -50").
+fn purse_text(balance: i32, loss: Option<i32>) -> String {
+    let amount = if balance < 0 {
+        format!("-${} owed", balance.unsigned_abs())
+    } else {
+        format!("${balance}")
+    };
+    match loss {
+        Some(loss) if loss > 0 => format!("{amount}  -{loss}"),
+        _ => amount,
+    }
+}
+
 /// Mirror each view's meters into the HUD widgets of that view each frame:
 /// bar widths follow the fractions, labels show the numbers.
 ///
@@ -384,10 +401,15 @@ pub fn update_player_hud(
     mut labels: ParamSet<(
         Query<(&mut Text, &HudOfView, Option<&HudOfSeat>), With<HealthLabel>>,
         Query<(&mut Text, &HudOfView, Option<&HudOfSeat>), With<ManaLabel>>,
-        Query<(&mut Text, &HudOfView, Option<&HudOfSeat>), With<MoneyLabel>>,
+        Query<(Entity, &mut Text, &HudOfView, Option<&HudOfSeat>), With<MoneyLabel>>,
         Query<(&mut Text, &mut Visibility, &HudOfView, Option<&HudOfSeat>), With<HudSeatLabel>>,
     )>,
+    time: Option<Res<Time>>,
+    // Each purse label's last balance, and the loss it shows and for how
+    // much longer.
+    mut purse_losses: Local<std::collections::HashMap<Entity, (i32, i32, f32)>>,
 ) {
+    let dt = time.as_deref().map_or(0.0, Time::delta_secs);
     let facts_of = |of: &HudOfView, seat: Option<&HudOfSeat>| {
         let (own, shared, _) = views.get(of.0).ok()?;
         let facts = match seat {
@@ -439,11 +461,18 @@ pub fn update_player_hud(
             set_text_if_changed(&mut text, label);
         }
     }
-    for (mut text, of, seat) in &mut labels.p2() {
+    for (label, mut text, of, seat) in &mut labels.p2() {
         if let Some(facts) = facts_of(of, seat) {
-            // A wallet in debt (a death's fee it could not pay) reads "-$20".
-            let sign = if facts.balance < 0 { "-" } else { "" };
-            set_text_if_changed(&mut text, format!("{sign}${}", facts.balance.unsigned_abs()));
+            let (last, loss, left) = purse_losses.entry(label).or_insert((facts.balance, 0, 0.0));
+            if facts.balance < *last {
+                // A purse that drops says by how much: a death's fee, a
+                // purchase. A second drop while one shows adds to it.
+                *loss = if *left > 0.0 { *loss + (*last - facts.balance) } else { *last - facts.balance };
+                *left = PURSE_LOSS_SHOWN_S;
+            }
+            *last = facts.balance;
+            *left = (*left - dt).max(0.0);
+            set_text_if_changed(&mut text, purse_text(facts.balance, (*left > 0.0).then_some(*loss)));
         }
     }
     // Whose each HUD is, while more than one is on the screen. The HUD of

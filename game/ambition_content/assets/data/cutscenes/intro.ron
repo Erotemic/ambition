@@ -6,21 +6,33 @@
 // not play a script whose seen flag is set). Beats: Wait(seconds),
 // Dialogue(speaker, text) (waits for the dismiss button), CameraPan(target,
 // seconds), Fade(from_alpha, to_alpha, seconds) with 0.0 clear and 1.0 black
-// (both ends are authored, Q143), SetFlag(id, on) and Banner(text, seconds).
-// A room plays a script on entry when its `entry_cutscene` level field names it.
+// (both ends are authored, Q143), SetFlag(id, on), Banner(text, seconds) and
+// Fall(character), a scripted death in the cutscene's room. A skip still
+// applies the flags and falls it passes over.
+// A room plays a script on entry when its `entry_cutscene` level field names
+// it; a `CutsceneTrigger` volume plays one when a player body stands in it.
 //
 // Beats are short: the intro design is firm that the intro must not become a
 // long cutscene wall.
 
 [
-    // The creator's interrupted final lines. v1 plays the normal route; the
-    // fast and impossible variants are in the design doc for a v1.x pass.
+    // The creator's last words, at the volume by the corridor's far end: the
+    // robot reaches the way out, and the raid takes him there. If he fell in
+    // the fight already, these are the words he had left. The fast and
+    // impossible variants are in `intro.yarn` for a later pass.
     (
         id: "creator_final_fragment",
         beats: [
             Dialogue(
                 speaker: "Creator",
-                text: "There\'s a question you were made to—",
+                text: "Go. Up the shaft. They came for you, not for me.",
+            ),
+            Dialogue(
+                speaker: "Creator",
+                text: "I made you to ask a question. Find out what it—",
+            ),
+            Fall(
+                character: "npc_creator",
             ),
             SetFlag(
                 id: "intro_creator_dead",

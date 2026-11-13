@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v461
+ggrs-rollback-schema-v462
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -495,6 +495,7 @@ resource.custody_baseline	component-clone-custom-checksum	CustodyBaseline	bevy_g
 resource.day_clock	resource-canonical	DayClock	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.encounter_clears_in_rooms	resource-clone-custom-checksum	EncounterClearsInRooms	bevy_ggrs clone snapshot + the wave encounters rooms cleared within the rewind horizon, with the switches each greened and what they were, which a room rewind puts back (ISL-2d)
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; not in the session checksum
+resource.facts_baseline	component-clone-custom-checksum	FactsBaseline	bevy_ggrs clone snapshot + the save's flags and quest steps at the last checkpoint, which a death puts back
 resource.flag_writes_in_rooms	resource-clone-custom-checksum	FlagWritesInRooms	bevy_ggrs clone snapshot + the save-flag writes rooms made within the rewind horizon, with what each replaced, which a room rewind puts back (ISL-2d)
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not in the session checksum
 resource.gameplay_elapsed	component-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

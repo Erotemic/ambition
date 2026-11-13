@@ -822,10 +822,13 @@ body in the world, and the possessed body keeps its geometry and state.
 
 **Next:**
 
-1. *The creator's end.* He can fall in the fight (12 HP), but his last words
-   (`creator_final_fragment`) play from nothing yet, and nothing makes him
-   fall when the player wins. Wants a beat or a command that ends an actor,
-   and a decision on whether he always dies here.
+1. *The creator's end (built 2026-11-12):* his last words
+   (`creator_final_fragment`) play at a `CutsceneTrigger` by the corridor's
+   far end and end on a new `Fall` beat (a scripted death in the cutscene's
+   room). A skip now keeps a script's flags and falls (it passes over the
+   show, not the story). Decided: he always dies here; if he fell in the
+   fight already, the words are the ones he had left. The fast and
+   impossible variants in `intro.yarn` are not wired.
 2. *The message board's fight rows* (art: its sheet has no attack rows).
 
 *Oiler (built 2026-11-12):* he stands past the grate (x 720) with

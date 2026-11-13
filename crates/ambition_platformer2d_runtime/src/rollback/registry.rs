@@ -265,7 +265,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // registers a `PortalGenerator` and its gestures, and no gun pickup.
 // 459 -> 460: `boss.encounter`'s cursor encodes the conductor's health floor
 // (`ambition.boss.health_floor`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 461;
+// 460 -> 461: a body's frame material keeps its scale and parity through a
+// checkpoint save and an admitted arrival (8f3e7ab968).
+// 461 -> 462: a cutscene beat can be a `Fall` (a scripted death).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 462;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

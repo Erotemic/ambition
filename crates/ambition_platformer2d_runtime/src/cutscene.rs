@@ -319,12 +319,14 @@ pub fn tick_active_cutscene(
     // The seats and the rooms of the bodies they drive: a room's cutscene
     // is skipped and dismissed by a seat in its room. And the flag channel
     // and the tick its flags are dated on. And its room's pace.
-    (drivers, rooms, mut requests, tick, freeze): (
+    (drivers, rooms, mut requests, tick, freeze, mut cast): (
         Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
         Option<ResMut<Messages<ambition_combat::events::SetFlagRequested>>>,
         Option<Res<ambition_time::SimTick>>,
         ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
+        // The bodies a `Fall` beat can name: by the character they wear.
+        Query<(Entity, &ambition_characters::actor::WornCharacter, &mut ambition_characters::actor::BodyHealth)>,
     ),
 ) {
     let written = active.room.zip(tick.as_deref()).map(|(room, tick)| {
@@ -339,6 +341,19 @@ pub fn tick_active_cutscene(
     // in another room does not stretch it.
     let dt = time.sim_dt()
         * freeze.scale_in(active.room.map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal));
+
+    let room = active.room;
+    // A `Fall` beat: the character's bodies in the cutscene's room (in every
+    // room, for a cutscene of the whole world) fall, as if their health ran
+    // out; the death beat and every consequence of a death follow from it.
+    let mut fall = |character: &str| {
+        for (body, worn, mut health) in &mut cast {
+            let here = room.is_none() || rooms.of(body).map(|at| at.ordinal()) == room;
+            if here && worn.0.as_str() == character && health.health.current > 0 {
+                health.health.current = 0;
+            }
+        }
+    };
 
     let Some(runtime) = active.runtime.as_mut() else {
         // A partial hold belongs to the cutscene that accumulated it.
@@ -358,8 +373,17 @@ pub fn tick_active_cutscene(
 
     if skip {
         skip_hold.seconds = 0.0;
-        let _ = runtime.skip();
-        let flags = end_cutscene(&mut active).map(|seen| (seen, true)).into_iter().collect();
+        // The show is skipped, not the story: the rest of the script's
+        // flags and falls still happen.
+        let mut flags = Vec::new();
+        for event in runtime.skip() {
+            match event {
+                CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
+                CutsceneEvent::CharacterFell { character } => fall(&character),
+                _ => {}
+            }
+        }
+        flags.extend(end_cutscene(&mut active).map(|seen| (seen, true)));
         write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
         return;
     }
@@ -376,6 +400,7 @@ pub fn tick_active_cutscene(
             // dialogue left the dialogue on screen.
             CutsceneEvent::BeatEntered { .. } => {}
             CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
+            CutsceneEvent::CharacterFell { character } => fall(&character),
             CutsceneEvent::Skipped | CutsceneEvent::Completed => {
                 completed = true;
             }

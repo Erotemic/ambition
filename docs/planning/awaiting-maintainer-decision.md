@@ -96,3 +96,23 @@ moves less than its own volume plus the smallest body.
 
 **Owner:** `ambition_combat::hitbox` (`apply_hitbox_damage`, `turned_aside`).
 Engineering for (b) is a queue row once ruled.
+
+## Q173 — Does the creator always die in the raid?
+
+**Context (2026-11-12, INTRO-RAID).** Jon: the creator follows the robot
+into the second room, "where he dies, though he doesn't actually die now".
+Built: he fights beside the robot (he can fall in the fight, 12 HP), and
+when the robot reaches the corridor's far end his last words play and end
+on a scripted `Fall`. Default taken: **he always dies there**; if he fell in
+the fight already, the same words play as the ones he had left.
+
+**Options:**
+
+* **(a) Always, at the way out** (now).
+* **(b) Only if he falls in the fight**; at the way out, a living creator
+  says something else and stays behind (or goes another way).
+* **(c) Never in the intro**; his death moves later in the story.
+
+**Owner:** `data/cutscenes/intro.ron` (`creator_final_fragment`) and the
+volume at the corridor's far end in `intro.ldtk`. Each option is content
+only.

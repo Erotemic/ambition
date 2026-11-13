@@ -140,6 +140,9 @@ fn beat_problem(beat: &CutsceneBeat) -> Option<String> {
         CutsceneBeat::SetFlag { id, .. } => {
             id.trim().is_empty().then(|| "the flag id is empty".to_string())
         }
+        CutsceneBeat::Fall { character } => {
+            character.trim().is_empty().then(|| "the character id is empty".to_string())
+        }
         CutsceneBeat::Dialogue { .. } => None,
     }
 }

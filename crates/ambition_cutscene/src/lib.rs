@@ -56,6 +56,10 @@ pub enum CutsceneBeat {
     /// Show a non-dialogue HUD banner (e.g. "Three years later…")
     /// for `seconds`.
     Banner { text: String, seconds: f32 },
+    /// The character `character` (a catalog id) in the cutscene's room falls:
+    /// a scripted death, as if its health ran out. Instant, like `SetFlag`,
+    /// and like it a consequence a skip still applies.
+    Fall { character: String },
 }
 
 /// Everything a cutscene is SHOWING right now, derived from where it is.
@@ -138,7 +142,7 @@ impl CutsceneRuntime {
             // A wait or a flag write shows nothing — and says so, rather than
             // leaving the previous beat's picture up. The fade is not a
             // picture a beat puts up; it is the state of the screen.
-            CutsceneBeat::Wait { .. } | CutsceneBeat::SetFlag { .. } => CutscenePresentation {
+            CutsceneBeat::Wait { .. } | CutsceneBeat::SetFlag { .. } | CutsceneBeat::Fall { .. } => CutscenePresentation {
                 fade_alpha: standing,
                 ..Default::default()
             },
@@ -170,6 +174,16 @@ impl CutsceneRuntime {
 }
 
 impl CutsceneBeat {
+    /// What this beat does to the world, apart from what it shows: the event
+    /// the caller applies. `None` for a beat that only shows something.
+    pub fn consequence(&self) -> Option<CutsceneEvent> {
+        match self {
+            Self::SetFlag { id, on } => Some(CutsceneEvent::FlagWritten { id: id.clone(), on: *on }),
+            Self::Fall { character } => Some(CutsceneEvent::CharacterFell { character: character.clone() }),
+            _ => None,
+        }
+    }
+
     /// Whether the beat self-times (the runtime auto-advances after
     /// `seconds`) or whether it waits for a player dismiss
     /// (Dialogue / Fade-to-1.0 — currently only Dialogue).
@@ -254,12 +268,7 @@ impl CutsceneRuntime {
         // First-frame entry into a beat: emit `BeatEntered`.
         if self.elapsed == 0.0 {
             if let Some(beat) = self.script.beats.get(self.beat_index).cloned() {
-                if let CutsceneBeat::SetFlag { id, on } = &beat {
-                    out.push(CutsceneEvent::FlagWritten {
-                        id: id.clone(),
-                        on: *on,
-                    });
-                }
+                out.extend(beat.consequence());
                 out.push(CutsceneEvent::BeatEntered {
                     index: self.beat_index,
                     beat,
@@ -280,7 +289,7 @@ impl CutsceneRuntime {
                 self.elapsed += dt;
                 self.elapsed >= *seconds
             }
-            CutsceneBeat::SetFlag { .. } => true,
+            CutsceneBeat::SetFlag { .. } | CutsceneBeat::Fall { .. } => true,
             CutsceneBeat::Banner { seconds, .. } => {
                 self.elapsed += dt;
                 self.elapsed >= *seconds
@@ -297,14 +306,23 @@ impl CutsceneRuntime {
         out
     }
 
-    /// Cancel and skip remaining beats. Emits `Skipped` so the caller
-    /// can still apply terminal flags (e.g. mark the cutscene seen).
+    /// Cancel and skip remaining beats. A skip passes over the SHOW, not
+    /// the story: the remaining beats' consequences (their flags and falls)
+    /// are emitted, then `Skipped`, so the caller applies them and marks the
+    /// cutscene seen. A skipped death that left its character standing, or a
+    /// skipped flag that left a door shut, would make skipping a choice
+    /// about the world.
     pub fn skip(&mut self) -> Vec<CutsceneEvent> {
         if self.finished {
             return Vec::new();
         }
         self.finished = true;
-        vec![CutsceneEvent::Skipped]
+        // An instant beat is entered and passed on one tick, so the beats
+        // from `beat_index` on have not been applied.
+        let mut out: Vec<CutsceneEvent> =
+            self.script.beats.get(self.beat_index..).unwrap_or_default().iter().filter_map(CutsceneBeat::consequence).collect();
+        out.push(CutsceneEvent::Skipped);
+        out
     }
 }
 
@@ -313,6 +331,8 @@ impl CutsceneRuntime {
 pub enum CutsceneEvent {
     BeatEntered { index: usize, beat: CutsceneBeat },
     FlagWritten { id: String, on: bool },
+    /// A `Fall` beat: the character falls in the cutscene's room.
+    CharacterFell { character: String },
     Skipped,
     Completed,
 }
@@ -783,6 +803,35 @@ mod tests {
         assert!(evs.is_empty());
     }
 
+    /// A skip passes over the show and keeps the story: the flags and falls
+    /// of the beats it skipped are still emitted, before `Skipped`; the
+    /// beats already played are not emitted again.
+    #[test]
+    fn a_skip_keeps_the_flags_and_falls_it_skipped() {
+        let script = CutsceneScript::new(
+            "last_words",
+            vec![
+                CutsceneBeat::SetFlag { id: "before".into(), on: true },
+                CutsceneBeat::Dialogue { speaker: "A".into(), text: "B".into() },
+                CutsceneBeat::Fall { character: "npc_creator".into() },
+                CutsceneBeat::SetFlag { id: "after".into(), on: true },
+            ],
+        );
+        let mut runtime = CutsceneRuntime::new(script);
+        let played = runtime.tick(0.0, false);
+        assert!(played.contains(&CutsceneEvent::FlagWritten { id: "before".into(), on: true }));
+        let _ = runtime.tick(0.0, false);
+        assert!(matches!(runtime.current_beat(), Some(CutsceneBeat::Dialogue { .. })));
+        assert_eq!(
+            runtime.skip(),
+            vec![
+                CutsceneEvent::CharacterFell { character: "npc_creator".into() },
+                CutsceneEvent::FlagWritten { id: "after".into(), on: true },
+                CutsceneEvent::Skipped,
+            ]
+        );
+    }
+
     #[test]
     fn auto_advances_predicate_distinguishes_dialogue_from_others() {
         // Dialogue waits for player input.
@@ -839,6 +888,7 @@ mod snapshot {
     const FADE: u32 = 3;
     const SET_FLAG: u32 = 4;
     const BANNER: u32 = 5;
+    const FALL: u32 = 6;
 
     impl SnapshotState for CutsceneBeat {
         fn encode(&self, out: &mut Vec<u8>) {
@@ -878,6 +928,10 @@ mod snapshot {
                     put_str(out, text);
                     put_f32(out, *seconds);
                 }
+                Self::Fall { character } => {
+                    put_u32(out, FALL);
+                    put_str(out, character);
+                }
             }
         }
 
@@ -906,6 +960,9 @@ mod snapshot {
                 BANNER => Self::Banner {
                     text: reader.str()?.to_owned(),
                     seconds: reader.f32()?,
+                },
+                FALL => Self::Fall {
+                    character: reader.str()?.to_owned(),
                 },
                 // Refuse unknown tags rather than decoding a different beat.
                 _ => return None,

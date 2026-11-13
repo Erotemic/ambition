@@ -39,26 +39,108 @@ pub(super) fn spawn_death_explosion(
         });
 }
 
-/// Lateral offset (px) each split offspring spawns from the parent's corpse.
-const SPLIT_OFFSET_X: f32 = 30.0;
-
-/// Half-size of a split offspring.
-const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
-
 /// How long a split offspring cannot be hurt, from its birth: longer than any
-/// strike's live window, so the blow that split its parent, still live, does
-/// not kill the halves it made.
+/// strike's live window, so a strike already live where the halves appear
+/// (the next swing at the dividing body) does not end a half on the tick it
+/// is born.
 const SPLIT_GRACE_S: f32 = 0.45;
 
-/// A dividing body splits into two offspring on death — one to each side —
-/// through the runtime-minion spawner. What it splits into is the parent's own
-/// `divides_into` (a Dividing Mite into its two halves). The offspring do not
-/// divide, so the split is exactly one level deep: kill the slow parent, then
-/// handle two quick children.
+/// How hard a death blast shakes the view: a little under a bomb's 9 px, as
+/// its blast is a little smaller.
+const DEATH_BLAST_SHAKE_PX: f32 = 7.0;
+
+/// The death rows that have played to their end lead into what their bodies
+/// become: a volatile body's blast, a dividing body's two halves. They come at
+/// the end of the row and not at the kill, because the row draws the lead-in
+/// (the fuse burning down, the lobes pulling apart), and a blast before its
+/// fuse is a blast with no warning.
 ///
-/// Each child is born in its post-hit grace ([`SPLIT_GRACE_S`]): the strike
-/// that killed the parent is still live where the children appear, and a new
-/// body is not on its list of bodies already struck.
+/// Only a death that ran the world's death consequences is due a finale
+/// (`DeathBeat::finale_due`): a ruleset's KO and a fall out of the world are
+/// not. Runs after `advance_death_beats` in the same tick, so the finale and a
+/// `Gone` body leaving the view land on one tick.
+pub fn run_death_row_finales(
+    sprite_content: Res<ambition_sprite_sheet::SpriteContent>,
+    catalogs: super::damage::FeatureHitCatalogs,
+    mut bodies: Query<(
+        Entity,
+        &mut ambition_combat::components::DeathBeat,
+        &ambition_combat::CombatCapabilities,
+        &ae::BodyKinematics,
+        &ambition_combat::components::ActorIdentity,
+    )>,
+    mut writers: super::damage::FeatureHitWriters,
+    // The blast's burst, drawn with its own paired sound. `Option`: a
+    // composition with no presentation draws no burst.
+    mut bursts: Option<MessageWriter<ambition_vfx::FxRequest>>,
+) {
+    for (entity, mut beat, caps, kin, identity) in &mut bodies {
+        if !beat.finale_due || !beat.row_ended() {
+            continue;
+        }
+        beat.finale_due = false;
+        let scope = writers.spawn_scope_from(entity);
+        if caps.explodes_on_death {
+            detonate_corpse(&mut writers, bursts.as_mut(), entity, kin.pos, scope.room());
+        }
+        if let (Some(offspring), Some(generation)) = (caps.divides_into.as_deref(), catalogs.generation.as_deref()) {
+            spawn_split_offspring(
+                &sprite_content,
+                &mut writers.commands,
+                &catalogs.characters,
+                &generation.sheets,
+                catalogs.prepared.get(),
+                scope,
+                &identity.id,
+                kin.pos,
+                kin.size(),
+                kin.facing,
+                offspring,
+            );
+        }
+    }
+}
+
+/// The blast of a volatile body at its corpse: the hitbox, the burst drawn as
+/// big as the area it hurts (the way a bomb's blast is: its 80 px blast draws
+/// a 2.2 burst, and one small burst over a 128 px blast read as no explosion
+/// at all) with the burst's own sound, and a shake.
+fn detonate_corpse(
+    writers: &mut super::damage::FeatureHitWriters,
+    bursts: Option<&mut MessageWriter<ambition_vfx::FxRequest>>,
+    owner: Entity,
+    pos: ae::Vec2,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) {
+    spawn_death_explosion(&mut writers.damage_boxes, owner, pos);
+    if let Some(bursts) = bursts {
+        let mut burst = ambition_vfx::FxRequest::classic(room, pos).with_scale(1.75);
+        if let Some(source) = writers.source_of(Some(owner)) {
+            burst = burst.from_source(source);
+        }
+        bursts.write(burst);
+    }
+    let mut room_vfx = writers.vfx.for_room(room);
+    for (fx, scale) in [(ambition_vfx::fx::ids::SMOKE_BURST, 1.45), (ambition_vfx::fx::ids::SHOCKWAVE, 1.3)] {
+        room_vfx.write(ambition_vfx::vfx::VfxMessage::Effect { pos, fx, scale, pose: ambition_vfx::FxPose::UPRIGHT });
+    }
+    if let Some(shake) = writers.shake.as_mut() {
+        shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
+            amplitude_px: DEATH_BLAST_SHAKE_PX,
+            room,
+        });
+    }
+}
+
+/// A dividing body splits into two offspring at the end of its death row, one
+/// where each half of it stood: a quarter of its width out from its middle,
+/// the front half on its front, each half facing away from the other, as its
+/// death row leaves them. Through the runtime-minion spawner. What it splits
+/// into is the parent's own `divides_into` (a Dividing Mite into its two
+/// halves). The offspring do not divide, so the split is exactly one level
+/// deep: kill the slow parent, then handle two quick children.
+///
+/// Each child is born in its post-hit grace ([`SPLIT_GRACE_S`]).
 pub(super) fn spawn_split_offspring(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -69,9 +151,12 @@ pub(super) fn spawn_split_offspring(sprite_content: &ambition_sprite_sheet::Spri
     session_scope: SessionSpawnScope,
     parent_id: &str,
     pos: ae::Vec2,
+    parent_size: ae::Vec2,
+    parent_facing: f32,
     // AC5.4: WHAT it splits into, from the parent character's own `divides_into`.
     offspring: &str,
 ) {
+    let forward = if parent_facing < 0.0 { -1.0 } else { 1.0 };
     let cast = match ambition_platformer2d_actor_spawn::summon_cast(prepared, offspring) {
         Ok(cast) => cast,
         Err(refusal) => {
@@ -87,17 +172,22 @@ pub(super) fn spawn_split_offspring(sprite_content: &ambition_sprite_sheet::Spri
             cast,
             session_scope,
             format!("{parent_id}:split{i}"),
-            pos + ae::Vec2::new(side * SPLIT_OFFSET_X, 0.0),
-            SPLIT_OFFSPRING_HALF,
+            pos + ae::Vec2::new(side * forward * parent_size.x * 0.25, 0.0),
+            // Half the parent's box, so a half stands on the parent's feet
+            // until its own sheet sizes it.
+            ae::Vec2::new(parent_size.x * 0.25, parent_size.y * 0.5),
             offspring,
             format!("{parent_id}:split"),
             ambition_characters::actor::ActorFaction::Enemy,
             ambition_combat::components::ActorAggression::hostile(),
         );
         // Queued after the spawn's own commands, so it finds the built body.
-        commands.entity(child).queue(|mut child: EntityWorldMut| {
+        commands.entity(child).queue(move |mut child: EntityWorldMut| {
             if let Some(mut combat) = child.get_mut::<ambition_characters::actor::BodyCombat>() {
                 combat.damage_invuln_timer = combat.damage_invuln_timer.max(SPLIT_GRACE_S);
+            }
+            if let Some(mut kin) = child.get_mut::<ae::BodyKinematics>() {
+                kin.facing = side * forward;
             }
         });
     }

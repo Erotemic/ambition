@@ -394,7 +394,7 @@ pub const BOSS_BOUNTY: i32 = 50;
 pub const ENEMY_HEALTH_DROP: i32 = 1;
 
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
-pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
+pub fn apply_feature_hit_events(
     mut hit_events: MessageReader<HitEvent>,
     // Every victim's PUBLISHED silhouette, looked up by entity.
     //
@@ -602,13 +602,11 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
     // encounter resources — death save/quest/music resolution lives in
     // `update_boss_encounters`.
 ) {
-    let Some(generation) = catalogs.generation.as_deref() else {
+    if catalogs.generation.is_none() {
         return;
-    };
+    }
     let base_feel = bark_draw.feel();
     let catalog = &*catalogs.characters;
-    // AD8: the prepared cast, borrowed once beside the catalog it stands behind.
-    let prepared = catalogs.prepared.get();
     // Wave-1 follow-up: apply the player's outgoing power-slider scale to their
     // MELEE, the way `ProjectileKind::spec` already scales player projectiles.
     // Enemy melee (a non-`PlayerSlash` source) is untouched; incoming
@@ -751,11 +749,9 @@ pub fn apply_feature_hit_events(sprite_content: bevy::prelude::Res<ambition_spri
                 continue;
             }
             let hurt = combat_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
-            if apply_actor_hit(&sprite_content,
+            if apply_actor_hit(
                 &event,
                 catalog,
-                prepared,
-                &generation.sheets,
                 actor_entity,
                 *disposition,
                 ruleset_owns_death,

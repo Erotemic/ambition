@@ -6,8 +6,6 @@
 use bevy::prelude::Entity;
 
 use super::super::ae;
-use super::super::death_effects::{spawn_death_explosion,
-    spawn_split_offspring};
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 use ambition_combat::util::midpoint;
@@ -26,10 +24,6 @@ use super::*;
 /// before gravity takes over; tuned well under the patrol speed's order so it
 /// reads as a knock, not a launch.
 const CLING_DETACH_POP_SPEED: f32 = 180.0;
-
-/// How hard a death blast shakes the view: a little under a bomb's 9 px, as
-/// its blast is a little smaller.
-const DEATH_BLAST_SHAKE_PX: f32 = 7.0;
 
 /// What a kill does to the dead body's own lifecycle.
 ///
@@ -121,12 +115,9 @@ mod death_flag_tests {
 
 /// A dead hostile actor returns `false` (no-op).
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteContent,
+pub(crate) fn apply_actor_hit(
     event: &HitEvent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    // The prepared cast, which a split's offspring is built from.
-    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     actor_entity: Entity,
     disposition: ActorDisposition,
     // Does a RULESET own this body's death? A match fighter's KO belongs to the
@@ -565,6 +556,9 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                 em.kin.vel += peel;
             }
         }
+        // A body that splits in the world does not die there: its death row
+        // is its division, so it is not shown as a death below.
+        let mut divides = false;
         if killed && ruleset_owns_death {
             // THE KO, announced (S4). This branch is exactly where a match
             // rather than the world takes over, so it is where the stocks loop
@@ -624,38 +618,18 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                         ENEMY_BOUNTY,
                     );
                 }
-                // Volatile archetypes detonate on death — a sizable
-                // Enemy-faction blast at the corpse, so a point-blank kill is
-                // punished (the read: kill it at range / sidestep the body).
-                if caps.explodes_on_death {
-                    spawn_death_explosion(
-                        &mut writers.damage_boxes,
-                        actor_entity,
-                        em.kin.pos,
-                    );
-                    // Drawn as big as the area it hurts, the way a bomb's
-                    // blast is (its 80 px blast draws a 2.2 burst): one small
-                    // burst over a 128 px blast read as no explosion at all.
-                    // Its sound is the character's death cue.
-                    let mut room_vfx = writers.vfx.for_room(room);
-                    for (fx, scale) in [
-                        (ambition_vfx::fx::ids::CLASSIC_BURST, 1.75),
-                        (ambition_vfx::fx::ids::SMOKE_BURST, 1.45),
-                        (ambition_vfx::fx::ids::SHOCKWAVE, 1.3),
-                    ] {
-                        room_vfx.write(VfxMessage::Effect {
-                            pos: em.kin.pos,
-                            fx,
-                            scale,
-                            pose: ambition_vfx::FxPose::UPRIGHT,
-                        });
-                    }
-                    if let Some(shake) = writers.shake.as_mut() {
-                        shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
-                            amplitude_px: DEATH_BLAST_SHAKE_PX,
-                            room,
-                        });
-                    }
+                // A volatile body's blast and a dividing body's two halves
+                // come at the end of its death row, which draws the lead-in
+                // (the fuse burning down, the lobes pulling apart); see
+                // `death_effects::run_death_row_finales`. This death is one
+                // that runs the world's death consequences, so it is due.
+                divides = caps.divides_into.is_some();
+                if caps.has_death_row_finale() {
+                    writers.commands.entity(actor_entity).queue(|mut body: bevy::prelude::EntityWorldMut| {
+                        if let Some(mut beat) = body.get_mut::<ambition_combat::components::DeathBeat>() {
+                            beat.finale_due = true;
+                        }
+                    });
                 }
                 // A spirit bursts into shots that run the floor out of it.
                 if let (Some(burst), Some(projectiles)) = (caps.bursts_into.as_ref(), writers.projectiles.as_mut()) {
@@ -682,18 +656,6 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
                             ambition_projectiles::ProjectileStart::StepThisTick,
                         ));
                     }
-                }
-                if let Some(offspring) = caps.divides_into.as_deref() {
-                    spawn_split_offspring(&sprite_content,
-                        &mut writers.commands,
-                        catalog,
-                        authored_sheets,
-                        prepared,
-                        session_scope,
-                        &em.identity.id,
-                        em.kin.pos,
-                        offspring,
-                    );
                 }
                 if let (true, Some(parent)) = (id_drops_health(&em.identity.id), &parent) {
                     drop_health_pickup(
@@ -752,19 +714,21 @@ pub(crate) fn apply_actor_hit(sprite_content: &ambition_sprite_sheet::SpriteCont
         // split offspring, held-item drop, respawn timer. A body dying in its
         // own voice is not on that list and never was.
         if killed {
-            writers.vfx.write_in(room, VfxMessage::Burst {
-                pos: em.kin.pos,
-                count: 16,
-                speed: 230.0,
-                color: [0.84, 0.95, 1.0, 0.82],
-                kind: ParticleKind::Spark,
-            },
-            );
-            writers.debris.write(DebrisBurstMessage {
-                room,
-                pos: em.kin.pos,
-                cue: PhysicsDebrisCue::EnemyRagdoll,
-            });
+            if !divides {
+                writers.vfx.write_in(room, VfxMessage::Burst {
+                    pos: em.kin.pos,
+                    count: 16,
+                    speed: 230.0,
+                    color: [0.84, 0.95, 1.0, 0.82],
+                    kind: ParticleKind::Spark,
+                },
+                );
+                writers.debris.write(DebrisBurstMessage {
+                    room,
+                    pos: em.kin.pos,
+                    cue: PhysicsDebrisCue::EnemyRagdoll,
+                });
+            }
             // A body dies in its OWN voice: the cue its character authors, or
             // the death cue of the game that owns the body.
             let death_cue = match caps.death_sound.as_deref() {

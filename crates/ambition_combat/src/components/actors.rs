@@ -756,6 +756,10 @@ pub struct DeathBeat {
     pub lived: bool,
     /// What the body leaves after the row. Resolved on the tick it dies.
     pub corpse: ambition_characters::actor::Corpse,
+    /// The row leads into what the body becomes (its blast, its two halves),
+    /// due at the row's end. Set by the death that runs the world's death
+    /// consequences, and cleared when the finale runs or the body lives again.
+    pub finale_due: bool,
 }
 
 impl DeathBeat {
@@ -777,6 +781,7 @@ impl DeathBeat {
             since_s: None,
             lived: false,
             corpse: ambition_characters::actor::Corpse::default(),
+            finale_due: false,
         }
     }
 
@@ -785,6 +790,7 @@ impl DeathBeat {
         if alive {
             self.lived = true;
             self.since_s = None;
+            self.finale_due = false;
             return;
         }
         match self.since_s {
@@ -815,7 +821,13 @@ impl DeathBeat {
                 let into = since - blink_from;
                 into < Self::BLINK_S && ((into / Self::BLINK_STEP_S) as u32) % 2 == 0
             }
+            ambition_characters::actor::Corpse::Gone => since < self.row_s,
         }
+    }
+
+    /// Whether the body's death row has played to its end.
+    pub fn row_ended(&self) -> bool {
+        self.since_s.is_some_and(|since| since >= self.row_s)
     }
 }
 

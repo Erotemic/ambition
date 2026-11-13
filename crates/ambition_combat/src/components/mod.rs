@@ -64,9 +64,10 @@ mod tests {
 /// [`ae::AbilitySet`].
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct CombatCapabilities {
-    /// Detonates at the corpse on death (Enemy-faction blast), so a
-    /// point-blank kill is punished.
+    /// Detonates at the corpse when its death row ends (Enemy-faction
+    /// blast), so a point-blank kill is punished.
     pub explodes_on_death: bool,
+    /// Splits into two of this character when its death row ends.
     pub divides_into: Option<String>,
     /// A fast charge stopped dead by a wall destroys this actor.
     pub charge_crash_explodes: bool,
@@ -89,6 +90,14 @@ pub struct CombatCapabilities {
     /// The shots it bursts into when it dies. See
     /// [`ambition_characters::actor::DeathBurst`].
     pub bursts_into: Option<ambition_characters::actor::DeathBurst>,
+}
+
+impl CombatCapabilities {
+    /// Whether this body's death row leads into what it becomes (its blast,
+    /// its two halves), which comes at the row's end and not at the kill.
+    pub fn has_death_row_finale(&self) -> bool {
+        self.explodes_on_death || self.divides_into.is_some()
+    }
 }
 
 impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {

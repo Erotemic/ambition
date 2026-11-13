@@ -326,12 +326,11 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.30, active_s: 0.10, recover_s: 0.34, damage: 1, reach_px: 30.0)),
         ),
-        // It does not swing: in reach of its foe it plants, swells for the
-        // fuse, and goes off. The blast is its death trait, so a mite killed
-        // before the fuse ends goes off just the same.
-        "exploding_mite_fuse": (
+        // It snaps with its mandibles. It goes off only when it dies: the
+        // blast is its death trait, at the end of its death row (the fuse).
+        "exploding_mite_snap": (
             move_style: Walk,
-            melee: Some(Detonate(fuse_s: 0.9, reach_px: 40.0)),
+            melee: Some(Swipe(windup_s: 0.30, active_s: 0.08, recover_s: 0.34, damage: 1, reach_px: 28.0)),
         ),
         // A hammer is slow and it hurts.
         "brute_hammer": (
@@ -3655,22 +3654,23 @@
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
-            default_action_set: "exploding_mite_fuse",
-            // THE BODY: fast and fragile. It runs at its foe and detonates, and
-            // it detonates at the corpse too, so a point-blank kill is punished.
-            death_traits: Some((explodes_on_death: true, death_sound: Some("vfx.explosion.classic_burst"), corpse: Some(Vanish))),
+            default_action_set: "exploding_mite_snap",
+            // THE BODY: fast and fragile. It runs at its foe and snaps. Killed,
+            // its fuse lights (the spark is its death cue), its death row burns
+            // the fuse down, and at the row's end it goes off and is gone, so
+            // a point-blank kill is punished: kill it at range, or step away.
+            death_traits: Some((explodes_on_death: true, death_sound: Some("enemy.robot.death_spark"), corpse: Some(Gone))),
             locomotion: Some((run_speed: 245.0, move_style: Walk)),
-            // No contact damage: its threat is the blast. A touch that hurt
-            // gave its foe the post-hit grace that the blast then landed in,
-            // so a mite that reached you never hurt you with the blast.
+            // No contact damage: a touch that hurt gave its foe the post-hit
+            // grace that the blast then landed in.
             autonomous_profile: Some((
                 template: Smash,
                 aggro_radius: 460.0,
-                attack_range: 60.0,
+                attack_range: 50.0,
             )),
             max_health: Some(2),
             tags: ["enemy", "robot"],
-            cues: (tell: Some("enemy.exploding_mite.tell")),
+            cues: (tell: Some("enemy.exploding_mite.tell"), swing: Some("enemy.exploding_mite.swing")),
         barks: (
             on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
             provoked: ["FINAL PROTOCOL!"],
@@ -3699,9 +3699,11 @@
             default_action_set: "dividing_mite_swipe",
             // THE BODY: four hit points, slower and tankier, and on death it splits
             // into its own two halves (Jon 2026-11-11: "the 2 parts of itself, not
-            // 2 puppy slugs"). The mite names its own offspring: a reusable
+            // 2 puppy slugs"). Its death row is the division: the lobes pull
+            // apart, and at the row's end a half stands where each lobe is and
+            // the parent is gone. The mite names its own offspring: a reusable
             // platformer has no business knowing what an Ambition mite becomes.
-            death_traits: Some((divides_into: Some("npc_dividing_mite_half"), corpse: Some(Vanish))),
+            death_traits: Some((divides_into: Some("npc_dividing_mite_half"), death_sound: Some("enemy.slime.split"), corpse: Some(Gone))),
             locomotion: Some((run_speed: 130.0, move_style: Walk)),
             contact_damage: Some((strength: 0.70, amount: 1)),
             autonomous_profile: Some((

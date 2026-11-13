@@ -937,18 +937,29 @@ partner with its momentum carried, and hurts as it did.
 **Owner:** the math-polish subagent (Jon, 2026-11-12: "You can use up to 2
 subagents"). Reports (Jon, 2026-11-12):
 
-1. In the hotel's spectral wing, background tiles of different widths do not
-   line up, with seams; the torches' glowing dots do not repeat smoothly
-   (the loop is abrupt).
-2. The service lift has no visible barrier in front of it, though something
-   keeps the player out of it until the boss is beaten.
-3. In the gram reaper fight a door sprite is used as a wall.
-4. The dividing mite does not die when it divides, so it shows no death
-   animation; it turns smoothly into the two smaller mites.
-5. The exploding mites start their fuse only when they die. Now they explode
-   when the player enters the room, and then play a death row that looks
-   like it should explode and never does. The death row leads into the
-   explosion.
+1. **Built.** In the hotel's spectral wing, background tiles of different
+   widths do not line up, with seams; the torches' glowing dots do not
+   repeat smoothly. Was: a prop is drawn at its art's shape, so a wall panel
+   cut short drew a small panel in bare wall; the gap had panels at a third
+   of the scale; the art did not tile; the motes drifted and jumped back
+   each loop. Now 3:4 panels on whole quarters of tiling art, equal floor
+   strips, looping motes (494e0f184f, with 2 and 3).
+2. **Built.** The service lift has no visible barrier. Was: its lock wall
+   drew the guest-room door exactly over the painted lift door. Now the
+   lift's shut gate (`hylbert_lift_gate`).
+3. **Built.** In the gram reaper fight a door sprite is used as a wall.
+   Was: the treasury seal drew `hylbert_room_door`. Now the treasury's
+   sealed grille (`hylbert_treasury_seal`).
+4. **Built.** The dividing mite does not die when it divides. Was: the
+   halves came at the kill, 30 px out, over a death row, a hold and a
+   blink. Now its death row is the division and the halves stand where its
+   lobes are when the row ends; the parent is gone (`Corpse::Gone`) and
+   shows no death burst.
+5. **Built.** The exploding mites go off only when they die. Was: in reach
+   they planted a fuse and ended themselves, the blast came at the kill and
+   the fuse-shaped death row played after it. Now the mite snaps, and a
+   death's blast comes at the end of its death row (the fuse);
+   `death_effects::run_death_row_finales`. Q177 holds the choice.
 
 **Acceptance:** each report fixed and seen in a render or a probe; the mites'
 behaviour has a witness.

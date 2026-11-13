@@ -12,9 +12,12 @@
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CharacterDeathTraits {
-    /// Detonates at the corpse on death, so a point-blank kill is punished.
+    /// Detonates at the corpse when its death row ends, so a point-blank kill
+    /// is punished. The death row is the fuse.
     pub explodes_on_death: bool,
-    /// Character id spawned as offspring on death; `None` means no split.
+    /// Character id spawned as two offspring when its death row ends, one
+    /// where each half of the body is; `None` means no split. The death row is
+    /// the division.
     pub divides_into: Option<String>,
     /// A fast charge stopped dead by a wall destroys this body.
     pub charge_crash_explodes: bool,
@@ -35,8 +38,8 @@ pub struct CharacterDeathTraits {
     pub death_sound: Option<String>,
     /// What this body leaves when its death row has played. `None` leaves
     /// what the game of its room states (`DeclaredRules<Corpse>`). A body that
-    /// is taken away by its own death (it explodes) states `Vanish`; it still
-    /// plays its whole death row first.
+    /// becomes something else at the end of its death row (it explodes, it
+    /// splits) states `Gone`; it still plays its whole death row first.
     pub corpse: Option<Corpse>,
     /// Shots it bursts into when it dies ([`DeathBurst`]): a spirit's fire
     /// that runs the floor out of it. `None` bursts into nothing.
@@ -84,4 +87,8 @@ pub enum Corpse {
     /// more. The engine's answer in a room whose game states no rule.
     #[default]
     Vanish,
+    /// The body is drawn no more from the end of its death row. For a body
+    /// whose death row leads into what it becomes (its blast, its two
+    /// halves): what comes after the row is that, not the body.
+    Gone,
 }

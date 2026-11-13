@@ -344,6 +344,7 @@ mod the_pirate_port;
 mod the_ninja_village;
 mod the_eureka_tether;
 mod the_zeno_aqueduct;
+mod a_mite_becomes_its_finale_when_its_death_row_ends;
 mod hylberts_hotel;
 mod the_searchlight_moor;
 mod the_tar_pits;

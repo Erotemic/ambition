@@ -1561,6 +1561,8 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
                 ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(48.0, 24.0),
+                1.0,
                 "npc_puppy_slug",
             );
         } },
@@ -1607,6 +1609,8 @@ fn a_split_with_no_prepared_cast_is_refused() {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
                 ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(48.0, 24.0),
+                1.0,
                 "npc_puppy_slug",
             );
         } },

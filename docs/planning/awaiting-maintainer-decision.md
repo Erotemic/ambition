@@ -183,3 +183,24 @@ he sits down and chooses to retire (the green room's scene).
 **Owner:** `boss_encounters/bossofthegame.ron`, the stage's rooms and the
 cutscene library. (b) needs an encounter trigger that is not health (an
 `External` gate); (a) and (c) are content only.
+
+## Q177 — Does a living exploding mite go off?
+
+**Context (2026-11-12, MATH-POLISH report 5).** Jon: "The exploding mites
+should only trigger their explode fuse when they die. Right now they just
+explode when I enter the room." The mite ran at its foe, planted a 0.9 s
+fuse in reach and ended itself, and the blast came at that kill. Default
+taken: **(a)**. Under both options the blast comes at the end of the death
+row, which is the fuse.
+
+**Options:**
+
+* **(a) It never goes off alive** (now): it snaps with its mandibles
+  (`exploding_mite_snap`); killed, its fuse lights and it goes off when the
+  death row ends. Its threat is the corpse: kill it at range or step away.
+* **(b) It still goes off alive**: in reach it ends itself at once (the
+  `Detonate` move with a short plant), so its death row, the fuse, starts
+  there and the blast follows.
+
+**Owner:** `character_catalog.ron` (`npc_exploding_mite`, its action set).
+(b) is content only: `melee: Some(Detonate(fuse_s: 0.15, reach_px: 40.0))`.

@@ -81,8 +81,10 @@ the drumsticks are parts of each agent's rig, hidden until a row shows one
 (`band_guitar`, `band_bass`, `band_keytar`, `band_drums`; each drawn from the
 front three-quarter view). The drum kit is a prop of the stage, not of a body
 (renderer target `band_drum_kit`: rows `idle` and `played`); the drummer sits
-at it in `band_drums`. Not built yet: the Boss's own rows at the
-microphone, and Full Stack's band rows beyond its strum, riff and feedback.
+at it in `band_drums`. The Boss's microphone is in his far hand, with his
+rows at it: `mic_sing` (the riff's tell), `mic_point` (the feedback's),
+`mic_call` (Geppetto's call) and `mic_encore` (Clause and Wren's). Not built
+yet: Full Stack's band rows beyond its strum, riff and feedback.
 
 How it folds into the fight. Built 2026-11-13: the intro's band, and each
 call taking the called agents off their instruments. As the show opens the

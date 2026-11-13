@@ -23,6 +23,7 @@
             "stomp",                // GNU-ton's gnu: a shock rolling out along the floor
             "noodle_lash",          // the FSM: one noodle whipped out at ledge height, toward you
             "inu_leash", // the Inugami: a ghost chain from its neck, its tip cracks the floor from behind it to in front of it
+            "stack_power_chord", // Full Stack (the bossofthegame): a chord of sound rings rolls out each way and bounces along the floor
         ],
         recipes: [
             (
@@ -174,7 +175,7 @@
         skill_tested: "Move unpredictably; read arrival, not launch.",
         fair_counters: [Jump, Dash, WalkOut, Blink],
         threat: Light,
-        telegraph: (min_s: 0.60, max_s: 1.40),
+        telegraph: (min_s: 0.50, max_s: 1.40),
         active: (min_s: 0.28, max_s: 4.20),
         instances: [
             "wolf_galvanize", // Wolfenstein: sparks mark three places, one under you; lightning strikes them, then he goes flat
@@ -183,6 +184,7 @@
             "overflow_flood", // a falling wall with ONE gap (78px half-width)
             "mockingbird_strafe", // the Mockingbird, enraged: a run along the top of the sky raining fire on the flock, and back low
             "inu_storm", // the Inugami: three marks, then bolts from the vault strike them
+            "boss_keystroke_rain", // the bossofthegame: keycaps fall in the order of the words he types
         ],
         recipes: [
             (
@@ -213,7 +215,7 @@
         skill_tested: "Read a radial pattern under time pressure; pick the gap.",
         fair_counters: [Dash, WalkOut, Blink, Shield],
         threat: Light,
-        telegraph: (min_s: 0.65, max_s: 1.50),
+        telegraph: (min_s: 0.50, max_s: 1.50),
         active: (min_s: 0.35, max_s: 0.90),
         instances: [
             "mode_collapse_converge", // 12 shots, a 190px ring, closing inward
@@ -223,6 +225,7 @@
             "mockingbird_fireballs", // the Mockingbird: three fireballs spat in a fan at you
             "mockingbird_fire_fan", // the Mockingbird, wounded: five, wider
             "mockingbird_lightsabers", // the Mockingbird, on fire: three burning lightsabers spat in a fan at you, that come back
+            "stack_riff", // Full Stack (the bossofthegame): a fan of notes at you that arcs and falls
         ],
         recipes: [
             (
@@ -247,12 +250,14 @@
         skill_tested: "Leave the line — and know which way is out.",
         fair_counters: [Jump, Descend, Dash],
         threat: Light,
-        telegraph: (min_s: 0.55, max_s: 0.90),
-        active: (min_s: 0.22, max_s: 0.50),
+        telegraph: (min_s: 0.55, max_s: 1.10),
+        active: (min_s: 0.22, max_s: 0.60),
         instances: [
             "wolf_lash", // Wolfenstein: a hand on a bolt, the other points; current down the line he aims at you
             "eye_beam", // smirking behemoth; 780px/s shot, 1 damage
             "noodly_grasp", // the FSM: one noodle reaches along a line and drags whoever is at its tip into the bell
+            "stack_feedback", // Full Stack (the bossofthegame): the tell locks your height; a level beam of sound crosses the stage there
+            "boss_backspace", // the bossofthegame: the tell locks you; a row of backspace keys flies at that height toward you
         ],
         recipes: [
             (
@@ -310,6 +315,9 @@
             "gradient_cascade", // 2 × npc_ai_slop per cast
             "lesser_appendages", // the FSM: 2 × npc_fsm_noodling, once it is wounded
             "trex_call",         // the T-rex: his kin, parrots from the high corners (and raptors, enraged)
+            "boss_subagents",       // the bossofthegame, at his encore: two Agent Swarm bodies drop onto the stage
+            "boss_call_geppetto",   // the bossofthegame, phase 2 opens: Geppetto puts down the bass and drops in
+            "boss_call_clause_wren", // the bossofthegame, his encore opens: Clause and Wren leave the band and drop in
         ],
         recipes: [
             (

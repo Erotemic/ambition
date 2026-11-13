@@ -900,7 +900,19 @@ request, `ambition.boss.dismiss_summon`) as the fighter drops in. Witness:
 2; the others off at the encore). A capture of the practice stage shows the
 three at their places.
 
-**Next action:** the Boss's microphone rows; play it in a window and tune; his own anthem when a music registry is
+*Built 2026-11-13:* the Boss's microphone. It is in his far hand (the pen
+stays in the near one), with four rows at it: `mic_sing`, `mic_point`,
+`mic_call` and `mic_encore` (renderer b63728c). It also fixed a fairness
+finding. Every tell of his but the rain and the backspace was `spike_halo`,
+so nothing on screen told six attacks apart (`boss_fight_validator`; his
+eight moves were also in no seed). Now each tells by its own row: the
+chord by the pen raised, the riff by singing, the feedback by the mic
+pointed out, the subagents by `talk`, Geppetto's call by the mic held up,
+and the encore by both arms up. The moves are classified in
+`boss_seeds.ron`, with three bands widened to what they measure. The
+validator's pin holds at 3 errors and 5 warnings, the other bosses'.
+
+**Next action:** play it in a window and tune; his own anthem when a music registry is
 at hand; the later-work list in the design page.
 
 **Acceptance:** a ring dialed by its address reaches the boss dimension; the

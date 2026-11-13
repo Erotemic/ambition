@@ -687,6 +687,13 @@
         body_damage: 0,
         // The riff and the backspace leave from his keyboard.
         projectile_origin_offset: (24.0, -10.0),
+        // Each move tells by a row of his own, so no two look alike: he
+        // raises the pen to count the band into the chord (`spike_halo`),
+        // sings the riff (`mic_sing`), points the mic at the amp for the
+        // feedback (`mic_point`), types the rain (`floor_slam`), sweeps the
+        // backspace (`side_sweep`), orders the subagents (`talk`), holds the
+        // mic up to call Geppetto (`mic_call`) and throws both arms up for
+        // the encore that calls Clause and Wren (`mic_encore`).
         attack_pattern: Scripted(
             // Phase 1 — "Make No Mistakes": the agent does the work. Each move
             // is Full Stack's, out from where he stands; he types prompts
@@ -701,14 +708,14 @@
                     // Far from him: the riff, a fan of notes that arcs.
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("stack_riff"), duration: 0.9,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("mic_sing"), cue: None))),
                         Strike(profile: Special("stack_riff"), duration: 0.5),
                         Rest(duration: 0.9),
                     ]),
                     // On a riser or the truss: the feedback at that height.
                     (weight: 1.2, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("stack_feedback"), duration: 1.1,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("mic_point"), cue: None))),
                         Strike(profile: Special("stack_feedback"), duration: 0.6),
                         Rest(duration: 1.0),
                     ]),
@@ -726,7 +733,7 @@
                         Strike(profile: Special("stack_power_chord"), duration: 0.5),
                         Rest(duration: 0.4),
                         Telegraph(profile: Special("stack_riff"), duration: 0.6,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("mic_sing"), cue: None))),
                         Strike(profile: Special("stack_riff"), duration: 0.5),
                         Rest(duration: 1.0),
                     ]),
@@ -755,13 +762,13 @@
                     ]),
                     (weight: 0.8, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("stack_feedback"), duration: 1.0,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("mic_point"), cue: None))),
                         Strike(profile: Special("stack_feedback"), duration: 0.6),
                         Rest(duration: 0.9),
                     ]),
                     (weight: 0.8, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("stack_riff"), duration: 0.8,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("mic_sing"), cue: None))),
                         Strike(profile: Special("stack_riff"), duration: 0.5),
                         Rest(duration: 0.9),
                     ]),
@@ -772,7 +779,7 @@
             stances: {
                 "call_geppetto": [
                     Telegraph(profile: Special("boss_call_geppetto"), duration: 0.9,
-                        telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        telegraph: Some((pose: Some("mic_call"), cue: None))),
                     Strike(profile: Special("boss_call_geppetto"), duration: 0.4),
                     Rest(duration: 0.8),
                 ],
@@ -786,7 +793,7 @@
             // everything, faster.
             enrage: (steps: [
                 Telegraph(profile: Special("boss_subagents"), duration: 1.0,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("talk"), cue: None))),
                 Strike(profile: Special("boss_subagents"), duration: 0.4),
                 Rest(duration: 0.6),
                 Telegraph(profile: Special("boss_keystroke_rain"), duration: 0.6,
@@ -802,7 +809,7 @@
                 Strike(profile: Special("boss_backspace"), duration: 0.4),
                 Rest(duration: 0.5),
                 Telegraph(profile: Special("stack_feedback"), duration: 0.8,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("mic_point"), cue: None))),
                 Strike(profile: Special("stack_feedback"), duration: 0.5),
                 Rest(duration: 0.4),
                 Telegraph(profile: Special("boss_keystroke_rain"), duration: 0.5,
@@ -810,7 +817,7 @@
                 Strike(profile: Special("boss_keystroke_rain"), duration: 2.4),
                 Rest(duration: 0.3),
                 Telegraph(profile: Special("stack_riff"), duration: 0.5,
-                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    telegraph: Some((pose: Some("mic_sing"), cue: None))),
                 Strike(profile: Special("stack_riff"), duration: 0.4),
                 Rest(duration: 0.4),
                 Telegraph(profile: Special("stack_power_chord"), duration: 0.6,
@@ -821,7 +828,7 @@
             stances: {
                 "call_clause_wren": [
                     Telegraph(profile: Special("boss_call_clause_wren"), duration: 0.9,
-                        telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        telegraph: Some((pose: Some("mic_encore"), cue: None))),
                     Strike(profile: Special("boss_call_clause_wren"), duration: 0.4),
                     Rest(duration: 0.8),
                 ],

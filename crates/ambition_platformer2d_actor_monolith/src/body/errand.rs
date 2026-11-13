@@ -217,7 +217,7 @@ pub(crate) fn errand_crossing<'a>(
 /// starts goes into the next live room: what it carries goes with it
 /// (`custody_closure`), its room stamp names that room, and it comes out at
 /// the zone's arrival. The road of a second seat's return
-/// (`bring_a_fallen_seat_back_beside_the_primary`), not a player's crossing:
+/// (`return_a_fallen_participant`), not a player's crossing:
 /// both rooms are live, so no room is built or retired, and a body no slot
 /// drives has no participant to keep a room for.
 ///

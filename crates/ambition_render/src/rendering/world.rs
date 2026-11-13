@@ -442,7 +442,7 @@ const SCENERY_Z_STEP: f32 = 1.0 / 4096.0;
 const BACKDROP_Z_BACK: f32 = -12.0;
 const BACKDROP_Z_FRONT: f32 = -10.0;
 /// Where a climbable draws: in front of all the scenery, behind the actors
-/// (`feature_z(Actor)`, `WORLD_Z_DUMMY + 1.0`).
+/// (`feature_z(Actor)`, `WORLD_Z_DUMMY + 5.0`).
 pub(super) const CLIMBABLE_Z: f32 = SCENERY_Z_FRONT + 0.02;
 /// Where a door (and every other loading zone) draws: in front of all the
 /// scenery, behind climbables and the cast (Jon, 2026-10-30: "make sure all

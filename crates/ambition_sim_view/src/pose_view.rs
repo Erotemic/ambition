@@ -797,18 +797,7 @@ pub fn rebuild_body_pose_views(
         let legs = playback
             .filter(|playback| playback.spec.upper_body_at(playback.t))
             .map(|_| pick(None))
-            .filter(|legs| {
-                matches!(
-                    legs,
-                    CharacterAnim::Walk
-                        | CharacterAnim::Run
-                        | CharacterAnim::Sprint
-                        | CharacterAnim::Jump
-                        | CharacterAnim::Fall
-                        | CharacterAnim::Fly
-                        | CharacterAnim::FloatGlide
-                )
-            });
+            .filter(|legs| crate::anim_index::legs_go_on_under(*legs));
         // A body that stands, walks or runs and holds the stick up looks up.
         // It is a picture only: the control frame is read, and nothing is
         // written.
@@ -1045,7 +1034,8 @@ pub fn rebuild_body_pose_views(
                     Some(_) => chain.ahead_of(crate::SMASH_CHARGE_CLIP),
                     None => chain,
                 })
-                .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP))), pinned, crouched(anim)),
+                .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP)))
+                .or_else(|| crate::anim_index::aim_over_legs(anim_facts.is_some_and(|f| f.aim_anim_active) && free, anim)), pinned, crouched(anim)),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(

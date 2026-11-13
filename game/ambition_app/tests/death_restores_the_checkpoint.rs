@@ -2150,25 +2150,27 @@ fn the_reward_with_bob(sim: &mut Platformer2dSimHarness, bob: Entity) -> (usize,
 /// checkpoint.
 #[derive(Clone, Copy, Debug)]
 enum BobWith {
-    /// Alice dies first; then Bob carries it out to `duel_arena`.
+    /// Bob carries it out to `duel_arena`; then Alice dies.
     CarriedOut,
     /// Bob carries it to `duel_arena` and puts it down there; then Alice dies.
     PutDownNextDoor,
-    /// Alice dies; then Bob dies in her room with it in his hand.
+    /// Alice and Bob die in her room on one tick, it in his hand: a wipe.
     DiedHolding,
 }
 
 /// Q151, the open line of BAG-RECORD-HORIZON: Bob holds an object in
 /// Alice's room when she dies. Alice banks a checkpoint in the hub, with the
 /// gun-sword on its pedestal; Bob (seat 1) joins beside her and takes it.
-/// Alice's room waits while Bob is in play in it.
+/// A death with Bob in play in her room sends nothing back (COOP-RECOVERY:
+/// she returns alone), so each arm has her die alone in it, or both at once.
 ///
-/// - [`BobWith::CarriedOut`]: the hub goes back when Bob leaves it. He is
-///   spared and holds it in a spared room, so he keeps it, as a pickup a
-///   spared participant took stays taken; the pedestal stays empty.
+/// - [`BobWith::CarriedOut`]: the hub goes back. Bob is spared and holds it
+///   in a spared room, so he keeps it, as a pickup a spared participant took
+///   stays taken; the pedestal stays empty.
 /// - [`BobWith::PutDownNextDoor`]: it lies in a spared room, so it stays
 ///   there, and the pedestal stays empty: one copy.
-/// - [`BobWith::DiedHolding`]: nobody is spared, so the hub goes back whole:
+/// - [`BobWith::DiedHolding`]: a full-party wipe spares nobody, so the hub
+///   goes back whole:
 ///   the gun-sword is on its pedestal, with no ledger row, and Bob comes back
 ///   with an empty hand.
 ///
@@ -2197,17 +2199,14 @@ fn a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy() {
         );
         let alice = body(&mut sim);
         // The restore outcome the wait below must see replaced.
-        let mut before = latest_restore_outcome(&sim);
+        let before = latest_restore_outcome(&sim);
         match arm {
             BobWith::CarriedOut => {
-                // Her death, without waiting for her return: her room waits
-                // while Bob is in play in it.
-                kill(&mut sim, alice);
-                sim.step_n(base(), 60);
                 assert!(
                     seat_one_goes_through_the_door(&mut sim, bob, ROOM, NEIGHBOUR),
                     "precondition: Bob crossed to {NEIGHBOUR}"
                 );
+                kill(&mut sim, alice);
             }
             BobWith::PutDownNextDoor => {
                 assert!(
@@ -2231,10 +2230,20 @@ fn a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy() {
                 kill(&mut sim, alice);
             }
             BobWith::DiedHolding => {
-                kill(&mut sim, alice);
-                sim.step_n(base(), 60);
-                before = latest_restore_outcome(&sim);
-                kill(&mut sim, bob);
+                // Both on one tick: neither is in play when the other's beat
+                // closes.
+                for victim in [alice, bob] {
+                    let at = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(victim).expect("a body").pos;
+                    sim.world_mut().write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+                        victim,
+                        pos: at,
+                        cause: ambition_platformer2d::combat::death_rules::DeathCause {
+                            source: ambition_platformer2d::combat::HitSource::Hazard,
+                            attacker: None,
+                        },
+                    });
+                }
+                sim.step(base());
             }
         }
         step_until_a_restore_commits(&mut sim, &before, 400);

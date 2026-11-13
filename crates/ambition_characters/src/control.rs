@@ -542,6 +542,9 @@ pub enum ControlHold {
     /// A scripted transit carries the body (a pipe ride): it can not steer,
     /// jump or fall out of it.
     Transit = 1 << 6,
+    /// A cutscene plays for the body's room: nobody in the room acts while it
+    /// talks, so a hostile does not strike a player the dialogue holds still.
+    Cutscene = 1 << 7,
 }
 
 /// Authorities currently suppressing ordinary control. Holds are claims on a

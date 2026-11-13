@@ -159,6 +159,71 @@ pub fn a_cutscene_plays_or_its_hold_remains(
     active.runtime.is_some() || skip_hold.seconds != 0.0
 }
 
+/// Run condition of [`project_cutscene_hold`]: a cutscene plays, or a body
+/// it held is still owed its release.
+pub fn a_cutscene_hold_is_owed(
+    active: Res<ActiveCutscene>,
+    held: Query<&ambition_characters::control::ControlHolds>,
+) -> bool {
+    active.is_playing()
+        || held.iter().any(|holds| holds.holds(ambition_characters::control::ControlHold::Cutscene))
+}
+
+/// Hold every body in the playing cutscene's room (every body, for a
+/// cutscene of the whole world), and release it when the cutscene ends.
+///
+/// The cutscene's input context only quiets the seats; the room's hostiles
+/// kept their brains and struck a player the dialogue was holding still. A
+/// held body's frame is blanked (`blank_scripted_control_frames`), so nobody
+/// in the room starts a move, and it cannot be hurt, so a strike already in
+/// flight lands on nobody. Bodies in other rooms play on (ISL-1b).
+///
+/// A projection of [`ActiveCutscene`], rewritten each tick, so a rewind that
+/// restores the cutscene restores the hold with it.
+pub fn project_cutscene_hold(
+    mut commands: Commands,
+    active: Res<ActiveCutscene>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut bodies: Query<
+        (
+            Entity,
+            Option<&mut ambition_characters::control::ControlHolds>,
+            Option<&mut ambition_characters::actor::BodyHealth>,
+        ),
+        With<ambition_characters::control::ActorControl>,
+    >,
+) {
+    use ambition_characters::actor::Invulnerability;
+    use ambition_characters::control::ControlHold;
+    for (body, holds, health) in &mut bodies {
+        let held = active.holds(rooms.of(body).map(|room| room.ordinal()));
+        match holds {
+            Some(mut holds) if holds.holds(ControlHold::Cutscene) != held => {
+                if held {
+                    holds.claim(ControlHold::Cutscene);
+                } else {
+                    ambition_characters::control::release_control_hold(
+                        &mut commands,
+                        body,
+                        Some(&mut *holds),
+                        ControlHold::Cutscene,
+                    );
+                }
+            }
+            Some(_) => {}
+            None if held => {
+                commands.entity(body).try_insert(ambition_characters::control::ControlHolds::only(ControlHold::Cutscene));
+            }
+            None => {}
+        }
+        if let Some(mut health) = health {
+            if health.health.invulnerable.holds(Invulnerability::CUTSCENE) != held {
+                health.health.invulnerable.set(Invulnerability::CUTSCENE, held);
+            }
+        }
+    }
+}
+
 /// The seat that answers the playing cutscene: for a room's cutscene, the
 /// lowest seat driving a body in that room (so Player 1 in another room does
 /// not skip it, ISL-1b); otherwise, and when no seat is in the room, the
@@ -376,6 +441,8 @@ impl Plugin for CutsceneSchedulePlugin {
                     |queue: bevy::prelude::Res<ambition_cutscene::CutsceneTriggerQueue>| !queue.0.is_empty(),
                 ),
                 tick_active_cutscene.run_if(a_cutscene_plays_or_its_hold_remains),
+                // After the tick, so the tick a cutscene ends releases its room.
+                project_cutscene_hold.run_if(a_cutscene_hold_is_owed),
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Cutscene),

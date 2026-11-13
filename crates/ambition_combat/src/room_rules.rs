@@ -55,6 +55,11 @@ struct AuthoredRoomRules {
     /// when no participant remains. Absent: a death resets nothing.
     #[serde(default)]
     replay_level_after_death_s: Option<f32>,
+    /// Seconds a participant that falls while another plays waits before it
+    /// returns, so a partner that falls in that time makes a full-party wipe.
+    /// Absent: it returns when its death holds no longer.
+    #[serde(default)]
+    recovery_wait_s: Option<f32>,
     /// A hit that deals at least this damage lands heavy. Absent: no hit
     /// lands heavy.
     #[serde(default)]
@@ -114,6 +119,13 @@ impl AuthoredRoomRules {
                 ));
             }
         }
+        if let Some(seconds) = self.recovery_wait_s {
+            if !(seconds.is_finite() && seconds >= 0.0) {
+                problems.push(format!(
+                    "`recovery_wait_s` is {seconds}; it is seconds, finite and not negative"
+                ));
+            }
+        }
         if let Some(damage) = self.heavy_hit_damage {
             if damage < 1 {
                 problems.push(format!(
@@ -159,7 +171,13 @@ impl AuthoredRoomRules {
 
     fn lowered(&self) -> RoomRules {
         RoomRules {
-            death: self.replay_level_after_death_s.map(DeathRules::replay_level_after),
+            death: match (self.replay_level_after_death_s, self.recovery_wait_s) {
+                (None, None) => None,
+                (replay, wait) => Some(DeathRules {
+                    recovery_wait: wait.unwrap_or(0.0),
+                    ..replay.map_or_else(DeathRules::default, DeathRules::replay_level_after)
+                }),
+            },
             strike_weight: self.heavy_hit_damage.map(StrikeWeightRules::heavy_at),
             landing_lag: self.landing_lag_share.map(LandingLagRules::scaled_by),
             combat: self.combat,

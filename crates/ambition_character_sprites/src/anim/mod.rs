@@ -552,9 +552,6 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     if let Some(swing) = v.melee_attack {
         return swing;
     }
-    if v.aiming {
-        return Aim;
-    }
     if v.wall_jump {
         return WallJump;
     }
@@ -627,9 +624,16 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
         CompactBody::None => {}
     }
     match v.locomotion {
+        // ⭐ AIM IS THE STANDING POSE, NOT A BODY STATE. A held charge is a
+        // button, and the legs still do what the body does: aiming outranked
+        // every locomotion row, so a body that walked while it charged slid
+        // along in one still frame. The charge itself is drawn apart from
+        // the pose, where its shot will be born.
         Locomotion::Aerial => {
             if v.speed > v.fly_above {
                 Fly
+            } else if v.aiming {
+                Aim
             } else {
                 Idle
             }
@@ -646,7 +650,9 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
             v.idle_below,
         ) {
             ambition_combat::hurtbox_resolution::Gait::Standing => {
-                if v.teetering {
+                if v.aiming {
+                    Aim
+                } else if v.teetering {
                     Teeter
                 } else {
                     Idle

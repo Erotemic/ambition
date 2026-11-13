@@ -279,7 +279,7 @@ pub struct PortalAffordanceBody;
 /// decomposed at the seam) and [`PortalAffordanceBody`] (whoever operates the
 /// portals). An ordinary NPC behind an aperture is neither, so without this
 /// tag portal presentation cannot see it, while the renderer draws it at
-/// `WORLD_Z_DUMMY + 1.0`, above every pane. The host decides what is drawable;
+/// `WORLD_Z_DUMMY + 5.0`, above every pane. The host decides what is drawable;
 /// this crate does not know what a "player" or an "NPC" is.
 ///
 /// Tagging is optional and its absence is silent: a host that tags nothing gets

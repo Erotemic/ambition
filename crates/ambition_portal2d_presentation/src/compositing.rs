@@ -1,7 +1,7 @@
 //! Where a drawable sits relative to one portal pane, for compositing.
 //!
 //! A z constant cannot answer this. [`crate::PORTAL_WINDOW_Z`] is `9.5`; a
-//! generic actor draws at `WORLD_Z_DUMMY + 1.0 = 11.0` and the player at
+//! generic actor draws at `WORLD_Z_DUMMY + 5.0 = 15.0` and the player at
 //! `WORLD_Z_PLAYER = 20.0`. Every actor wins the depth test against every pane,
 //! so a far-side actor behind the aperture draws over the captured image that
 //! should hide it.
@@ -520,7 +520,7 @@ mod tests {
         let relation = pane_relation(&p, viewer, min, max, false);
         assert_eq!(relation, PaneRelation::FarCovered);
         assert!(
-            !current_z_policy_is_correct_for(relation, 11.0, crate::PORTAL_WINDOW_Z),
+            !current_z_policy_is_correct_for(relation, 15.0, crate::PORTAL_WINDOW_Z),
             "the whole finding is that today's z draws this one on top of the pane"
         );
         // The answer follows the numbers: the same far-side body drawn below the
@@ -537,7 +537,7 @@ mod tests {
         let (min, max) = body(Vec2::new(100.0, 308.0)); // viewer's side
         let relation = pane_relation(&p, viewer, min, max, false);
         assert_eq!(relation, PaneRelation::NearOccluder);
-        assert!(current_z_policy_is_correct_for(relation, 11.0, crate::PORTAL_WINDOW_Z));
+        assert!(current_z_policy_is_correct_for(relation, 15.0, crate::PORTAL_WINDOW_Z));
         // A near-side body drawn below the pane is wrong too: the aperture it
         // stands in front of would hide it.
         assert!(!current_z_policy_is_correct_for(relation, 9.0, crate::PORTAL_WINDOW_Z));

@@ -27,6 +27,11 @@ pub struct DeathRules {
     pub interlude: f32,
     /// When the level goes back to how it started.
     pub level_reset: LevelReset,
+    /// Seconds a participant that falls while another participant plays
+    /// waits, beyond `interlude`, before it returns: a partner that falls in
+    /// that time makes a full-party wipe, which a return at once would never
+    /// leave room for.
+    pub recovery_wait: f32,
 }
 
 /// What a kill does to the world in one game's rooms, declared in a
@@ -52,6 +57,7 @@ impl Default for DeathRules {
         Self {
             interlude: 0.0,
             level_reset: LevelReset::Never,
+            recovery_wait: 0.0,
         }
     }
 }
@@ -67,6 +73,7 @@ impl DeathRules {
         Self {
             interlude,
             level_reset: LevelReset::WhenNoParticipantRemains,
+            recovery_wait: 0.0,
         }
     }
 }

@@ -292,11 +292,13 @@ fn shoot_anim_timer_returns_shoot() {
     );
 }
 
-/// `aim_anim_active` picks `Aim` only when no higher-priority
-/// state (shoot, slash, shield) is set.
+/// `aim_anim_active` picks `Aim` for a body standing on the ground with no
+/// higher-priority state (shoot, slash, shield) set. Aim is the standing
+/// pose: a body that moves while it charges draws its locomotion row.
 #[test]
 fn aim_anim_active_returns_aim() {
-    let (mut anim, combat, blink_cam, clusters) = pick_inputs();
+    let (mut anim, combat, blink_cam, mut clusters) = pick_inputs();
+    clusters.ground.on_ground = true;
     anim.aim_anim_active = true;
     assert_eq!(
         pick(&anim, &combat, &blink_cam, None, &clusters),

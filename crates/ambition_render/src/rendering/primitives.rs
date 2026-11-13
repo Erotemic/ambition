@@ -181,8 +181,10 @@ pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
         FeatureVisualKind::Switch => WORLD_Z_DUMMY + 2.0,
         // One z for every actor in a plane. Draw order between actors comes
         // from a real signal, the body's depth plane (`feature_z_in_plane`),
-        // not the visual kind.
-        FeatureVisualKind::Actor => WORLD_Z_DUMMY + 1.0,
+        // not the visual kind. In front of the room's furniture: a ninja or a
+        // dog that stands at a chest, a switch or a pickup is seen in front of
+        // it (Jon 2026-11-12).
+        FeatureVisualKind::Actor => WORLD_Z_DUMMY + 5.0,
     }
 }
 

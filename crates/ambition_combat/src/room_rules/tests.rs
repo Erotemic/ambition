@@ -29,7 +29,7 @@ fn lowered(out: &FacetOutcome) -> Option<RoomRules> {
 #[test]
 fn each_authored_field_is_the_rule_it_names() {
     let out = check(
-        "(replay_level_after_death_s: Some(1.5), heavy_hit_damage: Some(3), landing_lag_share: Some(0.25), \
+        "(replay_level_after_death_s: Some(1.5), recovery_wait_s: Some(2.0), heavy_hit_damage: Some(3), landing_lag_share: Some(0.25), \
           hostile_wake_radius: Some(900.0))",
     );
     assert!(out.diagnostics.is_empty(), "{:?}", out.diagnostics);
@@ -38,7 +38,8 @@ fn each_authored_field_is_the_rule_it_names() {
         rules.death,
         Some(DeathRules {
             interlude: 1.5,
-            level_reset: LevelReset::WhenNoParticipantRemains
+            level_reset: LevelReset::WhenNoParticipantRemains,
+            recovery_wait: 2.0,
         })
     );
     assert_eq!(rules.strike_weight, Some(StrikeWeightRules::heavy_at(3)));

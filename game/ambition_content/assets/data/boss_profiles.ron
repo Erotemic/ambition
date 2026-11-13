@@ -675,6 +675,8 @@
             Special("boss_keystroke_rain"),
             Special("boss_backspace"),
             Special("boss_subagents"),
+            Special("boss_call_geppetto"),
+            Special("boss_call_clause_wren"),
         ],
         attack_cooldown: 0.0,
         attack_windup: 0.0,
@@ -764,9 +766,24 @@
                         Rest(duration: 0.9),
                     ]),
                 ]),
+            ],
+            // "Do I need to get Geppetto to do it?" He does, once, as the
+            // phase opens: Geppetto drops onto the stage west of the robot.
+            stances: {
+                "call_geppetto": [
+                    Telegraph(profile: Special("boss_call_geppetto"), duration: 0.9,
+                        telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    Strike(profile: Special("boss_call_geppetto"), duration: 0.4),
+                    Rest(duration: 0.8),
+                ],
+            },
+            interrupts: [
+                (on: OnPhaseEnter(phase: Phase2), cooldown_s: 0.0, enter: "call_geppetto"),
             ]),
             // Enrage — "The Encore": "Spawn subagents. Parallelize the kill."
-            // Two subagents each time round, then everything, faster.
+            // Clause and Wren drop in as it opens; then two subagents (the
+            // small instances, the Agent Swarm) each time round, and
+            // everything, faster.
             enrage: (steps: [
                 Telegraph(profile: Special("boss_subagents"), duration: 1.0,
                     telegraph: Some((pose: Some("spike_halo"), cue: None))),
@@ -800,6 +817,17 @@
                     telegraph: Some((pose: Some("spike_halo"), cue: None))),
                 Strike(profile: Special("stack_power_chord"), duration: 0.5),
                 Rest(duration: 1.2),
+            ],
+            stances: {
+                "call_clause_wren": [
+                    Telegraph(profile: Special("boss_call_clause_wren"), duration: 0.9,
+                        telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                    Strike(profile: Special("boss_call_clause_wren"), duration: 0.4),
+                    Rest(duration: 0.8),
+                ],
+            },
+            interrupts: [
+                (on: OnPhaseEnter(phase: Enrage), cooldown_s: 0.0, enter: "call_clause_wren"),
             ]),
         ),
         // His severance: what he leaves the one who made him retire.

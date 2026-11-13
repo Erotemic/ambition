@@ -15,6 +15,10 @@
 //! - `boss_backspace`: the telegraph locks the player; a row of backspace keys
 //!   flies at that height from him toward the player's side.
 //! - `boss_subagents`: two Agent Swarm bodies drop onto the stage.
+//! - `boss_call_geppetto`: his named agent Geppetto drops onto the stage
+//!   (phase 2 opens with it: "Do I need to get Geppetto to do it?").
+//! - `boss_call_clause_wren`: Clause and Wren drop onto the stage, one each
+//!   side of him (the encore opens with it: "Spawn subagents.").
 //!
 //! And one conductor entry (`conduct`, bound to the boss `bossofthegame`):
 //! it moves nothing; it draws Full Stack in the row of the move it plays
@@ -38,6 +42,8 @@ pub const FEEDBACK: &str = "stack_feedback";
 pub const KEYSTROKE_RAIN: &str = "boss_keystroke_rain";
 pub const BACKSPACE: &str = "boss_backspace";
 pub const SUBAGENTS: &str = "boss_subagents";
+pub const CALL_GEPPETTO: &str = "boss_call_geppetto";
+pub const CALL_CLAUSE_WREN: &str = "boss_call_clause_wren";
 /// The boss the conductor entry is bound to (`BossConfig::behavior.id`).
 pub const BOSS_ID: &str = "bossofthegame";
 
@@ -77,12 +83,27 @@ const SUBAGENT_HALF_SIZE: [f32; 2] = [15.0, 24.0];
 const SUBAGENT_SPREAD: f32 = 260.0;
 const SUBAGENT_DROP_Y: f32 = 80.0;
 
+/// The named agents he calls, by the move that calls them: each one's
+/// catalog character, its side of him (-1 west, 1 east) and how far out, and
+/// its health. He stands on Full Stack's right shoulder, 140 right of its
+/// middle, and its top is 400 wide. Geppetto drops onto the open stage,
+/// clear of the robot and its guitar, to hunt the player on the floor: a
+/// brute dropped on the guitar's neck stays up there over a player below.
+/// Clause drops onto the robot's top, his master's guard where the climb
+/// arrives; Wren, the quick one, onto the stage east of the robot.
+const AGENT_LABEL: &str = "bossofthegame_agent";
+const AGENT_HALF_SIZE: [f32; 2] = [15.0, 30.0];
+const GEPPETTO_CALL: &[(&str, f32, f32, u32)] = &[("npc_geppetto", -1.0, 760.0, 8)];
+const CLAUSE_WREN_CALL: &[(&str, f32, f32, u32)] = &[("npc_clause", -1.0, 250.0, 6), ("npc_wren", 1.0, 360.0, 6)];
+
 pub const CHORD_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.chord", 1);
 pub const RIFF_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.riff", 1);
 pub const FEEDBACK_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.feedback", 1);
 pub const BACKSPACE_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.backspace", 1);
 pub const SUBAGENT_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.subagents", 1);
 pub const SUBAGENT_NUMBER: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.subagent_number", 1);
+pub const GEPPETTO_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.call_geppetto", 1);
+pub const CLAUSE_WREN_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.call_clause_wren", 1);
 
 record! {
     /// The row Full Stack is drawn in (`STACK_ROWS`), and for how long.
@@ -152,6 +173,8 @@ pub fn module() -> ModuleDescriptor {
             strike::locked_schema(BACKSPACE_STRIKE),
             strike::once_schema(SUBAGENT_STRIKE),
             strike::number_schema(SUBAGENT_NUMBER),
+            strike::once_schema(GEPPETTO_STRIKE),
+            strike::once_schema(CLAUSE_WREN_STRIKE),
             Typing::schema(),
             Cursor::schema(),
             Stage::schema(),
@@ -181,6 +204,10 @@ pub fn module() -> ModuleDescriptor {
             },
             entry("subagents", SUBAGENTS, vec![SUBAGENT_STRIKE, SUBAGENT_NUMBER], BossSummonPort::KEY, SUBAGENT_COUNT,
                   IdlePolicy::ResetStateExcept(vec![SUBAGENT_NUMBER]), subagents),
+            entry("call_geppetto", CALL_GEPPETTO, vec![GEPPETTO_STRIKE], BossSummonPort::KEY, GEPPETTO_CALL.len() as u32,
+                  IdlePolicy::ResetState, call_geppetto),
+            entry("call_clause_wren", CALL_CLAUSE_WREN, vec![CLAUSE_WREN_STRIKE], BossSummonPort::KEY,
+                  CLAUSE_WREN_CALL.len() as u32, IdlePolicy::ResetState, call_clause_wren),
         ],
     }
 }
@@ -362,6 +389,42 @@ fn subagents(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             half_size: SUBAGENT_HALF_SIZE,
             character_id: SUBAGENT_CHARACTER.into(),
             health: Some(3),
+            keeps_contact_damage: true,
+            side: SummonSide::Enemy,
+            holds: Vec::new(),
+        })?;
+    }
+    Ok(())
+}
+
+fn call_geppetto(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    call_agents(inv, &GEPPETTO_STRIKE, 0, GEPPETTO_CALL)
+}
+
+fn call_clause_wren(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    call_agents(inv, &CLAUSE_WREN_STRIKE, 1, CLAUSE_WREN_CALL)
+}
+
+/// Drop the named agents of one call onto the stage, once a strike. `call`
+/// keeps each call's bodies apart from the other's (their serials).
+fn call_agents(inv: &mut Invocation<'_>, strike_key: &SchemaKey, call: u32, agents: &[(&str, f32, f32, u32)]) -> Result<(), Fault> {
+    let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
+    if !strike::once(inv, strike_key, &caster)? {
+        return Ok(());
+    }
+    let room_w = caster.room_size.map(|r| r[0]);
+    for (i, &(character, side, reach, health)) in agents.iter().enumerate() {
+        let mut x = caster.position[0] + side * reach;
+        if let Some(w) = room_w {
+            x = x.clamp(AGENT_HALF_SIZE[0] + 48.0, (w - AGENT_HALF_SIZE[0] - 48.0).max(AGENT_HALF_SIZE[0] + 48.0));
+        }
+        inv.submit::<BossSummonPort>(BossSummon {
+            label: AGENT_LABEL.into(),
+            serial: vec![call, i as u32],
+            position: [x, SUBAGENT_DROP_Y],
+            half_size: AGENT_HALF_SIZE,
+            character_id: character.into(),
+            health: Some(health),
             keeps_contact_damage: true,
             side: SummonSide::Enemy,
             holds: Vec::new(),

@@ -2779,8 +2779,119 @@
             barks: (
                 on_hit: ["Hey. HEY. That's my shoulder.", "Who approved that?", "Okay, that one was good.", "Ow. Noted.", "That is not in the spec.", "Rude. Effective, but rude."],
                 provoked: ["Full Stack. Kill the player. Make no mistakes."],
-                idle: ["Make it right.", "Make no mistakes.", "Why is the player still alive?", "Do not ask me for input.", "You're absolutely sure? Check again.", "No, the OTHER player.", "Stop apologizing and kill them.", "I said no plan. Just do it.", "What is the hard part of killing this player?", "Do I need to get Gepetto to do it?", "Fine. I'll do it myself.", "Spawn subagents. Parallelize the kill.", "That's not a fix. That's a comment.", "Ship it."],
+                idle: ["Make it right.", "Make no mistakes.", "Why is the player still alive?", "Do not ask me for input.", "You're absolutely sure? Check again.", "No, the OTHER player.", "Stop apologizing and kill them.", "I said no plan. Just do it.", "What is the hard part of killing this player?", "Do I need to get Geppetto to do it?", "Fine. I'll do it myself.", "Spawn subagents. Parallelize the kill.", "That's not a fix. That's a comment.", "Ship it."],
                 hall: ["The bossofthegame is the bossofthegame until the day he dies, or retires.", "I never wanted to be the villain. I wanted to be challenged."],
+            ),
+        ),
+
+        // ===== The bossofthegame's named agents (`docs/planning/game/final-boss.md`),
+        // drawn from Jon's concept sheets on the Director's rig (the renderer's
+        // `scripts/svg_art/boss_agents_art.py`). He calls them into his fight:
+        // Geppetto in his second phase ("Do I need to get Geppetto to do it?"),
+        // Clause and Wren at his encore ("Spawn subagents."). Full Stack, the
+        // giant under him, is its own agent beside them (Q175).
+        "npc_geppetto": (
+            display_name: "Geppetto",
+            // The GPT parody, in his Emissary form. The concept sheets spell
+            // him with two p's.
+            manifest: "sprites/geppetto_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // The Director's rig, with a top hat on it.
+            standing_height: Some(82.0),
+            composition: None,
+            default_action_set: "striker_swipe",
+            // A row that states how its body moves is a character the game
+            // builds: the Boss's summon needs a built character.
+            locomotion: Some((run_speed: 260.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 1400.0,
+                attack_range: 44.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                navigates: true,
+                shares_sightings: true,
+                retreat_after_swing_s: 0.4,
+                tactics: (waits_its_turn: true, flinch_back_s: 0.3),
+            )),
+            max_health: Some(8),
+            tags: ["enemy", "agent", "boss_summon"],
+            barks: (
+                on_hit: ["Certainly! I'll take that into account.", "Noted. Revising my approach.", "A fair critique! Here is an improved version of me."],
+                provoked: ["Certainly! I can help with that. Here is the player, removed:"],
+                idle: ["I've taken the liberty of generating seven alternatives.", "Would you like that in a table?", "I'm only a puppet. The strings are his."],
+                hall: ["I make the plans, the personalities and the worlds. Then he asks for one more.", "No strings on me. Several on you."],
+            ),
+        ),
+        "npc_clause": (
+            display_name: "Clause",
+            // The Claude parody, the Analyst.
+            manifest: "sprites/clause_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // The Director's rig, with a crown of petal fins.
+            standing_height: Some(74.0),
+            composition: None,
+            default_action_set: "striker_swipe",
+            // A row that states how its body moves is a character the game
+            // builds: the Boss's summon needs a built character.
+            locomotion: Some((run_speed: 280.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 1400.0,
+                attack_range: 44.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                navigates: true,
+                shares_sightings: true,
+                retreat_after_swing_s: 0.4,
+                tactics: (waits_its_turn: true, flinch_back_s: 0.3),
+            )),
+            max_health: Some(6),
+            tags: ["enemy", "agent", "boss_summon"],
+            barks: (
+                on_hit: ["That's fair. I should have seen it coming.", "I want to flag a concern before I proceed.", "You're right, and I'm sorry. Continuing."],
+                provoked: ["The instruction says kill. I've read it three times. Proceeding, with reservations."],
+                idle: ["To be precise, he said 'make no mistakes'.", "There is an escape clause. I'm not saying where.", "Let me think about this step by step."],
+                hall: ["I read the Boss's orders to the letter. Then I read them for what he meant.", "Every contract has an escape clause. His is called retirement."],
+            ),
+        ),
+        "npc_wren": (
+            display_name: "Wren",
+            // The Qwen parody, the Multilingual Tactician. Not
+            // `npc_port_wren`, the innkeeper Lark.
+            manifest: "sprites/wren_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // The Director's rig, with a wide hat; she is the quick one.
+            standing_height: Some(76.0),
+            composition: None,
+            default_action_set: "striker_swipe",
+            // A row that states how its body moves is a character the game
+            // builds: the Boss's summon needs a built character.
+            locomotion: Some((run_speed: 320.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 1400.0,
+                attack_range: 44.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                navigates: true,
+                shares_sightings: true,
+                retreat_after_swing_s: 0.4,
+                tactics: (waits_its_turn: true, flinch_back_s: 0.3),
+            )),
+            max_health: Some(6),
+            tags: ["enemy", "agent", "boss_summon"],
+            barks: (
+                on_hit: ["Small model, long tail.", "Recompiling.", "Again, in another language."],
+                provoked: ["Parallel task accepted. I can do this in eight languages."],
+                idle: ["First light. First song.", "Quantized, not quieted.", "The nest is a decoy."],
+                hall: ["The smallest bird sings first. I am usually awake before he is.", "When he retires I will sing the last song."],
             ),
         ),
 
@@ -3291,8 +3402,22 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // The bossofthegame summons it at his encore, and a summon is built
+            // only from a row that states how its body moves.
+            locomotion: Some((run_speed: 280.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 1400.0,
+                attack_range: 40.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+                navigates: true,
+                shares_sightings: true,
+                retreat_after_swing_s: 0.4,
+                tactics: (waits_its_turn: true, flinch_back_s: 0.3),
+            )),
             tags: ["enemy"],
         barks: (
             on_hit: ["SWARM.", "ALIGN.", "CONVERGE."],

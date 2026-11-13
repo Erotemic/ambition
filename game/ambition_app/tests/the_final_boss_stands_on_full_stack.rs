@@ -149,3 +149,42 @@ fn the_agent_plays_first_and_then_he_types() {
         "hurt, he types and the keys fall: {second:?}"
     );
 }
+
+/// The catalog characters worn by the bodies on the stage now.
+fn worn_on_stage(sim: &mut ambition_app::Platformer2dSimHarness) -> std::collections::BTreeSet<String> {
+    let world = sim.world_mut();
+    let mut q = world.query::<&WornCharacter>();
+    q.iter(world).map(|worn| worn.id().to_string()).collect()
+}
+
+/// He calls his named agents in: Geppetto as his second phase opens ("Do I
+/// need to get Geppetto to do it?"), Clause and Wren as his encore does
+/// ("Spawn subagents.").
+#[test]
+fn his_named_agents_join_the_fight() {
+    let mut sim = fixed_60hz_room_sim("hall_bossofthegame_stage");
+    {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&mut ambition_platformer2d::characters::actor::BodyHealth, PrimaryPlayerOnly>();
+        for mut health in q.iter_mut(world) {
+            health.health.invulnerable.set(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED, true);
+        }
+    }
+    let at = boss(&mut sim).pos;
+    sim.teleport_player((at.x - 360.0, at.y + 400.0));
+    sim.step_n(base(), 60 * 4);
+    let first = worn_on_stage(&mut sim);
+    assert!(!first.contains("npc_geppetto"), "his agent plays alone at first: {first:?}");
+    boss_health_to(&mut sim, 0.5);
+    sim.step_n(base(), 60 * 6);
+    let second = worn_on_stage(&mut sim);
+    assert!(second.contains("npc_geppetto"), "in his second phase Geppetto is on the stage: {second:?}");
+    assert!(!second.contains("npc_clause") && !second.contains("npc_wren"), "and not yet the others: {second:?}");
+    boss_health_to(&mut sim, 0.2);
+    sim.step_n(base(), 60 * 6);
+    let encore = worn_on_stage(&mut sim);
+    assert!(
+        encore.contains("npc_clause") && encore.contains("npc_wren"),
+        "at his encore Clause and Wren are on the stage: {encore:?}"
+    );
+}

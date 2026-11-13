@@ -165,9 +165,18 @@ Stack**, built like a guitar amplifier stack (he stands on the full stack).
   "extra high"), so the fight is that agent's temple boss too.
 * **(b) Its own agent, Full Stack** (now).
 
-**Owner:** `docs/planning/game/final-boss.md`; the catalog row
-`npc_full_stack` and its barks. Each option is content only (a name, barks
-and art).
+**Update (2026-11-13).** Jon: "Add Gepetto, Clause and Wren to the fight",
+with Full Stack kept. Taken: (b) stands, and the three named agents join
+the fight beside the giant: the Boss calls Geppetto in as his second phase
+opens and Clause and Wren as his encore does (`npc_geppetto`, `npc_clause`,
+`npc_wren`, drawn from `assets/concept_art/misc/agent-concepts/`). Still
+open: the spelling. The game uses the concept sheets' **Geppetto**; Jon's
+note and the endgame brainstorm spell it **Gepetto**. One rename of a
+catalog id, a renderer target and the Boss's bark either way.
+
+**Owner:** `docs/planning/game/final-boss.md`; the catalog rows
+`npc_full_stack`, `npc_geppetto`, `npc_clause`, `npc_wren` and their barks.
+Each option is content only (a name, barks and art).
 
 ## Q176 — Does emptying the final boss's bar count as his voluntary retirement?
 

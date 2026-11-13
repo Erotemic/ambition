@@ -878,8 +878,23 @@ stage's entry) and `boss_retirement` (the green room), the music fallback
 The module's conductor draws Full Stack in its `strum`, `riff` and
 `feedback` rows on those moves, its `idle` strum between.
 
-**Next action:** play it in a window and tune; his own anthem when a music
-registry is at hand.
+*Built 2026-11-13:* the stage's camera zone (zoom 2.6, about 790 units
+high: floor, risers, Full Stack and the Boss on one screen); the Boss is the
+Director with a keyboard (Jon: "the director already existed"); the
+dimension's own biome `boss_stage` (stadium backdrop, crowd foreground,
+stage skin, decor, door, confetti); Full Stack's 1960s robot head and
+straight strings; the three named agents Geppetto (called as phase 2 opens),
+Clause and Wren (as the encore opens), drawn from the concept sheets on the
+character generator, so each has the eight standard angles and the fighter
+rows (Wren in a hood with a wrench; Q175 updated); the band (design page):
+a guitar, bass, keytar and drumsticks every agent can play (`band_*` rows),
+and a drum kit prop. The encore's Agent Swarm subagents, refused until then
+as an unbuilt character, now drop in.
+
+**Next action:** stage the band in the fight (the agents at their
+instruments in the intro, leaving them when called); the Boss's microphone
+rows; play it in a window and tune; his own anthem when a music registry is
+at hand; the later-work list in the design page.
 
 **Acceptance:** a ring dialed by its address reaches the boss dimension; the
 fight runs with the Boss riding the guitar robot, in phases, with its intro,

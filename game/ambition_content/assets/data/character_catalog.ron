@@ -2792,13 +2792,13 @@
         // giant under him, is its own agent beside them (Q175).
         "npc_geppetto": (
             display_name: "Geppetto",
-            // The GPT parody, in his Emissary form. The concept sheets spell
-            // him with two p's.
+            // The GPT parody, the concept sheet's Orchestrator. The concept
+            // sheets spell him with two p's.
             manifest: "sprites/geppetto_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // The Director's rig, with a top hat on it.
-            standing_height: Some(82.0),
+            // 182 cm on the character generator's scale (185 cm stands 71.6).
+            standing_height: Some(70.4),
             composition: None,
             default_action_set: "striker_swipe",
             // A row that states how its body moves is a character the game
@@ -2831,8 +2831,8 @@
             manifest: "sprites/clause_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // The Director's rig, with a crown of petal fins.
-            standing_height: Some(74.0),
+            // 176 cm on the character generator's scale (185 cm stands 71.6).
+            standing_height: Some(68.1),
             composition: None,
             default_action_set: "striker_swipe",
             // A row that states how its body moves is a character the game
@@ -2861,13 +2861,14 @@
         ),
         "npc_wren": (
             display_name: "Wren",
-            // The Qwen parody, the Multilingual Tactician. Not
+            // The Qwen parody, the Generalist (hood and wrench). Not
             // `npc_port_wren`, the innkeeper Lark.
             manifest: "sprites/wren_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // The Director's rig, with a wide hat; she is the quick one.
-            standing_height: Some(76.0),
+            // 168 cm on the character generator's scale (185 cm stands
+            // 71.6); she is the quick one.
+            standing_height: Some(65.0),
             composition: None,
             default_action_set: "striker_swipe",
             // A row that states how its body moves is a character the game

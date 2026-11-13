@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v463
+ggrs-rollback-schema-v464
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -43,7 +43,7 @@ actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; not in 
 actor.interaction	component-clone	ActorInteraction	bevy_ggrs clone snapshot; not in the session checksum
 actor.ledge	component-canonical	BodyLedgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.life	component-clone	Life	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.life_ledger	resource-clone	LifeLedger	bevy_ggrs clone snapshot; not in the session checksum
+actor.life_ledger	resource-clone-custom-checksum	LifeLedger	bevy_ggrs clone snapshot + each character's facts and planned hour, and the hours booked
 actor.match_seat	component-canonical	MatchSeat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.match_team	component-canonical	MatchTeam	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.motion_model	component-canonical	MotionModel	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -421,6 +421,7 @@ message.portal_fire_intent	message-clear	PortalFireIntent	clear abandoned-future
 message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.ranged_fire_refused	message-clear	RangedFireRefused	clear abandoned-future message buffer in LoadWorld::Mapping
+message.recover_at_checkpoint	message-clear	RecoverAtCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
 message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.resolved_body_hit	message-clear	ResolvedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping

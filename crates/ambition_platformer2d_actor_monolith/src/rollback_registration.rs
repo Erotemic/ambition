@@ -153,7 +153,12 @@ where
     );
     // Each character's life as its body last lived it: what a body built
     // again in a room that comes back catches up from.
-    registrar.rollback_resource_clone::<crate::body::life::LifeLedger>(OWNER, "actor.life_ledger");
+    registrar.rollback_resource_clone_checksum::<crate::body::life::LifeLedger>(
+        OWNER,
+        "actor.life_ledger",
+        "each character's facts and planned hour, and the hours booked",
+        crate::body::life::LifeLedger::probe,
+    );
 
     // The pickup's ATTRACTION POLICY rides the same entity as the pickup, so a
     // rewind that recreates a dropped coin has to recreate whether it comes to

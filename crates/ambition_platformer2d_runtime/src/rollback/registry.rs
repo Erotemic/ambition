@@ -269,7 +269,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // checkpoint save and an admitted arrival (8f3e7ab968).
 // 461 -> 462: a cutscene beat can be a `Fall` (a scripted death).
 // 462 -> 463: the session's `ParticipantRecovery` rule (derived, immutable).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 463;
+// 463 -> 464: `RecoverAtCheckpoint` is cleared on rollback; `LifeLedger` is
+// value-checksummed.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 464;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

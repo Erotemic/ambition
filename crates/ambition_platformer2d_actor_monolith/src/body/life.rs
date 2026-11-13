@@ -150,6 +150,14 @@ pub struct LifeLedger {
     pub room_bookings: Vec<(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite, (String, String, i64), f32)>,
 }
 
+impl LifeLedger {
+    /// A value checksum of the ledger, by its text as [`Life::probe`] is.
+    pub fn probe(&self) -> u64 {
+        let text = format!("{self:?}");
+        text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LedgerRow {
     pub facts: Facts,

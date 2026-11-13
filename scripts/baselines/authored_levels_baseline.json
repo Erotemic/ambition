@@ -16,6 +16,12 @@
     "art_story_stacks",
     "art_workshop_deeps"
   ],
+  "boss.ldtk": [
+    "boss_green_room",
+    "boss_lobby",
+    "boss_main_stage",
+    "hall_bossofthegame_stage"
+  ],
   "dinosaur.ldtk": [
     "primeval_amber_vault",
     "primeval_canopy",

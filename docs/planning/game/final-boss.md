@@ -122,11 +122,14 @@ myself."* He swings the keyboard round from his back.
 
 He types, and what he types falls on the player:
 
-- **Keystroke rain** (`boss_keystroke_rain`): keycaps fall across the stage,
-  each one a letter, in lanes spread by a sequence that misses Full Stack and
-  him. The letters spell what he types (`K I L L`, `G G`, `R M`).
-- **Backspace** (`boss_backspace`): a long bar (the backspace key) sweeps
-  across the stage at a low height, from his side to the far wall. Jump it.
+- **Keystroke rain** (`boss_keystroke_rain`): keycaps fall from the top of
+  the stage, each one a letter, a word's letters side by side; each word
+  starts at a golden-ratio place across the stage and no key falls on him.
+  The letters spell what he types (`KILL`, `GG`, `RM`, `DIE`, `GIT PUSH
+  FORCE`, ...; the module's `WORDS`).
+- **Backspace** (`boss_backspace`): the tell locks the player's height;
+  a row of three backspace keys flies at that height from him toward the
+  player's side. Jump it or drop under it.
 - Full Stack goes on with the power chord and the riff, less often.
 
 ### Enrage — "The Encore" (under 30%)
@@ -136,9 +139,8 @@ a level and:
 
 - **Subagents** (`boss_subagents`): two Agent Swarm bodies drop onto the
   stage (`npc_agent_swarm`, `BossSummon`).
-- **The solo** (`stack_solo`): power chord, riff and keystroke rain at
-  once, at a short interval.
-- The keystrokes spell longer words.
+- **The solo**: power chord, backspace, feedback, keystroke rain and riff
+  one after another with short rests (the enrage steps of the profile row).
 
 ### The end — "The Escape Clause" (the retirement)
 
@@ -184,10 +186,31 @@ change the `cue_id` when the anthem is rendered.
 - **Full Stack** (renderer target `full_stack_giant`): a square amp stack on
   two short legs, with arms and an electric guitar; rows `idle` (a low
   strum), `strum` (the power chord), `riff`, `feedback` (the grille glows).
-- **Projectile looks:** `keycap` (one look, a keycap; the letter is drawn
-  per frame of a sheet of 26 keys), `note` (a music note), `chord_wave`.
+- **Projectile looks:** `keycap_a` to `keycap_z` and `keycap_back`
+  (renderer target `boss_keycaps`, one row a key); the chord, the riff and
+  the feedback use the shot kit's `sound_ring`.
+
+## Where it is built
+
+- The techniques: `game/ambition_content_modules/src/bossofthegame.rs`.
+- The fight: `boss_profiles.ron` and `boss_encounters/bossofthegame.ron`
+  (`bossofthegame`); the sheets `boss_sheets.ron`, `boss_art_keys.ron`; the
+  catalog rows `npc_full_stack` and `npc_bossofthegame`.
+- The cinematics: `data/cutscenes/boss_stage.ron`.
+- The rooms: the map's `generators/boss_stage/make_specs.py`, which also
+  makes the Hall of Bosses' practice copy (`hall_bossofthegame_stage`,
+  `hall.bossofthegame`) and its door.
+- The art: the renderer's `scripts/svg_art/{bossofthegame,full_stack}_art.py`,
+  `scripts/build_{bossofthegame,full_stack}_rig.py`, the targets
+  `bossofthegame_boss`, `full_stack_giant` and `boss_keycaps`.
+- Witness: `game/ambition_app/tests/the_final_boss_stands_on_full_stack.rs`.
 
 ## Not in this design (later work)
+
+- Full Stack plays its `idle` row (a strum) the whole fight: a mount with no
+  conductor chooses no row, so its `strum`, `riff` and `feedback` rows are
+  not drawn yet. A small conductor (as GNU-ton's) would play them on the
+  Boss's moves.
 
 - The brainstorm's endgame road (restrict his remote models and compute
   before the fight, so he changes the world more slowly). The fight does not

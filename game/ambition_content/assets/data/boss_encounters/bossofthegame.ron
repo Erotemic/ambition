@@ -1,0 +1,30 @@
+// Boss encounter spec — the bossofthegame, the final boss, on the shoulders
+// of Full Stack (`docs/planning/game/final-boss.md`).
+//
+// The Boss is the boss; the `npc_full_stack` mount he stands on is scenery a
+// body stands on and cannot hurt (its placement stands it behind the
+// playable plane), as GNU-ton's giant is. The phases are his mood:
+// Phase 1 "Make No Mistakes" (his agent does the work), the transition "Fine.
+// I'll do it myself.", Phase 2 "Manual Override" (he types, and it falls),
+// Enrage "The Encore" (subagents, and everything at once). His bar is his
+// resolve: at its end he sits down and retires; he does not die.
+(
+    id: "bossofthegame",
+    name: "the bossofthegame",
+    max_hp: 60,
+    phase1_to_transition_hp: 0.66,
+    phase2_to_enrage_hp: 0.30,
+    intro_seconds: 2.4,
+    // "What is the hard part of killing this player?" ... "Fine. I'll do it
+    // myself."
+    transition_seconds: 2.5,
+    enrage_seconds: 2.0,
+    // Music: his own anthem is wanted (an electric guitar; intro, a fight
+    // loop, an outro). Until it is rendered he plays GNU-ton's adaptive cue,
+    // bound to his phases in `assets/audio/music_cues.ron` (`boss_bindings`).
+    music_intro: "",
+    music_phase1: "",
+    music_phase2: "",
+    music_enrage: "",
+    voice: Some("npc_bossofthegame"),
+)

@@ -37,6 +37,7 @@
         // Several files, one library: the schema merges them in this order.
         (path: "data/cutscenes/sandbox.ron", schema: "cutscene_library", version: 1),
         (path: "data/cutscenes/intro.ron", schema: "cutscene_library", version: 1),
+        (path: "data/cutscenes/boss_stage.ron", schema: "cutscene_library", version: 1),
         // ⭐⭐ EVERY MOVE TABLE THIS PROVIDER AUTHORS IS CONTENT, NOT CODE
         // (fast-iteration I2, step 5). No `authored/*.rs` and no robot lineage
         // code compiles a moveset into the host any more;
@@ -174,6 +175,7 @@
         (path: "data/boss_encounters/overflow_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/wolfenstein_boss.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_encounters/wolfenstein_inugami.ron", schema: "boss_encounter", version: 1),
+        (path: "data/boss_encounters/bossofthegame.ron", schema: "boss_encounter", version: 1),
         (path: "data/boss_seeds.ron", schema: "boss_seed_library", version: 1),
         (path: "data/boss_validator_bands.ron", schema: "boss_validator_bands", version: 1),
         (path: "audio/music_registry.ron", library: Some("ambition_shared"), schema: "music_registry", version: 1),

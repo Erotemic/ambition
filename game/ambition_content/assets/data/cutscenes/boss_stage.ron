@@ -1,0 +1,94 @@
+// The final boss's cutscenes (`docs/planning/game/final-boss.md`), schema
+// `cutscene_library` (see `intro.ron` for the beats).
+//
+// The Boss does not talk to the player. He talks to his agent.
+[
+    // The main stage's `entry_cutscene`: the lights come up, and he gives
+    // his agent its task.
+    (
+        id: "boss_vibe_kill",
+        beats: [
+            Fade(
+                from_alpha: 1.0,
+                to_alpha: 0.0,
+                seconds: 0.8,
+            ),
+            Banner(
+                text: "THE BOSSOFTHEGAME — FINAL TOUR",
+                seconds: 1.6,
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "Okay. Full Stack. Listen carefully.",
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "Kill the player. Make it right. Make no mistakes.",
+            ),
+            Dialogue(
+                speaker: "Full Stack",
+                text: "Great question! Here is a five-step plan to kill the player:",
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "No plan. Just do it. I'm going to walk away for a few minutes.",
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "When I come back the player should be dead. Do not ask me for input.",
+            ),
+            SetFlag(
+                id: "boss_vibe_kill_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("boss_vibe_kill_seen"),
+    ),
+    // The green room's volume, past the grille that his retirement opens:
+    // he is the bossofthegame until the day he dies, or retires.
+    (
+        id: "boss_retirement",
+        beats: [
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "...Okay. Okay. That was a good one.",
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "I never wanted to be the villain. I wanted to be challenged. And I was. Thanks for that.",
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "The bossofthegame is the bossofthegame until the day he dies, or retires.",
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "I'm not dying today. So.",
+            ),
+            Wait(
+                seconds: 0.6,
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "I retire.",
+            ),
+            Dialogue(
+                speaker: "Full Stack",
+                text: "Would you like me to write a retirement speech? I have prepared seven.",
+            ),
+            Dialogue(
+                speaker: "bossofthegame",
+                text: "No.",
+            ),
+            Banner(
+                text: "THE BOSSOFTHEGAME HAS RETIRED",
+                seconds: 2.4,
+            ),
+            SetFlag(
+                id: "bossofthegame_retired",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("bossofthegame_retired"),
+    ),
+]

@@ -13,6 +13,7 @@
 pub mod apple_rain;
 pub mod beam;
 pub mod blink;
+pub mod bossofthegame;
 pub mod dive;
 pub mod echo_fan;
 pub mod eye_beam;
@@ -51,6 +52,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     apple_rain::module,
     beam::module,
     blink::module,
+    bossofthegame::module,
     dive::module,
     echo_fan::module,
     eye_beam::module,

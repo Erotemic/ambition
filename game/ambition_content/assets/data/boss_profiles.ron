@@ -627,6 +627,189 @@
         ),
     ),
     // ============================================================
+    // The bossofthegame — the final boss (`docs/planning/game/final-boss.md`).
+    //
+    // He stands on the shoulders of Full Stack (`npc_full_stack`), the
+    // giant amp-stack robot, as GNU-ton stands on his giant: the robot is a
+    // mount and the stage, and he is the body that takes the hits. The bar is
+    // his resolve, not his life: at its end he sits down and retires
+    // (`corpse: Stay`; the green room's scene). His moves are the
+    // `bossofthegame` module of `ambition_content_modules`.
+    // ============================================================
+    "bossofthegame": (
+        id: "bossofthegame",
+        title: Some("Until the Day He Retires"),
+        // He sits where he stopped, on the robot's top.
+        corpse: Some(Stay),
+        bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
+        reward_ability: None,
+        signature_gauntlet: None,
+        // His sheet's authored body (53x158 px) at the sheet's scale.
+        combat_size: Some((40.0, 100.0)),
+        // He rides a `giant`-class mount (ADR 0020).
+        pilotable_mount_classes: ["giant"],
+        movement: StationaryGiant(
+            sway_amplitude: 0.0,
+            sway_frequency: 0.0,
+            speed: 0.0,
+        ),
+        movement_phase2: None,
+        movement_enrage: None,
+        strike_speed_scale: 1.0,
+        self_dodge: None,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Special("stack_power_chord"),
+            Special("stack_riff"),
+            Special("stack_feedback"),
+            Special("boss_keystroke_rain"),
+            Special("boss_backspace"),
+            Special("boss_subagents"),
+        ],
+        attack_cooldown: 0.0,
+        attack_windup: 0.0,
+        attack_active: 0.0,
+        attack_damage: 1,
+        // He deals no contact damage: what he types and what it plays are
+        // the threat.
+        body_damage: 0,
+        // The riff and the backspace leave from his keyboard.
+        projectile_origin_offset: (24.0, -10.0),
+        attack_pattern: Scripted(
+            // Phase 1 — "Make No Mistakes": the agent does the work. Each move
+            // is Full Stack's, out from where he stands; he types prompts
+            // (his idle barks) and is open the whole time.
+            phase1: (steps: [
+                Rest(duration: 1.2),
+                Telegraph(profile: Special("stack_power_chord"), duration: 1.1,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                Strike(profile: Special("stack_power_chord"), duration: 0.6),
+                Rest(duration: 0.9),
+                Select(table: [
+                    // Far from him: the riff, a fan of notes that arcs.
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("stack_riff"), duration: 0.9,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_riff"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                    // On a riser or the truss: the feedback at that height.
+                    (weight: 1.2, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("stack_feedback"), duration: 1.1,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_feedback"), duration: 0.6),
+                        Rest(duration: 1.0),
+                    ]),
+                    // On the robot with him: the chord again, sooner.
+                    (weight: 1.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("stack_power_chord"), duration: 0.8,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_power_chord"), duration: 0.6),
+                        Rest(duration: 0.8),
+                    ]),
+                    // Hurt: the chord and the riff together.
+                    (weight: 1.5, when: Some(HpBelow(0.8)), steps: [
+                        Telegraph(profile: Special("stack_power_chord"), duration: 0.8,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_power_chord"), duration: 0.5),
+                        Rest(duration: 0.4),
+                        Telegraph(profile: Special("stack_riff"), duration: 0.6,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_riff"), duration: 0.5),
+                        Rest(duration: 1.0),
+                    ]),
+                ]),
+            ]),
+            // The transition: "Fine. I'll do it myself." He swings the
+            // keyboard round from his back.
+            // Phase 2 — "Manual Override": he types, and what he types falls.
+            phase2: (steps: [
+                Telegraph(profile: Special("boss_keystroke_rain"), duration: 0.9,
+                    telegraph: Some((pose: Some("floor_slam"), cue: None))),
+                Strike(profile: Special("boss_keystroke_rain"), duration: 3.2),
+                Rest(duration: 0.8),
+                Select(table: [
+                    (weight: 1.0, when: None, steps: [
+                        Telegraph(profile: Special("boss_backspace"), duration: 0.9,
+                    telegraph: Some((pose: Some("side_sweep"), cue: None))),
+                        Strike(profile: Special("boss_backspace"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("stack_power_chord"), duration: 0.8,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_power_chord"), duration: 0.6),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 0.8, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("stack_feedback"), duration: 1.0,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_feedback"), duration: 0.6),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 0.8, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("stack_riff"), duration: 0.8,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                        Strike(profile: Special("stack_riff"), duration: 0.5),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+            ]),
+            // Enrage — "The Encore": "Spawn subagents. Parallelize the kill."
+            // Two subagents each time round, then everything, faster.
+            enrage: (steps: [
+                Telegraph(profile: Special("boss_subagents"), duration: 1.0,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                Strike(profile: Special("boss_subagents"), duration: 0.4),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("boss_keystroke_rain"), duration: 0.6,
+                    telegraph: Some((pose: Some("floor_slam"), cue: None))),
+                Strike(profile: Special("boss_keystroke_rain"), duration: 2.4),
+                Rest(duration: 0.3),
+                Telegraph(profile: Special("stack_power_chord"), duration: 0.6,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                Strike(profile: Special("stack_power_chord"), duration: 0.5),
+                Rest(duration: 0.4),
+                Telegraph(profile: Special("boss_backspace"), duration: 0.7,
+                    telegraph: Some((pose: Some("side_sweep"), cue: None))),
+                Strike(profile: Special("boss_backspace"), duration: 0.4),
+                Rest(duration: 0.5),
+                Telegraph(profile: Special("stack_feedback"), duration: 0.8,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                Strike(profile: Special("stack_feedback"), duration: 0.5),
+                Rest(duration: 0.4),
+                Telegraph(profile: Special("boss_keystroke_rain"), duration: 0.5,
+                    telegraph: Some((pose: Some("floor_slam"), cue: None))),
+                Strike(profile: Special("boss_keystroke_rain"), duration: 2.4),
+                Rest(duration: 0.3),
+                Telegraph(profile: Special("stack_riff"), duration: 0.5,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                Strike(profile: Special("stack_riff"), duration: 0.4),
+                Rest(duration: 0.4),
+                Telegraph(profile: Special("stack_power_chord"), duration: 0.6,
+                    telegraph: Some((pose: Some("spike_halo"), cue: None))),
+                Strike(profile: Special("stack_power_chord"), duration: 0.5),
+                Rest(duration: 1.2),
+            ]),
+        ),
+        // His severance: what he leaves the one who made him retire.
+        reward: DropChest(
+            pickup: Currency(amount: 1000),
+            offset: (0.0, 30.0),
+            size: (52.0, 52.0),
+        ),
+    ),
+    // ============================================================
     // Smirking Behemoth — "You Have To Cut The Rope" parody boss.
     //
     // The player cannot attrition this boss down. Player damage is

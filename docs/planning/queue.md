@@ -865,8 +865,20 @@ identity) and Q176 (is a resolve bar a voluntary retirement) hold defaults.
 the green-room grille on `boss.cleared boss_stage.bossofthegame`),
 `boss_green_room`.
 
-**Next action:** the art (the Boss, Full Stack), the encounter and its
-specials module, the cinematics.
+*The fight (built 2026-11-12):* the art (renderer targets
+`bossofthegame_boss`, `full_stack_giant`, `boss_keycaps`), the catalog rows
+`npc_full_stack` (a `giant` mount: its top and its guitar are ground) and
+`npc_bossofthegame` (his voice), the encounter `bossofthegame` (60 resolve,
+three phases, `corpse: Stay`: he sits down), the module
+`ambition_content_modules::bossofthegame` (power chord, riff, feedback,
+keystroke rain, backspace, subagents), the cutscenes `boss_vibe_kill` (the
+stage's entry) and `boss_retirement` (the green room), the music fallback
+(GNU-ton's adaptive cue) and the hall's practice copy
+`hall_bossofthegame_stage`. Witness: `the_final_boss_stands_on_full_stack`.
+
+**Next action:** play it in a window and tune; a small conductor so Full
+Stack plays its `strum`, `riff` and `feedback` rows on his moves; his own
+anthem when a music registry is at hand.
 
 **Acceptance:** a ring dialed by its address reaches the boss dimension; the
 fight runs with the Boss riding the guitar robot, in phases, with its intro,

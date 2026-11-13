@@ -319,6 +319,22 @@
     // the archetype (the story's fight and the Hall of Bosses' copy).
     boss_bindings: [
         (
+            // The bossofthegame (the final boss): his own anthem is wanted
+            // (`docs/planning/game/final-boss.md`). Until it is rendered he
+            // plays the cue of standing on the shoulders of giants.
+            boss_id: "bossofthegame",
+            cue_id: "standing_on_shoulders_v2_adaptive",
+            phase_states: [
+                (phase: "Intro", state: "intro"),
+                (phase: "Phase1", state: "fight"),
+                (phase: "Transition", state: "fight"),
+                (phase: "Phase2", state: "fight"),
+                (phase: "Stagger", state: "fight"),
+                (phase: "Enrage", state: "fight"),
+                (phase: "Death", state: "outro"),
+            ],
+        ),
+        (
             // GNU-ton: the loop through every phase of the fight, and the
             // outro when he falls (it plays one time: a fallen boss's outro
             // only ends a cue that is playing).

@@ -72,6 +72,8 @@ fn the_halls_copied_bosses_are_practice_copies_at_their_own_placements() {
         ("hall_wolfenstein_arena", &["hall.wolfenstein", "hall.wolfenstein_inugami"][..], "castle_godwin_throne"),
         // Hylbert's hotel's haunted wing, cloned into the hall (2026-11-11).
         ("hall_gram_reaper_arena", &["hall.gram_reaper"][..], "math_hotel_gram_reaper"),
+        // The final boss's stage, cloned into the hall (2026-11-12).
+        ("hall_bossofthegame_stage", &["hall.bossofthegame"][..], "boss_main_stage"),
     ] {
         let hall = room(hall_room);
         let game = room(game_room);

@@ -23,6 +23,8 @@
         "gram_reaper_boss": "gram_reaper_spritesheet.png",
         "wolfenstein_boss": "wolfenstein_spritesheet.png",
         "wolfenstein_inugami": "wolfenstein_inugami_spritesheet.png",
+        // The final boss (renderer target `bossofthegame_boss`).
+        "bossofthegame": "bossofthegame_boss_spritesheet.png",
     },
     special_animation_rows: {
         "overfit_volley": ["spike_halo", "eye_beam"],
@@ -99,6 +101,14 @@
         "inu_howl": ["howl"],
         "inu_leash": ["leash_whip"],
         "inu_gutter": ["guttered"],
+        // The bossofthegame: he conducts his agent's moves (arms up), slams
+        // the keys for the rain, and swings the keyboard for the backspace.
+        "stack_power_chord": ["spike_halo"],
+        "stack_riff": ["spike_halo"],
+        "stack_feedback": ["spike_halo"],
+        "boss_keystroke_rain": ["floor_slam"],
+        "boss_backspace": ["side_sweep"],
+        "boss_subagents": ["spike_halo"],
     },
     // The sheet rows each geometry strike claims. The first row is the
     // canonical runtime key; the others are row-name aliases, so a

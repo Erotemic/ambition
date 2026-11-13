@@ -36,6 +36,7 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         encounter_triggers: Vec::new(),
         lock_walls: Vec::new(),
         switch_commands: Vec::new(),
+        cutscene_triggers: Vec::new(),
     }
 }
 

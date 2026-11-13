@@ -22,7 +22,6 @@ const HUB: &str = "central_hub_complex";
 /// to Bob (112 px tall). The player gets over it with the air jump.
 const ROUTE_TO_BOB: &[&str] = &[
     "intro_wake_room",
-    "intro_raid_corridor",
     "intro_escape_shaft",
     "drain_alley",
     "under_town_pipes",

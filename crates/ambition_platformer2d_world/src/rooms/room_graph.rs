@@ -53,6 +53,9 @@ pub struct RoomSpec {
     pub lock_walls: Vec<crate::rooms::EncounterLockWallSpec>,
     /// Authored `Switch` command lines in this room. Most switches have none.
     pub switch_commands: Vec<crate::rooms::SwitchCommandSpec>,
+    /// Authored cutscene trigger volumes in this room.
+    #[serde(default)]
+    pub cutscene_triggers: Vec<crate::rooms::CutsceneTriggerSpec>,
 }
 
 impl RoomSpec {
@@ -81,6 +84,7 @@ impl RoomSpec {
             encounter_triggers: Vec::new(),
             lock_walls: Vec::new(),
             switch_commands: Vec::new(),
+            cutscene_triggers: Vec::new(),
         }
     }
 

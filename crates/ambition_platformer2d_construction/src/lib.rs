@@ -1937,6 +1937,7 @@ pub fn reinstatable_authored_requests(
         encounter_triggers: _,
         lock_walls: _,
         switch_commands: _,
+        cutscene_triggers: _,
     } = room;
 
     authored_ground_item_requests(room)

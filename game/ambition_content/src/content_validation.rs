@@ -543,6 +543,53 @@ fn validate_cutscene_bindings(
         .map(|(what, room, cutscene)| (what.as_str(), room.as_str(), cutscene.as_str()))
         .collect();
     check_cutscene_bindings(&library, &rows, report);
+    let volumes = authored_cutscene_triggers(project);
+    let rows: Vec<(&str, &str, &str)> = volumes
+        .iter()
+        .map(|(what, room, cutscene)| (what.as_str(), room.as_str(), cutscene.as_str()))
+        .collect();
+    check_cutscene_bindings(&library, &rows, report);
+    check_trigger_scripts_remember_they_were_seen(&library, &rows, report);
+}
+
+/// One row per `CutsceneTrigger` volume, keyed by its active area.
+fn authored_cutscene_triggers(project: &LdtkProject) -> Vec<(String, String, String)> {
+    project
+        .levels
+        .iter()
+        .flat_map(|level| {
+            level
+                .all_entity_instances()
+                .filter(|entity| entity.identifier == "CutsceneTrigger")
+                .filter_map(|entity| {
+                    let cutscene = ambition_platformer2d_ldtk::field_string(entity, "cutscene")?;
+                    Some((
+                        format!("CutsceneTrigger '{}' of level '{}'", entity.iid, level.identifier),
+                        level.active_area(),
+                        cutscene.trim().to_string(),
+                    ))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// A trigger volume asks for its script every tick a body stands in it
+/// (`trigger_cutscenes_in_volumes`), and asks nothing for a script with no
+/// seen flag: such a volume would never play.
+fn check_trigger_scripts_remember_they_were_seen(
+    library: &ambition_cutscene::CutsceneLibrary,
+    rows: &[(&str, &str, &str)],
+    report: &mut ContentValidationReport,
+) {
+    for &(what, room, cutscene) in rows {
+        if library.get(cutscene).is_some_and(|script| script.seen_flag.is_none()) {
+            report.push_error(format!(
+                "{what} for room '{room}' starts cutscene '{cutscene}', which has no seen flag; \
+                 a trigger volume plays only a script that remembers it was seen"
+            ));
+        }
+    }
 }
 
 /// One row per LEVEL that sets `entry_cutscene`, keyed by its active area, so
@@ -1150,7 +1197,6 @@ mod tests {
             ("basement_boss", "boss_intro_gradient_sentinel"),
             ("cutscene_lab", "cutscene_lab_intro"),
             ("intro_wake_room", "intro_wake"),
-            ("intro_raid_corridor", "intro_raid"),
             ("drain_alley", "drain_market_arrival"),
         ]
         .iter()

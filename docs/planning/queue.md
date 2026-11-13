@@ -806,6 +806,31 @@ body in the world, and the possessed body keeps its geometry and state.
 - **The message board** can be attacked and fights back: an Easter egg to
   keep, with fight animations of its own.
 
+**Built (2026-11-12):**
+
+- *The hold* (ce2e093812): a playing room cutscene holds every body in its
+  room (`ControlHold::Cutscene`, `Invulnerability::CUTSCENE`).
+- *One creator, a fight together:* `intro_raid_corridor` is one room with the
+  lab (`activeArea: intro_wake_room`; stairs where the two floors meet). The
+  one creator keeps at the player's side (`follows_closely`, a `Roam`
+  preset), and the corridor is `dangerous`, so he rallies to the robot's
+  fight. The raid starts at a `CutsceneTrigger` volume at the head of the
+  corridor (a new LDtk entity: a scene that starts where its people are),
+  with the hired-goblins lines. A navigating body that stands on a slope
+  plans from the surface the slope rises off (it waited on the cart ramp
+  for a landing that had happened).
+
+**Next:**
+
+1. *The creator's end.* He can fall in the fight (12 HP), but his last words
+   (`creator_final_fragment`) play from nothing yet, and nothing makes him
+   fall when the player wins. Wants a beat or a command that ends an actor,
+   and a decision on whether he always dies here.
+2. *Oiler:* a `CutsceneTrigger` around him in `drain_alley` in place of the
+   room's `entry_cutscene`, and a `Roam` that goes to a player who comes
+   near (a `Roam` keeps to the graph, so he stops walking into the hole).
+3. *The message board's fight rows* (art: its sheet has no attack rows).
+
 ### COOP-RECOVERY — independent respawn and a full-party wipe
 
 **Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore

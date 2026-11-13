@@ -29,7 +29,6 @@ use crate::alices_battery_reaches_bob::{
 /// The rooms from the hub to Alice, each through an exit of the room before.
 const ROUTE_TO_ALICE: &[&str] = &[
     "intro_wake_room",
-    "intro_raid_corridor",
     "intro_escape_shaft",
     "drain_alley",
     "under_town_pipes",

@@ -58,6 +58,20 @@ pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomE
     })
 }
 
+/// A cutscene's trigger volume, into the room IR. A trigger with no script
+/// is refused: it would be a volume that does nothing, silently.
+pub(super) fn convert_cutscene_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    let cutscene = field_string(entity, "cutscene")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| format!("CutsceneTrigger '{name}' names no cutscene"))?;
+    Ok(RoomEmission {
+        cutscene_triggers: vec![ambition_platformer2d_world::rooms::CutsceneTriggerSpec { cutscene, min, size }],
+        ..RoomEmission::default()
+    })
+}
+
 /// An encounter's lock wall, into the room IR. See
 /// [`convert_encounter_trigger`].
 pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {

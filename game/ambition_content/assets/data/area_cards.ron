@@ -22,7 +22,7 @@
 
     // ---- the intro ----
     (name: "The Lab", subtitle: Some("Where you woke"), rooms: [
-        "intro_wake_room", "intro_raid_corridor", "intro_escape_shaft", "first_system_boss",
+        "intro_wake_room", "intro_escape_shaft", "first_system_boss",
         "gate_stack_lower", "combat_calibration_lab",
     ]),
     (name: "Under Town", rooms: ["drain_alley", "under_town_pipes", "alice_relay", "bob_relay"]),

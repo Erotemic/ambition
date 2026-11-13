@@ -143,7 +143,7 @@ fn no_placed_walker_lands_when_its_room_starts() {
         ),
         ("basement_enemies", 8, &["EnemySpawn-0143", "player"]),
         ("pirate_cove", 9, &[]),
-        ("intro_raid_corridor", 3, &[]),
+        ("intro_wake_room", 3, &[]),
     ];
     for (room, at_least, still) in rooms {
         let (landed, placed, unexplained) = the_start_of(room);

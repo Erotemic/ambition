@@ -1005,6 +1005,23 @@
       "fields": []
     },
     {
+      "identifier": "CutsceneTrigger",
+      "probe_size": [
+        64,
+        64
+      ],
+      "note": "a player body inside the volume starts the cutscene, for this level's room; a level's `entry_cutscene` starts one on arrival instead.",
+      "fields": [
+        {
+          "name": "cutscene",
+          "presence": "required",
+          "on_invalid": "open",
+          "sample": "intro_raid",
+          "note": "the id of a script in the cutscene library; the converter refuses a trigger with none. An id the library lacks, or a script with no seen flag, asks nothing at run time (the trigger requests every tick a body is inside, which is safe only for a script that remembers it was seen)."
+        }
+      ]
+    },
+    {
       "identifier": "LockWall",
       "probe_size": [
         16,

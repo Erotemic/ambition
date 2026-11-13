@@ -101,7 +101,6 @@ fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
     let lib = crate::dialogue::cutscene_defaults::cutscene_library_of(crate::pack::shipped());
     for (room, cutscene) in [
         ("intro_wake_room", "intro_wake"),
-        ("intro_raid_corridor", "intro_raid"),
         ("drain_alley", "drain_market_arrival"),
     ] {
         let spec = rooms
@@ -115,6 +114,14 @@ fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
         );
         assert!(lib.get(cutscene).is_some(), "`{cutscene}` is not in the cutscene library");
     }
+    // The raid starts where its people are: a volume in the corridor, which is
+    // one room with the lab, so the creator who woke the robot walks into it.
+    let lab = rooms.iter().find(|spec| spec.id == "intro_wake_room").expect("the lab is a shipped room");
+    assert!(
+        lab.cutscene_triggers.iter().any(|trigger| trigger.cutscene == "intro_raid"),
+        "the lab's room has no volume that starts `intro_raid`"
+    );
+    assert!(lib.get("intro_raid").is_some_and(|script| script.seen_flag.is_some()));
 }
 
 #[test]

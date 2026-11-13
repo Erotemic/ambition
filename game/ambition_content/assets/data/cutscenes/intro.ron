@@ -80,7 +80,11 @@
         ],
         seen_flag: Some("first_ripple_seen"),
     ),
-    // intro_raid_corridor's `entry_cutscene`.
+    // Started by the volume at the head of the corridor (`CutsceneTrigger` in
+    // intro_raid_corridor, one room with the lab), so the creator who woke the
+    // robot is there for it. Goblins, hired for the robot and the research.
+    // The room holds the fight while it plays; after it, the room is
+    // `dangerous`, so the creator rallies to the robot's fight.
     (
         id: "intro_raid",
         beats: [
@@ -90,15 +94,19 @@
             ),
             Dialogue(
                 speaker: "Salvage Lead",
-                text: "Wrong room. Secure anything that boots.",
+                text: "One prototype, one lab of research, paid in advance. Bag it all.",
+            ),
+            Dialogue(
+                speaker: "Creator",
+                text: "Paid by whom? Nobody knows this lab is here.",
             ),
             Dialogue(
                 speaker: "Lab Raider",
-                text: "Prototype is awake. Keep it away from the doors.",
+                text: "Somebody does. The manifest said it'd be switched off.",
             ),
             Dialogue(
-                speaker: "Salvage Lead",
-                text: "This one isn\'t on the manifest. Tag it and move.",
+                speaker: "Creator",
+                text: "Then they wrote the wrong list. Stay by me. We go through them.",
             ),
             SetFlag(
                 id: "intro_raid_started",

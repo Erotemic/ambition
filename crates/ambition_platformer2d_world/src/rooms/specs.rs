@@ -155,6 +155,20 @@ pub struct EncounterTriggerSpec {
     pub camera_zoom: Option<f32>,
 }
 
+/// An authored cutscene trigger volume: a player body inside it starts the
+/// cutscene, in the room it belongs to. The room-entry cutscene
+/// (`RoomMetadata::entry_cutscene`) answers "on arrival"; this answers "here",
+/// so a scene starts where its people are and not at the door.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CutsceneTriggerSpec {
+    /// The id of a script in the cutscene library.
+    pub cutscene: String,
+    /// World-space minimum corner of the volume.
+    pub min: ae::Vec2,
+    /// World-space size of the volume.
+    pub size: ae::Vec2,
+}
+
 /// A switch's authored `on_activate` line in the room IR. It remains a typed
 /// room facet instead of widening the closed Tier-0 `PlacementSchema` for a
 /// command string consumed only by switch-command lowering. Most switches omit

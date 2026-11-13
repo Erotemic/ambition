@@ -23,8 +23,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// leads to).
 const CROSSINGS: &[(&str, &str)] = &[
     ("central_hub_complex", "intro_wake_room"),
-    ("intro_wake_room", "intro_raid_corridor"),
-    ("intro_raid_corridor", "intro_escape_shaft"),
+    ("intro_wake_room", "intro_escape_shaft"),
     ("intro_escape_shaft", "drain_alley"),
     ("drain_alley", "under_town_pipes"),
     ("under_town_pipes", "alice_relay"),

@@ -60,6 +60,46 @@ pub fn auto_trigger_room_cutscenes(
     last_rooms.0 = ids;
 }
 
+/// Queue the cutscene of each authored trigger volume a player body stands
+/// in (`RoomSpec::cutscene_triggers`), for the volume's room.
+///
+/// It asks every tick a body is inside, and that is safe only for a script
+/// that remembers it was seen: the queue keeps one copy, the drain skips a
+/// seen script, and the seen flag is applied (`GameplayEffects`) on the tick
+/// the cutscene ends, before this phase runs again. So a trigger whose script
+/// has no seen flag, or one already seen, asks nothing.
+pub fn trigger_cutscenes_in_volumes(
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    players: Query<(Entity, &ambition_platformer2d_core::BodyKinematics), With<ambition_characters::control::DrivingParticipant>>,
+    library: Res<CutsceneLibrary>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
+    active: Res<ActiveCutscene>,
+    mut queue: ResMut<CutsceneTriggerQueue>,
+) {
+    let playing = active.runtime.as_ref().map(|runtime| runtime.script.id.as_str());
+    for (instance, definition) in rooms.live_rooms() {
+        for trigger in &rooms.rooms().spec(definition).cutscene_triggers {
+            let unseen = library
+                .get(&trigger.cutscene)
+                .and_then(|script| script.seen_flag.as_deref())
+                .is_some_and(|seen| !save.data().flag(seen));
+            if !unseen || playing == Some(trigger.cutscene.as_str()) {
+                continue;
+            }
+            let (min, max) = (trigger.min, trigger.min + trigger.size);
+            let inside = players.iter().filter(|(body, _)| live.of(*body) == Some(instance)).any(|(_, kin)| {
+                let half = kin.size() * 0.5;
+                let (lo, hi) = (kin.pos - half, kin.pos + half);
+                lo.x < max.x && hi.x > min.x && lo.y < max.y && hi.y > min.y
+            });
+            if inside {
+                queue.request_in(trigger.cutscene.clone(), instance.ordinal());
+            }
+        }
+    }
+}
+
 /// Drain the trigger queue: start the next cutscene if one isn't
 /// already playing. Skips any that have already had their seen flag
 /// set.
@@ -436,6 +476,7 @@ impl Plugin for CutsceneSchedulePlugin {
             sim,
             (
                 auto_trigger_room_cutscenes,
+                trigger_cutscenes_in_volumes,
                 // Only with a trigger queued: it took the queue each tick.
                 drain_cutscene_triggers.run_if(
                     |queue: bevy::prelude::Res<ambition_cutscene::CutsceneTriggerQueue>| !queue.0.is_empty(),

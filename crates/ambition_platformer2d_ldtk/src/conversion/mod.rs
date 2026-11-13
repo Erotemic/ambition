@@ -219,6 +219,8 @@ impl LdtkProject {
             Vec::new();
         let mut switch_commands: Vec<ambition_platformer2d_world::rooms::SwitchCommandSpec> =
             Vec::new();
+        let mut cutscene_triggers: Vec<ambition_platformer2d_world::rooms::CutsceneTriggerSpec> =
+            Vec::new();
         let mut metadata = ambition_platformer2d_world::rooms::RoomMetadata::default();
         // Index before conversion: a `path_ref` can name a path authored later in
         // the file, or in a sibling level of the same active area.
@@ -315,6 +317,7 @@ impl LdtkProject {
                         encounter_triggers.extend(emission.encounter_triggers);
                         lock_walls.extend(emission.lock_walls);
                         switch_commands.extend(emission.switch_commands);
+                        cutscene_triggers.extend(emission.cutscene_triggers);
                     }
                     // Name the level, not the iid: the author opens the level to fix it.
                     Err(error) => errors.push(format!(
@@ -498,6 +501,7 @@ impl LdtkProject {
             encounter_triggers,
             lock_walls,
             switch_commands,
+            cutscene_triggers,
         })
     }
 
@@ -600,6 +604,8 @@ pub struct RoomEmission {
     pub lock_walls: Vec<ambition_platformer2d_world::rooms::EncounterLockWallSpec>,
     /// A `Switch`'s authored `on_activate` line. Most switches emit none.
     pub switch_commands: Vec<ambition_platformer2d_world::rooms::SwitchCommandSpec>,
+    /// A `CutsceneTrigger`'s volume and script.
+    pub cutscene_triggers: Vec<ambition_platformer2d_world::rooms::CutsceneTriggerSpec>,
     pub ignored: bool,
 }
 
@@ -990,6 +996,7 @@ fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter>
         map.insert("CameraZone", convert_camera_zone);
         map.insert("Switch", convert_switch);
         map.insert("EncounterTrigger", convert_encounter_trigger);
+        map.insert("CutsceneTrigger", convert_cutscene_trigger);
         map.insert("LockWall", convert_lock_wall);
         // Read by its own consumer from the raw LdtkProject; not in the emission stream.
         map.insert("StitchedBoundary", convert_consumed_elsewhere);

@@ -212,6 +212,20 @@
             playful: 0.2,
             notice_radius: 120.0,
         ),
+        // Keeps at the player's side: every next place is beside the player,
+        // and a body farther off than a few strides goes to the player at
+        // once. Rests are short, so it keeps up with a walk. In a dangerous
+        // room it still rallies to the player's fight (`rally.rs`).
+        "follows_closely": Roam(
+            speed: 90.0,
+            trot_speed: 190.0,
+            rest_min_s: 0.2,
+            rest_max_s: 0.6,
+            company: 1.0,
+            stay_within: 120.0,
+            playful: 0.0,
+            notice_radius: 400.0,
+        ),
         // A townsperson going about the town: walks to places in its room,
         // rests at each, and pays the player no mind.
         "townsfolk_roam": Roam(
@@ -3000,6 +3014,10 @@
             composition: None,
             default_brain: "stand_still",
             default_action_set: "bare_hands",
+            // He fights beside the robot in the raid (a rally in a dangerous
+            // room): with the default 4 he fell in about five seconds, before
+            // the fight was a fight together.
+            max_health: Some(12),
             tags: ["intro", "story"],
         barks: (
             on_hit: ["I made you. Don't make me regret it.", "There are boundaries, you know.", "Creator privileges suspended."],

@@ -205,7 +205,18 @@ pub fn advise_navigation(
         let Some(graph) = graph else {
             continue;
         };
-        let feet = kinematics.pos + graph.frame.down * graph.half.y;
+        let mut feet = kinematics.pos + graph.frame.down * graph.half.y;
+        // The graph models no slope, so a body standing on one stood on no
+        // surface the graph knows and waited for a landing that had happened:
+        // the intro's creator walked up the cart ramp after the player and
+        // stayed there. A grounded body off the graph plans from the surface
+        // its slope rises off, under its feet within its own height. A body in
+        // the air still waits to land.
+        if ground.on_ground && graph.surface_at(feet).is_none() {
+            if let Some(under) = graph.surface_under(feet, graph.half.y * 2.0) {
+                feet = graph.point_on(under, graph.frame.along(feet));
+            }
+        }
         let (waypoints, waypoint_count) = graph.waypoints(feet, request.choice);
         let next = request.goal.map_or(NavNext::Unknown, |goal| graph.next(feet, goal));
         let live_room = rooms.of(entity);

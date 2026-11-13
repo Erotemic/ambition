@@ -1,7 +1,7 @@
 //! Draw a far-side body as the part of it the pane does not cover.
 //!
 //! A pane draws at [`crate::PORTAL_WINDOW_Z`] (`9.5`) and an actor at
-//! `WORLD_Z_DUMMY + 1.0` or `WORLD_Z_PLAYER`. Every actor therefore wins the
+//! `WORLD_Z_DUMMY + 5.0` or `WORLD_Z_PLAYER`. Every actor therefore wins the
 //! depth test against every pane, and a body behind an aperture shows through
 //! the captured image that should hide it.
 //!
@@ -348,8 +348,8 @@ mod tests {
     }
 
     fn spawn_candidate(app: &mut App, centre: Vec2, half: Vec2) -> Entity {
-        // The generic actor band, `WORLD_Z_DUMMY + 1.0`.
-        spawn_candidate_at_z(app, centre, half, 11.0)
+        // The generic actor band, `WORLD_Z_DUMMY + 5.0`.
+        spawn_candidate_at_z(app, centre, half, 15.0)
     }
 
     /// The pieces must follow this frame's pose. The fixture makes the local
@@ -629,7 +629,7 @@ mod tests {
     #[test]
     fn the_player_band_and_the_actor_band_composite_identically() {
         let mut counts = Vec::new();
-        for z in [11.0_f32, 20.0] {
+        for z in [15.0_f32, 20.0] {
             let mut app = test_app();
             app.world_mut().spawn(pane());
             spawn_viewer(&mut app, Vec2::new(400.0, 300.0));

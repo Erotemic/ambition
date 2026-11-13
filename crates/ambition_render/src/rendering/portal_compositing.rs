@@ -3,7 +3,7 @@
 //! The portal presentation crate cannot see ordinary actors. Its body seams
 //! are `PortalSceneBody` (one entity, decomposed at the seam) and
 //! `PortalAffordanceBody` (whoever operates the portals). An NPC behind an
-//! aperture is neither, but this crate draws it at `WORLD_Z_DUMMY + 1.0`,
+//! aperture is neither, but this crate draws it at `WORLD_Z_DUMMY + 5.0`,
 //! above every pane, so a far-side actor would show through a seamless
 //! window.
 //!

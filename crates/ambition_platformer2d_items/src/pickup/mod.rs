@@ -4,7 +4,9 @@
 //! item capabilities and restores custody from the admitted checkpoint data.
 
 pub mod minted_horizon;
-pub use minted_horizon::{GrantSource, PickupGranted, RewardGrant, RewardGrantsSinceCheckpoint};
+pub use minted_horizon::{
+    ConversationBagMove, ConversationBagSinceCheckpoint, GrantSource, PickupGranted, RewardGrant, RewardGrantsSinceCheckpoint,
+};
 
 use bevy::prelude::*;
 use ambition_platformer2d_core as ae;

@@ -1297,8 +1297,21 @@ then die. The banked flag stays set and the potion stays in the bag (4). A
 flag written after the bank (the control) is taken back. Which story beats
 should bank is content's choice; Bob's hand-over does not.
 
-**Next action:** (3) in co-op, shared facts a survivor holds are not rolled back, and their
-objects stay consistent; (4) dialogue history (seen, per participant, Q134)
+**Built 2026-11-13 (slice 3):** a co-op death already kept the facts
+(slice 1). Their objects did not stay with them. The restore built the bag
+from the checkpoint's plus the kept pickup, chest and defeat grants, so what
+a conversation gave or took went back while its flag stayed. That was read
+from the restore, not measured. `ConversationBagSinceCheckpoint` now records
+each conversation's bag move (grant, purchase, sale and the payer's coins).
+A restore that keeps the facts replays the moves onto the bag and the
+subject's purse. One that pins the facts drops them. A checkpoint commit
+forgets them, and a room rewind drops its own (the bag side of a rewind stays
+`BagUsesInRooms`'s). Schema 467. Measured with temporary probes (grant 2
+Health Cells, sell 1 for 5, set a flag, die). Two players, Bob spared: flag
+on, cells 3→4, purse 0→5, all kept. Solo control: flag off, cells 3, purse
+0.
+
+**Next action:** (4) dialogue history (seen, per participant, Q134)
 kept apart from the world facts, so a seen marker grants nothing.
 
 **Acceptance:** the dialogue arms of section 11: solo rollback consistent; an

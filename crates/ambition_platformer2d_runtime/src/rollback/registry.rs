@@ -275,7 +275,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // `ReturnedCoins` mark.
 // 465 -> 466: an authored checkpoint asked from dialogue
 // (`CheckpointEstablishRequested`, `PendingAuthoredCheckpoint`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 466;
+// 466 -> 467: what conversations moved in the bag since the checkpoint
+// (`ConversationBagSinceCheckpoint`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 467;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

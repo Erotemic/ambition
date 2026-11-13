@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v466
+ggrs-rollback-schema-v467
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -496,6 +496,7 @@ resource.bag_spends_since_checkpoint	resource-clone-custom-checksum	BagSpendsSin
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.conversation_bag_since_checkpoint	resource-clone-custom-checksum	ConversationBagSinceCheckpoint	bevy_ggrs clone snapshot + what conversations gave and took from the shared bag since the last checkpoint: a death that keeps the facts keeps them
 resource.conversations_in_rooms	resource-clone	ConversationsInRooms	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.custody_baseline	component-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
 resource.day_clock	resource-canonical	DayClock	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

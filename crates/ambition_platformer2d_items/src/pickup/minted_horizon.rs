@@ -268,6 +268,9 @@ pub struct ItemCheckpointRestoreInputs {
     /// `owned`, for the same reason. A spend the restore forgets is a
     /// quantity the next death puts back while its object stays.
     pub spends: ambition_held_items::BagSpendsSinceCheckpoint,
+    /// The conversations' moves the restore keeps in `owned`: all of them
+    /// when it keeps the facts, none when it pins them (Q164).
+    pub conversations: ConversationBagSinceCheckpoint,
 }
 
 /// ⛔⛔ IT RUNS ONLY FROM THE COMMIT, AND READS ONLY WHAT THE COMMIT INSTALLED.
@@ -563,17 +566,113 @@ impl RewardGrantsSinceCheckpoint {
     }
 }
 
-/// A committed checkpoint makes every grant and every bag spend since the
-/// last one part of the baseline.
+/// One bag change a conversation made: what it gave, what it took, and the
+/// coins its payer paid (a negative price) or was paid.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConversationBagMove {
+    pub item: ambition_items::Item,
+    pub gained: u32,
+    pub gave: u32,
+    /// The body whose wallet the coins moved, and how many came in.
+    pub payer: Option<SimId>,
+    pub coins: i32,
+    /// The room it was said in and the tick: a rewind of that room drops the
+    /// move from this record (the bag's own rewind is `BagUsesInRooms`'s).
+    pub written: Option<ambition_platformer2d_shared_tangle::lifecycle::RoomWrite>,
+}
+
+/// What conversations gave and took from the shared bag since the last
+/// committed checkpoint (Q164). They come with the facts the same lines set,
+/// so a restore that keeps the facts (a co-op death that spares a
+/// participant) keeps these too, and one that pins the facts drops them: a
+/// fact never stays while its object is lost, nor an object while its fact
+/// goes.
+///
+/// Rollback state with a real value: a conversation writes it on a tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ConversationBagSinceCheckpoint {
+    moves: Vec<ConversationBagMove>,
+}
+
+impl ConversationBagSinceCheckpoint {
+    /// Record a move. One that changed nothing is not recorded.
+    pub fn record(&mut self, change: ConversationBagMove) {
+        if change.gained > 0 || change.gave > 0 || change.coins != 0 {
+            self.moves.push(change);
+        }
+    }
+
+    /// `room` rewinds to `saved_at`: drop the moves it made after that tick.
+    /// Its replay records again what it says again.
+    pub fn retract_room(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        saved_at: u64,
+    ) {
+        let retracted =
+            |change: &ConversationBagMove| change.written.is_some_and(|written| written.retracted_by(room, saved_at));
+        if self.moves.iter().any(retracted) {
+            self.moves.retain(|change| !retracted(change));
+        }
+    }
+
+    /// Every move, in the order they were made.
+    pub fn moves(&self) -> &[ConversationBagMove] {
+        &self.moves
+    }
+
+    /// Put the moves on `bag`, in order, and the coins `subject` moved on
+    /// `purse`.
+    pub fn apply_to(&self, bag: &mut ambition_items::OwnedItems, purse: &mut i32, subject: &SimId, items: &ambition_items::ItemCatalog) {
+        for change in &self.moves {
+            if change.gained > 0 {
+                bag.grant(items, change.item, change.gained);
+            }
+            if change.gave > 0 {
+                bag.take(change.item, change.gave);
+            }
+            if change.payer.as_ref() == Some(subject) {
+                *purse += change.coins;
+            }
+        }
+    }
+
+    /// Forget every move: a checkpoint commit makes them part of the baseline.
+    pub fn forget_all(&mut self) {
+        if !self.moves.is_empty() {
+            self.moves.clear();
+        }
+    }
+
+    /// Entity-free value projection.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.moves.len() as u64);
+        for change in &self.moves {
+            put_u64(&mut bytes, change.item.index() as u64);
+            put_u64(&mut bytes, u64::from(change.gained));
+            put_u64(&mut bytes, u64::from(change.gave));
+            put_str(&mut bytes, change.payer.as_ref().map_or("", |payer| payer.as_str()));
+            put_u64(&mut bytes, u64::from(change.coins as u32));
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// A committed checkpoint makes every grant, every bag spend and every
+/// conversation's move since the last one part of the baseline.
 pub fn forget_bag_records_at_checkpoint(
     mut commits: MessageReader<CheckpointCommitted>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
     mut spends: ResMut<ambition_held_items::BagSpendsSinceCheckpoint>,
+    mut conversations: ResMut<ConversationBagSinceCheckpoint>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
     if commits.read().count() > 0 {
         grants.forget_all();
         spends.forget_all();
+        conversations.forget_all();
     }
 }
 
@@ -585,6 +684,7 @@ pub fn keep_the_bag_records_the_restore_keeps(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
     mut spends: ResMut<ambition_held_items::BagSpendsSinceCheckpoint>,
+    mut conversations: ResMut<ConversationBagSinceCheckpoint>,
 ) {
     let Some(inputs) = inputs else {
         return;
@@ -594,6 +694,9 @@ pub fn keep_the_bag_records_the_restore_keeps(
     }
     if *spends != inputs.spends {
         *spends = inputs.spends.clone();
+    }
+    if *conversations != inputs.conversations {
+        *conversations = inputs.conversations.clone();
     }
 }
 
@@ -706,6 +809,16 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 }
             },
         );
+        // The bag's side of a conversation's rewind is `BagUsesInRooms`'s;
+        // this drops only the record.
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.conversation_bag_since_checkpoint",
+            // This plugin installs the record (below), so it is always there.
+            |world, room, saved_at| {
+                world.resource_mut::<ConversationBagSinceCheckpoint>().retract_room(room, saved_at);
+            },
+        );
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,
             "resource.bag_spends_since_checkpoint",
@@ -758,6 +871,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         )
         .init_resource::<RewardGrantsSinceCheckpoint>()
         .init_resource::<ambition_held_items::BagSpendsSinceCheckpoint>()
+        .init_resource::<ConversationBagSinceCheckpoint>()
         // All checkpoint readers must consume the commit in its simulation frame.
         // LoadWorld clears messages before a replay of the next frame.
         .add_systems(sim, forget_bag_records_at_checkpoint
@@ -965,6 +1079,13 @@ where
         "resource.reward_grants_since_checkpoint",
         "the grants of the pickups collected and the chests opened since the last checkpoint: a retracted boss defeat takes back a mint's and its reward chest's, and a death keeps a placed source's while one of its owners is spared",
         RewardGrantsSinceCheckpoint::checksum,
+    );
+    // A conversation writes it on a tick.
+    registrar.rollback_resource_clone_checksum::<ConversationBagSinceCheckpoint>(
+        OWNER,
+        "resource.conversation_bag_since_checkpoint",
+        "what conversations gave and took from the shared bag since the last checkpoint: a death that keeps the facts keeps them",
+        ConversationBagSinceCheckpoint::checksum,
     );
     // A throw writes it on a tick, so a rewind across that tick takes the
     // spend back out of the record with the quantity back into the bag.

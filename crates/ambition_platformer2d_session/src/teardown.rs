@@ -76,6 +76,9 @@ pub struct SessionScopedResources<'w> {
     reward_grants: Option<ResMut<'w, ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint>>,
     /// The bag spends since the last checkpoint, for the same reason.
     bag_spends: Option<ResMut<'w, ambition_held_items::BagSpendsSinceCheckpoint>>,
+    /// What conversations moved in the bag since the last checkpoint, for
+    /// the same reason.
+    conversation_bag: Option<ResMut<'w, ambition_platformer2d_items::pickup::ConversationBagSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Slot-level buffered gestures belong to the retired control session.
@@ -399,6 +402,7 @@ fn reset(resources: SessionScopedResources) {
         consumed_since_checkpoint,
         reward_grants,
         bag_spends,
+        conversation_bag,
         mut quest_registry,
         mut slot_interactions,
         mut save_restored,
@@ -436,6 +440,9 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut grants) = reward_grants {
         grants.forget_all();
+    }
+    if let Some(mut moves) = conversation_bag {
+        moves.forget_all();
     }
     if let Some(mut spends) = bag_spends {
         spends.forget_all();

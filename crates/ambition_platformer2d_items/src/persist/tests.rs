@@ -251,6 +251,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
         owned: fresh,
         grants: Default::default(),
         spends: Default::default(),
+        conversations: Default::default(),
     });
     app.world_mut()
         .insert_resource(ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore);

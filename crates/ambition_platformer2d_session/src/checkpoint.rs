@@ -315,6 +315,7 @@ pub fn restore_checkpoint_on_session_start(
                     owned: (**owned).clone(),
                     grants: Default::default(),
                     spends: Default::default(),
+                    conversations: Default::default(),
                 }
             }),
             // The load has just applied the file's facts.
@@ -511,6 +512,9 @@ pub fn resume_at_checkpoint_on_reset(
             Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         )>,
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+        // What conversations gave and took since the checkpoint: kept with
+        // the facts (Q164).
+        Option<Res<ambition_platformer2d_items::pickup::ConversationBagSinceCheckpoint>>,
     ),
 ) {
     // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
@@ -731,11 +735,12 @@ pub fn resume_at_checkpoint_on_reset(
                     owned,
                     grants: Default::default(),
                     spends: Default::default(),
+                    conversations: Default::default(),
                 }
             }),
         )
     } else {
-        let (spends, objects, holders, live_ledger) = &thrown;
+        let (spends, objects, holders, live_ledger, _) = &thrown;
         let spared_room = |stamp, root| {
             ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
                 .is_some_and(|room| spared.contains(&room))
@@ -842,6 +847,7 @@ pub fn resume_at_checkpoint_on_reset(
             let mut owned = (**owned).clone();
             let mut kept_grants = ambition_platformer2d_items::pickup::RewardGrantsSinceCheckpoint::default();
             let mut kept_spends = ambition_held_items::BagSpendsSinceCheckpoint::default();
+            let mut kept_conversations = ambition_platformer2d_items::pickup::ConversationBagSinceCheckpoint::default();
             if let (Some(grants), Some(defeats)) = (grants.as_ref(), defeats.as_ref()) {
                 let (mut bosses, mut placements) =
                     (std::collections::BTreeSet::new(), std::collections::BTreeSet::new());
@@ -864,6 +870,16 @@ pub fn resume_at_checkpoint_on_reset(
                 owned.adopt(bag);
                 owned.adopt_purse(purse);
                 kept_grants = grants.after_restore(&bosses, &placements, &spared_participants);
+            }
+            // And what conversations moved, when the restore keeps the facts
+            // the same lines set: a co-op death that spares somebody (Q164).
+            // A restore that pins the facts takes the moves back with them.
+            if let Some(since) = thrown.4.as_ref().filter(|_| !spared_participants_are_none) {
+                kept_conversations = (**since).clone();
+                let (mut bag, mut purse) = (owned.remembered().clone(), owned.purse());
+                kept_conversations.apply_to(&mut bag, &mut purse, sim_id, items.get());
+                owned.adopt(bag);
+                owned.adopt_purse(purse);
             }
             // And without what each throw since the checkpoint spent, when
             // the restore keeps what its object became (review 2026-10-05,
@@ -912,6 +928,7 @@ pub fn resume_at_checkpoint_on_reset(
                 owned,
                 grants: kept_grants,
                 spends: kept_spends,
+                conversations: kept_conversations,
             }
         });
         (lifecycle, item)

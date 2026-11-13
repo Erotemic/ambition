@@ -42,21 +42,31 @@ pub fn apply_item_grants(
     mut requests: MessageReader<ItemGrantRequested>,
     mut owned: ResMut<OwnedItems>,
     items: ambition_items::ItemCatalogRead,
-    (drivers, rooms, tick, mut log): (
+    (drivers, rooms, tick, mut log, mut since): (
         Query<(Entity, &DrivingParticipant)>,
         Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<Res<ambition_time::SimTick>>,
         Option<ResMut<BagUsesInRooms>>,
+        Option<ResMut<crate::pickup::ConversationBagSinceCheckpoint>>,
     ),
 ) {
     for request in requests.read() {
         let before = owned.count(request.item);
         owned.grant(items.get(), request.item, request.count);
         let gained = owned.count(request.item) - before;
-        if let (Some(written), Some(log)) =
-            (narrative_write(request.participant, &drivers, &rooms, tick.as_deref()), log.as_deref_mut())
-        {
+        let written = narrative_write(request.participant, &drivers, &rooms, tick.as_deref());
+        if let (Some(written), Some(log)) = (written, log.as_deref_mut()) {
             log.record_gain(written, request.item, gained);
+        }
+        if let Some(since) = since.as_deref_mut() {
+            since.record(crate::pickup::ConversationBagMove {
+                item: request.item,
+                gained,
+                gave: 0,
+                payer: None,
+                coins: 0,
+                written,
+            });
         }
         info!(
             target: "crate::narrative",
@@ -78,11 +88,13 @@ pub fn apply_shop_transactions(
     mut wallets: Query<&mut BodyWallet>,
     primary: Query<Entity, (With<BodyWallet>, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>)>,
     items: ambition_items::ItemCatalogRead,
-    (drivers, rooms, tick, mut log): (
+    (drivers, rooms, tick, mut log, mut since, ids): (
         Query<(Entity, &DrivingParticipant)>,
         Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<Res<ambition_time::SimTick>>,
         Option<ResMut<BagUsesInRooms>>,
+        Option<ResMut<crate::pickup::ConversationBagSinceCheckpoint>>,
+        Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     ),
 ) {
     for request in requests.read() {
@@ -93,12 +105,21 @@ pub fn apply_shop_transactions(
         let Some(mut wallet) = payer.and_then(|payer| wallets.get_mut(payer).ok()) else {
             continue;
         };
-        let before = owned.count(request.item);
+        let (before, balance) = (owned.count(request.item), wallet.balance);
         let outcome = request.apply(&mut wallet, &mut owned, items.get());
         let after = owned.count(request.item);
-        if let (Some(written), Some(log)) =
-            (narrative_write(request.participant, &drivers, &rooms, tick.as_deref()), log.as_deref_mut())
-        {
+        let written = narrative_write(request.participant, &drivers, &rooms, tick.as_deref());
+        if let Some(since) = since.as_deref_mut() {
+            since.record(crate::pickup::ConversationBagMove {
+                item: request.item,
+                gained: after.saturating_sub(before),
+                gave: before.saturating_sub(after),
+                payer: payer.and_then(|payer| ids.get(payer).ok()).cloned(),
+                coins: wallet.balance - balance,
+                written,
+            });
+        }
+        if let (Some(written), Some(log)) = (written, log.as_deref_mut()) {
             if after > before {
                 log.record_gain(written, request.item, after - before);
             }

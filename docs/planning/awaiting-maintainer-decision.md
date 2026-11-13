@@ -116,3 +116,41 @@ the fight already, the same words play as the ones he had left.
 **Owner:** `data/cutscenes/intro.ron` (`creator_final_fragment`) and the
 volume at the corridor's far end in `intro.ldtk`. Each option is content
 only.
+## Q175 — Is the final boss's giant one of the named agents?
+
+**Context (2026-11-12, FINAL-BOSS).** Jon: the bossofthegame stands on the
+shoulders of a giant square robot with an electric guitar. The brainstorm
+has an agent carry the Boss on its shoulders, and names the agents Gepetto,
+Clause and Wren. Default taken: **(b)**, the giant is its own agent, **Full
+Stack**, built like a guitar amplifier stack (he stands on the full stack).
+
+**Options:**
+
+* **(a) A named agent at its largest setting** (Gepetto, Clause or Wren,
+  "extra high"), so the fight is that agent's temple boss too.
+* **(b) Its own agent, Full Stack** (now).
+
+**Owner:** `docs/planning/game/final-boss.md`; the catalog row
+`npc_full_stack` and its barks. Each option is content only (a name, barks
+and art).
+
+## Q176 — Does emptying the final boss's bar count as his voluntary retirement?
+
+**Context (2026-11-12, FINAL-BOSS).** The endgame brainstorm: "the only
+definitive in-game victory is getting the Boss to retire voluntarily (not
+depleting a health bar)". The first cut is a boss fight with a bar. Default
+taken: **(a)**, the bar is his **resolve**; when it empties he does not die,
+he sits down and chooses to retire (the green room's scene).
+
+**Options:**
+
+* **(a) The bar is his resolve** (now): a worthy challenge is what makes him
+  retire.
+* **(b) A condition that is not damage**: for example, survive his encore
+  for a time, or make him laugh, while the bar only gates the phases.
+* **(c) Both**: the bar empties, and then a last beat that is not damage
+  (he offers the crown; the player must take it or refuse it).
+
+**Owner:** `boss_encounters/bossofthegame.ron`, the stage's rooms and the
+cutscene library. (b) needs an encounter trigger that is not health (an
+`External` gate); (a) and (c) are content only.

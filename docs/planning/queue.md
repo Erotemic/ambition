@@ -839,6 +839,33 @@ into the hole), and his line is `oiler_notices`, started by a
 `CutsceneTrigger` around his post. The room's arrival keeps its fade and
 banner.
 
+### FINAL-BOSS — the bossofthegame on the shoulders of a giant
+
+**Owner:** the final-boss subagent (Jon, 2026-11-12: "Put a dedicated
+subagent on this"); design page `game/final-boss.md`. Request (Jon,
+2026-11-12): the bossofthegame fight mirrors GNU-ton's, in that he stands on
+the shoulders of giants. The giant is a square robot with an electric guitar.
+It is the final boss of the game, so it is grand. A gate address goes directly
+to the boss dimension. Brainstorm notes: `docs/brainstorms/original_brainstorm.md`
+(the 4th-wall "vibe kill", typed characters falling on a climbing player, an
+agent carrying the Boss on its shoulders) and
+`docs/brainstorms/good_llm_ideas/creator_agents_and_endgame.md` (the Boss
+acquiesces rather than dies; "until the day he dies, or retires").
+
+**Design:** [`game/final-boss.md`](game/final-boss.md) (2026-11-12): the
+Boss rides **Full Stack**, a giant amp-stack robot with a guitar; the
+dimension `boss` (`boss.ldtk`: lobby, main stage, green room); the hidden
+gate address **LEGACY**; phases "Make No Mistakes", "Manual Override", "The
+Encore"; the end is his retirement, not his death. Q175 (the giant's
+identity) and Q176 (is a resolve bar a voluntary retirement) hold defaults.
+
+**Next action:** the dimension, its gate ring and the rooms; then the art,
+the encounter and its specials module, the cinematics.
+
+**Acceptance:** a ring dialed by its address reaches the boss dimension; the
+fight runs with the Boss riding the guitar robot, in phases, with its intro,
+music cue and art; the ending follows the retirement rule.
+
 ### COOP-RECOVERY — independent respawn and a full-party wipe
 
 **Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore

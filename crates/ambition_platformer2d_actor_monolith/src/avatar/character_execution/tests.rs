@@ -2279,6 +2279,7 @@ fn an_unprepared_id_writes_nothing_on_the_body() {
             recover_s: 0.1,
             damage: 3,
             reach_px: 20.0,
+            armored: false,
         })),
         ..ActionSet::peaceful()
     };
@@ -2338,6 +2339,7 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
             recover_s: 0.2,
             damage: 3,
             reach_px: 40.0,
+            armored: false,
         })),
         special: Some(SpecialActionSpec::Special("ground_pound".to_string())),
         ..ActionSet::default()
@@ -2387,6 +2389,7 @@ fn a_charger_swings_with_the_builders_cue_on_a_seat_and_at_spawn() {
             recover_s: 0.2,
             damage: 3,
             reach_px: 40.0,
+            armored: false,
         })),
         ..ActionSet::default()
     };

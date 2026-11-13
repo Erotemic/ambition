@@ -28,6 +28,7 @@ fn use_behavior_decides_throw_on_plain_attack() {
             recover_s: 0.3,
             damage: 3,
             reach_px: 60.0,
+            armored: false,
         })),
         ranged: None,
         use_behavior: HeldUseBehavior::Auto,

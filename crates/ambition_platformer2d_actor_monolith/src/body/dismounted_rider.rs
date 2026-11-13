@@ -212,6 +212,7 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
                     recover_s: 0.2,
                     damage: 4,
                     reach_px: 44.0,
+                    armored: false,
                 },
             )),
             ..Default::default()

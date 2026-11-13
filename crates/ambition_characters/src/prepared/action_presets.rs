@@ -42,12 +42,14 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
             recover_s,
             damage,
             reach_px,
+            armored,
         } => MeleeActionSpec::Swipe(SwipeSpec {
             windup_s,
             active_s,
             recover_s,
             damage,
             reach_px,
+            armored,
         }),
         MeleePreset::Lunge {
             windup_s,
@@ -58,6 +60,7 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
             step_px,
             rush_px,
             leap_speed,
+            armored,
         } => MeleeActionSpec::Lunge(LungeSpec {
             windup_s,
             active_s,
@@ -67,6 +70,7 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
             step_px,
             rush_px,
             leap_speed,
+            armored,
         }),
         MeleePreset::Slam {
             windup_s,

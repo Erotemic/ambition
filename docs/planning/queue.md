@@ -942,8 +942,20 @@ after the freeze, 2 px a tick). Not on the ground: the run law brakes a
 pushed speed to 0 on the next tick, and holding it would be the recoil
 lock, which reads as hitstun.
 
-**Next action:** slice 2, weight: light enemies launched further, and armor
-windows on the heavy enemies' big moves (content); then the hit sounds and
+**Built 2026-11-13 (slice 2a, armor):** an enemy's `Swipe` or `Lunge` melee
+can say `armored: true`: super armor (`WindowTag::Armor`) from halfway
+through the windup to the end of the strike, so a hit lands its damage and
+not its launch; the first half of the windup and the recovery stay open. The
+heavy bodies wear it: the goblin brute and bruiser (`brute_hammer`), the
+heavy pirate, the triceratops, living statue, clay golem, aurochs, steam
+automaton, hippo, mammoth, diprotodon and `brute_lunge`. Measured on a goblin
+brute: a hit in the window took 1 HP at (0, 0) px/s and no hitstun, and the
+swing went on; the next hit after it launched it at 108 px/s with 0.18 s of
+hitstun. A `Slam` has no armor flag yet (four heavy sets use one).
+
+**Next action:** slice 2b, weight: an enemy's knockback on the player is
+120 px/s whatever the move (`attack_move_from_melee`), and the player's
+slash launches a goblin and a brute alike (47 px/s); then the hit sounds and
 the contact effect.
 
 **Acceptance:** a landed hit has a distinct sound, a hit effect at the contact,

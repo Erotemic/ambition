@@ -114,6 +114,22 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
             volume.vfx = None;
         }
     }
+    // Read off the built timeline, not the authored one: the prefab clamps it.
+    if spec.armored() {
+        if let Some((start, end)) = attack.windows.iter()
+            .find(|window| window.tag == WindowTag::Active)
+            .map(|window| (window.start_s, window.end_s))
+        {
+            attack.windows.push(MoveWindow {
+                start_s: start * 0.5,
+                end_s: end,
+                tag: WindowTag::Armor,
+                volumes: Vec::new(),
+                motion_scale: 1.0,
+                sustain_effect: None,
+            });
+        }
+    }
     // A detonation is a fuse, not a swing: it plants for the fuse (the swell
     // is its tell, and a foe who reads it walks away) and then ends the body.
     // No volume and no swing sound: the blast and its sound are the death's.

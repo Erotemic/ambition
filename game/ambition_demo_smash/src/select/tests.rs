@@ -41,6 +41,7 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
                     damage: 4,
                     reach_px: 34.0,
                     recover_s: 0.26,
+                    armored: false,
                 },
             )),
             crate::starting_stocks(),

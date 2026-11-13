@@ -223,6 +223,7 @@ pub fn default_player_action_set(abilities: ambition_platformer2d_core::AbilityS
                 recover_s: 0.18,
                 damage: 1,
                 reach_px: 36.0,
+                armored: false,
             })),
         ranged: Some(RangedActionSpec::bolt(600.0, 1)),
         move_style: MoveStyleSpec::Walk,

@@ -393,6 +393,7 @@ fn authored_melee_adapter_matches_the_simple_melee_prefab() {
         recover_s: 0.18,
         damage: 2,
         reach_px: 40.0,
+        armored: false,
     });
     let via_adapter = attack_move_from_melee(&spec);
     let via_prefab = simple_melee(&SimpleMeleeParams {

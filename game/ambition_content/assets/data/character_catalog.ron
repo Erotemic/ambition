@@ -332,10 +332,13 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.30, active_s: 0.08, recover_s: 0.34, damage: 1, reach_px: 28.0)),
         ),
-        // A hammer is slow and it hurts.
+        // A hammer is slow and it hurts. The heavy bodies (`armored: true`
+        // here and on the charges below) go through a hit once the swing is
+        // committed, from halfway through the windup: the hit lands its
+        // damage, not its launch. Hit them early, or after.
         "brute_hammer": (
             move_style: WalkHeavy,
-            melee: Some(Swipe(windup_s: 0.40, active_s: 0.12, recover_s: 0.42, damage: 2, reach_px: 44.0)),
+            melee: Some(Swipe(windup_s: 0.40, active_s: 0.12, recover_s: 0.42, damage: 2, reach_px: 44.0, armored: true)),
         ),
         // The pirate crew's three shapes. A melee pirate's reach is its old
         // preset's `attack_range`.
@@ -345,7 +348,7 @@
         ),
         "pirate_heavy_cutlass": (
             move_style: WalkHeavy,
-            melee: Some(Swipe(windup_s: 0.26, active_s: 0.09, recover_s: 0.30, damage: 2, reach_px: 44.0)),
+            melee: Some(Swipe(windup_s: 0.26, active_s: 0.09, recover_s: 0.30, damage: 2, reach_px: 44.0, armored: true)),
         ),
         // The standoff shooter. Its fire cooldown lives on its policy.
         "pirate_bolt": (
@@ -426,7 +429,7 @@
         // row), then the charge, then a long stop to turn its bulk round.
         "triceratops_gore": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 4, reach_px: 64.0, step_px: 0.0, rush_px: 260.0)),
+            melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 4, reach_px: 64.0, step_px: 0.0, rush_px: 260.0, armored: true)),
         ),
         // The Art dimension (`docs/planning/game/art-dimension.md`). A doodle
         // scratches fast and weak; a wisp of ink spits from a distance; a
@@ -448,7 +451,7 @@
         ),
         "living_statue_slam": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.9, active_s: 0.3, recover_s: 1.2, damage: 4, reach_px: 104.0, step_px: 0.0, rush_px: 40.0)),
+            melee: Some(Lunge(windup_s: 0.9, active_s: 0.3, recover_s: 1.2, damage: 4, reach_px: 104.0, step_px: 0.0, rush_px: 40.0, armored: true)),
         ),
         // The Story Stacks (the fiction quarter of the Art dimension). A
         // bookworm rears back with its mouth open (its windup row) and chomps;
@@ -509,7 +512,7 @@
         // a kiln sprite breathes in until its pot glows and spits a coal.
         "clay_golem_slam": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 30.0)),
+            melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 30.0, armored: true)),
         ),
         "loom_spider_stab": (
             move_style: Walk,
@@ -533,7 +536,7 @@
         ),
         "aurochs_charge": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 3, reach_px: 66.0, step_px: 0.0, rush_px: 260.0)),
+            melee: Some(Lunge(windup_s: 0.75, active_s: 0.4, recover_s: 1.0, damage: 3, reach_px: 66.0, step_px: 0.0, rush_px: 260.0, armored: true)),
         ),
         "scorpion_man_sting": (
             move_style: Walk,
@@ -649,7 +652,7 @@
         // throws coins, and swats with his money sack when you come close.
         "steam_automaton_punch": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.9, active_s: 0.25, recover_s: 1.1, damage: 3, reach_px: 56.0, step_px: 12.0, rush_px: 0.0)),
+            melee: Some(Lunge(windup_s: 0.9, active_s: 0.25, recover_s: 1.1, damage: 3, reach_px: 56.0, step_px: 12.0, rush_px: 0.0, armored: true)),
         ),
         "soot_sprite_rush": (
             move_style: Float,
@@ -679,7 +682,7 @@
         ),
         "hippo_chomp": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 140.0)),
+            melee: Some(Lunge(windup_s: 0.85, active_s: 0.3, recover_s: 1.1, damage: 3, reach_px: 64.0, step_px: 0.0, rush_px: 140.0, armored: true)),
         ),
         // The Sulawesi warty pig drops its head (its windup row) and charges
         // a short quick way, tusks first; the saltwater crocodile opens its
@@ -799,7 +802,7 @@
         // row) and chops down in front of him with a step.
         "woolly_mammoth_charge": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.85, active_s: 0.45, recover_s: 1.2, damage: 3, reach_px: 80.0, step_px: 0.0, rush_px: 280.0)),
+            melee: Some(Lunge(windup_s: 0.85, active_s: 0.45, recover_s: 1.2, damage: 3, reach_px: 80.0, step_px: 0.0, rush_px: 280.0, armored: true)),
         ),
         "cave_bear_maul": (
             move_style: WalkHeavy,
@@ -852,7 +855,7 @@
         ),
         "diprotodon_shove": (
             move_style: WalkHeavy,
-            melee: Some(Lunge(windup_s: 0.8, active_s: 0.35, recover_s: 1.1, damage: 3, reach_px: 70.0, step_px: 0.0, rush_px: 200.0)),
+            melee: Some(Lunge(windup_s: 0.8, active_s: 0.35, recover_s: 1.1, damage: 3, reach_px: 70.0, step_px: 0.0, rush_px: 200.0, armored: true)),
         ),
         "megalania_lunge": (
             move_style: Walk,
@@ -1060,6 +1063,7 @@
                 damage: 2,
                 reach_px: 40.0,
                 step_px: 18.0,
+                armored: true,
             )),
             ranged: None,
             special: None,

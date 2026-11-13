@@ -365,6 +365,7 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
         recover_s: 0.1,
         damage: 1,
         reach_px: 32.0,
+        armored: false,
     }));
     app.world_mut()
         .get_mut::<ambition_characters::brain::action_set::IdentityKit>(player)

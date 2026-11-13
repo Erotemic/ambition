@@ -984,6 +984,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
             recover_s: 0.2,
             damage: 4,
             reach_px: 34.0,
+            armored: false,
         })),
         ..ActionSet::default()
     };
@@ -1436,6 +1437,7 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
                         recover_s: 0.2,
                         damage: 4,
                         reach_px: 44.0,
+                        armored: false,
                     },
                 )),
                 ..ambition_characters::brain::ActionSet::default()
@@ -1768,6 +1770,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
                 recover_s: 0.1,
                 damage,
                 reach_px: 40.0,
+                armored: false,
             })),
             ..ActionSet::default()
         }

@@ -531,6 +531,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                     recover_s: 0.30,
                     damage: 3,
                     reach_px: 64.0,
+                    armored: false,
                 })),
                 ranged: None,
                 // Has a melee verb → Auto keeps it on use (swing, don't throw).
@@ -1367,6 +1368,18 @@ impl MeleeActionSpec {
             Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) | Self::Detonate(_) => None,
         }
     }
+
+    /// Whether the swing goes through hits once committed: super armor from
+    /// halfway through the windup to the end of the strike. A hit still deals
+    /// its damage. The first half of the windup is the read, and a hit there
+    /// still interrupts; the recovery is the punish.
+    pub fn armored(self) -> bool {
+        match self {
+            Self::Swipe(s) => s.armored,
+            Self::Lunge(s) => s.armored,
+            Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) | Self::Detonate(_) => false,
+        }
+    }
 }
 
 /// How an actor's locomotion looks.
@@ -1442,6 +1455,10 @@ pub struct SwipeSpec {
     pub recover_s: f32,
     pub damage: i32,
     pub reach_px: f32,
+    /// Super armor through the committed half of the swing (see
+    /// [`MeleeActionSpec::armored`]).
+    #[serde(default)]
+    pub armored: bool,
 }
 
 impl SwipeSpec {
@@ -1451,6 +1468,7 @@ impl SwipeSpec {
         recover_s: 0.32,
         damage: 1,
         reach_px: 28.0,
+        armored: false,
     };
 }
 
@@ -1473,6 +1491,10 @@ pub struct LungeSpec {
     /// under the body's gravity. `0.0` charges along the ground.
     #[serde(default)]
     pub leap_speed: f32,
+    /// Super armor through the committed half of the swing (see
+    /// [`MeleeActionSpec::armored`]).
+    #[serde(default)]
+    pub armored: bool,
 }
 
 impl LungeSpec {
@@ -1485,6 +1507,7 @@ impl LungeSpec {
         step_px: 18.0,
         rush_px: 0.0,
         leap_speed: 0.0,
+        armored: false,
     };
 }
 

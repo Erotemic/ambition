@@ -411,7 +411,11 @@ pub fn resume_at_checkpoint_on_reset(
     mut resets: bevy::prelude::MessageReader<
         ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint,
     >,
-    mut new_games: bevy::prelude::MessageReader<crate::reset::NewGameRequested>,
+    // A New Game, and one participant's recovery.
+    (mut new_games, mut recoveries): (
+        bevy::prelude::MessageReader<crate::reset::NewGameRequested>,
+        bevy::prelude::MessageReader<RecoverAtCheckpoint>,
+    ),
     mut outstanding: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<OutstandingCheckpointRequest,
     >,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
@@ -429,6 +433,17 @@ pub fn resume_at_checkpoint_on_reset(
             Option<&ambition_characters::control::DrivingParticipant>,
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
+    // A recovering participant's body: the player body its slot drives.
+    seat_subjects: Query<
+        (
+            bevy::prelude::Entity,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            &ambition_characters::control::DrivingParticipant,
+        ),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     // Every driven body, to find the rooms other participants hold (Q151).
     // One out of play is not holding anything: when nobody is in play the
@@ -512,6 +527,9 @@ pub fn resume_at_checkpoint_on_reset(
     if new_games.read().count() > 0 {
         outstanding.ask(RestoreTo::NewGame);
     }
+    for recovery in recoveries.read() {
+        outstanding.ask(RestoreTo::Recover(recovery.0));
+    }
     let Some(restore_to) = outstanding.0 else {
         return;
     };
@@ -520,7 +538,17 @@ pub fn resume_at_checkpoint_on_reset(
     };
     // the subject is resolved BEFORE anything is recorded: a transition names the body it
     // moves, and a session whose avatar has not been built cannot describe one.
-    let (subject_body, sim_id, stamp, root, driver) = match subjects.single() {
+    let seat = match restore_to {
+        RestoreTo::Recover(slot) => {
+            // Not built yet, or gone: owed until the body is there.
+            let Some((body, id, stamp, root, driver)) = seat_subjects.iter().find(|(.., driver)| driver.0 == slot) else {
+                return;
+            };
+            Some((body, id, stamp, root, Some(driver)))
+        }
+        _ => None,
+    };
+    let (subject_body, sim_id, stamp, root, driver) = match seat.map_or_else(|| subjects.single(), Ok) {
         Ok(subject) => subject,
         // The avatar is not built: the request stays owed until it is.
         Err(bevy::ecs::query::QuerySingleError::NoEntities(_)) => return,
@@ -624,7 +652,11 @@ pub fn resume_at_checkpoint_on_reset(
                     requirement: crate::lifecycle_commit::BodyTransferRequirement::Present,
                     subject: subject.clone(),
                     arrival,
-                    participant: None,
+                    // A recovery is that participant's alone: only its view is covered.
+                    participant: match restore_to {
+                        RestoreTo::Recover(slot) => Some(slot),
+                        _ => None,
+                    },
                 },
                 companions: Vec::new(),
             target_room,
@@ -1405,17 +1437,24 @@ pub enum RestoreTo {
     LastCheckpoint,
     /// The fresh baseline at the start room: a New Game.
     NewGame,
+    /// The last committed checkpoint for one participant that fell alone in
+    /// its room while another plays (COOP-RECOVERY): its room goes back and is
+    /// its subject; every other participant's room and wins are spared.
+    Recover(ambition_characters::control::PlayerSlot),
 }
+
+/// Ask for one participant's local recovery ([`RestoreTo::Recover`]).
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RecoverAtCheckpoint(pub ambition_characters::control::PlayerSlot);
 
 /// A checkpoint restore that has been ASKED FOR and not yet admitted.
 ///
 /// ⭐ ONE VALUE, AND IT IS ENOUGH. It says whether the session is still owed a
-/// restore and which of the two destinations it is owed. The plan's request
-/// value also carries a reason and an optional subject; neither has a consumer,
-/// and a field nothing reads is how the four dead `LifecycleIntent` variants
-/// happened. Repeated requests coalesce into it, and a New Game outranks a
-/// checkpoint: a death on the tick a New Game is asked for does not keep the
-/// old run.
+/// restore, which destination it is owed, and, for one participant's
+/// recovery, whose. Repeated requests coalesce into it: a New Game outranks a
+/// checkpoint, and a checkpoint (a wipe) outranks a recovery. A second
+/// participant's recovery does not replace the first's; a session with only
+/// two participants cannot owe two, since both fallen is a wipe.
 ///
 /// ⛔⛔ IT IS ROLLBACK STATE. It outlives its frame by construction — that is its
 /// whole job — so a rewind past the frame the request arrived on must take the
@@ -1427,7 +1466,13 @@ pub struct OutstandingCheckpointRequest(pub Option<RestoreTo>);
 impl OutstandingCheckpointRequest {
     /// Record a request. A New Game outranks a checkpoint.
     pub fn ask(&mut self, to: RestoreTo) {
-        if self.0 != Some(RestoreTo::NewGame) {
+        let rank = |to: Option<RestoreTo>| match to {
+            None => 0,
+            Some(RestoreTo::Recover(_)) => 1,
+            Some(RestoreTo::LastCheckpoint) => 2,
+            Some(RestoreTo::NewGame) => 3,
+        };
+        if rank(Some(to)) > rank(self.0) {
             self.0 = Some(to);
         }
     }
@@ -1440,6 +1485,7 @@ impl OutstandingCheckpointRequest {
             None => 0,
             Some(RestoreTo::LastCheckpoint) => 1,
             Some(RestoreTo::NewGame) => 2,
+            Some(RestoreTo::Recover(slot)) => 3 | (u64::from(slot.0) << 8),
         }
     }
 }
@@ -2356,6 +2402,7 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         // The admission reads the New Game intent; the ledger that releases it
         // is `NewGameResetPlugin`'s.
         app.add_message::<crate::reset::NewGameRequested>();
+        app.add_message::<RecoverAtCheckpoint>();
         // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself
         // runs from the commit executor, so `CheckpointRestore` now contains the
         // session's admission and the retirement that follows the slot — and

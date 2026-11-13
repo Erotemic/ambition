@@ -26,7 +26,7 @@ use ambition_platformer2d::sim_view::{
 };
 use bevy::prelude::*;
 
-use crate::a_second_seat_joins_the_session::{bodies_of_the_seat, die, join, place_of, room_of, the_primary};
+use crate::a_second_seat_joins_the_session::{bodies_of_the_seat, join, place_of, room_of, the_primary};
 use crate::common::{fixed_60hz_room_options, walk_through_the_door_to};
 use crate::two_players_two_live_rooms::{live_rooms, the_views, view_frame, ROOM};
 
@@ -178,9 +178,13 @@ fn a_joined_seat_gets_its_own_view_when_the_primary_leaves_its_room() {
         "the view of seat 1 did not follow its body: the body moved {moved:?}, the lag is {lag:?}"
     );
 
-    die(&mut sim, body);
-    sim.step_n(AgentAction::default(), 2);
-    assert_eq!(room_of(&sim, body), room_of(&sim, primary), "precondition: seat 1 came back in the primary's room");
+    // Seat 1 walks into the primary's room: one room, one view again.
+    assert!(
+        crate::a_second_seat_joins_the_session::seat_one_goes_through_the_door(&mut sim, body, ROOM, HUB),
+        "precondition: seat 1 crossed to {HUB}"
+    );
+    let body = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(body);
+    assert_eq!(room_of(&sim, body), room_of(&sim, primary), "precondition: seat 1 is in the primary's room");
     let huds = the_huds(&mut sim);
     assert_eq!(
         (
@@ -188,7 +192,7 @@ fn a_joined_seat_gets_its_own_view_when_the_primary_leaves_its_room() {
             huds.iter().map(|(view, .., others)| (*view, others.iter().map(|(seat, _)| *seat).collect())).collect::<Vec<(u8, Vec<u8>)>>()
         ),
         (vec![(0, None, false)], vec![(0, vec![SEAT])]),
-        "(the views, the other seats on each) after seat 1 came back beside the primary"
+        "(the views, the other seats on each) after seat 1 joined the primary's room"
     );
 }
 

@@ -57,9 +57,16 @@ pub fn open_death_interlude(
     // re-read later and charged to the next attempt — the same rule every other
     // reader of this channel follows.
     let victims: Vec<Entity> = deaths.read().map(|death| death.victim).collect();
+    // Who plays on. Victims of this tick are still in the query (their marks
+    // are deferred), so two that fall together each see the other: both
+    // wait, and the wipe is read when the first window closes.
+    let in_play: Vec<Entity> = participants.iter().collect();
     for victim in victims {
         let Ok(victim) = participants.get(victim) else { continue };
-        let interlude = rules.of(victim).copied().unwrap_or_default().interlude;
+        let death = rules.of(victim).copied().unwrap_or_default();
+        // A partner still plays: wait, so that its fall in that time is a wipe.
+        let partner_plays = in_play.iter().any(|body| *body != victim);
+        let interlude = death.interlude + if partner_plays { death.recovery_wait } else { 0.0 };
 
         commands.entity(victim).try_insert((
             OutOfPlay,
@@ -110,7 +117,7 @@ pub fn open_death_interlude(
 pub fn close_death_interlude(
     // Each closing body's own room's rules (OW1).
     rules: ambition_platformer2d_world::governing_rules::RulesOf<DeathRules>,
-    mut closing: Query<(Entity, &mut DeathInterlude)>,
+    mut closing: Query<(Entity, &mut DeathInterlude, Option<&ambition_characters::control::DrivingParticipant>)>,
     still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
     // The restore's subject. Its room is the only room a death sends back.
     primary: Query<Entity, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>,
@@ -127,6 +134,9 @@ pub fn close_death_interlude(
     mut restore: Option<
         MessageWriter<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
     >,
+    // One second seat's own recovery: it fell alone in its room while
+    // another participant plays (COOP-RECOVERY).
+    mut recover: Option<MessageWriter<crate::checkpoint::RecoverAtCheckpoint>>,
 ) {
     // Nobody left in play IN THAT ROOM: the level goes back. In co-op this is
     // false while a teammate still plays the level, which is why the condition
@@ -134,43 +144,52 @@ pub fn close_death_interlude(
     // room does not hold it back, because a death is local to its room (Q151).
     let rooms_with_a_participant: Vec<_> = still_playing.iter().map(|body| rules.room_of(body)).collect();
     // The restore and the replay put the PRIMARY body back, so only the
-    // primary's room can go back. A second seat that falls comes back beside
-    // the primary instead (Q153 default, see
-    // `bring_a_fallen_seat_back_beside_the_primary`). With no primary, as in a
-    // match, any room with nobody left in play goes back.
+    // primary's room can go back this way. A second seat alone in its room
+    // asks for its own recovery (`RecoverAtCheckpoint`). A participant whose
+    // room a living one still holds goes back alone, with no room reset
+    // (COOP-RECOVERY, see `return_a_fallen_participant`). With nobody in play
+    // it is a wipe. With no primary, as in a match, any room with nobody left
+    // in play goes back.
     let primary = primary.iter().next();
     // The live rooms where a body's window closed under rules that send the
     // level back when nobody remains.
     let mut resetting_rooms = Vec::new();
-    for (body, mut window) in &mut closing {
+    let mut lone_seats = Vec::new();
+    for (body, mut window, driver) in &mut closing {
         if window.open() || !window.consequence_pending {
             continue;
         }
         let room = rules.room_of(body);
         let resets = rules.of(body).copied().unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains;
-        // ⛔ A PRIMARY THAT WAITS STAYS OWED. While a participant plays in its
-        // room, the primary's room does not go back, and the question is asked
-        // again on each tick until nobody in that room is in play (the other
-        // participant falls or leaves). Spent at the first close, the primary
-        // stayed out of play for ever when the other one walked out of the
-        // room, because its room was never asked again and a fallen seat comes
-        // back only beside a primary that is in play.
-        if resets && primary == Some(body) && rooms_with_a_participant.contains(&room) {
-            continue;
-        }
         // Spent, not removed. The window lives on until the body restarts, so a
         // rewind across the frame this fired can answer "did it already?" from
         // state rather than from a component that is no longer there.
         window.consequence_pending = false;
         if resets {
             resetting_rooms.push(room);
+            if primary.is_some_and(|primary| primary != body)
+                && !rooms_with_a_participant.is_empty()
+                && !rooms_with_a_participant.contains(&room)
+            {
+                if let Some(driver) = driver {
+                    lone_seats.push(driver.0);
+                }
+            }
         }
     }
+    if let Some(recover) = recover.as_mut() {
+        for seat in lone_seats {
+            recover.write(crate::checkpoint::RecoverAtCheckpoint(seat));
+        }
+    }
+    // Nobody in play anywhere: a full-party wipe, whoever's window closed.
+    let wipe = rooms_with_a_participant.is_empty() && !resetting_rooms.is_empty();
     let goes_back = |room: &Option<_>| resetting_rooms.contains(room) && !rooms_with_a_participant.contains(room);
-    let back = match primary {
-        Some(primary) => goes_back(&rules.room_of(primary)),
-        None => resetting_rooms.iter().any(goes_back),
-    };
+    let back = wipe
+        || match primary {
+            Some(primary) => goes_back(&rules.room_of(primary)),
+            None => resetting_rooms.iter().any(goes_back),
+        };
     if !back {
         return;
     }

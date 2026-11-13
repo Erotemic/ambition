@@ -126,6 +126,7 @@ fn app_with_two_games_death_rules() -> (App, ambition_platformer2d_world::govern
         DeathRules {
             interlude: 4.0,
             level_reset: LevelReset::Never,
+            recovery_wait: 0.0,
         },
     );
     let hall = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);

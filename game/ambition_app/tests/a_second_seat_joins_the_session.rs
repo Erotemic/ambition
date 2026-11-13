@@ -194,15 +194,18 @@ fn a_seat_with_no_body_joins_beside_the_primary_on_a_start_press() {
     assert_eq!(place_of(&sim, primary), primary_before, "seat 1's input moved the primary");
 }
 
-/// THE RETURN. Seat 1 dies while the primary plays: its beat closes, no
-/// restore is asked for, and it comes back beside the primary, in play, with
-/// its health full. Control: while its beat is open it is out of play.
+/// THE RETURN (COOP-RECOVERY). Seat 1 dies in the primary's room while the
+/// primary plays: its beat closes, no restore is asked for, and it comes back
+/// alone at the room's respawn point (the spawn: no checkpoint is in this
+/// room), in play, with its health full. The primary has walked away from the
+/// spawn, so the spawn is not beside it.
 #[test]
-fn a_second_seat_that_dies_comes_back_beside_the_primary() {
+fn a_second_seat_that_dies_beside_the_primary_comes_back_at_the_rooms_spawn() {
     let mut sim =
         Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     let primary = the_primary(&mut sim);
+    let spawn = place_of(&sim, primary);
     let (body, _) = join(&mut sim, 4).expect("seat 1 pressed Start and no body was built");
     // Seat 1 walks away from the primary, so "beside the primary" is a move.
     for _ in 0..40 {
@@ -216,9 +219,13 @@ fn a_second_seat_that_dies_comes_back_beside_the_primary() {
         sim.step(AgentAction::default());
     }
     sim.drive_seat(SEAT, ControlFrame::default());
+    // The primary walks the other way, so the spawn is not beside it.
+    sim.step_n(AgentAction { move_x: -1.0, ..AgentAction::default() }, 40);
+    sim.step_n(AgentAction::default(), 10);
     let away = place_of(&sim, body);
     let primary_at = place_of(&sim, primary);
-    assert!((away.0 - primary_at.0).abs() > 24, "precondition: seat 1 walked away from the primary");
+    assert!((away.0 - spawn.0).abs() > 24, "precondition: seat 1 walked away from the spawn");
+    assert!((primary_at.0 - spawn.0).abs() > 24, "precondition: the primary walked away from the spawn");
     if let Some(mut health) = sim.world_mut().get_mut::<BodyHealth>(body) {
         health.health.current = 1;
     }
@@ -227,11 +234,11 @@ fn a_second_seat_that_dies_comes_back_beside_the_primary() {
 
     die(&mut sim, body);
     let at = place_of(&sim, body);
-    let primary_at = place_of(&sim, primary);
     assert!(
-        (at.0 - primary_at.0).abs() <= 8 && (at.1 - primary_at.1).abs() <= 24,
-        "seat 1 came back at {at:?}, not beside the primary at {primary_at:?}"
+        (at.0 - spawn.0).abs() <= 8 && (at.1 - spawn.1).abs() <= 24,
+        "seat 1 came back at {at:?}, not at the room's spawn {spawn:?}"
     );
+    assert_eq!(place_of(&sim, primary), primary_at, "the primary was touched by seat 1's return");
     assert_eq!(room_of(&sim, body), room_of(&sim, primary), "seat 1 came back in another room");
     let health = sim.world().get::<BodyHealth>(body).map(|health| (health.health.current, health.health.max));
     assert!(
@@ -246,20 +253,30 @@ fn a_second_seat_that_dies_comes_back_beside_the_primary() {
     );
 }
 
-/// THE RETURN ACROSS ROOMS. Seat 1 joins beside Alice in `switch_lab`, Alice
-/// walks through the door to the hub, and seat 1 stays and dies in the room
-/// Alice left. It comes back beside Alice, in her live room. Control: before
-/// its death, seat 1 is in another live room than Alice.
+/// THE LOCAL RECOVERY (COOP-RECOVERY). Seat 1 joins beside Alice in
+/// `switch_lab`, Alice walks through the door to the hub, and seat 1 stays
+/// and dies alone in the room Alice left. Its own room goes back (a committed
+/// restore whose subject is seat 1) and it comes back there, at the room's
+/// spawn; Alice is not moved and her room stays live. Control: before its
+/// death, seat 1 is in another live room than Alice.
 #[test]
-fn a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room() {
+fn a_second_seat_that_dies_alone_in_another_room_recovers_in_its_own_room() {
     use crate::common::{fixed_60hz_room_options, walk_through_the_door_to};
     const ROOM: &str = "switch_lab";
     const HUB: &str = "central_hub_complex";
+    let outcome = |sim: &Platformer2dSimHarness| {
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+            .expect("the live session root carries the checkpoint coordinator")
+            .latest()
+            .cloned()
+    };
     let mut sim = Platformer2dSimHarness::new_with_options(
         fixed_60hz_room_options(ROOM),
     )
     .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
     sim.step_n(AgentAction::default(), 10);
+    let alice = the_primary(&mut sim);
+    let spawn = place_of(&sim, alice);
     let (body, _) = join(&mut sim, 4).expect("seat 1 pressed Start and no body was built");
     sim.drive_seat(SEAT, ControlFrame::default());
     assert_eq!(walk_through_the_door_to(&mut sim, HUB), HUB);
@@ -271,29 +288,29 @@ fn a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room() {
         room_of(&sim, primary),
         "control: seat 1 stayed in the room Alice left"
     );
-    assert_eq!(
-        crate::two_players_two_live_rooms::live_rooms(&mut sim).len(),
-        2,
-        "control: the room seat 1 stayed in is live beside Alice's"
-    );
+    let alice_at = place_of(&sim, primary);
+    let alice_room = room_of(&sim, primary);
+    let before = outcome(&sim);
     die(&mut sim, body);
+    sim.step_n(AgentAction::default(), 5);
     let body = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(body);
-    let at = place_of(&sim, body);
-    let primary_at = place_of(&sim, primary);
-    assert_eq!(room_of(&sim, body), room_of(&sim, primary), "seat 1 came back in another room");
     assert!(
-        (at.0 - primary_at.0).abs() <= 8 && (at.1 - primary_at.1).abs() <= 24,
-        "seat 1 came back at {at:?}, not beside the primary at {primary_at:?}"
+        outcome(&sim).is_some_and(|outcome| outcome.committed()) && outcome(&sim) != before,
+        "seat 1 fell alone in its room and its room did not go back: {:?}",
+        outcome(&sim)
     );
-    // OW4: the room seat 1 left by its return holds nobody, so it retires,
-    // as a room a crossing leaves empty does. It stayed live with nobody in
-    // it, and a restore of Alice's checkpoint neither spared it nor built it
-    // again.
+    assert_ne!(room_of(&sim, body), room_of(&sim, primary), "seat 1 came back in Alice's room");
+    let at = place_of(&sim, body);
+    assert!(
+        (at.0 - spawn.0).abs() <= 8 && (at.1 - spawn.1).abs() <= 24,
+        "seat 1 came back at {at:?}, not at its room's spawn {spawn:?}"
+    );
+    assert_eq!((place_of(&sim, primary), room_of(&sim, primary)), (alice_at, alice_room), "Alice was moved by seat 1's recovery");
     let rooms: Vec<String> = crate::two_players_two_live_rooms::live_rooms(&mut sim)
         .into_iter()
         .map(|(_, id)| id)
         .collect();
-    assert_eq!(rooms, [HUB.to_string()], "the live rooms after seat 1 came back");
+    assert_eq!(rooms.len(), 2, "the live rooms after seat 1's recovery: {rooms:?}");
 }
 
 // ── The three arms of the 2026-10-05 review (Namek): each was measured
@@ -378,51 +395,87 @@ pub(crate) fn seat_one_goes_through_the_door(sim: &mut Platformer2dSimHarness, b
     crossed
 }
 
-/// R1: NOBODY IS LEFT OUT OF PLAY FOR EVER. The primary falls beside seat 1,
-/// so its room waits for seat 1. Then seat 1 walks out of that room: nobody is
-/// in play there any more, so the primary's room goes back (a committed
-/// restore) and the primary is in play. Then seat 1 falls in the hub and
-/// comes back beside the primary.
+/// COOP-RECOVERY: A PARTICIPANT WHOSE ROOM A PARTNER HOLDS COMES BACK ALONE.
+/// The primary falls beside seat 1: after Ambition's declared wait it comes
+/// back in play in its own room, with no checkpoint restore, and seat 1 plays
+/// on where it was. Then
+/// seat 1 crosses to the hub and the primary falls alone in its room: that
+/// room goes back (a committed restore) and the primary is in play.
 ///
-/// Measured before the repair: the primary's question was spent on the tick
-/// its window closed, so 600 frames after seat 1 left, the primary was still
-/// out of play; and after seat 1 fell too, both were out of play 900 frames
-/// later with no restore (each waited for the other).
+/// Before (Q153's 2026-10-05 default) the primary's room waited while seat 1
+/// played in it, and the primary stayed out of play until seat 1 left.
 #[test]
-fn a_primary_that_waited_for_a_seat_comes_back_when_the_seat_leaves_its_room() {
+fn a_primary_that_falls_beside_a_seat_comes_back_alone_and_its_room_goes_on() {
+    let outcome = |sim: &Platformer2dSimHarness| {
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+            .expect("the live session root carries the checkpoint coordinator")
+            .latest()
+            .cloned()
+    };
     let mut sim = booted_in(ROOM);
     let primary = the_primary(&mut sim);
     let body = seat_one_joins(&mut sim);
     sim.step_n(AgentAction::default(), 5);
+    let seat_at = place_of(&sim, body);
+    let before = outcome(&sim);
     kill(&mut sim, primary);
-    sim.step_n(AgentAction::default(), 400);
+    // Ambition's declared wait while a partner plays (`recovery_wait_s`, 2 s).
+    sim.step_n(AgentAction::default(), 100);
+    assert!(out_of_play(&sim, primary), "control: the primary waits while seat 1 plays");
+    sim.step_n(AgentAction::default(), 40);
+    assert!(!out_of_play(&sim, primary), "the primary fell beside seat 1 and is still out of play");
+    assert_eq!(outcome(&sim), before, "the primary's fall beside seat 1 sent its room back");
+    let moved = place_of(&sim, body);
     assert!(
-        out_of_play(&sim, primary),
-        "control: the primary fell beside seat 1, in play in its room, and its room waits"
+        !out_of_play(&sim, body) && (moved.0 - seat_at.0).abs() <= 2 && (moved.1 - seat_at.1).abs() <= 2,
+        "seat 1 was touched by the primary's return: {seat_at:?} -> {moved:?}"
     );
+
     assert!(seat_one_goes_through_the_door(&mut sim, body, ROOM, HUB), "seat 1 did not cross to the hub");
-    let body = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(body);
+    let before = outcome(&sim);
+    kill(&mut sim, primary);
     sim.step_n(AgentAction::default(), 600);
+    assert!(!out_of_play(&sim, primary), "the primary fell alone in its room and is still out of play");
     assert!(
-        !out_of_play(&sim, primary),
-        "seat 1 left the primary's room and the primary is still out of play: its room was never asked again"
+        outcome(&sim).is_some_and(|outcome| outcome.committed()) && outcome(&sim) != before,
+        "the primary fell alone in its room and its room did not go back: {:?}",
+        outcome(&sim)
     );
-    assert!(
+}
+
+/// COOP-RECOVERY: THE WAIT KEEPS THE WIPE REACHABLE. Seat 1 falls beside the
+/// primary and waits (`recovery_wait_s`); the primary falls a second later,
+/// inside the wait. Nobody is in play, so the checkpoint restore runs, and it
+/// brings both back. Control: a second after its fall, seat 1 is still out of
+/// play.
+#[test]
+fn a_partner_that_falls_inside_the_wait_makes_a_wipe() {
+    let outcome = |sim: &Platformer2dSimHarness| {
         ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
-        .expect("the live session root carries the checkpoint coordinator")
+            .expect("the live session root carries the checkpoint coordinator")
             .latest()
-            .is_some_and(|outcome| outcome.committed()),
-        "the primary came back without a committed restore: {:?}",
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
-        .expect("the live session root carries the checkpoint coordinator").latest()
-    );
+            .cloned()
+    };
+    let mut sim = booted_in(ROOM);
+    let primary = the_primary(&mut sim);
+    let body = seat_one_joins(&mut sim);
+    sim.step_n(AgentAction::default(), 5);
+    let before = outcome(&sim);
     kill(&mut sim, body);
-    sim.step_n(AgentAction::default(), 900);
+    sim.step_n(AgentAction::default(), 60);
+    assert!(out_of_play(&sim, body), "control: seat 1 waits while the primary plays");
+    kill(&mut sim, primary);
+    sim.step_n(AgentAction::default(), 600);
     let body = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(body);
+    assert!(
+        outcome(&sim).is_some_and(|outcome| outcome.committed()) && outcome(&sim) != before,
+        "both fell and no restore committed: {:?}",
+        outcome(&sim)
+    );
     assert_eq!(
-        (out_of_play(&sim, primary), out_of_play(&sim, body), room_of(&sim, body)),
-        (false, false, room_of(&sim, primary)),
-        "(primary out of play, seat 1 out of play, seat 1's room) after seat 1 fell in the hub"
+        (out_of_play(&sim, primary), out_of_play(&sim, body)),
+        (false, false),
+        "(primary out of play, seat 1 out of play) after the wipe"
     );
 }
 
@@ -478,15 +531,13 @@ fn walk_through_the_door_to_hub(sim: &mut Platformer2dSimHarness) -> String {
     crate::common::walk_through_the_door_to(sim, HUB)
 }
 
-/// R5: THE RETURN TAKES WHAT THE SEAT HOLDS. Seat 1 picks up the ground item
-/// of `blink_run`, the primary goes to `portal_bridge`, and seat 1 falls in
-/// `blink_run`. It comes back in the primary's room, and the item it holds
-/// comes with it, as a crossing carries what a body holds.
-///
-/// Measured before the repair: the body's stamp was the primary's room and the
-/// item's stayed `blink_run`'s, still held.
+/// R5, RESTATED FOR COOP-RECOVERY: seat 1 picks up the ground item of
+/// `blink_run` (after the session's checkpoint), the primary goes to
+/// `portal_bridge`, and seat 1 falls alone in `blink_run`. Its own room goes
+/// back: it comes back in `blink_run`, and the item it took since the
+/// checkpoint lies in that room again, held by nobody.
 #[test]
-fn a_seat_that_comes_back_into_another_room_brings_what_it_holds() {
+fn a_seat_that_recovers_alone_gives_back_what_it_took_since_the_checkpoint() {
     const ITEM_ROOM: &str = "blink_run";
     const NEXT: &str = "portal_bridge";
     let mut sim = booted_in(ITEM_ROOM);
@@ -529,11 +580,17 @@ fn a_seat_that_comes_back_into_another_room_brings_what_it_holds() {
     assert_ne!(room_of(&sim, body), room_of(&sim, primary), "precondition: seat 1 stayed in blink_run");
     die(&mut sim, body);
     sim.step_n(AgentAction::default(), 5);
-    assert_eq!(
-        (room_of(&sim, body), room_of(&sim, item)),
-        (room_of(&sim, primary), room_of(&sim, primary)),
-        "(seat 1's room, the held item's room) after seat 1 came back beside the primary"
-    );
+    let body = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(body);
+    let lying = {
+        let world = sim.world_mut();
+        world
+            .query::<&ambition_platformer2d::held_items::ItemCustody>()
+            .iter(world)
+            .filter(|custody| custody.in_world())
+            .count()
+    };
+    assert_ne!(room_of(&sim, body), room_of(&sim, primary), "seat 1 came back in the primary's room");
+    assert_eq!(lying, 1, "the item seat 1 took since the checkpoint does not lie in its room again");
 }
 
 

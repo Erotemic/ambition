@@ -3,6 +3,10 @@
 (
     // A death puts the level back at once when no participant remains.
     replay_level_after_death_s: Some(0.0),
+    // A participant that falls while a partner plays waits this long before
+    // it comes back, so a partner who falls in that time makes a full-party
+    // wipe (COOP-RECOVERY). Alone, it comes back at once.
+    recovery_wait_s: Some(2.0),
     // Damage here is health: ordinary tilts and aerials deal 1, and a smash
     // attack deals 3. A hit of 3 or more lands heavy.
     heavy_hit_damage: Some(3),

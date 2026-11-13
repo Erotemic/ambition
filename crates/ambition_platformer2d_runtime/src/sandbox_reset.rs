@@ -363,63 +363,43 @@ pub fn return_the_replay_subject_to_spawn(
     );
 }
 
-/// A second seat comes back beside the primary body, on the first tick the
-/// primary is in play (Q153 default, until the maintainer rules where a second
-/// seat returns), in two cases:
+/// A fallen participant comes back for itself (COOP-RECOVERY, Q153's later
+/// row: independent multiplayer), on the first tick its death beat has closed
+/// and its consequence has run:
 ///
-/// - Its death beat has closed. The restore and the replay put back only the
-///   primary, so without this a fallen second seat stayed out of play for the
-///   rest of the session. It comes back with its health full.
-/// - Its room stamp names no live room. A New Game retires every live room
-///   but the primary's, and a seat body is owned by the session, so it stayed
-///   stamped with a retired room and no tick moved it. A seat body is always
-///   in a live room.
+/// - **A living participant holds its room:** it comes back alone at that
+///   room's respawn point (the checkpoint when the checkpoint is in that room,
+///   else the room's spawn), with its health full. The room does not go back,
+///   and the participant who plays on is not touched.
+/// - **Alone in its room:** its room goes back to the checkpoint with it as
+///   the restore's subject (`close_death_interlude`: `ResetToCheckpoint` for
+///   the primary, `RecoverAtCheckpoint` for a second seat), which restarts it;
+///   the other participants' rooms and wins are spared.
+/// - **Nobody in play:** the wipe's restore brings everyone back.
 ///
-/// The body moves into the primary's room with what it holds, rides or wears
-/// (`custody_closure`, the rule a crossing uses): the room stamp is what says
-/// which room an entity is in.
-///
-/// ⭐ A FALLEN SEAT IN ANOTHER LIVE ROOM COMES BACK BY A CROSSING (OW4). The
-/// crossing joins the primary's room, and the room the seat leaves retires
-/// when no other player holds it, as a room any crossing leaves empty does.
-/// A direct move left that room live with nobody in it: a restore neither
-/// spared it nor built it again, so what lay in it stayed while the bag took
-/// its spends back. The seat is put back in play on the tick after the
-/// crossing commits, when it is in the primary's room. A stranded seat has
-/// no live room to leave, so it moves at once.
+/// A second seat whose room stamp names no live room (a New Game retires
+/// every live room but the primary's, and a seat body is the session's) moves
+/// into the primary's room at once, with what it holds, rides or wears
+/// (`custody_closure`, the rule a crossing uses).
 #[allow(clippy::too_many_arguments)]
-pub fn bring_a_fallen_seat_back_beside_the_primary(
+pub fn return_a_fallen_participant(
     mut commands: Commands,
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
-    mut pending: ResMut<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>,
-    boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+    save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
-    primary: Query<
-        (
-            &ae::BodyKinematics,
-            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-        ),
-        (
-            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-            Without<ambition_combat::death_rules::OutOfPlay>,
-        ),
-    >,
     live_roots: Query<
         &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
     custody: Query<(Entity, &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)>,
-    mut seats: Query<
+    mut players: Query<
         (
             Entity,
             Option<&ambition_combat::death_rules::DeathInterlude>,
             Has<ambition_combat::death_rules::OutOfPlay>,
+            Has<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-            (
-                Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-                Option<&ambition_characters::control::DrivingParticipant>,
-            ),
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
             &mut ambition_characters::actor::BodyAnimFacts,
@@ -427,81 +407,66 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
             Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
             Option<&mut ambition_characters::actor::BodyHealth>,
         ),
-        (
-            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Without<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-        ),
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
-    let Ok((primary_kin, primary_room)) = primary.single() else {
-        return;
-    };
-    let at = primary_kin.pos;
-    let primary_room = primary_room.copied();
+    // Who plays on, and where; and the primary, if it is in play.
+    let mut held_rooms = Vec::new();
+    let mut primary_in_play = None;
+    for (_, _, out_of_play, is_primary, room, cluster, ..) in &players {
+        if out_of_play {
+            continue;
+        }
+        held_rooms.push(room.copied());
+        if is_primary {
+            primary_in_play = Some((cluster.kinematics.pos, room.copied()));
+        }
+    }
     let live: Vec<_> = live_roots.iter().copied().collect();
     let edges: Vec<(Entity, Entity)> = custody.iter().map(|(entity, held)| (entity, held.custodian)).collect();
+    // Where a body that comes back in `room` stands.
+    let respawn_in = |room: ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance| -> Option<ae::Vec2> {
+        let rooms = rooms.as_ref()?;
+        let spec = rooms.rooms().spec(rooms.definition_in(room.0)?);
+        Some(match save.as_ref().and_then(|save| save.data().checkpoint().filter(|checkpoint| checkpoint.room_id == spec.id)) {
+            Some(checkpoint) => ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+            None => spec.world.spawn,
+        })
+    };
     for (
         body,
         window,
         out_of_play,
+        is_primary,
         room,
-        (sim_id, driver),
         mut cluster_item,
         mut motion_model,
         mut anim,
         mut combat,
         safety,
         health,
-    ) in &mut seats
+    ) in &mut players
     {
-        // Out of play: back only when its beat has closed and its
-        // consequence (a level reset of its own room) has run.
         let fallen = out_of_play && window.is_some_and(|window| !window.open() && !window.consequence_pending);
-        let stranded = !out_of_play && room.is_some_and(|room| !live.contains(&room.0));
+        let stranded = !is_primary && !out_of_play && room.is_some_and(|room| !live.contains(&room.0));
         if !fallen && !stranded {
             continue;
         }
-        if let (true, Some(primary_room), Some(room), Some(sim_id), Some(driver), Some(rooms)) =
-            (fallen, primary_room, room, sim_id, driver, rooms.as_ref())
-        {
-            let target = rooms.definition_in(primary_room.0).map(|definition| rooms.rooms().spec(definition).id.clone());
-            if *room != primary_room && live.contains(&room.0) {
-                if let Some(target_room) = target {
-                    // Refused while another operation holds the slot: asked
-                    // again on the next tick, and the seat waits out of play.
-                    let _ = pending.record(
-                        boundary.as_deref().map_or(0, |boundary| boundary.current),
-                        ambition_platformer2d_session::lifecycle_commit::LifecycleIntent::Transition(
-                            ambition_platformer2d_session::lifecycle_commit::RoomTransitionIntent {
-                                disposition: Default::default(),
-                                source_zone: None,
-                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
-                    requirement: ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::Present,
-                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
-                                    sim_id.clone(),
-                                    Some(room.0),
-                                ),
-                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(at),
-                    participant: Some(driver.0),
-                },
-                companions: Vec::new(),
-                                target_room,
-                                edge_exit: false,
-                                zone_sfx: None,
-                            },
-                        ),
-                    );
-                    continue;
-                }
+        let shared = fallen && room.is_some_and(|room| held_rooms.contains(&Some(*room)));
+        let at = if shared {
+            // Alone, in its own room, which goes on as it is.
+            let Some(at) = room.copied().and_then(respawn_in) else { continue };
+            at
+        } else if stranded {
+            let Some((at, Some(primary_room))) = primary_in_play else { continue };
+            for moving in ambition_platformer2d_shared_tangle::lifecycle::custody_closure([body], &edges) {
+                commands.entity(moving).insert(primary_room);
             }
-        }
-        if let Some(primary_room) = primary_room {
-            if room != Some(&primary_room) {
-                for moving in ambition_platformer2d_shared_tangle::lifecycle::custody_closure([body], &edges) {
-                    commands.entity(moving).insert(primary_room);
-                }
-            }
-        }
+            at
+        } else {
+            // Alone in its room, or in a wipe: its restore brings it back.
+            continue;
+        };
         let mut clusters = cluster_item.as_clusters_mut();
         if stranded {
             ae::movement::transit_body(
@@ -566,7 +531,7 @@ impl Plugin for RoomReplaySchedulePlugin {
         // latest forward frame's custody.
         app.add_systems(
             sim,
-            bring_a_fallen_seat_back_beside_the_primary
+            return_a_fallen_participant
                 .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
                 .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
         );

@@ -89,6 +89,10 @@ struct AuthoredRoomRules {
     /// it comes back. Absent: none.
     #[serde(default)]
     death_look: Option<DeathLook>,
+    /// How a landed hit answers: its freeze and the attacker's recoil.
+    /// Absent: the ruleset's freeze and no recoil.
+    #[serde(default)]
+    hit_feel: Option<crate::hit_feel::HitFeelRules>,
     /// How the game's fireball flies. Absent: the fireball of
     /// `ProjectileKind::spec`.
     #[serde(default)]
@@ -109,6 +113,7 @@ pub struct RoomRules {
     pub corpses: Option<Corpse>,
     pub kill_beat: Option<KillBeat>,
     pub death_look: Option<DeathLook>,
+    pub hit_feel: Option<crate::hit_feel::HitFeelRules>,
     pub fireball: Option<FireballFlight>,
     pub body_contact: Option<BodyContact>,
 }
@@ -155,6 +160,9 @@ impl AuthoredRoomRules {
                 ));
             }
         }
+        if let Some(feel) = &self.hit_feel {
+            problems.extend(feel.problems());
+        }
         if let Some(radius) = self.hostile_wake_radius {
             if !(radius.is_finite() && radius > 0.0) {
                 problems.push(format!(
@@ -190,6 +198,7 @@ impl AuthoredRoomRules {
             corpses: self.corpses,
             kill_beat: self.kill_beat,
             death_look: self.death_look,
+            hit_feel: self.hit_feel,
             fireball: self.fireball,
             body_contact: self.body_contact,
         }
@@ -323,6 +332,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     if let Some(look) = rules.death_look {
         app.declare_rules(scope, look);
     }
+    if let Some(feel) = rules.hit_feel {
+        app.declare_rules(scope, feel);
+    }
     if let Some(contact) = rules.body_contact {
         app.declare_rules(scope, contact);
     }
@@ -362,6 +374,9 @@ pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&R
     world
         .get_resource_or_insert_with(DeclaredRules::<DeathLook>::default)
         .restate(scope, rules.death_look);
+    world
+        .get_resource_or_insert_with(DeclaredRules::<crate::hit_feel::HitFeelRules>::default)
+        .restate(scope, rules.hit_feel);
     world
         .get_resource_or_insert_with(DeclaredRules::<FireballFlight>::default)
         .restate(scope, rules.fireball);

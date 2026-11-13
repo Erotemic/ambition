@@ -867,6 +867,15 @@ impl ResolvedCombatTuning {
         self
     }
 
+    /// These rules with the room's hit feel folded in: its hitlag law, where
+    /// it states one, replaces the ruleset's. See [`crate::hit_feel`].
+    pub fn with_hit_feel(mut self, feel: Option<crate::hit_feel::HitFeelRules>) -> Self {
+        if let Some(law) = feel.and_then(|feel| feel.hitlag) {
+            self.hitlag = law;
+        }
+        self
+    }
+
     /// What this volume's own `base` does to its percent curve.
     ///
     /// `(base / pivot).max(1.0) ^ exponent`, and `1.0` whenever the ruleset

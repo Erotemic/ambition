@@ -27,6 +27,8 @@ pub fn project_combat_rules(
     >,
     // The room's share of each move's landing lag: a rule of its own too.
     landing_lag: ambition_platformer2d_world::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
+    // The room's hit feel: its hitlag law replaces the ruleset's.
+    hit_feel: ambition_platformer2d_world::governing_rules::GoverningRules<ambition_combat::hit_feel::HitFeelRules>,
     baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
     participant_rule: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -51,7 +53,8 @@ pub fn project_combat_rules(
             baseline_ff.as_deref(),
         )
         .with_strike_weight(strike_weight.in_room(room).copied())
-        .with_landing_lag(landing_lag.in_room(room).copied());
+        .with_landing_lag(landing_lag.in_room(room).copied())
+        .with_hit_feel(hit_feel.in_room(room).copied());
         resolved.participant_friendly_fire = participant_rule.as_ref()
             .filter(|rule| rule.scope.governs(room))
             .map(|rule| rule.enabled);

@@ -58,6 +58,7 @@ pub mod hitbox;
 pub mod hurtbox_resolution;
 pub mod impact_hitstop;
 pub mod landing_lag;
+pub mod hit_feel;
 pub mod ledge_trump;
 pub mod moveset;
 pub mod on_hit;
@@ -718,8 +719,17 @@ pub fn install_settle_presentation_systems(
     // roads that produce one resolve on different frames.
     app.init_resource::<impact_hitstop::ImpactHitstop>();
     app.add_systems(
-        schedule,
+        schedule.clone(),
         impact_hitstop::request_impact_hitstop_on_resolved_hits
+            .run_if(ambition_platformer2d_core::a_message_waits::<hitbox::ResolvedBodyHit>)
+            .in_set(GameplayGated)
+            .in_set(CombatSet::Settle),
+    );
+    // A melee connect pushes a grounded attacker back (HIT-FEEL), in the game
+    // rooms that declare a recoil.
+    app.add_systems(
+        schedule,
+        hit_feel::recoil_attackers_on_connects
             .run_if(ambition_platformer2d_core::a_message_waits::<hitbox::ResolvedBodyHit>)
             .in_set(GameplayGated)
             .in_set(CombatSet::Settle),

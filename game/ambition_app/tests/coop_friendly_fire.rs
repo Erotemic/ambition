@@ -398,7 +398,9 @@ fn detached_attacks_and_splashes_keep_the_participants_rule_after_control_or_own
         sim.world_mut().despawn(bob);
         fresh_health(&mut sim, alice);
         sim.world_mut().get_mut::<ae::BodyKinematics>(alice).unwrap().pos = home;
-        for _ in 0..2 { sim.step(base()); }
+        // Past the room's freeze from the shot's connect: the splash cannot fall
+        // while the room is held (the shipped hitlag law caps at 0.15 s, 9 ticks).
+        for _ in 0..10 { sim.step(base()); }
         let mut cursor = sim.world().resource::<Messages<combat::HitEvent>>().get_cursor_current();
         sim.world_mut().get_mut::<ae::BodyKinematics>(splash).unwrap().vel = ae::Vec2::new(0.0, 12000.0);
         for _ in 0..2 { sim.step(base()); }

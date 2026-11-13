@@ -31,6 +31,16 @@
     // (Jon, 2026-10-18: "bodies persist by default unless they explicitly
     // don't"). A body that is taken away by its own death states `Vanish`.
     corpses: Some(Stay),
+    // A hit answers (Jon, 2026-11-12: "We need hits to feel more responsive").
+    // The engine's freeze is a share of a platform fighter's (calibrated on 11
+    // damage), so every Ambition hit (1 to 3) got its floor, 0.036 s, and no
+    // shake. Here an ordinary hit holds both bodies 0.075 s and a heavy one
+    // (3) 0.105 s, which also shakes the view a little; and a body that lands
+    // a melee hit in the air is pushed back from it.
+    hit_feel: Some((
+        hitlag: Some(Affine(base_s: 0.06, per_damage_s: 0.015, max_s: 0.15)),
+        attacker_recoil: 110.0,
+    )),
     // A kill lands: the world holds still a twelfth of a second past the
     // blow, and the screen shakes a little (Jon, 2026-10-18: playing through
     // a level was not satisfying).

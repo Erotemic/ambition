@@ -922,9 +922,29 @@ hits must feel more responsive: better hit sounds, a little recoil on the
 attacker, better hit effects, and enemies with more knockback or super armor
 depending on their move.
 
-**Next action:** measure what a landed hit does now (hit-stop frames, shake,
-recoil, knockback per enemy, the sound and effect played) in one table, then
-change the weakest rows.
+**Measured 2026-11-12** (a temporary probe: the robot's first slash on a
+passive goblin, goblin brute and exploding mite in the hub): both bodies
+froze 0.036 s (the engine's hitlag law is a share of a platform fighter's
+reference, 11 damage, and Ambition's hits deal 1 to 3, so every hit got its
+floor); no camera shake (the shake is the freeze above the weakest); no
+attacker recoil; knockback (47, -34) px/s, 7 px of travel, the same on the
+brute as on the goblin (the slash authors a 58 px/s launch, and no catalog
+row authors a weight); two sounds and a slash, a speech bubble and an
+impact spark.
+
+**Built 2026-11-12 (slice 1, the freeze and the recoil):** a `hit_feel` room
+rule (`ambition_combat::hit_feel`, declared apart from `CombatRules` as the
+landing-lag share is). Ambition's: hitlag `Affine(0.06 + 0.015 per damage,
+max 0.15)`, so an ordinary hit holds both bodies 0.075 s and a heavy one
+0.105 s (which shakes); and `attacker_recoil: 110`, a melee connect in the
+air pushing the attacker back from what it struck (measured: 110 px/s held
+after the freeze, 2 px a tick). Not on the ground: the run law brakes a
+pushed speed to 0 on the next tick, and holding it would be the recoil
+lock, which reads as hitstun.
+
+**Next action:** slice 2, weight: light enemies launched further, and armor
+windows on the heavy enemies' big moves (content); then the hit sounds and
+the contact effect.
 
 **Acceptance:** a landed hit has a distinct sound, a hit effect at the contact,
 attacker recoil and hit-stop; each enemy move declares knockback or armor,

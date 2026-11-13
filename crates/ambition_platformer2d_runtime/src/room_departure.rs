@@ -65,7 +65,13 @@ pub fn drive_departures(
             Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
             Option<&ambition_characters::control::DrivingParticipant>,
         ),
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        (
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+            // A body in its death window cannot make an `InPlay` crossing, and
+            // a crossing recorded for it holds the room still, so its window
+            // never closes. The trip waits for the body to come back.
+            Without<ambition_combat::death_rules::OutOfPlay>,
+        ),
     >,
     // Required (C07): every composition that drives departures has the
     // lifecycle-commit slot (measured 2026-10-03 over app_it, the demo suites

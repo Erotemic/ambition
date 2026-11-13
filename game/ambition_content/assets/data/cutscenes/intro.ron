@@ -46,16 +46,28 @@
                 text: "Drain Market — STAFF ONLY",
                 seconds: 1.2,
             ),
-            Dialogue(
-                speaker: "Oiler",
-                text: "Well. That\'s not a rat. You came out of the bad pipe.",
-            ),
             SetFlag(
                 id: "drain_market_arrival_seen",
                 on: true,
             ),
         ],
         seen_flag: Some("drain_market_arrival_seen"),
+    ),
+    // Started by the volume around Oiler's post in drain_alley: he has come
+    // to meet the player who walked up, and this is what he says.
+    (
+        id: "oiler_notices",
+        beats: [
+            Dialogue(
+                speaker: "Oiler",
+                text: "Well. That\'s not a rat. You came out of the bad pipe.",
+            ),
+            SetFlag(
+                id: "oiler_notices_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("oiler_notices_seen"),
     ),
     // No room plays this: the player starts it at the ripple. The interaction
     // is v1.1 work; the script is here so the trigger can request it.

@@ -46,6 +46,10 @@ pub struct RoamCfg {
     pub playful: f32,
     /// A resting body faces a target this near (px).
     pub notice_radius: f32,
+    /// A body whose company comes nearer than this goes to it at once, out
+    /// of any rest: it comes to meet a player who walks up (px). Zero: it
+    /// does not.
+    pub greet_within: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -118,6 +122,16 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
     if let Some(offset) = to_company.filter(|offset| offset.length() <= cfg.notice_radius) {
         out.facing = snapshot.face_toward(offset.x);
     }
+    // A player who walks up is met: the rest ends for it. Beside the body
+    // already, there is nowhere to go.
+    let greeting = cfg.greet_within > 0.0 && to_company.is_some_and(|offset| offset.length() <= cfg.greet_within);
+    if greeting && snapshot.actor_on_ground {
+        if let Some(place) = advice.target_place.filter(|place| place.distance(advice.feet) > SAME_PLACE) {
+            state.nav.go_to(place);
+            state.picks = state.picks.wrapping_add(1);
+            return;
+        }
+    }
     // A body starts with a rest, not with a journey.
     if state.picks == 0 && state.until == 0.0 {
         state.until = now + rest(0);
@@ -160,6 +174,7 @@ mod tests {
         stay_within: 0.0,
         playful: 0.0,
         notice_radius: 0.0,
+        greet_within: 0.0,
     };
     const HERE: Vec2 = Vec2::new(100.0, 500.0);
     const THERE: Vec2 = Vec2::new(400.0, 440.0);
@@ -320,6 +335,29 @@ mod tests {
         let mut idle = RoamState { until: 100.0, picks: 1, ..Default::default() };
         tick(&CFG, &mut idle, &errand(ae::navigation::ErrandSight::Door(THERE)));
         assert_eq!(idle.nav.goal, Some(THERE), "a body goes to the zone that leads to its errand");
+    }
+
+    /// A body that greets comes out of its rest to meet a player who walks
+    /// up, and stays at rest while the player is farther off.
+    #[test]
+    fn a_greeter_at_rest_goes_to_meet_a_player_who_comes_near() {
+        let greets = RoamCfg { greet_within: 250.0, ..CFG };
+        let place = |at: Vec2| {
+            let mut snapshot = standing(5.0);
+            snapshot.navigation.target_place = Some(at);
+            snapshot
+        };
+        let near = HERE + Vec2::new(200.0, 0.0);
+        let far = HERE + Vec2::new(400.0, 0.0);
+        let mut state = RoamState { until: 1000.0, picks: 1, ..Default::default() };
+        tick(&greets, &mut state, &place(far));
+        assert_eq!(state.nav.goal, None, "a player beyond the greeting stays unmet");
+        tick(&greets, &mut state, &place(near));
+        assert_eq!(state.nav.goal, Some(near), "the rest ends for a player who walks up");
+        // The control: a body that does not greet rests on.
+        let mut state = RoamState { until: 1000.0, picks: 1, ..Default::default() };
+        tick(&CFG, &mut state, &place(near));
+        assert_eq!(state.nav.goal, None);
     }
 
     #[test]

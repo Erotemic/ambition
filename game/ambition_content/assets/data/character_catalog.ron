@@ -226,6 +226,20 @@
             playful: 0.0,
             notice_radius: 400.0,
         ),
+        // Stays at its post, and comes to meet a player who walks up. It keeps
+        // to the room's surfaces, so it does not walk off a ledge it was
+        // standing beside.
+        "meets_the_player": Roam(
+            speed: 70.0,
+            trot_speed: 120.0,
+            rest_min_s: 1000000.0,
+            rest_max_s: 1000000.0,
+            company: 0.0,
+            stay_within: 0.0,
+            playful: 0.0,
+            notice_radius: 320.0,
+            greet_within: 260.0,
+        ),
         // A townsperson going about the town: walks to places in its room,
         // rests at each, and pays the player no mind.
         "townsfolk_roam": Roam(

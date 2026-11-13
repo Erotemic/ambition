@@ -826,10 +826,14 @@ body in the world, and the possessed body keeps its geometry and state.
    (`creator_final_fragment`) play from nothing yet, and nothing makes him
    fall when the player wins. Wants a beat or a command that ends an actor,
    and a decision on whether he always dies here.
-2. *Oiler:* a `CutsceneTrigger` around him in `drain_alley` in place of the
-   room's `entry_cutscene`, and a `Roam` that goes to a player who comes
-   near (a `Roam` keeps to the graph, so he stops walking into the hole).
-3. *The message board's fight rows* (art: its sheet has no attack rows).
+2. *The message board's fight rows* (art: its sheet has no attack rows).
+
+*Oiler (built 2026-11-12):* he stands past the grate (x 720) with
+`meets_the_player` (a `Roam` with the new `greet_within`: out of its rest
+to meet a player within 260 px; it keeps to the graph, so no more walking
+into the hole), and his line is `oiler_notices`, started by a
+`CutsceneTrigger` around his post. The room's arrival keeps its fade and
+banner.
 
 ### COOP-RECOVERY — independent respawn and a full-party wipe
 

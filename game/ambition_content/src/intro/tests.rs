@@ -122,6 +122,12 @@ fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
         "the lab's room has no volume that starts `intro_raid`"
     );
     assert!(lib.get("intro_raid").is_some_and(|script| script.seen_flag.is_some()));
+    // And Oiler speaks when the player comes up to him, not at the door.
+    let alley = rooms.iter().find(|spec| spec.id == "drain_alley").expect("the alley is a shipped room");
+    assert!(
+        alley.cutscene_triggers.iter().any(|trigger| trigger.cutscene == "oiler_notices"),
+        "the alley has no volume that starts `oiler_notices`"
+    );
 }
 
 #[test]

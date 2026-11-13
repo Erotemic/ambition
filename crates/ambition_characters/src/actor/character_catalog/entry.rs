@@ -1074,6 +1074,10 @@ pub enum BrainPreset {
         playful: f32,
         #[serde(default)]
         notice_radius: f32,
+        /// Nearer than this to the player, the body goes to the player at
+        /// once, out of any rest. Zero: it does not.
+        #[serde(default)]
+        greet_within: f32,
     },
     BossPattern {
         aggressiveness: f32,

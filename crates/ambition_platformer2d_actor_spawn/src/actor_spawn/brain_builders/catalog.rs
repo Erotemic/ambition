@@ -157,6 +157,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             stay_within,
             playful,
             notice_radius,
+            greet_within,
         } => StateMachineCfg::Roam {
             cfg: ambition_characters::brain::state_machine::RoamCfg {
                 speed: *speed,
@@ -167,6 +168,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 stay_within: *stay_within,
                 playful: *playful,
                 notice_radius: *notice_radius,
+                greet_within: *greet_within,
             },
             state: ambition_characters::brain::state_machine::RoamState::default(),
         },

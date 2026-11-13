@@ -829,7 +829,8 @@ body in the world, and the possessed body keeps its geometry and state.
    show, not the story). Decided: he always dies here; if he fell in the
    fight already, the words are the ones he had left. The fast and
    impossible variants in `intro.yarn` are not wired.
-2. *The message board's fight rows* (art: its sheet has no attack rows).
+2. *The message board's fight rows (built 2026-11-12):* `slash`, `hit` and
+   `death` on `news_board_v2` (renderer e3549b3); it leans on its feet.
 
 *Oiler (built 2026-11-12):* he stands past the grate (x 720) with
 `meets_the_player` (a `Roam` with the new `greet_within`: out of its rest

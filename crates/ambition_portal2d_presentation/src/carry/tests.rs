@@ -191,13 +191,13 @@ fn independent_bodies_keep_their_geometry_and_depth_on_the_same_link() {
     for order in [[0,1], [1,0]] {
         let actual = scene(&order);
         let exit_depth = |outcome: &Outcome| outcome.pieces.iter()
-            .find(|piece| piece.at.z < crate::PORTAL_WINDOW_Z).expect("a carried part").at.z;
+            .find(|piece| piece.at.z < crate::PORTAL_EXIT_COPY_TOP).expect("a carried part").at.z;
         let first = order.iter().position(|index| *index == 0).unwrap();
         let second = order.iter().position(|index| *index == 1).unwrap();
         assert!(exit_depth(&actual[first]) < exit_depth(&actual[second]), "source depth order must survive transit");
         let geometry = |mut outcome: Outcome| {
             for piece in &mut outcome.pieces {
-                if piece.at.z < crate::PORTAL_WINDOW_Z { piece.at.z = crate::PORTAL_EXIT_COPY_Z; }
+                if piece.at.z < crate::PORTAL_EXIT_COPY_TOP { piece.at.z = crate::PORTAL_EXIT_COPY_Z; }
             }
             outcome
         };
@@ -548,7 +548,7 @@ fn an_owned_reach_keeps_its_holders_cut_root_and_piece_budget() {
     for piece in cut.pieces {
         let transform = Transform { translation: piece.at, rotation: piece.rotation, scale: piece.scale };
         let points: Vec<_> = piece.positions.iter().map(|p| transform.transform_point(Vec3::from_array(*p))).collect();
-        if piece.at.z > crate::PORTAL_WINDOW_Z {
+        if piece.at.z > crate::PORTAL_EXIT_COPY_TOP {
             near += 1;
             assert!(points.iter().all(|p| p.x <= 0.001), "the tip cannot draw behind the source face");
         } else {

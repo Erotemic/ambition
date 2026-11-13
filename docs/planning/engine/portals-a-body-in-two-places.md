@@ -568,8 +568,9 @@ cutter, its fallback copy and `PortalTransitHidden` are deleted.
   sprite's bounds itself (its `Aabb` is computed later: one frame old, and
   missing on the frame the sprite is made; MEASURED: each new slash was
   drawn whole in the wall for its first frame).
-- The far-side compositor leaves a carried drawable, and one that reaches
-  out from the viewer's side of a pane, to the carry.
+- The window of the entry draws over the play plane (`PORTAL_WINDOW_Z`), so
+  the part of a drawable past the entry face is under it, and the window's
+  capture shows the part the carry draws out of the exit.
 
 Guard: `scripts/checks/check_portal_carry.py` films each kind with and without it
 (windows off), and fails when the kind is drawn behind the entry inside

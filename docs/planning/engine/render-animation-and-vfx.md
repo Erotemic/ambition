@@ -68,44 +68,42 @@ Do not force persistent sources into a growing one-shot `ParticleKind` enum.
 
 ### Body-owned drawable geometry has one finalization boundary
 
-Every body-owned drawable that portals or other late compositors consume must
-publish its **current-frame geometry/appearance before candidate publication**.
-The ordering model is:
+Every body-owned drawable that a late consumer reads (the folded meshes, the
+portal carry) must publish its **current-frame geometry/appearance** before
+that consumer runs:
 
 ```text
 body-owned drawable producer/update
     -> body-owned drawable geometry finalized
-    -> portal candidate publication
-    -> portal compositing / source visibility resolution
+    -> folded meshes / portal carry
     -> draw
 ```
 
 The boundary is the `BodyOwnedDrawableSync` set (`ambition_render::rendering`).
-`publish_portal_compositing_candidates` runs after it. A new body-owned drawable
-writer joins the set; outside it, the writer is composited a frame late at
-best. The set edge also flushes commands, so a drawable spawned inside the set
-is a candidate on its first frame. Do not order a new overlay against concrete
-foreign systems.
+`folded_mesh::FoldedMeshSync` runs after it. A new body-owned drawable writer
+joins the set. Do not order a new overlay against concrete foreign systems.
 
-### Portal relationships are per pane and per drawable
+### A portal window is over the play plane
 
-A single entity z/visibility value cannot express a body that is near one portal
-and far from another.
+A portal's window replaces everything under it with the world the viewer will
+see after crossing (PORTAL-CONE-LAYERING, 2026-11-13). It draws at
+`PORTAL_WINDOW_Z` (`WORLD_Z_FX + 9`): over every drawable of the room's plane
+(blocks, scenery, doors, signs, bodies, effects, nameplates and bars) and under
+the atmosphere in front of it (front motes, the foreground parallax, the
+daylight veil). One rule for every drawable: none is composited per pane.
 
-The current compositor therefore reasons from drawable geometry and creates
-per-pane representations. Keep these invariants:
+That hides no near-side body. The window mesh is the wedge from the aperture
+face back into the host surface, so a body on the viewer's side is outside it
+whatever its z. The part of a body past the face is under it, and the carry
+draws that part out of the exit, where the window's capture sees it.
 
-- source z is not mutated to solve portal optics;
-- a disjoint drawable is unchanged;
-- far-side overlap clips only the overlapping representation;
-- transit remains its own split representation;
-- two panes may produce different relations for the same drawable;
-- body-owned secondary presentation participates independently from the base
-  sprite when it declares enough geometry.
+Before 2026-11-13 the window drew at 9.5, under the cast, and a far-side
+compositor redrew each body behind a pane as the part of it the opening did
+not cover. It saw only bodies, so a door, a sign or a nameplate behind a
+window drew a second copy over it; it is retired with the rule above.
 
 `DeclaredFrame` is the reusable road for non-Sprite presentation that can be
-reconstructed from a texture/UV/size/anchor/tint description. Do not reintroduce
-whole-body scalar hiding for a drawable that can describe its own geometry.
+reconstructed from a texture/UV/size/anchor/tint description.
 
 ### Quality is presentation policy
 
@@ -347,6 +345,9 @@ future screen-space effect derived from a world entity; rendering in a
 single camera is not enough evidence.
 
 ### R8 - portal fragment lifetime and measured render churn
+
+*The far-side compositor measured here is retired (2026-11-13: a portal
+window draws over the play plane). The transit half is the carry.*
 
 **Measured (2026-10-12), headless, the far-side compositor:** a far-covered
 body for 600 frames (300 still, 300 moving) makes 2 pieces a frame (1200

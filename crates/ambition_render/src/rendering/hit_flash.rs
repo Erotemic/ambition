@@ -278,11 +278,10 @@ pub fn attach_hit_flash_overlays(
                     HitFlashOverlay {
                         source: source_entity,
                     },
-                    // Declares what this mesh paints, so the portal compositor can
-                    // clip it like a sprite instead of hiding it when its body is
-                    // partly behind a pane. A unit quad scaled to the drawn size, with
-                    // the anchor folded into the translation: `size` ONE, `anchor`
-                    // ZERO. `sync_hit_flash_overlays` keeps it current.
+                    // Declares what this mesh paints: a unit quad scaled to the
+                    // drawn size, with the anchor folded into the translation:
+                    // `size` ONE, `anchor` ZERO. `sync_hit_flash_overlays` keeps it
+                    // current.
                     ambition_sprite_fx::DeclaredFrame {
                         color_texture: sprite.image.clone(),
                         uv_rect,
@@ -353,10 +352,6 @@ pub fn sync_hit_flash_overlays(
             // The source's own visibility. The overlay is a separate root, so it
             // does not inherit a hidden source. See `overlay_look`.
             Option<Ref<Visibility>>,
-            // Except when the portal hides the source: then clipped pieces draw
-            // the body, and the overlay composites into its own pieces, so it
-            // must keep its intensity.
-            PortalHidIt,
         ),
         Without<HitFlashOverlay>,
     >,
@@ -378,7 +373,6 @@ pub fn sync_hit_flash_overlays(
         player,
         source,
         source_visibility,
-        portal_hid_source,
     ) in &sources
     {
         let Some(render_size) = source_sprite.custom_size else {
@@ -401,9 +395,7 @@ pub fn sync_hit_flash_overlays(
             defense_policy.0,
         );
         facts.transit = transit_fact(source_entity, feature, &anim_frames, &passage_looks, quality.as_deref());
-        let source_visibility = source_visibility.and_then(|visibility| {
-            (!portal_alone_hides(portal_hid_source, &visibility)).then_some(*visibility)
-        });
+        let source_visibility = source_visibility.map(|visibility| *visibility);
         let (intensity, tint) = overlay_look(facts, tick.0, source_visibility);
         let transit = if tint == TRANSIT_TINT { facts.transit } else { 0.0 };
 
@@ -426,14 +418,7 @@ pub fn sync_hit_flash_overlays(
         if overlay.source != source_entity {
             continue;
         }
-        // This system owns the overlay's visibility every frame. The overlay
-        // is a compositing candidate: the portal resolver hides it while a pane
-        // covers it and releases without asserting when the pane moves. So
-        // this system asserts `Visible` every frame, and the resolver (later)
-        // reasserts `Hidden` while it has a reason, like `sync_visuals` with
-        // bodies. Do not skip the write when `PortalSourceHidden` is present:
-        // on the frame a body crosses to the near side, the flash would vanish
-        // for one frame.
+        // This system owns the overlay's visibility every frame.
         if *overlay_visibility != Visibility::Visible {
             *overlay_visibility = Visibility::Visible;
         }
@@ -510,13 +495,12 @@ pub fn declare_hit_flash_demand(
             Option<&FeatureVisual>,
             Option<&PlayerVisual>,
             Option<Ref<Visibility>>,
-            PortalHidIt,
         ),
         (With<HitFlashSource>, Without<HitFlashOverlay>),
     >,
     mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
 ) {
-    for (source_entity, feature, player, source_visibility, portal_hid_source) in &sources {
+    for (source_entity, feature, player, source_visibility) in &sources {
         let mut facts = overlay_facts_for_source(
             source_entity,
             feature,
@@ -527,33 +511,11 @@ pub fn declare_hit_flash_demand(
             defense_policy.0,
         );
         facts.transit = transit_fact(source_entity, feature, &anim_frames, &passage_looks, quality.as_deref());
-        let source_visibility = source_visibility.and_then(|visibility| {
-            (!portal_alone_hides(portal_hid_source, &visibility)).then_some(*visibility)
-        });
+        let source_visibility = source_visibility.map(|visibility| *visibility);
         if overlay_look(facts, tick.0, source_visibility).0 > 0.0 {
             demand.declare(source_entity);
         }
     }
-}
-
-/// "Does the portal alone hide this entity?" (not "did the portal hide it":
-/// a body that dies behind a pane is hidden by its owner too). The render
-/// crate can ask only when the portal presentation crate is composed in.
-#[cfg(feature = "portal_render")]
-pub(crate) type PortalHidIt = Option<&'static ambition_portal2d_presentation::PortalSourceHidden>;
-#[cfg(feature = "portal_render")]
-pub(crate) fn portal_alone_hides(
-    marker: Option<&ambition_portal2d_presentation::PortalSourceHidden>,
-    visibility: &Ref<Visibility>,
-) -> bool {
-    ambition_portal2d_presentation::PortalSourceHidden::portal_alone_hides(marker, visibility)
-}
-/// Without portals nothing hides a body for the compositor's reasons.
-#[cfg(not(feature = "portal_render"))]
-pub(crate) type PortalHidIt = ();
-#[cfg(not(feature = "portal_render"))]
-pub(crate) fn portal_alone_hides((): (), _: &Ref<Visibility>) -> bool {
-    false
 }
 
 /// Remove orphan overlays whose source entity despawned, like the

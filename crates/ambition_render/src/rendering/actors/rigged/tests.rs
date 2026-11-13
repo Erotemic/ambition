@@ -2043,7 +2043,7 @@ fn a_portal_reads_an_unclassified_rigged_picture_as_a_real_image() {
     app.world_mut().spawn(ambition_portal2d_presentation::PlacedPortal::fixed(
         ambition_portal2d_presentation::PortalChannel::Authored(ambition_portal2d_presentation::PortalChannelColor::Purple),
         Vec2::new(500.0,500.0), -Vec2::X, 40.0).unwrap());
-    app.add_systems(Update, crate::rendering::portal_compositing::declare_portal_body_demand.before(drive_rigged_presentations));
+    app.add_systems(Update, crate::rendering::portal_body_demand::declare_portal_body_demand.before(drive_rigged_presentations));
     for _ in 0..4 { app.update(); }
     assert!(app.world().get::<RiggedPresentation>(owner(&app,root)).unwrap().impostor.is_some(),
         "a generated picture needs a readable image even without a controller marker");

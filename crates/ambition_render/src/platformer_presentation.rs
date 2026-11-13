@@ -127,42 +127,10 @@ impl Plugin for SessionRoomVisualsPlugin {
                 crate::rendering::chain_skin::dress_chain_turf.run_if(crate::rendering::chain_skin::a_turf_is_undressed),
             ),
         );
-        // The host tells portal presentation what it draws. That crate sees only the
-        // decomposed scene body and the affordance body, so an ordinary NPC behind an
-        // aperture is invisible to it unless published here.
-        //
-        // Gated on a portal existing: this writes a component per drawable per frame.
-        //
-        // It reads `Sprite::custom_size` and `Anchor`, which the animators rewrite
-        // per frame. So it runs after the animators (final geometry) and before
-        // `PortalPresentationSet` (so the compositor reads this frame's rectangle).
-        // The explicit edge also puts the command flush between them.
         #[cfg(feature = "portal_render")]
         app.add_systems(
             Update,
-            crate::rendering::portal_compositing::publish_portal_compositing_candidates
-                // After every writer of the sprite basis. Candidates are
-                // `FeatureVisual` or `PlayerVisual`, so the NPC half needs
-                // `animate_characters` and `animate_feature_sprites` too.
-                // `sync_visuals` writes the pose; the animators write the basis.
-                .after(crate::rendering::actors::sync_visuals)
-                .after(crate::rendering::actors::animate_player)
-                .after(crate::rendering::actors::animate_characters)
-                .after(crate::rendering::actors::animate_feature_sprites)
-                // After every body-owned drawable writer (clock bar, flash
-                // silhouette, ball, wire), as one set edge. The set edge is also the
-                // command flush, so a drawable spawned this frame is a candidate this
-                // frame. See `BodyOwnedDrawableSync`.
-                .after(crate::rendering::BodyOwnedDrawableSync)
-                .before(ambition_portal2d_presentation::PortalPresentationSet)
-                .run_if(bevy::prelude::any_with_component::<
-                    ambition_portal2d_presentation::PlacedPortal,
-                >),
-        );
-        #[cfg(feature = "portal_render")]
-        app.add_systems(
-            Update,
-            crate::rendering::portal_compositing::declare_portal_body_demand
+            crate::rendering::portal_body_demand::declare_portal_body_demand
                 .after(crate::rendering::actors::rigged::follow_limb_twins)
                 .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                 .run_if(bevy::prelude::any_with_component::<

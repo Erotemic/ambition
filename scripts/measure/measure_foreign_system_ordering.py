@@ -207,7 +207,7 @@ def workspace_crates() -> set[str]:
 
     ⛔⛔ WITHOUT THIS THE FIRST RUN REPORTED 28 CAPABILITY VIOLATIONS AND THE
     TRUE NUMBER WAS A THIRD OF THAT. A bare module path — `actors::sync_visuals`,
-    `far_side::composite_far_side_bodies` — is a crate ordering its OWN systems
+    `carry::carry_through_pairs` — is a crate ordering its OWN systems
     through a sibling module, which is not a boundary at all; only a path whose
     head is another CRATE crosses one. Testing `head in ("crate", "super",
     "self")` catches the qualified spellings and misses the bare one, which is

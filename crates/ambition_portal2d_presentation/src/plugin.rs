@@ -7,8 +7,6 @@
 
 use bevy::prelude::*;
 
-use crate::far_side;
-use crate::source_visibility;
 #[cfg(feature = "effect_view_cones")]
 use crate::view_cones;
 use crate::visuals;
@@ -40,14 +38,6 @@ pub struct PortalPresentationPlugin {
     /// a pair (a body in transit, and any drawable that reaches past an entry
     /// from its front) is drawn in front of the entry and out of the exit.
     pub body_pieces: bool,
-    /// Far-side compositing ([`far_side::composite_far_side_bodies`]): a body
-    /// standing behind an aperture is redrawn as the part the pane leaves
-    /// visible, so the covered pixels are never submitted and no depth ordering
-    /// can bring them back.
-    ///
-    /// With this off, far-side bodies draw over panes: a pane draws at
-    /// [`crate::PORTAL_WINDOW_Z`] (`9.5`) and every actor above it.
-    pub far_side_compositing: bool,
     /// The input-warp disorientation glyph
     /// ([`visuals::sync_portal_disorientation_indicator`]).
     pub disorientation: bool,
@@ -64,7 +54,6 @@ impl Default for PortalPresentationPlugin {
         Self {
             portal_quads: true,
             body_pieces: true,
-            far_side_compositing: true,
             disorientation: true,
             view_cones: true,
         }
@@ -74,7 +63,7 @@ impl Default for PortalPresentationPlugin {
 impl Plugin for PortalPresentationPlugin {
     fn build(&self, app: &mut App) {
         // Asleep where no live room uses portals (Mary-O's), after one frame
-        // that takes the quads down and gives back the bodies they hid.
+        // that takes the quads down.
         app.configure_sets(
             Update,
             PortalPresentationSet.in_set(
@@ -143,26 +132,6 @@ impl Plugin for PortalPresentationPlugin {
                     .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility),
             );
         }
-        if self.far_side_compositing {
-            // Shares the clip material with the transit pieces; the adder is
-            // idempotent precisely because both flags default to on.
-            crate::clip_material::add_portal_clip_material_plugin(app);
-            app.add_systems(
-                Update,
-                far_side::composite_far_side_bodies.in_set(PortalPresentationSet),
-            );
-        }
-        // The one writer of a portal-presented body's `Visibility`, after every
-        // system that states a reason to hide it. Registered unconditionally: a
-        // body whose last hide reason went away must still be given back. With
-        // both flags off, the query matches nothing. `.after` on an unregistered
-        // system constrains nothing, which is correct here.
-        app.add_systems(
-            Update,
-            source_visibility::resolve_portal_source_visibility
-                .in_set(PortalPresentationSet)
-                .after(far_side::composite_far_side_bodies),
-        );
         if self.disorientation {
             app.add_systems(
                 Update,

@@ -317,9 +317,6 @@ pub fn restore_sprites_without_effects(
 /// draws nothing (its colour's alpha is zero), and a child quad
 /// ([`FollowingFxQuad`]) draws its CURRENT frame under the effect, carrying
 /// the sprite's own colour. The gate wormhole's per-destination hue is one.
-///
-/// Like the [`SpriteEffect`] mesh path, the quad is not a `Sprite`, so the
-/// portal compositor does not cut it at a portal's seam.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct FollowingSpriteEffect(pub SpriteEffect);
 

@@ -275,11 +275,11 @@ No game crate should maintain a parallel skin/tessellation implementation.
 
 ### Portal fragments create entities and materials on every presentation frame
 
-The new portal compositor uses a deliberately rebuilt representation. That
+The portal pieces use a deliberately rebuilt representation. That
 simplicity is reasonable for correctness, but it has a measurable cost to
-investigate, not an assumed performance emergency:
-`crates/ambition_portal2d_presentation/src/far_side.rs` and
-`src/visuals.rs` despawn and spawn derived pieces every update and add
+investigate, not an assumed performance emergency: the carry
+(`crates/ambition_portal2d_presentation/src/carry.rs`; the far-side
+compositor is retired, 2026-11-13) and `src/visuals.rs` rebuild derived pieces every update and add
 new `PortalClipMaterial` assets when clipped pieces are generated. A still
 source can thus allocate even when its transform and sheet are unchanged.
 

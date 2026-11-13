@@ -6,14 +6,10 @@
 //! mark today; a poison or a fuse would need no change here).
 //!
 //! One persistent drawable per clocked body, not a clear-and-respawn each
-//! frame. The portal compositor classifies and clips a drawable that names
-//! its body (`PresentationOf`), and that state (`PortalDependantHidden`, the
-//! compositing candidate) lives on the entity across frames.
+//! frame, which names its body (`PresentationOf`).
 //!
-//! A plain colour sprite on purpose: an unparented `Sprite` with a
-//! `custom_size` is what the portal publisher evaluates and the far-side
-//! compositor rebuilds. Bevy's 1x1 white image under the default handle is
-//! what `sprite_frame_basis` needs.
+//! A plain colour sprite: Bevy's 1x1 white image under the default handle is
+//! what `sprite_frame_basis` needs when a pair carries it.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -99,7 +95,7 @@ pub fn sync_body_clock_visuals(
                 sprite,
                 Transform::from_translation(bar_translation(&world.0, fact)),
                 // Which body this draws, in the shared spelling that consumers such as
-                // the portal compositor read.
+                // the portal carry read.
                 PresentationOf(fact.body),
                 Name::new("Body clock telegraph"),
             ),
@@ -248,8 +244,7 @@ mod tests {
         );
     }
 
-    /// The drawable names its body. The portal compositor needs this; a bar
-    /// without an owner would be hidden whole or drawn through a pane.
+    /// The drawable names its body, and is a root of its own.
     #[test]
     fn the_bar_says_whose_body_it_draws() {
         let mut app = app();
@@ -263,7 +258,7 @@ mod tests {
         );
         assert!(
             app.world().get::<ChildOf>(bar).is_none(),
-            "a parented drawable is not a compositing candidate"
+            "the bar is a root drawable, placed in the world by its body's room"
         );
     }
 }

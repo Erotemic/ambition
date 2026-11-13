@@ -7,10 +7,9 @@
 //! triangles are cut where the room's portal pairs cut a volume
 //! (`BodyGeometry::pieces`, the resolver's own rule for a strike): the part
 //! that reaches through a pair from its front is drawn out of the other end.
-//! The part behind a pane from the viewer (the far side of a portal's wall)
-//! is not drawn inside the pane, which shows the view through it instead
-//! (`pane_relation`, the far-side compositor's rule for a sprite). A mesh
-//! with no pair near it is drawn as it was built, at no cost.
+//! The part behind a portal's face is under its window, which draws over the
+//! play plane (`PORTAL_WINDOW_Z`). A mesh with no pair near it is drawn as it
+//! was built, at no cost.
 //!
 //! Its material only composites the colours its triangles carry: added
 //! (light) or blended. No shader draws a shape.
@@ -34,8 +33,6 @@ use bevy::{
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::frame::thread::{HalfPlane, VolumePiece};
-#[cfg(feature = "portal_render")]
-use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomOf, LiveRooms};
 use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
 
@@ -260,41 +257,6 @@ pub fn fold(tris: &Tris, pieces: &[VolumePiece]) -> Result<Tris, ae::frame::Nume
     Ok(out)
 }
 
-/// `tris` with the rectangle `min..max` cut out of each triangle whose
-/// middle `covered` says is behind it: the pane draws there.
-pub fn uncover(tris: &Tris, min: Vec2, max: Vec2, covered: impl Fn(Vec2) -> bool) -> Tris {
-    let mut out = Tris::default();
-    let outside = [
-        // Left of it; right of it; above it and below it, between the two.
-        vec![HalfPlane { point: min, inward: Vec2::NEG_X }],
-        vec![HalfPlane { point: max, inward: Vec2::X }],
-        vec![
-            HalfPlane { point: min, inward: Vec2::X },
-            HalfPlane { point: max, inward: Vec2::NEG_X },
-            HalfPlane { point: min, inward: Vec2::NEG_Y },
-        ],
-        vec![
-            HalfPlane { point: min, inward: Vec2::X },
-            HalfPlane { point: max, inward: Vec2::NEG_X },
-            HalfPlane { point: max, inward: Vec2::Y },
-        ],
-    ];
-    for tri in tris.triangles() {
-        let lo = tri.iter().fold(Vec2::splat(f32::INFINITY), |m, (p, _)| m.min(*p));
-        let hi = tri.iter().fold(Vec2::splat(f32::NEG_INFINITY), |m, (p, _)| m.max(*p));
-        let middle = (tri[0].0 + tri[1].0 + tri[2].0) / 3.0;
-        let overlaps = lo.x <= max.x && hi.x >= min.x && lo.y <= max.y && hi.y >= min.y;
-        if !overlaps || !covered(middle) {
-            out.polygon(&tri);
-            continue;
-        }
-        for planes in &outside {
-            out.polygon(&clip_all(tri.to_vec(), planes));
-        }
-    }
-    out
-}
-
 /// A drawable mesh of `tris` for the render world. Nothing to draw is one
 /// invisible triangle, so the mesh is never empty.
 fn mesh_of(tris: &Tris) -> Mesh {
@@ -312,40 +274,6 @@ fn mesh_of(tris: &Tris) -> Mesh {
     mesh
 }
 
-/// The far side: what of a mesh in `room` is behind a pane from its eye.
-#[cfg(feature = "portal_render")]
-#[derive(bevy::ecs::system::SystemParam)]
-struct Panes<'w, 's> {
-    frames: ambition_portal2d_presentation::PortalFrames<'w, 's>,
-    portals: Query<'w, 's, (Entity, &'static ambition_portal2d_presentation::PlacedPortal)>,
-    viewers: Option<Res<'w, ambition_portal2d_presentation::PortalViewers>>,
-}
-
-#[cfg(feature = "portal_render")]
-impl Panes<'_, '_> {
-    fn uncover(&self, tris: Tris, room: Option<LiveRoomInstance>) -> Tris {
-        let Some(viewer) = self.viewers.as_deref().and_then(|v| v.in_room(room)).filter(|v| v.present) else {
-            return tris;
-        };
-        let Some(bounds) = tris.bounds() else {
-            return tris;
-        };
-        let by_room = self.frames.portals_by_room(self.portals.iter());
-        let mut tris = tris;
-        for pane in by_room.in_room(room) {
-            // A pane that covers some of it from the eye; each triangle is
-            // then judged by its own middle, as a sprite is by its centre.
-            let relation = ambition_portal2d_presentation::pane_relation(pane, viewer.eye, bounds.min, bounds.max, false);
-            if relation == ambition_portal2d_presentation::PaneRelation::Disjoint {
-                continue;
-            }
-            let (min, max) = ambition_portal2d_presentation::pane_cover_rect(pane);
-            tris = uncover(&tris, min, max, |middle| ambition_portal2d_presentation::behind_pane(pane, viewer.eye, middle));
-        }
-        tris
-    }
-}
-
 /// Fold each changed [`FoldedMesh`] through its room's portals and write the
 /// mesh it is drawn with.
 #[allow(clippy::too_many_arguments)]
@@ -356,7 +284,6 @@ fn write_folded_meshes(
     world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     rooms: LiveRooms,
     passages: Option<Res<BodyGeometry>>,
-    #[cfg(feature = "portal_render")] panes: Panes,
     mut folded: Query<(Entity, &FoldedMesh, Option<&FoldedMeshDrawn>, &mut Transform), Changed<FoldedMesh>>,
 ) {
     for (entity, mesh, drawn, mut transform) in &mut folded {
@@ -372,8 +299,6 @@ fn write_folded_meshes(
             }
             _ => mesh.tris.clone(),
         };
-        #[cfg(feature = "portal_render")]
-        let tris = panes.uncover(tris, room);
         transform.translation = world_to_bevy(&room_world.0, Vec2::ZERO, mesh.z);
         match drawn {
             Some(FoldedMeshDrawn(handle)) => {
@@ -447,15 +372,4 @@ mod tests {
         assert!(out.iter().all(|p| (p.x - 400.0).abs() <= 6.0 && p.y >= 239.0), "60 up out of the exit, 10 wide: {out:?}");
     }
 
-    #[test]
-    fn a_pane_covers_only_what_is_behind_it() {
-        let band = quad(Vec2::new(0.0, 0.0), Vec2::new(100.0, 10.0));
-        let min = Vec2::new(40.0, -20.0);
-        let max = Vec2::new(60.0, 20.0);
-        let none = uncover(&band, min, max, |_| false);
-        assert!((area(&none) - 1000.0).abs() < 1e-3);
-        let cut = uncover(&band, min, max, |_| true);
-        assert!((area(&cut) - 800.0).abs() < 1e-2, "the 20 wide strip under the pane is gone: {}", area(&cut));
-        assert!(cut.positions.iter().all(|p| p.x <= 40.0 + 1e-3 || p.x >= 60.0 - 1e-3));
-    }
 }

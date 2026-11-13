@@ -283,12 +283,9 @@ WAIVERS = {
     # rather than by the presentation analogy above.
     #
     # `PresentationOf(pub Entity)` cannot BE rollback state — it holds a live
-    # `Entity`, which is the one thing a snapshot may never carry — and all three
-    # filter sites are in crates that draw: `portal2d_presentation`'s
-    # source_visibility and two in `render`'s portal_compositing. Its publisher
-    # sits beside them (`portal_compositing.rs:338`) and restamps it from the sim's
-    # answer to "whose body does this drawable belong to".
-    "PresentationOf": "holds a live `Entity`, so it can never be rollback state; 3 filter sites, all in `ambition_render` / `ambition_portal2d_presentation`, republished by the compositing publisher beside them",
+    # `Entity`, which is the one thing a snapshot may never carry — and it is
+    # written and read only by crates that draw (the portal carry reads it).
+    "PresentationOf": "holds a live `Entity`, so it can never be rollback state; written and read only by crates that draw",
     # `BodyWalletShield` is DERIVED-BEFORE-EVERY-AUTHORITATIVE-READ, and that is
     # an ordering claim, so it is measured rather than asserted. Its one writer
     # `sync_sanic_wallet_shield` (`demo_sanic/src/lib.rs:1967`) rebuilds it from

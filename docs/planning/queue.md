@@ -1142,6 +1142,40 @@ subagents"). Reports (Jon, 2026-11-12):
 **Acceptance:** each report fixed and seen in a render or a probe; the mites'
 behaviour has a witness.
 
+### PORTAL-CONE-LAYERING — a window replaces everything under it (done)
+
+Jon, 2026-11-13: the cone previews exactly the world the observer will see
+after crossing, and no ordinary world drawable may appear over it; overlapping
+cones keep their viewer-dependent order; partial crossings and nested views
+stay consistent; one shared rule, no door-, actor- or scenery-specific
+exception.
+
+*Done 2026-11-13.* The window drew at 9.5, under scenery (10.55 to 10.95),
+doors (10.96), bodies (15, 20), effects (30) and nameplates (38). So every
+near-room drawable behind a window drew a second copy over it. A far-side
+compositor redrew bodies behind the opening, but it tested the opening rect,
+not the wedge, and saw only bodies. Now the window draws at
+`PORTAL_WINDOW_Z = WORLD_Z_FX + 9`, over the play plane and under the
+atmosphere in front of it (front motes, foreground parallax, daylight veil).
+The pairwise and proximity order of overlapping windows is kept inside
+`z .. z + 0.35`. The exit-slice band keeps its own top
+(`PORTAL_EXIT_COPY_TOP = 9.5`), which the carry also uses to leave the ground
+alone. The window mesh starts at the aperture face, so no near-side body is
+under it. The far-side compositor, its candidate publisher, the visibility
+resolver it fed and the folded-mesh pane cut are retired; the design page
+(`engine/render-animation-and-vfx.md`, "A portal window is over the play
+plane") says why.
+
+Measured: `portal_chain_lab` from x=120 drew the sandbag, its nameplate and
+the hint sign twice (near copy over the window); now once. Window seams
+(`check_portal_window_seams.py`, A–D and gnu_floor, low and high): 10/10,
+at most 0.03% differing. Limb through a pair (`check_limb_through_portal.py`,
+windows on and off): 4/4. A walk into the `portal_lab` B wall pair, filmed
+every 4 ticks: the near half in front, the rest in the window, no second
+copy. `check_portal_seam_over_time.py` gnu_hammer is red at the old z too,
+with the same shifts and nothing carried: the film no longer catches the
+fist in the pair, which predates this change.
+
 ### SMASH-PORTAL-RECOVERY — GNU-ton's portal up-b, and a better recovery (done)
 
 **Owner:** portals (mine) and the Smash movesets. Request (Jon, 2026-11-12):
@@ -1790,6 +1824,8 @@ the portal-room check). Cost (release, 2000 sprites, 1000 over the window,
 one pane): 64.9 µs a frame, against 34.7 µs for the old rule, which took
 only the 100 marked ones; with no pane 16.3 µs against 24.7 µs. A candidate
 that stays one is written in place: an insert command for each was 179 µs.
+*Retired 2026-11-13 (PORTAL-CONE-LAYERING): the window draws over the play
+plane, so nothing behind it needs compositing.*
 
 **Crossing, done 2026-10-25 (63797b0ac):** the portal carry
 (`ambition_portal2d_presentation::carry`) cuts every top-level `Sprite`,

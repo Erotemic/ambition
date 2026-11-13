@@ -191,9 +191,7 @@ fn glow_visibility(body_hidden_by_another: bool) -> Visibility {
 /// and take it away when the body or its [`ActorGlow`] goes.
 ///
 /// The glow is a separate root, so it does not inherit its body's
-/// visibility: this system mirrors it each frame. A body that the portal
-/// alone hides is drawn by clipped pieces, and its glow stays `Visible`: the
-/// glow is a compositing candidate itself, which the portal settles.
+/// visibility: this system mirrors it each frame.
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_glows(
     mut commands: Commands,
@@ -209,7 +207,6 @@ pub fn sync_actor_glows(
             Option<&Anchor>,
             Option<Ref<Visibility>>,
             Option<&SessionScopedEntity>,
-            super::hit_flash::PortalHidIt,
             Option<&ambition_sprite_sheet::character::CharacterAnimator>,
             Option<&ambition_sim_view::PassageLookView>,
             Option<&super::primitives::FeatureVisual>,
@@ -221,7 +218,7 @@ pub fn sync_actor_glows(
     let tick = tick.map_or(0, |tick| tick.0);
     let mut drawn: Vec<Entity> = Vec::new();
     for (entity, visual, mut transform, mut sprite, mut visibility) in &mut glows {
-        let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, portal_hid_it, animator, passage, feature)) = bodies.get(visual.0) else {
+        let Ok((_, glow, body, body_sprite, anchor, body_visibility, _, animator, passage, feature)) = bodies.get(visual.0) else {
             commands.entity(entity).try_despawn();
             continue;
         };
@@ -234,9 +231,7 @@ pub fn sync_actor_glows(
         let Some((at, diameter)) = glow_placement(glow, body, body_sprite, anchor, animator) else {
             continue;
         };
-        let wanted = glow_visibility(body_visibility.is_some_and(|shown| {
-            matches!(*shown, Visibility::Hidden) && !super::hit_flash::portal_alone_hides(portal_hid_it, &shown)
-        }));
+        let wanted = glow_visibility(body_visibility.is_some_and(|shown| matches!(*shown, Visibility::Hidden)));
         if *visibility != wanted {
             *visibility = wanted;
         }
@@ -250,7 +245,7 @@ pub fn sync_actor_glows(
     let Some(picture) = picture else {
         return;
     };
-    for (body, glow, transform, sprite, anchor, body_visibility, session_owner, portal_hid_it, animator, passage, feature) in &bodies {
+    for (body, glow, transform, sprite, anchor, body_visibility, session_owner, animator, passage, feature) in &bodies {
         if drawn.contains(&body) {
             continue;
         }
@@ -265,9 +260,7 @@ pub fn sync_actor_glows(
                 Transform::from_translation(at),
                 // Set each frame above: the glow is a separate root and does
                 // not inherit its body's visibility.
-                glow_visibility(body_visibility.is_some_and(|shown| {
-                    matches!(*shown, Visibility::Hidden) && !super::hit_flash::portal_alone_hides(portal_hid_it, &shown)
-                })),
+                glow_visibility(body_visibility.is_some_and(|shown| matches!(*shown, Visibility::Hidden))),
                 ActorGlowVisual,
                 // Which body this draws, in the shared spelling that portal
                 // composition and view isolation read.

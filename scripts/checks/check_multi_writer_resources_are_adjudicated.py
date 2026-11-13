@@ -213,7 +213,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_render/src/rendering/actors/rigged.rs",
         "crates/ambition_render/src/rendering/hit_flash.rs",
         "crates/ambition_render/src/rendering/passage_visuals.rs",
-        "crates/ambition_render/src/rendering/portal_compositing.rs",
+        "crates/ambition_render/src/rendering/portal_body_demand.rs",
         "game/ambition_content/src/presentation/deep_dream.rs",
         "game/ambition_demo_mary_o/src/quasar_shader.rs",
     ),

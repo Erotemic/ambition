@@ -16,14 +16,11 @@ pub struct SpriteVisualSync;
 /// the tether, the bubble. When this set is done, each of those is final for
 /// the frame.
 ///
-/// `publish_portal_compositing_candidates` runs after this set. It reads each
-/// drawable's pose and frame to decide what a pane may hide. One set edge,
-/// not an edge per overlay, so a new overlay cannot be forgotten. The edge
-/// also makes Bevy flush commands in between, so a drawable spawned inside the
-/// set is a candidate on its first frame.
+/// The folded meshes (`folded_mesh::FoldedMeshSync`) run after this set, so a
+/// mesh that rides a body is folded where the body is drawn this frame. One
+/// set edge, not an edge per overlay, so a new overlay cannot be forgotten.
 ///
-/// A new body-owned drawable writer must join this set. Outside it, the
-/// writer is composited a frame late at best.
+/// A new body-owned drawable writer must join this set.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BodyOwnedDrawableSync;
 
@@ -115,7 +112,7 @@ pub mod retained_drawings;
 pub mod deferred_write_safety;
 pub mod dizzy_stars;
 #[cfg(feature = "portal_render")]
-pub mod portal_compositing;
+pub mod portal_body_demand;
 mod features;
 pub mod flyline;
 pub mod tether;

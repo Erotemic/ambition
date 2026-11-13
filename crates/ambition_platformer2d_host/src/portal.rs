@@ -427,8 +427,8 @@ mod host_adapter {
                     continue;
                 };
                 sent.push(c.slot.clone());
-                // Shown on the frame its limb goes in; while it is cut, the
-                // portal hides and shows it (`resolve_portal_source_visibility`).
+                // Shown on the frame its limb goes in, and left so while it is
+                // cut: the carry draws the cut (`carry_through_pairs`).
                 match twins.get_mut(twin) {
                     Ok((_, mut visibility, false, _)) => *visibility = Visibility::Inherited,
                     Ok(_) => {}
@@ -1641,7 +1641,6 @@ mod tests {
         app.add_plugins(ambition_portal2d_presentation::PortalPresentationPlugin {
             portal_quads: false,
             body_pieces: false,
-            far_side_compositing: false,
             disorientation: false,
             view_cones: true,
         });

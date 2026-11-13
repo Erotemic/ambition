@@ -32,17 +32,6 @@ pub fn flush_portal_view_cone_debug_dump(
     frames: crate::PortalFrames,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
     portals: Query<&PlacedPortal>,
-    candidates: Query<(
-        Option<&Name>,
-        &crate::PortalCompositingCandidate,
-        Option<&GlobalTransform>,
-        Option<&RenderLayers>,
-        // The two facts the compositor owns. The verdict depends on them, not on
-        // actor z versus the pane band: the compositor leaves z alone and hides
-        // the source instead.
-        Option<&ambition_portal2d::PortalTransit>,
-        Option<&crate::PortalFarSideHidden>,
-    )>,
     rigs: Query<(
         &PortalViewRig,
         &Camera,
@@ -82,23 +71,6 @@ pub fn flush_portal_view_cone_debug_dump(
         .map(|placement| placement.frame)
         .unwrap_or_default();
 
-    // The host-tagged drawables as plain data, so the text builder is a pure
-    // function that tests can call without a `World`.
-    let drawables: Vec<DrawableProbe> = candidates
-        .iter()
-        .map(|(name, view, transform, layers, transit, hidden)| {
-            (
-                name.map(|n| n.as_str().to_string())
-                    .unwrap_or_else(|| "<unnamed>".to_string()),
-                *view,
-                transform.map(|t| t.translation().z).unwrap_or(f32::NAN),
-                layers.cloned(),
-                transit.is_some(),
-                hidden.is_some(),
-            )
-        })
-        .collect();
-
     // The camera stack as (name, order, active, layers), ordered the way Bevy
     // draws it, so the reader sees the same sequence the renderer does.
     let mut cameras: Vec<(String, isize, bool, RenderLayers)> = all_cameras
@@ -126,7 +98,6 @@ pub fn flush_portal_view_cone_debug_dump(
         &portals,
         &rigs,
         &cone_visibility,
-        &drawables,
         &cameras,
         screen_density.texels_per_world(host_view.as_deref()),
         convention,
@@ -182,7 +153,6 @@ fn portal_view_cone_debug_dump_text(
         Option<&GlobalTransform>,
     )>,
     cone_visibility: &Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
-    drawables: &[DrawableProbe],
     cameras: &[(String, isize, bool, RenderLayers)],
     screen_scale: Vec2,
     convention: ambition_portal2d::pieces::MapConvention,
@@ -654,144 +624,10 @@ fn portal_view_cone_debug_dump_text(
         } else {
             let _ = writeln!(out, "  render.present: false");
         }
-        write_compositing_section(&mut out, portal, viewer.map(|v| v.eye), drawables, cameras);
         let _ = writeln!(out);
     }
 
     out
-}
-
-/// One drawable as the dump sees it: name, drawn bounds, render z, layers,
-/// whether the split presentation owns it, and whether the compositor hid it.
-///
-/// An alias because three signatures carry this row.
-type DrawableProbe = (
-    String,
-    crate::PortalCompositingCandidate,
-    f32,
-    Option<RenderLayers>,
-    bool,
-    bool,
-);
-
-/// Why a drawable appeared above or below this pane.
-///
-/// The geometry dump (polygon, source rect, capture camera, blend, LOS) says
-/// nothing about ordering. This section reports, for each candidate whose drawn
-/// bounds meet the pane, the relation it should have and whether it was
-/// handled.
-///
-/// The candidate count is printed even when it is zero. A host that tagged no
-/// [`crate::PortalCompositingCandidate`] gets an empty report, and
-/// `candidates: 0` separates "not tagged" from "clean".
-fn write_compositing_section(
-    out: &mut String,
-    portal: &PlacedPortal,
-    viewer_pos: Option<Vec2>,
-    drawables: &[DrawableProbe],
-    cameras: &[(String, isize, bool, RenderLayers)],
-) {
-    let _ = writeln!(out, "  compositing.pane_z: {:.3}", crate::PORTAL_WINDOW_Z);
-    // Near and far need a viewpoint. With no `PortalViewer`, report that it
-    // cannot classify instead of picking a default.
-    let Some(viewer_pos) = viewer_pos else {
-        let _ = writeln!(out, "  compositing.viewer: ABSENT — cannot classify");
-        return;
-    };
-    let _ = writeln!(out, "  compositing.viewer: {}", fmt_vec2(viewer_pos));
-    let _ = writeln!(out, "  compositing.candidates: {}", drawables.len());
-    let frame = portal.frame();
-    let _ = writeln!(
-        out,
-        "  compositing.viewer_front: {:.3}",
-        ambition_portal2d::pieces::front_distance(viewer_pos, &frame)
-    );
-    let pane_layers = crate::view_cones::portal_window_render_layers(portal.channel);
-    let mut violations = 0usize;
-    for (name, view, z, layers, transiting, composited) in drawables {
-        // Drawn bounds, not the collision box: the question is which pixels a
-        // pane should cover, and a sprite often overhangs the box.
-        let (min, max) = (view.drawn_centre - view.drawn_half, view.drawn_centre + view.drawn_half);
-        let relation = crate::pane_relation(portal, viewer_pos, min, max, *transiting);
-        if matches!(relation, crate::PaneRelation::Disjoint) {
-            continue;
-        }
-        // The verdict is about the compositor, not z. It hides the far-side source
-        // and never changes actor z, so a correctly composited body is still above
-        // the pane band. The question is whether anything handled it.
-        let handled = match relation {
-            // Nothing to do, and the split presentation owns the transiting one.
-            crate::PaneRelation::Disjoint
-            | crate::PaneRelation::NearOccluder
-            | crate::PaneRelation::Transiting => true,
-            // The one case the compositor owes work: it must have hidden the
-            // source and replaced it with clipped pieces.
-            crate::PaneRelation::FarCovered => *composited,
-        };
-        // Kept as INFORMATION, no longer as the verdict: the old z reading is
-        // still the fastest way to see the band a body is in.
-        let z_policy_agrees =
-            crate::current_z_policy_is_correct_for(relation, *z, crate::PORTAL_WINDOW_Z);
-        if !handled {
-            violations += 1;
-        }
-        let _ = writeln!(out, "  compositing.drawable {name}");
-        let _ = writeln!(out, "    bounds_world: {} .. {}", fmt_vec2(min), fmt_vec2(max));
-        let _ = writeln!(out, "    render_z: {z:.3}");
-        let _ = writeln!(
-            out,
-            "    actor_front: {:.3}",
-            ambition_portal2d::pieces::front_distance(view.drawn_centre, &frame)
-        );
-        let _ = writeln!(out, "    expected_relation: {relation:?}");
-        let _ = writeln!(
-            out,
-            "    render_layers: {}",
-            match layers {
-                Some(l) => format!("{l:?}"),
-                // Bevy's default is layer 0, the world layer that the capture
-                // reads. "default(0)" is clearer than "none".
-                None => "default(0)".to_string(),
-            }
-        );
-        let _ = writeln!(out, "    pane_render_layers: {pane_layers:?}");
-        // `RenderLayers` gates which camera sees an entity; it does not group
-        // depth. Two entities on different layers are depth-tested when one camera
-        // renders both. So the test is whether any active camera's mask intersects
-        // both masks.
-        let actor_layers = layers.clone().unwrap_or_default();
-        let comparing: Vec<&str> = cameras
-            .iter()
-            .filter(|(_, _, active, mask)| {
-                *active && mask.intersects(&actor_layers) && mask.intersects(&pane_layers)
-            })
-            .map(|(name, _, _, _)| name.as_str())
-            .collect();
-        let ordering = if *z > crate::PORTAL_WINDOW_Z { "ABOVE_PANE" } else { "BELOW_PANE" };
-        let _ = writeln!(
-            out,
-            "    compared_by: {}",
-            if comparing.is_empty() {
-                "NONE — no active camera renders both masks".to_string()
-            } else {
-                comparing.join(", ")
-            }
-        );
-        let _ = writeln!(
-            out,
-            "    depth_says: {}",
-            if comparing.is_empty() {
-                format!("{ordering} (but nothing compares them — see compared_by)")
-            } else {
-                ordering.to_string()
-            }
-        );
-        let _ = writeln!(out, "    composited_by_far_side: {composited}");
-        let _ = writeln!(out, "    legacy_z_policy_agrees: {z_policy_agrees}");
-        // A far-covered body the compositor did not hide is the only violation.
-        let _ = writeln!(out, "    COMPOSITE_VIOLATION: {}", !handled);
-    }
-    let _ = writeln!(out, "  compositing.violations: {violations}");
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1174,13 +1010,6 @@ pub fn debug_portal_view_zones(
     viewers: Option<Res<PortalViewers>>,
     frames: crate::PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
-    // The transform gives the drawn z for the overlay.
-    compositing: Query<(
-        &crate::PortalCompositingCandidate,
-        Option<&GlobalTransform>,
-        Option<&ambition_portal2d::PortalTransit>,
-        Option<&crate::PortalFarSideHidden>,
-    )>,
     mut gizmos: Gizmos,
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
@@ -1207,7 +1036,6 @@ pub fn debug_portal_view_zones(
         .unwrap_or_default();
     let all: Vec<PlacedPortal> = frames.portals_by_room(portals.iter()).in_room(Some(placement.room)).to_vec();
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
-    draw_compositing_relations(&mut gizmos, &all, viewer, &compositing, to_render);
     for portal in &all {
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
@@ -1320,273 +1148,3 @@ pub fn debug_portal_view_zones(
     }
 }
 
-#[cfg(test)]
-mod compositing_report_tests {
-    use super::*;
-    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor};
-
-    fn pane() -> PlacedPortal {
-        PlacedPortal {
-            channel: PortalChannel::Authored(PortalChannelColor::Purple),
-            pos: Vec2::new(100.0, 300.0),
-            normal: Vec2::new(0.0, 1.0),
-            half_length: 46.0,
-            half_thickness: 9.0,
-            host: Default::default(),
-            vel: Vec2::ZERO,
-            spin: 0.0,
-            pivot: Vec2::ZERO,
-            step: ambition_platformer2d_core::frame::ApertureStep::fixed(Vec2::new(100.0, 300.0), Vec2::new(0.0, 1.0)),
-        }
-    }
-
-    fn body_at(y: f32) -> crate::PortalCompositingCandidate {
-        crate::PortalCompositingCandidate {
-            drawn_centre: Vec2::new(100.0, y),
-            drawn_half: Vec2::new(14.0, 23.0),
-        }
-    }
-
-    /// The dump must name the violation, not only describe geometry.
-    #[test]
-    fn a_far_side_drawable_is_reported_as_a_composite_violation() {
-        let mut out = String::new();
-        // Viewer above the floor pane; the body BELOW it, overlapping, drawn at
-        // the ordinary actor z.
-        let drawables = vec![(
-            "Perfect Cellular Automaton".to_string(),
-            body_at(292.0),
-            11.0,
-            None,
-            false,
-            // Not composited: the unrepaired body.
-            false,
-        )];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
-        assert!(out.contains("expected_relation: FarCovered"), "{out}");
-        assert!(out.contains("depth_says: ABOVE_PANE"), "{out}");
-        assert!(out.contains("COMPOSITE_VIOLATION: true"), "{out}");
-        assert!(out.contains("compositing.violations: 1"), "{out}");
-    }
-
-    /// Control: the near-side case must read as correct, so a report that flags
-    /// every overlap fails.
-    #[test]
-    fn a_near_side_drawable_is_reported_as_correct_under_todays_z() {
-        let mut out = String::new();
-        let drawables = vec![("Near NPC".to_string(), body_at(308.0), 11.0, None, false, false)];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
-        assert!(out.contains("expected_relation: NearOccluder"), "{out}");
-        assert!(out.contains("COMPOSITE_VIOLATION: false"), "{out}");
-        assert!(out.contains("compositing.violations: 0"), "{out}");
-    }
-
-    /// An empty report must differ from a clean one: a host with no tagged
-    /// candidates gets `candidates: 0`.
-    #[test]
-    fn an_untagged_host_reports_zero_candidates_rather_than_silence() {
-        let mut out = String::new();
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &[], &[]);
-        assert!(out.contains("compositing.candidates: 0"), "{out}");
-        assert!(out.contains("compositing.violations: 0"), "{out}");
-    }
-
-    /// Near and far need a viewpoint. With no `PortalViewer` the section must say
-    /// it cannot classify.
-    #[test]
-    fn no_viewer_reports_that_it_cannot_classify() {
-        let mut out = String::new();
-        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None, false, false)];
-        write_compositing_section(&mut out, &pane(), None, &drawables, &[]);
-        assert!(out.contains("ABSENT — cannot classify"), "{out}");
-        assert!(!out.contains("COMPOSITE_VIOLATION"), "{out}");
-    }
-    /// The verdict comes from whether the compositor handled the body
-    /// (`PortalFarSideHidden`), not from actor z versus `PORTAL_WINDOW_Z`. A
-    /// correctly composited far-side body is still above the pane band, and must
-    /// not be a violation.
-    #[test]
-    fn a_composited_far_side_body_is_not_a_violation() {
-        let mut out = String::new();
-        let drawables = vec![(
-            "Perfect Cellular Automaton".to_string(),
-            body_at(292.0),
-            11.0,
-            None,
-            false,
-            // Composited: the source was hidden and replaced with clipped pieces.
-            true,
-        )];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
-        assert!(out.contains("expected_relation: FarCovered"), "{out}");
-        assert!(out.contains("composited_by_far_side: true"), "{out}");
-        assert!(
-            out.contains("COMPOSITE_VIOLATION: false"),
-            "a composited body must not be flagged: {out}"
-        );
-        assert!(out.contains("compositing.violations: 0"), "{out}");
-        // The legacy z reading is still printed, as a quick view of the band; it
-        // is not the verdict.
-        assert!(out.contains("legacy_z_policy_agrees: false"), "{out}");
-    }
-
-    /// The dump must pass real transit state. A straddling body belongs to the
-    /// split presentation and must be reported as `Transiting`.
-    #[test]
-    fn a_transiting_body_is_reported_as_transiting_not_far_covered() {
-        let mut out = String::new();
-        let drawables = vec![(
-            "Somebody mid-transit".to_string(),
-            body_at(292.0),
-            11.0,
-            None,
-            // Transiting.
-            true,
-            false,
-        )];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
-        assert!(
-            out.contains("expected_relation: Transiting"),
-            "the dump could never say this before: {out}"
-        );
-        assert!(
-            out.contains("COMPOSITE_VIOLATION: false"),
-            "a transiting body owes the compositor nothing: {out}"
-        );
-    }
-
-    /// Whether a pane and an actor are depth-compared depends on a camera that
-    /// renders both masks. The masks need not intersect each other: here the
-    /// actor is on layer 0 and the pane is not, and one camera renders both.
-    #[test]
-    fn a_camera_rendering_both_masks_is_named_as_the_one_that_compares_them() {
-        let mut out = String::new();
-        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None, false, false)];
-        let main = (
-            "main".to_string(),
-            0isize,
-            true,
-            RenderLayers::layer(0).with(crate::PORTAL_WINDOW_RENDER_LAYER),
-        );
-        write_compositing_section(
-            &mut out,
-            &pane(),
-            Some(Vec2::new(100.0, 360.0)),
-            &drawables,
-            &[main],
-        );
-        assert!(out.contains("compared_by: main"), "{out}");
-        assert!(
-            !out.contains("but nothing compares them"),
-            "a comparing camera exists; the verdict must not be hedged: {out}"
-        );
-    }
-
-    /// An inactive camera renders nothing, so it compares nothing.
-    #[test]
-    fn an_inactive_camera_does_not_compare_anything() {
-        let mut out = String::new();
-        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None, false, false)];
-        let off = (
-            "disabled".to_string(),
-            0isize,
-            false,
-            RenderLayers::layer(0).with(crate::PORTAL_WINDOW_RENDER_LAYER),
-        );
-        write_compositing_section(
-            &mut out,
-            &pane(),
-            Some(Vec2::new(100.0, 360.0)),
-            &drawables,
-            &[off],
-        );
-        assert!(out.contains("compared_by: NONE"), "{out}");
-        assert!(out.contains("but nothing compares them"), "{out}");
-    }
-
-    /// The report must not claim more than a z can settle. A depth comparison
-    /// decides ordering only when one camera renders both drawables, so the line
-    /// is `depth_says:` with a caveat, and both layer masks are printed.
-    #[test]
-    fn the_report_qualifies_what_a_depth_comparison_can_settle() {
-        let mut out = String::new();
-        let drawables = vec![("Somebody".to_string(), body_at(292.0), 11.0, None, false, false)];
-        write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
-        assert!(out.contains("depth_says:"), "{out}");
-        // The qualifier names the CAMERA, because that is the fact that is
-        // missing -- not the layers, which are both printed below.
-        assert!(out.contains("camera"), "depth must stay qualified: {out}");
-        assert!(
-            out.contains("render_layers: default(0)"),
-            "an absent RenderLayers is Bevy's layer 0, not 'no layer': {out}"
-        );
-        // Both masks are printed.
-        assert!(
-            out.contains("pane_render_layers:"),
-            "the pane's own layers were never printed: {out}"
-        );
-        assert!(
-            !out.contains("actual_ordering"),
-            "the unqualified claim must be gone: {out}"
-        );
-    }
-}
-
-/// Colour every candidate's bounds by what it is to each pane.
-///
-/// A far-side actor drawn over a seamless window looks the same as a near-side
-/// actor that correctly occludes it; a still image cannot show which side of
-/// the plane it is on. These outlines show it: a body the pane should cover
-/// is drawn red while it is on top.
-///
-/// One outline per (pane, candidate) pair, not per candidate: a body can be
-/// near one aperture and far of another in the same frame.
-fn draw_compositing_relations(
-    gizmos: &mut Gizmos,
-    panes: &[PlacedPortal],
-    viewer: Option<&PortalViewer>,
-    candidates: &Query<(
-        &crate::PortalCompositingCandidate,
-        Option<&GlobalTransform>,
-        // Same two facts the text dump reads: judge by compositor state, not z.
-        Option<&ambition_portal2d::PortalTransit>,
-        Option<&crate::PortalFarSideHidden>,
-    )>,
-    to_render: impl Fn(Vec2) -> Vec2,
-) {
-    // Near and far need a viewpoint; with none, there is nothing to colour.
-    let Some(viewer) = viewer else {
-        return;
-    };
-    for pane in panes {
-        for (candidate, transform, transit, composited) in candidates {
-            let drawn_z = transform.map(|t| t.translation().z).unwrap_or(f32::NAN);
-            let min = candidate.drawn_centre - candidate.drawn_half;
-            let max = candidate.drawn_centre + candidate.drawn_half;
-            let relation =
-                crate::pane_relation(pane, viewer.eye, min, max, transit.is_some());
-            let colour = match relation {
-                crate::PaneRelation::Disjoint => continue,
-                // Correct under today's z: it may occlude, and it does.
-                crate::PaneRelation::NearOccluder => Color::srgb(0.20, 0.85, 0.30),
-                // The split presentation owns this body.
-                crate::PaneRelation::Transiting => Color::srgb(0.95, 0.85, 0.15),
-                // Far-covered and not handled: the compositor did not hide the
-                // source, so it still punches through. Judged by compositor state,
-                // not z.
-                crate::PaneRelation::FarCovered if composited.is_none() => {
-                    let _ = drawn_z;
-                    Color::srgb(0.95, 0.15, 0.15)
-                }
-                crate::PaneRelation::FarCovered => Color::srgb(0.25, 0.45, 0.95),
-            };
-            let a = to_render(min);
-            let b = to_render(max);
-            gizmos.rect_2d(
-                Isometry2d::from_translation((a + b) * 0.5),
-                (b - a).abs(),
-                colour,
-            );
-        }
-    }
-}

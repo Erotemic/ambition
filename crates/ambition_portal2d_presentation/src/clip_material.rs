@@ -219,9 +219,7 @@ pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
     {
         return;
     }
-    // Ensure, do not add: `add_plugins` panics on a duplicate, and both the
-    // transit pieces and the far-side compositor call this (both on by
-    // default), without knowing about each other.
+    // Ensure, do not add: `add_plugins` panics on a duplicate.
     if app.is_plugin_added::<Material2dPlugin<PortalClipMaterial>>() {
         return;
     }

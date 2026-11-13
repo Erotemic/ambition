@@ -18,15 +18,12 @@ use ambition_platformer2d_core as ae;
 
 mod camera_continuity;
 mod carry;
-mod compositing;
-mod far_side;
 mod clip_material;
 mod effects;
 mod glow;
 mod shot_visuals;
 mod limb_seams;
 mod plugin;
-mod source_visibility;
 #[cfg(feature = "effect_view_cones")]
 mod view_cones;
 mod visuals;
@@ -55,15 +52,6 @@ pub use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor};
 pub fn portals_are_simulated(app: &App) -> bool {
     app.is_plugin_added::<ambition_portal2d::PortalSimulationPlugin>()
 }
-pub use far_side::{composite_far_side_bodies, PortalFarSideHidden, PortalFarSidePiece};
-pub use source_visibility::{
-    resolve_portal_source_visibility, PortalDependantHidden, PortalSourceHidden,
-};
-pub use compositing::{
-    behind_pane, current_z_policy_is_correct_for, pane_cover_rect, pane_relation, piece_clip_edges,
-    uncovered_remainder, PaneRelation,
-    UncoveredPiece, UncoveredPieces,
-};
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
 pub use glow::{
     dress_held_light_lines, opening_length, sync_portal_glows, sync_portal_light_lines, HeldLightLineOf, PortalGlow, PortalGlowMaterial, PortalGlowStyle, PortalLightLine, APPEAR_S, DISSOLVE_S, ROOM_SETTLE_S,
@@ -100,17 +88,31 @@ pub use carry::{
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalObservationSet;
 
-/// Through-portal composite z. The captured far-side image draws above the
-/// portal's frame and the exit body copy, and below actors, so near-side
-/// actors still occlude the aperture. Transiting body pieces stay
-/// on world layers and are captured by each pair's view window.
-/// Overlapping panes use front-side
-/// dominance with hysteresis (`view_cones::mesh::pane_z`) rather than radial
-/// distance.
-pub const PORTAL_WINDOW_Z: f32 = 9.5;
-/// The lower edge of the exit-slice depth band below [`PORTAL_WINDOW_Z`].
-/// Carried families retain their source depth order inside this band.
+/// Through-portal composite z: over every drawable of the room's plane, and
+/// under the atmosphere in front of it.
+///
+/// A window replaces everything under its coverage with the world the viewer
+/// will see after crossing, so nothing of the near room may draw over it: not
+/// a door, a sign, the scenery, a body behind the portal, nor that body's
+/// nameplate and bars. The play plane reaches `WORLD_Z_FX + 8` (speech plates)
+/// and `WORLD_Z_PLAYER + 18` (nameplates); the front motes start at
+/// `WORLD_Z_FX + 10`, the foreground parallax at 45, the daylight veil at 60.
+///
+/// That hides no near-side body. The window mesh is the wedge from the
+/// aperture face back into the host surface (`ambition_portal2d::view`), so a
+/// body on the viewer's side is outside it whatever its z. The part of a body
+/// past the face is under it, and the carry draws that part out of the exit,
+/// where the capture sees it. Overlapping windows keep their viewer-dependent
+/// order inside `z .. z + z_proximity_span` (`view_cones::mesh::pane_z`).
+pub const PORTAL_WINDOW_Z: f32 = ae::config::WORLD_Z_FX + 9.0;
+/// The lower edge of the exit-slice depth band, which ends at
+/// [`PORTAL_EXIT_COPY_TOP`]. Carried families keep their source depth order
+/// inside it.
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
+/// The top of the exit-slice band. A drawable drawn at or under it is the
+/// room's ground (blocks, a portal's frame) or a carried copy: the carry never
+/// carries it.
+pub const PORTAL_EXIT_COPY_TOP: f32 = 9.5;
 /// The z of a portal's frame, which is its line of light (`glow`) and its
 /// label: under the exit slice and under the window.
 ///
@@ -119,15 +121,14 @@ pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
 /// slice, which is over the far portal's line in the window's capture. The
 /// window covers the half of the near line that is behind its face, and the
 /// capture shows the far portal's line in that place, so the seam is one line
-/// of two halves. With the frame over the window (10.0, the rule before), the
-/// near line's glow was drawn over the far half of a body that crossed and
-/// not over its near half: one half was washed and the other was not.
+/// of two halves.
 pub const PORTAL_FRAME_Z: f32 = 9.3;
 
-// Compile-time checks of the z stack that the three doc comments above
-// describe, so editing one number cannot reorder it.
+// Compile-time checks of the z stack that the doc comments above describe, so
+// editing one number cannot reorder it. `band_tests` places the band against
+// the rest of the world.
 const _: () = assert!(
-    PORTAL_EXIT_COPY_Z < PORTAL_WINDOW_Z,
+    PORTAL_EXIT_COPY_Z < PORTAL_EXIT_COPY_TOP && PORTAL_EXIT_COPY_TOP < PORTAL_WINDOW_Z,
     "the exit-side body slice draws BELOW the through-portal composite"
 );
 const _: () = assert!(
@@ -135,10 +136,6 @@ const _: () = assert!(
     "the frame (its line, and its label 0.05 above) draws BELOW the exit-side \
      body slice, so a body is over the light on the far side of a seam too"
 );
-// The cross-crate check ("the portal band sits at or below `WORLD_Z_DUMMY`")
-// is in `compositing::tests::the_portal_band_stays_at_or_below_the_shared_world_datum`,
-// which checks all three constants and explains why raising the window above
-// the cast inverts the bug. These asserts cover only the internal order.
 
 /// The host-world half of the render transform: the size of one live room.
 /// Engine coordinates are top-left-origin y-down; Bevy's 2D camera is centered
@@ -273,38 +270,6 @@ pub struct PortalSceneBody;
 #[derive(Component)]
 pub struct PortalAffordanceBody;
 
-/// Host seam: a drawable this crate must be able to composite against a pane.
-///
-/// The other body seams are [`PortalSceneBody`] (the one entity whose sprite is
-/// decomposed at the seam) and [`PortalAffordanceBody`] (whoever operates the
-/// portals). An ordinary NPC behind an aperture is neither, so without this
-/// tag portal presentation cannot see it, while the renderer draws it at
-/// `WORLD_Z_DUMMY + 5.0`, above every pane. The host decides what is drawable;
-/// this crate does not know what a "player" or an "NPC" is.
-///
-/// Tagging is optional and its absence is silent: a host that tags nothing gets
-/// no compositing and an empty report. The diagnostics print the candidate
-/// count, so "0 overlapping drawables" means "not tagged", not "fine".
-///
-/// It carries its own drawn bounds instead of reusing [`PortalBodyView`].
-/// `PortalBodyView::size` is the collision box, and a sprite is often larger.
-/// Collision bounds would miss the overhanging part of the sprite that draws
-/// over the window.
-/// A piece's tint: its sprite's color.
-pub fn piece_tint(sprite: &Sprite) -> Vec4 {
-    let c = sprite.color.to_linear();
-    Vec4::new(c.red, c.green, c.blue, c.alpha)
-}
-
-#[derive(Component, Clone, Copy, Debug)]
-pub struct PortalCompositingCandidate {
-    /// World-space centre of the drawn sprite (engine coordinates).
-    pub drawn_centre: Vec2,
-    /// Half-extent of the drawn sprite, including what the collision box does not
-    /// cover.
-    pub drawn_half: Vec2,
-}
-
 /// Host seam: the body-pose facts portal presentation places visuals against.
 ///
 /// Published by the host onto every entity this crate must draw for — the
@@ -353,3 +318,33 @@ pub struct PortalTransitView {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct PortalHostReach(pub f32);
 
+#[cfg(test)]
+mod band_tests {
+
+    /// The window, with the room its viewer-dependent order takes, is over
+    /// the play plane and under the atmosphere in front of it.
+    #[cfg(feature = "effect_view_cones")]
+    #[test]
+    fn the_window_is_over_the_play_plane_and_under_the_atmosphere() {
+        use ambition_platformer2d_core::config::{WORLD_Z_FX, WORLD_Z_PLAYER};
+        let band_top = crate::PORTAL_WINDOW_Z + crate::PortalViewConeConfig::default().z_proximity_span;
+        for (what, z) in [
+            ("a speech plate (WORLD_Z_FX + 8)", WORLD_Z_FX + 8.0),
+            ("a nameplate (WORLD_Z_PLAYER + 18)", WORLD_Z_PLAYER + 18.0),
+        ] {
+            assert!(crate::PORTAL_WINDOW_Z > z, "{what} at {z} draws over a portal window at {}", crate::PORTAL_WINDOW_Z);
+        }
+        assert!(
+            band_top < WORLD_Z_FX + 10.0,
+            "the windows reach {band_top}, over the front motes (WORLD_Z_FX + 10 and up)"
+        );
+    }
+
+    /// The frame and the exit slice stay under the cast: a body is drawn over
+    /// a portal's line on both sides of a seam.
+    #[test]
+    fn the_frame_and_the_exit_slice_stay_under_the_cast() {
+        assert!(crate::PORTAL_EXIT_COPY_TOP <= ambition_platformer2d_core::config::WORLD_Z_DUMMY);
+        assert!(crate::PORTAL_FRAME_Z < crate::PORTAL_EXIT_COPY_Z);
+    }
+}

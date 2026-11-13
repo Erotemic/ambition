@@ -66,8 +66,7 @@ pub struct PortalDrawnWith(pub Entity);
 
 /// The drawable goes through a pair this frame: it is drawn by that pair's
 /// carry ([`carry_through_pairs`]). Kept until the frame it no longer goes
-/// through, so the systems of the next frame's `Update` read it too (the
-/// far-side compositor leaves a carried drawable to the carry).
+/// through, so the systems of the next frame's `Update` read it too.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PortalCarried;
 
@@ -332,7 +331,6 @@ pub fn carry_through_pairs(
             Without<PortalSceneBody>,
             Without<PortalDrawnWith>,
             Without<PortalBodyPiece>,
-            Without<crate::PortalFarSidePiece>,
             Without<crate::PortalLightLine>,
             Without<PortalCarryCamera>,
         ),
@@ -429,8 +427,8 @@ pub fn carry_through_pairs(
             if *shown == Visibility::Hidden || !on_the_world(families.layers.get(drawable).ok()) {
                 continue;
             }
-            // Over the window: a drawable under it is covered by the pane.
-            if at.translation.z <= crate::PORTAL_WINDOW_Z {
+            // The room's ground and the carry's own copies are never carried.
+            if at.translation.z <= crate::PORTAL_EXIT_COPY_TOP {
                 continue;
             }
             let Some(placement) = frames.of(drawable) else {
@@ -518,7 +516,7 @@ pub fn carry_through_pairs(
         let room_depths = depths.iter().filter(|(room,_)| *room == carry.room);
         let count = room_depths.clone().count();
         let below = room_depths.filter(|(_,z)| *z < carry.z).count();
-        let exit_z = crate::PORTAL_EXIT_COPY_Z + (crate::PORTAL_WINDOW_Z - crate::PORTAL_EXIT_COPY_Z)
+        let exit_z = crate::PORTAL_EXIT_COPY_Z + (crate::PORTAL_EXIT_COPY_TOP - crate::PORTAL_EXIT_COPY_Z)
             * (below + 1) as f32 / (count + 1) as f32;
         let span = requested[carry_index].0;
         let capture = if sides[carry_index] > 0 {

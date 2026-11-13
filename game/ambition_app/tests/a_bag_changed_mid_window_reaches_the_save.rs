@@ -58,7 +58,7 @@ fn visit_count(sim: &Platformer2dSimHarness) -> u32 {
     sim.world()
         .resource::<AmbitionGameSave>()
         .data()
-        .dialog_visit_count(VISIT_NODE)
+        .dialog_visit_count(0, VISIT_NODE)
 }
 
 /// Whether the GGRS session was live on the first frame the durable-restore

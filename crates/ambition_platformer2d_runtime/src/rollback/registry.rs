@@ -277,7 +277,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // (`CheckpointEstablishRequested`, `PendingAuthoredCheckpoint`).
 // 466 -> 467: what conversations moved in the bag since the checkpoint
 // (`ConversationBagSinceCheckpoint`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 467;
+// 467 -> 468: a save's dialogue visit names its seat (Q134), in the save's
+// serde checksum.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 468;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -1311,8 +1311,18 @@ Health Cells, sell 1 for 5, set a flag, die). Two players, Bob spared: flag
 on, cells 3→4, purse 0→5, all kept. Solo control: flag off, cells 3, purse
 0.
 
-**Next action:** (4) dialogue history (seen, per participant, Q134)
-kept apart from the world facts, so a seen marker grants nothing.
+**Built 2026-11-13 (slice 4):** dialogue history was already apart from the
+facts: visits are not in the fact horizon, so a death keeps them (slice 1).
+But it was one count for the whole session. A visit now names its seat
+(`PersistedDialogVisit::seat`; a save written before reads as the primary
+seat's). The conversation's input owner decides whose count rises and whose
+history Yarn's `visit_count` reads (`ActiveConversation::history_seat`; a
+conversation every seat drives is the primary's). Schema 468. A census of
+the scripts: no branch on `visit_count` gives an item, a flag or a quest
+step. Monty Carlo's show number only picks the car's curtain, and the choice
+wins it.
+
+**Done.** All four slices are in.
 
 **Acceptance:** the dialogue arms of section 11: solo rollback consistent; an
 authored checkpointing dialogue banks its consequences; a single co-op death

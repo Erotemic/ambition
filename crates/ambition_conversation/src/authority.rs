@@ -141,6 +141,16 @@ impl ActiveConversation {
         self.live.as_ref().map(|live| live.input_owner)
     }
 
+    /// The seat whose dialogue history this conversation is (Q134): its
+    /// input owner. A conversation every seat drives, or none, is the
+    /// primary seat's.
+    pub fn history_seat(&self) -> u8 {
+        match self.input_owner() {
+            Some(InputOwner::Participant(id)) => id.slot(),
+            _ => 0,
+        }
+    }
+
     pub fn dialogue_id(&self) -> Option<&str> {
         self.live.as_ref().map(LiveConversation::dialogue_id)
     }

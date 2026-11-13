@@ -524,7 +524,7 @@ pub fn count_the_dialogue_visit_when_a_conversation_opens(
     if live.opened_at() != tick.0 {
         return;
     }
-    save.data_mut().increment_dialog_visit(live.dialogue_id());
+    save.data_mut().increment_dialog_visit(conversation.history_seat(), live.dialogue_id());
 }
 
 /// Mirror the current occurrence horizon into the save after restore completes. Writes are

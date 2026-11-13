@@ -159,21 +159,35 @@ impl PersistedFlag {
     }
 }
 
-/// Per-dialogue visit counter. Incremented every time the sandbox's
-/// dialog runner enters the named node. Read by the Yarn binding
-/// `visit_count(npc_id)` so authored dialogue can branch on
-/// first-time vs. repeat encounters without a per-NPC flag.
+/// Per-dialogue visit counter, one per seat. Incremented every time the
+/// sandbox's dialog runner enters the named node. Read by the Yarn binding
+/// `visit_count(npc_id)` so authored dialogue can branch on first-time vs.
+/// repeat encounters without a per-NPC flag.
+///
+/// Dialogue history, not a world fact (Q134): Alice may have spoken to an
+/// NPC three times and Bob never, and a death does not take a visit back,
+/// because what was seen is not what it gave.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedDialogVisit {
     pub id: String,
     pub count: u32,
+    /// The seat that had the conversation. A save written before visits
+    /// had seats reads as the primary seat's.
+    #[serde(default, skip_serializing_if = "is_primary_seat")]
+    pub seat: u8,
+}
+
+fn is_primary_seat(seat: &u8) -> bool {
+    *seat == 0
 }
 
 impl PersistedDialogVisit {
+    /// The primary seat's visits.
     pub fn new(id: impl Into<String>, count: u32) -> Self {
         Self {
             id: id.into(),
             count,
+            seat: 0,
         }
     }
 }
@@ -868,24 +882,23 @@ impl AmbitionGameSaveData {
     /// How many times the named dialogue has been entered. `0` for
     /// never-visited nodes. Used by Yarn's `visit_count(id)` binding
     /// to drive first-vs-repeat dialogue variants.
-    pub fn dialog_visit_count(&self, id: &str) -> u32 {
+    pub fn dialog_visit_count(&self, seat: u8, id: &str) -> u32 {
         self.dialog_visits
             .iter()
-            .find(|v| v.id == id)
+            .find(|v| v.seat == seat && v.id == id)
             .map(|v| v.count)
             .unwrap_or(0)
     }
 
-    /// Increment the named dialogue's visit counter (saturating at
-    /// `u32::MAX`). `DialogState::start` calls it once per dialog session, so
+    /// Increment `seat`'s visit counter of the named dialogue (saturating at
+    /// `u32::MAX`). It is counted once per conversation, so
     /// `visit_count(id) == 1` means "first visit".
-    pub fn increment_dialog_visit(&mut self, id: impl Into<String>) {
+    pub fn increment_dialog_visit(&mut self, seat: u8, id: impl Into<String>) {
         let id = id.into();
-        if let Some(existing) = self.dialog_visits.iter_mut().find(|v| v.id == id) {
+        if let Some(existing) = self.dialog_visits.iter_mut().find(|v| v.seat == seat && v.id == id) {
             existing.count = existing.count.saturating_add(1);
         } else {
-            self.dialog_visits
-                .push(PersistedDialogVisit { id, count: 1 });
+            self.dialog_visits.push(PersistedDialogVisit { id, count: 1, seat });
         }
     }
 
@@ -1035,7 +1048,7 @@ mod tests {
                 d.set_quest("q", PersistedQuestState::InProgress, 1)
             }),
             (vec!["flags"], |d| d.set_flag("f", true)),
-            (vec!["dialog_visits"], |d| d.increment_dialog_visit("dv")),
+            (vec!["dialog_visits"], |d| d.increment_dialog_visit(0, "dv")),
             (vec!["checkpoint"], |d| {
                 d.set_checkpoint(PersistedCheckpoint::new("room", 1, 2))
             }),

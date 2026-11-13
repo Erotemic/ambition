@@ -75,6 +75,7 @@ pub fn a_conversation_is_live(
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
     mirror: Res<YarnStateMirror>,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
     // No inventory slice: `inventory.holds` is a published condition, so the
@@ -87,8 +88,10 @@ pub fn refresh_yarn_state_mirror(
     // `quest.active` answer live from the condition catalog. A projection here
     // would be a second authority with a one-frame lag. What remains is what
     // the catalog cannot answer yet.
+    // The talking seat's history (Q134).
+    let seat = conversation.as_deref().map_or(0, ambition_conversation::ActiveConversation::history_seat);
     snap.visit_counts.clear();
-    for visit in data.dialog_visits() {
+    for visit in data.dialog_visits().iter().filter(|visit| visit.seat == seat) {
         snap.visit_counts.insert(visit.id.clone(), visit.count);
     }
 }

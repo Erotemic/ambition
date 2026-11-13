@@ -23,7 +23,8 @@
 //! And one conductor entry (`conduct`, bound to the boss `bossofthegame`):
 //! it moves nothing; it draws Full Stack in the row of the move it plays
 //! (`strum`, `riff`, `feedback`), and in its `idle` strum the rest of the
-//! time. As the show opens it stages the band (`BAND`): Geppetto on the bass
+//! time; its `solo` while he holds his beat between phases, and its `outro`
+//! when he is down (it plays him off). As the show opens it stages the band (`BAND`): Geppetto on the bass
 //! on the west truss, Wren on the rhythm guitar and Clause at the drums on
 //! the east one, each playing the row of the instrument. A call sends the
 //! called agent's band body away as the fighter drops in: it put the
@@ -132,9 +133,31 @@ record! {
 }
 
 /// Full Stack's rows: (the move that plays it, the row, whether it loops).
-/// Row 0 is its idle strum, drawn when none of these moves plays.
-const STACK_ROWS: [(&str, &str, bool); 4] =
-    [("", "idle", true), (POWER_CHORD, "strum", false), (RIFF, "riff", true), (FEEDBACK, "feedback", true)];
+/// Row 0 is its idle strum, drawn when none of these moves plays; the solo
+/// and the outro belong to no move (`stack_row_now`).
+const STACK_ROWS: [(&str, &str, bool); 6] = [
+    ("", "idle", true),
+    (POWER_CHORD, "strum", false),
+    (RIFF, "riff", true),
+    (FEEDBACK, "feedback", true),
+    ("", "solo", true),
+    ("", "outro", true),
+];
+const SOLO_ROW: u32 = 4;
+const OUTRO_ROW: u32 = 5;
+
+/// The row Full Stack plays now: the outro once he is down (it plays him
+/// off), its solo while he holds his beat between two phases, else the row
+/// of his move.
+pub fn stack_row_now(alive: bool, between_phases: bool, telegraph: Option<&str>, active: Option<&str>) -> u32 {
+    if !alive {
+        OUTRO_ROW
+    } else if between_phases {
+        SOLO_ROW
+    } else {
+        stack_row(telegraph, active)
+    }
+}
 
 /// The row of the move the boss plays now (its strike, else its tell).
 pub fn stack_row(telegraph: Option<&str>, active: Option<&str>) -> u32 {
@@ -247,11 +270,12 @@ pub fn module() -> ModuleDescriptor {
 fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let boss: BossConduct = inv.trigger::<BossConductPort>()?.clone();
     let mut stage = Stage::load(inv)?;
-    let row = if boss.alive {
-        stack_row(boss.telegraph.as_ref().map(|m| m.key.as_str()), boss.active.as_ref().map(|m| m.key.as_str()))
-    } else {
-        0
-    };
+    let row = stack_row_now(
+        boss.alive,
+        boss.between_phases,
+        boss.telegraph.as_ref().map(|m| m.key.as_str()),
+        boss.active.as_ref().map(|m| m.key.as_str()),
+    );
     if row == stage.row {
         stage.elapsed_s += inv.dt();
     } else {
@@ -520,6 +544,8 @@ mod tests {
         assert_eq!(stack_row(Some(POWER_CHORD), None), 1);
         assert_eq!(stack_row(Some(RIFF), Some(FEEDBACK)), 3);
         assert_eq!(stack_row(Some(KEYSTROKE_RAIN), Some(KEYSTROKE_RAIN)), 0);
+        assert_eq!(stack_row_now(true, true, Some(RIFF), None), SOLO_ROW);
+        assert_eq!(stack_row_now(false, false, Some(RIFF), None), OUTRO_ROW);
     }
 
     #[test]

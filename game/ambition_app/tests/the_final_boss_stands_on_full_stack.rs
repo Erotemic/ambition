@@ -148,6 +148,7 @@ fn the_agent_plays_first_and_then_he_types() {
         second.iter().any(|id| id.starts_with("keycap_") && id != "keycap_back"),
         "hurt, he types and the keys fall: {second:?}"
     );
+    assert!(second.contains("row:solo"), "and Full Stack plays its solo while he holds his beat between phases: {second:?}");
 }
 
 /// The catalog characters worn by the bodies on the stage now.

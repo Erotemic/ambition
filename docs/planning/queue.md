@@ -911,6 +911,8 @@ pointed out, the subagents by `talk`, Geppetto's call by the mic held up,
 and the encore by both arms up. The moves are classified in
 `boss_seeds.ron`, with three bands widened to what they measure. The
 validator's pin holds at 3 errors and 5 warnings, the other bosses'.
+Full Stack has two more band rows: `solo` while he holds his beat between
+phases, and `outro` once he is down.
 
 **Next action:** play it in a window and tune; his own anthem when a music registry is
 at hand; the later-work list in the design page.

@@ -20,9 +20,10 @@ goes directly to the boss dimension."*
 ## Who is in the fight
 
 - **The bossofthegame** (`npc_bossofthegame`, boss id `bossofthegame`). The
-  creator of the game inside the fiction: a developer in a hoodie, a gamer
-  headset and a paper crown, with a mechanical keyboard on a strap like a
-  keytar. He is the rider and the boss: his body takes the hits. He seeks a
+  creator of the game inside the fiction: he is the Director (`director`,
+  the person writing the game; Jon, 2026-11-13: "the director already
+  existed (i.e. that is me)"), in the Director's own drawing, with a
+  mechanical keyboard on a strap like a keytar. He is the rider and the boss: his body takes the hits. He seeks a
   worthy challenge, not a victory. He is not the Creator of the intro (the
   robot's maker, `npc_creator`).
 - **Full Stack** (`npc_full_stack`, the mount). His agent at its largest
@@ -144,8 +145,8 @@ a level and:
 
 ### The end — "The Escape Clause" (the retirement)
 
-At zero resolve he does not die. He sits down on Full Stack's top (the
-sheet's `Death` row is him sitting, crown in hand), and the corpse stays
+At zero resolve he does not die. He goes down on Full Stack's top (the
+sheet's `Death` row is the Director's `knockdown`), and the body stays
 (`corpses: Stay` is the room default). His defeat bark:
 
 > **bossofthegame:** ...Okay. Okay. That was a good one.
@@ -178,11 +179,15 @@ change the `cue_id` when the anthem is rendered.
 
 ## Art
 
-- **The Boss** (renderer target `bossofthegame_boss`, an SVG rig like the
-  Creator's): rows `Rest` (typing on the strapped keyboard), `FloorSlam`
-  (two hands down on the keys), `SideSweep` (a swing of the keyboard),
-  `SpikeHalo` (arms up, conducting), `Hit`, `Death` (he sits down, crown in
-  hand).
+- **The Boss** (renderer target `bossofthegame_boss`): the Director's SVG
+  and motion library with a keyboard slung on a strap (`director_boss`,
+  derived from `director.svg` by `scripts/svg_art/director_boss_art.py`), his
+  clips under the boss slots: `Rest` (`idle`), `FloorSlam` (`smash_down`),
+  `SideSweep` (`smash_forward`), `SpikeHalo` (`smash_up`, the pen raised),
+  `Hit`, `Death` (`knockdown`: he goes down; the retirement is the green
+  room's scene). His library has no sitting clip. The first drawing of him
+  (a developer in a hoodie and headset) is kept, unworn, as
+  `hoodie_developer`.
 - **Full Stack** (renderer target `full_stack_giant`): a square amp stack on
   two short legs, with arms and an electric guitar; rows `idle` (a low
   strum), `strum` (the power chord), `riff`, `feedback` (the grille glows).
@@ -200,9 +205,12 @@ change the `cue_id` when the anthem is rendered.
 - The rooms: the map's `generators/boss_stage/make_specs.py`, which also
   makes the Hall of Bosses' practice copy (`hall_bossofthegame_stage`,
   `hall.bossofthegame`) and its door.
-- The art: the renderer's `scripts/svg_art/{bossofthegame,full_stack}_art.py`,
-  `scripts/build_{bossofthegame,full_stack}_rig.py`, the targets
-  `bossofthegame_boss`, `full_stack_giant` and `boss_keycaps`.
+- The art: the renderer's `scripts/svg_art/director_boss_art.py` (the
+  Director with the keyboard), `scripts/svg_art/full_stack_art.py` and
+  `scripts/build_full_stack_rig.py`, the targets `bossofthegame_boss`,
+  `full_stack_giant` and `boss_keycaps`, all three in the `runtime`
+  collection of `game/ambition_content_library/authored/sprites.yaml`, so
+  `regen/assets.sh --only-missing` builds them.
 - Witness: `game/ambition_app/tests/the_final_boss_stands_on_full_stack.rs`.
 
 Full Stack is drawn by the Boss's move: the module's conductor (`conduct`,

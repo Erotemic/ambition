@@ -7,7 +7,7 @@
 // Phase 1 "Make No Mistakes" (his agent does the work), the transition "Fine.
 // I'll do it myself.", Phase 2 "Manual Override" (he types, and it falls),
 // Enrage "The Encore" (subagents, and everything at once). His bar is his
-// resolve: at its end he sits down and retires; he does not die.
+// resolve: at its end he goes down and retires; he does not die.
 (
     id: "bossofthegame",
     name: "the bossofthegame",

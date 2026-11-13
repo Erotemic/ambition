@@ -151,39 +151,40 @@
         body_centered: true,
         authored_faces_left: false,
     ),
-    // The bossofthegame, the final boss: the sheet `bossofthegame_boss` (the
-    // rigged developer in a paper crown; 200x224 frames). The frame is drawn
-    // 96 px of basis (the stage's 54x96 BossSpawn) x 1.48 = 142 world units
-    // tall, so his authored body (53x158 px) is about 34x100. Centred on his
-    // body, as GNU-ton is: he rides. `Death` is him sitting down: he retires.
+    // The bossofthegame, the final boss: the sheet `bossofthegame_boss`, the
+    // Director's own drawing and moves with a keyboard slung on a strap
+    // (232x175 frames). The frame is drawn 96 px of basis (the stage's 54x96
+    // BossSpawn) x 1.48 = 142 world units tall, so his authored body (32x124
+    // px) is about 26x101. Centred on his body, as GNU-ton is: he rides.
+    // `Death` is him going down.
     "bossofthegame": (
         label_width: 100,
-        frame_width: 200,
-        frame_height: 224,
+        frame_width: 232,
+        frame_height: 175,
         rows: [
             (Rest, (
-                frame_count: 8,
-                duration_secs: 0.11,
+                frame_count: 10,
+                duration_secs: 0.12,
             )),
             (FloorSlam, (
                 frame_count: 8,
-                duration_secs: 0.07,
+                duration_secs: 0.062,
             )),
             (SideSweep, (
-                frame_count: 8,
-                duration_secs: 0.08,
+                frame_count: 11,
+                duration_secs: 0.06,
             )),
             (SpikeHalo, (
                 frame_count: 8,
-                duration_secs: 0.08,
+                duration_secs: 0.06,
             )),
             (Hit, (
                 frame_count: 5,
-                duration_secs: 0.08,
+                duration_secs: 0.048,
             )),
             (Death, (
-                frame_count: 10,
-                duration_secs: 0.105,
+                frame_count: 7,
+                duration_secs: 0.074,
             )),
         ],
         collision_scale: 1.48,

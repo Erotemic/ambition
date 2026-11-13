@@ -281,6 +281,47 @@ fn each_destination_is_reached_from_the_hub_and_its_terminal_leads_home() {
     }
 }
 
+/// GATE-REDIAL (Jon 2026-11-12): a new address at an open ring closes the
+/// open wormhole, then opens one to the new address. Dialled TANGENT and
+/// open, the ring is dialled GENESIS: its phase passes through Closing and
+/// Off before Opening and On, it routes nowhere while it closes (and lets
+/// nobody through until it is On), and then it routes to GENESIS. Before, the phase stayed On and only the route
+/// (and its colour) changed.
+#[test]
+fn a_redial_closes_the_open_wormhole_and_opens_a_new_one() {
+    let mut sim = room(HUB);
+    open_terminal(&mut sim, HUB_TERMINAL, HUB_RING);
+    assert_eq!(dial(&mut sim, HUB_RING, "TANGENT"), "link");
+    for _ in 0..240 {
+        if portal_on(&mut sim, HUB_RING) {
+            break;
+        }
+        sim.step(AgentAction::default());
+    }
+    assert!(portal_on(&mut sim, HUB_RING), "control: the ring opened to TANGENT");
+    assert_eq!(dial(&mut sim, HUB_RING, "GENESIS"), "link");
+    let mut phases: Vec<&'static str> = Vec::new();
+    let mut routed_while_shut = false;
+    for _ in 0..240 {
+        let phase = sim.world().resource::<GatePortalPhases>().phase(HUB_RING).label();
+        if phases.last() != Some(&phase) {
+            phases.push(phase);
+        }
+        if (phase == "closing" || phase == "off") && network(&mut sim).route_from(HUB_RING).is_some() {
+            routed_while_shut = true;
+        }
+        if phase == "on" && phases.len() > 1 {
+            break;
+        }
+        sim.step(AgentAction::default());
+    }
+    // `dial` steps once, so the first phase read is the one after the dial.
+    assert_eq!(phases, ["closing", "off", "opening", "on"], "the ring's phases after the redial");
+    assert!(!routed_while_shut, "the ring routed while its old wormhole closed");
+    let far = network(&mut sim).route_from(HUB_RING).map(|route| route.far_room.to_string());
+    assert_eq!(far.as_deref(), Some("primeval_trailhead"), "the reopened ring's destination");
+}
+
 /// The hidden short address NEST reaches the rookery's old survey ring, part
 /// way up the primeval trail, though it is in no directory.
 #[test]
@@ -336,7 +377,9 @@ fn a_terminal_can_be_left_hung_up_and_dialed_again() {
     assert_eq!(dial(&mut sim, HUB_RING, "TANGENT"), "link", "a redial replaces the ring's own link");
     let network = network(&mut sim);
     assert_eq!(network.links.len(), 1);
-    assert_eq!(network.route_from(HUB_RING).unwrap().far, MATH_RING);
+    // The new link waits for the CITADEL wormhole to close
+    // (`a_redial_closes_the_open_wormhole_and_opens_a_new_one`).
+    assert_eq!(network.links.values().next().map(|link| link.far.zone.as_str()), Some(MATH_RING));
 }
 
 /// Acceptance 5: an opening ring takes nobody; the traveller crosses once,

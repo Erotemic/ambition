@@ -700,6 +700,11 @@ pub struct GateLink {
     pub far: GateEndpoint,
     pub remaining: f32,
     pub idle_timeout_secs: u32,
+    /// A redial's link: it waits for its rings to have closed before it holds
+    /// them open, so the old wormhole closes and the new one opens, rather
+    /// than one wormhole taking another's address. It routes nothing while it
+    /// waits, and it reserves its rings.
+    pub opens_after_close: bool,
 }
 
 /// The route from either end of a connection.
@@ -768,7 +773,7 @@ pub struct GateNetworkState {
 impl GateNetworkState {
     /// The destination and address reached through `ring` in either direction.
     pub fn route_from(&self, ring: &str) -> Option<GateRoute<'_>> {
-        self.links.iter().find_map(|(source, link)| {
+        self.links.iter().filter(|(_, link)| !link.opens_after_close).find_map(|(source, link)| {
             let far = if source.zone == ring { &link.far }
                 else if link.far.zone == ring { source } else { return None };
             Some(GateRoute { far: &far.zone, far_room: &far.room, address: &far.address })
@@ -823,8 +828,27 @@ impl GateNetworkState {
         self.recent.truncate(GATE_RECENT_LEN);
         self.links.insert(source, GateLink {
             far, remaining: catalog.idle_timeout_secs as f32, idle_timeout_secs: catalog.idle_timeout_secs,
+            opens_after_close: false,
         });
         Ok(())
+    }
+
+    /// Make `ring`'s new link wait for its rings to close (a redial).
+    pub fn open_after_close(&mut self, ring: &str) {
+        for (source, link) in &mut self.links {
+            if source.zone == ring {
+                link.opens_after_close = true;
+            }
+        }
+    }
+
+    /// Release each waiting link whose rings are both closed now.
+    pub fn release_closed(&mut self, closed: impl Fn(&str) -> bool) {
+        for (source, link) in &mut self.links {
+            if link.opens_after_close && closed(&source.zone) && closed(&link.far.zone) {
+                link.opens_after_close = false;
+            }
+        }
     }
 
     /// An admitted traversal restarts the shared idle timer.
@@ -873,6 +897,7 @@ pub fn gate_network_state_checksum(state: &GateNetworkState) -> u64 {
         }
         put_f32(&mut bytes, link.remaining);
         put_u64(&mut bytes, u64::from(link.idle_timeout_secs));
+        put_u64(&mut bytes, u64::from(link.opens_after_close));
     }
     put_u64(&mut bytes, state.reports.len() as u64);
     for (subject, report) in &state.reports {

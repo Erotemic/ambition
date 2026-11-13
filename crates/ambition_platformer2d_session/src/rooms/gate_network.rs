@@ -40,6 +40,7 @@ pub fn run_gate_network(
     out_of_play: Query<(), With<ambition_combat::death_rules::OutOfPlay>>,
     passages: Query<&super::passage::ZonePassage, Without<ambition_combat::death_rules::OutOfPlay>>,
     pending: Option<Res<crate::lifecycle_commit::PendingLifecycleCommit>>,
+    phases: Option<Res<ambition_platformer2d_world::rooms::GatePortalPhases>>,
 ) {
     let Some(catalog) = catalog else {
         intents.clear();
@@ -83,6 +84,9 @@ pub fn run_gate_network(
                 // A redial replaces this ring's own link: the old link shuts
                 // first, so it neither blocks the new one as busy nor stays
                 // open beside it.
+                // Where the ring leads now, if anywhere: a dial to another
+                // place is a redial, and to the same place changes nothing.
+                let leads_to = state.route_from(&intent.ring).map(|route| route.far.to_string());
                 state.close_link(&intent.ring);
                 let data = save.data();
                 let switch_on = |id: &str| data.switch(id);
@@ -99,6 +103,10 @@ pub fn run_gate_network(
                             state.report(&intent.subject, &intent.ring, address.clone(), Err(refusal));
                             continue;
                         }
+                        // The open wormhole closes before the new one opens.
+                        if leads_to.as_ref().is_some_and(|before| *before != far_zone) {
+                            state.open_after_close(&intent.ring);
+                        }
                         state.report(&intent.subject, &intent.ring, address.clone(), Ok(far_zone));
                         // A dial that answers teaches the address.
                         save.data_mut().set_flag(known, true);
@@ -107,6 +115,9 @@ pub fn run_gate_network(
                 }
             }
         }
+    }
+    if let Some(phases) = phases.as_deref() {
+        state.release_closed(|ring| phases.phase(ring) == ambition_platformer2d_world::rooms::GatePortalPhase::Off);
     }
     let dt = world_time.sim_dt();
     if dt > 0.0 && !state.links.is_empty() {

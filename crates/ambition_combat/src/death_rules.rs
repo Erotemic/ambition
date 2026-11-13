@@ -57,6 +57,11 @@ pub struct DeathLook {
     pub departure: ambition_vfx::FxId,
     #[serde(deserialize_with = "fx_by_name")]
     pub arrival: ambition_vfx::FxId,
+    /// Seconds into its death after which the body is no longer drawn: the
+    /// departure has taken it (a door that shuts on it). Absent: the body is
+    /// drawn for the whole window, as its death row plays.
+    #[serde(default)]
+    pub taken_after_s: Option<f32>,
 }
 
 /// What a participant's death costs in one game's rooms (PLAYER-DEATH, Q174's
@@ -64,10 +69,13 @@ pub struct DeathLook {
 /// what it took lies where the body was taken until someone fetches it. A
 /// wallet that cannot pay goes into debt for the rest, and the next currency
 /// earned pays the debt first. A game that declares none charges nothing.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeathFee {
     pub coins: i32,
+    /// The renderer target the lying coins are drawn with. Absent: a coin.
+    #[serde(default)]
+    pub parcel_art: Option<String>,
 }
 
 /// An effect row by its authored name; an empty name names nothing.

@@ -200,8 +200,9 @@ pub fn drop_currency_coin(
 
 /// Spawn the coins a death's fee took (PLAYER-DEATH), where the body was
 /// taken: an ordinary currency pickup, named `feature_id` so the fee's owner
-/// can find it again. Like the coin it never respawns; the fee's owner places
-/// it again while it is owed.
+/// can find it again, drawn with `art` (a renderer target) or as a coin. Like
+/// the coin it never respawns; the fee's owner places it again while it is
+/// owed.
 pub fn drop_death_parcel(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -209,8 +210,9 @@ pub fn drop_death_parcel(
     feature_id: &str,
     pos: ae::Vec2,
     amount: i32,
+    art: Option<&str>,
 ) -> bevy::prelude::Entity {
-    spawn_death_drop(
+    let parcel = spawn_death_drop(
         commands,
         session_scope,
         parent,
@@ -220,14 +222,18 @@ pub fn drop_death_parcel(
             FeatureSimEntity,
             FeatureId::new(feature_id.to_string()),
             FeatureName::new(format!("{amount} lost coins")),
-            CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(28.0, 28.0)),
             PickupFeature::new(ambition_interaction::Pickup::new(
                 feature_id.to_string(),
                 ambition_interaction::PickupKind::Currency { amount },
             )),
             crate::pickups::ReturnedCoins,
         ),
-    )
+    );
+    if let Some(art) = art {
+        commands.entity(parcel).insert(crate::pickups::PickupArt(art.to_string()));
+    }
+    parcel
 }
 
 /// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),

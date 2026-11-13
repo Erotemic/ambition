@@ -923,9 +923,20 @@ death, the parcel of 50 where the body was, 120 when fetched, 70 again at
 the next death; with 20: −30 and a parcel of 20, −10 when fetched, −30 at
 the next death.
 
-**Next action:** a rescue look of its own (a gate-portal mouth in place of
-the generic dissolve), and a sealed-parcel art for the fee's pickup (it
-draws as a coin).
+**Built 2026-11-13 (slice 3, the rescue drawn):** the death look is the gate
+network's own door (`rescue_portal_fx`, a sheet that draws its own start and
+end): `rescue_portal_take` opens round the body, pulls it in and shuts, and
+the body is not drawn from 0.42 s (`DeathLook::taken_after_s`, marked
+`TakenByDeathLook` by the view, which `body_presentation_hidden` honours);
+`rescue_portal_give` lets it out where it comes back. The fee's coins lie in
+a sealed parcel (`rescue_parcel_prop`, `DeathFee::parcel_art`, a prop-sheet
+row). Filmed in the hub (`capture_scene --player-dies 600 --purse 120`): the
+door takes the robot and the spot is empty, the robot steps out of the
+light at the respawn, the parcel lies where it fell.
+
+**Next action:** the rescue's sounds (the door's cue family
+`vfx.rescue_portal.*` has no sounds yet), and a word on screen for the fee
+taken and the debt owed.
 
 **Acceptance:** a death in Ambition reads as one on screen; the fee is taken
 and lies where the body fell until fetched; with too little to pay, the

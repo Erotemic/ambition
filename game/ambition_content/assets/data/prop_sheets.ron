@@ -8,6 +8,10 @@
 // kind has no row is not drawn from a sheet. An edit here is drawn at the next
 // start or content reload, with no Rust build.
 {
+    // The gate network's parcel: the coins a death's fee took, where the body
+    // was taken (`room_rules.ron`, `death_fee`). Drawn a little larger than
+    // its box, as a pickup is.
+    "rescue_parcel_prop": (scale: 1.4),
     // The Noodly Temple's keys, one for each sauce. A key is drawn a little
     // larger than its box, as a pickup is.
     "temple_key_marinara": (scale: 1.4),

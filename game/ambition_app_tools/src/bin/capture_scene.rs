@@ -110,6 +110,12 @@ struct SceneCaptureConfig {
     /// photographed there, a walk through it can be filmed step by step, and
     /// the seam lab launches the robot through a pair.
     player_at: Vec<(Vec2, u64, Vec2)>,
+    /// The primary player dies on each of these sim ticks, through the
+    /// ordinary death report (`--player-dies TICK`), to film its death.
+    player_dies: Vec<u64>,
+    /// Hold the primary player's wallet at this many coins every tick
+    /// (`--purse N`), so a death has coins for its fee to take.
+    purse: Option<i32>,
     /// A `--player-at` placement also puts the body in the climbing mode
     /// (`--player-climbs`). No capture key reaches the simulation, so a body
     /// on a ladder is photographed with no body that climbs onto it. The mode
@@ -377,6 +383,10 @@ OPTIONS:
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest or moving at VX,VY px/s;
                         repeat for more places
+    --player-dies TICK  the player dies on sim tick TICK (the ordinary death
+                        report), to film its death; repeat for more deaths
+    --purse N           hold the player's wallet at N coins every tick, so a
+                        death has coins for its fee to take
     --player-climbs     a --player-at placement also puts the body in the
                         climbing mode, to photograph it on a ladder; give a
                         point in a climbable region
@@ -1044,6 +1054,37 @@ fn place_player_at(
     }
 }
 
+/// `--player-dies` and `--purse`: the primary player's death on its ticks,
+/// and its wallet held.
+fn kill_and_pay_the_player(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut player: Query<
+        (Entity, &ae::BodyKinematics, Option<&mut ambition_platformer2d::characters::actor::BodyWallet>),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+    mut deaths: MessageWriter<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
+) {
+    let Ok((body, kin, wallet)) = player.single_mut() else { return };
+    if let (Some(coins), Some(mut wallet)) = (config.purse, wallet) {
+        if wallet.balance != coins {
+            wallet.balance = coins;
+        }
+    }
+    let now = tick.get();
+    if config.player_dies.contains(&now) {
+        deaths.write(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+            victim: body,
+            pos: kin.pos,
+            cause: ambition_platformer2d::combat::death_rules::DeathCause {
+                source: ambition_platformer2d::combat::HitSource::Hazard,
+                attacker: None,
+            },
+        });
+        eprintln!("capture_scene: the player dies on tick {now} at {:?}", kin.pos);
+    }
+}
+
 /// One `--portal-shot`: a shot of the capture's own pair, fired on a sim tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct PortalShotAt {
@@ -1419,7 +1460,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
+        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, kill_and_pay_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
     );
     if !app.world().resource::<SceneCaptureConfig>().gate_dials.is_empty() {
         app.add_systems(sim, dial_gates.before(ambition_platformer2d::session::rooms::gate_network::run_gate_network));
@@ -1680,6 +1721,8 @@ impl SceneCaptureConfig {
         let mut tick_per_frame = false;
         let mut guards: Vec<GuardAt> = Vec::new();
         let mut player_at: Vec<(Vec2, u64, Vec2)> = Vec::new();
+        let mut player_dies: Vec<u64> = Vec::new();
+        let mut purse: Option<i32> = None;
         let mut player_climbs = false;
         let mut seam: Option<SeamCheck> = None;
         let mut player_holds: Vec<(HeldControls, u64)> = Vec::new();
@@ -1941,6 +1984,18 @@ impl SceneCaptureConfig {
                 "--player-climbs" => {
                     player_climbs = true;
                     1
+                }
+                "--player-dies" => {
+                    let tick = args.get(i + 1).and_then(|v| v.parse::<u64>().ok())
+                        .ok_or_else(|| "--player-dies requires TICK".to_string())?;
+                    player_dies.push(tick);
+                    2
+                }
+                "--purse" => {
+                    let coins = args.get(i + 1).and_then(|v| v.parse::<i32>().ok())
+                        .ok_or_else(|| "--purse requires N".to_string())?;
+                    purse = Some(coins);
+                    2
                 }
                 "--player-holds" => {
                     let Some(value) = args.get(i + 1) else {
@@ -2260,6 +2315,8 @@ impl SceneCaptureConfig {
                 hour: None,
                 wears: Vec::new(),
                 player_at: Vec::new(),
+                player_dies: Vec::new(),
+                purse: None,
                 player_climbs: false,
                 seam: None,
                 player_holds: Vec::new(),
@@ -2355,6 +2412,8 @@ impl SceneCaptureConfig {
             hour,
             wears,
             player_at,
+            player_dies,
+            purse,
             player_climbs,
             seam,
             player_holds,

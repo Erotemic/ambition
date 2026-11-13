@@ -127,7 +127,7 @@ impl Plugin for AmbitionContentPlugin {
             app,
             ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
             ambition_combat::room_rules::lowered_room_rules(&pack)
-                .copied()
+                .cloned()
                 .expect("Ambition's pack has a `room_rules` source, and a pack that compiles lowers it"),
         );
 

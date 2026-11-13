@@ -26,6 +26,6 @@ pub fn room_rules_reload(
 /// (`assets/data/room_rules.ron`). An edit to the file is played at the next
 /// start, with no Rust build.
 pub fn room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
-    *ambition_platformer2d::combat::room_rules::lowered_room_rules(PACK.prepared())
-        .expect("the demo's pack states the rules of its rooms (`data/room_rules.ron`)")
+    ambition_platformer2d::combat::room_rules::lowered_room_rules(PACK.prepared())
+        .expect("the demo's pack states the rules of its rooms (`data/room_rules.ron`)").clone()
 }

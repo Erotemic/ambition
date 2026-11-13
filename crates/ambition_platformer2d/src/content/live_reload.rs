@@ -718,7 +718,7 @@ mod tests {
     }
 
     fn heavy(pack: &PreparedContentPack) -> crate::combat::room_rules::RoomRules {
-        *lowered_room_rules(pack).expect("the probe pack states room rules")
+        lowered_room_rules(pack).expect("the probe pack states room rules").clone()
     }
 
     /// ⭐ An edit to a live schema reaches a live session only where the

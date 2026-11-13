@@ -837,7 +837,7 @@ fn smashs_rules_are_its_room_rules_file() {
         std::fs::write(root.join("data/room_rules.ron"), text).unwrap();
         let pack = EmbeddedPack::rooted(Box::leak(root.display().to_string().into_boxed_str()), None);
         let prepared = pack.compile().unwrap_or_else(|failure| panic!("{}", failure.render()));
-        *lowered_room_rules(&prepared).expect("the probe pack lowers room rules")
+        lowered_room_rules(&prepared).expect("the probe pack lowers room rules").clone()
     };
 
     assert_eq!(rules_of(&authored), crate::smash_room_rules(), "the game plays the file");

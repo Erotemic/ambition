@@ -38,6 +38,7 @@ struct OwedFee {
     room: String,
     pos: Vec2,
     coins: i32,
+    art: Option<String>,
 }
 
 /// The coins one death's fee took, lying where the body was taken.
@@ -50,6 +51,8 @@ pub struct DeathParcel {
     pub coins: i32,
     /// Names the pickup drawn from it.
     pub serial: u32,
+    /// What it is drawn with (`DeathFee::parcel_art`).
+    pub art: Option<String>,
 }
 
 /// The fees owed and the parcels lying in the world. Rollback state.
@@ -105,6 +108,7 @@ pub fn owe_death_fees(
             room: room.id.clone(),
             pos: safety.map_or(death.pos, |safety| safety.last_safe_pos),
             coins: fee.coins,
+            art: fee.parcel_art.clone(),
         });
     }
 }
@@ -140,6 +144,7 @@ pub fn take_death_fees(
                 pos: fee.pos,
                 coins: paid,
                 serial,
+                art: fee.art,
             });
         }
     }
@@ -190,6 +195,7 @@ pub fn place_death_parcels(
             &feature_id,
             parcel.pos,
             parcel.coins,
+            parcel.art.as_deref(),
         );
     }
 }

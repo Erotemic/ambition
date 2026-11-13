@@ -579,6 +579,8 @@ collections:
   - generic_action_fx
   - generic_world_fx
   - generic_exotic_fx
+  - rescue_parcel_prop
+  - rescue_portal_fx
   - carl_stargan_vfx
   - noether_vfx
   - patent_clerk_vfx

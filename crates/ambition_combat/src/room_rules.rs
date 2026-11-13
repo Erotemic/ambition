@@ -48,7 +48,7 @@ pub const ROOM_RULES_VERSION: SchemaVersion = SchemaVersion(1);
 
 /// The authored document. Each field is one rule, absent when the game states
 /// none.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct AuthoredRoomRules {
     /// Seconds a death holds before the level goes back to how it started,
@@ -106,7 +106,7 @@ struct AuthoredRoomRules {
 }
 
 /// One game's rules for its own rooms, lowered from its pack.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct RoomRules {
     pub death: Option<DeathRules>,
     pub strike_weight: Option<StrikeWeightRules>,
@@ -167,7 +167,7 @@ impl AuthoredRoomRules {
         if let Some(feel) = &self.hit_feel {
             problems.extend(feel.problems());
         }
-        if let Some(fee) = self.death_fee {
+        if let Some(fee) = &self.death_fee {
             if fee.coins < 1 {
                 problems.push(format!(
                     "`death_fee` is {} coins; a fee takes at least 1 (to charge nothing, leave the field out)",
@@ -210,7 +210,7 @@ impl AuthoredRoomRules {
             corpses: self.corpses,
             kill_beat: self.kill_beat,
             death_look: self.death_look,
-            death_fee: self.death_fee,
+            death_fee: self.death_fee.clone(),
             hit_feel: self.hit_feel,
             fireball: self.fireball,
             body_contact: self.body_contact,
@@ -345,7 +345,7 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     if let Some(look) = rules.death_look {
         app.declare_rules(scope, look);
     }
-    if let Some(fee) = rules.death_fee {
+    if let Some(fee) = rules.death_fee.clone() {
         app.declare_rules(scope, fee);
     }
     if let Some(feel) = rules.hit_feel {
@@ -363,7 +363,7 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
 /// rule that `rules` does not state is removed from the scope: absent in the
 /// candidate means remove, as for every family a reload publishes.
 pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&RoomRules>) {
-    let rules = rules.copied().unwrap_or_default();
+    let rules = rules.cloned().unwrap_or_default();
     world.get_resource_or_insert_with(DeclaredRules::<BodyContact>::default)
         .restate(scope, rules.body_contact);
     world

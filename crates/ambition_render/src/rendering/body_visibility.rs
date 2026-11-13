@@ -18,9 +18,10 @@ mod tests;
 
 /// Whether `pose` takes the body's own presentation off the screen: a body
 /// that is morphed (the ball draws instead), under the stage (the trapdoor
-/// draws instead) or knocked out of the world.
+/// draws instead), knocked out of the world, or taken by its game's death
+/// look.
 pub fn body_presentation_hidden(pose: &ambition_sim_view::BodyPoseView) -> bool {
-    pose.morph_ball || pose.submerged || pose.out_of_the_world
+    pose.morph_ball || pose.submerged || pose.out_of_the_world || pose.taken_by_death_look
 }
 
 /// Hide each body whose pose takes its presentation away, and hand every

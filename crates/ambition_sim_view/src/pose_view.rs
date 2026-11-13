@@ -392,6 +392,9 @@ pub struct BodyPoseView {
     /// it is placed again. Carried from the simulation's
     /// `KnockedOutOfTheWorld`, the same way `submerged` is.
     pub out_of_the_world: bool,
+    /// Its game's death look has taken the body out of sight ([`TakenByDeathLook`]):
+    /// not drawn until it is back in play.
+    pub taken_by_death_look: bool,
     /// WHERE THE WIRE THIS BODY IS HANGING FROM COMES DOWN FROM, in world
     /// space, or `None` for a body not on one.
     ///
@@ -555,6 +558,7 @@ impl Default for BodyPoseView {
             morph_ball: false,
             submerged: false,
             out_of_the_world: false,
+            taken_by_death_look: false,
             wire_anchor: None,
             grab_reach: None,
             line_anchor: None,
@@ -574,6 +578,42 @@ impl Default for BodyPoseView {
 /// `animate_player` demanded) and holds `Idle` when any piece is absent —
 /// exactly the frames the old live-query path would have skipped.
 #[allow(clippy::type_complexity)]
+/// A body its game's death look has taken out of sight
+/// (`DeathLook::taken_after_s`). Presentation, derived by
+/// [`mark_bodies_the_death_look_took`]; the simulation never reads it.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default)]
+pub struct TakenByDeathLook;
+
+/// Mark each body that has been out of play for its death look's
+/// `taken_after_s`, and unmark it when it is back in play. The time is the
+/// presentation's own: the death window does not record how long it has
+/// been open.
+pub fn mark_bodies_the_death_look_took(
+    mut commands: Commands,
+    time: Option<Res<bevy::prelude::Time>>,
+    looks: ambition_platformer2d_world::governing_rules::RulesOf<ambition_combat::death_rules::DeathLook>,
+    bodies: Query<
+        (Entity, bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>, bevy::prelude::Has<TakenByDeathLook>),
+        Or<(With<PlayerVisual>, With<PosedBody>)>,
+    >,
+    mut out_for: bevy::prelude::Local<std::collections::HashMap<Entity, f32>>,
+) {
+    let dt = time.map_or(0.0, |time| time.delta_secs());
+    out_for.retain(|body, _| bodies.get(*body).is_ok_and(|(_, out, _)| out));
+    for (body, out, taken) in &bodies {
+        let take = out && {
+            let seconds = out_for.entry(body).or_insert(0.0);
+            *seconds += dt;
+            looks.of(body).and_then(|look| look.taken_after_s).is_some_and(|after| *seconds >= after)
+        };
+        if take && !taken {
+            commands.entity(body).insert(TakenByDeathLook);
+        } else if !take && taken {
+            commands.entity(body).remove::<TakenByDeathLook>();
+        }
+    }
+}
+
 pub fn rebuild_body_pose_views(
     mut commands: Commands,
     // The reference the hitlag law scales from, so the published strength is a
@@ -665,6 +705,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_characters::actor::WornCharacter>,
                 Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
                 bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
+                bevy::prelude::Has<TakenByDeathLook>,
                 // The stick, for the look-up pose of a body that stands.
                 Option<&ambition_characters::control::ActorControl>,
                 // A rider sits its mount: see `seated`.
@@ -730,6 +771,7 @@ pub fn rebuild_body_pose_views(
             worn,
             granted,
             out_of_the_world,
+            taken_by_death_look,
             control,
             riding,
             pinned,
@@ -1070,6 +1112,7 @@ pub fn rebuild_body_pose_views(
             // `BodyMode::hides_the_body`. Two read-models, one sentence.
             submerged: body_mode.is_some_and(|m| m.body_mode.hides_the_body()),
             out_of_the_world,
+            taken_by_death_look,
             // The SAME projection the actor road reads — see
             // `BodyMotionFacts::wire_anchor`.
             wire_anchor: motion_facts.and_then(|m| m.wire_anchor),

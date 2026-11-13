@@ -503,8 +503,8 @@ pub fn versus_match_rules() -> ambition_platformer2d::versus_match::match_rules:
 /// heavy-hit line. An edit to the file is played at the next start, with no
 /// Rust build.
 pub fn versus_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
-    *ambition_platformer2d::combat::room_rules::lowered_room_rules(super::versus_fighters::PACK.prepared())
-        .expect("the versus pack states the rules of its room (`data/room_rules.ron`)")
+    ambition_platformer2d::combat::room_rules::lowered_room_rules(super::versus_fighters::PACK.prepared())
+        .expect("the versus pack states the rules of its room (`data/room_rules.ron`)").clone()
 }
 
 /// Register the versus experience: a launcher entry, a route, and the stage.

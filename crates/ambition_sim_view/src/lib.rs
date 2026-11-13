@@ -63,7 +63,7 @@ pub use local_view::{
 pub use passage_view::{rebuild_passage_views, PassageLookView, PassageViews};
 pub use pose_view::{StopClock, TurnClock};
 pub use pose_view::{
-    rebuild_body_pose_views, rebuild_launched_bodies_view, rebuild_shield_views, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
+    mark_bodies_the_death_look_took, rebuild_body_pose_views, rebuild_launched_bodies_view, TakenByDeathLook, rebuild_shield_views, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView, LOOK_UP_CLIP,
 };
 pub use presented_pose::{
@@ -156,7 +156,8 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                     .chain(),
                 // Player-bodied pose components + the pooled shield-ring rows —
                 // the per-body half of the pose read-model (E4 slices 1–4).
-                rebuild_body_pose_views,
+                rebuild_body_pose_views.after(mark_bodies_the_death_look_took),
+                mark_bodies_the_death_look_took,
                 // A body in a passage draws what its passage says, over the
                 // pose the rebuild picked.
                 rebuild_passage_views.after(rebuild_body_pose_views).after(rebuild_actor_anim_index),

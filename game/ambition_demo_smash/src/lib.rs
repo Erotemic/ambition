@@ -610,8 +610,8 @@ pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";
 ///
 /// An edit to the file is played at the next start, with no Rust build.
 pub fn smash_room_rules() -> ambition_platformer2d::combat::room_rules::RoomRules {
-    *ambition_platformer2d::combat::room_rules::lowered_room_rules(crate::smash_pack::PACK.prepared())
-        .expect("Smash's pack states the rules of its rooms (`data/room_rules.ron`)")
+    ambition_platformer2d::combat::room_rules::lowered_room_rules(crate::smash_pack::PACK.prepared())
+        .expect("Smash's pack states the rules of its rooms (`data/room_rules.ron`)").clone()
 }
 
 /// The combat rules Smash plays under: the `combat` block of

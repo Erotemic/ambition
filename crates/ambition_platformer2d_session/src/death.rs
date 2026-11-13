@@ -156,11 +156,18 @@ pub fn close_death_interlude(
     let mut resetting_rooms = Vec::new();
     let mut lone_seats = Vec::new();
     for (body, mut window, driver) in &mut closing {
+        let death = rules.of(body).copied().unwrap_or_default();
+        // The partner wait is for a partner's fall to make the wipe. With
+        // nobody in play (the partner fell, or left the session) there is no
+        // one to wait for, and only the beat is owed.
+        if rooms_with_a_participant.is_empty() && death.recovery_wait > 0.0 && window.remaining > death.interlude {
+            window.remaining = death.interlude;
+        }
         if window.open() || !window.consequence_pending {
             continue;
         }
         let room = rules.room_of(body);
-        let resets = rules.of(body).copied().unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains;
+        let resets = death.level_reset == LevelReset::WhenNoParticipantRemains;
         // Spent, not removed. The window lives on until the body restarts, so a
         // rewind across the frame this fired can answer "did it already?" from
         // state rather than from a component that is no longer there.

@@ -866,6 +866,90 @@ the encounter and its specials module, the cinematics.
 fight runs with the Boss riding the guitar robot, in phases, with its intro,
 music cue and art; the ending follows the retirement rule.
 
+### PLAYER-DEATH — what a death is in Ambition
+
+**Owner:** `session/death.rs` (the beat), the presentation owner, and the bag
+(currency). Request (Jon, 2026-11-12): Ambition needs a presented player
+death (Mary-O has one) and a rule for what a death costs: a Hollow Knight
+style penalty undone by going back to where you fell, with a twist; or a
+portal that yoinks you away before you bite it ("You're too valuable to be
+destroyed"); or a lost currency you can win back, with a bigger penalty when
+you cannot pay the safety fee. Q174 holds the rule; its default is the rescue
+portal with a fee.
+
+**Next action:** the presentation of the death beat (a declared `interlude`
+for Ambition's rooms, the death row, the rescue portal opening around the
+body), then the fee under Q174's default.
+
+**Acceptance:** a death in Ambition reads as one on screen; the fee is taken
+and lies where the body fell until fetched; with too little to pay, the
+bigger penalty applies; co-op recovery and the wipe keep their rules.
+
+### HIT-FEEL — hits that answer
+
+**Owner:** combat feel (`ambition_combat::feel`, kill beat, hit-stop), the
+sound and effect recipes, and each move's poise. Request (Jon, 2026-11-12):
+hits must feel more responsive: better hit sounds, a little recoil on the
+attacker, better hit effects, and enemies with more knockback or super armor
+depending on their move.
+
+**Next action:** measure what a landed hit does now (hit-stop frames, shake,
+recoil, knockback per enemy, the sound and effect played) in one table, then
+change the weakest rows.
+
+**Acceptance:** a landed hit has a distinct sound, a hit effect at the contact,
+attacker recoil and hit-stop; each enemy move declares knockback or armor,
+and a heavy move's armor is visible.
+
+### APPLE-PORTALS — space apple trees and GNU-ton's catching portals
+
+**Owner:** the GNU-ton encounter (`boss_encounters/`) and the portal owner.
+Request (Jon, 2026-11-12, polish): space apple trees with apples on them;
+for apple rain, GNU-ton summons portals on the ground that catch the falling
+apples, which fall out of the portal's other end.
+
+**Next action:** after the portal work in flight: the tree art and the
+apple-rain phase opening portal pairs under the falling apples.
+
+**Acceptance:** an apple that falls into a ground portal comes out of its
+partner with its momentum carried, and hurts as it did.
+
+### MATH-POLISH — the hotel's spectral wing, the service lift, the reaper's wall and the mites
+
+**Owner:** the math-polish subagent (Jon, 2026-11-12: "You can use up to 2
+subagents"). Reports (Jon, 2026-11-12):
+
+1. In the hotel's spectral wing, background tiles of different widths do not
+   line up, with seams; the torches' glowing dots do not repeat smoothly
+   (the loop is abrupt).
+2. The service lift has no visible barrier in front of it, though something
+   keeps the player out of it until the boss is beaten.
+3. In the gram reaper fight a door sprite is used as a wall.
+4. The dividing mite does not die when it divides, so it shows no death
+   animation; it turns smoothly into the two smaller mites.
+5. The exploding mites start their fuse only when they die. Now they explode
+   when the player enters the room, and then play a death row that looks
+   like it should explode and never does. The death row leads into the
+   explosion.
+
+**Acceptance:** each report fixed and seen in a render or a probe; the mites'
+behaviour has a witness.
+
+### SMASH-PORTAL-RECOVERY — GNU-ton's portal up-b, and a better recovery
+
+**Owner:** portals (mine) and the Smash movesets. Request (Jon, 2026-11-12):
+GNU-ton gets the portal up-b in Smash; Alice may keep hers (two characters
+may share a similar move); the portal up-b works better as a recovery.
+
+**Acceptance:** GNU-ton's up-b opens the portal pair; from below the stage
+edge, a portal up-b returns the fighter to the ledge or the stage in the
+cases measured, where it did not before.
+
+### PLAYER-LIGHT — a wider, subtler player highlight
+
+**Owner:** the player light (render). Request (Jon, 2026-11-12): the player
+lighting / highlight has a larger radius and is more subtle.
+
 ### COOP-RECOVERY — independent respawn and a full-party wipe
 
 **Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore
@@ -912,8 +996,18 @@ restore runs with it as subject (`RestoreTo::Recover`), sparing every other
 room and win, covering only its view. Any close with nobody in play is the
 wipe. Witness `a_second_seat_that_dies_alone_in_another_room_recovers_in_its_own_room`.
 
-**Next action:** the removed-participant arm (a participant that left is not
-counted, measured) and a local recovery that duplicates no object (the R5
+**Built 2026-11-12 (slice 3: a participant that left):** the roster is
+the live player bodies and a leave despawns the seat's, so a departed seat
+holds no room. Measured with a temporary probe in the hub (frames from the
+primary's death to a committed restore with the primary in play): no join 4;
+join then leave 4; seat 1 dead and leaving inside its own window 4; seat 1
+staying never (control: the primary comes back alone). One arm was wrong: a
+primary that fell beside seat 1 kept the partner wait after seat 1 left, 124
+frames. With nobody in play a window owes only its beat now
+(`close_death_interlude` caps it at `interlude` in rooms that declare a
+`recovery_wait`; a match's stock windows are untouched); after: 25.
+
+**Next action:** a local recovery that duplicates no object (the R5
 witness, blocked by an inherited join failure in `blink_run`). The whole
 design, for reference:
 

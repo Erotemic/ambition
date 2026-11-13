@@ -116,6 +116,35 @@ the fight already, the same words play as the ones he had left.
 **Owner:** `data/cutscenes/intro.ron` (`creator_final_fragment`) and the
 volume at the corridor's far end in `intro.ldtk`. Each option is content
 only.
+
+## Q174 — What does a death cost in Ambition?
+
+**Context (2026-11-12, PLAYER-DEATH).** Jon asked for a presented death and
+a rule for its cost, and named the options below; "it would be nice if we
+could put a twist on it". Ambition's death beat is 0 s today and costs
+nothing: the room goes back to the checkpoint. Default taken: **(b) with
+(c)'s fee**: just before the blow lands, a portal opens and yoinks the
+body away ("You're too valuable to be destroyed"); the gate network's
+insurance charges a safety fee from the currency, and the fee is left at
+the spot as a recoverable cache (a sealed parcel at the rescue portal's
+mouth) that going back returns. Too little to pay: the bigger penalty is
+that the parcel holds what was carried and the rescue lands at the last
+checkpoint in debt (the next currency earned pays the debt first).
+
+**Options:**
+
+* **(a) Hollow Knight style:** a penalty undone by finding your way back to
+  your body and fixing it.
+* **(b) The rescue portal:** a portal yoinks you away before the death
+  (now, with (c)'s fee).
+* **(c) A lost currency you can win back,** with a bigger penalty when you
+  die without enough to pay the safety fee.
+* **(d) No cost:** the presentation only; the checkpoint restore is the
+  penalty.
+
+**Owner:** `session/death.rs` (the beat), the bag (currency) and the
+presentation. Engineering is the PLAYER-DEATH row.
+
 ## Q175 — Is the final boss's giant one of the named agents?
 
 **Context (2026-11-12, FINAL-BOSS).** Jon: the bossofthegame stands on the

@@ -650,6 +650,24 @@ suspension, mute and one-shot completion from defects.
 regression witness, or the observed event is classified with concrete playback
 evidence. Keep diagnostics independent of playback repair.
 
+### GATE-REDIAL — a new address closes the old wormhole and opens a new one (done)
+
+**Owner:** the gate network (`docs/planning/game/gate-network.md`, the gate
+state machine and its membrane presentation); portals owner. Jon 2026-11-12:
+changing a gate's address while it is open only recolours the open
+wormhole. A redial is two events: the open wormhole closes (its closing
+beat), then the gate dials and opens a wormhole to the new address (its
+opening beat), with the connection to the new destination only once open.
+
+**Acceptance:** with a gate open to A, dialling B plays the close then the
+open, the old destination stops being reachable at the close, B is
+reachable only after the open, and a body in the membrane during the change
+is not carried to B.
+
+**Built 2026-11-12:** a redial's link waits (`GateLink::opens_after_close`)
+until both its rings are Off; dialling the place a ring already leads to
+changes nothing. Witness `a_redial_closes_the_open_wormhole_and_opens_a_new_one`.
+
 ### GATE-STARTUP-FLICKER — diagnose the wormhole at startup
 
 **Owner:** [Gate network](game/gate-network.md#startup-rendering).
@@ -769,6 +787,25 @@ damage kept; back to the robot restores the robot's geometry. A skin change
 moves no collider, hurtbox or movement value. A possession leaves the original
 body in the world, and the possessed body keeps its geometry and state.
 
+### INTRO-RAID — one creator, a raid by hired goblins, a fight side by side
+
+**Owner:** the intro rooms (`intro.ldtk`), `intro.yarn`, the intro route
+(`ambition_content::intro`), Oiler's and the message board's rows. Jon
+2026-11-12 (next after the COOP-RECOVERY slice in hand):
+
+- **A cutscene holds the fight too.** Entering the second room forces a
+  dialogue while the goblins keep attacking the player.
+- **One creator.** The creator is spawned twice (one in each room) and does
+  not die. He is one person with a persistent identity who follows the player
+  from the opening room into the second.
+- **The raid's motive:** goblins hired to raid the lab and take the robot and
+  the research. In the second room they confront the two; after the opening
+  dialogue the robot and the creator fight the goblins together.
+- **Oiler** falls into the hole without noticing anyone. Getting close to him
+  is the trigger (not entering the room), and he comes to the player.
+- **The message board** can be attacked and fights back: an Easter egg to
+  keep, with fight animations of its own.
+
 ### COOP-RECOVERY — independent respawn and a full-party wipe
 
 **Owner:** `session/death.rs`, `sandbox_reset.rs`, the checkpoint restore
@@ -794,8 +831,31 @@ pedestal (lying 1, no row), one copy, and both are back in play. The wipe
 also now pins the facts (DIALOGUE-CHECKPOINT). With Ambition's 0 s beat a
 wipe still needs two deaths on one tick (the declared delay is open).
 
-**Next action:** one recovery state machine over the active participant set,
-symmetric for every participant:
+**Built 2026-11-12 (slice 1: return alone, and the wait):** a participant
+whose room a living participant holds comes back alone at that room's
+respawn point (the checkpoint when it is in that room, else the room's
+spawn), health full, with no restore; the partner is not touched
+(`return_a_fallen_participant`, which replaces the return beside the
+primary; the primary no longer waits for its room to empty). A death while
+another participant plays waits `recovery_wait_s` (new `room_rules` field;
+Ambition declares 2 s, a tunable) beyond the beat, so a partner that falls
+in that time makes the wipe. Witnesses in `a_second_seat_joins_the_session`
+(the seat back at the spawn with the primary walked away; the primary back
+alone after the wait, its room not sent back, then sent back when it falls
+alone; a fall inside the wait making a committed wipe restore) and the
+restated `a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy`
+(carried out then Alice falls alone; both fall on one tick).
+
+**Built 2026-11-12 (slice 2: local recovery):** a second seat that falls
+alone in its room while another plays asks `RecoverAtCheckpoint(slot)`; the
+restore runs with it as subject (`RestoreTo::Recover`), sparing every other
+room and win, covering only its view. Any close with nobody in play is the
+wipe. Witness `a_second_seat_that_dies_alone_in_another_room_recovers_in_its_own_room`.
+
+**Next action:** the removed-participant arm (a participant that left is not
+counted, measured) and a local recovery that duplicates no object (the R5
+witness, blocked by an inherited join failure in `blink_run`). The whole
+design, for reference:
 
 - **Individual recovery (the default):** the participant respawns by the
   single-player respawn-location policy, for itself. With nobody else active

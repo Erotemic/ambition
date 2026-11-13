@@ -38,7 +38,7 @@ pub use custody_horizon::{CustodyBaseline, capture_custody_baseline, live_custod
 pub use departure::{DEPARTURE_GIVE_UP_S, Departure, DepartureState, Destination};
 pub use durable_horizon::{DurableHorizonSet, DurableRestoreSet, SaveRestored};
 pub use horizon::{
-    CheckpointCapture, CheckpointCommitted,
+    CheckpointCapture, CheckpointCommitted, CheckpointEstablishRequested,
     CheckpointDomainApply, CheckpointRestore, CheckpointRestoreInputs, FreshRunRestore,
     LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
     adopt_pinned_lifecycle_baselines,

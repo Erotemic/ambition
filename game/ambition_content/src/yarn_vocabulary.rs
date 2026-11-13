@@ -275,6 +275,19 @@ pub fn cmd_give_item(
     narrative.write(request);
 }
 
+/// `<<checkpoint>>` — bank what this conversation has done so far: a
+/// checkpoint where the talking seat's body stands, through the same road as a
+/// shrine's (Q164: an authored dialogue, its ending or a hand-over may
+/// establish one, as one transaction with the facts and objects it moved). The
+/// commit lands after the flags and hand-overs asked before it in the script.
+pub fn cmd_checkpoint(
+    mut narrative: NarrativeInputWriter<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+) {
+    let seat = talking_seat(conversation.as_deref()).map(|seat| seat.0);
+    narrative.write(ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested { seat });
+}
+
 /// The seat whose conversation runs this command: its input owner. A
 /// conversation every seat drives, or none, names no seat.
 fn talking_seat(
@@ -644,6 +657,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let music_id = commands.register_system(cmd_music);
     let spawn_fireworks_id = commands.register_system(cmd_spawn_fireworks);
     let camera_zoom_id = commands.register_system(cmd_camera_zoom);
+    let checkpoint_id = commands.register_system(cmd_checkpoint);
     let cmds = runner.commands_mut();
     cmds.add_command("challenge", challenge_id);
     cmds.add_command("use_brain", use_brain_id);
@@ -658,6 +672,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("music", music_id);
     cmds.add_command("spawn_fireworks", spawn_fireworks_id);
     cmds.add_command("camera_zoom", camera_zoom_id);
+    cmds.add_command("checkpoint", checkpoint_id);
 }
 
 #[cfg(test)]

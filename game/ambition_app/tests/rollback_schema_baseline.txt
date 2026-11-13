@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v465
+ggrs-rollback-schema-v466
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -123,6 +123,7 @@ boss.limb_strike_box	component-clone-cursor	LimbStrikeBox	bevy_ggrs clone snapsh
 boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in the session checksum
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+checkpoint.authored_pending	resource-clone-custom-checksum	PendingAuthoredCheckpoint	bevy_ggrs clone snapshot + the seat of an authored checkpoint asked and not yet committed
 combat.attack_allegiance	component-canonical	AttackAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
 combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
@@ -377,6 +378,7 @@ message.capture_pummel_requested	message-clear	CapturePummelRequested	clear aban
 message.capture_throw_requested	message-clear	CaptureThrowRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.challenge_requested	message-clear	ChallengeRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.checkpoint_committed	message-clear	CheckpointCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
+message.checkpoint_establish_requested	message-clear	CheckpointEstablishRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clear_portals	message-clear	ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_reset_request	message-clear	ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_scale_request	message-clear	ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping

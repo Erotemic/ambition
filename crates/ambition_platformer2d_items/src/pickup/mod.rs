@@ -97,6 +97,27 @@ impl Plugin for ItemPickupSimulationPlugin {
                 .in_set(ItemPickupSet::CoreHeldItems)
                 .before(HeldItemStep::Release),
         );
+        // An authored checkpoint (Q164): committed where a rest is, before
+        // this tick's capture, on the tick after it was asked for, so the
+        // capture sees what the same lines applied. The hold runs after the
+        // commit, so a request waits its one tick. The hold is not gated: it
+        // is asked while a conversation holds the game, and its message
+        // would expire before the conversation let go. The commit waits for
+        // play, as the capture does.
+        app.init_resource::<ambition_shrine::PendingAuthoredCheckpoint>()
+            .add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>()
+            .add_systems(
+                sim,
+                (
+                    ambition_shrine::commit_authored_checkpoint
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
+                    ambition_shrine::hold_authored_checkpoint_requests,
+                )
+                    .chain()
+                    .in_set(ambition_shrine::ShrineRest)
+                    .in_set(ItemPickupSet::CoreHeldItems)
+                    .before(HeldItemStep::Release),
+            );
         app.add_systems(
             sim,
             // WHAT THE MATCH DROPS, before the physics that settles it —

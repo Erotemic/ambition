@@ -170,6 +170,8 @@ title: hub_guide__test
     <<jump hub_guide__test_zoom>>
 -> Command: spawn_chest
     <<jump hub_guide__test_chest>>
+-> Command: checkpoint
+    <<jump hub_guide__test_checkpoint>>
 -> Function: boss_cleared
     <<jump hub_guide__test_boss>>
 -> Function: visit_count
@@ -250,6 +252,22 @@ title: hub_guide__test_item
 Kernel Guide: Calling give_item HealthPotion 1.
 <<give_item "HealthPotion" 1>>
 Kernel Guide: Stub command. Check stderr for the trace; no item is granted yet.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_checkpoint
+---
+<<if condition("world.flag_set", "kernel_guide_banked_flag")>>
+    Kernel Guide: The banked flag is set. A death since the bank kept it, and the potion with it.
+<<else>>
+    Kernel Guide: A checkpoint said in a conversation banks what the conversation did, as one: a flag, an item and where you stand.
+<<endif>>
+-> Set the flag, take a potion and bank both.
+    <<command "world.set_flag" "kernel_guide_banked_flag" true>>
+    <<give_item "HealthPotion" 1>>
+    <<checkpoint>>
+    <<jump hub_guide__test>>
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===

@@ -1284,10 +1284,20 @@ open); after, (survey 0, both flags off, step 0, lock standing). Dialogue
 visits are not restored (Q134). A co-op death that spares a participant pins
 no facts, as before.
 
-**Next action:** (2) an
-authored dialogue effect that banks (a checkpoint action through the existing
-persistence road, one transaction with the facts and objects it moves);
-(3) in co-op, shared facts a survivor holds are not rolled back, and their
+**Built 2026-11-13 (slice 2):** `<<checkpoint>>` in Yarn banks what the
+conversation did. The command writes `CheckpointEstablishRequested` (the
+talking seat) through the narrative ledger. `PendingAuthoredCheckpoint` holds
+it, ungated, since a conversation holds the game. On the next tick of play
+`commit_authored_checkpoint` records the seat's body's place and raises
+`CheckpointCommitted` before the capture, so the one baseline takes the
+flags, the bag and the place the same lines moved. Schema 466. The Kernel
+Guide's test menu has the authored customer (`hub_guide__test_checkpoint`).
+Measured with a temporary probe in the shipped shell session: choose it,
+then die. The banked flag stays set and the potion stays in the bag (4). A
+flag written after the bank (the control) is taken back. Which story beats
+should bank is content's choice; Bob's hand-over does not.
+
+**Next action:** (3) in co-op, shared facts a survivor holds are not rolled back, and their
 objects stay consistent; (4) dialogue history (seen, per participant, Q134)
 kept apart from the world facts, so a seen marker grants nothing.
 

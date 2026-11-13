@@ -209,6 +209,8 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::PetRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::WearRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
+            // `<<checkpoint>>`: a dialogue banks what it gave (Q164).
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.
             ambition_platformer2d_shared_tangle::host_intents::HostIntentPlugin::<ambition_items::ItemUseRequested>::default(),

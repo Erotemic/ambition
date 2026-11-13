@@ -19,6 +19,7 @@ const FIXED_ARITY_COMMANDS: &[(&str, usize)] = &[
     ("play_sfx", 1),
     ("camera_zoom", 1),
     ("spawn_fireworks", 0),
+    ("checkpoint", 0),
     ("watch_cut_rope_video", 0),
     ("reset_cut_rope_room", 0),
     ("challenge", 0),

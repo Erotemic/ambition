@@ -31,6 +31,21 @@ use super::{
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointCommitted;
 
+/// Authored content asks for a checkpoint where a participant's body stands
+/// (Q164: a dialogue, its ending or a hand-over may establish one, as one
+/// transaction with the facts and objects it moved).
+///
+/// A request, not the commit: the game's checkpoint writer records where the
+/// body comes back and raises [`CheckpointCommitted`] on the next tick, before
+/// [`CheckpointCapture`], so the capture sees the flags and hand-overs the same
+/// lines asked for, which are applied after capture on the request's own tick.
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CheckpointEstablishRequested {
+    /// The seat (a `PlayerSlot`'s number) whose body the checkpoint is at;
+    /// `None` for the primary's.
+    pub seat: Option<u8>,
+}
+
 /// Put the world back to the last committed checkpoint.
 ///
 ///  this is the HORIZON RESTORE and nothing else. Not a room unload and not
@@ -239,6 +254,10 @@ where
     registrar.clear_message_on_rollback::<ResetToCheckpoint>(
         OWNER,
         "message.reset_to_checkpoint",
+    );
+    registrar.clear_message_on_rollback::<CheckpointEstablishRequested>(
+        OWNER,
+        "message.checkpoint_establish_requested",
     );
 }
 

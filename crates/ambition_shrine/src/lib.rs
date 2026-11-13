@@ -173,22 +173,7 @@ pub fn heal_save_shrine_system(
         // The resting body's room and position (see the rule above the loop). A
         // body in no room writes no checkpoint: a position with no room would be
         // applied in the wrong place.
-        if let Some(room_id) = room_set.as_ref().and_then(|rooms| {
-            rooms
-                .definition_of(subject)
-                .map(|definition| rooms.rooms().spec(definition).id.clone())
-        }) {
-            let checkpoint = ambition_persistence::save_data::PersistedCheckpoint::new(
-                room_id,
-                kin.pos.x.round() as i32,
-                kin.pos.y.round() as i32,
-            ).with_material(kin.material);
-            // Assign only on a real change, so resting twice at the same shrine does
-            // not churn the file.
-            if save.data().checkpoint() != Some(&checkpoint) {
-                save.data_mut().set_checkpoint(checkpoint);
-            }
-        }
+        record_checkpoint_at(room_set.as_ref(), &mut save, subject, kin);
         // RAISED UNCONDITIONALLY, and NOT inside the change guard above.
         // Resting twice at the same shrine writes the same position, so that guard
         // is right about the FILE and would be badly wrong about the horizon: the
@@ -212,6 +197,96 @@ pub fn heal_save_shrine_system(
             "shrine: healed to full + checkpoint recorded"
         );
     }
+}
+
+/// Record where `subject` comes back: its room and place. A body in no room
+/// records nothing: a position with no room would be applied in the wrong
+/// place. Assigned only on a real change, so a second checkpoint at the same
+/// place does not churn the file.
+fn record_checkpoint_at(
+    room_set: Option<&ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    save: &mut ambition_persistence::save::AmbitionGameSave,
+    subject: Entity,
+    kin: &BodyKinematics,
+) {
+    let Some(room_id) = room_set.and_then(|rooms| {
+        rooms
+            .definition_of(subject)
+            .map(|definition| rooms.rooms().spec(definition).id.clone())
+    }) else {
+        return;
+    };
+    let checkpoint = ambition_persistence::save_data::PersistedCheckpoint::new(
+        room_id,
+        kin.pos.x.round() as i32,
+        kin.pos.y.round() as i32,
+    )
+    .with_material(kin.material);
+    if save.data().checkpoint() != Some(&checkpoint) {
+        save.data_mut().set_checkpoint(checkpoint);
+    }
+}
+
+/// An authored checkpoint asked for and not yet committed (Q164). Rollback
+/// state: a rewind between the request and its commit must keep it.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PendingAuthoredCheckpoint {
+    /// The seat whose body it is at (`CheckpointEstablishRequested::seat`),
+    /// once asked.
+    pub asked: Option<Option<u8>>,
+}
+
+impl PendingAuthoredCheckpoint {
+    /// The checksum projection.
+    pub fn probe(&self) -> u64 {
+        match self.asked {
+            None => 0,
+            Some(None) => 1,
+            Some(Some(seat)) => 2 + u64::from(seat),
+        }
+    }
+}
+
+/// Keep an authored checkpoint request for the next tick
+/// ([`commit_authored_checkpoint`]). It arrives on the tick the same lines'
+/// flags and hand-overs are applied, which is after this tick's capture.
+pub fn hold_authored_checkpoint_requests(
+    mut requests: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>,
+    mut pending: ResMut<PendingAuthoredCheckpoint>,
+) {
+    for request in requests.read() {
+        pending.asked = Some(request.seat);
+    }
+}
+
+/// Commit the authored checkpoint held from the tick before: record where its
+/// body comes back and raise the checkpoint, before this tick's capture, as a
+/// shrine's rest does. No heal and no revival: those are the rest's.
+pub fn commit_authored_checkpoint(
+    mut pending: ResMut<PendingAuthoredCheckpoint>,
+    bodies: Query<(Entity, &BodyKinematics, &ambition_characters::control::DrivingParticipant)>,
+    primary: Query<(Entity, &BodyKinematics), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
+    room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    mut committed: Option<MessageWriter<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>>,
+) {
+    let Some(seat) = pending.asked.take() else {
+        return;
+    };
+    let subject = match seat {
+        Some(seat) => bodies
+            .iter()
+            .find(|(_, _, driver)| driver.0 == ambition_characters::control::PlayerSlot(seat))
+            .map(|(entity, kin, _)| (entity, kin)),
+        None => primary.single().ok(),
+    };
+    if let Some((entity, kin)) = subject {
+        record_checkpoint_at(room_set.as_ref(), &mut save, entity, kin);
+    }
+    if let Some(committed) = committed.as_mut() {
+        committed.write(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted);
+    }
+    bevy::log::info!(target: "ambition_platformer2d::shrine", "authored checkpoint committed");
 }
 
 #[cfg(test)]

@@ -11,5 +11,11 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {    // 
     // and never writes it — but the anchor is not about the shrine's data; it is
     // about whether GGRS reproduces the ENTITY on a resimulated timeline.
     registrar.require_rollback::<crate::HealShrine>(OWNER, "entity:heal_shrine");
+    registrar.rollback_resource_clone_checksum::<crate::PendingAuthoredCheckpoint>(
+        OWNER,
+        "checkpoint.authored_pending",
+        "the seat of an authored checkpoint asked and not yet committed",
+        crate::PendingAuthoredCheckpoint::probe,
+    );
 
 }

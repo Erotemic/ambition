@@ -273,7 +273,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // value-checksummed.
 // 464 -> 465: a death's fee and its parcels (`DeathFees`), and the parcel's
 // `ReturnedCoins` mark.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 465;
+// 465 -> 466: an authored checkpoint asked from dialogue
+// (`CheckpointEstablishRequested`, `PendingAuthoredCheckpoint`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 466;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

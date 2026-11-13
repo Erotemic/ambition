@@ -687,10 +687,16 @@
     "math_hotel_corridor_room": (),
     "math_hotel_lift_shaft": (),
     // The haunted wing uses the selected hotel prop sheets. Its wallpaper is
-    // the wall of each room: its marble ledges stand in front of it.
+    // the wall of each room: its marble ledges stand in front of it. Its
+    // frames are sampled 1 px in, so the sheet's clear gutter does not draw a
+    // line where two panels meet.
     "hylbert_spectral_gap": (),
-    "hylbert_wallpaper_panel": (backdrop: true),
+    "hylbert_wallpaper_panel": (backdrop: true, frame_sample_inset: 1),
     "hylbert_room_door": (),
+    // The haunted wing's barriers: the service lift's shut gate and the
+    // treasury's sealed grille (lock-wall looks).
+    "hylbert_lift_gate": (),
+    "hylbert_treasury_seal": (),
     "hylbert_wall_sconce": (),
     "hylbert_chandelier": (),
     "hylbert_luggage_cart": (),

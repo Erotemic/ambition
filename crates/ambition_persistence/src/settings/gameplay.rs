@@ -136,6 +136,11 @@ pub struct GameplaySettings {
     /// Damage between controlled allies in the next Ambition session.
     #[serde(default = "default_coop_friendly_fire")]
     pub coop_friendly_fire: bool,
+    /// A fallen co-op participant comes back beside a living partner in the
+    /// next Ambition session. Default OFF: it comes back at its room's
+    /// respawn point, and its room goes back when it was alone there.
+    #[serde(default)]
+    pub coop_respawn_beside_partner: bool,
     #[serde(default)]
     pub party_travel: PartyTravelMode,
     #[serde(default)]
@@ -201,6 +206,7 @@ impl Default for GameplaySettings {
             pause_input_when_unfocused: false,
             accept_local_joins: false,
             coop_friendly_fire: default_coop_friendly_fire(),
+            coop_respawn_beside_partner: false,
             party_travel: Default::default(),
             party_return: false,
             movement_frame_mode: default_movement_frame_mode(),

@@ -137,12 +137,20 @@ pub fn close_death_interlude(
     // One second seat's own recovery: it fell alone in its room while
     // another participant plays (COOP-RECOVERY).
     mut recover: Option<MessageWriter<crate::checkpoint::RecoverAtCheckpoint>>,
+    // Where the session sends a fallen participant back while a partner plays.
+    recovery: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_combat::death_rules::ParticipantRecovery,
+    >>,
 ) {
     // Nobody left in play IN THAT ROOM: the level goes back. In co-op this is
     // false while a teammate still plays the level, which is why the condition
     // is a query and not a flag on the death. A participant in another live
     // room does not hold it back, because a death is local to its room (Q151).
     let rooms_with_a_participant: Vec<_> = still_playing.iter().map(|body| rules.room_of(body)).collect();
+    // Beside a partner: while anyone plays, a fall sends no room back; the
+    // participant goes to the partner (`return_a_fallen_participant`).
+    let beside_partner = !rooms_with_a_participant.is_empty()
+        && recovery.as_deref().is_some_and(|rule| **rule == ambition_combat::death_rules::ParticipantRecovery::BesidePartner);
     // The restore and the replay put the PRIMARY body back, so only the
     // primary's room can go back this way. A second seat alone in its room
     // asks for its own recovery (`RecoverAtCheckpoint`). A participant whose
@@ -174,7 +182,8 @@ pub fn close_death_interlude(
         window.consequence_pending = false;
         if resets {
             resetting_rooms.push(room);
-            if primary.is_some_and(|primary| primary != body)
+            if !beside_partner
+                && primary.is_some_and(|primary| primary != body)
                 && !rooms_with_a_participant.is_empty()
                 && !rooms_with_a_participant.contains(&room)
             {
@@ -197,7 +206,7 @@ pub fn close_death_interlude(
             Some(primary) => goes_back(&rules.room_of(primary)),
             None => resetting_rooms.iter().any(goes_back),
         };
-    if !back {
+    if !back || beside_partner {
         return;
     }
     // ⛔⛔ ONE LIFECYCLE OPERATION, NOT TWO. This used to write BOTH

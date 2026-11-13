@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v462
+ggrs-rollback-schema-v463
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -207,6 +207,7 @@ derived.module_entity_touchers	derived	ModuleEntityTouchers	written again in eac
 derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.participant_friendly_fire	derived	ParticipantFriendlyFire	immutable session rule covered by prepared content identity
+derived.participant_recovery	derived	ParticipantRecovery	immutable session rule covered by prepared content identity
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
 derived.player_body_frame_output	derived	BodyFrameOutput	republished by body integration every simulation frame

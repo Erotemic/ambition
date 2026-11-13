@@ -357,12 +357,17 @@ fn ambition_session_world(
         || ambition_persistence::settings::UserSettings::default().gameplay.coop_friendly_fire,
         |settings| settings.gameplay.coop_friendly_fire,
     );
+    let beside_partner = settings.as_ref().is_some_and(|settings| settings.gameplay.coop_respawn_beside_partner);
     prepared_world.prepared_source().with_participant_friendly_fire(
         ambition_combat::targeting::ParticipantFriendlyFire {
             scope: ambition_platformer2d_world::scoped_rules::RulesScope::UntaggedRooms,
             enabled,
         },
-    )
+    ).with_participant_recovery(if beside_partner {
+        ambition_combat::death_rules::ParticipantRecovery::BesidePartner
+    } else {
+        ambition_combat::death_rules::ParticipantRecovery::AtRespawnPoint
+    })
 }
 
 #[cfg(test)]

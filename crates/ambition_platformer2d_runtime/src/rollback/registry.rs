@@ -268,7 +268,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 460 -> 461: a body's frame material keeps its scale and parity through a
 // checkpoint save and an admitted arrival (8f3e7ab968).
 // 461 -> 462: a cutscene beat can be a `Fall` (a scripted death).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 462;
+// 462 -> 463: the session's `ParticipantRecovery` rule (derived, immutable).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 463;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

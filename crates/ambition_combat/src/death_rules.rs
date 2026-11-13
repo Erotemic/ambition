@@ -95,6 +95,21 @@ pub enum LevelReset {
     WhenNoParticipantRemains,
 }
 
+/// Where a fallen participant comes back while a partner still plays: a
+/// session's choice, frozen when the session is prepared (the player's
+/// co-op setting, PARTNER-RECOVERY).
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[component(immutable)]
+pub enum ParticipantRecovery {
+    /// At its room's respawn point while a partner holds that room; alone in
+    /// its room, the room goes back with it (COOP-RECOVERY).
+    #[default]
+    AtRespawnPoint,
+    /// Beside a living partner, in the partner's room, and no room goes back
+    /// while anyone plays. With nobody in play it is the wipe, as before.
+    BesidePartner,
+}
+
 /// This participant's attempt is over, and the world must not act on the
 /// body.
 ///

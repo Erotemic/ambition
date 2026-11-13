@@ -137,6 +137,9 @@ pub enum SettingsOptionId {
     AcceptLocalJoins,
     /// Damage between controlled allies in the next Ambition session.
     CoopFriendlyFire,
+    /// A fallen co-op participant comes back beside a living partner in the
+    /// next Ambition session.
+    CoopRespawnBesidePartner,
     PartyTravel,
     PartyReturn,
     CoopPreset,
@@ -167,9 +170,10 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/checks/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 67] = [
+    pub const ALL: [Self; 68] = [
         Self::AcceptLocalJoins,
         Self::CoopFriendlyFire,
+        Self::CoopRespawnBesidePartner,
         Self::PartyTravel,
         Self::PartyReturn,
         Self::CoopPreset,

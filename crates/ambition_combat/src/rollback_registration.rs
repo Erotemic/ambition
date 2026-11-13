@@ -412,6 +412,11 @@ where
         "derived.participant_friendly_fire",
         "immutable session rule covered by prepared content identity",
     );
+    registrar.declare_rollback_derived_component::<crate::death_rules::ParticipantRecovery>(
+        OWNER,
+        "derived.participant_recovery",
+        "immutable session rule covered by prepared content identity",
+    );
     // CAPTURE: the relationship is state; the requests are not.
     //
     // `CapturedBy` is authoritative sim state — a rewind past a grab must undo

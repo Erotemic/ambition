@@ -1074,6 +1074,7 @@ pub fn install_direct_session_root(
         ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity(scope),
     ));
     let participant_rule = content.source().participant_friendly_fire();
+    let recovery_rule = content.source().participant_recovery();
     let root = app
         .world_mut()
         .spawn((
@@ -1085,6 +1086,9 @@ pub fn install_direct_session_root(
         ))
         .id();
     if let Some(rule) = participant_rule {
+        app.world_mut().entity_mut(root).insert(rule);
+    }
+    if let Some(rule) = recovery_rule {
         app.world_mut().entity_mut(root).insert(rule);
     }
     Ok(root)
@@ -2376,6 +2380,7 @@ impl PlatformerSessionBuilder<'_, '_> {
         }
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
         let participant_rule = prepared_content.source().participant_friendly_fire();
+        let recovery_rule = prepared_content.source().participant_recovery();
         // The authoring format's own session state, installed beside the
         // canonical bundle rather than inside it. `None` for every
         // RON-authored game, and the component is then simply ABSENT from the
@@ -2467,6 +2472,9 @@ impl PlatformerSessionBuilder<'_, '_> {
             )
             .id();
         if let Some(rule) = participant_rule {
+            self.commands.entity(world).insert(rule);
+        }
+        if let Some(rule) = recovery_rule {
             self.commands.entity(world).insert(rule);
         }
         // The candidate's live room, hidden with it.

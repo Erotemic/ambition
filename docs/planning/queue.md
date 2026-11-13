@@ -1059,11 +1059,23 @@ object.
 **Owner:** as COOP-RECOVERY, plus the settings owner. Ruling: Q153
 (2026-10-19, the later row).
 
-**Next action (after COOP-RECOVERY):** a configurable co-op policy, off by
-default, that respawns a fallen participant beside a living partner (the
-2026-10-05 return beside the primary is this policy, generalized to any
-partner). The assisted-respawn presentation and UI follow it. Teleporting while
-alive is a separate possible feature, not in this row.
+**Built 2026-11-12 (the policy):** the Gameplay setting "Respawn Beside
+Partner" (`coop_respawn_beside_partner`, off by default) is frozen into the
+next Ambition session as the session rule `ParticipantRecovery` (prepared
+content identity section `world.participant-recovery`, beside the
+friendly-fire rule). With it on, while anyone plays, a fall sends no room
+back (`close_death_interlude`) and the fallen participant comes back beside
+a partner (`return_a_fallen_participant`): at the partner's place when they
+share a room, else by a crossing into the partner's room (`NearBody`), then
+back in play there. With nobody in play it is the wipe, as before.
+Witnesses in `a_second_seat_joins_the_session`
+(`with_the_setting_a_fallen_seat_comes_back_beside_its_partner`,
+`with_the_setting_a_primary_alone_in_its_room_comes_back_beside_its_partner_next_door`);
+their controls are the default's witnesses in the same file.
+
+**Next action:** the assisted-respawn presentation (the partner's room shows
+the fallen arriving). Teleporting while alive is a separate possible
+feature, not in this row.
 
 ### DIALOGUE-CHECKPOINT — story facts and their objects share one horizon
 

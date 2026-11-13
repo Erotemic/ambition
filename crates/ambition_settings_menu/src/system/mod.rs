@@ -565,6 +565,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::AimFrameMode,
             SettingsOptionId::AcceptLocalJoins,
             SettingsOptionId::CoopFriendlyFire,
+            SettingsOptionId::CoopRespawnBesidePartner,
             SettingsOptionId::CoopPreset,
             SettingsOptionId::PartyTravel,
             SettingsOptionId::PartyReturn,

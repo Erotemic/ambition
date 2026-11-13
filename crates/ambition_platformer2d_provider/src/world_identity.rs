@@ -12,6 +12,12 @@ pub(crate) fn add_world_fingerprint_sections(
         builder.add_section("world.participant-damage", canonical.into_bytes())
             .map_err(|error| ContentDiagnostic::new("world.participant-damage", error.to_string()))?;
     }
+    if let Some(rule) = source.participant_recovery() {
+        let canonical = ron::ser::to_string(&rule)
+            .map_err(|error| ContentDiagnostic::new("world.participant-recovery", error.to_string()))?;
+        builder.add_section("world.participant-recovery", canonical.into_bytes())
+            .map_err(|error| ContentDiagnostic::new("world.participant-recovery", error.to_string()))?;
+    }
     let mut rooms = source.room_set().rooms.clone();
     rooms.sort_by(|a, b| a.id.cmp(&b.id));
     let rooms = ron::ser::to_string(&rooms).map_err(|error| {

@@ -59,6 +59,7 @@ pub struct PreparedPlatformerSource {
     /// [`HomeBodyAbilities`].
     home_body_abilities: HomeBodyAbilities,
     participant_friendly_fire: Option<ambition_combat::targeting::ParticipantFriendlyFire>,
+    participant_recovery: Option<ambition_combat::death_rules::ParticipantRecovery>,
     /// The active-area index an authoring FORMAT installed, if any. `None`
     /// for every RON-authored game, which is what makes this optional rather
     /// than a field they fill with an empty value — see the module header.
@@ -82,6 +83,7 @@ impl PreparedPlatformerSource {
             home_body_resources: HomeBodyResources::default(),
             home_body_abilities: HomeBodyAbilities::default(),
             participant_friendly_fire: None,
+            participant_recovery: None,
             starting_character,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
@@ -116,6 +118,7 @@ impl PreparedPlatformerSource {
             home_body_resources: HomeBodyResources::default(),
             home_body_abilities: HomeBodyAbilities::default(),
             participant_friendly_fire: None,
+            participant_recovery: None,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
         }
@@ -162,6 +165,17 @@ impl PreparedPlatformerSource {
 
     pub fn participant_friendly_fire(&self) -> Option<ambition_combat::targeting::ParticipantFriendlyFire> {
         self.participant_friendly_fire
+    }
+
+    /// Freeze where the session's fallen participants come back while a
+    /// partner plays.
+    pub fn with_participant_recovery(mut self, rule: ambition_combat::death_rules::ParticipantRecovery) -> Self {
+        self.participant_recovery = Some(rule);
+        self
+    }
+
+    pub fn participant_recovery(&self) -> Option<ambition_combat::death_rules::ParticipantRecovery> {
+        self.participant_recovery
     }
 
     pub fn catalogs(&self) -> &PlatformerSessionCatalogs {
@@ -218,6 +232,7 @@ impl PreparedPlatformerSource {
             home_body_resources: self.home_body_resources.clone(),
             home_body_abilities: self.home_body_abilities,
             participant_friendly_fire: self.participant_friendly_fire,
+            participant_recovery: self.participant_recovery,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: self.installed_ldtk_index.clone(),
         }

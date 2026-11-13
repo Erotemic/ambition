@@ -381,9 +381,22 @@ pub fn return_the_replay_subject_to_spawn(
 /// every live room but the primary's, and a seat body is the session's) moves
 /// into the primary's room at once, with what it holds, rides or wears
 /// (`custody_closure`, the rule a crossing uses).
+///
+/// A session that chose [`ParticipantRecovery::BesidePartner`]
+/// (PARTNER-RECOVERY) brings a fallen participant back beside a partner in
+/// play: at the partner's place when they share a room, else by a crossing
+/// into the partner's room (a crossing, so the room it leaves retires when
+/// nobody else holds it), after which it comes back there on a later tick.
+///
+/// [`ParticipantRecovery::BesidePartner`]: ambition_combat::death_rules::ParticipantRecovery::BesidePartner
 #[allow(clippy::too_many_arguments)]
 pub fn return_a_fallen_participant(
     mut commands: Commands,
+    recovery: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_combat::death_rules::ParticipantRecovery,
+    >>,
+    mut pending: ResMut<ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit>,
+    boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
@@ -406,6 +419,8 @@ pub fn return_a_fallen_participant(
             &mut ambition_characters::actor::BodyCombat,
             Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
             Option<&mut ambition_characters::actor::BodyHealth>,
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
@@ -413,15 +428,20 @@ pub fn return_a_fallen_participant(
     // Who plays on, and where; and the primary, if it is in play.
     let mut held_rooms = Vec::new();
     let mut primary_in_play = None;
-    for (_, _, out_of_play, is_primary, room, cluster, ..) in &players {
+    let mut partners = Vec::new();
+    for (body, _, out_of_play, is_primary, room, cluster, _, _, _, _, _, sim_id, _) in &players {
         if out_of_play {
             continue;
         }
         held_rooms.push(room.copied());
+        partners.push((body, cluster.kinematics.pos, room.copied(), sim_id.cloned()));
         if is_primary {
             primary_in_play = Some((cluster.kinematics.pos, room.copied()));
         }
     }
+    let beside_partner = recovery
+        .as_deref()
+        .is_some_and(|rule| **rule == ambition_combat::death_rules::ParticipantRecovery::BesidePartner);
     let live: Vec<_> = live_roots.iter().copied().collect();
     let edges: Vec<(Entity, Entity)> = custody.iter().map(|(entity, held)| (entity, held.custodian)).collect();
     // Where a body that comes back in `room` stands.
@@ -445,6 +465,8 @@ pub fn return_a_fallen_participant(
         mut combat,
         safety,
         health,
+        sim_id,
+        driver,
     ) in &mut players
     {
         let fallen = out_of_play && window.is_some_and(|window| !window.open() && !window.consequence_pending);
@@ -453,7 +475,48 @@ pub fn return_a_fallen_participant(
             continue;
         }
         let shared = fallen && room.is_some_and(|room| held_rooms.contains(&Some(*room)));
-        let at = if shared {
+        // Beside a partner: the first in play in its own room, else the first
+        // in play anywhere (the order is the query's, the same on every peer).
+        let partner = (fallen && beside_partner)
+            .then(|| {
+                partners.iter().find(|(other, _, other_room, _)| *other != body && *other_room == room.copied())
+                    .or_else(|| partners.iter().find(|(other, ..)| *other != body))
+            })
+            .flatten();
+        if let (Some((_, _, Some(partner_room), Some(partner_id))), false) = (partner, shared) {
+            // Into the partner's room first. Refused while another operation
+            // holds the slot: asked again on a later tick, out of play.
+            let target = rooms.as_ref().and_then(|rooms| {
+                rooms.definition_in(partner_room.0).map(|definition| rooms.rooms().spec(definition).id.clone())
+            });
+            if let (Some(target_room), Some(sim_id), Some(room), true) = (target, sim_id, room, pending.peek().is_none()) {
+                use ambition_platformer2d_session::lifecycle_commit as commit;
+                let _ = pending.record(
+                    boundary.as_deref().map_or(0, |boundary| boundary.current),
+                    commit::LifecycleIntent::Transition(commit::RoomTransitionIntent {
+                        disposition: Default::default(),
+                        source_zone: None,
+                        initiator: commit::RoomBodyTransfer {
+                            requirement: commit::BodyTransferRequirement::Present,
+                            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), Some(room.0)),
+                            arrival: commit::RoomArrival::NearBody(
+                                ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(partner_id.clone(), Some(partner_room.0)),
+                            ),
+                            participant: driver.map(|driver| driver.0),
+                        },
+                        companions: Vec::new(),
+                        target_room,
+                        edge_exit: false,
+                        zone_sfx: None,
+                    }),
+                );
+            }
+            continue;
+        }
+        let at = if let (true, Some((_, partner_at, ..))) = (shared, partner) {
+            // Beside the partner it shares the room with.
+            *partner_at
+        } else if shared {
             // Alone, in its own room, which goes on as it is.
             let Some(at) = room.copied().and_then(respawn_in) else { continue };
             at

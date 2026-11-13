@@ -467,6 +467,13 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 "Allow co-op partners to hurt each other. Applies to the next session.",
             ),
             toggle(
+                SettingsOptionId::CoopRespawnBesidePartner,
+                "Respawn Beside Partner",
+                g.coop_respawn_beside_partner,
+                "A fallen co-op player comes back beside a partner who is still playing. \
+                 Off: at the room's respawn point. Applies to the next session.",
+            ),
+            toggle(
                 SettingsOptionId::AcceptLocalJoins,
                 "Accept Second Player",
                 g.accept_local_joins,

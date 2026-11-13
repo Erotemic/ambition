@@ -206,6 +206,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         }
         SettingsOptionId::AcceptLocalJoins => tog!(settings.gameplay.accept_local_joins),
         SettingsOptionId::CoopFriendlyFire => tog!(settings.gameplay.coop_friendly_fire),
+        SettingsOptionId::CoopRespawnBesidePartner => tog!(settings.gameplay.coop_respawn_beside_partner),
         SettingsOptionId::PartyTravel => {
             use ambition_persistence::settings::gameplay::PartyTravelMode;
             cyc!(settings.gameplay.party_travel, PartyTravelMode)

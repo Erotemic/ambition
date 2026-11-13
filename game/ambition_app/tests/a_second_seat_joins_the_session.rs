@@ -753,3 +753,86 @@ fn start_does_not_readmit_a_participant_without_a_current_body_assignment() {
     assert_eq!(count, 1, "Start must not construct another home body for an admitted participant");
     assert!(ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionParticipants>(world).unwrap().contains(PlayerSlot(SEAT)));
 }
+
+/// A session prepared with the co-op setting "Respawn Beside Partner"
+/// (PARTNER-RECOVERY), booted in `room`.
+fn beside_partner_in(room: &str) -> Platformer2dSimHarness {
+    let mut sim = Platformer2dSimHarness::build(crate::common::fixed_60hz_room_options(room), |app, options| {
+        let mut settings = ambition_platformer2d::persistence::settings::UserSettings::default();
+        settings.gameplay.coop_respawn_beside_partner = true;
+        app.insert_resource(settings);
+        ambition_app::rl_sim::ambition_sim_composition(app, options)
+    })
+    .expect("the configured session prepares");
+    sim.step_n(AgentAction::default(), 10);
+    sim
+}
+
+fn latest_restore(sim: &Platformer2dSimHarness) -> Option<ambition_platformer2d::session::checkpoint::CheckpointRestoreOutcome> {
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
+        .latest()
+        .cloned()
+}
+
+/// PARTNER-RECOVERY, ONE ROOM. With the setting on, seat 1 falls in the
+/// primary's room after the two walked apart, and comes back where the
+/// primary stands, not at the room's spawn (the default's answer,
+/// `a_second_seat_that_dies_beside_the_primary_comes_back_at_the_rooms_spawn`).
+/// No restore is asked for.
+#[test]
+fn with_the_setting_a_fallen_seat_comes_back_beside_its_partner() {
+    let mut sim = beside_partner_in(ROOM);
+    let primary = the_primary(&mut sim);
+    let spawn = place_of(&sim, primary);
+    let body = seat_one_joins(&mut sim);
+    for _ in 0..40 {
+        sim.drive_seat(SEAT, ControlFrame { axis_x: 1.0, ..ControlFrame::default() });
+        sim.step(AgentAction::default());
+    }
+    sim.drive_seat(SEAT, ControlFrame::default());
+    sim.step_n(AgentAction { move_x: -1.0, ..AgentAction::default() }, 40);
+    sim.step_n(AgentAction::default(), 10);
+    let primary_at = place_of(&sim, primary);
+    assert!((primary_at.0 - spawn.0).abs() > 24, "precondition: the primary walked away from the spawn");
+    assert!((place_of(&sim, body).0 - primary_at.0).abs() > 48, "precondition: seat 1 is away from the primary");
+    let before = latest_restore(&sim);
+    die(&mut sim, body);
+    let at = place_of(&sim, body);
+    assert!(
+        (at.0 - primary_at.0).abs() <= 8 && (at.1 - primary_at.1).abs() <= 24,
+        "seat 1 came back at {at:?}, not beside the primary at {primary_at:?}"
+    );
+    assert_eq!(room_of(&sim, body), room_of(&sim, primary));
+    assert_eq!(latest_restore(&sim), before, "seat 1's fall beside a partner sent a room back");
+}
+
+/// PARTNER-RECOVERY, TWO ROOMS. With the setting on, seat 1 goes through the
+/// door to the hub and the primary falls alone in the room it left. Its room
+/// does not go back (the default's answer: it does,
+/// `a_primary_that_falls_beside_a_seat_comes_back_alone_and_its_room_goes_on`);
+/// the primary crosses into seat 1's room and comes back in play beside it.
+#[test]
+fn with_the_setting_a_primary_alone_in_its_room_comes_back_beside_its_partner_next_door() {
+    let mut sim = beside_partner_in(ROOM);
+    let primary = the_primary(&mut sim);
+    let body = seat_one_joins(&mut sim);
+    sim.step_n(AgentAction::default(), 5);
+    assert!(seat_one_goes_through_the_door(&mut sim, body, ROOM, HUB), "seat 1 did not cross to the hub");
+    assert_ne!(room_of(&sim, body), room_of(&sim, primary), "precondition: seat 1 is next door");
+    let before = latest_restore(&sim);
+    kill(&mut sim, primary);
+    let mut back = None;
+    for frame in 0..600 {
+        sim.step(AgentAction::default());
+        if !out_of_play(&sim, primary) {
+            back = Some(frame);
+            break;
+        }
+    }
+    assert!(back.is_some(), "the primary never came back into play");
+    assert_eq!(room_of(&sim, primary), room_of(&sim, body), "the primary came back in another room than its partner");
+    let (at, partner) = (place_of(&sim, primary), place_of(&sim, body));
+    assert!((at.0 - partner.0).abs() <= 96 && (at.1 - partner.1).abs() <= 64, "the primary came back at {at:?}, far from seat 1 at {partner:?}");
+    assert_eq!(latest_restore(&sim), before, "the primary's fall sent its room back though a partner plays next door");
+}

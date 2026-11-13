@@ -912,7 +912,10 @@ and the encore by both arms up. The moves are classified in
 `boss_seeds.ron`, with three bands widened to what they measure. The
 validator's pin holds at 3 errors and 5 warnings, the other bosses'.
 Full Stack has two more band rows: `solo` while he holds his beat between
-phases, and `outro` once he is down.
+phases, and `outro` once he is down. Jon (2026-11-13): the stage camera
+was far too wide, so its zoom is now 1.4 (about 430 units high), down from
+2.6. The Boss holds no pen: it is the Director's sword in Smash (renderer
+302b54c, map 8743626).
 
 **Next action:** play it in a window and tune; his own anthem when a music registry is
 at hand; the later-work list in the design page.

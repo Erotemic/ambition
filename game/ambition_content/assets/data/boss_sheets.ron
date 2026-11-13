@@ -153,14 +153,14 @@
     ),
     // The bossofthegame, the final boss: the sheet `bossofthegame_boss`, the
     // Director's own drawing and moves with a keyboard slung on a strap
-    // (232x175 frames). The frame is drawn 96 px of basis (the stage's 54x96
-    // BossSpawn) x 1.48 = 142 world units tall, so his authored body (32x124
-    // px) is about 26x101. Centred on his body, as GNU-ton is: he rides.
+    // and a microphone, and no pen (167x157 frames). The body is drawn at
+    // 96 px of basis (the stage's 54x96 BossSpawn) x 1.48, so his authored
+    // body (32x124 px) is about 26x101. Centred on his body, as GNU-ton is: he rides.
     // `Death` is him going down.
     "bossofthegame": (
         label_width: 100,
-        frame_width: 232,
-        frame_height: 175,
+        frame_width: 167,
+        frame_height: 157,
         rows: [
             (Rest, (
                 frame_count: 10,

@@ -129,6 +129,23 @@
       "twinkle_rate": 2.7,
       "front": 0.4
     },
+    "boss_stage": {
+      "count": 30,
+      "velocity": [
+        3.0,
+        18.0
+      ],
+      "wander": 16.0,
+      "wander_rate": 0.6,
+      "size": [
+        2.2,
+        4.0
+      ],
+      "alpha": 0.85,
+      "twinkle": 0.7,
+      "twinkle_rate": 2.4,
+      "front": 0.4
+    },
     "cave": {
       "count": 26,
       "velocity": [

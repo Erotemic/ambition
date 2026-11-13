@@ -2741,9 +2741,10 @@
             locomotion: Some((run_speed: 0.0, move_style: WalkHeavy, balance: Some(()))),
             mount: Some((
                 class: Some("giant"),
-                // The Boss stands right of the middle of its top, so a player
-                // who comes up the guitar lands on his left.
-                saddle: Some((60.0, -240.0)),
+                // The Boss stands on its right shoulder, beside its robot's
+                // head (the head is over the middle of its top, ±100 with its
+                // ears), so a player who comes up the guitar lands on his left.
+                saddle: Some((140.0, -240.0)),
                 // Its top, from shoulder to shoulder, is its back and ground.
                 back: Some((left: -200.0, right: 200.0, top: -240.0, thickness: 14.0)),
                 ledges: [

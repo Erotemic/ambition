@@ -95,6 +95,8 @@ const WAVES: usize = 4;
 const PUNCH_PAIR_SLOT: u32 = 0;
 /// The slot of the well's pair of portals (`ch::space::well_portals`).
 const WELL_PAIR_SLOT: u32 = 1;
+/// The slots of the apple rain's catching pairs (`ch::catch`).
+const CATCH_PAIR_SLOTS: [u32; 2] = [2, 3];
 const INK: [f32; 4] = [1.0, 0.86, 0.45, 0.95];
 const WARNING: [f32; 4] = [1.0, 0.42, 0.25, 1.0];
 const GOLD: [f32; 4] = [1.0, 0.84, 0.2, 1.0];
@@ -879,6 +881,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         // A tick with no time keeps what is open: a pair or a line that is
         // not asked for in a tick is closed.
         hold_punch_pair(inv, &c)?;
+        hold_catching_pairs(inv, &c, &giant, 0.0)?;
         if !scholar.alive {
             return Ok(());
         }
@@ -2004,6 +2007,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
     hold_punch_pair(inv, &c)?;
+    hold_catching_pairs(inv, &c, &giant, dt)?;
     hold_look_lines(inv, &c)?;
     bond_fists(inv, &c, &giant)?;
     c.store(inv)
@@ -2091,6 +2095,55 @@ fn hold_punch_pair(inv: &mut Invocation<'_>, c: &Conductor) -> Result<(), Fault>
         looks: [24, 25],
         closes_on_use: false,
     })
+}
+
+/// The apple rain's catching pairs (`ch::catch`): open from its telegraph
+/// until the last apples have fallen, each a mouth in the floor and one in
+/// the air over where the player stood when the rain was called. A pair
+/// whose floor mouth the giant has walked over is not asked for: it would
+/// take him.
+fn hold_catching_pairs(inv: &mut Invocation<'_>, c: &Conductor, giant: &MountView, dt: f32) -> Result<(), Fault> {
+    use ch::catch;
+    let Some(part) = c.part() else {
+        return Ok(());
+    };
+    let open = match part.mv {
+        Move::AppleRain if part.striking => catch::open(None, true, None),
+        Move::AppleRain => catch::open(Some(part.t), false, None),
+        Move::Eureka => catch::open(None, false, Some(part.t)),
+        _ => 0.0,
+    };
+    if open <= 0.0 || !c.hall_known {
+        return Ok(());
+    }
+    let hall = Hall { floor: c.hall_floor, left: c.hall_left, right: c.hall_right };
+    let giant_x = giant.position[0];
+    let giant_half = giant.size[0] * 0.5;
+    let aim = c.latch().aim;
+    let opening = part.mv == Move::AppleRain && !part.striking && part.t <= dt;
+    let half = catch::HALF * open;
+    for (slot, (floor_x, air_x)) in
+        CATCH_PAIR_SLOTS.into_iter().zip(catch::pairs(hall, aim.x, giant_x, giant_half))
+    {
+        if (floor_x - giant_x).abs() < giant_half + catch::HALF {
+            continue;
+        }
+        let floor = Vec2::new(floor_x, hall.floor);
+        let air = Vec2::new(air_x, hall.floor - catch::OVER_FLOOR);
+        if opening {
+            play(inv, SFX_PORTAL_OPEN, floor)?;
+        }
+        let end = |at: Vec2, normal: [f32; 2]| PortalEnd { at: a(at), normal, half_length: half, half_thickness: None };
+        inv.submit::<HeldPortalPairPort>(HeldPortalPair {
+            slot,
+            // The floor's room side is up, the air's is down: an apple that
+            // falls into the one falls on out of the other.
+            ends: [end(floor, [0.0, -1.0]), end(air, [0.0, 1.0])],
+            looks: [24, 25],
+            closes_on_use: false,
+        })?;
+    }
+    Ok(())
 }
 
 /// Phase 3 (`ch::space`): the launch in the beat before the enrage, and the

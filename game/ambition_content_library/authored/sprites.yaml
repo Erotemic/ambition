@@ -1084,6 +1084,9 @@ collections:
   - orchard_hanging_tree
   - orchard_swing_rail
   - orchard_crates
+  - shoulders_apple_tree_west
+  - shoulders_apple_tree_middle
+  - shoulders_apple_tree_east
   - hall_cradle
   - hall_lectern
   - gallery_chandelier_hung

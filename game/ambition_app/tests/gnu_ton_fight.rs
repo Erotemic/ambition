@@ -1443,6 +1443,87 @@ fn eureka_puts_him_on_the_floor_and_he_climbs_back() {
     });
 }
 
+/// APPLE-PORTALS (Jon, 2026-11-12): in the apple rain he holds pairs of
+/// portals, a mouth in the floor and one in the air over the player. An apple
+/// that falls into the floor comes out of the air, still falling as fast as it
+/// went in, and hurts as it did.
+#[test]
+fn an_apple_that_falls_into_a_floor_mouth_falls_out_over_the_player_and_hurts() {
+    use ambition_platformer2d::projectiles::ProjectileVisualId;
+    use ambition_platformer2d::platformer::projectile::ProjectileGameplay;
+    use std::collections::HashMap;
+
+    fn apples(sim: &mut Platformer2dSimHarness) -> HashMap<Entity, (ae::Vec2, ae::Vec2, i32)> {
+        let world = sim.world_mut();
+        world
+            .query::<(Entity, &ProjectileVisualId, &ae::BodyKinematics, &ProjectileGameplay)>()
+            .iter(world)
+            .filter(|(_, id, ..)| id.as_str() == "apple")
+            .map(|(entity, _, kin, gameplay)| (entity, (kin.pos, kin.vel, gameplay.damage)))
+            .collect()
+    }
+
+    let mut sim = arena_with_free_fists();
+    untouchable_player(&mut sim);
+    scholar_health_to(&mut sim, 0.45);
+    let floor = scene(&mut sim).floor;
+    // Open floor, with no ledge over it: the one-way ledge over x 176..336
+    // catches whatever falls there.
+    place_player(&mut sim, ae::Vec2::new(560.0, 1200.0));
+    let mut before = apples(&mut sim);
+    let mut seen = 0usize;
+    let mut through = None;
+    for _ in 0..3000 {
+        sim.step(AgentAction::default());
+        let now = apples(&mut sim);
+        seen += now.keys().filter(|apple| !before.contains_key(apple)).count();
+        through = now.iter().find_map(|(apple, &(pos, vel, damage))| {
+            let (was, was_vel, was_damage) = *before.get(apple)?;
+            // Out of the air mouth: far over where it was a tick ago.
+            (pos.y < was.y - 200.0).then_some((*apple, was, was_vel, was_damage, pos, vel, damage))
+        });
+        before = now;
+        if through.is_some() {
+            break;
+        }
+    }
+    let Some((apple, was, was_vel, was_damage, pos, vel, damage)) = through else {
+        panic!("no apple of {seen} came out of a catching portal; last scene: {:?}", scene(&mut sim));
+    };
+    assert!(
+        (was.y - floor).abs() < 60.0 && floor - pos.y > 300.0,
+        "the apple went into the floor at {was:?} (floor {floor}) and came out of the air at {pos:?}"
+    );
+    assert!(
+        vel.y > 0.0 && (vel.length() - was_vel.length()).abs() < was_vel.length() * 0.1,
+        "the apple went in at {was_vel:?} and came out at {vel:?}: its momentum is carried"
+    );
+    assert_eq!(damage, was_damage, "the apple hurts as it did");
+
+    // Put the player just under it, touchable: it falls on them and hurts.
+    touchable_player(&mut sim);
+    let (kin, health) = player(&mut sim);
+    let now = apples(&mut sim)[&apple].0;
+    place_player(&mut sim, now + ae::Vec2::new(0.0, kin.size().y * 0.5 + 40.0));
+    // The hit is read in the tick after the apple is spent on the body.
+    let mut gone_for = 0;
+    let mut hurt = false;
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+        if player(&mut sim).1 < health {
+            hurt = true;
+            break;
+        }
+        if !apples(&mut sim).contains_key(&apple) {
+            gone_for += 1;
+            if gone_for > 4 {
+                break;
+            }
+        }
+    }
+    assert!(hurt, "the apple that came out of the portal fell on the player at x {} and did not hurt", pos.x);
+}
+
 /// The scholar turns to face you; the gnu under him has no left/right variant,
 /// so nothing of it moves when he does.
 ///

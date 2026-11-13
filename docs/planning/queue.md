@@ -1035,11 +1035,19 @@ Request (Jon, 2026-11-12, polish): space apple trees with apples on them;
 for apple rain, GNU-ton summons portals on the ground that catch the falling
 apples, which fall out of the portal's other end.
 
-**Next action:** after the portal work in flight: the tree art and the
-apple-rain phase opening portal pairs under the falling apples.
+**Built.** In the apple rain he holds two catching pairs (`ch::catch`,
+`hold_catching_pairs`): each is a mouth in the floor and one in the air,
+one over where the player stood when the rain was called and one beside it,
+clear of the giant. They open over the telegraph and close after the last
+apples have fallen. A floor mouth is never under the giant, where the
+scholar lands for eureka, or under an air mouth. Three space apple trees,
+each on a rock moored to the ceiling, hang over the arena
+(`shoulders_apple_tree_*`, `gnu_ton_shoulders` only; the Hall of Bosses'
+copy `gnu_ton_arena` has no generator and is unchanged). Witness:
+`gnu_ton_fight::an_apple_that_falls_into_a_floor_mouth_falls_out_over_the_player_and_hurts`.
 
-**Acceptance:** an apple that falls into a ground portal comes out of its
-partner with its momentum carried, and hurts as it did.
+**Acceptance (met):** an apple that falls into a ground portal comes out of
+its partner with its momentum carried, and hurts as it did.
 
 ### MATH-POLISH — the hotel's spectral wing, the service lift, the reaper's wall and the mites
 

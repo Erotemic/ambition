@@ -509,6 +509,91 @@ pub fn shake_the_tree(stage: &Stage, latch: &Latch, fist: Fist, t: f32) -> Pose 
     Pose::idle(arrive(latch.from[fist.index()], up, t, 0.4) + shake)
 }
 
+/// The catching portals of the apple rain: each pair is a mouth in the floor
+/// and a mouth in the air, one right over where the player stood when the
+/// rain was called and one beside it, clear of the giant. An apple
+/// that misses falls into the floor and out over the player, as fast as it
+/// went in.
+pub mod catch {
+    use super::*;
+
+    /// Half the length of each mouth.
+    pub const HALF: f32 = 96.0;
+    /// How far over the floor the air mouths are.
+    pub const OVER_FLOOR: f32 = 540.0;
+    /// The telegraph opens them over this long.
+    pub const OPEN_EASE: f32 = 0.5;
+    /// After the rain they stay open this long, for the apples still falling,
+    /// and close over `CLOSE_EASE`.
+    pub const LINGER: f32 = 1.7;
+    pub const CLOSE_EASE: f32 = 0.4;
+    /// Room left beside the giant for the scholar's eureka landing, and
+    /// between two mouths.
+    pub const BESIDE_GIANT: f32 = 110.0;
+    pub const GAP: f32 = 40.0;
+    /// The places along the floor a floor mouth is chosen from.
+    const PLACES: usize = 64;
+
+    /// The pairs of the rain in `hall`, each as (floor mouth, air mouth) by
+    /// its middle's x: the floor mouths as far from `aim_x` as the hall lets
+    /// them be, never under the giant (whose body spans `giant_x ± giant_half`)
+    /// nor where the scholar lands beside it, and never under an air mouth.
+    /// An apple that comes out of the air would otherwise fall back in.
+    pub fn pairs(hall: Hall, aim_x: f32, giant_x: f32, giant_half: f32) -> Vec<(f32, f32)> {
+        let lo = hall.left + HALF;
+        let hi = (hall.right - HALF).max(lo);
+        let over = aim_x.clamp(lo, hi);
+        let step = HALF * 2.0 + GAP;
+        // The other air mouth is beside it, on the side away from the giant:
+        // an apple out of the air over the giant's back falls on the giant.
+        let away = if over < giant_x { -step } else { step };
+        let beside = [over + away, over - away]
+            .into_iter()
+            .find(|&x| (lo..=hi).contains(&x) && (x - giant_x).abs() >= giant_half + HALF);
+        let airs = match beside {
+            Some(x) => vec![over.min(x), over.max(x)],
+            None => vec![over],
+        };
+        let clear = |x: f32| {
+            (x - giant_x).abs() >= giant_half + BESIDE_GIANT + HALF
+                && airs.iter().all(|air| (x - air).abs() >= HALF * 2.0 + GAP)
+        };
+        let mut places: Vec<f32> = (0..PLACES)
+            .map(|i| lo + (hi - lo) * i as f32 / (PLACES - 1) as f32)
+            .filter(|&x| clear(x))
+            .collect();
+        // The farthest first; a tie goes to the left, so the choice is the
+        // same on every peer.
+        places.sort_by(|a, b| (b - aim_x).abs().total_cmp(&(a - aim_x).abs()).then(a.total_cmp(b)));
+        let mut floors: Vec<f32> = Vec::new();
+        for x in places {
+            if floors.len() == airs.len() {
+                break;
+            }
+            if floors.iter().all(|f| (x - f).abs() >= HALF * 2.0 + GAP) {
+                floors.push(x);
+            }
+        }
+        floors.sort_by(f32::total_cmp);
+        // One floor mouth sends its apples down over the player's place.
+        let airs = if floors.len() == 1 { &[over][..] } else { &airs[..] };
+        floors.into_iter().zip(airs.iter().copied()).collect()
+    }
+
+    /// How open the pairs are: they open over the rain's telegraph, stay
+    /// open through it, and close after it (`since_rain` seconds into the
+    /// eureka that follows).
+    pub fn open(telegraph_t: Option<f32>, raining: bool, since_rain: Option<f32>) -> f32 {
+        if raining {
+            return 1.0;
+        }
+        if let Some(t) = telegraph_t {
+            return ease(t / OPEN_EASE);
+        }
+        since_rain.map_or(0.0, |t| 1.0 - ease((t - LINGER) / CLOSE_EASE))
+    }
+}
+
 /// What each body is DRAWN as through the fight: the named sheet rows the
 /// conductor pins (`PinnedRow`). `None` is "whatever the body is doing".
 pub mod rows {
@@ -2351,6 +2436,29 @@ pub fn perform(stage: &Stage, latch: &Latch, fist: Fist, cue: &Cue) -> Pose {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_rains_catching_mouths_never_feed_one_another_or_the_giant() {
+        use super::catch::{pairs, HALF};
+        let hall = Hall { floor: 1248.0, left: 16.0, right: 1776.0 };
+        let (giant_x, giant_half) = (896.0, 315.0);
+        for aim in [40.0, 300.0, 560.0, 1300.0, 1500.0, 1760.0] {
+            let found = pairs(hall, aim, giant_x, giant_half);
+            assert!(!found.is_empty(), "no pair for a player at {aim}");
+            // Beside a 630-wide giant in the middle of the hall, a player by a
+            // wall has both pairs; one by the giant has room for one air mouth.
+            if !(100.0..1700.0).contains(&aim) {
+                assert_eq!(found.len(), 2, "the pairs for a player at {aim}: {found:?}");
+            }
+            assert!(found.iter().any(|&(_, air)| (air - aim.clamp(112.0, 1680.0)).abs() < 1e-3), "none over {aim}");
+            for &(floor, _) in &found {
+                assert!((floor - giant_x).abs() >= giant_half + HALF, "a floor mouth at {floor} is under the giant");
+                for &(_, air) in &found {
+                    assert!((floor - air).abs() >= HALF * 2.0, "the air mouth at {air} is over the floor's at {floor}");
+                }
+            }
+        }
+    }
+
     use super::*;
 
     fn stage() -> Stage {

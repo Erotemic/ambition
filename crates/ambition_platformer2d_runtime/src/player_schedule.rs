@@ -386,6 +386,19 @@ impl Plugin for PlayerSchedulePlugin {
                 .chain()
                 .in_set(PlayerSimulationSet::Outcome),
         );
+        // A death drawn (PLAYER-DEATH): after the window opens, so it reads the
+        // same death message the window did; the arrival once the restart has
+        // taken `OutOfPlay` off.
+        app.add_systems(
+            sim,
+            (
+                crate::death_look::draw_death_departures
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::death_rules::ActorDiedMessage>)
+                    .after(ambition_platformer2d_session::death::open_death_interlude),
+                crate::death_look::draw_death_arrivals,
+            )
+                .in_set(PlayerSimulationSet::Outcome),
+        );
         // Close the death interlude next frame immediately before replay consumption.
         // `RoomReplayRequested` is cleared on rollback, so request production and consumption
         // must share a resimulated frame and be derived only from snapshot state. The death

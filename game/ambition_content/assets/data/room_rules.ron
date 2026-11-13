@@ -1,8 +1,15 @@
 // The rules of Ambition's own rooms (schema `room_rules`).
 // An absent field declares no rule, and the engine's answer applies.
 (
-    // A death puts the level back at once when no participant remains.
-    replay_level_after_death_s: Some(0.0),
+    // A death holds for its beat, then the level goes back when no
+    // participant remains (Jon, 2026-11-12: "We need there to be presentation
+    // of the players death"). Long enough for the death row and the rescue's
+    // effect to read; Mary-O's beat is the length of her death music.
+    replay_level_after_death_s: Some(1.0),
+    // The rescue (Q174's default: "You're too valuable to be destroyed"): the
+    // body is taken away in a dissolve of code where it fell, and assembles
+    // where it comes back.
+    death_look: Some((departure: "digital_departure", arrival: "digital_arrival")),
     // A participant that falls while a partner plays waits this long before
     // it comes back, so a partner who falls in that time makes a full-party
     // wipe (COOP-RECOVERY). Alone, it comes back at once.

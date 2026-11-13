@@ -83,7 +83,7 @@ pub mod detonate;
 pub mod worn_kit;
 
 pub use components::*;
-pub use death_rules::{DeathInterlude, DeathRules, KillBeat, LevelReset, OutOfPlay};
+pub use death_rules::{DeathInterlude, DeathLook, DeathRules, KillBeat, LevelReset, OutOfPlay};
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in

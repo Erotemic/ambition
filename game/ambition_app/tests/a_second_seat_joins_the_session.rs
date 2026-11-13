@@ -419,8 +419,9 @@ fn a_primary_that_falls_beside_a_seat_comes_back_alone_and_its_room_goes_on() {
     let seat_at = place_of(&sim, body);
     let before = outcome(&sim);
     kill(&mut sim, primary);
-    // Ambition's declared wait while a partner plays (`recovery_wait_s`, 2 s).
-    sim.step_n(AgentAction::default(), 100);
+    // Ambition's death beat (1 s) and its declared wait while a partner plays
+    // (`recovery_wait_s`, 2 s).
+    sim.step_n(AgentAction::default(), 160);
     assert!(out_of_play(&sim, primary), "control: the primary waits while seat 1 plays");
     sim.step_n(AgentAction::default(), 40);
     assert!(!out_of_play(&sim, primary), "the primary fell beside seat 1 and is still out of play");

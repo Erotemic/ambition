@@ -35,6 +35,7 @@ pub mod content_identity;
 /// The cutscene player: triggers, playback and its save effects (the
 /// `Cutscenes` capability; a profile without it leaves the plugin out).
 pub mod cutscene;
+pub mod death_look;
 pub mod durable_save_horizon;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
 /// the tick, and the ordering edges that make them one transaction.

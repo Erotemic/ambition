@@ -45,6 +45,29 @@ pub struct KillBeat {
     pub shake_px: f32,
 }
 
+/// How a participant's death looks in one game's rooms, declared in a
+/// [`DeclaredRules`](ambition_platformer2d_world::scoped_rules::DeclaredRules):
+/// the effect drawn where the body is taken when its death window opens, and
+/// the one drawn where it comes back into play. A pack names the rows; a game
+/// that declares none draws neither.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeathLook {
+    #[serde(deserialize_with = "fx_by_name")]
+    pub departure: ambition_vfx::FxId,
+    #[serde(deserialize_with = "fx_by_name")]
+    pub arrival: ambition_vfx::FxId,
+}
+
+/// An effect row by its authored name; an empty name names nothing.
+fn fx_by_name<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<ambition_vfx::FxId, D::Error> {
+    let name = <String as serde::Deserialize>::deserialize(deserializer)?;
+    if name.trim().is_empty() {
+        return Err(serde::de::Error::custom("an effect row is named by a non-empty name"));
+    }
+    Ok(ambition_vfx::FxId::new(&name))
+}
+
 impl Default for DeathRules {
     /// The conservative answer for a room whose game said nothing: hold for
     /// nothing, reset nothing.

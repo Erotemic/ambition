@@ -27,7 +27,7 @@ use ambition_content_pack::{
 use bevy::prelude::*;
 use serde::Deserialize;
 
-use crate::death_rules::{DeathRules, KillBeat};
+use crate::death_rules::{DeathLook, DeathRules, KillBeat};
 use ambition_characters::actor::Corpse;
 use crate::dormancy_rule::DormancyRule;
 use crate::landing_lag::LandingLagRules;
@@ -85,6 +85,10 @@ struct AuthoredRoomRules {
     /// kill beat.
     #[serde(default)]
     kill_beat: Option<KillBeat>,
+    /// The effects drawn where a participant is taken at its death and where
+    /// it comes back. Absent: none.
+    #[serde(default)]
+    death_look: Option<DeathLook>,
     /// How the game's fireball flies. Absent: the fireball of
     /// `ProjectileKind::spec`.
     #[serde(default)]
@@ -104,6 +108,7 @@ pub struct RoomRules {
     pub dormancy: Option<DormancyRule>,
     pub corpses: Option<Corpse>,
     pub kill_beat: Option<KillBeat>,
+    pub death_look: Option<DeathLook>,
     pub fireball: Option<FireballFlight>,
     pub body_contact: Option<BodyContact>,
 }
@@ -184,6 +189,7 @@ impl AuthoredRoomRules {
             dormancy: self.hostile_wake_radius.map(|hostile_wake_radius| DormancyRule { hostile_wake_radius }),
             corpses: self.corpses,
             kill_beat: self.kill_beat,
+            death_look: self.death_look,
             fireball: self.fireball,
             body_contact: self.body_contact,
         }
@@ -314,6 +320,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     if let Some(kill_beat) = rules.kill_beat {
         app.declare_rules(scope, kill_beat);
     }
+    if let Some(look) = rules.death_look {
+        app.declare_rules(scope, look);
+    }
     if let Some(contact) = rules.body_contact {
         app.declare_rules(scope, contact);
     }
@@ -350,6 +359,9 @@ pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&R
     world
         .get_resource_or_insert_with(DeclaredRules::<KillBeat>::default)
         .restate(scope, rules.kill_beat);
+    world
+        .get_resource_or_insert_with(DeclaredRules::<DeathLook>::default)
+        .restate(scope, rules.death_look);
     world
         .get_resource_or_insert_with(DeclaredRules::<FireballFlight>::default)
         .restate(scope, rules.fireball);

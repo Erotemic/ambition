@@ -896,9 +896,19 @@ destroyed"); or a lost currency you can win back, with a bigger penalty when
 you cannot pay the safety fee. Q174 holds the rule; its default is the rescue
 portal with a fee.
 
-**Next action:** the presentation of the death beat (a declared `interlude`
-for Ambition's rooms, the death row, the rescue portal opening around the
-body), then the fee under Q174's default.
+**Built 2026-11-12 (slice 1, the beat drawn):** Ambition's rooms hold a
+death for 1 s (`replay_level_after_death_s`, was 0), so the robot's death row
+plays, and declare a `death_look` (a new scoped rule, `DeathLook`): the
+effect drawn where the body is taken when its window opens
+(`digital_departure`, code strands dissolving) and where it comes back
+(`digital_arrival`), by `runtime::death_look`. Measured with a temporary
+probe in the hub: the departure on the death's tick at the body, the arrival
+64 ticks later where it is back in play.
+
+**Next action:** the fee under Q174's default (the coins it costs lie where
+the body was taken until fetched; too few to pay, the bigger penalty), and
+a rescue look of its own (a gate-portal mouth in place of the generic
+dissolve).
 
 **Acceptance:** a death in Ambition reads as one on screen; the fee is taken
 and lies where the body fell until fetched; with too little to pay, the

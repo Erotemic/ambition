@@ -117,7 +117,7 @@ written by `game/ambition_map_assets/ambition_content/generators/boss_stage/make
 | --- | --- |
 | `boss_lobby` | The arrival. The gate ring (address **LEGACY**), a ticket booth, the tour posters ("THE BOSSOFTHEGAME — FINAL TOUR"), tiered steps up to the stage door. |
 | `boss_main_stage` | The arena. A wide concert stage with tiered risers, two speaker towers and a lighting truss. Full Stack stands at the centre; the Boss stands on its right shoulder, beside its head. A sign over the show reads *THE BOSSOFTHEGAME - FINAL TOUR*. |
-| `boss_green_room` | Behind the stage, shut until the Boss retires (`LockWall`, `gated_by: boss.cleared boss_stage.bossofthegame`). The retirement scene plays here. A door goes back to the lobby. |
+| `boss_green_room` | Behind the stage, shut until the Boss retires (`LockWall`, `gated_by: boss.cleared boss_stage.bossofthegame`). The retirement scene plays here, spoken by him from its dais (`npc_bossofthegame_retired`). A door goes back to the lobby. |
 
 **The gate address is `LEGACY`** (Λ Ε Γ Α Χ Υ, all on the ring). It dials
 straight to the lobby ring, one door from the stage. The address is

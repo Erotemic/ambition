@@ -2783,6 +2783,24 @@
                 hall: ["The bossofthegame is the bossofthegame until the day he dies, or retires.", "I never wanted to be the villain. I wanted to be challenged."],
             ),
         ),
+        // He sits on the green room's dais once he retires
+        // (`boss_green_room`): the retirement scene is spoken by someone who
+        // is there, and he says what a retired boss says, not a fight's lines.
+        "npc_bossofthegame_retired": (
+            display_name: "the bossofthegame, retired",
+            manifest: "sprites/bossofthegame_boss_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "peaceful",
+            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            tags: ["story"],
+            barks: (
+                on_hit: ["I'm retired. File a ticket.", "That's out of scope now.", "Ow. Noted. Not actioned."],
+                idle: ["No more standups.", "I'm going to learn the bass. Properly.", "Someone else can make no mistakes.", "Out of office. Forever.", "Full Stack can keep the stage.", "Don't ask me for input. I'm retired."],
+            ),
+        ),
 
         // ===== The bossofthegame's named agents (`docs/planning/game/final-boss.md`),
         // drawn from Jon's concept sheets on the Director's rig (the renderer's

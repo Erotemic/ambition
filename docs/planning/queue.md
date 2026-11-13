@@ -917,6 +917,18 @@ was far too wide, so its zoom is now 1.4 (about 430 units high), down from
 2.6. The Boss holds no pen: it is the Director's sword in Smash (renderer
 302b54c, map 8743626).
 
+*Played through headless 2026-11-13* (a temporary probe on
+`boss_main_stage`, deleted). The intro plays with one confirm per line; the
+band stands at its places, and Full Stack plays idle, riff and strum. The
+real kill clears him, and Full Stack plays `outro`. Through the grille, the
+retirement plays at the green room's trigger. Two things read badly and are
+fixed. First, the green room was empty while the Boss spoke his
+retirement: he now stands on its dais as `npc_bossofthegame_retired`, with
+retirement lines and no fight lines. Second, the one-way door to the lobby
+stood 88 units from the east wall, so its "ONE WAY: NO RETURN" warning ran
+off the room; it now stands 260 in. Full Stack is not in the green room
+(he is 480 high and the room is 640), so his line there is a voice.
+
 **Next action:** play it in a window and tune; his own anthem when a music registry is
 at hand; the later-work list in the design page.
 

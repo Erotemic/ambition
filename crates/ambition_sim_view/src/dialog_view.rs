@@ -4,13 +4,64 @@
 //! identity, portrait clip, speaker / conversation labels, body, options, and selection), rebuilt
 //! after the narrative frame work and before dialogue presentation. Presentation
 //! consumes the snapshot.
+//!
+//! It is the one dialogue surface: a playing cutscene's line is published here
+//! too, when no conversation is shown, so every line is drawn by the same box
+//! with the same controls.
 
 use ambition_dialog::DialogState;
-use bevy::prelude::{DetectChanges, Res, ResMut, Resource};
+use bevy::prelude::{DetectChanges, DetectChangesMut, Entity, Query, Res, ResMut, Resource};
+
+/// The controls a dialogue box names, for the seat that answers it, in the
+/// vocabulary of that seat's current device ("F" on a keyboard preset, "A" on
+/// an Xbox pad, "Cross" on a DualShock). Empty when there is no control to
+/// name (touch, or no bindings): the box names the action instead.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DialogControls {
+    /// Advances the line or takes the selected choice (`MenuSelect`).
+    pub confirm: String,
+    /// Closes a conversation; held, skips a cutscene (`MenuBack`).
+    pub back: String,
+    /// The line is a cutscene's: back held skips the cutscene, and a tap does
+    /// not close it.
+    pub hold_to_skip: bool,
+}
+
+impl DialogControls {
+    /// The controls of the seat `owner` names.
+    pub fn of(
+        owner: Option<ambition_input::InputOwner>,
+        bindings: Option<&ambition_input::SeatBindings>,
+        devices: Option<&ambition_input::SeatActiveDevices>,
+        hold_to_skip: bool,
+    ) -> Self {
+        let (Some(owner), Some(bindings)) = (owner, bindings) else {
+            return Self::default();
+        };
+        let slot = match owner {
+            ambition_input::InputOwner::Participant(participant) => participant.0,
+            ambition_input::InputOwner::Primary | ambition_input::InputOwner::AllParticipants => {
+                ambition_input::ParticipantId::PRIMARY.0
+            }
+        };
+        let device = devices.map_or_else(Default::default, |devices| devices.for_seat(slot));
+        // On touch the on-screen buttons are their own glyphs; the box names
+        // the actions instead.
+        if device == ambition_input::ActiveDevice::Touch {
+            return Self { hold_to_skip, ..Self::default() };
+        }
+        let seat = bindings.for_seat(slot);
+        Self {
+            confirm: seat.confirm_label(device).unwrap_or_default(),
+            back: seat.back_label(device).unwrap_or_default(),
+            hold_to_skip,
+        }
+    }
+}
 
 /// Per-frame snapshot of the dialogue overlay's facts. Empty/inactive when no
 /// dialogue is running.
-#[derive(Resource, Default, Clone, Debug)]
+#[derive(Resource, Default, Clone, Debug, PartialEq)]
 pub struct DialogView {
     /// The participant whose controls can advance this dialogue.
     pub input_owner: Option<ambition_input::InputOwner>,
@@ -43,6 +94,8 @@ pub struct DialogView {
     pub option_labels: Vec<String>,
     /// Index of the selected option (into `option_labels`).
     pub selected_option: usize,
+    /// The controls the box names for its seat.
+    pub controls: DialogControls,
 }
 
 impl DialogView {
@@ -60,10 +113,75 @@ impl DialogView {
 ///
 /// `Option`: a composition without the dialogue capability (`Capability::Dialogue`)
 /// has no `DialogState`, and the view stays at its idle default.
-pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, conversation: Option<Res<ambition_conversation::ActiveConversation>>, mut view: ResMut<DialogView>) {
+pub fn rebuild_dialog_view(
+    dialogue: Option<Res<DialogState>>,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    // A cutscene's line, and the seat that answers it: the lowest seat in the
+    // cutscene's room (`ActiveCutscene::answering_seat`, which the cutscene
+    // tick reads too).
+    (cutscene, drivers, rooms): (
+        Option<Res<ambition_cutscene::ActiveCutscene>>,
+        Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    ),
+    // What the box names for confirm and back.
+    (bindings, devices): (
+        Option<Res<ambition_input::SeatBindings>>,
+        Option<Res<ambition_input::SeatActiveDevices>>,
+    ),
+    mut view: ResMut<DialogView>,
+) {
+    let conversation_shown = dialogue.as_deref().is_some_and(|dialogue| dialogue.active() && !dialogue.held());
+    let line = cutscene
+        .as_deref()
+        .filter(|_| !conversation_shown)
+        .and_then(|cutscene| cutscene.line().map(|line| (cutscene, line)));
+    if let Some((cutscene, (speaker, text))) = line {
+        let seat = cutscene.answering_seat(
+            drivers.iter().map(|(driver, body)| (driver.0, rooms.of(body).map(|at| at.ordinal()))),
+            ambition_characters::control::PlayerSlot::PRIMARY,
+        );
+        let owner = Some(ambition_input::InputOwner::Participant(
+            ambition_platformer2d_actor_monolith::participant_seat::participant_of(seat),
+        ));
+        // Written only when it differs: the cutscene republishes its
+        // presentation each tick, and a write here rebuilds the box.
+        view.set_if_neq(DialogView {
+            input_owner: owner,
+            instance: None,
+            active: true,
+            dialogue_id: cutscene.script_id().unwrap_or_default().to_owned(),
+            speaker_character_id: String::new(),
+            portrait_clip: String::new(),
+            speaker_label: speaker.to_owned(),
+            conversation_label: speaker.to_owned(),
+            body: text.to_owned(),
+            option_labels: Vec::new(),
+            selected_option: 0,
+            controls: DialogControls::of(owner, bindings.as_deref(), devices.as_deref(), true),
+        });
+        return;
+    }
+    // A cutscene line that ended leaves no conversation behind it.
+    if view.controls.hold_to_skip {
+        *view = DialogView::default();
+    }
+    mirror_conversation(dialogue, conversation, &mut view);
+    let controls = DialogControls::of(view.input_owner, bindings.as_deref(), devices.as_deref(), false);
+    if view.controls != controls {
+        view.controls = controls;
+    }
+}
+
+/// Mirror the live conversation into the view, change-gated.
+fn mirror_conversation(
+    dialogue: Option<Res<DialogState>>,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    view: &mut ResMut<DialogView>,
+) {
     let Some(dialogue) = dialogue else {
         if view.active || view.input_owner.is_some() || view.instance.is_some() {
-            *view = DialogView::default();
+            **view = DialogView::default();
         }
         return;
     };
@@ -102,7 +220,9 @@ pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, conversation: Opt
         body,
         option_labels,
         selected_option,
-    } = &mut *view;
+        // Written by the caller, from the seat this writes.
+        controls: _,
+    } = &mut **view;
 
     *active = shown;
     *input_owner = dialogue.input_owner();

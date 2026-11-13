@@ -21,8 +21,20 @@ use ambition_sim_view::{LocalView, LocalViewId, ViewParticipant, ViewPlacement};
 use crate::ui_surface::ParticipantSurface;
 use ambition_ui_nav::DialogChoiceSlot;
 
-const DEFAULT_CONTINUE_HINT: &str = "Confirm / Interact: continue    Back: close";
-const DEFAULT_CHOICE_HINT: &str = "Up / Down: choose    Confirm: select    Back: close";
+/// The default box's input hint, naming the answering seat's own controls
+/// (the action's name when there is no control to show).
+fn default_hint(dialogue: &DialogView) -> String {
+    let named = |control: &str, action: &'static str| if control.is_empty() { action.to_owned() } else { control.to_owned() };
+    let confirm = named(&dialogue.controls.confirm, "Confirm");
+    let back = named(&dialogue.controls.back, "Back");
+    if dialogue.controls.hold_to_skip {
+        format!("{confirm}: continue    hold {back}: skip")
+    } else if dialogue.option_labels.is_empty() {
+        format!("{confirm}: continue    {back}: close")
+    } else {
+        format!("Up / Down: choose    {confirm}: select    {back}: close")
+    }
+}
 
 /// Ordering seam shared by every concrete dialogue presenter.
 ///
@@ -278,11 +290,7 @@ pub fn sync_default_dialog_ui(
                     );
                 }
 
-                let hint = if options.is_empty() {
-                    DEFAULT_CONTINUE_HINT
-                } else {
-                    DEFAULT_CHOICE_HINT
-                };
+                let hint = default_hint(&dialogue);
                 parent
                     .spawn((
                         Node {

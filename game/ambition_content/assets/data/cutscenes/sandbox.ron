@@ -61,7 +61,7 @@
             ),
             Dialogue(
                 speaker: "WARDEN",
-                text: "Hold Reset to skip cutscenes -- useful when you\'ve heard a beat already.",
+                text: "Heard a beat already? Hold the skip control the box names, and the rest of the scene goes by.",
             ),
             SetFlag(
                 id: "cutscene_lab_intro_seen",

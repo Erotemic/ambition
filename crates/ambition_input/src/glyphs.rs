@@ -373,6 +373,51 @@ impl ActionBindings {
             .map(|control| control.label_for(device.gamepad_style()))
     }
 
+    /// The control a prompt names for confirm (`MenuSelect`) on this device.
+    ///
+    /// Confirm has several controls on one device (Enter, Space, and the jump
+    /// and interact keys on a keyboard). The prompt names the one the player
+    /// already uses in play: a confirm control that is also Interact, else one
+    /// that is also Jump, else the first.
+    pub fn confirm_label(&self, device: crate::ActiveDevice) -> Option<String> {
+        use Platformer2dInputActionMonolith as A;
+        self.label_preferring(&A::MenuSelect, &[A::Interact, A::Jump], &[], device)
+    }
+
+    /// The control a prompt names for back (`MenuBack`) on this device: one
+    /// that is not also Start, because Start opens the pause menu over the
+    /// dialogue (Esc is both on a keyboard).
+    pub fn back_label(&self, device: crate::ActiveDevice) -> Option<String> {
+        use Platformer2dInputActionMonolith as A;
+        self.label_preferring(&A::MenuBack, &[], &[A::Start], device)
+    }
+
+    /// `action`'s label on `device`: the first of its controls of the device's
+    /// class that is also bound to a `prefer` action (in that order), else the
+    /// first not bound to an `avoid` action, else the first.
+    fn label_preferring(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        prefer: &[Platformer2dInputActionMonolith],
+        avoid: &[Platformer2dInputActionMonolith],
+        device: crate::ActiveDevice,
+    ) -> Option<String> {
+        let want_key = device.draws_keyboard_glyphs();
+        let of_class: Vec<&PhysicalControl> = self
+            .controls(action)
+            .iter()
+            .filter(|control| matches!((control, want_key), (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)))
+            .collect();
+        let bound_to = |other: &Platformer2dInputActionMonolith, control: &PhysicalControl| self.controls(other).contains(control);
+        prefer
+            .iter()
+            .find_map(|other| of_class.iter().find(|control| bound_to(other, control)))
+            .or_else(|| of_class.iter().find(|control| !avoid.iter().any(|other| bound_to(other, control))))
+            .or_else(|| of_class.first())
+            .map(|control| control.label_for(device.gamepad_style()))
+            .or_else(|| self.label_for(action, device))
+    }
+
 }
 
 impl SeatBindings {

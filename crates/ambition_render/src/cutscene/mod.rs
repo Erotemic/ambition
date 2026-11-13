@@ -7,7 +7,9 @@
 //! bindings are content (`ambition_content`).
 //!
 //! This module is presentation only: it reads `ActiveCutscene` and draws the
-//! screen-space overlay (banner / dialogue cards + skip-hold progress bar).
+//! screen-space overlay (banner card, fade sheet, skip-hold progress bar). A
+//! cutscene's dialogue line is not drawn here: it is published on
+//! `DialogView` and drawn by the game's one dialogue box.
 
 use ambition_cutscene::ActiveCutscene;
 use bevy::prelude::*;
@@ -18,10 +20,13 @@ use bevy::prelude::*;
 //
 // Two surfaces show narrative text:
 //
-// - Cutscene overlay (this module): a screen-space Bevy UI panel that draws
-//   `CutsceneBeat::Dialogue` (waits for player input) and
-//   `CutsceneBeat::Banner` (timed, auto-advances), plus the skip-hold
-//   progress bar. Owned by [`sync_cutscene_ui`].
+// - The dialogue box (`DialogView`, the game's presenter): every line that
+//   waits for the player, a conversation's or a cutscene's
+//   (`CutsceneBeat::Dialogue`), with the answering seat's controls.
+//
+// - Cutscene overlay (this module): `CutsceneBeat::Banner` (timed,
+//   auto-advances), the fade, and the skip-hold progress bar. Owned by
+//   [`sync_cutscene_ui`].
 //
 // - Speech bubbles (`crate::fx::update_speech_bubbles`): world-space quote
 //   bubbles that anything can fire with
@@ -39,12 +44,11 @@ use bevy::prelude::*;
 pub struct CutsceneOverlayRoot;
 
 /// What the cutscene overlay shows, as [`sync_cutscene_ui`] draws it: the
-/// banner's text (not its countdown), the dialogue, and the fade and skip
-/// hold to the precision they are drawn at.
+/// banner's text (not its countdown), and the fade and skip hold to the
+/// precision they are drawn at.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawnCutscene {
     banner: Option<String>,
-    dialogue: Option<(String, String)>,
     fade: u8,
     skip: u8,
 }
@@ -53,7 +57,6 @@ impl DrawnCutscene {
     fn of(presentation: &ambition_cutscene::CutscenePresentation, skip_progress: f32) -> Self {
         Self {
             banner: presentation.banner.as_ref().map(|(text, _seconds)| text.clone()),
-            dialogue: presentation.dialogue.clone(),
             fade: (presentation.fade_alpha.clamp(0.0, 1.0) * 255.0).round() as u8,
             skip: (skip_progress.clamp(0.0, 1.0) * 100.0).round() as u8,
         }
@@ -75,10 +78,8 @@ pub fn a_cutscene_plays_or_is_drawn(active: Res<ActiveCutscene>, overlays: Query
 ///   (auto-advances after the beat's timer).
 /// - Fade beats: a full-screen black sheet at the beat's current ramp value,
 ///   under the cards.
-/// - Dialogue beats: speaker + body card near the bottom, with a
-///   "Press Interact / Jump to continue" hint (acknowledge mode).
 /// - Skip-hold progress: thin bar near the bottom-right, only while
-///   the player is holding Reset (Backspace / pad-Select).
+///   the answering seat holds back.
 pub fn sync_cutscene_ui(
     mut commands: Commands,
     active: Res<ActiveCutscene>,
@@ -123,14 +124,14 @@ pub fn sync_cutscene_ui(
     };
 
     let banner = active.presentation.banner.as_ref();
-    let dialogue = active.presentation.dialogue.as_ref();
     let skip_progress = skip_hold.progress();
     let fade_alpha = active.presentation.fade_alpha.clamp(0.0, 1.0);
 
     // The fade is its own root. The card root below is placed inside the
     // reading rect (`place_in_reading_rect`), a sub-region of the window, so a
-    // sheet parented there would darken only that rectangle. It sits one layer
-    // under the cards, so a line spoken over a fade stays readable.
+    // sheet parented there would darken only that rectangle. It sits under the
+    // dialogue box (45) and the banner, so a line spoken over a fade stays
+    // readable.
     if fade_alpha > 0.001 {
         commands.spawn((
             Node {
@@ -142,7 +143,7 @@ pub fn sync_cutscene_ui(
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, fade_alpha)),
-            ZIndex(49),
+            ZIndex(44),
             Name::new("Cutscene Fade Sheet"),
             CutsceneOverlayRoot,
         ));
@@ -150,14 +151,12 @@ pub fn sync_cutscene_ui(
 
     // Return early when there is nothing to show (for example between beats
     // during a CameraPan). The runtime stays active in `ActiveCutscene`.
-    if banner.is_none() && dialogue.is_none() && skip_progress <= 0.01 {
+    if banner.is_none() && skip_progress <= 0.01 {
         return;
     }
 
     commands
         .spawn((
-            // Full-screen with `SpaceBetween` puts the speaker line and the skip
-            // meter at the bottom, under the stick and action cluster on a phone.
             {
                 let mut node = Node {
                     position_type: PositionType::Absolute,
@@ -167,7 +166,7 @@ pub fn sync_cutscene_ui(
                     bottom: Val::Px(0.0),
                     padding: UiRect::all(Val::Px(24.0)),
                     flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::SpaceBetween,
+                    justify_content: JustifyContent::FlexStart,
                     align_items: AlignItems::Center,
                     ..default()
                 };
@@ -204,54 +203,6 @@ pub fn sync_cutscene_ui(
                         TextColor(Color::srgba(0.96, 0.90, 0.74, 1.0)),
                     ));
                 });
-            } else {
-                // Spacer, so the dialogue card stays at the bottom when no banner
-                // shows.
-                root.spawn(Node::default());
-            }
-
-            // Bottom: dialogue card. Waits for Interact or Jump, which
-            // `populate_control_frame_from_actions` turns into
-            // `request.dismiss_dialogue`.
-            if let Some((speaker, text)) = dialogue {
-                root.spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        max_width: Val::Px(960.0),
-                        padding: UiRect::all(Val::Px(18.0)),
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(8.0),
-                        border: UiRect::all(Val::Px(2.0)),
-                        border_radius: BorderRadius::all(Val::Px(16.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgba(0.025, 0.030, 0.045, 0.95)),
-                    BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.86)),
-                    Name::new("Cutscene Dialogue Panel"),
-                ))
-                .with_children(|panel| {
-                    panel.spawn((
-                        Text::new(speaker.clone()),
-                        cutscene_font(20.0, crate::ui_fonts::UiFontWeight::Semibold),
-                        TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
-                    ));
-                    panel.spawn((
-                        Text::new(text.clone()),
-                        cutscene_font(16.0, crate::ui_fonts::UiFontWeight::Regular),
-                        TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
-                    ));
-                    panel.spawn((
-                        // Bindings live in
-                        // `ambition_input::presets::ControlPreset::input_map`
-                        // (Interact = E, Jump = Space/W by default). The hint names
-                        // the semantic actions, so a rebound key stays accurate.
-                        Text::new("Press Interact (E) or Jump (Space) to continue. Hold Backspace to skip."),
-                        cutscene_font(12.0, crate::ui_fonts::UiFontWeight::Regular),
-                        TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
-                    ));
-                });
-            } else {
-                root.spawn(Node::default());
             }
         });
 

@@ -391,6 +391,37 @@ impl ActiveCutscene {
     pub fn holds(&self, room: Option<u32>) -> bool {
         self.is_playing() && (self.room.is_none() || room.is_none() || self.room == room)
     }
+
+    /// The seat that answers the playing cutscene, out of `seats` (each seat
+    /// with the live room of the body it drives): for a room's cutscene, the
+    /// lowest seat in that room, so a seat in another room neither dismisses
+    /// nor skips it (ISL-1b); otherwise, and when no seat is in the room,
+    /// `primary`. The tick reads this seat's input and the dialogue box names
+    /// this seat's controls, so the two agree on whose line it is.
+    pub fn answering_seat<S: Ord>(&self, seats: impl IntoIterator<Item = (S, Option<u32>)>, primary: S) -> S {
+        let Some(room) = self.room else {
+            return primary;
+        };
+        seats
+            .into_iter()
+            .filter(|(_, at)| *at == Some(room))
+            .map(|(seat, _)| seat)
+            .min()
+            .unwrap_or(primary)
+    }
+
+    /// The line the playing cutscene shows and waits on, with its speaker.
+    pub fn line(&self) -> Option<(&str, &str)> {
+        if !self.is_playing() {
+            return None;
+        }
+        self.presentation.dialogue.as_ref().map(|(speaker, text)| (speaker.as_str(), text.as_str()))
+    }
+
+    /// The playing script's id.
+    pub fn script_id(&self) -> Option<&str> {
+        self.runtime.as_ref().map(|runtime| runtime.script.id.as_str())
+    }
 }
 
 /// Hold duration in seconds the player must keep the skip button held before the

@@ -264,24 +264,16 @@ pub fn project_cutscene_hold(
     }
 }
 
-/// The seat that answers the playing cutscene: for a room's cutscene, the
-/// lowest seat driving a body in that room (so Player 1 in another room does
-/// not skip it, ISL-1b); otherwise, and when no seat is in the room, the
-/// primary seat.
+/// The seat that answers the playing cutscene ([`ActiveCutscene::answering_seat`]).
 fn cutscene_seat(
     active: &ActiveCutscene,
     drivers: &Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
     rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) -> ambition_characters::control::PlayerSlot {
-    let Some(room) = active.room else {
-        return ambition_characters::control::PlayerSlot::PRIMARY;
-    };
-    drivers
-        .iter()
-        .filter(|(_, body)| rooms.of(*body).map(|at| at.ordinal()) == Some(room))
-        .map(|(driver, _)| driver.0)
-        .min()
-        .unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY)
+    active.answering_seat(
+        drivers.iter().map(|(driver, body)| (driver.0, rooms.of(body).map(|at| at.ordinal()))),
+        ambition_characters::control::PlayerSlot::PRIMARY,
+    )
 }
 
 /// Advance the playing cutscene by one SIMULATION step.

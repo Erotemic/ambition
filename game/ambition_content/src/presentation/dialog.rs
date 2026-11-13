@@ -647,11 +647,7 @@ fn sync_ambition_dialog_ui(
                     );
                 }
 
-                let hint = if dialogue.option_labels.is_empty() {
-                    text.line("dialog.continue_hint")
-                } else {
-                    text.line("dialog.choice_hint")
-                };
+                let hint = input_hint(&dialogue, &text);
                 panel
                     .spawn((
                         Node {
@@ -683,6 +679,27 @@ fn sync_ambition_dialog_ui(
                     });
             });
         });
+}
+
+/// The box's input hint, naming the answering seat's own controls.
+fn input_hint(dialogue: &DialogView, text: &ShownText) -> String {
+    let named = |control: &str, action: &str| {
+        if control.is_empty() {
+            text.line(action).to_owned()
+        } else {
+            control.to_owned()
+        }
+    };
+    let confirm = named(&dialogue.controls.confirm, "dialog.confirm");
+    let back = named(&dialogue.controls.back, "dialog.back");
+    let key = if dialogue.controls.hold_to_skip {
+        "dialog.cutscene_hint"
+    } else if dialogue.option_labels.is_empty() {
+        "dialog.continue_hint"
+    } else {
+        "dialog.choice_hint"
+    };
+    text.fill(key, &[hole("confirm", &confirm), hole("back", &back)])
 }
 
 fn advance_ambition_dialog_portrait(
@@ -1396,7 +1413,12 @@ mod tests {
         app.update();
         let text = lowered_ambition_text(crate::pack::shipped()).unwrap();
         let mut hints = app.world_mut().query_filtered::<&Text, With<AmbitionDialogContinueHint>>();
-        assert_eq!(hints.single(app.world()).unwrap().0, text.line("dialog.continue_hint"));
+        // The fixture's view names no controls, so the hint names the actions.
+        let words = text.fill(
+            "dialog.continue_hint",
+            &[hole("confirm", &text.line("dialog.confirm")), hole("back", &text.line("dialog.back"))],
+        );
+        assert_eq!(hints.single(app.world()).unwrap().0, words);
 
         let grey = [0.5, 0.25, 0.75];
         app.world_mut().resource_mut::<crate::tuning::AmbitionTuning>().0.dialog_look.panel = grey;

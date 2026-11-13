@@ -17,8 +17,10 @@
 // his book (`bosses/gnu_ton/duel.rs`).
 //
 // His specials are his laws. Neutral: Opticks (a flash, the same launch at each
-// percent). Side: a fluxion (he goes forward through you). Up: levity (a save,
-// not a flight). Down: the Third Law (a counter; the reaction is a strike).
+// percent). Side: a fluxion (he goes forward through you). Up: action at a
+// distance, the portal pair Alice also has (Jon, 2026-11-12: "gnuton has the
+// portal up-b ... Its ok for two characters to share a similar move"): he
+// falls in under himself and comes out up and over, toward the stage. Down: the Third Law (a counter; the reaction is a strike).
 // Down in the air: universal gravitation (he comes down as the apple did).
 //
 // FIRST CUT, 2026-10-11. The table was derived from the patent clerk's (for
@@ -61,7 +63,7 @@
                         "special_air_down": "universal_gravitation",
                         "special_down": "third_law",
                         "special_forward": "fluxion",
-                        "special_up": "levity",
+                        "special_up": "action_at_a_distance",
                         "taunt": "gnu_ton_taunt",
                     },
                     moves: [
@@ -1479,9 +1481,11 @@
                             equips: None,
                             flow: None,
                         ),
-                        // Up special. He lets go of gravity for a moment. A save, not a flight.
+                        // Up special. A portal opens under him and its partner up and over the
+                        // way he faces; he falls into one and out of the other (`smash.portal_pair`,
+                        // the parameters measured for Alice's). The swing still hits.
                         (
-                            id: "levity",
+                            id: "action_at_a_distance",
                             display_name: None,
                             clip: (
                                 clip: "special_up",
@@ -1536,16 +1540,34 @@
                                     end_s: 1.062,
                                     tag: Recovery,
                                     volumes: [],
-                                    motion_scale: 0.0,
+                                    motion_scale: 0.25,
                                     sustain_effect: None,
                                 ),
                             ],
                             events: [
                                 (
                                     at_s: 0.198,
-                                    kind: Impulse(
-                                        local: (0.0, -920.0),
-                                        mode: Set,
+                                    kind: Effect((
+                                        key: "smash.portal_pair",
+                                        params: ({
+                                            "aim_tilt_degrees": 32.0,
+                                            "channel_index": 10,
+                                            "close_on_transit": false,
+                                            "half_extent": [
+                                                30.0,
+                                                6.0,
+                                            ],
+                                            "lean_degrees": 25.0,
+                                            "lifetime_s": 2.5,
+                                            "rise": 190.0,
+                                            "tilt_degrees": 0.0,
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    at_s: 0.198,
+                                    kind: Sfx(
+                                        cue: "player.double_jump",
                                     ),
                                 ),
                             ],

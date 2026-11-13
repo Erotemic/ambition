@@ -25,6 +25,7 @@ fn params(lifetime_s: f32) -> PortalPairParams {
         close_on_transit: false,
         tilt_degrees: 0.0,
         aim_tilt_degrees: 0.0,
+        lean_degrees: 0.0,
         channel_index: 8,
     }
 }

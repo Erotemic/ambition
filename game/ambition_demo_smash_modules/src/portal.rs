@@ -3,14 +3,20 @@
 //!
 //! When a move authors `smash.portal_pair`, its fighter opens a pair
 //! (`ambition.portal.held_pair`): the entrance where she is, its opening
-//! facing up, and the exit `rise` above, facing down, so she falls into the
-//! low one and comes out of the high one. Normals that faced the same way
-//! would work in one direction only. The player angles the pair: `tilt` is
-//! the base and `aim_tilt` the range the move's aimed stick swings it
-//! through (`ambition.fighter.aimed_stick`). Only the horizontal part of the
-//! stick counts, since up and down are what the pair already does, and an
-//! exit aimed down would be a hole, not a recovery. Holding right puts the
-//! exit to the right: the aim is on the screen, not mirrored by facing.
+//! facing up, and the exit `rise` along the shaft, facing down, so she falls
+//! into the low one and comes out of the high one. Normals that faced the
+//! same way would work in one direction only.
+//!
+//! The shaft leans; the mouths do not. `tilt` is the base angle, `lean`
+//! leans toward the way she faces, and `aim_tilt` is the range the move's
+//! aimed stick swings it through (`ambition.fighter.aimed_stick`; only the
+//! horizontal part counts, and holding right puts the exit to the right, on
+//! the screen). Both mouths stay level, so she comes out falling straight
+//! down above where the shaft points and falls past the entrance: one rise
+//! up and over, toward the stage. Mouths tilted with the shaft sent her out
+//! along the tilted exit normal, back the way she came, and level mouths
+//! straight above each other caught her in a fall loop under the ledge
+//! until the pair closed.
 //!
 //! The pair stays open while a status on the fighter ([`OPEN`]) asks for it,
 //! for the move's `lifetime_s`, and closes after its first use when the move
@@ -48,7 +54,7 @@ record! {
     3 opened_tick: u64,
     /// World seconds before it closes.
     4 remaining_s: f32,
-    /// The entrance's centre, and the way it faces (up, tilted).
+    /// The entrance's centre, and the way the shaft runs from it to the exit.
     5 entrance: [f32; 2],
     6 up: [f32; 2],
     /// How far above the entrance the exit is.
@@ -102,7 +108,9 @@ pub fn pair_of(special: &FighterSpecial, aim_x: f32, previous: &Pair, tick: u64)
     // angles are optional in the move and absent means none: a pair with no
     // aim range ignores the stick.
     let angle = |path: &str| special.number(path).unwrap_or(0.0);
-    let tilt = (angle("tilt_degrees") + aim_x.clamp(-1.0, 1.0) * angle("aim_tilt_degrees")).to_radians();
+    let facing = if special.facing < 0.0 { -1.0 } else { 1.0 };
+    let tilt = (angle("tilt_degrees") + facing * angle("lean_degrees")
+        + aim_x.clamp(-1.0, 1.0) * angle("aim_tilt_degrees")).to_radians();
     Ok(Pair {
         open: true,
         slot: previous.slot.wrapping_add(1),
@@ -118,8 +126,8 @@ pub fn pair_of(special: &FighterSpecial, aim_x: f32, previous: &Pair, tick: u64)
     })
 }
 
-/// The held pair `pair` asks for: the entrance facing up, the exit above it
-/// facing down.
+/// The held pair `pair` asks for: the entrance facing up, the exit up the
+/// shaft facing down, both level.
 pub fn held(pair: &Pair) -> HeldPortalPair {
     let [ux, uy] = pair.up;
     let end = |at: [f32; 2], normal: [f32; 2]| PortalEnd {
@@ -132,7 +140,7 @@ pub fn held(pair: &Pair) -> HeldPortalPair {
     let look = pair.look as u8;
     HeldPortalPair {
         slot: pair.slot,
-        ends: [end(pair.entrance, [ux, uy]), end(exit, [-ux, -uy])],
+        ends: [end(pair.entrance, [0.0, -1.0]), end(exit, [0.0, 1.0])],
         looks: [look, look ^ 1],
         closes_on_use: pair.closes_on_use,
     }

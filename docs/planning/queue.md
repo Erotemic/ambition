@@ -941,11 +941,23 @@ subagents"). Reports (Jon, 2026-11-12):
 **Acceptance:** each report fixed and seen in a render or a probe; the mites'
 behaviour has a witness.
 
-### SMASH-PORTAL-RECOVERY — GNU-ton's portal up-b, and a better recovery
+### SMASH-PORTAL-RECOVERY — GNU-ton's portal up-b, and a better recovery (done)
 
 **Owner:** portals (mine) and the Smash movesets. Request (Jon, 2026-11-12):
 GNU-ton gets the portal up-b in Smash; Alice may keep hers (two characters
 may share a similar move); the portal up-b works better as a recovery.
+
+**Built 2026-11-12:** measured with a probe on the live Smash stage (90 px
+off the main platform's lip, facing it, falling, neutral stick): the pair
+(exit 150 straight up, both mouths facing each other) caught the fighter in
+a fall loop under the ledge from 0, 80, 160 and 240 px below the lip, and
+she fell when it closed. A stick tilt turned both mouths and threw her back
+out the way she came. Now the shaft leans toward her facing
+(`lean_degrees`) and the mouths stay level, so one fall puts her up and
+over: rise 190, lean 25 hangs her on the ledge from 0, 80 and 160 (240 is
+too deep). Alice keeps the move; GNU-ton's up-b is the same pair
+(`action_at_a_distance`, in place of `levity`). Witness:
+`smash_it::the_portal_recovery_reaches_the_ledge`.
 
 **Acceptance:** GNU-ton's up-b opens the portal pair; from below the stage
 edge, a portal up-b returns the fighter to the ledge or the stage in the

@@ -31,14 +31,20 @@
 // `alice_moveset`:
 // See the module doc. Sixteen presses.
 //
-// (`rise: 150.0,`)
+// (`rise: 190.0,`)
 // Jon: *"the second portal appears too high, I want it to be placed so its
 // above the main surface level, but in the visible part of the stage."* The
 // smash ruleset's `CEILING_BLAST_MARGIN_PX` is 240, so a 320px rise put the
 // exit outside the playable box.
 //
-// Still a knob: 150px is about three body heights, above her jump reach,
-// and inside the visible stage.
+// 190 with `lean_degrees: 25`: measured from 90px off the main platform's
+// lip, facing it, with a neutral stick, the pair puts her on the ledge from
+// 0, 80 and 160px below the lip (240 is too deep). 150 straight up caught her
+// in a fall loop under the ledge from every depth until the pair closed.
+//
+// (`lean_degrees: 25.0,`)
+// The shaft leans the way she faces, which off the stage is toward it, so
+// a panicked neutral stick still goes up and over.
 //
 // (`half_extent: (26.0, 6.0),`)
 // Wide and shallow: you fall into it, so the horizontal mouth matters.
@@ -52,8 +58,7 @@
 // chaser. That makes it a stage event; `true` would shut it behind her.
 //
 // (`tilt_degrees: 0.0,`)
-// The base stays straight, so the recovery works with a neutral stick
-// (what a panicked player holds).
+// No screen-fixed base: the lean already points the shaft at the stage.
 //
 // (`aim_tilt_degrees: 32.0,`)
 // The player can angle it: hold a direction on the way out and the shaft
@@ -1635,8 +1640,9 @@
                                                 26.0,
                                                 6.0,
                                             ],
+                                            "lean_degrees": 25.0,
                                             "lifetime_s": 2.5,
-                                            "rise": 150.0,
+                                            "rise": 190.0,
                                             "tilt_degrees": 0.0,
                                         }),
                                     )),

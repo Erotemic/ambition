@@ -28,6 +28,11 @@ pub struct PortalPairParams {
     /// Maximum player-controlled tilt around `tilt_degrees`, in degrees. `0.0` disables aiming.
     #[serde(default)]
     pub aim_tilt_degrees: f32,
+    /// Tilt toward the way the fighter faces, in degrees, on top of
+    /// `tilt_degrees` and the aim. A recovering fighter faces the stage, so a
+    /// lean puts the exit over it with a neutral stick.
+    #[serde(default)]
+    pub lean_degrees: f32,
     /// Indexed portal channel. Values below 8 are reserved for named room channels and are rejected.
     pub channel_index: u8,
 }
@@ -100,6 +105,7 @@ mod tests {
             close_on_transit: false,
             tilt_degrees: 0.0,
             aim_tilt_degrees: 0.0,
+            lean_degrees: 0.0,
             channel_index: 8,
         }
     }

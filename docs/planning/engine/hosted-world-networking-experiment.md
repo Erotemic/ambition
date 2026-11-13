@@ -708,6 +708,27 @@ reconciles by rewinding its own room). So it is not taken now. Revisit its input
 and transport crates when the guest has a real link. Moving to Bevy 0.20 moves
 both crates, so the prototype pins the 0.19 line.
 
+## The prototype's first slice (2026-11-13): body rows through `bevy_replicon`
+
+Crate `ambition_hosted_world` (`HostedWorldPlugin { role }`). The host marks
+each body (`SimId` plus `BodyKinematics`) `Replicated` with
+`Signature::of::<SimId>()` and writes its `BodyRow` (position, velocity,
+facing) before the send. The guest signs the bodies it built itself, so
+replication continues into them, and puts each changed row on its body. The
+link in the witness is replicon's in-process `ServerTestAppExt`. Note that the
+harness never calls `App::finish`, and replicon makes its protocol and
+channels there, so a composition that adds it must finish the App.
+
+Witness `a_hosted_guest_shows_the_hosts_bodies` (`switch_lab`, Bob beside
+Alice, a gated guest, 90 frames of Alice moving and swinging): the guest
+holds both bodies exactly as the host has them, with no body of its own
+made. A guest never linked differs on both. The link carries 53.2 bytes a
+frame for the two bodies, replicon's framing included.
+
+Next in the prototype: spawn rows (a replicated entity the guest builds by
+its spawn row's character), the room as a visibility filter, the health and
+death-beat rows, and a real transport.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no

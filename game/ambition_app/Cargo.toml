@@ -288,6 +288,9 @@ name = "app_it"
 path = "tests/app_it.rs"
 
 [dev-dependencies]
+# The hosted world's replication prototype (NET-AUTHORITY-EXPERIMENT): a test
+# links a host App and a guest App through it.
+ambition_hosted_world = { path = "../../crates/ambition_hosted_world" }
 # `test_item_catalog`: the shipped `items.ron` as a test fixture.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["test-support", "capture"] }
 # ⭐ A TEST DEPENDENCY, NOT A SHIPPED ONE. Pocket is the FOURTH-PROVIDER

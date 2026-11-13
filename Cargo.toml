@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/ambition_htn",
+    "crates/ambition_hosted_world",
     "crates/ambition_life_planning",
     "crates/ambition_sprite_fx",
     "crates/ambition_platformer2d",

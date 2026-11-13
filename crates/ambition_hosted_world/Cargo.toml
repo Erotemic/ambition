@@ -1,0 +1,19 @@
+[package]
+name = "ambition_hosted_world"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "A hosted world's replication: the host's bodies reach a guest App by SimId (NET-AUTHORITY-EXPERIMENT)."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+bevy = { version = "0.19.1", default-features = false }
+# The last line for Bevy 0.19 (engine/hosted-world-networking-experiment.md,
+# "Library evaluation"). No I/O of its own: the link is the caller's.
+bevy_replicon = { version = "0.44", default-features = false, features = ["client", "server"] }
+serde = { workspace = true }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

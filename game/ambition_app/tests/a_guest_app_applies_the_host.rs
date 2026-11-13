@@ -60,7 +60,7 @@ const GATED: [Phase; 12] = [
 ];
 
 /// Put every simulation phase of `guest` to sleep.
-fn simulate_nothing(guest: &mut Platformer2dSimHarness) {
+pub(crate) fn simulate_nothing(guest: &mut Platformer2dSimHarness) {
     let app = guest.app_mut();
     let schedule = app.sim_schedule();
     for phase in GATED {

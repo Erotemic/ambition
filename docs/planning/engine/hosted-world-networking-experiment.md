@@ -725,9 +725,23 @@ holds both bodies exactly as the host has them, with no body of its own
 made. A guest never linked differs on both. The link carries 53.2 bytes a
 frame for the two bodies, replicon's framing included.
 
+### The life row (2026-11-13)
+
+`LifeRow`: the body's health and its death's beat (seconds since it died,
+whether it lived, what it leaves), written beside the body row and put on
+the guest's `BodyHealth` and `DeathBeat`. The beat's `finale_due` is not
+sent: what a death becomes (a blast, two halves) is the host's consequence,
+and its results arrive as rows of their own.
+
+Witness `a_hosted_guest_shows_a_death_on_the_host` (the same room; the host
+sets Bob's health to 0 on frame 20): on every one of 90 frames the guest's
+Bob holds the host's life row and is drawn or not as the host draws him.
+The beat had run 1.08 s on the host by the end, and the guest runs none, so
+its agreement came over the link. On the unlinked guest Bob never falls.
+
 Next in the prototype: spawn rows (a replicated entity the guest builds by
-its spawn row's character), the room as a visibility filter, the health and
-death-beat rows, and a real transport.
+its spawn row's character), the room as a visibility filter, and a real
+transport.
 
 ## Next
 

@@ -81,3 +81,80 @@ fn a_hosted_guest_shows_the_hosts_bodies() {
         "replication made a body of its own instead of continuing into the guest's (Signature)"
     );
 }
+
+type Health = ambition_platformer2d::characters::actor::BodyHealth;
+type Beat = ambition_platformer2d::combat::components::DeathBeat;
+
+/// Bob's life on `sim`, as the life row carries it, and whether his beat
+/// still draws him.
+fn bobs_life(sim: &mut Platformer2dSimHarness) -> (ambition_hosted_world::LifeRow, bool) {
+    let world = sim.world_mut();
+    world
+        .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &Health, Option<&Beat>)>()
+        .iter(world)
+        .find(|(driver, ..)| driver.0 .0 == 1)
+        .map(|(_, health, beat)| {
+            (ambition_hosted_world::LifeRow::of(health, beat), beat.is_none_or(|beat| beat.visible(health.alive())))
+        })
+        .expect("Bob has a body")
+}
+
+/// NA-2b through `bevy_replicon`: the host kills Bob, and the guest, which
+/// simulates no death, holds his health and his death's beat (the seconds it
+/// has run, what he leaves, whether he is still drawn) on every frame. The
+/// beat runs only on the host, so a guest that agrees on it got it from the
+/// row. The control is the unlinked guest, where Bob never falls.
+#[test]
+fn a_hosted_guest_shows_a_death_on_the_host() {
+    const KILLED_AT: i32 = 20;
+    let mut host = booted(HostedRole::Host);
+    let mut guest = booted(HostedRole::Guest);
+    let mut alone = booted(HostedRole::Guest);
+    simulate_nothing(&mut guest);
+    simulate_nothing(&mut alone);
+    host.app_mut().connect_client(guest.app_mut());
+
+    let (mut differs, mut host_dead, mut host_hidden, mut guest_hidden, mut alone_dead) = (0, None, None, None, false);
+    let mut beat_ran = None;
+    for frame in 1..=FRAMES {
+        if frame == KILLED_AT {
+            let world = host.world_mut();
+            let mut bob = world
+                .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &mut Health)>()
+                .iter_mut(world)
+                .find(|(driver, _)| driver.0 .0 == 1)
+                .expect("Bob has a body");
+            bob.1.health.current = 0;
+        }
+        host.app_mut().update();
+        host.app_mut().exchange_with_client(guest.app_mut());
+        guest.app_mut().update();
+        alone.app_mut().update();
+        let (on_host, drawn_on_host) = bobs_life(&mut host);
+        let (on_guest, drawn_on_guest) = bobs_life(&mut guest);
+        if on_host.current <= 0 {
+            host_dead.get_or_insert(frame);
+        }
+        if on_host.since_s.is_some_and(|since| since > 0.0) {
+            beat_ran = Some(on_host.since_s);
+        }
+        if !drawn_on_host {
+            host_hidden.get_or_insert(frame);
+        }
+        if !drawn_on_guest {
+            guest_hidden.get_or_insert(frame);
+        }
+        if (on_host, drawn_on_host) != (on_guest, drawn_on_guest) {
+            differs += 1;
+        }
+        alone_dead |= bobs_life(&mut alone).0.current <= 0;
+    }
+    println!(
+        "[hosted death] Bob dead on the host from frame {host_dead:?}, his beat at {beat_ran:?} s at the end; undrawn on the host from {host_hidden:?}, on the guest from {guest_hidden:?}; frames the guest's life differs: {differs}"
+    );
+    assert!(host_dead.is_some(), "premise: Bob died on the host");
+    assert!(beat_ran.is_some(), "premise: Bob's death beat ran on the host");
+    assert_eq!(differs, 0, "the guest's Bob did not hold the host's life on every frame");
+    assert_eq!(guest_hidden, host_hidden, "the guest stopped drawing Bob on another frame than the host");
+    assert!(!alone_dead, "the control: Bob fell on the unlinked guest too, so the run measures nothing about the link");
+}

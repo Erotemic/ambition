@@ -6,10 +6,13 @@
 //! with a [`Signature`] of its `SimId`, and the guest puts the same signature on
 //! the body it built: replication continues into that body instead of making a
 //! second one. What the host sends is the body row (NA-2): where the body is,
-//! how it moves and which way it faces.
+//! how it moves and which way it faces; and its life row (NA-2b): its health
+//! and its death's beat, which is what draws a defeat.
 //!
 //! The link is the caller's: `bevy_replicon` has no I/O of its own.
 
+use ambition_characters::actor::{BodyHealth, Corpse};
+use ambition_combat::components::DeathBeat;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
@@ -37,6 +40,53 @@ impl BodyRow {
     }
 }
 
+/// A body's life: its health, and its death's beat (seconds since it died,
+/// whether it lived, what it leaves). The guest simulates no death, so it
+/// draws one from this (NA-2b: without the beat, never).
+#[derive(Component, Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LifeRow {
+    pub current: i32,
+    pub since_s: Option<f32>,
+    pub lived: bool,
+    pub corpse: u8,
+}
+
+impl LifeRow {
+    pub fn of(health: &BodyHealth, beat: Option<&DeathBeat>) -> Self {
+        Self {
+            current: health.health.current,
+            since_s: beat.and_then(|beat| beat.since_s),
+            lived: beat.is_some_and(|beat| beat.lived),
+            corpse: beat.map_or(0, |beat| corpse_byte(beat.corpse)),
+        }
+    }
+
+    pub fn write_into(&self, health: &mut BodyHealth, beat: Option<&mut DeathBeat>) {
+        health.health.current = self.current;
+        if let Some(beat) = beat {
+            beat.since_s = self.since_s;
+            beat.lived = self.lived;
+            beat.corpse = corpse_of(self.corpse);
+        }
+    }
+}
+
+fn corpse_byte(corpse: Corpse) -> u8 {
+    match corpse {
+        Corpse::Stay => 0,
+        Corpse::Vanish => 1,
+        Corpse::Gone => 2,
+    }
+}
+
+fn corpse_of(byte: u8) -> Corpse {
+    match byte {
+        0 => Corpse::Stay,
+        2 => Corpse::Gone,
+        _ => Corpse::Vanish,
+    }
+}
+
 /// Which end of a hosted world this App is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HostedRole {
@@ -54,15 +104,15 @@ pub struct HostedWorldPlugin {
 
 impl Plugin for HostedWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.replicate::<BodyRow>();
+        app.replicate::<BodyRow>().replicate::<LifeRow>();
         match self.role {
             HostedRole::Host => {
                 app.add_systems(Update, mark_hosted_bodies);
-                app.add_systems(PostUpdate, write_body_rows.before(ServerSystems::Send));
+                app.add_systems(PostUpdate, (write_body_rows, write_life_rows).before(ServerSystems::Send));
             }
             HostedRole::Guest => {
                 app.add_systems(Update, sign_own_bodies);
-                app.add_systems(PreUpdate, apply_body_rows.after(ClientSystems::Receive));
+                app.add_systems(PreUpdate, (apply_body_rows, apply_life_rows).after(ClientSystems::Receive));
             }
         }
     }
@@ -109,6 +159,31 @@ fn write_body_rows(
                 commands.entity(entity).insert(now);
             }
         }
+    }
+}
+
+/// Write each replicated body's life row, before the send.
+fn write_life_rows(
+    mut commands: Commands,
+    mut bodies: Query<(Entity, &BodyHealth, Option<&DeathBeat>, Option<&mut LifeRow>), With<Replicated>>,
+) {
+    for (entity, health, beat, row) in &mut bodies {
+        let now = LifeRow::of(health, beat);
+        match row {
+            Some(mut row) => {
+                row.set_if_neq(now);
+            }
+            None => {
+                commands.entity(entity).insert(now);
+            }
+        }
+    }
+}
+
+/// Put each received life row on the guest's body.
+fn apply_life_rows(mut bodies: Query<(&LifeRow, &mut BodyHealth, Option<&mut DeathBeat>), Changed<LifeRow>>) {
+    for (row, mut health, beat) in &mut bodies {
+        row.write_into(&mut health, beat.map(|beat| beat.into_inner()));
     }
 }
 

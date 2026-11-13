@@ -26,6 +26,10 @@ pub(super) const EDGE_ARRIVAL_INSET: f32 = 92.0;
 pub(super) const PLAYER_HALF_W: f32 = 14.0;
 pub(super) const PLAYER_HALF_H: f32 = 23.0;
 pub(super) const SPAWN_MARGIN: f32 = 3.0;
+/// How far a clear place may touch into the terrain. A body that rests on a
+/// floor, or fits a corridor its own height, overlaps it by float error: a
+/// place a body stands in is clear for a body of its size.
+const RESTING_SLACK: f32 = 0.01;
 
 pub(super) fn arrival_from_target_zone(world: &ae::World, zone: &LoadingZone) -> ae::Vec2 {
     match zone.activation {
@@ -168,7 +172,7 @@ fn clamp_spawn_to_room(world: &ae::World, pos: ae::Vec2, half: ae::Vec2) -> ae::
 }
 
 fn body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2, line_depth: Option<i8>) -> bool {
-    let body = ae::Aabb::new(center, half);
+    let body = ae::Aabb::new(center, (half - ae::Vec2::splat(RESTING_SLACK)).max(ae::Vec2::ZERO));
     if !ae::classify_safety_from_kinematics(
         center, ae::Vec2::ZERO, body, world, -SPAWN_MARGIN,
         |block| ae::collision_semantics::is_support_surface(block.kind)

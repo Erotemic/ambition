@@ -554,6 +554,8 @@ fn a_seat_that_recovers_alone_gives_back_what_it_took_since_the_checkpoint() {
             .next()
             .expect("blink_run has a ground item")
     };
+    // The restore builds the item again, as a new entity: its id names it.
+    let taken = sim.world().get::<SimId>(item).cloned().expect("the item has a sim id");
     let at = sim
         .world()
         .get::<ambition_platformer2d::engine_core::BodyKinematics>(item)
@@ -582,16 +584,24 @@ fn a_seat_that_recovers_alone_gives_back_what_it_took_since_the_checkpoint() {
     die(&mut sim, body);
     sim.step_n(AgentAction::default(), 5);
     let body = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(body);
-    let lying = {
+    // Every copy of the item, in any custody: `portal_bridge` lays out an
+    // item of its own, so the room's item is named, not counted among all.
+    let copies: Vec<(bool, Option<ambition_platformer2d::platformer::lifecycle::InRoomInstance>)> = {
         let world = sim.world_mut();
         world
-            .query::<&ambition_platformer2d::held_items::ItemCustody>()
+            .query::<(&SimId, &ambition_platformer2d::held_items::ItemCustody, Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>)>()
             .iter(world)
-            .filter(|custody| custody.in_world())
-            .count()
+            .filter(|(id, ..)| **id == taken)
+            .map(|(_, custody, room)| (custody.in_world(), room.copied()))
+            .collect()
     };
+    let seat_room = sim.world().get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(body).copied();
     assert_ne!(room_of(&sim, body), room_of(&sim, primary), "seat 1 came back in the primary's room");
-    assert_eq!(lying, 1, "the item seat 1 took since the checkpoint does not lie in its room again");
+    assert_eq!(
+        copies,
+        vec![(true, seat_room)],
+        "the copies of the item seat 1 took since the checkpoint ({taken:?}): (lying, room); one lies in seat 1's room"
+    );
 }
 
 

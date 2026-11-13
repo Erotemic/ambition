@@ -84,7 +84,14 @@ front three-quarter view). The drum kit is a prop of the stage, not of a body
 at it in `band_drums`. Not built yet: the Boss's own rows at the
 microphone, and Full Stack's band rows beyond its strum, riff and feedback.
 
-How it folds into the fight (not built in the game yet; the art is):
+How it folds into the fight. Built 2026-11-13: the intro's band, and each
+call taking the called agents off their instruments. As the show opens the
+module's conductor summons the band bodies (`npc_geppetto_band`,
+`npc_wren_band`, `npc_clause_band`: the agents' sheets, a passive brain and
+the instrument's row as their rest row) onto the trusses, with Clause at the
+drum kit (`band_drum_kit`, a prop of both stages). A call sends the called
+agent's band body away (`ambition.boss.dismiss_summon`) as the fighter drops
+in. Witness: `his_named_agents_join_the_fight`. The rest is still to build:
 
 - **Intro**: the lights come up on the band playing the opening chord;
   the agents are at their instruments upstage, the Boss at the front of

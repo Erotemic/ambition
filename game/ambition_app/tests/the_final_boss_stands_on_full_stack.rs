@@ -157,9 +157,21 @@ fn worn_on_stage(sim: &mut ambition_app::Platformer2dSimHarness) -> std::collect
     q.iter(world).map(|worn| worn.id().to_string()).collect()
 }
 
+/// The rows the band's bodies are drawn in now, by the character each wears.
+fn band_rows(sim: &mut ambition_app::Platformer2dSimHarness) -> std::collections::BTreeMap<String, String> {
+    use ambition_platformer2d::sprite_sheet::character::PinnedRow;
+    let world = sim.world_mut();
+    let mut q = world.query::<(&WornCharacter, Option<&PinnedRow>)>();
+    q.iter(world)
+        .filter(|(worn, _)| worn.id().ends_with("_band"))
+        .map(|(worn, pin)| (worn.id().to_string(), pin.and_then(|pin| pin.rows.first().cloned()).unwrap_or_default()))
+        .collect()
+}
+
 /// He calls his named agents in: Geppetto as his second phase opens ("Do I
 /// need to get Geppetto to do it?"), Clause and Wren as his encore does
-/// ("Spawn subagents.").
+/// ("Spawn subagents."). Until then they play in his band, each at an
+/// instrument, and a call takes the called one off it.
 #[test]
 fn his_named_agents_join_the_fight() {
     let mut sim = fixed_60hz_room_sim("hall_bossofthegame_stage");
@@ -175,11 +187,20 @@ fn his_named_agents_join_the_fight() {
     sim.step_n(base(), 60 * 4);
     let first = worn_on_stage(&mut sim);
     assert!(!first.contains("npc_geppetto"), "his agent plays alone at first: {first:?}");
+    let band: Vec<(String, String)> = band_rows(&mut sim).into_iter().collect();
+    assert_eq!(
+        band,
+        [("npc_clause_band", "band_drums"), ("npc_geppetto_band", "band_bass"), ("npc_wren_band", "band_guitar")]
+            .map(|(who, row)| (who.to_string(), row.to_string())),
+        "the band plays as the show opens, each at an instrument"
+    );
     boss_health_to(&mut sim, 0.5);
     sim.step_n(base(), 60 * 6);
     let second = worn_on_stage(&mut sim);
     assert!(second.contains("npc_geppetto"), "in his second phase Geppetto is on the stage: {second:?}");
     assert!(!second.contains("npc_clause") && !second.contains("npc_wren"), "and not yet the others: {second:?}");
+    let band: Vec<String> = band_rows(&mut sim).into_keys().collect();
+    assert_eq!(band, ["npc_clause_band", "npc_wren_band"], "Geppetto put the bass down; the others play on");
     boss_health_to(&mut sim, 0.2);
     sim.step_n(base(), 60 * 6);
     let encore = worn_on_stage(&mut sim);
@@ -187,4 +208,5 @@ fn his_named_agents_join_the_fight() {
         encore.contains("npc_clause") && encore.contains("npc_wren"),
         "at his encore Clause and Wren are on the stage: {encore:?}"
     );
+    assert!(band_rows(&mut sim).is_empty(), "and the band has left its instruments");
 }

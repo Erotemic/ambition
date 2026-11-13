@@ -223,6 +223,69 @@ impl Port for BossSummonPort {
     }
 }
 
+/// The boss domain's request port for sending away a minion of its own.
+///
+/// Port card (`docs/planning/engine/extension-domain-contracts.md`):
+///
+/// * **Operation** — the boss's minion named by `label` and `serial` (the
+///   pair its [`BossSummonPort`] request gave it) leaves the world: a band
+///   member who puts down an instrument to be called into the fight.
+/// * **Owner** — `ambition_boss_encounter::extension`.
+/// * **Scope and grant** — only a BOSS, and only a body it summoned: the
+///   minion's id is the boss's (`<label>:<boss id>:<serial…>`) and the
+///   simulation made it with the boss as its parent. A request that names
+///   no such body changes nothing.
+/// * **Time** — `technique_execution` and `boss_conduct`; the body is gone
+///   before the next tick.
+/// * **Result** — submitted is not applied: no acknowledgement port.
+pub struct BossDismissSummonPort;
+
+/// The minion a boss sends away: the `label` and `serial` it was summoned with.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BossDismissSummon {
+    pub label: String,
+    pub serial: Vec<u32>,
+}
+
+impl BossDismissSummon {
+    /// The minion's id for the boss `boss_id`, as [`BossSummon::id`] gives it.
+    pub fn id(&self, boss_id: &str) -> Option<String> {
+        BossSummon {
+            label: self.label.clone(),
+            serial: self.serial.clone(),
+            position: [0.0; 2],
+            half_size: [0.0; 2],
+            character_id: String::new(),
+            health: None,
+            keeps_contact_damage: false,
+            side: SummonSide::Enemy,
+            holds: Vec::new(),
+        }
+        .id(boss_id)
+    }
+}
+
+impl Port for BossDismissSummonPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.dismiss_summon", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = BossDismissSummon;
+
+    fn encode(v: &BossDismissSummon, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.label);
+        wire::put_u32(out, v.serial.len() as u32);
+        for n in &v.serial {
+            wire::put_u32(out, *n);
+        }
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<BossDismissSummon, WireError> {
+        let label = r.str()?.to_owned();
+        let len = r.u32()?;
+        let serial = (0..len).map(|_| r.u32()).collect::<Result<Vec<_>, _>>()?;
+        Ok(BossDismissSummon { label, serial })
+    }
+}
+
 impl BossSummon {
     /// The minion's id for the boss `boss_id`, or `None` when the label is
     /// refused.

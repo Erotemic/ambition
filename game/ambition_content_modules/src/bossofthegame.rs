@@ -23,10 +23,16 @@
 //! And one conductor entry (`conduct`, bound to the boss `bossofthegame`):
 //! it moves nothing; it draws Full Stack in the row of the move it plays
 //! (`strum`, `riff`, `feedback`), and in its `idle` strum the rest of the
-//! time.
+//! time. As the show opens it stages the band (`BAND`): Geppetto on the bass
+//! on the west truss, Wren on the rhythm guitar and Clause at the drums on
+//! the east one, each playing the row of the instrument. A call sends the
+//! called agent's band body away as the fighter drops in: it put the
+//! instrument down. The microphone is the Boss's alone.
 
 use ambition_boss_special_port::conduct::{BossConduct, BossConductPort, DrawnPart, DrawnRow, DrawnRowPort};
-use ambition_boss_special_port::{BossCaster, BossSpecialCast, BossSummon, BossSummonPort, SummonSide};
+use ambition_boss_special_port::{
+    BossCaster, BossDismissSummon, BossDismissSummonPort, BossSpecialCast, BossSummon, BossSummonPort, SummonSide,
+};
 use ambition_extension_sdk::{
     phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION}, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation,
     Limits, ModuleDescriptor, ModuleKey, Port, PortKey, SchemaKey, TriggerBinding, API_VERSION,
@@ -96,6 +102,19 @@ const AGENT_HALF_SIZE: [f32; 2] = [15.0, 30.0];
 const GEPPETTO_CALL: &[(&str, f32, f32, u32)] = &[("npc_geppetto", -1.0, 760.0, 8)];
 const CLAUSE_WREN_CALL: &[(&str, f32, f32, u32)] = &[("npc_clause", -1.0, 250.0, 6), ("npc_wren", 1.0, 360.0, 6)];
 
+/// The band as the show opens: each agent's band body (its catalog
+/// character) and where it stands, as an offset from the middle of the
+/// stage. They stand on the trusses, at the height of Full Stack's top where
+/// the Boss stands (`boss_stage/make_specs.py`: the west truss is 920 to 280
+/// west of the middle, the east one 280 to 920 east of it; Clause's drum kit
+/// stands at his place). The serial of each is its place here; a call names
+/// the ones it sends away.
+const BAND_LABEL: &str = "bossofthegame_band";
+const BAND: [(&str, f32); 3] = [("npc_geppetto_band", -500.0), ("npc_wren_band", 520.0), ("npc_clause_band", 760.0)];
+/// The band bodies each call sends away, by their place in `BAND`.
+const GEPPETTO_BAND: &[u32] = &[0];
+const CLAUSE_WREN_BAND: &[u32] = &[2, 1];
+
 pub const CHORD_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.chord", 1);
 pub const RIFF_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.riff", 1);
 pub const FEEDBACK_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.feedback", 1);
@@ -121,6 +140,12 @@ const STACK_ROWS: [(&str, &str, bool); 4] =
 pub fn stack_row(telegraph: Option<&str>, active: Option<&str>) -> u32 {
     let of = |key: &str| STACK_ROWS.iter().position(|(k, ..)| !k.is_empty() && *k == key).map(|i| i as u32);
     active.and_then(of).or_else(|| telegraph.and_then(of)).unwrap_or(0)
+}
+
+record! {
+    /// Whether the band is on the stage: it is staged once a fight.
+    pub struct Band = SchemaKey::new(crate::PROVIDER, "bossofthegame.band", 1);
+    1 staged: u32,
 }
 
 record! {
@@ -178,6 +203,7 @@ pub fn module() -> ModuleDescriptor {
             Typing::schema(),
             Cursor::schema(),
             Stage::schema(),
+            Band::schema(),
         ],
         entries: vec![
             entry("power_chord", POWER_CHORD, vec![CHORD_STRIKE], ProjectileSpawnPort::KEY,
@@ -195,19 +221,25 @@ pub fn module() -> ModuleDescriptor {
                 phase: BOSS_CONDUCT,
                 trigger: TriggerBinding { port: BossConductPort::KEY, selector: BOSS_ID.into() },
                 reads: Vec::new(),
-                writes: vec![Stage::KEY],
-                requests: vec![DrawnRowPort::KEY],
+                writes: vec![Stage::KEY, Band::KEY],
+                requests: vec![DrawnRowPort::KEY, BossSummonPort::KEY],
                 after: Vec::new(),
-                limits: Limits { max_requests: 1 },
+                limits: Limits { max_requests: 1 + BAND.len() as u32 },
                 on_idle: IdlePolicy::Invoke,
                 run: EntryCode::Native(conduct),
             },
             entry("subagents", SUBAGENTS, vec![SUBAGENT_STRIKE, SUBAGENT_NUMBER], BossSummonPort::KEY, SUBAGENT_COUNT,
                   IdlePolicy::ResetStateExcept(vec![SUBAGENT_NUMBER]), subagents),
-            entry("call_geppetto", CALL_GEPPETTO, vec![GEPPETTO_STRIKE], BossSummonPort::KEY, GEPPETTO_CALL.len() as u32,
-                  IdlePolicy::ResetState, call_geppetto),
-            entry("call_clause_wren", CALL_CLAUSE_WREN, vec![CLAUSE_WREN_STRIKE], BossSummonPort::KEY,
-                  CLAUSE_WREN_CALL.len() as u32, IdlePolicy::ResetState, call_clause_wren),
+            EntryDescriptor {
+                requests: vec![BossSummonPort::KEY, BossDismissSummonPort::KEY],
+                ..entry("call_geppetto", CALL_GEPPETTO, vec![GEPPETTO_STRIKE], BossSummonPort::KEY,
+                        (GEPPETTO_CALL.len() + GEPPETTO_BAND.len()) as u32, IdlePolicy::ResetState, call_geppetto)
+            },
+            EntryDescriptor {
+                requests: vec![BossSummonPort::KEY, BossDismissSummonPort::KEY],
+                ..entry("call_clause_wren", CALL_CLAUSE_WREN, vec![CLAUSE_WREN_STRIKE], BossSummonPort::KEY,
+                        (CLAUSE_WREN_CALL.len() + CLAUSE_WREN_BAND.len()) as u32, IdlePolicy::ResetState, call_clause_wren)
+            },
         ],
     }
 }
@@ -228,7 +260,42 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
     stage.store(inv)?;
     let (_, name, looping) = STACK_ROWS[stage.row as usize % STACK_ROWS.len()];
-    inv.submit::<DrawnRowPort>(DrawnRow { on: DrawnPart::Mount, names: vec![name.into()], elapsed: stage.elapsed_s, looping })
+    inv.submit::<DrawnRowPort>(DrawnRow { on: DrawnPart::Mount, names: vec![name.into()], elapsed: stage.elapsed_s, looping })?;
+    stage_the_band(inv, &boss)
+}
+
+/// Where the band body at `place` in `BAND` stands: on the truss at the
+/// height of the Boss's feet, `boss` being his middle, in a stage `room_w` wide.
+pub fn band_spot(place: usize, boss: [f32; 2], room_w: f32) -> [f32; 2] {
+    // He is 96 tall and they are 60: a little over the truss, to land on it.
+    [room_w * 0.5 + BAND[place].1, boss[1] + 48.0 - AGENT_HALF_SIZE[1] - 4.0]
+}
+
+/// Bring the band on, once a fight, while he stands.
+fn stage_the_band(inv: &mut Invocation<'_>, boss: &BossConduct) -> Result<(), Fault> {
+    let mut band = Band::load(inv)?;
+    let Some([room_w, _]) = boss.room else {
+        return Ok(());
+    };
+    if band.staged != 0 || !boss.alive {
+        return Ok(());
+    }
+    band.staged = 1;
+    band.store(inv)?;
+    for (place, &(character, _)) in BAND.iter().enumerate() {
+        inv.submit::<BossSummonPort>(BossSummon {
+            label: BAND_LABEL.into(),
+            serial: vec![place as u32],
+            position: band_spot(place, boss.position, room_w),
+            half_size: AGENT_HALF_SIZE,
+            character_id: character.into(),
+            health: None,
+            keeps_contact_damage: false,
+            side: SummonSide::Boss,
+            holds: Vec::new(),
+        })?;
+    }
+    Ok(())
 }
 
 fn shot(origin: Vec2, dir: Vec2, speed: f32, gravity: f32, half: f32, lifetime: f32, visual: &str) -> ProjectileSpawn {
@@ -398,19 +465,29 @@ fn subagents(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 }
 
 fn call_geppetto(inv: &mut Invocation<'_>) -> Result<(), Fault> {
-    call_agents(inv, &GEPPETTO_STRIKE, 0, GEPPETTO_CALL)
+    call_agents(inv, &GEPPETTO_STRIKE, 0, GEPPETTO_CALL, GEPPETTO_BAND)
 }
 
 fn call_clause_wren(inv: &mut Invocation<'_>) -> Result<(), Fault> {
-    call_agents(inv, &CLAUSE_WREN_STRIKE, 1, CLAUSE_WREN_CALL)
+    call_agents(inv, &CLAUSE_WREN_STRIKE, 1, CLAUSE_WREN_CALL, CLAUSE_WREN_BAND)
 }
 
-/// Drop the named agents of one call onto the stage, once a strike. `call`
-/// keeps each call's bodies apart from the other's (their serials).
-fn call_agents(inv: &mut Invocation<'_>, strike_key: &SchemaKey, call: u32, agents: &[(&str, f32, f32, u32)]) -> Result<(), Fault> {
+/// Drop the named agents of one call onto the stage, once a strike, and
+/// send their band bodies away (`band`, by place). `call` keeps each call's
+/// bodies apart from the other's (their serials).
+fn call_agents(
+    inv: &mut Invocation<'_>,
+    strike_key: &SchemaKey,
+    call: u32,
+    agents: &[(&str, f32, f32, u32)],
+    band: &[u32],
+) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
     if !strike::once(inv, strike_key, &caster)? {
         return Ok(());
+    }
+    for &place in band {
+        inv.submit::<BossDismissSummonPort>(BossDismissSummon { label: BAND_LABEL.into(), serial: vec![place] })?;
     }
     let room_w = caster.room_size.map(|r| r[0]);
     for (i, &(character, side, reach, health)) in agents.iter().enumerate() {

@@ -891,9 +891,16 @@ a guitar, bass, keytar and drumsticks every agent can play (`band_*` rows),
 and a drum kit prop. The encore's Agent Swarm subagents, refused until then
 as an unbuilt character, now drop in.
 
-**Next action:** stage the band in the fight (the agents at their
-instruments in the intro, leaving them when called); the Boss's microphone
-rows; play it in a window and tune; his own anthem when a music registry is
+*Built 2026-11-13:* the band in the fight. As the show opens the Boss's
+conductor summons Geppetto on the bass (west truss), Wren on the rhythm
+guitar and Clause at the drum kit (east truss), each drawn in the
+instrument's row. A call sends the called agent's band body away (a new boss
+request, `ambition.boss.dismiss_summon`) as the fighter drops in. Witness:
+`his_named_agents_join_the_fight` (rows at the open; Geppetto off at phase
+2; the others off at the encore). A capture of the practice stage shows the
+three at their places.
+
+**Next action:** the Boss's microphone rows; play it in a window and tune; his own anthem when a music registry is
 at hand; the later-work list in the design page.
 
 **Acceptance:** a ring dialed by its address reaches the boss dimension; the

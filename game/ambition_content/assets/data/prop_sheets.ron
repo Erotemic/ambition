@@ -764,6 +764,8 @@
     "shoulders_apple_tree_west": (),
     "shoulders_apple_tree_middle": (),
     "shoulders_apple_tree_east": (),
+    // The Boss's stage: his band's drum kit (Clause plays it).
+    "band_drum_kit": (),
     // GNU-ton's works: a thing in each hall that says what it is about (Science).
     "hall_cradle": (),
     "hall_lectern": (),

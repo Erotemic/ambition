@@ -2896,6 +2896,60 @@
             ),
         ),
 
+        // ===== The bossofthegame's band (`docs/planning/game/final-boss.md`,
+        // "The band"): his agents at their instruments as the show opens.
+        "npc_geppetto_band": (
+            display_name: "Geppetto on Bass",
+            // Geppetto at the bass in the Boss's band, until he calls them into
+            // his fight (the module `bossofthegame` sends this body away and
+            // drops the fighter where it stood). The same sheet as the fighter.
+            manifest: "sprites/geppetto_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(70.4),
+            composition: None,
+            default_action_set: "peaceful",
+            rest_row: Some("band_bass"),
+            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(4),
+            tags: ["agent", "band"],
+        ),
+        "npc_clause_band": (
+            display_name: "Clause on Drums",
+            // Clause at the drums in the Boss's band, until he calls them into
+            // his fight (the module `bossofthegame` sends this body away and
+            // drops the fighter where it stood). The same sheet as the fighter.
+            manifest: "sprites/clause_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(68.1),
+            composition: None,
+            default_action_set: "peaceful",
+            rest_row: Some("band_drums"),
+            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(4),
+            tags: ["agent", "band"],
+        ),
+        "npc_wren_band": (
+            display_name: "Wren on Guitar",
+            // Wren at the rhythm guitar in the Boss's band, until he calls them into
+            // his fight (the module `bossofthegame` sends this body away and
+            // drops the fighter where it stood). The same sheet as the fighter.
+            manifest: "sprites/wren_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(65.0),
+            composition: None,
+            default_action_set: "peaceful",
+            rest_row: Some("band_guitar"),
+            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(4),
+            tags: ["agent", "band"],
+        ),
+
         // ===== Puppy Slug (wanderer crawlid).
         "npc_puppy_slug": (
             sprite_tuning: Some((collision_scale: 1.4, frame_sample_inset: 1)),

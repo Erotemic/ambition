@@ -43,6 +43,11 @@ pub fn install_summons(app: &mut App) {
         "ambition_boss_encounter",
         lower_boss_summons::<InTechniqueExecution>,
     );
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossDismissSummonPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_boss_encounter",
+        lower_boss_dismissals::<InTechniqueExecution>,
+    );
     // A body a module ticks in this phase (a summoned ally, by its status)
     // is drawn in a row of the module's, and speaks.
     app.install_extension_submitted_request::<ambition_boss_special_port::DrawnRowPort, _>(
@@ -183,6 +188,11 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         lower_boss_summons::<InBossConduct>,
     );
+    app.install_extension_submitted_request::<ambition_boss_special_port::BossDismissSummonPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        lower_boss_dismissals::<InBossConduct>,
+    );
 }
 
 fn lower_boss_summons<L: LowersIn>(
@@ -229,6 +239,46 @@ fn lower_boss_summons<L: LowersIn>(
                 holds: summon.holds,
             },
         });
+    }
+}
+
+/// Send away each minion a boss dismissed: a body whose id is the one the
+/// boss minted for it and that the simulation made with the boss as its
+/// parent. Anything else is refused.
+fn lower_boss_dismissals<L: LowersIn>(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    bosses: Query<(&BossConfig, &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
+    minions: Query<(
+        Entity,
+        &ambition_combat::components::FeatureId,
+        &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
+    )>,
+) {
+    let mut gone: Vec<Entity> = Vec::new();
+    for submitted in outbox.drain::<ambition_boss_special_port::BossDismissSummonPort>(&L::PHASE) {
+        let Ok((boss, boss_sim)) = bosses.get(submitted.scope) else {
+            warn!(
+                "extension entry {} asked to dismiss a minion for {:?}, which is not a boss; refused",
+                submitted.entry, submitted.scope
+            );
+            continue;
+        };
+        let Some(id) = submitted.value.id(&boss.id) else {
+            continue;
+        };
+        gone.extend(minions.iter().filter_map(|(body, feature, origin)| {
+            let parent = matches!(
+                origin,
+                ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { parent, .. } if parent == boss_sim
+            );
+            (parent && feature.0 == id).then_some(body)
+        }));
+    }
+    gone.sort();
+    gone.dedup();
+    for body in gone {
+        commands.entity(body).despawn();
     }
 }
 

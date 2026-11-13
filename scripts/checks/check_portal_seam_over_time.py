@@ -77,9 +77,15 @@ class Case:
     frames: int
 
 
+# The fist goes into the pair at tick 313 (`check_limb_through_portal.py`'s
+# film of the same fight) and comes out of `c128`, the line at the floor. From
+# tick 326 its impact burst covers the band: drawn by neither the near line's
+# window nor the truth, it is compared with nothing and read as a shift. So the
+# film ends before it. (Re-aimed 2026-11-13: the fight's timing and the arena's
+# channels had moved, and the old film, `c129` from tick 704, caught no blow.)
 CASES = [
-    Case("gnu_hammer", "GNU-ton's forearm at the floor line while the fist is stuck",
-         "gnu_ton_arena", (900, 900), (400, 1200), "c129", 704, 24),
+    Case("gnu_hammer", "GNU-ton's forearm at the floor line as the fist goes through",
+         "gnu_ton_arena", (900, 900), (400, 1200), "c128", 302, 24),
 ]
 TIERS = ("low", "potato")
 

@@ -209,6 +209,11 @@ from scripts.measure import multi_writer_resource_census as census  # noqa: E402
 #: than a second recorded fact that can disagree with the first — which is the
 #: rule this whole census exists to enforce, applied to the census.
 BASELINE: dict[str, tuple[str, ...]] = {
+    "ConversationBagSinceCheckpoint": (
+        "crates/ambition_platformer2d_items/src/narrative.rs",
+        "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_session/src/teardown.rs",
+    ),
     "ComposedBodyDemand": (
         "crates/ambition_render/src/rendering/actors/rigged.rs",
         "crates/ambition_render/src/rendering/hit_flash.rs",
@@ -281,6 +286,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_content/src/encounters.rs",
         "game/ambition_content/src/quest.rs",
+        "crates/ambition_platformer2d_session/src/fact_horizon.rs",
     ),
     "GameAssets": (
         "crates/ambition_platformer2d/src/game_assets/mod.rs",
@@ -318,7 +324,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_items/src/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_items/src/starting_bag.rs",
         "crates/ambition_platformer2d_runtime/src/world_schedule.rs",
-        "game/ambition_content/src/portal/inventory_adapter.rs",
         "game/ambition_content/src/quest.rs",
     ),
     "CausalRecording": (
@@ -412,6 +417,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/quest.rs",
         "game/ambition_content/src/quest.rs",
+        "crates/ambition_platformer2d_session/src/fact_horizon.rs",
     ),
     "SeatRawFrames": (
         "crates/ambition_platformer2d/src/scripted_input.rs",
@@ -464,6 +470,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_conversation/src/ui_bridge.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_conversation/src/rooms.rs",
     ),
     "BossDefeatsSinceCheckpoint": (
         "crates/ambition_boss_encounter/src/retraction.rs",
@@ -487,6 +494,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "QuestCausesInRooms": (
         "crates/ambition_platformer2d_items/src/pickups.rs",
         "crates/ambition_platformer2d_runtime/src/effect_bus.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body/interact.rs",
     ),
     "BagSpendsSinceCheckpoint": (
         "crates/ambition_held_items/src/lib.rs",
@@ -632,7 +640,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ConstructionSchemaCatalog": (
         "crates/ambition_platformer2d_runtime/src/gravity/plugin.rs",
         "crates/ambition_platformer2d_runtime/src/sim_core_resources.rs",
-        "crates/ambition_portal2d/src/plugin.rs",
     ),
     "CutsceneLibrary": (
         "game/ambition_content/src/reload.rs",
@@ -1006,6 +1013,13 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "ConversationBagSinceCheckpoint": (
+        "CORRECT — ONE LOG, ONE RECORDER, ONE RETRACTOR, ONE RESET (DIALOGUE-CHECKPOINT 3, "
+        "2026-11-13). `narrative.rs` only `record`s a conversation's grant or sale with "
+        "its room and tick; `minted_horizon.rs` forgets it at a checkpoint, keeps it "
+        "through a restore and `retract_room`s it at a room's rewind; `teardown.rs` "
+        "resets it at the session edge. ⇒ Nothing here is two owners of one fact."
+    ),
     "PortalViewConeConfig": (
         "The host projects the user's Video > Portal Windows setting into `PortalViewConeConfig.tint`. "
         "The developer inspector edits geometry, capture and diagnostic fields; "
@@ -1866,6 +1880,7 @@ ADJUDICATED: dict[str, str] = {
         "same guard on `after`, so they write no value the drain did not write "
         "first. Witnesses in `a_room_rewinds_alone.rs`; the flag arm was "
         "poison-verified."
+        " ⭐ 2026-11-13 (DIALOGUE-CHECKPOINT 1): `fact_horizon.rs` rebuilds it in the checkpoint reducer from the restored quest steps, by the rule a session builds it by."
     ),
     "OwnedItems": (
         "ROUTED — TEN WRITER FILES COLLAPSE TO A HANDFUL OF IMPLEMENTATIONS, AND "
@@ -1937,6 +1952,7 @@ ADJUDICATED: dict[str, str] = {
         "(`BagUsesInRooms`). The bag is shared by rooms, so each inverts only "
         "its own room's writes after the saved tick: no other room's count is "
         "touched."
+        " 2026-11-13: the portal inventory adapter no longer writes it."
     ),
     "BossDefeatsSinceCheckpoint": (
         "CORRECT — ONE RECORDER, ONE TAKER, TWO FORGETTERS, ONE TYPE "
@@ -1973,6 +1989,7 @@ ADJUDICATED: dict[str, str] = {
         "only what no rewind can reach, so the recorder and it cannot disagree "
         "about a live entry. Rollback state with a value checksum "
         "(`resource.quest_causes_in_rooms`)."
+        " ⭐ 2026-11-11 (ISL-1b): `interact.rs` only `record`s a talk's cause, dated in the talker's room; `retract_room` is still only the retractor's."
     ),
     "BagUsesInRooms": (
         "CORRECT — ONE RECORDER AND ITS RETRACTOR (ISL-2d, 2026-11-10). The list "
@@ -2205,10 +2222,14 @@ ADJUDICATED: dict[str, str] = {
         "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
         "its default at the session edge. It is rollback-registered "
         "(`cutscene.skip_hold`) and accumulates from the seat's `cancel_held`, so a "
-        "rewind restores the hold with the tick that grew it. MEASURED 2026-09-28 per SYSTEM rather than "
-        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
-        "one function, with comments and test modules stripped. ⇒ Nothing here is "
-        "two owners of one fact."
+        "rewind restores the hold with the tick that grew it. ⭐ 2026-11-11 (ISL-1b): "
+        "a second function in `cutscene.rs` writes it, `retract_room_cutscenes`, the "
+        "room-write retractor registered beside the log. It runs only at a room's "
+        "rewind and puts back the hold `CutscenesInRooms` logged at the saved tick "
+        "(`CutsceneState::restore`), with `ActiveCutscene`: a restore of the owner's "
+        "own earlier value, not a second authority. So the type has left "
+        "`SOLE_IN_SESSION_OWNER`, like `ActiveCutscene`. ⇒ Nothing here is two "
+        "owners of one fact."
     ),
     "ImpactHitstop": (
         "CORRECT — THREE ARMERS THAT SHARE ONE MAX-MERGE, PLUS THE SESSION "
@@ -2353,6 +2374,7 @@ ADJUDICATED: dict[str, str] = {
         "(`set_lives`) and returns at once unless the life ledger or a restore "
         "changed (review 2026-11-10, finding 4); it adds no second writer of "
         "any other section."
+        " ⭐ 2026-11-13 (DIALOGUE-CHECKPOINT 1): `fact_horizon.rs` writes the save's flags and quest steps only in the checkpoint reducer (`CheckpointDomainApply`), putting back the facts the last checkpoint committed: the restore road the other domains take."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "
@@ -2409,6 +2431,7 @@ ADJUDICATED: dict[str, str] = {
         "shipped Yarn node, so roads 2 and 3 are quiet while road 1 is under "
         "test. `commit.rs`'s close is uncovered until then, and now it is "
         "uncovered ON THE RECORD."
+        " ⭐ 2026-11-11 (ISL-1b): `rooms.rs` writes it only in `retract_room_conversations`, the room-write retractor, which puts back the conversation the rewound room logged at the saved tick: a restore of an earlier value, not a second authority."
     ),
     "PossessionState": (
         "CORRECT — one protocol for each participant seat. `release_possession` clears "
@@ -3274,6 +3297,7 @@ ADJUDICATED: dict[str, str] = {
         "under `ACTOR_CONSTRUCTION_DOMAIN` — three distinct constants, so no "
         "two writers can ever reach the same map entry. Measured by "
         "CalculexAmbition, 2026-09-18."
+        " 2026-11-13: the portal plugin no longer writes it."
     ),
     "GameplayTraceBuffer": (
         "ONE FLAGGED TARGET IS A GETTER AND THE OTHER IS AN APPEND-ONLY "
@@ -3813,6 +3837,14 @@ ADJUDICATED: dict[str, str] = {
 #: `dict[str, int]` and a same-cardinality writer swap on
 #: `EncounterMusicRequest` left the guard green. The file set is the owner.
 SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
+    # The facts a death goes back to (DIALOGUE-CHECKPOINT 1, 2026-11-13). In a
+    # session only `fact_horizon.rs` writes it (a checkpoint commit, the save a
+    # session applies); a New Game (`reset/mod.rs`) puts the fresh run's facts
+    # in, so a death after it does not go back to the old run's checkpoint.
+    "FactsBaseline": (
+        "crates/ambition_platformer2d_session/src/fact_horizon.rs",
+        "crates/ambition_platformer2d_session/src/reset/mod.rs",
+    ),
     "WorldTimeSchedule": (
         "crates/ambition_breakables/src/returns.rs",
         "crates/ambition_platformer2d_items/src/regrowth.rs",
@@ -3894,6 +3926,13 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: different lifetime: a session boundary reclaims these, so "two writers" is a
 #: question about one session's state rather than about the App's.
 SESSION_WORLD_ADJUDICATED: dict[str, str] = {
+    "FactsBaseline": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE NEW-GAME WIPE (DIALOGUE-CHECKPOINT 1, "
+        "2026-11-13). In a session only `fact_horizon.rs` adopts it: at a checkpoint "
+        "commit and from the save a session applies. `reset/mod.rs` adopts the fresh "
+        "run's facts on a New Game, the same moment it wipes the save, so a death "
+        "after it goes back to the new run. ⇒ Nothing here is two owners of one fact."
+    ),
     "WorldTimeSchedule": (
         "CORRECT -- Breakables mirror respawn timers; pickups mirror regrowth "
         "timers. Both use the ledger's `record` and `forget` operations with the "
@@ -4106,7 +4145,6 @@ SESSION_SCOPE_RESET = (
 #: whose *"one owner"* claim is mechanical.
 SOLE_IN_SESSION_OWNER: dict[str, str] = {
     "ControlledSubject": "resolve_controlled_subject",
-    "CutsceneSkipHold": "tick_active_cutscene",
     "LiveMatchTicks": "count_the_live_match_ticks",
     "SaveRestored": "complete_durable_restore",
     "SessionMatchOrdinal": "activate_the_prepared_match",

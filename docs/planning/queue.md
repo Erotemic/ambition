@@ -1172,9 +1172,11 @@ the hint sign twice (near copy over the window); now once. Window seams
 at most 0.03% differing. Limb through a pair (`check_limb_through_portal.py`,
 windows on and off): 4/4. A walk into the `portal_lab` B wall pair, filmed
 every 4 ticks: the near half in front, the rest in the window, no second
-copy. `check_portal_seam_over_time.py` gnu_hammer is red at the old z too,
-with the same shifts and nothing carried: the film no longer catches the
-fist in the pair, which predates this change.
+copy. `check_portal_seam_over_time.py` gnu_hammer was red at the old z
+too: the fight's timing and channels had moved, and the film (`c129` from
+tick 704) caught no blow. Re-aimed at `c128` from tick 302 (the fist goes in
+at 313; from 326 its impact burst covers the band, in neither picture): low
+and potato 23/23, with a carried part compared in 6 and 7 frames.
 
 ### SMASH-PORTAL-RECOVERY — GNU-ton's portal up-b, and a better recovery (done)
 

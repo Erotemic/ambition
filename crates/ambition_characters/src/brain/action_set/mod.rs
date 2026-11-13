@@ -1377,7 +1377,8 @@ impl MeleeActionSpec {
         match self {
             Self::Swipe(s) => s.armored,
             Self::Lunge(s) => s.armored,
-            Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) | Self::Detonate(_) => false,
+            Self::Slam(s) => s.armored,
+            Self::Bite(_) | Self::PunchWeak(_) | Self::Batter(_) | Self::Detonate(_) => false,
         }
     }
 }
@@ -1519,6 +1520,10 @@ pub struct SlamSpec {
     pub recover_s: f32,
     pub damage: i32,
     pub reach_px: f32,
+    /// Super armor through the committed half of the swing (see
+    /// [`MeleeActionSpec::armored`]).
+    #[serde(default)]
+    pub armored: bool,
 }
 
 /// Jaw bite — short reach, fast.

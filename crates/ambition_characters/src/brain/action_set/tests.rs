@@ -465,6 +465,7 @@ fn action_request_label_covers_all_melee_variants() {
             recover_s: 0.4,
             damage: 2,
             reach_px: 40.0,
+            armored: false,
         }),
         MeleeActionSpec::Bite(BiteSpec {
             windup_s: 0.18,

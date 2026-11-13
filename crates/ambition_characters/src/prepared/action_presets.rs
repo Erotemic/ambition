@@ -78,12 +78,14 @@ fn melee_from_preset(p: MeleePreset) -> MeleeActionSpec {
             recover_s,
             damage,
             reach_px,
+            armored,
         } => MeleeActionSpec::Slam(SlamSpec {
             windup_s,
             active_s,
             recover_s,
             damage,
             reach_px,
+            armored,
         }),
         MeleePreset::Bite {
             windup_s,

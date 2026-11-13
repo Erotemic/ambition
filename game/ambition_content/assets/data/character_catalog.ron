@@ -504,7 +504,7 @@
         ),
         "war_drum_slam": (
             move_style: WalkHeavy,
-            melee: Some(Slam(windup_s: 0.8, active_s: 0.2, recover_s: 1.0, damage: 3, reach_px: 72.0)),
+            melee: Some(Slam(windup_s: 0.8, active_s: 0.2, recover_s: 1.0, damage: 3, reach_px: 72.0, armored: true)),
         ),
         // The Workshop Deeps. A clay golem lifts both fists over its head and
         // slams them onto the floor in front of it (its arms stretch to reach);
@@ -582,7 +582,7 @@
         // silk moth lifts its nose and wings and dives at you nose first.
         "terracotta_chop": (
             move_style: WalkHeavy,
-            melee: Some(Slam(windup_s: 0.9, active_s: 0.2, recover_s: 1.1, damage: 3, reach_px: 80.0)),
+            melee: Some(Slam(windup_s: 0.9, active_s: 0.2, recover_s: 1.1, damage: 3, reach_px: 80.0, armored: true)),
         ),
         "desert_bandit_slash": (
             move_style: Walk,
@@ -639,7 +639,7 @@
         ),
         "kraken_arm_slam": (
             move_style: WalkHeavy,
-            melee: Some(Slam(windup_s: 0.9, active_s: 0.25, recover_s: 1.2, damage: 3, reach_px: 60.0)),
+            melee: Some(Slam(windup_s: 0.9, active_s: 0.25, recover_s: 1.2, damage: 3, reach_px: 60.0, armored: true)),
         ),
         "privateer_cut": (
             move_style: Walk,
@@ -806,7 +806,7 @@
         ),
         "cave_bear_maul": (
             move_style: WalkHeavy,
-            melee: Some(Slam(windup_s: 0.8, active_s: 0.2, recover_s: 1.0, damage: 3, reach_px: 64.0)),
+            melee: Some(Slam(windup_s: 0.8, active_s: 0.2, recover_s: 1.0, damage: 3, reach_px: 64.0, armored: true)),
         ),
         "viking_raider_chop": (
             move_style: Walk,

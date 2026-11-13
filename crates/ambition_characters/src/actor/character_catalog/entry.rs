@@ -1179,6 +1179,12 @@ pub enum MeleePreset {
         recover_s: f32,
         damage: i32,
         reach_px: f32,
+        /// Super armor through the committed half of the swing: from halfway
+        /// through the windup to the end of the strike, a hit lands its damage
+        /// but not its launch. The first half of the windup and the recovery
+        /// stay open.
+        #[serde(default)]
+        armored: bool,
     },
     Bite {
         windup_s: f32,

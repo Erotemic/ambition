@@ -1033,8 +1033,21 @@ weight: the robot's slash names the material selector, and a hit of 3 or more
 from 170 to 62 Hz) in place of `flesh.light`; on metal, `gong` in place of
 `chink`.
 
-**Next action:** a heavy connect's own spark (the impact scales with strength; no
-separate heavy art).
+**Built 2026-11-13 (slice 4, the slams armored):** a `Slam` melee can say
+`armored: true` as a `Swipe` or `Lunge` can (`SlamSpec::armored`), and the
+four heavy slams wear it: `war_drum_slam`, `terracotta_chop`,
+`kraken_arm_slam`, `cave_bear_maul` (damage 3, windups 0.8-0.9 s). Probed
+on the built move: an `Armor` window 0.4-1.0 s on a 0.8 s windup and a
+0.2 s strike, none unarmored. The light slams (stagehand, scorpion man,
+mummy, the club) stay open. Codec shape unchanged.
+
+The heavy spark was already there, and the premise "no separate heavy art"
+was stale: a connect on the room's heavy line draws `hit_hard` (since
+6420ab194d, 2026-10-29) where a light one draws `hit_soft`, and larger with
+strength. One rule (`StrikeWeightRules::is_heavy`, `combat::util`) picks
+both it and the heavy sound.
+
+**Next action:** none.
 
 **Acceptance:** a landed hit has a distinct sound, a hit effect at the contact,
 attacker recoil and hit-stop; each enemy move declares knockback or armor,

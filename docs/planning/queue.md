@@ -875,10 +875,11 @@ keystroke rain, backspace, subagents), the cutscenes `boss_vibe_kill` (the
 stage's entry) and `boss_retirement` (the green room), the music fallback
 (GNU-ton's adaptive cue) and the hall's practice copy
 `hall_bossofthegame_stage`. Witness: `the_final_boss_stands_on_full_stack`.
+The module's conductor draws Full Stack in its `strum`, `riff` and
+`feedback` rows on those moves, its `idle` strum between.
 
-**Next action:** play it in a window and tune; a small conductor so Full
-Stack plays its `strum`, `riff` and `feedback` rows on his moves; his own
-anthem when a music registry is at hand.
+**Next action:** play it in a window and tune; his own anthem when a music
+registry is at hand.
 
 **Acceptance:** a ring dialed by its address reaches the boss dimension; the
 fight runs with the Boss riding the guitar robot, in phases, with its intro,

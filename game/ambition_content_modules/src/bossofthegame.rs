@@ -15,10 +15,16 @@
 //! - `boss_backspace`: the telegraph locks the player; a row of backspace keys
 //!   flies at that height from him toward the player's side.
 //! - `boss_subagents`: two Agent Swarm bodies drop onto the stage.
+//!
+//! And one conductor entry (`conduct`, bound to the boss `bossofthegame`):
+//! it moves nothing; it draws Full Stack in the row of the move it plays
+//! (`strum`, `riff`, `feedback`), and in its `idle` strum the rest of the
+//! time.
 
+use ambition_boss_special_port::conduct::{BossConduct, BossConductPort, DrawnPart, DrawnRow, DrawnRowPort};
 use ambition_boss_special_port::{BossCaster, BossSpecialCast, BossSummon, BossSummonPort, SummonSide};
 use ambition_extension_sdk::{
-    phases::TECHNIQUE_EXECUTION, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation,
+    phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION}, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation,
     Limits, ModuleDescriptor, ModuleKey, Port, PortKey, SchemaKey, TriggerBinding, API_VERSION,
 };
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
@@ -32,6 +38,8 @@ pub const FEEDBACK: &str = "stack_feedback";
 pub const KEYSTROKE_RAIN: &str = "boss_keystroke_rain";
 pub const BACKSPACE: &str = "boss_backspace";
 pub const SUBAGENTS: &str = "boss_subagents";
+/// The boss the conductor entry is bound to (`BossConfig::behavior.id`).
+pub const BOSS_ID: &str = "bossofthegame";
 
 const SOUND: &str = "sound_ring";
 
@@ -75,6 +83,24 @@ pub const FEEDBACK_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofth
 pub const BACKSPACE_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.backspace", 1);
 pub const SUBAGENT_STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.subagents", 1);
 pub const SUBAGENT_NUMBER: SchemaKey = SchemaKey::new(crate::PROVIDER, "bossofthegame.subagent_number", 1);
+
+record! {
+    /// The row Full Stack is drawn in (`STACK_ROWS`), and for how long.
+    pub struct Stage = SchemaKey::new(crate::PROVIDER, "bossofthegame.stage", 1);
+    1 row: u32,
+    2 elapsed_s: f32,
+}
+
+/// Full Stack's rows: (the move that plays it, the row, whether it loops).
+/// Row 0 is its idle strum, drawn when none of these moves plays.
+const STACK_ROWS: [(&str, &str, bool); 4] =
+    [("", "idle", true), (POWER_CHORD, "strum", false), (RIFF, "riff", true), (FEEDBACK, "feedback", true)];
+
+/// The row of the move the boss plays now (its strike, else its tell).
+pub fn stack_row(telegraph: Option<&str>, active: Option<&str>) -> u32 {
+    let of = |key: &str| STACK_ROWS.iter().position(|(k, ..)| !k.is_empty() && *k == key).map(|i| i as u32);
+    active.and_then(of).or_else(|| telegraph.and_then(of)).unwrap_or(0)
+}
 
 record! {
     /// The typing clock: gameplay seconds since the last keystroke of this strike.
@@ -128,6 +154,7 @@ pub fn module() -> ModuleDescriptor {
             strike::number_schema(SUBAGENT_NUMBER),
             Typing::schema(),
             Cursor::schema(),
+            Stage::schema(),
         ],
         entries: vec![
             entry("power_chord", POWER_CHORD, vec![CHORD_STRIKE], ProjectileSpawnPort::KEY,
@@ -140,10 +167,41 @@ pub fn module() -> ModuleDescriptor {
                   IdlePolicy::ResetStateExcept(vec![Cursor::KEY]), keystroke_rain),
             entry("backspace", BACKSPACE, vec![BACKSPACE_STRIKE], ProjectileSpawnPort::KEY, BACKSPACE_KEYS,
                   IdlePolicy::ResetState, backspace),
+            EntryDescriptor {
+                key: "conduct".into(),
+                phase: BOSS_CONDUCT,
+                trigger: TriggerBinding { port: BossConductPort::KEY, selector: BOSS_ID.into() },
+                reads: Vec::new(),
+                writes: vec![Stage::KEY],
+                requests: vec![DrawnRowPort::KEY],
+                after: Vec::new(),
+                limits: Limits { max_requests: 1 },
+                on_idle: IdlePolicy::Invoke,
+                run: EntryCode::Native(conduct),
+            },
             entry("subagents", SUBAGENTS, vec![SUBAGENT_STRIKE, SUBAGENT_NUMBER], BossSummonPort::KEY, SUBAGENT_COUNT,
                   IdlePolicy::ResetStateExcept(vec![SUBAGENT_NUMBER]), subagents),
         ],
     }
+}
+
+fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let boss: BossConduct = inv.trigger::<BossConductPort>()?.clone();
+    let mut stage = Stage::load(inv)?;
+    let row = if boss.alive {
+        stack_row(boss.telegraph.as_ref().map(|m| m.key.as_str()), boss.active.as_ref().map(|m| m.key.as_str()))
+    } else {
+        0
+    };
+    if row == stage.row {
+        stage.elapsed_s += inv.dt();
+    } else {
+        stage.row = row;
+        stage.elapsed_s = 0.0;
+    }
+    stage.store(inv)?;
+    let (_, name, looping) = STACK_ROWS[stage.row as usize % STACK_ROWS.len()];
+    inv.submit::<DrawnRowPort>(DrawnRow { on: DrawnPart::Mount, names: vec![name.into()], elapsed: stage.elapsed_s, looping })
 }
 
 fn shot(origin: Vec2, dir: Vec2, speed: f32, gravity: f32, half: f32, lifetime: f32, visual: &str) -> ProjectileSpawn {
@@ -315,6 +373,14 @@ fn subagents(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn full_stack_plays_the_row_of_the_move_and_strums_between() {
+        assert_eq!(stack_row(None, None), 0);
+        assert_eq!(stack_row(Some(POWER_CHORD), None), 1);
+        assert_eq!(stack_row(Some(RIFF), Some(FEEDBACK)), 3);
+        assert_eq!(stack_row(Some(KEYSTROKE_RAIN), Some(KEYSTROKE_RAIN)), 0);
+    }
 
     #[test]
     fn the_keystrokes_spell_the_words_in_order_and_go_round() {

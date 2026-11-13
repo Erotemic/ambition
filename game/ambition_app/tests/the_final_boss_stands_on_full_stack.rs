@@ -92,14 +92,22 @@ fn a_body_stands_on_the_guitar_of_full_stack() {
     }
 }
 
-/// What the fight throws, by look, over `ticks`.
+/// What the fight throws, by look, and the rows Full Stack is drawn in,
+/// over `ticks`.
 fn thrown_over(sim: &mut ambition_app::Platformer2dSimHarness, ticks: usize) -> std::collections::BTreeSet<String> {
+    use ambition_platformer2d::sprite_sheet::character::PinnedRow;
     let mut seen = std::collections::BTreeSet::new();
     for _ in 0..ticks {
         sim.step(base());
         let world = sim.world_mut();
         let mut q = world.query::<&ambition_platformer2d::projectiles::ProjectileVisualId>();
         seen.extend(q.iter(world).map(|id| id.as_str().to_string()));
+        let mut rows = world.query::<(&WornCharacter, &PinnedRow)>();
+        seen.extend(
+            rows.iter(world)
+                .filter(|(worn, _)| worn.id() == STACK)
+                .filter_map(|(_, pin)| pin.rows.first().map(|row| format!("row:{row}"))),
+        );
     }
     seen
 }
@@ -129,6 +137,10 @@ fn the_agent_plays_first_and_then_he_types() {
     sim.teleport_player((at.x - 360.0, at.y + 400.0));
     let first = thrown_over(&mut sim, 60 * 12);
     assert!(first.contains("sound_ring"), "Full Stack plays (chord, riff, feedback) in phase 1: {first:?}");
+    assert!(
+        first.contains("row:strum") && first.contains("row:idle"),
+        "and it is drawn strumming its chord, and its idle strum between: {first:?}"
+    );
     assert!(!first.iter().any(|id| id.starts_with("keycap_")), "he does not type yet: {first:?}");
     boss_health_to(&mut sim, 0.5);
     let second = thrown_over(&mut sim, 60 * 12);

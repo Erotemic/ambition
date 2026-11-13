@@ -205,12 +205,12 @@ change the `cue_id` when the anthem is rendered.
   `bossofthegame_boss`, `full_stack_giant` and `boss_keycaps`.
 - Witness: `game/ambition_app/tests/the_final_boss_stands_on_full_stack.rs`.
 
-## Not in this design (later work)
+Full Stack is drawn by the Boss's move: the module's conductor (`conduct`,
+`BossConductPort`) pins its `strum` row on the power chord, `riff` on the
+riff and `feedback` on the feedback (each from the tell to the strike's
+end), and its `idle` strum between.
 
-- Full Stack plays its `idle` row (a strum) the whole fight: a mount with no
-  conductor chooses no row, so its `strum`, `riff` and `feedback` rows are
-  not drawn yet. A small conductor (as GNU-ton's) would play them on the
-  Boss's moves.
+## Not in this design (later work)
 
 - The brainstorm's endgame road (restrict his remote models and compute
   before the fight, so he changes the world more slowly). The fight does not

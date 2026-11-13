@@ -580,7 +580,7 @@ def build_spec(
         "fill_collision": "empty",
         "bg_color": "#0F121A",
         "biome": "hall",
-        "music_track": "pulse_drift_voyage",
+        "music_track": "burn_rate_bossa",
         "ambient_profile": "hum",
         "visual_theme": "default",
         # The engine keys "Hall bark pool + gallery policy" off this generic

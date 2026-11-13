@@ -158,3 +158,93 @@ fn a_hosted_guest_shows_a_death_on_the_host() {
     assert_eq!(guest_hidden, host_hidden, "the guest stopped drawing Bob on another frame than the host");
     assert!(!alone_dead, "the control: Bob fell on the unlinked guest too, so the run measures nothing about the link");
 }
+
+/// One run of the crossing scene through the link: Alice leaves through the
+/// hub door on frame 30 and Bob stays. With `scoped`, the host names the
+/// guest's seat (Bob's), so replicon's room filter applies. Returns the host's
+/// bodies in Bob's room, the guest's bodies, the entities replication made or
+/// continued on the guest, and the link bytes a frame.
+fn crossing_through_the_link(scoped: bool) -> (Vec<ambition_platformer2d::platformer::sim_id::SimId>, Vec<ambition_platformer2d::platformer::sim_id::SimId>, usize, f64, bool) {
+    use crate::hosted_world::{alice_leaves, alice_on_the_hub_door, bobs};
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    const RUN: i32 = 220;
+    let mut host = booted(HostedRole::Host);
+    alice_on_the_hub_door(&mut host);
+    let mut guest = booted(HostedRole::Guest);
+    simulate_nothing(&mut guest);
+    host.app_mut().connect_client(guest.app_mut());
+    if scoped {
+        let world = host.world_mut();
+        let client = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ConnectedClient>>()
+            .single(world)
+            .expect("one guest is connected");
+        world
+            .entity_mut(client)
+            .insert(ambition_hosted_world::GuestSeat(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    }
+    let mut bytes = 0usize;
+    for frame in 1..=RUN {
+        host.drive_seat(0, alice_leaves(frame));
+        host.drive_seat(1, bobs(frame));
+        host.app_mut().update();
+        bytes += host.world().resource::<ServerMessages>().iter_sent().map(|(_, _, sent)| sent.len()).sum::<usize>();
+        host.app_mut().exchange_with_client(guest.app_mut());
+        guest.app_mut().update();
+    }
+    let bobs_room = {
+        let world = host.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &InRoomInstance)>()
+            .iter(world)
+            .find(|(driver, _)| driver.0 .0 == 1)
+            .map(|(_, room)| room.0)
+            .expect("Bob is in a room")
+    };
+    let alice_left = {
+        let world = host.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &InRoomInstance)>()
+            .iter(world)
+            .any(|(driver, room)| driver.0 .0 == 0 && room.0 != bobs_room)
+    };
+    let in_bobs_room = bodies(&mut host, Some(bobs_room));
+    let on_guest = bodies(&mut guest, None);
+    // Agreement on the rows, not only the ids.
+    let rows_agree = in_bobs_room.iter().all(|(id, row)| on_guest.get(id) == Some(row));
+    let remote = {
+        let world = guest.world_mut();
+        world.query_filtered::<(), bevy::prelude::With<Remote>>().iter(world).count()
+    };
+    assert!(alice_left, "premise: Alice crossed into the hub and Bob stayed");
+    (
+        in_bobs_room.into_keys().collect(),
+        on_guest.into_keys().collect(),
+        remote,
+        bytes as f64 / f64::from(RUN),
+        rows_agree,
+    )
+}
+
+/// NA-2b's interest through `bevy_replicon`: with the guest's seat named, the
+/// host sends it the bodies of Bob's room only. After Alice leaves for the
+/// hub, the guest holds exactly the host's bodies in Bob's room, with their
+/// rows, and none of the hub's. The control is the same run with no seat
+/// named: the guest is sent the hub too.
+#[test]
+fn a_hosted_guest_is_sent_its_own_room() {
+    let (in_room, on_guest, remote, scoped_bytes, agree) = crossing_through_the_link(true);
+    let (_, on_unscoped, remote_unscoped, all_bytes, _) = crossing_through_the_link(false);
+    println!(
+        "[hosted room] Bob's room on the host {} bodies; the scoped guest {} bodies, {remote} replicated, {scoped_bytes:.1} link bytes a frame; unscoped {} bodies, {remote_unscoped} replicated, {all_bytes:.1} bytes a frame",
+        in_room.len(),
+        on_guest.len(),
+        on_unscoped.len()
+    );
+    assert_eq!(on_guest, in_room, "the scoped guest does not hold exactly the bodies of Bob's room");
+    assert!(agree, "the scoped guest holds Bob's room's bodies with other rows than the host's");
+    assert!(
+        remote_unscoped > remote,
+        "the control: with no seat named the guest was sent no more than the scoped one, so the filter is not what scoped it"
+    );
+}

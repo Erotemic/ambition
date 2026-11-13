@@ -739,9 +739,25 @@ Bob holds the host's life row and is drawn or not as the host draws him.
 The beat had run 1.08 s on the host by the end, and the guest runs none, so
 its agreement came over the link. On the unlinked guest Bob never falls.
 
+### The room as a visibility filter (2026-11-13)
+
+`RoomOf(ordinal)`, an immutable component the host puts on each replicated
+body (from its `InRoomInstance`) and on each guest's client entity (from the
+room of the body its `GuestSeat` drives), is a replicon `VisibilityFilter`
+over the whole entity: a body is sent to a client in its room, or to a client
+whose room is not known yet. A body leaving a guest's view is removed there.
+
+Witness `a_hosted_guest_is_sent_its_own_room` (the crossing scene: Alice
+leaves `switch_lab` for the hub on frame 30, Bob stays; 220 frames): with
+Bob's seat named, the guest ends holding exactly the host's bodies in Bob's
+room, with their rows, and one replicated entity, at 30.6 link bytes a
+frame. With no seat named (the control) it is sent 19 entities, the hub's
+included, at 66.4 bytes a frame. The 17 hub entities it was sent there are
+rows with no body to land on: the guest has not built the hub, which is the
+spawn row's job.
+
 Next in the prototype: spawn rows (a replicated entity the guest builds by
-its spawn row's character), the room as a visibility filter, and a real
-transport.
+its spawn row's character), and a real transport.
 
 ## Next
 

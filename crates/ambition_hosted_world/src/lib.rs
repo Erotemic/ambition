@@ -9,11 +9,19 @@
 //! how it moves and which way it faces; and its life row (NA-2b): its health
 //! and its death's beat, which is what draws a defeat.
 //!
+//! A guest is sent the bodies of its player's room only (NA-2b's interest):
+//! each body and each guest's client entity carry the live room they are in
+//! ([`RoomOf`]), and replicon's visibility filter hides a body from a client
+//! in another room. Leaving a guest's view removes the body there, which is
+//! the general rule the measurement used.
+//!
 //! The link is the caller's: `bevy_replicon` has no I/O of its own.
 
 use ambition_characters::actor::{BodyHealth, Corpse};
 use ambition_combat::components::DeathBeat;
 use ambition_platformer2d_core::BodyKinematics;
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 use bevy_replicon::prelude::*;
@@ -87,6 +95,29 @@ fn corpse_of(byte: u8) -> Corpse {
     }
 }
 
+/// The live room (its ordinal) a body is in, or a guest's player is in.
+/// Immutable, as replicon's filters require: a move re-inserts it.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[component(immutable)]
+pub struct RoomOf(pub u32);
+
+impl VisibilityFilter for RoomOf {
+    type ClientComponent = RoomOf;
+    type Scope = Entity;
+
+    /// A body is visible to a client in its room, and to a client whose room
+    /// is not known yet (no seat named, or its body not placed).
+    fn is_visible(&self, _client: Entity, room: Option<&RoomOf>) -> bool {
+        room.is_none_or(|room| room == self)
+    }
+}
+
+/// On the host, the seat a connected guest drives: put on the guest's client
+/// entity by whoever accepted the connection. The guest's room is this
+/// seat's body's room.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GuestSeat(pub PlayerSlot);
+
 /// Which end of a hosted world this App is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HostedRole {
@@ -107,8 +138,12 @@ impl Plugin for HostedWorldPlugin {
         app.replicate::<BodyRow>().replicate::<LifeRow>();
         match self.role {
             HostedRole::Host => {
+                app.add_visibility_filter::<RoomOf>();
                 app.add_systems(Update, mark_hosted_bodies);
-                app.add_systems(PostUpdate, (write_body_rows, write_life_rows).before(ServerSystems::Send));
+                app.add_systems(
+                    PostUpdate,
+                    (write_body_rows, write_life_rows, place_bodies, place_guests).before(ServerSystems::Send),
+                );
             }
             HostedRole::Guest => {
                 app.add_systems(Update, sign_own_bodies);
@@ -157,6 +192,40 @@ fn write_body_rows(
             }
             None => {
                 commands.entity(entity).insert(now);
+            }
+        }
+    }
+}
+
+/// Put each replicated body's room on it, when it moves.
+fn place_bodies(mut commands: Commands, bodies: Query<(Entity, &InRoomInstance, Option<&RoomOf>), With<Replicated>>) {
+    for (body, room, placed) in &bodies {
+        let now = RoomOf(room.0.ordinal());
+        if placed != Some(&now) {
+            commands.entity(body).insert(now);
+        }
+    }
+}
+
+/// Put each guest's room on its client entity: its seat's body's room.
+fn place_guests(
+    mut commands: Commands,
+    guests: Query<(Entity, &GuestSeat, Option<&RoomOf>)>,
+    drivers: Query<(&DrivingParticipant, &InRoomInstance)>,
+) {
+    for (client, seat, placed) in &guests {
+        let now = drivers
+            .iter()
+            .find(|(driver, _)| driver.0 == seat.0)
+            .map(|(_, room)| RoomOf(room.0.ordinal()));
+        if placed.copied() != now {
+            match now {
+                Some(room) => {
+                    commands.entity(client).insert(room);
+                }
+                None => {
+                    commands.entity(client).remove::<RoomOf>();
+                }
             }
         }
     }

@@ -953,10 +953,16 @@ brute: a hit in the window took 1 HP at (0, 0) px/s and no hitstun, and the
 swing went on; the next hit after it launched it at 108 px/s with 0.18 s of
 hitstun. A `Slam` has no armor flag yet (four heavy sets use one).
 
-**Next action:** slice 2b, weight: an enemy's knockback on the player is
-120 px/s whatever the move (`attack_move_from_melee`), and the player's
-slash launches a goblin and a brute alike (47 px/s); then the hit sounds and
-the contact effect.
+**Built 2026-11-13 (slice 2b, knockback):** `hit_feel.knockback_scale`
+(the `base_knockback_scale` of a game that declares no combat ruleset).
+Ambition's is 2.0: eight ticks after the robot's slash a goblin moves at
+(83, -19) px/s, against (36, 0), and travels 21 px, against 7. A goblin and
+a brute are launched alike (no catalog row authors a weight); the brute's
+difference is its armored swing.
+
+**Next action:** slice 3, the hit sounds and the contact effect: each
+connect plays two cues and draws `Slash`, `SpeechBubble` and `Impact`; make
+the connect read at the point of contact, and a heavy hit sound heavy.
 
 **Acceptance:** a landed hit has a distinct sound, a hit effect at the contact,
 attacker recoil and hit-stop; each enemy move declares knockback or armor,

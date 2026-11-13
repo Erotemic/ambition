@@ -26,6 +26,11 @@ pub struct HitFeelRules {
     /// what it struck. 0: none.
     #[serde(default)]
     pub attacker_recoil: f32,
+    /// How hard every hit throws a fresh body, as a multiplier on its launch
+    /// base: [`CombatRules::base_knockback_scale`](crate::rules::CombatRules::base_knockback_scale)
+    /// for a game that declares no combat ruleset. Absent: the ruleset's.
+    #[serde(default)]
+    pub knockback_scale: Option<f32>,
 }
 
 impl HitFeelRules {
@@ -34,6 +39,11 @@ impl HitFeelRules {
         let mut problems = Vec::new();
         if !(self.attacker_recoil.is_finite() && self.attacker_recoil >= 0.0) {
             problems.push(format!("`hit_feel.attacker_recoil` is {}; it is a speed, finite and not negative", self.attacker_recoil));
+        }
+        if let Some(scale) = self.knockback_scale {
+            if !(scale.is_finite() && scale >= 0.0) {
+                problems.push(format!("`hit_feel.knockback_scale` is {scale}; it is a multiplier, finite and not negative"));
+            }
         }
         if let Some(ambition_platformer2d_core::hit_response::HitlagLaw::Affine { base_s, per_damage_s, max_s }) = self.hitlag {
             if ![base_s, per_damage_s, max_s].iter().all(|s| s.is_finite() && *s >= 0.0) {

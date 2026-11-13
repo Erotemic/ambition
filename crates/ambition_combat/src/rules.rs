@@ -867,11 +867,15 @@ impl ResolvedCombatTuning {
         self
     }
 
-    /// These rules with the room's hit feel folded in: its hitlag law, where
-    /// it states one, replaces the ruleset's. See [`crate::hit_feel`].
+    /// These rules with the room's hit feel folded in: its hitlag law and its
+    /// knockback scale, where it states them, replace the ruleset's. See
+    /// [`crate::hit_feel`].
     pub fn with_hit_feel(mut self, feel: Option<crate::hit_feel::HitFeelRules>) -> Self {
         if let Some(law) = feel.and_then(|feel| feel.hitlag) {
             self.hitlag = law;
+        }
+        if let Some(scale) = feel.and_then(|feel| feel.knockback_scale) {
+            self.base_knockback_scale = scale;
         }
         self
     }

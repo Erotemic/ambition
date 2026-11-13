@@ -310,6 +310,7 @@ mod boss_pass {
             hp_current: 40,
             hp_max: 40,
             training_dummy: false,
+            armored: false,
             hit_strength: 0.0,
             unhittable: false,
             defense_cues: ambition_sim_view::DefenseCueCauses::NONE,

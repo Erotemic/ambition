@@ -306,6 +306,7 @@ mod tests {
             hp_current: 40,
             hp_max: 40,
             training_dummy: false,
+            armored: false,
             sprite_offset: None,
             room: None,
         }

@@ -124,6 +124,10 @@ pub struct FeatureView {
     /// Actor rows only: the sandbag/training-dummy depiction flag the debug
     /// health overlay colors by.
     pub training_dummy: bool,
+    /// Actor rows only: its move's armor window is open
+    /// (`MovePlayback::armor_now`), so a hit lands its damage and not its
+    /// launch. Drawn as the armor sheen, so a heavy move's armor is seen.
+    pub armored: bool,
     /// HOW HARD the hit currently freezing this body was, `0..=1`, and `0.0`
     /// when no hitlag is running.
     ///
@@ -376,6 +380,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                armored: false,
                 hit_strength: 0.0,
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
@@ -410,6 +415,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                armored: false,
                 hit_strength: 0.0,
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
@@ -444,6 +450,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: breakable.state().health.current,
                 hp_max: breakable.state().health.max,
                 training_dummy: false,
+                armored: false,
                 hit_strength: 0.0,
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
@@ -490,6 +497,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                armored: false,
                 hit_strength: 0.0,
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
@@ -593,6 +601,9 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: combat.is_some_and(|c| c.training_dummy),
+                armored: playback.is_some_and(|pb| {
+                    !matches!(pb.armor_now(), ambition_characters::actor::ArmorPolicy::None)
+                }),
                 hit_strength: ae::hit_response::hit_strength_fraction(
                     combat.map_or(0.0, |c| c.hitstop_timer),
                     rules
@@ -650,6 +661,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                armored: false,
                 hit_strength: 0.0,
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
@@ -702,6 +714,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: false,
+                armored: false,
                 hit_strength: 0.0,
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
@@ -1239,6 +1252,7 @@ mod view_index_tests {
             hp_current: 0,
             hp_max: 0,
             training_dummy: false,
+            armored: false,
             hit_strength: 0.0,
             unhittable: false,
             defense_cues: crate::DefenseCueCauses::NONE,

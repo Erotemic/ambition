@@ -87,6 +87,13 @@ const BLINK_PEAK_INTENSITY: f32 = 0.55;
 const FLASH_TINT: Vec3 = Vec3::new(1.0, 1.0, 1.0);
 const BLINK_TINT: Vec3 = Vec3::new(0.62, 0.86, 1.0);
 const CHARGE_TINT: Vec3 = Vec3::new(1.0, 0.71, 0.28);
+/// Armor: cool steel, darker than the blink's pale blue so the two read apart.
+const ARMOR_TINT: Vec3 = Vec3::new(0.58, 0.68, 0.82);
+/// The armor sheen's floor and its peak, and its period in sim ticks: a slow
+/// shimmer on a steady base, never off while the window is open.
+const ARMOR_BASE_INTENSITY: f32 = 0.30;
+const ARMOR_PEAK_INTENSITY: f32 = 0.55;
+const ARMOR_PERIOD_TICKS: u64 = 18;
 /// The gate's light, the cyan of its glyphs.
 const TRANSIT_TINT: Vec3 = Vec3::new(0.56, 0.96, 1.0);
 
@@ -597,6 +604,9 @@ pub struct OverlayFacts {
     /// How far into a gate's light the body is (`PassageLookView::transit`),
     /// `0.0` out of one or below Ultra ([`transit_fact`]).
     pub transit: f32,
+    /// Its move's armor window is open (`FeatureView::armored`): a hit will
+    /// not stagger it.
+    pub armored: bool,
 }
 
 /// The gate-transit fact of one source: its passage's `transit`, from the
@@ -684,6 +694,7 @@ fn overlay_facts_from_pose(
         iframe_blink: shared_iframe_blink(pose.unhittable, pose.defense_cues, policy),
         move_charge: pose.move_charge,
         transit: 0.0,
+        armored: false,
     }
 }
 
@@ -698,6 +709,7 @@ fn overlay_facts_from_feature(
         iframe_blink: shared_iframe_blink(view.unhittable, view.defense_cues, policy),
         move_charge: None,
         transit: 0.0,
+        armored: view.armored,
     }
 }
 
@@ -740,6 +752,12 @@ fn overlay_look(
     let flash = facts.hit_flash_secs.map_or(0.0, normalize_hit_flash);
     if flash > 0.0 {
         return (flash, FLASH_TINT);
+    }
+    // Armor: a cool steel sheen while a heavy swing cannot be staggered.
+    // After the flashes (a landed hit on armor still shows as a hit) and
+    // before the blink (an armored body is hittable, an i-framed one is not).
+    if facts.armored {
+        return (armor_sheen_intensity(tick), ARMOR_TINT);
     }
     if facts.iframe_blink {
         return (blink_intensity(tick), BLINK_TINT);
@@ -791,6 +809,14 @@ fn charge_pulse_intensity(charge: f32, tick: u64) -> f32 {
     let phase = (((tick % CHARGE_PHASE_WRAP) as f32) * rate).fract();
     // Triangle, like the blink: a square wave reads as a dropped frame.
     peak * (1.0 - (2.0 * phase - 1.0).abs())
+}
+
+/// The armor sheen's intensity at one sim tick: a triangle wave between
+/// [`ARMOR_BASE_INTENSITY`] and [`ARMOR_PEAK_INTENSITY`], so the body stays
+/// tinted for the whole window.
+fn armor_sheen_intensity(tick: u64) -> f32 {
+    let phase = (tick % ARMOR_PERIOD_TICKS) as f32 / ARMOR_PERIOD_TICKS as f32;
+    ARMOR_BASE_INTENSITY + (ARMOR_PEAK_INTENSITY - ARMOR_BASE_INTENSITY) * (1.0 - (2.0 * phase - 1.0).abs())
 }
 
 /// The blink's intensity at one sim tick: a triangle wave over
@@ -1000,6 +1026,7 @@ mod tests {
             iframe_blink: true,
             move_charge: None,
             transit: 0.0,
+            armored: false,
         };
         // Every tick of the blink cycle, including its peak.
         for tick in 0..BLINK_PERIOD_TICKS * 2 {
@@ -1015,6 +1042,7 @@ mod tests {
             iframe_blink: true,
             move_charge: None,
             transit: 0.0,
+            armored: false,
         };
         let (intensity, tint) = overlay_look(after, BLINK_PERIOD_TICKS / 2, None);
         assert_eq!(tint, BLINK_TINT);
@@ -1095,6 +1123,7 @@ mod tests {
             iframe_blink: false,
             move_charge: Some(1.0),
             transit: 0.0,
+            armored: false,
         };
         let mid = (CHARGE_PHASE_WRAP / 7) as u64;
         assert_eq!(overlay_look(charging, mid, None).1, CHARGE_TINT);
@@ -1117,6 +1146,7 @@ mod tests {
             iframe_blink: true,
             move_charge: Some(1.0),
             transit: 0.0,
+            armored: false,
         };
         assert_eq!(overlay_look(struck_while_charging, mid, None).1, FLASH_TINT);
     }
@@ -1165,6 +1195,7 @@ mod tests {
             iframe_blink: true,
             move_charge: Some(0.5),
             transit: 0.0,
+            armored: false,
         };
         let tick = 17;
         assert_eq!(
@@ -1188,6 +1219,7 @@ mod tests {
             iframe_blink: true,
             move_charge: Some(0.5),
             transit: 0.0,
+            armored: false,
         };
         assert_eq!(
             overlay_look(blinking, tick, None).0,
@@ -1219,6 +1251,7 @@ mod tests {
             iframe_blink: true,
             move_charge: None,
             transit: 0.0,
+            armored: false,
         };
         let (intensity, tint) = overlay_look(parried, 0, None);
         assert_eq!(tint, PARRY_TINT, "the parry outranks the i-frame blink");
@@ -1250,6 +1283,7 @@ mod tests {
             iframe_blink: false,
             move_charge: None,
             transit: 0.0,
+            armored: false,
         };
         assert_eq!(overlay_look(struck_mid_parry, 0, None).1, IMPACT_TINT);
     }
@@ -1266,6 +1300,7 @@ mod tests {
             iframe_blink: true,
             move_charge: None,
             transit: 0.0,
+            armored: false,
         };
         for tick in 0..BLINK_PERIOD_TICKS * 3 {
             assert_eq!(
@@ -1284,6 +1319,7 @@ mod tests {
             iframe_blink: false,
             move_charge: None,
             transit: 0.0,
+            armored: false,
         }
     }
 
@@ -1295,6 +1331,7 @@ mod tests {
             iframe_blink: true,
             move_charge: None,
             transit: 0.0,
+            armored: false,
         }
     }
 }

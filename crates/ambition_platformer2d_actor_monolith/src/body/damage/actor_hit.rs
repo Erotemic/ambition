@@ -8,7 +8,6 @@ use bevy::prelude::Entity;
 use super::super::ae;
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
-use ambition_combat::util::midpoint;
 use ambition_platformer2d_items::loot::{drop_currency_coin, drop_health_pickup, id_drops_health};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
@@ -206,11 +205,10 @@ pub(crate) fn apply_actor_hit(
         }
         // A protected body registers the hit without health damage. The
         // stimulus consumer owns retaliation, strike counts and speech.
-        let pos = em.kin.pos;
         combat.hit_flash = combat.hit_flash.max(0.18);
         combat.note_struck();
         combat.damage_invuln_timer = ambition_body_seed::clusters::ACTOR_DAMAGE_IFRAME_S;
-        let impact = midpoint(event.volume.center(), pos);
+        let impact = event.contact_on_box(em.kin.aabb());
         // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
         // the VICTIM's, so both are resolved before the emitter borrows the writers.
         let attacker_source = writers.source_of(event.attacker);
@@ -374,7 +372,7 @@ pub(crate) fn apply_actor_hit(
             // The guard costs nothing but consumes the hit: no damage, no
             // knockback, just a clang. A blocked hit still counts as "took the
             // hit" (returns true) so the caller plays the shared hitstop.
-            let impact = midpoint(event.volume.center(), em.kin.pos);
+            let impact = event.contact_on_box(em.kin.aabb());
             // The guard is the VICTIM's, so the clang is the victim's cue: a
             // shielded Sanic clangs out of Sanic's bank.
             writers.sfx.in_space(ambition_vfx::sfx_space(room)).write_for_body(
@@ -524,7 +522,7 @@ pub(crate) fn apply_actor_hit(
         // An ordinary actor's profile is `ENEMY` (plain tick, no red burst), so
         // this body never borrows the player's "you got hurt" cue. A killed body
         // still gets its death drama below, layered on this landing reaction.
-        let impact = midpoint(event.volume.center(), em.kin.pos);
+        let impact = event.contact_on_box(em.kin.aabb());
         // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
         // the VICTIM's. Both were resolved at the top of this branch, before the
         // emitters borrow the writers.

@@ -1003,9 +1003,25 @@ Ambition's is 2.0: eight ticks after the robot's slash a goblin moves at
 a brute are launched alike (no catalog row authors a weight); the brute's
 difference is its armored swing.
 
-**Next action:** slice 3, the hit sounds and the contact effect: each
-connect plays two cues and draws `Slash`, `SpeechBubble` and `Impact`; make
-the connect read at the point of contact, and a heavy hit sound heavy.
+**Built 2026-11-13 (slice 3, the contact and the armor seen):** an actor's
+hit spark is drawn where the blow lands (`HitEvent::contact_on_box`): in the
+overlap of the strike and the body, on the side the blow came from. It was
+half way between the strike's centre and the body's, which a blade that
+covers the body put in its middle. Measured on a hub goblin: the robot's
+slash marks (1760.9, 949.0), 6.6 px inside its near face at the robot's
+height; half way between the centres gave (1774.1, 943.1), its middle. An
+open armor window is drawn: a steel sheen on the body's overlay
+(`FeatureView::armored` from `MovePlayback::armor_now`, after the flashes and
+before the i-frame blink), so a heavy move's armor is seen. Not filmed: no
+capture had an armored swing at the player. The sounds already answer the
+weight: the robot's slash names the material selector, and a hit of 3 or more
+(Ambition's heavy line) on flesh plays `flesh.deep` (430 ms, a thump falling
+from 170 to 62 Hz) in place of `flesh.light`; on metal, `gong` in place of
+`chink`.
+
+**Next action:** a capture of an armored brute's swing to judge the sheen,
+and a heavy connect's own spark (the impact scales with strength; no
+separate heavy art).
 
 **Acceptance:** a landed hit has a distinct sound, a hit effect at the contact,
 attacker recoil and hit-stop; each enemy move declares knockback or armor,

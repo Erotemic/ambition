@@ -928,6 +928,27 @@ impl HitEvent {
         (from + part_center) * 0.5
     }
 
+    /// Where the hit touches the box `part` (which it meets), for its spark:
+    /// on the body, in the overlap of the box and the bounds of the piece of
+    /// the hit that reaches it, on the side the blow came from (the knockback's
+    /// `source_pos`, clamped into the overlap and eased a third of the way
+    /// to its centre). A blade that covers the whole body would otherwise mark
+    /// its middle. Half way between the two centres when the bounds miss.
+    pub fn contact_on_box(&self, part: ae::Aabb) -> ae::Vec2 {
+        let strike = self
+            .piece_meeting(&ae::CombatVolume::aabb(part))
+            .map_or_else(|| self.volume.bounds(), |piece| piece.world_volume().bounds());
+        let (min, max) = (strike.min.max(part.min), strike.max.min(part.max));
+        if !(min.x <= max.x && min.y <= max.y) {
+            return (strike.min + strike.max + part.min + part.max) * 0.25;
+        }
+        let centre = (min + max) * 0.5;
+        let Some(source) = self.knockback.as_ref().map(|knockback| knockback.source_pos) else {
+            return centre;
+        };
+        source.clamp(min, max).lerp(centre, 1.0 / 3.0)
+    }
+
     fn piece_meeting(&self, part: &ae::CombatVolume) -> Option<&ae::frame::thread::VolumePiece> {
         let whole = ae::frame::thread::VolumePiece::whole(part.clone());
         self.pieces.iter().find(|piece| piece.meets(&whole))

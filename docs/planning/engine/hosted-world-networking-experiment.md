@@ -665,6 +665,49 @@ does not.
   guest that shows lives needs each life's step on the wire (as the death
   beat is), or accepts drift until the next save.
 
+## Library evaluation (2026-11-13): Lightyear and `bevy_replicon`
+
+Read from crates.io and docs.rs, no dependency declared. This tree is on Bevy
+0.19.1. The newest releases (`bevy_replicon` 0.45.5, `lightyear` 0.31.0) need
+Bevy 0.20; the last for 0.19 are `bevy_replicon` 0.44.x (0.41–0.44 support
+0.19) and `lightyear` 0.30.x.
+
+- **Lightyear builds its world replication on `bevy_replicon`.** What it adds
+  is transport (UDP, and WebSocket, WebTransport and Steam through `aeronet`),
+  per-tick client input buffering, client prediction with per-component
+  rollback, snapshot interpolation and deterministic (input-only)
+  replication.
+- **`bevy_replicon`** is server-authoritative replication with no I/O of its
+  own (backends: `bevy_replicon_renet`, `_renet2`, `_quinnet`,
+  `aeronet_replicon`, `bevy_replicon_matchbox`). A server entity is replicated
+  when it carries `Replicated`, with rules per component; the client maps
+  server entities to its own (`ServerEntityMap`) and marks them `Remote`.
+  `Signature` matches a replicated entity with one the client already made
+  or loaded itself (a level both sides load). Client visibility uses filter
+  components on both the client and the entity, like collision layers.
+  Replication is sent when its `ServerTick` advances (by default in
+  `FixedPostUpdate`), with per-entity and per-client priority.
+
+How each measured need maps:
+
+| Need (measured above) | `bevy_replicon` | Lightyear on top |
+|---|---|---|
+| Identity by `SimId`; the room's own bodies built by both Apps | `Signature` from the `SimId` | same |
+| Spawn rows (shots, summons, drops by `SpawnOrigin`) | `Replicated` plus a rule; the client builds the body on `Remote` | same |
+| The guest's room only (27 against 398 bytes a frame) | visibility filters keyed by room | rooms, through replicon |
+| Prediction of the guest's own body, reconciled by replaying its room (0.068 units mean) | none; the room rewind (ISL-2) stays ours | per-component prediction and rollback: a third rewind beside GGRS and the room rewind |
+| Input to the host | messages and events | tick-buffered input, `leafwing` integration |
+| Transport with no service dependency | renet or quinnet (direct UDP or QUIC); matchbox needs a signalling server | its own UDP and `aeronet` |
+
+**Decision (2026-11-13):** prototype on `bevy_replicon` 0.44 (Bevy 0.19)
+alone. The identity, spawn and room needs fit its core, and its lack of I/O
+leaves the transport open. Lightyear's value is its prediction, input and
+transport. Its prediction would be a third rewind beside GGRS (Smash) and the
+room rewind, which ADR 0036 names as Ambition's prediction (a guest
+reconciles by rewinding its own room). So it is not taken now. Revisit its input buffering
+and transport crates when the guest has a real link. Moving to Bevy 0.20 moves
+both crates, so the prototype pins the 0.19 line.
+
 ## Next
 
 1. **NA-2b — a guest App.** First measurement above: body rows only, no

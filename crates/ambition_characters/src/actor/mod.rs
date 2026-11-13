@@ -148,6 +148,11 @@ impl Invulnerability {
     /// nothing in the code saying why it was allowed. A body that is absent is
     /// untouchable because it is absent.
     pub const SUBMERGED: u32 = 1 << 5;
+    /// A cutscene plays for the body's room. Its own reason, beside the
+    /// cutscene's `ControlHold`: the hold stops a new strike, and this stops
+    /// one already in flight (a projectile, a hazard) from landing on a body
+    /// that cannot answer it.
+    pub const CUTSCENE: u32 = 1 << 6;
 
     /// Nothing is holding it.
     pub const fn none() -> Self {

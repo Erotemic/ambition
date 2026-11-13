@@ -945,10 +945,15 @@ may share a similar move); the portal up-b works better as a recovery.
 edge, a portal up-b returns the fighter to the ledge or the stage in the
 cases measured, where it did not before.
 
-### PLAYER-LIGHT — a wider, subtler player highlight
+### PLAYER-LIGHT — a wider, subtler player highlight (done)
 
 **Owner:** the player light (render). Request (Jon, 2026-11-12): the player
 lighting / highlight has a larger radius and is more subtle.
+
+**Built 2026-11-12:** `ActorGlow::player_highlight` is radius 1.6 body
+heights (was 0.85) at peak alpha 0.018 (was 0.042): the same light at half a
+body height from the middle (0.013), now fading out over twice the distance
+instead of ending near the outline.
 
 ### COOP-RECOVERY — independent respawn and a full-party wipe
 

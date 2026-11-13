@@ -86,12 +86,14 @@ impl ActorGlow {
     }
 
     /// The light that marks the body a player drives: pale, faint, behind
-    /// it, and a little larger than its standing body, so the body is easy to find in
-    /// a busy room and its silhouette stays the same.
+    /// it, so the body is easy to find in a busy room and its silhouette
+    /// stays the same. Wide and low (Jon, 2026-11-12: "larger radius and
+    /// more subtle"): a pool of light around the body rather than a halo
+    /// at its outline.
     pub const fn player_highlight() -> Self {
         Self {
             color: [0.80, 0.92, 1.0],
-            ..Self::soft(0.85, 0.042)
+            ..Self::soft(1.6, 0.018)
         }
     }
 

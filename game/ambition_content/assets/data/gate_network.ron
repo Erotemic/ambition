@@ -56,6 +56,8 @@
         (id: "history_cradle", name: "Cradle Ring", dimension: "history"),
         // Haiti's ring, its own facility so it can dial the Cradle.
         (id: "history_ayiti", name: "Ayiti Ring", dimension: "history"),
+        // The final boss's dimension (`docs/planning/game/final-boss.md`).
+        (id: "boss_lobby_ring", name: "Final Tour Lobby Ring", dimension: "boss"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -290,6 +292,21 @@
             terminal: Some("history_ayiti_terminal"),
             posted: ["LEGAL", "DYNASTIC"],
             note: "Ayiti ring. Land of mountains; the ring is at the foot of them.",
+        ),
+        // ── Boss (the final tour) ────────────────────────────────────────
+        // The lobby of the bossofthegame's stage: one door from the final
+        // boss. Hidden, so a whole game can pass without the reveal
+        // (`docs/planning/game/final-boss.md`).
+        (
+            zone: "boss_lobby_gate",
+            name: "Final tour lobby",
+            facility: "boss_lobby_ring",
+            room: "boss_lobby",
+            address: Some("LEGACY"),
+            hidden: true,
+            terminal: Some("boss_lobby_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Lobby ring. Backstage passes are not valid here.",
         ),
     ],
 )

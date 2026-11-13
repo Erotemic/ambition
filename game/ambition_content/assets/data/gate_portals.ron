@@ -107,6 +107,12 @@
         portal_sprite_name: "Ayiti Gate Portal",
         ring_sprite_name: "Ayiti Gate Ring",
     ),
+    // The Boss dimension's ring, in the lobby of the final tour (LEGACY).
+    "boss_lobby_gate": (
+        command: Dialed,
+        portal_sprite_name: "Lobby Gate Portal",
+        ring_sprite_name: "Lobby Gate Ring",
+    ),
     // The Noodly Temple's narthex.
     "noodly_narthex_gate": (
         command: Dialed,

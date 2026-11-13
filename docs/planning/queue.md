@@ -859,8 +859,14 @@ gate address **LEGACY**; phases "Make No Mistakes", "Manual Override", "The
 Encore"; the end is his retirement, not his death. Q175 (the giant's
 identity) and Q176 (is a resolve bar a voluntary retirement) hold defaults.
 
-**Next action:** the dimension, its gate ring and the rooms; then the art,
-the encounter and its specials module, the cinematics.
+**Built 2026-11-12:** the dimension (`world.boss_ldtk`, map
+`generators/boss_stage/make_specs.py`): `boss_lobby` with the ring
+`boss_lobby_gate` (LEGACY, hidden), `boss_main_stage` (risers and truss,
+the green-room grille on `boss.cleared boss_stage.bossofthegame`),
+`boss_green_room`.
+
+**Next action:** the art (the Boss, Full Stack), the encounter and its
+specials module, the cinematics.
 
 **Acceptance:** a ring dialed by its address reaches the boss dimension; the
 fight runs with the Boss riding the guitar robot, in phases, with its intro,

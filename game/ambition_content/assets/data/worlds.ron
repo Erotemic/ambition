@@ -44,5 +44,9 @@
         // The History dimension, by the gate DYNASTIC: a timeline of eight
         // eras, from the Fertile Crescent east to the Industrial Age.
         (id: "world.history_ldtk", file: "history.ldtk"),
+        // The Boss dimension, by the hidden gate LEGACY: the lobby, the main
+        // stage where the bossofthegame stands on the shoulders of Full
+        // Stack, and the green room where he retires.
+        (id: "world.boss_ldtk", file: "boss.ldtk"),
     ],
 )

@@ -80,4 +80,8 @@
 
     // ---- the History dimension ----
     (name: "The Timeline", subtitle: Some("The History Dimension"), rooms: ["history_*"]),
+
+    // ---- the Boss dimension (the stage shows the boss's own card) ----
+    (name: "The Final Tour", subtitle: Some("The Boss Dimension"), rooms: ["boss_lobby"]),
+    (name: "The Green Room", subtitle: Some("The Boss Dimension"), rooms: ["boss_green_room"]),
 ]

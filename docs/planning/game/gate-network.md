@@ -150,6 +150,7 @@ from the start.
 | `SENTINEL` | `military_gate_zone` | `military_gate_annex` | back through the General's tower | yes; on foot, the checkpoint wants the clearance or the crawlway |
 | `NEST` (hidden) | `primeval_rookery_gate` | `primeval_rookery` | down the trail to the trailhead ring | yes |
 | `TESLA` (hidden) | `trail_survey_gate` | `gnu_ton_works_approach` | the tower top by GNU-ton's door; the lift down to the spoke | yes |
+| `LEGACY` (hidden) | `boss_lobby_gate` | `boss_lobby` | the stage door to the final boss ([final-boss](final-boss.md)); the green room's door home to the lobby | yes |
 | glyphs | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | when its breaker is on; `TANGENT` is posted on it |
 | glyphs | `intro_portal_zone` | `gate_stack_lower` (Ring 1, the intro's gate) | the gate stack; its door to the hub | when its power switch is on; `LEGAL` is posted on it |
 

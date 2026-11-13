@@ -1246,8 +1246,16 @@ Witnesses in `a_second_seat_joins_the_session`
 `with_the_setting_a_primary_alone_in_its_room_comes_back_beside_its_partner_next_door`);
 their controls are the default's witnesses in the same file.
 
-**Next action:** the assisted-respawn presentation (the partner's room shows
-the fallen arriving). Teleporting while alive is a separate possible
+**Measured 2026-11-13 (the presentation):** the partner's room already shows
+the fallen arriving. PLAYER-DEATH's arrival (`death_look::draw_death_arrivals`,
+the gate's `rescue_portal_give` door and its sound) is drawn where and when
+`OutOfPlay` comes off, in that body's room, and partner recovery takes it
+off only after the crossing has put the body beside the partner. Probed in
+both witnesses (temporary print, deleted): the seat's arrival in the shared
+room, and the primary's at (1524, 1928) in seat 1's room, on the frame the
+witness finds it back in play within 96 px of seat 1.
+
+**Next action:** none. Teleporting while alive is a separate possible
 feature, not in this row.
 
 ### DIALOGUE-CHECKPOINT — story facts and their objects share one horizon

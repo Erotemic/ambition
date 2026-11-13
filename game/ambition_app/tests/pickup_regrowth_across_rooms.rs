@@ -471,6 +471,7 @@ fn a_coin_taken_after_the_checkpoint_then(
         settle(&mut sim, 30);
         sim
     };
+    crate::death_restores_the_checkpoint::waive_the_death_fee(&mut sim);
     crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
     let at_the_checkpoint = alices_balance(&mut sim);
     assert_eq!(cross_to(&mut sim, COIN_ROOM), COIN_ROOM);

@@ -21,10 +21,20 @@ pub struct BodyWallet {
 pub struct BodyWalletShield;
 
 impl BodyWallet {
-    /// Credit the wallet (clamped at zero so a negative `amount` can't drive it
-    /// below zero).
+    /// Credit the wallet. A negative `amount` stops at zero, and a wallet in
+    /// debt (a negative balance, see [`Self::charge`]) pays the debt first.
     pub fn add(&mut self, amount: i32) {
-        self.balance = (self.balance + amount).max(0);
+        self.balance = (self.balance + amount).max(self.balance.min(0));
+    }
+
+    /// Take a fee of `amount`: the coins the wallet holds pay first, and the
+    /// rest is debt that later credits pay. The debt never grows past one fee.
+    /// Returns the coins taken.
+    pub fn charge(&mut self, amount: i32) -> i32 {
+        let amount = amount.max(0);
+        let paid = self.balance.clamp(0, amount);
+        self.balance = (self.balance - amount).max(-amount).min(self.balance);
+        paid
     }
 
     /// Spend `amount` if affordable; returns `true` and debits on success.

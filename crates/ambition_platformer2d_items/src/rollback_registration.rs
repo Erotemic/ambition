@@ -22,6 +22,7 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         "feature.pickup_collect_lock",
     );
     registrar.rollback_component_clone::<crate::pickups::PickupArt>(OWNER, "feature.pickup_art");
+    registrar.rollback_component_clone::<crate::pickups::ReturnedCoins>(OWNER, "feature.returned_coins");
     registrar.rollback_component_clone_probed::<crate::pickups::PickupMagnet>(
         OWNER,
         "item.pickup_magnet",

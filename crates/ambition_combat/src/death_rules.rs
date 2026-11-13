@@ -59,6 +59,17 @@ pub struct DeathLook {
     pub arrival: ambition_vfx::FxId,
 }
 
+/// What a participant's death costs in one game's rooms (PLAYER-DEATH, Q174's
+/// default): the gate network's insurance takes `coins` from the wallet, and
+/// what it took lies where the body was taken until someone fetches it. A
+/// wallet that cannot pay goes into debt for the rest, and the next currency
+/// earned pays the debt first. A game that declares none charges nothing.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeathFee {
+    pub coins: i32,
+}
+
 /// An effect row by its authored name; an empty name names nothing.
 fn fx_by_name<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<ambition_vfx::FxId, D::Error> {
     let name = <String as serde::Deserialize>::deserialize(deserializer)?;

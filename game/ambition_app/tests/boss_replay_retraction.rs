@@ -588,6 +588,7 @@ fn a_warden_defeat_across_a_death_in_another_room(banked: bool) -> (bool, u32, (
         commit_a_hub_checkpoint(&mut sim);
     }
     walk_through_the_door_to(&mut sim, NEIGHBOUR);
+    crate::death_restores_the_checkpoint::waive_the_death_fee(&mut sim);
     die(&mut sim);
     (
         boss_cleared(&sim, "warden"),
@@ -1121,6 +1122,7 @@ fn alice_loots_bobs_chest_of_then_dies(
     if sim.observation().active_room != "central_hub_complex" {
         assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
     }
+    crate::death_restores_the_checkpoint::waive_the_death_fee(&mut sim);
     crate::death_restores_the_checkpoint::die(&mut sim);
     let outcome = format!(
         "{:?}",

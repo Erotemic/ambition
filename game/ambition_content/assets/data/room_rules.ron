@@ -10,6 +10,11 @@
     // body is taken away in a dissolve of code where it fell, and assembles
     // where it comes back.
     death_look: Some((departure: "digital_departure", arrival: "digital_arrival")),
+    // What the rescue costs (Q174's default): the gate network's insurance
+    // takes 50 coins, and they lie where the body was taken until fetched. A
+    // wallet that holds less gives all it has and owes the rest; the next
+    // coins earned pay the debt first. A placed coin is worth 5 to 200.
+    death_fee: Some((coins: 50)),
     // A participant that falls while a partner plays waits this long before
     // it comes back, so a partner who falls in that time makes a full-party
     // wipe (COOP-RECOVERY). Alone, it comes back at once.

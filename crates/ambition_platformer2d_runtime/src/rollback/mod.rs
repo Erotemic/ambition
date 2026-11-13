@@ -40,6 +40,12 @@ const ENGINE: &str = "ambition_platformer2d_runtime";
 
 pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     registrar.clear_message_on_rollback::<crate::stocks_match::SuddenDeathBegan>(ENGINE, "message.sudden_death_began");
+    registrar.rollback_resource_clone_checksum::<crate::death_fee::DeathFees>(
+        ENGINE,
+        "death.fees",
+        "owed fees and lying parcels, Debug-text FNV",
+        crate::death_fee::DeathFees::probe,
+    );
     // ⭐ NO `body_clusters` ALIAS ANY MORE, and its absence is the measurement:
     // this function no longer names a single one of the floor's types.
 

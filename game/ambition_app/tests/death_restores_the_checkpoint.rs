@@ -224,6 +224,22 @@ pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
     );
 }
 
+/// No death fee in this world: the purse a restore puts back is the subject,
+/// and the fee (PLAYER-DEATH) is taken after it.
+pub(crate) fn waive_the_death_fee(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::world::scoped_rules::DeclaredRules;
+    // Loud, not quiet: a waiver run before the game declared its rules
+    // would waive nothing, and the purse would read the fee as the restore.
+    let mut rules = sim
+        .world_mut()
+        .get_resource_mut::<DeclaredRules<ambition_platformer2d::combat::DeathFee>>()
+        .expect("the game has declared its rules");
+    let scopes: Vec<_> = rules.iter().map(|(scope, _)| scope).collect();
+    for scope in scopes {
+        rules.restate(scope, None);
+    }
+}
+
 /// Kill the primary body through the ordinary death report and run out the
 /// interlude, so the consequence the roster decides actually fires.
 pub(crate) fn die(sim: &mut Platformer2dSimHarness) {
@@ -1278,6 +1294,7 @@ fn a_death_undoes_a_purchase_since_the_checkpoint_whole() {
     sim.step_n(base(), 8);
     let entity = body(&mut sim);
     sim.world_mut().entity_mut(entity).insert(BodyWallet { balance: 20 });
+    waive_the_death_fee(&mut sim);
     sim.step_n(base(), 2);
     let at_start = bombs(&mut sim);
 

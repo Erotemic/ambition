@@ -441,7 +441,9 @@ pub fn update_player_hud(
     }
     for (mut text, of, seat) in &mut labels.p2() {
         if let Some(facts) = facts_of(of, seat) {
-            set_text_if_changed(&mut text, format!("${}", facts.balance));
+            // A wallet in debt (a death's fee it could not pay) reads "-$20".
+            let sign = if facts.balance < 0 { "-" } else { "" };
+            set_text_if_changed(&mut text, format!("{sign}${}", facts.balance.unsigned_abs()));
         }
     }
     // Whose each HUD is, while more than one is on the screen. The HUD of

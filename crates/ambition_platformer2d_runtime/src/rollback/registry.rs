@@ -271,7 +271,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 462 -> 463: the session's `ParticipantRecovery` rule (derived, immutable).
 // 463 -> 464: `RecoverAtCheckpoint` is cleared on rollback; `LifeLedger` is
 // value-checksummed.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 464;
+// 464 -> 465: a death's fee and its parcels (`DeathFees`), and the parcel's
+// `ReturnedCoins` mark.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 465;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

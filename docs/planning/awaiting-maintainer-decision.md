@@ -145,6 +145,12 @@ checkpoint in debt (the next currency earned pays the debt first).
 **Owner:** `session/death.rs` (the beat), the bag (currency) and the
 presentation. Engineering is the PLAYER-DEATH row.
 
+**Built under the default (2026-11-13):** the fee is 50 coins
+(`room_rules.ron`, `death_fee`); the parcel lies at the last safe ground
+where the body was taken; one parcel a participant (a second death before
+the fetch loses the first, as Hollow Knight's shade); the debt is a negative
+wallet of at most one fee. The rescue portal's own look is still to come.
+
 ## Q175 — Is the final boss's giant one of the named agents?
 
 **Context (2026-11-12, FINAL-BOSS).** Jon: the bossofthegame stands on the

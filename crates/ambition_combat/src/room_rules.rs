@@ -27,7 +27,7 @@ use ambition_content_pack::{
 use bevy::prelude::*;
 use serde::Deserialize;
 
-use crate::death_rules::{DeathLook, DeathRules, KillBeat};
+use crate::death_rules::{DeathFee, DeathLook, DeathRules, KillBeat};
 use ambition_characters::actor::Corpse;
 use crate::dormancy_rule::DormancyRule;
 use crate::landing_lag::LandingLagRules;
@@ -89,6 +89,9 @@ struct AuthoredRoomRules {
     /// it comes back. Absent: none.
     #[serde(default)]
     death_look: Option<DeathLook>,
+    /// What a participant's death costs. Absent: nothing.
+    #[serde(default)]
+    death_fee: Option<DeathFee>,
     /// How a landed hit answers: its freeze and the attacker's recoil.
     /// Absent: the ruleset's freeze and no recoil.
     #[serde(default)]
@@ -113,6 +116,7 @@ pub struct RoomRules {
     pub corpses: Option<Corpse>,
     pub kill_beat: Option<KillBeat>,
     pub death_look: Option<DeathLook>,
+    pub death_fee: Option<DeathFee>,
     pub hit_feel: Option<crate::hit_feel::HitFeelRules>,
     pub fireball: Option<FireballFlight>,
     pub body_contact: Option<BodyContact>,
@@ -163,6 +167,14 @@ impl AuthoredRoomRules {
         if let Some(feel) = &self.hit_feel {
             problems.extend(feel.problems());
         }
+        if let Some(fee) = self.death_fee {
+            if fee.coins < 1 {
+                problems.push(format!(
+                    "`death_fee` is {} coins; a fee takes at least 1 (to charge nothing, leave the field out)",
+                    fee.coins
+                ));
+            }
+        }
         if let Some(radius) = self.hostile_wake_radius {
             if !(radius.is_finite() && radius > 0.0) {
                 problems.push(format!(
@@ -198,6 +210,7 @@ impl AuthoredRoomRules {
             corpses: self.corpses,
             kill_beat: self.kill_beat,
             death_look: self.death_look,
+            death_fee: self.death_fee,
             hit_feel: self.hit_feel,
             fireball: self.fireball,
             body_contact: self.body_contact,
@@ -332,6 +345,9 @@ pub fn declare_room_rules(app: &mut App, scope: RulesScope, rules: RoomRules) {
     if let Some(look) = rules.death_look {
         app.declare_rules(scope, look);
     }
+    if let Some(fee) = rules.death_fee {
+        app.declare_rules(scope, fee);
+    }
     if let Some(feel) = rules.hit_feel {
         app.declare_rules(scope, feel);
     }
@@ -374,6 +390,9 @@ pub fn restate_room_rules(world: &mut World, scope: RulesScope, rules: Option<&R
     world
         .get_resource_or_insert_with(DeclaredRules::<DeathLook>::default)
         .restate(scope, rules.death_look);
+    world
+        .get_resource_or_insert_with(DeclaredRules::<DeathFee>::default)
+        .restate(scope, rules.death_fee);
     world
         .get_resource_or_insert_with(DeclaredRules::<crate::hit_feel::HitFeelRules>::default)
         .restate(scope, rules.hit_feel);

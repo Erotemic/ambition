@@ -126,7 +126,7 @@ fn spawn_death_drop(
     sequence: u64,
     identity: DropIdentity,
     payload: impl bevy::prelude::Bundle,
-) {
+) -> bevy::prelude::Entity {
     let mut entity = commands.spawn_session_scoped(
         session_scope,
         (
@@ -148,6 +148,7 @@ fn spawn_death_drop(
     if let DropIdentity::Occurrence(id) = identity {
         entity.insert(id);
     }
+    entity.id()
 }
 
 /// Deterministic (FNV-1a over the id) gate so ~1 in 4 enemy *kinds* drops a heart.
@@ -195,6 +196,38 @@ pub fn drop_currency_coin(
             crate::pickups::PickupMagnet::classic(),
         ),
     );
+}
+
+/// Spawn the coins a death's fee took (PLAYER-DEATH), where the body was
+/// taken: an ordinary currency pickup, named `feature_id` so the fee's owner
+/// can find it again. Like the coin it never respawns; the fee's owner places
+/// it again while it is owed.
+pub fn drop_death_parcel(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    parent: &SimId,
+    feature_id: &str,
+    pos: ae::Vec2,
+    amount: i32,
+) -> bevy::prelude::Entity {
+    spawn_death_drop(
+        commands,
+        session_scope,
+        parent,
+        DROP_SEQUENCE_COIN,
+        DropIdentity::Anonymous,
+        (
+            FeatureSimEntity,
+            FeatureId::new(feature_id.to_string()),
+            FeatureName::new(format!("{amount} lost coins")),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                feature_id.to_string(),
+                ambition_interaction::PickupKind::Currency { amount },
+            )),
+            crate::pickups::ReturnedCoins,
+        ),
+    )
 }
 
 /// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),

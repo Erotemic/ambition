@@ -905,10 +905,27 @@ effect drawn where the body is taken when its window opens
 probe in the hub: the departure on the death's tick at the body, the arrival
 64 ticks later where it is back in play.
 
-**Next action:** the fee under Q174's default (the coins it costs lie where
-the body was taken until fetched; too few to pay, the bigger penalty), and
-a rescue look of its own (a gate-portal mouth in place of the generic
-dissolve).
+**Built 2026-11-13 (slice 2, the fee):** a scoped rule `DeathFee`
+(`room_rules.ron`: `death_fee: Some((coins: 50))`), and
+`runtime::death_fee`: a death owes the fee, and it is taken when the body is
+back in play (a level that goes back puts the wallet back to its checkpoint,
+which would undo a fee taken at the death). The coins taken lie where the
+body was taken (its last safe ground) as a pickup drawn from the `DeathFees`
+ledger (rollback state, schema 465): placed while its room is live, again
+after the room goes back, off the ledger when fetched; one parcel a
+participant, so a second death before the fetch loses the first. A wallet
+that holds less gives all it has and goes into debt for the rest
+(`BodyWallet::charge`: a negative balance, at most one fee; the HUD reads
+`-$30`); the next coins earned pay the debt first. A fetched parcel is not a
+reward the restore keeps (`ReturnedCoins`), or the next death would pay its
+coins twice. Measured with a temporary probe in the hub: 120 → 70 at the
+death, the parcel of 50 where the body was, 120 when fetched, 70 again at
+the next death; with 20: −30 and a parcel of 20, −10 when fetched, −30 at
+the next death.
+
+**Next action:** a rescue look of its own (a gate-portal mouth in place of
+the generic dissolve), and a sealed-parcel art for the fee's pickup (it
+draws as a coin).
 
 **Acceptance:** a death in Ambition reads as one on screen; the fee is taken
 and lies where the body fell until fetched; with too little to pay, the

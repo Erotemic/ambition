@@ -399,6 +399,21 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .in_set(PlayerSimulationSet::Outcome),
         );
+        // A death's fee (PLAYER-DEATH): owed from the same death message, taken
+        // once the body is back in play, and its coins kept in the world.
+        app.init_resource::<crate::death_fee::DeathFees>();
+        app.add_systems(
+            sim,
+            (
+                crate::death_fee::owe_death_fees
+                    .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::death_rules::ActorDiedMessage>)
+                    .after(ambition_platformer2d_session::death::open_death_interlude),
+                crate::death_fee::take_death_fees,
+                crate::death_fee::place_death_parcels,
+            )
+                .chain()
+                .in_set(PlayerSimulationSet::Outcome),
+        );
         // Close the death interlude next frame immediately before replay consumption.
         // `RoomReplayRequested` is cleared on rollback, so request production and consumption
         // must share a resimulated frame and be derived only from snapshot state. The death

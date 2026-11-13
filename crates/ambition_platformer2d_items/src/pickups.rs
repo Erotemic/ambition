@@ -185,6 +185,7 @@ pub fn collect_ecs_pickups(
             &PickupFeature,
             Option<&Collected>,
             Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
+            Has<ReturnedCoins>,
         ),
         // A locked (mid-toss) pickup is not collectible yet, exactly as it is not
         // magnetizable — the two guards MUST agree or a ring the magnet ignores
@@ -227,7 +228,7 @@ pub fn collect_ecs_pickups(
     // collect" — `TouchCollectorFilter` matches every autonomous actor — and a system-wide return
     // on a population guess is exactly the shape that has switched whole subsystems off in this
     // repo. The per-pickup `find` below already yields nothing when nobody qualifies.
-    for (entity, name, aabb, pickup, collected, origin) in &pickups {
+    for (entity, name, aabb, pickup, collected, origin, returned) in &pickups {
         if collected.is_some() {
             continue;
         }
@@ -287,8 +288,8 @@ pub fn collect_ecs_pickups(
             items.get(),
             written,
         );
-        if let (Ok(collector), Some(reward_grants)) =
-            (sim_ids.get(collector_entity), reward_grants.as_deref_mut())
+        if let (Ok(collector), Some(reward_grants), false) =
+            (sim_ids.get(collector_entity), reward_grants.as_deref_mut(), returned)
         {
             let source = match origin {
                 Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
@@ -831,6 +832,13 @@ impl PickupFeature {
         &self.pickup.kind
     }
 }
+
+/// A pickup that gives back coins its collector's purse already counted (a
+/// death's fee, lying where the body was taken). Its grant is not a reward a
+/// checkpoint restore keeps: the restore puts the purse back as it was before
+/// the fee, so keeping the grant too would pay the coins twice.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ReturnedCoins;
 
 /// Marker inserted when a pickup has been collected in the current room/world.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]

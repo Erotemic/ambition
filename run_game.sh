@@ -138,6 +138,8 @@ cargo_timings=0
 sweep=0
 sweep_apply=0
 print_plan=0
+# `--reuse`: run the binary this plan names as it is; never build it.
+reuse=0
 extra_features=()
 game_args=()
 
@@ -272,6 +274,11 @@ Options and mode aliases:
   -j, --jobs N            Pass cargo --jobs N.
   --jobs=N                Pass cargo --jobs N.
   --timings               Pass cargo --timings.
+  --reuse, --no-build     Run the already built binary this invocation names
+                          (its package, binary and profile) and never invoke
+                          cargo: content and loaded-module edits need no
+                          engine build. Its features are the ones it was built
+                          with. If it is not built, say so and stop.
   --print-plan            Print the launch plan this invocation resolves to
                           (package, binary, cargo profile, target subdirectory,
                           features, and the cargo build argv) and exit without
@@ -463,6 +470,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         --print-plan)
             print_plan=1
+            ;;
+        --reuse|--no-build|reuse)
+            reuse=1
             ;;
         --sweep)
             sweep=1
@@ -666,14 +676,15 @@ esac
 # wrong the moment a flag here changes -- it inspects target/debug while the
 # command launches target/profiling, and reports "no instrumentation" about a
 # binary nobody ran.
+case "$build_profile" in
+    dev) profile_dir="debug" ;;
+    release) profile_dir="release" ;;
+    ship) profile_dir="ship" ;;
+    profiling) profile_dir="profiling" ;;
+    *) fail "internal error: unknown build profile '$build_profile'" ;;
+esac
+binary_path="${CARGO_TARGET_DIR:-$repo_root/target}/$profile_dir/$target_bin"
 if [[ "$print_plan" -eq 1 ]]; then
-    case "$build_profile" in
-        dev) profile_dir="debug" ;;
-        release) profile_dir="release" ;;
-        ship) profile_dir="ship" ;;
-        profiling) profile_dir="profiling" ;;
-        *) fail "internal error: unknown build profile '$build_profile'" ;;
-    esac
     plan_build=(cargo build -p "$target_pkg" --bin "$target_bin")
     skip_next=0
     for arg in "${cargo_args[@]}"; do
@@ -694,7 +705,7 @@ if [[ "$print_plan" -eq 1 ]]; then
     echo "build_profile=$build_profile"
     echo "profile_dir=$profile_dir"
     echo "target_dir=${CARGO_TARGET_DIR:-$repo_root/target}"
-    echo "binary_path=${CARGO_TARGET_DIR:-$repo_root/target}/$profile_dir/$target_bin"
+    echo "binary_path=$binary_path"
     if [[ "${#features[@]}" -gt 0 ]]; then
         IFS=,
         echo "features=${features[*]}"
@@ -738,6 +749,25 @@ if [[ "$print_plan" -eq 1 ]]; then
         fi
     done
     exit 0
+fi
+
+# `--reuse`: the plan's binary, as it is. A content or loaded-module edit does
+# not need the engine rebuilt, and `cargo run` would rebuild it for any change
+# in its graph (runtime authoring audit, B02). The binary is not rebuilt here
+# even when its sources changed: building is the other command.
+if [[ "$reuse" -eq 1 ]]; then
+    [[ "$coverage" -eq 1 ]] && fail "--reuse runs a built binary; coverage builds one (drop one of them)"
+    if [[ ! -x "$binary_path" ]]; then
+        printf 'run_game.sh: no built %s for the %s profile at\n    %s\n' "$target_bin" "$build_profile" "$binary_path" >&2
+        printf 'build it once with the same choices and no --reuse (it builds, then runs), or:\n    cargo build -p %s --bin %s%s\n' \
+            "$target_pkg" "$target_bin" "$( [[ "$build_profile" == dev ]] && echo "" || echo " --profile $build_profile" | sed 's/--profile release/--release/')" >&2
+        exit 1
+    fi
+    built_at="$(date -r "$binary_path" '+%Y-%m-%d %H:%M:%S')"
+    printf 'reusing %s (%s profile, built %s; no build)\n' "$binary_path" "$build_profile" "$built_at" >&2
+    export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
+    cd "$repo_root"
+    exec "$binary_path" "${game_args[@]}"
 fi
 
 # ⭐ SWEEP FIRST, RUN SECOND. `sweep_target.py` marks by asking cargo which

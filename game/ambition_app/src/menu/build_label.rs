@@ -59,7 +59,7 @@ fn sync_build_label(
         ))
         .with_children(|root| {
             root.spawn((
-                Text::new(env!("AMBITION_BUILD_LABEL")),
+                Text::new(build_label()),
                 TextFont {
                     font_size: FontSize::Px(13.0),
                     ..default()
@@ -73,4 +73,34 @@ fn sync_build_label(
                 Pickable::IGNORE,
             ));
         });
+}
+
+/// The label: the one compiled in (an `AMBITION_BUILD_ID`, a browser or
+/// Android build), else the executable's own build time and the working
+/// tree's revision, read when the menu first opens. The tree is where the
+/// game runs from, not necessarily what the binary was built from, so it is
+/// named as the tree's.
+fn build_label() -> String {
+    if let Some(label) = option_env!("AMBITION_BUILD_LABEL") {
+        return label.to_owned();
+    }
+    let built = std::env::current_exe()
+        .and_then(std::fs::metadata)
+        .and_then(|meta| meta.modified())
+        .ok()
+        .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or_else(|| "?".to_owned(), |at| at.as_secs().to_string());
+    let git = |args: &[&str]| {
+        std::process::Command::new("git").args(args).output().ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    };
+    match git(&["rev-parse", "--short=10", "HEAD"]) {
+        Some(revision) => {
+            let dirty = git(&["status", "--porcelain", "--untracked-files=no", "--ignore-submodules=dirty"])
+                .is_some_and(|status| !status.is_empty());
+            format!("Build {built} / tree {revision}{}", if dirty { "+" } else { "" })
+        }
+        None => format!("Build {built}"),
+    }
 }

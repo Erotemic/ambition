@@ -12,7 +12,8 @@
 # log says which.
 #
 # With --watch it stays running and rebuilds each time a source the modules
-# are built from changes (the module crate, the port value crates, the SDK).
+# are built from changes: the selected module crate and every local package it
+# depends on (its port value crates, the SDK), as Cargo resolves them.
 # A running game reloads the new file by itself: save the file, see the
 # change in the game. A build that fails prints its errors and keeps watching;
 # the game keeps the last good build.
@@ -48,10 +49,33 @@ if [ "$watch" = 0 ]; then
     exit $?
 fi
 
-# The sources a module build reads. A change anywhere under them rebuilds.
-sources=(game/ambition_content_modules crates/ambition_extension_sdk
-    crates/ambition_boss_special_port crates/ambition_combat_port crates/ambition_portal_port
-    crates/ambition_projectile_spec)
+# The sources a module build reads: the selected package and every local
+# package in its resolved graph for the wasm target, from Cargo itself. A fixed
+# list named the Ambition module tree only, so `--watch` of Mary-O's or
+# Smash's modules never saw their edits (runtime authoring audit, B03).
+mapfile -t sources < <(cargo metadata --format-version 1 --filter-platform wasm32-unknown-unknown 2>/dev/null \
+    | python3 -c '
+import json, os, sys
+meta = json.load(sys.stdin)
+root = os.getcwd()
+pkgs = {p["id"]: p for p in meta["packages"]}
+nodes = {n["id"]: n for n in meta["resolve"]["nodes"]}
+start = [p["id"] for p in meta["packages"] if p["name"] == sys.argv[1] and p["source"] is None]
+seen, todo = set(), list(start)
+while todo:
+    pid = todo.pop()
+    if pid in seen or pkgs[pid]["source"] is not None:
+        continue
+    seen.add(pid)
+    todo.extend(d["pkg"] for d in nodes[pid]["deps"]
+                if any(k["kind"] in (None, "build") for k in d["dep_kinds"]))
+for pid in sorted(seen):
+    print(os.path.relpath(os.path.dirname(pkgs[pid]["manifest_path"]), root))
+' "$package")
+if [ "${#sources[@]}" = 0 ]; then
+    echo "no local package named $package: nothing to watch" >&2
+    exit 1
+fi
 stamp="$(mktemp)"
 trap 'rm -f "$stamp"' EXIT
 build || echo "build failed; watching for the next change"

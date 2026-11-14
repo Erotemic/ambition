@@ -46,7 +46,7 @@ pub struct MapMenuState {
     pub rooms: Vec<MapRoomNode>,
     pub zoom: f32,
     /// The developer map: the whole dimension, every room shown as visited,
-    /// with no fog of war (`view::map_view`). `F` on the open map toggles it.
+    /// with no fog of war (`view::map_view`). Backquote on the open map toggles it.
     pub reveal_all: bool,
 }
 

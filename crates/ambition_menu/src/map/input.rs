@@ -1,6 +1,6 @@
 //! Map-screen keyboard/menu-control input: `handle_map_menu_hotkeys` toggles
 //! the map (the bound `menu.map` intent) and the minimap (`N`), the developer
-//! map (`F`, whole dimension, no fog), and drives zoom on `MapMenuState`. Under the cube inventory backend the `menu.map` intent
+//! map (`` ` ``, whole dimension, no fog), and drives zoom on `MapMenuState`. Under the cube inventory backend the `menu.map` intent
 //! opens the cube's Map page instead, so it is suppressed here. No-op stub
 //! when the `input` feature is off.
 
@@ -55,7 +55,9 @@ pub fn handle_map_menu_hotkeys(
             || menu.left
             || menu.scroll_y < -0.5;
         let zoom_reset = keys.just_pressed(KeyCode::Digit0) || keys.just_pressed(KeyCode::Numpad0);
-        if keys.just_pressed(KeyCode::KeyF) {
+        // A key no preset binds: gameplay runs under the open map, and `F` is
+        // `interact` on two presets.
+        if keys.just_pressed(KeyCode::Backquote) {
             map.toggle_reveal_all();
         }
         if zoom_in {

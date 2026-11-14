@@ -39,7 +39,7 @@ desktop_dev = ["visible", "desktop_platform", "dev_tools"]
 #                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
 #                   a `Portal` / `PortalGunSpawn` entity rather than silently
 #                   dropping it.
-portal = ["ambition_projectile_combat/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_projectiles/portal"]
+portal = ["ambition_projectile_combat/portal", "ambition_held_items/portal", "ambition_projectiles/portal"]
 # `portal_render` does NOT force `visible` on, so the web backbone
 # (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
 # into portal visuals without dragging in the desktop-only audio/ui/physics
@@ -290,7 +290,6 @@ ambition_held_items = { path = "../ambition_held_items" }
 ambition_body_seed = { path = "../ambition_body_seed" }
 ambition_match = { path = "../ambition_match" }
 # ADR 0019; Stage 19.
-ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 # The reusable projectile MODEL (E2): shot vocabulary + components + spawn pool +
 # portal transit. The sim heart retains only the victim/world/anim-woven steppers.
 ambition_projectiles = { path = "../ambition_projectiles" }

@@ -69,7 +69,6 @@ MIN_DECLARED = 40
 #:
 #:   LoadEvent              PUBLISHED: `ambition_load` is composed from outside
 #:   SemanticActionPressed  PUBLISHED: by design, the provider-binding outcome
-#:   PortalGunEquipped      PUBLISHED: `picking_up_the_gun_announces_who_equipped_it`
 #:   PulseFired             PUBLISHED: a sentinel crate's outward seam
 #:   RangedFireRefused      PUBLISHED: Q33 lets each game choose its cue for a
 #:                          refused trigger; the fact is the seam a cue reads.
@@ -82,13 +81,14 @@ MIN_DECLARED = 40
 #:                          for the ruleset that answers it. Emission:
 #:                          `a_reservation_nobody_can_take_announces_its_refusal`
 #:
-#: An EIGHTH must be triaged the same way before this number moves.
+#: (`PortalGunEquipped` left 2026-11-13: the portal gun is an ordinary held
+#: item.) A SEVENTH must be triaged the same way before this number moves.
 #: ⚠ This does NOT make "unread" a finding — the docstring's point stands, and a
 #: published channel is legitimate. It makes a NEW unread channel a DECISION,
 #: which is the same bargain `per_attempt_resource_census.py` strikes.
 #: ⚠ A COUNT, never an allowlist of names: a name list is an amnesty, and adding
 #: a row to it reads as housekeeping.
-MAX_UNREAD = 7
+MAX_UNREAD = 6
 
 
 def rust_files() -> list[pathlib.Path]:

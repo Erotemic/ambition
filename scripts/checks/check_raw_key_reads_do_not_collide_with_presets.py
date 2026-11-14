@@ -91,15 +91,6 @@ ADJUDICATED: dict[tuple[str, str], str] = {
         "⭐ The same modifier read, other hand. See the `ShiftLeft` row "
         "(read 2026-09-18)"
     ),
-    ("KeyR", "crates/ambition_load_presentation/src/basic_presentation.rs"): (
-        "✅ GATED OUT OF GAMEPLAY BY STATE, not by convention. The read is guarded "
-        "by `active.phase == LoadForegroundPhase::Failed` plus a retryable failure "
-        "(`basic_presentation.rs:71-73`), so it can only fire on a failed LOAD "
-        "screen — where `arrows_qwer`'s `secondary: KeyCode::KeyR` has nothing to "
-        "act on because no session is running. ⚠ The gate is the argument; moving "
-        "this read out of the `Failed` arm would make it a real collision "
-        "(read 2026-09-18)"
-    ),
     ("KeyN", "crates/ambition_menu/src/map/input.rs"): (
         "⛔ LIVE, AND IT IS THE CLONE'S DEFECT EXACTLY — filed, not excused. "
         "`handle_map_menu_hotkeys` reads raw `KeyCode::KeyN` to toggle the minimap "

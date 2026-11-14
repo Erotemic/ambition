@@ -814,11 +814,25 @@ fn a_hosted_guest_holds_the_hosts_lives() {
     assert_ne!(on_control, on_host, "the control: a gated guest with no link knows the host's lives anyway");
 }
 
+/// What [`a_guest_boots_elsewhere`] finds after its run.
+struct Elsewhere {
+    /// The room the guest's seat-0 body (the host's player there) stands in.
+    room: Option<String>,
+    /// Where the host's player stands on the guest, and on the host.
+    on_guest: Option<[f32; 2]>,
+    on_host: Option<[f32; 2]>,
+    /// Whether each App holds a body for seat 1 after the guest's Start.
+    joined_on_host: bool,
+    joined_on_guest: bool,
+    /// The seat whose body the guest's camera follows.
+    viewed: Option<u8>,
+}
+
 /// One run of a guest that boots in the hub while the host plays in
-/// `switch_lab`. With `seated`, the host seats its guests (`SeatsGuests`).
-/// Returns the room the guest's seat-0 body (the host's player there) stands
-/// in after the run, where it stands, and where the host's player stands.
-fn a_guest_boots_elsewhere(seated: bool) -> (Option<String>, Option<[f32; 2]>, Option<[f32; 2]>) {
+/// `switch_lab`, and presses Start on its own seat 0 halfway through, as a
+/// player's App does (`InputFromSeat`). With `seated`, the host seats its
+/// guests (`SeatsGuests`).
+fn a_guest_boots_elsewhere(seated: bool) -> Elsewhere {
     const HUB: &str = "central_hub_complex";
     let boot = |role: HostedRole, room: &str| {
         Platformer2dSimHarness::build(fixed_60hz_room_options(room), |app, options| {
@@ -840,8 +854,13 @@ fn a_guest_boots_elsewhere(seated: bool) -> (Option<String>, Option<[f32; 2]>, O
         host.world_mut().insert_resource(ambition_hosted_world::SeatsGuests);
     }
     ambition_hosted_world::put_the_simulation_to_sleep(guest.app_mut());
+    guest.world_mut().insert_resource(ambition_hosted_world::InputFromSeat(
+        ambition_platformer2d::characters::control::PlayerSlot(0),
+    ));
     host.app_mut().connect_client(guest.app_mut());
-    for _ in 0..FRAMES {
+    for frame in 0..FRAMES {
+        let start = frame == FRAMES / 2;
+        guest.drive_seat(0, ambition_platformer2d::engine_core::ControlFrame { start_pressed: start, ..Default::default() });
         guest.app_mut().update();
         host.app_mut().exchange_with_client(guest.app_mut());
         host.app_mut().update();
@@ -856,21 +875,37 @@ fn a_guest_boots_elsewhere(seated: bool) -> (Option<String>, Option<[f32; 2]>, O
             .map(|(_, body)| [body.pos.x, body.pos.y])
     };
     let room = seat_room(&mut guest, 0).map(|(_, id)| id);
-    (room, alice(&mut guest), alice(&mut host))
+    let joined_on_host = seat_room(&mut host, 1).is_some();
+    let joined_on_guest = seat_room(&mut guest, 1).is_some();
+    let viewed = {
+        let world = guest.world_mut();
+        let subject = world.resource::<ambition_platformer2d::platformer::markers::ControlledSubject>().0;
+        subject.and_then(|body| world.get::<ambition_platformer2d::characters::control::DrivingParticipant>(body)).map(|driver| driver.0 .0)
+    };
+    Elsewhere { room, on_guest: alice(&mut guest), on_host: alice(&mut host), joined_on_host, joined_on_guest, viewed }
 }
 
 /// A guest that boots in another room than the host's player is taken to that
 /// room before it has a body of its own: it watches the host's player, so its
 /// own room lifecycle builds `switch_lab` and holds the host's player where the
-/// host has it. The control, a host that seats nobody, leaves the guest in the
-/// room it booted in.
+/// host has it. Its Start then joins its seat on the host, the guest builds
+/// that body, and its camera follows it. The control, a host that seats
+/// nobody, leaves the guest in the room it booted in, and its Start joins
+/// nobody.
 #[test]
 fn a_guest_that_boots_elsewhere_is_taken_to_the_host() {
-    let (room, on_guest, on_host) = a_guest_boots_elsewhere(true);
-    let (control_room, ..) = a_guest_boots_elsewhere(false);
-    println!("[hosted elsewhere] the guest holds the host's player in {room:?} at {on_guest:?}, the host at {on_host:?}; control in {control_room:?}");
-    assert_eq!(room.as_deref(), Some(ROOM), "the guest did not follow the host's player to its room");
-    assert!(on_host.is_some(), "premise: the host's player stands in the room");
-    assert_eq!(on_guest, on_host, "the guest does not hold the host's player where the host has it");
-    assert_eq!(control_room.as_deref(), Some("central_hub_complex"), "the control: an unseated guest moved anyway");
+    let seated = a_guest_boots_elsewhere(true);
+    let control = a_guest_boots_elsewhere(false);
+    println!(
+        "[hosted elsewhere] the guest holds the host's player in {:?} at {:?}, the host at {:?}; seat 1 on the host {}, on the guest {}; the guest's camera follows seat {:?}; control in {:?}, seat 1 on the host {}",
+        seated.room, seated.on_guest, seated.on_host, seated.joined_on_host, seated.joined_on_guest, seated.viewed, control.room, control.joined_on_host
+    );
+    assert_eq!(seated.room.as_deref(), Some(ROOM), "the guest did not follow the host's player to its room");
+    assert!(seated.on_host.is_some(), "premise: the host's player stands in the room");
+    assert_eq!(seated.on_guest, seated.on_host, "the guest does not hold the host's player where the host has it");
+    assert!(seated.joined_on_host, "the guest's Start did not join its seat on the host");
+    assert!(seated.joined_on_guest, "the guest did not build its own seat's body");
+    assert_eq!(seated.viewed, Some(1), "the guest's camera does not follow its own body");
+    assert_eq!(control.room.as_deref(), Some("central_hub_complex"), "the control: an unseated guest moved anyway");
+    assert!(!control.joined_on_host, "the control: an unseated guest's Start joined a seat");
 }

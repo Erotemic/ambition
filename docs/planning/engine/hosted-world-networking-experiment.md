@@ -967,10 +967,14 @@ host's player: the host's view of it, its crossing, its room report and the
 room its first body is built in all take seat 0's body when its own seat has
 none. Witness `a_guest_that_boots_elsewhere_is_taken_to_the_host`: the
 guest's own room lifecycle builds `switch_lab` and holds the host's player
-at `[94.0, 328.0]`, where the host has it; the control, a host that seats
-nobody, leaves the guest in the hub. A windowed guest has not been played. A guest joins its body on the
-host by pressing Start (the local join road), which no headless run can
-press.
+at `[94.0, 328.0]`, where the host has it. The guest then presses Start on
+its own seat 0 (as a player's keyboard is): the host joins seat 1 through the
+local join road, the guest builds that body from its spawn row, and the
+guest's camera follows seat 1. The control, a host that seats nobody, leaves
+the guest in the hub, and its Start joins nobody. This is the whole road a
+player takes, end to end, without a window. A windowed guest has not been played. A guest joins its body on the
+host by pressing Start (the local join road); the witness above presses it,
+a headless binary run cannot.
 
 ## Next
 

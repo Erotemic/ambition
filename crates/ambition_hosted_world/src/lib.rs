@@ -271,6 +271,8 @@ impl Plugin for HostedWorldPlugin {
                 app.add_visibility_filter::<RoomOf>();
                 app.world_mut().spawn((HostTick::default(), Replicated));
                 app.init_resource::<room_rollback::GuestInputs>().init_resource::<room_rollback::RoomRollbackStats>();
+                let hides = room_rollback::ReplayHidesEffects::of_app(app);
+                app.insert_resource(hides);
                 let sim = app.sim_schedule();
                 app.add_systems(
                     sim,

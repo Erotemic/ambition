@@ -905,8 +905,27 @@ with her current frame on every tick, and with her inputs right she still
 ended 22.5 units behind, because a mispredicted connect's freeze outlived the
 replay (the freeze merges expiries with `max`).
 
-Not yet: per-room message channels (a rewind empties the rollback-cleared channels of every room);
-the cost of a rewind on a release build over a real link.
+A replay presents nothing (2026-11-14). The replayed ticks were presented
+when they first ran, so the replay writes the presentation families
+(`for_each_presentation_effect`: sounds, visuals, debris, fireworks, shakes,
+the finish zoom and knockout beats) into channels set aside and dropped
+(`ReplayHidesEffects`, the swap the GGRS effect quarantine uses). Measured in
+the shared scene: on time, 14 sounds and 16 visuals; late with rewinds, 21
+and 28 before, 14 and 16 after. A correction is not presented: a hit the
+replay lands that the first pass missed plays no sound.
+
+The rollback-cleared channels: a rewind empties every room's. That costs
+another room nothing while each such message is written and read inside one
+tick, which GGRS's sync tests already hold the engine to. Measured: with
+Alice swinging in the hub through Bob's 26 rewinds, all 19 bodies end where
+the on-time run ends.
+
+Not yet: the confirmed-frame observers. The hosted host publishes no
+`ConfirmedFrameBoundary`, so checkpoints, deaths, passages, the conversation
+ledger and host intents treat every tick as confirmed: an irreversible act on
+a tick a rewind later replays is not taken back, and a host intent is pruned
+before a replay of its tick could release it again. Also not yet: the cost
+of a rewind on a release build over a real link.
 
 ## Order, exclusions and integration
 

@@ -820,9 +820,31 @@ and when it comes back replication makes an entity the guest cannot build
 from a character spawn row (a player body is built by its seat's identity,
 not the staged-actor road).
 
-Next in the prototype: the room row through replicon (a guest following its
-own player's crossing), a player's spawn row, a guest App composed from
-fewer plugins, and each NPC life's step as a row.
+### The room row (2026-11-13): a guest follows its player's crossing
+
+Each replicated body carries its room's definition (`RoomNamed`). When the
+guest's own body (its `LocalSeat`) is named into a room it does not stand in,
+the guest records that crossing in its own room lifecycle at the body's row,
+and its room construction builds the room (the 2026-11-12 road). Once every
+identified body it built there is signed, it tells the host which room it
+holds (`GuestRoom`, a client message), and only then does the host move the
+guest's view (`GuestView { room, seat }`): the room's bodies arrive after
+the guest built its own and continue into them. The filter never hides a
+guest's own player (`RoomOf { room, seat }`): without that, the host hid the
+guest's Bob the frame he crossed, while its view waited, and replicon
+removed him from the guest. The guest also signs its bodies just before each
+receive, for a body its construction made late in a frame.
+
+Witness `a_hosted_guest_follows_its_players_crossing` (both on the door to
+the hub; Alice crosses on the host at frame 30; Bob, driven only from the
+guest, at frame 90; 300 frames): the guest's Bob ends in the hub, the guest
+holds all 17 of the hub's bodies that no seat drives (two NPCs walking, 15
+ground items) with the host's rows, none twice. The control guest names no
+seat and stays in `switch_lab`. Alice is not held: she left the guest's view
+at frame 30 and her body coming back needs a player's spawn row.
+
+Next in the prototype: a player's spawn row, a guest App composed from fewer
+plugins, and each NPC life's step as a row.
 
 ## Next
 

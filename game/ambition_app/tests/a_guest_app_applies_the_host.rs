@@ -1687,7 +1687,7 @@ fn probe_what_a_guest_does_when_its_player_crosses() {
 }
 
 /// The live rooms of `sim` by number, with the definition each builds.
-fn live_room_ids(sim: &mut Platformer2dSimHarness) -> Vec<(ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, String)> {
+pub(crate) fn live_room_ids(sim: &mut Platformer2dSimHarness) -> Vec<(ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, String)> {
     use bevy::ecs::system::RunSystemOnce as _;
     sim.world_mut()
         .run_system_once(|rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs| {
@@ -1739,7 +1739,7 @@ fn record_a_crossing(sim: &mut Platformer2dSimHarness, slot: u8, target: &str, a
 
 /// [`simulate_nothing`], but with the room transition phase awake: it sits
 /// inside `CoreSimulation`, so the core's other phases are gated one by one.
-fn simulate_nothing_but_room_changes(guest: &mut Platformer2dSimHarness) {
+pub(crate) fn simulate_nothing_but_room_changes(guest: &mut Platformer2dSimHarness) {
     let app = guest.app_mut();
     let schedule = app.sim_schedule();
     for phase in GATED.into_iter().filter(|phase| *phase != Phase::CoreSimulation).chain([

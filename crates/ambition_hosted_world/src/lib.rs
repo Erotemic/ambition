@@ -18,9 +18,18 @@
 //!
 //! A guest is sent the bodies of its player's room only (NA-2b's interest):
 //! each body and each guest's client entity carry the live room they are in
-//! ([`RoomOf`]), and replicon's visibility filter hides a body from a client
-//! in another room. Leaving a guest's view removes the body there, which is
+//! ([`RoomOf`], [`GuestView`]), and replicon's visibility filter hides a body
+//! from a client in another room, except the client's own player's body. Leaving a guest's view removes the body there, which is
 //! the general rule the measurement used.
+//!
+//! A guest follows its own player's crossing on the host's word: each body
+//! carries the definition of the room it is in ([`RoomNamed`]), and when the
+//! guest's own body is named into a room it does not stand in, the guest
+//! records that crossing in its own room lifecycle, which builds the room.
+//! It then tells the host which room it holds ([`GuestRoom`]), and only then
+//! does the host move the guest's view there: the room's bodies arrive after
+//! the guest built its own copies, so replication continues into them
+//! instead of making a second of each.
 //!
 //! The guest's input goes the other way: each frame it sends the raw control
 //! frame of its own seat ([`LocalSeat`]) as a [`GuestInput`] message, on the
@@ -128,20 +137,32 @@ pub struct SpawnRow {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct BuiltFromSpawnRow;
 
-/// The live room (its ordinal) a body is in, or a guest's player is in.
-/// Immutable, as replicon's filters require: a move re-inserts it.
+/// The live room (its ordinal) a body is in, and the seat that drives it if
+/// any. Immutable, as replicon's filters require: a move re-inserts it.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 #[component(immutable)]
-pub struct RoomOf(pub u32);
+pub struct RoomOf {
+    pub room: u32,
+    pub seat: Option<PlayerSlot>,
+}
+
+/// On the host, a guest's view: the room it is sent, and its own seat.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[component(immutable)]
+pub struct GuestView {
+    pub room: u32,
+    pub seat: PlayerSlot,
+}
 
 impl VisibilityFilter for RoomOf {
-    type ClientComponent = RoomOf;
+    type ClientComponent = GuestView;
     type Scope = Entity;
 
-    /// A body is visible to a client in its room, and to a client whose room
-    /// is not known yet (no seat named, or its body not placed).
-    fn is_visible(&self, _client: Entity, room: Option<&RoomOf>) -> bool {
-        room.is_none_or(|room| room == self)
+    /// A body is visible to a client in its room, to the client whose seat
+    /// drives it (a guest never loses its own player, even while its view
+    /// waits for the room it crossed into), and to a client with no view yet.
+    fn is_visible(&self, _client: Entity, view: Option<&GuestView>) -> bool {
+        view.is_none_or(|view| view.room == self.room || self.seat == Some(view.seat))
     }
 }
 
@@ -150,6 +171,20 @@ impl VisibilityFilter for RoomOf {
 /// seat's body's room.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GuestSeat(pub PlayerSlot);
+
+/// The definition of the room a body is in, as the guest's player's body
+/// carries it to the guest.
+#[derive(Component, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoomNamed(pub String);
+
+/// From a guest: the definition of the room its own player's body stands in
+/// there. The host aims the guest's view at a room only once it holds it.
+#[derive(Message, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuestRoom(pub String);
+
+/// On the host: the room a guest last said it holds.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct GuestHolds(pub String);
 
 /// On the guest: the seat this App's player drives, whose input it sends.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
@@ -179,20 +214,27 @@ impl Plugin for HostedWorldPlugin {
         app.replicate::<BodyRow>()
             .replicate::<LifeRow>()
             .replicate::<SpawnRow>()
-            .add_client_message::<GuestInput>(Channel::Ordered);
+            .replicate::<RoomNamed>()
+            .add_client_message::<GuestInput>(Channel::Ordered)
+            .add_client_message::<GuestRoom>(Channel::Ordered);
         match self.role {
             HostedRole::Host => {
                 app.add_visibility_filter::<RoomOf>();
-                app.add_systems(PreUpdate, apply_guest_inputs.after(ServerSystems::Receive));
+                app.add_systems(PreUpdate, (apply_guest_inputs, note_guest_rooms).after(ServerSystems::Receive));
                 app.add_systems(Update, (mark_hosted_bodies, write_spawn_rows));
                 app.add_systems(
                     PostUpdate,
-                    (write_body_rows, write_life_rows, place_bodies, place_guests).before(ServerSystems::Send),
+                    (write_body_rows, write_life_rows, place_bodies, name_body_rooms, place_guests).before(ServerSystems::Send),
                 );
             }
             HostedRole::Guest => {
+                // Signed before each receive as well: a body the guest's own
+                // room construction made late in a frame must carry its
+                // signature before the host's copy of it arrives.
                 app.add_systems(Update, sign_own_bodies);
-                app.add_systems(PostUpdate, send_local_input.before(ClientSystems::Send));
+                app.add_systems(PreUpdate, sign_own_bodies.before(ClientSystems::Receive));
+                app.add_systems(PostUpdate, (send_local_input, report_own_room).before(ClientSystems::Send));
+                app.add_systems(PreUpdate, follow_own_crossing.after(ClientSystems::Receive));
                 app.add_systems(
                     PreUpdate,
                     (build_spawned_bodies, (apply_body_rows, apply_life_rows))
@@ -317,6 +359,121 @@ fn write_body_rows(
     }
 }
 
+/// Name each replicated body's room definition on it, when it changes.
+fn name_body_rooms(
+    mut commands: Commands,
+    bodies: Query<(Entity, Option<&RoomNamed>), (With<Replicated>, With<InRoomInstance>)>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+) {
+    for (body, named) in &bodies {
+        let Some(spec) = rooms.spec_of(body) else {
+            continue;
+        };
+        if named.is_none_or(|named| named.0 != spec.id) {
+            commands.entity(body).insert(RoomNamed(spec.id.clone()));
+        }
+    }
+}
+
+/// Keep the room each guest last said it holds.
+fn note_guest_rooms(mut commands: Commands, mut said: MessageReader<FromClient<GuestRoom>>) {
+    for room in said.read() {
+        if let Some(client) = room.client_id.entity() {
+            commands.entity(client).insert(GuestHolds(room.message.0.clone()));
+        }
+    }
+}
+
+/// Tell the host the room this guest's own body stands in, when it changes,
+/// once every identified body the guest built there carries its signature
+/// (so the host's copies continue into them rather than arriving beside
+/// them).
+fn report_own_room(
+    seat: Option<Res<LocalSeat>>,
+    bodies: Query<(Entity, &DrivingParticipant, &InRoomInstance)>,
+    unsigned: Query<&InRoomInstance, (With<SimId>, With<BodyKinematics>, Without<Signature>, Without<Remote>)>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    mut said: Local<Option<String>>,
+    mut reports: MessageWriter<GuestRoom>,
+) {
+    let Some(seat) = seat else {
+        return;
+    };
+    let Some((body, room)) = bodies.iter().find(|(_, driver, _)| driver.0 == seat.0).map(|(body, _, room)| (body, room.0)) else {
+        return;
+    };
+    let Some(here) = rooms.spec_of(body).map(|spec| spec.id.clone()) else {
+        return;
+    };
+    if said.as_ref() == Some(&here) || unsigned.iter().any(|at| at.0 == room) {
+        return;
+    }
+    reports.write(GuestRoom(here.clone()));
+    *said = Some(here);
+}
+
+/// When the host names this guest's own body into a room it does not stand
+/// in here, record that crossing in the guest's room lifecycle, at the
+/// body's row: the guest builds the room as a door would have. Recorded once
+/// for each room named.
+fn follow_own_crossing(world: &mut World, mut asked: Local<Option<String>>) {
+    use ambition_platformer2d_session::lifecycle_commit::{
+        BodyTransferRequirement, LifecycleIntent, PendingLifecycleCommit, RoomArrival, RoomBodyTransfer, RoomTransitionIntent,
+    };
+    let Some(seat) = world.get_resource::<LocalSeat>().copied() else {
+        return;
+    };
+    let Some((body, named, at)) = world
+        .query::<(Entity, &DrivingParticipant, &RoomNamed, &BodyRow)>()
+        .iter(world)
+        .find(|(_, driver, ..)| driver.0 == seat.0)
+        .map(|(body, _, named, row)| (body, named.0.clone(), Vec2::from(row.pos)))
+    else {
+        return;
+    };
+    let here = {
+        let mut state = bevy::ecs::system::SystemState::<ambition_platformer2d_world::rooms::LiveRoomSpecs>::new(world);
+        let Ok(rooms) = state.get(world) else {
+            return;
+        };
+        rooms.spec_of(body).map(|spec| spec.id.clone())
+    };
+    if here.as_ref() == Some(&named) || asked.as_ref() == Some(&named) {
+        return;
+    }
+    let Some(subject) = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::of_entity(world, body) else {
+        return;
+    };
+    let frame = world
+        .get_resource::<ambition_platformer2d_core::ConfirmedFrameBoundary>()
+        .map_or(0, |boundary| boundary.current);
+    let Some(mut pending) = world.get_resource_mut::<PendingLifecycleCommit>() else {
+        return;
+    };
+    let admitted = pending
+        .record(
+            frame,
+            LifecycleIntent::Transition(RoomTransitionIntent {
+                disposition: Default::default(),
+                source_zone: None,
+                initiator: RoomBodyTransfer {
+                    requirement: BodyTransferRequirement::InPlay,
+                    subject,
+                    arrival: RoomArrival::At(at),
+                    participant: Some(seat.0),
+                },
+                companions: Vec::new(),
+                target_room: named.clone().into(),
+                edge_exit: false,
+                zone_sfx: None,
+            }),
+        )
+        .admitted();
+    if admitted {
+        *asked = Some(named);
+    }
+}
+
 /// Drive each guest's seat with the input it sent, in the order sent.
 fn apply_guest_inputs(world: &mut World) {
     let received: Vec<FromClient<GuestInput>> = world.resource_mut::<Messages<FromClient<GuestInput>>>().drain().collect();
@@ -340,35 +497,39 @@ fn send_local_input(
 }
 
 /// Put each replicated body's room on it, when it moves.
-fn place_bodies(mut commands: Commands, bodies: Query<(Entity, &InRoomInstance, Option<&RoomOf>), With<Replicated>>) {
-    for (body, room, placed) in &bodies {
-        let now = RoomOf(room.0.ordinal());
+fn place_bodies(
+    mut commands: Commands,
+    bodies: Query<(Entity, &InRoomInstance, Option<&DrivingParticipant>, Option<&RoomOf>), With<Replicated>>,
+) {
+    for (body, room, driver, placed) in &bodies {
+        let now = RoomOf { room: room.0.ordinal(), seat: driver.map(|driver| driver.0) };
         if placed != Some(&now) {
             commands.entity(body).insert(now);
         }
     }
 }
 
-/// Put each guest's room on its client entity: its seat's body's room.
+/// Put each guest's room on its client entity: its seat's body's room, once
+/// the guest says it holds a room of that definition (a guest that has said
+/// nothing yet is taken at the room it booted in). Until then the view stays
+/// where it was.
 fn place_guests(
     mut commands: Commands,
-    guests: Query<(Entity, &GuestSeat, Option<&RoomOf>)>,
-    drivers: Query<(&DrivingParticipant, &InRoomInstance)>,
+    guests: Query<(Entity, &GuestSeat, Option<&GuestView>, Option<&GuestHolds>)>,
+    drivers: Query<(Entity, &DrivingParticipant, &InRoomInstance)>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
 ) {
-    for (client, seat, placed) in &guests {
-        let now = drivers
-            .iter()
-            .find(|(driver, _)| driver.0 == seat.0)
-            .map(|(_, room)| RoomOf(room.0.ordinal()));
-        if placed.copied() != now {
-            match now {
-                Some(room) => {
-                    commands.entity(client).insert(room);
-                }
-                None => {
-                    commands.entity(client).remove::<RoomOf>();
-                }
-            }
+    for (client, seat, placed, holds) in &guests {
+        let Some((body, _, room)) = drivers.iter().find(|(_, driver, _)| driver.0 == seat.0) else {
+            continue;
+        };
+        let held = holds.is_none_or(|holds| rooms.spec_of(body).is_some_and(|spec| spec.id == holds.0));
+        if !held {
+            continue;
+        }
+        let now = GuestView { room: room.0.ordinal(), seat: seat.0 };
+        if placed != Some(&now) {
+            commands.entity(client).insert(now);
         }
     }
 }

@@ -465,3 +465,135 @@ fn a_hosted_guest_drives_its_seat_on_the_host() {
     assert_eq!(differs, 0, "the host's Bob did not move as the guest drove him");
     assert!(differs_unseated > 0, "the control: with no seat named the host still matched, so the seat is not what delivered the input");
 }
+
+/// Where `sim`'s seat `slot` body stands: its live room and that room's
+/// definition.
+fn seat_room(sim: &mut Platformer2dSimHarness, slot: u8) -> Option<(ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, String)> {
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    let room = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &InRoomInstance)>()
+            .iter(world)
+            .find(|(driver, _)| driver.0 .0 == slot)
+            .map(|(_, room)| room.0)?
+    };
+    crate::a_guest_app_applies_the_host::live_room_ids(sim).into_iter().find(|(live, _)| *live == room)
+}
+
+/// One run of Bob crossing to the hub, driven from the guest. With
+/// `following`, the guest names its seat (`LocalSeat`), so it follows its
+/// body's crossing on the host's word and reports the room it holds.
+/// Returns (the guest's Bob's room definition, the host's bodies in Bob's
+/// room that no seat drives, the guest's bodies, bodies the guest holds
+/// twice, whether the guest holds Alice).
+#[allow(clippy::type_complexity)]
+fn bob_crosses_from_the_guest(
+    following: bool,
+) -> (
+    Option<String>,
+    std::collections::BTreeMap<ambition_platformer2d::platformer::sim_id::SimId, [f32; 5]>,
+    std::collections::BTreeMap<ambition_platformer2d::platformer::sim_id::SimId, [f32; 5]>,
+    usize,
+    bool,
+) {
+    use ambition_platformer2d::engine_core::{AabbExt as _, ControlFrame};
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    const RUN: i32 = 300;
+    let presses = |at: i32| move |frame: i32| ControlFrame {
+        interact_pressed: frame == at,
+        interact_held: (at..at + 3).contains(&frame),
+        ..Default::default()
+    };
+    let (alice, bob) = (presses(30), presses(90));
+    let on_the_door = |sim: &mut Platformer2dSimHarness| {
+        crate::common::doors_cross_at_once(sim);
+        let door = crate::common::door_to(sim, "central_hub_complex").aabb.center();
+        sim.teleport_player((door.x, door.y));
+        crate::two_players_two_live_rooms::put_bob_at(sim, door);
+    };
+    let bob_seat = ambition_platformer2d::characters::control::PlayerSlot(1);
+    let mut host = booted(HostedRole::Host);
+    on_the_door(&mut host);
+    let mut guest = booted(HostedRole::Guest);
+    on_the_door(&mut guest);
+    crate::a_guest_app_applies_the_host::simulate_nothing_but_room_changes(&mut guest);
+    if following {
+        guest.world_mut().insert_resource(ambition_hosted_world::LocalSeat(bob_seat));
+    }
+    host.app_mut().connect_client(guest.app_mut());
+    {
+        let world = host.world_mut();
+        let client = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ConnectedClient>>()
+            .single(world)
+            .expect("one guest is connected");
+        world.entity_mut(client).insert(ambition_hosted_world::GuestSeat(bob_seat));
+    }
+    for frame in 1..=RUN {
+        guest.drive_seat(1, bob(frame));
+        guest.app_mut().update();
+        host.app_mut().exchange_with_client(guest.app_mut());
+        host.drive_seat(0, alice(frame));
+        if !following {
+            // The control has no input road from the guest: Bob crosses on
+            // the host by the same press.
+            host.drive_seat(1, bob(frame));
+        }
+        host.app_mut().update();
+        host.app_mut().exchange_with_client(guest.app_mut());
+    }
+    // The guest applies the last snapshot.
+    guest.app_mut().update();
+    let (hosts_room, hub) = seat_room(&mut host, 1).expect("Bob stands in a room on the host");
+    assert_eq!(hub, "central_hub_complex", "premise: Bob crossed to the hub on the host");
+    let in_hub: std::collections::BTreeMap<SimId, [f32; 5]> = {
+        let drivers: std::collections::BTreeSet<SimId> = {
+            let world = host.world_mut();
+            world
+                .query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::characters::control::DrivingParticipant>>()
+                .iter(world)
+                .cloned()
+                .collect()
+        };
+        bodies(&mut host, Some(hosts_room)).into_iter().filter(|(id, _)| !drivers.contains(id)).collect()
+    };
+    let guests_room = seat_room(&mut guest, 1).map(|(_, definition)| definition);
+    let on_guest = bodies(&mut guest, None);
+    let (twice, holds_alice) = {
+        let world = guest.world_mut();
+        let mut held: std::collections::BTreeMap<SimId, usize> = Default::default();
+        for id in world
+            .query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::engine_core::BodyKinematics>>()
+            .iter(world)
+        {
+            *held.entry(id.clone()).or_insert(0) += 1;
+        }
+        (held.values().filter(|count| **count > 1).count(), held.contains_key(&SimId::player_slot(0)))
+    };
+    (guests_room, in_hub, on_guest, twice, holds_alice)
+}
+
+/// The room row through `bevy_replicon`: Bob, driven from the guest, crosses
+/// to the hub on the host. The guest follows its own body's crossing on the
+/// host's word (its room lifecycle builds the hub), tells the host it holds
+/// the hub, and is then sent the hub's bodies, which continue into the ones
+/// it built: it ends in the hub holding every body of the hub that no seat
+/// drives, with the host's rows, and none twice. The control is a guest that
+/// names no seat: it never leaves `switch_lab`.
+#[test]
+fn a_hosted_guest_follows_its_players_crossing() {
+    let (room, in_hub, on_guest, twice, holds_alice) = bob_crosses_from_the_guest(true);
+    let (control_room, ..) = bob_crosses_from_the_guest(false);
+    let missing: Vec<_> = in_hub.iter().filter(|(id, row)| on_guest.get(*id) != Some(*row)).map(|(id, _)| id.clone()).collect();
+    println!(
+        "[hosted follow] the guest's Bob in {room:?} (control {control_room:?}); the hub's {} bodies no seat drives, {} not held with the host's row {missing:?}; held twice {twice}; Alice held: {holds_alice}",
+        in_hub.len(),
+        missing.len()
+    );
+    assert_eq!(room.as_deref(), Some("central_hub_complex"), "the guest's Bob did not follow his crossing to the hub");
+    assert!(!in_hub.is_empty(), "premise: the hub has bodies no seat drives");
+    assert!(missing.is_empty(), "the guest does not hold the hub's bodies with the host's rows: {missing:?}");
+    assert_eq!(twice, 0, "the guest holds a body twice: replication made its own beside the one the guest built");
+    assert_eq!(control_room.as_deref(), Some(ROOM), "the control: a guest naming no seat followed anyway");
+}

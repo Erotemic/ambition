@@ -933,7 +933,7 @@ composition, simulates its own boot, and sleeps once it is connected and
 holds a live room (`sleep_once_connected`). Its own keyboard and pads, seat
 0, drive the seat the host gave it (`InputFromSeat`).
 
-Run on loopback (both in one room; headless shown):
+Run on loopback (headless shown; the guest may boot in another room):
 
 ```
 cargo build -p ambition_app --features hosted_world --bin ambition_game_bin
@@ -958,7 +958,17 @@ The HUD's meters follow the same subject: `rebuild_view_hud_facts` reads
 HUD shows its seat's body and the host's player shares the screen's HUD
 (read from the code, not yet witnessed on a guest).
 
-Not yet: both Apps must start in the same room. A windowed guest has not been played. A guest joins its body on the
+A guest that boots in another room (2026-11-14). Probed headless first: a
+guest booted in the hub while the host played `switch_lab` took the host
+player's row onto its own seat-0 body, so it showed that player at
+`switch_lab`'s coordinates inside the hub. Until a guest has a body of its
+own (it joins the host's session by pressing Start), it now watches the
+host's player: the host's view of it, its crossing, its room report and the
+room its first body is built in all take seat 0's body when its own seat has
+none. Witness `a_guest_that_boots_elsewhere_is_taken_to_the_host`: the
+guest's own room lifecycle builds `switch_lab` and holds the host's player
+at `[94.0, 328.0]`, where the host has it; the control, a host that seats
+nobody, leaves the guest in the hub. A windowed guest has not been played. A guest joins its body on the
 host by pressing Start (the local join road), which no headless run can
 press.
 

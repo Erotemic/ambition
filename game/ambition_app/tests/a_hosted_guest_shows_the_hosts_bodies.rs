@@ -813,3 +813,64 @@ fn a_hosted_guest_holds_the_hosts_lives() {
     assert_eq!(differ, 0, "the guest's lives differ from the host's after a snapshot");
     assert_ne!(on_control, on_host, "the control: a gated guest with no link knows the host's lives anyway");
 }
+
+/// One run of a guest that boots in the hub while the host plays in
+/// `switch_lab`. With `seated`, the host seats its guests (`SeatsGuests`).
+/// Returns the room the guest's seat-0 body (the host's player there) stands
+/// in after the run, where it stands, and where the host's player stands.
+fn a_guest_boots_elsewhere(seated: bool) -> (Option<String>, Option<[f32; 2]>, Option<[f32; 2]>) {
+    const HUB: &str = "central_hub_complex";
+    let boot = |role: HostedRole, room: &str| {
+        Platformer2dSimHarness::build(fixed_60hz_room_options(room), |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.add_plugins((RepliconPlugins.set(ServerPlugin::new(PostUpdate)), HostedWorldPlugin { role }));
+            app.finish();
+            app.cleanup();
+            Ok(())
+        })
+        .expect("the room boots")
+    };
+    let mut host = boot(HostedRole::Host, ROOM);
+    let mut guest = boot(HostedRole::Guest, HUB);
+    for _ in 0..10 {
+        host.app_mut().update();
+        guest.app_mut().update();
+    }
+    if seated {
+        host.world_mut().insert_resource(ambition_hosted_world::SeatsGuests);
+    }
+    ambition_hosted_world::put_the_simulation_to_sleep(guest.app_mut());
+    host.app_mut().connect_client(guest.app_mut());
+    for _ in 0..FRAMES {
+        guest.app_mut().update();
+        host.app_mut().exchange_with_client(guest.app_mut());
+        host.app_mut().update();
+        host.app_mut().exchange_with_client(guest.app_mut());
+    }
+    let alice = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::characters::control::DrivingParticipant, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .iter(world)
+            .find(|(driver, _)| driver.0 .0 == 0)
+            .map(|(_, body)| [body.pos.x, body.pos.y])
+    };
+    let room = seat_room(&mut guest, 0).map(|(_, id)| id);
+    (room, alice(&mut guest), alice(&mut host))
+}
+
+/// A guest that boots in another room than the host's player is taken to that
+/// room before it has a body of its own: it watches the host's player, so its
+/// own room lifecycle builds `switch_lab` and holds the host's player where the
+/// host has it. The control, a host that seats nobody, leaves the guest in the
+/// room it booted in.
+#[test]
+fn a_guest_that_boots_elsewhere_is_taken_to_the_host() {
+    let (room, on_guest, on_host) = a_guest_boots_elsewhere(true);
+    let (control_room, ..) = a_guest_boots_elsewhere(false);
+    println!("[hosted elsewhere] the guest holds the host's player in {room:?} at {on_guest:?}, the host at {on_host:?}; control in {control_room:?}");
+    assert_eq!(room.as_deref(), Some(ROOM), "the guest did not follow the host's player to its room");
+    assert!(on_host.is_some(), "premise: the host's player stands in the room");
+    assert_eq!(on_guest, on_host, "the guest does not hold the host's player where the host has it");
+    assert_eq!(control_room.as_deref(), Some("central_hub_complex"), "the control: an unseated guest moved anyway");
+}

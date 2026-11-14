@@ -8,9 +8,9 @@
 //! host's bodies; its keyboard and pads (its seat 0) drive the seat the host
 //! gave it.
 //!
-//! Both Apps must start in the same room (`AMBITION_HEADLESS_GAMEPLAY_ROOM`
-//! headless, the same save windowed): a guest's bodies meet the host's by
-//! `SimId`, and a guest builds only the rooms its own player crosses into.
+//! A guest may boot anywhere: until it has a body of its own it watches the
+//! host's player, and its own room lifecycle builds the room that player is
+//! in. A guest's bodies meet the host's by `SimId`.
 //! The owner is `docs/planning/engine/hosted-world-networking-experiment.md`.
 
 use std::net::SocketAddr;

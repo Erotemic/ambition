@@ -533,7 +533,7 @@ fn build_player_body(
     let Some(own) = home.seat.as_deref() else {
         return false;
     };
-    let Some((own_body, _, room)) = home.seated.iter().find(|(_, driver, _)| driver.0 == own.0) else {
+    let Some((own_body, _, room)) = watched(home.seated.iter().map(|(body, driver, room)| ((body, driver, room), driver.0)), own.0) else {
         return false;
     };
     let Some(world) = home.rooms.of(own_body) else {
@@ -707,7 +707,7 @@ fn report_own_room(
     let Some(seat) = seat else {
         return;
     };
-    let Some((body, room)) = bodies.iter().find(|(_, driver, _)| driver.0 == seat.0).map(|(body, _, room)| (body, room.0)) else {
+    let Some((body, room)) = watched(bodies.iter().map(|(body, driver, room)| ((body, room.0), driver.0)), seat.0) else {
         return;
     };
     let Some(here) = rooms.spec_of(body).map(|spec| spec.id.clone()) else {
@@ -731,12 +731,13 @@ fn follow_own_crossing(world: &mut World, mut asked: Local<Option<String>>) {
     let Some(seat) = world.get_resource::<LocalSeat>().copied() else {
         return;
     };
-    let Some((body, named, at)) = world
-        .query::<(Entity, &DrivingParticipant, &RoomNamed, &BodyRow)>()
-        .iter(world)
-        .find(|(_, driver, ..)| driver.0 == seat.0)
-        .map(|(body, _, named, row)| (body, named.0.clone(), Vec2::from(row.pos)))
-    else {
+    let Some((body, named, at)) = watched(
+        world
+            .query::<(Entity, &DrivingParticipant, &RoomNamed, &BodyRow)>()
+            .iter(world)
+            .map(|(body, driver, named, row)| ((body, named.0.clone(), Vec2::from(row.pos)), driver.0)),
+        seat.0,
+    ) else {
         return;
     };
     let here = {
@@ -780,6 +781,23 @@ fn follow_own_crossing(world: &mut World, mut asked: Local<Option<String>>) {
     if admitted {
         *asked = Some(named);
     }
+}
+
+/// The body a guest watches: the one its seat drives, or, until it has one
+/// (it joins the host's session by pressing Start), the host's player's. So a
+/// guest that booted in another room is taken to where the host plays, and a
+/// guest's first body is built there.
+fn watched<T>(bodies: impl Iterator<Item = (T, PlayerSlot)>, seat: PlayerSlot) -> Option<T> {
+    let mut primary = None;
+    for (body, driver) in bodies {
+        if driver == seat {
+            return Some(body);
+        }
+        if driver == PlayerSlot::PRIMARY && primary.is_none() {
+            primary = Some(body);
+        }
+    }
+    primary
 }
 
 /// Drive each guest's seat with the input it sent, in the order sent.
@@ -829,7 +847,7 @@ fn place_guests(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
 ) {
     for (client, seat, placed, holds) in &guests {
-        let Some((body, _, room)) = drivers.iter().find(|(_, driver, _)| driver.0 == seat.0) else {
+        let Some((body, room)) = watched(drivers.iter().map(|(body, driver, room)| ((body, room), driver.0)), seat.0) else {
             continue;
         };
         let held = holds.is_none_or(|holds| rooms.spec_of(body).is_some_and(|spec| spec.id == holds.0));

@@ -98,6 +98,14 @@ impl Plugin for AbilitySimulationPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Settle),
         );
 
+        // A room's withheld verbs, written before integration, where
+        // `project_body_abilities` folds every source into the effective set.
+        app.add_systems(
+            sim,
+            room_ceiling::withhold_the_rooms_verbs
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
+        );
+
         // Wielded movement/combat items have their own group, to stay under
         // the chained tuple arity cap of the core held-item group.
         app.add_systems(
@@ -113,6 +121,8 @@ impl Plugin for AbilitySimulationPlugin {
         );
     }
 }
+
+pub mod room_ceiling;
 
 #[cfg(test)]
 mod schedule_tests;

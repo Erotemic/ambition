@@ -194,6 +194,104 @@ pub fn can_hold_station(abilities: &AbilitySet, grounded: bool) -> bool {
 }
 
 impl AbilitySet {
+    /// One verb, by its authored name (the field's name): `None` for a name
+    /// the set has no field for. The one place a verb's name meets its
+    /// field: a room's withheld verbs and the `body.can` condition both read
+    /// through it.
+    ///
+    /// The destructure is the guard: `deny(unused_variables)` makes a new
+    /// field a compile error here until it has a name, so no new verb is
+    /// silently unnameable.
+    #[deny(unused_variables)]
+    pub fn verb_mut(&mut self, verb: &str) -> Option<&mut bool> {
+        let AbilitySet {
+            move_horizontal,
+            jump,
+            variable_jump,
+            double_jump,
+            fast_fall,
+            wall_jump,
+            wall_cling,
+            wall_climb,
+            dash,
+            double_dash,
+            fly,
+            fly_toggle,
+            blink,
+            precision_blink,
+            blink_through_soft_walls,
+            blink_through_hard_walls,
+            unrestricted_blink,
+            attack,
+            pogo,
+            directional_primary,
+            directional_special,
+            rebound,
+            reset,
+            ledge_grab,
+            swim,
+            glide,
+            dodge,
+            shield,
+            grab,
+            interact,
+            crouch,
+            climb,
+            morph,
+        } = self;
+        Some(match verb {
+            "move_horizontal" => move_horizontal,
+            "jump" => jump,
+            "variable_jump" => variable_jump,
+            "double_jump" => double_jump,
+            "fast_fall" => fast_fall,
+            "wall_jump" => wall_jump,
+            "wall_cling" => wall_cling,
+            "wall_climb" => wall_climb,
+            "dash" => dash,
+            "double_dash" => double_dash,
+            "fly" => fly,
+            "fly_toggle" => fly_toggle,
+            "blink" => blink,
+            "precision_blink" => precision_blink,
+            "blink_through_soft_walls" => blink_through_soft_walls,
+            "blink_through_hard_walls" => blink_through_hard_walls,
+            "unrestricted_blink" => unrestricted_blink,
+            "attack" => attack,
+            "pogo" => pogo,
+            "directional_primary" => directional_primary,
+            "directional_special" => directional_special,
+            "rebound" => rebound,
+            "reset" => reset,
+            "ledge_grab" => ledge_grab,
+            "swim" => swim,
+            "glide" => glide,
+            "dodge" => dodge,
+            "shield" => shield,
+            "grab" => grab,
+            "interact" => interact,
+            "crouch" => crouch,
+            "climb" => climb,
+            "morph" => morph,
+            _ => return None,
+        })
+    }
+
+    /// Every verb but the named ones: the ceiling that withholds them. `Err`
+    /// names the first word that is no verb.
+    pub fn all_but<'a>(withheld: impl IntoIterator<Item = &'a str>) -> Result<Self, String> {
+        let mut set = Self::ALL;
+        for verb in withheld {
+            *set.verb_mut(verb).ok_or_else(|| format!("no verb is called {verb:?}"))? = false;
+        }
+        Ok(set)
+    }
+
+    /// [`Self::all_but`] of a written list: verb names split by commas or
+    /// whitespace, as a level's `withheld_verbs` field writes them.
+    pub fn all_but_listed(withheld: &str) -> Result<Self, String> {
+        Self::all_but(withheld.split(|c: char| c == ',' || c.is_whitespace()).filter(|verb| !verb.is_empty()))
+    }
     /// The verbs this body still has WHILE SOMETHING ELSE OWNS ITS POSE.
     ///
     /// [`crate::PoseOwnedExternally`] takes the locomotion and leaves everything

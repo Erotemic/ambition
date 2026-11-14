@@ -388,6 +388,9 @@ OPTIONAL_LEVEL_FIELDS = (
     # Out of town: an NPC that fights beside the player joins its fights here
     # (`RoomMetadata::dangerous`).
     "dangerous",
+    # The verbs a player's body does without here
+    # (`RoomMetadata::withheld_verbs`).
+    "withheld_verbs",
 )
 
 

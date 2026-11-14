@@ -11,7 +11,7 @@
 
 use ambition_app::rl_sim::AmbitionSim as _;
 
-use crate::common::walk::{through_the_raid, walk_through, Pad};
+use crate::common::walk::{across_the_raft, through_the_raid, walk_through, Pad};
 use crate::common::{base, fixed_60hz_room_options};
 
 const HUB: &str = "central_hub_complex";
@@ -44,6 +44,10 @@ fn the_player_walks_from_the_hub_to_alice_and_bob() {
         // The lab's way out is shut until its raid is beaten.
         if from == "intro_wake_room" {
             through_the_raid(&mut Pad::new(&mut sim)).unwrap_or_else(|why| panic!("the raid: {why}"));
+        }
+        // The widest stretch of the culvert's sump is crossed on its raft.
+        if from == "under_town_pipes" {
+            across_the_raft(&mut Pad::new(&mut sim)).unwrap_or_else(|why| panic!("the raft: {why}"));
         }
         let steps = walk_through(&mut Pad::new(&mut sim), target).unwrap_or_else(|why| panic!("`{from}` to `{target}`: {why}"));
         eprintln!("WALKED `{from}` to `{target}` in {steps} steps");

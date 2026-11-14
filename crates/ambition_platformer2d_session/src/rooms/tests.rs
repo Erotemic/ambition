@@ -605,6 +605,7 @@ fn active_metadata_returns_active_room_metadata() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
     };
@@ -627,6 +628,7 @@ fn active_metadata_returns_active_room_metadata() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
     };
@@ -674,6 +676,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
     };
@@ -720,6 +723,7 @@ fn room_metadata_merge_preserves_existing_values() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        withheld_verbs: None,
         fall_rescue: None,
         boss_reward_drop: None,
     };
@@ -755,6 +759,7 @@ fn room_metadata_merge_preserves_existing_values() {
         entry_cutscene: Some("cave_intro".into()),
         // takes effect — a had none.
         while_live: Some("encounter.start encounter:cave".into()),
+        withheld_verbs: None,
         // takes effect — a had none.
         fall_rescue: Some("burning_flying_shark".into()),
         boss_reward_drop: Some("cove.mockingbird".into()),

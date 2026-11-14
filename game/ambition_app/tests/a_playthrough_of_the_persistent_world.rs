@@ -136,6 +136,12 @@ fn go_through(app: &mut App, target: &str) {
             panic!("the player did not get through the raid: {why}");
         }
     }
+    // The widest stretch of the culvert's sump is crossed on its raft.
+    if from == "under_town_pipes" {
+        if let Err(why) = crate::common::walk::across_the_raft(&mut crate::common::walk::Keys::new(app)) {
+            panic!("the player did not cross the culvert's raft: {why}");
+        }
+    }
     if let Err(why) = crate::common::walk::walk_through(&mut crate::common::walk::Keys::new(app), target) {
         panic!("the player did not walk from `{from}` to `{target}`: {why}");
     }

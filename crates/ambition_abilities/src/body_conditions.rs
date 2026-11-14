@@ -154,88 +154,11 @@ fn driven_bodies<'w, T: bevy::prelude::Component>(
 
 
 /// One `AbilitySet` field, by its authored name — `None` for a name the set has
-/// no field for.
-///
-/// ⛔⛔ THE DESTRUCTURE IS THE GUARD, AND `deny(unused_variables)` IS WHAT MAKES
-/// IT ONE. A hand-kept list of field names goes stale the first time somebody
-/// adds a capability, and a stale one fails SILENTLY: the new verb is simply
-/// unaskable, and an author who names it gets "no ability is spelled that" for a
-/// field that exists. Binding every field by name and denying unused bindings
-/// turns adding a field into a compile error here, which is the only moment the
-/// author of the new capability is still looking.
-#[deny(unused_variables)]
+/// no field for. The names are `AbilitySet::verb_mut`'s, whose destructure
+/// makes a new field a compile error until it has one.
 fn ability_named(set: &AbilitySet, verb: &str) -> Option<bool> {
-    let AbilitySet {
-        move_horizontal,
-        jump,
-        variable_jump,
-        double_jump,
-        fast_fall,
-        wall_jump,
-        wall_cling,
-        wall_climb,
-        dash,
-        double_dash,
-        fly,
-        fly_toggle,
-        blink,
-        precision_blink,
-        blink_through_soft_walls,
-        blink_through_hard_walls,
-        unrestricted_blink,
-        attack,
-        pogo,
-        directional_primary,
-        directional_special,
-        rebound,
-        reset,
-        ledge_grab,
-        swim,
-        glide,
-        dodge,
-        shield,
-        grab,
-        interact,
-        crouch,
-        climb,
-        morph,
-    } = *set;
-    Some(match verb {
-        "move_horizontal" => move_horizontal,
-        "jump" => jump,
-        "variable_jump" => variable_jump,
-        "double_jump" => double_jump,
-        "fast_fall" => fast_fall,
-        "wall_jump" => wall_jump,
-        "wall_cling" => wall_cling,
-        "wall_climb" => wall_climb,
-        "dash" => dash,
-        "double_dash" => double_dash,
-        "fly" => fly,
-        "fly_toggle" => fly_toggle,
-        "blink" => blink,
-        "precision_blink" => precision_blink,
-        "blink_through_soft_walls" => blink_through_soft_walls,
-        "blink_through_hard_walls" => blink_through_hard_walls,
-        "unrestricted_blink" => unrestricted_blink,
-        "attack" => attack,
-        "pogo" => pogo,
-        "directional_primary" => directional_primary,
-        "directional_special" => directional_special,
-        "rebound" => rebound,
-        "reset" => reset,
-        "ledge_grab" => ledge_grab,
-        "swim" => swim,
-        "glide" => glide,
-        "dodge" => dodge,
-        "shield" => shield,
-        "grab" => grab,
-        "interact" => interact,
-        "crouch" => crouch,
-        "climb" => climb,
-        "morph" => morph,
-        _ => return None,
-    })
+    let mut set = *set;
+    set.verb_mut(verb).map(|granted| *granted)
 }
 
 const OPENING: ParamSpec = ParamSpec {

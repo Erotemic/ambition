@@ -119,6 +119,14 @@ impl LdtkProject {
                     level.identifier, level.world_x, level.world_y, GRID
                 ));
             }
+            if let Some(withheld) = level.level_metadata().withheld_verbs {
+                if let Err(error) = ambition_platformer2d_core::AbilitySet::all_but_listed(&withheld) {
+                    report.errors.push(format!(
+                        "level '{}' field `withheld_verbs` is {withheld:?}: {error}",
+                        level.identifier
+                    ));
+                }
+            }
             let active_area = level.active_area();
             if level
                 .raw_active_area()

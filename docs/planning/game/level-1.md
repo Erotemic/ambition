@@ -40,15 +40,25 @@ that said `P2:`, `MAP_SECRET:` and `Task 08`).
 - **Fia is not in this level.** No line names her, so the level stands if
   the character is reworked or cut.
 
-### The kit (follow-up, engine)
+### The kit
 
-The robot's shipped kit has every verb (air jump, wall jump, dash, blink,
-flight, the Hadouken). No data field restricts it for a room or an area
-(`AbilityContributions` has three sources, all engine or developer:
-`docs/planning/engine/capability-progression-and-world-gating.md`). So the
-level is built for the small kit, and the large kit can skip parts of it
-until the engine gives an area a ceiling. Follow-up:
-**LEVEL-1-KIT** in the queue row below.
+Every room of the level withholds a player's kit past run, one jump, drop
+through and the strike: the level field `withheld_verbs`
+(`RoomMetadata::withheld_verbs`), which the generator writes into each room
+it makes (`SMALL_KIT_WITHHELD`) and the gate stack carries by hand. The
+engine writes it into the player's body as a ceiling each tick
+(`room.withheld_verbs`, `docs/planning/engine/capability-progression-and-world-gating.md`),
+so the robot has its whole kit again past the level. The basement lab is
+the exception until the rural opening replaces it: under the small kit the
+playthrough's fight carried the player back over the raid's trigger, the
+raid started again and shut the bay door. Withheld: the air jump,
+the wall verbs and the ledge grab, the dash and the dodge, flight and the
+glide, blink, the pogo (the level teaches the plain strike first), the
+special verb, the shield, the grab and the morph. Witness:
+`level_one_withholds_the_large_kit`, with the hub as its control.
+
+Not yet: shots. The Hadouken is the projectile kit's, which no verb gates,
+so the robot can still fire in the level (follow-up in the queue row).
 
 ## The story in one paragraph
 

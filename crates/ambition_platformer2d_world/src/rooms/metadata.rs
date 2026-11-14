@@ -247,6 +247,12 @@ pub struct RoomMetadata {
     /// of this room, not where the boss died. The Mockingbird dies over an
     /// open sky; its chest lands in the room below.
     pub boss_reward_drop: Option<String>,
+    /// The verbs a player's body does without here (the level string field
+    /// `withheld_verbs`, `AbilitySet` field names split by commas or spaces):
+    /// a ceiling on what the body may do, rewritten each tick from the room
+    /// it is in. Level 1 withholds everything past run, one jump and the
+    /// strike, so a full kit cannot skip what the level teaches.
+    pub withheld_verbs: Option<String>,
 }
 
 impl RoomMetadata {
@@ -271,6 +277,7 @@ impl RoomMetadata {
             && self.while_live.is_none()
             && self.fall_rescue.is_none()
             && self.boss_reward_drop.is_none()
+            && self.withheld_verbs.is_none()
     }
 
     /// The fields that `self` and `other` both set, to different values:
@@ -311,6 +318,7 @@ impl RoomMetadata {
         differ(&mut out, "while_live", &self.while_live, &other.while_live);
         differ(&mut out, "fall_rescue", &self.fall_rescue, &other.fall_rescue);
         differ(&mut out, "boss_reward_drop", &self.boss_reward_drop, &other.boss_reward_drop);
+        differ(&mut out, "withheld_verbs", &self.withheld_verbs, &other.withheld_verbs);
         out
     }
 
@@ -364,6 +372,9 @@ impl RoomMetadata {
         }
         if self.boss_reward_drop.is_none() {
             self.boss_reward_drop = other.boss_reward_drop;
+        }
+        if self.withheld_verbs.is_none() {
+            self.withheld_verbs = other.withheld_verbs;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

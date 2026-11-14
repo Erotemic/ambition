@@ -70,6 +70,7 @@ impl LdtkLevel {
             title: take("title"),
             fall_rescue: take("fall_rescue"),
             boss_reward_drop: take("boss_reward_drop"),
+            withheld_verbs: take("withheld_verbs"),
         }
     }
 

@@ -72,6 +72,7 @@ A source owns one key in the body's `AbilityContributions` and never writes
 | `dev.editable_ability_mask` | `ambition_dev_tools::contribute_editable_ability_mask` | ceiling | while an admitted mask exists |
 | `dev.god_blink` | developer God Blink toggle | temporary lend of blink, precision aim and unrestricted placement | while admitted and controlled |
 | `portal.transit` | `portal::withhold_wall_verbs_during_transit` | ceiling without the four wall verbs | while `PortalTransit` |
+| `room.withheld_verbs` | `ambition_abilities::room_ceiling::withhold_the_rooms_verbs` | ceiling without the verbs the body's room withholds (the level field `withheld_verbs`, `RoomMetadata::withheld_verbs`) | on a player's body, while its room withholds any |
 
 Acquired and equipped tiers stay in their own source data. An override must not
 save a tier and write it back later. It adds or removes its contribution. The

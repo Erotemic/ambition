@@ -106,11 +106,15 @@ pub struct Keys<'a> {
     /// A jump pressed while Jump is held is pressed on the next frame: a
     /// press is an edge, so the key is up for one frame first.
     jump_owed: bool,
+    /// The step before asked for a press too. A leg's launch asks for the
+    /// press on two frames running, and that is one press held: letting the
+    /// key up between them would cut the jump short, as a released key does.
+    pressed_before: bool,
 }
 
 impl<'a> Keys<'a> {
     pub fn new(app: &'a mut bevy::app::App) -> Self {
-        Self { app, held: Vec::new(), duty: 0.0, jump_owed: false }
+        Self { app, held: Vec::new(), duty: 0.0, jump_owed: false, pressed_before: false }
     }
 
     fn hold(&mut self, key: bevy::input::keyboard::KeyCode, down: bool) {
@@ -170,12 +174,13 @@ impl Walker for Keys<'_> {
         if self.jump_owed {
             self.jump_owed = false;
             self.hold(KeyCode::KeyZ, true);
-        } else if press.jump_pressed && jump_is_held {
+        } else if press.jump_pressed && jump_is_held && !self.pressed_before {
             self.jump_owed = true;
             self.hold(KeyCode::KeyZ, false);
         } else {
             self.hold(KeyCode::KeyZ, press.jump_pressed || press.jump_held);
         }
+        self.pressed_before = press.jump_pressed;
         self.app.update();
     }
 }
@@ -761,4 +766,66 @@ pub fn through_the_raid(walker: &mut impl Walker) -> Result<usize, String> {
         };
     }
     Err(format!("the bay door still stands after {frames} frames of the raid"))
+}
+
+/// The culvert's raft (`under_town_pipes`): it carries a body over the widest
+/// stretch of the sump, between its middle stepping stone and its far one.
+pub const CULVERT_RAFT: &str = "under_town_pipes_raft";
+
+/// Cross the culvert's sump on its raft, either way, with the player's own
+/// inputs: the surface graph has no moving platforms, so walk to the stone on
+/// the player's side, wait for the raft at that end, step on, ride it to the
+/// other end and step off onto the far stone. Returns the frames it took. The
+/// rest of the culvert is walked by the graph.
+pub fn across_the_raft(walker: &mut impl Walker) -> Result<usize, String> {
+    let player = the_player(walker.world_mut());
+    let room = the_players_room_id(walker.world(), player);
+    if room != "under_town_pipes" {
+        return Err(format!("the raft is in `under_town_pipes`, and the player is in `{room}`"));
+    }
+    // The stones the raft runs between (`intro.ldtk`): their tops, and the
+    // near edge of each, which the raft comes up to at each end of its run.
+    let stone_top = 448.0_f32;
+    let (west_stone_edge, east_stone_edge) = (1040.0_f32, 1296.0_f32);
+    let raft_box = |world: &mut World| -> Option<ae::Aabb> {
+        let room = the_players_room(world, player)?;
+        let mut roots = world.query::<(
+            &ambition_platformer2d::world::rooms::LiveRoomInstance,
+            &ambition_platformer2d::world::collision::MovingPlatformSet,
+        )>();
+        roots
+            .iter(world)
+            .find(|(live, _)| **live == room)
+            .and_then(|(_, set)| set.0.iter().find(|platform| platform.id == CULVERT_RAFT).map(|platform| platform.aabb()))
+    };
+    let feet_x = |world: &World| world.get::<ae::BodyKinematics>(player).map(|body| body.pos.x);
+    let x = feet_x(walker.world()).ok_or("the player has no body")?;
+    let toward = if x < west_stone_edge + 40.0 { 1.0_f32 } else { -1.0_f32 };
+    // The raft is at an end of its run: 16 px short of the west stone, against
+    // the east one.
+    let at_west = |raft: ae::Aabb| raft.min.x <= west_stone_edge + 20.0;
+    let at_east = |raft: ae::Aabb| raft.max.x >= east_stone_edge - 4.0;
+    let (at_near, at_far): (&dyn Fn(ae::Aabb) -> bool, &dyn Fn(ae::Aabb) -> bool) =
+        if toward > 0.0 { (&at_west, &at_east) } else { (&at_east, &at_west) };
+    let (near_edge, far_edge) = if toward > 0.0 { (west_stone_edge, east_stone_edge) } else { (east_stone_edge, west_stone_edge) };
+    let mut frames = walk_to(walker, ae::Vec2::new(near_edge - toward * 16.0, stone_top - 24.0))?;
+    #[derive(PartialEq)]
+    enum Leg { Wait, Board, Ride, Alight }
+    let mut leg = Leg::Wait;
+    for _ in 0..FRAMES_FOR_A_ROOM {
+        let raft = raft_box(walker.world_mut()).ok_or("the culvert has no raft")?;
+        let x = feet_x(walker.world()).ok_or("the player has no body")?;
+        let on_the_raft = x > raft.min.x + 18.0 && x < raft.max.x - 18.0;
+        leg = match leg {
+            Leg::Wait if at_near(raft) => Leg::Board,
+            Leg::Board if on_the_raft => Leg::Ride,
+            Leg::Ride if at_far(raft) => Leg::Alight,
+            Leg::Alight if (x - far_edge) * toward > 18.0 => return Ok(frames),
+            leg => leg,
+        };
+        let axis = if matches!(leg, Leg::Board | Leg::Alight) { toward } else { 0.0 };
+        walker.step(Press { axis, ..Press::default() });
+        frames += 1;
+    }
+    Err(format!("the player did not get across the raft in {frames} frames"))
 }

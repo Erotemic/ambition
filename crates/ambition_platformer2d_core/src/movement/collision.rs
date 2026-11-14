@@ -153,7 +153,13 @@ pub(super) fn sweep_player_axis_clusters(
                 crate::world::MaterialCollider::Block(block) => {
                     if policy.passes_through(block) { false }
                     else { match block.kind {
-                        BlockKind::OneWay => gravity_pass && !drop_through && normal.dot(-gravity_dir) > 0.5,
+                        // Crossed from above only: feet that began inside the
+                        // platform (a climber passing up through it) fall
+                        // through it, as `one_way_landing_from_previous_feet`.
+                        BlockKind::OneWay => gravity_pass && !drop_through && normal.dot(-gravity_dir) > 0.5
+                            && prev_feet_coord <= block.aabb.head_coord(gravity_dir)
+                                + crate::collision_semantics::ONE_WAY_CROSSING_SLOP
+                                + (-block.velocity.dot(gravity_dir)).max(0.0),
                         BlockKind::BonkOnly => normal.dot(gravity_dir) > 0.5,
                         kind => is_full_collision_surface(kind),
                     } }

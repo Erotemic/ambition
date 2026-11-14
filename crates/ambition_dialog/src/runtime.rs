@@ -136,6 +136,8 @@ pub struct DialogState {
     /// redirected while its node still ran (a threat breaking in, Q-MULTI).
     /// The `DialogueCompleted` that stop reports ends the replaced run, not
     /// the conversation, so the observer lets exactly one go by.
+    /// Only the UI bridge (feature `ui`) reads it.
+    #[cfg_attr(not(feature = "ui"), allow(dead_code))]
     pub(crate) completion_of_a_replaced_run: bool,
     /// Whether a surface whose input claim outranks the conversation (the
     /// pause menu, the inventory or map overlay, a debug tool) holds it. A

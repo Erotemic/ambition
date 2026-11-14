@@ -247,7 +247,12 @@ old heads byte for byte and 3447 records keep every older field; no resident
 is a dog and the four pigeon residents pin the defaults, so no published
 product changed and nothing was republished.
 
-**Next action:** the other listed species (horse, cat, bird, sea lion,
+**Cat done 2026-11-14:** ear size, cheek fluff and tabby stripes
+([knobs](game/chargen-species-knobs-and-2d-overlays.md)); defaults draw the
+old head byte for byte, older records keep every field, Mina pins the
+defaults, so nothing was republished.
+
+**Next action:** the other listed species (horse, bird, sea lion,
 alligator). Keep parameter defaults, generation and studio controls
 at their canonical owners. Add explicit left cells for asymmetric details;
 reuse the existing overlay mechanism. New random draws follow existing draws.

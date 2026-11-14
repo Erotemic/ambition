@@ -137,9 +137,19 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
   checks each knob draws on its own head and nothing on a human's.
 - Every marking is the same on both sides, so the mirrored left views stay
   right. A one-sided marking (an eye patch) needs left cells first.
-- Next: **horse**: face length, a blaze or star. **cat**: ear size, cheek
-  fluff, stripes. **bird**: crest style. **sea lion**: whisker pads.
-  **alligator**: snout length and width, scute rows.
+- **cat** (`spec.SPECIES_KNOBS["cat"]`, 2026-11-14): `head.ear_size` (the
+  ears' size, 1 as drawn), `head.cheek_fluff` (fur standing out below and
+  behind the eyes, 0 for none: a relief on the head), `head.stripes` (a
+  tabby's M on the brow and two bars on each cheek in a dark shade of the
+  coat, their strength, 0 for none). The stripes are the same on both sides,
+  so the mirrored views stay right. Kept as the dog's and pigeon's were: at
+  the defaults a cat draws byte for byte as before (12 seeds, the spec record
+  in the SVG's CDATA aside); 2816 generated records keep every older field
+  and only cats gained fields; every non-cat SVG and all 243 resident
+  records are unchanged; the one cat resident (Mina) pins the defaults.
+- Next: **horse**: face length, a blaze or star. **bird**: crest style.
+  **sea lion**: whisker pads. **alligator**: snout length and width, scute
+  rows.
 
 ## Traps (measured while making the dog and pigeon, renderer 5d0f0bf)
 
@@ -160,4 +170,4 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
   `sheets._head_crop` and `sheets._grid` (about 8 s a species; run with
   `PYTHONPATH=<renderer>`).
 - Open weak spots: the pigeon's beak reads a little snout-like from the front;
-  the pointed-ear dog reads foxy when `head.ear_fold` is 0; the cat is untouched.
+  the pointed-ear dog reads foxy when `head.ear_fold` is 0; a tabby's stripes stop at the crown (no stripes on the back of the head).

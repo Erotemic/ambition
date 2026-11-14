@@ -279,7 +279,10 @@ impl Plugin for HostedWorldPlugin {
                 app.add_systems(Update, sign_own_bodies);
                 app.add_systems(PreUpdate, sign_own_bodies.before(ClientSystems::Receive));
                 app.add_systems(PostUpdate, (send_local_input, report_own_room).before(ClientSystems::Send));
-                app.add_systems(PreUpdate, (take_assigned_seat, follow_own_crossing).chain().after(ClientSystems::Receive));
+                app.add_systems(
+                    PreUpdate,
+                    (take_assigned_seat, follow_own_crossing, view_own_seat).chain().after(ClientSystems::Receive),
+                );
                 app.add_systems(
                     PreUpdate,
                     (build_spawned_bodies, (apply_body_rows, apply_life_rows, apply_plan_rows))
@@ -635,6 +638,25 @@ fn seat_connecting_guests(
         taken.insert(seat);
         commands.entity(client).insert(GuestSeat(PlayerSlot(seat)));
         told.write(ToClients { targets: SendTargets::Single(client.into()), message: SeatAssigned(seat) });
+    }
+}
+
+/// A sleeping guest's camera and prompts follow the body its own seat drives
+/// ([`LocalSeat`]), not seat 0's: the subject's own resolver
+/// (`resolve_controlled_subject`, in `PlayerInput`) sleeps with the guest's
+/// simulation, and it names the primary seat.
+fn view_own_seat(
+    seat: Option<Res<LocalSeat>>,
+    asleep: Option<Res<SimulationAsleep>>,
+    drivers: Query<(Entity, &DrivingParticipant)>,
+    mut subject: ResMut<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+) {
+    let (Some(seat), Some(_)) = (seat, asleep) else {
+        return;
+    };
+    let own = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, seat.0);
+    if own.is_some() && subject.0 != own {
+        subject.0 = own;
     }
 }
 

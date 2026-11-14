@@ -422,9 +422,9 @@ enum Seating {
 /// One run of Bob driven from the guest: the guest holds `bobs(frame)` on its
 /// seat and sends it; the host drives nothing itself. Returns how many frames
 /// the host's bodies differ from a reference App where Bob is driven locally
-/// with the same frames, whether Bob moved, and the seat each App holds for
-/// the guest after the run.
-fn bob_from_the_guest(seating: Seating) -> (i32, bool, Option<u8>, Option<u8>) {
+/// with the same frames, whether Bob moved, the seat each App holds for the
+/// guest after the run, and the seat whose body the guest's camera follows.
+fn bob_from_the_guest(seating: Seating) -> (i32, bool, Option<u8>, Option<u8>, Option<u8>) {
     use crate::hosted_world::bobs;
     let bob = ambition_platformer2d::characters::control::PlayerSlot(1);
     let mut host = booted(HostedRole::Host);
@@ -477,7 +477,12 @@ fn bob_from_the_guest(seating: Seating) -> (i32, bool, Option<u8>, Option<u8>) {
     let moved = bodies(&mut local, None) != at_start;
     let on_host = host.world().get::<ambition_hosted_world::GuestSeat>(client).map(|seat| seat.0 .0);
     let on_guest = guest.world().get_resource::<ambition_hosted_world::LocalSeat>().map(|seat| seat.0 .0);
-    (differs, moved, on_host, on_guest)
+    let viewed = {
+        let world = guest.world_mut();
+        let subject = world.resource::<ambition_platformer2d::platformer::markers::ControlledSubject>().0;
+        subject.and_then(|body| world.get::<ambition_platformer2d::characters::control::DrivingParticipant>(body)).map(|driver| driver.0 .0)
+    };
+    (differs, moved, on_host, on_guest, viewed)
 }
 
 /// The guest's input reaches the host: Bob, driven only on the guest App, moves
@@ -501,11 +506,12 @@ fn a_hosted_guest_drives_its_seat_on_the_host() {
 /// control is the unseated run of the test above.
 #[test]
 fn a_connecting_guest_is_given_a_seat() {
-    let (differs, moved, on_host, on_guest) = bob_from_the_guest(Seating::Assigned);
-    println!("[hosted seat] host holds {on_host:?}, guest holds {on_guest:?}; frames differing {differs} of {FRAMES}");
+    let (differs, moved, on_host, on_guest, viewed) = bob_from_the_guest(Seating::Assigned);
+    println!("[hosted seat] host holds {on_host:?}, guest holds {on_guest:?}; frames differing {differs} of {FRAMES}; the guest's camera follows seat {viewed:?}");
     assert!(moved, "premise: Bob moves when driven");
     assert_eq!(on_host, Some(1), "the host did not seat the guest at seat 1");
     assert_eq!(on_guest, Some(1), "the guest was not told its seat");
+    assert_eq!(viewed, Some(1), "the guest's camera does not follow its own seat's body");
     assert_eq!(differs, 0, "the host's Bob did not move as the guest drove him");
 }
 

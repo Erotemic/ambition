@@ -757,6 +757,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
     ),
     "ControlledSubject": (
+        "crates/ambition_hosted_world/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
         "crates/ambition_platformer2d_session/src/teardown.rs",
     ),
@@ -2214,7 +2215,12 @@ ADJUDICATED: dict[str, str] = {
         "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
         "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
         "one function, with comments and test modules stripped. ⇒ Nothing here is "
-        "two owners of one fact."
+        "two owners of one fact. ⚠ SINCE 2026-11-14 A HOSTED GUEST HAS ITS OWN, "
+        "and the two never run together: `view_own_seat` (`hosted_world/src/lib.rs`) "
+        "writes it only while `SimulationAsleep` is present, which is exactly when "
+        "the guest gate has put `PlayerInput`, and the resolver in it, to sleep. "
+        "The resolver names seat 0; a guest's subject is the body its `LocalSeat` "
+        "drives."
     ),
     "CutsceneSkipHold": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
@@ -4150,7 +4156,6 @@ SESSION_SCOPE_RESET = (
 #: argued per system, and are deliberately NOT in this table: it is for the ones
 #: whose *"one owner"* claim is mechanical.
 SOLE_IN_SESSION_OWNER: dict[str, str] = {
-    "ControlledSubject": "resolve_controlled_subject",
     "LiveMatchTicks": "count_the_live_match_ticks",
     "SaveRestored": "complete_durable_restore",
     "SessionMatchOrdinal": "activate_the_prepared_match",

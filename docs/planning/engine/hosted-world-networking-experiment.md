@@ -948,9 +948,13 @@ guest reports seat 1, its simulation asleep, and the host's one body in
 `InputFromSeat`, and the host's Bob matches the local reference on all 90
 frames.
 
-Not yet: a guest's view and HUD follow seat 0, the host's player on the
-guest, rather than the guest's own seat. Both Apps must start in the same
-room. A windowed guest has not been played. A guest joins its body on the
+A sleeping guest's camera follows its own seat (2026-11-14): it publishes
+the body its `LocalSeat` drives as the `ControlledSubject`, whose own
+resolver sleeps in `PlayerInput` and names seat 0. In the assigned-seat
+witness the guest's camera follows seat 1.
+
+Not yet: the HUD still reads the `PrimaryPlayer` marker, which on a guest is
+the host's player. Both Apps must start in the same room. A windowed guest has not been played. A guest joins its body on the
 host by pressing Start (the local join road), which no headless run can
 press.
 

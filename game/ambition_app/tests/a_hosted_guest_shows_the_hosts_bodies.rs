@@ -495,7 +495,7 @@ fn bob_crosses_from_the_guest(
     std::collections::BTreeMap<ambition_platformer2d::platformer::sim_id::SimId, [f32; 5]>,
     std::collections::BTreeMap<ambition_platformer2d::platformer::sim_id::SimId, [f32; 5]>,
     usize,
-    bool,
+    (Option<[f32; 5]>, Option<[f32; 5]>),
 ) {
     use ambition_platformer2d::engine_core::{AabbExt as _, ControlFrame};
     use ambition_platformer2d::platformer::sim_id::SimId;
@@ -547,6 +547,7 @@ fn bob_crosses_from_the_guest(
     guest.app_mut().update();
     let (hosts_room, hub) = seat_room(&mut host, 1).expect("Bob stands in a room on the host");
     assert_eq!(hub, "central_hub_complex", "premise: Bob crossed to the hub on the host");
+    let alice_on_host = bodies(&mut host, Some(hosts_room)).get(&SimId::player_slot(0)).copied();
     let in_hub: std::collections::BTreeMap<SimId, [f32; 5]> = {
         let drivers: std::collections::BTreeSet<SimId> = {
             let world = host.world_mut();
@@ -560,7 +561,7 @@ fn bob_crosses_from_the_guest(
     };
     let guests_room = seat_room(&mut guest, 1).map(|(_, definition)| definition);
     let on_guest = bodies(&mut guest, None);
-    let (twice, holds_alice) = {
+    let twice = {
         let world = guest.world_mut();
         let mut held: std::collections::BTreeMap<SimId, usize> = Default::default();
         for id in world
@@ -569,9 +570,10 @@ fn bob_crosses_from_the_guest(
         {
             *held.entry(id.clone()).or_insert(0) += 1;
         }
-        (held.values().filter(|count| **count > 1).count(), held.contains_key(&SimId::player_slot(0)))
+        held.values().filter(|count| **count > 1).count()
     };
-    (guests_room, in_hub, on_guest, twice, holds_alice)
+    let alice_on_guest = on_guest.get(&SimId::player_slot(0)).copied();
+    (guests_room, in_hub, on_guest, twice, (alice_on_host, alice_on_guest))
 }
 
 /// The room row through `bevy_replicon`: Bob, driven from the guest, crosses
@@ -579,15 +581,18 @@ fn bob_crosses_from_the_guest(
 /// host's word (its room lifecycle builds the hub), tells the host it holds
 /// the hub, and is then sent the hub's bodies, which continue into the ones
 /// it built: it ends in the hub holding every body of the hub that no seat
-/// drives, with the host's rows, and none twice. The control is a guest that
-/// names no seat: it never leaves `switch_lab`.
+/// drives, with the host's rows, and none twice. Alice, who crossed first,
+/// left the guest's view and comes back into it with Bob: the guest builds
+/// her body again from her player spawn row and holds her where the host
+/// has her. The control is a guest that names no seat: it never leaves
+/// `switch_lab`.
 #[test]
 fn a_hosted_guest_follows_its_players_crossing() {
-    let (room, in_hub, on_guest, twice, holds_alice) = bob_crosses_from_the_guest(true);
+    let (room, in_hub, on_guest, twice, (alice_on_host, alice_on_guest)) = bob_crosses_from_the_guest(true);
     let (control_room, ..) = bob_crosses_from_the_guest(false);
     let missing: Vec<_> = in_hub.iter().filter(|(id, row)| on_guest.get(*id) != Some(*row)).map(|(id, _)| id.clone()).collect();
     println!(
-        "[hosted follow] the guest's Bob in {room:?} (control {control_room:?}); the hub's {} bodies no seat drives, {} not held with the host's row {missing:?}; held twice {twice}; Alice held: {holds_alice}",
+        "[hosted follow] the guest's Bob in {room:?} (control {control_room:?}); the hub's {} bodies no seat drives, {} not held with the host's row {missing:?}; held twice {twice}; Alice on the host {alice_on_host:?}, on the guest {alice_on_guest:?}",
         in_hub.len(),
         missing.len()
     );
@@ -595,6 +600,8 @@ fn a_hosted_guest_follows_its_players_crossing() {
     assert!(!in_hub.is_empty(), "premise: the hub has bodies no seat drives");
     assert!(missing.is_empty(), "the guest does not hold the hub's bodies with the host's rows: {missing:?}");
     assert_eq!(twice, 0, "the guest holds a body twice: replication made its own beside the one the guest built");
+    assert!(alice_on_host.is_some(), "premise: Alice stands in the hub on the host");
+    assert_eq!(alice_on_guest, alice_on_host, "the guest does not hold Alice, back in its view, where the host has her");
     assert_eq!(control_room.as_deref(), Some(ROOM), "the control: a guest naming no seat followed anyway");
 }
 

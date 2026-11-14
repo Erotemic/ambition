@@ -239,6 +239,28 @@ pub fn spawn_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     body: HomeBody<'_>,
     markers: impl Bundle,
 ) -> Entity {
+    build_home_body(sprite_content, commands, session_scope, body, markers, None)
+}
+
+/// [`spawn_home_body`] onto an entity that already exists: a networked guest
+/// builds a player's body into the entity its replication made for it.
+pub fn build_home_body_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    body: HomeBody<'_>,
+    markers: impl Bundle,
+    into: Entity,
+) -> Entity {
+    build_home_body(sprite_content, commands, session_scope, body, markers, Some(into))
+}
+
+fn build_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    body: HomeBody<'_>,
+    markers: impl Bundle,
+    into: Option<Entity>,
+) -> Entity {
     let physical = body.definition().map(|prepared| ambition_body_seed::PhysicalBaseline::of(&sprite_content, prepared));
     let HomeBody {
         seat,
@@ -366,26 +388,30 @@ pub fn spawn_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     //
     // ONE SPAWN, with the markers of the caller in it: an observer of this
     // spawn sees the primary body with its markers.
-    let player = commands
-        .spawn_session_scoped(
-            session_scope,
-            (
-                Transform::from_translation(world_to_bevy(&world.0, at, WORLD_Z_PLAYER)),
-                PlayerVisual,
-                // The canonical playable-persona identity: WHICH catalog character
-                // this control box wears. Simulation-owned, so gameplay config AND
-                // presentation both derive from this ONE relationship instead of
-                // rediscovering the selection from separate authorities. Resolved to
-                // a concrete id (the content default when unset) so the identity is
-                // never empty on the entity.
-                ambition_characters::actor::CharacterForm::new(
-                    character.effective_id(default_character_id),
-                ),
-                player_bundle,
-                markers,
-            ),
-        )
-        .id();
+    let player_parts = (
+        Transform::from_translation(world_to_bevy(&world.0, at, WORLD_Z_PLAYER)),
+        PlayerVisual,
+        // The canonical playable-persona identity: WHICH catalog character
+        // this control box wears. Simulation-owned, so gameplay config AND
+        // presentation both derive from this ONE relationship instead of
+        // rediscovering the selection from separate authorities. Resolved to
+        // a concrete id (the content default when unset) so the identity is
+        // never empty on the entity.
+        ambition_characters::actor::CharacterForm::new(
+            character.effective_id(default_character_id),
+        ),
+        player_bundle,
+        markers,
+    );
+    let player = match into {
+        Some(entity) => {
+            let mut target = commands.entity(entity);
+            target.insert(player_parts);
+            session_scope.apply_to(&mut target);
+            entity
+        }
+        None => commands.spawn_session_scoped(session_scope, player_parts).id(),
+    };
 
     // How this body fires, which a `Bundle` cannot conditionally carry: the
     // overlay resolved it and the bundle holds no answer of its own. And the

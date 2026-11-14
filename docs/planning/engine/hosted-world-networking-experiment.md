@@ -840,8 +840,8 @@ the hub; Alice crosses on the host at frame 30; Bob, driven only from the
 guest, at frame 90; 300 frames): the guest's Bob ends in the hub, the guest
 holds all 17 of the hub's bodies that no seat drives (two NPCs walking, 15
 ground items) with the host's rows, none twice. The control guest names no
-seat and stays in `switch_lab`. Alice is not held: she left the guest's view
-at frame 30 and her body coming back needs a player's spawn row.
+seat and stays in `switch_lab`. Alice left the guest's view at frame 30; for
+her return see the player's spawn row below.
 
 ### A guest's leave (2026-11-13)
 
@@ -851,8 +851,24 @@ local seat's "Leave Game" writes: its membership and bodies end and what it
 held is put down. Witness `a_hosted_guest_that_disconnects_leaves_the_session`
 (LOCAL-PLAY-MODES' remote leave).
 
-Next in the prototype: a player's spawn row, a guest App composed from fewer
-plugins, and each NPC life's step as a row.
+### A player's spawn row (2026-11-13)
+
+A player's body that leaves a guest's room is removed there by the filter.
+The spawn row now names the seat that drives a body (`SpawnRow.seat`), and
+is written for player bodies too. When a seated row arrives for an entity
+the guest holds no body in, the guest builds that player's body into the
+replicated entity through its own session's home-body recipe, the one a
+joining seat's body is built by (`build_home_body_into`, beside
+`spawn_home_body`). The body goes in the room the guest's own seat stands
+in, since the filter sends another player's body only there. Seat 0 gets the
+two primary markers back. Witness: `a_hosted_guest_follows_its_players_crossing`
+now also requires Alice, back in view with Bob in the hub, to be held on the
+guest exactly where the host has her (`[1463.0, 1928.0, 0, 0, 1]` on both).
+A guest that names no seat cannot build her and retries the row each frame;
+it shows nothing in her place.
+
+Next in the prototype: a guest App composed from fewer plugins, and each NPC
+life's step as a row.
 
 ## Next
 

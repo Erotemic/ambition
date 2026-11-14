@@ -895,6 +895,7 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_entity_catalog",
+ "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",

@@ -14,7 +14,9 @@
 //! `SimId`, feature id, name, character and size. The guest builds it through
 //! the engine's staged-actor road into the replicated entity, so its rows land
 //! on it like on any other body. Its brain does not run there: the guest
-//! simulates nothing.
+//! simulates nothing. A player's body (its row names its seat) comes back
+//! into a guest's view this way too, built by the guest session's home-body
+//! recipe instead.
 //!
 //! A guest is sent the bodies of its player's room only (NA-2b's interest):
 //! each body and each guest's client entity carry the live room they are in
@@ -125,8 +127,10 @@ fn corpse_of(byte: u8) -> Corpse {
 }
 
 /// What a guest needs to build a body it does not hold: its identity, the
-/// character it wears and its size. Written once, when the body is marked; a
-/// player's body is not built from one (the guest's own seats build theirs).
+/// character it wears and its size, and the seat that drives it if a player
+/// does. Written once, when the body is marked. A player's body is built
+/// again only when it comes back into a guest's view: the guest's seats
+/// built it at the start, and the filter removed it when it left.
 #[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpawnRow {
     pub sim_id: String,
@@ -135,6 +139,7 @@ pub struct SpawnRow {
     pub character: String,
     pub half_size: [f32; 2],
     pub npc: bool,
+    pub seat: Option<u8>,
 }
 
 /// On the guest: a replicated entity its spawn row has been built into (or
@@ -273,25 +278,63 @@ fn mark_hosted_bodies(
 fn write_spawn_rows(
     mut commands: Commands,
     bodies: Query<
-        (Entity, &SimId, &FeatureId, Option<&Name>, &CharacterForm, &BodyKinematics, Option<&ActorFaction>),
-        (With<Replicated>, Without<SpawnRow>, Without<DrivingParticipant>),
+        (
+            Entity,
+            &SimId,
+            Option<&FeatureId>,
+            Option<&Name>,
+            &CharacterForm,
+            &BodyKinematics,
+            Option<&ActorFaction>,
+            Option<&DrivingParticipant>,
+        ),
+        (With<Replicated>, Without<SpawnRow>),
     >,
 ) {
-    for (body, id, feature, name, worn, kinematics, faction) in &bodies {
+    for (body, id, feature, name, worn, kinematics, faction, driver) in &bodies {
+        // A player body has no feature id; an NPC body without one is not
+        // something the staged-actor road can build.
+        let feature = match (feature, driver) {
+            (Some(feature), _) => feature.0.clone(),
+            (None, Some(_)) => String::new(),
+            (None, None) => continue,
+        };
         let half = kinematics.canonical_size * 0.5;
         commands.entity(body).insert(SpawnRow {
             sim_id: id.as_str().to_owned(),
-            feature: feature.0.clone(),
-            name: name.map_or_else(|| feature.0.clone(), |name| name.as_str().to_owned()),
+            name: name.map_or_else(|| feature.clone(), |name| name.as_str().to_owned()),
+            feature,
             character: worn.0.as_str().to_owned(),
             half_size: [half.x, half.y],
             npc: faction == Some(&ActorFaction::Npc),
+            seat: driver.map(|driver| driver.0 .0),
         });
     }
 }
 
+/// What the guest builds a player's body from: its own session's home-body
+/// recipe, as a joining seat's body is built (`seat_a_joining_participant`).
+#[derive(bevy::ecs::system::SystemParam)]
+struct HomeBodyRecipe<'w, 's> {
+    roots: Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d_shared_tangle::lifecycle::SessionRoot,
+            &'static ambition_platformer2d_session::initial_body::HomeBodyResources,
+            &'static ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
+        ),
+    >,
+    tuning: Res<'w, ambition_platformer2d_core::ActiveMovementTuning>,
+    cast: Option<Res<'w, ambition_characters::session_cast::ActiveSessionCast>>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<'w, 's, ambition_platformer2d_core::RoomGeometry>,
+    seat: Option<Res<'w, LocalSeat>>,
+    seated: Query<'w, 's, (Entity, &'static DrivingParticipant, Option<&'static InRoomInstance>), With<BodyKinematics>>,
+}
+
 /// Build each replicated body the guest does not hold from its spawn row,
-/// into the replicated entity, through the engine's staged-actor road.
+/// into the replicated entity: a player's through its session's home-body
+/// recipe, any other through the engine's staged-actor road.
 #[allow(clippy::too_many_arguments)]
 fn build_spawned_bodies(
     mut commands: Commands,
@@ -302,6 +345,7 @@ fn build_spawned_bodies(
     prepared: ambition_characters::prepared::SessionCast,
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
+    home: HomeBodyRecipe,
 ) {
     let Some(session) =
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -310,6 +354,14 @@ fn build_spawned_bodies(
     };
     let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
     for (root, row, at) in &rows {
+        if let Some(seat) = row.seat {
+            if build_player_body(&mut commands, &sprite_content, session, active_session.as_deref(), &home, root, row, seat, at) {
+                commands
+                    .entity(root)
+                    .insert((SimId::from_snapshot(row.sim_id.clone()), BuiltFromSpawnRow));
+            }
+            continue;
+        }
         let request = ambition_platformer2d_actor_spawn::SpawnActorRequest {
             id: row.feature.clone(),
             name: row.name.clone(),
@@ -336,6 +388,67 @@ fn build_spawned_bodies(
             .entity(root)
             .insert((SimId::from_snapshot(row.sim_id.clone()), BuiltFromSpawnRow));
     }
+}
+
+/// Build a player's body into the replicated entity, in the room the guest's
+/// own seat stands in (the filter sends another player's body only there).
+/// False while the guest has no seat body, room or session root to build it
+/// from; the row is tried again next frame.
+#[allow(clippy::too_many_arguments)]
+fn build_player_body(
+    commands: &mut Commands,
+    sprite_content: &ambition_sprite_sheet::SpriteContent,
+    session: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
+    active: Option<&ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>,
+    home: &HomeBodyRecipe,
+    root: Entity,
+    row: &SpawnRow,
+    seat: u8,
+    at: Option<&BodyRow>,
+) -> bool {
+    let seat = PlayerSlot(seat);
+    let Some(own) = home.seat.as_deref() else {
+        return false;
+    };
+    let Some((own_body, _, room)) = home.seated.iter().find(|(_, driver, _)| driver.0 == own.0) else {
+        return false;
+    };
+    let Some(world) = home.rooms.of(own_body) else {
+        return false;
+    };
+    let current = active.and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current);
+    let Some((_, resources, abilities)) = home.roots.iter().find(|(root, ..)| Some(root.0) == current) else {
+        return false;
+    };
+    let character = ambition_platformer2d_session::initial_body::StartingCharacter::new(row.character.as_str());
+    let body = ambition_platformer2d_session::setup::HomeBody {
+        seat,
+        at: at.map_or(Vec2::ZERO, |at| Vec2::from(at.pos)),
+        world,
+        tuning: &home.tuning,
+        character: &character,
+        default_character_id: row.character.as_str(),
+        prepared_characters: home.cast.as_deref().and_then(|cast| cast.cast()),
+        resources,
+        abilities,
+    };
+    let scope = session.in_room(room.map(|room| room.0));
+    if seat == PlayerSlot::PRIMARY {
+        ambition_platformer2d_session::setup::build_home_body_into(
+            sprite_content,
+            commands,
+            scope,
+            body,
+            (
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+                ambition_platformer2d_shared_tangle::body::PrimaryBody,
+            ),
+            root,
+        );
+    } else {
+        ambition_platformer2d_session::setup::build_home_body_into(sprite_content, commands, scope, body, (), root);
+    }
+    true
 }
 
 /// The guest signs the bodies it built, so the host's replication continues

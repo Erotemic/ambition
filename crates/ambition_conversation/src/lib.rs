@@ -30,6 +30,7 @@ pub mod dialog;
 mod hold;
 mod instance;
 mod ledger;
+mod membership;
 mod music;
 mod opening;
 mod plugin;
@@ -40,7 +41,7 @@ mod ui_bridge;
 #[cfg(test)]
 mod tests;
 
-pub use authority::{ActiveConversation, LiveConversation};
+pub use authority::{ActiveConversation, Leaving, LiveConversation};
 pub use hold::{project_conversation_hold, HeldByConversation};
 pub use instance::ConversationInstanceId;
 pub use ledger::{
@@ -50,7 +51,11 @@ pub use music::NarrativeMusicRequest;
 pub use opening::{character_id_of, npc_talk_dialogue_id, DialogueDispatch};
 pub use plugin::ConversationPlugin;
 pub use rooms::{log_conversation_changes_in_rooms, retract_room_conversations, ConversationsInRooms};
-pub use rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};
+pub use membership::{join_descriptor, leave_descriptor};
+pub use rules::{
+    break_dialogue_on_hit_or_separation, interrupt_a_conversation_on_a_threat, ConversationCutBark, EARSHOT,
+    INTERRUPTED_SUFFIX,
+};
 pub use ui_bridge::{
     close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,
     publish_the_narrative_end, ConversationEnded,

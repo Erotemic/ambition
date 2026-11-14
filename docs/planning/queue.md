@@ -855,14 +855,32 @@ the Salvage Lead has no row of his own (he wears `npc_goblin_brute`); the
 pirate sky arena and the calibration lab and system boss past the
 checkpoint are not part of the level yet.
 
-**LEVEL-1-KIT (follow-up, engine):** the robot's shipped kit has every verb
-(air jump, wall jump, dash, blink, flight, the Hadouken), and no data field
-restricts it for an area (`AbilityContributions` has only engine and
-developer sources). Level 1 is built for run, one jump, drop through and
-the strike, so the large kit can skip parts of it. Add an area ability
-ceiling that a level field authors (one contribution key, rewritten each
-tick from the body's room, rollback-derived like the others), and give the
-level-1 area the small kit.
+**LEVEL-1-KIT (done 2026-11-14 for verbs):** each level-1 room withholds the
+kit past run, one jump, drop through and the strike (the level field
+`withheld_verbs`, written into a player's body each tick as the ceiling
+contribution `room.withheld_verbs`; `AbilitySet::verb_mut` names each verb).
+Witness `level_one_withholds_the_large_kit`, with the hub as its control.
+The basement lab keeps the whole kit until the rural opening replaces it
+(the raid's trigger re-arms under the playthrough's fight and the bay door
+shuts again). Found on the way: the service stair's flight A rose the wrong
+way (a 144 px wall), its west girder left a body's height exactly over
+flight B, and the keyboard walker let Jump up between two launch frames,
+which cut every jump to a 30 px hop.
+**Next action:** shots. The Hadouken is the projectile kit's
+(`ChargesProjectiles`), which no verb gates, so the robot can still fire in
+level 1.
+
+**MULTI-PARTY-DIALOGUE (done 2026-11-14):** a conversation holds any
+number of bodies: the opening pair and whoever joined
+(`conversation.join` / `conversation.leave`, or a hostile within earshot
+breaking into a node with `<node>__interrupted` authored). Every member is
+held and leaves on its own (struck, dead or gone, out of reach); the
+conversation ends when the initiator leaves or fewer than two are left.
+Membership is rollback state. Design and limits:
+`docs/planning/engine/dialogue-continuity.md`. Witness
+`a_third_character_joins_a_conversation_and_leaves_it_by_the_rules` (the coil lab) and the
+conversation crate's unit tests. **Next action:** the rural opening's raid
+(`creator_intro__interrupted`) is its first customer.
 
 **Acceptance:** the level's rooms are crossed by the walked route with the
 player's own inputs; every required step is one jump; the creator dies

@@ -69,6 +69,19 @@ impl ConversationInstanceId {
         }
     }
 
+    /// The same conversation carried on through another node from `tick`:
+    /// an interruption (`ActiveConversation::interrupt`). The bodies and
+    /// the identities Yarn sees are the opening's; the node and the tick are
+    /// new, so the text box starts the new node and a narrative record of the
+    /// old one no longer matches.
+    pub fn redirected(&self, tick: u64, node: impl Into<String>) -> Self {
+        Self {
+            opened_at: tick,
+            node: node.into(),
+            ..self.clone()
+        }
+    }
+
     /// The identity context Yarn is entered with, rebuilt from the identity
     /// that decided it.
     ///

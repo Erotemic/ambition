@@ -141,6 +141,7 @@ fn open_a_conversation_on_known_ticks(
         ),
         initiator: None,
         talker: None,
+        joined: Vec::new(),
         input_owner: InputOwner::Primary,
         speaker_name: String::new(),
     });

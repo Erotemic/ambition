@@ -73,8 +73,7 @@ impl ConversationsInRooms {
         self.seen
             .iter()
             .chain(self.changes.iter().filter_map(|(_, replaced)| replaced.as_ref()))
-            .flat_map(|live| [live.initiator, live.talker])
-            .flatten()
+            .flat_map(super::authority::LiveConversation::bodies)
             .collect()
     }
 
@@ -96,7 +95,7 @@ impl bevy::ecs::entity::MapEntities for ConversationsInRooms {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         let lives = self.seen.iter_mut().chain(self.changes.iter_mut().filter_map(|(_, replaced)| replaced.as_mut()));
         for live in lives {
-            for entity in [live.initiator.as_mut(), live.talker.as_mut()].into_iter().flatten() {
+            for entity in live.bodies_mut() {
                 *entity = mapper.get_mapped(*entity);
             }
         }

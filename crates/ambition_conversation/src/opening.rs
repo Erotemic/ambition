@@ -128,6 +128,7 @@ impl DialogueDispatch<'_, '_> {
             ),
             initiator: Some(initiator),
             talker: Some(talker),
+            joined: Vec::new(),
             input_owner,
             speaker_name: speaker_name.to_owned(),
         });

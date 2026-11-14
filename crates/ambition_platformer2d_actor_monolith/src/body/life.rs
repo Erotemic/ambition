@@ -572,7 +572,7 @@ pub fn live_lives(
         }
         // A conversation holds the body (`interrupt_talked_to_lives` stopped
         // its plan): it waits.
-        if conversation.as_ref().and_then(|conversation| conversation.talker()) == Some(body) {
+        if conversation.as_ref().is_some_and(|conversation| conversation.holds(body)) {
             continue;
         }
         let new_hour = life.planned_in != Some((clock.day, hour));
@@ -658,22 +658,26 @@ pub fn interrupt_talked_to_lives(
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     mut bodies: Query<(&mut Life, Option<&Visit>)>,
 ) {
-    let Some(talker) = conversation.and_then(|conversation| conversation.talker()) else {
+    let Some(conversation) = conversation else {
         return;
     };
-    let Ok((mut life, visit)) = bodies.get_mut(talker) else {
-        return;
-    };
-    if life.steps.is_empty() && life.claim.is_none() {
-        return;
+    // Every body the conversation holds: the one talked to, and each that
+    // joined.
+    for held in conversation.held() {
+        let Ok((mut life, visit)) = bodies.get_mut(held) else {
+            continue;
+        };
+        if life.steps.is_empty() && life.claim.is_none() {
+            continue;
+        }
+        // The claim is the life's own field: other bodies read it from there on
+        // their next look.
+        life.claim = None;
+        if visit.is_some() {
+            commands.entity(held).remove::<Visit>();
+        }
+        stop(&mut life, LifeStop::Interrupted(CONVERSATION.into()));
     }
-    // The claim is the life's own field: other bodies read it from there on
-    // their next look.
-    life.claim = None;
-    if visit.is_some() {
-        commands.entity(talker).remove::<Visit>();
-    }
-    stop(&mut life, LifeStop::Interrupted(CONVERSATION.into()));
 }
 
 /// Write what a plan at `hour` reads besides the body's own facts: the hour,

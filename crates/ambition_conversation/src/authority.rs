@@ -33,6 +33,13 @@ pub struct LiveConversation {
     /// The body being talked TO — the one a hold applies to. Same handle-vs-identity
     /// split as [`Self::initiator`].
     pub talker: Option<Entity>,
+    /// The bodies that joined after it opened, in the order they joined: a
+    /// third character brought in by authored content (`conversation.join`)
+    /// or a threat that interrupted it ([`ActiveConversation::interrupt`]).
+    /// Each is held as the talker is, and each leaves by the same rules
+    /// (`break_dialogue_on_hit_or_separation`). Not part of the instance
+    /// identity: a body joining does not restart the narrative.
+    pub joined: Vec<Entity>,
     /// Input ownership. This is rollback state but not conversation identity;
     /// changing the driver does not restart the narrative instance.
     pub input_owner: InputOwner,
@@ -67,9 +74,21 @@ impl LiveConversation {
             ),
             initiator,
             talker,
+            joined: Vec::new(),
             input_owner,
             speaker_name: String::new(),
         }
+    }
+
+    /// Every body in it: the initiator, the talker, then the joined in the
+    /// order they joined.
+    pub fn bodies(&self) -> impl Iterator<Item = Entity> + '_ {
+        [self.initiator, self.talker].into_iter().flatten().chain(self.joined.iter().copied())
+    }
+
+    /// The handles of every body in it, for a rollback restore to remap.
+    pub fn bodies_mut(&mut self) -> impl Iterator<Item = &mut Entity> + '_ {
+        [self.initiator.as_mut(), self.talker.as_mut()].into_iter().flatten().chain(self.joined.iter_mut())
     }
 
     /// Which Yarn node is live, so the UI projection can follow the authority
@@ -160,17 +179,81 @@ impl ActiveConversation {
         self.live.as_ref().map(|live| &live.instance)
     }
 
-    /// Both in-world bodies.
+    /// Every in-world body in it: the initiator, the talker, then the joined.
     ///
-    ///  the continuity questions are about the PAIR — how far apart are they, was either
+    ///  the continuity questions are about all of them — how far apart are they, was
     /// one hit — and a caller that reaches for [`Self::talker`] alone has already made the rule
     /// player-centric in the way the rule says it must not be (*"both characters should
     /// hover"*).
     pub fn participants(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.live.iter().flat_map(LiveConversation::bodies)
+    }
+
+    /// Whether the conversation holds `body`: it is the talker or it joined.
+    /// The initiator is not held; its seat's input drives the text box.
+    pub fn holds(&self, body: Entity) -> bool {
+        self.held().any(|held| held == body)
+    }
+
+    /// The bodies the conversation holds: the talker, then the joined.
+    pub fn held(&self) -> impl Iterator<Item = Entity> + '_ {
         self.live
             .iter()
-            .flat_map(|live| [live.initiator, live.talker])
-            .flatten()
+            .flat_map(|live| live.talker.into_iter().chain(live.joined.iter().copied()))
+    }
+
+    /// Bring `body` into the live conversation. `false` when nothing is live
+    /// or the body is in it already.
+    pub fn join(&mut self, body: Entity) -> bool {
+        let Some(live) = self.live.as_mut() else {
+            return false;
+        };
+        if live.bodies().any(|member| member == body) {
+            return false;
+        }
+        live.joined.push(body);
+        true
+    }
+
+    /// Take `body` out of the live conversation.
+    ///
+    /// The conversation ends when the initiator leaves, or when fewer than
+    /// two bodies are left: nobody is talking to anybody. When the talker
+    /// leaves and others stay, the conversation goes on with no talker: the
+    /// body it was opened with is gone, and the ones who joined are not
+    /// promoted into its place (a verb that acts on the talker acts on nobody).
+    pub fn leave(&mut self, body: Entity) -> Leaving {
+        let Some(live) = self.live.as_mut() else {
+            return Leaving::NotAMember;
+        };
+        if live.initiator == Some(body) {
+            self.close();
+            return Leaving::Closed;
+        }
+        if live.talker == Some(body) {
+            live.talker = None;
+        } else if let Some(at) = live.joined.iter().position(|member| *member == body) {
+            live.joined.remove(at);
+        } else {
+            return Leaving::NotAMember;
+        }
+        if live.bodies().count() < 2 {
+            self.close();
+            return Leaving::Closed;
+        }
+        Leaving::Left
+    }
+
+    /// `by` breaks into the live conversation: it joins, and the narrative
+    /// goes on from `node` as of `tick` (a new instance, so the text box
+    /// starts that node). `false` when nothing is live.
+    pub fn interrupt(&mut self, by: Entity, node: impl Into<String>, tick: u64) -> bool {
+        self.join(by);
+        let Some(live) = self.live.as_mut() else {
+            return false;
+        };
+        live.instance = live.instance.redirected(tick, node);
+        true
     }
 
     /// Every entity this resource names — the probe the rollback registration
@@ -186,11 +269,19 @@ impl bevy::ecs::entity::MapEntities for ActiveConversation {
         let Some(live) = self.live.as_mut() else {
             return;
         };
-        if let Some(entity) = live.initiator.as_mut() {
-            *entity = mapper.get_mapped(*entity);
-        }
-        if let Some(entity) = live.talker.as_mut() {
+        for entity in live.bodies_mut() {
             *entity = mapper.get_mapped(*entity);
         }
     }
+}
+
+/// What [`ActiveConversation::leave`] did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Leaving {
+    /// The body was not in a live conversation.
+    NotAMember,
+    /// It left, and the others talk on.
+    Left,
+    /// Its leaving ended the conversation.
+    Closed,
 }

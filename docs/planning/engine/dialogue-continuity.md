@@ -83,13 +83,56 @@ the simulation authority; holds and UI are projections of it.
   only that claim. Note: `ActiveConversation::talker()` is the body being talked
   to, not the one talking; the initiator is `initiator()`.
 
-## Open
+## More than two participants (2026-11-14)
 
-- ▢ **More than two participants.** The rules are written for two. The only
-  participant destructure, `let [a, b] = participants.as_slice() else { return; }`
-  in `crates/ambition_conversation/src/rules.rs`, returns early for any other
-  count, so a third actor does not get a half-applied rule. Do not design the
-  multi-participant case until a customer needs it.
+The customer is the rural opening: goblins interrupt the Creator talking to
+Scout. The witness is unrelated to it: Coulomba joins Nikobolt's
+conversation in the coil lab
+(`a_third_character_joins_a_conversation_and_leaves_it_by_the_rules`), and
+the unit tests beside the rules (`crates/ambition_conversation/src/tests.rs`).
+
+- **Members.** `LiveConversation` holds the opening pair (`initiator`,
+  `talker`) and `joined`, the bodies that came in after, in the order they
+  came. Joining does not change the instance id: the narrative does not
+  restart. `ActiveConversation::participants()` is all of them;
+  `held()`/`holds(body)` is everyone but the initiator. Every member is held
+  (`project_conversation_hold`), and a held NPC's life stops its plan
+  (`interrupt_talked_to_lives`).
+- **Joining.** Authored: `<<command "conversation.join" "npc_alice">>` brings
+  the nearest living body of that character within earshot, in the
+  conversation's room; a body farther off is refused with the reason, because
+  the next tick's rule would take it out again. `conversation.leave` takes a
+  member out. Both are authored commands, so a Yarn line reaches the
+  simulation through the narrative-input ledger at a stamped tick, and a
+  switch or a room line can ask them too.
+- **Interruption.** A hostile body (`ActorDisposition::refuses_talk`, the
+  rule that already refuses it a conversation) that comes within earshot of
+  a member breaks in, when the conversation's node has `<node>__interrupted`
+  authored: it joins, and the conversation goes on from that node as a new
+  instance (`ActiveConversation::interrupt`), so the text box starts it. Any
+  other hostile that arrives while that node runs joins without starting it
+  again. A node with no interruption authored keeps the old rule: a threat
+  ends the conversation by striking somebody.
+- **Leaving.** Each member leaves on its own: knocked back, gone (despawned
+  or dead, `BodyHealth::alive`), or out of reach. The pair is linked by the
+  talk reach, as before; a joined body by `EARSHOT` (128 px) of any member
+  still in it. The conversation ends when the initiator leaves or fewer than
+  two bodies are left. When the talker leaves and others stay, it goes on
+  with no talker (a joined body is not promoted: a verb that acts on the
+  talker acts on nobody). Only the leaving that ends it can bark, and only
+  for separation, as before.
+- **Rollback.** Membership is part of `ActiveConversation`, a cloned rollback
+  resource: the entity-set probe names every member, and a restore remaps
+  every handle. `ConversationsInRooms` logs a membership change like any
+  other, so a room's rewind puts the members back.
+- **Speakers.** Who says a line is still the line's speaker and
+  `<<present_speaker>>`; membership is who the world holds and breaks.
+
+Not yet: in single-player `GameMode::Dialogue` the gameplay-gated systems
+stop, so a threat that is not already within earshot does not walk up while
+the box is open; content brings it with `conversation.join` or spawns it in
+earshot. Interact on a member of a live conversation by another seat does
+not join it.
 
 ## What this does not change
 

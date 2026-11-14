@@ -10,7 +10,7 @@ use ambition_platformer2d_shared_tangle::schedule::{FeatureInteractionSet, SimSc
 use super::authority::ActiveConversation;
 use super::hold::project_conversation_hold;
 use super::ledger::NarrativeInputPlugin;
-use super::rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};
+use super::rules::{break_dialogue_on_hit_or_separation, interrupt_a_conversation_on_a_threat, ConversationCutBark};
 use super::ui_bridge::{
     a_conversation_is_live, a_conversation_is_live_or_shown, close_conversation_on_narrative_end,
     project_the_dialog_ui_from_the_conversation, publish_the_narrative_end, ConversationEnded,
@@ -83,9 +83,18 @@ impl Plugin for ConversationPlugin {
                 .in_set(FeatureInteractionSet::NarrativeIntake)
                 .in_set(DIALOGUE),
         );
+        // Who is in the conversation: authored joins and leaves, a threat
+        // breaking in, then the continuity rule over every member.
+        {
+            use ambition_platformer2d_shared_tangle::authored_logic::PublishCommand;
+            app.publish_command(super::membership::join_descriptor(), super::membership::join);
+            app.publish_command(super::membership::leave_descriptor(), super::membership::leave);
+        }
+        app.init_resource::<ambition_dialog::DialogueNodeIndex>();
         app.add_systems(
             sim,
-            break_dialogue_on_hit_or_separation
+            (interrupt_a_conversation_on_a_threat, break_dialogue_on_hit_or_separation)
+                .chain()
                 .run_if(a_conversation_is_live)
                 .in_set(FeatureInteractionSet::Continuity)
                 .in_set(DIALOGUE),

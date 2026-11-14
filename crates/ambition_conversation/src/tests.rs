@@ -698,3 +698,141 @@ fn a_conversation_hold_never_strips_another_claimants_control() {
         "the death beat's claim did not survive somebody else's release"
     );
 }
+
+/// Three bodies in one conversation: the opening pair and one that joined
+/// beside them, with the threat rule, the continuity rule and the hold
+/// chained as the sim schedule chains them.
+fn three_talking(nodes: &[&str]) -> (App, Entity, Entity, Entity) {
+    let (mut app, initiator, npc) = talking_app();
+    let mut index = ambition_dialog::DialogueNodeIndex::default();
+    index.populate(nodes.iter().map(|node| node.to_string()));
+    app.insert_resource(index);
+    app.insert_resource(ambition_time::SimTick(40));
+    app.add_systems(Update, super::interrupt_a_conversation_on_a_threat.before(break_dialogue_on_hit_or_separation));
+    // Within earshot of the pair, and out of the talk reach of either.
+    let third = body(&mut app, ae::Vec2::new(180.0, 100.0));
+    assert!(app.world_mut().resource_mut::<ActiveConversation>().join(third));
+    (app, initiator, npc, third)
+}
+
+fn members(app: &App) -> Vec<Entity> {
+    app.world().resource::<ActiveConversation>().participants().collect()
+}
+
+/// A body that joins is held as the talker is, and is let go when it leaves.
+#[test]
+fn a_body_that_joins_is_held_and_let_go_when_it_leaves() {
+    let (mut app, initiator, npc, third) = three_talking(&[]);
+    app.update();
+    assert_eq!(members(&app), vec![initiator, npc, third], "a third body in earshot stays in it");
+    assert!(app.world().get::<HeldByConversation>(third).is_some(), "the joined body is held");
+    assert!(app.world().get::<HeldByConversation>(initiator).is_none(), "the initiator is not held");
+
+    assert_eq!(
+        app.world_mut().resource_mut::<ActiveConversation>().leave(third),
+        super::Leaving::Left,
+        "two are left, so the pair talks on"
+    );
+    app.update();
+    assert!(talking(&app));
+    assert!(app.world().get::<HeldByConversation>(third).is_none(), "the body that left is let go");
+    assert!(
+        app.world().get::<ControlHolds>(third).is_none_or(|holds| !holds.holds(ControlHold::Conversation)),
+        "and its conversation hold is released"
+    );
+}
+
+/// Each member leaves by the rules on its own: struck, out of earshot, or
+/// dead. The others talk on while two are left.
+#[test]
+fn a_member_struck_out_of_earshot_or_dead_leaves_and_the_rest_talk_on() {
+    let (mut app, initiator, npc, third) = three_talking(&[]);
+    app.world_mut().entity_mut(third).insert(BodyCombat { hitstun_timer: 0.2, ..Default::default() });
+    app.update();
+    assert_eq!(members(&app), vec![initiator, npc], "the struck body left; the pair talks on");
+
+    let (mut app, initiator, npc, third) = three_talking(&[]);
+    let far = CenteredAabb::from_center_size(ae::Vec2::new(100.0 + super::EARSHOT + 64.0, 100.0), ae::Vec2::new(24.0, 24.0));
+    app.world_mut().entity_mut(third).insert(far);
+    app.update();
+    assert_eq!(members(&app), vec![initiator, npc], "the body out of earshot left");
+
+    // The talker dies: the conversation goes on between the initiator and the
+    // body that joined, with no talker.
+    let (mut app, initiator, npc, third) = three_talking(&[]);
+    let mut health = ambition_characters::actor::Health::new(10);
+    health.current = 0;
+    app.world_mut().entity_mut(npc).insert(ambition_characters::actor::BodyHealth::new(health));
+    app.update();
+    assert_eq!(members(&app), vec![initiator, third], "the dead talker left, and the others talk on");
+    assert_eq!(app.world().resource::<ActiveConversation>().talker(), None);
+    assert!(app.world().get::<HeldByConversation>(npc).is_none(), "the dead body is let go");
+
+    // The initiator struck ends it for everybody.
+    let (mut app, initiator, _, third) = three_talking(&[]);
+    app.world_mut().entity_mut(initiator).insert(BodyCombat { hitstun_timer: 0.2, ..Default::default() });
+    app.update();
+    assert!(!talking(&app), "the initiator's leaving ends the conversation");
+    assert!(app.world().get::<HeldByConversation>(third).is_none());
+}
+
+/// A hostile body that comes within earshot of a conversation whose node
+/// has an interruption authored breaks in: it joins, held, and the narrative
+/// goes on from `<node>__interrupted` as a new instance. A second hostile
+/// joins without starting the interruption again; without the node, nothing
+/// changes.
+#[test]
+fn a_threat_in_earshot_breaks_into_a_conversation_with_an_interruption_authored() {
+    use ambition_combat::components::ActorDisposition;
+
+    let (mut app, _, _, _) = three_talking(&["chat", "chat__interrupted"]);
+    let opened = app.world().resource::<ActiveConversation>().instance().cloned().expect("live");
+    let raider = body(&mut app, ae::Vec2::new(20.0, 100.0));
+    app.world_mut().entity_mut(raider).insert(ActorDisposition::Hostile);
+    app.update();
+    let conversation = app.world().resource::<ActiveConversation>();
+    assert_eq!(conversation.dialogue_id(), Some("chat__interrupted"), "the narrative goes on from the interruption");
+    assert_eq!(conversation.live().map(|live| live.opened_at()), Some(40), "from the tick it broke in");
+    assert_ne!(conversation.instance(), Some(&opened), "a new instance, so the text box starts the node");
+    assert!(conversation.holds(raider), "the threat joined, and is held while it speaks");
+    let interrupted = conversation.instance().cloned();
+
+    let second = body(&mut app, ae::Vec2::new(10.0, 100.0));
+    app.world_mut().entity_mut(second).insert(ActorDisposition::Hostile);
+    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 41;
+    app.update();
+    let conversation = app.world().resource::<ActiveConversation>();
+    assert!(conversation.holds(second), "a second threat joins");
+    assert_eq!(conversation.instance().cloned(), interrupted, "and does not start the interruption again");
+
+    // No interruption authored: a threat in earshot changes nothing (it
+    // breaks the conversation by striking somebody).
+    let (mut app, initiator, npc, third) = three_talking(&["chat"]);
+    let raider = body(&mut app, ae::Vec2::new(20.0, 100.0));
+    app.world_mut().entity_mut(raider).insert(ActorDisposition::Hostile);
+    app.update();
+    assert_eq!(members(&app), vec![initiator, npc, third]);
+    assert_eq!(app.world().resource::<ActiveConversation>().dialogue_id(), Some("chat"));
+}
+
+/// The rollback registration localizes a desync through every body the
+/// conversation names, and a restore remaps every handle, the joined among
+/// them.
+#[test]
+fn a_rollback_names_and_remaps_every_member() {
+    use bevy::ecs::entity::{EntityHashMap, MapEntities};
+
+    let (app, initiator, npc, third) = three_talking(&[]);
+    let conversation = app.world().resource::<ActiveConversation>().clone();
+    assert_eq!(conversation.referenced_entities(), vec![initiator, npc, third]);
+
+    let mut world = World::new();
+    let moved: Vec<Entity> = (0..3).map(|_| world.spawn_empty().id()).collect();
+    let mut map = EntityHashMap::default();
+    for (old, new) in [initiator, npc, third].into_iter().zip(moved.iter().copied()) {
+        map.insert(old, new);
+    }
+    let mut restored = conversation.clone();
+    restored.map_entities(&mut map);
+    assert_eq!(restored.referenced_entities(), moved);
+}

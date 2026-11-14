@@ -57,6 +57,7 @@ Dmitri: Do not touch that. And do not touch that. You can touch that, it is alre
 title: eureka_nikobolt
 ---
 Nikobolt Tesseract: Please keep the blueprints off the floor. I have counted them twice, and I would rather not count them a third time.
+<<command "conversation.join" "npc_science_coulomba">>
 <<present_speaker "npc_science_coulomba">>
 Coulomba Tesseract: You counted them three times. The third time you counted the napkins too.
 -> What are you building?
@@ -91,6 +92,7 @@ Coulomba Tesseract: You counted them three times. The third time you counted the
 title: eureka_coulomba
 ---
 Coulomba Tesseract: Come in. The crackling is normal. If you smell smoke, please tell Dmitri before you tell Nikobolt.
+<<command "conversation.join" "npc_science_nikobolt">>
 <<present_speaker "npc_science_nikobolt">>
 Nikobolt Tesseract: I can smell smoke.
 <<present_speaker "npc_science_coulomba">>

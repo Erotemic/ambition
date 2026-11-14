@@ -1,6 +1,7 @@
 //! Project conversation authority onto participant control.
-//! Dialogue input neutralizes the initiator; the other participant receives a
-//! conversation-owned `ControlHolds` hold so both sides remain neutral.
+//! Dialogue input neutralizes the initiator; every other participant (the
+//! talker and each body that joined) receives a conversation-owned
+//! `ControlHolds` hold so all of them remain neutral.
 
 use bevy::prelude::*;
 
@@ -29,9 +30,8 @@ pub fn project_conversation_hold(
     mut claimed: Query<(Entity, Option<&mut ControlHolds>), With<HeldByConversation>>,
     fully_held: Query<(), (With<HeldByConversation>, With<ControlHolds>)>,
 ) {
-    let holding = conversation.talker();
     for (entity, holds) in &mut claimed {
-        if Some(entity) == holding {
+        if conversation.holds(entity) {
             continue;
         }
         // All three mean the same thing here and need no case analysis: this body is not held
@@ -44,17 +44,16 @@ pub fn project_conversation_hold(
             ControlHold::Conversation,
         );
     }
-    let Some(talker) = holding else {
-        return;
-    };
-    // the skip is about change detection, not about correctness.
-    // `try_insert` is idempotent, so running it unconditionally would behave
-    // identically — it would just touch the entity every tick and wake every
-    // change-gated reader downstream. Because the question is "does the world
-    // already match the authority" rather than "did I already do this", a
-    // half-applied hold falls through this and is repaired.
-    if fully_held.get(talker).is_err() {
-        commands.entity(talker).try_insert(HeldByConversation);
-        claim_control_hold(&mut commands, talker, ControlHold::Conversation);
+    for held in conversation.held() {
+        // the skip is about change detection, not about correctness.
+        // `try_insert` is idempotent, so running it unconditionally would behave
+        // identically — it would just touch the entity every tick and wake every
+        // change-gated reader downstream. Because the question is "does the world
+        // already match the authority" rather than "did I already do this", a
+        // half-applied hold falls through this and is repaired.
+        if fully_held.get(held).is_err() {
+            commands.entity(held).try_insert(HeldByConversation);
+            claim_control_hold(&mut commands, held, ControlHold::Conversation);
+        }
     }
 }

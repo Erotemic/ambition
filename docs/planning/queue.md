@@ -622,7 +622,14 @@ On 2026-11-12 a participant's menu was witnessed open and answering its pad
 through another participant's crossing, in both orders
 ([menu](engine/peer-room-commit-protocol.md#a-menu-during-another-participants-crossing-2026-11-12)).
 
-**Next action:** complete the broader **feature and tooling verification** for
+**2026-11-14:** a crossing takes its members out of a live conversation by
+the rule every leaving takes (`ActiveConversation::leave`), so a conversation
+of three or more goes on when a joined member crosses; the guards above and
+`walking_into_a_loading_zone` pass.
+
+**Next action:** the maintainer's rendered two-controller playthrough (a
+person at two pads; gate 5) and TEST-LANES' full feature run are what remain
+of the **feature and tooling verification** for
 input-driven peer room commits. Reproduce a normal crossing and a failed or
 invalidated preparation with two peers; audit exact content/plan identity,
 participant-specific interactions, replay, view/UI ownership, input ordering,

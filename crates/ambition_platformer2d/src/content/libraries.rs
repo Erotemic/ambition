@@ -176,6 +176,55 @@ mod tests {
         );
     }
 
+    /// ASSET-SELECTION's old-publication clause, at the host's launch road:
+    /// a store an older tool published (its recorded generation is not the
+    /// current tool's, and its digest is not checked) is selected by
+    /// `install` as it stands, and the product it names is the file served.
+    /// Nothing is rebuilt and nothing is audited.
+    #[test]
+    fn a_publication_an_older_tool_recorded_starts_without_a_rebuild() {
+        let root = std::env::temp_dir().join(format!("host_library_old_publication_{}", std::process::id()));
+        let bundle = "k".repeat(64);
+        std::fs::create_dir_all(root.join(format!("store/bundles/{bundle}/audio"))).unwrap();
+        std::fs::write(
+            root.join("library.json"),
+            r#"{"schema":"ambition.content_library.v1","id":"probe","version":"1",
+                "asset_roots":{"generated":"made"},"publication":"store"}"#,
+        )
+        .unwrap();
+        std::fs::write(root.join(format!("store/bundles/{bundle}/audio/cue.ogg")), b"published bytes").unwrap();
+        std::fs::write(
+            root.join("store/published.json"),
+            serde_json::json!({
+                "schema": "ambition.art_publication.v1",
+                "generation": "recorded-by-an-older-tool",
+                "roots": [],
+                "bundles": {"target:cue": bundle},
+                "files": {"audio/cue.ogg": {
+                    "path": format!("bundles/{bundle}/audio/cue.ogg"),
+                    "role": "runtime", "tier": "full",
+                    "sha256": "0".repeat(64),
+                }},
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let mut app = App::new();
+        let installed = install(app.world_mut(), &root, &["library.json".into()], None);
+        let served = app
+            .world()
+            .get_resource::<ContentLibraries>()
+            .map(|libraries| libraries.resolve("content://probe/audio/cue.ogg"));
+        let read = served.as_ref().and_then(|file| file.as_ref().ok()).map(|file| (file.generation.clone(), file.read()));
+        let _ = std::fs::remove_dir_all(&root);
+        installed.expect("the old publication was refused at launch");
+        served.expect("libraries were installed").expect("the old publication's product resolves");
+        let (generation, bytes) = read.expect("a product to read");
+        assert_eq!(generation.as_deref(), Some("recorded-by-an-older-tool"));
+        assert_eq!(bytes.unwrap(), b"published bytes", "the product an older tool published is the file served");
+    }
+
     #[test]
     fn a_standalone_served_provider_supplies_its_library_default() {
         let mut app = App::new();

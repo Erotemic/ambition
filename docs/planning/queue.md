@@ -151,7 +151,7 @@ or updating their source. Check with
 
 ### ITEM-CONTENT — remove retired items without letting fixtures retain them
 
-**Done 2026-11-10 for the grid.** The Javelin and the Sealed Note are gone
+**Done 2026-11-10 for the grid; the held javelin ruled 2026-11-14.** The Javelin and the Sealed Note are gone
 from the item grid, `items.ron`, the intro dialogue and every test that
 granted them. Their slots are "Empty" reserved cells (`Item::Empty3`,
 `Item::Empty4`), as the Axe's and the Map Fragment's were, so no other item's
@@ -182,12 +182,14 @@ Blink, Contextual Blink, Dash II and Portal Gun name no content file (the
 portal gun is placed by its own spawn kind; the stances and blinks are worn
 through `items.ron` rows).
 
-**Open:** the held object `javelin` (a held-item spec, not a grid item) is the
-portal similarity lab's asymmetric gauge
-(`tools/ambition_ldtk_tools/specs/portal_similarity_lab.yaml`), and the held
-item and save unit tests still use it as a pure throwable. The lab is the
-portals work's; when it picks another gauge, the spec, its art row and those
-tests can switch to the coconut.
+**Ruled 2026-11-14 (portals owner):** the held object `javelin` stays. It
+is a held-item spec with its own art row, not the removed grid item, and it
+is the portal similarity lab's gauge because it is asymmetric
+(`tools/ambition_ldtk_tools/specs/portal_similarity_slice.yaml`): a
+reflection is read off which end leads, which a round coconut cannot show.
+The held item and save unit tests that throw it test a held object, which it
+still is. No placement, dialogue, recipe or save reader names the grid
+Javelin.
 
 **Owner:** item content, held specs, world placements, intro dialogue and their
 behavioral fixtures. Design: [ability loadout](game/ability-loadout.md).
@@ -267,9 +269,14 @@ unselected workspace products; on this checkout 19 of 19 published cues now
 have their audio located, where none did
 ([review, A and E](engine/asset-library-implementation-review.md#a-selection-is-correct-in-the-runtime-but-not-uniform-in-the-tools)).
 
-**Next action:** the old-publication clause of the acceptance at the runtime
-(a selection written by an older tool starts the native game without a
-rebuild) has a case at the reader, not a launch witness.
+**Done 2026-11-14:** the old-publication clause at the host's launch road:
+`a_publication_an_older_tool_recorded_starts_without_a_rebuild`
+(`ambition_platformer2d::content::libraries`, feature `content_pack`)
+installs a store whose recorded generation is an older tool's and whose
+digest is wrong, and the product it names is the file served: no rebuild,
+no audit.
+
+**Next action:** none in this row.
 
 **Host registration landed in `fb1621179`:** providers import identities and retain the
 host's selected source. Explicit conflicting selections still refuse. Guard:

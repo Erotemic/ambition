@@ -801,6 +801,31 @@ UNRESOLVED_ADJUDICATED: dict[str, str] = {
         "process exiting is not an intent the simulation can consume, so there "
         "is no rewind for it to be lost to (read 2026-09-18)"
     ),
+    "MenuActionActivated": (
+        "OUT OF THE POPULATION BY ITS SPELLING: `MenuActionActivated<Action>` is "
+        "generic, registered per action type inside `install_bevy_ui_menu_actions"
+        "::<Action>` (`ambition_menu/src/render/bevy_ui/mod.rs:610`), so no "
+        "`add_message::<MenuActionActivated>` names it. The writes in "
+        "`ambition_game_shell/src/basic_presentation.rs` are the shell launcher's "
+        "pointer input, read by the launcher's own adapters in `Update`: a menu "
+        "between sessions, which no simulation consumes (read 2026-11-13)"
+    ),
+    "MenuActionPreviewed": (
+        "OUT OF THE POPULATION BY ITS SPELLING, as `MenuActionActivated`: the "
+        "generic preview of the same menu actions, written by the shell "
+        "launcher's pointer hover and read by its focus presentation; nothing in "
+        "the simulation reads it (read 2026-11-13)"
+    ),
+    "PeerRoomCommit": (
+        "OUT OF THE POPULATION BY ITS REGISTRATION: its `Messages` come from "
+        "`ExternalEffectQuarantinePlugin::<PeerRoomCommit>` "
+        "(`rollback_ggrs/src/session.rs:933`), not `add_message`. It is written "
+        "INSIDE the rewind (the peer room commit, `lifecycle_commit.rs:228`) and "
+        "read OUTSIDE it (`observe_peer_room_commits`, presentation retirement "
+        "once the frame is confirmed), and a load discards it "
+        "(`quarantine_discard_on_load`): the opposite direction to the defect "
+        "this guard hunts (read 2026-11-13)"
+    ),
 }
 
 

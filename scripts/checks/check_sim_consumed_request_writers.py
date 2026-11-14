@@ -130,6 +130,11 @@ SUBJECTS: dict[str, tuple[str, dict[str, str]]] = {
                 "PRODUCER, in `Platformer2dSimulationPhase::Cutscene` — in the "
                 "sim schedule, so a replay re-produces it (read 2026-09-17)"
             ),
+            "crates/ambition_platformer2d_runtime/src/cutscene.rs::trigger_cutscenes_in_volumes": (
+                "PRODUCER, chained after `auto_trigger_room_cutscenes` in the same "
+                "`Platformer2dSimulationPhase::Cutscene` registration — in the sim "
+                "schedule, so a replay re-produces it (read 2026-11-13)"
+            ),
             "crates/ambition_platformer2d_runtime/src/cutscene.rs::drain_cutscene_triggers": (
                 "CONSUMER — the `std::mem::take`, in the sim schedule (read 2026-09-17)"
             ),

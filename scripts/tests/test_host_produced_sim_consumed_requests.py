@@ -593,10 +593,18 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     `lower_summon_rides`, and `queue_fighter_specials`, `queue_parries`,
     `queue_strikes` — and three left (`lower_effects`,
     `lower_module_entity_spawns`, `lower_wielded_bursts`).
+
+    **67** on 2026-11-13, all POPULATION: the guard of that day reads 64 on the
+    2026-10-21 tree (`8433a7789`). Six joined: `commit_body_transfer`,
+    `detonate_corpse`, `emit_tab`, `release_tabs`,
+    `retract_boss_defeats_on_room_rewind`, `run_with`. Three left, because the
+    portal gun became an ordinary held item and the actor integration moved:
+    `drop_one_portal_gun`, `pick_up_one_portal_gun`, `integrate_actor_body`.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 34 <= len(unlocated) <= 64, (
-        f"{len(unlocated)} unlocated message systems; 64 on 2026-10-21 (the scoped "
+    assert 34 <= len(unlocated) <= 67, (
+        f"{len(unlocated)} unlocated message systems; 67 on 2026-11-13 (six joined, "
+        "three left since 2026-10-21); 64 on 2026-10-21 (the scoped "
         "road followed; ten adapters and queues joined, three left); the 2026-09-19 reading after "
         "the local-tuple road is 42 (61 before it, 47 before bundle fields joined "
         "the population, 77 before the wrapper road). A fall means another "
@@ -707,15 +715,15 @@ def test_the_three_resolvable_binding_shapes_resolve():
 def test_every_unresolved_write_left_in_the_tree_is_adjudicated():
     """⚠ THE RATCHET. A new unreadable spelling must be resolved or argued for.
 
-    Today's remainder is one type across 18 sites: `AppExit`, which this
-    workspace never passes to `add_message`, so it cannot be in the universe
-    however it is spelled.
+    Today's remainder is four types, none passed to `add_message`: `AppExit`
+    (Bevy's own), the generic menu-action pair, and the quarantined
+    `PeerRoomCommit` (each argued in `UNRESOLVED_ADJUDICATED`, 2026-11-13).
     """
     heads = {guard.unresolved_head(arg) for _file, arg in guard.unresolved_message_writes()}
     assert heads <= set(guard.UNRESOLVED_ADJUDICATED), (
         f"unadjudicated unresolved write head(s): {sorted(heads - set(guard.UNRESOLVED_ADJUDICATED))}"
     )
-    assert heads == {"AppExit"}, (
+    assert heads == {"AppExit", "MenuActionActivated", "MenuActionPreviewed", "PeerRoomCommit"}, (
         f"the remainder changed to {sorted(heads)}; re-read UNRESOLVED_ADJUDICATED "
         "rather than widening it"
     )

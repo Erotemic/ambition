@@ -408,31 +408,53 @@ fn a_hosted_guest_shows_the_hosts_bodies_over_udp() {
     assert!(agreed * 10 >= FRAMES * 9, "the guest agreed with the host after only {agreed} of {FRAMES} frames");
 }
 
+/// How the guest of [`bob_from_the_guest`] comes by its seat.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Seating {
+    /// The test names the guest's seat on both Apps.
+    Named,
+    /// The host seats the guest when it connects (`SeatsGuests`) and tells it.
+    Assigned,
+    /// Nobody names a seat on the host.
+    None,
+}
+
 /// One run of Bob driven from the guest: the guest holds `bobs(frame)` on its
-/// seat and sends it; the host drives nothing itself. With `seated`, the host
-/// names the guest's seat (`GuestSeat`). Returns how many frames the host's
-/// bodies differ from a reference App where Bob is driven locally with the
-/// same frames.
-fn bob_from_the_guest(seated: bool) -> (i32, bool) {
+/// seat and sends it; the host drives nothing itself. Returns how many frames
+/// the host's bodies differ from a reference App where Bob is driven locally
+/// with the same frames, whether Bob moved, and the seat each App holds for
+/// the guest after the run.
+fn bob_from_the_guest(seating: Seating) -> (i32, bool, Option<u8>, Option<u8>) {
     use crate::hosted_world::bobs;
     let bob = ambition_platformer2d::characters::control::PlayerSlot(1);
     let mut host = booted(HostedRole::Host);
     let mut guest = booted(HostedRole::Guest);
     let mut local = booted(HostedRole::Host);
     simulate_nothing(&mut guest);
-    guest.world_mut().insert_resource(ambition_hosted_world::LocalSeat(bob));
+    if seating == Seating::Assigned {
+        host.world_mut().insert_resource(ambition_hosted_world::SeatsGuests);
+    } else {
+        guest.world_mut().insert_resource(ambition_hosted_world::LocalSeat(bob));
+    }
     host.app_mut().connect_client(guest.app_mut());
-    if seated {
+    let client = {
         let world = host.world_mut();
-        let client = world
+        world
             .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ConnectedClient>>()
             .single(world)
-            .expect("one guest is connected");
-        world.entity_mut(client).insert(ambition_hosted_world::GuestSeat(bob));
+            .expect("one guest is connected")
+    };
+    if seating == Seating::Named {
+        host.world_mut().entity_mut(client).insert(ambition_hosted_world::GuestSeat(bob));
     }
     // `connect_client` updated the host once; the reference takes the same
-    // step, so both start the run on the same tick.
+    // step, so both start the run on the same tick. An assigned seat reaches
+    // the guest with one exchange more, which the reference does not match:
+    // the loop below exchanges twice a frame beside one update of each.
     local.app_mut().update();
+    if seating == Seating::Assigned {
+        host.app_mut().exchange_with_client(guest.app_mut());
+    }
     let at_start = bodies(&mut local, None);
     let mut differs = 0;
     for frame in 1..=FRAMES {
@@ -449,7 +471,9 @@ fn bob_from_the_guest(seated: bool) -> (i32, bool) {
         }
     }
     let moved = bodies(&mut local, None) != at_start;
-    (differs, moved)
+    let on_host = host.world().get::<ambition_hosted_world::GuestSeat>(client).map(|seat| seat.0 .0);
+    let on_guest = guest.world().get_resource::<ambition_hosted_world::LocalSeat>().map(|seat| seat.0 .0);
+    (differs, moved, on_host, on_guest)
 }
 
 /// The guest's input reaches the host: Bob, driven only on the guest App, moves
@@ -458,12 +482,26 @@ fn bob_from_the_guest(seated: bool) -> (i32, bool) {
 /// named for the guest: its input reaches nobody, and the host's Bob stands.
 #[test]
 fn a_hosted_guest_drives_its_seat_on_the_host() {
-    let (differs, moved) = bob_from_the_guest(true);
-    let (differs_unseated, _) = bob_from_the_guest(false);
+    let (differs, moved, ..) = bob_from_the_guest(Seating::Named);
+    let (differs_unseated, ..) = bob_from_the_guest(Seating::None);
     println!("[hosted input] frames the host differs from the local reference: seated {differs}, unseated {differs_unseated} of {FRAMES}");
     assert!(moved, "premise: Bob moves when driven");
     assert_eq!(differs, 0, "the host's Bob did not move as the guest drove him");
     assert!(differs_unseated > 0, "the control: with no seat named the host still matched, so the seat is not what delivered the input");
+}
+
+/// A host that seats its guests (`SeatsGuests`) gives a connecting guest the
+/// first seat after its own and tells it: both Apps hold seat 1 for the guest,
+/// and Bob, driven only on the guest, moves on the host as on the local
+/// reference. The control is the unseated run of the test above.
+#[test]
+fn a_connecting_guest_is_given_a_seat() {
+    let (differs, moved, on_host, on_guest) = bob_from_the_guest(Seating::Assigned);
+    println!("[hosted seat] host holds {on_host:?}, guest holds {on_guest:?}; frames differing {differs} of {FRAMES}");
+    assert!(moved, "premise: Bob moves when driven");
+    assert_eq!(on_host, Some(1), "the host did not seat the guest at seat 1");
+    assert_eq!(on_guest, Some(1), "the guest was not told its seat");
+    assert_eq!(differs, 0, "the host's Bob did not move as the guest drove him");
 }
 
 /// Where `sim`'s seat `slot` body stands: its live room and that room's

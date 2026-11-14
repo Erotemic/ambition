@@ -893,7 +893,37 @@ fix, the guest advanced a life one frame ahead of the host's row (Starting →
 Holding at the bench) on 2 of 321 frames. A guest App composed from fewer
 plugins would not install the planner at all.
 
-Next in the prototype: a guest App composed from fewer plugins.
+### A guest's gate and seat (2026-11-13)
+
+**The gate is production code.** `ambition_hosted_world::put_the_simulation_to_sleep`
+nests every simulation phase but room changes (`GUEST_SLEEPS`) and
+`GameplayGated` in one new set, `GuestAsleep`, that never runs. Nesting
+avoids the late-condition drop above. The test helpers call it;
+`simulate_nothing` also sleeps `RoomTransition`. `HostedWorldPlugin` does not
+call it, because an App may set itself up first: the tests seat Bob by
+simulating the guest before it goes to sleep.
+
+**Composing a guest from fewer plugins waits.** Two measurements already
+answer what it buys: taking the simulation's systems out of a booted guest
+saves 0.24–0.46 ms of about 2.1, and a guest of Ambition alone saves nothing
+measurable. What remains is presentation a guest needs. Correctness was the
+other reason (the planner ran on a guest), and the gate settles it. Bevy 0.19
+can also remove a set's systems (`remove_systems_in_set`, which the split
+probe uses on `GuestAsleep`), so a cheaper guest does not need a second
+composition.
+
+**A connecting guest is given a seat.** A host with the `SeatsGuests`
+resource gives each guest it authorizes the first seat after its own that no
+guest holds (`GuestSeat` on the client entity) and tells it in a
+`SeatAssigned` server message. The guest takes that seat as its `LocalSeat`.
+Witness `a_connecting_guest_is_given_a_seat`: both Apps hold seat 1, and Bob,
+driven only on the guest, moves on the host exactly as on the local reference
+(0 of 90 frames differ). A host's own second local player is not counted yet,
+so a guest can be given that seat.
+
+Next in the prototype: the visible app as host or guest (a launch flag that
+composes it on the fixed 60 Hz host rather than GGRS, opens or joins the UDP
+link, and puts a guest's simulation to sleep).
 
 ## Next
 

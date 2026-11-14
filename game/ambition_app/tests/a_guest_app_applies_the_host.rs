@@ -43,38 +43,14 @@ fn booted(room: &str) -> Platformer2dSimHarness {
     sim
 }
 
-/// The simulation phases a guest puts to sleep.
-const GATED: [Phase; 12] = [
-    Phase::CoreSimulation,
-    Phase::FeatureCollection,
-    Phase::FeatureInteraction,
-    Phase::LdtkRuntimeSpine,
-    Phase::EncounterSimulation,
-    Phase::Cutscene,
-    Phase::GameplayEffects,
-    Phase::Progression,
-    Phase::ResetProcessing,
-    Phase::FeatureViewSync,
-    Phase::PresentationVisualSync,
-    Phase::Trace,
-];
-
-/// Put every simulation phase of `guest` to sleep.
+/// Put every simulation phase of `guest` to sleep: the production guest's
+/// gate (`ambition_hosted_world::put_the_simulation_to_sleep`) and room
+/// changes too.
 pub(crate) fn simulate_nothing(guest: &mut Platformer2dSimHarness) {
     let app = guest.app_mut();
+    ambition_hosted_world::put_the_simulation_to_sleep(app);
     let schedule = app.sim_schedule();
-    for phase in GATED {
-        app.configure_sets(schedule, phase.run_if(|| false));
-    }
-    // Systems gated by the menu pause but in no phase: NPC lives plan there.
-    // Through a new parent set: once a schedule is built, a condition added to
-    // a set that already has one (`GameplayGated` has `gameplay_allowed`) is
-    // dropped at the next rebuild, which moves the built conditions back over
-    // it.
-    #[derive(bevy::prelude::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-    struct GuestAsleep;
-    app.configure_sets(schedule, ambition_platformer2d::sim::GameplayGated.in_set(GuestAsleep));
-    app.configure_sets(schedule, GuestAsleep.run_if(|| false));
+    app.configure_sets(schedule, Phase::RoomTransition.in_set(ambition_hosted_world::GuestAsleep));
 }
 
 /// Write `rows` onto the guest's bodies by id. Returns the ids it does not hold.
@@ -206,10 +182,8 @@ fn probe_where_a_gated_guest_spends_its_update() {
             let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
             let _ = schedule.initialize(world);
             let mut gated = BTreeSet::new();
-            for phase in GATED {
-                if let Ok(systems) = schedule.graph().systems_in_set(bevy::ecs::schedule::SystemSet::intern(&phase)) {
-                    gated.extend(systems.into_iter().map(|key| format!("{key:?}")));
-                }
+            if let Ok(systems) = schedule.graph().systems_in_set(bevy::ecs::schedule::SystemSet::intern(&ambition_hosted_world::GuestAsleep)) {
+                gated.extend(systems.into_iter().map(|key| format!("{key:?}")));
             }
             let mut running: BTreeMap<String, usize> = BTreeMap::new();
             if let Ok(systems) = schedule.systems() {
@@ -240,14 +214,9 @@ fn probe_where_a_gated_guest_spends_its_update() {
         // without them. The phase sets stay, so their order is kept.
         let removed: usize = guest.world_mut().resource_scope(|world, mut schedules: bevy::prelude::Mut<Schedules>| {
             let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
-            GATED
-                .iter()
-                .map(|phase| {
-                    schedule
-                        .remove_systems_in_set(*phase, world, bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSystemsOnly)
-                        .unwrap_or(0)
-                })
-                .sum()
+            schedule
+                .remove_systems_in_set(ambition_hosted_world::GuestAsleep, world, bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSystemsOnly)
+                .unwrap_or(0)
         });
         for _ in 0..WARM {
             guest.app_mut().update();
@@ -1746,20 +1715,10 @@ fn record_a_crossing(sim: &mut Platformer2dSimHarness, slot: u8, target: &str, a
         .admitted()
 }
 
-/// [`simulate_nothing`], but with the room transition phase awake: it sits
-/// inside `CoreSimulation`, so the core's other phases are gated one by one.
+/// [`simulate_nothing`], but with the room transition phase awake: the
+/// production guest's gate.
 pub(crate) fn simulate_nothing_but_room_changes(guest: &mut Platformer2dSimHarness) {
-    let app = guest.app_mut();
-    let schedule = app.sim_schedule();
-    for phase in GATED.into_iter().filter(|phase| *phase != Phase::CoreSimulation).chain([
-        Phase::PlayerInput,
-        Phase::WorldPrep,
-        Phase::PlayerSimulation,
-        Phase::Combat,
-        Phase::PresentationSync,
-    ]) {
-        app.configure_sets(schedule, phase.run_if(|| false));
-    }
+    ambition_hosted_world::put_the_simulation_to_sleep(guest.app_mut());
 }
 
 /// NA-2b, a guest that follows its player on the host's word: the crossing

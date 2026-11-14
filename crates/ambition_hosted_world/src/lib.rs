@@ -215,6 +215,20 @@ pub struct LocalSeat(pub PlayerSlot);
 #[derive(Message, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct GuestInput(pub ambition_platformer2d_core::ControlFrame);
 
+/// The seat the host gave this guest (its number). The guest takes it as its
+/// [`LocalSeat`].
+#[derive(Message, Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct SeatAssigned(pub u8);
+
+/// On a host: give each guest that connects the lowest seat after the host's
+/// own (seat 0) that no other guest holds, and tell it which. Without it the
+/// caller names each guest's seat ([`GuestSeat`]) itself.
+///
+/// A second local player on the host is not counted: a guest can be given
+/// that player's seat.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SeatsGuests;
+
 /// Which end of a hosted world this App is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HostedRole {
@@ -238,7 +252,8 @@ impl Plugin for HostedWorldPlugin {
             .replicate::<RoomNamed>()
             .replicate::<PlanRow>()
             .add_client_message::<GuestInput>(Channel::Ordered)
-            .add_client_message::<GuestRoom>(Channel::Ordered);
+            .add_client_message::<GuestRoom>(Channel::Ordered)
+            .add_server_message::<SeatAssigned>(Channel::Ordered);
         match self.role {
             HostedRole::Host => {
                 app.add_visibility_filter::<RoomOf>();
@@ -247,6 +262,10 @@ impl Plugin for HostedWorldPlugin {
                     (apply_guest_inputs, note_guest_rooms, retire_departed_guests).after(ServerSystems::Receive),
                 );
                 app.add_systems(Update, (mark_hosted_bodies, write_spawn_rows));
+                app.add_systems(
+                    PostUpdate,
+                    seat_connecting_guests.run_if(resource_exists::<SeatsGuests>).before(ServerSystems::Send),
+                );
                 app.add_systems(
                     PostUpdate,
                     (write_body_rows, write_life_rows, write_plan_rows, place_bodies, name_body_rooms, place_guests)
@@ -260,7 +279,7 @@ impl Plugin for HostedWorldPlugin {
                 app.add_systems(Update, sign_own_bodies);
                 app.add_systems(PreUpdate, sign_own_bodies.before(ClientSystems::Receive));
                 app.add_systems(PostUpdate, (send_local_input, report_own_room).before(ClientSystems::Send));
-                app.add_systems(PreUpdate, follow_own_crossing.after(ClientSystems::Receive));
+                app.add_systems(PreUpdate, (take_assigned_seat, follow_own_crossing).chain().after(ClientSystems::Receive));
                 app.add_systems(
                     PreUpdate,
                     (build_spawned_bodies, (apply_body_rows, apply_life_rows, apply_plan_rows))
@@ -270,6 +289,63 @@ impl Plugin for HostedWorldPlugin {
             }
         }
     }
+}
+
+/// The set a guest's sleeping simulation is nested in; it never runs.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GuestAsleep;
+
+/// Present once [`put_the_simulation_to_sleep`] has gated this App.
+#[derive(Resource)]
+struct SimulationAsleep;
+
+/// The simulation phases a guest sleeps. The host simulates; the guest applies
+/// its rows. Room changes stay awake (`RoomTransition`, inside
+/// `CoreSimulation`, so the core's other phases are listed one by one): the
+/// guest builds a room its player crossed into through its own room lifecycle.
+pub const GUEST_SLEEPS: [ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase; 16] = {
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase as Phase;
+    [
+        Phase::WorldPrep,
+        Phase::PlayerInput,
+        Phase::PlayerSimulation,
+        Phase::Combat,
+        Phase::PresentationSync,
+        Phase::FeatureCollection,
+        Phase::FeatureInteraction,
+        Phase::LdtkRuntimeSpine,
+        Phase::EncounterSimulation,
+        Phase::Cutscene,
+        Phase::GameplayEffects,
+        Phase::Progression,
+        Phase::ResetProcessing,
+        Phase::FeatureViewSync,
+        Phase::PresentationVisualSync,
+        Phase::Trace,
+    ]
+};
+
+/// Put this App's simulation to sleep, as a guest does: [`GUEST_SLEEPS`] and
+/// `GameplayGated` (where NPC lives plan, in no phase). Once is enough. The
+/// guest's composition calls it when it is ready to show the host's world;
+/// [`HostedWorldPlugin`] does not, so an App can set itself up first.
+///
+/// Each is nested in [`GuestAsleep`], which carries the condition. Bevy 0.19
+/// drops a condition added to a set that already has one once the schedule
+/// is built (the rebuild moves the built conditions back over it), and
+/// `GameplayGated` has one.
+pub fn put_the_simulation_to_sleep(app: &mut App) {
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+    if app.world().contains_resource::<SimulationAsleep>() {
+        return;
+    }
+    app.insert_resource(SimulationAsleep);
+    let schedule = app.sim_schedule();
+    for phase in GUEST_SLEEPS {
+        app.configure_sets(schedule, phase.in_set(GuestAsleep));
+    }
+    app.configure_sets(schedule, ambition_platformer2d_shared_tangle::schedule::GameplayGated.in_set(GuestAsleep));
+    app.configure_sets(schedule, GuestAsleep.run_if(|| false));
 }
 
 /// A body is replicated under the signature of its `SimId`.
@@ -511,6 +587,33 @@ fn name_body_rooms(
 
 /// A seated guest whose client entity is gone (it disconnected) leaves the
 /// session: its seat's leave is written as a host intent for the next tick.
+/// Seat each guest the host has just authorized ([`SeatsGuests`]).
+fn seat_connecting_guests(
+    mut commands: Commands,
+    arrived: Query<Entity, (Added<AuthorizedClient>, Without<GuestSeat>)>,
+    seated: Query<&GuestSeat>,
+    mut told: MessageWriter<ToClients<SeatAssigned>>,
+) {
+    let mut taken: std::collections::BTreeSet<u8> = seated.iter().map(|seat| seat.0 .0).collect();
+    for client in &arrived {
+        let max = ambition_characters::control::SlotControls::MAX_SLOTS as u8;
+        let Some(seat) = (1..max).find(|seat| !taken.contains(seat)) else {
+            warn!("hosted world: no seat is free for guest {client}");
+            continue;
+        };
+        taken.insert(seat);
+        commands.entity(client).insert(GuestSeat(PlayerSlot(seat)));
+        told.write(ToClients { targets: SendTargets::Single(client.into()), message: SeatAssigned(seat) });
+    }
+}
+
+/// Take the seat the host gave this guest as the one it drives.
+fn take_assigned_seat(mut commands: Commands, mut assigned: MessageReader<SeatAssigned>) {
+    if let Some(seat) = assigned.read().last() {
+        commands.insert_resource(LocalSeat(PlayerSlot(seat.0)));
+    }
+}
+
 fn retire_departed_guests(
     guests: Query<(Entity, &GuestSeat)>,
     mut seated: Local<std::collections::BTreeMap<Entity, PlayerSlot>>,

@@ -600,10 +600,17 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     `retract_boss_defeats_on_room_rewind`, `run_with`. Three left, because the
     portal gun became an ordinary held item and the actor integration moved:
     `drop_one_portal_gun`, `pick_up_one_portal_gun`, `integrate_actor_body`.
+
+    **68** the same day, and this one is THE SCAN LOSING GROUND:
+    `apply_gameplay_banner_requests` is installed through
+    `ambition_combat::banner::gameplay_banner_systems()`, a function returning
+    its configs, so the system's name never appears in an `add_systems` body.
+    It runs in the simulation schedule's `EncounterSimulation`, as before.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 34 <= len(unlocated) <= 67, (
-        f"{len(unlocated)} unlocated message systems; 67 on 2026-11-13 (six joined, "
+    assert 34 <= len(unlocated) <= 68, (
+        f"{len(unlocated)} unlocated message systems; 68 on 2026-11-13 (the banner "
+        "drain behind a function returning its configs); 67 that morning (six joined, "
         "three left since 2026-10-21); 64 on 2026-10-21 (the scoped "
         "road followed; ten adapters and queues joined, three left); the 2026-09-19 reading after "
         "the local-tuple road is 42 (61 before it, 47 before bundle fields joined "

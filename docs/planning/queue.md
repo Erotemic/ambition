@@ -219,9 +219,14 @@ the visor its art draws ([loadout](game/ability-loadout.md#open)).
 is the bag's count, its rows per level are `items.ron`'s `levels`, and the
 worn row follows the count ([loadout, open 3](game/ability-loadout.md#open)).
 
-**Next action:** the laser's own sound waits for an SFX bank republish. A
-row that withholds a verb (for Precision Blink's level 1), then Blink and
-stance replacement through the existing technique/equipment seam. Author Contextual Blink, Precision Blink
+**Done 2026-11-14:** a worn row withholds verbs of the kit through one
+ceiling contribution, and Precision Blink has two levels: the quick blink,
+then the whole blink ([loadout, open 3](game/ability-loadout.md#open)).
+
+**Next action:** the laser's own sound waits for an SFX bank republish.
+Precision Blink's third level waits for the aim's time slow as a verb of
+its own. Then Blink and stance replacement through the existing
+technique/equipment seam. Author Contextual Blink, Precision Blink
 tiers and the remaining variants in that model, not named engine branches.
 
 **Acceptance:** each real variant changes its declared slot on any supported

@@ -254,10 +254,11 @@ impl ItemCatalog {
         self.meta(item).map(|meta| meta.stack)
     }
 
-    /// Does the bag hold more than one of `item`? The menu shows the count of
-    /// such an item.
+    /// Does the bag hold more than one of `item`, as a stock it spends? The
+    /// menu shows the count of such an item. An ability's levels are not a
+    /// stock: their count is the level worn, and nothing spends it.
     pub fn stacks(&self, item: Item) -> bool {
-        self.stack(item).is_some_and(|stack| stack > 1)
+        self.stack(item).is_some_and(|stack| stack > 1) && !self.leveled().any(|leveled| leveled == item)
     }
 
     /// Is this slot a real item, one a player can have? False for a slot the
@@ -501,26 +502,25 @@ impl EquippedItems {
 
 /// Is the ability `item` in effect on the body that wears `worn`?
 ///
-/// It is in effect when the body wears its row. A row that changes nothing is
-/// the body's own action on its exclusive slot
+/// It is in effect when the body wears one of its rows (any level). A row
+/// that changes nothing is the body's own action on its exclusive slot
 /// ([`EquipmentRow::changes_nothing`](ambition_characters::equipment::EquipmentRow::changes_nothing)),
-/// so it is also in effect while no row holds that slot.
+/// so an ability with such a row (at some level: Precision Blink's level 1
+/// withholds a verb, its level 2 is the robot's own blink) is also in effect
+/// while no row holds that slot.
 pub fn ability_in_effect(
     catalog: &ItemCatalog,
     item: Item,
     worn: Option<&ambition_characters::equipment::WornEquipment>,
 ) -> bool {
-    let Some(row) = catalog.wears(item) else {
-        return false;
-    };
-    if worn.is_some_and(|worn| worn.wears(&row.id)) {
-        return true;
-    }
-    row.changes_nothing()
-        && row
-            .exclusive_slot
-            .as_deref()
-            .is_some_and(|slot| worn.is_none_or(|worn| worn.in_slot(slot).is_none()))
+    catalog.worn_rows(item).any(|row| {
+        worn.is_some_and(|worn| worn.wears(&row.id))
+            || (row.changes_nothing()
+                && row
+                    .exclusive_slot
+                    .as_deref()
+                    .is_some_and(|slot| worn.is_none_or(|worn| worn.in_slot(slot).is_none())))
+    })
 }
 
 /// Simulation-side request to grant an item.
@@ -656,6 +656,8 @@ impl OwnedItems {
                 Item::HealthCell => 3,
                 Item::ManaCell => 2,
                 Item::Bomb => STARTER_BOMBS,
+                // Everything unlocked: an ability with levels at its top one.
+                _ if catalog.leveled().any(|leveled| leveled == item) => catalog.stack(item).unwrap_or(1),
                 _ => 1,
             };
             owned.grant(catalog, item, n);
@@ -692,7 +694,8 @@ impl OwnedItems {
     }
 
     /// Give back each unlock of `starting` that this bag (just loaded from a
-    /// save) does not hold: a unique ability or held item, unless `carried`
+    /// save) does not hold, at the starting count (an ability with levels at
+    /// its starting level): an ability or a unique held item, unless `carried`
     /// says that its object is held in the save (a held item's object, keyed
     /// by its held-item id).
     ///
@@ -710,7 +713,7 @@ impl OwnedItems {
             if catalog.held_item_id(item).is_some_and(&carried) {
                 continue;
             }
-            self.grant(catalog, item, 1);
+            self.grant(catalog, item, starting.count(item));
         }
     }
 

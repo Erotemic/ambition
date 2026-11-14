@@ -172,11 +172,32 @@ tests (bounce, one-way landing, strike rules).
    keeps a body that wears some level on the level the count says, so a
    second pickup raises it and a checkpoint that restores the count lowers
    it. Witness `the_bags_count_of_an_ability_is_the_level_its_body_wears`.
-   Not authored yet: Precision Blink's tiers. Its level 1 (a directional
-   instant blink, no aimed blink) needs a row that withholds a verb the
-   robot's own kit has, and an equipment row can only grant, modify or
-   absorb. The ceiling contributions that room kits use
-   (`AbilityContributions`) are the seam to give a row.
+   **Precision Blink's tiers (authored 2026-11-14).** A row can withhold
+   verbs of the body's own kit (`EquipmentRow::withholds`, `AbilitySet`
+   field names; the item schema refuses a name that is no verb). The worn
+   set's withheld verbs are one ceiling in the body's
+   `AbilityContributions` (`equipment.withheld_verbs`,
+   `ambition_abilities::equipment_ceiling`), written each tick beside the
+   room's, so a row taken off gives its verbs back and the kit is never
+   edited. Precision Blink's level 1 (`precision_blink`) withholds
+   `precision_blink`: the quick directional blink, no aimed blink. Level 2
+   (`precision_blink_2`) is the robot's whole blink, which aims under the
+   aim's time slow. An ability is in effect when the body wears any of its
+   level rows, or when one of them changes nothing and its slot is free
+   (`ambition_items::ability_in_effect`), so a body that wears no blink row
+   still shows its own Precision Blink. The demo bag starts an ability with levels at its top
+   level, and a level's count is not a stock: the menu shows no count on it,
+   and a load gives a missing one back at the starting level. Witnesses:
+   `a_worn_row_withholds_its_verbs_until_it_is_taken_off`,
+   `precision_blink_has_two_levels_and_the_demo_starts_at_the_top`, and the
+   schema test's refusal of a withheld name that is no verb.
+   Provisional (reversible): two levels, not three. Jon's notes give level 2
+   the controlled blink and level 3 the time slow, but the aimed blink and
+   its slow are one verb today (`precision_blink`; the slow is
+   `time_control` reading `blink_aiming`). A third level needs the slow as a
+   verb of its own, so a row can withhold it; then level 2 withholds the
+   slow and level 3 is the whole blink. The quick-press "intuitive thing"
+   and the double press are item 2's.
 4. **Placeholders:** Lightning, Axe Stance, Whip Stance, Dash II. A stance
    variant replaces the Attack slot's moveset; that needs a row grant that
    swaps a moveset, which `EquipmentGrant` does not have.

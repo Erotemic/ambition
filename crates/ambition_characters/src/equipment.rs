@@ -45,16 +45,22 @@ pub struct EquipmentRow {
     /// damages HP as usual.
     #[serde(default)]
     pub on_hit: Option<OnHit>,
+    /// Verbs of the body's own kit (`AbilitySet` field names) that it does
+    /// without while this row is worn: a lower level of an ability that the
+    /// kit has whole. The worn set's withheld verbs are one ceiling on the
+    /// body's abilities, so taking the row off gives them back.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub withholds: Vec<String>,
 }
 
 impl EquipmentRow {
     /// True when wearing this row changes nothing on the body: it has no
-    /// modifier, no grant and no hit rule.
+    /// modifier, no grant, no hit rule and withholds no verb.
     ///
     /// Such a row in an exclusive slot is the body's own action on that slot.
     /// To wear it is only to take the slot from the row that held it.
     pub fn changes_nothing(&self) -> bool {
-        self.modifiers.is_empty() && self.grants.is_empty() && self.on_hit.is_none()
+        self.modifiers.is_empty() && self.grants.is_empty() && self.on_hit.is_none() && self.withholds.is_empty()
     }
 }
 
@@ -358,6 +364,7 @@ mod tests {
             grants: Vec::new(),
             on_hit: None,
             exclusive_slot: None,
+            withholds: Vec::new(),
         }
     }
 

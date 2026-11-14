@@ -440,4 +440,20 @@ fn an_ability_with_levels_compiles_and_an_unreachable_level_is_refused() {
     rows[0] = leveled(3, "elsewhere");
     let failure = refuse("level_in_another_slot", &format!("[{}]", rows.join(",")));
     assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "a level in another slot: {:?}", failure.codes());
+
+    // A level-1 row withholds a verb of the kit; one that names no verb is refused.
+    let withholding = |verb: &str| {
+        leveled(3, "blink").replace(
+            r#"(id: "blink_1", exclusive_slot: Some("blink"))"#,
+            &format!(r#"(id: "blink_1", exclusive_slot: Some("blink"), withholds: ["{verb}"])"#),
+        )
+    };
+    rows[0] = withholding("precision_blink");
+    let pack = compile(&draft("withholds", &format!("[{}]", rows.join(","))), &registry(), &AssetsUnchecked)
+        .expect("a row that withholds a verb compiles");
+    let catalog = lowered_item_catalog(&pack).expect("lowered");
+    assert_eq!(catalog.wears_at(first, 1).map(|row| row.withholds.clone()), Some(vec!["precision_blink".into()]));
+    rows[0] = withholding("aimed_blink");
+    let failure = refuse("withholds_no_verb", &format!("[{}]", rows.join(",")));
+    assert!(failure.has(DiagnosticCode::MalformedProviderBinding), "a withheld name that is no verb: {:?}", failure.codes());
 }

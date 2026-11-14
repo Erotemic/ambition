@@ -22,6 +22,7 @@ fn granting_row(id: &str, on_hit: Option<OnHit>) -> EquipmentRow {
         grants: vec![EquipmentGrant::Ranged(RangedActionSpec::bolt(400.0, 5))],
         on_hit,
         exclusive_slot: None,
+        withholds: Vec::new(),
     }
 }
 
@@ -32,6 +33,7 @@ fn plain_row(id: &str) -> EquipmentRow {
         grants: Vec::new(),
         on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
         exclusive_slot: None,
+        withholds: Vec::new(),
     }
 }
 

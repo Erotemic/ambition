@@ -41,6 +41,7 @@ pub fn pocket_quasar() -> EquipmentRow {
         grants: Vec::new(),
         on_hit: None,
         exclusive_slot: None,
+        withholds: Vec::new(),
     }
 }
 

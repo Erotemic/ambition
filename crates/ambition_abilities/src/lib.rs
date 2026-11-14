@@ -105,6 +105,13 @@ impl Plugin for AbilitySimulationPlugin {
             room_ceiling::withhold_the_rooms_verbs
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
         );
+        // The verbs a worn row withholds (a lower level of an ability), folded
+        // the same way.
+        app.add_systems(
+            sim,
+            equipment_ceiling::withhold_the_worn_verbs
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
+        );
 
         // Wielded movement/combat items have their own group, to stay under
         // the chained tuple arity cap of the core held-item group.
@@ -123,6 +130,8 @@ impl Plugin for AbilitySimulationPlugin {
 }
 
 pub mod room_ceiling;
+
+pub mod equipment_ceiling;
 
 #[cfg(test)]
 mod schedule_tests;

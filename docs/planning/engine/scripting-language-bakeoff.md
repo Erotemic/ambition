@@ -1,0 +1,89 @@
+# Scripting language bake-off: Rhai and Luau
+
+**State:** measured 2026-11-14; provisional choice **Rhai** for the first
+adapter (audit P3), with the condition that would change it below. Asked by
+Jon on 2026-11-14: "We need to explore Luau vs Rhai, I think its time for a
+scripting language." The plan it serves is the
+[runtime authoring audit](runtime-authoring-audit-2026-11-14/README.md)
+(P2, P3) and queue item 0b.
+
+## What was compared
+
+The sentry module's stateful `turret` entry
+(`game/ambition_content_modules/src/sentry.rs`) written in both languages
+(`fixtures/scripting_bakeoff/scripts/sentry.rhai`, `sentry.luau`), each behind
+the extension host's backend contract: invocation bytes in, checked output
+bytes out. The SDK decodes and encodes the invocation for a script exactly as
+for a compiled guest (`ambition_extension_sdk::abi::invoke_with`, added for
+this), so a fault stages nothing. The binding is shared: the script sees one
+neutral `inv` value (`tick`, `dt`, `trigger`, `state`, `requests`); records
+convert generically by their schema's field names and kinds, ports by one
+hand-written converter each (P2 would generate those).
+
+Reproduce:
+
+    cd fixtures/scripting_bakeoff
+    cargo run --release --bin bakeoff
+    cargo build --release --lib --target wasm32-unknown-unknown --no-default-features --features rhai   # or luau
+
+Versions: Rhai 1.27.0 (`sync`, `f32_float`, `serde`); mlua 0.11.6 with Luau
+0.709 (`luau0-src` 0.18.3); `luau-analyze` from the Luau release of
+2026-11-13.
+
+## Results
+
+| | Rhai | Luau |
+|---|---|---|
+| Outputs equal to the native sentry, byte for byte (2000 ticks, each carrying its own state) | **2000 of 2000**, after exact float comparisons are registered (below); 1999 before | 1968 of 2000: Luau's number is f64, so the bolt's direction differs by one ulp on 32 ticks. Deterministic between peers, not equal to the native f32 module |
+| Cost per invocation (native 0.6 µs; the shared JSON binding alone 2.4 µs) | 10.2 µs: about 5 µs conversion and call (empty entry 5.2 µs), 5 µs the turret's work | 15.2 µs: 14.7 µs is conversion through mlua's serde (empty entry), **0.5 µs** the turret's work. A direct table binding would remove most of it |
+| A syntax error | refused at load, line and column | refused at load, line |
+| A misspelt variable | **refused at load** (`set_strict_variables`) | not seen until that line runs (here it did not run: "ran without complaint"); **refused by `luau-analyze`** |
+| A misspelt field read, a misspelt field write, text where a number goes | at run time, with line (writes: by the host's record check) | at run time, with line; **all three refused by `luau-analyze --!strict`** with the typed `Inv` |
+| An endless loop | stopped by `set_max_operations` | stopped by the interrupt callback |
+| State a script keeps that the host does not hold (a replay of one tick gives another answer) | **impossible**: a function cannot see a mutable global (refused at load) | possible: a chunk-level `local` outlives the invocation. Running the chunk afresh per call removes it (+3.9 µs); the analyzer does not flag it |
+| `wasm32-unknown-unknown` (the browser build) | **builds** (with getrandom's `wasm_js`, as the app has); not yet run in a browser | **does not build**: Luau is C++ and the target has no C++ standard library; mlua documents the browser only through emscripten, and Luau's errors need C++ exceptions or `longjmp`, which this target lacks |
+| Embedding | pure Rust; `Engine` and `AST` are `Send + Sync` | a C++ build (about a minute); `Lua` is `Send`, not `Sync` (a mutex per backend) |
+
+### Two findings a production adapter must keep
+
+- **Rhai's float comparisons are tolerant by default**: within `f32::EPSILON`,
+  absolute when either side is zero (`1.1e-8 > 0.0` is false, `0.1 + 0.2 ==
+  0.3` is true). A cooldown of 1.1e-8 fired a tick early. The `unchecked`
+  feature compares exactly but also drops the operation budget, so the
+  adapter turns off the fast operators and registers exact comparisons
+  (`rhai_backend::exact_float_comparisons`). Cost: included in the numbers
+  above.
+- **Luau's mutable chunk locals are hidden state.** A Luau adapter must run
+  the chunk per invocation or refuse chunk-level mutable locals statically.
+
+## Decision (provisional)
+
+**Rhai for the first adapter.** It meets every requirement today: the browser
+target builds, the arithmetic is the engine's (`f32`, exact comparisons), a
+script cannot keep hidden state, and it embeds as pure Rust. Its weaknesses
+are author feedback (most mistakes are run-time errors) and speed (about ten
+times Luau's VM on the turret's work). The feedback gap is narrowed by the
+audit's P2: port descriptions that the host checks at the boundary (a
+misspelt field write is already refused there, naming the field) and that
+generate the documentation an author reads.
+
+**What would change it to Luau:** a Luau build that runs in the browser
+inside the engine's `wasm32-unknown-unknown` app (a wasi-sdk C++ sysroot and
+an exception strategy), or a decision to move the web build to emscripten.
+Luau's analyzer is the strongest single property seen here for an LLM author:
+with a typed interface it caught all four mistakes before anything ran. If
+the web target is solved, Luau is the better author language, and its VM is
+faster; its binding should then build tables directly, not through serde.
+
+## Next
+
+1. Rhai adapter in the extension host (audit P3): `ModuleBackend` over
+   `invoke_with`, prepared at candidate preparation, source and generation in
+   every fault, exact comparisons, the operation budget, `eval_ast` cost
+   measured against a cached constant scope.
+2. Port descriptions (P2) for the sentry's ports, generating the converters
+   this fixture writes by hand, and the author-facing reference.
+3. The sentry as a real loaded script in the running game, its rollback
+   witness and its invocation-fault witness (P3 completion).
+4. Story sequences (SS1, SS2) as the first content customer of script-callable
+   commands.

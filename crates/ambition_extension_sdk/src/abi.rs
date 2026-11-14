@@ -155,6 +155,36 @@ fn invoke_inner(module: &ModuleDescriptor, entry: u32, input: &[u8]) -> Result<V
     let EntryCode::Native(run) = descriptor.run else {
         return Err(format!("entry {} has no code in this guest", descriptor.key));
     };
+    invoke_run(module, entry, input, run)
+}
+
+/// [`invoke_one`] with the entry's code given by the caller: a backend that
+/// runs entries from source text (a script) decodes the invocation, stages
+/// state and requests, and encodes them exactly as a compiled guest does. A
+/// fault, or a decode failure, is a fault output, and nothing it staged is
+/// returned.
+pub fn invoke_with(
+    module: &ModuleDescriptor,
+    entry: u32,
+    input: &[u8],
+    run: impl FnOnce(&mut Invocation<'_>) -> Result<(), Fault>,
+) -> Vec<u8> {
+    match invoke_run(module, entry, input, run) {
+        Ok(out) => out,
+        Err(message) => fault_bytes(&message),
+    }
+}
+
+fn invoke_run(
+    module: &ModuleDescriptor,
+    entry: u32,
+    input: &[u8],
+    run: impl FnOnce(&mut Invocation<'_>) -> Result<(), Fault>,
+) -> Result<Vec<u8>, String> {
+    let descriptor = module
+        .entries
+        .get(entry as usize)
+        .ok_or_else(|| format!("no entry {entry} in {}", module.key))?;
 
     let mut r = WireReader::new(input);
     let decoded = (|| -> Result<_, WireError> {

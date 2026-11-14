@@ -117,7 +117,7 @@ members = [
 # dev/bevy_idle_systems measures executor overhead. Both own separate lockfiles.
 # fixtures/external_consumer tests the public ambition_platformer2d umbrella
 # as a third-party consumer, without workspace-only policy exemptions.
-exclude = ["fixtures/external_consumer", "dev/bevy_ceiling", "dev/bevy_idle_systems"]
+exclude = ["fixtures/external_consumer", "fixtures/scripting_bakeoff", "dev/bevy_ceiling", "dev/bevy_idle_systems"]
 resolver = "2"
 
 # Centralize shared versions to avoid compiling duplicates (previously ron

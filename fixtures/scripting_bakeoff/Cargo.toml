@@ -1,0 +1,39 @@
+# The scripting-language bake-off (Jon, 2026-11-14: "We need to explore Luau
+# vs Rhai"). Its own workspace and target, so the engine build is untouched.
+# Each language is a feature, so each can be built alone for the browser
+# target: `cargo build --target wasm32-unknown-unknown --no-default-features
+# --features rhai` (or `luau`).
+[workspace]
+
+[package]
+name = "scripting_bakeoff"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+default = ["rhai", "luau"]
+rhai = ["dep:rhai"]
+luau = ["dep:mlua"]
+
+[dependencies]
+ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
+ambition_combat_port = { path = "../../crates/ambition_combat_port" }
+ambition_projectile_spec = { path = "../../crates/ambition_projectile_spec" }
+bevy_math = { version = "0.19.1" }
+serde_json = "1"
+rhai = { version = "1.23", optional = true, features = ["sync", "f32_float", "serde"] }
+mlua = { version = "0.11", optional = true, features = ["luau", "serialize", "send"] }
+
+[dev-dependencies]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The native sentry, the reference both scripts are compared with.
+ambition_content_modules = { path = "../../game/ambition_content_modules" }
+
+[profile.release]
+debug = false
+
+# As the app's browser build does: getrandom's Web Crypto backend.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }

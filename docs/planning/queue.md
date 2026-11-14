@@ -517,9 +517,15 @@ continuity and campaign-only coverage remain open.
 **Owner:** sprite-sheet animation and rig presentation, with renderer-authored
 visual bindings. Design: [expressive poses, Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish).
 
-**Next action:** measure clip transitions on one reference fighter. Establish
-stable visual bindings only where that experiment needs them, then implement
-compatible transitions and planted contacts on the shared presentation path.
+**Next action:** the measurement is done (2026-11-14, Scout:
+[Phase 3 table](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish),
+`scripts/measure/pose_transitions.py`): 6 of 34 transitions pop at their
+end, all out of the airborne `fall` pose or the ledge climb, and 7 more only
+when interrupted. Next: a short blend on the shared presentation path for
+`hit -> fall`, `fall -> ledge_catch`, `fall -> wall_slide` and
+`ledge_climb -> idle`, blending from the current frame; `land` and
+`land_hard` stay sharp. Establish stable visual bindings only where that
+needs them, then planted contacts.
 Measure campaign sheet gaps before authoring more rows.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp

@@ -61,3 +61,15 @@ The CLI clears compile-time boot and autoplay overrides for one-shot runs.
 Do not prefix the build with `AMBITION_AUTOPLAY=...`: that is a different,
 compile-time mechanism. The one-shot CLI settings are also removed on failure.
 Open the installed game from its icon after the capture to play normally.
+
+## Clip transitions of one fighter
+
+`pose_transitions.py` reads a published sprite target's parts and reports, for
+each gameplay transition (fall to land, run to jump squat, ...), how far the
+body parts jump at the cut against how far they move between frames inside
+either clip. It is POSE-CONTINUITY's measurement
+(`docs/planning/demos/smash-expressive-fighter-poses.md`, Phase 3).
+
+```bash
+python3 scripts/measure/pose_transitions.py player_robot_v3
+```

@@ -67,6 +67,23 @@
       "build": "Uses Python only; an actual capture proves render support.",
       "status": "active",
       "cwd": "repository root"
+    },
+    {
+      "id": "pose_transitions",
+      "title": "Measure a fighter's clip transitions",
+      "owner": "scripts/measure",
+      "command": "python3 scripts/measure/pose_transitions.py player_robot_v3",
+      "help": "python3 scripts/measure/pose_transitions.py --help",
+      "requires": [
+        "scripts/measure/pose_transitions.py"
+      ],
+      "docs": "scripts/measure/README.md",
+      "inputs": "A published sprite target's parts RON.",
+      "outputs": "A table of transition jumps against in-clip motion, on stdout.",
+      "mutation": "None. Reads the published parts.",
+      "build": "None.",
+      "status": "active",
+      "cwd": "repository root"
     }
   ]
 }

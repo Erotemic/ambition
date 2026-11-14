@@ -240,6 +240,35 @@ Only after the silhouettes appear in the game, improve how one pose becomes anot
 
 **Known runtime pose limit:** `crates/ambition_sprite_sheet/src/character/rigged/posed.rs:77-182` can place parts from joints, but binds parts by matching sampled animation frames within a tolerance. `crates/ambition_render/src/rendering/actors/rigged.rs:1019-1027` needs a baked body rig for that path. The audited Polygon publishers call `build_sheet()` and `publish_rig_flipbook()`, but do not publish that body-rig product. Part optimization can also merge always-rigid neighboring tracks (`part_flipbook.py:1675+`). If Phase 3 needs independent runtime joint control, first publish a suitable **visual** rig and stable semantic part bindings. Do not enable experimental gameplay-rig hurt geometry as a side effect. Do not front-load this bridge into Phase 1 or 2.
 
+**Measured 2026-11-14 on the reference fighter** (`player_robot_v3`, Scout:
+150 clips, 33 body tracks; `scripts/measure/pose_transitions.py`). The
+animator resets to the new clip's frame 0, so a transition draws the jump
+from the old clip's frame to the new clip's first. Of 34 gameplay
+transitions, 6 jump at their natural end by more than twice the larger
+in-clip step, and 7 more only when the old clip is interrupted:
+
+| transition | end jump (px) | in-clip step A / B (px) | verdict |
+|---|---:|---:|---|
+| fall -> land | 41.7 | 3.8 / 9.4 | pop |
+| fall -> land_hard | 43.9 | 3.8 / 11.8 | pop |
+| hit -> fall | 34.0 | 9.6 / 3.8 | pop |
+| fall -> ledge_catch | 32.3 | 3.8 / 2.3 | pop |
+| ledge_climb -> idle | 33.3 | 4.6 / 12.0 | pop |
+| fall -> wall_slide | 14.1 | 3.8 / 0.9 | pop |
+| dash_attack -> idle (interrupted) | 52.2 max | 18.6 / 12.0 | interrupt-pop |
+| jump -> fall (interrupted) | 43.3 max | 20.4 / 3.8 | interrupt-pop |
+| teeter -> idle (interrupted) | 42.9 max | 16.2 / 12.0 | interrupt-pop |
+
+The ordinary ground loop is continuous: idle, walk, run, crouch, talk and
+shield changes stay within the clips' own motion. What pops is the change
+from the airborne `fall` pose, whose frames barely move, into a contact
+pose. Two of the six are contacts the art should keep sharp (`land`,
+`land_hard`: the impact is the point); `hit -> fall`, `fall -> ledge_catch`,
+`fall -> wall_slide` and `ledge_climb -> idle` are the candidates for a
+short blend on the shared path, and the interrupt pops are what a blend
+from the current frame (not from frame 0) would remove. The next slice is
+that blend for the four candidates, with the sharp list left stepping.
+
 ## Phase 4 - Expand expressive coverage after the first playable pass
 
 Review the rest of Melee's motion vocabulary and Ambition's `fighter_motion_vocabulary.yaml` by physical event family, not by raw state count. Add new bases only when the current rig cannot make the event legible. Give different fighters their own stance and recoil style after the shared pose language works. The same visual system must later serve Ambition campaign characters, but no campaign conversion belongs in this first pass.

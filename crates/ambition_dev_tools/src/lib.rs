@@ -325,6 +325,9 @@ pub fn force_combat_overlay(
     // `show_player_hitbox || show_feature_hitboxes` for the hurt half and
     // `show_combat_preview || show_feature_hitboxes` for the strikes.
     tools.show_feature_hitboxes = false;
+    // The preset also draws the observed combat geometry: the capture names
+    // its layers itself, so the same volumes are not drawn twice.
+    tools.show_observed_geometry = false;
     tools.show_player_hitbox = layers.hurtboxes;
     tools.show_combat_preview = layers.strikes;
     tools.hide_sprites = !layers.art;

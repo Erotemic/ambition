@@ -178,19 +178,14 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         D::ObservedGeometry => dev.show_observed_geometry = !dev.show_observed_geometry,
         D::ObservedGeometryProvider => dev.cycle_observed_geometry_provider(dir),
         D::OverviewCamera => dev.overview_camera = !dev.overview_camera,
+        // A preset is its toggles: choosing it applies them (and its art).
         D::DebugViewMode => {
-            dev.debug_view_mode = if dir < 0 {
-                dev.debug_view_mode.prev()
-            } else {
-                dev.debug_view_mode.next()
-            };
+            let mode = if dir < 0 { dev.debug_view_mode.prev() } else { dev.debug_view_mode.next() };
+            dev.apply_debug_view_mode(mode, true);
         }
         D::DebugArtMode => {
-            dev.debug_art_mode = if dir < 0 {
-                dev.debug_art_mode.prev()
-            } else {
-                dev.debug_art_mode.next()
-            };
+            let mode = if dir < 0 { dev.debug_art_mode.prev() } else { dev.debug_art_mode.next() };
+            dev.apply_debug_art_mode(mode);
         }
         D::PlayerBodyProfile => {
             dev.player_body_profile = if dir < 0 {

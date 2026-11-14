@@ -285,6 +285,22 @@ Witnesses: `a_rooms_portals_are_observed_as_openings_and_a_lone_end_is_inactive`
 
 ### GOBS-4 — everyday F1 developer experience
 
+**Presets by namespace landed (2026-11-14).** Each debug view preset now
+also says which geometry observers F1 draws, by name or by namespace
+(`DeveloperTools::observed_geometry_preset`, an entry ending in `.` takes
+every observer under it): Collision draws `collision.for_subject` and
+`body.`, Triggers `world.`, `interaction.` and `portal.`, Combat `combat.`,
+All every observer; Gameplay and Authoring draw none. An observer installed
+later in a namespace joins its preset with no edit to the presets. The
+menu's single-observer cycle still overrides the preset, and choosing a
+preset drops that choice (`draws_observer`). Choosing a preset from the
+Developer page now applies it: the View Mode and Art Mode rows had changed
+only the label. A capture's `force_combat_overlay` names its own layers and
+leaves the observed geometry off. Witness:
+`a_debug_view_preset_draws_its_geometry_observers_by_namespace`. Still open
+here: a legend and a "what hides the overlays" line (2), tick against
+presented shapes (3); the headless report (4) is `inspect_geometry`.
+
 1. Keep F1 master visibility and existing `DebugViewMode` presets; make Collision, Combat, Triggers and navigation modes include their newly registered sources by role. Add a discoverable layer list and legend; allow toggling roles and choosing a viewed actor/room without editing Rust. Do not repurpose Shift+F1 or other established controls.
 2. Make the default authoring debug mode informative without being impenetrable: appropriate outlines and low-alpha fills, clear color/line conventions, optional labels, contact arrows and hover/selection detail. If all overlays are hidden, say which master toggle/preset suppresses them. Support split-screen and two simultaneously live rooms, preserving `DrawingScope` and presented-camera alignment.
 3. Draw the simulation-tick geometry and presented/interpolated geometry separately when their difference matters (e.g. moving platforms, GNU-ton motion, projectile impacts); selectable comparison makes visual/physics disagreement diagnosable. Do not silently shift mechanical shapes to render positions in a physics-truth view.

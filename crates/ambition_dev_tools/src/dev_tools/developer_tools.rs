@@ -49,9 +49,14 @@ pub struct DeveloperTools {
     /// player meets them, the authored blocks they replace, and the combat
     /// volumes. Nothing is asked for while it is off.
     pub show_observed_geometry: bool,
-    /// The one geometry observer F1 draws, or every one (`None`), GOBS-1.
+    /// The one geometry observer F1 draws, or the preset's (`None`), GOBS-1.
     /// A name the installed observers no longer have draws nothing.
     pub observed_geometry_only: Option<String>,
+    /// The observers the debug view preset draws when no one observer is
+    /// chosen, by name or by namespace (an entry ending in `.`), GOBS-4: an
+    /// observer installed later in a preset's namespace joins it. Empty: every
+    /// observer.
+    pub observed_geometry_preset: Vec<String>,
     /// The installed observers' names, which the cycle steps through:
     /// published by F1's collector while the layer is on. Not a setting.
     #[serde(skip)]
@@ -127,6 +132,7 @@ impl Default for DeveloperTools {
             show_navigation: false,
             show_observed_geometry: false,
             observed_geometry_only: None,
+            observed_geometry_preset: Vec::new(),
             observed_geometry_providers: Vec::new(),
             show_rebound_vectors: false,
             overview_camera: false,
@@ -163,13 +169,32 @@ impl DeveloperTools {
 
     /// The observed-geometry selection, as the menu row shows it.
     pub fn observed_geometry_label(&self) -> String {
-        self.observed_geometry_only.clone().unwrap_or_else(|| "all".to_string())
+        match (&self.observed_geometry_only, self.observed_geometry_preset.is_empty()) {
+            (Some(only), _) => only.clone(),
+            (None, true) => "all".to_string(),
+            (None, false) => self.observed_geometry_preset.join(" "),
+        }
+    }
+
+    /// Does F1 draw the observer `provider` now: the one chosen, else the
+    /// preset's.
+    pub fn draws_observer(&self, provider: &str) -> bool {
+        match &self.observed_geometry_only {
+            Some(only) => only == provider,
+            None => {
+                self.observed_geometry_preset.is_empty()
+                    || self.observed_geometry_preset.iter().any(|entry| {
+                        if entry.ends_with('.') { provider.starts_with(entry.as_str()) } else { entry == provider }
+                    })
+            }
+        }
     }
 
     pub fn apply_debug_view_mode(&mut self, mode: DebugViewMode, apply_art_recommendation: bool) {
         self.debug_view_mode = mode;
         match mode {
             DebugViewMode::Gameplay => {
+                self.set_observed_geometry_preset(false, &[]);
                 self.show_room_bounds = false;
                 self.show_world_blocks = false;
                 self.show_loading_zones = false;
@@ -186,6 +211,7 @@ impl DeveloperTools {
                 self.fill_debug_boxes = false;
             }
             DebugViewMode::Authoring => {
+                self.set_observed_geometry_preset(false, &[]);
                 self.show_room_bounds = true;
                 self.show_world_blocks = true;
                 self.show_loading_zones = true;
@@ -202,6 +228,7 @@ impl DeveloperTools {
                 self.fill_debug_boxes = false;
             }
             DebugViewMode::Collision => {
+                self.set_observed_geometry_preset(true, &["collision.for_subject", "body."]);
                 self.show_room_bounds = true;
                 self.show_world_blocks = true;
                 self.show_loading_zones = false;
@@ -218,6 +245,7 @@ impl DeveloperTools {
                 self.fill_debug_boxes = true;
             }
             DebugViewMode::Triggers => {
+                self.set_observed_geometry_preset(true, &["world.", "interaction.", "portal."]);
                 self.show_room_bounds = true;
                 self.show_world_blocks = false;
                 self.show_loading_zones = true;
@@ -234,6 +262,7 @@ impl DeveloperTools {
                 self.fill_debug_boxes = true;
             }
             DebugViewMode::Combat => {
+                self.set_observed_geometry_preset(true, &["combat."]);
                 self.show_room_bounds = false;
                 self.show_world_blocks = false;
                 self.show_loading_zones = false;
@@ -250,6 +279,7 @@ impl DeveloperTools {
                 self.fill_debug_boxes = true;
             }
             DebugViewMode::All => {
+                self.set_observed_geometry_preset(true, &[]);
                 self.show_room_bounds = true;
                 self.show_world_blocks = true;
                 self.show_loading_zones = true;
@@ -270,6 +300,14 @@ impl DeveloperTools {
         if apply_art_recommendation {
             self.apply_debug_art_mode(mode.recommended_art_mode());
         }
+    }
+
+    /// A preset's observed geometry: whether F1 draws it, and which observers.
+    /// It drops a single chosen observer, so the preset is what is drawn.
+    fn set_observed_geometry_preset(&mut self, show: bool, preset: &[&str]) {
+        self.show_observed_geometry = show;
+        self.observed_geometry_only = None;
+        self.observed_geometry_preset = preset.iter().map(|entry| entry.to_string()).collect();
     }
 
     pub fn mark_debug_view_custom(&mut self) {

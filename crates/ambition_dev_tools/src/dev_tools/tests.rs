@@ -106,3 +106,32 @@ fn normalize_debug_modes_repairs_legacy_art_toggles() {
     assert!(tools.placeholder_sprites);
     assert!(!tools.hide_sprites);
 }
+
+/// GOBS-4: a debug view preset draws its observers by namespace, so an
+/// observer installed later in that namespace joins it with no edit here; a
+/// single observer chosen from the menu is drawn instead of the preset.
+#[test]
+fn a_debug_view_preset_draws_its_geometry_observers_by_namespace() {
+    let mut tools = DeveloperTools::default();
+    tools.apply_debug_view_mode(DebugViewMode::Combat, false);
+    assert!(tools.show_observed_geometry, "the combat preset draws observed geometry");
+    assert!(tools.draws_observer("combat.volumes"));
+    assert!(tools.draws_observer("combat.a_later_observer"), "a later observer in the namespace joins the preset");
+    assert!(!tools.draws_observer("collision.composed"), "the combat preset does not draw the walls");
+
+    tools.apply_debug_view_mode(DebugViewMode::Triggers, false);
+    for provider in ["world.regions", "interaction.reach", "portal.apertures"] {
+        assert!(tools.draws_observer(provider), "the triggers preset draws {provider}");
+    }
+    assert!(!tools.draws_observer("combat.volumes"));
+
+    tools.observed_geometry_only = Some("portal.apertures".to_string());
+    assert!(!tools.draws_observer("world.regions"), "one chosen observer is drawn instead of the preset");
+
+    tools.apply_debug_view_mode(DebugViewMode::All, false);
+    assert!(tools.observed_geometry_only.is_none(), "a preset drops the one chosen observer");
+    assert!(tools.draws_observer("navigation.graph") && tools.draws_observer("combat.volumes"), "all draws every observer");
+
+    tools.apply_debug_view_mode(DebugViewMode::Gameplay, false);
+    assert!(!tools.show_observed_geometry, "the gameplay preset draws no geometry");
+}

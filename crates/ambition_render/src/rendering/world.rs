@@ -961,12 +961,16 @@ impl TiledBlockTile {
 ///
 /// It reads each tiled block on each frame and writes only one whose stretch
 /// is wrong, so a settled room marks no sprite changed. A skinned block draws
-/// nothing itself (`terrain_skin`), and its pieces have their own scale.
+/// nothing itself (`terrain_skin`), and its pieces have their own scale. A
+/// skinned block with [`EntityArt`] draws its art in its own sprite, so its
+/// tile is fitted as on any other block. If it is not fitted, a 64 px themed
+/// brick keeps the stretch of the 32 px kind tile and shows one quarter of
+/// its picture.
 pub fn fit_tiled_block_tiles(
     images: Res<Assets<Image>>,
     mut blocks: Query<
         (&TiledBlockTile, &mut Sprite),
-        Without<super::terrain_skin::TerrainSkinned>,
+        Or<(Without<super::terrain_skin::TerrainSkinned>, With<EntityArt>)>,
     >,
 ) {
     for (tile, mut sprite) in &mut blocks {
@@ -1032,6 +1036,7 @@ pub fn apply_entity_art(
             &EntityArt,
             Option<&super::terrain_skin::TerrainSurface>,
             Option<&mut BoundEntitySprite>,
+            Option<&TiledBlockTile>,
             &mut Sprite,
         ),
         Or<(Changed<EntityArt>, Added<BoundEntitySprite>)>,
@@ -1040,7 +1045,7 @@ pub fn apply_entity_art(
     let Some(assets) = assets else {
         return;
     };
-    for (entity, EntityArt(art), surface, bound, mut sprite) in &mut blocks {
+    for (entity, EntityArt(art), surface, bound, tile, mut sprite) in &mut blocks {
         match bound {
             Some(mut bound) => {
                 if bound.key != *art {
@@ -1068,6 +1073,21 @@ pub fn apply_entity_art(
         };
         if sprite.image != *handle {
             sprite.image = handle.clone();
+        }
+        // The art of a tiled block repeats at the size of its tile, as the
+        // tile of its kind does (`fit_tiled_block_tiles` sets the stretch).
+        // The terrain skin can leave the sprite of a block it drew in `Auto`
+        // mode. Bevy then keeps the slices of the tiled image that was there
+        // before, and the art shows only the corner of its picture that the
+        // old tile covered.
+        if let Some(tile) = tile {
+            if !matches!(sprite.image_mode, bevy::sprite::SpriteImageMode::Tiled { .. }) {
+                sprite.image_mode = bevy::sprite::SpriteImageMode::Tiled {
+                    tile_x: true,
+                    tile_y: true,
+                    stretch_value: tile.stretch_for(BLOCK_TILE_UNITS as u32),
+                };
+            }
         }
         // Named art replaces the placeholder tint, which is only a multiplier.
         // Do this after the handle check, so missing art leaves the block as it

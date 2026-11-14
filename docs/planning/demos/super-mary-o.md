@@ -55,6 +55,19 @@ User work, 2026-11-01 and 2026-11-02:
   Native World 1-1 and 1-2 captures show the distinct pink and violet bricks.
   Background and quality publications pass their focused checks. Art producer:
   `c0af5e4`. The broad quality audit still reports stale character publications.
+- [x] Breakable bricks show their whole tile, and the tile is new art. The
+  terrain skin left a skinned block's sprite in `Auto` mode, and Bevy kept
+  the slices of the 32 px tile that was there before, so the 64 px brick drew
+  only its top left quarter (one plain panel for each block).
+  `apply_entity_art` now keeps a tiled block tiled, and
+  `fit_tiled_block_tiles` fits a skinned block that has art. The art
+  (`terrain/skins.py::breakable_brick`): four courses of raised bricks in a
+  near-black rim, a crack through two bricks and a chipped corner. Faces are
+  darker than the ground in a light room and lighter in a dark room, where
+  the room's accent glows in the crack. Native captures of World 1-1, 1-2,
+  1-4 and 2-1 show it. Published: the starlight, stardune, starless and
+  void_castle skins, and the `entities` target (the unthemed brick uses the
+  same drawer in brick red). Art producer: `f4b35ff`.
 - [x] `3c6be8856`: the tracking glow uses standing body geometry and ignores
   actor tints. The passage fade is separate. Compositing and tint checks pass.
 

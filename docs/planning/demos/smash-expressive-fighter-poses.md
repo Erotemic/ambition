@@ -283,6 +283,30 @@ step as before; a body out of view starts clean when it is seen. Witnesses:
 `a_change_between_carriage_poses_blends_and_a_strike_does_not`. Still open:
 planted contacts (item 2) and follow-through (item 3).
 
+**Contacts measured (2026-11-14, Scout's published parts, last frame of A
+to the first of B).** Where a clip ends naturally, the feet are already
+planted: `land -> idle` and `land_hard -> idle` move neither foot (0 px),
+`teeter <-> idle` about 2 px, and `walk -> idle`'s far foot 0.5 px (its near
+foot is mid-step, 10 px off the ground, and comes down). `run`'s last frame
+has both feet up, so a stop lands them. A foot glides only when a clip is
+interrupted with that foot down. The hands of a ledge catch slide 24 to 31
+px from the fall's raised hands (`fall -> ledge_catch`, `fall ->
+ledge_grab`) during the 0.07 s blend.
+
+**Why items 2 and 3 wait for the visual rig.** Each part of the flipbook
+is its own sprite at its own pivot, and nothing ties a foot to its shin or
+a hand to its forearm at runtime. Holding a foot or a hand still while the
+rest of its limb blends would open a gap at the joint; a follow-through
+offset on the arms or the head is the same kind of procedural offset item
+5 says to evaluate first. Both need the parts placed from joints
+(`PosedParts`, which binds tracks to a baked body rig), and Scout's bundle
+publishes no body rig (`player_robot_v3_*`: actor, parts, portraits and
+spritesheet only). So the bridge in **Known runtime pose limit** comes
+first: publish a visual rig for the reference fighter with stable part
+bindings, on a publishing machine; then plant a contact by solving its
+limb to the held point, and give the arms and head their follow-through
+on the joints.
+
 ## Phase 4 - Expand expressive coverage after the first playable pass
 
 Review the rest of Melee's motion vocabulary and Ambition's `fighter_motion_vocabulary.yaml` by physical event family, not by raw state count. Add new bases only when the current rig cannot make the event legible. Give different fighters their own stance and recoil style after the shared pose language works. The same visual system must later serve Ambition campaign characters, but no campaign conversion belongs in this first pass.

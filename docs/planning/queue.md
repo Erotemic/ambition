@@ -565,10 +565,13 @@ visual bindings. Design: [expressive poses, Phase 3](demos/smash-expressive-figh
 end, all out of the airborne `fall` pose or the ledge climb, and 7 more only
 when interrupted. The blend landed the same day: a change between two
 carriage poses slides from the pose last drawn over 0.07 s on the shared
-rigged path; strikes, move clips and the hard landing stay sharp. Next:
-planted contacts (a foot that stays put through a stop, a teeter, a landing),
-then follow-through; establish stable visual bindings only where those need
-them.
+rigged path; strikes, move clips and the hard landing stay sharp. Contacts
+were measured the same day: natural clip ends already plant the feet (0 to
+2 px), a foot glides only on an interrupt, and a ledge catch's hands slide
+24 to 31 px. Next, on a publishing machine: a visual body rig for the
+reference fighter (it publishes none), because a foot or hand held alone
+parts from its limb; then planted contacts and follow-through on the joints
+([Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish)).
 Measure campaign sheet gaps before authoring more rows.
 
 **Acceptance:** human and CPU bodies share the path; contact timing and sharp

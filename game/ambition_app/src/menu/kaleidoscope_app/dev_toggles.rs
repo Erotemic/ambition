@@ -88,6 +88,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     values.push(DevSnapshot::toggle(D::Navigation, dev.show_navigation));
     values.push(DevSnapshot::toggle(D::ObservedGeometry, dev.show_observed_geometry));
     values.push(DevSnapshot::cycle(D::ObservedGeometryProvider, dev.observed_geometry_label()));
+    values.push(DevSnapshot::toggle(D::PresentedComparison, dev.show_presented_comparison));
     values.push(DevSnapshot::toggle(D::OverviewCamera, dev.overview_camera));
     values.push(DevSnapshot::cycle(
         D::DebugViewMode,
@@ -177,6 +178,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         D::Navigation => dev.show_navigation = !dev.show_navigation,
         D::ObservedGeometry => dev.show_observed_geometry = !dev.show_observed_geometry,
         D::ObservedGeometryProvider => dev.cycle_observed_geometry_provider(dir),
+        D::PresentedComparison => dev.show_presented_comparison = !dev.show_presented_comparison,
         D::OverviewCamera => dev.overview_camera = !dev.overview_camera,
         // A preset is its toggles: choosing it applies them (and its art).
         D::DebugViewMode => {

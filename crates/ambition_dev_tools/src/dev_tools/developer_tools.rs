@@ -62,6 +62,9 @@ pub struct DeveloperTools {
     #[serde(skip)]
     #[reflect(ignore)]
     pub observed_geometry_providers: Vec<String>,
+    /// Draw each body's box where the tick put it and where this frame draws
+    /// it, side by side (GOBS-4).
+    pub show_presented_comparison: bool,
     pub show_rebound_vectors: bool,
     /// Toggle a zoomed-out camera for inspecting large or stitched active areas.
     pub overview_camera: bool,
@@ -134,6 +137,7 @@ impl Default for DeveloperTools {
             observed_geometry_only: None,
             observed_geometry_preset: Vec::new(),
             observed_geometry_providers: Vec::new(),
+            show_presented_comparison: false,
             show_rebound_vectors: false,
             overview_camera: false,
             overview_camera_scale: 2.35,

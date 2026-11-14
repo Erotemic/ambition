@@ -251,6 +251,27 @@ pub fn presentation_deltas(
         .collect()
 }
 
+/// Tick against drawn (GOBS-4): each body's collision box where the
+/// simulation tick put it (magenta) and where this frame draws it (white,
+/// `PresentedPose::delta` away), joined centre to centre. The other layers
+/// draw one or the other; this draws both, so a gap between the art and the
+/// physics is seen as a gap, not inferred.
+fn draw_tick_against_drawn(
+    gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
+    world: &ae::World,
+    combat: &CombatGeometryView,
+    bodies: &bevy::prelude::Query<&ambition_sim_view::presented_pose::PresentedPose>,
+) {
+    for body in &combat.bodies {
+        let Ok(pose) = bodies.get(body.body) else { continue };
+        let delta = pose.delta();
+        let drawn = body.collision.translated(delta);
+        draw_aabb(gizmos, world, body.collision, magenta());
+        draw_aabb(gizmos, world, drawn, Color::WHITE);
+        gizmos.line_2d(w2(world, body.collision.center()), w2(world, drawn.center()), Color::WHITE);
+    }
+}
+
 /// Draw authoritative body-combat geometry from the simulation-view boundary.
 ///
 /// Orange is the body's coarse collision envelope, cyan is the effective
@@ -1029,6 +1050,9 @@ pub fn draw_debug_viz(
                 &developer_tools,
                 &presentation_deltas(&combat_here, &presented_bodies),
             );
+            if developer_tools.show_presented_comparison {
+                draw_tick_against_drawn(gizmos, world, &combat_here, &presented_bodies);
+            }
         });
     }
     if developer_tools.show_camera_frame {

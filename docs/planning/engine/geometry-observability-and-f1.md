@@ -306,8 +306,16 @@ inactive, then each role that colours a piece, written in that colour. The
 debug HUD's `VIEW:` line names the preset and what the observed geometry
 shows, or the switch that hides it (`observed_geometry_status`: the layer
 off, the debug overlay off, or Gizmos off). Witness:
-`the_legend_names_each_drawn_role_in_its_colour`. Still open: tick against
-presented shapes (3); the headless report (4) is `inspect_geometry`.
+`the_legend_names_each_drawn_role_in_its_colour`.
+
+**Tick against drawn landed (2026-11-14).** The Developer page's **Tick vs
+Drawn** row (`show_presented_comparison`) draws each combat body's collision
+box twice: magenta where the simulation tick put it, white where this frame
+draws it (`PresentedPose::delta` away, the one translation every other
+debug layer applies to the body), joined centre to centre. The observed
+geometry layer stays at the tick pose; the old layers stay presented; this
+row is the selectable comparison between them. The headless report (4) is
+`inspect_geometry`. GOBS-4 is done.
 
 1. Keep F1 master visibility and existing `DebugViewMode` presets; make Collision, Combat, Triggers and navigation modes include their newly registered sources by role. Add a discoverable layer list and legend; allow toggling roles and choosing a viewed actor/room without editing Rust. Do not repurpose Shift+F1 or other established controls.
 2. Make the default authoring debug mode informative without being impenetrable: appropriate outlines and low-alpha fills, clear color/line conventions, optional labels, contact arrows and hover/selection detail. If all overlays are hidden, say which master toggle/preset suppresses them. Support split-screen and two simultaneously live rooms, preserving `DrawingScope` and presented-camera alignment.
